@@ -1,0 +1,31 @@
+{
+  "tag_id": 155,
+  "title": "Be Our Guest",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.29,
+  "rating_count": 693,
+  "download_count": 8632,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Be our guest (guest, our guest) our special guest, take the best, and be our guest",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Be Our Guest (Ab Major) - 155",
+  "sheet": "sheets/155/sheet.pdf",
+  "audio": {
+    "lead": "media/155/lead.mp4",
+    "tenor": "media/155/tenor.mp4",
+    "bari": "media/155/bari.mp4",
+    "bass": "media/155/bass.mp4",
+    "mix": "media/155/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/155/pages/page-01.webp"
+  ]
+}

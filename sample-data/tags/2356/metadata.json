@@ -1,0 +1,33 @@
+{
+  "tag_id": 2356,
+  "title": "All of Me",
+  "alt_title": null,
+  "arranger": "Scott Kitzmiller",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3037,
+  "rating_count": 461,
+  "download_count": 620,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 1999,
+  "parts_count": 4,
+  "lyrics": "Why not take all my heart, all my broken heart",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All of Me (C Major) - Scott Kitzmiller - 2356",
+  "sheet": "sheets/2356/sheet.pdf",
+  "audio": {
+    "lead": "media/2356/lead.mp4",
+    "tenor": "media/2356/tenor.mp4",
+    "bari": "media/2356/bari.mp4",
+    "bass": "media/2356/bass.mp4",
+    "mix": "media/2356/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2356/pages/page-01.webp",
+    "sheets/2356/pages/page-02.webp",
+    "sheets/2356/pages/page-03.webp"
+  ]
+}

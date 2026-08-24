@@ -1,0 +1,31 @@
+{
+  "tag_id": 5291,
+  "title": "A 4.5 bar tag",
+  "alt_title": null,
+  "arranger": "GameThoughts",
+  "key": null,
+  "writ_key": null,
+  "rating": 2.9377,
+  "rating_count": 369,
+  "download_count": 1519,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": null,
+  "lyrics": "Fade to black",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A 4.5 bar tag - GameThoughts - 5291",
+  "sheet": "sheets/5291/sheet.png",
+  "audio": {
+    "lead": "media/5291/lead.mp4",
+    "tenor": "media/5291/tenor.mp4",
+    "bari": "media/5291/bari.mp4",
+    "bass": "media/5291/bass.mp4",
+    "mix": "media/5291/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5291/pages/page-01.webp"
+  ]
+}

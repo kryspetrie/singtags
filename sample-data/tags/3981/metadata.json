@@ -1,0 +1,31 @@
+{
+  "tag_id": 3981,
+  "title": "All Star",
+  "alt_title": null,
+  "arranger": "Jeremy Marcus",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.1935,
+  "rating_count": 403,
+  "download_count": 2839,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2017,
+  "parts_count": 4,
+  "lyrics": "And all that glitters is gold, only shooting stars break the mold",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Star (Bb Major) - Jeremy Marcus - 3981",
+  "sheet": "sheets/3981/sheet.pdf",
+  "audio": {
+    "lead": "media/3981/lead.mp4",
+    "tenor": "media/3981/tenor.mp4",
+    "bari": "media/3981/bari.mp4",
+    "bass": "media/3981/bass.mp4",
+    "mix": "media/3981/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3981/pages/page-01.webp"
+  ]
+}

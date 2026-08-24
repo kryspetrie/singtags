@@ -1,0 +1,31 @@
+{
+  "tag_id": 861,
+  "title": "Angels Peek Through",
+  "alt_title": "When Angels Peek Through",
+  "arranger": null,
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.0507,
+  "rating_count": 533,
+  "download_count": 1693,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Do angels peek through? Do angels peek through?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Angels Peek Through (G Major) - 861",
+  "sheet": "sheets/861/sheet.jpg",
+  "audio": {
+    "lead": "media/861/lead.mp4",
+    "tenor": "media/861/tenor.mp4",
+    "bari": "media/861/bari.mp4",
+    "bass": "media/861/bass.mp4",
+    "mix": "media/861/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/861/pages/page-01.webp"
+  ]
+}

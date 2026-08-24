@@ -1,0 +1,27 @@
+{
+  "tag_id": 2070,
+  "title": "April Showers",
+  "alt_title": "Come Along",
+  "arranger": "Seth Bocknek",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.3754,
+  "rating_count": 586,
+  "download_count": 2524,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Come along (when April) showers come along (sing that Spring time song.)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "April Showers (G Major) - Seth Bocknek - 2070",
+  "sheet": "sheets/2070/sheet.pdf",
+  "audio": {
+    "mix": "media/2070/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2070/pages/page-01.webp"
+  ]
+}

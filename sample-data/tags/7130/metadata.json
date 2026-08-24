@@ -1,0 +1,27 @@
+{
+  "tag_id": 7130,
+  "title": "A Text To Write About",
+  "alt_title": null,
+  "arranger": "JJ Lobaton",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.087,
+  "rating_count": 92,
+  "download_count": 440,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "A text to write about. A text to write about",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Text To Write About (D Major) - JJ Lobaton - 7130",
+  "sheet": "sheets/7130/sheet.png",
+  "audio": {
+    "mix": "media/7130/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7130/pages/page-01.webp"
+  ]
+}

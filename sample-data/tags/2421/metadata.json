@@ -1,0 +1,27 @@
+{
+  "tag_id": 2421,
+  "title": "All I Do Is Dream Of You",
+  "alt_title": null,
+  "arranger": "Gene Puerling",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.2937,
+  "rating_count": 412,
+  "download_count": 2247,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Were there more than twenty four hours a day, they'd be spent in sweet content dreaming away",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All I Do Is Dream Of You (G Major) - Gene Puerling - 2421",
+  "sheet": "sheets/2421/sheet.png",
+  "audio": {
+    "mix": "media/2421/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2421/pages/page-01.webp"
+  ]
+}

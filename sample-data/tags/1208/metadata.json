@@ -1,0 +1,31 @@
+{
+  "tag_id": 1208,
+  "title": "All Alone Too",
+  "alt_title": "And If You Are All Alone Too",
+  "arranger": "Burt Szabo",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2336,
+  "rating_count": 548,
+  "download_count": 6208,
+  "type": "Barbershop",
+  "collection": "easytags",
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And if you are all alone too",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Alone Too (Bb Major) - Burt Szabo - 1208",
+  "sheet": "sheets/1208/sheet.jpg",
+  "audio": {
+    "lead": "media/1208/lead.mp4",
+    "tenor": "media/1208/tenor.mp4",
+    "bari": "media/1208/bari.mp4",
+    "bass": "media/1208/bass.mp4",
+    "mix": "media/1208/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1208/pages/page-01.webp"
+  ]
+}

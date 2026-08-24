@@ -1,0 +1,28 @@
+{
+  "tag_id": 3767,
+  "title": "Barbershop meme",
+  "alt_title": "Baritone madness",
+  "arranger": null,
+  "key": null,
+  "writ_key": null,
+  "rating": 3.3163,
+  "rating_count": 449,
+  "download_count": 2693,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Mary had a little lamb, little lamb",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Barbershop meme - 3767",
+  "sheet": "sheets/3767/sheet.jpg",
+  "audio": {
+    "bari": "media/3767/bari.mp4",
+    "mix": "media/3767/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3767/pages/page-01.webp"
+  ]
+}

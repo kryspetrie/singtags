@@ -1,0 +1,31 @@
+{
+  "tag_id": 6541,
+  "title": "April In Paris",
+  "alt_title": null,
+  "arranger": "Kevin Keller",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 2.9653,
+  "rating_count": 144,
+  "download_count": 1088,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Now who can I run to? Oh what have you done to my heart my heart?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "April In Paris (C Major) - Kevin Keller - 6541",
+  "sheet": "sheets/6541/sheet.png",
+  "audio": {
+    "lead": "media/6541/lead.mp4",
+    "tenor": "media/6541/tenor.mp4",
+    "bari": "media/6541/bari.mp4",
+    "bass": "media/6541/bass.mp4",
+    "mix": "media/6541/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6541/pages/page-01.webp"
+  ]
+}

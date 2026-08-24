@@ -1,0 +1,31 @@
+{
+  "tag_id": 85,
+  "title": "As Time Goes By",
+  "alt_title": null,
+  "arranger": "Walter Latzko",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.1991,
+  "rating_count": 879,
+  "download_count": 22189,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "73",
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "The world will always welcome lovers as time goes by",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "As Time Goes By (D Major) - Walter Latzko - 85",
+  "sheet": "sheets/85/sheet.gif",
+  "audio": {
+    "lead": "media/85/lead.mp4",
+    "tenor": "media/85/tenor.mp4",
+    "bari": "media/85/bari.mp4",
+    "bass": "media/85/bass.mp4",
+    "mix": "media/85/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/85/pages/page-01.webp"
+  ]
+}

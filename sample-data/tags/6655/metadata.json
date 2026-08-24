@@ -1,0 +1,27 @@
+{
+  "tag_id": 6655,
+  "title": "Anywhere You Go",
+  "alt_title": "Anywhere You Go, That's Where You'll Be",
+  "arranger": "D.C. Nash",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2807,
+  "rating_count": 57,
+  "download_count": 281,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "That's where you'll be",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Anywhere You Go (Bb Major) - D.C. Nash - 6655",
+  "sheet": "sheets/6655/sheet.jpg",
+  "audio": {
+    "mix": "media/6655/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6655/pages/page-01.webp"
+  ]
+}

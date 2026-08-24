@@ -1,0 +1,31 @@
+{
+  "tag_id": 1748,
+  "title": "Be Thou My Vision",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 2.9845,
+  "rating_count": 194,
+  "download_count": 2057,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 5,
+  "lyrics": "O Lord o' my soul, my soul",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be Thou My Vision (D Major) - Paul Paddock - 1748",
+  "sheet": "sheets/1748/sheet.pdf",
+  "audio": {
+    "lead": "media/1748/lead.mp4",
+    "tenor": "media/1748/tenor.mp4",
+    "bari": "media/1748/bari.mp4",
+    "bass": "media/1748/bass.mp4",
+    "mix": "media/1748/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1748/pages/page-01.webp"
+  ]
+}

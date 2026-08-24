@@ -1,0 +1,31 @@
+{
+  "tag_id": 3136,
+  "title": "A Grand Night",
+  "alt_title": "It's a Grand Night for Singing",
+  "arranger": "Paul Paddock",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.3441,
+  "rating_count": 526,
+  "download_count": 3654,
+  "type": "Other mixed",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 5,
+  "lyrics": "It's a grand night for singing; the moon is flying high",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Grand Night (G Major) - Paul Paddock - 3136",
+  "sheet": "sheets/3136/sheet.png",
+  "audio": {
+    "lead": "media/3136/lead.mp4",
+    "tenor": "media/3136/tenor.mp4",
+    "bari": "media/3136/bari.mp4",
+    "bass": "media/3136/bass.mp4",
+    "mix": "media/3136/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3136/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 5186,
+  "title": "All That I Crave",
+  "alt_title": null,
+  "arranger": null,
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.0855,
+  "rating_count": 269,
+  "download_count": 1263,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "In this wide wide world, all that I ask is love (only love)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All That I Crave (G Major) - 5186",
+  "sheet": "sheets/5186/sheet.pdf",
+  "audio": {
+    "lead": "media/5186/lead.mp4",
+    "tenor": "media/5186/tenor.mp4",
+    "bari": "media/5186/bari.mp4",
+    "bass": "media/5186/bass.mp4",
+    "mix": "media/5186/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5186/pages/page-01.webp"
+  ]
+}

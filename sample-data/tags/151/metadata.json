@@ -1,0 +1,31 @@
+{
+  "tag_id": 151,
+  "title": "Auld Lang Syne",
+  "alt_title": null,
+  "arranger": "Clay Hine",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.1798,
+  "rating_count": 545,
+  "download_count": 5628,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "For auld lang syne, days gone by, for auld lang syne",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Auld Lang Syne (Ab Major) - Clay Hine - 151",
+  "sheet": "sheets/151/sheet.pdf",
+  "audio": {
+    "lead": "media/151/lead.mp4",
+    "tenor": "media/151/tenor.mp4",
+    "bari": "media/151/bari.mp4",
+    "bass": "media/151/bass.mp4",
+    "mix": "media/151/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/151/pages/page-01.webp"
+  ]
+}

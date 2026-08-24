@@ -1,0 +1,31 @@
+{
+  "tag_id": 4811,
+  "title": "A Pirate's Life For Me",
+  "alt_title": null,
+  "arranger": "Rick Spencer",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.1443,
+  "rating_count": 305,
+  "download_count": 2870,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Yo ho yo ho a pirate's life for me (for me for me for me)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Pirates Life For Me (A Major) - Rick Spencer - 4811",
+  "sheet": "sheets/4811/sheet.pdf",
+  "audio": {
+    "lead": "media/4811/lead.mp4",
+    "tenor": "media/4811/tenor.mp4",
+    "bari": "media/4811/bari.mp4",
+    "bass": "media/4811/bass.mp4",
+    "mix": "media/4811/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4811/pages/page-01.webp"
+  ]
+}

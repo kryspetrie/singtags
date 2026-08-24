@@ -1,0 +1,31 @@
+{
+  "tag_id": 1902,
+  "title": "A Little Street where Old Friends Meet",
+  "alt_title": null,
+  "arranger": null,
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2975,
+  "rating_count": 706,
+  "download_count": 10094,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "It's just a little street where old friends meet and greet you in the same old way and greet you in the same old way (same old way)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Little Street where Old Friends Meet (F Major) - 1902",
+  "sheet": "sheets/1902/sheet.png",
+  "audio": {
+    "lead": "media/1902/lead.mp4",
+    "tenor": "media/1902/tenor.mp4",
+    "bari": "media/1902/bari.mp4",
+    "bass": "media/1902/bass.mp4",
+    "mix": "media/1902/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1902/pages/page-01.webp"
+  ]
+}

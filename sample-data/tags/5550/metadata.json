@@ -1,0 +1,31 @@
+{
+  "tag_id": 5550,
+  "title": "And I Love You",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 2.9948,
+  "rating_count": 194,
+  "download_count": 1100,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And I love you, and I love you so.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And I Love You (Eb Major) - 5550",
+  "sheet": "sheets/5550/sheet.pdf",
+  "audio": {
+    "lead": "media/5550/lead.mp4",
+    "tenor": "media/5550/tenor.mp4",
+    "bari": "media/5550/bari.mp4",
+    "bass": "media/5550/bass.mp4",
+    "mix": "media/5550/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5550/pages/page-01.webp"
+  ]
+}

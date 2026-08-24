@@ -1,0 +1,31 @@
+{
+  "tag_id": 2220,
+  "title": "Be With You Again",
+  "alt_title": null,
+  "arranger": "Terry S. Chapman",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.3107,
+  "rating_count": 383,
+  "download_count": 4982,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2013,
+  "parts_count": 4,
+  "lyrics": "I'll be with you again, be with you again, be with you again",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be With You Again (Bb Major) - Terry S. Chapman - 2220",
+  "sheet": "sheets/2220/sheet.pdf",
+  "audio": {
+    "lead": "media/2220/lead.mp4",
+    "tenor": "media/2220/tenor.mp4",
+    "bari": "media/2220/bari.mp4",
+    "bass": "media/2220/bass.mp4",
+    "mix": "media/2220/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2220/pages/page-01.webp"
+  ]
+}

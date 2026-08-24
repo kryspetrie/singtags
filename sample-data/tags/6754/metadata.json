@@ -1,0 +1,27 @@
+{
+  "tag_id": 6754,
+  "title": "Autumn Nocturne",
+  "alt_title": "My Autumn Dreams",
+  "arranger": "Gabriel Spector",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.1466,
+  "rating_count": 191,
+  "download_count": 538,
+  "type": "SATB",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And you'll be beside me, to make my autumn dreams come true",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Nocturne (Bb Major) - Gabriel Spector - 6754",
+  "sheet": "sheets/6754/sheet.pdf",
+  "audio": {
+    "mix": "media/6754/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6754/pages/page-01.webp"
+  ]
+}

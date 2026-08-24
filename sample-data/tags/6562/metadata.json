@@ -1,0 +1,31 @@
+{
+  "tag_id": 6562,
+  "title": "Apologize",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.0814,
+  "rating_count": 86,
+  "download_count": 1121,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "I'm holding on your rope, got me ten feet off the ground (doo yoo yoo)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Apologize (Eb Major) - Paul Paddock - 6562",
+  "sheet": "sheets/6562/sheet.png",
+  "audio": {
+    "lead": "media/6562/lead.mp4",
+    "tenor": "media/6562/tenor.mp4",
+    "bari": "media/6562/bari.mp4",
+    "bass": "media/6562/bass.mp4",
+    "mix": "media/6562/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6562/pages/page-01.webp"
+  ]
+}

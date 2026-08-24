@@ -1,0 +1,67 @@
+import { cropImageUrl } from './contentCrop'
+import { mediaUrl } from './mediaUrl'
+import { renderPdfToPageUrls } from './pdfRender'
+import type { SheetAssets } from './sheetAssets'
+
+export type PreparedSheet = {
+  /** Ready-to-display page URLs (may be blob:). */
+  pages: string[]
+  /** Blob URLs the caller must revoke. */
+  owned: string[]
+}
+
+function resolveSrc(path: string, baseUrl?: string): string {
+  if (
+    path.startsWith('/') ||
+    path.startsWith('blob:') ||
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('data:')
+  ) {
+    return path
+  }
+  if (baseUrl) return `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}${path}`
+  return mediaUrl(path)
+}
+
+/**
+ * Build the default on-screen sheet (prefer raster/images) fully offscreen
+ * so the tag page can wait and mount once without a crop flash.
+ */
+export async function prepareDefaultSheet(
+  assets: SheetAssets,
+  opts: { crop?: boolean; baseUrl?: string; signal?: AbortSignal; allowPdf?: boolean } = {},
+): Promise<PreparedSheet> {
+  const { crop = true, baseUrl, signal, allowPdf = true } = opts
+  const imagePaths = assets.imageSets[0]?.paths ?? []
+
+  if (imagePaths.length) {
+    const raw = imagePaths.map((p) => resolveSrc(p, baseUrl))
+    if (!crop) return { pages: raw, owned: [] }
+    const pages: string[] = []
+    const owned: string[] = []
+    for (const url of raw) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+      const { url: next, revoke } = await cropImageUrl(url, signal)
+      pages.push(next)
+      if (revoke) owned.push(next)
+    }
+    return { pages, owned }
+  }
+
+  const pdf = allowPdf ? assets.pdfs[0] : null
+  if (pdf) {
+    const urls = await renderPdfToPageUrls(resolveSrc(pdf.path, baseUrl), {
+      crop,
+      signal,
+    })
+    return { pages: urls, owned: urls }
+  }
+
+  return { pages: [], owned: [] }
+}
+
+export function revokePreparedSheet(prepared: PreparedSheet | null | undefined): void {
+  if (!prepared) return
+  for (const u of prepared.owned) URL.revokeObjectURL(u)
+}

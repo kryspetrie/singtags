@@ -1,0 +1,31 @@
+{
+  "tag_id": 2488,
+  "title": "A Love That Should Have Lasted Years",
+  "alt_title": "For No One",
+  "arranger": "Patrick McAlexander",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.3149,
+  "rating_count": 562,
+  "download_count": 3696,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2013,
+  "parts_count": 4,
+  "lyrics": "A love that should have lasted years",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Love That Should Have Lasted Years (Bb Major) - Patrick McAlexander - 2488",
+  "sheet": "sheets/2488/sheet.pdf",
+  "audio": {
+    "lead": "media/2488/lead.mp4",
+    "tenor": "media/2488/tenor.mp4",
+    "bari": "media/2488/bari.mp4",
+    "bass": "media/2488/bass.mp4",
+    "mix": "media/2488/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2488/pages/page-01.webp"
+  ]
+}

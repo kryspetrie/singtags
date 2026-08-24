@@ -1,0 +1,31 @@
+{
+  "tag_id": 3679,
+  "title": "A Lonely Shade of Blue",
+  "alt_title": null,
+  "arranger": "David Lorenz",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.1974,
+  "rating_count": 547,
+  "download_count": 3851,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "(Oo) just a lonely shade of blue, that's all you left me, all you left, but all I can see is just a lonely shade, a lonely shade of you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Lonely Shade of Blue (Ab Major) - David Lorenz - 3679",
+  "sheet": "sheets/3679/sheet.pdf",
+  "audio": {
+    "lead": "media/3679/lead.mp4",
+    "tenor": "media/3679/tenor.mp4",
+    "bari": "media/3679/bari.mp4",
+    "bass": "media/3679/bass.mp4",
+    "mix": "media/3679/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3679/pages/page-01.webp"
+  ]
+}

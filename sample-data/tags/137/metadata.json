@@ -1,0 +1,31 @@
+{
+  "tag_id": 137,
+  "title": "A Good Old Fashioned Song and a Smile",
+  "alt_title": null,
+  "arranger": null,
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.3857,
+  "rating_count": 560,
+  "download_count": 4281,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "A good old fashioned song and a smile",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "A Good Old Fashioned Song and a Smile (A Major) - 137",
+  "sheet": "sheets/137/sheet.jpg",
+  "audio": {
+    "lead": "media/137/lead.mp4",
+    "tenor": "media/137/tenor.mp4",
+    "bari": "media/137/bari.mp4",
+    "bass": "media/137/bass.mp4",
+    "mix": "media/137/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/137/pages/page-01.webp"
+  ]
+}

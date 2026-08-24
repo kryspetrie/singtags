@@ -1,0 +1,31 @@
+{
+  "tag_id": 1171,
+  "title": "Ashes of Dreams",
+  "alt_title": null,
+  "arranger": "Terry S. Chapman",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2602,
+  "rating_count": 488,
+  "download_count": 3281,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "Etches of etches of dreams of etches of dreams",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Ashes of Dreams (Bb Major) - Terry S. Chapman - 1171",
+  "sheet": "sheets/1171/sheet.jpg",
+  "audio": {
+    "lead": "media/1171/lead.mp4",
+    "tenor": "media/1171/tenor.mp4",
+    "bari": "media/1171/bari.mp4",
+    "bass": "media/1171/bass.mp4",
+    "mix": "media/1171/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1171/pages/page-01.webp"
+  ]
+}

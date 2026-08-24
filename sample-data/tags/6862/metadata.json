@@ -1,0 +1,31 @@
+{
+  "tag_id": 6862,
+  "title": "After the Rain",
+  "alt_title": null,
+  "arranger": "Jeremy Elliott",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1145,
+  "rating_count": 131,
+  "download_count": 1136,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "The sun will come out and roses will grow",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After the Rain (C Major) - Jeremy Elliott - 6862",
+  "sheet": "sheets/6862/sheet.pdf",
+  "audio": {
+    "lead": "media/6862/lead.mp4",
+    "tenor": "media/6862/tenor.mp4",
+    "bari": "media/6862/bari.mp4",
+    "bass": "media/6862/bass.mp4",
+    "mix": "media/6862/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6862/pages/page-01.webp"
+  ]
+}

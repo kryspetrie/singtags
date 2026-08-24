@@ -1,0 +1,27 @@
+{
+  "tag_id": 3,
+  "title": "After All",
+  "alt_title": null,
+  "arranger": null,
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3594,
+  "rating_count": 498,
+  "download_count": 1236,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "They were they were the pals after all the pals after all",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After All (C Major) - 3",
+  "sheet": "sheets/3/sheet.jpg",
+  "audio": {
+    "mix": "media/3/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 3068,
+  "title": "All Alone Too",
+  "alt_title": "And If You Are All Alone Too",
+  "arranger": "Paul Paddock",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.4218,
+  "rating_count": 531,
+  "download_count": 2064,
+  "type": "Other mixed",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "And if you are all alone too",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Alone Too (G Major) - Paul Paddock - 3068",
+  "sheet": "sheets/3068/sheet.pdf",
+  "audio": {
+    "lead": "media/3068/lead.mp4",
+    "tenor": "media/3068/tenor.mp4",
+    "bari": "media/3068/bari.mp4",
+    "bass": "media/3068/bass.mp4",
+    "mix": "media/3068/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3068/pages/page-01.webp"
+  ]
+}

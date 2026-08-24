@@ -1,0 +1,31 @@
+{
+  "tag_id": 1166,
+  "title": "A Love of the Laugh",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2835,
+  "rating_count": 395,
+  "download_count": 4226,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "You love (you love)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Love of the Laugh (Eb Major) - Paul Paddock - 1166",
+  "sheet": "sheets/1166/sheet.png",
+  "audio": {
+    "lead": "media/1166/lead.mp4",
+    "tenor": "media/1166/tenor.mp4",
+    "bari": "media/1166/bari.mp4",
+    "bass": "media/1166/bass.mp4",
+    "mix": "media/1166/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1166/pages/page-01.webp"
+  ]
+}

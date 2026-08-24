@@ -1,0 +1,27 @@
+{
+  "tag_id": 5337,
+  "title": "As The World Caves In",
+  "alt_title": "Oh Girl, It's You",
+  "arranger": "Benjamin Harding",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.0432,
+  "rating_count": 324,
+  "download_count": 1179,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "Oh girl it's you that I lie with as the atom bomb locks in oh girl it's you (as the world caves in it's you)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As The World Caves In (Bb Major) - Benjamin Harding - 5337",
+  "sheet": "sheets/5337/sheet.pdf",
+  "audio": {
+    "mix": "media/5337/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5337/pages/page-01.webp"
+  ]
+}

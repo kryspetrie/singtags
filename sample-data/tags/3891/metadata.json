@@ -1,0 +1,31 @@
+{
+  "tag_id": 3891,
+  "title": "All My Love",
+  "alt_title": "I Will Give You...",
+  "arranger": "Paul Paddock",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.208,
+  "rating_count": 553,
+  "download_count": 2404,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 4,
+  "lyrics": "All my (love) I will give you all my love my love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All My Love (E Major) - Paul Paddock - 3891",
+  "sheet": "sheets/3891/sheet.png",
+  "audio": {
+    "lead": "media/3891/lead.mp4",
+    "tenor": "media/3891/tenor.mp4",
+    "bari": "media/3891/bari.mp4",
+    "bass": "media/3891/bass.mp4",
+    "mix": "media/3891/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3891/pages/page-01.webp"
+  ]
+}

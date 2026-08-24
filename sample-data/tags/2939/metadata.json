@@ -1,0 +1,27 @@
+{
+  "tag_id": 2939,
+  "title": "After The Love Has Gone",
+  "alt_title": "Can Love That's Lost Be Found",
+  "arranger": "Jay Dougherty",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.1596,
+  "rating_count": 633,
+  "download_count": 2444,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "Can love that's lost be found?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After The Love Has Gone (G Major) - Jay Dougherty - 2939",
+  "sheet": "sheets/2939/sheet.pdf",
+  "audio": {
+    "mix": "media/2939/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2939/pages/page-01.webp"
+  ]
+}

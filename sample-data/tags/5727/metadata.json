@@ -1,0 +1,31 @@
+{
+  "tag_id": 5727,
+  "title": "As I Sit On the Sidewalk",
+  "alt_title": null,
+  "arranger": "Tommy Williams",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2281,
+  "rating_count": 57,
+  "download_count": 1393,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Waiting for you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As I Sit On the Sidewalk (Bb Major) - Tommy Williams - 5727",
+  "sheet": "sheets/5727/sheet.pdf",
+  "audio": {
+    "lead": "media/5727/lead.mp4",
+    "tenor": "media/5727/tenor.mp4",
+    "bari": "media/5727/bari.mp4",
+    "bass": "media/5727/bass.mp4",
+    "mix": "media/5727/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5727/pages/page-01.webp"
+  ]
+}

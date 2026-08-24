@@ -1,0 +1,27 @@
+{
+  "tag_id": 2649,
+  "title": "Am I, am I, so in love am I",
+  "alt_title": null,
+  "arranger": "Adam Reimnitz",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2419,
+  "rating_count": 430,
+  "download_count": 1883,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Am I, am I, so in love am I",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Am I am I so in love am I (C Major) - Adam Reimnitz - 2649",
+  "sheet": "sheets/2649/sheet.jpg",
+  "audio": {
+    "mix": "media/2649/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2649/pages/page-01.webp"
+  ]
+}

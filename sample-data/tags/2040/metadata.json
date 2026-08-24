@@ -1,0 +1,31 @@
+{
+  "tag_id": 2040,
+  "title": "Are You Lonesome Tonight?",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2158,
+  "rating_count": 329,
+  "download_count": 3477,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2009,
+  "parts_count": 4,
+  "lyrics": "Are you lonesome tonight; do you miss me, tonight? Are you sorry we drifted apart?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are You Lonesome Tonight (C Major) - Paul Paddock - 2040",
+  "sheet": "sheets/2040/sheet.png",
+  "audio": {
+    "lead": "media/2040/lead.mp4",
+    "tenor": "media/2040/tenor.mp4",
+    "bari": "media/2040/bari.mp4",
+    "bass": "media/2040/bass.mp4",
+    "mix": "media/2040/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2040/pages/page-01.webp"
+  ]
+}

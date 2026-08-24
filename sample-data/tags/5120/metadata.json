@@ -1,0 +1,31 @@
+{
+  "tag_id": 5120,
+  "title": "A Nightingale Sang In Berkley Square",
+  "alt_title": null,
+  "arranger": "S. K. Grundy",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2291,
+  "rating_count": 358,
+  "download_count": 2795,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 1988,
+  "parts_count": 4,
+  "lyrics": "When a nightingale sang in berkley square",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Nightingale Sang In Berkley Square (Eb Major) - S. K. Grundy - 5120",
+  "sheet": "sheets/5120/sheet.png",
+  "audio": {
+    "lead": "media/5120/lead.mp4",
+    "tenor": "media/5120/tenor.mp4",
+    "bari": "media/5120/bari.mp4",
+    "bass": "media/5120/bass.mp4",
+    "mix": "media/5120/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5120/pages/page-01.webp"
+  ]
+}

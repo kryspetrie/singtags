@@ -1,0 +1,27 @@
+{
+  "tag_id": 6344,
+  "title": "At The Flagpole",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.288,
+  "rating_count": 250,
+  "download_count": 386,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "April has past, but your reign left a cast for you did not console my heart at the flag pole, the pole",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "At The Flagpole (Eb Major) - Jake Hemmle - 6344",
+  "sheet": "sheets/6344/sheet.pdf",
+  "audio": {
+    "mix": "media/6344/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6344/pages/page-01.webp"
+  ]
+}

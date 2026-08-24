@@ -1,0 +1,27 @@
+{
+  "tag_id": 6351,
+  "title": "As Long As I'm Dreaming",
+  "alt_title": null,
+  "arranger": "Nic",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.0395,
+  "rating_count": 228,
+  "download_count": 1014,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "If you never know I love you, still it works out fine as long as I'm dreaming you're mine",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As Long As Im Dreaming (G Major) - Nic - 6351",
+  "sheet": "sheets/6351/sheet.pdf",
+  "audio": {
+    "mix": "media/6351/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6351/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 4044,
+  "title": "A Million Stars",
+  "alt_title": null,
+  "arranger": "Dom Finetti",
+  "key": "Gb Major",
+  "writ_key": "Major:Gb",
+  "rating": 3.2828,
+  "rating_count": 389,
+  "download_count": 3241,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "There's a million stars in the skies, none shine brighter than your eyes",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Million Stars (Gb Major) - Dom Finetti - 4044",
+  "sheet": "sheets/4044/sheet.pdf",
+  "audio": {
+    "lead": "media/4044/lead.mp4",
+    "tenor": "media/4044/tenor.mp4",
+    "bari": "media/4044/bari.mp4",
+    "bass": "media/4044/bass.mp4",
+    "mix": "media/4044/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4044/pages/page-01.webp"
+  ]
+}

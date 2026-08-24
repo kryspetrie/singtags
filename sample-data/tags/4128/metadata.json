@@ -1,0 +1,27 @@
+{
+  "tag_id": 4128,
+  "title": "8 Part Tag",
+  "alt_title": "Ate part tag",
+  "arranger": "A Bird",
+  "key": null,
+  "writ_key": null,
+  "rating": 3.2857,
+  "rating_count": 462,
+  "download_count": 1098,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When you hear ringing clear, a God damned 8 (eight) part tag",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "8 Part Tag - A Bird - 4128",
+  "sheet": "sheets/4128/sheet.pdf",
+  "audio": {
+    "mix": "media/4128/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4128/pages/page-01.webp"
+  ]
+}

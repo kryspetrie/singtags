@@ -1,0 +1,27 @@
+{
+  "tag_id": 2659,
+  "title": "Are Mine",
+  "alt_title": null,
+  "arranger": null,
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.1576,
+  "rating_count": 425,
+  "download_count": 1411,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "All of these things, all of these things are mine",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are Mine (G Major) - 2659",
+  "sheet": "sheets/2659/sheet.jpg",
+  "audio": {
+    "mix": "media/2659/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2659/pages/page-01.webp"
+  ]
+}

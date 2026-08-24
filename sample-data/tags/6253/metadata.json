@@ -1,0 +1,31 @@
+{
+  "tag_id": 6253,
+  "title": "Almost There",
+  "alt_title": null,
+  "arranger": "Aaron Dale",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2116,
+  "rating_count": 241,
+  "download_count": 1682,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "See, there ain't nothin' gonna stop me now, 'cause I'm almost there, (well I'm) almost there, well I'm almost there (now I'm on my way without a care, right now I'm almost there) , almost there!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Almost There (Bb Major) - Aaron Dale - 6253",
+  "sheet": "sheets/6253/sheet.pdf",
+  "audio": {
+    "lead": "media/6253/lead.mp4",
+    "tenor": "media/6253/tenor.mp4",
+    "bari": "media/6253/bari.mp4",
+    "bass": "media/6253/bass.mp4",
+    "mix": "media/6253/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6253/pages/page-01.webp"
+  ]
+}

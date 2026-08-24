@@ -1,0 +1,31 @@
+{
+  "tag_id": 3019,
+  "title": "A Nightingale Sang in Berkeley Square",
+  "alt_title": null,
+  "arranger": null,
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2361,
+  "rating_count": 665,
+  "download_count": 10403,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "It was such a romantic affair, that night we met in Berkeley Square",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Nightingale Sang in Berkeley Square (F Major) - 3019",
+  "sheet": "sheets/3019/sheet.jpg",
+  "audio": {
+    "lead": "media/3019/lead.mp4",
+    "tenor": "media/3019/tenor.mp4",
+    "bari": "media/3019/bari.mp4",
+    "bass": "media/3019/bass.mp4",
+    "mix": "media/3019/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3019/pages/page-01.webp"
+  ]
+}

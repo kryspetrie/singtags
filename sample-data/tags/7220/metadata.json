@@ -1,0 +1,27 @@
+{
+  "tag_id": 7220,
+  "title": "Anywhere I Wander",
+  "alt_title": null,
+  "arranger": null,
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.1081,
+  "rating_count": 111,
+  "download_count": 224,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Anywhere I wander, anywhere I roam!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Anywhere I Wander (D Major) - 7220",
+  "sheet": "sheets/7220/sheet.pdf",
+  "audio": {
+    "mix": "media/7220/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7220/pages/page-01.webp"
+  ]
+}

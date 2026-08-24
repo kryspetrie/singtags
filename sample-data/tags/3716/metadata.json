@@ -1,0 +1,27 @@
+{
+  "tag_id": 3716,
+  "title": "Amen",
+  "alt_title": null,
+  "arranger": "David Breen",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.2882,
+  "rating_count": 451,
+  "download_count": 2512,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 3,
+  "lyrics": "Amen, amen, amen. Amen.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Amen (G Major) - David Breen - 3716",
+  "sheet": "sheets/3716/sheet.pdf",
+  "audio": {
+    "mix": "media/3716/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3716/pages/page-01.webp"
+  ]
+}

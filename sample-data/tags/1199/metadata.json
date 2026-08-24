@@ -1,0 +1,31 @@
+{
+  "tag_id": 1199,
+  "title": "And I Love Her",
+  "alt_title": null,
+  "arranger": "Paddock",
+  "key": "Gb Major",
+  "writ_key": "Major:Gb",
+  "rating": 3.3115,
+  "rating_count": 305,
+  "download_count": 2833,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "A love like ours will never die",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And I Love Her (Gb Major) - Paddock - 1199",
+  "sheet": "sheets/1199/sheet.jpg",
+  "audio": {
+    "lead": "media/1199/lead.mp4",
+    "tenor": "media/1199/tenor.mp4",
+    "bari": "media/1199/bari.mp4",
+    "bass": "media/1199/bass.mp4",
+    "mix": "media/1199/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1199/pages/page-01.webp"
+  ]
+}

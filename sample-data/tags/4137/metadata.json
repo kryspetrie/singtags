@@ -1,0 +1,27 @@
+{
+  "tag_id": 4137,
+  "title": "All By Myself Alone",
+  "alt_title": null,
+  "arranger": "Rex Reeve",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.261,
+  "rating_count": 364,
+  "download_count": 1249,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 5,
+  "lyrics": "All by myself, alone",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All By Myself Alone (C Major) - Rex Reeve - 4137",
+  "sheet": "sheets/4137/sheet.pdf",
+  "audio": {
+    "mix": "media/4137/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4137/pages/page-01.webp"
+  ]
+}

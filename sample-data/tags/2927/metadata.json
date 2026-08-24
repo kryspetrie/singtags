@@ -1,0 +1,27 @@
+{
+  "tag_id": 2927,
+  "title": "All The Things You Are",
+  "alt_title": null,
+  "arranger": "Scott Kitzmiller",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.2471,
+  "rating_count": 522,
+  "download_count": 4755,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When all the things you are, are mine!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All The Things You Are (Ab Major) - Scott Kitzmiller - 2927",
+  "sheet": "sheets/2927/sheet.pdf",
+  "audio": {
+    "mix": "media/2927/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2927/pages/page-01.webp"
+  ]
+}

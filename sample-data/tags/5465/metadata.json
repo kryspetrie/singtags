@@ -1,0 +1,27 @@
+{
+  "tag_id": 5465,
+  "title": "And So, Goodbye",
+  "alt_title": "Until We Meet Again",
+  "arranger": "Jon Nicholas Jared Graveley",
+  "key": "Gb Major",
+  "writ_key": "Major:Gb",
+  "rating": 3.0708,
+  "rating_count": 353,
+  "download_count": 884,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And so goodbye, we bid farewell, till we meet again!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And So Goodbye (Gb Major) - Jon Nicholas Jared Graveley - 5465",
+  "sheet": "sheets/5465/sheet.pdf",
+  "audio": {
+    "mix": "media/5465/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5465/pages/page-01.webp"
+  ]
+}

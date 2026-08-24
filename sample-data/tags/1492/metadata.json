@@ -1,0 +1,31 @@
+{
+  "tag_id": 1492,
+  "title": "Amazing Grace",
+  "alt_title": null,
+  "arranger": "Joe Johnson",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2758,
+  "rating_count": 417,
+  "download_count": 8516,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2004,
+  "parts_count": 4,
+  "lyrics": "And grace will lead me home, lead me home",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Amazing Grace (A Major) - Joe Johnson - 1492",
+  "sheet": "sheets/1492/sheet.pdf",
+  "audio": {
+    "lead": "media/1492/lead.mp4",
+    "tenor": "media/1492/tenor.mp4",
+    "bari": "media/1492/bari.mp4",
+    "bass": "media/1492/bass.mp4",
+    "mix": "media/1492/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1492/pages/page-01.webp"
+  ]
+}

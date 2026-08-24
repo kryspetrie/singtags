@@ -1,0 +1,31 @@
+{
+  "tag_id": 2668,
+  "title": "All My Trials",
+  "alt_title": null,
+  "arranger": "Norman Luboff",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.2846,
+  "rating_count": 390,
+  "download_count": 3290,
+  "type": "SATB",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Lord, soon be over",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All My Trials (D Major) - Norman Luboff - 2668",
+  "sheet": "sheets/2668/sheet.png",
+  "audio": {
+    "lead": "media/2668/lead.mp4",
+    "tenor": "media/2668/tenor.mp4",
+    "bari": "media/2668/bari.mp4",
+    "bass": "media/2668/bass.mp4",
+    "mix": "media/2668/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2668/pages/page-01.webp"
+  ]
+}

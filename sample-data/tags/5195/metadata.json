@@ -1,0 +1,31 @@
+{
+  "tag_id": 5195,
+  "title": "All Alone",
+  "alt_title": "Wondering Where You Are...",
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.0533,
+  "rating_count": 338,
+  "download_count": 1752,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Wondering where you are, and how you are, and if you are all alone, gee, I hope you're all alone too (all alone lonely too)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Alone (Ab Major) - 5195",
+  "sheet": "sheets/5195/sheet.pdf",
+  "audio": {
+    "lead": "media/5195/lead.mp4",
+    "tenor": "media/5195/tenor.mp4",
+    "bari": "media/5195/bari.mp4",
+    "bass": "media/5195/bass.mp4",
+    "mix": "media/5195/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5195/pages/page-01.webp"
+  ]
+}

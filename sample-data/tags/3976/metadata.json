@@ -1,0 +1,31 @@
+{
+  "tag_id": 3976,
+  "title": "A Newfangled Tango",
+  "alt_title": null,
+  "arranger": "Patrick McAlexander",
+  "key": "B Major",
+  "writ_key": "Major:B",
+  "rating": 3.2652,
+  "rating_count": 543,
+  "download_count": 2892,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Tango! Gotta love that tango!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Newfangled Tango (B Major) - Patrick McAlexander - 3976",
+  "sheet": "sheets/3976/sheet.pdf",
+  "audio": {
+    "lead": "media/3976/lead.mp4",
+    "tenor": "media/3976/tenor.mp4",
+    "bari": "media/3976/bari.mp4",
+    "bass": "media/3976/bass.mp4",
+    "mix": "media/3976/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3976/pages/page-01.webp"
+  ]
+}

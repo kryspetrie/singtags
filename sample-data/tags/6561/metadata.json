@@ -1,0 +1,31 @@
+{
+  "tag_id": 6561,
+  "title": "Apologize",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.1739,
+  "rating_count": 92,
+  "download_count": 987,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "I'm holding on your rope, got me ten feet off the ground",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Apologize (Eb Major) - Paul Paddock - 6561",
+  "sheet": "sheets/6561/sheet.png",
+  "audio": {
+    "lead": "media/6561/lead.mp4",
+    "tenor": "media/6561/tenor.mp4",
+    "bari": "media/6561/bari.mp4",
+    "bass": "media/6561/bass.mp4",
+    "mix": "media/6561/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6561/pages/page-01.webp"
+  ]
+}

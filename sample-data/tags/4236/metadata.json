@@ -1,0 +1,31 @@
+{
+  "tag_id": 4236,
+  "title": "A Quick Break",
+  "alt_title": null,
+  "arranger": "Kris Maddigan",
+  "key": null,
+  "writ_key": null,
+  "rating": 2.9692,
+  "rating_count": 195,
+  "download_count": 1858,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Why not take a little quick break? Then come back for more, please come back for more!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Quick Break - Kris Maddigan - 4236",
+  "sheet": "sheets/4236/sheet.png",
+  "audio": {
+    "lead": "media/4236/lead.mp4",
+    "tenor": "media/4236/tenor.mp4",
+    "bari": "media/4236/bari.mp4",
+    "bass": "media/4236/bass.mp4",
+    "mix": "media/4236/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4236/pages/page-01.webp"
+  ]
+}

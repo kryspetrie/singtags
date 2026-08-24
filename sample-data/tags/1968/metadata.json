@@ -1,0 +1,27 @@
+{
+  "tag_id": 1968,
+  "title": "Are You The One?",
+  "alt_title": null,
+  "arranger": "Adam Reimnitz",
+  "key": "Gb Major",
+  "writ_key": "Major:Gb",
+  "rating": 3.25,
+  "rating_count": 600,
+  "download_count": 2542,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2007,
+  "parts_count": 4,
+  "lyrics": "I have waited for? (more! Are you the one that I have waited for, to adore?) I have waited for? I have waited for? (more! Are you the one that I have waited for, to adore?) I have waited for? (I'll love you more! Are you the one that I have waited for, to adore?)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are You The One (Gb Major) - Adam Reimnitz - 1968",
+  "sheet": "sheets/1968/sheet.png",
+  "audio": {
+    "mix": "media/1968/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1968/pages/page-01.webp"
+  ]
+}

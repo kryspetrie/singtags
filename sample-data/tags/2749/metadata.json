@@ -1,0 +1,31 @@
+{
+  "tag_id": 2749,
+  "title": "Back In My Day",
+  "alt_title": "Tag 89 from 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2678,
+  "rating_count": 549,
+  "download_count": 2962,
+  "type": "Barbershop",
+  "collection": "100",
+  "classic": "89",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "Back in my day",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back In My Day (C Major) - Paul Carey Olguin - 2749",
+  "sheet": "sheets/2749/sheet.jpg",
+  "audio": {
+    "lead": "media/2749/lead.mp4",
+    "tenor": "media/2749/tenor.mp4",
+    "bari": "media/2749/bari.mp4",
+    "bass": "media/2749/bass.mp4",
+    "mix": "media/2749/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2749/pages/page-01.webp"
+  ]
+}

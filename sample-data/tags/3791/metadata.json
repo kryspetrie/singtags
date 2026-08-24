@@ -1,0 +1,31 @@
+{
+  "tag_id": 3791,
+  "title": "Be Mine",
+  "alt_title": "Never Will Be Mine",
+  "arranger": "Hannah Braham",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1887,
+  "rating_count": 583,
+  "download_count": 2669,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2012,
+  "parts_count": 4,
+  "lyrics": "'Cos you never were, and you never will be mine",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be Mine (C Major) - Hannah Braham - 3791",
+  "sheet": "sheets/3791/sheet.pdf",
+  "audio": {
+    "lead": "media/3791/lead.mp4",
+    "tenor": "media/3791/tenor.mp4",
+    "bari": "media/3791/bari.mp4",
+    "bass": "media/3791/bass.mp4",
+    "mix": "media/3791/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3791/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 5244,
+  "title": "A Nightingale Sang In Berkeley Square",
+  "alt_title": null,
+  "arranger": null,
+  "key": null,
+  "writ_key": null,
+  "rating": 2.9728,
+  "rating_count": 184,
+  "download_count": 2425,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "With that hazy crazy night we met, when a nightingale sang, ooh, a nightingale sang, when a nightingale sang in Berkeley Square",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Nightingale Sang In Berkeley Square - 5244",
+  "sheet": "sheets/5244/sheet.pdf",
+  "audio": {
+    "lead": "media/5244/lead.mp4",
+    "tenor": "media/5244/tenor.mp4",
+    "bari": "media/5244/bari.mp4",
+    "bass": "media/5244/bass.mp4",
+    "mix": "media/5244/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5244/pages/page-01.webp"
+  ]
+}

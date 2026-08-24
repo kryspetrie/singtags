@@ -1,0 +1,31 @@
+{
+  "tag_id": 5995,
+  "title": "Applause Applause Applause",
+  "alt_title": null,
+  "arranger": "Jay Dougherty",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.1019,
+  "rating_count": 216,
+  "download_count": 1843,
+  "type": "SATB",
+  "collection": null,
+  "classic": null,
+  "year": 2023,
+  "parts_count": 4,
+  "lyrics": "Applause, applause, applause",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Applause Applause Applause (Bb Major) - Jay Dougherty - 5995",
+  "sheet": "sheets/5995/sheet.png",
+  "audio": {
+    "lead": "media/5995/lead.mp4",
+    "tenor": "media/5995/tenor.mp4",
+    "bari": "media/5995/bari.mp4",
+    "bass": "media/5995/bass.mp4",
+    "mix": "media/5995/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5995/pages/page-01.webp"
+  ]
+}

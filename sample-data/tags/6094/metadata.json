@@ -1,0 +1,27 @@
+{
+  "tag_id": 6094,
+  "title": "A Tag Is Like A Tiny Little Song",
+  "alt_title": null,
+  "arranger": "Dan Bennett",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.2381,
+  "rating_count": 231,
+  "download_count": 1017,
+  "type": "SATB",
+  "collection": null,
+  "classic": null,
+  "year": 2023,
+  "parts_count": 4,
+  "lyrics": "And we'll sing it all night long",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Tag Is Like A Tiny Little Song (D Major) - Dan Bennett - 6094",
+  "sheet": "sheets/6094/sheet.png",
+  "audio": {
+    "mix": "media/6094/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6094/pages/page-01.webp"
+  ]
+}

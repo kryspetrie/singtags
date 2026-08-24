@@ -1,0 +1,27 @@
+{
+  "tag_id": 5079,
+  "title": "A Drink on the House",
+  "alt_title": null,
+  "arranger": "S ren Detlefsen",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.0484,
+  "rating_count": 372,
+  "download_count": 928,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "If you've got trouble at work or at home with your spouse, then you can have a drink on the house",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Drink on the House (C Major) - S ren Detlefsen - 5079",
+  "sheet": "sheets/5079/sheet.pdf",
+  "audio": {
+    "mix": "media/5079/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5079/pages/page-01.webp"
+  ]
+}

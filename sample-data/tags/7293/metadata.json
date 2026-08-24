@@ -1,0 +1,27 @@
+{
+  "tag_id": 7293,
+  "title": "Balada para la misión",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 2.8661,
+  "rating_count": 112,
+  "download_count": 177,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "¡Yo quiero taco Bell!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Balada para la mision (Ab Major) - Jake Hemmle - 7293",
+  "sheet": "sheets/7293/sheet.pdf",
+  "audio": {
+    "mix": "media/7293/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7293/pages/page-01.webp"
+  ]
+}

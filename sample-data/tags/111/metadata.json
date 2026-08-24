@@ -1,0 +1,31 @@
+{
+  "tag_id": 111,
+  "title": "Baby, You're the One I Love",
+  "alt_title": null,
+  "arranger": "Renee Craig",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.2693,
+  "rating_count": 698,
+  "download_count": 15468,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "99",
+  "year": 1975,
+  "parts_count": 4,
+  "lyrics": "Baby, you're the one I love",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Baby Youre the One I Love (G Major) - Renee Craig - 111",
+  "sheet": "sheets/111/sheet.gif",
+  "audio": {
+    "lead": "media/111/lead.mp4",
+    "tenor": "media/111/tenor.mp4",
+    "bari": "media/111/bari.mp4",
+    "bass": "media/111/bass.mp4",
+    "mix": "media/111/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/111/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 5918,
+  "title": "Back In The Days",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 2.9795,
+  "rating_count": 146,
+  "download_count": 618,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Those good old days, those wonderful, good old days, good old days",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back In The Days (Bb Major) - 5918",
+  "sheet": "sheets/5918/sheet.png",
+  "audio": {
+    "lead": "media/5918/lead.mp4",
+    "tenor": "media/5918/tenor.mp4",
+    "bari": "media/5918/bari.mp4",
+    "bass": "media/5918/bass.mp4",
+    "mix": "media/5918/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5918/pages/page-01.webp"
+  ]
+}

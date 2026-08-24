@@ -1,0 +1,31 @@
+{
+  "tag_id": 2718,
+  "title": "At the End of the Ballymore Road",
+  "alt_title": "Tag 69 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "F# Minor",
+  "writ_key": "Minor:F#",
+  "rating": 3.162,
+  "rating_count": 537,
+  "download_count": 3284,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": "100",
+  "classic": "69",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "At the end of the ballymore road",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "At the End of the Ballymore Road (F# Minor) - Paul Carey Olguin - 2718",
+  "sheet": "sheets/2718/sheet.jpg",
+  "audio": {
+    "lead": "media/2718/lead.mp4",
+    "tenor": "media/2718/tenor.mp4",
+    "bari": "media/2718/bari.mp4",
+    "bass": "media/2718/bass.mp4",
+    "mix": "media/2718/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2718/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 5996,
+  "title": "Amongst the Stars",
+  "alt_title": null,
+  "arranger": "Mitchell Bartel",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2917,
+  "rating_count": 264,
+  "download_count": 704,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2023,
+  "parts_count": 5,
+  "lyrics": "City lights and passing cars, walking hand in hand amongst the stars (amongst the stars)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Amongst the Stars (A Major) - Mitchell Bartel - 5996",
+  "sheet": "sheets/5996/sheet.jpg",
+  "audio": {
+    "mix": "media/5996/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5996/pages/page-01.webp"
+  ]
+}

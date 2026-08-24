@@ -1,0 +1,31 @@
+{
+  "tag_id": 5211,
+  "title": "All By Myself",
+  "alt_title": "I Hate To Grow Older",
+  "arranger": "Dennis Driscoll",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2735,
+  "rating_count": 362,
+  "download_count": 1506,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 1975,
+  "parts_count": 4,
+  "lyrics": "I hate to grow older, all by myself (all by myself, all by myself)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All By Myself (C Major) - Dennis Driscoll - 5211",
+  "sheet": "sheets/5211/sheet.pdf",
+  "audio": {
+    "lead": "media/5211/lead.mp4",
+    "tenor": "media/5211/tenor.mp4",
+    "bari": "media/5211/bari.mp4",
+    "bass": "media/5211/bass.mp4",
+    "mix": "media/5211/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5211/pages/page-01.webp"
+  ]
+}

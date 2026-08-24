@@ -1,0 +1,27 @@
+{
+  "tag_id": 2913,
+  "title": "Adventure Time",
+  "alt_title": "Adventure Time Theme Song",
+  "arranger": "Dan Bennett",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.217,
+  "rating_count": 470,
+  "download_count": 2462,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Come on grab your friends, we're going to very distant lands, with Jake the dog and finn the human, the fun never ends, adventure time!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Adventure Time (D Major) - Dan Bennett - 2913",
+  "sheet": "sheets/2913/sheet.png",
+  "audio": {
+    "mix": "media/2913/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2913/pages/page-01.webp"
+  ]
+}

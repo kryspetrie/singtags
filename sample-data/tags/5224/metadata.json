@@ -1,0 +1,31 @@
+{
+  "tag_id": 5224,
+  "title": "And Left Me Lonely",
+  "alt_title": null,
+  "arranger": "Earl Moon",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1679,
+  "rating_count": 268,
+  "download_count": 1418,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Oh so lonely nights. (and then you left) and left me lonely nights (I'm lonely you only left me lonely nights)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And Left Me Lonely (C Major) - Earl Moon - 5224",
+  "sheet": "sheets/5224/sheet.pdf",
+  "audio": {
+    "lead": "media/5224/lead.mp4",
+    "tenor": "media/5224/tenor.mp4",
+    "bari": "media/5224/bari.mp4",
+    "bass": "media/5224/bass.mp4",
+    "mix": "media/5224/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5224/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 7217,
+  "title": "Apple Cider",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": null,
+  "writ_key": null,
+  "rating": 3.0612,
+  "rating_count": 98,
+  "download_count": 505,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "That good ole' crisp, cold liquid gold that burns in your soul",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Apple Cider - Jake Hemmle - 7217",
+  "sheet": "sheets/7217/sheet.pdf",
+  "audio": {
+    "mix": "media/7217/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7217/pages/page-01.webp"
+  ]
+}

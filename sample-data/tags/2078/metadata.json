@@ -1,0 +1,27 @@
+{
+  "tag_id": 2078,
+  "title": "50 Shades of Grey",
+  "alt_title": null,
+  "arranger": "Terry S. Chapman",
+  "key": "A Minor",
+  "writ_key": "Minor:A",
+  "rating": 3.3152,
+  "rating_count": 533,
+  "download_count": 4779,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2012,
+  "parts_count": 4,
+  "lyrics": "Black, white, silver, I'm in quite the disarray, for I can't seem to identify the shades of grey (shades of grey)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "50 Shades of Grey (A Minor) - Terry S. Chapman - 2078",
+  "sheet": "sheets/2078/sheet.pdf",
+  "audio": {
+    "mix": "media/2078/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2078/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 3827,
+  "title": "And Yet it Moves",
+  "alt_title": null,
+  "arranger": "Kealan Rivera",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.0496,
+  "rating_count": 363,
+  "download_count": 1798,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 5,
+  "lyrics": "And yet it moves",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And Yet it Moves (C Major) - Kealan Rivera - 3827",
+  "sheet": "sheets/3827/sheet.png",
+  "audio": {
+    "lead": "media/3827/lead.mp4",
+    "tenor": "media/3827/tenor.mp4",
+    "bari": "media/3827/bari.mp4",
+    "bass": "media/3827/bass.mp4",
+    "mix": "media/3827/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3827/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 2902,
+  "title": "A Cup-a-Cocoa",
+  "alt_title": null,
+  "arranger": "Brandon Hall",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.416,
+  "rating_count": 625,
+  "download_count": 2129,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "With you, my love, would be fine (so fine)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Cup-a-Cocoa (D Major) - Brandon Hall - 2902",
+  "sheet": "sheets/2902/sheet.pdf",
+  "audio": {
+    "mix": "media/2902/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2902/pages/page-01.webp"
+  ]
+}

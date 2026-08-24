@@ -1,0 +1,27 @@
+{
+  "tag_id": 2646,
+  "title": "All You Need Is Love",
+  "alt_title": null,
+  "arranger": null,
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2102,
+  "rating_count": 433,
+  "download_count": 2153,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Love, love is all you need, you need",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All You Need Is Love (F Major) - 2646",
+  "sheet": "sheets/2646/sheet.jpg",
+  "audio": {
+    "mix": "media/2646/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2646/pages/page-01.webp"
+  ]
+}

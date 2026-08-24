@@ -1,0 +1,27 @@
+{
+  "tag_id": 6804,
+  "title": "All the Way",
+  "alt_title": null,
+  "arranger": null,
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.3425,
+  "rating_count": 219,
+  "download_count": 388,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "(Ooh) if you let me love you it's for sure I'm gonna love you all the way all the way (all this time I'll love you all the way, I'll love you all the way.)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All the Way (E Major) - 6804",
+  "sheet": "sheets/6804/sheet.pdf",
+  "audio": {
+    "mix": "media/6804/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6804/pages/page-01.webp"
+  ]
+}

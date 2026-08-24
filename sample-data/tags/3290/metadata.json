@@ -1,0 +1,31 @@
+{
+  "tag_id": 3290,
+  "title": "A Pirate's Life For Me",
+  "alt_title": null,
+  "arranger": "Rick Spencer",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2475,
+  "rating_count": 602,
+  "download_count": 6298,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Yo ho yo ho a pirate's life for me (for me, for me, for me)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Pirates Life For Me (F Major) - Rick Spencer - 3290",
+  "sheet": "sheets/3290/sheet.png",
+  "audio": {
+    "lead": "media/3290/lead.mp4",
+    "tenor": "media/3290/tenor.mp4",
+    "bari": "media/3290/bari.mp4",
+    "bass": "media/3290/bass.mp4",
+    "mix": "media/3290/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3290/pages/page-01.webp"
+  ]
+}

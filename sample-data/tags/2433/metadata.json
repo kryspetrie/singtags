@@ -1,0 +1,31 @@
+{
+  "tag_id": 2433,
+  "title": "As to You",
+  "alt_title": "Fear and Longing",
+  "arranger": "Eric Clack",
+  "key": null,
+  "writ_key": null,
+  "rating": 3.1343,
+  "rating_count": 685,
+  "download_count": 2623,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 5,
+  "lyrics": "You fill my heart with pain, fear and longing, for your love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As to You - Eric Clack - 2433",
+  "sheet": "sheets/2433/sheet.pdf",
+  "audio": {
+    "lead": "media/2433/lead.mp4",
+    "tenor": "media/2433/tenor.mp4",
+    "bari": "media/2433/bari.mp4",
+    "bass": "media/2433/bass.mp4",
+    "mix": "media/2433/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2433/pages/page-01.webp"
+  ]
+}

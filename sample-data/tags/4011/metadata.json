@@ -1,0 +1,31 @@
+{
+  "tag_id": 4011,
+  "title": "Beautiful I Know",
+  "alt_title": null,
+  "arranger": "De DeCrow",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2895,
+  "rating_count": 456,
+  "download_count": 2698,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "That would be but beautiful I know (beautiful I know)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Beautiful I Know (A Major) - De DeCrow - 4011",
+  "sheet": "sheets/4011/sheet.pdf",
+  "audio": {
+    "lead": "media/4011/lead.mp4",
+    "tenor": "media/4011/tenor.mp4",
+    "bari": "media/4011/bari.mp4",
+    "bass": "media/4011/bass.mp4",
+    "mix": "media/4011/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4011/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 6783,
+  "title": "As The Sun",
+  "alt_title": null,
+  "arranger": "Dylan Cheyne",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.0392,
+  "rating_count": 204,
+  "download_count": 553,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "Shines golden rays in the sky I sit and think of you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As The Sun (Bb Major) - Dylan Cheyne - 6783",
+  "sheet": "sheets/6783/sheet.pdf",
+  "audio": {
+    "mix": "media/6783/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6783/pages/page-01.webp"
+  ]
+}

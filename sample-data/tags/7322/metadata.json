@@ -1,0 +1,27 @@
+{
+  "tag_id": 7322,
+  "title": "Baby - Oh Where Can You Be?",
+  "alt_title": null,
+  "arranger": "Ashley Vernon",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 2.9562,
+  "rating_count": 137,
+  "download_count": 413,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "Baby, oh where can you be can you be?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Baby - Oh Where Can You Be (Ab Major) - Ashley Vernon - 7322",
+  "sheet": "sheets/7322/sheet.pdf",
+  "audio": {
+    "mix": "media/7322/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7322/pages/page-01.webp"
+  ]
+}

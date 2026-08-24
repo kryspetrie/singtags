@@ -1,0 +1,31 @@
+{
+  "tag_id": 6727,
+  "title": "Bank of the River",
+  "alt_title": "I went to the Bank of the River",
+  "arranger": "Will Searight",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.2124,
+  "rating_count": 259,
+  "download_count": 1132,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "I went to the bank of the river, the river",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Bank of the River (Ab Major) - Will Searight - 6727",
+  "sheet": "sheets/6727/sheet.pdf",
+  "audio": {
+    "lead": "media/6727/lead.mp4",
+    "tenor": "media/6727/tenor.mp4",
+    "bari": "media/6727/bari.mp4",
+    "bass": "media/6727/bass.mp4",
+    "mix": "media/6727/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6727/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 5602,
+  "title": "A Quick Break",
+  "alt_title": null,
+  "arranger": "Kris Maddigan",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.0288,
+  "rating_count": 659,
+  "download_count": 2133,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Why not take a little, quick break, then come back for more? Then come back for more? Please come back for more!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Quick Break (Bb Major) - Kris Maddigan - 5602",
+  "sheet": "sheets/5602/sheet.pdf",
+  "audio": {
+    "lead": "media/5602/lead.mp4",
+    "tenor": "media/5602/tenor.mp4",
+    "bari": "media/5602/bari.mp4",
+    "bass": "media/5602/bass.mp4",
+    "mix": "media/5602/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5602/pages/page-01.webp"
+  ]
+}

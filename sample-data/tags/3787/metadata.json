@@ -1,0 +1,31 @@
+{
+  "tag_id": 3787,
+  "title": "American Tune",
+  "alt_title": null,
+  "arranger": "David Wright",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.364,
+  "rating_count": 489,
+  "download_count": 3722,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 4,
+  "lyrics": "While in my heart I sing this tune sing this tune",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "American Tune (Eb Major) - David Wright - 3787",
+  "sheet": "sheets/3787/sheet.pdf",
+  "audio": {
+    "lead": "media/3787/lead.mp4",
+    "tenor": "media/3787/tenor.mp4",
+    "bari": "media/3787/bari.mp4",
+    "bass": "media/3787/bass.mp4",
+    "mix": "media/3787/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3787/pages/page-01.webp"
+  ]
+}

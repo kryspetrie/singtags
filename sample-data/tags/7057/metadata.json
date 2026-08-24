@@ -1,0 +1,27 @@
+{
+  "tag_id": 7057,
+  "title": "A Dozen, a Gross, and a Score",
+  "alt_title": null,
+  "arranger": "Gabriel Spector",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.0688,
+  "rating_count": 189,
+  "download_count": 327,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Plus three times the square root of four, divided by seven, plus five times eleven, is nine squared and not a bit more!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Dozen a Gross and a Score (C Major) - Gabriel Spector - 7057",
+  "sheet": "sheets/7057/sheet.pdf",
+  "audio": {
+    "mix": "media/7057/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7057/pages/page-01.webp"
+  ]
+}

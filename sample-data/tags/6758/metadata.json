@@ -1,0 +1,27 @@
+{
+  "tag_id": 6758,
+  "title": "A Coaster For My Drink",
+  "alt_title": null,
+  "arranger": "Daniel Caesar",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2083,
+  "rating_count": 288,
+  "download_count": 610,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Condensation is running down my glass, (ye ah) I need a coaster, a coaster for my drink",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Coaster For My Drink (A Major) - Daniel Caesar - 6758",
+  "sheet": "sheets/6758/sheet.pdf",
+  "audio": {
+    "mix": "media/6758/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6758/pages/page-01.webp"
+  ]
+}

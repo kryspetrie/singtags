@@ -1,0 +1,31 @@
+{
+  "tag_id": 2784,
+  "title": "Another Way of Saying I Love You",
+  "alt_title": "Tag 99 from 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.0347,
+  "rating_count": 634,
+  "download_count": 3442,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": "100",
+  "classic": "99",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "It's just another way of saying I love you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Another Way of Saying I Love You (Eb Major) - Paul Carey Olguin - 2784",
+  "sheet": "sheets/2784/sheet.jpg",
+  "audio": {
+    "lead": "media/2784/lead.mp4",
+    "tenor": "media/2784/tenor.mp4",
+    "bari": "media/2784/bari.mp4",
+    "bass": "media/2784/bass.mp4",
+    "mix": "media/2784/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2784/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 5635,
+  "title": "All That I Ask is Love",
+  "alt_title": null,
+  "arranger": "ur mom lol",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.0634,
+  "rating_count": 205,
+  "download_count": 579,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "All that I crave in this wide, wide world, all that I ask is love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All That I Ask is Love (Ab Major) - ur mom lol - 5635",
+  "sheet": "sheets/5635/sheet.pdf",
+  "audio": {
+    "mix": "media/5635/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5635/pages/page-01.webp"
+  ]
+}

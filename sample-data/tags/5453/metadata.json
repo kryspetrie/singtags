@@ -1,0 +1,31 @@
+{
+  "tag_id": 5453,
+  "title": "Always Young",
+  "alt_title": "Always Fair to Me",
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 2.9964,
+  "rating_count": 281,
+  "download_count": 1827,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And always fair to me, fair to me",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Always Young (Ab Major) - 5453",
+  "sheet": "sheets/5453/sheet.pdf",
+  "audio": {
+    "lead": "media/5453/lead.mp4",
+    "tenor": "media/5453/tenor.mp4",
+    "bari": "media/5453/bari.mp4",
+    "bass": "media/5453/bass.mp4",
+    "mix": "media/5453/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5453/pages/page-01.webp"
+  ]
+}

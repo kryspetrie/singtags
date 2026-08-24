@@ -1,0 +1,31 @@
+{
+  "tag_id": 7374,
+  "title": "An easy Limerick song",
+  "alt_title": null,
+  "arranger": "Mats Luthman",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 2.8675,
+  "rating_count": 83,
+  "download_count": 355,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Any limerick in correct meter",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "An easy Limerick song (E Major) - Mats Luthman - 7374",
+  "sheet": "sheets/7374/sheet.pdf",
+  "audio": {
+    "lead": "media/7374/lead.mp4",
+    "tenor": "media/7374/tenor.mp4",
+    "bari": "media/7374/bari.mp4",
+    "bass": "media/7374/bass.mp4",
+    "mix": "media/7374/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7374/pages/page-01.webp"
+  ]
+}

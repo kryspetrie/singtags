@@ -1,0 +1,27 @@
+{
+  "tag_id": 6855,
+  "title": "(Don't They Know It's) The End of the World?",
+  "alt_title": null,
+  "arranger": "Marcus Falcomata",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 2.8901,
+  "rating_count": 282,
+  "download_count": 758,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "Don't they know it's the end of the world? It ended when you said goodbye. (goodbye)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "(Dont They Know Its) The End of the World (G Major) - Marcus Falcomata - 6855",
+  "sheet": "sheets/6855/sheet.pdf",
+  "audio": {
+    "mix": "media/6855/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6855/pages/page-01.webp"
+  ]
+}

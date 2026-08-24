@@ -1,0 +1,31 @@
+{
+  "tag_id": 897,
+  "title": "After You've Gone",
+  "alt_title": "After You've Gone Away",
+  "arranger": "Don Gray",
+  "key": "B Major",
+  "writ_key": "Major:B",
+  "rating": 3.2053,
+  "rating_count": 570,
+  "download_count": 6881,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "You told me goodbye, now it's your turn to cry. After you've gone (after you've gone) away, gone away.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After Youve Gone (B Major) - Don Gray - 897",
+  "sheet": "sheets/897/sheet.jpg",
+  "audio": {
+    "lead": "media/897/lead.mp4",
+    "tenor": "media/897/tenor.mp4",
+    "bari": "media/897/bari.mp4",
+    "bass": "media/897/bass.mp4",
+    "mix": "media/897/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/897/pages/page-01.webp"
+  ]
+}

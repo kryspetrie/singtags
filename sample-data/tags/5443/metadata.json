@@ -1,0 +1,31 @@
+{
+  "tag_id": 5443,
+  "title": "A Dream is a Wish Your Heart Makes",
+  "alt_title": null,
+  "arranger": "Kohl Kitzmiller",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.0868,
+  "rating_count": 507,
+  "download_count": 5197,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "No matter how your heart is grieving, if you keep on believing, the dream that you wish will come true",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Dream is a Wish Your Heart Makes (Eb Major) - Kohl Kitzmiller - 5443",
+  "sheet": "sheets/5443/sheet.pdf",
+  "audio": {
+    "lead": "media/5443/lead.mp4",
+    "tenor": "media/5443/tenor.mp4",
+    "bari": "media/5443/bari.mp4",
+    "bass": "media/5443/bass.mp4",
+    "mix": "media/5443/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5443/pages/page-01.webp"
+  ]
+}

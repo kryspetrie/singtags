@@ -1,0 +1,31 @@
+{
+  "tag_id": 5394,
+  "title": "Auld Lang Syne",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.1908,
+  "rating_count": 131,
+  "download_count": 836,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I love you, I need you, please say you'll be mine, for the sake of auld Lang syne (auld Lang syne)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Auld Lang Syne (Eb Major) - 5394",
+  "sheet": "sheets/5394/sheet.pdf",
+  "audio": {
+    "lead": "media/5394/lead.mp4",
+    "tenor": "media/5394/tenor.mp4",
+    "bari": "media/5394/bari.mp4",
+    "bass": "media/5394/bass.mp4",
+    "mix": "media/5394/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5394/pages/page-01.webp"
+  ]
+}

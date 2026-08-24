@@ -1,0 +1,31 @@
+{
+  "tag_id": 3187,
+  "title": "Auld Lang Syne",
+  "alt_title": null,
+  "arranger": "The Beach Boys",
+  "key": "Db Major",
+  "writ_key": "Major:Db",
+  "rating": 2.8966,
+  "rating_count": 174,
+  "download_count": 2064,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And days of auld Lang syne",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Auld Lang Syne (Db Major) - The Beach Boys - 3187",
+  "sheet": "sheets/3187/sheet.png",
+  "audio": {
+    "lead": "media/3187/lead.mp4",
+    "tenor": "media/3187/tenor.mp4",
+    "bari": "media/3187/bari.mp4",
+    "bass": "media/3187/bass.mp4",
+    "mix": "media/3187/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3187/pages/page-01.webp"
+  ]
+}

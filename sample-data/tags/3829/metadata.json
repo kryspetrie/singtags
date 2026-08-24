@@ -1,0 +1,31 @@
+{
+  "tag_id": 3829,
+  "title": "A Place in My Heart",
+  "alt_title": "You Will Always Have a Place in My Heart",
+  "arranger": "Dale Kynaston",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.4106,
+  "rating_count": 509,
+  "download_count": 6594,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2017,
+  "parts_count": 4,
+  "lyrics": "You will always have a place in my heart",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Place in My Heart (G Major) - Dale Kynaston - 3829",
+  "sheet": "sheets/3829/sheet.pdf",
+  "audio": {
+    "lead": "media/3829/lead.mp4",
+    "tenor": "media/3829/tenor.mp4",
+    "bari": "media/3829/bari.mp4",
+    "bass": "media/3829/bass.mp4",
+    "mix": "media/3829/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3829/pages/page-01.webp"
+  ]
+}

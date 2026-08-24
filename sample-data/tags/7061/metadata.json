@@ -1,0 +1,27 @@
+{
+  "tag_id": 7061,
+  "title": "And What's He Then",
+  "alt_title": "I Play the Villain",
+  "arranger": "Gabriel Spector",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.0115,
+  "rating_count": 262,
+  "download_count": 396,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "That says I play the villain?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And Whats He Then (E Major) - Gabriel Spector - 7061",
+  "sheet": "sheets/7061/sheet.pdf",
+  "audio": {
+    "mix": "media/7061/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7061/pages/page-01.webp"
+  ]
+}

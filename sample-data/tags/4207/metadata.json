@@ -1,0 +1,31 @@
+{
+  "tag_id": 4207,
+  "title": "A Million Miles",
+  "alt_title": "To Be With You",
+  "arranger": "Bryce Absher",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1899,
+  "rating_count": 495,
+  "download_count": 2231,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I have traveled a million miles, to be with you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Million Miles (C Major) - Bryce Absher - 4207",
+  "sheet": "sheets/4207/sheet.pdf",
+  "audio": {
+    "lead": "media/4207/lead.mp4",
+    "tenor": "media/4207/tenor.mp4",
+    "bari": "media/4207/bari.mp4",
+    "bass": "media/4207/bass.mp4",
+    "mix": "media/4207/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4207/pages/page-01.webp"
+  ]
+}

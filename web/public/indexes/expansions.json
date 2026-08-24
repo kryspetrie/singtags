@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "map": {
+    "em": [
+      "them"
+    ],
+    "them": [
+      "em"
+    ],
+    "every": [
+      "evry",
+      "every"
+    ],
+    "evry": [
+      "every"
+    ],
+    "everything": [
+      "evrything",
+      "everything"
+    ],
+    "evrything": [
+      "everything"
+    ],
+    "everyone": [
+      "evryone",
+      "everyone"
+    ],
+    "evryone": [
+      "everyone"
+    ],
+    "everybody": [
+      "evrybody",
+      "everybody"
+    ],
+    "evrybody": [
+      "everybody"
+    ],
+    "oer": [
+      "over"
+    ],
+    "over": [
+      "oer"
+    ],
+    "neer": [
+      "never"
+    ],
+    "never": [
+      "neer"
+    ],
+    "goin": [
+      "going"
+    ],
+    "going": [
+      "goin"
+    ],
+    "lovin": [
+      "loving"
+    ],
+    "loving": [
+      "lovin"
+    ],
+    "nothin": [
+      "nothing"
+    ],
+    "nothing": [
+      "nothin"
+    ],
+    "somethin": [
+      "something"
+    ],
+    "something": [
+      "somethin"
+    ],
+    "darlin": [
+      "darling"
+    ],
+    "darling": [
+      "darlin"
+    ],
+    "mornin": [
+      "morning"
+    ],
+    "morning": [
+      "mornin"
+    ],
+    "waitin": [
+      "waiting"
+    ],
+    "waiting": [
+      "waitin"
+    ],
+    "lookin": [
+      "looking"
+    ],
+    "looking": [
+      "lookin"
+    ],
+    "gonna": [
+      "going",
+      "to"
+    ],
+    "wanna": [
+      "want",
+      "to"
+    ],
+    "gotta": [
+      "got",
+      "to"
+    ],
+    "aint": [
+      "aint",
+      "are",
+      "not",
+      "is",
+      "not"
+    ],
+    "thru": [
+      "through"
+    ],
+    "through": [
+      "thru"
+    ],
+    "til": [
+      "until"
+    ],
+    "until": [
+      "til"
+    ],
+    "memry": [
+      "memory"
+    ],
+    "memory": [
+      "memry"
+    ],
+    "heavn": [
+      "heaven"
+    ],
+    "heaven": [
+      "heavn"
+    ],
+    "cause": [
+      "because"
+    ],
+    "because": [
+      "cause"
+    ],
+    "round": [
+      "around"
+    ],
+    "around": [
+      "round"
+    ],
+    "bout": [
+      "about"
+    ],
+    "about": [
+      "bout"
+    ],
+    "cross": [
+      "across"
+    ],
+    "across": [
+      "cross"
+    ]
+  }
+}

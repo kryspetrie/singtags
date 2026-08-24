@@ -1,0 +1,29 @@
+{
+  "tag_id": 6835,
+  "title": "A Narrow Valley",
+  "alt_title": null,
+  "arranger": "Colton Milcarek",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3317,
+  "rating_count": 202,
+  "download_count": 811,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Thank you for watching",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Narrow Valley (C Major) - Colton Milcarek - 6835",
+  "sheet": "sheets/6835/sheet.pdf",
+  "audio": {
+    "lead": "media/6835/lead.mp4",
+    "bass": "media/6835/bass.mp4",
+    "mix": "media/6835/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6835/pages/page-01.webp"
+  ]
+}

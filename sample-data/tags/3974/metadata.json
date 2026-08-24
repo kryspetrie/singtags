@@ -1,0 +1,31 @@
+{
+  "tag_id": 3974,
+  "title": "All Star",
+  "alt_title": null,
+  "arranger": "Iain Haukka",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.175,
+  "rating_count": 503,
+  "download_count": 2759,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "All that glitters is gold / only shooting stars break the mold",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Star (G Major) - Iain Haukka - 3974",
+  "sheet": "sheets/3974/sheet.pdf",
+  "audio": {
+    "lead": "media/3974/lead.mp4",
+    "tenor": "media/3974/tenor.mp4",
+    "bari": "media/3974/bari.mp4",
+    "bass": "media/3974/bass.mp4",
+    "mix": "media/3974/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3974/pages/page-01.webp"
+  ]
+}

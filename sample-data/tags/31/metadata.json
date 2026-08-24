@@ -1,0 +1,31 @@
+{
+  "tag_id": 31,
+  "title": "After Today",
+  "alt_title": null,
+  "arranger": "Jay Giallombardo",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.3263,
+  "rating_count": 662,
+  "download_count": 24337,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "110",
+  "year": 1971,
+  "parts_count": 4,
+  "lyrics": "After today, after today",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "After Today (F Major) - Jay Giallombardo - 31",
+  "sheet": "sheets/31/sheet.gif",
+  "audio": {
+    "lead": "media/31/lead.mp4",
+    "tenor": "media/31/tenor.mp4",
+    "bari": "media/31/bari.mp4",
+    "bass": "media/31/bass.mp4",
+    "mix": "media/31/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/31/pages/page-01.webp"
+  ]
+}

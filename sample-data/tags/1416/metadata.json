@@ -1,0 +1,31 @@
+{
+  "tag_id": 1416,
+  "title": "3 Stooges Tag",
+  "alt_title": "I Try to Think But Nothing Happens",
+  "arranger": "Paul Paddock",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2821,
+  "rating_count": 585,
+  "download_count": 7859,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2009,
+  "parts_count": 4,
+  "lyrics": "I try to think but nothing happens when I think",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "3 Stooges Tag (Bb Major) - Paul Paddock - 1416",
+  "sheet": "sheets/1416/sheet.pdf",
+  "audio": {
+    "lead": "media/1416/lead.mp4",
+    "tenor": "media/1416/tenor.mp4",
+    "bari": "media/1416/bari.mp4",
+    "bass": "media/1416/bass.mp4",
+    "mix": "media/1416/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1416/pages/page-01.webp"
+  ]
+}

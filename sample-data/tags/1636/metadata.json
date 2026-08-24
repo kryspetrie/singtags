@@ -1,0 +1,27 @@
+{
+  "tag_id": 1636,
+  "title": "All My Dreams",
+  "alt_title": "You Are All My Dreams",
+  "arranger": "Benjamin Xander",
+  "key": "G Minor",
+  "writ_key": "Minor:G",
+  "rating": 3.3113,
+  "rating_count": 559,
+  "download_count": 2334,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 4,
+  "lyrics": "You are all my dreams (as it seems!)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All My Dreams (G Minor) - Benjamin Xander - 1636",
+  "sheet": "sheets/1636/sheet.pdf",
+  "audio": {
+    "mix": "media/1636/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1636/pages/page-01.webp"
+  ]
+}

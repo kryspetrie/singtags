@@ -1,0 +1,31 @@
+{
+  "tag_id": 2610,
+  "title": "As I Let You Go",
+  "alt_title": "Bonus Tag 4 on Day 24 from 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3108,
+  "rating_count": 637,
+  "download_count": 3607,
+  "type": "Barbershop",
+  "collection": "100",
+  "classic": "24",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "I want you to know I love you so",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As I Let You Go (C Major) - Paul Carey Olguin - 2610",
+  "sheet": "sheets/2610/sheet.jpg",
+  "audio": {
+    "lead": "media/2610/lead.mp4",
+    "tenor": "media/2610/tenor.mp4",
+    "bari": "media/2610/bari.mp4",
+    "bass": "media/2610/bass.mp4",
+    "mix": "media/2610/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2610/pages/page-01.webp"
+  ]
+}

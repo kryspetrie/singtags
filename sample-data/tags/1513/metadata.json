@@ -1,0 +1,31 @@
+{
+  "tag_id": 1513,
+  "title": "A Matter of Fact",
+  "alt_title": null,
+  "arranger": "Joe Johnson",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.3453,
+  "rating_count": 446,
+  "download_count": 5211,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2002,
+  "parts_count": 4,
+  "lyrics": "Won't you please be mine (it's a matter of fact, baby. Gimme some slack, won't you please be mine!)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Matter of Fact (Ab Major) - Joe Johnson - 1513",
+  "sheet": "sheets/1513/sheet.pdf",
+  "audio": {
+    "lead": "media/1513/lead.mp4",
+    "tenor": "media/1513/tenor.mp4",
+    "bari": "media/1513/bari.mp4",
+    "bass": "media/1513/bass.mp4",
+    "mix": "media/1513/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1513/pages/page-01.webp"
+  ]
+}

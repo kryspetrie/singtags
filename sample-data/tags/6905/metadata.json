@@ -1,0 +1,27 @@
+{
+  "tag_id": 6905,
+  "title": "Beautiful Girl, Beautiful Boy",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.25,
+  "rating_count": 124,
+  "download_count": 291,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "Beautiful love, and beautiful joy for a beautiful girl and a beautiful boy",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Beautiful Girl Beautiful Boy (C Major) - Jake Hemmle - 6905",
+  "sheet": "sheets/6905/sheet.pdf",
+  "audio": {
+    "mix": "media/6905/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6905/pages/page-01.webp"
+  ]
+}

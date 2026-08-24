@@ -1,0 +1,31 @@
+{
+  "tag_id": 7026,
+  "title": "All Star",
+  "alt_title": null,
+  "arranger": "Jahzeus Nebrija",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 2.8792,
+  "rating_count": 207,
+  "download_count": 489,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And all that glitters is gold! All these shooting stars break the mold! And all that glitters is gold! All these shooting stars break the mold!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Star (G Major) - Jahzeus Nebrija - 7026",
+  "sheet": "sheets/7026/sheet.pdf",
+  "audio": {
+    "lead": "media/7026/lead.mp4",
+    "tenor": "media/7026/tenor.mp4",
+    "bari": "media/7026/bari.mp4",
+    "bass": "media/7026/bass.mp4",
+    "mix": "media/7026/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7026/pages/page-01.webp"
+  ]
+}

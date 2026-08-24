@@ -1,0 +1,27 @@
+{
+  "tag_id": 6504,
+  "title": "1 to 10",
+  "alt_title": null,
+  "arranger": "Mitchell Bartel",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 2.9707,
+  "rating_count": 273,
+  "download_count": 710,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "One two three four five six seven eight nine ten",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "1 to 10 (A Major) - Mitchell Bartel - 6504",
+  "sheet": "sheets/6504/sheet.webp",
+  "audio": {
+    "mix": "media/6504/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6504/pages/page-01.webp"
+  ]
+}

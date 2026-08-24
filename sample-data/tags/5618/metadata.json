@@ -1,0 +1,31 @@
+{
+  "tag_id": 5618,
+  "title": "All aboard Amtrak",
+  "alt_title": null,
+  "arranger": "Carson Greene",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2091,
+  "rating_count": 220,
+  "download_count": 1391,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "All aboard, all aboard, all aboard amtrak!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All aboard Amtrak (Eb Major) - Carson Greene - 5618",
+  "sheet": "sheets/5618/sheet.pdf",
+  "audio": {
+    "lead": "media/5618/lead.mp4",
+    "tenor": "media/5618/tenor.mp4",
+    "bari": "media/5618/bari.mp4",
+    "bass": "media/5618/bass.mp4",
+    "mix": "media/5618/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5618/pages/page-01.webp"
+  ]
+}

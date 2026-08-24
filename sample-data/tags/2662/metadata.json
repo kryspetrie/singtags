@@ -1,0 +1,27 @@
+{
+  "tag_id": 2662,
+  "title": "Barbershop Meets John Coltrane",
+  "alt_title": null,
+  "arranger": "Wayne Grimmer",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2624,
+  "rating_count": 362,
+  "download_count": 1340,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Barbershop meets John coltrane",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Barbershop Meets John Coltrane (C Major) - Wayne Grimmer - 2662",
+  "sheet": "sheets/2662/sheet.jpg",
+  "audio": {
+    "mix": "media/2662/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2662/pages/page-01.webp"
+  ]
+}

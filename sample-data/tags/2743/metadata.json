@@ -1,0 +1,31 @@
+{
+  "tag_id": 2743,
+  "title": "Back On The Ground",
+  "alt_title": "Tag 84 from 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "D Minor",
+  "writ_key": "Minor:D",
+  "rating": 3.1996,
+  "rating_count": 541,
+  "download_count": 2854,
+  "type": "Barbershop",
+  "collection": "100",
+  "classic": "84",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "Lord, won't you let me land gently back on the ground",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back On The Ground (D Minor) - Paul Carey Olguin - 2743",
+  "sheet": "sheets/2743/sheet.jpg",
+  "audio": {
+    "lead": "media/2743/lead.mp4",
+    "tenor": "media/2743/tenor.mp4",
+    "bari": "media/2743/bari.mp4",
+    "bass": "media/2743/bass.mp4",
+    "mix": "media/2743/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2743/pages/page-01.webp"
+  ]
+}

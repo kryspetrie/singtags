@@ -1,0 +1,27 @@
+{
+  "tag_id": 5835,
+  "title": "A Ghost of a Chance",
+  "alt_title": null,
+  "arranger": "Gabriel Spector and Nic Bratcher",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 2.9838,
+  "rating_count": 309,
+  "download_count": 944,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "For I don't stand a ghost of a chance, a ghost of a chance with you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Ghost of a Chance (Eb Major) - Gabriel Spector and Nic Bratcher - 5835",
+  "sheet": "sheets/5835/sheet.pdf",
+  "audio": {
+    "mix": "media/5835/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5835/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 2448,
+  "title": "A Road Below",
+  "alt_title": null,
+  "arranger": "Terry S. Chapman",
+  "key": "C Minor",
+  "writ_key": "Minor:C",
+  "rating": 3.3031,
+  "rating_count": 640,
+  "download_count": 6795,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2013,
+  "parts_count": 4,
+  "lyrics": "All I need is a heaven above, and a road below",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Road Below (C Minor) - Terry S. Chapman - 2448",
+  "sheet": "sheets/2448/sheet.pdf",
+  "audio": {
+    "lead": "media/2448/lead.mp4",
+    "tenor": "media/2448/tenor.mp4",
+    "bari": "media/2448/bari.mp4",
+    "bass": "media/2448/bass.mp4",
+    "mix": "media/2448/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2448/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 942,
+  "title": "A Nightingale Sang In Berkeley Square",
+  "alt_title": null,
+  "arranger": "Gene Puerling",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2405,
+  "rating_count": 657,
+  "download_count": 8330,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 5,
+  "lyrics": "A nightingale sang in barklay square.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Nightingale Sang In Berkeley Square (F Major) - Gene Puerling - 942",
+  "sheet": "sheets/942/sheet.pdf",
+  "audio": {
+    "mix": "media/942/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/942/pages/page-01.webp"
+  ]
+}

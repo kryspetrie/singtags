@@ -1,0 +1,31 @@
+{
+  "tag_id": 5288,
+  "title": "Always Let Your Conscience Be Your Guide",
+  "alt_title": null,
+  "arranger": "Joe Liles",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.144,
+  "rating_count": 243,
+  "download_count": 1994,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Always let your conscience be your guide",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Always Let Your Conscience Be Your Guide (F Major) - Joe Liles - 5288",
+  "sheet": "sheets/5288/sheet.pdf",
+  "audio": {
+    "lead": "media/5288/lead.mp4",
+    "tenor": "media/5288/tenor.mp4",
+    "bari": "media/5288/bari.mp4",
+    "bass": "media/5288/bass.mp4",
+    "mix": "media/5288/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5288/pages/page-01.webp"
+  ]
+}

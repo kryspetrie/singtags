@@ -1,0 +1,36 @@
+{
+  "tag_id": 4915,
+  "title": "A Soft Place to Land",
+  "alt_title": "A Dream Needs Believing",
+  "arranger": "Sophie Hasson",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.1739,
+  "rating_count": 161,
+  "download_count": 1921,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "A dream needs believing to feel like the real thing may we all be so lucky",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Soft Place to Land (E Major) - Sophie Hasson - 4915",
+  "sheet": "sheets/4915/sheet.pdf",
+  "audio": {
+    "lead": "media/4915/lead.mp4",
+    "tenor": "media/4915/tenor.mp4",
+    "bari": "media/4915/bari.mp4",
+    "bass": "media/4915/bass.mp4",
+    "mix": "media/4915/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4915/pages/page-01.webp",
+    "sheets/4915/pages/page-02.webp",
+    "sheets/4915/pages/page-03.webp",
+    "sheets/4915/pages/page-04.webp",
+    "sheets/4915/pages/page-05.webp",
+    "sheets/4915/pages/page-06.webp"
+  ]
+}

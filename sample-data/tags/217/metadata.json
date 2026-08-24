@@ -1,0 +1,31 @@
+{
+  "tag_id": 217,
+  "title": "A Long Long time",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.3038,
+  "rating_count": 474,
+  "download_count": 2853,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And that's along, long time I will love you, darling along, long time",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Long Long time (Ab Major) - 217",
+  "sheet": "sheets/217/sheet.jpg",
+  "audio": {
+    "lead": "media/217/lead.mp4",
+    "tenor": "media/217/tenor.mp4",
+    "bari": "media/217/bari.mp4",
+    "bass": "media/217/bass.mp4",
+    "mix": "media/217/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/217/pages/page-01.webp"
+  ]
+}

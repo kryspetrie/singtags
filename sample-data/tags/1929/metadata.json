@@ -1,0 +1,31 @@
+{
+  "tag_id": 1929,
+  "title": "All By Myself",
+  "alt_title": null,
+  "arranger": "Dennis Driscoll",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2476,
+  "rating_count": 530,
+  "download_count": 5416,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 1975,
+  "parts_count": 4,
+  "lyrics": "All by myself",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All By Myself (C Major) - Dennis Driscoll - 1929",
+  "sheet": "sheets/1929/sheet.png",
+  "audio": {
+    "lead": "media/1929/lead.mp4",
+    "tenor": "media/1929/tenor.mp4",
+    "bari": "media/1929/bari.mp4",
+    "bass": "media/1929/bass.mp4",
+    "mix": "media/1929/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1929/pages/page-01.webp"
+  ]
+}

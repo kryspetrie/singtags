@@ -1,0 +1,31 @@
+{
+  "tag_id": 2761,
+  "title": "Away",
+  "alt_title": "Bonus Tag 08 from 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.1771,
+  "rating_count": 559,
+  "download_count": 3926,
+  "type": "Barbershop",
+  "collection": "100",
+  "classic": "93",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "I don't know",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Away (Bb Major) - Paul Carey Olguin - 2761",
+  "sheet": "sheets/2761/sheet.jpg",
+  "audio": {
+    "lead": "media/2761/lead.mp4",
+    "tenor": "media/2761/tenor.mp4",
+    "bari": "media/2761/bari.mp4",
+    "bass": "media/2761/bass.mp4",
+    "mix": "media/2761/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2761/pages/page-01.webp"
+  ]
+}

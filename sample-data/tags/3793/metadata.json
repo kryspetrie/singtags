@@ -1,0 +1,31 @@
+{
+  "tag_id": 3793,
+  "title": "Barbershop \"Harmony\"",
+  "alt_title": null,
+  "arranger": "Mike Kaas",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2804,
+  "rating_count": 510,
+  "download_count": 4455,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2017,
+  "parts_count": 4,
+  "lyrics": "When you sing barbershop you'll have harmony in your life!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Barbershop Harmony (Eb Major) - Mike Kaas - 3793",
+  "sheet": "sheets/3793/sheet.pdf",
+  "audio": {
+    "lead": "media/3793/lead.mp4",
+    "tenor": "media/3793/tenor.mp4",
+    "bari": "media/3793/bari.mp4",
+    "bass": "media/3793/bass.mp4",
+    "mix": "media/3793/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3793/pages/page-01.webp"
+  ]
+}

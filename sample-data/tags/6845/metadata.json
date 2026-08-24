@@ -1,0 +1,31 @@
+{
+  "tag_id": 6845,
+  "title": "A Wink and a Smile",
+  "alt_title": "We go together like a wink and a smile",
+  "arranger": "Zach Rolfs",
+  "key": "Db Major",
+  "writ_key": "Major:Db",
+  "rating": 3.0192,
+  "rating_count": 261,
+  "download_count": 2073,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "We go together like a wink and a smile",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Wink and a Smile (Db Major) - Zach Rolfs - 6845",
+  "sheet": "sheets/6845/sheet.pdf",
+  "audio": {
+    "lead": "media/6845/lead.mp4",
+    "tenor": "media/6845/tenor.mp4",
+    "bari": "media/6845/bari.mp4",
+    "bass": "media/6845/bass.mp4",
+    "mix": "media/6845/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6845/pages/page-01.webp"
+  ]
+}

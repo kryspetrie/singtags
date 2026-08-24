@@ -1,0 +1,27 @@
+{
+  "tag_id": 3952,
+  "title": "8675309",
+  "alt_title": null,
+  "arranger": "Ben Luttge",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3172,
+  "rating_count": 454,
+  "download_count": 2008,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2017,
+  "parts_count": 6,
+  "lyrics": "8675309 Ooh",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "8675309 (C Major) - Ben Luttge - 3952",
+  "sheet": "sheets/3952/sheet.pdf",
+  "audio": {
+    "mix": "media/3952/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3952/pages/page-01.webp"
+  ]
+}

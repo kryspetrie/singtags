@@ -1,0 +1,31 @@
+{
+  "tag_id": 5429,
+  "title": "All The Things You Are",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.2068,
+  "rating_count": 237,
+  "download_count": 1254,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Do all the things you are, are mine",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All The Things You Are (Ab Major) - 5429",
+  "sheet": "sheets/5429/sheet.pdf",
+  "audio": {
+    "lead": "media/5429/lead.mp4",
+    "tenor": "media/5429/tenor.mp4",
+    "bari": "media/5429/bari.mp4",
+    "bass": "media/5429/bass.mp4",
+    "mix": "media/5429/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5429/pages/page-01.webp"
+  ]
+}

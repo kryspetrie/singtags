@@ -1,0 +1,31 @@
+{
+  "tag_id": 5518,
+  "title": "All Alone and Feeling Blue",
+  "alt_title": "Me and My Shadow",
+  "arranger": "Dennis Driscoll",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.107,
+  "rating_count": 327,
+  "download_count": 1628,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Night time shadows stealing, shades of love revealing, all alone and feeling blue (feeling blue, feeling blue)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Alone and Feeling Blue (D Major) - Dennis Driscoll - 5518",
+  "sheet": "sheets/5518/sheet.pdf",
+  "audio": {
+    "lead": "media/5518/lead.mp4",
+    "tenor": "media/5518/tenor.mp4",
+    "bari": "media/5518/bari.mp4",
+    "bass": "media/5518/bass.mp4",
+    "mix": "media/5518/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5518/pages/page-01.webp"
+  ]
+}

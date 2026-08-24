@@ -1,0 +1,27 @@
+{
+  "tag_id": 2254,
+  "title": "A Dream Is A Wish Your Heart Makes",
+  "alt_title": null,
+  "arranger": "Andy Reach",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2914,
+  "rating_count": 659,
+  "download_count": 7259,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2013,
+  "parts_count": 4,
+  "lyrics": "No matter how your heart is grieving, if you keep on believing the dream that you wish will come true (a dream is a wish your heart makes)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Dream Is A Wish Your Heart Makes (Bb Major) - Andy Reach - 2254",
+  "sheet": "sheets/2254/sheet.pdf",
+  "audio": {
+    "mix": "media/2254/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2254/pages/page-01.webp"
+  ]
+}

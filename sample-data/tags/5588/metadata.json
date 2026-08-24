@@ -1,0 +1,31 @@
+{
+  "tag_id": 5588,
+  "title": "Am I Wasting My Time On You",
+  "alt_title": null,
+  "arranger": null,
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.0089,
+  "rating_count": 224,
+  "download_count": 1780,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Am I wasting my time on you? Am I wasting my time on you?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Am I Wasting My Time On You (C Major) - 5588",
+  "sheet": "sheets/5588/sheet.pdf",
+  "audio": {
+    "lead": "media/5588/lead.mp4",
+    "tenor": "media/5588/tenor.mp4",
+    "bari": "media/5588/bari.mp4",
+    "bass": "media/5588/bass.mp4",
+    "mix": "media/5588/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5588/pages/page-01.webp"
+  ]
+}

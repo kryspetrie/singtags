@@ -1,0 +1,31 @@
+{
+  "tag_id": 1170,
+  "title": "A Long Long Time",
+  "alt_title": null,
+  "arranger": "Terry S. Chapman",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.3718,
+  "rating_count": 425,
+  "download_count": 5795,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "An that's a long, long time (I will love you darling a long, long time)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Long Long Time (F Major) - Terry S. Chapman - 1170",
+  "sheet": "sheets/1170/sheet.jpg",
+  "audio": {
+    "lead": "media/1170/lead.mp4",
+    "tenor": "media/1170/tenor.mp4",
+    "bari": "media/1170/bari.mp4",
+    "bass": "media/1170/bass.mp4",
+    "mix": "media/1170/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1170/pages/page-01.webp"
+  ]
+}

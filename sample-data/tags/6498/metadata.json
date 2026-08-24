@@ -1,0 +1,27 @@
+{
+  "tag_id": 6498,
+  "title": "All Through the Night",
+  "alt_title": null,
+  "arranger": "Anthony Martini",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 2.954,
+  "rating_count": 87,
+  "download_count": 360,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Staying close to you, all through the night",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Through the Night (F Major) - Anthony Martini - 6498",
+  "sheet": "sheets/6498/sheet.pdf",
+  "audio": {
+    "mix": "media/6498/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6498/pages/page-01.webp"
+  ]
+}

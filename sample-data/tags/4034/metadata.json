@@ -1,0 +1,31 @@
+{
+  "tag_id": 4034,
+  "title": "Answer Me, My Love",
+  "alt_title": "Answer Me, My Doo Doo",
+  "arranger": "Greg Volk",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2679,
+  "rating_count": 418,
+  "download_count": 2431,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Doo doo doo doo my love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Answer Me My Love (C Major) - Greg Volk - 4034",
+  "sheet": "sheets/4034/sheet.jpg",
+  "audio": {
+    "lead": "media/4034/lead.mp4",
+    "tenor": "media/4034/tenor.mp4",
+    "bari": "media/4034/bari.mp4",
+    "bass": "media/4034/bass.mp4",
+    "mix": "media/4034/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4034/pages/page-01.webp"
+  ]
+}

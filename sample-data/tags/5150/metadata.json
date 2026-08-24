@@ -1,0 +1,31 @@
+{
+  "tag_id": 5150,
+  "title": "A Million Stars",
+  "alt_title": null,
+  "arranger": "Ben Maloney",
+  "key": "Gb Major",
+  "writ_key": "Major:Gb",
+  "rating": 3.0853,
+  "rating_count": 258,
+  "download_count": 469,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 5,
+  "lyrics": "There's a million stars in the skies; none shine brighter than your eyes",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Million Stars (Gb Major) - Ben Maloney - 5150",
+  "sheet": "sheets/5150/sheet.png",
+  "audio": {
+    "lead": "media/5150/lead.mp4",
+    "tenor": "media/5150/tenor.mp4",
+    "bari": "media/5150/bari.mp4",
+    "bass": "media/5150/bass.mp4",
+    "mix": "media/5150/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5150/pages/page-01.webp"
+  ]
+}

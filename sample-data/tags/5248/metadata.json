@@ -1,0 +1,31 @@
+{
+  "tag_id": 5248,
+  "title": "As the World Caves In",
+  "alt_title": "Oh Girl It's You",
+  "arranger": "Mason Reed Eubank",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1632,
+  "rating_count": 386,
+  "download_count": 3375,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "Oh girl it's you that I lie with as the atom bomb locks in oh girl it's you (it's you, it's you)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As the World Caves In (C Major) - Mason Reed Eubank - 5248",
+  "sheet": "sheets/5248/sheet.png",
+  "audio": {
+    "lead": "media/5248/lead.mp4",
+    "tenor": "media/5248/tenor.mp4",
+    "bari": "media/5248/bari.mp4",
+    "bass": "media/5248/bass.mp4",
+    "mix": "media/5248/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5248/pages/page-01.webp"
+  ]
+}

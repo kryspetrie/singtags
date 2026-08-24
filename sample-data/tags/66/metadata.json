@@ -1,0 +1,31 @@
+{
+  "tag_id": 66,
+  "title": "Autumn Leaves",
+  "alt_title": null,
+  "arranger": "Renee Craig",
+  "key": "F# Minor",
+  "writ_key": "Minor:F#",
+  "rating": 3.3599,
+  "rating_count": 728,
+  "download_count": 33773,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "54",
+  "year": 1960,
+  "parts_count": 4,
+  "lyrics": "When autumn leaves begin to fall",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Autumn Leaves (F# Minor) - Renee Craig - 66",
+  "sheet": "sheets/66/sheet.gif",
+  "audio": {
+    "lead": "media/66/lead.mp4",
+    "tenor": "media/66/tenor.mp4",
+    "bari": "media/66/bari.mp4",
+    "bass": "media/66/bass.mp4",
+    "mix": "media/66/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/66/pages/page-01.webp"
+  ]
+}

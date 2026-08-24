@@ -1,0 +1,31 @@
+{
+  "tag_id": 1836,
+  "title": "A Lifetime's Not Too Long to Live as Friends",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Db Major",
+  "writ_key": "Major:Db",
+  "rating": 3.0713,
+  "rating_count": 547,
+  "download_count": 5494,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 4,
+  "lyrics": "That a lifetime's not too long to live as friends, as friends",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Lifetimes Not Too Long to Live as Friends (Db Major) - Paul Paddock - 1836",
+  "sheet": "sheets/1836/sheet.png",
+  "audio": {
+    "lead": "media/1836/lead.mp4",
+    "tenor": "media/1836/tenor.mp4",
+    "bari": "media/1836/bari.mp4",
+    "bass": "media/1836/bass.mp4",
+    "mix": "media/1836/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1836/pages/page-01.webp"
+  ]
+}

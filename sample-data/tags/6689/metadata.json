@@ -1,0 +1,27 @@
+{
+  "tag_id": 6689,
+  "title": "After The Coffee's Gone, We Rage",
+  "alt_title": "Day 004 �\" 100 Days: 100 Tags (Fool’s Gold Edition)",
+  "arranger": "Grant Goulding",
+  "key": null,
+  "writ_key": null,
+  "rating": 3.0521,
+  "rating_count": 211,
+  "download_count": 487,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "After the coffee's gone we rage",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After The Coffees Gone We Rage - Grant Goulding - 6689",
+  "sheet": "sheets/6689/sheet.jpg",
+  "audio": {
+    "mix": "media/6689/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6689/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,12 @@
+web/node_modules/
+web/dist/
+.DS_Store
+*.log
+.env
+.env.*
+
+# Tag-page media (audio + sheets). Rebuild with scripts/seed_sample.py
+# and scripts/rasterize_sheets.py. Keep sample-data/tags/*/metadata.json
+# and sample-data/manifest.json — those are needed for indexes / browse.
+sample-data/media/
+sample-data/sheets/

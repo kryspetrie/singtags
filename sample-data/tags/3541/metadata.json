@@ -1,0 +1,31 @@
+{
+  "tag_id": 3541,
+  "title": "A Nightingale Sang In Berkeley Square",
+  "alt_title": null,
+  "arranger": "Gene Puerling",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.1962,
+  "rating_count": 530,
+  "download_count": 4357,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "A nightingale sang in Berkeley Square",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Nightingale Sang In Berkeley Square (Bb Major) - Gene Puerling - 3541",
+  "sheet": "sheets/3541/sheet.pdf",
+  "audio": {
+    "lead": "media/3541/lead.mp4",
+    "tenor": "media/3541/tenor.mp4",
+    "bari": "media/3541/bari.mp4",
+    "bass": "media/3541/bass.mp4",
+    "mix": "media/3541/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3541/pages/page-01.webp"
+  ]
+}

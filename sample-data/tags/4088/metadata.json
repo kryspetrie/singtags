@@ -1,0 +1,31 @@
+{
+  "tag_id": 4088,
+  "title": "And So to Sleep Again",
+  "alt_title": null,
+  "arranger": "Buzz Haegar",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.2531,
+  "rating_count": 399,
+  "download_count": 3018,
+  "type": "Other mixed",
+  "collection": null,
+  "classic": null,
+  "year": 2015,
+  "parts_count": 8,
+  "lyrics": "As if I'll ever love again anyone but you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And So to Sleep Again (F Major) - Buzz Haegar - 4088",
+  "sheet": "sheets/4088/sheet.pdf",
+  "audio": {
+    "lead": "media/4088/lead.mp4",
+    "tenor": "media/4088/tenor.mp4",
+    "bari": "media/4088/bari.mp4",
+    "bass": "media/4088/bass.mp4",
+    "mix": "media/4088/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4088/pages/page-01.webp"
+  ]
+}

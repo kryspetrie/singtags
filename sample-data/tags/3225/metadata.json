@@ -1,0 +1,27 @@
+{
+  "tag_id": 3225,
+  "title": "And Ever Shall Be Alone",
+  "alt_title": null,
+  "arranger": "Jay Dougherty",
+  "key": "C Minor",
+  "writ_key": "Minor:C",
+  "rating": 3.2445,
+  "rating_count": 454,
+  "download_count": 1216,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And ever shall be alone",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And Ever Shall Be Alone (C Minor) - Jay Dougherty - 3225",
+  "sheet": "sheets/3225/sheet.pdf",
+  "audio": {
+    "mix": "media/3225/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3225/pages/page-01.webp"
+  ]
+}

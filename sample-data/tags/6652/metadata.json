@@ -1,0 +1,27 @@
+{
+  "tag_id": 6652,
+  "title": "Autumn Arrives",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.0882,
+  "rating_count": 204,
+  "download_count": 462,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "And then red hazes spark, blue turns-uh dark, green goes-uh gold, and everything-uh new will soon grow old!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Arrives (Bb Major) - Jake Hemmle - 6652",
+  "sheet": "sheets/6652/sheet.pdf",
+  "audio": {
+    "mix": "media/6652/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6652/pages/page-01.webp"
+  ]
+}

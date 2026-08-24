@@ -1,0 +1,31 @@
+{
+  "tag_id": 150,
+  "title": "Angel Divine",
+  "alt_title": "Mother of Mine",
+  "arranger": null,
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.2674,
+  "rating_count": 688,
+  "download_count": 7235,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Divine (mother of mine)",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Angel Divine (D Major) - 150",
+  "sheet": "sheets/150/sheet.pdf",
+  "audio": {
+    "lead": "media/150/lead.mp4",
+    "tenor": "media/150/tenor.mp4",
+    "bari": "media/150/bari.mp4",
+    "bass": "media/150/bass.mp4",
+    "mix": "media/150/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/150/pages/page-01.webp"
+  ]
+}

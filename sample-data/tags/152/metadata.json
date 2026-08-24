@@ -1,0 +1,31 @@
+{
+  "tag_id": 152,
+  "title": "Aura-Lee",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2326,
+  "rating_count": 675,
+  "download_count": 12361,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Aura Lee, my Aura Lee my maid of golden hair",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Aura-Lee (Bb Major) - 152",
+  "sheet": "sheets/152/sheet.pdf",
+  "audio": {
+    "lead": "media/152/lead.mp4",
+    "tenor": "media/152/tenor.mp4",
+    "bari": "media/152/bari.mp4",
+    "bass": "media/152/bass.mp4",
+    "mix": "media/152/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/152/pages/page-01.webp"
+  ]
+}

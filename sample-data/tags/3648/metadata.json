@@ -1,0 +1,31 @@
+{
+  "tag_id": 3648,
+  "title": "Am I Wasting My Time?",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.3052,
+  "rating_count": 498,
+  "download_count": 2830,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Wasting my time on you (all on you)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Am I Wasting My Time (Bb Major) - 3648",
+  "sheet": "sheets/3648/sheet.jpg",
+  "audio": {
+    "lead": "media/3648/lead.mp4",
+    "tenor": "media/3648/tenor.mp4",
+    "bari": "media/3648/bari.mp4",
+    "bass": "media/3648/bass.mp4",
+    "mix": "media/3648/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3648/pages/page-01.webp"
+  ]
+}

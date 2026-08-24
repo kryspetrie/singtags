@@ -1,0 +1,27 @@
+{
+  "tag_id": 6792,
+  "title": "All The World Will Be Jealous Of Me",
+  "alt_title": "Jealous of me",
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.1289,
+  "rating_count": 225,
+  "download_count": 638,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "(Of me) . The world will be jealous of me",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All The World Will Be Jealous Of Me (Ab Major) - 6792",
+  "sheet": "sheets/6792/sheet.pdf",
+  "audio": {
+    "mix": "media/6792/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6792/pages/page-01.webp"
+  ]
+}

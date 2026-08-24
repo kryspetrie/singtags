@@ -1,0 +1,31 @@
+{
+  "tag_id": 1577,
+  "title": "All Alone and Feeling Blue",
+  "alt_title": null,
+  "arranger": "Damien Kehoe",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2734,
+  "rating_count": 428,
+  "download_count": 3005,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "All alone and feeling blue",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Alone and Feeling Blue (Eb Major) - Damien Kehoe - 1577",
+  "sheet": "sheets/1577/sheet.png",
+  "audio": {
+    "lead": "media/1577/lead.mp4",
+    "tenor": "media/1577/tenor.mp4",
+    "bari": "media/1577/bari.mp4",
+    "bass": "media/1577/bass.mp4",
+    "mix": "media/1577/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1577/pages/page-01.webp"
+  ]
+}

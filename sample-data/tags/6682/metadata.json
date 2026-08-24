@@ -1,0 +1,27 @@
+{
+  "tag_id": 6682,
+  "title": "Aloha 'Oe",
+  "alt_title": null,
+  "arranger": "Nic",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 2.9,
+  "rating_count": 170,
+  "download_count": 543,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Until we meet again (again) until we meet again (again)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Aloha Oe (F Major) - Nic - 6682",
+  "sheet": "sheets/6682/sheet.pdf",
+  "audio": {
+    "mix": "media/6682/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6682/pages/page-01.webp"
+  ]
+}

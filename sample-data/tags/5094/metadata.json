@@ -1,0 +1,31 @@
+{
+  "tag_id": 5094,
+  "title": "Autumn Cries",
+  "alt_title": null,
+  "arranger": "Jon Nicholas",
+  "key": "D Minor",
+  "writ_key": "Minor:D",
+  "rating": 3.1886,
+  "rating_count": 228,
+  "download_count": 1557,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "Part of me dies when autumn cries",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Cries (D Minor) - Jon Nicholas - 5094",
+  "sheet": "sheets/5094/sheet.pdf",
+  "audio": {
+    "lead": "media/5094/lead.mp4",
+    "tenor": "media/5094/tenor.mp4",
+    "bari": "media/5094/bari.mp4",
+    "bass": "media/5094/bass.mp4",
+    "mix": "media/5094/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5094/pages/page-01.webp"
+  ]
+}

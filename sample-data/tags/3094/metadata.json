@@ -1,0 +1,31 @@
+{
+  "tag_id": 3094,
+  "title": "Alice Blue Gown",
+  "alt_title": "Lovely Blue Gown",
+  "arranger": "Bob Jones",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.3672,
+  "rating_count": 591,
+  "download_count": 2626,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Her sweet little Alice blue gown (lovely blue lovely blue gown)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Alice Blue Gown (Eb Major) - Bob Jones - 3094",
+  "sheet": "sheets/3094/sheet.png",
+  "audio": {
+    "lead": "media/3094/lead.mp4",
+    "tenor": "media/3094/tenor.mp4",
+    "bari": "media/3094/bari.mp4",
+    "bass": "media/3094/bass.mp4",
+    "mix": "media/3094/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3094/pages/page-01.webp"
+  ]
+}

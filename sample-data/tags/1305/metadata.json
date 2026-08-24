@@ -1,0 +1,31 @@
+{
+  "tag_id": 1305,
+  "title": "A Li'l Bit of Love",
+  "alt_title": "A Little Bit of Love Can Go a Long Way",
+  "arranger": "Paul Paddock",
+  "key": null,
+  "writ_key": null,
+  "rating": 3.3246,
+  "rating_count": 496,
+  "download_count": 3781,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 4,
+  "lyrics": "A little bit of love can go along, long way",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Lil Bit of Love - Paul Paddock - 1305",
+  "sheet": "sheets/1305/sheet.pdf",
+  "audio": {
+    "lead": "media/1305/lead.mp4",
+    "tenor": "media/1305/tenor.mp4",
+    "bari": "media/1305/bari.mp4",
+    "bass": "media/1305/bass.mp4",
+    "mix": "media/1305/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1305/pages/page-01.webp"
+  ]
+}

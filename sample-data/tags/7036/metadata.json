@@ -1,0 +1,27 @@
+{
+  "tag_id": 7036,
+  "title": "Be My Love",
+  "alt_title": null,
+  "arranger": "Walter Latzko",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1194,
+  "rating_count": 134,
+  "download_count": 281,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "There'll be no one but you for me eternally if you will be my love!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be My Love (C Major) - Walter Latzko - 7036",
+  "sheet": "sheets/7036/sheet.pdf",
+  "audio": {
+    "mix": "media/7036/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7036/pages/page-01.webp"
+  ]
+}

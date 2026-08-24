@@ -1,0 +1,31 @@
+{
+  "tag_id": 1504,
+  "title": "Angels We Have Heard On High",
+  "alt_title": null,
+  "arranger": "Joe Johnson",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.3414,
+  "rating_count": 454,
+  "download_count": 4168,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2007,
+  "parts_count": 4,
+  "lyrics": "Satsang with moo ji satsang with moo ji",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Angels We Have Heard On High (Ab Major) - Joe Johnson - 1504",
+  "sheet": "sheets/1504/sheet.pdf",
+  "audio": {
+    "lead": "media/1504/lead.mp4",
+    "tenor": "media/1504/tenor.mp4",
+    "bari": "media/1504/bari.mp4",
+    "bass": "media/1504/bass.mp4",
+    "mix": "media/1504/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1504/pages/page-01.webp"
+  ]
+}

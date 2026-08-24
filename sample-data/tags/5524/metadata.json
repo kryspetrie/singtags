@@ -1,0 +1,31 @@
+{
+  "tag_id": 5524,
+  "title": "A Little Street Where Old Friends Meet",
+  "alt_title": "Just a Little Street",
+  "arranger": null,
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.1176,
+  "rating_count": 323,
+  "download_count": 1655,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "It's just a little street where old friends meet, and greet you in the same old way, old way, and greet you in the same old way (same old way)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Little Street Where Old Friends Meet (Eb Major) - 5524",
+  "sheet": "sheets/5524/sheet.pdf",
+  "audio": {
+    "lead": "media/5524/lead.mp4",
+    "tenor": "media/5524/tenor.mp4",
+    "bari": "media/5524/bari.mp4",
+    "bass": "media/5524/bass.mp4",
+    "mix": "media/5524/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5524/pages/page-01.webp"
+  ]
+}

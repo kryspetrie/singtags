@@ -1,0 +1,31 @@
+{
+  "tag_id": 2717,
+  "title": "Back In Your Arms Where I Belong",
+  "alt_title": "Tag 68 100 Days: 100 Tags",
+  "arranger": "Paul Carey Olguin",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.133,
+  "rating_count": 549,
+  "download_count": 3233,
+  "type": "Barbershop",
+  "collection": "100",
+  "classic": "68",
+  "year": 2014,
+  "parts_count": 4,
+  "lyrics": "Right where I belong",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back In Your Arms Where I Belong (A Major) - Paul Carey Olguin - 2717",
+  "sheet": "sheets/2717/sheet.jpg",
+  "audio": {
+    "lead": "media/2717/lead.mp4",
+    "tenor": "media/2717/tenor.mp4",
+    "bari": "media/2717/bari.mp4",
+    "bass": "media/2717/bass.mp4",
+    "mix": "media/2717/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2717/pages/page-01.webp"
+  ]
+}

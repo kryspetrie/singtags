@@ -1,0 +1,31 @@
+{
+  "tag_id": 1790,
+  "title": "A Red, Red Rose",
+  "alt_title": "Ten Thousand Mile",
+  "arranger": null,
+  "key": null,
+  "writ_key": null,
+  "rating": 3.2619,
+  "rating_count": 714,
+  "download_count": 5836,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Though it were ten thousand mile",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Red Red Rose - 1790",
+  "sheet": "sheets/1790/sheet.pdf",
+  "audio": {
+    "lead": "media/1790/lead.mp4",
+    "tenor": "media/1790/tenor.mp4",
+    "bari": "media/1790/bari.mp4",
+    "bass": "media/1790/bass.mp4",
+    "mix": "media/1790/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1790/pages/page-01.webp"
+  ]
+}

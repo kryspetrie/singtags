@@ -1,0 +1,31 @@
+{
+  "tag_id": 493,
+  "title": "A Smart Quartet",
+  "alt_title": null,
+  "arranger": "Lou and Ruth Perry",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.219,
+  "rating_count": 525,
+  "download_count": 3970,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Let's make our match the composer's joyful mood while we look like a smart",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Smart Quartet (Bb Major) - Lou and Ruth Perry - 493",
+  "sheet": "sheets/493/sheet.jpg",
+  "audio": {
+    "lead": "media/493/lead.mp4",
+    "tenor": "media/493/tenor.mp4",
+    "bari": "media/493/bari.mp4",
+    "bass": "media/493/bass.mp4",
+    "mix": "media/493/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/493/pages/page-01.webp"
+  ]
+}

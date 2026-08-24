@@ -1,0 +1,31 @@
+{
+  "tag_id": 236,
+  "title": "As We Sang in the Evening",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.2348,
+  "rating_count": 264,
+  "download_count": 1109,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Do as we sang in the evening by the moon light",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As We Sang in the Evening (Ab Major) - 236",
+  "sheet": "sheets/236/sheet.jpg",
+  "audio": {
+    "lead": "media/236/lead.mp4",
+    "tenor": "media/236/tenor.mp4",
+    "bari": "media/236/bari.mp4",
+    "bass": "media/236/bass.mp4",
+    "mix": "media/236/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/236/pages/page-01.webp"
+  ]
+}

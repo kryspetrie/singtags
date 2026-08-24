@@ -1,0 +1,31 @@
+{
+  "tag_id": 47,
+  "title": "Annie Doesn't Live Here Anymore",
+  "alt_title": null,
+  "arranger": "Burt Szabo",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.188,
+  "rating_count": 1431,
+  "download_count": 23101,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "36",
+  "year": 1982,
+  "parts_count": 4,
+  "lyrics": "Annie's gone away what more can I say? And she doesn't live here anymore",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Annie Doesnt Live Here Anymore (G Major) - Burt Szabo - 47",
+  "sheet": "sheets/47/sheet.gif",
+  "audio": {
+    "lead": "media/47/lead.mp4",
+    "tenor": "media/47/tenor.mp4",
+    "bari": "media/47/bari.mp4",
+    "bass": "media/47/bass.mp4",
+    "mix": "media/47/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/47/pages/page-01.webp"
+  ]
+}

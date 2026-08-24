@@ -1,0 +1,31 @@
+{
+  "tag_id": 2273,
+  "title": "As If We Never Said Goodbye",
+  "alt_title": null,
+  "arranger": "Logan",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2839,
+  "rating_count": 398,
+  "download_count": 2570,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2013,
+  "parts_count": 4,
+  "lyrics": "Tonight it feels as if we never said goodbye",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As If We Never Said Goodbye (Bb Major) - Logan - 2273",
+  "sheet": "sheets/2273/sheet.pdf",
+  "audio": {
+    "lead": "media/2273/lead.mp4",
+    "tenor": "media/2273/tenor.mp4",
+    "bari": "media/2273/bari.mp4",
+    "bass": "media/2273/bass.mp4",
+    "mix": "media/2273/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2273/pages/page-01.webp"
+  ]
+}

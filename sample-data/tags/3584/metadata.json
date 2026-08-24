@@ -1,0 +1,31 @@
+{
+  "tag_id": 3584,
+  "title": "After You, Who",
+  "alt_title": null,
+  "arranger": "David Zimmerman",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.4082,
+  "rating_count": 534,
+  "download_count": 7972,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I could search years but who else could change my tears into laughter after you my love? My love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "After You Who (Eb Major) - David Zimmerman - 3584",
+  "sheet": "sheets/3584/sheet.pdf",
+  "audio": {
+    "lead": "media/3584/lead.mp4",
+    "tenor": "media/3584/tenor.mp4",
+    "bari": "media/3584/bari.mp4",
+    "bass": "media/3584/bass.mp4",
+    "mix": "media/3584/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3584/pages/page-01.webp"
+  ]
+}

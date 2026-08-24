@@ -1,0 +1,31 @@
+{
+  "tag_id": 5914,
+  "title": "Back To Those Wonderful Days",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.3636,
+  "rating_count": 132,
+  "download_count": 606,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Back to those dear old wonderful days",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back To Those Wonderful Days (Bb Major) - 5914",
+  "sheet": "sheets/5914/sheet.pdf",
+  "audio": {
+    "lead": "media/5914/lead.mp4",
+    "tenor": "media/5914/tenor.mp4",
+    "bari": "media/5914/bari.mp4",
+    "bass": "media/5914/bass.mp4",
+    "mix": "media/5914/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5914/pages/page-01.webp"
+  ]
+}

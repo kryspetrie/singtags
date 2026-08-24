@@ -1,0 +1,31 @@
+{
+  "tag_id": 5413,
+  "title": "Across That Mason Dixon Line",
+  "alt_title": null,
+  "arranger": null,
+  "key": "B Major",
+  "writ_key": "Major:B",
+  "rating": 3.0374,
+  "rating_count": 882,
+  "download_count": 1902,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Across that Mason Dixon line",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Across That Mason Dixon Line (B Major) - 5413",
+  "sheet": "sheets/5413/sheet.pdf",
+  "audio": {
+    "lead": "media/5413/lead.mp4",
+    "tenor": "media/5413/tenor.mp4",
+    "bari": "media/5413/bari.mp4",
+    "bass": "media/5413/bass.mp4",
+    "mix": "media/5413/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5413/pages/page-01.webp"
+  ]
+}

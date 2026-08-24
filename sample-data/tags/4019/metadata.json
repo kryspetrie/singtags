@@ -1,0 +1,27 @@
+{
+  "tag_id": 4019,
+  "title": "Baja Blast",
+  "alt_title": null,
+  "arranger": "Dom Finetti",
+  "key": "Bb Minor",
+  "writ_key": "Minor:Bb",
+  "rating": 3.1597,
+  "rating_count": 476,
+  "download_count": 683,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "! Baja blast! Baja blast",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Baja Blast (Bb Minor) - Dom Finetti - 4019",
+  "sheet": "sheets/4019/sheet.pdf",
+  "audio": {
+    "mix": "media/4019/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4019/pages/page-01.webp"
+  ]
+}

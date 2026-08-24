@@ -1,0 +1,31 @@
+{
+  "tag_id": 4562,
+  "title": "All I Do Is Dream",
+  "alt_title": null,
+  "arranger": "Jay Krumbholz",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.1705,
+  "rating_count": 258,
+  "download_count": 1579,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2019,
+  "parts_count": 4,
+  "lyrics": "All I do is dream",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All I Do Is Dream (Ab Major) - Jay Krumbholz - 4562",
+  "sheet": "sheets/4562/sheet.pdf",
+  "audio": {
+    "lead": "media/4562/lead.mp4",
+    "tenor": "media/4562/tenor.mp4",
+    "bari": "media/4562/bari.mp4",
+    "bass": "media/4562/bass.mp4",
+    "mix": "media/4562/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4562/pages/page-01.webp"
+  ]
+}

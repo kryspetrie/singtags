@@ -1,0 +1,31 @@
+{
+  "tag_id": 6544,
+  "title": "Are You Lonesome Tonight?",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2034,
+  "rating_count": 177,
+  "download_count": 394,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2016,
+  "parts_count": 4,
+  "lyrics": "Is your heart filled with pain? Shall I come back again? Tell me dear, are you lonesome tonight? (are you lonesome tonight?)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are You Lonesome Tonight (C Major) - Paul Paddock - 6544",
+  "sheet": "sheets/6544/sheet.png",
+  "audio": {
+    "lead": "media/6544/lead.mp4",
+    "tenor": "media/6544/tenor.mp4",
+    "bari": "media/6544/bari.mp4",
+    "bass": "media/6544/bass.mp4",
+    "mix": "media/6544/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6544/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 5065,
+  "title": "A Place for You and I",
+  "alt_title": "My Love",
+  "arranger": "S ren Detlefsen",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2676,
+  "rating_count": 340,
+  "download_count": 1936,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "Deep in my heart, there is a place for you and I, my love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Place for You and I (Bb Major) - S ren Detlefsen - 5065",
+  "sheet": "sheets/5065/sheet.pdf",
+  "audio": {
+    "mix": "media/5065/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5065/pages/page-01.webp"
+  ]
+}

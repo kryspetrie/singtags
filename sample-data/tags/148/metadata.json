@@ -1,0 +1,31 @@
+{
+  "tag_id": 148,
+  "title": "All Alone",
+  "alt_title": null,
+  "arranger": null,
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.1651,
+  "rating_count": 545,
+  "download_count": 3990,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Wond'ring where you are and how you are - and if you are all alone. Gee, I hope you're all alone (all alone) and lonely too",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "All Alone (F Major) - 148",
+  "sheet": "sheets/148/sheet.pdf",
+  "audio": {
+    "lead": "media/148/lead.mp4",
+    "tenor": "media/148/tenor.mp4",
+    "bari": "media/148/bari.mp4",
+    "bass": "media/148/bass.mp4",
+    "mix": "media/148/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/148/pages/page-01.webp"
+  ]
+}

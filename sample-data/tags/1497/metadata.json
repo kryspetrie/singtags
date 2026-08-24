@@ -1,0 +1,27 @@
+{
+  "tag_id": 1497,
+  "title": "All the things you are",
+  "alt_title": "When All the Things You Are Are Mine",
+  "arranger": "Walter Latzko",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2099,
+  "rating_count": 729,
+  "download_count": 4637,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When all the things you are, are mine. (when all these things are mine.)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All the things you are (A Major) - Walter Latzko - 1497",
+  "sheet": "sheets/1497/sheet.pdf",
+  "audio": {
+    "mix": "media/1497/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1497/pages/page-01.webp"
+  ]
+}

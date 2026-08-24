@@ -1,0 +1,31 @@
+{
+  "tag_id": 6507,
+  "title": "A Banana in Your Ear",
+  "alt_title": "Charlie the Unicorn Song",
+  "arranger": "Brooklyn Dougherty",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2437,
+  "rating_count": 279,
+  "download_count": 1310,
+  "type": "Female Barbershop (incl. SAI, HI, etc)",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "So go and put a banana in your ear",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Banana in Your Ear (C Major) - Brooklyn Dougherty - 6507",
+  "sheet": "sheets/6507/sheet.png",
+  "audio": {
+    "lead": "media/6507/lead.mp4",
+    "tenor": "media/6507/tenor.mp4",
+    "bari": "media/6507/bari.mp4",
+    "bass": "media/6507/bass.mp4",
+    "mix": "media/6507/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6507/pages/page-01.webp"
+  ]
+}

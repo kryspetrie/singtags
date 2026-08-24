@@ -1,0 +1,31 @@
+{
+  "tag_id": 5483,
+  "title": "And Goodnight",
+  "alt_title": null,
+  "arranger": null,
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "rating": 3.0513,
+  "rating_count": 234,
+  "download_count": 1304,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And goodnight. And goodnight.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "And Goodnight (F Major) - 5483",
+  "sheet": "sheets/5483/sheet.pdf",
+  "audio": {
+    "lead": "media/5483/lead.mp4",
+    "tenor": "media/5483/tenor.mp4",
+    "bari": "media/5483/bari.mp4",
+    "bass": "media/5483/bass.mp4",
+    "mix": "media/5483/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5483/pages/page-01.webp"
+  ]
+}

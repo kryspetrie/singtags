@@ -1,0 +1,31 @@
+{
+  "tag_id": 6505,
+  "title": "Ain't No Misery in Missouri",
+  "alt_title": null,
+  "arranger": "Jay Dougherty",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1032,
+  "rating_count": 155,
+  "download_count": 1554,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "Ain't no misery in Missouri",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Aint No Misery in Missouri (C Major) - Jay Dougherty - 6505",
+  "sheet": "sheets/6505/sheet.png",
+  "audio": {
+    "lead": "media/6505/lead.mp4",
+    "tenor": "media/6505/tenor.mp4",
+    "bari": "media/6505/bari.mp4",
+    "bass": "media/6505/bass.mp4",
+    "mix": "media/6505/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6505/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 7221,
+  "title": "Aeroplane",
+  "alt_title": null,
+  "arranger": "Jake Hemmle",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.0,
+  "rating_count": 107,
+  "download_count": 187,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "I can't be there when you need me but I wish I could",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Aeroplane (A Major) - Jake Hemmle - 7221",
+  "sheet": "sheets/7221/sheet.pdf",
+  "audio": {
+    "mix": "media/7221/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7221/pages/page-01.webp"
+  ]
+}

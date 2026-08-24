@@ -1,0 +1,31 @@
+{
+  "tag_id": 3088,
+  "title": "All By Myself",
+  "alt_title": "I Hate to Grow Older...",
+  "arranger": "Jim Clancy",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1664,
+  "rating_count": 571,
+  "download_count": 2779,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I hate to grow older all by myself",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All By Myself (C Major) - Jim Clancy - 3088",
+  "sheet": "sheets/3088/sheet.png",
+  "audio": {
+    "lead": "media/3088/lead.mp4",
+    "tenor": "media/3088/tenor.mp4",
+    "bari": "media/3088/bari.mp4",
+    "bass": "media/3088/bass.mp4",
+    "mix": "media/3088/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3088/pages/page-01.webp"
+  ]
+}

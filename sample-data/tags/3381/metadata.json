@@ -1,0 +1,31 @@
+{
+  "tag_id": 3381,
+  "title": "Be Thou My Vision",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Db Major",
+  "writ_key": "Major:Db",
+  "rating": 3.2914,
+  "rating_count": 175,
+  "download_count": 1831,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 5,
+  "lyrics": "O Lord o my heart",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be Thou My Vision (Db Major) - Paul Paddock - 3381",
+  "sheet": "sheets/3381/sheet.png",
+  "audio": {
+    "lead": "media/3381/lead.mp4",
+    "tenor": "media/3381/tenor.mp4",
+    "bari": "media/3381/bari.mp4",
+    "bass": "media/3381/bass.mp4",
+    "mix": "media/3381/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3381/pages/page-01.webp"
+  ]
+}

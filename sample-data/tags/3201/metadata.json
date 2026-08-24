@@ -1,0 +1,31 @@
+{
+  "tag_id": 3201,
+  "title": "Alfie",
+  "alt_title": null,
+  "arranger": null,
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.2957,
+  "rating_count": 460,
+  "download_count": 2084,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "What's it all about, alfie?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Alfie (C Major) - 3201",
+  "sheet": "sheets/3201/sheet.pdf",
+  "audio": {
+    "lead": "media/3201/lead.mp4",
+    "tenor": "media/3201/tenor.mp4",
+    "bari": "media/3201/bari.mp4",
+    "bass": "media/3201/bass.mp4",
+    "mix": "media/3201/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3201/pages/page-01.webp"
+  ]
+}

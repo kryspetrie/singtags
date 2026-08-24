@@ -1,0 +1,31 @@
+{
+  "tag_id": 7388,
+  "title": "At Sunrise",
+  "alt_title": null,
+  "arranger": "Honey Beef",
+  "key": "B Major",
+  "writ_key": "Major:B",
+  "rating": 3.0417,
+  "rating_count": 72,
+  "download_count": 341,
+  "type": "SATB",
+  "collection": null,
+  "classic": null,
+  "year": 2026,
+  "parts_count": 4,
+  "lyrics": "And if this day passes by I'll smile at sunrise",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "At Sunrise (B Major) - Honey Beef - 7388",
+  "sheet": "sheets/7388/sheet.png",
+  "audio": {
+    "lead": "media/7388/lead.mp4",
+    "tenor": "media/7388/tenor.mp4",
+    "bari": "media/7388/bari.mp4",
+    "bass": "media/7388/bass.mp4",
+    "mix": "media/7388/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7388/pages/page-01.webp"
+  ]
+}

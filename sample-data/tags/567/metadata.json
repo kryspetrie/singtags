@@ -1,0 +1,31 @@
+{
+  "tag_id": 567,
+  "title": "A Quiet Place",
+  "alt_title": null,
+  "arranger": "Mervyn Warren",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.2402,
+  "rating_count": 687,
+  "download_count": 12137,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 6,
+  "lyrics": "With love for all mankind! For all mankind!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Quiet Place (E Major) - Mervyn Warren - 567",
+  "sheet": "sheets/567/sheet.pdf",
+  "audio": {
+    "lead": "media/567/lead.mp4",
+    "tenor": "media/567/tenor.mp4",
+    "bari": "media/567/bari.mp4",
+    "bass": "media/567/bass.mp4",
+    "mix": "media/567/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/567/pages/page-01.webp"
+  ]
+}

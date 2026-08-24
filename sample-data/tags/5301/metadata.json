@@ -1,0 +1,31 @@
+{
+  "tag_id": 5301,
+  "title": "Athlone",
+  "alt_title": "Back to That Tumbledown Shack in Old Athlone",
+  "arranger": "S. K. Grundy",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.1325,
+  "rating_count": 302,
+  "download_count": 1576,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "In Athlone (back to that tumbledown shack, in old Athlone)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Athlone (D Major) - S. K. Grundy - 5301",
+  "sheet": "sheets/5301/sheet.pdf",
+  "audio": {
+    "lead": "media/5301/lead.mp4",
+    "tenor": "media/5301/tenor.mp4",
+    "bari": "media/5301/bari.mp4",
+    "bass": "media/5301/bass.mp4",
+    "mix": "media/5301/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5301/pages/page-01.webp"
+  ]
+}

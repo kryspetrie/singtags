@@ -1,0 +1,27 @@
+{
+  "tag_id": 6415,
+  "title": "A Beautiful Friendship",
+  "alt_title": null,
+  "arranger": null,
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.3134,
+  "rating_count": 284,
+  "download_count": 568,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "This is the end of a beautiful friendship, and just the beginning of love",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Beautiful Friendship (G Major) - 6415",
+  "sheet": "sheets/6415/sheet.pdf",
+  "audio": {
+    "mix": "media/6415/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6415/pages/page-01.webp"
+  ]
+}

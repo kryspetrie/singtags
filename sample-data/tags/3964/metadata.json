@@ -1,0 +1,31 @@
+{
+  "tag_id": 3964,
+  "title": "Almost Like Being In Love",
+  "alt_title": null,
+  "arranger": "David Harrington",
+  "key": "Db Major",
+  "writ_key": "Major:Db",
+  "rating": 3.3321,
+  "rating_count": 551,
+  "download_count": 4365,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 1986,
+  "parts_count": 4,
+  "lyrics": "It's almost like being, in love!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Almost Like Being In Love (Db Major) - David Harrington - 3964",
+  "sheet": "sheets/3964/sheet.jpg",
+  "audio": {
+    "lead": "media/3964/lead.mp4",
+    "tenor": "media/3964/tenor.mp4",
+    "bari": "media/3964/bari.mp4",
+    "bass": "media/3964/bass.mp4",
+    "mix": "media/3964/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3964/pages/page-01.webp"
+  ]
+}

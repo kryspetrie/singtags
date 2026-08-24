@@ -1,0 +1,27 @@
+{
+  "tag_id": 5966,
+  "title": "A Merry Little Christmas",
+  "alt_title": null,
+  "arranger": "Samuel Mauritzon",
+  "key": "F# Major",
+  "writ_key": "Major:F#",
+  "rating": 3.0071,
+  "rating_count": 281,
+  "download_count": 1043,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Although it's been said many times many ways merry Christmas to you",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Merry Little Christmas (F# Major) - Samuel Mauritzon - 5966",
+  "sheet": "sheets/5966/sheet.pdf",
+  "audio": {
+    "mix": "media/5966/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5966/pages/page-01.webp"
+  ]
+}

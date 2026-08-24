@@ -1,0 +1,27 @@
+{
+  "tag_id": 5927,
+  "title": "Ah, The Apple Tree",
+  "alt_title": "When The World Was Young",
+  "arranger": "Bob Bohn",
+  "key": "D Major",
+  "writ_key": "Major:D",
+  "rating": 3.1199,
+  "rating_count": 317,
+  "download_count": 1184,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Only last July (July), when the world was young, when the world (when all) the world was young.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Ah The Apple Tree (D Major) - Bob Bohn - 5927",
+  "sheet": "sheets/5927/sheet.pdf",
+  "audio": {
+    "mix": "media/5927/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5927/pages/page-01.webp"
+  ]
+}

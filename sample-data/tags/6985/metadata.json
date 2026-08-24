@@ -1,0 +1,27 @@
+{
+  "tag_id": 6985,
+  "title": "1 Peter 4:8",
+  "alt_title": "Above all, love",
+  "arranger": "Jake Hemmle",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.1593,
+  "rating_count": 182,
+  "download_count": 748,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2025,
+  "parts_count": 4,
+  "lyrics": "Above all, love each other deeply",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "1 Peter 4 8 (G Major) - Jake Hemmle - 6985",
+  "sheet": "sheets/6985/sheet.pdf",
+  "audio": {
+    "mix": "media/6985/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6985/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "tag_id": 4654,
+  "title": "Are You Really As Wonderful As You Seem?",
+  "alt_title": "Do I Love You Because You're Beautiful?",
+  "arranger": null,
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.1523,
+  "rating_count": 440,
+  "download_count": 966,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Are you the sweet invention of a lover's dream, or are you really as wonderful as you seem?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are You Really As Wonderful As You Seem (G Major) - 4654",
+  "sheet": "sheets/4654/sheet.jpg",
+  "audio": {
+    "mix": "media/4654/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4654/pages/page-01.webp"
+  ]
+}

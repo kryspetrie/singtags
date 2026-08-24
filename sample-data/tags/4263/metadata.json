@@ -1,0 +1,31 @@
+{
+  "tag_id": 4263,
+  "title": "A Calm Night",
+  "alt_title": null,
+  "arranger": "Remi Waser",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.1989,
+  "rating_count": 523,
+  "download_count": 4843,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "Such a calm great night, tonight",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Calm Night (Eb Major) - Remi Waser - 4263",
+  "sheet": "sheets/4263/sheet.pdf",
+  "audio": {
+    "lead": "media/4263/lead.mp4",
+    "tenor": "media/4263/tenor.mp4",
+    "bari": "media/4263/bari.mp4",
+    "bass": "media/4263/bass.mp4",
+    "mix": "media/4263/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4263/pages/page-01.webp"
+  ]
+}

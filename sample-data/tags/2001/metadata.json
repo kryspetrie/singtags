@@ -1,0 +1,31 @@
+{
+  "tag_id": 2001,
+  "title": "Are You Lonesome Tonight?",
+  "alt_title": null,
+  "arranger": "Anthony Bartholomew",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.184,
+  "rating_count": 489,
+  "download_count": 2589,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2012,
+  "parts_count": 4,
+  "lyrics": "Is your heart filled with pain, shall I come back again? Tell me, dear, are you lonesome tonight?",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Are You Lonesome Tonight (C Major) - Anthony Bartholomew - 2001",
+  "sheet": "sheets/2001/sheet.pdf",
+  "audio": {
+    "lead": "media/2001/lead.mp4",
+    "tenor": "media/2001/tenor.mp4",
+    "bari": "media/2001/bari.mp4",
+    "bass": "media/2001/bass.mp4",
+    "mix": "media/2001/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2001/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 3995,
+  "title": "Baby On Board",
+  "alt_title": null,
+  "arranger": "Mason Eubank",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3545,
+  "rating_count": 550,
+  "download_count": 3233,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2017,
+  "parts_count": 4,
+  "lyrics": "With my baby on board (baby on board)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Baby On Board (C Major) - Mason Eubank - 3995",
+  "sheet": "sheets/3995/sheet.png",
+  "audio": {
+    "lead": "media/3995/lead.mp4",
+    "tenor": "media/3995/tenor.mp4",
+    "bari": "media/3995/bari.mp4",
+    "bass": "media/3995/bass.mp4",
+    "mix": "media/3995/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3995/pages/page-01.webp"
+  ]
+}

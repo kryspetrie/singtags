@@ -1,0 +1,27 @@
+{
+  "tag_id": 5772,
+  "title": "Be Thou My Vision",
+  "alt_title": "High King of Heaven",
+  "arranger": "Tim Workman",
+  "key": "B Major",
+  "writ_key": "Major:B",
+  "rating": 3.098,
+  "rating_count": 357,
+  "download_count": 782,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2018,
+  "parts_count": 4,
+  "lyrics": "High King of heaven, my treasure thou art",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Be Thou My Vision (B Major) - Tim Workman - 5772",
+  "sheet": "sheets/5772/sheet.jpg",
+  "audio": {
+    "mix": "media/5772/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5772/pages/page-01.webp"
+  ]
+}

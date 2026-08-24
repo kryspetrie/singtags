@@ -1,0 +1,31 @@
+{
+  "tag_id": 3322,
+  "title": "Baby Please Don't Go",
+  "alt_title": null,
+  "arranger": "TallKite",
+  "key": "E Minor",
+  "writ_key": "Minor:E",
+  "rating": 3.1087,
+  "rating_count": 607,
+  "download_count": 3129,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2015,
+  "parts_count": 4,
+  "lyrics": "Now baby please don't go (no no no) now baby please don't go (no no no) now baby please don't go back to New Orleans you know I love you so, now baby please don't go",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Baby Please Dont Go (E Minor) - TallKite - 3322",
+  "sheet": "sheets/3322/sheet.png",
+  "audio": {
+    "lead": "media/3322/lead.mp4",
+    "tenor": "media/3322/tenor.mp4",
+    "bari": "media/3322/bari.mp4",
+    "bass": "media/3322/bass.mp4",
+    "mix": "media/3322/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3322/pages/page-01.webp"
+  ]
+}

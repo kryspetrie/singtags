@@ -1,0 +1,31 @@
+{
+  "tag_id": 1871,
+  "title": "At Last",
+  "alt_title": null,
+  "arranger": "Clay Hine",
+  "key": "G Major",
+  "writ_key": "Major:G",
+  "rating": 3.1258,
+  "rating_count": 477,
+  "download_count": 7895,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2007,
+  "parts_count": 4,
+  "lyrics": "You're mine, at last you're mine, for you are mine at last",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "At Last (G Major) - Clay Hine - 1871",
+  "sheet": "sheets/1871/sheet.pdf",
+  "audio": {
+    "lead": "media/1871/lead.mp4",
+    "tenor": "media/1871/tenor.mp4",
+    "bari": "media/1871/bari.mp4",
+    "bass": "media/1871/bass.mp4",
+    "mix": "media/1871/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1871/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 4683,
+  "title": "Barbershop Purgatory",
+  "alt_title": null,
+  "arranger": "The Westminster Chorus",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.0142,
+  "rating_count": 353,
+  "download_count": 3199,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "Behind! (when I leave the world behind) the world will always welcome Love me and the world behind! (when I leave the world behind) the world will always welcome Love me and the world behind! (when I leave the world behind)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Barbershop Purgatory (Eb Major) - The Westminster Chorus - 4683",
+  "sheet": "sheets/4683/sheet.pdf",
+  "audio": {
+    "lead": "media/4683/lead.mp4",
+    "tenor": "media/4683/tenor.mp4",
+    "bari": "media/4683/bari.mp4",
+    "bass": "media/4683/bass.mp4",
+    "mix": "media/4683/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/4683/pages/page-01.webp"
+  ]
+}

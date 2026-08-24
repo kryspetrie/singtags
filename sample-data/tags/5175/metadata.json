@@ -1,0 +1,31 @@
+{
+  "tag_id": 5175,
+  "title": "(Underneath The) Lovely London Sky",
+  "alt_title": null,
+  "arranger": "Pippa Goodall",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.1169,
+  "rating_count": 1078,
+  "download_count": 2926,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2021,
+  "parts_count": 4,
+  "lyrics": "Count your blessings, you're a lucky guy, for you're underneath the lovely London sky",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "(Underneath The) Lovely London Sky (C Major) - Pippa Goodall - 5175",
+  "sheet": "sheets/5175/sheet.pdf",
+  "audio": {
+    "lead": "media/5175/lead.mp4",
+    "tenor": "media/5175/tenor.mp4",
+    "bari": "media/5175/bari.mp4",
+    "bass": "media/5175/bass.mp4",
+    "mix": "media/5175/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5175/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 5401,
+  "title": "Autumn Leaves",
+  "alt_title": null,
+  "arranger": null,
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 2.8632,
+  "rating_count": 95,
+  "download_count": 1203,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When Autumn leaves start to fall",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Leaves (C Major) - 5401",
+  "sheet": "sheets/5401/sheet.pdf",
+  "audio": {
+    "lead": "media/5401/lead.mp4",
+    "tenor": "media/5401/tenor.mp4",
+    "bari": "media/5401/bari.mp4",
+    "bass": "media/5401/bass.mp4",
+    "mix": "media/5401/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/5401/pages/page-01.webp"
+  ]
+}

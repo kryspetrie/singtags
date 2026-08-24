@@ -1,0 +1,31 @@
+{
+  "tag_id": 1936,
+  "title": "As Like the Breeze that Blows",
+  "alt_title": null,
+  "arranger": "Stan Spencer",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3178,
+  "rating_count": 450,
+  "download_count": 3198,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "My love's gone",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "As Like the Breeze that Blows (C Major) - Stan Spencer - 1936",
+  "sheet": "sheets/1936/sheet.png",
+  "audio": {
+    "lead": "media/1936/lead.mp4",
+    "tenor": "media/1936/tenor.mp4",
+    "bari": "media/1936/bari.mp4",
+    "bass": "media/1936/bass.mp4",
+    "mix": "media/1936/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1936/pages/page-01.webp"
+  ]
+}

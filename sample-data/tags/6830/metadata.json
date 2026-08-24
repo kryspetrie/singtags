@@ -1,0 +1,27 @@
+{
+  "tag_id": 6830,
+  "title": "Autumn Leaves",
+  "alt_title": null,
+  "arranger": "Terry Diedrich",
+  "key": "Bb Minor",
+  "writ_key": "Minor:Bb",
+  "rating": 3.1644,
+  "rating_count": 219,
+  "download_count": 643,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When autumn leaves start to fall",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Leaves (Bb Minor) - Terry Diedrich - 6830",
+  "sheet": "sheets/6830/sheet.pdf",
+  "audio": {
+    "mix": "media/6830/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6830/pages/page-01.webp"
+  ]
+}

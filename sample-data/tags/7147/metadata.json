@@ -1,0 +1,31 @@
+{
+  "tag_id": 7147,
+  "title": "A Red, Red Rose",
+  "alt_title": "Oh, My Luve is Like a Red Rose",
+  "arranger": "Paul Paddock",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 2.9404,
+  "rating_count": 151,
+  "download_count": 1783,
+  "type": "Other mixed",
+  "collection": null,
+  "classic": null,
+  "year": 2010,
+  "parts_count": 5,
+  "lyrics": "O my love is like a red red rose that's newly sprung (that's newly sprung) in June",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Red Red Rose (C Major) - Paul Paddock - 7147",
+  "sheet": "sheets/7147/sheet.png",
+  "audio": {
+    "lead": "media/7147/lead.mp4",
+    "tenor": "media/7147/tenor.mp4",
+    "bari": "media/7147/bari.mp4",
+    "bass": "media/7147/bass.mp4",
+    "mix": "media/7147/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7147/pages/page-01.webp"
+  ]
+}

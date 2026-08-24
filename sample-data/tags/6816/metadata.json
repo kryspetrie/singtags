@@ -1,0 +1,27 @@
+{
+  "tag_id": 6816,
+  "title": "Anything Goes",
+  "alt_title": "Anything Goes While I'm Around",
+  "arranger": "Robin McCann",
+  "key": "A Major",
+  "writ_key": "Major:A",
+  "rating": 3.2593,
+  "rating_count": 54,
+  "download_count": 253,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2024,
+  "parts_count": 4,
+  "lyrics": "Anything goes, while I'm around.",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Anything Goes (A Major) - Robin McCann - 6816",
+  "sheet": "sheets/6816/sheet.pdf",
+  "audio": {
+    "mix": "media/6816/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/6816/pages/page-01.webp"
+  ]
+}

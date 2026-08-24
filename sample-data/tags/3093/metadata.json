@@ -1,0 +1,31 @@
+{
+  "tag_id": 3093,
+  "title": "A Foggy Day",
+  "alt_title": "A Foggy Day in London Town",
+  "arranger": null,
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.4436,
+  "rating_count": 532,
+  "download_count": 4089,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "And through foggy London town the sun was shining everywhere",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Foggy Day (Eb Major) - 3093",
+  "sheet": "sheets/3093/sheet.png",
+  "audio": {
+    "lead": "media/3093/lead.mp4",
+    "tenor": "media/3093/tenor.mp4",
+    "bari": "media/3093/bari.mp4",
+    "bass": "media/3093/bass.mp4",
+    "mix": "media/3093/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3093/pages/page-01.webp"
+  ]
+}

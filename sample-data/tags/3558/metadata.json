@@ -1,0 +1,31 @@
+{
+  "tag_id": 3558,
+  "title": "Alice Blue Gown",
+  "alt_title": null,
+  "arranger": "Paul Paddock",
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.4298,
+  "rating_count": 470,
+  "download_count": 2061,
+  "type": "Other male",
+  "collection": null,
+  "classic": null,
+  "year": 2016,
+  "parts_count": 4,
+  "lyrics": "Her sweet little alice blue (gown) lovely blue gown",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Alice Blue Gown (Eb Major) - Paul Paddock - 3558",
+  "sheet": "sheets/3558/sheet.png",
+  "audio": {
+    "lead": "media/3558/lead.mp4",
+    "tenor": "media/3558/tenor.mp4",
+    "bari": "media/3558/bari.mp4",
+    "bass": "media/3558/bass.mp4",
+    "mix": "media/3558/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3558/pages/page-01.webp"
+  ]
+}

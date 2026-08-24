@@ -1,0 +1,31 @@
+{
+  "tag_id": 446,
+  "title": "A Good Old-Fashioned Girl",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.3693,
+  "rating_count": 482,
+  "download_count": 3582,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I want a good old fashioned girl a girl to call my own",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Good Old-Fashioned Girl (Bb Major) - 446",
+  "sheet": "sheets/446/sheet.jpg",
+  "audio": {
+    "lead": "media/446/lead.mp4",
+    "tenor": "media/446/tenor.mp4",
+    "bari": "media/446/bari.mp4",
+    "bass": "media/446/bass.mp4",
+    "mix": "media/446/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/446/pages/page-01.webp"
+  ]
+}

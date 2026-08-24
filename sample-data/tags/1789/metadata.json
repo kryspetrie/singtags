@@ -1,0 +1,27 @@
+{
+  "tag_id": 1789,
+  "title": "A Foggy Day",
+  "alt_title": "In London Town",
+  "arranger": "Dom Finetti",
+  "key": "E Major",
+  "writ_key": "Major:E",
+  "rating": 3.3494,
+  "rating_count": 664,
+  "download_count": 3385,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": 2011,
+  "parts_count": 4,
+  "lyrics": "And in a foggy London town, the sun was shining everywhere!",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "A Foggy Day (E Major) - Dom Finetti - 1789",
+  "sheet": "sheets/1789/sheet.pdf",
+  "audio": {
+    "mix": "media/1789/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/1789/pages/page-01.webp"
+  ]
+}

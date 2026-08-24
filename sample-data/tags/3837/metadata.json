@@ -1,0 +1,31 @@
+{
+  "tag_id": 3837,
+  "title": "All Dressed Up with a Broken Heart",
+  "alt_title": null,
+  "arranger": null,
+  "key": null,
+  "writ_key": null,
+  "rating": 3.2831,
+  "rating_count": 445,
+  "download_count": 1942,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "I realize that it's true (it's true) / I'm all dressed up with a broken heart / and I'm still in love with you (I love you)",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "All Dressed Up with a Broken Heart - 3837",
+  "sheet": "sheets/3837/sheet.pdf",
+  "audio": {
+    "lead": "media/3837/lead.mp4",
+    "tenor": "media/3837/tenor.mp4",
+    "bari": "media/3837/bari.mp4",
+    "bass": "media/3837/bass.mp4",
+    "mix": "media/3837/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/3837/pages/page-01.webp"
+  ]
+}

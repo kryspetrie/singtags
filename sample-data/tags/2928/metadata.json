@@ -1,0 +1,27 @@
+{
+  "tag_id": 2928,
+  "title": "Among My Souvenirs",
+  "alt_title": null,
+  "arranger": null,
+  "key": "Eb Major",
+  "writ_key": "Major:Eb",
+  "rating": 3.2796,
+  "rating_count": 490,
+  "download_count": 2193,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "A broken heart among my souvenirs",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Among My Souvenirs (Eb Major) - 2928",
+  "sheet": "sheets/2928/sheet.pdf",
+  "audio": {
+    "mix": "media/2928/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/2928/pages/page-01.webp"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "tag_id": 37,
+  "title": "Back in My Home Town",
+  "alt_title": null,
+  "arranger": "Val Hicks",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "rating": 3.2433,
+  "rating_count": 826,
+  "download_count": 30025,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "25",
+  "year": 1962,
+  "parts_count": 4,
+  "lyrics": "Back in my home town",
+  "lyrics_source": "manual",
+  "lyrics_finalized": null,
+  "source_folder": "Back in My Home Town (Bb Major) - Val Hicks - 37",
+  "sheet": "sheets/37/sheet.gif",
+  "audio": {
+    "lead": "media/37/lead.mp4",
+    "tenor": "media/37/tenor.mp4",
+    "bari": "media/37/bari.mp4",
+    "bass": "media/37/bass.mp4",
+    "mix": "media/37/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/37/pages/page-01.webp"
+  ]
+}

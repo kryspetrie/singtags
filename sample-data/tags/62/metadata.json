@@ -1,0 +1,31 @@
+{
+  "tag_id": 62,
+  "title": "Back in the Old Routine",
+  "alt_title": null,
+  "arranger": "Greg Backwell",
+  "key": "C Major",
+  "writ_key": "Major:C",
+  "rating": 3.3152,
+  "rating_count": 679,
+  "download_count": 10212,
+  "type": "Barbershop",
+  "collection": "classic",
+  "classic": "50",
+  "year": 1961,
+  "parts_count": 4,
+  "lyrics": "I'd love to be there just you and me there back in those good old vaudeville those good old days",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Back in the Old Routine (C Major) - Greg Backwell - 62",
+  "sheet": "sheets/62/sheet.gif",
+  "audio": {
+    "lead": "media/62/lead.mp4",
+    "tenor": "media/62/tenor.mp4",
+    "bari": "media/62/bari.mp4",
+    "bass": "media/62/bass.mp4",
+    "mix": "media/62/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/62/pages/page-01.webp"
+  ]
+}

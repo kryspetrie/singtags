@@ -1,0 +1,27 @@
+{
+  "tag_id": 7056,
+  "title": "Autumn Serenade",
+  "alt_title": null,
+  "arranger": "Gabriel Spector",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "rating": 3.0962,
+  "rating_count": 104,
+  "download_count": 252,
+  "type": "Barbershop",
+  "collection": null,
+  "classic": null,
+  "year": null,
+  "parts_count": 4,
+  "lyrics": "When I hear that lovely autumn serenade",
+  "lyrics_source": "final",
+  "lyrics_finalized": true,
+  "source_folder": "Autumn Serenade (Ab Major) - Gabriel Spector - 7056",
+  "sheet": "sheets/7056/sheet.pdf",
+  "audio": {
+    "mix": "media/7056/mix.mp4"
+  },
+  "sheet_pages": [
+    "sheets/7056/pages/page-01.webp"
+  ]
+}
