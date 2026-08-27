@@ -113,12 +113,15 @@ function urlFor(p: string): string | null {
   return mediaUrl(path)
 }
 
-/** Resolve lazy part URL on first play. */
+/** Resolve lazy part URL on first play / tab switch. */
 async function ensurePartUrl(p: string): Promise<string | null> {
-  const direct = urlFor(p)
-  if (direct) return direct
-  if (!props.resolvePart) return null
-  return props.resolvePart(p)
+  // Prefer resolvePart so offline mono_solos can rebuild learning-track stereo
+  // even when props.parts already holds a stale blob/path.
+  if (props.resolvePart) {
+    const resolved = await props.resolvePart(p)
+    if (resolved) return resolved
+  }
+  return urlFor(p)
 }
 
 const CUSTOM_PART = 'custom'
@@ -406,7 +409,20 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
           : customMode.value && selectedCombineParts.value.length === 1
             ? resolveSoloInFile(selectedCombineParts.value[0]!)
             : solo.value
-      await player.load(url, loadSolo, { signal })
+      // Offline ultra solos / dual-mono blobs must not fan to both speakers.
+      const activePart = customMode.value
+        ? selectedCombineParts.value[0]
+        : part.value
+      const monoPanSide =
+        !combineMode.value &&
+        activePart &&
+        activePart.toLowerCase() !== 'mix'
+          ? // Offline mono_solos blobs are rebuilt part-left; online uses metadata.
+            props.audioLayoutSummary?.ultra_low === 'mono_solos'
+              ? 'left'
+              : soloSideForPart(activePart, props.audioLayouts, props.audioLayoutSummary)
+          : null
+      await player.load(url, loadSolo, { signal, monoPanSide })
       if (signal.aborted || seq !== loadSeq) return
       await player.setTransform(pitch.value, speed.value)
       await player.setBalance(combineMode.value ? 0 : balance.value)
@@ -493,6 +509,9 @@ watch(part, (p) => {
 
 function selectPart(p: string): void {
   if (part.value === p) return
+  // Channel Solo Left/Right fans one ear to both speakers — reset so learning-track
+  // hard L/R imaging is audible when switching Mix ↔ Lead/Tenor/…
+  if (solo.value !== 'stereo') solo.value = 'stereo'
   preserveNextPartLoad = true
   part.value = p
 }

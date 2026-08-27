@@ -6,8 +6,10 @@ import {
   buildPartLearningStereoObjectUrl,
   equalPowerPanGains,
   mixPanForPart,
+  monoSoloToHardPanObjectUrl,
   ULTRA_MIX_PAN,
 } from './partLeftReconstruct'
+import { FakeAudioBuffer } from './audioBufferFactory'
 import { resetSharedAudioContextForTests } from './channelSolo'
 
 function sineMono(length: number, freq: number, sampleRate: number): Float32Array {
@@ -17,16 +19,28 @@ function sineMono(length: number, freq: number, sampleRate: number): Float32Arra
   }
   return out
 }
+
 function mockMonoBuffer(mono: Float32Array, sampleRate = 44100): AudioBuffer {
-  return {
-    numberOfChannels: 1,
-    length: mono.length,
-    sampleRate,
-    duration: mono.length / sampleRate,
-    getChannelData: () => mono,
-    copyToChannel: vi.fn(),
-    copyFromChannel: vi.fn(),
-  } as unknown as AudioBuffer
+  const buf = new FakeAudioBuffer(1, mono.length, sampleRate)
+  buf.getChannelData(0).set(mono)
+  return buf as unknown as AudioBuffer
+}
+
+function stubAudioContext(decode: () => Promise<AudioBuffer>) {
+  const ctx = {
+    state: 'running',
+    resume: vi.fn(),
+    decodeAudioData: vi.fn(async () => decode()),
+    createBuffer: (channels: number, len: number, sr: number) =>
+      new FakeAudioBuffer(channels, len, sr) as unknown as AudioBuffer,
+  }
+  vi.stubGlobal(
+    'AudioContext',
+    vi.fn(function AudioContext() {
+      return ctx
+    }),
+  )
+  return ctx
 }
 
 describe('partLeftReconstruct', () => {
@@ -64,38 +78,18 @@ describe('partLeftReconstruct', () => {
     const accMono = sineMono(length, 880, sampleRate)
 
     let decodeCall = 0
-    const captured: { left?: Float32Array; right?: Float32Array } = {}
-    const ctx = {
-      state: 'running',
-      resume: vi.fn(),
-      decodeAudioData: vi.fn(async () => {
-        decodeCall++
-        if (decodeCall === 1) return mockMonoBuffer(soloMono, sampleRate)
-        return mockMonoBuffer(accMono, sampleRate)
-      }),
-      createBuffer: vi.fn((channels: number, len: number, sr: number) => {
-        const left = new Float32Array(len)
-        const right = new Float32Array(len)
-        return {
-          numberOfChannels: channels,
-          length: len,
-          sampleRate: sr,
-          copyToChannel: (data: Float32Array, ch: number) => {
-            if (ch === 0) captured.left = data
-            if (ch === 1) captured.right = data
-          },
-          getChannelData: (ch: number) => (ch === 0 ? left : right),
-        }
-      }),
-    }
-    vi.stubGlobal(
-      'AudioContext',
-      vi.fn(function AudioContext() {
-        return ctx
-      }),
-    )
+    stubAudioContext(async () => {
+      decodeCall++
+      if (decodeCall === 1) return mockMonoBuffer(soloMono, sampleRate)
+      return mockMonoBuffer(accMono, sampleRate)
+    })
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new ArrayBuffer(8), { status: 200 })))
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:learning-stereo')
+
+    let wavBlob: Blob | null = null
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      if (blob instanceof Blob) wavBlob = blob
+      return 'blob:learning-stereo'
+    })
 
     const result = await buildPartLearningStereoObjectUrl({
       activePart: 'lead',
@@ -105,16 +99,53 @@ describe('partLeftReconstruct', () => {
     })
 
     expect(result.url).toBe('blob:learning-stereo')
-    expect(captured.left).toBeDefined()
-    expect(captured.right).toBeDefined()
-
+    expect(wavBlob).toBeTruthy()
+    // Parse WAV: after 44-byte header, interleaved int16 L/R
+    const bytes = new Uint8Array(await wavBlob!.arrayBuffer())
+    expect(bytes[22]).toBe(2) // num channels
+    const view = new DataView(bytes.buffer)
     let lSoloCorr = 0
-    let channelDiff = 0
-    for (let i = 0; i < length; i++) {
-      lSoloCorr += captured.left![i]! * soloMono[i]!
-      channelDiff += Math.abs(captured.left![i]! - captured.right![i]!)
+    for (let i = 0, frame = 0; i + 3 < bytes.length - 44; i += 4, frame++) {
+      const off = 44 + i
+      const l = view.getInt16(off, true) / 0x8000
+      if (frame < length) lSoloCorr += l * soloMono[frame]!
     }
     expect(lSoloCorr).toBeGreaterThan(length * 0.45)
-    expect(channelDiff).toBeGreaterThan(length * 0.1)
+    // Not dual-mono: channels must differ (solo vs accompaniment tones)
+    let sumAbsDiff = 0
+    for (let off = 44; off + 3 < bytes.length; off += 4) {
+      const l = view.getInt16(off, true)
+      const r = view.getInt16(off + 2, true)
+      sumAbsDiff += Math.abs(l - r)
+    }
+    expect(sumAbsDiff).toBeGreaterThan(length * 100)
+  })
+
+  it('monoSoloToHardPanObjectUrl puts solo on only one channel (never dual-mono)', async () => {
+    const sampleRate = 44100
+    const length = 256
+    const soloMono = sineMono(length, 440, sampleRate)
+    stubAudioContext(async () => mockMonoBuffer(soloMono, sampleRate))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new ArrayBuffer(8), { status: 200 })))
+
+    let wavBlob: Blob | null = null
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((blob: Blob | MediaSource) => {
+      if (blob instanceof Blob) wavBlob = blob
+      return 'blob:hard-pan'
+    })
+
+    await monoSoloToHardPanObjectUrl('blob:solo', 'right')
+    expect(wavBlob).toBeTruthy()
+    const bytes = new Uint8Array(await wavBlob!.arrayBuffer())
+    expect(bytes[22]).toBe(2)
+    let leftEnergy = 0
+    let rightEnergy = 0
+    const view = new DataView(bytes.buffer)
+    for (let off = 44; off + 3 < bytes.length; off += 4) {
+      leftEnergy += Math.abs(view.getInt16(off, true))
+      rightEnergy += Math.abs(view.getInt16(off + 2, true))
+    }
+    expect(leftEnergy).toBe(0)
+    expect(rightEnergy).toBeGreaterThan(0)
   })
 })

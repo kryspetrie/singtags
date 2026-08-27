@@ -4,10 +4,13 @@
  * Invariants (docs/PITCH_SPEED_PLAN.md):
  * - Audible AudioBufferSourceNode.playbackRate is always 1.
  * - Identity (pitch=0, speed=1) never enters the bake pipeline.
- * - Solo/balance live in a persistent gain graph (mono duplicated to L/R).
+ * - Solo/balance live in a persistent gain graph.
+ *   Mono / dual-mono sources hard-pan to `monoPanSide` when set (learning tracks);
+ *   otherwise they fan to L+R. True stereo uses ChannelSplitter.
  * - Never uses MediaElementAudioSourceNode.
  */
 import type { SoloMode } from './channelSolo'
+import type { PartSide } from '../lib/audioLayout'
 import {
   BALANCE_MAX_BOOST,
   CHANNEL_NORM_MAX,
@@ -36,6 +39,8 @@ export {
 
 export class TagAudioPlayer {
   private solo: SoloMode = 'stereo'
+  /** When set, mono / dual-mono buffers play on this side only (not fanned to both). */
+  private monoPanSide: PartSide | null = null
   private balance = 0
   private requested: CanonicalTransform = { pitchSemitones: 0, speed: 1 }
   private audible: CanonicalTransform = { pitchSemitones: 0, speed: 1 }
@@ -168,6 +173,9 @@ export class TagAudioPlayer {
   }
 
   private shouldAutoNormalizeChannels(): boolean {
+    // Learning-track hard L/R (or mono hard-pan) is intentional — don't boost the
+    // quieter side up to the solo side; that flattens the stereo image.
+    if (this.monoPanSide) return false
     if (this.channelCount < 2) return false
     if (this.peakL < 1e-4 || this.peakR < 1e-4) return false
     const ratio = Math.max(this.peakL, this.peakR) / Math.min(this.peakL, this.peakR)
@@ -315,8 +323,16 @@ export class TagAudioPlayer {
       /* ignore */
     }
 
-    if (mono) {
-      // Duplicate mono to both L/R gain branches.
+    // Only true mono files use the mono fan. Dual-mono stereo (identical L/R) must
+    // still go through the splitter — collapsing via GainNode downmixes L+R and was
+    // re-creating "same signal in both speakers" when monoPanSide was unset.
+    // Learning-track rebuild (finalizeBlobUrl) is responsible for hard L/R separation.
+    if (mono && this.monoPanSide) {
+      src.connect(this.monoFan!)
+      if (this.monoPanSide === 'left') this.monoFan!.connect(this.gainL!)
+      else this.monoFan!.connect(this.gainR!)
+    } else if (mono) {
+      // True mono with no preferred side (e.g. mix-only): fan to both.
       src.connect(this.monoFan!)
       this.monoFan!.connect(this.gainL!)
       this.monoFan!.connect(this.gainR!)
@@ -456,7 +472,7 @@ export class TagAudioPlayer {
   async load(
     url: string,
     solo: SoloMode = 'stereo',
-    opts?: { signal?: AbortSignal },
+    opts?: { signal?: AbortSignal; monoPanSide?: PartSide | null },
   ): Promise<void> {
     const gen = ++this.loadGen
     this.bakeAbort?.abort()
@@ -465,6 +481,7 @@ export class TagAudioPlayer {
     this._bakeError = null
     this.stopSource()
     this.solo = solo
+    this.monoPanSide = opts?.monoPanSide ?? null
     this.playheadOriginal = 0
     this.original = null
     this.playable = null
@@ -508,6 +525,7 @@ export class TagAudioPlayer {
     this.normL = 1
     this.normR = 1
     this._effectivelyMono = false
+    this.monoPanSide = null
     this.channelCount = 2
     this.regionActive = false
     bakeCache.setPinned(null)

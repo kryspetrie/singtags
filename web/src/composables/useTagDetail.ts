@@ -3,7 +3,9 @@ import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import {
   cachedPathCandidates,
   inferLowerQualityFromStarred,
+  isUltraSoloPath,
   listAudioParts,
+  usesMonoSolos,
 } from '../lib/audioTiers'
 import { preferredDefaultPart, sortPartIds } from '../lib/parts'
 import { mediaUrl, tagDetailUrl } from '../lib/mediaUrl'
@@ -12,7 +14,7 @@ import { sheetDisplayPages } from '../lib/sheetPaths'
 import { prepareDefaultSheet, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
 import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/starredDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
-import { packHasPath, probeAvailableAudioParts, resolveAudioPart, resolvePathUrl, clearLearningStereoCache } from '../offline/resolveMedia'
+import { packHasPath, probeAvailableAudioParts, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
 import { sheetsPack } from '../offline/libraryPack'
 import { useStarsStore } from '../stores/stars'
 import { useOfflineModeStore } from '../stores/offlineMode'
@@ -155,13 +157,29 @@ export function useTagDetail(id: Ref<string> | string) {
     return sources
   }
 
-  /** Seed audio from starred blobs only — no network/pack/mix work at tag load. */
-  function seedStarredAudio(cached: StarredTagRecord | undefined): Set<'star' | 'pack' | 'network'> {
+  /**
+   * Seed audio from starred blobs only — no network/pack/mix work at tag load.
+   * Offline mono_solos voice stems are skipped so resolveAudioPart can rebuild
+   * learning-track stereo (solo hard on one side, accompaniment on the other).
+   */
+  function seedStarredAudio(
+    cached: StarredTagRecord | undefined,
+    d: TagDetail | undefined,
+    offlineOnly: boolean,
+  ): Set<'star' | 'pack' | 'network'> {
     const sources = new Set<'star' | 'pack' | 'network'>()
     const parts: Record<string, string> = {}
+    const skipUltraVoiceSeed = offlineOnly && !!d && usesMonoSolos(d)
 
     if (cached?.audioBlobs) {
       for (const [part, entry] of Object.entries(cached.audioBlobs)) {
+        if (
+          skipUltraVoiceSeed &&
+          part.toLowerCase() !== 'mix' &&
+          (isUltraSoloPath(entry.path) || entry.quality === 'lofi')
+        ) {
+          continue
+        }
         const url = blobUrlFromCached(entry)
         if (url) {
           parts[part] = track(url)
@@ -181,8 +199,16 @@ export function useTagDetail(id: Ref<string> | string) {
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
   ): Promise<'star' | 'pack' | 'network' | 'reconstruct' | null> {
-    if (audioParts.value[preferred]) {
-      return isBlobPlaybackUrl(audioParts.value[preferred]!) ? 'star' : 'network'
+    const existing = audioParts.value[preferred]
+    const needsOfflineVoiceReconstruct =
+      offlineOnly &&
+      usesMonoSolos(d) &&
+      preferred.toLowerCase() !== 'mix'
+    if (existing && !(needsOfflineVoiceReconstruct && isBlobPlaybackUrl(existing) && !hasCachedLearningStereo(d.tag_id, preferred, existing))) {
+      if (isBlobPlaybackUrl(existing)) {
+        return hasCachedLearningStereo(d.tag_id, preferred, existing) ? 'reconstruct' : 'star'
+      }
+      return 'network'
     }
     try {
       const resolved = await resolveAudioPart(d, preferred, {
@@ -215,15 +241,19 @@ export function useTagDetail(id: Ref<string> | string) {
     offlineOnly: boolean,
   ): Promise<void> {
     starredRecord = cached
-    // Probe first, but don't publish availableParts until the default track URL is warmed.
-    // Otherwise TagPlayer mounts on Mix with an empty waveform while reconstruct runs.
     const probed = await probeAvailableAudioParts(d, {
       starred: cached ?? null,
       offlineOnly,
     })
 
     const sheetSources = await resolveSheets(d, cached, offlineOnly)
-    const audioSources = seedStarredAudio(cached)
+    const audioSources = seedStarredAudio(cached, d, offlineOnly)
+
+    // Publish tabs immediately so a slow/hung Mix reconstruct cannot leave "No audio".
+    availableAudioParts.value = sortPartIds([
+      ...new Set([...probed, ...Object.keys(audioParts.value)]),
+    ])
+    hasPackAudio.value = await probePackAudio(d)
 
     const preferred = preferredDefaultPart(probed)
     if (preferred) {
@@ -231,12 +261,10 @@ export function useTagDetail(id: Ref<string> | string) {
       if (src) audioSources.add(src === 'reconstruct' ? 'pack' : src)
     }
 
-    // Seeded star blobs must appear in the tab list even if probe missed a key casing edge case.
     availableAudioParts.value = sortPartIds([
       ...new Set([...probed, ...Object.keys(audioParts.value)]),
     ])
 
-    hasPackAudio.value = await probePackAudio(d)
     const sources = new Set([...sheetSources, ...audioSources])
     if (hasPackAudio.value) sources.add('pack')
 
@@ -255,9 +283,19 @@ export function useTagDetail(id: Ref<string> | string) {
 
     const offlineOnly = useOfflineModeStore().offline
     const existing = audioParts.value[part]
+    const needsOfflineVoiceReconstruct =
+      offlineOnly && usesMonoSolos(d) && part.toLowerCase() !== 'mix'
+
     if (existing) {
-      if (isBlobPlaybackUrl(existing)) return existing
-      if (!offlineOnly) {
+      if (isBlobPlaybackUrl(existing)) {
+        // Offline voice parts must be learning-stereo (solo vs accompaniment), not raw dual-mono.
+        if (
+          !needsOfflineVoiceReconstruct ||
+          hasCachedLearningStereo(d.tag_id, part, existing)
+        ) {
+          return existing
+        }
+      } else if (!offlineOnly) {
         if (
           existing.startsWith('http://') ||
           existing.startsWith('https://') ||

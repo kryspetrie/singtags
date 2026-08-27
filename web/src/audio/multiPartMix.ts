@@ -5,7 +5,7 @@
  * single-voice loudness (L/R stay roughly balanced when N differs).
  */
 
-import { audioBufferToWavBlob, getSharedAudioContext } from './channelSolo'
+import { audioBufferToWavBlob, getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 import type { PartSide } from '../stores/preferences'
 
 export interface MixPartInput {
@@ -68,7 +68,7 @@ export async function buildSoloMixObjectUrl(parts: MixPartInput[]): Promise<Solo
   if (parts.length < 2) throw new Error('Need at least two parts to combine')
 
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
 
   const decoded: AudioBuffer[] = []
   for (const p of parts) {

@@ -13,6 +13,11 @@ vi.mock('../audio/partLeftReconstruct', () => ({
     sampleRate: 44100,
     length: 128,
   })),
+  monoSoloToHardPanObjectUrl: vi.fn(async () => ({
+    url: 'blob:hard-pan',
+    sampleRate: 44100,
+    length: 128,
+  })),
   monoSoloToStereoObjectUrl: vi.fn(async (url: string) => ({
     url,
     sampleRate: 44100,
@@ -41,6 +46,7 @@ vi.mock('./libraryPack', () => {
       delete: async () => true,
       clear: async () => sheets.clear(),
       count: async () => sheets.size,
+      listUrls: async () => [...sheets.keys()],
     },
     audioPack: {
       kind: 'audio',
@@ -55,6 +61,7 @@ vi.mock('./libraryPack', () => {
       delete: async () => true,
       clear: async () => audio.clear(),
       count: async () => audio.size,
+      listUrls: async () => [...audio.keys()],
     },
   }
 })
@@ -189,10 +196,11 @@ describe('resolveAudioPart', () => {
     )
     const r = await resolveAudioPart(sampleDetail, 'lead', { offlineOnly: true })
     expect(r?.kind).toBe('blob')
-    expect(r?.source).toBe('pack')
+    // Solo-only pack → hard-pan stereo (labeled reconstruct when cached)
+    expect(r?.source).toBe('reconstruct')
     if (r?.kind === 'blob') {
+      expect(r.url).toBe('blob:hard-pan')
       expect(r.tier).toBe('ultra')
-      URL.revokeObjectURL(r.url)
     }
   })
 
@@ -236,12 +244,15 @@ describe('resolveAudioPart', () => {
     if (r?.kind === 'blob') expect(r.url).toBe('blob:reconstructed-mix')
   })
 
-  it('offline falls back to dual-mono when accompaniment stems are incomplete', async () => {
+  it('offline falls back to hard-pan solo when no accompaniment stems are cached', async () => {
     const { audioPack } = await import('./libraryPack')
-    const { buildPartLearningStereoObjectUrl, monoSoloToStereoObjectUrl } = await import(
+    const { buildPartLearningStereoObjectUrl, monoSoloToHardPanObjectUrl } = await import(
       '../audio/partLeftReconstruct'
     )
-    const { resolveAudioPart } = await import('./resolveMedia')
+    const { resolveAudioPart, clearLearningStereoCache } = await import('./resolveMedia')
+    clearLearningStereoCache()
+    vi.mocked(buildPartLearningStereoObjectUrl).mockClear()
+    vi.mocked(monoSoloToHardPanObjectUrl).mockClear()
     const detail: TagDetail = {
       ...sampleDetail,
       audio: {
@@ -250,7 +261,56 @@ describe('resolveAudioPart', () => {
         bass: 'media/31/bass.m4a',
         bari: 'media/31/bari.m4a',
       },
-      audio_layout_summary: { parts: 'part_left', ultra_low: 'mono_solos' },
+      audio_layout_summary: { parts: 'part_right', ultra_low: 'mono_solos', solo_side: 'right' },
+      audio_tiers: {
+        ...sampleDetail.audio_tiers!,
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        bass: {
+          original: 'media/31/bass.m4a',
+          playback: 'media/31/bass.playback.opus',
+          ultra_solo: 'media/31/bass.solo.opus',
+        },
+        bari: {
+          original: 'media/31/bari.m4a',
+          playback: 'media/31/bari.playback.opus',
+          ultra_solo: 'media/31/bari.solo.opus',
+        },
+      },
+    }
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    // No other stems — hard-pan solo (never dual-mono)
+    const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
+    expect(r?.kind).toBe('blob')
+    expect(buildPartLearningStereoObjectUrl).not.toHaveBeenCalled()
+    expect(monoSoloToHardPanObjectUrl).toHaveBeenCalledWith(expect.any(String), 'left')
+    if (r?.kind === 'blob') expect(r.url).toBe('blob:hard-pan')
+  })
+
+  it('offline reconstructs learning stereo with partial accompaniment stems', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { buildPartLearningStereoObjectUrl, monoSoloToHardPanObjectUrl } = await import(
+      '../audio/partLeftReconstruct'
+    )
+    const { resolveAudioPart, clearLearningStereoCache } = await import('./resolveMedia')
+    clearLearningStereoCache()
+    vi.mocked(buildPartLearningStereoObjectUrl).mockClear()
+    vi.mocked(monoSoloToHardPanObjectUrl).mockClear()
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        ...sampleDetail.audio,
+        tenor: 'media/31/tenor.m4a',
+        bass: 'media/31/bass.m4a',
+        bari: 'media/31/bari.m4a',
+      },
+      audio_layout_summary: { parts: 'part_right', ultra_low: 'mono_solos', solo_side: 'right' },
       audio_tiers: {
         ...sampleDetail.audio_tiers!,
         tenor: {
@@ -278,12 +338,12 @@ describe('resolveAudioPart', () => {
       mediaUrl('media/31/tenor.solo.opus'),
       new Response(new Uint8Array([5, 6, 7, 8]), { headers: { 'Content-Type': 'audio/ogg' } }),
     )
-    // bass and bari missing — strict policy should not reconstruct learning stereo
     const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
     expect(r?.kind).toBe('blob')
-    expect(buildPartLearningStereoObjectUrl).not.toHaveBeenCalled()
-    expect(monoSoloToStereoObjectUrl).toHaveBeenCalled()
-    if (r?.kind === 'blob') URL.revokeObjectURL(r.url)
+    expect(r?.source).toBe('reconstruct')
+    expect(buildPartLearningStereoObjectUrl).toHaveBeenCalled()
+    expect(monoSoloToHardPanObjectUrl).not.toHaveBeenCalled()
+    if (r?.kind === 'blob') expect(r.url).toBe('blob:reconstructed-learning')
   })
 
   it('offline reconstructs learning stereo for part when accompaniment stems cached', async () => {
@@ -326,10 +386,10 @@ describe('resolveAudioPart', () => {
       new Response(new Uint8Array([9, 10, 11, 12]), { headers: { 'Content-Type': 'audio/ogg' } }),
     )
     const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
-    const { monoSoloToStereoObjectUrl } = await import('../audio/partLeftReconstruct')
+    const { monoSoloToHardPanObjectUrl } = await import('../audio/partLeftReconstruct')
     expect(r?.kind).toBe('blob')
     expect(buildPartLearningStereoObjectUrl).toHaveBeenCalled()
-    expect(monoSoloToStereoObjectUrl).not.toHaveBeenCalled()
+    expect(monoSoloToHardPanObjectUrl).not.toHaveBeenCalled()
     if (r?.kind === 'blob') {
       expect(r.url).toBe('blob:reconstructed-learning')
       URL.revokeObjectURL(r.url)
@@ -341,6 +401,113 @@ describe('resolveAudioPart', () => {
     expect(buildPartLearningStereoObjectUrl).not.toHaveBeenCalled()
     expect(r2?.kind).toBe('blob')
     if (r2?.kind === 'blob') expect(r2.url).toBe('blob:reconstructed-learning')
+  })
+
+  it('offline reconstructs learning stereo from starred lofi solos (no pack)', async () => {
+    const { buildPartLearningStereoObjectUrl, monoSoloToHardPanObjectUrl } = await import(
+      '../audio/partLeftReconstruct'
+    )
+    const { resolveAudioPart, clearLearningStereoCache } = await import('./resolveMedia')
+    clearLearningStereoCache()
+    vi.mocked(buildPartLearningStereoObjectUrl).mockClear()
+    vi.mocked(monoSoloToHardPanObjectUrl).mockClear()
+
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        lead: 'media/31/lead.m4a',
+        tenor: 'media/31/tenor.m4a',
+        bari: 'media/31/bari.m4a',
+        bass: 'media/31/bass.m4a',
+      },
+      audio_layout_summary: {
+        parts: 'part_right',
+        ultra_low: 'mono_solos',
+        solo_side: 'right',
+      },
+      audio_tiers: {
+        lead: {
+          original: 'media/31/lead.m4a',
+          playback: 'media/31/lead.playback.opus',
+          ultra_solo: 'media/31/lead.solo.opus',
+        },
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        bari: {
+          original: 'media/31/bari.m4a',
+          playback: 'media/31/bari.playback.opus',
+          ultra_solo: 'media/31/bari.solo.opus',
+        },
+        bass: {
+          original: 'media/31/bass.m4a',
+          playback: 'media/31/bass.playback.opus',
+          ultra_solo: 'media/31/bass.solo.opus',
+        },
+      },
+    }
+    const starred = {
+      tagId: 31,
+      starredAt: '2026-01-01T00:00:00.000Z',
+      summary: {
+        id: 31,
+        title: 'T',
+        arranger: null,
+        key: null,
+        rating: null,
+        type: null,
+        collection: null,
+        hasSheet: false,
+        audioParts: ['lead', 'tenor', 'bari', 'bass'],
+        sheet: null,
+      },
+      detail,
+      audioBlobs: {
+        lead: {
+          path: 'media/31/lead.solo.opus',
+          mime: 'audio/ogg',
+          data: new ArrayBuffer(4),
+          quality: 'lofi' as const,
+        },
+        tenor: {
+          path: 'media/31/tenor.solo.opus',
+          mime: 'audio/ogg',
+          data: new ArrayBuffer(4),
+          quality: 'lofi' as const,
+        },
+        bari: {
+          path: 'media/31/bari.solo.opus',
+          mime: 'audio/ogg',
+          data: new ArrayBuffer(4),
+          quality: 'lofi' as const,
+        },
+        bass: {
+          path: 'media/31/bass.solo.opus',
+          mime: 'audio/ogg',
+          data: new ArrayBuffer(4),
+          quality: 'lofi' as const,
+        },
+      },
+      offlineMedia: true,
+    }
+
+    const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true, starred })
+    expect(r?.kind).toBe('blob')
+    expect(buildPartLearningStereoObjectUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activePart: 'lead',
+        soloSide: 'left',
+        otherParts: expect.arrayContaining([
+          expect.objectContaining({ part: 'tenor' }),
+          expect.objectContaining({ part: 'bari' }),
+          expect.objectContaining({ part: 'bass' }),
+        ]),
+      }),
+    )
+    expect(monoSoloToHardPanObjectUrl).not.toHaveBeenCalled()
+    if (r?.kind === 'blob') expect(r.url).toBe('blob:reconstructed-learning')
   })
 
   it('probeAvailableAudioParts hides offline mix without cached stems', async () => {

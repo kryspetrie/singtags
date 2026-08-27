@@ -9,6 +9,28 @@ export function getSharedAudioContext(): AudioContext {
   return sharedCtx
 }
 
+/**
+ * Resume without blocking forever — browsers often leave AudioContext suspended
+ * until a user gesture, and `await resume()` can hang during tag-page warm-up.
+ * decodeAudioData still works while suspended in modern Chromium/Firefox.
+ */
+export async function resumeAudioContextBestEffort(
+  ctx: AudioContext = getSharedAudioContext(),
+  timeoutMs = 50,
+): Promise<void> {
+  if (ctx.state !== 'suspended') return
+  try {
+    await Promise.race([
+      ctx.resume().then(() => undefined),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, timeoutMs)
+      }),
+    ])
+  } catch {
+    /* ignore — decode may still succeed while suspended */
+  }
+}
+
 /** @internal test helper */
 export function resetSharedAudioContextForTests(): void {
   sharedCtx = null
@@ -56,7 +78,7 @@ export async function soloChannelToObjectUrl(
   channel: 'left' | 'right',
 ): Promise<string> {
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
   const res = await fetch(audioUrl)
   if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
   const buf = await res.arrayBuffer()

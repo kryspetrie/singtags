@@ -2,7 +2,7 @@
  * Procedural + optional decoded peaks for waveform display (music-website style).
  */
 
-import { getSharedAudioContext } from './channelSolo'
+import { getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 
 /** Seeded pseudo-random in [0,1). */
 function hash01(n: number): number {
@@ -73,13 +73,7 @@ export async function loadWaveformPeaks(
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     // Reuse one shared context — creating/closing a context per load exhausts the browser limit.
     const ctx = getSharedAudioContext()
-    if (ctx.state === 'suspended') {
-      try {
-        await ctx.resume()
-      } catch {
-        /* ignore — decode usually still works while suspended */
-      }
-    }
+    await resumeAudioContextBestEffort(ctx)
     const res = await withTimeout(fetch(url, { signal }), 15_000, 'Waveform fetch')
     if (!res.ok) throw new Error(String(res.status))
     const buf = await res.arrayBuffer()

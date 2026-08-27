@@ -143,7 +143,10 @@ const hasAudio = computed(
   () => availableAudioParts.value.length > 0 || Object.keys(audioParts.value).length > 0,
 )
 const hasOfflinePlayback = computed(
-  () => Object.keys(audioParts.value).length > 0 || hasPackAudio.value,
+  () =>
+    Object.keys(audioParts.value).length > 0 ||
+    hasPackAudio.value ||
+    (offline.value && availableAudioParts.value.length > 0),
 )
 const showCacheHighQuality = computed(
   () => !offline.value && starred.value && hasLowerQualityAudio.value,

@@ -112,30 +112,66 @@ export function createPackStore(kind: PackKind): OfflinePackStore {
   return {
     kind,
     async has(url: string): Promise<boolean> {
+      const keys = [url]
+      try {
+        const base =
+          typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
+        keys.push(new URL(url, base).href)
+      } catch {
+        /* ignore */
+      }
       const cache = await openCache(cacheName)
-      if (cache && (await cache.match(url))) return true
-      if (memoryMap(cacheName).has(url)) return true
+      for (const key of [...new Set(keys)]) {
+        if (cache && (await cache.match(key))) return true
+        if (memoryMap(cacheName).has(key)) return true
+      }
       const dir = await ensureOpfs()
       if (!dir) return false
-      return !!(await opfsGet(dir, url))
+      for (const key of [...new Set(keys)]) {
+        if (await opfsGet(dir, key)) return true
+      }
+      return false
     },
     async get(url: string): Promise<Response | null> {
-      const cache = await openCache(cacheName)
-      if (cache) {
-        const hit = await cache.match(url)
-        if (hit) return hit
+      const keys = [url]
+      try {
+        const base =
+          typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
+        keys.push(new URL(url, base).href)
+      } catch {
+        /* ignore */
       }
-      const mem = memoryMap(cacheName).get(url)
-      if (mem) {
-        return new Response(mem, {
-          headers: { 'Content-Type': 'application/octet-stream' },
-        })
+      const cache = await openCache(cacheName)
+      for (const key of [...new Set(keys)]) {
+        if (cache) {
+          const hit = await cache.match(key)
+          if (hit) return hit
+        }
+        const mem = memoryMap(cacheName).get(key)
+        if (mem) {
+          return new Response(mem, {
+            headers: { 'Content-Type': 'application/octet-stream' },
+          })
+        }
       }
       const dir = await ensureOpfs()
       if (!dir) return null
-      return opfsGet(dir, url)
+      for (const key of [...new Set(keys)]) {
+        const hit = await opfsGet(dir, key)
+        if (hit) return hit
+      }
+      return null
     },
     async put(url: string, response: Response): Promise<void> {
+      // Normalize to absolute URL so match/has survive relative vs absolute lookups.
+      let storeUrl = url
+      try {
+        const base =
+          typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
+        storeUrl = new URL(url, base).href
+      } catch {
+        /* keep original */
+      }
       const buf = await response.clone().arrayBuffer()
       const wrapped = new Response(buf.slice(0), {
         status: 200,
@@ -146,17 +182,17 @@ export function createPackStore(kind: PackKind): OfflinePackStore {
       const cache = await openCache(cacheName)
       if (cache) {
         try {
-          await cache.put(url, wrapped.clone())
+          await cache.put(storeUrl, wrapped.clone())
           return
         } catch {
           const dir = await ensureOpfs()
           if (dir) {
-            await opfsPut(dir, url, wrapped)
+            await opfsPut(dir, storeUrl, wrapped)
             return
           }
         }
       }
-      memoryMap(cacheName).set(url, buf)
+      memoryMap(cacheName).set(storeUrl, buf)
     },
     async delete(url: string): Promise<boolean> {
       let a = false

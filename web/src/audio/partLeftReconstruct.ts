@@ -2,11 +2,12 @@
  * Reconstruct stereo learning tracks from ultra-low mono solos
  * (docs/decisions/audio-storage-cache.md).
  *
+ * Offline voice parts use part-left layout: solo hard L, accompaniment hard R.
  * Mix pans (constant-power positions −1…+1):
  *   Tenor −0.5 · Lead −0.25 · Bass +0.25 · Bari +0.5
  */
 
-import { audioBufferToWavBlob, getSharedAudioContext } from './channelSolo'
+import { audioBufferToWavBlob, getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 import { sideVoiceGain } from './multiPartMix'
 import type { PartSide } from '../lib/audioLayout'
 
@@ -44,7 +45,7 @@ export function mixPanForPart(part: string): number {
 
 async function decodeUrl(url: string): Promise<AudioBuffer> {
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
   const buf = await res.arrayBuffer()
@@ -65,7 +66,7 @@ export async function buildUltraMixObjectUrl(
   if (!parts.length) throw new Error('Need at least one part to mix')
 
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
 
   const decoded: Array<{ part: string; mono: Float32Array; sampleRate: number; pan: number }> = []
   for (const p of parts) {
@@ -103,27 +104,49 @@ export async function buildUltraMixObjectUrl(
   }
 
   const out = ctx.createBuffer(2, length, sampleRate)
-  out.copyToChannel(left, 0)
-  out.copyToChannel(right, 1)
+  out.getChannelData(0).set(left)
+  out.getChannelData(1).set(right)
   const url = URL.createObjectURL(audioBufferToWavBlob(out))
   return { url, sampleRate, length }
 }
 
 /**
- * Present a mono ultra solo as dual-mono stereo (part play without accompaniment).
+ * @deprecated Dual-mono (same signal L+R). Prefer {@link monoSoloToHardPanObjectUrl}.
  * Caller must revoke the returned object URL.
  */
 export async function monoSoloToStereoObjectUrl(
   url: string,
 ): Promise<{ url: string; sampleRate: number; length: number }> {
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
   const buf = await decodeUrl(url)
   const mono = monoChannel(buf)
   const out = ctx.createBuffer(2, mono.length, buf.sampleRate)
-  const channel = new Float32Array(mono)
-  out.copyToChannel(channel, 0)
-  out.copyToChannel(channel, 1)
+  out.getChannelData(0).set(mono)
+  out.getChannelData(1).set(mono)
+  const objectUrl = URL.createObjectURL(audioBufferToWavBlob(out))
+  return { url: objectUrl, sampleRate: buf.sampleRate, length: mono.length }
+}
+
+/**
+ * Hard-pan a mono solo onto one channel; the other channel is silence.
+ * Used when accompaniment stems aren't available yet — never dual-mono for learning tracks.
+ */
+export async function monoSoloToHardPanObjectUrl(
+  url: string,
+  soloSide: PartSide,
+): Promise<{ url: string; sampleRate: number; length: number }> {
+  const ctx = getSharedAudioContext()
+  await resumeAudioContextBestEffort(ctx)
+  const buf = await decodeUrl(url)
+  const mono = monoChannel(buf)
+  const out = ctx.createBuffer(2, mono.length, buf.sampleRate)
+  const left = out.getChannelData(0)
+  const right = out.getChannelData(1)
+  left.fill(0)
+  right.fill(0)
+  if (soloSide === 'left') left.set(mono)
+  else right.set(mono)
   const objectUrl = URL.createObjectURL(audioBufferToWavBlob(out))
   return { url: objectUrl, sampleRate: buf.sampleRate, length: mono.length }
 }
@@ -156,7 +179,7 @@ export async function buildPartLearningStereoObjectUrl(opts: {
   if (!otherParts.length) throw new Error('Need accompaniment stems to reconstruct learning stereo')
 
   const ctx = getSharedAudioContext()
-  if (ctx.state === 'suspended') await ctx.resume()
+  await resumeAudioContextBestEffort(ctx)
 
   const activeBuf = await decodeUrl(activeUrl)
   const activeMono = monoChannel(activeBuf)
@@ -192,8 +215,8 @@ export async function buildPartLearningStereoObjectUrl(opts: {
   }
 
   const out = ctx.createBuffer(2, length, sampleRate)
-  out.copyToChannel(left, 0)
-  out.copyToChannel(right, 1)
+  out.getChannelData(0).set(left)
+  out.getChannelData(1).set(right)
   const url = URL.createObjectURL(audioBufferToWavBlob(out))
   return { url, sampleRate, length }
 }
