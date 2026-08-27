@@ -82,8 +82,8 @@ describe('multiPartMix routing', () => {
     stubMixCtx([lead, bari], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/lead.mp4', soloInFile: 'left', pan: 'left' },
-      { url: '/bari.mp4', soloInFile: 'left', pan: 'right' },
+      { url: '/lead.m4a', soloInFile: 'left', pan: 'left' },
+      { url: '/bari.m4a', soloInFile: 'left', pan: 'right' },
     ])
 
     expect(outL[0]).toBeCloseTo(0.5)
@@ -101,8 +101,8 @@ describe('multiPartMix routing', () => {
     stubMixCtx([lead, bari], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/lead.mp4', soloInFile: 'right', pan: 'left' },
-      { url: '/bari.mp4', soloInFile: 'right', pan: 'right' },
+      { url: '/lead.m4a', soloInFile: 'right', pan: 'left' },
+      { url: '/bari.m4a', soloInFile: 'right', pan: 'right' },
     ])
 
     expect(outL[0]).toBeCloseTo(0.3)
@@ -117,8 +117,8 @@ describe('multiPartMix routing', () => {
     stubMixCtx([a, b], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/a.mp4', soloInFile: 'left', pan: 'right' },
-      { url: '/b.mp4', soloInFile: 'right', pan: 'left' },
+      { url: '/a.m4a', soloInFile: 'left', pan: 'right' },
+      { url: '/b.m4a', soloInFile: 'right', pan: 'left' },
     ])
 
     expect(outL[0]).toBeCloseTo(0.7) // b Part R → Hard L
@@ -134,9 +134,9 @@ describe('multiPartMix routing', () => {
     stubMixCtx([a, b, c], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/a.mp4', soloInFile: 'left', pan: 'left' },
-      { url: '/b.mp4', soloInFile: 'left', pan: 'left' },
-      { url: '/c.mp4', soloInFile: 'left', pan: 'right' },
+      { url: '/a.m4a', soloInFile: 'left', pan: 'left' },
+      { url: '/b.m4a', soloInFile: 'left', pan: 'left' },
+      { url: '/c.m4a', soloInFile: 'left', pan: 'right' },
     ])
 
     expect(outL[0]).toBeCloseTo(0.6)

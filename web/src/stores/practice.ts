@@ -45,10 +45,17 @@ export const usePracticeStore = defineStore('practice', () => {
     if (i < 0) return
     const j = i + dir
     if (j < 0 || j >= order.value.length) return
+    reorder(tagId, j)
+  }
+
+  function reorder(tagId: number, toIndex: number): void {
+    const from = order.value.indexOf(tagId)
+    if (from < 0) return
+    const clamped = Math.max(0, Math.min(order.value.length - 1, toIndex))
+    if (from === clamped) return
     const next = [...order.value]
-    const tmp = next[i]!
-    next[i] = next[j]!
-    next[j] = tmp
+    const [item] = next.splice(from, 1)
+    next.splice(clamped, 0, item!)
     order.value = next
   }
 
@@ -84,6 +91,7 @@ export const usePracticeStore = defineStore('practice', () => {
     syncFromStarred,
     resetFromStarred,
     move,
+    reorder,
     remove,
     neighbors,
     firstId,

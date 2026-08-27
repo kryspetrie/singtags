@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Million Stars (Gb Major) - Ben Maloney - 5150",
-  "sheet": "sheets/5150/sheet.png",
+  "sheet": "sheets/5150/A Million Stars (Gb Major) - Ben Maloney - Sheet.png",
   "audio": {
-    "lead": "media/5150/lead.mp4",
-    "tenor": "media/5150/tenor.mp4",
-    "bari": "media/5150/bari.mp4",
-    "bass": "media/5150/bass.mp4",
-    "mix": "media/5150/mix.mp4"
+    "lead": "media/5150/lead.m4a",
+    "tenor": "media/5150/tenor.m4a",
+    "bari": "media/5150/bari.m4a",
+    "bass": "media/5150/bass.m4a",
+    "mix": "media/5150/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5150/lead.m4a",
+      "playback": "media/5150/lead.playback.opus",
+      "ultra_solo": "media/5150/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/5150/tenor.m4a",
+      "playback": "media/5150/tenor.playback.opus",
+      "ultra_solo": "media/5150/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/5150/bari.m4a",
+      "playback": "media/5150/bari.playback.opus",
+      "ultra_solo": "media/5150/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/5150/bass.m4a",
+      "playback": "media/5150/bass.playback.opus",
+      "ultra_solo": "media/5150/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/5150/mix.m4a",
+      "playback": "media/5150/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5150/A Million Stars (Gb Major) - Ben Maloney - Sheet.png",
+    "sheets/5150/A Million Stars (Gb Major) - Ben Maloney - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5150/preview.webp",
   "sheet_pages": [
-    "sheets/5150/pages/page-01.webp"
-  ]
+    "sheets/5150/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:45:40.658173+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.5383,
+      "correlation": -0.0826,
+      "side_mid": 1.0463
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.5097,
+      "correlation": 0.0354,
+      "side_mid": 0.9834
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.4857,
+      "correlation": -0.0378,
+      "side_mid": 1.0366
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.4811,
+      "correlation": 0.0013,
+      "side_mid": 1.0144
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0008,
+      "correlation": 0.9992,
+      "side_mid": 0.0206
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:31:57.431954+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:53.390498+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.6,
+      "zero_corr": 0.6,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:54.736906+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.632,
+      "zero_corr": 0.632,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:56.062412+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.621,
+      "zero_corr": 0.621,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:57.431928+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:45.819258+00:00"
+  }
 }

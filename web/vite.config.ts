@@ -24,7 +24,7 @@ export default defineConfig({
         theme_color: '#0f6b5c',
         background_color: '#f7f5f1',
         display: 'standalone',
-        start_url: '/',
+        start_url: viteBase(),
         icons: [
           {
             src: 'icon-192.png',

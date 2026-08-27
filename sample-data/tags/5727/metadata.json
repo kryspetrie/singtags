@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As I Sit On the Sidewalk (Bb Major) - Tommy Williams - 5727",
-  "sheet": "sheets/5727/sheet.pdf",
+  "sheet": "sheets/5727/As I Sit On the Sidewalk (Bb Major) - Tommy Williams - Sheet.pdf",
   "audio": {
-    "lead": "media/5727/lead.mp4",
-    "tenor": "media/5727/tenor.mp4",
-    "bari": "media/5727/bari.mp4",
-    "bass": "media/5727/bass.mp4",
-    "mix": "media/5727/mix.mp4"
+    "lead": "media/5727/lead.m4a",
+    "tenor": "media/5727/tenor.m4a",
+    "bari": "media/5727/bari.m4a",
+    "bass": "media/5727/bass.m4a",
+    "mix": "media/5727/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5727/lead.m4a",
+      "playback": "media/5727/lead.playback.opus",
+      "ultra_downmix": "media/5727/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/5727/tenor.m4a",
+      "playback": "media/5727/tenor.playback.opus",
+      "ultra_downmix": "media/5727/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/5727/bari.m4a",
+      "playback": "media/5727/bari.playback.opus",
+      "ultra_downmix": "media/5727/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/5727/bass.m4a",
+      "playback": "media/5727/bass.playback.opus",
+      "ultra_downmix": "media/5727/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/5727/mix.m4a",
+      "playback": "media/5727/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5727/As I Sit On the Sidewalk (Bb Major) - Tommy Williams - Sheet.pdf",
+    "sheets/5727/As I Sit On the Sidewalk (Bb Major) - Tommy Williams - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5727/preview.webp",
   "sheet_pages": [
-    "sheets/5727/pages/page-01.webp"
-  ]
+    "sheets/5727/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:40.099124+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0001
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0002
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0003
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0005
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0002
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:07.051555+00:00"
+  }
 }

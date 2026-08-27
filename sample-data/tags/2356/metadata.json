@@ -17,17 +17,157 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All of Me (C Major) - Scott Kitzmiller - 2356",
-  "sheet": "sheets/2356/sheet.pdf",
+  "sheet": "sheets/2356/All of Me (C Major) - Scott Kitzmiller - Sheet.pdf",
   "audio": {
-    "lead": "media/2356/lead.mp4",
-    "tenor": "media/2356/tenor.mp4",
-    "bari": "media/2356/bari.mp4",
-    "bass": "media/2356/bass.mp4",
-    "mix": "media/2356/mix.mp4"
+    "lead": "media/2356/lead.m4a",
+    "tenor": "media/2356/tenor.m4a",
+    "bari": "media/2356/bari.m4a",
+    "bass": "media/2356/bass.m4a",
+    "mix": "media/2356/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2356/lead.m4a",
+      "playback": "media/2356/lead.playback.opus",
+      "ultra_solo": "media/2356/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/2356/tenor.m4a",
+      "playback": "media/2356/tenor.playback.opus",
+      "ultra_solo": "media/2356/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/2356/bari.m4a",
+      "playback": "media/2356/bari.playback.opus",
+      "ultra_solo": "media/2356/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/2356/bass.m4a",
+      "playback": "media/2356/bass.playback.opus",
+      "ultra_solo": "media/2356/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/2356/mix.m4a",
+      "playback": "media/2356/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2356/All of Me (C Major) - Scott Kitzmiller - Sheet.pdf",
+    "sheets/2356/All of Me (C Major) - Scott Kitzmiller - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2356/preview.webp",
   "sheet_pages": [
-    "sheets/2356/pages/page-01.webp",
-    "sheets/2356/pages/page-02.webp",
-    "sheets/2356/pages/page-03.webp"
-  ]
+    "sheets/2356/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:46:56.502376+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.8915,
+      "correlation": 0.0315,
+      "side_mid": 0.9989
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.8716,
+      "correlation": 0.0136,
+      "side_mid": 0.9983
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.8932,
+      "correlation": 0.0183,
+      "side_mid": 0.9986
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.8825,
+      "correlation": 0.0596,
+      "side_mid": 0.9959
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.8817,
+      "correlation": 0.0428,
+      "side_mid": 0.9972
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:35.766152+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:32.272515+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 22.2,
+      "corr": 0.026,
+      "zero_corr": -0.009,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:33.437916+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": -185.0,
+      "corr": 0.014,
+      "zero_corr": 0.001,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:34.611030+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": -43.5,
+      "corr": 0.037,
+      "zero_corr": 0.018,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:35.766128+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.821886+00:00"
+  }
 }

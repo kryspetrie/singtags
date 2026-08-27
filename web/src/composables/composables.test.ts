@@ -10,8 +10,10 @@ import { useOnline } from './useOnline'
 import { useObjectUrls } from './useObjectUrls'
 import { useTagDetail } from './useTagDetail'
 import { useReconnectCaches } from './useReconnectCaches'
+import { offlineBannerText } from './useOfflineBanner'
 import { useStarsStore } from '../stores/stars'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
+import { useOfflineModeStore } from '../stores/offlineMode'
 import type { TagDetail } from '../types/tag'
 
 vi.mock('../lib/prepareSheet', () => ({
@@ -22,25 +24,67 @@ vi.mock('../lib/prepareSheet', () => ({
 describe('useOnline', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    localStorage.clear()
   })
 
-  it('tracks online/offline events', async () => {
+  it('tracks browser online/offline events', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
+    setActivePinia(createPinia())
+    useOfflineModeStore().init()
     const Comp = defineComponent({
       setup() {
         return useOnline()
       },
       template: '<span>{{ offline }}</span>',
     })
-    const w = mount(Comp)
+    const w = mount(Comp, { global: { plugins: [getActivePinia()!] } })
     expect(w.text()).toBe('false')
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
     window.dispatchEvent(new Event('offline'))
     await nextTick()
     expect(w.text()).toBe('true')
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
     window.dispatchEvent(new Event('online'))
     await nextTick()
     expect(w.text()).toBe('false')
     w.unmount()
+  })
+
+  it('reflects manual offline without browser offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
+    setActivePinia(createPinia())
+    const mode = useOfflineModeStore()
+    mode.init()
+    const Comp = defineComponent({
+      setup() {
+        return useOnline()
+      },
+      template: '<span>{{ offline }}</span>',
+    })
+    const w = mount(Comp, { global: { plugins: [getActivePinia()!] } })
+    mode.setManualOffline(true)
+    await nextTick()
+    expect(w.text()).toBe('true')
+    mode.setManualOffline(false)
+    await nextTick()
+    expect(w.text()).toBe('false')
+    w.unmount()
+  })
+})
+
+describe('offlineBannerText', () => {
+  it('returns null when online', () => {
+    expect(offlineBannerText(false, '2026-01-01', 'Offline — songbook sheets ready')).toBeNull()
+  })
+
+  it('warns when offline without catalog cache', () => {
+    expect(offlineBannerText(true, null, 'Offline status unknown')).toMatch(/catalog not cached/)
+  })
+
+  it('uses library status when catalog is cached', () => {
+    expect(offlineBannerText(true, '2026-01-01', 'Offline — songbook sheets ready')).toBe(
+      'Offline — songbook sheets ready',
+    )
   })
 })
 
@@ -56,6 +100,7 @@ describe('useReconnectCaches', () => {
       get: () => false,
     })
     setActivePinia(createPinia())
+    useOfflineModeStore().init()
     const stars = useStarsStore()
     const offlineLib = useOfflineLibraryStore()
     stars.records = [
@@ -104,8 +149,7 @@ describe('useReconnectCaches', () => {
     })
     window.dispatchEvent(new Event('online'))
     await flushPromises()
-
-    expect(ensureAudio).toHaveBeenCalled()
+    await vi.waitFor(() => expect(ensureAudio).toHaveBeenCalled())
     expect(startPack).toHaveBeenCalledWith('sheets')
     expect(startPack).not.toHaveBeenCalledWith('audio')
     w.unmount()
@@ -138,7 +182,7 @@ describe('useTagDetail', () => {
     title: 'Hello',
     arranger: 'A',
     key: 'C',
-    audio: { lead: 'media/7/lead.mp4' },
+    audio: { lead: 'media/7/lead.m4a' },
     sheet: 'sheets/7/pages/page-01.webp',
   }
 
@@ -170,6 +214,9 @@ describe('useTagDetail', () => {
     await api.load()
     await flushPromises()
     expect(api.detail.value?.title).toBe('Hello')
+    expect(api.availableAudioParts.value).toEqual(['lead'])
+    // Default part is warmed so TagPlayer can paint without a blank first load.
+    expect(api.audioParts.value).toEqual({ lead: 'media/7/lead.m4a' })
     expect(api.sheetPages.value).toEqual(['sheets/7/pages/page-01.webp'])
     expect(api.sheetAssets.value.pdfs).toEqual([])
     expect(api.toSummary()?.id).toBe(7)
@@ -274,7 +321,7 @@ describe('useTagDetail', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })))
     const { api, w } = mountApi('99')
     await api.load()
-    expect(api.error.value).toMatch(/Missing tag|500/)
+    expect(api.error.value).toMatch(/Missing tag|500|not cached/i)
     expect(api.toSummary()).toBeNull()
     w.unmount()
   })
@@ -288,6 +335,104 @@ describe('useTagDetail', () => {
     await api.load()
     expect(api.error.value).toMatch(/isn.?t cached/i)
     expect(api.detail.value).toBeNull()
+    w.unmount()
+  })
+
+  it('resolves pack audio when offline after loading online', async () => {
+    const tagged: TagDetail = {
+      ...detail,
+      audio_tiers: {
+        lead: {
+          original: 'media/7/lead.m4a',
+          playback: 'media/7/lead.playback.opus',
+          ultra_solo: 'media/7/lead.solo.opus',
+        },
+      },
+      audio_layout_summary: { ultra_low: 'mono_solos' },
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(tagged), { status: 200 })),
+    )
+    const { api, w, pinia } = mountApi('7')
+    setActivePinia(pinia)
+    const offlineMode = useOfflineModeStore()
+    offlineMode.init()
+
+    const { audioPack } = await import('../offline/libraryPack')
+    const { mediaUrl } = await import('../lib/mediaUrl')
+    await audioPack.put(
+      mediaUrl('media/7/lead.solo.opus'),
+      new Response(new Uint8Array([9, 9, 9]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pack-lead')
+
+    await api.load()
+    await flushPromises()
+    expect(api.hasPackAudio.value).toBe(true)
+
+    offlineMode.setManualOffline(true)
+    const url = await api.resolvePart('lead')
+    expect(url).toBe('blob:pack-lead')
+    w.unmount()
+  })
+
+  it('lists pack audio when loading a tag while already offline (reload)', async () => {
+    const tagged: TagDetail = {
+      ...detail,
+      audio_tiers: {
+        lead: {
+          original: 'media/7/lead.m4a',
+          playback: 'media/7/lead.playback.opus',
+          ultra_solo: 'media/7/lead.solo.opus',
+        },
+      },
+      audio_layout_summary: { ultra_low: 'mono_solos' },
+    }
+    localStorage.setItem('singtags.manualOffline', '1')
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    const { api, w, pinia } = mountApi('7')
+    setActivePinia(pinia)
+    const offlineMode = useOfflineModeStore()
+    offlineMode.init()
+    expect(offlineMode.offline).toBe(true)
+
+    const stars = useStarsStore()
+    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(stars, 'get').mockResolvedValue({
+      tagId: 7,
+      starredAt: '2026-01-01T00:00:00.000Z',
+      summary: {
+        id: 7,
+        title: 'Hello',
+        arranger: 'A',
+        key: 'C',
+        rating: null,
+        type: null,
+        collection: null,
+        hasSheet: true,
+        audioParts: ['lead'],
+        sheet: null,
+      },
+      detail: tagged,
+      audioBlobs: {
+        lead: { path: 'media/7/lead.m4a', mime: 'audio/mp4', data: new ArrayBuffer(8) },
+      },
+      offlineMedia: true,
+    })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:star-lead')
+
+    await api.load()
+    await flushPromises()
+    expect(api.detail.value?.tag_id).toBe(7)
+    expect(api.availableAudioParts.value).toContain('lead')
+    expect(api.audioParts.value.lead).toBe('blob:star-lead')
     w.unmount()
   })
 })

@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
+import { onMounted, onUnmounted, computed, ref, shallowRef } from 'vue'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useStarsStore } from './stores/stars'
 import { useQueueStore } from './stores/queue'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
+import { useOfflineModeStore } from './stores/offlineMode'
+import { usePreferencesStore } from './stores/preferences'
 import { formatBytes } from './offline/storageEstimate'
 import { useReconnectCaches } from './composables/useReconnectCaches'
+import { useOfflineBanner } from './composables/useOfflineBanner'
 
 const stars = useStarsStore()
 const queue = useQueueStore()
 const offlineLib = useOfflineLibraryStore()
+const offlineMode = useOfflineModeStore()
+const prefs = usePreferencesStore()
+const route = useRoute()
 useReconnectCaches()
+const { message: offlineBannerMessage } = useOfflineBanner()
+
+const onTagPage = computed(() => route.name === 'tag')
+const backTarget = computed(() => (route.query.set === 'practice' ? '/starred' : '/'))
+const backLabel = computed(() => (route.query.set === 'practice' ? '← Practice set' : '← Back'))
 
 const { needRefresh, updateServiceWorker } = useRegisterSW({
   immediate: true,
@@ -33,7 +44,6 @@ function onBeforeInstall(e: Event): void {
 
 onMounted(() => {
   void stars.ensureLoaded()
-  offlineLib.restoreCatalogCached()
   void offlineLib.loadManifests()
   window.addEventListener('beforeinstallprompt', onBeforeInstall)
 })
@@ -73,15 +83,42 @@ async function downloadSheetsFromPrompt(): Promise<void> {
   <div class="app">
     <a class="skip" href="#main">Skip to content</a>
     <header class="top">
-      <RouterLink class="brand" to="/">SingTags</RouterLink>
+      <div class="top-start">
+        <RouterLink v-if="onTagPage" class="top-back" :to="backTarget">{{ backLabel }}</RouterLink>
+        <RouterLink class="brand" to="/">
+          <span class="brand-lockup">
+            <span class="brand-name">SingTags</span>
+            <span class="brand-tagline">Barbershop tags… fast.</span>
+          </span>
+        </RouterLink>
+      </div>
       <nav class="topnav" aria-label="Primary">
         <RouterLink to="/">Browse</RouterLink>
-        <RouterLink to="/starred">Starred<span v-if="stars.count" class="n">{{ stars.count }}</span></RouterLink>
+        <RouterLink to="/recent">Recent</RouterLink>
+        <RouterLink to="/starred">Starred</RouterLink>
         <RouterLink to="/pitch-pipe">Pitch Pipe</RouterLink>
         <RouterLink to="/queue">Downloads<span v-if="queue.count" class="n">{{ queue.count }}</span></RouterLink>
         <RouterLink to="/settings">Offline</RouterLink>
       </nav>
     </header>
+    <div
+      v-if="offlineMode.manualOffline"
+      class="offline-banner offline-banner-manual"
+      role="status"
+    >
+      <span>Offline mode — using cached content only.</span>
+      <button
+        type="button"
+        class="offline-banner-link"
+        @click="offlineMode.setManualOffline(false)"
+      >
+        Go online
+      </button>
+    </div>
+    <div v-else-if="offlineBannerMessage" class="offline-banner" role="status">
+      <span>{{ offlineBannerMessage }}</span>
+      <RouterLink class="offline-banner-link" to="/settings">Offline settings</RouterLink>
+    </div>
     <main id="main">
       <RouterView />
     </main>
@@ -90,10 +127,13 @@ async function downloadSheetsFromPrompt(): Promise<void> {
         <span class="ico" aria-hidden="true">⌕</span>
         Browse
       </RouterLink>
+      <RouterLink to="/recent" class="tab">
+        <span class="ico" aria-hidden="true">◷</span>
+        Recent
+      </RouterLink>
       <RouterLink to="/starred" class="tab">
         <span class="ico" aria-hidden="true">★</span>
         Starred
-        <span v-if="stars.count" class="n tab-n">{{ stars.count }}</span>
       </RouterLink>
       <RouterLink to="/pitch-pipe" class="tab">
         <span class="ico" aria-hidden="true">♪</span>
@@ -115,13 +155,14 @@ async function downloadSheetsFromPrompt(): Promise<void> {
       <button type="button" class="btn btn-ghost" @click="dismissUpdate">Later</button>
     </div>
     <div
-      v-else-if="offlineLib.showSheetsPrompt && !showInstall"
+      v-else-if="offlineLib.showSheetsPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
     >
       <span>
         Make SingTags work offline? Download songbook sheets
-        ({{ formatBytes(offlineLib.sheetsTotalBytes) }}). Audio for tags you star.
+        ({{ formatBytes(offlineLib.sheetsTotalBytes) }}) and optional lo-fi learning tracks
+        (~{{ offlineLib.audioBallparkLabel }}). Star tags for original quality.
       </span>
       <button type="button" class="btn btn-primary" @click="downloadSheetsFromPrompt">
         Download sheets
@@ -160,6 +201,46 @@ async function downloadSheetsFromPrompt(): Promise<void> {
   display: flex;
   flex-direction: column;
   padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+.offline-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--danger);
+  border-bottom: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+}
+.offline-banner-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.offline-banner-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+.offline-banner-manual {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent-hover);
+  border-bottom-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.offline-banner-manual .offline-banner-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
 }
 .top {
   --header-h: 3.5rem;
@@ -167,19 +248,83 @@ async function downloadSheetsFromPrompt(): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: calc(0.65rem + env(safe-area-inset-top)) 1rem 0.65rem;
+  padding: calc(0.65rem + env(safe-area-inset-top)) 0.75rem 0.65rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
   top: 0;
   z-index: 10;
+  min-width: 0;
+}
+.top-start {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.top-back {
+  display: none;
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  align-items: center;
+}
+.top-back:hover {
+  color: var(--accent-hover);
+  text-decoration: none;
 }
 .brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  text-decoration: none;
+  color: var(--text);
+}
+.brand:hover {
+  text-decoration: none;
+  color: var(--text);
+}
+.brand-lockup {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.brand-name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.15rem;
-  color: var(--text);
-  text-decoration: none;
+  line-height: 1.15;
+}
+.brand-tagline {
+  display: none;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (min-width: 560px) {
+  .brand-tagline {
+    display: inline;
+  }
+}
+@media (max-width: 767px) {
+  .top-back ~ .brand .brand-tagline {
+    display: none;
+  }
 }
 .topnav {
   display: none;
@@ -216,8 +361,10 @@ async function downloadSheetsFromPrompt(): Promise<void> {
 main {
   width: min(960px, 100%);
   margin: 0 auto;
-  padding: 1rem 1rem 1.5rem;
+  padding: 0.85rem 0.75rem 1.25rem;
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 .bottom {
   position: fixed;
@@ -226,7 +373,7 @@ main {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 0;
   padding: 0.25rem 0.35rem calc(0.25rem + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -243,7 +390,7 @@ main {
   min-height: 52px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
 }
 .tab .ico {
@@ -269,18 +416,23 @@ main {
   z-index: 40;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.65rem 0.85rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  white-space: nowrap;
+  max-width: min(96vw, 36rem);
+  width: max-content;
+}
+.toast > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .toast-wide {
-  flex-wrap: wrap;
-  white-space: normal;
-  max-width: min(96vw, 36rem);
+  width: min(96vw, 36rem);
 }
 .toast-wide span {
   flex: 1 1 100%;
@@ -294,6 +446,9 @@ main {
   .topnav {
     display: flex;
   }
+  .top-back {
+    display: none !important;
+  }
   .bottom {
     display: none;
   }
@@ -302,6 +457,11 @@ main {
   }
   .toast {
     bottom: 1.25rem;
+  }
+}
+@media (max-width: 767px) {
+  .top-back {
+    display: inline-flex;
   }
 }
 </style>

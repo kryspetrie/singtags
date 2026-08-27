@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As the World Caves In (C Major) - Mason Reed Eubank - 5248",
-  "sheet": "sheets/5248/sheet.png",
+  "sheet": "sheets/5248/As the World Caves In (C Major) - Mason Reed Eubank - Sheet.png",
   "audio": {
-    "lead": "media/5248/lead.mp4",
-    "tenor": "media/5248/tenor.mp4",
-    "bari": "media/5248/bari.mp4",
-    "bass": "media/5248/bass.mp4",
-    "mix": "media/5248/mix.mp4"
+    "lead": "media/5248/lead.m4a",
+    "tenor": "media/5248/tenor.m4a",
+    "bari": "media/5248/bari.m4a",
+    "bass": "media/5248/bass.m4a",
+    "mix": "media/5248/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5248/lead.m4a",
+      "playback": "media/5248/lead.playback.opus",
+      "ultra_downmix": "media/5248/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/5248/tenor.m4a",
+      "playback": "media/5248/tenor.playback.opus",
+      "ultra_downmix": "media/5248/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/5248/bari.m4a",
+      "playback": "media/5248/bari.playback.opus",
+      "ultra_downmix": "media/5248/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/5248/bass.m4a",
+      "playback": "media/5248/bass.playback.opus",
+      "ultra_downmix": "media/5248/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/5248/mix.m4a",
+      "playback": "media/5248/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5248/As the World Caves In (C Major) - Mason Reed Eubank - Sheet.png",
+    "sheets/5248/As the World Caves In (C Major) - Mason Reed Eubank - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5248/preview.webp",
   "sheet_pages": [
-    "sheets/5248/pages/page-01.webp"
-  ]
+    "sheets/5248/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:48.312564+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.03,
+      "correlation": 0.9421,
+      "side_mid": 0.175
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:20.845311+00:00"
+  }
 }

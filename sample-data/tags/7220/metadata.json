@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Anywhere I Wander (D Major) - 7220",
-  "sheet": "sheets/7220/sheet.pdf",
+  "sheet": "sheets/7220/Anywhere I Wander (D Major) - Sheet.pdf",
   "audio": {
-    "mix": "media/7220/mix.mp4"
+    "mix": "media/7220/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/7220/mix.m4a",
+      "playback": "media/7220/mix.playback.opus",
+      "ultra_mix": "media/7220/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/7220/Anywhere I Wander (D Major) - Sheet.pdf",
+    "sheets/7220/Anywhere I Wander (D Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/7220/preview.webp",
   "sheet_pages": [
-    "sheets/7220/pages/page-01.webp"
-  ]
+    "sheets/7220/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "part_right",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:25.095612+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.071,
+      "correlation": 0.017,
+      "side_mid": 0.9804
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:41.917658+00:00"
+  }
 }

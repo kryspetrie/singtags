@@ -1,6 +1,6 @@
 /**
  * Encode helpers:
- * - MP4/AAC via Mediabunny (+ WASM AAC when WebCodecs lacks it)
+ * - M4A/AAC via Mediabunny (+ WASM AAC when WebCodecs lacks it)
  * - MP3 / Ogg via wasm-media-encoders (LAME / Vorbis)
  *
  * All paths keep stereo — never downmix to mono for quality presets.
@@ -8,7 +8,7 @@
 
 import { createEncoder } from 'wasm-media-encoders'
 import type { AudioEncodeQuality, DownloadFormat } from '../types/audio'
-import { aacBitrate, mp3VbrQuality, oggVbrQuality } from '../types/audio'
+import { aacBitrate, mp3VbrQuality, oggVbrQuality, opusBitrate } from '../types/audio'
 
 type Encoder = {
   configure: (opts: {
@@ -108,8 +108,8 @@ export function downmixToMono(buffer: AudioBuffer): AudioBuffer {
   return mono
 }
 
-/** Encode an AudioBuffer to stereo AAC in an MP4 container. */
-export async function encodeAudioBufferToMp4(
+/** Encode an AudioBuffer to stereo AAC in an M4A container. */
+export async function encodeAudioBufferToM4a(
   buffer: AudioBuffer,
   opts: EncodeOptions = {},
 ): Promise<Uint8Array> {
@@ -132,7 +132,38 @@ export async function encodeAudioBufferToMp4(
   track.close()
   await output.finalize()
   const buf = target.buffer
-  if (!buf) throw new Error('AAC MP4 encode produced no output')
+  if (!buf) throw new Error('AAC M4A encode produced no output')
+  return new Uint8Array(buf)
+}
+
+/** Encode an AudioBuffer to Opus in an Ogg container (preferred for on-device storage). */
+export async function encodeAudioBufferToOggOpus(
+  buffer: AudioBuffer,
+  opts: EncodeOptions = {},
+): Promise<Uint8Array> {
+  const quality = opts.quality ?? 'standard'
+  const source = opts.mono ? downmixToMono(buffer) : buffer
+  const { canEncodeAudio, Output, BufferTarget, OggOutputFormat, AudioBufferSource } =
+    await import('mediabunny')
+  if (!(await canEncodeAudio('opus'))) {
+    throw new Error('Opus encoding is not supported in this browser')
+  }
+  const target = new BufferTarget()
+  const output = new Output({
+    format: new OggOutputFormat(),
+    target,
+  })
+  const track = new AudioBufferSource({
+    codec: 'opus',
+    bitrate: opusBitrate(quality),
+  })
+  output.addAudioTrack(track)
+  await output.start()
+  await track.add(source)
+  track.close()
+  await output.finalize()
+  const buf = target.buffer
+  if (!buf) throw new Error('Opus Ogg encode produced no output')
   return new Uint8Array(buf)
 }
 
@@ -187,6 +218,7 @@ export async function encodeDecodedBytes(
   opts: EncodeOptions = {},
 ): Promise<Uint8Array> {
   const decoded = await decodeBytes(input)
-  if (format === 'mp4') return encodeAudioBufferToMp4(decoded, opts)
+  if (format === 'm4a') return encodeAudioBufferToM4a(decoded, opts)
+  if (format === 'ogg-opus') return encodeAudioBufferToOggOpus(decoded, opts)
   return encodeAudioBuffer(decoded, format, opts)
 }

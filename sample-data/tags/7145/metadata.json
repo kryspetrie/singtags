@@ -17,15 +17,157 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Red Red Rose (D Major) - Paul Paddock - 7145",
-  "sheet": "sheets/7145/sheet.png",
+  "sheet": "sheets/7145/A Red Red Rose (D Major) - Paul Paddock - Sheet.png",
   "audio": {
-    "lead": "media/7145/lead.mp4",
-    "tenor": "media/7145/tenor.mp4",
-    "bari": "media/7145/bari.mp4",
-    "bass": "media/7145/bass.mp4",
-    "mix": "media/7145/mix.mp4"
+    "lead": "media/7145/lead.m4a",
+    "tenor": "media/7145/tenor.m4a",
+    "bari": "media/7145/bari.m4a",
+    "bass": "media/7145/bass.m4a",
+    "mix": "media/7145/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/7145/lead.m4a",
+      "playback": "media/7145/lead.playback.opus",
+      "ultra_solo": "media/7145/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/7145/tenor.m4a",
+      "playback": "media/7145/tenor.playback.opus",
+      "ultra_solo": "media/7145/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/7145/bari.m4a",
+      "playback": "media/7145/bari.playback.opus",
+      "ultra_solo": "media/7145/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/7145/bass.m4a",
+      "playback": "media/7145/bass.playback.opus",
+      "ultra_solo": "media/7145/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/7145/mix.m4a",
+      "playback": "media/7145/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/7145/A Red Red Rose (D Major) - Paul Paddock - Sheet.png",
+    "sheets/7145/A Red Red Rose (D Major) - Paul Paddock - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/7145/preview.webp",
   "sheet_pages": [
-    "sheets/7145/pages/page-01.webp"
-  ]
+    "sheets/7145/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:45:59.501572+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2582,
+      "correlation": 0.4069,
+      "side_mid": 0.6881
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.1838,
+      "correlation": 0.4713,
+      "side_mid": 0.6241
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2019,
+      "correlation": 0.6711,
+      "side_mid": 0.4848
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2544,
+      "correlation": 0.5237,
+      "side_mid": 0.6019
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.226,
+      "correlation": 0.4397,
+      "side_mid": 0.6552
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:07.098632+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:03.452002+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": -6.8,
+      "corr": 0.108,
+      "zero_corr": 0.102,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:04.649873+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": -13.0,
+      "corr": 0.095,
+      "zero_corr": 0.019,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:05.832618+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": -209.5,
+      "corr": 0.057,
+      "zero_corr": -0.047,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:07.098600+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:46.984939+00:00"
+  }
 }

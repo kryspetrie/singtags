@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Newfangled Tango (B Major) - Patrick McAlexander - 3976",
-  "sheet": "sheets/3976/sheet.pdf",
+  "sheet": "sheets/3976/A Newfangled Tango (B Major) - Patrick McAlexander - Sheet.pdf",
   "audio": {
-    "lead": "media/3976/lead.mp4",
-    "tenor": "media/3976/tenor.mp4",
-    "bari": "media/3976/bari.mp4",
-    "bass": "media/3976/bass.mp4",
-    "mix": "media/3976/mix.mp4"
+    "lead": "media/3976/lead.m4a",
+    "tenor": "media/3976/tenor.m4a",
+    "bari": "media/3976/bari.m4a",
+    "bass": "media/3976/bass.m4a",
+    "mix": "media/3976/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3976/lead.m4a",
+      "playback": "media/3976/lead.playback.opus",
+      "ultra_solo": "media/3976/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/3976/tenor.m4a",
+      "playback": "media/3976/tenor.playback.opus",
+      "ultra_solo": "media/3976/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/3976/bari.m4a",
+      "playback": "media/3976/bari.playback.opus",
+      "ultra_solo": "media/3976/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/3976/bass.m4a",
+      "playback": "media/3976/bass.playback.opus",
+      "ultra_solo": "media/3976/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/3976/mix.m4a",
+      "playback": "media/3976/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3976/A Newfangled Tango (B Major) - Patrick McAlexander - Sheet.pdf",
+    "sheets/3976/A Newfangled Tango (B Major) - Patrick McAlexander - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3976/preview.webp",
   "sheet_pages": [
-    "sheets/3976/pages/page-01.webp"
-  ]
+    "sheets/3976/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:45:42.868837+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2098,
+      "correlation": 0.6464,
+      "side_mid": 0.5051
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.5496,
+      "correlation": 0.3118,
+      "side_mid": 0.8555
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2977,
+      "correlation": 0.5331,
+      "side_mid": 0.6143
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.3797,
+      "correlation": 0.4367,
+      "side_mid": 0.707
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:31:56.472779+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:54.676150+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:55.265381+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:55.852793+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:56.472749+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:46.042357+00:00"
+  }
 }

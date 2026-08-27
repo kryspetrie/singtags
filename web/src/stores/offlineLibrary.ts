@@ -21,24 +21,31 @@ import {
   requestPersistentStorage,
   type StorageEstimateInfo,
 } from '../offline/storageEstimate'
-import { encodeDecodedBytes } from '../download/encode'
+import {
+  clearAllOfflineData as clearAllOfflineDataImpl,
+  exportOfflineCacheZip,
+  importOfflineCacheZip,
+  type CacheProgress,
+  CATALOG_CACHED_KEY,
+} from '../offline/cacheManage'
+import type { OfflineManifest, OfflineManifestEntry } from '../offline/manifestTypes'
+import {
+  filterAudioManifest,
+  flattenFilteredAudioManifest,
+  flattenManifestEntries,
+} from '../lib/offlineManifest'
+import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
+import { fetchGzipJson, parseGzipJsonBuffer } from '../lib/gunzipJson'
+import { matchOfflineCache } from '../lib/manualOfflineFetch'
+import { loadPersistentSnapshot, savePersistentSnapshot } from '../lib/persistentSnapshot'
+import type { LibraryAudioPartsMode } from '../lib/audioParts'
+import { encodeBytesForStorage } from '../offline/compactAudio'
+import { isPublishedTierPath } from '../lib/audioTiers'
+import { storageSizeFactor, HOSTED_AUDIO_MIME, usesOpusStorage } from '../types/audio'
 import { usePreferencesStore } from './preferences'
+import { useOfflineModeStore } from './offlineMode'
 
-export interface OfflineManifestEntry {
-  tagId: number
-  paths: string[]
-  bytes: number
-  /** Present for sheets pack — relative path to metadata.json */
-  detailPath?: string
-}
-
-export interface OfflineManifest {
-  version: number
-  kind: 'sheets' | 'audio'
-  builtAt: string
-  totalBytes: number
-  entries: OfflineManifestEntry[]
-}
+export type { OfflineManifest, OfflineManifestEntry }
 
 export type OfflineReadyState =
   | 'online'
@@ -47,42 +54,60 @@ export type OfflineReadyState =
   | 'downloading'
   | 'unknown'
 
-async function gunzipJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`)
-  const buf = await res.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b
-  let text: string
-  if (isGzip) {
-    const ds = new DecompressionStream('gzip')
-    const stream = new Response(buf).body!.pipeThrough(ds)
-    text = await new Response(stream).text()
-  } else {
-    text = new TextDecoder().decode(bytes)
+export type StartPackOptions = {
+  /** Override library parts filter for audio downloads (welcome uses `all`). */
+  partsMode?: LibraryAudioPartsMode
+}
+
+const SHEETS_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineSheetsManifest.v1'
+const AUDIO_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineAudioManifest.v1'
+
+function saveManifestSnapshot(key: string, manifest: OfflineManifest): void {
+  savePersistentSnapshot(key, manifest)
+}
+
+function isOfflineManifest(data: unknown): data is OfflineManifest {
+  return (
+    typeof data === 'object' &&
+    data != null &&
+    Array.isArray((data as OfflineManifest).entries)
+  )
+}
+
+function loadManifestSnapshot(key: string): OfflineManifest | null {
+  return loadPersistentSnapshot(key, isOfflineManifest)
+}
+
+async function loadOfflineManifest(
+  fileName: string,
+  snapshotKey: string,
+): Promise<OfflineManifest | null> {
+  const url = indexesUrl(fileName)
+  try {
+    const data = await fetchGzipJson<OfflineManifest>(url)
+    saveManifestSnapshot(snapshotKey, data)
+    return data
+  } catch {
+    try {
+      const cached = await matchOfflineCache(url)
+      if (cached) {
+        const data = await parseGzipJsonBuffer<OfflineManifest>(await cached.arrayBuffer())
+        saveManifestSnapshot(snapshotKey, data)
+        return data
+      }
+    } catch {
+      /* ignore */
+    }
+    return loadManifestSnapshot(snapshotKey)
   }
-  return JSON.parse(text) as T
 }
 
 function flattenManifest(manifest: OfflineManifest): DownloadItem[] {
-  const items: DownloadItem[] = []
-  for (const e of manifest.entries) {
-    const per = e.paths.length ? Math.round(e.bytes / e.paths.length) : 0
-    for (const path of e.paths) {
-      items.push({ path, url: mediaUrl(path), bytes: per })
-    }
-    if (e.detailPath) {
-      items.push({
-        path: e.detailPath,
-        url: mediaUrl(e.detailPath),
-        bytes: 800,
-      })
-    }
-  }
-  return items
+  return flattenManifestEntries(manifest)
 }
 
 export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
+  const offlineMode = useOfflineModeStore()
   const sheetsManifest = ref<OfflineManifest | null>(null)
   const audioManifest = ref<OfflineManifest | null>(null)
   const sheetsStatus = ref<DownloadStatus>('idle')
@@ -91,23 +116,29 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const audioProgress = ref<DownloadProgress | null>(null)
   const sheetsCachedCount = ref(0)
   const audioCachedCount = ref(0)
+  const sheetsCachedBytes = ref(0)
+  const audioCachedBytes = ref(0)
   const estimate = ref<StorageEstimateInfo | null>(null)
   const error = ref<string | null>(null)
   const showSheetsPrompt = ref(false)
   const catalogCachedAt = ref<string | null>(null)
   const loaded = ref(false)
+  const cacheBusy = ref(false)
+  const cacheProgress = ref<CacheProgress | null>(null)
+  const cacheMessage = ref<string | null>(null)
 
   let sheetsQueue: DownloadQueue | null = null
   let audioQueue: DownloadQueue | null = null
 
   const sheetsTotalBytes = computed(() => sheetsManifest.value?.totalBytes ?? 0)
   const audioTotalBytes = computed(() => audioManifest.value?.totalBytes ?? 0)
+  const audioBallparkLabel = computed(() => OFFLINE_LOFI_AUDIO_BALLPARK_LABEL)
 
   const readyState = computed<OfflineReadyState>(() => {
     if (sheetsStatus.value === 'running' || audioStatus.value === 'running') {
       return 'downloading'
     }
-    if (typeof navigator !== 'undefined' && navigator.onLine) return 'online'
+    if (typeof navigator !== 'undefined' && !offlineMode.offline) return 'online'
     const sheetsOk =
       sheetsStatus.value === 'done' ||
       (sheetsManifest.value != null &&
@@ -128,8 +159,14 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         return 'Offline — songbook sheets ready'
       case 'offline-limited':
         return 'Offline — catalog only (download sheets in Settings)'
-      case 'downloading':
-        return sheetsProgress.value?.label || audioProgress.value?.label || 'Downloading…'
+      case 'downloading': {
+        const sheetsRun = sheetsStatus.value === 'running'
+        const audioRun = audioStatus.value === 'running'
+        if (sheetsRun && audioRun) return 'Downloading sheets and learning tracks…'
+        if (sheetsRun) return 'Downloading sheets…'
+        if (audioRun) return 'Downloading learning tracks…'
+        return 'Downloading…'
+      }
       default:
         return 'Offline status unknown'
     }
@@ -138,11 +175,21 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   async function refreshEstimate(): Promise<void> {
     estimate.value = await getStorageEstimate()
     try {
-      sheetsCachedCount.value = await sheetsPack.count()
-      audioCachedCount.value = await audioPack.count()
+      const [sheetsCount, audioCount, sheetsBytes, audioBytes] = await Promise.all([
+        sheetsPack.count(),
+        audioPack.count(),
+        sheetsPack.totalBytes(),
+        audioPack.totalBytes(),
+      ])
+      sheetsCachedCount.value = sheetsCount
+      audioCachedCount.value = audioCount
+      sheetsCachedBytes.value = sheetsBytes
+      audioCachedBytes.value = audioBytes
     } catch {
       sheetsCachedCount.value = 0
       audioCachedCount.value = 0
+      sheetsCachedBytes.value = 0
+      audioCachedBytes.value = 0
     }
   }
 
@@ -150,8 +197,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     error.value = null
     try {
       const [sheets, audio] = await Promise.all([
-        gunzipJson<OfflineManifest>(indexesUrl('offline-sheets.json.gz')).catch(() => null),
-        gunzipJson<OfflineManifest>(indexesUrl('offline-audio.json.gz')).catch(() => null),
+        loadOfflineManifest('offline-sheets.json.gz', SHEETS_MANIFEST_SNAPSHOT_KEY),
+        loadOfflineManifest('offline-audio.json.gz', AUDIO_MANIFEST_SNAPSHOT_KEY),
       ])
       sheetsManifest.value = sheets
       audioManifest.value = audio
@@ -178,7 +225,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   function markCatalogCached(): void {
     catalogCachedAt.value = new Date().toISOString()
     try {
-      localStorage.setItem('singtags.catalogCachedAt', catalogCachedAt.value)
+      localStorage.setItem(CATALOG_CACHED_KEY, catalogCachedAt.value)
     } catch {
       /* ignore */
     }
@@ -186,9 +233,87 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
 
   function restoreCatalogCached(): void {
     try {
-      catalogCachedAt.value = localStorage.getItem('singtags.catalogCachedAt')
+      catalogCachedAt.value = localStorage.getItem(CATALOG_CACHED_KEY)
     } catch {
       catalogCachedAt.value = null
+    }
+  }
+
+  /** Restore download manifests from persistent snapshot (offline refresh). */
+  function hydrateManifestSnapshots(): boolean {
+    const sheets = loadManifestSnapshot(SHEETS_MANIFEST_SNAPSHOT_KEY)
+    const audio = loadManifestSnapshot(AUDIO_MANIFEST_SNAPSHOT_KEY)
+    if (sheets) sheetsManifest.value = sheets
+    if (audio) audioManifest.value = audio
+    if (sheets || audio) {
+      loaded.value = true
+      return true
+    }
+    return false
+  }
+
+  async function clearAllOfflineData(): Promise<void> {
+    cacheBusy.value = true
+    cacheMessage.value = null
+    error.value = null
+    try {
+      sheetsQueue?.pause()
+      audioQueue?.pause()
+      await clearAllOfflineDataImpl()
+      sheetsStatus.value = 'idle'
+      audioStatus.value = 'idle'
+      sheetsProgress.value = null
+      audioProgress.value = null
+      sheetsCachedCount.value = 0
+      audioCachedCount.value = 0
+      catalogCachedAt.value = null
+      showSheetsPrompt.value = false
+      cacheMessage.value = 'Offline cache cleared.'
+      await refreshEstimate()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      cacheBusy.value = false
+      cacheProgress.value = null
+    }
+  }
+
+  async function exportOfflineCache(): Promise<void> {
+    cacheBusy.value = true
+    cacheMessage.value = null
+    error.value = null
+    cacheProgress.value = null
+    try {
+      const { fileCount, bytes } = await exportOfflineCacheZip((p) => {
+        cacheProgress.value = p
+      })
+      cacheMessage.value = `Exported ${fileCount} file(s) (${formatBytes(bytes)} zip).`
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      cacheBusy.value = false
+      cacheProgress.value = null
+    }
+  }
+
+  async function importOfflineCache(file: File): Promise<void> {
+    cacheBusy.value = true
+    cacheMessage.value = null
+    error.value = null
+    cacheProgress.value = null
+    try {
+      const result = await importOfflineCacheZip(file, (p) => {
+        cacheProgress.value = p
+      })
+      await refreshEstimate()
+      if (result.sheetsFiles > 0 && sheetsStatus.value === 'idle') sheetsStatus.value = 'done'
+      if (result.audioFiles > 0 && audioStatus.value === 'idle') audioStatus.value = 'done'
+      cacheMessage.value = `Restored ${result.sheetsFiles} sheet file(s), ${result.audioFiles} audio file(s), ${result.starredTags} starred tag(s).`
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      cacheBusy.value = false
+      cacheProgress.value = null
     }
   }
 
@@ -212,42 +337,55 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     })
   }
 
-  async function startPack(kind: PackKind): Promise<void> {
+  async function startPack(kind: PackKind, _opts?: StartPackOptions): Promise<void> {
     error.value = null
     await requestPersistentStorage()
-    const manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
+    let manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
     if (!manifest) {
-      error.value = `Missing offline ${kind} manifest — rebuild indexes.`
+      await loadManifests()
+      manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
+    }
+    if (!manifest) {
+      const offlineMode = useOfflineModeStore()
+      if (offlineMode.manualOffline) {
+        error.value =
+          'Offline mode is on — go online once so SingTags can load download lists, then try again.'
+      } else {
+        error.value = `Missing offline ${kind} manifest — rebuild indexes.`
+      }
       return
     }
 
+    const prefs = usePreferencesStore()
+
     if (kind === 'audio') {
-      const prefs = usePreferencesStore()
       const est = await getStorageEstimate()
-      const sizeFactor =
-        prefs.audioEncodeQuality === 'original'
-          ? 1.1
-          : prefs.audioEncodeQuality === 'standard'
-            ? 0.8
-            : prefs.audioEncodeQuality === 'compact'
-              ? 0.55
-              : 0.3
-      const need = manifest.totalBytes * sizeFactor
+      const { totalBytes, entries } = filterAudioManifest(manifest, 'all', [])
+      const paths = entries.flatMap((e) => e.paths)
+      const publishedOnly = paths.length > 0 && paths.every(isPublishedTierPath)
+      const sizeFactor = publishedOnly ? 1 : storageSizeFactor(prefs.audioEncodeQuality)
+      const need = totalBytes * sizeFactor
       if (est && est.quota > 0 && est.quota - est.usage < need) {
-        error.value = `Not enough storage for full audio (~${formatBytes(need)} estimated at current quality). Free space or use Starred audio instead.`
+        error.value = `Not enough storage for the learning library (~${formatBytes(need)} estimated). Free space and try again.`
         return
       }
     }
 
-    const items = flattenManifest(manifest)
+    const items =
+      kind === 'audio'
+        ? flattenFilteredAudioManifest(manifest, 'all', [])
+        : flattenManifest(manifest)
     const prev = await getPackProgress(kind)
     const startIndex =
       prev?.manifestVersion === manifest.version ? prev.cursor : 0
 
-    const prefs = usePreferencesStore()
     const store = kind === 'sheets' ? sheetsPack : audioPack
+    const packReencodes =
+      kind === 'audio' &&
+      usesOpusStorage(prefs.audioEncodeQuality) &&
+      items.some((i) => !isPublishedTierPath(i.path))
     const queue = new DownloadQueue(store, {
-      concurrency: kind === 'audio' && prefs.audioEncodeQuality !== 'original' ? 2 : 4,
+      concurrency: packReencodes ? 2 : 4,
       onProgress: (p) => {
         if (kind === 'sheets') sheetsProgress.value = p
         else audioProgress.value = p
@@ -267,17 +405,22 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         })
       },
       transformResponse:
-        kind === 'audio' && prefs.audioEncodeQuality !== 'original'
-          ? async (_item, response) => {
+        kind === 'audio' && usesOpusStorage(prefs.audioEncodeQuality)
+          ? async (item, response) => {
+              if (isPublishedTierPath(item.path)) return response
               const buf = new Uint8Array(await response.arrayBuffer())
-              const quality = prefs.audioEncodeQuality
-              if (quality === 'original') return response
-              const encoded = await encodeDecodedBytes(buf, 'mp4', { quality })
-              const copy = new Uint8Array(encoded.byteLength)
-              copy.set(encoded)
+              const hostedMime = response.headers.get('content-type') || HOSTED_AUDIO_MIME
+              const { bytes, mime } = await encodeBytesForStorage(
+                buf,
+                prefs.audioEncodeQuality,
+                hostedMime,
+                item.path,
+              )
+              const copy = new Uint8Array(bytes.byteLength)
+              copy.set(bytes)
               return new Response(copy.buffer, {
                 status: 200,
-                headers: { 'Content-Type': 'audio/mp4' },
+                headers: { 'Content-Type': mime },
               })
             }
           : undefined,
@@ -347,6 +490,15 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     return entry.paths.length > 0
   }
 
+  async function ensurePersistentStorage(): Promise<boolean> {
+    const ok = await requestPersistentStorage()
+    await refreshEstimate()
+    cacheMessage.value = ok
+      ? 'Persistent storage granted — the browser is less likely to clear this site’s offline cache under storage pressure.'
+      : 'Persistent storage was not granted. Cached data may still be cleared if the device is low on space.'
+    return ok
+  }
+
   return {
     sheetsManifest,
     audioManifest,
@@ -356,13 +508,19 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     audioProgress,
     sheetsCachedCount,
     audioCachedCount,
+    sheetsCachedBytes,
+    audioCachedBytes,
     estimate,
     error,
     showSheetsPrompt,
     catalogCachedAt,
     loaded,
+    cacheBusy,
+    cacheProgress,
+    cacheMessage,
     sheetsTotalBytes,
     audioTotalBytes,
+    audioBallparkLabel,
     readyState,
     statusLabel,
     isLikelyMeteredConnection,
@@ -370,12 +528,16 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     loadManifests,
     markCatalogCached,
     restoreCatalogCached,
+    hydrateManifestSnapshots,
     refreshEstimate,
     startPack,
     pausePack,
     clearPack,
     dismissSheetsPrompt,
     ensureSheetsForTag,
-    requestPersistentStorage,
+    requestPersistentStorage: ensurePersistentStorage,
+    clearAllOfflineData,
+    exportOfflineCache,
+    importOfflineCache,
   }
 })

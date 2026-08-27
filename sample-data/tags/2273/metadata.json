@@ -17,15 +17,158 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As If We Never Said Goodbye (Bb Major) - Logan - 2273",
-  "sheet": "sheets/2273/sheet.pdf",
+  "sheet": "sheets/2273/As If We Never Said Goodbye (Bb Major) - Logan - Sheet.pdf",
   "audio": {
-    "lead": "media/2273/lead.mp4",
-    "tenor": "media/2273/tenor.mp4",
-    "bari": "media/2273/bari.mp4",
-    "bass": "media/2273/bass.mp4",
-    "mix": "media/2273/mix.mp4"
+    "lead": "media/2273/lead.m4a",
+    "tenor": "media/2273/tenor.m4a",
+    "bari": "media/2273/bari.m4a",
+    "bass": "media/2273/bass.m4a",
+    "mix": "media/2273/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2273/lead.m4a",
+      "playback": "media/2273/lead.playback.opus",
+      "ultra_solo": "media/2273/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/2273/tenor.m4a",
+      "playback": "media/2273/tenor.playback.opus",
+      "ultra_solo": "media/2273/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/2273/bari.m4a",
+      "playback": "media/2273/bari.playback.opus",
+      "ultra_solo": "media/2273/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/2273/bass.m4a",
+      "playback": "media/2273/bass.playback.opus",
+      "ultra_solo": "media/2273/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/2273/mix.m4a",
+      "playback": "media/2273/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2273/As If We Never Said Goodbye (Bb Major) - Logan - Sheet.pdf",
+    "sheets/2273/As If We Never Said Goodbye (Bb Major) - Logan - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2273/preview.webp",
   "sheet_pages": [
-    "sheets/2273/pages/page-01.webp"
-  ]
+    "sheets/2273/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:41.058579+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1591,
+      "correlation": -0.0271,
+      "side_mid": 0.9868
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.2081,
+      "correlation": -0.0108,
+      "side_mid": 1.0123
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.355,
+      "correlation": -0.0824,
+      "side_mid": 1.0262
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.0898,
+      "correlation": -0.0543,
+      "side_mid": 1.0202
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0893,
+      "correlation": 0.657,
+      "side_mid": 0.4583
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:06.992742+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:03.391973+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.628,
+      "zero_corr": 0.628,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:04.646833+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.431,
+      "zero_corr": 0.431,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:05.826748+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.496,
+      "zero_corr": 0.496,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:06.992722+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:09.820260+00:00"
+  }
 }

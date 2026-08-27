@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Good Old-Fashioned Girl (Bb Major) - 446",
-  "sheet": "sheets/446/sheet.jpg",
+  "sheet": "sheets/446/A Good Old-Fashioned Girl (Bb Major) - Sheet.jpg",
   "audio": {
-    "lead": "media/446/lead.mp4",
-    "tenor": "media/446/tenor.mp4",
-    "bari": "media/446/bari.mp4",
-    "bass": "media/446/bass.mp4",
-    "mix": "media/446/mix.mp4"
+    "lead": "media/446/lead.m4a",
+    "tenor": "media/446/tenor.m4a",
+    "bari": "media/446/bari.m4a",
+    "bass": "media/446/bass.m4a",
+    "mix": "media/446/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/446/lead.m4a",
+      "playback": "media/446/lead.playback.opus",
+      "ultra_downmix": "media/446/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/446/tenor.m4a",
+      "playback": "media/446/tenor.playback.opus",
+      "ultra_downmix": "media/446/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/446/bari.m4a",
+      "playback": "media/446/bari.playback.opus",
+      "ultra_downmix": "media/446/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/446/bass.m4a",
+      "playback": "media/446/bass.playback.opus",
+      "ultra_downmix": "media/446/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/446/mix.m4a",
+      "playback": "media/446/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/446/A Good Old-Fashioned Girl (Bb Major) - Sheet.jpg",
+    "sheets/446/A Good Old-Fashioned Girl (Bb Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/446/preview.webp",
   "sheet_pages": [
-    "sheets/446/pages/page-01.webp"
-  ]
+    "sheets/446/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:27.315644+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0547,
+      "correlation": 0.9958,
+      "side_mid": 0.0711
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.1093,
+      "correlation": 0.9958,
+      "side_mid": 0.1185
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.1025,
+      "correlation": 0.9938,
+      "side_mid": 0.1155
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0452,
+      "correlation": 0.9949,
+      "side_mid": 0.0692
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0015,
+      "correlation": 0.979,
+      "side_mid": 0.1012
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:44.849199+00:00"
+  }
 }

@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All Star (Bb Major) - Jeremy Marcus - 3981",
-  "sheet": "sheets/3981/sheet.pdf",
+  "sheet": "sheets/3981/All Star (Bb Major) - Jeremy Marcus - Sheet.pdf",
   "audio": {
-    "lead": "media/3981/lead.mp4",
-    "tenor": "media/3981/tenor.mp4",
-    "bari": "media/3981/bari.mp4",
-    "bass": "media/3981/bass.mp4",
-    "mix": "media/3981/mix.mp4"
+    "lead": "media/3981/lead.m4a",
+    "tenor": "media/3981/tenor.m4a",
+    "bari": "media/3981/bari.m4a",
+    "bass": "media/3981/bass.m4a",
+    "mix": "media/3981/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3981/lead.m4a",
+      "playback": "media/3981/lead.playback.opus",
+      "ultra_downmix": "media/3981/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/3981/tenor.m4a",
+      "playback": "media/3981/tenor.playback.opus",
+      "ultra_downmix": "media/3981/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/3981/bari.m4a",
+      "playback": "media/3981/bari.playback.opus",
+      "ultra_downmix": "media/3981/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/3981/bass.m4a",
+      "playback": "media/3981/bass.playback.opus",
+      "ultra_downmix": "media/3981/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/3981/mix.m4a",
+      "playback": "media/3981/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3981/All Star (Bb Major) - Jeremy Marcus - Sheet.pdf",
+    "sheets/3981/All Star (Bb Major) - Jeremy Marcus - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3981/preview.webp",
   "sheet_pages": [
-    "sheets/3981/pages/page-01.webp"
-  ]
+    "sheets/3981/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:48.213309+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0632,
+      "correlation": 0.2145,
+      "side_mid": 0.8
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0062,
+      "correlation": 0.9508,
+      "side_mid": 0.1558
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.154226+00:00"
+  }
 }

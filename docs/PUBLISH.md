@@ -7,7 +7,9 @@
 ```bash
 # From repo root — expand/rebuild sample from finalized library
 python3 scripts/seed_sample.py --limit 250 --force
-python3 scripts/rasterize_sheets.py --force
+# Or refresh existing sample tags in place (keeps AAC remuxes; recopies Opus tiers):
+# python3 scripts/seed_sample.py --refresh
+python3 scripts/rasterize_sheets.py --force   # uses tags mirror venv if TAGS_MIRROR/venv exists
 python3 scripts/build_indexes.py
 python3 scripts/build_offline_manifest.py
 
@@ -25,12 +27,12 @@ LIB=/media/kpetrie/extradrive1/Barbershop/tags/Barbershop_Tags_Library
 OUT=/path/to/publish-root
 
 python3 scripts/seed_sample.py --library "$LIB" --dest "$OUT" --limit 8000 --force
-python3 scripts/rasterize_sheets.py --sample "$OUT" --force
+/media/kpetrie/extradrive1/Barbershop/tags/venv/bin/python scripts/rasterize_sheets.py --sample "$OUT" --force
 python3 scripts/build_indexes.py --sample "$OUT" --out web/public/indexes
 python3 scripts/build_offline_manifest.py --sample "$OUT" --out web/public/indexes
 ```
 
-`offline-sheets.json.gz` / `offline-audio.json.gz` drive the progressive Offline library packs in the PWA (see [decisions/offline-library.md](decisions/offline-library.md)).
+`offline-sheets.json.gz` / `offline-audio.json.gz` drive the progressive Offline library packs in the PWA (see [decisions/offline-library.md](decisions/offline-library.md)). Audio tier layout (Original, 64k playback, 16k mono solos) is defined in [decisions/audio-storage-cache.md](decisions/audio-storage-cache.md) and the mirror `Barbershop/tags/docs/AUDIO_STORAGE_AND_CACHE.md`.
 
 ## Deploy targets
 

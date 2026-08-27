@@ -26,9 +26,8 @@ export const EMPTY_FILTERS: CatalogFilters = {
 
 export function activeFilterCount(f: CatalogFilters): number {
   let n = 0
-  if (f.fullText) n++
-  if (f.hasSheet != null) n++
-  if (f.hasAudio != null) n++
+  if (f.hasSheet === true) n++
+  if (f.hasAudio === true) n++
   if (f.minRating != null) n++
   n += f.keys.length + f.arrangers.length + f.types.length + f.collections.length
   return n

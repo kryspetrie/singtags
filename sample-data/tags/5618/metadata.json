@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All aboard Amtrak (Eb Major) - Carson Greene - 5618",
-  "sheet": "sheets/5618/sheet.pdf",
+  "sheet": "sheets/5618/All aboard Amtrak (Eb Major) - Carson Greene - Sheet.pdf",
   "audio": {
-    "lead": "media/5618/lead.mp4",
-    "tenor": "media/5618/tenor.mp4",
-    "bari": "media/5618/bari.mp4",
-    "bass": "media/5618/bass.mp4",
-    "mix": "media/5618/mix.mp4"
+    "lead": "media/5618/lead.m4a",
+    "tenor": "media/5618/tenor.m4a",
+    "bari": "media/5618/bari.m4a",
+    "bass": "media/5618/bass.m4a",
+    "mix": "media/5618/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5618/lead.m4a",
+      "playback": "media/5618/lead.playback.opus",
+      "ultra_solo": "media/5618/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/5618/tenor.m4a",
+      "playback": "media/5618/tenor.playback.opus",
+      "ultra_solo": "media/5618/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/5618/bari.m4a",
+      "playback": "media/5618/bari.playback.opus",
+      "ultra_solo": "media/5618/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/5618/bass.m4a",
+      "playback": "media/5618/bass.playback.opus",
+      "ultra_solo": "media/5618/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/5618/mix.m4a",
+      "playback": "media/5618/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5618/All aboard Amtrak (Eb Major) - Carson Greene - Sheet.pdf",
+    "sheets/5618/All aboard Amtrak (Eb Major) - Carson Greene - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5618/preview.webp",
   "sheet_pages": [
-    "sheets/5618/pages/page-01.webp"
-  ]
+    "sheets/5618/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:46:55.455331+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.1149,
+      "correlation": 0.0192,
+      "side_mid": 0.9837
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.3295,
+      "correlation": 0.0012,
+      "side_mid": 0.9806
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.2861,
+      "correlation": 0.0217,
+      "side_mid": 0.9529
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.4019,
+      "correlation": -0.0237,
+      "side_mid": 0.9963
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:30.497942+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.066062+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.539,
+      "zero_corr": 0.539,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.223742+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.58,
+      "zero_corr": 0.58,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.364172+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.64,
+      "zero_corr": 0.64,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.497920+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.689029+00:00"
+  }
 }

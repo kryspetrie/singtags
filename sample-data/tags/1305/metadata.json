@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Lil Bit of Love - Paul Paddock - 1305",
-  "sheet": "sheets/1305/sheet.pdf",
+  "sheet": "sheets/1305/A Lil Bit of Love - Paul Paddock - Sheet.pdf",
   "audio": {
-    "lead": "media/1305/lead.mp4",
-    "tenor": "media/1305/tenor.mp4",
-    "bari": "media/1305/bari.mp4",
-    "bass": "media/1305/bass.mp4",
-    "mix": "media/1305/mix.mp4"
+    "lead": "media/1305/lead.m4a",
+    "tenor": "media/1305/tenor.m4a",
+    "bari": "media/1305/bari.m4a",
+    "bass": "media/1305/bass.m4a",
+    "mix": "media/1305/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/1305/lead.m4a",
+      "playback": "media/1305/lead.playback.opus",
+      "ultra_downmix": "media/1305/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/1305/tenor.m4a",
+      "playback": "media/1305/tenor.playback.opus",
+      "ultra_downmix": "media/1305/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/1305/bari.m4a",
+      "playback": "media/1305/bari.playback.opus",
+      "ultra_downmix": "media/1305/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/1305/bass.m4a",
+      "playback": "media/1305/bass.playback.opus",
+      "ultra_downmix": "media/1305/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/1305/mix.m4a",
+      "playback": "media/1305/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/1305/A Lil Bit of Love - Paul Paddock - Sheet.pdf",
+    "sheets/1305/A Lil Bit of Love - Paul Paddock - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/1305/preview.webp",
   "sheet_pages": [
-    "sheets/1305/pages/page-01.webp"
-  ]
+    "sheets/1305/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:31.048415+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0549,
+      "correlation": 0.9973,
+      "side_mid": 0.066
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.1092,
+      "correlation": 0.9975,
+      "side_mid": 0.1149
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0949,
+      "correlation": 0.9928,
+      "side_mid": 0.1123
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0406,
+      "correlation": 0.994,
+      "side_mid": 0.0657
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0124,
+      "correlation": 0.9881,
+      "side_mid": 0.0772
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:45.080413+00:00"
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { originalSheetPaths, resolveSheetAssets, sheetFileLabel } from './sheetAssets'
+import { downloadableSheetAssets, originalSheetPaths, resolveSheetAssets, sheetFileLabel } from './sheetAssets'
 
 describe('sheetAssets', () => {
   it('merges legacy sheet with sheets[] uniquely', () => {
@@ -63,6 +63,20 @@ describe('sheetAssets', () => {
     expect(assets.canChooseFormat).toBe(true)
   })
 
+  it('omits mirror preview webp when sheet_pages already has preview.webp', () => {
+    const assets = resolveSheetAssets({
+      sheet: 'sheets/3995/Baby On Board (C Major) - Mason Eubank - Sheet.png',
+      sheets: [
+        'sheets/3995/Baby On Board (C Major) - Mason Eubank - Sheet.png',
+        'sheets/3995/Baby On Board (C Major) - Mason Eubank - Sheet Preview.webp',
+      ],
+      sheet_preview: 'sheets/3995/preview.webp',
+      sheet_pages: ['sheets/3995/preview.webp'],
+    })
+    expect(assets.imageSets.map((s) => s.label)).toEqual(['Pages'])
+    expect(assets.imageSets[0]!.paths).toEqual(['sheets/3995/preview.webp'])
+  })
+
   it('stacks original images when no raster pages', () => {
     const assets = resolveSheetAssets({
       sheets: ['sheets/1/p1.jpg', 'sheets/1/p2.jpg'],
@@ -74,5 +88,18 @@ describe('sheetAssets', () => {
 
   it('labels basenames', () => {
     expect(sheetFileLabel('sheets/9/Foo%20Bar.pdf')).toBe('Foo Bar.pdf')
+  })
+
+  it('downloadableSheetAssets prefers one Image and PDF label', () => {
+    const assets = downloadableSheetAssets({
+      sheet: 'sheets/137/A Good Old Fashioned Song and a Smile (A Major) - Sheet.jpg',
+      sheets: [
+        'sheets/137/A Good Old Fashioned Song and a Smile (A Major) - Sheet.jpg',
+        'sheets/137/A Good Old Fashioned Song and a Smile (A Major) - Sheet Preview.webp',
+      ],
+      sheet_pages: ['sheets/137/preview.webp'],
+    })
+    expect(assets.map((a) => a.label)).toEqual(['Image'])
+    expect(assets[0]!.path).toBe('sheets/137/preview.webp')
   })
 })

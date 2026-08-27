@@ -10,7 +10,7 @@
 
 Keep the current publish model:
 
-1. **Display:** Pre-rasterized **WebP** pages at sync time (`scripts/rasterize_sheets.py` → `sheet_pages`).
+1. **Display / offline cache:** Pre-rasterized **2-bit dither WebP** previews at sync/publish time (`build_sheet_preview_webp` → `sheet_preview` / `sheet_pages`).
 2. **Download / optional view:** Keep **original PDF** (and other uploaded images) when present.
 3. **Viewer:** Native image display in `SheetViewer`; **pdf.js** only when the user chooses PDF mode and originals exist.
 4. **Do not** adopt DjVu as the primary format, ship a DjVu viewer in the SPA, or convert DjVu → PDF/PNG/WebP in the browser on download.
@@ -68,7 +68,7 @@ DjVu can compress **scanned** documents well. Many barbershop sheets are **vecto
 
 | Piece | Location |
 | --- | --- |
-| Rasterize | `scripts/rasterize_sheets.py` |
+| Rasterize | `scripts/rasterize_sheets.py` (uses tags mirror `lib/sheet_export.py`) |
 | Seed originals | `scripts/seed_sample.py` (`SHEET_EXTS`) |
 | Viewer | `web/src/components/SheetViewer.vue` |
 | Offline sheet blobs | `web/src/offline/starredDb.ts` (WebP pages) |

@@ -1,34 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useQueueStore } from '../stores/queue'
-import { usePreferencesStore } from '../stores/preferences'
+import { useOnline } from '../composables/useOnline'
 import EmptyState from '../components/EmptyState.vue'
-import type { AudioEncodeQuality, DownloadFormat, TransformMode } from '../types/audio'
-import { transformFromMode } from '../types/audio'
+import {
+  DOWNLOAD_FORMAT_OPTIONS,
+  downloadFormatLabel,
+  type UserDownloadFormat,
+} from '../types/audio'
 import { normalizeZipLayout, type ZipLayout } from '../download/zip'
 
 const queue = useQueueStore()
-const prefs = usePreferencesStore()
-
-const formats: Array<{ id: DownloadFormat; label: string }> = [
-  { id: 'mp4', label: 'MP4 (AAC)' },
-  { id: 'mp3', label: 'MP3' },
-  { id: 'ogg', label: 'OGG Vorbis' },
-]
-
-const qualities: Array<{ id: AudioEncodeQuality; label: string }> = [
-  { id: 'original', label: 'Original (hosted ~128 kbps)' },
-  { id: 'standard', label: 'Standard (stereo ~96 kbps)' },
-  { id: 'compact', label: 'Compact (stereo ~64 kbps)' },
-  { id: 'lofi', label: 'Lo-fi (stereo ~32 kbps)' },
-]
-
-const modes: Array<{ id: TransformMode; label: string }> = [
-  { id: 'original', label: 'Original' },
-  { id: 'key', label: 'Current key' },
-  { id: 'speed', label: 'Current speed' },
-  { id: 'key+speed', label: 'Current key + speed' },
-]
+const { offline } = useOnline()
 
 const layouts: Array<{ id: ZipLayout; label: string }> = [
   { id: 'folders', label: 'Folders by tag' },
@@ -42,29 +25,14 @@ const zipLayoutModel = computed({
   },
 })
 
-function onModeChange(mode: TransformMode): void {
-  queue.transformMode = mode
-  queue.applyBulkTransform(mode)
-}
-
-function onFormatChange(fmt: DownloadFormat): void {
-  queue.format = fmt
-  for (const t of queue.tracks) {
-    queue.updateTrack(t.tagId, t.part, { format: fmt })
-  }
-}
-
-function onQualityChange(v: string): void {
-  const q = v as AudioEncodeQuality
-  queue.encodeQuality = q
-  prefs.setAudioEncodeQuality(q)
+function onFormatChange(fmt: UserDownloadFormat): void {
+  queue.setFormat(fmt)
 }
 </script>
 
 <template>
-  <section aria-labelledby="queue-heading">
-    <h1 id="queue-heading">Downloads</h1>
-    <p class="muted">
+  <section aria-label="Downloads">
+    <p class="muted intro">
       Build a zip of learning tracks across tags. Max {{ queue.max }} tracks.
       {{ queue.count }} in list.
     </p>
@@ -72,33 +40,15 @@ function onQualityChange(v: string): void {
 
     <div class="prefs">
       <label>
-        Format
+        Download as
         <select
           :value="queue.format"
-          aria-label="Zip download format"
-          @change="onFormatChange(($event.target as HTMLSelectElement).value as DownloadFormat)"
+          aria-label="Download as"
+          @change="onFormatChange(($event.target as HTMLSelectElement).value as UserDownloadFormat)"
         >
-          <option v-for="f in formats" :key="f.id" :value="f.id">{{ f.label }}</option>
-        </select>
-      </label>
-      <label>
-        Quality
-        <select
-          :value="queue.encodeQuality"
-          aria-label="Zip encode quality"
-          @change="onQualityChange(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="q in qualities" :key="q.id" :value="q.id">{{ q.label }}</option>
-        </select>
-      </label>
-      <label>
-        Transform
-        <select
-          :value="queue.transformMode"
-          aria-label="Zip transform mode"
-          @change="onModeChange(($event.target as HTMLSelectElement).value as TransformMode)"
-        >
-          <option v-for="m in modes" :key="m.id" :value="m.id">{{ m.label }}</option>
+          <option v-for="f in DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
+            {{ f.label }}
+          </option>
         </select>
       </label>
       <label>
@@ -109,11 +59,26 @@ function onQualityChange(v: string): void {
       </label>
     </div>
     <p class="hint">
-      MP4 quality re-encodes stereo AAC on device (Original keeps the hosted file). MP3/OGG always re-encode.
+      Original keeps the hosted AAC file (~128 kbps, .m4a). MP3 is transcoded on your device (LAME VBR quality&nbsp;2).
+    </p>
+
+    <p v-if="offline" class="hint warn-offline" role="status">
+      Zip exports need a network connection. Your queue is saved on this device.
     </p>
 
     <div class="actions">
-      <button type="button" :disabled="!queue.count || queue.busy" @click="queue.downloadZip()">
+      <button
+        type="button"
+        :disabled="!queue.count || queue.busy || offline"
+        :title="
+          !queue.count
+            ? 'Add tracks from Browse or a tag page first'
+            : offline
+              ? 'Zip export needs a network connection'
+              : undefined
+        "
+        @click="queue.downloadZip()"
+      >
         {{ queue.busy ? `Zipping ${queue.progress.done}/${queue.progress.total}…` : 'Download zip' }}
       </button>
       <button
@@ -131,16 +96,7 @@ function onQualityChange(v: string): void {
       <li v-for="t in queue.tracks" :key="`${t.tagId}-${t.part}`">
         <div class="meta">
           <span>#{{ t.tagId }} {{ t.title }} — {{ t.part }}</span>
-          <span class="muted tiny">
-            {{ t.format ?? queue.format }}
-            ·
-            {{
-              t.transform
-                ? `${t.transform.pitchSemitones}st @ ${Math.round(t.transform.speed * 100)}%`
-                : transformFromMode(queue.transformMode, queue.playbackTransform).pitchSemitones +
-                  'st'
-            }}
-          </span>
+          <span class="muted tiny">{{ downloadFormatLabel(t.format ?? queue.format) }}</span>
         </div>
         <button type="button" @click="queue.remove(t.tagId, t.part)">Remove</button>
       </li>
@@ -154,9 +110,6 @@ function onQualityChange(v: string): void {
 </template>
 
 <style scoped>
-h1 {
-  font-family: var(--font-display);
-}
 .muted {
   color: var(--muted);
 }

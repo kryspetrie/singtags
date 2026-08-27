@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Anywhere You Go (Bb Major) - D.C. Nash - 6655",
-  "sheet": "sheets/6655/sheet.jpg",
+  "sheet": "sheets/6655/Anywhere You Go (Bb Major) - D.C. Nash - Sheet.jpg",
   "audio": {
-    "mix": "media/6655/mix.mp4"
+    "mix": "media/6655/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6655/mix.m4a",
+      "playback": "media/6655/mix.playback.opus",
+      "ultra_mix": "media/6655/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6655/Anywhere You Go (Bb Major) - D.C. Nash - Sheet.jpg",
+    "sheets/6655/Anywhere You Go (Bb Major) - D.C. Nash - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6655/preview.webp",
   "sheet_pages": [
-    "sheets/6655/pages/page-01.webp"
-  ]
+    "sheets/6655/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:25.763029+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:42.503994+00:00"
+  }
 }

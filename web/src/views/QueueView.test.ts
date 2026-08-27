@@ -2,11 +2,17 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import EmptyState from '../components/EmptyState.vue'
 import QueueView from './QueueView.vue'
 import { useQueueStore } from '../stores/queue'
+
+const offline = ref(false)
+vi.mock('../composables/useOnline', () => ({
+  useOnline: () => ({ offline }),
+}))
 
 vi.mock('../download/zip', async () => {
   const actual = await vi.importActual<typeof import('../download/zip')>('../download/zip')
@@ -22,6 +28,7 @@ vi.mock('../download/zip', async () => {
 describe('QueueView', () => {
   beforeEach(() => {
     localStorage.clear()
+    offline.value = false
     setActivePinia(createPinia())
   })
 
@@ -33,23 +40,43 @@ describe('QueueView', () => {
     expect(wrap.findComponent(EmptyState).exists()).toBe(true)
     expect(wrap.text()).toContain('Nothing to download yet')
 
-    q.add({ tagId: 1, title: 'T', part: 'lead', path: 'media/1/lead.mp4' })
+    q.add({ tagId: 1, title: 'T', part: 'lead', path: 'media/1/lead.m4a' })
     await wrap.vm.$nextTick()
     expect(wrap.text()).toContain('#1 T — lead')
   })
 
-  it('removes tracks, changes format/mode, and downloads zip', async () => {
+  it('disables Download zip when queue is empty', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const w = mount(QueueView, { global: { plugins: [pinia] } })
+    const btn = w.findAll('button').find((b) => b.text() === 'Download zip')
+    expect(btn?.attributes('disabled')).toBeDefined()
+    expect(btn?.attributes('title')).toMatch(/Add tracks/i)
+  })
+
+  it('disables Download zip when offline even with tracks', async () => {
+    offline.value = true
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const q = useQueueStore()
+    q.add({ tagId: 1, title: 'T', part: 'lead', path: 'a' })
+    const w = mount(QueueView, { global: { plugins: [pinia] } })
+    await flushPromises()
+    const btn = w.findAll('button').find((b) => b.text() === 'Download zip')
+    expect(btn?.attributes('disabled')).toBeDefined()
+    expect(btn?.attributes('title')).toMatch(/network/i)
+  })
+
+  it('removes tracks, changes format, and downloads zip', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const q = useQueueStore()
     q.add({ tagId: 1, title: 'T', part: 'lead', path: 'a' })
     q.add({ tagId: 1, title: 'T', part: 'bass', path: 'b' })
     const w = mount(QueueView, { global: { plugins: [pinia] } })
-    await w.get('[aria-label="Zip download format"]').setValue('mp3')
+    await w.get('[aria-label="Download as"]').setValue('mp3')
     expect(q.format).toBe('mp3')
     expect(q.tracks.every((t) => t.format === 'mp3')).toBe(true)
-    await w.get('[aria-label="Zip transform mode"]').setValue('key')
-    expect(q.transformMode).toBe('key')
 
     await w.findAll('button').find((b) => b.text() === 'Remove')!.trigger('click')
     expect(q.count).toBe(1)

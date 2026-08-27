@@ -1,14 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
+import 'fake-indexeddb/auto'
 import { createPinia, setActivePinia } from 'pinia'
 import { useCatalogStore } from './catalog'
+import { putLyricsSnapshotIdb, clearIndexSnapshotsIdb } from '../offline/indexSnapshotDb'
 import { downloadFilename } from '../download/transform'
 import { buildZip, MAX_QUEUE_TRACKS } from '../download/zip'
 import { transformFilenameSuffix } from '../types/audio'
 
 describe('catalog store', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia())
     vi.restoreAllMocks()
+    await clearIndexSnapshotsIdb()
   })
 
   it('loads core index and searches', async () => {
@@ -57,6 +60,58 @@ describe('catalog store', () => {
     expect(catalog.results.map((t) => t.id)).toEqual([1])
     catalog.syncFromRoute({ q: 'christmas' }, 'title')
     expect(catalog.results.map((t) => t.id)).toEqual([1])
+  })
+
+  it('refreshes lyric search when the lyrics index loads', async () => {
+    const core = {
+      version: 1,
+      tags: [
+        {
+          id: 1540,
+          title: 'Be Thou My Vision',
+          arranger: 'Paul Paddock',
+          key: 'D Major',
+          rating: 3.4,
+          type: 'Other male',
+          collection: null,
+          hasSheet: true,
+          audioParts: ['lead'],
+          sheet: null,
+        },
+      ],
+    }
+    const coreGz = await new Response(
+      new Blob([JSON.stringify(core)]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).arrayBuffer()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('core.json.gz')) {
+          return new Response(coreGz, { status: 200 })
+        }
+        if (String(url).includes('expansions.json')) {
+          return new Response(JSON.stringify({ map: {} }), { status: 200 })
+        }
+        if (String(url).includes('lyrics.json.gz')) {
+          return new Response(null, { status: 404 })
+        }
+        return new Response(null, { status: 404 })
+      }),
+    )
+
+    await putLyricsSnapshotIdb([{ id: 1540, lyrics: "O Lord o' my soul, my soul" }])
+
+    const catalog = useCatalogStore()
+    await catalog.load()
+    catalog.patchFilters({ fullText: true })
+    catalog.queryText = 'my soul'
+    catalog.debouncedQuery = 'my soul'
+    expect(catalog.results.map((t) => t.id)).toEqual([])
+
+    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(catalog.lyricsLoaded).toBe(true)
+    expect(catalog.results.map((t) => t.id)).toEqual([1540])
   })
 
   it('applies chip filters immediately', async () => {
@@ -196,6 +251,98 @@ describe('catalog store', () => {
     expect(catalog.loaded).toBe(true)
     expect(catalog.tags[0]?.id).toBe(99)
   })
+
+  it('restores catalog from persistent snapshot when fetch fails', async () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, v)
+      },
+      removeItem: (k: string) => {
+        store.delete(k)
+      },
+    }
+    vi.stubGlobal('sessionStorage', storage)
+    vi.stubGlobal('localStorage', storage)
+    store.set(
+      'singtags.catalogSnapshot.v1',
+      JSON.stringify({
+        tags: [
+          {
+            id: 42,
+            title: 'Snapshot Tag',
+            arranger: null,
+            key: null,
+            rating: null,
+            type: null,
+            collection: null,
+            hasSheet: false,
+            audioParts: [],
+            sheet: null,
+          },
+        ],
+        expansions: {},
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Offline mode — not cached')
+      }),
+    )
+    const catalog = useCatalogStore()
+    await catalog.load()
+    expect(catalog.loaded).toBe(true)
+    expect(catalog.tags.map((t) => t.id)).toEqual([42])
+    expect(catalog.error).toBeNull()
+  })
+
+  it('hydrates catalog synchronously from snapshot', () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => store.set(k, v),
+      removeItem: (k: string) => store.delete(k),
+    }
+    vi.stubGlobal('localStorage', storage)
+    vi.stubGlobal('sessionStorage', storage)
+    store.set(
+      'singtags.catalogSnapshot.v1',
+      JSON.stringify({
+        tags: [
+          {
+            id: 7,
+            title: 'Hydrated',
+            arranger: null,
+            key: null,
+            rating: null,
+            type: null,
+            collection: null,
+            hasSheet: false,
+            audioParts: [],
+            sheet: null,
+          },
+        ],
+        expansions: {},
+      }),
+    )
+    const catalog = useCatalogStore()
+    expect(catalog.hydrateFromSnapshot()).toBe(true)
+    expect(catalog.loaded).toBe(true)
+    expect(catalog.tags[0]?.title).toBe('Hydrated')
+  })
+
+  it('hydrates lyrics from IndexedDB on startup', async () => {
+    await clearIndexSnapshotsIdb()
+    await putLyricsSnapshotIdb([
+      { id: 5, lyrics: 'Hello lyrics line' },
+    ])
+    const catalog = useCatalogStore()
+    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(catalog.lyricsLoaded).toBe(true)
+    expect(catalog.lyricsSnippet(5)).toMatch(/Hello lyrics/)
+  })
 })
 
 describe('download helpers', () => {
@@ -203,13 +350,13 @@ describe('download helpers', () => {
     expect(downloadFilename('lead', 'mp3', { pitchSemitones: 2, speed: 0.95 })).toBe(
       'lead_+2st_95pct.mp3',
     )
-    expect(downloadFilename('lead', 'mp4', { pitchSemitones: 2, speed: 1 })).toBe('lead_+2st.mp4')
-    expect(downloadFilename('lead', 'mp4', { pitchSemitones: 0, speed: 1 })).toBe('lead.mp4')
+    expect(downloadFilename('lead', 'm4a', { pitchSemitones: 2, speed: 1 })).toBe('lead_+2st.m4a')
+    expect(downloadFilename('lead', 'm4a', { pitchSemitones: 0, speed: 1 })).toBe('lead.m4a')
     expect(transformFilenameSuffix({ pitchSemitones: 0, speed: 1 })).toBe('')
   })
 
   it('builds zip bytes', () => {
-    const data = buildZip([{ name: 'a/lead.mp4', data: new Uint8Array([1, 2, 3]) }])
+    const data = buildZip([{ name: 'a/lead.m4a', data: new Uint8Array([1, 2, 3]) }])
     expect(data.byteLength).toBeGreaterThan(10)
     expect(MAX_QUEUE_TRACKS).toBe(100)
   })

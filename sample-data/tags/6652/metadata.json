@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Autumn Arrives (Bb Major) - Jake Hemmle - 6652",
-  "sheet": "sheets/6652/sheet.pdf",
+  "sheet": "sheets/6652/Autumn Arrives (Bb Major) - Jake Hemmle - Sheet.pdf",
   "audio": {
-    "mix": "media/6652/mix.mp4"
+    "mix": "media/6652/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6652/mix.m4a",
+      "playback": "media/6652/mix.playback.opus",
+      "ultra_mix": "media/6652/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6652/Autumn Arrives (Bb Major) - Jake Hemmle - Sheet.pdf",
+    "sheets/6652/Autumn Arrives (Bb Major) - Jake Hemmle - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6652/preview.webp",
   "sheet_pages": [
-    "sheets/6652/pages/page-01.webp"
-  ]
+    "sheets/6652/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "part_left",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:54.508701+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0151,
+      "correlation": 0.7981,
+      "side_mid": 0.3343
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:38.739122+00:00"
+  }
 }

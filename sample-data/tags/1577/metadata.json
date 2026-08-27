@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All Alone and Feeling Blue (Eb Major) - Damien Kehoe - 1577",
-  "sheet": "sheets/1577/sheet.png",
+  "sheet": "sheets/1577/All Alone and Feeling Blue (Eb Major) - Damien Kehoe - Sheet.png",
   "audio": {
-    "lead": "media/1577/lead.mp4",
-    "tenor": "media/1577/tenor.mp4",
-    "bari": "media/1577/bari.mp4",
-    "bass": "media/1577/bass.mp4",
-    "mix": "media/1577/mix.mp4"
+    "lead": "media/1577/lead.m4a",
+    "tenor": "media/1577/tenor.m4a",
+    "bari": "media/1577/bari.m4a",
+    "bass": "media/1577/bass.m4a",
+    "mix": "media/1577/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/1577/lead.m4a",
+      "playback": "media/1577/lead.playback.opus",
+      "ultra_downmix": "media/1577/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/1577/tenor.m4a",
+      "playback": "media/1577/tenor.playback.opus",
+      "ultra_downmix": "media/1577/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/1577/bari.m4a",
+      "playback": "media/1577/bari.playback.opus",
+      "ultra_downmix": "media/1577/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/1577/bass.m4a",
+      "playback": "media/1577/bass.playback.opus",
+      "ultra_downmix": "media/1577/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/1577/mix.m4a",
+      "playback": "media/1577/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/1577/All Alone and Feeling Blue (Eb Major) - Damien Kehoe - Sheet.png",
+    "sheets/1577/All Alone and Feeling Blue (Eb Major) - Damien Kehoe - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/1577/preview.webp",
   "sheet_pages": [
-    "sheets/1577/pages/page-01.webp"
-  ]
+    "sheets/1577/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:37.340094+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0011,
+      "correlation": 0.9978,
+      "side_mid": 0.0326
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0019,
+      "correlation": 0.9983,
+      "side_mid": 0.0292
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0009,
+      "correlation": 0.998,
+      "side_mid": 0.0312
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0013,
+      "correlation": 0.9987,
+      "side_mid": 0.0258
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0013,
+      "correlation": 0.9981,
+      "side_mid": 0.0308
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:49.352301+00:00"
+  }
 }

@@ -39,17 +39,16 @@ describe('preferences store', () => {
     expect(again.getPartMixPan('bari')).toBe('right')
   })
 
-  it('persists online original-playback preferences', () => {
+  it('persists browse welcome dismissal', () => {
     const prefs = usePreferencesStore()
-    expect(prefs.playOriginalWhileOnline).toBe(false)
-    expect(prefs.upgradeCachedOnPlay).toBe(false)
-    prefs.setPlayOriginalWhileOnline(true)
-    prefs.setUpgradeCachedOnPlay(true)
-    expect(localStorage.getItem('singtags.playOriginalWhileOnline.v1')).toBe('1')
-    expect(localStorage.getItem('singtags.upgradeCachedOnPlay.v1')).toBe('1')
-    setActivePinia(createPinia())
-    const again = usePreferencesStore()
-    expect(again.playOriginalWhileOnline).toBe(true)
-    expect(again.upgradeCachedOnPlay).toBe(true)
+    expect(prefs.browseWelcomeDismissed).toBe(false)
+    prefs.dismissBrowseWelcome()
+    expect(prefs.browseWelcomeDismissed).toBe(true)
+    expect(localStorage.getItem('singtags.browseWelcomeDismissed.v1')).toBe('1')
+  })
+
+  it('defaults library audio pack to all voice parts', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.libraryAudioPartsMode).toBe('all')
   })
 })

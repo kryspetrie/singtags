@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   IDENTITY_TRANSFORM,
   aacBitrate,
+  downloadFormatLabel,
+  encodeQualityForDownload,
   isIdentityTransform,
   mp3VbrQuality,
+  normalizeDownloadFormat,
   transformFilenameSuffix,
   transformFromMode,
 } from '../types/audio'
@@ -33,6 +36,16 @@ describe('AudioTransform helpers', () => {
     expect(aacBitrate('standard')).toBe(96_000)
     expect(aacBitrate('compact')).toBe(64_000)
     expect(aacBitrate('lofi')).toBe(32_000)
+    expect(mp3VbrQuality('standard')).toBe(2)
     expect(mp3VbrQuality('lofi')).toBe(7)
+  })
+
+  it('labels download formats and maps encode quality', () => {
+    expect(downloadFormatLabel('m4a')).toBe('Original (M4A)')
+    expect(downloadFormatLabel('mp3')).toBe('MP3 (VBR q2)')
+    expect(encodeQualityForDownload('m4a')).toBe('original')
+    expect(encodeQualityForDownload('mp3')).toBe('standard')
+    expect(normalizeDownloadFormat(undefined)).toBe('m4a')
+    expect(normalizeDownloadFormat('ogg')).toBe('m4a')
   })
 })

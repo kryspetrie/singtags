@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Are You Lonesome Tonight (C Major) - Anthony Bartholomew - 2001",
-  "sheet": "sheets/2001/sheet.pdf",
+  "sheet": "sheets/2001/Are You Lonesome Tonight (C Major) - Anthony Bartholomew - Sheet.pdf",
   "audio": {
-    "lead": "media/2001/lead.mp4",
-    "tenor": "media/2001/tenor.mp4",
-    "bari": "media/2001/bari.mp4",
-    "bass": "media/2001/bass.mp4",
-    "mix": "media/2001/mix.mp4"
+    "lead": "media/2001/lead.m4a",
+    "tenor": "media/2001/tenor.m4a",
+    "bari": "media/2001/bari.m4a",
+    "bass": "media/2001/bass.m4a",
+    "mix": "media/2001/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2001/lead.m4a",
+      "playback": "media/2001/lead.playback.opus",
+      "ultra_downmix": "media/2001/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/2001/tenor.m4a",
+      "playback": "media/2001/tenor.playback.opus",
+      "ultra_downmix": "media/2001/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/2001/bari.m4a",
+      "playback": "media/2001/bari.playback.opus",
+      "ultra_downmix": "media/2001/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/2001/bass.m4a",
+      "playback": "media/2001/bass.playback.opus",
+      "ultra_downmix": "media/2001/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/2001/mix.m4a",
+      "playback": "media/2001/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2001/Are You Lonesome Tonight (C Major) - Anthony Bartholomew - Sheet.pdf",
+    "sheets/2001/Are You Lonesome Tonight (C Major) - Anthony Bartholomew - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2001/preview.webp",
   "sheet_pages": [
-    "sheets/2001/pages/page-01.webp"
-  ]
+    "sheets/2001/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:33.904539+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0507,
+      "correlation": 0.9931,
+      "side_mid": 0.0782
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0953,
+      "correlation": 0.9914,
+      "side_mid": 0.1163
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0924,
+      "correlation": 0.9898,
+      "side_mid": 0.1174
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0427,
+      "correlation": 0.9935,
+      "side_mid": 0.0728
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0078,
+      "correlation": 0.9833,
+      "side_mid": 0.0942
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:53.703168+00:00"
+  }
 }

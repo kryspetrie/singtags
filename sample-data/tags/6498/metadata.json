@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All Through the Night (F Major) - Anthony Martini - 6498",
-  "sheet": "sheets/6498/sheet.pdf",
+  "sheet": "sheets/6498/All Through the Night (F Major) - Anthony Martini - Sheet.pdf",
   "audio": {
-    "mix": "media/6498/mix.mp4"
+    "mix": "media/6498/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6498/mix.m4a",
+      "playback": "media/6498/mix.playback.opus",
+      "ultra_mix": "media/6498/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6498/All Through the Night (F Major) - Anthony Martini - Sheet.pdf",
+    "sheets/6498/All Through the Night (F Major) - Anthony Martini - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6498/preview.webp",
   "sheet_pages": [
-    "sheets/6498/pages/page-01.webp"
-  ]
+    "sheets/6498/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:49.800179+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.464808+00:00"
+  }
 }

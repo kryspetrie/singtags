@@ -22,7 +22,7 @@ describe('queue store', () => {
     setActivePinia(createPinia())
   })
 
-  it('addMany, remove, clear, and transform helpers', () => {
+  it('addMany, remove, clear, and track helpers', () => {
     const q = useQueueStore()
     q.addMany([
       { tagId: 1, title: 'A', part: 'lead', path: 'a' },
@@ -30,8 +30,7 @@ describe('queue store', () => {
     ])
     expect(q.count).toBe(2)
     q.setPlaybackTransform({ pitchSemitones: 2, speed: 0.9 })
-    q.applyBulkTransform('key+speed')
-    expect(q.tracks[0]?.transform?.pitchSemitones).toBe(2)
+    expect(q.playbackTransform.pitchSemitones).toBe(2)
     q.updateTrack(1, 'lead', { format: 'mp3' })
     expect(q.tracks.find((t) => t.part === 'lead')?.format).toBe('mp3')
     q.remove(1, 'bass')

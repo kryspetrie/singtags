@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All By Myself (C Major) - Jim Clancy - 3088",
-  "sheet": "sheets/3088/sheet.png",
+  "sheet": "sheets/3088/All By Myself (C Major) - Jim Clancy - Sheet.png",
   "audio": {
-    "lead": "media/3088/lead.mp4",
-    "tenor": "media/3088/tenor.mp4",
-    "bari": "media/3088/bari.mp4",
-    "bass": "media/3088/bass.mp4",
-    "mix": "media/3088/mix.mp4"
+    "lead": "media/3088/lead.m4a",
+    "tenor": "media/3088/tenor.m4a",
+    "bari": "media/3088/bari.m4a",
+    "bass": "media/3088/bass.m4a",
+    "mix": "media/3088/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3088/lead.m4a",
+      "playback": "media/3088/lead.playback.opus",
+      "ultra_downmix": "media/3088/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/3088/tenor.m4a",
+      "playback": "media/3088/tenor.playback.opus",
+      "ultra_downmix": "media/3088/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/3088/bari.m4a",
+      "playback": "media/3088/bari.playback.opus",
+      "ultra_downmix": "media/3088/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/3088/bass.m4a",
+      "playback": "media/3088/bass.playback.opus",
+      "ultra_downmix": "media/3088/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/3088/mix.m4a",
+      "playback": "media/3088/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3088/All By Myself (C Major) - Jim Clancy - Sheet.png",
+    "sheets/3088/All By Myself (C Major) - Jim Clancy - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3088/preview.webp",
   "sheet_pages": [
-    "sheets/3088/pages/page-01.webp"
-  ]
+    "sheets/3088/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:36.942007+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:49.445796+00:00"
+  }
 }

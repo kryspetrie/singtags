@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "After The Coffees Gone We Rage - Grant Goulding - 6689",
-  "sheet": "sheets/6689/sheet.jpg",
+  "sheet": "sheets/6689/After The Coffees Gone We Rage - Grant Goulding - Sheet.jpg",
   "audio": {
-    "mix": "media/6689/mix.mp4"
+    "mix": "media/6689/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6689/mix.m4a",
+      "playback": "media/6689/mix.playback.opus",
+      "ultra_mix": "media/6689/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6689/After The Coffees Gone We Rage - Grant Goulding - Sheet.jpg",
+    "sheets/6689/After The Coffees Gone We Rage - Grant Goulding - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6689/preview.webp",
   "sheet_pages": [
-    "sheets/6689/pages/page-01.webp"
-  ]
+    "sheets/6689/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:14.111696+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0279,
+      "correlation": 0.9752,
+      "side_mid": 0.1164
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:47.994990+00:00"
+  }
 }

@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Pirates Life For Me (F Major) - Rick Spencer - 3290",
-  "sheet": "sheets/3290/sheet.png",
+  "sheet": "sheets/3290/A Pirates Life For Me (F Major) - Rick Spencer - Sheet.png",
   "audio": {
-    "lead": "media/3290/lead.mp4",
-    "tenor": "media/3290/tenor.mp4",
-    "bari": "media/3290/bari.mp4",
-    "bass": "media/3290/bass.mp4",
-    "mix": "media/3290/mix.mp4"
+    "lead": "media/3290/lead.m4a",
+    "tenor": "media/3290/tenor.m4a",
+    "bari": "media/3290/bari.m4a",
+    "bass": "media/3290/bass.m4a",
+    "mix": "media/3290/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3290/lead.m4a",
+      "playback": "media/3290/lead.playback.opus",
+      "ultra_solo": "media/3290/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/3290/tenor.m4a",
+      "playback": "media/3290/tenor.playback.opus",
+      "ultra_solo": "media/3290/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/3290/bari.m4a",
+      "playback": "media/3290/bari.playback.opus",
+      "ultra_solo": "media/3290/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/3290/bass.m4a",
+      "playback": "media/3290/bass.playback.opus",
+      "ultra_solo": "media/3290/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/3290/mix.m4a",
+      "playback": "media/3290/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3290/A Pirates Life For Me (F Major) - Rick Spencer - Sheet.png",
+    "sheets/3290/A Pirates Life For Me (F Major) - Rick Spencer - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3290/preview.webp",
   "sheet_pages": [
-    "sheets/3290/pages/page-01.webp"
-  ]
+    "sheets/3290/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "near_mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:45:47.956203+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.042,
+      "correlation": 0.8474,
+      "side_mid": 0.2664
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.0627,
+      "correlation": 0.8281,
+      "side_mid": 0.2899
+    },
+    "bari": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0298,
+      "correlation": 0.8924,
+      "side_mid": 0.2612
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.0636,
+      "correlation": 0.8441,
+      "side_mid": 0.3067
+    },
+    "mix": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0722,
+      "correlation": 0.9117,
+      "side_mid": 0.2277
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:04.732553+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:01.533045+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.549,
+      "zero_corr": 0.549,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:02.588021+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.625,
+      "zero_corr": 0.625,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:03.663632+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.656,
+      "zero_corr": 0.656,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:04.732526+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:46.361696+00:00"
+  }
 }

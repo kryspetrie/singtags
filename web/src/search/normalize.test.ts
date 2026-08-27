@@ -85,4 +85,26 @@ describe('SearchEngine', () => {
     const q = parseQuery('everything', true)
     expect(engine.search(q).map((t) => t.id)).toEqual([1])
   })
+
+  it('finds multi-word lyric queries like my soul', () => {
+    const vision: TagSummary = {
+      id: 1540,
+      title: 'Be Thou My Vision',
+      arranger: 'Paul Paddock',
+      key: 'D Major',
+      rating: 3.4,
+      type: 'Other male',
+      collection: null,
+      hasSheet: true,
+      audioParts: ['lead'],
+      sheet: null,
+    }
+    const engine = new SearchEngine({
+      tags: [vision],
+      expansions: {},
+      lyrics: [{ id: 1540, lyrics: "O Lord o' my soul, my soul" }],
+    })
+    expect(engine.search(parseQuery('my soul', false)).map((t) => t.id)).toEqual([])
+    expect(engine.search(parseQuery('my soul', true)).map((t) => t.id)).toEqual([1540])
+  })
 })

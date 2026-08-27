@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All You Need Is Love (F Major) - 2646",
-  "sheet": "sheets/2646/sheet.jpg",
+  "sheet": "sheets/2646/All You Need Is Love (F Major) - Sheet.jpg",
   "audio": {
-    "mix": "media/2646/mix.mp4"
+    "mix": "media/2646/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/2646/mix.m4a",
+      "playback": "media/2646/mix.playback.opus",
+      "ultra_mix": "media/2646/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2646/All You Need Is Love (F Major) - Sheet.jpg",
+    "sheets/2646/All You Need Is Love (F Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2646/preview.webp",
   "sheet_pages": [
-    "sheets/2646/pages/page-01.webp"
-  ]
+    "sheets/2646/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:50.011974+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0003,
+      "correlation": 0.9984,
+      "side_mid": 0.0266
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.463479+00:00"
+  }
 }

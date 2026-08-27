@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "April In Paris (C Major) - Kevin Keller - 6541",
-  "sheet": "sheets/6541/sheet.png",
+  "sheet": "sheets/6541/April In Paris (C Major) - Kevin Keller - Sheet.png",
   "audio": {
-    "lead": "media/6541/lead.mp4",
-    "tenor": "media/6541/tenor.mp4",
-    "bari": "media/6541/bari.mp4",
-    "bass": "media/6541/bass.mp4",
-    "mix": "media/6541/mix.mp4"
+    "lead": "media/6541/lead.m4a",
+    "tenor": "media/6541/tenor.m4a",
+    "bari": "media/6541/bari.m4a",
+    "bass": "media/6541/bass.m4a",
+    "mix": "media/6541/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/6541/lead.m4a",
+      "playback": "media/6541/lead.playback.opus",
+      "ultra_stereo": "media/6541/lead.ultra.opus"
+    },
+    "tenor": {
+      "original": "media/6541/tenor.m4a",
+      "playback": "media/6541/tenor.playback.opus",
+      "ultra_stereo": "media/6541/tenor.ultra.opus"
+    },
+    "bari": {
+      "original": "media/6541/bari.m4a",
+      "playback": "media/6541/bari.playback.opus",
+      "ultra_stereo": "media/6541/bari.ultra.opus"
+    },
+    "bass": {
+      "original": "media/6541/bass.m4a",
+      "playback": "media/6541/bass.playback.opus",
+      "ultra_stereo": "media/6541/bass.ultra.opus"
+    },
+    "mix": {
+      "original": "media/6541/mix.m4a",
+      "playback": "media/6541/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6541/April In Paris (C Major) - Kevin Keller - Sheet.png",
+    "sheets/6541/April In Paris (C Major) - Kevin Keller - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6541/preview.webp",
   "sheet_pages": [
-    "sheets/6541/pages/page-01.webp"
-  ]
+    "sheets/6541/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "part_right",
+    "ultra_low": "stereo_fallback",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:47:31.613196+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2172,
+      "correlation": 0.4549,
+      "side_mid": 0.6427
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4772,
+      "correlation": 0.1646,
+      "side_mid": 0.8957
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.1927,
+      "correlation": 0.313,
+      "side_mid": 0.74
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.3838,
+      "correlation": 0.1507,
+      "side_mid": 0.8932
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2928,
+      "correlation": 0.2817,
+      "side_mid": 0.783
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:57.628571+00:00"
+  }
 }

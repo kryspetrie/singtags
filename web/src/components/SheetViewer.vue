@@ -363,13 +363,12 @@ onUnmounted(() => {
     <div v-if="showPickers" class="pickers">
       <div
         v-if="showFormatToggle"
-        class="format"
+        class="ctrl-segment format"
         role="group"
         aria-label="Sheet music format"
       >
         <button
           type="button"
-          :class="{ on: mode === 'images' }"
           :aria-pressed="mode === 'images'"
           @click="setMode('images')"
         >
@@ -377,7 +376,6 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          :class="{ on: mode === 'pdf' }"
           :aria-pressed="mode === 'pdf'"
           @click="setMode('pdf')"
         >
@@ -411,41 +409,27 @@ onUnmounted(() => {
 .wrap {
   display: grid;
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .pickers {
   display: grid;
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
 }
 .format {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
-  max-width: 20rem;
-}
-.format button {
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.45rem 0.5rem;
-  cursor: pointer;
-}
-.format button.on {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  border-color: var(--accent);
-  color: var(--accent-hover);
-}
-.format button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  gap: 0;
+  max-width: min(20rem, 100%);
+  width: 100%;
 }
 .file-pick {
   display: grid;
   gap: 0.3rem;
-  max-width: 24rem;
+  max-width: min(24rem, 100%);
+  min-width: 0;
 }
 .file-lbl {
   font-size: 0.85rem;
@@ -471,6 +455,8 @@ onUnmounted(() => {
   display: grid;
   gap: 0.75rem;
   max-height: 75vh;
+  max-width: 100%;
+  min-width: 0;
   overflow: auto;
   background: var(--bg);
   border: 1px solid var(--border);

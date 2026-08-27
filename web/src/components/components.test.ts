@@ -57,7 +57,7 @@ describe('queue store', () => {
         tagId: i,
         title: `T${i}`,
         part: 'lead',
-        path: `media/${i}/lead.mp4`,
+        path: `media/${i}/lead.m4a`,
       })
     }
     expect(q.count).toBe(MAX_QUEUE_TRACKS)

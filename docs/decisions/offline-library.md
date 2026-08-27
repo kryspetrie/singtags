@@ -1,10 +1,10 @@
 # ADR: Offline library — tiered device cache (not “DjVu for size”)
 
 **Status:** Accepted — **implemented** (tiers 1–4 in app; full-library audio is opt-in)  
-**Date:** 2026-08-23 (updated 2026-08-23)  
+**Date:** 2026-08-23 (updated 2026-08-25)  
 **Context:** Desire to cache **all or as many tags as possible** on device. Question of whether DjVu would unlock that.
 
-Related: [sheets-format.md](sheets-format.md) (display format), Starred IndexedDB, Settings → Offline (`/settings`).
+Related: [sheets-format.md](sheets-format.md) (display format), [audio-storage-cache.md](audio-storage-cache.md) (which audio bytes to store per part), Starred IndexedDB, Settings → Offline (`/settings`).
 
 ---
 
@@ -56,7 +56,9 @@ Extrapolated from the ~250-tag sample (~399 MB total, ~356 MB audio, ~11 MB WebP
 | Play audio | No | No | **Starred** | **All** |
 | Pitch pipe / practice set order | Yes | Yes | Yes | Yes |
 | PDF sheet mode | No | No | No | No |
-| Zip download queue | No | No | No | No |
+| Zip download queue | Queue yes* | Queue yes* | Queue yes* | Queue yes* |
+
+\*Add tracks to the download queue anytime (paths from cached tag metadata). **Zip export** requires a network connection to fetch original `.m4a` files.
 
 \*Tag metadata may open if previously fetched (Workbox CacheFirst) even without Tier 2 pack. If metadata isn’t cached, the tag page still shows **catalog summary from memory** (title, id, arranger, …) with Retry + auto-reload when back online. Starred tags missing audio and **paused** sheet/audio packs also resume caching automatically on reconnect.
 
@@ -76,20 +78,36 @@ Extrapolated from the ~250-tag sample (~399 MB total, ~356 MB audio, ~11 MB WebP
 
 ---
 
-## On-device audio compression (implemented)
+## Audio bytes per tier (planned — see audio-storage-cache ADR)
 
-Users can choose how audio is stored when **starring**, when downloading the **zip queue**, and when filling the **offline audio pack**:
+Target model (replacing “always fetch hosted MP4” for playback):
 
-| Setting | Behavior | Typical size vs original |
+| Use | Tier | Notes |
 | --- | --- | --- |
-| **Original** | Keep hosted MP4 AAC bytes (~128 kbps stereo) | 100% |
-| **Standard** | Re-encode to **stereo** AAC MP4 (~96 kbps) | ~70–80% |
-| **Compact** | Re-encode to **stereo** AAC MP4 (~64 kbps) | ~45–55% |
-| **Lo-fi** | Re-encode to **stereo** AAC MP4 (~32 kbps) | ~25–35% |
+| Online play | 64 kbps Opus | Lazy fetch on first play per part |
+| User download | Original | Upgrades device cache to Original |
+| Offline pack | 16 kbps mono solos + mix formula | Mix-only tags: 32 kbps stereo mix |
+| Original playback | Original in cache only | After download or prior fetch |
 
-Implementation: decode with Web Audio → Mediabunny AAC (WebCodecs, with WASM AAC fallback) → MP4. Preference lives in `localStorage` via `usePreferencesStore` and appears on **Offline** settings and the **Downloads** queue.
+Full spec: [audio-storage-cache.md](audio-storage-cache.md).
 
-Zip queue: Format chooses container (`mp4` / `mp3` / `ogg`). Quality applies to all formats — for MP4, **Original** keeps the hosted file; Standard/Compact re-encode stereo AAC. MP3/OGG always re-encode (stereo). **Never mono.**
+## On-device audio compression (legacy fallback)
+
+When tag metadata has **no** `audio_tiers`, starring and non-original storage settings still re-encode hosted MP4 on device (Opus in Ogg).
+
+When **publish tiers exist** (current catalog):
+
+| Setting | Starred tags fetch | Library pack |
+| --- | --- | --- |
+| **Original** | Hosted MP4 | N/A (manifest is ultra-low) |
+| **Playback** | 64 kbps Opus playback tier | N/A |
+| **Ultra** | 16k mono solos (+ mix reconstructed at play on `mono_solos` tags) | Manifest ultra paths |
+
+Implementation: `web/src/lib/audioTiers.ts`, `web/src/offline/compactAudio.ts`, `web/src/offline/resolveMedia.ts`.
+
+Zip queue: format/quality for explicit downloads unchanged — see [audio-storage-cache.md](audio-storage-cache.md).
+
+Follow-up notes: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md).
 
 
 ---

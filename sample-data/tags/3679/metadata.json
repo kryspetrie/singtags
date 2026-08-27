@@ -17,15 +17,159 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Lonely Shade of Blue (Ab Major) - David Lorenz - 3679",
-  "sheet": "sheets/3679/sheet.pdf",
+  "sheet": "sheets/3679/A Lonely Shade of Blue (Ab Major) - David Lorenz - Sheet.pdf",
   "audio": {
-    "lead": "media/3679/lead.mp4",
-    "tenor": "media/3679/tenor.mp4",
-    "bari": "media/3679/bari.mp4",
-    "bass": "media/3679/bass.mp4",
-    "mix": "media/3679/mix.mp4"
+    "lead": "media/3679/lead.m4a",
+    "tenor": "media/3679/tenor.m4a",
+    "bari": "media/3679/bari.m4a",
+    "bass": "media/3679/bass.m4a",
+    "mix": "media/3679/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3679/lead.m4a",
+      "playback": "media/3679/lead.playback.opus",
+      "ultra_solo": "media/3679/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/3679/tenor.m4a",
+      "playback": "media/3679/tenor.playback.opus",
+      "ultra_solo": "media/3679/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/3679/bari.m4a",
+      "playback": "media/3679/bari.playback.opus",
+      "ultra_solo": "media/3679/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/3679/bass.m4a",
+      "playback": "media/3679/bass.playback.opus",
+      "ultra_solo": "media/3679/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/3679/mix.m4a",
+      "playback": "media/3679/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3679/A Lonely Shade of Blue (Ab Major) - David Lorenz - Sheet.pdf",
+    "sheets/3679/A Lonely Shade of Blue (Ab Major) - David Lorenz - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3679/preview.webp",
   "sheet_pages": [
-    "sheets/3679/pages/page-01.webp"
-  ]
+    "sheets/3679/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:45:33.981539+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.2583,
+      "correlation": -0.0502,
+      "side_mid": 1.0533
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1097,
+      "correlation": -0.0487,
+      "side_mid": 1.0397
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.2237,
+      "correlation": 0.0221,
+      "side_mid": 0.9822
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.0761,
+      "correlation": -0.104,
+      "side_mid": 1.1136
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0033,
+      "correlation": 0.0953,
+      "side_mid": 0.9046
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:31:54.359205+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:50.721643+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.578,
+      "zero_corr": 0.578,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:51.943283+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.462,
+      "zero_corr": 0.462,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:53.141895+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.652,
+      "zero_corr": 0.652,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:31:54.359172+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:45.414555+00:00"
+  }
 }

@@ -99,11 +99,15 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(sheet.element.compareDocumentPosition(pickers.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const group = w.get('[aria-label="Sheet music format"]')
-    expect(group.findAll('button')[0]!.classes()).toContain('on')
+    const [imagesBtn, pdfBtn] = group.findAll('button')
+    expect(imagesBtn!.attributes('aria-pressed')).toBe('true')
+    expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
     expect(w.findAll('img').length).toBeGreaterThan(0)
 
-    await group.findAll('button')[1]!.trigger('click')
+    await pdfBtn!.trigger('click')
     await flushPromises()
+    expect(imagesBtn!.attributes('aria-pressed')).toBe('false')
+    expect(pdfBtn!.attributes('aria-pressed')).toBe('true')
     expect(w.find('iframe').exists()).toBe(false)
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')

@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "1776 (F Major) - Kevin McMahon - 922",
-  "sheet": "sheets/922/sheet.jpg",
+  "sheet": "sheets/922/1776 (F Major) - Kevin McMahon - Sheet.jpg",
   "audio": {
-    "lead": "media/922/lead.mp4",
-    "tenor": "media/922/tenor.mp4",
-    "bari": "media/922/bari.mp4",
-    "bass": "media/922/bass.mp4",
-    "mix": "media/922/mix.mp4"
+    "lead": "media/922/lead.m4a",
+    "tenor": "media/922/tenor.m4a",
+    "bari": "media/922/bari.m4a",
+    "bass": "media/922/bass.m4a",
+    "mix": "media/922/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/922/lead.m4a",
+      "playback": "media/922/lead.playback.opus",
+      "ultra_downmix": "media/922/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/922/tenor.m4a",
+      "playback": "media/922/tenor.playback.opus",
+      "ultra_downmix": "media/922/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/922/bari.m4a",
+      "playback": "media/922/bari.playback.opus",
+      "ultra_downmix": "media/922/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/922/bass.m4a",
+      "playback": "media/922/bass.playback.opus",
+      "ultra_downmix": "media/922/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/922/mix.m4a",
+      "playback": "media/922/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/922/1776 (F Major) - Kevin McMahon - Sheet.jpg",
+    "sheets/922/1776 (F Major) - Kevin McMahon - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/922/preview.webp",
   "sheet_pages": [
-    "sheets/922/pages/page-01.webp"
-  ]
+    "sheets/922/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:15.077733+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0013,
+      "correlation": 1.0,
+      "side_mid": 0.0043
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0015,
+      "correlation": 1.0,
+      "side_mid": 0.0042
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0018,
+      "correlation": 0.9999,
+      "side_mid": 0.0058
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0019,
+      "correlation": 0.9999,
+      "side_mid": 0.007
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0015,
+      "correlation": 0.9999,
+      "side_mid": 0.0076
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:43.937025+00:00"
+  }
 }

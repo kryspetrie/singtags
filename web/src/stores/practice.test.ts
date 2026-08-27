@@ -26,6 +26,13 @@ describe('practice store', () => {
     expect(p.neighbors(10)).toEqual({ prev: 20, next: 30, index: 1, total: 3 })
   })
 
+  it('reorders by index', () => {
+    const p = usePracticeStore()
+    p.resetFromStarred([10, 20, 30])
+    p.reorder(30, 0)
+    expect(p.order).toEqual([30, 10, 20])
+  })
+
   it('remove drops ids; firstId handles empty', () => {
     const p = usePracticeStore()
     p.resetFromStarred([1, 2])

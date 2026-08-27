@@ -7,9 +7,8 @@ import {
   type ZipLayout,
   zipQueueTracks,
 } from '../download/zip'
-import type { AudioTransform, AudioEncodeQuality, DownloadFormat, TransformMode } from '../types/audio'
-import { IDENTITY_TRANSFORM, transformFromMode } from '../types/audio'
-import { usePreferencesStore } from './preferences'
+import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
+import { encodeQualityForDownload, IDENTITY_TRANSFORM, normalizeDownloadFormat } from '../types/audio'
 
 const STORAGE_KEY = 'singtags.zipQueue.v2'
 const LAYOUT_KEY = 'singtags.zipLayout.v2'
@@ -27,18 +26,9 @@ export const useQueueStore = defineStore('queue', () => {
   const busy = ref(false)
   const progress = ref({ done: 0, total: 0 })
   const error = ref<string | null>(null)
-  const format = ref<DownloadFormat>('mp4')
-  /** Zip re-encode strength (MP4/MP3/OGG). Synced with preferences. */
-  const encodeQuality = ref<AudioEncodeQuality>(
-    (() => {
-      try {
-        return usePreferencesStore().audioEncodeQuality
-      } catch {
-        return 'standard'
-      }
-    })(),
-  )
-  const transformMode = ref<TransformMode>('original')
+  const format = ref<DownloadFormat>('m4a')
+  /** Zip download format (M4A or MP3). */
+  const encodeQuality = ref<AudioEncodeQuality>('original')
   const zipLayout = ref<ZipLayout>(loadLayout())
   const playbackTransform = ref<AudioTransform>({ ...IDENTITY_TRANSFORM })
   let abort: AbortController | null = null
@@ -54,7 +44,13 @@ export const useQueueStore = defineStore('queue', () => {
   function load(): void {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) tracks.value = JSON.parse(raw) as QueueTrack[]
+      if (raw) {
+        const parsed = JSON.parse(raw) as QueueTrack[]
+        tracks.value = parsed.map((t) => ({
+          ...t,
+          format: normalizeDownloadFormat(t.format),
+        }))
+      }
     } catch {
       tracks.value = []
     }
@@ -119,15 +115,6 @@ export const useQueueStore = defineStore('queue', () => {
     error.value = null
   }
 
-  function applyBulkTransform(mode: TransformMode): void {
-    const t = transformFromMode(mode, playbackTransform.value)
-    tracks.value = tracks.value.map((item) => ({
-      ...item,
-      transform: mode === 'original' ? { ...IDENTITY_TRANSFORM } : { ...t },
-      format: format.value,
-    }))
-  }
-
   function updateTrack(
     tagId: number,
     part: string,
@@ -138,6 +125,11 @@ export const useQueueStore = defineStore('queue', () => {
     )
   }
 
+  function setFormat(fmt: DownloadFormat): void {
+    format.value = fmt
+    tracks.value = tracks.value.map((item) => ({ ...item, format: fmt }))
+  }
+
   async function downloadZip(): Promise<void> {
     if (!tracks.value.length) return
     busy.value = true
@@ -145,16 +137,15 @@ export const useQueueStore = defineStore('queue', () => {
     progress.value = { done: 0, total: tracks.value.length }
     abort = new AbortController()
     try {
-      const defaultTransform = transformFromMode(transformMode.value, playbackTransform.value)
       await zipQueueTracks(tracks.value, {
         onProgress: (done, total) => {
           progress.value = { done, total }
         },
         signal: abort.signal,
         defaultFormat: format.value,
-        defaultTransform,
+        defaultTransform: IDENTITY_TRANSFORM,
         layout: zipLayoutValue.value,
-        encodeQuality: encodeQuality.value,
+        encodeQuality: encodeQualityForDownload(format.value),
       })
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') {
@@ -180,7 +171,6 @@ export const useQueueStore = defineStore('queue', () => {
     error,
     format,
     encodeQuality,
-    transformMode,
     zipLayout: zipLayoutValue,
     playbackTransform,
     add,
@@ -189,8 +179,8 @@ export const useQueueStore = defineStore('queue', () => {
     clear,
     downloadZip,
     cancelZip,
-    applyBulkTransform,
     updateTrack,
+    setFormat,
     setPlaybackTransform,
     max: MAX_QUEUE_TRACKS,
   }

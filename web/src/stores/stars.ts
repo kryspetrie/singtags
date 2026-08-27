@@ -16,23 +16,77 @@ import {
   type StarredTagsFile,
 } from '../offline/starredDb'
 import { tagDetailUrl } from '../lib/mediaUrl'
+import { fetchCached } from '../lib/manualOfflineFetch'
+import { sheetOfflinePaths, summarySheetPages } from '../lib/sheetPaths'
 import { packHasAnySheets } from '../offline/resolveMedia'
 import { usePreferencesStore } from './preferences'
+import { noticeFromStarRecord, type StarsNotice } from './starNotice'
+
+function buildPlaceholder(summary: TagSummary, detail: TagDetail | null): StarredTagRecord {
+  return {
+    tagId: summary.id,
+    starredAt: new Date().toISOString(),
+    summary,
+    detail,
+    offlineMedia: false,
+    quotaWarning: null,
+  }
+}
 
 export const useStarsStore = defineStore('stars', () => {
   const records = ref<StarredTagRecord[]>([])
   const loaded = ref(false)
+  /** Blocks UI for explicit long operations (update, import, cache-all). */
   const busy = ref(false)
+  const backgroundCount = ref(0)
   const error = ref<string | null>(null)
-  const lastMessage = ref<string | null>(null)
+  const lastNotice = ref<StarsNotice | null>(null)
+  /** Global progress for explicit bulk operations (settings, import). */
   const progress = ref<StarProgress | null>(null)
+  /** Per-tag progress while background caching from browse rows. */
+  const tagProgress = ref<Record<number, StarProgress>>({})
+
+  const tagJobGen = new Map<number, number>()
 
   const ids = computed(() => new Set(records.value.map((r) => r.tagId)))
   const count = computed(() => records.value.length)
+  const backgroundActive = computed(() => backgroundCount.value > 0)
+
+  function applyRecords(next: StarredTagRecord[]): void {
+    records.value = next
+    loaded.value = true
+  }
+
+  function nextTagGen(tagId: number): number {
+    const gen = (tagJobGen.get(tagId) ?? 0) + 1
+    tagJobGen.set(tagId, gen)
+    return gen
+  }
+
+  function isTagJobCurrent(tagId: number, gen: number): boolean {
+    return tagJobGen.get(tagId) === gen
+  }
+
+  function setTagProgress(tagId: number, p: StarProgress | null): void {
+    if (p === null) {
+      const next = { ...tagProgress.value }
+      delete next[tagId]
+      tagProgress.value = next
+      return
+    }
+    tagProgress.value = { ...tagProgress.value, [tagId]: p }
+  }
+
+  function isTagCaching(tagId: number): boolean {
+    return tagId in tagProgress.value
+  }
+
+  function tagCachingLabel(tagId: number): string | null {
+    return tagProgress.value[tagId]?.label ?? null
+  }
 
   async function refresh(): Promise<void> {
-    records.value = await listStarred()
-    loaded.value = true
+    applyRecords(await listStarred())
   }
 
   async function ensureLoaded(): Promise<void> {
@@ -40,7 +94,74 @@ export const useStarsStore = defineStore('stars', () => {
   }
 
   function isStarred(tagId: number): boolean {
-    return ids.value.has(tagId)
+    return records.value.some((r) => r.tagId === tagId)
+  }
+
+  async function runStarBackground(
+    tagId: number,
+    gen: number,
+    summary: TagSummary,
+    detail: TagDetail | null,
+    options: Pick<StarOptions, 'metadataOnly'>,
+  ): Promise<void> {
+    backgroundCount.value++
+    try {
+      let d = detail
+      if (!d && !options.metadataOnly) {
+        try {
+          const res = await fetchCached(tagDetailUrl(summary.id))
+          if (res.ok) d = (await res.json()) as TagDetail
+        } catch {
+          /* metadata-only fallback */
+        }
+      }
+
+      if (!isTagJobCurrent(tagId, gen) || !isStarred(tagId)) return
+
+      const metaRec = await starTag(summary, d, { metadataOnly: true })
+      if (!isTagJobCurrent(tagId, gen) || !isStarred(tagId)) return
+      applyRecords([metaRec, ...records.value.filter((r) => r.tagId !== tagId)])
+
+      if (options.metadataOnly || !d) {
+        lastNotice.value = noticeFromStarRecord(metaRec, summary, d, {
+          metadataOnly: true,
+        })
+        return
+      }
+
+      let skipSheets = false
+      try {
+        const offlinePages = sheetOfflinePaths(d)
+        const pages = offlinePages.length ? offlinePages : summarySheetPages(summary)
+        if (pages.length && (await packHasAnySheets(pages))) skipSheets = true
+      } catch {
+        /* ignore */
+      }
+
+      const prefs = usePreferencesStore()
+      const fullRec = await refreshStarMedia(metaRec, d, {
+        skipSheets,
+        audioQuality: prefs.audioEncodeQuality,
+        onProgress: (p) => {
+          setTagProgress(tagId, p)
+        },
+      })
+      if (!isTagJobCurrent(tagId, gen) || !isStarred(tagId)) return
+      applyRecords([fullRec, ...records.value.filter((r) => r.tagId !== tagId)])
+      lastNotice.value = noticeFromStarRecord(fullRec, summary, d, {
+        metadataOnly: false,
+        skipSheets,
+      })
+    } catch (e) {
+      if (isTagJobCurrent(tagId, gen) && isStarred(tagId)) {
+        error.value = e instanceof Error ? e.message : String(e)
+        await refresh()
+      }
+    } finally {
+      setTagProgress(tagId, null)
+      backgroundCount.value--
+      if (backgroundCount.value <= 0) backgroundCount.value = 0
+    }
   }
 
   async function toggle(
@@ -48,48 +169,30 @@ export const useStarsStore = defineStore('stars', () => {
     detail: TagDetail | null,
     options: Pick<StarOptions, 'metadataOnly'> = {},
   ): Promise<void> {
-    busy.value = true
+    await ensureLoaded()
     error.value = null
-    lastMessage.value = null
-    progress.value = null
-    try {
-      await ensureLoaded()
-      if (ids.value.has(summary.id)) {
-        await removeStarred(summary.id)
-        lastMessage.value = 'Removed from starred'
-      } else {
-        let skipSheets = false
+
+    if (isStarred(summary.id)) {
+      nextTagGen(summary.id)
+      applyRecords(records.value.filter((r) => r.tagId !== summary.id))
+      lastNotice.value = { type: 'removed' }
+      void (async () => {
         try {
-          const pages = detail?.sheet_pages ?? summary.sheetPages ?? []
-          if (pages.length && (await packHasAnySheets(pages))) skipSheets = true
-        } catch {
-          /* ignore */
+          await removeStarred(summary.id)
+        } catch (e) {
+          error.value = e instanceof Error ? e.message : String(e)
+          await refresh()
         }
-        const prefs = usePreferencesStore()
-        const rec = await starTag(summary, detail, {
-          ...options,
-          skipSheets,
-          audioQuality: prefs.audioEncodeQuality,
-          onProgress: (p) => {
-            progress.value = p
-          },
-        })
-        if (rec.quotaWarning) lastMessage.value = rec.quotaWarning
-        else if (options.metadataOnly) lastMessage.value = 'Starred (metadata only)'
-        else if (rec.audioBlobs && Object.keys(rec.audioBlobs).length)
-          lastMessage.value = skipSheets
-            ? 'Starred with offline audio (sheets from library pack)'
-            : 'Starred with offline media'
-        else if (rec.offlineMedia) lastMessage.value = 'Starred with offline sheets'
-        else lastMessage.value = 'Starred (metadata)'
-      }
-      await refresh()
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy.value = false
-      progress.value = null
+      })()
+      return
     }
+
+    const gen = nextTagGen(summary.id)
+    applyRecords([
+      buildPlaceholder(summary, detail),
+      ...records.value.filter((r) => r.tagId !== summary.id),
+    ])
+    void runStarBackground(summary.id, gen, summary, detail, options)
   }
 
   /** Star many tags from browse (fetch detail when missing). */
@@ -97,64 +200,35 @@ export const useStarsStore = defineStore('stars', () => {
     summaries: TagSummary[],
     options: Pick<StarOptions, 'metadataOnly'> = {},
   ): Promise<number> {
-    busy.value = true
+    await ensureLoaded()
     error.value = null
-    lastMessage.value = null
-    progress.value = null
-    let n = 0
-    try {
-      await ensureLoaded()
-      const total = summaries.length
-      for (let i = 0; i < summaries.length; i++) {
-        const summary = summaries[i]!
-        if (ids.value.has(summary.id)) continue
-        progress.value = {
-          label: `Starring ${i + 1}/${total}`,
-          done: i,
-          total,
-          ratio: total ? i / total : 1,
-        }
-        let detail: TagDetail | null = null
-        if (!options.metadataOnly) {
-          try {
-            const res = await fetch(tagDetailUrl(summary.id))
-            if (res.ok) detail = (await res.json()) as TagDetail
-          } catch {
-            /* metadata-only fallback */
-          }
-        }
-        await starTag(summary, detail, {
-          metadataOnly: options.metadataOnly || !detail,
-          skipSheets: detail
-            ? await packHasAnySheets(detail.sheet_pages ?? []).catch(() => false)
-            : false,
-          audioQuality: usePreferencesStore().audioEncodeQuality,
-          onProgress: (p) => {
-            progress.value = {
-              ...p,
-              label: `${summary.title || summary.id}: ${p.label}`,
-            }
-          },
-        })
-        n++
-      }
-      await refresh()
-      lastMessage.value = n ? `Starred ${n} tag(s)` : 'Nothing new to star'
-      return n
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
-      return n
-    } finally {
-      busy.value = false
-      progress.value = null
+
+    const pending = summaries.filter((s) => !isStarred(s.id))
+    if (!pending.length) {
+      lastNotice.value = { type: 'text', message: 'Nothing new to star' }
+      return 0
     }
+
+    const pendingIds = new Set(pending.map((s) => s.id))
+    applyRecords([
+      ...pending.map((s) => buildPlaceholder(s, null)),
+      ...records.value.filter((r) => !pendingIds.has(r.tagId)),
+    ])
+
+    for (const summary of pending) {
+      const gen = nextTagGen(summary.id)
+      void runStarBackground(summary.id, gen, summary, null, options)
+    }
+
+    lastNotice.value = { type: 'text', message: `Starred ${pending.length} tag(s)` }
+    return pending.length
   }
 
   /** Fetch audio for starred tags that lack audio blobs (background queue). */
   async function ensureAudioForAllStarred(): Promise<number> {
     busy.value = true
     error.value = null
-    lastMessage.value = null
+    lastNotice.value = null
     progress.value = null
     let n = 0
     try {
@@ -174,7 +248,7 @@ export const useStarsStore = defineStore('stars', () => {
         let d = existing.detail
         if (!d) {
           try {
-            const res = await fetch(tagDetailUrl(existing.tagId))
+            const res = await fetchCached(tagDetailUrl(existing.tagId))
             if (res.ok) d = (await res.json()) as TagDetail
           } catch {
             continue
@@ -194,7 +268,12 @@ export const useStarsStore = defineStore('stars', () => {
         n++
       }
       await refresh()
-      lastMessage.value = n ? `Cached audio for ${n} starred tag(s)` : 'All starred tags already have audio'
+      lastNotice.value = {
+        type: 'text',
+        message: n
+          ? `Cached audio for ${n} starred tag(s)`
+          : 'All starred tags already have audio',
+      }
       return n
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
@@ -208,7 +287,7 @@ export const useStarsStore = defineStore('stars', () => {
   async function updateOfflineMedia(tagId: number, detail: TagDetail | null): Promise<void> {
     busy.value = true
     error.value = null
-    lastMessage.value = null
+    lastNotice.value = null
     progress.value = null
     try {
       await ensureLoaded()
@@ -216,23 +295,20 @@ export const useStarsStore = defineStore('stars', () => {
       if (!existing) throw new Error('Tag is not starred')
       let d = detail ?? existing.detail
       if (!d) {
-        const res = await fetch(tagDetailUrl(tagId))
+        const res = await fetchCached(tagDetailUrl(tagId))
         if (!res.ok) throw new Error(`Could not load tag detail (${res.status})`)
         d = (await res.json()) as TagDetail
       }
+      const skipSheets = await packHasAnySheets(sheetOfflinePaths(d)).catch(() => false)
       const rec = await refreshStarMedia(existing, d, {
-        skipSheets: await packHasAnySheets(d.sheet_pages ?? []).catch(() => false),
+        skipSheets,
         audioQuality: usePreferencesStore().audioEncodeQuality,
         onProgress: (p) => {
           progress.value = p
         },
       })
-      lastMessage.value = rec.audioBlobs && Object.keys(rec.audioBlobs).length
-        ? 'Offline audio updated'
-        : rec.offlineMedia
-          ? 'Offline sheets updated'
-          : rec.quotaWarning || 'Saved metadata (no media cached)'
-      await refresh()
+      applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
+      lastNotice.value = noticeFromStarRecord(rec, existing.summary, d, { skipSheets })
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -245,7 +321,7 @@ export const useStarsStore = defineStore('stars', () => {
   async function cacheOriginalAudio(tagId: number, detail: TagDetail): Promise<void> {
     busy.value = true
     error.value = null
-    lastMessage.value = null
+    lastNotice.value = null
     progress.value = null
     try {
       await ensureLoaded()
@@ -258,10 +334,13 @@ export const useStarsStore = defineStore('stars', () => {
           progress.value = p
         },
       })
-      lastMessage.value =
+      lastNotice.value =
         rec.audioBlobs && Object.keys(rec.audioBlobs).length
-          ? 'High-quality audio cached'
-          : rec.quotaWarning || 'Could not cache high-quality audio'
+          ? { type: 'cached', audio: true, sheets: false }
+          : {
+              type: 'text',
+              message: rec.quotaWarning || 'Could not cache high-quality audio',
+            }
       await refresh()
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
@@ -272,8 +351,9 @@ export const useStarsStore = defineStore('stars', () => {
   }
 
   async function unstar(tagId: number): Promise<void> {
+    nextTagGen(tagId)
     await removeStarred(tagId)
-    await refresh()
+    applyRecords(records.value.filter((r) => r.tagId !== tagId))
   }
 
   function exportFile(): StarredTagsFile {
@@ -302,9 +382,12 @@ export const useStarsStore = defineStore('stars', () => {
           fetched++
         }
         await refresh()
-        lastMessage.value = `Imported ${n}; fetched media for ${fetched}`
+        lastNotice.value = { type: 'text', message: `Imported ${n}; fetched media for ${fetched}` }
       } else {
-        lastMessage.value = `Imported ${n} starred tag(s) (metadata; media not restored)`
+        lastNotice.value = {
+          type: 'text',
+          message: `Imported ${n} starred tag(s) (metadata; media not restored)`,
+        }
       }
       return n
     } catch (e) {
@@ -324,9 +407,13 @@ export const useStarsStore = defineStore('stars', () => {
     records,
     loaded,
     busy,
+    backgroundActive,
     error,
-    lastMessage,
+    lastNotice,
     progress,
+    tagProgress,
+    isTagCaching,
+    tagCachingLabel,
     ids,
     count,
     refresh,

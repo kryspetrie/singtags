@@ -26,7 +26,7 @@ const detail: TagDetail = {
   title: 'Test Tag',
   arranger: 'A',
   key: 'C',
-  audio: { lead: 'media/42/lead.mp4' },
+  audio: { lead: 'media/42/lead.m4a' },
   sheet: 'sheets/42/pages/page-01.webp',
   sheet_pages: ['sheets/42/pages/page-01.webp'],
 }
@@ -58,14 +58,20 @@ describe('stars store coverage', () => {
     })
     expect(n).toBe(1)
     expect(stars.isStarred(43)).toBe(true)
-    expect(stars.lastMessage).toMatch(/Starred 1/)
+    expect(stars.lastNotice).toEqual({ type: 'text', message: 'Starred 1 tag(s)' })
   })
 
   it('updateOfflineMedia refreshes blobs', async () => {
     const stars = useStarsStore()
     await stars.toggle(summary, detail, { metadataOnly: true })
-    await stars.updateOfflineMedia(42, detail)
-    expect(stars.lastMessage).toMatch(/Offline audio|Offline sheets|metadata|media/i)
+    const proxyDetail = new Proxy(detail, {
+      get(target, prop, receiver) {
+        return Reflect.get(target, prop, receiver)
+      },
+    })
+    await stars.updateOfflineMedia(42, proxyDetail as TagDetail)
+    expect(stars.error).toBeNull()
+    expect(stars.lastNotice?.type).toBe('cached')
     const rec = await stars.get(42)
     expect(rec?.offlineMedia).toBe(true)
   })
@@ -80,9 +86,10 @@ describe('stars store coverage', () => {
     }
     await stars.importFromJson(file, false)
     expect(stars.count).toBe(1)
-    expect(stars.lastMessage).toMatch(/metadata/)
+    expect(stars.lastNotice?.type).toBe('text')
+    expect(stars.lastNotice && 'message' in stars.lastNotice && stars.lastNotice.message).toMatch(/metadata/)
     await stars.importFromJson(file, true)
-    expect(stars.lastMessage).toMatch(/fetched media/i)
+    expect(stars.lastNotice && 'message' in stars.lastNotice && stars.lastNotice.message).toMatch(/fetched media/i)
   })
 
   it('unstar removes record', async () => {
@@ -96,7 +103,7 @@ describe('stars store coverage', () => {
     vi.spyOn(starredDb, 'starTag').mockRejectedValueOnce(new Error('boom'))
     const stars = useStarsStore()
     await stars.toggle(summary, detail, { metadataOnly: true })
-    expect(stars.error).toBe('boom')
+    await vi.waitFor(() => expect(stars.error).toBe('boom'))
   })
 
   it('exportFile returns portable shape', async () => {

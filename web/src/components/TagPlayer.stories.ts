@@ -7,11 +7,11 @@ const meta = {
   tags: ['autodocs'],
   args: {
     parts: {
-      lead: 'media/4011/lead.mp4',
-      tenor: 'media/4011/tenor.mp4',
-      bari: 'media/4011/bari.mp4',
-      bass: 'media/4011/bass.mp4',
-      mix: 'media/4011/mix.mp4',
+      lead: 'media/4011/lead.m4a',
+      tenor: 'media/4011/tenor.m4a',
+      bari: 'media/4011/bari.m4a',
+      bass: 'media/4011/bass.m4a',
+      mix: 'media/4011/mix.m4a',
     },
     baseUrl: '/sample-data/',
     title: 'Beautiful I Know',

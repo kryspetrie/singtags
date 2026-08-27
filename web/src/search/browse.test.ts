@@ -77,6 +77,7 @@ describe('browse helpers', () => {
       tag({ id: 3, title: 'Beta', arranger: 'Paul Paddock', year: 2001 }),
     ]
     expect(sortBrowseTags(tags, 'arranger-last').map((t) => t.id)).toEqual([1, 3, 2])
+    expect(sortBrowseTags(tags, 'title', true).map((t) => t.id)).toEqual([1, 3, 2])
     expect(titleSortLetter("Don't Worry")).toBe('D')
     const { rows, jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'title'), 'title', 10)
     expect(jumpKeys).toEqual(['A', 'B', 'Z'])

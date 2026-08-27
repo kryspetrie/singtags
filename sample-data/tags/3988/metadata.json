@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Annies Song (Eb Major) - Pete Benson - 3988",
-  "sheet": "sheets/3988/sheet.pdf",
+  "sheet": "sheets/3988/Annies Song (Eb Major) - Pete Benson - Sheet.pdf",
   "audio": {
-    "lead": "media/3988/lead.mp4",
-    "tenor": "media/3988/tenor.mp4",
-    "bari": "media/3988/bari.mp4",
-    "bass": "media/3988/bass.mp4",
-    "mix": "media/3988/mix.mp4"
+    "lead": "media/3988/lead.m4a",
+    "tenor": "media/3988/tenor.m4a",
+    "bari": "media/3988/bari.m4a",
+    "bass": "media/3988/bass.m4a",
+    "mix": "media/3988/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3988/lead.m4a",
+      "playback": "media/3988/lead.playback.opus",
+      "ultra_solo": "media/3988/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/3988/tenor.m4a",
+      "playback": "media/3988/tenor.playback.opus",
+      "ultra_solo": "media/3988/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/3988/bari.m4a",
+      "playback": "media/3988/bari.playback.opus",
+      "ultra_solo": "media/3988/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/3988/bass.m4a",
+      "playback": "media/3988/bass.playback.opus",
+      "ultra_solo": "media/3988/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/3988/mix.m4a",
+      "playback": "media/3988/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3988/Annies Song (Eb Major) - Pete Benson - Sheet.pdf",
+    "sheets/3988/Annies Song (Eb Major) - Pete Benson - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3988/preview.webp",
   "sheet_pages": [
-    "sheets/3988/pages/page-01.webp"
-  ]
+    "sheets/3988/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:22.562664+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0041,
+      "correlation": 0.0074,
+      "side_mid": 1.0005
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.026,
+      "correlation": 0.0377,
+      "side_mid": 0.9902
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0222,
+      "correlation": -0.0007,
+      "side_mid": 1.0053
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.06,
+      "correlation": 0.0231,
+      "side_mid": 0.994
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0134,
+      "correlation": 0.9378,
+      "side_mid": 0.1839
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:58.296332+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:54.578906+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.581,
+      "zero_corr": 0.581,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:55.812240+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.584,
+      "zero_corr": 0.584,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:57.042384+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.565,
+      "zero_corr": 0.565,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:58.296300+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:35.839752+00:00"
+  }
 }

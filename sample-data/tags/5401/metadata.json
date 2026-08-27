@@ -17,15 +17,157 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Autumn Leaves (C Major) - 5401",
-  "sheet": "sheets/5401/sheet.pdf",
+  "sheet": "sheets/5401/Autumn Leaves (C Major) - Sheet.pdf",
   "audio": {
-    "lead": "media/5401/lead.mp4",
-    "tenor": "media/5401/tenor.mp4",
-    "bari": "media/5401/bari.mp4",
-    "bass": "media/5401/bass.mp4",
-    "mix": "media/5401/mix.mp4"
+    "lead": "media/5401/lead.m4a",
+    "tenor": "media/5401/tenor.m4a",
+    "bari": "media/5401/bari.m4a",
+    "bass": "media/5401/bass.m4a",
+    "mix": "media/5401/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5401/lead.m4a",
+      "playback": "media/5401/lead.playback.opus",
+      "ultra_solo": "media/5401/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/5401/tenor.m4a",
+      "playback": "media/5401/tenor.playback.opus",
+      "ultra_solo": "media/5401/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/5401/bari.m4a",
+      "playback": "media/5401/bari.playback.opus",
+      "ultra_solo": "media/5401/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/5401/bass.m4a",
+      "playback": "media/5401/bass.playback.opus",
+      "ultra_solo": "media/5401/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/5401/mix.m4a",
+      "playback": "media/5401/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5401/Autumn Leaves (C Major) - Sheet.pdf",
+    "sheets/5401/Autumn Leaves (C Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5401/preview.webp",
   "sheet_pages": [
-    "sheets/5401/pages/page-01.webp"
-  ]
+    "sheets/5401/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:48:00.209957+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.5257,
+      "correlation": 0.8644,
+      "side_mid": 0.5849
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4318,
+      "correlation": 0.6918,
+      "side_mid": 0.5978
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4839,
+      "correlation": 0.5571,
+      "side_mid": 0.6974
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.5393,
+      "correlation": 0.8421,
+      "side_mid": 0.6067
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0367,
+      "correlation": 0.5489,
+      "side_mid": 0.533
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:21.444116+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:17.794095+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.345,
+      "zero_corr": 0.345,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:19.067576+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 11.5,
+      "corr": 0.361,
+      "zero_corr": 0.301,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:20.247899+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.335,
+      "zero_corr": 0.335,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:21.444088+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:45.948046+00:00"
+  }
 }

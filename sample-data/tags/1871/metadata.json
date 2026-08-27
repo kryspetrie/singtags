@@ -17,15 +17,168 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "At Last (G Major) - Clay Hine - 1871",
-  "sheet": "sheets/1871/sheet.pdf",
+  "sheet": "sheets/1871/At Last (G Major) - Clay Hine - Sheet.pdf",
   "audio": {
-    "lead": "media/1871/lead.mp4",
-    "tenor": "media/1871/tenor.mp4",
-    "bari": "media/1871/bari.mp4",
-    "bass": "media/1871/bass.mp4",
-    "mix": "media/1871/mix.mp4"
+    "lead": "media/1871/lead.m4a",
+    "tenor": "media/1871/tenor.m4a",
+    "bari": "media/1871/bari.m4a",
+    "bass": "media/1871/bass.m4a",
+    "mix": "media/1871/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/1871/lead.m4a",
+      "playback": "media/1871/lead.playback.opus",
+      "ultra_solo": "media/1871/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/1871/tenor.m4a",
+      "playback": "media/1871/tenor.playback.opus",
+      "ultra_solo": "media/1871/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/1871/bari.m4a",
+      "playback": "media/1871/bari.playback.opus",
+      "ultra_solo": "media/1871/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/1871/bass.m4a",
+      "playback": "media/1871/bass.playback.opus",
+      "ultra_solo": "media/1871/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/1871/mix.m4a",
+      "playback": "media/1871/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/1871/At Last (G Major) - Clay Hine - Sheet.pdf",
+    "sheets/1871/At Last (G Major) - Clay Hine - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/1871/preview.webp",
   "sheet_pages": [
-    "sheets/1871/pages/page-01.webp"
-  ]
+    "sheets/1871/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "stereo_other",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:49.035842+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.9772,
+      "correlation": -0.007,
+      "side_mid": 1.0001
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.9459,
+      "correlation": 0.0065,
+      "side_mid": 0.9998
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.8569,
+      "correlation": -0.0032,
+      "side_mid": 1.0003
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.8553,
+      "correlation": -0.0055,
+      "side_mid": 1.0004
+    },
+    "mix": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.1667,
+      "correlation": 0.9789,
+      "side_mid": 0.1957
+    }
+  },
+  "audio_align_summary": {
+    "status": "skewed",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead"
+    ],
+    "applied_ms": {
+      "bari": 220.8,
+      "bass": 107.5
+    },
+    "analyzed_at": "2026-08-26T14:33:14.845966+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:11.169943+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 202.5,
+      "corr": 0.206,
+      "zero_corr": 0.017,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:12.410288+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 220.8,
+      "corr": 0.682,
+      "zero_corr": -0.071,
+      "trusted": true,
+      "applied_ms": 220.8,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:13.624563+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 107.5,
+      "corr": 0.601,
+      "zero_corr": -0.072,
+      "trusted": true,
+      "applied_ms": 107.5,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:14.845937+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "align_status": "skewed",
+    "align_applied_ms": {
+      "bari": 220.8,
+      "bass": 107.5
+    },
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-08-26T14:33:17.473844+00:00"
+  }
 }

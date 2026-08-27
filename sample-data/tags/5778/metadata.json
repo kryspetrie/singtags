@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Autumn Night (F Major) - Dani Wanak - 5778",
-  "sheet": "sheets/5778/sheet.pdf",
+  "sheet": "sheets/5778/Autumn Night (F Major) - Dani Wanak - Sheet.pdf",
   "audio": {
-    "mix": "media/5778/mix.mp4"
+    "mix": "media/5778/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/5778/mix.m4a",
+      "playback": "media/5778/mix.playback.opus",
+      "ultra_mix": "media/5778/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5778/Autumn Night (F Major) - Dani Wanak - Sheet.pdf",
+    "sheets/5778/Autumn Night (F Major) - Dani Wanak - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5778/preview.webp",
   "sheet_pages": [
-    "sheets/5778/pages/page-01.webp"
-  ]
+    "sheets/5778/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:56.583274+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0005,
+      "correlation": 0.9677,
+      "side_mid": 0.1286
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:44.608726+00:00"
+  }
 }

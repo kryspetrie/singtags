@@ -62,6 +62,6 @@ describe('filter URL round-trip', () => {
     expect(back.hasAudio).toBe(true)
     expect(back.keys).toEqual(['C', 'G'])
     expect(back.arrangers).toEqual(['A'])
-    expect(activeFilterCount(f)).toBe(5)
+    expect(activeFilterCount(f)).toBe(4)
   })
 })

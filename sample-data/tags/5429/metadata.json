@@ -17,15 +17,157 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All The Things You Are (Ab Major) - 5429",
-  "sheet": "sheets/5429/sheet.pdf",
+  "sheet": "sheets/5429/All The Things You Are (Ab Major) - Sheet.pdf",
   "audio": {
-    "lead": "media/5429/lead.mp4",
-    "tenor": "media/5429/tenor.mp4",
-    "bari": "media/5429/bari.mp4",
-    "bass": "media/5429/bass.mp4",
-    "mix": "media/5429/mix.mp4"
+    "lead": "media/5429/lead.m4a",
+    "tenor": "media/5429/tenor.m4a",
+    "bari": "media/5429/bari.m4a",
+    "bass": "media/5429/bass.m4a",
+    "mix": "media/5429/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5429/lead.m4a",
+      "playback": "media/5429/lead.playback.opus",
+      "ultra_solo": "media/5429/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/5429/tenor.m4a",
+      "playback": "media/5429/tenor.playback.opus",
+      "ultra_solo": "media/5429/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/5429/bari.m4a",
+      "playback": "media/5429/bari.playback.opus",
+      "ultra_solo": "media/5429/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/5429/bass.m4a",
+      "playback": "media/5429/bass.playback.opus",
+      "ultra_solo": "media/5429/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/5429/mix.m4a",
+      "playback": "media/5429/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5429/All The Things You Are (Ab Major) - Sheet.pdf",
+    "sheets/5429/All The Things You Are (Ab Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5429/preview.webp",
   "sheet_pages": [
-    "sheets/5429/pages/page-01.webp"
-  ]
+    "sheets/5429/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:46:52.014070+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2942,
+      "correlation": 0.4902,
+      "side_mid": 0.6439
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4137,
+      "correlation": 0.6696,
+      "side_mid": 0.5985
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.3677,
+      "correlation": 0.6814,
+      "side_mid": 0.5613
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4339,
+      "correlation": 0.6145,
+      "side_mid": 0.6404
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0013,
+      "correlation": 0.8218,
+      "side_mid": 0.3029
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:33.816598+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.028149+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.349,
+      "zero_corr": 0.349,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:31.217511+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.356,
+      "zero_corr": 0.356,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:32.457977+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.369,
+      "zero_corr": 0.369,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:33.816566+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.594417+00:00"
+  }
 }

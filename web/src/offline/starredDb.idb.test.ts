@@ -34,7 +34,7 @@ const detail: TagDetail = {
   title: 'Song',
   arranger: 'A',
   key: 'G',
-  audio: { lead: 'media/5/lead.mp4', bass: 'media/5/bass.mp4' },
+  audio: { lead: 'media/5/lead.m4a', bass: 'media/5/bass.m4a' },
   sheet_pages: ['sheets/5/p1.webp'],
 }
 
@@ -105,6 +105,17 @@ describe('starredDb IDB', () => {
     const url = blobUrlFromCached({ mime: 'text/plain', data: new ArrayBuffer(1) })
     expect(url).toMatch(/^blob:/)
     URL.revokeObjectURL(url!)
+  })
+
+  it('stores reactive-like detail proxies without clone errors', async () => {
+    const proxyDetail = new Proxy(detail, {
+      get(target, prop, receiver) {
+        return Reflect.get(target, prop, receiver)
+      },
+    })
+    const rec = await starTag(summary, proxyDetail as TagDetail, { metadataOnly: true })
+    expect(rec.detail?.title).toBe('Song')
+    expect(await getStarred(5)).toBeTruthy()
   })
 
   it('parseStarredFile rejects non-objects', () => {

@@ -3,7 +3,7 @@ import { mediaBaseUrl, mediaUrl, tagDetailUrl, indexesUrl } from './mediaUrl'
 
 describe('mediaUrl', () => {
   it('prefixes relative paths', () => {
-    expect(mediaUrl('media/1/lead.mp4')).toBe('/sample-data/media/1/lead.mp4')
+    expect(mediaUrl('media/1/lead.m4a')).toBe('/sample-data/media/1/lead.m4a')
     expect(tagDetailUrl(9)).toBe('/sample-data/tags/9/metadata.json')
     expect(indexesUrl('core.json.gz')).toBe('/indexes/core.json.gz')
   })
@@ -19,7 +19,7 @@ describe('mediaUrl', () => {
   it('respects VITE_MEDIA_BASE when set', () => {
     vi.stubEnv('VITE_MEDIA_BASE', 'https://cdn.example/media/')
     expect(mediaBaseUrl()).toBe('https://cdn.example/media')
-    expect(mediaUrl('a.mp4')).toBe('https://cdn.example/media/a.mp4')
+    expect(mediaUrl('a.m4a')).toBe('https://cdn.example/media/a.m4a')
     vi.unstubAllEnvs()
   })
 })

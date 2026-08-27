@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All Star (G Major) - Jahzeus Nebrija - 7026",
-  "sheet": "sheets/7026/sheet.pdf",
+  "sheet": "sheets/7026/All Star (G Major) - Jahzeus Nebrija - Sheet.pdf",
   "audio": {
-    "lead": "media/7026/lead.mp4",
-    "tenor": "media/7026/tenor.mp4",
-    "bari": "media/7026/bari.mp4",
-    "bass": "media/7026/bass.mp4",
-    "mix": "media/7026/mix.mp4"
+    "lead": "media/7026/lead.m4a",
+    "tenor": "media/7026/tenor.m4a",
+    "bari": "media/7026/bari.m4a",
+    "bass": "media/7026/bass.m4a",
+    "mix": "media/7026/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/7026/lead.m4a",
+      "playback": "media/7026/lead.playback.opus",
+      "ultra_solo": "media/7026/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/7026/tenor.m4a",
+      "playback": "media/7026/tenor.playback.opus",
+      "ultra_solo": "media/7026/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/7026/bari.m4a",
+      "playback": "media/7026/bari.playback.opus",
+      "ultra_solo": "media/7026/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/7026/bass.m4a",
+      "playback": "media/7026/bass.playback.opus",
+      "ultra_solo": "media/7026/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/7026/mix.m4a",
+      "playback": "media/7026/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/7026/All Star (G Major) - Jahzeus Nebrija - Sheet.pdf",
+    "sheets/7026/All Star (G Major) - Jahzeus Nebrija - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/7026/preview.webp",
   "sheet_pages": [
-    "sheets/7026/pages/page-01.webp"
-  ]
+    "sheets/7026/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "near_mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:46:49.602562+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.0257,
+      "correlation": -0.0108,
+      "side_mid": 1.0071
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4801,
+      "correlation": -0.0019,
+      "side_mid": 1.0016
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2473,
+      "correlation": -0.0045,
+      "side_mid": 1.0099
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.2109,
+      "correlation": 0.0109,
+      "side_mid": 0.9909
+    },
+    "mix": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0684,
+      "correlation": 0.8759,
+      "side_mid": 0.2649
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:31.903296+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:28.710781+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.528,
+      "zero_corr": 0.528,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:29.754277+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.674,
+      "zero_corr": 0.674,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:30.830364+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.621,
+      "zero_corr": 0.621,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:31.903267+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.303585+00:00"
+  }
 }

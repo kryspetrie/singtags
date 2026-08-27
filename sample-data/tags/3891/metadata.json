@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All My Love (E Major) - Paul Paddock - 3891",
-  "sheet": "sheets/3891/sheet.png",
+  "sheet": "sheets/3891/All My Love (E Major) - Paul Paddock - Sheet.png",
   "audio": {
-    "lead": "media/3891/lead.mp4",
-    "tenor": "media/3891/tenor.mp4",
-    "bari": "media/3891/bari.mp4",
-    "bass": "media/3891/bass.mp4",
-    "mix": "media/3891/mix.mp4"
+    "lead": "media/3891/lead.m4a",
+    "tenor": "media/3891/tenor.m4a",
+    "bari": "media/3891/bari.m4a",
+    "bass": "media/3891/bass.m4a",
+    "mix": "media/3891/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3891/lead.m4a",
+      "playback": "media/3891/lead.playback.opus",
+      "ultra_downmix": "media/3891/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/3891/tenor.m4a",
+      "playback": "media/3891/tenor.playback.opus",
+      "ultra_downmix": "media/3891/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/3891/bari.m4a",
+      "playback": "media/3891/bari.playback.opus",
+      "ultra_downmix": "media/3891/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/3891/bass.m4a",
+      "playback": "media/3891/bass.playback.opus",
+      "ultra_downmix": "media/3891/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/3891/mix.m4a",
+      "playback": "media/3891/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3891/All My Love (E Major) - Paul Paddock - Sheet.png",
+    "sheets/3891/All My Love (E Major) - Paul Paddock - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3891/preview.webp",
   "sheet_pages": [
-    "sheets/3891/pages/page-01.webp"
-  ]
+    "sheets/3891/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:44.760733+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:50.062098+00:00"
+  }
 }

@@ -1,3 +1,5 @@
+import { canonicalizeTransform, isCanonicalIdentity } from '../audio/transformContract'
+
 /** Playback / download pitch+tempo transform. Identity = hosted as-is. */
 export interface AudioTransform {
   pitchSemitones: number
@@ -6,23 +8,66 @@ export interface AudioTransform {
 
 export type TransformMode = 'original' | 'key' | 'speed' | 'key+speed'
 
-export type DownloadFormat = 'mp4' | 'mp3' | 'ogg'
+export type DownloadFormat = 'm4a' | 'mp3' | 'ogg' | 'ogg-opus'
+
+/** IANA MIME for `.m4a` containers (AAC); not MP4 video. */
+export const HOSTED_AUDIO_MIME = 'audio/mp4'
+
+/** Formats offered in download UI (hosted AAC vs MP3 transcode). */
+export type UserDownloadFormat = 'm4a' | 'mp3'
+
+export const DOWNLOAD_FORMAT_OPTIONS: Array<{ value: UserDownloadFormat; label: string }> = [
+  { value: 'm4a', label: 'Original (M4A)' },
+  { value: 'mp3', label: 'MP3 (VBR q2)' },
+]
+
+/** Coerce persisted queue format values to supported download formats. */
+export function normalizeDownloadFormat(format: string | undefined | null): DownloadFormat {
+  return format === 'mp3' ? 'mp3' : 'm4a'
+}
+
+export function downloadFormatLabel(format: DownloadFormat | undefined | null): string {
+  if (format === 'mp3') return 'MP3 (VBR q2)'
+  return 'Original (M4A)'
+}
+
+/** `prepareDownloadBytes` quality: passthrough hosted M4A, or LAME VBR q2 for MP3. */
+export function encodeQualityForDownload(format: DownloadFormat): AudioEncodeQuality {
+  return format === 'mp3' ? 'standard' : 'original'
+}
 
 /**
- * How aggressively to compress when re-encoding (star cache, zip, offline pack).
- * `original` keeps hosted MP4 bytes and skips encode.
- * Re-encodes stay **stereo** AAC in MP4 (or stereo MP3/OGG when that format is chosen).
+ * How aggressively to compress when saving audio on this device after download.
+ * When publish tiers exist, non-original settings fetch pre-encoded Opus from the server.
+ * Legacy tags without tiers may still re-encode locally.
  */
 export type AudioEncodeQuality = 'original' | 'standard' | 'compact' | 'lofi'
 
 export const AUDIO_ENCODE_QUALITY_LABELS: Record<AudioEncodeQuality, string> = {
-  original: 'Original (hosted MP4 ~128 kbps)',
-  standard: 'Standard (stereo AAC ~96 kbps)',
-  compact: 'Compact (stereo AAC ~64 kbps)',
-  lofi: 'Lo-fi (stereo AAC ~32 kbps)',
+  original: 'Original (hosted AAC in M4A)',
+  standard: 'Playback (64 kbps Opus)',
+  compact: 'Playback (64 kbps Opus — legacy alias)',
+  lofi: 'Ultra (16k solo / 32k mix)',
 }
 
-/** Target AAC bitrate for MP4 re-encode (stereo). Hosted files are ~128 kbps. */
+/** Opus/Vorbis-style target bitrate for downsampled on-device storage. */
+export function opusBitrate(quality: Exclude<AudioEncodeQuality, 'original'>): number {
+  return aacBitrate(quality)
+}
+
+/** Rough on-device size vs hosted original when re-encoding. */
+export function storageSizeFactor(quality: AudioEncodeQuality): number {
+  if (quality === 'original') return 1
+  if (quality === 'standard') return 0.75
+  if (quality === 'compact') return 0.5
+  return 0.3
+}
+
+export function usesOpusStorage(quality: AudioEncodeQuality): boolean {
+  return quality !== 'original'
+}
+
+/** Target AAC bitrate for M4A re-encode (stereo). Hosted files are ~128 kbps. */
 export function aacBitrate(quality: Exclude<AudioEncodeQuality, 'original'>): number {
   switch (quality) {
     case 'lofi':
@@ -62,7 +107,7 @@ export const IDENTITY_TRANSFORM: AudioTransform = { pitchSemitones: 0, speed: 1 
 
 export function isIdentityTransform(t: AudioTransform | undefined | null): boolean {
   if (!t) return true
-  return Math.abs(t.pitchSemitones) < 0.01 && Math.abs(t.speed - 1) < 0.001
+  return isCanonicalIdentity(canonicalizeTransform(t.pitchSemitones, t.speed))
 }
 
 export function transformFromMode(

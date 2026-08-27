@@ -9,13 +9,13 @@ import { IDENTITY_TRANSFORM } from '../types/audio'
 
 describe('resolveOutputFormat', () => {
   it('keeps the requested container including after transforms', () => {
-    expect(resolveOutputFormat('mp4', IDENTITY_TRANSFORM)).toBe('mp4')
-    expect(resolveOutputFormat('mp4', { pitchSemitones: 1, speed: 1 })).toBe('mp4')
+    expect(resolveOutputFormat('m4a', IDENTITY_TRANSFORM)).toBe('m4a')
+    expect(resolveOutputFormat('m4a', { pitchSemitones: 1, speed: 1 })).toBe('m4a')
     expect(resolveOutputFormat('mp3', { pitchSemitones: 1, speed: 1 })).toBe('mp3')
   })
 
-  it('keeps mp4 extension in filenames when transforming', () => {
-    expect(downloadFilename('bass', 'mp4', { pitchSemitones: -2, speed: 1 })).toBe('bass_-2st.mp4')
+  it('keeps m4a extension in filenames when transforming', () => {
+    expect(downloadFilename('bass', 'm4a', { pitchSemitones: -2, speed: 1 })).toBe('bass_-2st.m4a')
   })
 })
 
@@ -36,11 +36,11 @@ describe('audioBufferToWav', () => {
 })
 
 describe('prepareDownloadBytes', () => {
-  it('returns input for identity mp4 at original quality', async () => {
+  it('returns input for identity m4a at original quality', async () => {
     const input = new Uint8Array([1, 2, 3])
     const out = await prepareDownloadBytes({
       input,
-      format: 'mp4',
+      format: 'm4a',
       transform: IDENTITY_TRANSFORM,
       encodeQuality: 'original',
     })
@@ -53,13 +53,13 @@ describe('prepareDownloadBytes', () => {
     await expect(
       prepareDownloadBytes({
         input: new Uint8Array([1]),
-        format: 'mp4',
+        format: 'm4a',
         signal: c.signal,
       }),
     ).rejects.toThrow(/Abort/)
   })
 
-  it('surfaces decode/transform failures for non-identity mp4', async () => {
+  it('surfaces decode/transform failures for non-identity m4a', async () => {
     vi.stubGlobal(
       'AudioContext',
       vi.fn(function AudioContext() {
@@ -74,7 +74,7 @@ describe('prepareDownloadBytes', () => {
     await expect(
       prepareDownloadBytes({
         input: new Uint8Array([1, 2, 3, 4]),
-        format: 'mp4',
+        format: 'm4a',
         transform: { pitchSemitones: 1, speed: 1 },
       }),
     ).rejects.toThrow(/decode failed/)

@@ -1,7 +1,19 @@
 #!/usr/bin/env python3
-"""Seed ~100 finalized tags into sample-data/ with sheets + AAC MP4 tracks.
+"""Seed finalized tags into sample-data/ with sheets + AAC originals + Opus tiers.
 
 Reads from the local Barbershop Tags mirror. Does not hit the origin site.
+
+Media layout per tag id::
+
+    media/{id}/{part}.m4a              # original (AAC remux of mirrored MP3)
+    media/{id}/{part}.playback.opus    # 64 kbps online playback
+    media/{id}/{part}.solo.opus        # 16 kbps mono solo (mono_solos)
+    media/{id}/{part}.downmix.opus     # 16 kbps mono downmix
+    media/{id}/{part}.ultra.opus       # 32 kbps stereo ultra fallback
+    media/{id}/mix.ultra_mix.opus      # 32 kbps mix-only ultra
+
+Tag ``metadata.json`` exposes ``audio`` (originals), ``audio_tiers`` (per-part
+tier paths), plus ``audio_layout_*`` / ``audio_align*`` from the mirror.
 """
 
 from __future__ import annotations
@@ -16,6 +28,14 @@ from pathlib import Path
 SHEET_EXTS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp"}
 AUDIO_EXTS = {".mp3", ".m4a", ".wav", ".ogg"}
 AUDIO_PARTS = ("lead", "tenor", "bari", "bass", "mix")
+# Mirror tier id → sample-data filename suffix (before .opus)
+TIER_SUFFIX = {
+    "playback": "playback",
+    "ultra_solo": "solo",
+    "ultra_downmix": "downmix",
+    "ultra_stereo": "ultra",
+    "ultra_mix": "ultra_mix",
+}
 PART_HINTS = {
     "lead": ("lead",),
     "tenor": ("tenor",),
@@ -67,7 +87,6 @@ def find_sheets(folder: Path, meta: dict) -> list[Path]:
     name = sheet.get("filename")
     if name:
         add(folder / name)
-    # parts.sheets may be a list of {filename} or plain names in richer mirrors
     extra = (meta.get("parts") or {}).get("sheets")
     if isinstance(extra, list):
         for item in extra:
@@ -108,7 +127,70 @@ def find_audio_parts(folder: Path, meta: dict) -> dict[str, Path]:
     return found
 
 
-def remux_to_mp4(src: Path, dest: Path) -> bool:
+def build_library_index(library: Path) -> dict[int, Path]:
+    """Map tag_id → folder (one pass over the mirror)."""
+    by_id: dict[int, Path] = {}
+    for folder in library.iterdir():
+        if not folder.is_dir() or folder.name.startswith("_"):
+            continue
+        meta_path = folder / "metadata.json"
+        tid: int | None = None
+        if meta_path.is_file():
+            try:
+                raw = json.loads(meta_path.read_text(encoding="utf-8")).get("tag_id")
+                if isinstance(raw, int):
+                    tid = raw
+            except (json.JSONDecodeError, OSError):
+                pass
+        if tid is None:
+            # Fallback: trailing " - {id}"
+            try:
+                tid = int(folder.name.rsplit("-", 1)[-1].strip())
+            except ValueError:
+                continue
+        by_id.setdefault(tid, folder)
+    return by_id
+
+
+def select_existing_sample_ids(
+    library: Path, dest: Path
+) -> list[tuple[Path, dict, Path, dict[str, Path]]]:
+    """Refresh tags already present under ``dest/tags`` from the mirror."""
+    out: list[tuple[Path, dict, Path, dict[str, Path]]] = []
+    tags_dir = dest / "tags"
+    if not tags_dir.is_dir():
+        return out
+    index = build_library_index(library)
+    print(f"  library index: {len(index)} tags", flush=True)
+    for meta_path in sorted(tags_dir.glob("*/metadata.json"), key=lambda p: int(p.parent.name)):
+        try:
+            tid = int(meta_path.parent.name)
+        except ValueError:
+            continue
+        folder = index.get(tid)
+        if folder is None:
+            print(f"  warn: library folder missing for sample #{tid}", file=sys.stderr)
+            continue
+        meta = load_meta(folder)
+        if not meta:
+            continue
+        meta["tag_id"] = tid
+        sheet = find_sheet(folder, meta)
+        audio = find_audio_parts(folder, meta)
+        if sheet is None or not audio:
+            print(f"  warn: incomplete assets for sample #{tid}", file=sys.stderr)
+            continue
+        out.append((folder, meta, sheet, audio))
+    return out
+
+
+def find_library_folder(library: Path, tag_id: int) -> Path | None:
+    """Resolve mirror folder for a single tag_id (prefer metadata match)."""
+    return build_library_index(library).get(tag_id)
+
+
+def remux_to_m4a(src: Path, dest: Path) -> bool:
+    """Remux/encode learning track to AAC in an .m4a container."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "ffmpeg",
@@ -126,6 +208,60 @@ def remux_to_mp4(src: Path, dest: Path) -> bool:
     ]
     proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return proc.returncode == 0 and dest.is_file() and dest.stat().st_size > 0
+
+
+def copy_opus_tiers(
+    folder: Path,
+    meta: dict,
+    tid: int,
+    media_root: Path,
+    parts: list[str],
+    *,
+    force: bool,
+) -> dict[str, dict[str, str]]:
+    """Copy mirror Opus tier files into ``media/{tid}/{part}.{suffix}.opus``."""
+    out: dict[str, dict[str, str]] = {p: {} for p in parts}
+    parts_meta = meta.get("parts") or {}
+    dest_dir = media_root / str(tid)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    for part in parts:
+        info = parts_meta.get(part) or {}
+        tiers = info.get("audio_tiers") or {}
+        if not isinstance(tiers, dict):
+            continue
+        for tier_id, suffix in TIER_SUFFIX.items():
+            entry = tiers.get(tier_id)
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("filename")
+            if not name:
+                continue
+            src = folder / name
+            if not src.is_file() or src.stat().st_size <= 0:
+                continue
+            dest_name = f"{part}.{suffix}.opus"
+            dest = dest_dir / dest_name
+            if force or not dest.is_file() or dest.stat().st_size <= 0:
+                shutil.copy2(src, dest)
+                print(f"  tier #{tid} {part}.{tier_id}: {src.name} -> {dest_name}")
+            out[part][tier_id] = f"media/{tid}/{dest_name}"
+    return out
+
+
+def slim_align_entry(entry: dict) -> dict:
+    keep = (
+        "ref_part",
+        "offset_ms",
+        "corr",
+        "zero_corr",
+        "trusted",
+        "applied_ms",
+        "method",
+        "min_offset_ms",
+        "analyzed_at",
+    )
+    return {k: entry[k] for k in keep if k in entry}
 
 
 def iter_tag_folders(root: Path):
@@ -149,13 +285,13 @@ def select_candidates(
         if sheet is None or not audio:
             continue
         out.append((folder, meta, sheet, audio))
-        if len(out) >= limit * 2:  # oversample; remux may skip some
+        if len(out) >= limit * 2:
             break
     return out
 
 
-def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
-    if dest.exists() and force:
+def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -> int:
+    if dest.exists() and force and not refresh:
         shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
     media_root = dest / "media"
@@ -165,15 +301,20 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
     sheets_root.mkdir(exist_ok=True)
     tags_root.mkdir(exist_ok=True)
 
-    candidates = select_candidates(library, limit)
+    if refresh:
+        candidates = select_existing_sample_ids(library, dest)
+        print(f"Refreshing {len(candidates)} existing sample tag(s)…")
+    else:
+        candidates = select_candidates(library, limit)
+
     manifest: list[dict] = []
     skipped = 0
 
     for folder, meta, sheet, audio in candidates:
-        if len(manifest) >= limit:
+        if not refresh and len(manifest) >= limit:
             break
         tid = meta["tag_id"]
-        slim = {
+        slim: dict = {
             "tag_id": tid,
             "title": meta.get("title"),
             "alt_title": meta.get("alt_title"),
@@ -198,21 +339,40 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
 
         ok_audio: dict[str, str] = {}
         for part, src in audio.items():
-            out_mp4 = media_root / str(tid) / f"{part}.mp4"
-            if out_mp4.exists() and not force and out_mp4.stat().st_size > 0:
-                ok_audio[part] = f"media/{tid}/{part}.mp4"
+            out_m4a = media_root / str(tid) / f"{part}.m4a"
+            stale_mp4 = media_root / str(tid) / f"{part}.mp4"
+            if stale_mp4.is_file():
+                stale_mp4.unlink()
+            if out_m4a.exists() and out_m4a.stat().st_size > 0 and not force:
+                ok_audio[part] = f"media/{tid}/{part}.m4a"
                 continue
-            print(f"  remux #{tid} {part}: {src.name} -> {out_mp4.name}")
-            if remux_to_mp4(src, out_mp4):
-                ok_audio[part] = f"media/{tid}/{part}.mp4"
+            print(f"  remux #{tid} {part}: {src.name} -> {out_m4a.name}")
+            if remux_to_m4a(src, out_m4a):
+                ok_audio[part] = f"media/{tid}/{part}.m4a"
             else:
                 print(f"  skip remux fail #{tid} {part} ({src.name})", file=sys.stderr)
-                if out_mp4.exists():
-                    out_mp4.unlink()
+                if out_m4a.exists():
+                    out_m4a.unlink()
 
         if not ok_audio:
             skipped += 1
             continue
+
+        tier_map = copy_opus_tiers(
+            folder,
+            meta,
+            tid,
+            media_root,
+            list(ok_audio.keys()),
+            force=force or refresh,
+        )
+        audio_tiers: dict[str, dict[str, str]] = {}
+        for part, rel in ok_audio.items():
+            entry = {"original": rel}
+            entry.update(tier_map.get(part) or {})
+            audio_tiers[part] = entry
+        slim["audio"] = ok_audio
+        slim["audio_tiers"] = audio_tiers
 
         sheet_dir = sheets_root / str(tid)
         sheet_dir.mkdir(parents=True, exist_ok=True)
@@ -220,7 +380,6 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
         sheet_rels: list[str] = []
         used_names: set[str] = set()
         for i, src_sheet in enumerate(all_sheets):
-            # Keep original basename when unique; otherwise prefix with index
             base = src_sheet.name
             if base.lower() in used_names:
                 base = f"{i:02d}-{src_sheet.name}"
@@ -232,13 +391,106 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
         slim["sheet"] = sheet_rels[0]
         if len(sheet_rels) > 1:
             slim["sheets"] = sheet_rels
-        slim["audio"] = ok_audio
+
+        preview_name = ((meta.get("parts") or {}).get("sheet_preview") or {}).get("filename")
+        if preview_name:
+            src_preview = folder / preview_name
+            if src_preview.is_file():
+                dest_preview = sheet_dir / "preview.webp"
+                if not dest_preview.exists() or force:
+                    shutil.copy2(src_preview, dest_preview)
+                rel = f"sheets/{tid}/preview.webp"
+                slim["sheet_preview"] = rel
+                slim["sheet_pages"] = [rel]
+
+        summary = meta.get("audio_layout_summary")
+        if isinstance(summary, dict) and summary.get("parts"):
+            slim["audio_layout_summary"] = {
+                k: summary[k]
+                for k in (
+                    "parts",
+                    "mix",
+                    "ultra_low",
+                    "solo_side",
+                    "mix_correlation",
+                    "mix_disjoint",
+                    "mix_cache",
+                    "analyzed_at",
+                )
+                if k in summary
+            }
+        layouts: dict[str, dict] = {}
+        for part in ok_audio:
+            al = ((meta.get("parts") or {}).get(part) or {}).get("audio_layout")
+            if isinstance(al, dict) and al.get("kind"):
+                layouts[part] = {
+                    k: al[k]
+                    for k in (
+                        "kind",
+                        "solo_side",
+                        "channels",
+                        "balance",
+                        "correlation",
+                        "side_mid",
+                    )
+                    if k in al
+                }
+        if layouts:
+            slim["audio_layouts"] = layouts
+
+        align_summary = meta.get("audio_align_summary")
+        if isinstance(align_summary, dict) and align_summary.get("status"):
+            slim["audio_align_summary"] = {
+                k: align_summary[k]
+                for k in (
+                    "status",
+                    "ref_part",
+                    "min_offset_ms",
+                    "trusted_parts",
+                    "applied_ms",
+                    "analyzed_at",
+                )
+                if k in align_summary
+            }
+        align_parts: dict[str, dict] = {}
+        for part in ok_audio:
+            aa = ((meta.get("parts") or {}).get(part) or {}).get("audio_align")
+            if isinstance(aa, dict) and "offset_ms" in aa:
+                align_parts[part] = slim_align_entry(aa)
+        if align_parts:
+            slim["audio_align"] = align_parts
+
+        tiers_summary = meta.get("audio_tiers_summary")
+        if isinstance(tiers_summary, dict):
+            slim["audio_tiers_summary"] = {
+                k: tiers_summary[k]
+                for k in (
+                    "ultra_policy",
+                    "mix_only",
+                    "mix_disjoint",
+                    "mix_cache",
+                    "playback_kbps",
+                    "align_status",
+                    "align_applied_ms",
+                    "align_min_offset_ms",
+                    "encoded_at",
+                )
+                if k in tiers_summary
+            }
 
         tag_dir = tags_root / str(tid)
         tag_dir.mkdir(exist_ok=True)
         (tag_dir / "metadata.json").write_text(
             json.dumps(slim, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
+        )
+        tier_kinds = sorted(
+            {
+                t
+                for part_tiers in audio_tiers.values()
+                for t in part_tiers
+                if t != "original"
+            }
         )
         manifest.append(
             {
@@ -251,10 +503,13 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
                 "collection": slim["collection"],
                 "hasSheet": True,
                 "audioParts": sorted(slim["audio"].keys()),
+                "audioTiers": tier_kinds,
+                "ultraLow": (slim.get("audio_layout_summary") or {}).get("ultra_low"),
                 "sheet": slim["sheet"],
             }
         )
-        print(f"seeded #{tid} {slim['title']} ({len(ok_audio)} tracks)")
+        n_tiers = sum(len(v) - 1 for v in audio_tiers.values())
+        print(f"seeded #{tid} {slim['title']} ({len(ok_audio)} originals, {n_tiers} tier files)")
 
     (dest / "manifest.json").write_text(
         json.dumps(
@@ -271,7 +526,7 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool) -> int:
         encoding="utf-8",
     )
     print(f"Wrote {len(manifest)} tags -> {dest} (skipped {skipped})")
-    return 0 if len(manifest) >= min(limit, 1) else 1
+    return 0 if len(manifest) >= 1 else 1
 
 
 def main() -> int:
@@ -287,7 +542,16 @@ def main() -> int:
         default=Path(__file__).resolve().parents[1] / "sample-data",
     )
     parser.add_argument("--limit", type=int, default=100)
-    parser.add_argument("--force", action="store_true", help="Rebuild sample-data from scratch")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild sample-data from scratch (re-remux AAC + recopy tiers)",
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Update existing sample tags in place (keeps AAC remuxes; recopies Opus tiers)",
+    )
     args = parser.parse_args()
     if not args.library.is_dir():
         print(f"library not found: {args.library}", file=sys.stderr)
@@ -295,7 +559,16 @@ def main() -> int:
     if shutil.which("ffmpeg") is None:
         print("ffmpeg not found on PATH", file=sys.stderr)
         return 1
-    return seed(args.library, args.dest, args.limit, force=args.force)
+    refresh = args.refresh or (
+        not args.force and (args.dest / "tags").is_dir() and any((args.dest / "tags").iterdir())
+    )
+    return seed(
+        args.library,
+        args.dest,
+        args.limit,
+        force=args.force,
+        refresh=refresh,
+    )
 
 
 if __name__ == "__main__":

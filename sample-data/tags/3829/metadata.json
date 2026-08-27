@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Place in My Heart (G Major) - Dale Kynaston - 3829",
-  "sheet": "sheets/3829/sheet.pdf",
+  "sheet": "sheets/3829/A Place in My Heart (G Major) - Dale Kynaston - Sheet.pdf",
   "audio": {
-    "lead": "media/3829/lead.mp4",
-    "tenor": "media/3829/tenor.mp4",
-    "bari": "media/3829/bari.mp4",
-    "bass": "media/3829/bass.mp4",
-    "mix": "media/3829/mix.mp4"
+    "lead": "media/3829/lead.m4a",
+    "tenor": "media/3829/tenor.m4a",
+    "bari": "media/3829/bari.m4a",
+    "bass": "media/3829/bass.m4a",
+    "mix": "media/3829/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3829/lead.m4a",
+      "playback": "media/3829/lead.playback.opus",
+      "ultra_downmix": "media/3829/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/3829/tenor.m4a",
+      "playback": "media/3829/tenor.playback.opus",
+      "ultra_downmix": "media/3829/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/3829/bari.m4a",
+      "playback": "media/3829/bari.playback.opus",
+      "ultra_downmix": "media/3829/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/3829/bass.m4a",
+      "playback": "media/3829/bass.playback.opus",
+      "ultra_downmix": "media/3829/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/3829/mix.m4a",
+      "playback": "media/3829/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3829/A Place in My Heart (G Major) - Dale Kynaston - Sheet.pdf",
+    "sheets/3829/A Place in My Heart (G Major) - Dale Kynaston - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3829/preview.webp",
   "sheet_pages": [
-    "sheets/3829/pages/page-01.webp"
-  ]
+    "sheets/3829/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "stereo_other",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:48.618511+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.1512,
+      "correlation": 0.9612,
+      "side_mid": 0.2067
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0426,
+      "correlation": 0.9798,
+      "side_mid": 0.1101
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0396,
+      "correlation": 0.981,
+      "side_mid": 0.1059
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0355,
+      "correlation": 0.9828,
+      "side_mid": 0.1002
+    },
+    "mix": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.2357,
+      "correlation": 0.9546,
+      "side_mid": 0.2808
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:46.488709+00:00"
+  }
 }

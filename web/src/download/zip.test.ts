@@ -17,7 +17,7 @@ describe('zip helpers', () => {
   })
 
   it('sampleUrl and fetchBytes', async () => {
-    expect(sampleUrl('media/1/lead.mp4')).toBe('/sample-data/media/1/lead.mp4')
+    expect(sampleUrl('media/1/lead.m4a')).toBe('/sample-data/media/1/lead.m4a')
     expect(sampleUrl('/abs')).toBe('/abs')
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1, 2]), { status: 200 })))
     const bytes = await fetchBytes('/x')
@@ -54,10 +54,10 @@ describe('zip helpers', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const progress: number[] = []
     await zipQueueTracks(
-      [{ tagId: 1, title: 'Hello World!', part: 'lead', path: 'media/1/lead.mp4' }],
+      [{ tagId: 1, title: 'Hello World!', part: 'lead', path: 'media/1/lead.m4a' }],
       {
         onProgress: (d, t) => progress.push(d / t),
-        defaultFormat: 'mp4',
+        defaultFormat: 'm4a',
         encodeQuality: 'original',
       },
     )
@@ -82,7 +82,7 @@ describe('zip helpers', () => {
   it('queueTrackZipPath supports flat and folder layouts', async () => {
     const { queueTrackZipPath } = await import('./zip')
     const t = { tagId: 12, title: 'Hello World!' }
-    expect(queueTrackZipPath(t, 'lead.mp4', 'folders')).toBe('12-Hello_World_/lead.mp4')
-    expect(queueTrackZipPath(t, 'lead.mp4', 'flat')).toBe('12-Hello_World_-lead.mp4')
+    expect(queueTrackZipPath(t, 'lead.m4a', 'folders')).toBe('12-Hello_World_/lead.m4a')
+    expect(queueTrackZipPath(t, 'lead.m4a', 'flat')).toBe('12-Hello_World_-lead.m4a')
   })
 })

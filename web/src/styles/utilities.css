@@ -59,3 +59,14 @@
   color: var(--accent-hover);
   font-weight: 600;
 }
+
+.stars-notice-wrap {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .page-back {
+    display: none !important;
+  }
+}

@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "After Youve Gone (B Major) - Don Gray - 897",
-  "sheet": "sheets/897/sheet.jpg",
+  "sheet": "sheets/897/After Youve Gone (B Major) - Don Gray - Sheet.jpg",
   "audio": {
-    "lead": "media/897/lead.mp4",
-    "tenor": "media/897/tenor.mp4",
-    "bari": "media/897/bari.mp4",
-    "bass": "media/897/bass.mp4",
-    "mix": "media/897/mix.mp4"
+    "lead": "media/897/lead.m4a",
+    "tenor": "media/897/tenor.m4a",
+    "bari": "media/897/bari.m4a",
+    "bass": "media/897/bass.m4a",
+    "mix": "media/897/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/897/lead.m4a",
+      "playback": "media/897/lead.playback.opus",
+      "ultra_downmix": "media/897/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/897/tenor.m4a",
+      "playback": "media/897/tenor.playback.opus",
+      "ultra_downmix": "media/897/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/897/bari.m4a",
+      "playback": "media/897/bari.playback.opus",
+      "ultra_downmix": "media/897/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/897/bass.m4a",
+      "playback": "media/897/bass.playback.opus",
+      "ultra_downmix": "media/897/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/897/mix.m4a",
+      "playback": "media/897/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/897/After Youve Gone (B Major) - Don Gray - Sheet.jpg",
+    "sheets/897/After Youve Gone (B Major) - Don Gray - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/897/preview.webp",
   "sheet_pages": [
-    "sheets/897/pages/page-01.webp"
-  ]
+    "sheets/897/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "part_right",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:20.999887+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0212,
+      "correlation": 0.8032,
+      "side_mid": 0.3305
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:48.302366+00:00"
+  }
 }

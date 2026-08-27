@@ -87,11 +87,25 @@ def build(sample: Path, out: Path) -> None:
         if not isinstance(tid, int):
             continue
         audio = meta.get("audio") or {}
+        audio_tiers = meta.get("audio_tiers") or {}
+        layout = meta.get("audio_layout_summary") or {}
         sheet = meta.get("sheet")
         sheets = meta.get("sheets") if isinstance(meta.get("sheets"), list) else []
         sheet_pages = meta.get("sheet_pages") or (
             [sheet] if isinstance(sheet, str) else []
         )
+        sheet_preview = meta.get("sheet_preview")
+        tier_kinds: list[str] = []
+        if isinstance(audio_tiers, dict):
+            tier_kinds = sorted(
+                {
+                    t
+                    for part_tiers in audio_tiers.values()
+                    if isinstance(part_tiers, dict)
+                    for t in part_tiers
+                    if t != "original"
+                }
+            )
         row = {
             "id": tid,
             "title": meta.get("title"),
@@ -109,7 +123,10 @@ def build(sample: Path, out: Path) -> None:
             "parts": meta.get("parts_count"),
             "hasSheet": bool(sheet_pages or sheet or sheets),
             "audioParts": sorted(audio.keys()) if isinstance(audio, dict) else [],
+            "audioTiers": tier_kinds,
+            "ultraLow": layout.get("ultra_low") if isinstance(layout, dict) else None,
             "sheetPages": sheet_pages if isinstance(sheet_pages, list) else [],
+            "sheetPreview": sheet_preview if isinstance(sheet_preview, str) else None,
             "sheet": sheet,
         }
         core.append(row)

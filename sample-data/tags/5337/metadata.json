@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As The World Caves In (Bb Major) - Benjamin Harding - 5337",
-  "sheet": "sheets/5337/sheet.pdf",
+  "sheet": "sheets/5337/As The World Caves In (Bb Major) - Benjamin Harding - Sheet.pdf",
   "audio": {
-    "mix": "media/5337/mix.mp4"
+    "mix": "media/5337/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/5337/mix.m4a",
+      "playback": "media/5337/mix.playback.opus",
+      "ultra_mix": "media/5337/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5337/As The World Caves In (Bb Major) - Benjamin Harding - Sheet.pdf",
+    "sheets/5337/As The World Caves In (Bb Major) - Benjamin Harding - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5337/preview.webp",
   "sheet_pages": [
-    "sheets/5337/pages/page-01.webp"
-  ]
+    "sheets/5337/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:41.229175+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0098,
+      "correlation": 0.9302,
+      "side_mid": 0.1931
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:13.444215+00:00"
+  }
 }

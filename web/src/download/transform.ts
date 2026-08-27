@@ -1,7 +1,7 @@
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { isIdentityTransform, transformFilenameSuffix } from '../types/audio'
-import { processOfflineTransform } from '../audio/soundtouch'
-import { encodeAudioBuffer, encodeAudioBufferToMp4, encodeDecodedBytes } from './encode'
+import { processOfflineTransform } from '../audio/bakeClient'
+import { encodeAudioBuffer, encodeAudioBufferToM4a, encodeAudioBufferToOggOpus, encodeDecodedBytes } from './encode'
 
 export function audioBufferToWav(buffer: AudioBuffer): Uint8Array {
   const numChannels = buffer.numberOfChannels
@@ -49,7 +49,7 @@ async function decodeBytes(data: Uint8Array): Promise<AudioBuffer> {
 }
 
 /**
- * Prefer keeping the chosen container. Pitch/speed + MP4 re-encodes to AAC when possible;
+ * Prefer keeping the chosen container. Pitch/speed + M4A re-encodes to AAC when possible;
  * WAV is only a last-resort fallback inside prepareDownloadBytes if AAC encode fails.
  */
 export function resolveOutputFormat(
@@ -64,15 +64,16 @@ export interface PrepareDownloadOptions {
   format: DownloadFormat
   transform?: AudioTransform
   signal?: AbortSignal
+  sourceRevision?: string
   /**
    * Compression when re-encoding.
-   * For MP4: `original` keeps hosted bytes (identity only); otherwise stereo AAC.
+   * For M4A: `original` keeps hosted bytes (identity only); otherwise stereo AAC.
    */
   encodeQuality?: AudioEncodeQuality
 }
 
 export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promise<Uint8Array> {
-  const { input, format, transform, signal, encodeQuality = 'original' } = opts
+  const { input, format, transform, signal, encodeQuality = 'original', sourceRevision } = opts
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
   const outFormat = resolveOutputFormat(format, transform)
@@ -81,10 +82,10 @@ export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promis
     encodeQuality === 'original' ? 'standard' : encodeQuality
   const encOpts = { quality: reencodeQuality }
 
-  // Hosted MP4 passthrough only when quality is original and no pitch/speed bake.
-  if (identity && outFormat === 'mp4' && encodeQuality === 'original') return input
-  // MP3/OGG always encode; MP4 with non-original quality re-encodes AAC.
-  if (identity && (outFormat === 'mp3' || outFormat === 'ogg' || outFormat === 'mp4')) {
+  // Identity: original-byte passthrough for hosted M4A at original quality.
+  if (identity && outFormat === 'm4a' && encodeQuality === 'original') return input
+  // MP3/OGG always encode; M4A with non-original quality re-encodes AAC.
+  if (identity && (outFormat === 'mp3' || outFormat === 'ogg' || outFormat === 'm4a')) {
     return encodeDecodedBytes(input, outFormat, encOpts)
   }
 
@@ -92,20 +93,26 @@ export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promis
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
   const t = transform ?? { pitchSemitones: 0, speed: 1 }
-  const processed = await processOfflineTransform(decoded, t.pitchSemitones, t.speed)
+  const processed = await processOfflineTransform(decoded, t.pitchSemitones, t.speed, {
+    signal,
+    sourceRevision: sourceRevision ?? 'download',
+  })
   if (!processed) {
-    throw new Error('SoundTouch offline transform unavailable; try Original download.')
+    throw new Error('Pitch/speed transform unavailable; try Original download.')
   }
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-  if (outFormat === 'mp4') {
+  if (outFormat === 'm4a') {
     try {
-      return await encodeAudioBufferToMp4(processed, encOpts)
+      return await encodeAudioBufferToM4a(processed, encOpts)
     } catch {
       return audioBufferToWav(processed)
     }
   }
-  return encodeAudioBuffer(processed, outFormat, encOpts)
+  if (outFormat === 'ogg-opus') {
+    return encodeAudioBufferToOggOpus(processed, encOpts)
+  }
+  return encodeAudioBuffer(processed, outFormat as 'mp3' | 'ogg', encOpts)
 }
 
 export function downloadFilename(

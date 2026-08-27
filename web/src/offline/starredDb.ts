@@ -1,8 +1,8 @@
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import type { AudioEncodeQuality } from '../types/audio'
+import { listAudioParts, storageAudioPath } from '../lib/audioTiers'
 import { sampleUrl } from '../download/zip'
-import { originalSheetPaths } from '../lib/sheetAssets'
-import { isImageSheetPath } from '../lib/sheetPath'
+import { sheetDisplayPages } from '../lib/sheetPaths'
 import { fetchAudioForStorage } from './compactAudio'
 
 const DB_NAME = 'singtags'
@@ -73,11 +73,20 @@ function idbReq<T>(req: IDBRequest<T>): Promise<T> {
   })
 }
 
+function idbTx(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
+  })
+}
+
 export async function listStarred(): Promise<StarredTagRecord[]> {
   const db = await openDb()
   try {
     const tx = db.transaction(STORE, 'readonly')
     const rows = await idbReq(tx.objectStore(STORE).getAll())
+    await idbTx(tx)
     return (rows as StarredTagRecord[]).sort((a, b) => b.starredAt.localeCompare(a.starredAt))
   } finally {
     db.close()
@@ -88,7 +97,9 @@ export async function getStarred(tagId: number): Promise<StarredTagRecord | unde
   const db = await openDb()
   try {
     const tx = db.transaction(STORE, 'readonly')
-    return (await idbReq(tx.objectStore(STORE).get(tagId))) as StarredTagRecord | undefined
+    const row = (await idbReq(tx.objectStore(STORE).get(tagId))) as StarredTagRecord | undefined
+    await idbTx(tx)
+    return row
   } finally {
     db.close()
   }
@@ -99,10 +110,12 @@ export async function isStarred(tagId: number): Promise<boolean> {
 }
 
 export async function putStarred(record: StarredTagRecord): Promise<void> {
+  const plain = cloneStarredRecord(record)
   const db = await openDb()
   try {
     const tx = db.transaction(STORE, 'readwrite')
-    await idbReq(tx.objectStore(STORE).put(record))
+    await idbReq(tx.objectStore(STORE).put(plain))
+    await idbTx(tx)
   } finally {
     db.close()
   }
@@ -113,6 +126,7 @@ export async function removeStarred(tagId: number): Promise<void> {
   try {
     const tx = db.transaction(STORE, 'readwrite')
     await idbReq(tx.objectStore(STORE).delete(tagId))
+    await idbTx(tx)
   } finally {
     db.close()
   }
@@ -144,6 +158,38 @@ function report(
   })
 }
 
+/** Plain copy safe for IndexedDB (strips reactive proxies and non-cloneables). */
+export function cloneStarredRecord(record: StarredTagRecord): StarredTagRecord {
+  return {
+    tagId: record.tagId,
+    starredAt: record.starredAt,
+    summary: JSON.parse(JSON.stringify(record.summary)) as TagSummary,
+    detail: record.detail
+      ? (JSON.parse(JSON.stringify(record.detail)) as TagDetail)
+      : null,
+    sheetBlobs: record.sheetBlobs?.map((b) => ({
+      path: b.path,
+      mime: b.mime,
+      data: b.data,
+    })),
+    audioBlobs: record.audioBlobs
+      ? Object.fromEntries(
+          Object.entries(record.audioBlobs).map(([part, b]) => [
+            part,
+            {
+              path: b.path,
+              mime: b.mime,
+              data: b.data,
+              ...(b.quality != null ? { quality: b.quality } : {}),
+            },
+          ]),
+        )
+      : undefined,
+    offlineMedia: record.offlineMedia,
+    quotaWarning: record.quotaWarning ?? null,
+  }
+}
+
 /** Star a tag; optionally cache sheets + audio for offline. */
 export async function starTag(
   summary: TagSummary,
@@ -161,13 +207,13 @@ export async function starTag(
   }
 
   if (detail && !metadataOnly) {
-    const sheetPaths =
-      skipSheets
-        ? []
-        : detail.sheet_pages?.length
-          ? detail.sheet_pages
-          : originalSheetPaths(detail).filter((p) => isImageSheetPath(p))
-    const audioEntries = Object.entries(detail.audio) as Array<[PartId, string]>
+    const sheetPaths = skipSheets ? [] : sheetDisplayPages(detail)
+    const audioEntries = listAudioParts(detail)
+      .map((part) => {
+        const path = storageAudioPath(detail, part, audioQuality)
+        return path ? ([part, path] as [PartId, string]) : null
+      })
+      .filter((e): e is [PartId, string] => e != null)
     const total = sheetPaths.length + audioEntries.length
     let done = 0
     report(onProgress, 'Caching media…', done, Math.max(total, 1))
@@ -231,9 +277,9 @@ export async function starTag(
       quotaWarning: 'Storage full — saved metadata only.',
     }
     await putStarred(slim)
-    return slim
+    return cloneStarredRecord(slim)
   }
-  return record
+  return cloneStarredRecord(record)
 }
 
 /** Re-fetch sheet/audio blobs for an existing starred tag (online refresh). */
@@ -313,6 +359,17 @@ export async function importStarredFile(file: StarredTagsFile): Promise<number> 
     n += 1
   }
   return n
+}
+
+export async function clearAllStarred(): Promise<void> {
+  const db = await openDb()
+  try {
+    const tx = db.transaction(STORE, 'readwrite')
+    await idbReq(tx.objectStore(STORE).clear())
+    await idbTx(tx)
+  } finally {
+    db.close()
+  }
 }
 
 export function blobUrlFromCached(

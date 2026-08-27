@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Cup-a-Cocoa (D Major) - Brandon Hall - 2902",
-  "sheet": "sheets/2902/sheet.pdf",
+  "sheet": "sheets/2902/A Cup-a-Cocoa (D Major) - Brandon Hall - Sheet.pdf",
   "audio": {
-    "mix": "media/2902/mix.mp4"
+    "mix": "media/2902/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/2902/mix.m4a",
+      "playback": "media/2902/mix.playback.opus",
+      "ultra_mix": "media/2902/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2902/A Cup-a-Cocoa (D Major) - Brandon Hall - Sheet.pdf",
+    "sheets/2902/A Cup-a-Cocoa (D Major) - Brandon Hall - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2902/preview.webp",
   "sheet_pages": [
-    "sheets/2902/pages/page-01.webp"
-  ]
+    "sheets/2902/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:16.535695+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0021,
+      "correlation": 0.9968,
+      "side_mid": 0.0393
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:44.296923+00:00"
+  }
 }

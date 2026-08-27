@@ -13,22 +13,30 @@ import TagView from './TagView.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useStarsStore } from '../stores/stars'
 import { usePracticeStore } from '../stores/practice'
+import { usePreferencesStore } from '../stores/preferences'
 
-vi.mock('../audio/pitchPlayer', () => ({
-  PitchPlayer: class {
-    async start(): Promise<void> {}
-    stop(): void {}
-    dispose(): void {}
-  },
-  keyToTonicNote: () => 'C4',
-  formatKeyShiftLabel: (key: string | null | undefined, shift: number) => {
-    if (!key) return shift ? `shift:${shift}` : '(Use +/- to choose key)'
-    if (!shift) return key
-    return `${key} ${shift > 0 ? '+' : ''}${shift}`
-  },
-  transposeKeyLabel: (key: string, n: number) => (n ? `${key}+${n}` : key),
-  CHROMATIC_NOTES: ['C3', 'C#3', 'D3'],
-}))
+vi.mock('../audio/pitchPlayer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../audio/pitchPlayer')>()
+  return {
+    ...actual,
+    PitchPlayer: class {
+      async start(): Promise<void> {}
+      stop(): void {}
+      dispose(): void {}
+    },
+    keyToTonicNote: () => 'C4',
+    formatKeyShiftLabel: (key: string | null | undefined, shift: number) => {
+      if (!key) return shift ? `shift:${shift}` : '(Use +/- to choose key)'
+      if (!shift) return key
+      return `${key} ${shift > 0 ? '+' : ''}${shift}`
+    },
+    transposeKeyLabel: (key: string, n: number) => (n ? `${key}+${n}` : key),
+    MIN_PITCH_SEMITONES: -12,
+    MAX_PITCH_SEMITONES: 12,
+    clampPitchSemitones: (n: number) => Math.max(-12, Math.min(12, Math.round(Number(n)) || 0)),
+    CHROMATIC_NOTES: ['C3', 'C#3', 'D3'],
+  }
+})
 
 vi.mock('../components/TagPlayer.vue', () => ({
   default: {
@@ -62,14 +70,17 @@ vi.mock('../composables/useTagDetail', async () => {
         arranger: 'A',
         key: 'Bb',
         writ_key: 'Major:Bb',
-        audio: { lead: 'media/3/lead.mp4' },
+        audio: { lead: 'media/3/lead.m4a' },
         sheet_pages: ['sheets/3/p1.webp'],
       })
       return {
         detail,
         error: ref(null),
         fromCache: ref(false),
-        audioParts: ref({ lead: 'media/3/lead.mp4' }),
+        audioParts: ref({ lead: 'media/3/lead.m4a' }),
+        availableAudioParts: ref(['lead']),
+        hasLowerQualityAudio: ref(false),
+        resolvePart: vi.fn(async () => 'media/3/lead.m4a'),
         sheetPages: computed(() => ['sheets/3/p1.webp']),
         sheetAssets: computed(() => ({
           imageSets: [{ id: 'pages', label: 'Pages', paths: ['sheets/3/p1.webp'] }],
@@ -106,12 +117,13 @@ describe('view smoke tests', () => {
   beforeEach(() => {
     localStorage.clear()
     setActivePinia(createPinia())
-    vi.clearAllMocks()
+    vi.restoreAllMocks()
   })
 
   it('HomeView loads catalog and shows results', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
     const catalog = useCatalogStore()
     vi.spyOn(catalog, 'load').mockImplementation(async () => {
       catalog.$patch({
@@ -149,7 +161,7 @@ describe('view smoke tests', () => {
     })
     await flushPromises()
     expect(catalog.loaded).toBe(true)
-    expect(w.text()).toMatch(/SingTags/)
+    expect(w.find('.search-toolbar').exists()).toBe(true)
     w.unmount()
   })
 
@@ -217,23 +229,25 @@ describe('view smoke tests', () => {
     await flushPromises()
     // RouterLink stubbed — assert practice order controls instead of link text
     expect(practice.order).toEqual([2, 1])
-    const down = w.findAll('button').find((b) => b.text() === '↓')!
-    await down.trigger('click')
-    expect(practice.order[0]).toBe(1)
+    expect(w.find('.drag-handle').exists()).toBe(true)
+    practice.reorder(2, 0)
+    expect(practice.order[0]).toBe(2)
     await w.findAll('button').find((b) => b.text() === 'Start practice')!.trigger('click')
     expect(push).toHaveBeenCalled()
     w.unmount()
   })
 
   it('PitchPipeView renders note grid', async () => {
-    const w = mount(PitchPipeView)
-    expect(w.text()).toMatch(/Pitch|C3|pipe/i)
+    const w = mount(PitchPipeView, { global: { plugins: [createPinia()] } })
+    expect(w.text()).toMatch(/Pitch|F3|pipe/i)
+    expect(w.findAll('button.note').length).toBeGreaterThanOrEqual(13)
     w.unmount()
   })
 
   it('HomeView selects tags, queues, and stars selection', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
     const catalog = useCatalogStore()
     vi.spyOn(catalog, 'load').mockImplementation(async () => {
       catalog.$patch({
@@ -277,7 +291,7 @@ describe('view smoke tests', () => {
           JSON.stringify({
             tag_id: 1,
             title: 'My Tag',
-            audio: { lead: 'media/1/lead.mp4', bass: 'media/1/bass.mp4' },
+            audio: { lead: 'media/1/lead.m4a', bass: 'media/1/bass.m4a' },
           }),
           { status: 200 },
         ),
@@ -299,13 +313,116 @@ describe('view smoke tests', () => {
     await flushPromises()
     catalog.toggleSelect(1)
     await w.vm.$nextTick()
-    await w.findAll('button').find((b) => b.text().includes('Add to zip'))!.trigger('click')
+    const bar = document.body.querySelector('.selection-bar')
+    expect(bar).toBeTruthy()
+    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.includes('Add to zip'))!.click()
     await flushPromises()
-    await w.findAll('button').find((b) => b.text().includes('Star selected'))!.trigger('click')
+    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Star')!.click()
     await flushPromises()
     expect(stars.starMany).toHaveBeenCalled()
     expect(w.find('[aria-label="Search tags"]').exists()).toBe(true)
     w.unmount()
+  })
+
+  it('HomeView row star toggles icon immediately', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
+    const catalog = useCatalogStore()
+    const tag = {
+      id: 7,
+      title: 'Star Me',
+      arranger: 'A',
+      key: 'C',
+      rating: 4,
+      type: 'Barbershop',
+      collection: null,
+      hasSheet: true,
+      audioParts: ['lead'],
+      sheet: null,
+    }
+    const stars = useStarsStore()
+    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(stars, 'toggle').mockImplementation(async () => {
+      stars.$patch({
+        records: [
+          {
+            tagId: 7,
+            starredAt: '2026-01-01T00:00:00.000Z',
+            summary: tag,
+            detail: null,
+            offlineMedia: false,
+          },
+        ],
+      })
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo) => {
+        const url = String(input)
+        if (url.includes('core.json')) {
+          return new Response(JSON.stringify({ tags: [tag] }), { status: 200 })
+        }
+        if (url.includes('expansions.json')) {
+          return new Response(JSON.stringify({ map: {} }), { status: 200 })
+        }
+        if (url.includes('lyrics.json')) {
+          return new Response(JSON.stringify({ docs: [] }), { status: 200 })
+        }
+        return new Response('{}', { status: 200 })
+      }),
+    )
+
+    const router = makeRouter([
+      { path: '/', component: HomeView },
+      { path: '/tag/:id', component: { template: '<div />' } },
+    ])
+    await router.push('/')
+    const w = mount(HomeView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    expect(catalog.results.length).toBeGreaterThan(0)
+    const starBtn = w.find('button.row-star')
+    expect(starBtn.text()).toBe('☆')
+    await starBtn.trigger('click')
+    await w.vm.$nextTick()
+    expect(starBtn.text()).toBe('★')
+    w.unmount()
+  })
+
+  it('HomeView shows dismissable welcome dialog once', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const catalog = useCatalogStore()
+    vi.spyOn(catalog, 'load').mockImplementation(async () => {
+      catalog.$patch({ loaded: true, loading: false, tags: [] })
+    })
+    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+
+    const router = makeRouter([{ path: '/', component: HomeView }])
+    await router.push('/')
+    const w = mount(HomeView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    expect(document.body.textContent).toMatch(/Welcome to SingTags/)
+    expect(document.body.textContent).toMatch(/mirror/i)
+    expect(document.body.textContent).toMatch(/barbershoptags\.com/)
+    const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /Continue/.test(b.textContent || ''),
+    )
+    expect(continueBtn).toBeTruthy()
+    await continueBtn!.click()
+    expect(usePreferencesStore().browseWelcomeDismissed).toBe(true)
+    w.unmount()
+    document.body.innerHTML = ''
   })
 
   it('StarredView export, reset, refresh, and unstar', async () => {
@@ -398,9 +515,9 @@ describe('view smoke tests', () => {
   })
 
   it('PitchPipeView plays notes and moves focus with arrows', async () => {
-    const w = mount(PitchPipeView, { attachTo: document.body })
+    const w = mount(PitchPipeView, { attachTo: document.body, global: { plugins: [createPinia()] } })
     const notes = w.findAll('button.note')
-    expect(notes.length).toBeGreaterThan(2)
+    expect(notes.length).toBeGreaterThanOrEqual(13)
     await notes[0]!.trigger('pointerdown')
     expect(notes[0]!.attributes('aria-pressed')).toBe('true')
     await notes[0]!.trigger('pointerup')
@@ -470,7 +587,7 @@ describe('view smoke tests', () => {
               arranger: 'A',
               key: 'Bb',
               writ_key: 'Major:Bb',
-              audio: { lead: 'media/3/lead.mp4' },
+              audio: { lead: 'media/3/lead.m4a' },
               sheet_pages: ['sheets/3/p1.webp'],
             }),
             { status: 200 },

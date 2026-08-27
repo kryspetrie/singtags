@@ -2,11 +2,6 @@
 /// <reference types="vite-plugin-pwa/client" />
 /// <reference types="vite-plugin-pwa/vue" />
 
-declare module '@soundtouchjs/audio-worklet/processor?url' {
-  const url: string
-  export default url
-}
-
 declare module 'wasm-media-encoders/wasm/mp3?url' {
   const url: string
   export default url

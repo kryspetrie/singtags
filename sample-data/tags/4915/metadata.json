@@ -17,20 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Soft Place to Land (E Major) - Sophie Hasson - 4915",
-  "sheet": "sheets/4915/sheet.pdf",
+  "sheet": "sheets/4915/A Soft Place to Land (E Major) - Sophie Hasson - Sheet.pdf",
   "audio": {
-    "lead": "media/4915/lead.mp4",
-    "tenor": "media/4915/tenor.mp4",
-    "bari": "media/4915/bari.mp4",
-    "bass": "media/4915/bass.mp4",
-    "mix": "media/4915/mix.mp4"
+    "lead": "media/4915/lead.m4a",
+    "tenor": "media/4915/tenor.m4a",
+    "bari": "media/4915/bari.m4a",
+    "bass": "media/4915/bass.m4a",
+    "mix": "media/4915/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/4915/lead.m4a",
+      "playback": "media/4915/lead.playback.opus",
+      "ultra_downmix": "media/4915/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/4915/tenor.m4a",
+      "playback": "media/4915/tenor.playback.opus",
+      "ultra_downmix": "media/4915/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/4915/bari.m4a",
+      "playback": "media/4915/bari.playback.opus",
+      "ultra_downmix": "media/4915/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/4915/bass.m4a",
+      "playback": "media/4915/bass.playback.opus",
+      "ultra_downmix": "media/4915/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/4915/mix.m4a",
+      "playback": "media/4915/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/4915/A Soft Place to Land (E Major) - Sophie Hasson - Sheet.pdf",
+    "sheets/4915/A Soft Place to Land (E Major) - Sophie Hasson - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/4915/preview.webp",
   "sheet_pages": [
-    "sheets/4915/pages/page-01.webp",
-    "sheets/4915/pages/page-02.webp",
-    "sheets/4915/pages/page-03.webp",
-    "sheets/4915/pages/page-04.webp",
-    "sheets/4915/pages/page-05.webp",
-    "sheets/4915/pages/page-06.webp"
-  ]
+    "sheets/4915/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:08.098982+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0657,
+      "correlation": 0.9711,
+      "side_mid": 0.1381
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.1359,
+      "correlation": 0.9659,
+      "side_mid": 0.1905
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0909,
+      "correlation": 0.9253,
+      "side_mid": 0.2167
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0696,
+      "correlation": 0.9549,
+      "side_mid": 0.1691
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0634,
+      "correlation": 0.9582,
+      "side_mid": 0.1614
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:47.571266+00:00"
+  }
 }

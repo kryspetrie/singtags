@@ -2,15 +2,26 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi } from 'vitest'
-import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, PitchPlayer, transposeKeyLabel } from './pitchPlayer'
+import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
 
 describe('pitchPlayer helpers', () => {
-  it('maps keys to tonic notes', () => {
-    expect(keyToTonicNote('Major:Ab')).toMatch(/^A[bB]?3$/i)
+  it('maps keys to tonic notes in E3–E4', () => {
+    expect(keyToTonicNote('Major:Ab')).toBe('Ab3')
     expect(keyToTonicNote('G Major')).toBe('G3')
-    expect(keyToTonicNote('Bb')).toBeTruthy()
+    expect(keyToTonicNote('C Major')).toBe('C4')
+    expect(keyToTonicNote('F Major')).toBe('F3')
+    expect(keyToTonicNote('Bb')).toBe('Bb3')
     expect(keyToTonicNote(null)).toBeNull()
     expect(keyToTonicNote('')).toBeNull()
+  })
+
+  it('clamps pitch shift to one octave', () => {
+    expect(clampPitchSemitones(0)).toBe(0)
+    expect(clampPitchSemitones(12)).toBe(12)
+    expect(clampPitchSemitones(-12)).toBe(-12)
+    expect(clampPitchSemitones(13)).toBe(MAX_PITCH_SEMITONES)
+    expect(clampPitchSemitones(-20)).toBe(MIN_PITCH_SEMITONES)
+    expect(clampPitchSemitones(1.6)).toBe(2)
   })
 
   it('formats key with semitone shift', () => {
@@ -30,8 +41,52 @@ describe('pitchPlayer helpers', () => {
     expect(noteToFrequency('C4')).toBeCloseTo(261.63, 0)
   })
 
+  it('converts concert A Hz to cents vs A440', () => {
+    expect(aHzToCents(440)).toBe(0)
+    expect(aHzToCents(432)).toBe(-32)
+    expect(aHzToCents(444)).toBe(16)
+  })
+
   it('exposes chromatic range', () => {
     expect(CHROMATIC_NOTES.length).toBeGreaterThan(20)
+  })
+
+  it('exposes chromatic pitch-pipe note grids', () => {
+    expect(PITCH_PIPE_NOTES['f3-f4']).toHaveLength(13)
+    expect(PITCH_PIPE_NOTES['e3-e4']).toHaveLength(13)
+    expect(PITCH_PIPE_NOTES['f3-f4'][0]).toBe('F3')
+    expect(PITCH_PIPE_NOTES['f3-f4'][12]).toBe('F4')
+    expect(PITCH_PIPE_NOTES['e3-e4'][0]).toBe('E3')
+    expect(PITCH_PIPE_NOTES['e3-e4'][12]).toBe('E4')
+    expect(PITCH_PIPE_NOTES['f3-f4']).toContain('A#3')
+    expect(PITCH_PIPE_NOTES['f3-f4']).toContain('C#4')
+    expect(pitchPipeNotes('f3-f4')).toEqual([...PITCH_PIPE_NOTES['f3-f4']])
+  })
+
+  it('defines pay-the-key octave bounds', () => {
+    expect(PAY_KEY_MIN_NOTE).toBe('E3')
+    expect(PAY_KEY_MAX_NOTE).toBe('E4')
+  })
+
+  it('labels sharps with flat equivalents for pitch pipe', () => {
+    expect(pitchPipeDisplay('C#3')).toEqual({
+      note: 'C#3',
+      sharp: 'C#',
+      flat: 'Db',
+      octave: '3',
+      isBlack: true,
+      pitchClass: 'C',
+    })
+    expect(pitchPipeDisplay('A#4')).toMatchObject({ flat: 'Bb', octave: '4', isBlack: true })
+    expect(pitchPipeDisplay('Bb3')).toMatchObject({
+      isBlack: true,
+      sharp: 'A#',
+      flat: 'Bb',
+      octave: '3',
+    })
+    expect(pitchPipeDisplay('E3')).toMatchObject({ isBlack: false, flat: null })
+    expect(pitchPipeAriaLabel('F#2')).toBe('Play F#2 (Gb2)')
+    expect(pitchPipeAriaLabel('G3')).toBe('Play G3')
   })
 })
 

@@ -9,6 +9,8 @@ import { ref } from 'vue'
 import App from './App.vue'
 import { useStarsStore } from './stores/stars'
 import { useQueueStore } from './stores/queue'
+import { useOfflineLibraryStore } from './stores/offlineLibrary'
+import { useCatalogStore } from './stores/catalog'
 
 describe('App shell', () => {
   beforeEach(() => {
@@ -28,7 +30,9 @@ describe('App shell', () => {
       history: createMemoryHistory(),
       routes: [
         { path: '/', component: { template: '<div>home</div>' } },
+        { path: '/tag/:id', name: 'tag', component: { template: '<div>tag</div>' }, props: true },
         { path: '/starred', component: { template: '<div />' } },
+        { path: '/recent', component: { template: '<div />' } },
         { path: '/pitch-pipe', component: { template: '<div />' } },
         { path: '/queue', component: { template: '<div />' } },
       ],
@@ -37,7 +41,13 @@ describe('App shell', () => {
     const w = mount(App, { global: { plugins: [pinia, router] } })
     await flushPromises()
     expect(w.text()).toContain('SingTags')
-    expect(w.text()).toMatch(/Browse|Starred|Queue/)
+    expect(w.find('.brand-tagline').exists()).toBe(true)
+    expect(w.text()).toMatch(/Browse|Recent|Starred|Queue/)
+    expect(w.find('.top-back').exists()).toBe(false)
+    await router.push('/tag/1')
+    await flushPromises()
+    expect(w.find('.top-back').exists()).toBe(true)
+    expect(w.find('.top-back').text()).toContain('Back')
     w.unmount()
   })
 
@@ -45,12 +55,16 @@ describe('App shell', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
+    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
     })
     await router.push('/')
     const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
     const prompt = vi.fn(async () => {})
     const ev = new Event('beforeinstallprompt')
     Object.assign(ev, {
@@ -63,6 +77,32 @@ describe('App shell', () => {
     expect(w.text()).toMatch(/Install SingTags/)
     await w.findAll('button').find((b) => b.text() === 'Not now')!.trigger('click')
     expect(w.text()).not.toMatch(/Install SingTags/)
+    w.unmount()
+  })
+
+  it('shows global offline banner when offline with cached catalog', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
+    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
+    const offlineLib = useOfflineLibraryStore()
+    offlineLib.catalogCachedAt = '2026-01-01T00:00:00.000Z'
+    offlineLib.sheetsStatus = 'done'
+    vi.spyOn(offlineLib, 'loadManifests').mockResolvedValue()
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+    const banner = w.find('.offline-banner')
+    expect(banner.exists()).toBe(true)
+    expect(banner.text()).toMatch(/Offline/)
+    expect(banner.text()).toContain('Offline settings')
     w.unmount()
   })
 })

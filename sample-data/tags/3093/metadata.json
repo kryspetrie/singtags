@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Foggy Day (Eb Major) - 3093",
-  "sheet": "sheets/3093/sheet.png",
+  "sheet": "sheets/3093/A Foggy Day (Eb Major) - Sheet.png",
   "audio": {
-    "lead": "media/3093/lead.mp4",
-    "tenor": "media/3093/tenor.mp4",
-    "bari": "media/3093/bari.mp4",
-    "bass": "media/3093/bass.mp4",
-    "mix": "media/3093/mix.mp4"
+    "lead": "media/3093/lead.m4a",
+    "tenor": "media/3093/tenor.m4a",
+    "bari": "media/3093/bari.m4a",
+    "bass": "media/3093/bass.m4a",
+    "mix": "media/3093/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3093/lead.m4a",
+      "playback": "media/3093/lead.playback.opus",
+      "ultra_downmix": "media/3093/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/3093/tenor.m4a",
+      "playback": "media/3093/tenor.playback.opus",
+      "ultra_downmix": "media/3093/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/3093/bari.m4a",
+      "playback": "media/3093/bari.playback.opus",
+      "ultra_downmix": "media/3093/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/3093/bass.m4a",
+      "playback": "media/3093/bass.playback.opus",
+      "ultra_downmix": "media/3093/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/3093/mix.m4a",
+      "playback": "media/3093/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3093/A Foggy Day (Eb Major) - Sheet.png",
+    "sheets/3093/A Foggy Day (Eb Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3093/preview.webp",
   "sheet_pages": [
-    "sheets/3093/pages/page-01.webp"
-  ]
+    "sheets/3093/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:24.515361+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0046,
+      "correlation": 0.9973,
+      "side_mid": 0.0377
+    },
+    "tenor": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.177,
+      "correlation": 0.9542,
+      "side_mid": 0.2343
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0151,
+      "correlation": 0.9915,
+      "side_mid": 0.0679
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0239,
+      "correlation": 0.9864,
+      "side_mid": 0.087
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0523,
+      "correlation": 0.9741,
+      "side_mid": 0.1275
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:44.664850+00:00"
+  }
 }

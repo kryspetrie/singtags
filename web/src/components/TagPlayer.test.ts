@@ -2,6 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import TagPlayer from './TagPlayer.vue'
@@ -12,6 +13,7 @@ const mockState = {
   duration: 12,
   usingWorklet: false,
   channels: 2,
+  effectivelyMono: false,
   pitch: 0,
   speed: 1,
   loop: false,
@@ -44,8 +46,26 @@ vi.mock('../audio/player', () => {
     get usingWorklet() {
       return mockState.usingWorklet
     }
+    get usingBake() {
+      return false
+    }
+    get baking() {
+      return false
+    }
+    get bakeError() {
+      return null
+    }
+    getPitchSemitones() {
+      return mockState.pitch
+    }
+    getSpeed() {
+      return mockState.speed
+    }
     get channels() {
       return mockState.channels
+    }
+    get effectivelyMono() {
+      return mockState.channels < 2 || !!mockState.effectivelyMono
     }
     setUpdateListener(fn: (() => void) | null) {
       mockState.update = fn
@@ -55,10 +75,19 @@ vi.mock('../audio/player', () => {
     }
     load = mockState.load
     setSolo = mockState.setSolo
-    setPitchSemitones = vi.fn(async () => {})
-    setSpeed = vi.fn(async () => {})
+    setPitchSemitones = vi.fn(async (n: number) => {
+      mockState.pitch = n
+    })
+    setSpeed = vi.fn(async (n: number) => {
+      mockState.speed = n
+    })
+    setTransform = vi.fn(async (p: number, s: number) => {
+      mockState.pitch = p
+      mockState.speed = s
+    })
     setBalance = vi.fn(async () => {})
     setLoop = vi.fn()
+    setPlayRegion = vi.fn()
     seek = mockState.seek
     play = mockState.play
     pause = mockState.pause
@@ -80,11 +109,20 @@ vi.mock('../audio/waveform', async (importOriginal) => {
 })
 
 const buildMix = vi.fn(async () => ({ url: 'blob:mix', sampleRate: 44100, length: 100 }))
+const buildUltraMix = vi.fn(async () => ({ url: 'blob:ultra-mix', sampleRate: 44100, length: 100 }))
 vi.mock('../audio/multiPartMix', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../audio/multiPartMix')>()
   return {
     ...actual,
     buildSoloMixObjectUrl: (...args: unknown[]) => buildMix(...args),
+  }
+})
+
+vi.mock('../audio/partLeftReconstruct', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../audio/partLeftReconstruct')>()
+  return {
+    ...actual,
+    buildUltraMixObjectUrl: (...args: unknown[]) => buildUltraMix(...args),
   }
 })
 
@@ -94,9 +132,25 @@ describe('TagPlayer', () => {
     setActivePinia(createPinia())
     mockState.paused = true
     mockState.currentTime = 0
+    mockState.channels = 2
+    mockState.effectivelyMono = false
     mockState.load.mockClear()
     mockState.setSolo.mockClear()
     buildMix.mockClear()
+    buildUltraMix.mockClear()
+  })
+
+  it('does not fall back to parts keys when availableParts is empty', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a', mix: 'media/1/mix.m4a', bari: 'media/1/bari.m4a' },
+        availableParts: [],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    expect(w.findAll('.part-btn').length).toBe(0)
+    w.unmount()
   })
 
   it('renders Mix…Custom part tabs and waveform without a stuck loading overlay', async () => {
@@ -107,7 +161,7 @@ describe('TagPlayer', () => {
     expect(empty.text()).toContain('No audio parts available')
 
     const w = mount(TagPlayer, {
-      props: { parts: { lead: 'media/1/lead.mp4', bari: 'media/1/bari.mp4', mix: 'media/1/mix.mp4' } },
+      props: { parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a', mix: 'media/1/mix.m4a' } },
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
@@ -126,7 +180,7 @@ describe('TagPlayer', () => {
 
   it('opens custom controls when Custom tab is selected', async () => {
     const w = mount(TagPlayer, {
-      props: { parts: { lead: 'media/1/lead.mp4', bari: 'media/1/bari.mp4', mix: 'media/1/mix.mp4' } },
+      props: { parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a', mix: 'media/1/mix.m4a' } },
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
@@ -145,7 +199,7 @@ describe('TagPlayer', () => {
 
   it('loads a single custom part waveform before the mix is ready', async () => {
     const w = mount(TagPlayer, {
-      props: { parts: { lead: 'media/1/lead.mp4', bari: 'media/1/bari.mp4' } },
+      props: { parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' } },
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
@@ -167,7 +221,7 @@ describe('TagPlayer', () => {
 
   it('switches solo via segmented control', async () => {
     const w = mount(TagPlayer, {
-      props: { parts: { lead: 'media/1/lead.mp4' } },
+      props: { parts: { lead: 'media/1/lead.m4a' } },
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
@@ -181,7 +235,7 @@ describe('TagPlayer', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const w = mount(TagPlayer, {
-      props: { parts: { lead: 'media/1/lead.mp4', bari: 'media/1/bari.mp4' } },
+      props: { parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' } },
       global: { plugins: [pinia] },
     })
     await flushPromises()
@@ -197,8 +251,90 @@ describe('TagPlayer', () => {
     const inputs = buildMix.mock.calls.at(-1)![0] as Array<{ pan: string; soloInFile: string }>
     expect(inputs.map((i) => i.pan)).toEqual(['left', 'right'])
     expect(inputs.every((i) => i.soloInFile === 'left')).toBe(true)
-    expect(mockState.load).toHaveBeenCalledWith('blob:mix', 'stereo')
+    expect(mockState.load).toHaveBeenCalledWith('blob:mix', 'stereo', expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(w.find('select[aria-label="Playback speed"]').element).toHaveProperty('value', '1')
+    w.unmount()
+  })
+
+  it('shows Custom tab for ultra-low mono stems even when parts layout is mono', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' },
+        audioLayoutSummary: { parts: 'mono', ultra_low: 'mono_downmix' },
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    expect(w.findAll('.part-btn').some((b) => b.text() === 'Custom')).toBe(true)
+    w.unmount()
+  })
+
+  it('hides Custom tab when layout is mono without ultra stem policy', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' },
+        audioLayoutSummary: { parts: 'mono' },
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    expect(w.findAll('.part-btn').some((b) => b.text() === 'Custom')).toBe(false)
+    w.unmount()
+  })
+
+  it('uses panned ultra mix for mono_solos custom combine', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' },
+        audioLayoutSummary: { parts: 'part_right', solo_side: 'right', ultra_low: 'mono_solos' },
+        audioLayouts: {
+          lead: { kind: 'part_right', solo_side: 'right' },
+          bari: { kind: 'part_right', solo_side: 'right' },
+        },
+      },
+      global: { plugins: [pinia] },
+    })
+    await flushPromises()
+    await w.findAll('.part-btn').find((b) => b.text() === 'Custom')!.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Part R')
+    expect(w.findAll('button').filter((b) => b.text() === 'Part L').length).toBe(0)
+    const checks = w.findAll('.combine-check input')
+    await checks[0]!.setValue(true)
+    await checks[1]!.setValue(true)
+    await flushPromises()
+    expect(buildUltraMix).toHaveBeenCalled()
+    const inputs = buildUltraMix.mock.calls.at(-1)![0] as Array<{ pan: number }>
+    expect(inputs.map((i) => i.pan)).toEqual([-1, 1])
+    w.unmount()
+  })
+
+  it('uses metadata solo side for stereo custom mix and locks Part L/R', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' },
+        audioLayoutSummary: { parts: 'part_right', solo_side: 'right' },
+        audioLayouts: {
+          lead: { kind: 'part_right', solo_side: 'right' },
+          bari: { kind: 'part_right', solo_side: 'right' },
+        },
+      },
+      global: { plugins: [pinia] },
+    })
+    await flushPromises()
+    await w.findAll('.part-btn').find((b) => b.text() === 'Custom')!.trigger('click')
+    await flushPromises()
+    expect(w.text()).toContain('Part R')
+    const checks = w.findAll('.combine-check input')
+    await checks[0]!.setValue(true)
+    await checks[1]!.setValue(true)
+    await flushPromises()
+    const inputs = buildMix.mock.calls.at(-1)![0] as Array<{ soloInFile: string }>
+    expect(inputs.every((i) => i.soloInFile === 'right')).toBe(true)
     w.unmount()
   })
 
@@ -210,9 +346,9 @@ describe('TagPlayer', () => {
     const w = mount(TagPlayer, {
       props: {
         parts: {
-          lead: 'media/1/lead.mp4',
-          bari: 'media/1/bari.mp4',
-          bass: 'media/1/bass.mp4',
+          lead: 'media/1/lead.m4a',
+          bari: 'media/1/bari.m4a',
+          bass: 'media/1/bass.m4a',
         },
       },
       global: { plugins: [pinia] },
@@ -227,6 +363,129 @@ describe('TagPlayer', () => {
     expect(prefs.getPartMixPan('bari')).toBe('right')
     await checks[2]!.setValue(true)
     expect(prefs.getPartMixPan('bass')).toBe('right')
+    w.unmount()
+  })
+
+  it('enables Advanced solo L/R when reconstructed offline part is stereo', async () => {
+    mockState.effectivelyMono = false
+    mockState.channels = 2
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        availableParts: ['lead'],
+        resolvePart: vi.fn(async () => 'blob:learning-stereo'),
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    await w.find('details.advanced-playback summary').trigger('click')
+    await flushPromises()
+    const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
+    const rightBtn = w.findAll('button').find((b) => b.text() === 'Right')
+    expect(leftBtn?.attributes('disabled')).toBeUndefined()
+    expect(rightBtn?.attributes('disabled')).toBeUndefined()
+    expect(w.text()).not.toContain('channel solo is unavailable')
+    w.unmount()
+  })
+
+  it('disables Advanced solo L/R for effectively mono tracks', async () => {
+    mockState.effectivelyMono = true
+    mockState.channels = 1
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        availableParts: ['lead'],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    await w.find('details.advanced-playback summary').trigger('click')
+    await flushPromises()
+    const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
+    expect(leftBtn?.attributes('disabled')).toBeDefined()
+    expect(w.text()).toContain('channel solo is unavailable')
+    w.unmount()
+  })
+
+  it('preserves playhead when a new part URL appears during part switch', async () => {
+    mockState.effectivelyMono = false
+    mockState.channels = 2
+    mockState.currentTime = 12
+    mockState.paused = false
+    mockState.duration = 60
+
+    let resolveTenor!: (url: string) => void
+    const tenorReady = new Promise<string>((r) => {
+      resolveTenor = r
+    })
+    const parts = ref<Record<string, string>>({
+      lead: 'blob:lead',
+    })
+
+    const w = mount(TagPlayer, {
+      props: {
+        parts: parts.value,
+        availableParts: ['lead', 'tenor'],
+        resolvePart: async (p: string) => {
+          if (p === 'lead') return 'blob:lead'
+          if (p === 'tenor') {
+            const url = await tenorReady
+            parts.value = { ...parts.value, tenor: url }
+            await w.setProps({ parts: { ...parts.value } })
+            return url
+          }
+          return null
+        },
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    mockState.currentTime = 12
+    mockState.paused = false
+    const tenorTab = w.findAll('.part-btn').find((b) => b.text() === 'Tenor')
+    expect(tenorTab).toBeTruthy()
+    await tenorTab!.trigger('click')
+    await flushPromises()
+
+    resolveTenor('blob:tenor')
+    await flushPromises()
+
+    expect(mockState.seek).toHaveBeenCalled()
+    const seekTimes = mockState.seek.mock.calls.map((c) => c[0] as number)
+    expect(seekTimes.some((t) => t >= 11.5 && t <= 12.5)).toBe(true)
+    w.unmount()
+  })
+
+  it('stop pauses and seeks to mark A; nudge uses ±1s', async () => {
+    mockState.paused = false
+    mockState.currentTime = 20
+    mockState.duration = 60
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        availableParts: ['lead'],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    // Set A–B via waveform marks by calling stop after seeking marks — use exposed transport.
+    expect(w.text()).toContain('−1s')
+    expect(w.text()).toContain('+1s')
+    expect(w.text()).not.toContain('−5s')
+
+    await w.get('[aria-label="Back 1 second"]').trigger('click')
+    expect(mockState.seek).toHaveBeenCalled()
+
+    mockState.seek.mockClear()
+    mockState.pause.mockClear()
+    mockState.currentTime = 20
+    mockState.paused = false
+    await w.get('[aria-label="Stop — pause and go to start"]').trigger('click')
+    await flushPromises()
+    expect(mockState.pause).toHaveBeenCalled()
+    expect(mockState.seek).toHaveBeenCalledWith(0)
     w.unmount()
   })
 })

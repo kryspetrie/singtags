@@ -20,8 +20,16 @@ import {
   type CatalogFilters,
 } from '../search/filters'
 import type { CoreIndex, LyricsIndex, TagSummary } from '../types/tag'
+import {
+  loadCatalogSnapshotAsync,
+  loadCatalogSnapshotSync,
+  saveCatalogSnapshot,
+} from '../lib/catalogSnapshot'
+import { loadLyricsSnapshotAsync, saveLyricsSnapshot } from '../lib/lyricsSnapshot'
+import { fetchGzipJsonCached, fetchJsonCached } from '../lib/gunzipJson'
 import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
 import { useOfflineLibraryStore } from './offlineLibrary'
+import { useOfflineModeStore } from './offlineMode'
 
 export type SortMode = BrowseSortMode
 
@@ -30,24 +38,6 @@ export const SEARCH_DEBOUNCE_MS = 320
 
 /** How many more rows to reveal when the user scrolls near the end. */
 export const RESULTS_PAGE_SIZE = 48
-
-async function gunzipJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`)
-  const buf = await res.arrayBuffer()
-  const bytes = new Uint8Array(buf)
-  // Vite/sirv often serves *.gz with Content-Encoding: gzip; fetch already decoded.
-  const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b
-  let text: string
-  if (isGzip) {
-    const ds = new DecompressionStream('gzip')
-    const stream = new Response(buf).body!.pipeThrough(ds)
-    text = await new Response(stream).text()
-  } else {
-    text = new TextDecoder().decode(bytes)
-  }
-  return JSON.parse(text) as T
-}
 
 export const useCatalogStore = defineStore('catalog', () => {
   const tags = ref<TagSummary[]>([])
@@ -64,6 +54,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Debounced free-text used for search + URL. */
   const debouncedQuery = ref('')
   const sortMode = ref<SortMode>('rating')
+  const sortReverse = ref(false)
   const selectedIds = ref<Set<number>>(new Set())
   const searching = ref(false)
   const resultLimit = ref(RESULTS_PAGE_SIZE)
@@ -94,70 +85,134 @@ export const useCatalogStore = defineStore('catalog', () => {
     resultLimit.value = RESULTS_PAGE_SIZE
   })
 
-  async function load(): Promise<void> {
-    if (loaded.value || loading.value) return
+  watch(sortReverse, () => {
+    resultLimit.value = RESULTS_PAGE_SIZE
+  })
+
+  function applyCatalogData(list: TagSummary[], exp: ExpansionMap): void {
+    expansions.value = exp
+    engine.value = new SearchEngine({
+      tags: list,
+      expansions: exp,
+    })
+    tags.value = list
+    loaded.value = true
+    error.value = null
+    saveCatalogSnapshot(list, exp)
+    try {
+      useOfflineLibraryStore().markCatalogCached()
+    } catch {
+      /* pinia may not be ready in unit tests */
+    }
+  }
+
+  async function load(opts?: { refresh?: boolean }): Promise<void> {
+    if (loading.value) return
+    if (loaded.value && !opts?.refresh) {
+      if (!lyricsLoaded.value && !lyricsLoading.value) void prefetchLyrics()
+      return
+    }
     loading.value = true
     error.value = null
     try {
       const [core, exp] = await Promise.all([
-        gunzipJson<CoreIndex>(indexesUrl('core.json.gz')),
-        fetch(indexesUrl('expansions.json')).then(async (r) => {
-          if (!r.ok) return { map: {} as ExpansionMap }
-          return (await r.json()) as { map: ExpansionMap }
-        }),
+        fetchGzipJsonCached<CoreIndex>(indexesUrl('core.json.gz')),
+        fetchJsonCached(indexesUrl('expansions.json'), { map: {} as ExpansionMap }),
       ])
       const list = core.tags ?? []
-      expansions.value = exp.map ?? {}
-      engine.value = new SearchEngine({
-        tags: list,
-        expansions: expansions.value,
-      })
-      tags.value = list
-      loaded.value = true
-      try {
-        useOfflineLibraryStore().markCatalogCached()
-      } catch {
-        /* pinia may not be ready in unit tests */
-      }
+      applyCatalogData(list, exp.map ?? {})
       void prefetchLyrics()
     } catch (e) {
       try {
         const res = await fetch(mediaUrl('manifest.json'))
         const data = (await res.json()) as { tags: TagSummary[] }
         const list = data.tags ?? []
-        engine.value = new SearchEngine({ tags: list, expansions: {} })
-        tags.value = list
-        loaded.value = true
-        try {
-          useOfflineLibraryStore().markCatalogCached()
-        } catch {
-          /* ignore */
-        }
+        applyCatalogData(list, {})
       } catch {
-        const offlineHint =
-          typeof navigator !== 'undefined' && !navigator.onLine
-            ? 'Connect once to download the catalog, then SingTags works offline.'
-            : null
-        error.value = offlineHint || (e instanceof Error ? e.message : String(e))
+        const snap = await loadCatalogSnapshotAsync()
+        if (snap?.tags.length) {
+          applyCatalogData(snap.tags, snap.expansions)
+          void hydrateLyricsFromIndexedDb()
+          return
+        }
+        const offlineMode = useOfflineModeStore()
+        if (offlineMode.manualOffline) {
+          error.value =
+            'Offline mode is on — browse needs the catalog in memory or cache. Go online once, then try again.'
+        } else if (offlineMode.offline) {
+          error.value =
+            'Connect once to download the catalog, then SingTags works offline.'
+        } else {
+          error.value = e instanceof Error ? e.message : String(e)
+        }
       }
     } finally {
       loading.value = false
     }
   }
 
+  /** Sync restore from localStorage mirror (instant boot). */
+  function hydrateFromSnapshot(): boolean {
+    if (loaded.value) return true
+    const snap = loadCatalogSnapshotSync()
+    if (!snap?.tags.length) return false
+    applyCatalogData(snap.tags, snap.expansions)
+    return true
+  }
+
+  function applyLyricsDocs(docs: Array<{ id: number; lyrics: string }>): void {
+    engine.value?.setLyrics(docs)
+    const map = new Map<number, string>()
+    for (const d of docs) {
+      if (d.lyrics?.trim()) map.set(d.id, d.lyrics.trim())
+    }
+    lyricsById.value = map
+    lyricsLoaded.value = map.size > 0
+  }
+
+  /** Restore catalog (if needed) and lyrics from IndexedDB — call early on startup. */
+  async function hydrateFromIndexedDb(): Promise<boolean> {
+    let ok = false
+    if (!loaded.value) {
+      const snap = await loadCatalogSnapshotAsync()
+      if (snap?.tags.length) {
+        applyCatalogData(snap.tags, snap.expansions)
+        ok = true
+      }
+    }
+    if (!lyricsLoaded.value) {
+      const docs = await loadLyricsSnapshotAsync()
+      if (docs?.length) {
+        applyLyricsDocs(docs)
+        ok = true
+      }
+    }
+    return ok
+  }
+
+  async function hydrateLyricsFromIndexedDb(): Promise<boolean> {
+    if (lyricsLoaded.value) return true
+    const docs = await loadLyricsSnapshotAsync()
+    if (!docs?.length) return false
+    applyLyricsDocs(docs)
+    return true
+  }
+
   async function prefetchLyrics(): Promise<void> {
     if (lyricsLoaded.value || lyricsLoading.value) return
     lyricsLoading.value = true
     try {
-      const idx = await gunzipJson<LyricsIndex>(indexesUrl('lyrics.json.gz'))
-      const docs = idx.docs ?? []
-      engine.value?.setLyrics(docs)
-      const map = new Map<number, string>()
-      for (const d of docs) {
-        if (d.lyrics?.trim()) map.set(d.id, d.lyrics.trim())
+      if (!lyricsLoaded.value) {
+        const cached = await loadLyricsSnapshotAsync()
+        if (cached?.length) {
+          applyLyricsDocs(cached)
+          return
+        }
       }
-      lyricsById.value = map
-      lyricsLoaded.value = true
+      const idx = await fetchGzipJsonCached<LyricsIndex>(indexesUrl('lyrics.json.gz'))
+      const docs = idx.docs ?? []
+      applyLyricsDocs(docs)
+      saveLyricsSnapshot(docs)
     } catch {
       /* optional */
     } finally {
@@ -180,6 +235,9 @@ export const useCatalogStore = defineStore('catalog', () => {
   const allResults = computed(() => {
     const eng = engine.value
     if (!eng) return [] as TagSummary[]
+    // Re-run when the lyrics index arrives (setLyrics mutates engine in place).
+    void lyricsLoaded.value
+    void lyricsById.value.size
     // `n123` → site Tag # only (exact; never prefix / fall through to FTS)
     const tagNum = parseTagNumberQuery(debouncedQuery.value)
     if (tagNum != null) {
@@ -192,6 +250,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       return sortBrowseTags(
         tags.value.filter((t) => Number(t.classic) === classicNum),
         sortMode.value,
+        sortReverse.value,
       )
     }
     // Bare `3558` → exact Tag # and/or Classic # only (no number-word FTS expansion)
@@ -200,10 +259,11 @@ export const useCatalogStore = defineStore('catalog', () => {
       return sortBrowseTags(
         tags.value.filter((t) => t.id === bareNum || Number(t.classic) === bareNum),
         sortMode.value,
+        sortReverse.value,
       )
     }
     const q = buildSearchQuery(debouncedQuery.value, filters.value)
-    return sortBrowseTags(eng.search(q), sortMode.value)
+    return sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
   })
 
   const results = computed(() => allResults.value.slice(0, resultLimit.value))
@@ -223,7 +283,8 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function clearFilters(): void {
-    filters.value = { ...EMPTY_FILTERS }
+    const fullText = filters.value.fullText
+    filters.value = { ...EMPTY_FILTERS, fullText }
   }
 
   function toggleSelect(id: number): void {
@@ -277,6 +338,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       'id',
     ]
     sortMode.value = allowed.includes(sort) ? sort : 'rating'
+    sortReverse.value = query.rev === '1'
     resultLimit.value = RESULTS_PAGE_SIZE
   }
 
@@ -284,8 +346,13 @@ export const useCatalogStore = defineStore('catalog', () => {
     return {
       q: debouncedQuery.value || undefined,
       sort: sortMode.value === 'rating' ? undefined : sortMode.value,
+      rev: sortReverse.value ? '1' : undefined,
       ...filtersToRouteQuery(filters.value),
     }
+  }
+
+  function toggleSortReverse(): void {
+    sortReverse.value = !sortReverse.value
   }
 
   function getById(id: number): TagSummary | undefined {
@@ -322,6 +389,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     queryText,
     debouncedQuery,
     sortMode,
+    sortReverse,
     selectedIds,
     results,
     allResults,
@@ -338,6 +406,8 @@ export const useCatalogStore = defineStore('catalog', () => {
     searching,
     resultLimit,
     load,
+    hydrateFromSnapshot,
+    hydrateFromIndexedDb,
     ensureLyrics,
     prefetchLyrics,
     lyricsSnippet,
@@ -349,6 +419,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     revealSection,
     syncFromRoute,
     routeQueryPatch,
+    toggleSortReverse,
     getById,
     neighbors,
   }

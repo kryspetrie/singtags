@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "At the End of the Ballymore Road (F# Minor) - Paul Carey Olguin - 2718",
-  "sheet": "sheets/2718/sheet.jpg",
+  "sheet": "sheets/2718/At the End of the Ballymore Road (F# Minor) - Paul Carey Olguin - Sheet.jpg",
   "audio": {
-    "lead": "media/2718/lead.mp4",
-    "tenor": "media/2718/tenor.mp4",
-    "bari": "media/2718/bari.mp4",
-    "bass": "media/2718/bass.mp4",
-    "mix": "media/2718/mix.mp4"
+    "lead": "media/2718/lead.m4a",
+    "tenor": "media/2718/tenor.m4a",
+    "bari": "media/2718/bari.m4a",
+    "bass": "media/2718/bass.m4a",
+    "mix": "media/2718/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2718/lead.m4a",
+      "playback": "media/2718/lead.playback.opus",
+      "ultra_solo": "media/2718/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/2718/tenor.m4a",
+      "playback": "media/2718/tenor.playback.opus",
+      "ultra_solo": "media/2718/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/2718/bari.m4a",
+      "playback": "media/2718/bari.playback.opus",
+      "ultra_solo": "media/2718/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/2718/bass.m4a",
+      "playback": "media/2718/bass.playback.opus",
+      "ultra_solo": "media/2718/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/2718/mix.m4a",
+      "playback": "media/2718/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2718/At the End of the Ballymore Road (F# Minor) - Paul Carey Olguin - Sheet.jpg",
+    "sheets/2718/At the End of the Ballymore Road (F# Minor) - Paul Carey Olguin - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2718/preview.webp",
   "sheet_pages": [
-    "sheets/2718/pages/page-01.webp"
-  ]
+    "sheets/2718/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:52.889556+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.232,
+      "correlation": 0.0051,
+      "side_mid": 1.001
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.4585,
+      "correlation": 0.0081,
+      "side_mid": 1.0074
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.2086,
+      "correlation": 0.1745,
+      "side_mid": 0.8552
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.2705,
+      "correlation": 0.1845,
+      "side_mid": 0.8478
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:15.031338+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:11.350990+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.729,
+      "zero_corr": 0.729,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:12.559334+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.578,
+      "zero_corr": 0.578,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:13.794661+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.614,
+      "zero_corr": 0.614,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:15.031309+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:28.788639+00:00"
+  }
 }

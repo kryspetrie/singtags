@@ -1,106 +1,90 @@
 /**
- * Tag track player: Web Audio graph for channel solo (mono downmix),
- * stereo balance, and optional SoundTouch pitch/speed.
+ * Tag track player — bake-first independent pitch & speed.
+ *
+ * Invariants (docs/PITCH_SPEED_PLAN.md):
+ * - Audible AudioBufferSourceNode.playbackRate is always 1.
+ * - Identity (pitch=0, speed=1) never enters the bake pipeline.
+ * - Solo/balance live in a persistent gain graph (mono duplicated to L/R).
+ * - Never uses MediaElementAudioSourceNode.
  */
-import { createSoundTouchNode, type SoundTouchNodeLike } from './soundtouch'
 import type { SoloMode } from './channelSolo'
+import {
+  BALANCE_MAX_BOOST,
+  CHANNEL_NORM_MAX,
+  OUTPUT_HEADROOM,
+  stereoBalanceGains,
+} from './playerUtils'
+import { bakeCache } from './bakeCache'
+import { processOfflineTransform } from './bakeClient'
+import {
+  bakeCacheKey,
+  canonicalizeTransform,
+  isCanonicalIdentity,
+  originalSecondsToPlayable,
+  type CanonicalTransform,
+} from './transformContract'
+import { decodeService, type DecodedTrack } from './decodeCache'
 
 export type { SoloMode }
-
-/** Max linear gain when balance is fully to one side (+6 dB), if headroom allows. */
-export const BALANCE_MAX_BOOST = 2
-/** Max linear gain when normalizing a quieter channel (+12 dB), if headroom allows. */
-export const CHANNEL_NORM_MAX = 4
-/** Stay just under digital full-scale so boosts never clip. */
-export const OUTPUT_HEADROOM = 0.99
-
-/**
- * Stereo balance: favored side is boosted (up to maxBoost), other stays at unity.
- * Optional per-channel normalize multipliers apply on top.
- * Final gains are capped so measuredPeak × gain ≤ headroom (no overdrive).
- */
-export function stereoBalanceGains(
-  balance: number,
-  opts?: {
-    maxBoost?: number
-    normL?: number
-    normR?: number
-    peakL?: number
-    peakR?: number
-    headroom?: number
-  },
-): { l: number; r: number } {
-  const b = Math.max(-1, Math.min(1, balance))
-  const maxBoost = opts?.maxBoost ?? BALANCE_MAX_BOOST
-  const normL = opts?.normL ?? 1
-  const normR = opts?.normR ?? 1
-  const headroom = opts?.headroom ?? OUTPUT_HEADROOM
-  const peakL = opts?.peakL ?? 0
-  const peakR = opts?.peakR ?? 0
-
-  let l = 1
-  let r = 1
-  if (b < 0) l = 1 + -b * (maxBoost - 1)
-  else if (b > 0) r = 1 + b * (maxBoost - 1)
-  l *= normL
-  r *= normR
-
-  // Cap so channel peak stays ≤ headroom (assume peak=1 until measured)
-  const effPeakL = peakL > 1e-4 ? peakL : 1
-  const effPeakR = peakR > 1e-4 ? peakR : 1
-  l = Math.min(l, headroom / effPeakL)
-  r = Math.min(r, headroom / effPeakR)
-  return { l, r }
-}
-
-function channelPeak(data: Float32Array): number {
-  let peak = 0
-  // Stride long buffers — tags are short; still skip for multi-minute audio.
-  const step = data.length > 500_000 ? 4 : 1
-  for (let i = 0; i < data.length; i += step) {
-    const a = Math.abs(data[i]!)
-    if (a > peak) peak = a
-  }
-  return peak
-}
+export {
+  BALANCE_MAX_BOOST,
+  CHANNEL_NORM_MAX,
+  OUTPUT_HEADROOM,
+  stereoBalanceGains,
+  channelsEffectivelyMono,
+} from './playerUtils'
 
 export class TagAudioPlayer {
-  private audio = new Audio()
   private solo: SoloMode = 'stereo'
-  /** -1 = boost left, 0 = center, +1 = boost right */
   private balance = 0
-  private pitchSemitones = 0
-  private speed = 1
+  private requested: CanonicalTransform = { pitchSemitones: 0, speed: 1 }
+  private audible: CanonicalTransform = { pitchSemitones: 0, speed: 1 }
+  private loop = false
   private onUpdate: (() => void) | null = null
   private onEnded: (() => void) | null = null
+
   private ctx: AudioContext | null = null
-  private mediaSource: MediaElementAudioSourceNode | null = null
-  private stNode: SoundTouchNodeLike | null = null
+  private original: AudioBuffer | null = null
+  private playable: AudioBuffer | null = null
+  private sourceRevision = ''
+  private bufferSource: AudioBufferSourceNode | null = null
+  private sourceGen = 0
+  private loadGen = 0
+  /** Serialize startSource so seek / region / bake swaps cannot overlap. */
+  private startChain: Promise<void> = Promise.resolve()
+
   private splitter: ChannelSplitterNode | null = null
   private merger: ChannelMergerNode | null = null
   private gainL: GainNode | null = null
   private gainR: GainNode | null = null
-  private workletActive = false
-  private workletFailed = false
-  private graphReady = false
+  private graphWired = false
+  private monoFan: GainNode | null = null
+
+  private playing = false
+  /** Playhead in original-timeline seconds. */
+  private playheadOriginal = 0
+  private startedAtCtx = 0
+  /** Original-timeline position when the current source started. */
+  private startedAtOriginal = 0
+  private tickTimer: ReturnType<typeof setInterval> | null = null
+  private intentionalStop = false
+
   private channelCount = 2
-  /** Measured peaks from last probe (0–1). */
+  private _effectivelyMono = false
   private peakL = 0
   private peakR = 0
+  /** Peaks from the decoded original — restored on identity (avoid re-scan). */
+  private decodedPeakL = 0
+  private decodedPeakR = 0
   private normL = 1
   private normR = 1
 
-  constructor() {
-    this.audio.preload = 'auto'
-    this.audio.addEventListener('timeupdate', () => this.onUpdate?.())
-    this.audio.addEventListener('loadedmetadata', () => this.onUpdate?.())
-    this.audio.addEventListener('play', () => this.onUpdate?.())
-    this.audio.addEventListener('pause', () => this.onUpdate?.())
-    this.audio.addEventListener('ended', () => {
-      this.onUpdate?.()
-      this.onEnded?.()
-    })
-  }
+  private _baking = false
+  private _bakeError: string | null = null
+  private bakeAbort: AbortController | null = null
+  private regionA = 0
+  private regionB = 0
+  private regionActive = false
 
   setUpdateListener(fn: (() => void) | null): void {
     this.onUpdate = fn
@@ -110,36 +94,79 @@ export class TagAudioPlayer {
     this.onEnded = fn
   }
 
-  get element(): HTMLAudioElement {
-    return this.audio
-  }
-
+  /** Original-timeline current time (I6 / I15). */
   get currentTime(): number {
-    return this.audio.currentTime
+    if (!this.playing || !this.ctx || !this.original || !this.playable) {
+      return this.playheadOriginal
+    }
+    const wall = this.ctx.currentTime - this.startedAtCtx
+    const scale = this.original.length / Math.max(1, this.playable.length)
+    const orig = this.startedAtOriginal + wall * scale
+    const dur = this.duration
+    if (dur > 0 && orig >= dur) return dur
+    return Math.max(0, orig)
   }
 
+  /** Always original buffer duration in seconds. */
   get duration(): number {
-    return Number.isFinite(this.audio.duration) ? this.audio.duration : 0
+    return this.original ? this.original.length / this.original.sampleRate : 0
   }
 
   get paused(): boolean {
-    return this.audio.paused
+    return !this.playing
   }
 
+  /** True while a non-identity bake is in flight for the requested transform. */
+  get baking(): boolean {
+    return this._baking
+  }
+
+  get bakeError(): string | null {
+    return this._bakeError
+  }
+
+  /** True when audible transform is non-identity (baked buffer in use). */
+  get usingBake(): boolean {
+    return !isCanonicalIdentity(this.audible)
+  }
+
+  /** @deprecated Use usingBake — live worklet path removed. */
   get usingWorklet(): boolean {
-    return this.workletActive
+    return false
   }
 
-  /** 1 = mono (solo L/R will sound the same). */
   get channels(): number {
     return this.channelCount
+  }
+
+  get effectivelyMono(): boolean {
+    return this._effectivelyMono
   }
 
   getBalance(): number {
     return this.balance
   }
 
-  /** True when channel peaks differ enough to auto-match levels. */
+  getPitchSemitones(): number {
+    return this.requested.pitchSemitones
+  }
+
+  getSpeed(): number {
+    return this.requested.speed
+  }
+
+  getAudiblePitchSemitones(): number {
+    return this.audible.pitchSemitones
+  }
+
+  getAudibleSpeed(): number {
+    return this.audible.speed
+  }
+
+  getSolo(): SoloMode {
+    return this.solo
+  }
+
   private shouldAutoNormalizeChannels(): boolean {
     if (this.channelCount < 2) return false
     if (this.peakL < 1e-4 || this.peakR < 1e-4) return false
@@ -147,33 +174,15 @@ export class TagAudioPlayer {
     return ratio > 1.08
   }
 
-  private needsWorklet(): boolean {
-    return Math.abs(this.pitchSemitones) >= 0.01 || Math.abs(this.speed - 1) >= 0.001
-  }
-
-  private needsGraph(): boolean {
-    return (
-      this.graphReady ||
-      this.needsWorklet() ||
-      this.solo !== 'stereo' ||
-      Math.abs(this.balance) >= 0.001 ||
-      this.shouldAutoNormalizeChannels()
-    )
-  }
-
-  private applyFallbackRate(): void {
-    const pitchRatio = 2 ** (this.pitchSemitones / 12)
-    this.audio.playbackRate = Math.min(4, Math.max(0.25, this.speed * pitchRatio))
-    this.audio.preservesPitch = Math.abs(this.pitchSemitones) < 0.01
-  }
-
-  private applyWorkletParams(): void {
-    if (!this.stNode) return
-    this.audio.preservesPitch = false
-    this.audio.playbackRate = 1
-    this.stNode.playbackRate.value = this.speed
-    this.stNode.pitch.value = 1
-    this.stNode.pitchSemitones.value = this.pitchSemitones
+  private recomputeNormGains(): void {
+    if (!this.shouldAutoNormalizeChannels()) {
+      this.normL = 1
+      this.normR = 1
+      return
+    }
+    const target = Math.min(OUTPUT_HEADROOM, Math.max(this.peakL, this.peakR))
+    this.normL = Math.min(CHANNEL_NORM_MAX, target / this.peakL)
+    this.normR = Math.min(CHANNEL_NORM_MAX, target / this.peakR)
   }
 
   private balanceGains(): { l: number; r: number } {
@@ -187,22 +196,58 @@ export class TagAudioPlayer {
     })
   }
 
-  private recomputeNormGains(): void {
-    if (!this.shouldAutoNormalizeChannels()) {
-      this.normL = 1
-      this.normR = 1
-      return
+  private stopTick(): void {
+    if (this.tickTimer != null) {
+      clearInterval(this.tickTimer)
+      this.tickTimer = null
     }
-    // Match quieter to louder, but never above digital full-scale headroom
-    const target = Math.min(OUTPUT_HEADROOM, Math.max(this.peakL, this.peakR))
-    this.normL = Math.min(CHANNEL_NORM_MAX, target / this.peakL)
-    this.normR = Math.min(CHANNEL_NORM_MAX, target / this.peakR)
   }
 
-  /**
-   * Solo L/R: selected channel is played in mono on both speakers.
-   * Stereo: apply balance (+ boost) and optional channel normalize.
-   */
+  private startTick(): void {
+    this.stopTick()
+    this.tickTimer = setInterval(() => {
+      if (!this.playing) return
+      if (this.regionActive && this.currentTime >= this.regionB - 0.03) {
+        if (this.loop) {
+          void this.seek(this.regionA)
+          return
+        }
+        this.stopSource({ capturePlayhead: false })
+        this.playheadOriginal = this.regionB
+        this.onUpdate?.()
+        // Do not fire onEnded for A–B stop — that means "track finished" to the queue.
+        return
+      }
+      this.onUpdate?.()
+    }, 50)
+  }
+
+  private capturePlayhead(): void {
+    if (this.playing) this.playheadOriginal = this.currentTime
+  }
+
+  private stopSource(opts?: { capturePlayhead?: boolean }): void {
+    if (opts?.capturePlayhead !== false) this.capturePlayhead()
+    this.playing = false
+    this.stopTick()
+    this.intentionalStop = true
+    if (this.bufferSource) {
+      const src = this.bufferSource
+      try {
+        src.onended = null
+        src.stop()
+      } catch {
+        /* already stopped */
+      }
+      try {
+        src.disconnect()
+      } catch {
+        /* ignore */
+      }
+      this.bufferSource = null
+    }
+  }
+
   private wireChannelOutputs(): void {
     if (!this.gainL || !this.gainR || !this.merger) return
     try {
@@ -237,14 +282,459 @@ export class TagAudioPlayer {
     }
   }
 
-  private disconnectGraphTail(): void {
+  private async ensureContext(): Promise<AudioContext> {
+    if (!this.ctx) this.ctx = new AudioContext()
+    if (this.ctx.state === 'suspended') await this.ctx.resume()
+    return this.ctx
+  }
+
+  private async ensureTailGraph(ctx: AudioContext): Promise<void> {
+    if (!this.splitter) this.splitter = ctx.createChannelSplitter(2)
+    if (!this.gainL) this.gainL = ctx.createGain()
+    if (!this.gainR) this.gainR = ctx.createGain()
+    if (!this.merger) this.merger = ctx.createChannelMerger(2)
+    if (!this.monoFan) this.monoFan = ctx.createGain()
+
+    if (!this.graphWired) {
+      this.merger.connect(ctx.destination)
+      this.graphWired = true
+    }
+    this.wireChannelOutputs()
+  }
+
+  private connectSourceToTail(src: AudioBufferSourceNode, mono: boolean): void {
+    // Disconnect prior router inputs
     try {
-      this.stNode?.disconnect()
+      this.splitter?.disconnect()
     } catch {
       /* ignore */
     }
     try {
+      this.monoFan?.disconnect()
+    } catch {
+      /* ignore */
+    }
+
+    if (mono) {
+      // Duplicate mono to both L/R gain branches.
+      src.connect(this.monoFan!)
+      this.monoFan!.connect(this.gainL!)
+      this.monoFan!.connect(this.gainR!)
+    } else {
+      src.connect(this.splitter!)
+      this.splitter!.connect(this.gainL!, 0)
+      this.splitter!.connect(this.gainR!, 1)
+    }
+    this.wireChannelOutputs()
+  }
+
+  private playableOffsetSeconds(originalSec: number): number {
+    if (!this.original || !this.playable) return originalSec
+    return originalSecondsToPlayable(
+      originalSec,
+      this.original.sampleRate,
+      this.original.length,
+      this.playable.length,
+    )
+  }
+
+  private async startSource(): Promise<void> {
+    const run = async (): Promise<void> => {
+      if (!this.playable || !this.original) return
+      const ctx = await this.ensureContext()
+      if (!this.playable || !this.original) return
+      await this.ensureTailGraph(ctx)
+      if (!this.playable || !this.original) return
+
+      const gen = ++this.sourceGen
+      this.intentionalStop = true
+      if (this.bufferSource) {
+        try {
+          this.bufferSource.onended = null
+          this.bufferSource.stop()
+        } catch {
+          /* ignore */
+        }
+        try {
+          this.bufferSource.disconnect()
+        } catch {
+          /* ignore */
+        }
+        this.bufferSource = null
+      }
+
+      const playableDur = this.playable.length / this.playable.sampleRate
+      const maxOffset = Math.max(0, playableDur - 1 / this.playable.sampleRate)
+      const offsetPlayable = Math.min(
+        Math.max(0, this.playableOffsetSeconds(this.playheadOriginal)),
+        maxOffset,
+      )
+
+      const src = ctx.createBufferSource()
+      src.buffer = this.playable
+      src.playbackRate.value = 1 // I1 — always
+      src.loop = false
+
+      if (this.loop && this.regionActive) {
+        const a = this.playableOffsetSeconds(this.regionA)
+        const b = this.playableOffsetSeconds(this.regionB)
+        if (b > a + 0.01) {
+          src.loop = true
+          src.loopStart = a
+          src.loopEnd = b
+        }
+      } else if (this.loop && !this.regionActive) {
+        src.loop = true
+      }
+
+      const mono = this.playable.numberOfChannels < 2
+      this.connectSourceToTail(src, mono)
+
+      src.onended = () => {
+        if (this.sourceGen !== gen || this.bufferSource !== src) return
+        if (this.intentionalStop) return
+        this.playing = false
+        this.bufferSource = null
+        this.stopTick()
+        if (this.loop && this.regionActive) {
+          this.playheadOriginal = this.regionA
+          void this.startSource().then(() => this.onUpdate?.())
+          return
+        }
+        if (this.loop && !this.regionActive) {
+          this.playheadOriginal = 0
+          void this.startSource().then(() => this.onUpdate?.())
+          return
+        }
+        // Natural end of scheduled region or full buffer — stay on original timeline.
+        // Region end does NOT mean "track ended" for queue advancement; only full-buffer end does.
+        this.playheadOriginal = this.regionActive ? this.regionB : this.duration
+        this.onUpdate?.()
+        if (!this.regionActive) this.onEnded?.()
+      }
+
+      this.bufferSource = src
+      this.startedAtCtx = ctx.currentTime
+      this.startedAtOriginal = this.playheadOriginal
+      this.playing = true
+      this.intentionalStop = false
+
+      if (this.regionActive && !this.loop) {
+        const endPlayable = this.playableOffsetSeconds(this.regionB)
+        const dur = Math.max(0.01, endPlayable - offsetPlayable)
+        src.start(0, offsetPlayable, dur)
+      } else {
+        src.start(0, offsetPlayable)
+      }
+      this.startTick()
+    }
+
+    const next = this.startChain.then(run, run)
+    this.startChain = next.then(
+      () => undefined,
+      () => undefined,
+    )
+    return next
+  }
+
+  private applyDecoded(track: DecodedTrack, solo: SoloMode): void {
+    this.original = track.buffer
+    this.playable = track.buffer
+    this.sourceRevision = track.identity.revision
+    this.channelCount = track.channels
+    this.peakL = track.peakL
+    this.peakR = track.peakR
+    this.decodedPeakL = track.peakL
+    this.decodedPeakR = track.peakR
+    this._effectivelyMono = track.effectivelyMono
+    this.solo = solo
+    this.audible = { pitchSemitones: 0, speed: 1 }
+    this.recomputeNormGains()
+    bakeCache.setPinned(null)
+  }
+
+  async load(
+    url: string,
+    solo: SoloMode = 'stereo',
+    opts?: { signal?: AbortSignal },
+  ): Promise<void> {
+    const gen = ++this.loadGen
+    this.bakeAbort?.abort()
+    this.bakeAbort = null
+    this._baking = false
+    this._bakeError = null
+    this.stopSource()
+    this.solo = solo
+    this.playheadOriginal = 0
+    this.original = null
+    this.playable = null
+    this.sourceRevision = ''
+    this.peakL = 0
+    this.peakR = 0
+    this.decodedPeakL = 0
+    this.decodedPeakR = 0
+    this.normL = 1
+    this.normR = 1
+    this._effectivelyMono = false
+    this.channelCount = 2
+    this.regionActive = false
+
+    const track = await decodeService.decode(url, { signal: opts?.signal })
+    if (gen !== this.loadGen || opts?.signal?.aborted) return
+    this.applyDecoded(track, solo)
+
+    // Re-apply requested transform if non-identity
+    if (!isCanonicalIdentity(this.requested)) {
+      await this.applyRequestedTransform(true)
+    }
+    if (gen !== this.loadGen) return
+    this.onUpdate?.()
+  }
+
+  clearSource(): void {
+    this.loadGen++
+    this.bakeAbort?.abort()
+    this.bakeAbort = null
+    this._baking = false
+    this.stopSource()
+    this.original = null
+    this.playable = null
+    this.sourceRevision = ''
+    this.playheadOriginal = 0
+    this.peakL = 0
+    this.peakR = 0
+    this.decodedPeakL = 0
+    this.decodedPeakR = 0
+    this.normL = 1
+    this.normR = 1
+    this._effectivelyMono = false
+    this.channelCount = 2
+    this.regionActive = false
+    bakeCache.setPinned(null)
+  }
+
+  async setSolo(solo: SoloMode): Promise<void> {
+    this.solo = solo
+    if (this.ctx) await this.ensureTailGraph(this.ctx)
+    this.wireChannelOutputs()
+    this.onUpdate?.()
+  }
+
+  async setBalance(value: number): Promise<void> {
+    this.balance = Math.max(-1, Math.min(1, value))
+    if (this.ctx) await this.ensureTailGraph(this.ctx)
+    this.wireChannelOutputs()
+    this.onUpdate?.()
+  }
+
+  async setPitchSemitones(n: number): Promise<void> {
+    this.requested = canonicalizeTransform(n, this.requested.speed)
+    await this.applyRequestedTransform(true)
+  }
+
+  async setSpeed(n: number): Promise<void> {
+    this.requested = canonicalizeTransform(this.requested.pitchSemitones, n)
+    await this.applyRequestedTransform(true)
+  }
+
+  /** Set pitch and speed together (one bake). Prefer this over sequential setPitch/setSpeed. */
+  async setTransform(pitchSemitones: number, speed: number): Promise<void> {
+    this.requested = canonicalizeTransform(pitchSemitones, speed)
+    await this.applyRequestedTransform(true)
+  }
+
+  private async applyRequestedTransform(restartIfPlaying: boolean): Promise<void> {
+    if (!this.original) {
+      this.onUpdate?.()
+      return
+    }
+
+    const req = this.requested
+    this.bakeAbort?.abort()
+    this.bakeAbort = null
+    this._bakeError = null
+
+    const swapPlayable = async (next: AudioBuffer, audible: CanonicalTransform): Promise<void> => {
+      // Capture on the *current* playable timeline before swapping buffers.
+      this.capturePlayhead()
+      const resumeAt = this.playheadOriginal
+      const wasPlaying = this.playing
+      this.stopSource({ capturePlayhead: false })
+      this.playable = next
+      this.audible = audible
+      this.playheadOriginal = resumeAt
+      if (wasPlaying && restartIfPlaying) await this.startSource()
+    }
+
+    if (isCanonicalIdentity(req)) {
+      this._baking = false
+      // Already on identity original — restore decode peaks without tearing down audio.
+      if (this.playable === this.original && isCanonicalIdentity(this.audible)) {
+        this.peakL = this.decodedPeakL
+        this.peakR = this.decodedPeakR
+        this.recomputeNormGains()
+        bakeCache.setPinned(null)
+        this.onUpdate?.()
+        return
+      }
+      await swapPlayable(this.original, { pitchSemitones: 0, speed: 1 })
+      this.peakL = this.decodedPeakL
+      this.peakR = this.decodedPeakR
+      this.recomputeNormGains()
+      this.wireChannelOutputs()
+      bakeCache.setPinned(null)
+      this.onUpdate?.()
+      return
+    }
+
+    // Keep last audible while baking (I15).
+    this._baking = true
+    this.onUpdate?.()
+
+    const ac = new AbortController()
+    this.bakeAbort = ac
+    const gen = this.loadGen
+    // Do not snapshot resumeAt here — user may scrub while baking; swapPlayable captures fresh.
+
+    let baked: AudioBuffer | null = null
+    try {
+      baked = await processOfflineTransform(this.original, req.pitchSemitones, req.speed, {
+        sourceRevision: this.sourceRevision,
+        signal: ac.signal,
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // Only clear baking if this request still owns the abort controller —
+        // a newer setSpeed/setPitch may already be in flight.
+        if (gen === this.loadGen && this.bakeAbort === ac) this._baking = false
+        return
+      }
+      throw err
+    }
+
+    if (gen !== this.loadGen || ac.signal.aborted) {
+      if (this.bakeAbort === ac) this._baking = false
+      return
+    }
+
+    if (!baked) {
+      this._baking = false
+      this._bakeError = 'Pitch/speed transform failed. Previous audio kept.'
+      this.requested = { ...this.audible }
+      this.onUpdate?.()
+      return
+    }
+
+    if (
+      this.requested.pitchSemitones !== req.pitchSemitones ||
+      this.requested.speed !== req.speed
+    ) {
+      if (this.bakeAbort === ac) this._baking = false
+      return
+    }
+
+    this._baking = false
+    await swapPlayable(baked, { ...req })
+
+    const pinKey = bakeCacheKey({
+      sourceRevision: this.sourceRevision,
+      sampleRate: baked.sampleRate,
+      channels: Math.min(2, baked.numberOfChannels),
+      pitchSemitones: req.pitchSemitones,
+      speed: req.speed,
+    })
+    const cachedPeaks = bakeCache.get(pinKey)
+    if (cachedPeaks) {
+      this.peakL = cachedPeaks.peakL
+      this.peakR = cachedPeaks.peakR
+    } else {
+      const d0 = baked.getChannelData(0)
+      let pL = 0
+      const step = Math.max(1, d0.length >> 16)
+      for (let i = 0; i < d0.length; i += step) pL = Math.max(pL, Math.abs(d0[i]!))
+      this.peakL = pL
+      if (baked.numberOfChannels > 1) {
+        const d1 = baked.getChannelData(1)
+        let pR = 0
+        for (let i = 0; i < d1.length; i += step) pR = Math.max(pR, Math.abs(d1[i]!))
+        this.peakR = pR
+      } else {
+        this.peakR = pL
+      }
+    }
+    this.recomputeNormGains()
+    this.wireChannelOutputs()
+
+    bakeCache.setPinned(pinKey)
+    this.onUpdate?.()
+  }
+
+  async play(): Promise<void> {
+    if (!this.playable) return
+    if (this.playing) return
+    if (this.duration > 0 && this.playheadOriginal >= this.duration - 0.02) {
+      this.playheadOriginal = this.regionActive ? this.regionA : 0
+    }
+    await this.startSource()
+    this.onUpdate?.()
+  }
+
+  pause(): void {
+    if (!this.playing) return
+    this.stopSource()
+    this.onUpdate?.()
+  }
+
+  async seek(t: number): Promise<void> {
+    const dur = this.duration
+    const next = Math.max(0, dur > 0 ? Math.min(t, dur) : t)
+    const wasPlaying = this.playing
+    this.stopSource({ capturePlayhead: false })
+    this.playheadOriginal = next
+    if (wasPlaying) await this.startSource()
+    this.onUpdate?.()
+  }
+
+  setLoop(loop: boolean): void {
+    this.loop = loop
+  }
+
+  /** A–B region in original seconds. Pass b<=a to clear. Remaps live if playing. */
+  setPlayRegion(a: number, b: number): void {
+    if (b <= a + 0.05) {
+      const wasActive = this.regionActive
+      this.regionActive = false
+      this.regionA = 0
+      this.regionB = 0
+      // Drop scheduled one-shot stop if we were playing inside a region.
+      if (wasActive && this.playing && !this.loop) {
+        this.capturePlayhead()
+        void this.startSource().then(() => this.onUpdate?.())
+      }
+      return
+    }
+    this.regionActive = true
+    this.regionA = Math.max(0, a)
+    this.regionB = b
+    // If currently playing a one-shot region, restart so scheduled stop uses new B.
+    if (this.playing && !this.loop) {
+      this.capturePlayhead()
+      void this.startSource().then(() => this.onUpdate?.())
+    }
+  }
+
+  dispose(): void {
+    this.loadGen++
+    this.bakeAbort?.abort()
+    this.bakeAbort = null
+    this.stopSource()
+    try {
       this.splitter?.disconnect()
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.monoFan?.disconnect()
     } catch {
       /* ignore */
     }
@@ -263,235 +753,16 @@ export class TagAudioPlayer {
     } catch {
       /* ignore */
     }
-    try {
-      this.mediaSource?.disconnect()
-    } catch {
-      /* ignore */
-    }
-  }
-
-  private async ensureGraph(): Promise<void> {
-    if (!this.ctx) this.ctx = new AudioContext()
-    if (this.ctx.state === 'suspended') await this.ctx.resume()
-    if (!this.mediaSource) {
-      this.mediaSource = this.ctx.createMediaElementSource(this.audio)
-    }
-
-    this.disconnectGraphTail()
-
-    if (!this.splitter) this.splitter = this.ctx.createChannelSplitter(2)
-    if (!this.gainL) this.gainL = this.ctx.createGain()
-    if (!this.gainR) this.gainR = this.ctx.createGain()
-    if (!this.merger) this.merger = this.ctx.createChannelMerger(2)
-
-    let head: AudioNode = this.mediaSource
-
-    if (this.needsWorklet() && !this.workletFailed) {
-      if (!this.stNode) {
-        const node = await createSoundTouchNode(this.ctx)
-        if (!node) {
-          this.workletFailed = true
-        } else {
-          this.stNode = node
-        }
-      }
-      if (this.stNode) {
-        this.mediaSource.connect(this.stNode as unknown as AudioNode)
-        head = this.stNode as unknown as AudioNode
-        this.workletActive = true
-        this.applyWorkletParams()
-      } else {
-        this.workletActive = false
-        this.applyFallbackRate()
-      }
-    } else {
-      this.workletActive = false
-      if (this.needsWorklet()) this.applyFallbackRate()
-      else {
-        this.audio.playbackRate = 1
-        this.audio.preservesPitch = true
-      }
-    }
-
-    head.connect(this.splitter)
-    this.splitter.connect(this.gainL, 0)
-    this.splitter.connect(this.gainR, 1)
-    this.wireChannelOutputs()
-    this.merger.connect(this.ctx.destination)
-    this.graphReady = true
-  }
-
-  private async applyTransform(): Promise<void> {
-    if (this.needsGraph()) {
-      await this.ensureGraph()
-      return
-    }
-    this.applyFallbackRate()
-  }
-
-  /** Wait until the element has duration/metadata (load() alone does not). */
-  private waitForMetadata(timeoutMs = 4_000): Promise<void> {
-    // HAVE_METADATA === 1 (avoid HTMLMediaElement.HAVE_METADATA — missing in some test envs)
-    if (this.audio.readyState >= 1) return Promise.resolve()
-    return new Promise((resolve, reject) => {
-      let settled = false
-      const finish = (fn: () => void) => {
-        if (settled) return
-        settled = true
-        cleanup()
-        fn()
-      }
-      const onMeta = () => finish(() => resolve())
-      const onErr = () =>
-        finish(() => reject(new Error(this.audio.error?.message || 'Media failed to load')))
-      const timer = window.setTimeout(() => {
-        // Don't block the UI forever — duration may still arrive via later events.
-        finish(() => resolve())
-      }, timeoutMs)
-      const cleanup = () => {
-        window.clearTimeout(timer)
-        this.audio.removeEventListener('loadedmetadata', onMeta)
-        this.audio.removeEventListener('loadeddata', onMeta)
-        this.audio.removeEventListener('error', onErr)
-      }
-      this.audio.addEventListener('loadedmetadata', onMeta)
-      this.audio.addEventListener('loadeddata', onMeta)
-      this.audio.addEventListener('error', onErr)
-    })
-  }
-
-  async load(url: string, solo: SoloMode = 'stereo'): Promise<void> {
-    this.solo = solo
-    this.peakL = 0
-    this.peakR = 0
-    this.normL = 1
-    this.normR = 1
-    // crossOrigin on blob: URLs breaks playback in Chromium; only needed for remote CORS.
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      this.audio.crossOrigin = 'anonymous'
-    } else {
-      this.audio.removeAttribute('crossorigin')
-    }
-    this.audio.src = url
-    this.audio.load()
-    // Metadata can stall on refresh (CORS / cache); never block callers indefinitely.
-    await this.waitForMetadata()
-    // Probe peaks in the background — never block first paint / waveform on a full decode.
-    void this.probeChannels(url)
-    if (this.needsGraph()) await this.ensureGraph()
-    else await this.applyTransform()
-  }
-
-  /** Drop the current source so Play cannot resume a stale track. */
-  clearSource(): void {
-    this.pause()
-    this.audio.removeAttribute('src')
-    this.audio.load()
-    this.peakL = 0
-    this.peakR = 0
-    this.normL = 1
-    this.normR = 1
-  }
-
-  private async probeChannels(url: string): Promise<void> {
-    try {
-      // Decode on the playback context when available; otherwise a short-lived one we close.
-      let ctx = this.ctx
-      let owned = false
-      if (!ctx) {
-        ctx = new AudioContext()
-        owned = true
-      }
-      try {
-        const res = await fetch(url)
-        if (!res.ok) return
-        const buf = await res.arrayBuffer()
-        const decoded = await ctx.decodeAudioData(buf.slice(0))
-        this.channelCount = decoded.numberOfChannels
-        this.peakL = channelPeak(decoded.getChannelData(0))
-        this.peakR =
-          decoded.numberOfChannels > 1 ? channelPeak(decoded.getChannelData(1)) : this.peakL
-        this.recomputeNormGains()
-        if (this.needsGraph()) await this.ensureGraph()
-        else if (this.graphReady) this.wireChannelOutputs()
-        this.onUpdate?.()
-      } finally {
-        if (owned) await ctx.close().catch(() => {})
-      }
-    } catch {
-      this.channelCount = 2
-      this.peakL = 0
-      this.peakR = 0
-      this.recomputeNormGains()
-    }
-  }
-
-  async setSolo(solo: SoloMode): Promise<void> {
-    this.solo = solo
-    await this.ensureGraph()
-    this.onUpdate?.()
-  }
-
-  async setBalance(value: number): Promise<void> {
-    this.balance = Math.max(-1, Math.min(1, value))
-    await this.ensureGraph()
-    this.onUpdate?.()
-  }
-
-  async setPitchSemitones(n: number): Promise<void> {
-    this.pitchSemitones = n
-    await this.applyTransform()
-  }
-
-  async setSpeed(n: number): Promise<void> {
-    this.speed = n
-    await this.applyTransform()
-  }
-
-  getPitchSemitones(): number {
-    return this.pitchSemitones
-  }
-
-  getSpeed(): number {
-    return this.speed
-  }
-
-  getSolo(): SoloMode {
-    return this.solo
-  }
-
-  async play(): Promise<void> {
-    await this.ensureGraph()
-    if (this.ctx?.state === 'suspended') await this.ctx.resume()
-    await this.audio.play()
-  }
-
-  pause(): void {
-    this.audio.pause()
-  }
-
-  seek(t: number): void {
-    this.audio.currentTime = t
-  }
-
-  setLoop(loop: boolean): void {
-    this.audio.loop = loop
-  }
-
-  dispose(): void {
-    this.pause()
-    this.disconnectGraphTail()
-    this.stNode = null
-    this.mediaSource = null
     this.splitter = null
+    this.monoFan = null
     this.gainL = null
     this.gainR = null
     this.merger = null
-    this.graphReady = false
-    this.workletActive = false
+    this.graphWired = false
+    this.original = null
+    this.playable = null
+    bakeCache.setPinned(null)
     void this.ctx?.close()
     this.ctx = null
-    this.audio.removeAttribute('src')
-    this.audio.load()
   }
 }

@@ -17,15 +17,158 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Answer Me My Love (C Major) - Greg Volk - 4034",
-  "sheet": "sheets/4034/sheet.jpg",
+  "sheet": "sheets/4034/Answer Me My Love (C Major) - Greg Volk - Sheet.jpg",
   "audio": {
-    "lead": "media/4034/lead.mp4",
-    "tenor": "media/4034/tenor.mp4",
-    "bari": "media/4034/bari.mp4",
-    "bass": "media/4034/bass.mp4",
-    "mix": "media/4034/mix.mp4"
+    "lead": "media/4034/lead.m4a",
+    "tenor": "media/4034/tenor.m4a",
+    "bari": "media/4034/bari.m4a",
+    "bass": "media/4034/bass.m4a",
+    "mix": "media/4034/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/4034/lead.m4a",
+      "playback": "media/4034/lead.playback.opus",
+      "ultra_solo": "media/4034/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/4034/tenor.m4a",
+      "playback": "media/4034/tenor.playback.opus",
+      "ultra_solo": "media/4034/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/4034/bari.m4a",
+      "playback": "media/4034/bari.playback.opus",
+      "ultra_solo": "media/4034/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/4034/bass.m4a",
+      "playback": "media/4034/bass.playback.opus",
+      "ultra_solo": "media/4034/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/4034/mix.m4a",
+      "playback": "media/4034/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/4034/Answer Me My Love (C Major) - Greg Volk - Sheet.jpg",
+    "sheets/4034/Answer Me My Love (C Major) - Greg Volk - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/4034/preview.webp",
   "sheet_pages": [
-    "sheets/4034/pages/page-01.webp"
-  ]
+    "sheets/4034/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:25.598083+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1239,
+      "correlation": -0.0088,
+      "side_mid": 1.0194
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.046,
+      "correlation": -0.035,
+      "side_mid": 1.0347
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0228,
+      "correlation": 0.0101,
+      "side_mid": 1.0038
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.1779,
+      "correlation": -0.0561,
+      "side_mid": 1.0682
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0169,
+      "correlation": 0.9414,
+      "side_mid": 0.1754
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bass",
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:02.681347+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:58.623678+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.418,
+      "zero_corr": 0.418,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:59.959833+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.472,
+      "zero_corr": 0.472,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:01.311251+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.549,
+      "zero_corr": 0.549,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:02.681319+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:39.880105+00:00"
+  }
 }

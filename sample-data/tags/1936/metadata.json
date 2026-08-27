@@ -17,15 +17,159 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As Like the Breeze that Blows (C Major) - Stan Spencer - 1936",
-  "sheet": "sheets/1936/sheet.png",
+  "sheet": "sheets/1936/As Like the Breeze that Blows (C Major) - Stan Spencer - Sheet.png",
   "audio": {
-    "lead": "media/1936/lead.mp4",
-    "tenor": "media/1936/tenor.mp4",
-    "bari": "media/1936/bari.mp4",
-    "bass": "media/1936/bass.mp4",
-    "mix": "media/1936/mix.mp4"
+    "lead": "media/1936/lead.m4a",
+    "tenor": "media/1936/tenor.m4a",
+    "bari": "media/1936/bari.m4a",
+    "bass": "media/1936/bass.m4a",
+    "mix": "media/1936/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/1936/lead.m4a",
+      "playback": "media/1936/lead.playback.opus",
+      "ultra_solo": "media/1936/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/1936/tenor.m4a",
+      "playback": "media/1936/tenor.playback.opus",
+      "ultra_solo": "media/1936/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/1936/bari.m4a",
+      "playback": "media/1936/bari.playback.opus",
+      "ultra_solo": "media/1936/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/1936/bass.m4a",
+      "playback": "media/1936/bass.playback.opus",
+      "ultra_solo": "media/1936/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/1936/mix.m4a",
+      "playback": "media/1936/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/1936/As Like the Breeze that Blows (C Major) - Stan Spencer - Sheet.png",
+    "sheets/1936/As Like the Breeze that Blows (C Major) - Stan Spencer - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/1936/preview.webp",
   "sheet_pages": [
-    "sheets/1936/pages/page-01.webp"
-  ]
+    "sheets/1936/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:41.678612+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1708,
+      "correlation": -0.036,
+      "side_mid": 1.0266
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1137,
+      "correlation": -0.0463,
+      "side_mid": 1.0409
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.0213,
+      "correlation": -0.001,
+      "side_mid": 0.9971
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1741,
+      "correlation": -0.0407,
+      "side_mid": 1.0417
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0283,
+      "correlation": 0.7696,
+      "side_mid": 0.3618
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:05.949191+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:04.809765+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.445,
+      "zero_corr": 0.445,
+      "trusted": false,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:05.206749+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.62,
+      "zero_corr": 0.62,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:05.579957+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.605,
+      "zero_corr": 0.605,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:05.949167+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:08.353051+00:00"
+  }
 }

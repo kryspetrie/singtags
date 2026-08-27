@@ -28,7 +28,7 @@ describe('starred.tags file', () => {
           title: 'Test',
           arranger: 'A',
           key: 'C',
-          audio: { lead: 'media/1/lead.mp4' },
+          audio: { lead: 'media/1/lead.m4a' },
         },
         offlineMedia: false,
       },

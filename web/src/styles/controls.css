@@ -1,0 +1,216 @@
+/**
+ * Control vocabulary — three interaction families + actions:
+ *
+ * - .ctrl-tabs / .ctrl-tab     — one-of-many navigation (track, mode)
+ * - .ctrl-segment               — labeled radio group (Solo, Images/PDF)
+ * - .ctrl-toggle                — on/off latch (Loop, Auto-advance)
+ * - .ctrl-action / .ctrl-transport — one-shot commands (Play, Stop)
+ *
+ * Tabs sit on a recessed rail; the active tab is an elevated surface chip.
+ * Segments share one pill rail; the selected option is inset/elevated.
+ * Toggles use a pill outline; when on they tint and show a dot marker.
+ * Actions use bordered tiles; primary actions use solid accent fill.
+ */
+
+.ctrl-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ctrl-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--border) 55%, var(--bg));
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.ctrl-tab {
+  flex: 1 1 calc(33.333% - 0.2rem);
+  min-height: 44px;
+  min-width: 4.25rem;
+  max-width: 100%;
+  padding: 0.4rem 0.45rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: clamp(0.78rem, 2.6vw, 0.92rem);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ctrl-tab[aria-selected='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.ctrl-segment {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.1rem;
+  padding: 0.18rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--border) 55%, var(--bg));
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.ctrl-segment > button {
+  flex: 1 1 auto;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ctrl-segment > button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--accent-hover);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+}
+
+.ctrl-segment > button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ctrl-segment--compact > button {
+  min-height: 36px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+.ctrl-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ctrl-toggle::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 70%, var(--border));
+  flex-shrink: 0;
+}
+
+.ctrl-toggle[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
+
+.ctrl-toggle[aria-pressed='true']::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ctrl-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ctrl-transport {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.ctrl-transport-btn {
+  min-height: 48px;
+  min-width: 0;
+  width: 100%;
+  padding: 0.4rem 0.35rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  font-size: clamp(0.85rem, 3.2vw, 1rem);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ctrl-transport-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ctrl-transport-btn--primary {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.ctrl-field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ctrl-field-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 420px) {
+  .ctrl-tab {
+    flex: 1 1 calc(25% - 0.2rem);
+  }
+}
+
+@media (min-width: 720px) {
+  .ctrl-tabs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
+  }
+  .ctrl-tab {
+    flex: unset;
+  }
+}

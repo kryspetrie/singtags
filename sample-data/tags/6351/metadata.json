@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "As Long As Im Dreaming (G Major) - Nic - 6351",
-  "sheet": "sheets/6351/sheet.pdf",
+  "sheet": "sheets/6351/As Long As Im Dreaming (G Major) - Nic - Sheet.pdf",
   "audio": {
-    "mix": "media/6351/mix.mp4"
+    "mix": "media/6351/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6351/mix.m4a",
+      "playback": "media/6351/mix.playback.opus",
+      "ultra_mix": "media/6351/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6351/As Long As Im Dreaming (G Major) - Nic - Sheet.pdf",
+    "sheets/6351/As Long As Im Dreaming (G Major) - Nic - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6351/preview.webp",
   "sheet_pages": [
-    "sheets/6351/pages/page-01.webp"
-  ]
+    "sheets/6351/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "near_mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:39.720215+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0144,
+      "correlation": 0.8938,
+      "side_mid": 0.2442
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:07:09.615672+00:00"
+  }
 }

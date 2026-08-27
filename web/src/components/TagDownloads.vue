@@ -1,77 +1,56 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { PartId, TagDetail } from '../types/tag'
-import type { AudioTransform, DownloadFormat } from '../types/audio'
-import { isIdentityTransform, transformFromMode, type TransformMode } from '../types/audio'
+import {
+  DOWNLOAD_FORMAT_OPTIONS,
+  encodeQualityForDownload,
+  HOSTED_AUDIO_MIME,
+  IDENTITY_TRANSFORM,
+  type UserDownloadFormat,
+} from '../types/audio'
+import { originalAudioPath, playableAudioParts } from '../lib/audioTiers'
 import { partTrackLabel, sortPartIds } from '../lib/parts'
 import { mediaUrl } from '../lib/mediaUrl'
-import { originalSheetPaths, sheetFileLabel } from '../lib/sheetAssets'
-import { isImageSheetPath, isPdfPath } from '../lib/sheetPath'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { downloadBlob, fetchBytes, sampleUrl, buildZip } from '../download/zip'
 import { downloadFilename, prepareDownloadBytes } from '../download/transform'
-import { usePreferencesStore } from '../stores/preferences'
+import { useStarsStore } from '../stores/stars'
 
 const props = defineProps<{
   detail: TagDetail
-  transform: AudioTransform
+  offline?: boolean
+  /** When set, direct file/zip download is disabled (e.g. cache-only tag detail). */
+  downloadBlockedReason?: string | null
   /** When set, “Add to downloads” (queue) is disabled with this reason. */
   queueBlockedReason?: string | null
   queueMessage?: string | null
 }>()
 
 const emit = defineEmits<{
-  'add-to-queue': []
+  'add-to-queue': [parts: PartId[], format: UserDownloadFormat]
+  'cache-upgraded': []
 }>()
 
-const prefs = usePreferencesStore()
+const stars = useStarsStore()
 const err = ref<string | null>(null)
 const msg = ref<string | null>(null)
-const audioFormat = ref<DownloadFormat>('mp4')
-const transformMode = ref<TransformMode>('original')
+const audioFormat = ref<UserDownloadFormat>('m4a')
 
 type Asset = { id: string; label: string; kind: 'sheet' | 'audio' | 'page'; path: string; part?: PartId }
-
-/** Short type labels; filenames only when there are multiple of that kind. */
-function sheetLabel(path: string, originals: string[]): string {
-  const name = sheetFileLabel(path)
-  if (isPdfPath(path)) {
-    const pdfCount = originals.filter((p) => isPdfPath(p)).length
-    return pdfCount > 1 ? name : 'PDF'
-  }
-  if (isImageSheetPath(path)) {
-    const imageCount = originals.filter((p) => isImageSheetPath(p)).length
-    return imageCount > 1 ? name : 'Image'
-  }
-  return name
-}
 
 const assets = computed(() => {
   const d = props.detail
   const list: Asset[] = []
-  const originals = originalSheetPaths(d)
-  for (const [i, path] of originals.entries()) {
+  for (const sheet of downloadableSheetAssets(d)) {
     list.push({
-      id: `sheet-${i}-${path}`,
-      label: sheetLabel(path, originals),
-      kind: 'sheet',
-      path,
+      id: sheet.id,
+      label: sheet.label,
+      kind: sheet.label === 'PDF' ? 'sheet' : 'page',
+      path: sheet.path,
     })
   }
-  // Raster pages are a viewing aid derived from an original — don't offer them
-  // as separate downloads when the source file is already listed.
-  if (!originals.length) {
-    const pageCount = d.sheet_pages?.length ?? 0
-    for (const [i, page] of (d.sheet_pages ?? []).entries()) {
-      list.push({
-        id: `page-${i}`,
-        label: pageCount > 1 ? `Page ${i + 1}` : 'Page',
-        kind: 'page',
-        path: page,
-      })
-    }
-  }
-  for (const part of sortPartIds(Object.keys(d.audio))) {
-    const path = d.audio[part]
+  for (const part of sortPartIds(playableAudioParts(d, 'online'))) {
+    const path = originalAudioPath(d, part)
     if (!path) continue
     list.push({
       id: `audio-${part}`,
@@ -88,15 +67,11 @@ const selected = ref<Set<string>>(new Set())
 
 function defaultSelection(list: Asset[]): Set<string> {
   const next = new Set<string>()
-  const images = list.filter((a) => a.kind === 'sheet' && isImageSheetPath(a.path))
-  if (images.length) {
-    for (const a of images) next.add(a.id)
-    return next
-  }
-  const pdfs = list.filter((a) => a.kind === 'sheet' && isPdfPath(a.path))
-  for (const a of pdfs) next.add(a.id)
+  const image = list.find((a) => a.kind === 'page' || (a.kind === 'sheet' && a.label === 'Image'))
+  if (image) next.add(image.id)
+  const pdf = list.find((a) => a.kind === 'sheet' && a.label === 'PDF')
+  if (pdf) next.add(pdf.id)
   if (next.size) return next
-  // Offline / pages-only tags: prefer raster pages when that's all we have.
   for (const a of list) {
     if (a.kind === 'page') next.add(a.id)
   }
@@ -111,10 +86,16 @@ watch(
   { immediate: true },
 )
 
-const hasTransform = computed(() => !isIdentityTransform(props.transform))
 const selectedCount = computed(() => selected.value.size)
 const audioSelected = computed(() =>
   assets.value.some((a) => a.kind === 'audio' && selected.value.has(a.id)),
+)
+const queueSelectionCount = computed(
+  () =>
+    assets.value.filter((a) => a.kind === 'audio' && a.part && selected.value.has(a.id)).length,
+)
+const directDownloadDisabled = computed(
+  () => !!props.offline || !!props.downloadBlockedReason,
 )
 const busyMode = ref<'files' | 'zip' | null>(null)
 
@@ -145,7 +126,7 @@ function mimeForAsset(a: Asset, name: string): string {
   if (name.endsWith('.webp')) return 'image/webp'
   if (name.endsWith('.mp3')) return 'audio/mpeg'
   if (name.endsWith('.ogg')) return 'audio/ogg'
-  if (name.endsWith('.mp4')) return 'audio/mp4'
+  if (name.endsWith('.m4a')) return HOSTED_AUDIO_MIME
   if (name.endsWith('.wav')) return 'audio/wav'
   return 'application/octet-stream'
 }
@@ -154,19 +135,31 @@ async function preparePickedFiles(): Promise<Array<{ name: string; data: Uint8Ar
   const picks = assets.value.filter((a) => selected.value.has(a.id))
   if (!picks.length) throw new Error('Select at least one file to download.')
   const files: Array<{ name: string; data: Uint8Array; mime: string }> = []
+  let cacheUpgraded = false
   for (const a of picks) {
     if (a.kind === 'audio' && a.part) {
       const raw = await fetchBytes(sampleUrl(a.path))
-      const mode: TransformMode = hasTransform.value ? transformMode.value : 'original'
-      const transform = transformFromMode(mode, props.transform)
       const data = await prepareDownloadBytes({
         input: raw,
         format: audioFormat.value,
-        transform,
-        encodeQuality: prefs.audioEncodeQuality,
+        transform: IDENTITY_TRANSFORM,
+        encodeQuality: encodeQualityForDownload(audioFormat.value),
       })
-      const name = downloadFilename(a.part, audioFormat.value, transform)
+      const name = downloadFilename(a.part, audioFormat.value, IDENTITY_TRANSFORM)
       files.push({ name, data, mime: mimeForAsset(a, name) })
+
+      if (stars.ids.has(props.detail.tag_id)) {
+        const { upgradeStarredAudioPart } = await import('../offline/starredDb')
+        const copy = new Uint8Array(raw.byteLength)
+        copy.set(raw)
+        await upgradeStarredAudioPart(props.detail.tag_id, a.part, {
+          path: a.path,
+          mime: HOSTED_AUDIO_MIME,
+          data: copy.buffer,
+          quality: 'original',
+        })
+        cacheUpgraded = true
+      }
     } else {
       const res = await fetch(mediaUrl(a.path))
       if (!res.ok) throw new Error(`Failed to fetch ${a.label} (${res.status})`)
@@ -175,7 +168,18 @@ async function preparePickedFiles(): Promise<Array<{ name: string; data: Uint8Ar
       files.push({ name, data, mime: mimeForAsset(a, name) })
     }
   }
+  if (cacheUpgraded) emit('cache-upgraded')
   return files
+}
+
+function selectedAudioParts(): PartId[] {
+  return assets.value
+    .filter((a) => a.kind === 'audio' && a.part && selected.value.has(a.id))
+    .map((a) => a.part!)
+}
+
+function addSelectedToQueue(): void {
+  emit('add-to-queue', selectedAudioParts(), audioFormat.value)
 }
 
 function zipBaseName(): string {
@@ -217,17 +221,20 @@ async function downloadSelectedZip(): Promise<void> {
 </script>
 
 <template>
-  <details class="dl section" open>
+  <details class="dl section">
     <summary class="section-summary head">
       <span class="section-title">Download</span>
-      <div class="quick" @click.stop>
-        <button type="button" class="ghost" @click="selectAll">All</button>
-        <button type="button" class="ghost" @click="selectNone">None</button>
-        <button type="button" class="ghost" @click="selectTracksOnly">Tracks Only</button>
-      </div>
     </summary>
     <div class="body">
-      <p class="muted">Tap to select sheet music and learning tracks.</p>
+      <div v-if="assets.length" class="picker-head">
+        <p class="picker-hint">Tap to select sheet music and learning tracks.</p>
+        <div class="picker-quick" role="group" aria-label="Selection shortcuts">
+          <button type="button" class="ghost" @click="selectAll">All</button>
+          <button type="button" class="ghost" @click="selectNone">None</button>
+          <button type="button" class="ghost" @click="selectTracksOnly">Tracks Only</button>
+        </div>
+      </div>
+      <p v-else class="muted">No downloadable files on this tag.</p>
 
       <div v-if="assets.length" class="toggles" role="group" aria-label="Download files">
         <button
@@ -242,45 +249,55 @@ async function downloadSelectedZip(): Promise<void> {
           {{ a.label }}
         </button>
       </div>
-      <p v-else class="muted">No downloadable files on this tag.</p>
 
       <div v-if="audioSelected" class="audio-opts">
         <label>
-          Audio format
-          <select v-model="audioFormat" aria-label="Audio download format">
-            <option value="mp4">MP4 (hosted AAC)</option>
-            <option value="mp3">MP3 VBR</option>
-            <option value="ogg">OGG Vorbis</option>
+          Download as
+          <select v-model="audioFormat" aria-label="Download as">
+            <option v-for="f in DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
+              {{ f.label }}
+            </option>
           </select>
         </label>
-        <label v-if="hasTransform">
-          Apply current pitch/speed
-          <select v-model="transformMode" aria-label="Audio transform">
-            <option value="original">Original (no transform)</option>
-            <option value="key">Current key</option>
-            <option value="speed">Current speed</option>
-            <option value="key+speed">Current key + speed</option>
-          </select>
-        </label>
+        <p class="format-hint muted">
+          Original is the hosted AAC file (~128 kbps, .m4a). MP3 is transcoded on your device (LAME VBR quality&nbsp;2).
+        </p>
       </div>
+
+      <p v-if="downloadBlockedReason" class="muted tip">{{ downloadBlockedReason }}</p>
+
+      <p v-if="offline" class="muted offline-hint" role="status">
+        Offline — add tracks to your downloads queue; zip export runs when you’re back online.
+      </p>
 
       <div class="actions">
         <button
           type="button"
           class="go"
-          :disabled="!!busyMode || !selectedCount"
+          :disabled="!!busyMode || !selectedCount || directDownloadDisabled"
+          :title="
+            downloadBlockedReason ||
+              (offline ? 'Connect to download files — use Add to queue while offline' : undefined)
+          "
           @click="downloadSelected"
         >
           {{
             busyMode === 'files'
               ? 'Preparing…'
-              : `Download selected (${selectedCount})`
+              : offline
+                ? 'Download (needs connection)'
+                : `Download selected (${selectedCount})`
           }}
         </button>
         <button
+          v-if="selectedCount > 1"
           type="button"
           class="go secondary"
-          :disabled="!!busyMode || !selectedCount"
+          :disabled="!!busyMode || directDownloadDisabled"
+          :title="
+            downloadBlockedReason ||
+              (offline ? 'Connect to download files — use Add to queue while offline' : undefined)
+          "
           @click="downloadSelectedZip"
         >
           {{
@@ -292,9 +309,9 @@ async function downloadSelectedZip(): Promise<void> {
         <button
           type="button"
           class="go secondary"
-          :disabled="!!busyMode || !!queueBlockedReason || !selectedCount"
+          :disabled="!!busyMode || !!queueBlockedReason || !queueSelectionCount"
           :title="queueBlockedReason || undefined"
-          @click="emit('add-to-queue')"
+          @click="addSelectedToQueue"
         >
           Add to downloads
         </button>
@@ -309,23 +326,25 @@ async function downloadSelectedZip(): Promise<void> {
 
 <style scoped>
 .dl {
-  margin: 1.25rem 0;
-  padding: 0.35rem 1.15rem 1.25rem;
+  margin: 1rem 0;
+  padding: 0.35rem 0.85rem 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  min-width: 0;
+  max-width: 100%;
 }
 .section-summary.head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.45rem;
   list-style: none;
   cursor: pointer;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  padding: 0.75rem 0 0.55rem;
+  padding: 0.65rem 0 0.5rem;
+  min-width: 0;
 }
 .section-summary.head::-webkit-details-marker {
   display: none;
@@ -342,13 +361,27 @@ details[open] > .section-summary.head::before {
   transform: rotate(90deg);
 }
 .section-title {
-  flex: 1 1 auto;
   min-width: 0;
 }
-.quick {
+.picker-head {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--border) 28%, var(--bg));
+  min-width: 0;
+}
+.picker-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.picker-quick {
   display: flex;
   gap: 0.45rem;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 .ghost {
   min-height: 40px;
@@ -357,12 +390,15 @@ details[open] > .section-summary.head::before {
   border-radius: 8px;
   padding: 0.3rem 0.75rem;
   font: inherit;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .body {
   display: grid;
   gap: 1rem;
   padding: 0.35rem 0 0.15rem;
   border-top: 1px solid var(--border);
+  min-width: 0;
 }
 .muted {
   margin: 0;
@@ -374,10 +410,11 @@ details[open] > .section-summary.head::before {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+  min-width: 0;
 }
 .toggle {
   min-height: 44px;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -385,6 +422,8 @@ details[open] > .section-summary.head::before {
   font-weight: 600;
   color: inherit;
   cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .toggle.on {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
@@ -399,6 +438,11 @@ details[open] > .section-summary.head::before {
 .audio-opts {
   display: grid;
   gap: 0.85rem;
+}
+.format-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 .audio-opts label {
   display: grid;
@@ -452,12 +496,25 @@ details[open] > .section-summary.head::before {
   font-size: 0.9rem;
 }
 @media (min-width: 640px) {
+  .dl {
+    margin: 1.25rem 0;
+    padding: 0.35rem 1.15rem 1.25rem;
+  }
+  .section-summary.head {
+    font-size: 1.15rem;
+  }
+  .ghost {
+    flex: 0 0 auto;
+  }
+  .toggle {
+    flex: 0 0 auto;
+  }
   .audio-opts {
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
   }
   .actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
     gap: 0.75rem;
   }
 }

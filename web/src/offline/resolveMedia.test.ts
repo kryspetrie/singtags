@@ -1,13 +1,35 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mediaUrl } from '../lib/mediaUrl'
+import type { TagDetail } from '../types/tag'
+
+vi.mock('../audio/partLeftReconstruct', () => ({
+  buildUltraMixObjectUrl: vi.fn(async () => ({
+    url: 'blob:reconstructed-mix',
+    sampleRate: 44100,
+    length: 128,
+  })),
+  buildPartLearningStereoObjectUrl: vi.fn(async () => ({
+    url: 'blob:reconstructed-learning',
+    sampleRate: 44100,
+    length: 128,
+  })),
+  monoSoloToStereoObjectUrl: vi.fn(async (url: string) => ({
+    url,
+    sampleRate: 44100,
+    length: 128,
+  })),
+}))
 
 vi.mock('./starredDb', () => ({
   getStarred: vi.fn(async () => undefined),
-  blobUrlFromCached: vi.fn(),
+  blobUrlFromCached: vi.fn((entry: { data: ArrayBuffer }) =>
+    URL.createObjectURL(new Blob([entry.data])),
+  ),
 }))
 
 vi.mock('./libraryPack', () => {
   const sheets = new Map<string, ArrayBuffer>()
+  const audio = new Map<string, ArrayBuffer>()
   return {
     sheetsPack: {
       kind: 'sheets',
@@ -19,24 +41,53 @@ vi.mock('./libraryPack', () => {
       delete: async () => true,
       clear: async () => sheets.clear(),
       count: async () => sheets.size,
-      __sheets: sheets,
     },
     audioPack: {
       kind: 'audio',
-      has: async () => false,
-      get: async () => null,
-      put: async () => {},
-      delete: async () => false,
-      clear: async () => {},
-      count: async () => 0,
+      has: async (url: string) => audio.has(url),
+      get: async (url: string) =>
+        audio.has(url)
+          ? new Response(audio.get(url), { headers: { 'Content-Type': 'audio/ogg' } })
+          : null,
+      put: async (url: string, res: Response) => {
+        audio.set(url, await res.arrayBuffer())
+      },
+      delete: async () => true,
+      clear: async () => audio.clear(),
+      count: async () => audio.size,
     },
   }
 })
 
+const sampleDetail: TagDetail = {
+  tag_id: 31,
+  title: 'T',
+  arranger: null,
+  key: null,
+  audio: {
+    lead: 'media/31/lead.m4a',
+    mix: 'media/31/mix.m4a',
+  },
+  audio_tiers: {
+    lead: {
+      original: 'media/31/lead.m4a',
+      playback: 'media/31/lead.playback.opus',
+      ultra_solo: 'media/31/lead.solo.opus',
+    },
+    mix: {
+      original: 'media/31/mix.m4a',
+      playback: 'media/31/mix.playback.opus',
+    },
+  },
+  audio_layout_summary: { parts: 'part_right', ultra_low: 'mono_solos' },
+  audio_tiers_summary: { ultra_policy: 'mono_solos', mix_only: false },
+}
+
 describe('resolvePathUrl', () => {
   beforeEach(async () => {
-    const { sheetsPack } = await import('./libraryPack')
+    const { sheetsPack, audioPack } = await import('./libraryPack')
     await sheetsPack.clear()
+    await audioPack.clear()
   })
 
   it('returns network URL when nothing cached', async () => {
@@ -44,15 +95,19 @@ describe('resolvePathUrl', () => {
     const r = await resolvePathUrl('sheets/1/pages/page-01.webp')
     expect(r?.kind).toBe('network')
     expect(r?.url).toBe(mediaUrl('sheets/1/pages/page-01.webp'))
+    if (r?.kind === 'network') expect(r.path).toBe('sheets/1/pages/page-01.webp')
   })
 
   it('returns pack blob when cached', async () => {
     const { sheetsPack } = await import('./libraryPack')
     const { resolvePathUrl } = await import('./resolveMedia')
     const url = mediaUrl('sheets/1/pages/page-01.webp')
-    await sheetsPack.put(url, new Response(new Uint8Array([1, 2, 3]), {
-      headers: { 'Content-Type': 'image/webp' },
-    }))
+    await sheetsPack.put(
+      url,
+      new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'Content-Type': 'image/webp' },
+      }),
+    )
     const r = await resolvePathUrl('sheets/1/pages/page-01.webp', { offlineOnly: true })
     expect(r?.kind).toBe('blob')
     expect(r?.source).toBe('pack')
@@ -63,5 +118,310 @@ describe('resolvePathUrl', () => {
     const { resolvePathUrl } = await import('./resolveMedia')
     const r = await resolvePathUrl('sheets/9/pages/page-01.webp', { offlineOnly: true })
     expect(r).toBeNull()
+  })
+})
+
+describe('resolveAudioPart', () => {
+  beforeEach(async () => {
+    vi.stubGlobal('AudioContext', class MockAudioContext {} as typeof AudioContext)
+    const { sheetsPack, audioPack } = await import('./libraryPack')
+    const { clearLearningStereoCache } = await import('./resolveMedia')
+    await sheetsPack.clear()
+    await audioPack.clear()
+    clearLearningStereoCache()
+    vi.clearAllMocks()
+  })
+
+  it('online prefers playback network when nothing cached', async () => {
+    const { resolveAudioPart } = await import('./resolveMedia')
+    const r = await resolveAudioPart(sampleDetail, 'lead')
+    expect(r?.kind).toBe('network')
+    if (r?.kind === 'network') {
+      expect(r.path).toBe('media/31/lead.playback.opus')
+      expect(r.tier).toBe('playback')
+    }
+  })
+
+  it('uses starred original before network', async () => {
+    const { resolveAudioPart } = await import('./resolveMedia')
+    const r = await resolveAudioPart(sampleDetail, 'lead', {
+      starred: {
+        tagId: 31,
+        starredAt: 'x',
+        summary: {
+          id: 31,
+          title: 'T',
+          arranger: null,
+          key: null,
+          rating: null,
+          type: null,
+          collection: null,
+          hasSheet: false,
+          audioParts: ['lead'],
+          sheet: null,
+        },
+        detail: sampleDetail,
+        offlineMedia: true,
+        audioBlobs: {
+          lead: {
+            path: 'media/31/lead.m4a',
+            mime: 'audio/mp4',
+            data: new Uint8Array([1, 2, 3]).buffer,
+            quality: 'original',
+          },
+        },
+      },
+    })
+    expect(r?.kind).toBe('blob')
+    expect(r?.source).toBe('star')
+    if (r?.kind === 'blob') {
+      expect(r.tier).toBe('original')
+      URL.revokeObjectURL(r.url)
+    }
+  })
+
+  it('offline uses ultra solo from pack', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { resolveAudioPart } = await import('./resolveMedia')
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([9, 9, 9]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    const r = await resolveAudioPart(sampleDetail, 'lead', { offlineOnly: true })
+    expect(r?.kind).toBe('blob')
+    expect(r?.source).toBe('pack')
+    if (r?.kind === 'blob') {
+      expect(r.tier).toBe('ultra')
+      URL.revokeObjectURL(r.url)
+    }
+  })
+
+  it('offline reconstructs mix from cached voice solos', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { resolveAudioPart } = await import('./resolveMedia')
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        ...sampleDetail.audio,
+        tenor: 'media/31/tenor.m4a',
+      },
+      audio_layout_summary: { parts: 'mono', ultra_low: 'mono_downmix' },
+      audio_tiers_summary: { ultra_policy: 'mono_downmix', mix_only: false },
+      audio_tiers: {
+        ...sampleDetail.audio_tiers!,
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        lead: {
+          original: 'media/31/lead.m4a',
+          playback: 'media/31/lead.playback.opus',
+          ultra_downmix: 'media/31/lead.downmix.opus',
+          ultra_solo: 'media/31/lead.solo.opus',
+        },
+      },
+    }
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    await audioPack.put(
+      mediaUrl('media/31/tenor.solo.opus'),
+      new Response(new Uint8Array([5, 6, 7, 8]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    const r = await resolveAudioPart(detail, 'mix', { offlineOnly: true })
+    expect(r?.kind).toBe('blob')
+    expect(r?.source).toBe('reconstruct')
+    if (r?.kind === 'blob') expect(r.url).toBe('blob:reconstructed-mix')
+  })
+
+  it('offline falls back to dual-mono when accompaniment stems are incomplete', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { buildPartLearningStereoObjectUrl, monoSoloToStereoObjectUrl } = await import(
+      '../audio/partLeftReconstruct'
+    )
+    const { resolveAudioPart } = await import('./resolveMedia')
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        ...sampleDetail.audio,
+        tenor: 'media/31/tenor.m4a',
+        bass: 'media/31/bass.m4a',
+        bari: 'media/31/bari.m4a',
+      },
+      audio_layout_summary: { parts: 'part_left', ultra_low: 'mono_solos' },
+      audio_tiers: {
+        ...sampleDetail.audio_tiers!,
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        bass: {
+          original: 'media/31/bass.m4a',
+          playback: 'media/31/bass.playback.opus',
+          ultra_solo: 'media/31/bass.solo.opus',
+        },
+        bari: {
+          original: 'media/31/bari.m4a',
+          playback: 'media/31/bari.playback.opus',
+          ultra_solo: 'media/31/bari.solo.opus',
+        },
+      },
+    }
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    await audioPack.put(
+      mediaUrl('media/31/tenor.solo.opus'),
+      new Response(new Uint8Array([5, 6, 7, 8]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    // bass and bari missing — strict policy should not reconstruct learning stereo
+    const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
+    expect(r?.kind).toBe('blob')
+    expect(buildPartLearningStereoObjectUrl).not.toHaveBeenCalled()
+    expect(monoSoloToStereoObjectUrl).toHaveBeenCalled()
+    if (r?.kind === 'blob') URL.revokeObjectURL(r.url)
+  })
+
+  it('offline reconstructs learning stereo for part when accompaniment stems cached', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { buildPartLearningStereoObjectUrl } = await import('../audio/partLeftReconstruct')
+    const { resolveAudioPart, clearLearningStereoCache } = await import('./resolveMedia')
+    clearLearningStereoCache()
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        ...sampleDetail.audio,
+        tenor: 'media/31/tenor.m4a',
+        bass: 'media/31/bass.m4a',
+      },
+      audio_layout_summary: { parts: 'part_left', ultra_low: 'mono_solos' },
+      audio_tiers: {
+        ...sampleDetail.audio_tiers!,
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        bass: {
+          original: 'media/31/bass.m4a',
+          playback: 'media/31/bass.playback.opus',
+          ultra_solo: 'media/31/bass.solo.opus',
+        },
+      },
+    }
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([1, 2, 3, 4]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    await audioPack.put(
+      mediaUrl('media/31/tenor.solo.opus'),
+      new Response(new Uint8Array([5, 6, 7, 8]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    await audioPack.put(
+      mediaUrl('media/31/bass.solo.opus'),
+      new Response(new Uint8Array([9, 10, 11, 12]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    const r = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
+    const { monoSoloToStereoObjectUrl } = await import('../audio/partLeftReconstruct')
+    expect(r?.kind).toBe('blob')
+    expect(buildPartLearningStereoObjectUrl).toHaveBeenCalled()
+    expect(monoSoloToStereoObjectUrl).not.toHaveBeenCalled()
+    if (r?.kind === 'blob') {
+      expect(r.url).toBe('blob:reconstructed-learning')
+      URL.revokeObjectURL(r.url)
+    }
+
+    // Session cache: second resolve should not rebuild
+    vi.mocked(buildPartLearningStereoObjectUrl).mockClear()
+    const r2 = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
+    expect(buildPartLearningStereoObjectUrl).not.toHaveBeenCalled()
+    expect(r2?.kind).toBe('blob')
+    if (r2?.kind === 'blob') expect(r2.url).toBe('blob:reconstructed-learning')
+  })
+
+  it('probeAvailableAudioParts hides offline mix without cached stems', async () => {
+    const { probeAvailableAudioParts } = await import('./resolveMedia')
+    const parts = await probeAvailableAudioParts(sampleDetail, { offlineOnly: true })
+    expect(parts).toEqual([])
+  })
+
+  it('probeAvailableAudioParts includes mix when two solos are cached', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { probeAvailableAudioParts } = await import('./resolveMedia')
+    await audioPack.put(
+      mediaUrl('media/31/lead.solo.opus'),
+      new Response(new Uint8Array([1]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    await audioPack.put(
+      mediaUrl('media/31/tenor.solo.opus'),
+      new Response(new Uint8Array([2]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: { ...sampleDetail.audio, tenor: 'media/31/tenor.m4a' },
+      audio_tiers: {
+        ...sampleDetail.audio_tiers!,
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          playback: 'media/31/tenor.playback.opus',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+      },
+    }
+    const parts = await probeAvailableAudioParts(detail, { offlineOnly: true })
+    expect(parts).toContain('lead')
+    expect(parts).toContain('tenor')
+    expect(parts).toContain('mix')
+  })
+
+  it('probeAvailableAudioParts finds starred blobs with mismatched part casing', async () => {
+    const { probeAvailableAudioParts } = await import('./resolveMedia')
+    const parts = await probeAvailableAudioParts(sampleDetail, {
+      offlineOnly: true,
+      starred: {
+        tagId: 31,
+        starredAt: '2026-01-01T00:00:00.000Z',
+        summary: {
+          id: 31,
+          title: 'T',
+          arranger: null,
+          key: null,
+          rating: null,
+          type: null,
+          collection: null,
+          hasSheet: false,
+          audioParts: ['Lead'],
+          sheet: null,
+        },
+        detail: sampleDetail,
+        audioBlobs: {
+          Lead: { path: 'media/31/lead.m4a', mime: 'audio/mp4', data: new ArrayBuffer(4) },
+        },
+        offlineMedia: true,
+      },
+    })
+    expect(parts.map((p) => p.toLowerCase())).toContain('lead')
+  })
+
+  it('probeAvailableAudioParts finds original-only pack hits offline', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { probeAvailableAudioParts } = await import('./resolveMedia')
+    await audioPack.put(
+      mediaUrl('media/31/lead.m4a'),
+      new Response(new Uint8Array([3]), { headers: { 'Content-Type': 'audio/mp4' } }),
+    )
+    const originalsOnly: TagDetail = {
+      tag_id: 31,
+      title: 'T',
+      arranger: null,
+      key: null,
+      audio: { lead: 'media/31/lead.m4a', mix: 'media/31/mix.m4a' },
+    }
+    const parts = await probeAvailableAudioParts(originalsOnly, { offlineOnly: true })
+    expect(parts).toContain('lead')
   })
 })

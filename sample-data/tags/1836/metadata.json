@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "A Lifetimes Not Too Long to Live as Friends (Db Major) - Paul Paddock - 1836",
-  "sheet": "sheets/1836/sheet.png",
+  "sheet": "sheets/1836/A Lifetimes Not Too Long to Live as Friends (Db Major) - Paul Paddock - Sheet.png",
   "audio": {
-    "lead": "media/1836/lead.mp4",
-    "tenor": "media/1836/tenor.mp4",
-    "bari": "media/1836/bari.mp4",
-    "bass": "media/1836/bass.mp4",
-    "mix": "media/1836/mix.mp4"
+    "lead": "media/1836/lead.m4a",
+    "tenor": "media/1836/tenor.m4a",
+    "bari": "media/1836/bari.m4a",
+    "bass": "media/1836/bass.m4a",
+    "mix": "media/1836/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/1836/lead.m4a",
+      "playback": "media/1836/lead.playback.opus",
+      "ultra_downmix": "media/1836/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/1836/tenor.m4a",
+      "playback": "media/1836/tenor.playback.opus",
+      "ultra_downmix": "media/1836/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/1836/bari.m4a",
+      "playback": "media/1836/bari.playback.opus",
+      "ultra_downmix": "media/1836/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/1836/bass.m4a",
+      "playback": "media/1836/bass.playback.opus",
+      "ultra_downmix": "media/1836/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/1836/mix.m4a",
+      "playback": "media/1836/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/1836/A Lifetimes Not Too Long to Live as Friends (Db Major) - Paul Paddock - Sheet.png",
+    "sheets/1836/A Lifetimes Not Too Long to Live as Friends (Db Major) - Paul Paddock - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/1836/preview.webp",
   "sheet_pages": [
-    "sheets/1836/pages/page-01.webp"
-  ]
+    "sheets/1836/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:45:30.683309+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:45.059999+00:00"
+  }
 }

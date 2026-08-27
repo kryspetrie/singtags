@@ -1,20 +1,42 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import TagView from '../views/TagView.vue'
-import PitchPipeView from '../views/PitchPipeView.vue'
-import QueueView from '../views/QueueView.vue'
-import StarredView from '../views/StarredView.vue'
-import SettingsView from '../views/SettingsView.vue'
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: HomeView },
-    { path: '/tag/:id', name: 'tag', component: TagView, props: true },
-    { path: '/starred', name: 'starred', component: StarredView },
-    { path: '/pitch-pipe', name: 'pitch-pipe', component: PitchPipeView },
-    { path: '/queue', name: 'queue', component: QueueView },
-    { path: '/settings', name: 'settings', component: SettingsView },
+    {
+      path: '/tag/:id',
+      name: 'tag',
+      component: TagView,
+      props: true,
+    },
+    {
+      path: '/recent',
+      name: 'recent',
+      component: () => import('../views/RecentView.vue'),
+    },
+    {
+      path: '/starred',
+      name: 'starred',
+      component: () => import('../views/StarredView.vue'),
+    },
+    {
+      path: '/pitch-pipe',
+      name: 'pitch-pipe',
+      component: () => import('../views/PitchPipeView.vue'),
+    },
+    {
+      path: '/queue',
+      name: 'queue',
+      component: () => import('../views/QueueView.vue'),
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+    },
   ],
   scrollBehavior(to, from, saved) {
     if (saved) return saved

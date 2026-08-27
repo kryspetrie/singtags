@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Am I Wasting My Time (Bb Major) - 3648",
-  "sheet": "sheets/3648/sheet.jpg",
+  "sheet": "sheets/3648/Am I Wasting My Time (Bb Major) - Sheet.jpg",
   "audio": {
-    "lead": "media/3648/lead.mp4",
-    "tenor": "media/3648/tenor.mp4",
-    "bari": "media/3648/bari.mp4",
-    "bass": "media/3648/bass.mp4",
-    "mix": "media/3648/mix.mp4"
+    "lead": "media/3648/lead.m4a",
+    "tenor": "media/3648/tenor.m4a",
+    "bari": "media/3648/bari.m4a",
+    "bass": "media/3648/bass.m4a",
+    "mix": "media/3648/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3648/lead.m4a",
+      "playback": "media/3648/lead.playback.opus",
+      "ultra_solo": "media/3648/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/3648/tenor.m4a",
+      "playback": "media/3648/tenor.playback.opus",
+      "ultra_solo": "media/3648/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/3648/bari.m4a",
+      "playback": "media/3648/bari.playback.opus",
+      "ultra_solo": "media/3648/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/3648/bass.m4a",
+      "playback": "media/3648/bass.playback.opus",
+      "ultra_solo": "media/3648/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/3648/mix.m4a",
+      "playback": "media/3648/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3648/Am I Wasting My Time (Bb Major) - Sheet.jpg",
+    "sheets/3648/Am I Wasting My Time (Bb Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3648/preview.webp",
   "sheet_pages": [
-    "sheets/3648/pages/page-01.webp"
-  ]
+    "sheets/3648/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_right",
+    "mix": "near_mono",
+    "ultra_low": "mono_solos",
+    "solo_side": "right",
+    "analyzed_at": "2026-08-25T19:47:02.486080+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.4256,
+      "correlation": 0.0066,
+      "side_mid": 0.9954
+    },
+    "tenor": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": -0.1617,
+      "correlation": 0.0245,
+      "side_mid": 0.9973
+    },
+    "bari": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.468,
+      "correlation": 0.0125,
+      "side_mid": 1.001
+    },
+    "bass": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.3535,
+      "correlation": 0.0167,
+      "side_mid": 0.9965
+    },
+    "mix": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0391,
+      "correlation": 0.895,
+      "side_mid": 0.24
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:41.238757+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:37.531128+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.588,
+      "zero_corr": 0.588,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:38.793501+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.855,
+      "zero_corr": 0.855,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:40.031207+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.782,
+      "zero_corr": 0.782,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:41.238727+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:01.766229+00:00"
+  }
 }

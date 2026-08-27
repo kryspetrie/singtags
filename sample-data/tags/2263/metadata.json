@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Be Mine (C Major) - Hannah Braham - 2263",
-  "sheet": "sheets/2263/sheet.png",
+  "sheet": "sheets/2263/Be Mine (C Major) - Hannah Braham - Sheet.png",
   "audio": {
-    "lead": "media/2263/lead.mp4",
-    "tenor": "media/2263/tenor.mp4",
-    "bari": "media/2263/bari.mp4",
-    "bass": "media/2263/bass.mp4",
-    "mix": "media/2263/mix.mp4"
+    "lead": "media/2263/lead.m4a",
+    "tenor": "media/2263/tenor.m4a",
+    "bari": "media/2263/bari.m4a",
+    "bass": "media/2263/bass.m4a",
+    "mix": "media/2263/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2263/lead.m4a",
+      "playback": "media/2263/lead.playback.opus",
+      "ultra_downmix": "media/2263/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/2263/tenor.m4a",
+      "playback": "media/2263/tenor.playback.opus",
+      "ultra_downmix": "media/2263/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/2263/bari.m4a",
+      "playback": "media/2263/bari.playback.opus",
+      "ultra_downmix": "media/2263/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/2263/bass.m4a",
+      "playback": "media/2263/bass.playback.opus",
+      "ultra_downmix": "media/2263/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/2263/mix.m4a",
+      "playback": "media/2263/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2263/Be Mine (C Major) - Hannah Braham - Sheet.png",
+    "sheets/2263/Be Mine (C Major) - Hannah Braham - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2263/preview.webp",
   "sheet_pages": [
-    "sheets/2263/pages/page-01.webp"
-  ]
+    "sheets/2263/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:48:28.942680+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0005,
+      "correlation": 0.9933,
+      "side_mid": 0.0577
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0042,
+      "correlation": 0.996,
+      "side_mid": 0.0447
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0026,
+      "correlation": 0.9972,
+      "side_mid": 0.0383
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.001,
+      "correlation": 0.9966,
+      "side_mid": 0.0429
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0011,
+      "correlation": 0.9952,
+      "side_mid": 0.0481
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:08:34.887223+00:00"
+  }
 }

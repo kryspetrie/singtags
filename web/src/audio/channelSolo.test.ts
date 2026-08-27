@@ -48,7 +48,7 @@ describe('channelSolo', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new ArrayBuffer(8), { status: 200 })))
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:wav')
 
-    const url = await soloChannelToObjectUrl('/a.mp4', 'left')
+    const url = await soloChannelToObjectUrl('/a.m4a', 'left')
     expect(url).toBe('blob:wav')
     expect(ctx.createBuffer).toHaveBeenCalled()
     expect(mono.copyToChannel).toHaveBeenCalled()

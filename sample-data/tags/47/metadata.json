@@ -17,15 +17,160 @@
   "lyrics_source": "manual",
   "lyrics_finalized": null,
   "source_folder": "Annie Doesnt Live Here Anymore (G Major) - Burt Szabo - 47",
-  "sheet": "sheets/47/sheet.gif",
+  "sheet": "sheets/47/Annie Doesnt Live Here Anymore (G Major) - Burt Szabo - Sheet.gif",
   "audio": {
-    "lead": "media/47/lead.mp4",
-    "tenor": "media/47/tenor.mp4",
-    "bari": "media/47/bari.mp4",
-    "bass": "media/47/bass.mp4",
-    "mix": "media/47/mix.mp4"
+    "lead": "media/47/lead.m4a",
+    "tenor": "media/47/tenor.m4a",
+    "bari": "media/47/bari.m4a",
+    "bass": "media/47/bass.m4a",
+    "mix": "media/47/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/47/lead.m4a",
+      "playback": "media/47/lead.playback.opus",
+      "ultra_solo": "media/47/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/47/tenor.m4a",
+      "playback": "media/47/tenor.playback.opus",
+      "ultra_solo": "media/47/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/47/bari.m4a",
+      "playback": "media/47/bari.playback.opus",
+      "ultra_solo": "media/47/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/47/bass.m4a",
+      "playback": "media/47/bass.playback.opus",
+      "ultra_solo": "media/47/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/47/mix.m4a",
+      "playback": "media/47/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/47/Annie Doesnt Live Here Anymore (G Major) - Burt Szabo - Sheet.gif",
+    "sheets/47/Annie Doesnt Live Here Anymore (G Major) - Burt Szabo - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/47/preview.webp",
   "sheet_pages": [
-    "sheets/47/pages/page-01.webp"
-  ]
+    "sheets/47/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:47:22.965854+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.3516,
+      "correlation": -0.0327,
+      "side_mid": 1.0028
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.1669,
+      "correlation": 0.0322,
+      "side_mid": 0.9838
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.3315,
+      "correlation": -0.0034,
+      "side_mid": 0.9891
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.0593,
+      "correlation": 0.04,
+      "side_mid": 0.979
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0269,
+      "correlation": 0.2323,
+      "side_mid": 0.7916
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:58.245540+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:54.112591+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.733,
+      "zero_corr": 0.733,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:55.476718+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.518,
+      "zero_corr": 0.518,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:56.857518+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.708,
+      "zero_corr": 0.708,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:58.245493+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:39.600107+00:00"
+  }
 }

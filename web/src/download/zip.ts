@@ -1,7 +1,7 @@
 import { zipSync } from 'fflate'
 import type { PartId } from '../types/tag'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
-import { IDENTITY_TRANSFORM } from '../types/audio'
+import { encodeQualityForDownload, IDENTITY_TRANSFORM, normalizeDownloadFormat } from '../types/audio'
 import { mediaUrl } from '../lib/mediaUrl'
 import { downloadFilename, prepareDownloadBytes } from './transform'
 
@@ -97,14 +97,14 @@ export async function zipQueueTracks(
   for (const t of tracks) {
     if (opts.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     const raw = await fetchBytes(sampleUrl(t.path))
-    const format = t.format ?? opts.defaultFormat ?? 'mp4'
+    const format = normalizeDownloadFormat(t.format ?? opts.defaultFormat)
     const transform = t.transform ?? opts.defaultTransform ?? IDENTITY_TRANSFORM
     const data = await prepareDownloadBytes({
       input: raw,
       format,
       transform,
       signal: opts.signal,
-      encodeQuality: opts.encodeQuality ?? 'original',
+      encodeQuality: encodeQualityForDownload(format),
     })
     const fileName = downloadFilename(t.part, format, transform)
     files.push({

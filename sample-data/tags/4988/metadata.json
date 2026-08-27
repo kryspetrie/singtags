@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "After Youve Gone (B Major) - Robin Park and Ren-C Tamayo - 4988",
-  "sheet": "sheets/4988/sheet.pdf",
+  "sheet": "sheets/4988/After Youve Gone (B Major) - Robin Park and Ren-C Tamayo - Sheet.pdf",
   "audio": {
-    "lead": "media/4988/lead.mp4",
-    "tenor": "media/4988/tenor.mp4",
-    "bari": "media/4988/bari.mp4",
-    "bass": "media/4988/bass.mp4",
-    "mix": "media/4988/mix.mp4"
+    "lead": "media/4988/lead.m4a",
+    "tenor": "media/4988/tenor.m4a",
+    "bari": "media/4988/bari.m4a",
+    "bass": "media/4988/bass.m4a",
+    "mix": "media/4988/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/4988/lead.m4a",
+      "playback": "media/4988/lead.playback.opus",
+      "ultra_downmix": "media/4988/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/4988/tenor.m4a",
+      "playback": "media/4988/tenor.playback.opus",
+      "ultra_downmix": "media/4988/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/4988/bari.m4a",
+      "playback": "media/4988/bari.playback.opus",
+      "ultra_downmix": "media/4988/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/4988/bass.m4a",
+      "playback": "media/4988/bass.playback.opus",
+      "ultra_downmix": "media/4988/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/4988/mix.m4a",
+      "playback": "media/4988/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/4988/After Youve Gone (B Major) - Robin Park and Ren-C Tamayo - Sheet.pdf",
+    "sheets/4988/After Youve Gone (B Major) - Robin Park and Ren-C Tamayo - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/4988/preview.webp",
   "sheet_pages": [
-    "sheets/4988/pages/page-01.webp"
-  ]
+    "sheets/4988/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "part_right",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:21.582595+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 1,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0212,
+      "correlation": 0.8032,
+      "side_mid": 0.3305
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:48.321689+00:00"
+  }
 }

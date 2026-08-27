@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Be My Love (C Major) - Walter Latzko - 7036",
-  "sheet": "sheets/7036/sheet.pdf",
+  "sheet": "sheets/7036/Be My Love (C Major) - Walter Latzko - Sheet.pdf",
   "audio": {
-    "mix": "media/7036/mix.mp4"
+    "mix": "media/7036/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/7036/mix.m4a",
+      "playback": "media/7036/mix.playback.opus",
+      "ultra_mix": "media/7036/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/7036/Be My Love (C Major) - Walter Latzko - Sheet.pdf",
+    "sheets/7036/Be My Love (C Major) - Walter Latzko - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/7036/preview.webp",
   "sheet_pages": [
-    "sheets/7036/pages/page-01.webp"
-  ]
+    "sheets/7036/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "part_right",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:48:27.684884+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0353,
+      "correlation": 0.7663,
+      "side_mid": 0.3853
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:08:36.633031+00:00"
+  }
 }

@@ -31,8 +31,23 @@ export function noteToFrequency(note: string): number {
   return 440 * 2 ** ((midi - 69) / 12)
 }
 
-/** Parse writ_key / key like "Major:Ab" or "G Major" → tonic note with octave 3. */
-export function keyToTonicNote(key: string | null | undefined, octave = 3): string | null {
+/** Cents offset so concert A matches `hz` instead of A440 (rounded to nearest cent). */
+export function aHzToCents(hz: number, referenceHz = 440): number {
+  if (!(hz > 0) || !(referenceHz > 0)) return 0
+  return Math.round(1200 * Math.log2(hz / referenceHz))
+}
+
+/** Common concert-pitch presets for the pitch pipe. */
+export const PITCH_PIPE_A_TUNINGS = [
+  { hz: 440, label: 'A = 440 Hz' },
+  { hz: 432, label: 'A = 432 Hz' },
+  { hz: 444, label: 'A = 444 Hz' },
+] as const
+
+export type PitchPipeAHz = (typeof PITCH_PIPE_A_TUNINGS)[number]['hz']
+
+/** Parse writ_key / key like "Major:Ab" or "G Major" → pitch-class token (no octave). */
+function keyToTonicToken(key: string | null | undefined): string | null {
   if (!key) return null
   const colon = key.match(/^(?:Major|Minor|major|minor):([A-Ga-g][#bB♭]?)/)
   if (colon) {
@@ -40,19 +55,34 @@ export function keyToTonicNote(key: string | null | undefined, octave = 3): stri
     if (n.length === 2 && n[1] === 'b') n = n[0] + 'b'
     const sharpFlat = n.length > 1 ? n.slice(1).toUpperCase().replace('B', 'b') : ''
     const letter = n[0].toUpperCase()
-    const token = sharpFlat === 'b' || sharpFlat === 'B' ? `${letter}b` : sharpFlat === '#' ? `${letter}#` : letter
-    return `${token}${octave}`
+    return sharpFlat === 'b' || sharpFlat === 'B' ? `${letter}b` : sharpFlat === '#' ? `${letter}#` : letter
   }
   const spaced = key.match(/^([A-Ga-g][#bB♭]?)\s*(Major|Minor)?/i)
   if (spaced) {
     let n = spaced[1].replace('♭', 'b')
     const letter = n[0].toUpperCase()
     const acc = n.slice(1)
-    const token = acc.toLowerCase().startsWith('b') ? `${letter}b` : acc.includes('#') ? `${letter}#` : letter
-    return `${token}${octave}`
+    return acc.toLowerCase().startsWith('b') ? `${letter}b` : acc.includes('#') ? `${letter}#` : letter
   }
   return null
 }
+
+function noteNameToMidi(note: string): number {
+  const m = note.trim().toUpperCase().match(/^([A-G])([#B]?)(-?\d+)$/)
+  if (!m) throw new Error(`Invalid note: ${note}`)
+  const name = m[2] ? `${m[1]}${m[2]}` : m[1]!
+  const octave = Number(m[3])
+  const offset = NOTE_OFFSETS[name]
+  if (offset == null) throw new Error(`Invalid note: ${note}`)
+  return (octave + 1) * 12 + offset
+}
+
+/** Pay-the-key tonic must fall in this inclusive range (barbershop pitch pipe). */
+export const PAY_KEY_MIN_NOTE = 'E3'
+export const PAY_KEY_MAX_NOTE = 'E4'
+
+const PAY_KEY_MIN_MIDI = noteNameToMidi(PAY_KEY_MIN_NOTE)
+const PAY_KEY_MAX_MIDI = noteNameToMidi(PAY_KEY_MAX_NOTE)
 
 const SHARP_PC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
 const FLAT_PC = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
@@ -120,12 +150,53 @@ function spellPc(pc: number, preferFlats: boolean): string {
   return preferFlats ? FLAT_PC[i]! : SHARP_PC[i]!
 }
 
+/**
+ * Parse writ_key / key → tonic note in E3–E4 (inclusive) for pay-the-key / pitch hold.
+ */
+export function keyToTonicNote(key: string | null | undefined): string | null {
+  const parsed = parseKey(key)
+  if (parsed) {
+    const root = spellPc(parsed.pc, parsed.preferFlats)
+    for (const oct of [3, 4]) {
+      const candidate = `${root}${oct}`
+      try {
+        const midi = noteNameToMidi(candidate)
+        if (midi >= PAY_KEY_MIN_MIDI && midi <= PAY_KEY_MAX_MIDI) return candidate
+      } catch {
+        /* try next octave */
+      }
+    }
+    return null
+  }
+  const token = keyToTonicToken(key)
+  if (!token) return null
+  for (const oct of [3, 4]) {
+    const candidate = `${token}${oct}`
+    try {
+      const midi = noteNameToMidi(candidate)
+      if (midi >= PAY_KEY_MIN_MIDI && midi <= PAY_KEY_MAX_MIDI) return candidate
+    } catch {
+      /* try next octave */
+    }
+  }
+  return null
+}
+
 function formatParsed(p: ParsedKey): string {
   const root = spellPc(p.pc, p.preferFlats)
   if (p.style === 'colon' && p.quality) return `${p.quality}:${root}`
   if (p.style === 'spaced' && p.quality) return `${root} ${p.quality}`
   if (p.quality) return `${root} ${p.quality}`
   return root
+}
+
+export const MIN_PITCH_SEMITONES = -12
+export const MAX_PITCH_SEMITONES = 12
+
+/** Clamp UI pitch shift to ± one octave. */
+export function clampPitchSemitones(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(MIN_PITCH_SEMITONES, Math.min(MAX_PITCH_SEMITONES, Math.round(n)))
 }
 
 /** Transpose a key label by whole semitones; preserves Major/Minor wording style. */
@@ -273,3 +344,117 @@ export const CHROMATIC_NOTES: string[] = (() => {
   }
   return out
 })()
+
+function chromaticNotesBetween(from: string, to: string): string[] {
+  const start = noteNameToMidi(from)
+  const end = noteNameToMidi(to)
+  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
+  const out: string[] = []
+  for (let midi = start; midi <= end; midi++) {
+    const oct = Math.floor(midi / 12) - 1
+    out.push(`${names[midi % 12]!}${oct}`)
+  }
+  return out
+}
+
+/** Pitch-pipe page note sets (chromatic, inclusive). */
+export type PitchPipeRange = 'f3-f4' | 'e3-e4'
+
+export const PITCH_PIPE_RANGE_OPTIONS: Array<{ value: PitchPipeRange; label: string }> = [
+  { value: 'f3-f4', label: 'F3 – F4' },
+  { value: 'e3-e4', label: 'E3 – E4' },
+]
+
+/** Chromatic notes for the pitch-pipe grid, low → high. */
+export const PITCH_PIPE_NOTES: Record<PitchPipeRange, readonly string[]> = {
+  'f3-f4': chromaticNotesBetween('F3', 'F4'),
+  'e3-e4': chromaticNotesBetween('E3', 'E4'),
+}
+
+export function pitchPipeNotes(range: PitchPipeRange): string[] {
+  return [...PITCH_PIPE_NOTES[range]]
+}
+
+export const PITCH_PIPE_GRID_COLS = 4
+
+const SHARP_TO_FLAT: Record<string, string> = {
+  'C#': 'Db',
+  'D#': 'Eb',
+  'F#': 'Gb',
+  'G#': 'Ab',
+  'A#': 'Bb',
+}
+
+const FLAT_TO_SHARP: Record<string, string> = {
+  Db: 'C#',
+  Eb: 'D#',
+  Gb: 'F#',
+  Ab: 'G#',
+  Bb: 'A#',
+}
+
+/** Pitch-class hue for natural keys on the pitch-pipe grid. */
+export const PITCH_PIPE_NATURAL_COLORS: Record<string, string> = {
+  C: '#2563eb',
+  D: '#16a34a',
+  E: '#ca8a04',
+  F: '#ea580c',
+  G: '#dc2626',
+  A: '#9333ea',
+  B: '#0891b2',
+}
+
+export type PitchPipeDisplay = {
+  note: string
+  sharp: string | null
+  flat: string | null
+  octave: string
+  /** Black-key / enharmonic pair (shows both spellings). */
+  isBlack: boolean
+  /** Letter name for color coding (C…B). */
+  pitchClass: string
+}
+
+function pitchClassToken(pitch: string): string {
+  const m = pitch.match(/^([A-G])/)
+  return m?.[1]?.toUpperCase() ?? pitch[0]?.toUpperCase() ?? 'C'
+}
+
+/** Pitch-pipe label — enharmonics show sharp and flat spellings. */
+export function pitchPipeDisplay(note: string): PitchPipeDisplay {
+  const m = note.match(/^([A-G](?:#|b)?)(\d+)$/i)
+  if (!m) {
+    return { note, sharp: null, flat: null, octave: '', isBlack: false, pitchClass: 'C' }
+  }
+  const pitch = m[1]!
+  const octave = m[2]!
+  const pitchClass = pitchClassToken(pitch)
+  if (pitch.includes('#')) {
+    return {
+      note,
+      sharp: pitch,
+      flat: SHARP_TO_FLAT[pitch] ?? null,
+      octave,
+      isBlack: true,
+      pitchClass,
+    }
+  }
+  if (/b/i.test(pitch.slice(1))) {
+    const flat = pitch[0]!.toUpperCase() + 'b'
+    return {
+      note,
+      sharp: FLAT_TO_SHARP[flat] ?? null,
+      flat,
+      octave,
+      isBlack: true,
+      pitchClass,
+    }
+  }
+  return { note, sharp: pitch, flat: null, octave, isBlack: false, pitchClass }
+}
+
+export function pitchPipeAriaLabel(note: string): string {
+  const d = pitchPipeDisplay(note)
+  if (d.isBlack && d.sharp && d.flat) return `Play ${d.sharp}${d.octave} (${d.flat}${d.octave})`
+  return `Play ${note}`
+}

@@ -30,6 +30,7 @@ vi.mock('mediabunny', () => ({
     return bufferTarget
   }),
   Mp4OutputFormat: vi.fn(),
+  OggOutputFormat: vi.fn(),
   AudioBufferSource: vi.fn(function AudioBufferSource() {
     return { add: trackAdd, close: trackClose }
   }),
@@ -78,18 +79,31 @@ describe('encode', () => {
     )
   })
 
-  it('encodeAudioBufferToMp4 uses Mediabunny AAC path', async () => {
-    const { encodeAudioBufferToMp4 } = await import('./encode')
+  it('encodeAudioBufferToM4a uses Mediabunny AAC path', async () => {
+    const { encodeAudioBufferToM4a } = await import('./encode')
     const buffer = {
       numberOfChannels: 2,
       length: 4,
       sampleRate: 44100,
       getChannelData: (ch: number) => new Float32Array([0, 0.1, -0.1, ch]),
     } as unknown as AudioBuffer
-    const out = await encodeAudioBufferToMp4(buffer, { quality: 'compact' })
+    const out = await encodeAudioBufferToM4a(buffer, { quality: 'compact' })
     expect(out.byteLength).toBe(8)
     expect(trackAdd).toHaveBeenCalledWith(buffer)
     expect(outputFinalize).toHaveBeenCalled()
+  })
+
+  it('encodeAudioBufferToOggOpus uses Mediabunny Opus path', async () => {
+    const { encodeAudioBufferToOggOpus } = await import('./encode')
+    const buffer = {
+      numberOfChannels: 2,
+      length: 4,
+      sampleRate: 44100,
+      getChannelData: (ch: number) => new Float32Array([0, 0.1, -0.1, ch]),
+    } as unknown as AudioBuffer
+    const out = await encodeAudioBufferToOggOpus(buffer, { quality: 'compact' })
+    expect(out.byteLength).toBe(8)
+    expect(trackAdd).toHaveBeenCalledWith(buffer)
   })
 
   it('encodeDecodedBytes decodes then encodes', async () => {

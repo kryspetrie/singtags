@@ -7,18 +7,22 @@ import SearchChips from './SearchChips.vue'
 import { EMPTY_FILTERS } from '../search/filters'
 
 const base = {
+  open: true,
   filters: { ...EMPTY_FILTERS },
   keys: ['C', 'G', 'Bb'],
   arrangers: ['Paul', 'Other Arranger', 'Zoe'],
   types: ['Barbershop', 'Religious'],
   collections: ['Classic', 'New'],
-  lyricsLoaded: true,
 }
 
 function chip(w: ReturnType<typeof mount>, text: string | RegExp) {
   return w.findAll('button.chip').find((b) =>
     typeof text === 'string' ? b.text().includes(text) : text.test(b.text()),
   )!
+}
+
+async function openFilters(w: ReturnType<typeof mount>): Promise<void> {
+  if (!w.props('open')) await w.setProps({ open: true })
 }
 
 function bodyBtn(text: string | RegExp) {
@@ -28,28 +32,24 @@ function bodyBtn(text: string | RegExp) {
 }
 
 describe('SearchChips', () => {
-  it('emits patch for full text toggle', async () => {
-    const wrapper = mount(SearchChips, { props: { ...base, types: [], collections: [] } })
-    await wrapper.get('button[aria-pressed]').trigger('click')
-    expect(wrapper.emitted('patch')?.[0]?.[0]).toEqual({ fullText: true })
-  })
-
-  it('cycles has sheet filter through on / off / any', async () => {
+  it('toggles has sheet filter on and off', async () => {
     const wrapper = mount(SearchChips, { props: base })
+    await openFilters(wrapper)
     await chip(wrapper, 'Has sheet').trigger('click')
     expect(wrapper.emitted('patch')?.[0]?.[0]).toEqual({ hasSheet: true })
     await wrapper.setProps({ filters: { ...EMPTY_FILTERS, hasSheet: true } })
     await chip(wrapper, 'Has sheet').trigger('click')
-    expect(wrapper.emitted('patch')?.at(-1)?.[0]).toEqual({ hasSheet: false })
-    await wrapper.setProps({ filters: { ...EMPTY_FILTERS, hasSheet: false } })
-    await chip(wrapper, 'No sheet').trigger('click')
     expect(wrapper.emitted('patch')?.at(-1)?.[0]).toEqual({ hasSheet: null })
   })
 
   it('cycles audio, opens rating sheet, and sets rating', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
+    await openFilters(w)
     await chip(w, 'Has audio').trigger('click')
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ hasAudio: true })
+    await w.setProps({ filters: { ...EMPTY_FILTERS, hasAudio: true } })
+    await chip(w, 'Has audio').trigger('click')
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ hasAudio: null })
     await chip(w, 'Min rating').trigger('click')
     await flushPromises()
     bodyBtn('★ 4+').click()
@@ -72,6 +72,7 @@ describe('SearchChips', () => {
       props: { ...base, filters: { ...EMPTY_FILTERS, keys: ['C'] } },
       attachTo: document.body,
     })
+    await openFilters(w)
     await chip(w, 'Key').trigger('click')
     await flushPromises()
     bodyBtn(/^G$/).click()
@@ -85,6 +86,7 @@ describe('SearchChips', () => {
 
   it('filters arrangers and toggles type/collection', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
+    await openFilters(w)
     await chip(w, 'Arranger').trigger('click')
     await flushPromises()
     const input = document.body.querySelector('input[aria-label="Search arrangers"]') as HTMLInputElement
@@ -109,29 +111,9 @@ describe('SearchChips', () => {
     w.unmount()
   })
 
-  it('shows FTS pending warning and blocks full text while loading', async () => {
-    const w = mount(SearchChips, {
-      props: {
-        ...base,
-        lyricsLoaded: false,
-        lyricsLoading: true,
-        filters: { ...EMPTY_FILTERS },
-      },
-    })
-    const fts = chip(w, 'Full text')
-    expect(fts.attributes('disabled')).toBeDefined()
-    await w.setProps({
-      filters: { ...EMPTY_FILTERS, fullText: true },
-      lyricsLoading: false,
-      lyricsLoaded: false,
-    })
-    expect(w.text()).toMatch(/searching titles until the lyrics index/)
-    expect(w.emitted('ensure-lyrics')).toBeTruthy()
-  })
-
   it('emits clear when filters active', async () => {
     const w = mount(SearchChips, {
-      props: { ...base, filters: { ...EMPTY_FILTERS, keys: ['C'], fullText: true } },
+      props: { ...base, filters: { ...EMPTY_FILTERS, keys: ['C'] } },
     })
     await chip(w, 'Clear').trigger('click')
     expect(w.emitted('clear')).toBeTruthy()
@@ -143,5 +125,10 @@ describe('SearchChips', () => {
     })
     await w.findAll('button.chip.sm').find((b) => b.text().includes('Paul'))!.trigger('click')
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ arrangers: [] })
+  })
+
+  it('keeps filter chips collapsed when closed', () => {
+    const w = mount(SearchChips, { props: { ...base, open: false } })
+    expect((w.find('.chip-row').element as HTMLElement).style.display).toBe('none')
   })
 })

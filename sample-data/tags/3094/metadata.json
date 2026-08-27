@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Alice Blue Gown (Eb Major) - Bob Jones - 3094",
-  "sheet": "sheets/3094/sheet.png",
+  "sheet": "sheets/3094/Alice Blue Gown (Eb Major) - Bob Jones - Sheet.png",
   "audio": {
-    "lead": "media/3094/lead.mp4",
-    "tenor": "media/3094/tenor.mp4",
-    "bari": "media/3094/bari.mp4",
-    "bass": "media/3094/bass.mp4",
-    "mix": "media/3094/mix.mp4"
+    "lead": "media/3094/lead.m4a",
+    "tenor": "media/3094/tenor.m4a",
+    "bari": "media/3094/bari.m4a",
+    "bass": "media/3094/bass.m4a",
+    "mix": "media/3094/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/3094/lead.m4a",
+      "playback": "media/3094/lead.playback.opus",
+      "ultra_stereo": "media/3094/lead.ultra.opus"
+    },
+    "tenor": {
+      "original": "media/3094/tenor.m4a",
+      "playback": "media/3094/tenor.playback.opus",
+      "ultra_stereo": "media/3094/tenor.ultra.opus"
+    },
+    "bari": {
+      "original": "media/3094/bari.m4a",
+      "playback": "media/3094/bari.playback.opus",
+      "ultra_stereo": "media/3094/bari.ultra.opus"
+    },
+    "bass": {
+      "original": "media/3094/bass.m4a",
+      "playback": "media/3094/bass.playback.opus",
+      "ultra_stereo": "media/3094/bass.ultra.opus"
+    },
+    "mix": {
+      "original": "media/3094/mix.m4a",
+      "playback": "media/3094/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/3094/Alice Blue Gown (Eb Major) - Bob Jones - Sheet.png",
+    "sheets/3094/Alice Blue Gown (Eb Major) - Bob Jones - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/3094/preview.webp",
   "sheet_pages": [
-    "sheets/3094/pages/page-01.webp"
-  ]
+    "sheets/3094/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:29.749962+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0016,
+      "correlation": 0.997,
+      "side_mid": 0.0384
+    },
+    "tenor": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.2198,
+      "correlation": 0.9483,
+      "side_mid": 0.2718
+    },
+    "bari": {
+      "kind": "stereo_other",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.1695,
+      "correlation": 0.9846,
+      "side_mid": 0.1912
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0152,
+      "correlation": 0.9901,
+      "side_mid": 0.0715
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0261,
+      "correlation": 0.9626,
+      "side_mid": 0.1392
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:48.874410+00:00"
+  }
 }

@@ -6,5 +6,9 @@ Short records of choices that should not be re-litigated without new evidence.
 | --- | --- | --- |
 | [Sheet format](sheets-format.md) | Accepted | Pre-rasterized WebP (+ original PDF); no DjVu |
 | [Offline library](offline-library.md) | Accepted / implemented | Tiered device cache; audio is the bottleneck |
+| [Audio storage & cache](audio-storage-cache.md) | Accepted / implemented | S3 tiers + lazy resolve + published Opus storage |
+| [Pitch / speed playback](../PITCH_SPEED_PLAN.md) | Accepted | Bake-first WSOLA+formant; rate-1 BufferSource; live balance/solo |
+| [Pitch / speed bake ADR](pitch-speed-bake.md) | Accepted | Selected pipeline + kill-list |
+| [Tiered audio follow-up](../TIERED_AUDIO_FOLLOWUP.md) | Done | Lazy resolve, storage-quality fixes |
 
 Related: [ARCHITECTURE.md](../ARCHITECTURE.md), [PUBLISH.md](../PUBLISH.md).

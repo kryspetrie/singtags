@@ -1,23 +1,21 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import type { CatalogFilters } from '../search/filters'
 import { arrangersByLastInitial, formatArrangerLastFirst } from '../search/browse'
 import FilterSheet from './FilterSheet.vue'
 
 const props = defineProps<{
+  open: boolean
   filters: CatalogFilters
   keys: string[]
   arrangers: string[]
   types: string[]
   collections: string[]
-  lyricsLoading?: boolean
-  lyricsLoaded?: boolean
 }>()
 
 const emit = defineEmits<{
   patch: [Partial<CatalogFilters>]
   clear: []
-  'ensure-lyrics': []
 }>()
 
 const sheet = ref<'key' | 'arranger' | 'type' | 'collection' | 'rating' | null>(null)
@@ -45,26 +43,25 @@ const filteredArrangerGroups = computed(() => {
     .filter((g) => g.names.length)
 })
 
-const ftsPending = computed(() => props.filters.fullText && !props.lyricsLoaded)
-
-watch(
-  () => props.filters.fullText,
-  (v) => {
-    if (v) emit('ensure-lyrics')
-  },
-)
-
-function toggleFullText(): void {
-  if (!props.filters.fullText && props.lyricsLoading) return
-  emit('patch', { fullText: !props.filters.fullText })
+function filtersActive(f: CatalogFilters): boolean {
+  return (
+    f.keys.length > 0 ||
+    f.arrangers.length > 0 ||
+    f.minRating != null ||
+    f.hasSheet === true ||
+    f.hasAudio === true ||
+    f.types.length > 0 ||
+    f.collections.length > 0
+  )
 }
-function cycleSheet(): void {
-  const cur = props.filters.hasSheet
-  emit('patch', { hasSheet: cur === null ? true : cur === true ? false : null })
+
+const hasActive = computed(() => filtersActive(props.filters))
+
+function toggleSheet(): void {
+  emit('patch', { hasSheet: props.filters.hasSheet === true ? null : true })
 }
-function cycleAudio(): void {
-  const cur = props.filters.hasAudio
-  emit('patch', { hasAudio: cur === null ? true : cur === true ? false : null })
+function toggleAudio(): void {
+  emit('patch', { hasAudio: props.filters.hasAudio === true ? null : true })
 }
 function setRating(n: number | null): void {
   emit('patch', { minRating: n })
@@ -101,64 +98,54 @@ function removeKey(k: string): void {
 function removeArranger(a: string): void {
   emit('patch', { arrangers: props.filters.arrangers.filter((x) => x !== a) })
 }
-
-const hasActive = computed(() => filtersActive(props.filters))
-
-function filtersActive(f: CatalogFilters): boolean {
-  return (
-    f.keys.length > 0 ||
-    f.arrangers.length > 0 ||
-    f.minRating != null ||
-    f.hasSheet != null ||
-    f.hasAudio != null ||
-    f.fullText ||
-    f.types.length > 0 ||
-    f.collections.length > 0
-  )
-}
 </script>
 
 <template>
   <div class="chips-wrap">
-    <div class="chip-row" role="toolbar" aria-label="Search filters">
+    <div v-show="open" class="chip-row" role="toolbar" aria-label="Search filters">
       <button
         type="button"
         class="chip"
-        :class="{ on: filters.fullText }"
-        :aria-pressed="filters.fullText"
-        :disabled="lyricsLoading && !filters.fullText"
-        @click="toggleFullText"
-      >
-        {{ lyricsLoading && !filters.fullText ? 'Full text (loading…)' : 'Full text' }}
-      </button>
-      <button
-        type="button"
-        class="chip"
-        :class="{ on: filters.hasSheet === true, dim: filters.hasSheet === false }"
+        :class="{ on: filters.hasSheet === true }"
         :aria-pressed="filters.hasSheet === true"
-        @click="cycleSheet"
+        title="Only show tags that have sheet music"
+        @click="toggleSheet"
       >
-        {{ filters.hasSheet === false ? 'No sheet' : 'Has sheet' }}
+        Has sheet
       </button>
       <button
         type="button"
         class="chip"
-        :class="{ on: filters.hasAudio === true, dim: filters.hasAudio === false }"
+        :class="{ on: filters.hasAudio === true }"
         :aria-pressed="filters.hasAudio === true"
-        @click="cycleAudio"
+        title="Only show tags that have learning tracks"
+        @click="toggleAudio"
       >
-        {{ filters.hasAudio === false ? 'No audio' : 'Has audio' }}
+        Has audio
       </button>
-      <button type="button" class="chip" :class="{ on: filters.minRating != null }" @click="sheet = 'rating'">
+      <button
+        type="button"
+        class="chip"
+        :class="{ on: filters.minRating != null }"
+        title="Minimum average star rating"
+        @click="sheet = 'rating'"
+      >
         {{ filters.minRating != null ? `★ ${filters.minRating}+` : 'Min rating' }}
       </button>
-      <button type="button" class="chip" :class="{ on: filters.keys.length > 0 }" @click="sheet = 'key'">
+      <button
+        type="button"
+        class="chip"
+        :class="{ on: filters.keys.length > 0 }"
+        title="Filter by written key"
+        @click="sheet = 'key'"
+      >
         Key{{ filters.keys.length ? ` (${filters.keys.length})` : '' }}
       </button>
       <button
         type="button"
         class="chip"
         :class="{ on: filters.arrangers.length > 0 }"
+        title="Filter by arranger"
         @click="sheet = 'arranger'"
       >
         Arranger{{ filters.arrangers.length ? ` (${filters.arrangers.length})` : '' }}
@@ -168,6 +155,7 @@ function filtersActive(f: CatalogFilters): boolean {
         type="button"
         class="chip"
         :class="{ on: filters.types.length > 0 }"
+        title="Filter by tag type"
         @click="sheet = 'type'"
       >
         Type{{ filters.types.length ? ` (${filters.types.length})` : '' }}
@@ -177,25 +165,29 @@ function filtersActive(f: CatalogFilters): boolean {
         type="button"
         class="chip"
         :class="{ on: filters.collections.length > 0 }"
+        title="Filter by collection"
         @click="sheet = 'collection'"
       >
         Collection{{ filters.collections.length ? ` (${filters.collections.length})` : '' }}
       </button>
-      <button v-if="hasActive" type="button" class="chip clear" @click="$emit('clear')">
+      <button
+        v-if="hasActive"
+        type="button"
+        class="chip clear"
+        title="Remove all active filters"
+        @click="$emit('clear')"
+      >
         Clear filters
       </button>
     </div>
 
-    <p v-if="ftsPending" class="warn" role="status">
-      Full text is on — searching titles until the lyrics index finishes loading.
-    </p>
-
-    <div v-if="filters.keys.length || filters.arrangers.length" class="active">
+    <div v-if="open && (filters.keys.length || filters.arrangers.length)" class="active">
       <button
         v-for="k in filters.keys"
         :key="'k-' + k"
         type="button"
         class="chip on sm"
+        :title="`Remove key filter: ${k}`"
         @click="removeKey(k)"
       >
         {{ k }} ✕
@@ -205,6 +197,7 @@ function filtersActive(f: CatalogFilters): boolean {
         :key="'a-' + a"
         type="button"
         class="chip on sm"
+        :title="`Remove arranger filter: ${a}`"
         @click="removeArranger(a)"
       >
         {{ a }} ✕
@@ -322,7 +315,7 @@ function filtersActive(f: CatalogFilters): boolean {
 <style scoped>
 .chips-wrap {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 .chip-row {
   display: flex;

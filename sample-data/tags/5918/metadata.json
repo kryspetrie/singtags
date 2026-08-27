@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Back In The Days (Bb Major) - 5918",
-  "sheet": "sheets/5918/sheet.png",
+  "sheet": "sheets/5918/Back In The Days (Bb Major) - Sheet.png",
   "audio": {
-    "lead": "media/5918/lead.mp4",
-    "tenor": "media/5918/tenor.mp4",
-    "bari": "media/5918/bari.mp4",
-    "bass": "media/5918/bass.mp4",
-    "mix": "media/5918/mix.mp4"
+    "lead": "media/5918/lead.m4a",
+    "tenor": "media/5918/tenor.m4a",
+    "bari": "media/5918/bari.m4a",
+    "bass": "media/5918/bass.m4a",
+    "mix": "media/5918/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5918/lead.m4a",
+      "playback": "media/5918/lead.playback.opus",
+      "ultra_solo": "media/5918/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/5918/tenor.m4a",
+      "playback": "media/5918/tenor.playback.opus",
+      "ultra_solo": "media/5918/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/5918/bari.m4a",
+      "playback": "media/5918/bari.playback.opus",
+      "ultra_solo": "media/5918/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/5918/bass.m4a",
+      "playback": "media/5918/bass.playback.opus",
+      "ultra_solo": "media/5918/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/5918/mix.m4a",
+      "playback": "media/5918/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5918/Back In The Days (Bb Major) - Sheet.png",
+    "sheets/5918/Back In The Days (Bb Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5918/preview.webp",
   "sheet_pages": [
-    "sheets/5918/pages/page-01.webp"
-  ]
+    "sheets/5918/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_left",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:48:11.391871+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.7233,
+      "correlation": 0.1313,
+      "side_mid": 0.9661
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.6806,
+      "correlation": 0.1687,
+      "side_mid": 0.9418
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.7365,
+      "correlation": 0.1045,
+      "side_mid": 0.9714
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": 0.7336,
+      "correlation": 0.156,
+      "side_mid": 0.9608
+    },
+    "mix": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.0011,
+      "correlation": 0.7833,
+      "side_mid": 0.34
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:33:29.602985+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:25.973313+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.74,
+      "zero_corr": 0.74,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:27.190706+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.663,
+      "zero_corr": 0.663,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:28.388198+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.541,
+      "zero_corr": 0.541,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:33:29.602955+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:08:01.888641+00:00"
+  }
 }

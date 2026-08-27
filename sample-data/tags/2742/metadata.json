@@ -17,15 +17,160 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "All About Harmony (F Major) - Paul Carey Olguin - 2742",
-  "sheet": "sheets/2742/sheet.jpg",
+  "sheet": "sheets/2742/All About Harmony (F Major) - Paul Carey Olguin - Sheet.jpg",
   "audio": {
-    "lead": "media/2742/lead.mp4",
-    "tenor": "media/2742/tenor.mp4",
-    "bari": "media/2742/bari.mp4",
-    "bass": "media/2742/bass.mp4",
-    "mix": "media/2742/mix.mp4"
+    "lead": "media/2742/lead.m4a",
+    "tenor": "media/2742/tenor.m4a",
+    "bari": "media/2742/bari.m4a",
+    "bass": "media/2742/bass.m4a",
+    "mix": "media/2742/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/2742/lead.m4a",
+      "playback": "media/2742/lead.playback.opus",
+      "ultra_solo": "media/2742/lead.solo.opus"
+    },
+    "tenor": {
+      "original": "media/2742/tenor.m4a",
+      "playback": "media/2742/tenor.playback.opus",
+      "ultra_solo": "media/2742/tenor.solo.opus"
+    },
+    "bari": {
+      "original": "media/2742/bari.m4a",
+      "playback": "media/2742/bari.playback.opus",
+      "ultra_solo": "media/2742/bari.solo.opus"
+    },
+    "bass": {
+      "original": "media/2742/bass.m4a",
+      "playback": "media/2742/bass.playback.opus",
+      "ultra_solo": "media/2742/bass.solo.opus"
+    },
+    "mix": {
+      "original": "media/2742/mix.m4a",
+      "playback": "media/2742/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/2742/All About Harmony (F Major) - Paul Carey Olguin - Sheet.jpg",
+    "sheets/2742/All About Harmony (F Major) - Paul Carey Olguin - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/2742/preview.webp",
   "sheet_pages": [
-    "sheets/2742/pages/page-01.webp"
-  ]
+    "sheets/2742/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-08-25T19:46:29.643988+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.3042,
+      "correlation": 0.0213,
+      "side_mid": 0.9405
+    },
+    "tenor": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.2264,
+      "correlation": 0.0377,
+      "side_mid": 0.9324
+    },
+    "bari": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.3066,
+      "correlation": 0.085,
+      "side_mid": 0.9102
+    },
+    "bass": {
+      "kind": "part_left",
+      "solo_side": "left",
+      "channels": 2,
+      "balance": -0.3235,
+      "correlation": 0.0408,
+      "side_mid": 0.9254
+    },
+    "mix": {
+      "kind": "part_right",
+      "solo_side": "right",
+      "channels": 2,
+      "balance": 0.0248,
+      "correlation": 0.7842,
+      "side_mid": 0.3352
+    }
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-08-26T14:32:21.375280+00:00"
+  },
+  "audio_align": {
+    "lead": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 1.0,
+      "zero_corr": 1.0,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:17.589664+00:00"
+    },
+    "tenor": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.591,
+      "zero_corr": 0.591,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:18.870776+00:00"
+    },
+    "bari": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.734,
+      "zero_corr": 0.734,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:20.139055+00:00"
+    },
+    "bass": {
+      "ref_part": "lead",
+      "offset_ms": 0.0,
+      "corr": 0.739,
+      "zero_corr": 0.739,
+      "trusted": true,
+      "applied_ms": 0.0,
+      "method": "accomp_xcorr",
+      "min_offset_ms": 50,
+      "analyzed_at": "2026-08-26T14:32:21.375247+00:00"
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:48.889341+00:00"
+  }
 }

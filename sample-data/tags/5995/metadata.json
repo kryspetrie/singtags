@@ -17,15 +17,101 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "Applause Applause Applause (Bb Major) - Jay Dougherty - 5995",
-  "sheet": "sheets/5995/sheet.png",
+  "sheet": "sheets/5995/Applause Applause Applause (Bb Major) - Jay Dougherty - Sheet.png",
   "audio": {
-    "lead": "media/5995/lead.mp4",
-    "tenor": "media/5995/tenor.mp4",
-    "bari": "media/5995/bari.mp4",
-    "bass": "media/5995/bass.mp4",
-    "mix": "media/5995/mix.mp4"
+    "lead": "media/5995/lead.m4a",
+    "tenor": "media/5995/tenor.m4a",
+    "bari": "media/5995/bari.m4a",
+    "bass": "media/5995/bass.m4a",
+    "mix": "media/5995/mix.m4a"
   },
+  "audio_tiers": {
+    "lead": {
+      "original": "media/5995/lead.m4a",
+      "playback": "media/5995/lead.playback.opus",
+      "ultra_downmix": "media/5995/lead.downmix.opus"
+    },
+    "tenor": {
+      "original": "media/5995/tenor.m4a",
+      "playback": "media/5995/tenor.playback.opus",
+      "ultra_downmix": "media/5995/tenor.downmix.opus"
+    },
+    "bari": {
+      "original": "media/5995/bari.m4a",
+      "playback": "media/5995/bari.playback.opus",
+      "ultra_downmix": "media/5995/bari.downmix.opus"
+    },
+    "bass": {
+      "original": "media/5995/bass.m4a",
+      "playback": "media/5995/bass.playback.opus",
+      "ultra_downmix": "media/5995/bass.downmix.opus"
+    },
+    "mix": {
+      "original": "media/5995/mix.m4a",
+      "playback": "media/5995/mix.playback.opus"
+    }
+  },
+  "sheets": [
+    "sheets/5995/Applause Applause Applause (Bb Major) - Jay Dougherty - Sheet.png",
+    "sheets/5995/Applause Applause Applause (Bb Major) - Jay Dougherty - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/5995/preview.webp",
   "sheet_pages": [
-    "sheets/5995/pages/page-01.webp"
-  ]
+    "sheets/5995/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:47:31.165734+00:00"
+  },
+  "audio_layouts": {
+    "lead": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "tenor": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bari": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "bass": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": 0.0,
+      "correlation": 1.0,
+      "side_mid": 0.0
+    },
+    "mix": {
+      "kind": "mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0439,
+      "correlation": 0.9752,
+      "side_mid": 0.1204
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:06:47.991465+00:00"
+  }
 }

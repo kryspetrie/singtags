@@ -19,6 +19,10 @@ export interface OfflinePackStore {
   delete(url: string): Promise<boolean>
   clear(): Promise<void>
   count(): Promise<number>
+  /** Sum of cached blob sizes (deduped by URL). */
+  totalBytes(): Promise<number>
+  /** All cached absolute URLs in this pack. */
+  listUrls(): Promise<string[]>
 }
 
 const memoryCaches = new Map<string, Map<string, ArrayBuffer>>()
@@ -192,6 +196,38 @@ export function createPackStore(kind: PackKind): OfflinePackStore {
       const cache = await openCache(cacheName)
       const cacheCount = cache ? (await cache.keys()).length : 0
       return Math.max(cacheCount, memoryMap(cacheName).size)
+    },
+    async totalBytes(): Promise<number> {
+      const urls = await this.listUrls()
+      let total = 0
+      for (const url of urls) {
+        const res = await this.get(url)
+        if (!res) continue
+        total += (await res.arrayBuffer()).byteLength
+      }
+      return total
+    },
+    async listUrls(): Promise<string[]> {
+      const urls = new Set<string>()
+      const cache = await openCache(cacheName)
+      if (cache) {
+        for (const req of await cache.keys()) urls.add(req.url)
+      }
+      for (const u of memoryMap(cacheName).keys()) urls.add(u)
+      const dir = await ensureOpfs()
+      if (dir) {
+        try {
+          for await (const [name, handle] of dir.entries()) {
+            if (!name.endsWith('.url') || handle.kind !== 'file') continue
+            const f = await handle.getFile()
+            const url = await f.text()
+            if (url) urls.add(url.trim())
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return [...urls]
     },
   }
 }

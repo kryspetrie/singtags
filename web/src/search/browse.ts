@@ -82,41 +82,55 @@ export function hasJumpRail(mode: BrowseSortMode): boolean {
   return mode === 'title' || mode === 'arranger' || mode === 'arranger-last' || mode === 'year'
 }
 
-export function sortBrowseTags(tags: TagSummary[], mode: BrowseSortMode): TagSummary[] {
+export function sortBrowseTags(
+  tags: TagSummary[],
+  mode: BrowseSortMode,
+  reverse = false,
+): TagSummary[] {
   const copy = [...tags]
   const cmpStr = (a: string | null | undefined, b: string | null | undefined) =>
     foldText(a ?? '').localeCompare(foldText(b ?? ''), undefined, { sensitivity: 'base' })
+  let sorted: TagSummary[]
   switch (mode) {
     case 'title':
-      return copy.sort((a, b) => cmpStr(a.title, b.title) || a.id - b.id)
+      sorted = copy.sort((a, b) => cmpStr(a.title, b.title) || a.id - b.id)
+      break
     case 'arranger':
-      return copy.sort(
+      sorted = copy.sort(
         (a, b) =>
           cmpStr(a.arranger, b.arranger) || cmpStr(a.title, b.title) || a.id - b.id,
       )
+      break
     case 'arranger-last':
-      return copy.sort(
+      sorted = copy.sort(
         (a, b) =>
           cmpStr(arrangerLastName(a.arranger), arrangerLastName(b.arranger)) ||
           cmpStr(a.arranger, b.arranger) ||
           cmpStr(a.title, b.title) ||
           a.id - b.id,
       )
+      break
     case 'rating':
-      return copy.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || cmpStr(a.title, b.title))
+      sorted = copy.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || cmpStr(a.title, b.title))
+      break
     case 'downloads':
-      return copy.sort(
+      sorted = copy.sort(
         (a, b) => (b.downloads ?? 0) - (a.downloads ?? 0) || cmpStr(a.title, b.title),
       )
+      break
     case 'year':
-      return copy.sort(
+      sorted = copy.sort(
         (a, b) => (b.year ?? 0) - (a.year ?? 0) || cmpStr(a.title, b.title) || a.id - b.id,
       )
+      break
     case 'id':
-      return copy.sort((a, b) => a.id - b.id)
+      sorted = copy.sort((a, b) => a.id - b.id)
+      break
     default:
-      return copy
+      sorted = copy
   }
+  if (reverse) sorted.reverse()
+  return sorted
 }
 
 export type BrowseRow =

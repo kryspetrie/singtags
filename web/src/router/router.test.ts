@@ -7,6 +7,6 @@ import { router } from './index'
 describe('router', () => {
   it('registers primary routes', () => {
     const names = router.getRoutes().map((r) => r.name)
-    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'starred', 'pitch-pipe', 'queue']))
+    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'starred', 'pitch-pipe', 'queue']))
   })
 })

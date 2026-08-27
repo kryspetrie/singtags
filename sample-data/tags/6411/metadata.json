@@ -17,11 +17,46 @@
   "lyrics_source": "final",
   "lyrics_finalized": true,
   "source_folder": "After You (F Major) - 6411",
-  "sheet": "sheets/6411/sheet.pdf",
+  "sheet": "sheets/6411/After You (F Major) - Sheet.pdf",
   "audio": {
-    "mix": "media/6411/mix.mp4"
+    "mix": "media/6411/mix.m4a"
   },
+  "audio_tiers": {
+    "mix": {
+      "original": "media/6411/mix.m4a",
+      "playback": "media/6411/mix.playback.opus",
+      "ultra_mix": "media/6411/mix.ultra_mix.opus"
+    }
+  },
+  "sheets": [
+    "sheets/6411/After You (F Major) - Sheet.pdf",
+    "sheets/6411/After You (F Major) - Sheet Preview.webp"
+  ],
+  "sheet_preview": "sheets/6411/preview.webp",
   "sheet_pages": [
-    "sheets/6411/pages/page-01.webp"
-  ]
+    "sheets/6411/preview.webp"
+  ],
+  "audio_layout_summary": {
+    "parts": "unknown",
+    "mix": "near_mono",
+    "ultra_low": "stereo_fallback",
+    "solo_side": null,
+    "analyzed_at": "2026-08-25T19:46:15.353654+00:00"
+  },
+  "audio_layouts": {
+    "mix": {
+      "kind": "near_mono",
+      "solo_side": null,
+      "channels": 2,
+      "balance": -0.0025,
+      "correlation": 0.8985,
+      "side_mid": 0.2303
+    }
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "stereo_fallback",
+    "mix_only": true,
+    "playback_kbps": 64,
+    "encoded_at": "2026-08-25T21:05:48.046280+00:00"
+  }
 }
