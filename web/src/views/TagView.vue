@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { bookletBadgeForTag, collectionLabel } from '../search/browse'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useCatalogStore } from '../stores/catalog'
@@ -433,8 +434,11 @@ async function onRetryLoad(): Promise<void> {
       </div>
       <p class="id-line">
         <span class="tag-num">Tag #{{ detail.tag_id }}</span>
-        <span v-if="detail.classic != null && detail.classic !== ''" class="classic-num"
-          >Classic #{{ detail.classic }}</span
+        <span
+          v-if="bookletBadgeForTag(detail)"
+          class="classic-num"
+          :class="'booklet-' + bookletBadgeForTag(detail)!.kind"
+          >{{ bookletBadgeForTag(detail)!.short }}</span
         >
         <span v-if="detail.arranger" class="arranger">{{ detail.arranger }}</span>
       </p>
@@ -466,7 +470,6 @@ async function onRetryLoad(): Promise<void> {
     <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
       <StarsNoticeLine :notice="stars.lastNotice" />
     </p>
-    <p v-if="stars.error" class="warn" role="alert">{{ stars.error }}</p>
 
     <section class="section pitch-section" aria-labelledby="pitch-heading">
       <h2 id="pitch-heading" class="section-heading">Pitch</h2>
@@ -682,8 +685,11 @@ async function onRetryLoad(): Promise<void> {
       </div>
       <p class="id-line">
         <span class="tag-num">Tag #{{ summary.id }}</span>
-        <span v-if="summary.classic != null && summary.classic !== ''" class="classic-num"
-          >Classic #{{ summary.classic }}</span
+        <span
+          v-if="bookletBadgeForTag(summary)"
+          class="classic-num"
+          :class="'booklet-' + bookletBadgeForTag(summary)!.kind"
+          >{{ bookletBadgeForTag(summary)!.short }}</span
         >
         <span v-if="summary.arranger" class="arranger">{{ summary.arranger }}</span>
       </p>
@@ -700,7 +706,7 @@ async function onRetryLoad(): Promise<void> {
       </div>
       <div v-if="summary.collection">
         <dt>Collection</dt>
-        <dd>{{ summary.collection }}</dd>
+        <dd>{{ collectionLabel(summary.collection) || summary.collection }}</dd>
       </div>
       <div v-if="summary.year != null">
         <dt>Year</dt>
@@ -1133,6 +1139,14 @@ async function onRetryLoad(): Promise<void> {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   font-size: 0.85rem;
+}
+.classic-num.booklet-days100 {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+.classic-num.booklet-easytags {
+  color: color-mix(in srgb, var(--text) 75%, var(--accent));
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent));
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent));
 }
 .keyrow {
   display: flex;

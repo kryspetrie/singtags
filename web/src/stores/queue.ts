@@ -186,5 +186,8 @@ export const useQueueStore = defineStore('queue', () => {
     setFormat,
     setPlaybackTransform,
     max: MAX_QUEUE_TRACKS,
+    clearError: () => {
+      error.value = null
+    },
   }
 })

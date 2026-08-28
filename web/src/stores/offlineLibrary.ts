@@ -130,6 +130,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const showSheetsPrompt = ref(false)
   /** Remote library grew vs local pack — toast offers sync (skip-existing). */
   const showPackSyncPrompt = ref(false)
+  /** True while Sync missing is running both packs (click guard + UI busy state). */
+  const packSyncBusy = ref(false)
   const catalogCachedAt = ref<string | null>(null)
   const loaded = ref(false)
   const cacheBusy = ref(false)
@@ -238,6 +240,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   }
 
   function refreshPackSyncPrompt(): void {
+    if (packSyncBusy.value) {
+      showPackSyncPrompt.value = false
+      return
+    }
     const needs =
       packSyncAvailable(sheetsCachedCount.value, sheetsExpectedCount.value, sheetsStatus.value) ||
       packSyncAvailable(audioCachedCount.value, audioExpectedCount.value, audioStatus.value)
@@ -394,7 +400,46 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     })
   }
 
+
+  /** Avoid writing IndexedDB on every tiny file — throttle cursor saves. */
+  const persistCursorState: Record<PackKind, { lastAt: number; lastCursor: number; timer: ReturnType<typeof setTimeout> | null }> = {
+    sheets: { lastAt: 0, lastCursor: 0, timer: null },
+    audio: { lastAt: 0, lastCursor: 0, timer: null },
+  }
+
+  function schedulePersistCursor(
+    kind: PackKind,
+    cursor: number,
+    manifestVersion: number,
+    opts?: { force?: boolean },
+  ): void {
+    const st = persistCursorState[kind]
+    st.lastCursor = cursor
+    const force = opts?.force === true
+    const now = Date.now()
+    const flush = () => {
+      st.timer = null
+      st.lastAt = Date.now()
+      void persistProgress(kind, {
+        status: 'running',
+        cursor: st.lastCursor,
+        manifestVersion,
+      })
+    }
+    if (force || now - st.lastAt >= 750 || cursor % 50 === 0) {
+      if (st.timer) {
+        clearTimeout(st.timer)
+        st.timer = null
+      }
+      flush()
+      return
+    }
+    if (!st.timer) st.timer = setTimeout(flush, 750)
+  }
+
   async function startPack(kind: PackKind, _opts?: StartPackOptions): Promise<void> {
+    if (kind === 'sheets' && sheetsStatus.value === 'running') return
+    if (kind === 'audio' && audioStatus.value === 'running') return
     error.value = null
     await requestPersistentStorage()
     // Refresh remote manifests so newly published tags are included.
@@ -449,7 +494,12 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       usesOpusStorage(prefs.audioEncodeQuality) &&
       items.some((i) => !isPublishedTierPath(i.path))
     const queue = new DownloadQueue(store, {
-      concurrency: packReencodes ? 2 : 4,
+      // Tiny sheet WebPs are latency-bound; keep re-encode audio modest.
+      continueOnError: kind === 'audio',
+      onItemError: (p, err) => {
+        console.warn('[offline audio]', p, err)
+      },
+      concurrency: packReencodes ? 2 : kind === 'sheets' ? 24 : 12,
       onProgress: (p) => {
         if (kind === 'sheets') sheetsProgress.value = p
         else audioProgress.value = p
@@ -462,11 +512,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         void refreshEstimate().then(() => refreshPackSyncPrompt())
       },
       onItemDone: (_path, index) => {
-        void persistProgress(kind, {
-          status: 'running',
-          cursor: index + 1,
-          manifestVersion: manifest.version,
-        })
+        schedulePersistCursor(kind, index + 1, manifest.version)
       },
       transformResponse:
         kind === 'audio' && usesOpusStorage(prefs.audioEncodeQuality)
@@ -526,22 +572,24 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     showPackSyncPrompt.value = false
   }
 
-  /** Download only missing pack files (keeps existing cache). */
+  /**
+   * Download missing sheet + audio pack files (keeps existing cache).
+   * Always kicks off both packs so Settings stays consistent with the banner CTA.
+   */
   async function syncMissingPacks(): Promise<void> {
-    await dismissPackSyncPrompt()
-    const doSheets =
-      sheetsSyncAvailable.value ||
-      sheetsStatus.value === 'paused' ||
-      sheetsStatus.value === 'quota'
-    const doAudio =
-      audioSyncAvailable.value ||
-      audioStatus.value === 'paused' ||
-      audioStatus.value === 'quota'
-    if (doSheets) await startPack('sheets')
-    if (doAudio) await startPack('audio')
-    if (!doSheets && !doAudio) {
-      if (sheetsCachedCount.value > 0) await startPack('sheets')
-      else if (audioCachedCount.value > 0) await startPack('audio')
+    if (packSyncBusy.value) return
+    if (sheetsStatus.value === 'running' || audioStatus.value === 'running') return
+    packSyncBusy.value = true
+    showPackSyncPrompt.value = false
+    error.value = null
+    try {
+      // Dismiss toast persistence after we've taken the action (not before busy UI).
+      writeDismissedPackSyncKey(packSyncDismissKey(sheetsManifest.value, audioManifest.value))
+      // Parallel: separate queues; each skips files already on device.
+      await Promise.all([startPack('sheets'), startPack('audio')])
+    } finally {
+      packSyncBusy.value = false
+      refreshPackSyncPrompt()
     }
   }
 
@@ -604,6 +652,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     error,
     showSheetsPrompt,
     showPackSyncPrompt,
+    packSyncBusy,
     catalogCachedAt,
     loaded,
     cacheBusy,
@@ -638,5 +687,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     clearAllOfflineData,
     exportOfflineCache,
     importOfflineCache,
+    clearError: () => {
+      error.value = null
+    },
   }
 })

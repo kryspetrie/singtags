@@ -21,9 +21,10 @@ import { getStarred } from '../offline/starredDb'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import {
-  classicLabel,
+  bookletBadgeForTag,
   formatArrangerLastFirst,
   hasJumpRail,
+  parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
@@ -244,6 +245,7 @@ const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'year', label: 'Year' },
   { id: 'downloads', label: 'Downloads' },
   { id: 'id', label: 'Tag #' },
+  { id: 'collection', label: 'Collection #' },
 ]
 
 const filterToggleTip = computed(() => {
@@ -296,6 +298,7 @@ function sortOptionTip(id: SortMode): string {
     year: 'Newest year first',
     downloads: 'Most downloaded first',
     id: 'Numeric tag ID order',
+    collection: 'By collection booklet # (Classic, then 100 Days), then tag #',
   }
   const base = tips[id]
   return catalog.sortReverse ? `${base} (reversed)` : base
@@ -360,7 +363,19 @@ function submitSearch(e?: Event): void {
   }
   const classicNum = parseClassicNumberQuery(q)
   if (classicNum != null) {
-    const hits = catalog.tags.filter((t) => Number(t.classic) === classicNum)
+    const hits = catalog.tags.filter(
+      (t) => t.collection?.toLowerCase() === 'classic' && Number(t.classic) === classicNum,
+    )
+    if (hits.length === 1) {
+      void router.push(`/tag/${hits[0]!.id}`)
+    }
+    return
+  }
+  const daysNum = parse100DaysNumberQuery(q)
+  if (daysNum != null) {
+    const hits = catalog.tags.filter(
+      (t) => t.collection === '100' && Number(t.classic) === daysNum,
+    )
     if (hits.length === 1) {
       void router.push(`/tag/${hits[0]!.id}`)
     }
@@ -411,7 +426,7 @@ watch(
               spellcheck="false"
               placeholder="Search titles, arrangers, or n123…"
               aria-label="Search tags"
-              title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45."
+              title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
               autofocus
               @keydown="onSearchKeydown"
             />
@@ -439,7 +454,7 @@ watch(
                 </button>
                 <div id="search-tips-popover" class="tips-popover" role="tooltip">
                   <p>
-                    Enter on <code>n123</code> opens Tag #123; <code>c45</code> opens Classic #45. Exclude with
+                    Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
                     <code>-word</code>; quotes for an exact phrase.
                   </p>
                 </div>
@@ -504,7 +519,7 @@ watch(
       </div>
       <FilterSheet :open="tipsOpen" title="Search tips" @close="closeSearchTips">
         <p class="search-hint">
-          Enter on <code>n123</code> opens Tag #123; <code>c45</code> opens Classic #45. Exclude with
+          Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
           <code>-word</code>; quotes for an exact phrase.
         </p>
       </FilterSheet>
@@ -521,7 +536,6 @@ watch(
       <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
         <StarsNoticeLine :notice="stars.lastNotice" />
       </p>
-      <p v-if="stars.error" class="warn" role="alert">{{ stars.error }}</p>
     </header>
 
     <p v-if="catalog.loading || (!catalog.loaded && !catalog.error)" class="text-muted" role="status">
@@ -636,10 +650,11 @@ watch(
                 <span class="title-line">
                   <span class="tag-num" title="Tag number">#{{ row.tag.id }}</span>
                   <span
-                    v-if="classicLabel(row.tag.classic)"
+                    v-if="bookletBadgeForTag(row.tag)"
                     class="classic-num"
-                    title="Classic booklet number"
-                  >Classic #{{ classicLabel(row.tag.classic) }}</span>
+                    :class="'booklet-' + bookletBadgeForTag(row.tag)!.kind"
+                    :title="bookletBadgeForTag(row.tag)!.label"
+                  >{{ bookletBadgeForTag(row.tag)!.short }}</span>
                   {{ row.tag.title || `Tag ${row.tag.id}` }}
                 </span>
                 <span v-if="browseAltTitle(row.tag)" class="alt-title">{{ browseAltTitle(row.tag) }}</span>
@@ -1080,6 +1095,14 @@ watch(
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   font-size: 0.9em;
+}
+.classic-num.booklet-days100 {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+.classic-num.booklet-easytags {
+  color: color-mix(in srgb, var(--text) 75%, var(--accent));
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent));
+  background: color-mix(in srgb, var(--surface) 92%, var(--accent));
 }
 .classic-num {
   display: inline-block;

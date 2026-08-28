@@ -1,6 +1,6 @@
 import type { OfflineManifest, OfflineManifestEntry } from '../offline/manifestTypes'
 import type { DownloadItem } from '../offline/downloadQueue'
-import { mediaUrl } from './mediaUrl'
+import { mediaUrl, tagDetailUrl } from './mediaUrl'
 import {
   normalizeCustomParts,
   partFromMediaPath,
@@ -49,9 +49,15 @@ export function flattenManifestEntries(manifest: OfflineManifest): DownloadItem[
       items.push({ path, url: mediaUrl(path), bytes: per })
     }
     if (e.detailPath) {
+      const detailMatch = e.detailPath.match(/(?:^|\/)tags\/(\d+)\/metadata\.json$/)
+      const url = detailMatch
+        ? tagDetailUrl(detailMatch[1])
+        : e.detailPath.startsWith('/')
+          ? e.detailPath
+          : mediaUrl(e.detailPath)
       items.push({
         path: e.detailPath,
-        url: mediaUrl(e.detailPath),
+        url,
         bytes: 800,
       })
     }

@@ -10,6 +10,7 @@ import {
 } from './numbers'
 import type { FieldName, SearchQuery } from './query'
 import type { TagSummary } from '../types/tag'
+import { collectionSearchTokens, collectionTextTokens, isClassicCollection } from '../lib/collections'
 
 export interface LyricDoc {
   id: number
@@ -34,6 +35,8 @@ function isExactNumericToken(token: string): boolean {
     /^\d+$/.test(token) ||
     /^c\d+$/.test(token) ||
     /^classic\d+$/.test(token) ||
+    /^p\d+$/.test(token) ||
+    /^100days\d+$/.test(token) ||
     /^n\d+$/.test(token)
   )
 }
@@ -142,7 +145,10 @@ function fieldHaystack(tag: TagSummary, field: FieldName): string {
     case 'collection':
       return foldText(tag.collection ?? '')
     case 'classic':
-      return foldText(String(tag.classic ?? ''))
+      // Booklet # filter applies to Classic series only (100 Days uses p#).
+      return isClassicCollection(tag.collection)
+        ? foldText(String(tag.classic ?? ''))
+        : ''
     case 'year':
       return foldText(String(tag.year ?? ''))
     default:
@@ -158,21 +164,23 @@ function titleTextBlob(tag: TagSummary): string {
 
 /** Full haystack for verify (title text + exact id/classic tokens, no id→word pollution). */
 function titleBlobOf(tag: TagSummary): string {
-  const classic =
-    tag.classic != null && String(tag.classic).trim() !== ''
-      ? ` ${tag.classic} c${tag.classic} classic${tag.classic}`
-      : ''
-  return `${titleTextBlob(tag)} ${tag.id} n${tag.id}${classic}`.trim()
+  const booklet = collectionSearchTokens(tag.collection, tag.classic)
+    .map((t) => ` ${t}`)
+    .join('')
+  const collText = collectionTextTokens(tag.collection)
+    .map((t) => ` ${t}`)
+    .join('')
+  return `${titleTextBlob(tag)} ${tag.id} n${tag.id}${booklet}${collText}`.trim()
 }
 
 function addExactIdTokens(index: Posting, tag: TagSummary): void {
   addToken(index, String(tag.id), tag.id)
   addToken(index, `n${tag.id}`, tag.id)
-  if (tag.classic != null && String(tag.classic).trim() !== '') {
-    const c = String(tag.classic).trim()
-    addToken(index, c, tag.id)
-    addToken(index, `c${c}`, tag.id)
-    addToken(index, `classic${c}`, tag.id)
+  for (const tok of collectionSearchTokens(tag.collection, tag.classic)) {
+    addToken(index, tok, tag.id)
+  }
+  for (const tok of collectionTextTokens(tag.collection)) {
+    addToken(index, tok, tag.id)
   }
 }
 

@@ -99,12 +99,13 @@ describe('QueueView', () => {
     expect(q.count).toBe(0)
   })
 
-  it('shows queue error alert', async () => {
+  it('keeps queue errors on the store (App snackbar shows them)', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const q = useQueueStore()
     q.error = 'Queue limited to 100 tracks'
     const w = mount(QueueView, { global: { plugins: [pinia] } })
-    expect(w.find('[role="alert"]').text()).toContain('limited')
+    expect(q.error).toContain('limited')
+    expect(w.find('[role="alert"]').exists()).toBe(false)
   })
 })

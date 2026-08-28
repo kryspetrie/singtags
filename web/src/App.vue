@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref, shallowRef } from 'vue'
+import { onMounted, onUnmounted, computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useStarsStore } from './stores/stars'
@@ -7,6 +7,7 @@ import { useQueueStore } from './stores/queue'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { usePreferencesStore } from './stores/preferences'
+import { useSnackbarStore } from './stores/snackbar'
 import { formatBytes } from './offline/storageEstimate'
 import { useReconnectCaches } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
@@ -16,9 +17,28 @@ const queue = useQueueStore()
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
 const prefs = usePreferencesStore()
+const snackbar = useSnackbarStore()
 const route = useRoute()
 useReconnectCaches()
 const { message: offlineBannerMessage } = useOfflineBanner()
+
+function pushStoreError(msg: string | null, clear: () => void): void {
+  if (!msg) return
+  snackbar.show(msg, { tone: 'error', onDismiss: clear })
+}
+
+watch(
+  () => offlineLib.error,
+  (msg) => pushStoreError(msg, () => offlineLib.clearError()),
+)
+watch(
+  () => queue.error,
+  (msg) => pushStoreError(msg, () => queue.clearError()),
+)
+watch(
+  () => stars.error,
+  (msg) => pushStoreError(msg, () => stars.clearError()),
+)
 
 const onTagPage = computed(() => route.name === 'tag')
 const backTarget = computed(() => (route.query.set === 'practice' ? '/starred' : '/'))
@@ -128,6 +148,7 @@ async function downloadSheetsFromPrompt(): Promise<void> {
 }
 
 async function syncPacksFromPrompt(): Promise<void> {
+  if (offlineLib.packSyncBusy) return
   await offlineLib.syncMissingPacks()
 }
 </script>
@@ -215,7 +236,15 @@ async function syncPacksFromPrompt(): Promise<void> {
         New tags are available. Sync missing offline files? Already-cached sheets and tracks stay on
         this device — only what’s missing is downloaded.
       </span>
-      <button type="button" class="btn btn-primary" @click="syncPacksFromPrompt">Sync</button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        :disabled="offlineLib.packSyncBusy || offlineLib.sheetsStatus === 'running' || offlineLib.audioStatus === 'running'"
+        :aria-busy="offlineLib.packSyncBusy"
+        @click="syncPacksFromPrompt"
+      >
+        {{ offlineLib.packSyncBusy ? 'Syncing…' : 'Sync' }}
+      </button>
       <RouterLink class="btn btn-ghost" to="/settings" @click="offlineLib.dismissPackSyncPrompt()">
         Settings
       </RouterLink>
@@ -247,6 +276,24 @@ async function syncPacksFromPrompt(): Promise<void> {
       <span>Install SingTags</span>
       <button type="button" class="btn btn-primary" @click="installApp">Install</button>
       <button type="button" class="btn btn-ghost" @click="dismissInstall">Not now</button>
+    </div>
+    <div
+      v-if="snackbar.message"
+      class="toast toast-snack"
+      :class="[
+        `toast-${snackbar.tone}`,
+        {
+          'toast-snack-raised':
+            needRefresh ||
+            offlineLib.showPackSyncPrompt ||
+            offlineLib.showSheetsPrompt ||
+            showInstall,
+        },
+      ]"
+      role="alert"
+    >
+      <span>{{ snackbar.message }}</span>
+      <button type="button" class="btn btn-ghost" @click="snackbar.dismiss()">Dismiss</button>
     </div>
   </div>
 </template>
@@ -495,6 +542,25 @@ main {
   font-size: 0.9rem;
   line-height: 1.35;
 }
+.toast-snack {
+  z-index: 50;
+  width: min(96vw, 36rem);
+}
+.toast-snack-raised {
+  bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 5.5rem);
+}
+.toast-error {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+  color: var(--text);
+}
+.toast-ok {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.toast-info {
+  /* default toast surface */
+}
 @media (min-width: 768px) {
   .app {
     padding-bottom: 0;
@@ -513,6 +579,9 @@ main {
   }
   .toast {
     bottom: 1.25rem;
+  }
+  .toast-snack-raised {
+    bottom: 5.75rem;
   }
 }
 @media (max-width: 767px) {

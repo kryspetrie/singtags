@@ -40,9 +40,20 @@ function cacheApiAvailable(): boolean {
   return typeof caches !== 'undefined' && typeof caches.open === 'function'
 }
 
+/** Reuse Cache handles — opening per file dominates tiny-asset packs. */
+const openCacheMemo = new Map<string, Promise<Cache | null>>()
+
 async function openCache(name: string): Promise<Cache | null> {
   if (!cacheApiAvailable()) return null
-  return caches.open(name)
+  let pending = openCacheMemo.get(name)
+  if (!pending) {
+    pending = caches.open(name).catch((err) => {
+      openCacheMemo.delete(name)
+      throw err
+    })
+    openCacheMemo.set(name, pending)
+  }
+  return pending
 }
 
 function opfsSupported(): boolean {

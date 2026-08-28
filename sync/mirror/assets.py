@@ -32,7 +32,7 @@ from lib.http import (
 )
 from lib.names import build_file_name, build_folder_name
 from lib.parse_tag_page import download_file_url, tag_page_url
-from lib.sheet_export import build_sheet_preview_webp, crop_pdf_bytes
+from lib.sheet_export import build_sheet_preview_webp, crop_pdf_bytes, image_to_rgb
 from lib.state import (
     find_folder_for_id,
     load_metadata,
@@ -55,18 +55,32 @@ def _part_entry(meta: dict, part: str) -> dict:
 
 
 def _normalize_sheet_bytes(data: bytes, ext: str) -> tuple[bytes, dict]:
-    """Post-process sheet bytes (footer-aware PDF crop). Returns (bytes, flags)."""
+    """Post-process sheet bytes (footer-aware PDF crop; flatten alpha PNGs). Returns (bytes, flags)."""
     flags: dict = {}
-    if ext.lower() != ".pdf":
-        return data, flags
-    try:
-        cropped = crop_pdf_bytes(data)
-    except Exception as exc:
-        print(f"   [Warn] PDF crop failed, keeping original: {exc}")
-        return data, flags
-    flags["sheet_cropped"] = True
-    flags["sheet_crop_method"] = "cropbox"
-    return cropped, flags
+    if ext.lower() == ".pdf":
+        try:
+            cropped = crop_pdf_bytes(data)
+        except Exception as exc:
+            print(f"   [Warn] PDF crop failed, keeping original: {exc}")
+            return data, flags
+        flags["sheet_cropped"] = True
+        flags["sheet_crop_method"] = "cropbox"
+        return cropped, flags
+
+    if ext.lower() in {".png", ".webp", ".gif"}:
+        try:
+            from PIL import Image
+
+            with Image.open(BytesIO(data)) as im:
+                if im.mode in ("RGBA", "LA", "PA") or "A" in im.getbands():
+                    rgb = image_to_rgb(im)
+                    out = BytesIO()
+                    rgb.save(out, format="PNG", optimize=True)
+                    flags["sheet_alpha_flattened"] = True
+                    return out.getvalue(), flags
+        except Exception as exc:
+            print(f"   [Warn] sheet alpha flatten failed, keeping original: {exc}")
+    return data, flags
 
 
 def ensure_sheet_preview(
@@ -94,7 +108,12 @@ def ensure_sheet_preview(
     meta.pop("sheet_preview_format", None)
     meta.pop("sheet_preview_kind", None)
 
-    if not force and preview_entry.get("filename") == filename and dest.is_file():
+    if (
+        not force
+        and preview_entry.get("filename") == filename
+        and dest.is_file()
+        and dest.stat().st_size >= 200
+    ):
         return dest
 
     for old in list(folder.glob("*")):

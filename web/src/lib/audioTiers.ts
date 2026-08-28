@@ -230,7 +230,17 @@ export function hasPublishedTiers(detail: TagDetail): boolean {
 
 /** True when path is an ultra-low mono solo stem. */
 export function isUltraSoloPath(path: string): boolean {
-  return /\.solo\.opus(\?|$)/i.test(path) || /\.ultra_solo\./i.test(path)
+  let p = path
+  try {
+    p = decodeURIComponent(path)
+  } catch {
+    /* keep raw */
+  }
+  return (
+    /\.solo\.opus(\?|$)/i.test(p) ||
+    /\.ultra_solo\./i.test(p) ||
+    /(?:^|[\s\-_/])solo\.opus(\?|$)/i.test(p)
+  )
 }
 
 /**

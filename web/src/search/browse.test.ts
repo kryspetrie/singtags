@@ -4,10 +4,12 @@ import {
   arrangersByLastInitial,
   buildBrowseRows,
   formatArrangerLastFirst,
+  parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
   sortBrowseTags,
+  bookletBadgeForTag,
   titleSortLetter,
 } from './browse'
 import type { TagSummary } from '../types/tag'
@@ -68,6 +70,41 @@ describe('browse helpers', () => {
     expect(parseTagNumberQuery('#111')).toBeNull()
     expect(parseTagNumberQuery('111')).toBeNull()
     expect(parseTagNumberQuery('c111')).toBeNull()
+  })
+
+  it('parses 100 Days booklet queries', () => {
+    expect(parse100DaysNumberQuery('p12')).toBe(12)
+    expect(parse100DaysNumberQuery('P7')).toBe(7)
+    expect(parse100DaysNumberQuery('100days:3')).toBe(3)
+    expect(parse100DaysNumberQuery('c12')).toBeNull()
+    expect(parse100DaysNumberQuery('n12')).toBeNull()
+  })
+
+  it('labels booklet badges by collection', () => {
+    expect(bookletBadgeForTag(tag({ id: 1, collection: 'classic', classic: 12 }))?.short).toBe(
+      'Classic #12',
+    )
+    expect(bookletBadgeForTag(tag({ id: 2, collection: '100', classic: 7 }))?.short).toBe(
+      '100 Days #7',
+    )
+    expect(bookletBadgeForTag(tag({ id: 3, collection: '100', classic: 7 }))?.kind).toBe('days100')
+    expect(bookletBadgeForTag(tag({ id: 4, collection: 'easytags', classic: null }))?.short).toBe(
+      'Easy Tags',
+    )
+    expect(bookletBadgeForTag(tag({ id: 4, collection: 'easytags', classic: null }))?.kind).toBe(
+      'easytags',
+    )
+  })
+
+  it('sorts by collection booklet then tag id', () => {
+    const tags = [
+      tag({ id: 30, title: 'Z', collection: '100', classic: 2 }),
+      tag({ id: 10, title: 'A', collection: 'classic', classic: 2 }),
+      tag({ id: 20, title: 'B', collection: 'classic', classic: 1 }),
+      tag({ id: 40, title: 'C', collection: '100', classic: 1 }),
+      tag({ id: 5, title: 'D', collection: null, classic: null }),
+    ]
+    expect(sortBrowseTags(tags, 'collection').map((x) => x.id)).toEqual([20, 10, 40, 30, 5])
   })
 
   it('sorts by last name and builds letter sections', () => {

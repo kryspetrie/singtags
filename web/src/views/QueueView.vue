@@ -36,7 +36,6 @@ function onFormatChange(fmt: UserDownloadFormat): void {
       Build a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
       {{ queue.count }} in list.
     </p>
-    <p v-if="queue.error" class="error" role="alert">{{ queue.error }}</p>
 
     <div class="prefs">
       <label>

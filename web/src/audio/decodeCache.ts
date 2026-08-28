@@ -175,6 +175,14 @@ export class DecodeService {
     const ab = await res.arrayBuffer()
     if (opts?.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
+    // Common failure: SPA index.html cached/served for a missing media URL.
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(ab.slice(0, 64)).trimStart().toLowerCase()
+    if (head.startsWith('<!doctype html') || head.startsWith('<html')) {
+      throw new Error(
+        'Unable to decode audio data (received HTML — clear Offline audio pack and re-sync)',
+      )
+    }
+
     // decodeAudioData is uncancellable — generation gates happen in the player.
     const sr = opts?.offlineSampleRate
     let decoded: AudioBuffer

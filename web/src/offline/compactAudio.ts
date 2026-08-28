@@ -49,6 +49,25 @@ export async function fetchAudioForStorage(
   }
 }
 
+/** Best-effort MIME from magic bytes (legacy `.bin` learning tracks are often MP3/ADTS). */
+export function sniffAudioMime(data: Uint8Array, fallback = HOSTED_AUDIO_MIME): string {
+  if (data.byteLength >= 4) {
+    const a = data[0]!,
+      b = data[1]!,
+      c = data[2]!,
+      d = data[3]!
+    if (a === 0x4f && b === 0x67 && c === 0x67 && d === 0x53) return 'audio/ogg' // OggS
+    if (a === 0x49 && b === 0x44 && c === 0x33) return 'audio/mpeg' // ID3
+    if (a === 0xff && (b & 0xe0) === 0xe0) return 'audio/mpeg' // MPEG ADTS
+    if (a === 0x52 && b === 0x49 && c === 0x46 && d === 0x46) return 'audio/wav' // RIFF
+    if (data.byteLength >= 8) {
+      const box = String.fromCharCode(data[4]!, data[5]!, data[6]!, data[7]!)
+      if (box === 'ftyp') return 'audio/mp4'
+    }
+  }
+  return fallback
+}
+
 /** Re-encode downloaded bytes for offline pack storage. */
 export async function encodeBytesForStorage(
   data: Uint8Array,
@@ -56,11 +75,17 @@ export async function encodeBytesForStorage(
   hostedMime = HOSTED_AUDIO_MIME,
   sourcePath?: string,
 ): Promise<{ bytes: Uint8Array; mime: string }> {
+  const mime = sniffAudioMime(data, hostedMime)
   if (!usesOpusStorage(quality) || (sourcePath && isPublishedTierPath(sourcePath))) {
-    return { bytes: data, mime: hostedMime }
+    return { bytes: data, mime }
   }
-  const encoded = await encodeDecodedBytes(data, 'ogg-opus', {
-    quality: quality as Exclude<AudioEncodeQuality, 'original'>,
-  })
-  return { bytes: encoded, mime: 'audio/ogg' }
+  try {
+    const encoded = await encodeDecodedBytes(data, 'ogg-opus', {
+      quality: quality as Exclude<AudioEncodeQuality, 'original'>,
+    })
+    return { bytes: encoded, mime: 'audio/ogg' }
+  } catch {
+    // Legacy .bin / corrupt stems must not abort the whole pack — store original bytes.
+    return { bytes: data, mime }
+  }
 }

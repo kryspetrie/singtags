@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { collectionLabel } from '../lib/collections'
 import { computed, ref } from 'vue'
 import type { CatalogFilters } from '../search/filters'
 import { arrangersByLastInitial, formatArrangerLastFirst } from '../search/browse'
@@ -305,7 +306,7 @@ function removeArranger(a: string): void {
           :class="{ on: filters.collections.includes(c) }"
           @click="toggleCollection(c)"
         >
-          {{ c }}
+          {{ collectionLabel(c) || c }}
         </button>
       </div>
     </FilterSheet>

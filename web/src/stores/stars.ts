@@ -394,5 +394,8 @@ export const useStarsStore = defineStore('stars', () => {
     exportFile,
     importFromJson,
     get,
+    clearError: () => {
+      error.value = null
+    },
   }
 })

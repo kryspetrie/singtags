@@ -74,7 +74,7 @@ def content_bbox(
     ink_row: float = DEFAULT_INK_ROW,
 ) -> tuple[int, int, int, int]:
     """Return (left, top, right, bottom) content box in image pixels (top-left origin)."""
-    rgb = im.convert("RGB")
+    rgb = image_to_rgb(im)
     dens = _row_ink_density(rgb.convert("L"), threshold)
     height = len(dens)
     bands = _ink_bands(dens, ink_row)
@@ -120,7 +120,7 @@ def crop_to_content(
     ink_row: float = DEFAULT_INK_ROW,
 ) -> Image.Image:
     """Crop image to music content, dropping isolated bottom copyright footers."""
-    rgb = im.convert("RGB")
+    rgb = image_to_rgb(im)
     return rgb.crop(
         content_bbox(
             rgb,
@@ -162,6 +162,21 @@ def _rasterize_pdf_bytes(data: bytes, *, dpi: int) -> list[Image.Image]:
         doc.close()
 
 
+def image_to_rgb(im: Image.Image, *, background: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
+    """Convert any mode to RGB, compositing alpha onto a solid background.
+
+    Black-ink-on-transparent PNGs (RGB all 0, content in alpha) become solid black
+    with Pillow's default ``convert("RGB")``; compositing onto white preserves the music.
+    """
+    if im.mode == "RGB":
+        return im.copy()
+    if im.mode in ("RGBA", "LA", "PA") or "A" in im.getbands():
+        rgba = im.convert("RGBA")
+        bg = Image.new("RGBA", rgba.size, (*background, 255))
+        return Image.alpha_composite(bg, rgba).convert("RGB")
+    return im.convert("RGB")
+
+
 def load_sheet_pages(path: Path, *, dpi: int = DEFAULT_PDF_DPI) -> list[Image.Image]:
     suffix = path.suffix.lower()
     if suffix == ".pdf":
@@ -169,7 +184,7 @@ def load_sheet_pages(path: Path, *, dpi: int = DEFAULT_PDF_DPI) -> list[Image.Im
     if suffix not in SHEET_EXTENSIONS:
         raise ValueError(f"unsupported sheet extension: {suffix}")
     with Image.open(path) as im:
-        return [im.convert("RGB")]
+        return [image_to_rgb(im)]
 
 
 def prepare_pages(
@@ -505,7 +520,17 @@ def build_sheet_preview_webp(
         gamma=gamma,
         dither=dither,
     )
-    return dest.stat().st_size
+    size = dest.stat().st_size
+    # Solid-color / failed composites compress to tiny WebPs (~50–80 bytes).
+    if size < 200:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise RuntimeError(
+            f"sheet preview for {sheet_path.name} is only {size} bytes (likely blank)"
+        )
+    return size
 
 
 def write_pbm(im: Image.Image, path: Path) -> None:

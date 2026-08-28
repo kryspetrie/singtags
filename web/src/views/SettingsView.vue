@@ -59,11 +59,18 @@ const audioDownloadBytes = computed(() =>
 
 const audioDownloadLabel = computed(() => offlineLib.formatBytes(audioDownloadBytes.value))
 
-const canStartAudioDownload = computed(
-  () => !offline.value && offlineLib.audioStatus !== 'running',
+/** Any pack download in flight (including Sync missing). */
+const packDownloadBusy = computed(
+  () =>
+    offlineLib.packSyncBusy ||
+    offlineLib.sheetsStatus === 'running' ||
+    offlineLib.audioStatus === 'running',
 )
 
 const sheetsActionLabel = computed(() => {
+  if (offlineLib.packSyncBusy && offlineLib.sheetsStatus === 'running') {
+    return 'Syncing sheets…'
+  }
   if (offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota') {
     return 'Resume sheets'
   }
@@ -71,12 +78,15 @@ const sheetsActionLabel = computed(() => {
     return `Sync missing sheets (${offlineLib.sheetsMissingCount})`
   }
   if (offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0) {
-    return 'Sync missing sheets'
+    return 'Sheets up to date'
   }
   return 'Download all sheets'
 })
 
 const audioActionLabel = computed(() => {
+  if (offlineLib.packSyncBusy && offlineLib.audioStatus === 'running') {
+    return 'Syncing tracks…'
+  }
   if (offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota') {
     return 'Resume audio'
   }
@@ -84,12 +94,33 @@ const audioActionLabel = computed(() => {
     return `Sync missing audio (${offlineLib.audioMissingCount})`
   }
   if (offlineLib.audioStatus === 'done' || offlineLib.audioCachedCount > 0) {
-    return 'Sync missing audio'
+    return 'Tracks up to date'
   }
   return 'Download learning tracks'
 })
 
+/** Primary sheets CTA: resume / sync missing / first download only. */
+const canStartSheetsAction = computed(() => {
+  if (offline.value || packDownloadBusy.value) return false
+  if (offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota') return true
+  if (offlineLib.sheetsSyncAvailable) return true
+  if (offlineLib.sheetsCachedCount === 0) return true
+  return false
+})
+
+/** Primary audio CTA: resume / sync missing / first download only. */
+const canStartAudioDownload = computed(() => {
+  if (offline.value || packDownloadBusy.value) return false
+  if (offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota') return true
+  if (offlineLib.audioSyncAvailable) return true
+  if (offlineLib.audioCachedCount === 0) return true
+  return false
+})
+
 const packSyncBanner = computed(() => {
+  if (offlineLib.packSyncBusy) {
+    return 'Syncing missing sheets and learning tracks… Already-cached files are skipped.'
+  }
   const sheets = offlineLib.sheetsSyncAvailable
   const audio = offlineLib.audioSyncAvailable
   if (!sheets && !audio) return null
@@ -101,6 +132,17 @@ const packSyncBanner = computed(() => {
   }
   return `New learning tracks are available remotely — ${offlineLib.audioMissingCount} audio file(s) aren’t on this device yet. Sync keeps what you already have and only downloads the missing files.`
 })
+
+const packSyncBannerBtnLabel = computed(() =>
+  offlineLib.packSyncBusy ? 'Syncing…' : 'Sync missing',
+)
+
+const canSyncMissing = computed(
+  () =>
+    !offline.value &&
+    !packDownloadBusy.value &&
+    (offlineLib.sheetsSyncAvailable || offlineLib.audioSyncAvailable),
+)
 
 const publishedTiersShipped = computed(() => {
   const m = offlineLib.audioManifest
@@ -217,7 +259,6 @@ function cancelClear(): void {
       Cellular or data-saver connection detected. Large library downloads can use many gigabytes —
       connect to Wi‑Fi before caching the full audio library.
     </p>
-    <p v-if="offlineLib.error" class="warn" role="alert">{{ offlineLib.error }}</p>
     <p v-if="offlineLib.cacheMessage" class="ok" role="status">{{ offlineLib.cacheMessage }}</p>
 
     <p v-if="packSyncBanner && !offline" class="ok sync-banner" role="status">
@@ -225,10 +266,11 @@ function cancelClear(): void {
       <button
         type="button"
         class="btn btn-primary sync-banner-btn"
-        :disabled="offlineLib.sheetsStatus === 'running' || offlineLib.audioStatus === 'running'"
+        :disabled="!canSyncMissing"
+        :aria-busy="offlineLib.packSyncBusy"
         @click="offlineLib.syncMissingPacks()"
       >
-        Sync missing
+        {{ packSyncBannerBtnLabel }}
       </button>
     </p>
 
@@ -259,7 +301,7 @@ function cancelClear(): void {
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="offline || offlineLib.sheetsStatus === 'running'"
+          :disabled="!canStartSheetsAction"
           @click="offlineLib.startPack('sheets')"
         >
           {{ sheetsActionLabel }}

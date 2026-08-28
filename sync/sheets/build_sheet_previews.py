@@ -44,10 +44,16 @@ def main() -> int:
             continue
         preview = (meta.get("parts") or {}).get("sheet_preview") or {}
         filename = preview.get("filename")
+        preview_path = (folder / str(filename)) if filename else None
+        preview_ok = (
+            preview_path is not None
+            and preview_path.is_file()
+            and preview_path.stat().st_size >= 200
+        )
         if (
             not args.force
             and filename
-            and (folder / str(filename)).is_file()
+            and preview_ok
             and len(preview) == 1
             and "sheet_preview_kind" not in meta
             and "sheet_preview_format" not in meta
@@ -58,7 +64,7 @@ def main() -> int:
         if (
             not args.force
             and filename
-            and (folder / str(filename)).is_file()
+            and preview_ok
         ):
             meta.setdefault("parts", {})["sheet_preview"] = {"filename": filename}
             meta.pop("sheet_preview_format", None)
@@ -72,7 +78,7 @@ def main() -> int:
             built += 1
             continue
         try:
-            out = ensure_sheet_preview(folder, meta, sheet, force=args.force)
+            out = ensure_sheet_preview(folder, meta, sheet, force=True)
             if out:
                 save_metadata(folder, meta)
                 built += 1

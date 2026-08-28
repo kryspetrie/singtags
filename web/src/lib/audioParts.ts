@@ -20,18 +20,32 @@ export function partLabel(part: string): string {
 
 /**
  * Extract part name from media paths, including tier suffixes:
- * `lead.m4a`, `lead.playback.opus`, `lead.solo.opus`, `mix.ultra_mix.opus`.
+ * `lead.m4a`, `lead.playback.opus`, `lead.solo.opus`, `mix.ultra_mix.opus`,
+ * and library titles like `Song (C) - Arranger - Lead - Solo.opus`.
  */
 export function partFromMediaPath(path: string): string | null {
-  const file = path.split('/').pop()?.replace(/\?.*$/, '')
+  let file = path.split('/').pop()?.replace(/\?.*$/, '') || ''
+  try {
+    file = decodeURIComponent(file)
+  } catch {
+    /* keep raw */
+  }
   if (!file) return null
-  const stem = file.replace(/\.(m4a|mp3|ogg|opus|webm|wav|aac)$/i, '')
+  let stem = file.replace(/\.(m4a|mp3|ogg|opus|webm|wav|aac)$/i, '')
   if (!stem) return null
-  const part = stem.replace(
+  stem = stem.replace(
     /\.(playback|solo|downmix|ultra_mix|ultra_solo|ultra_downmix|ultra_stereo|ultra)$/i,
     '',
   )
-  return part ? part.toLowerCase() : null
+  stem = stem.replace(/\s*-\s*(playback|solo|downmix|ultra\s*mix|ultra)\s*$/i, '')
+  const lower = stem.toLowerCase()
+  if ((COMMON_AUDIO_PARTS as readonly string[]).includes(lower)) return lower
+  const m = stem.match(/\b(mix|lead|tenor|bari|bass|baritone)\b/i)
+  if (m) {
+    const p = m[1].toLowerCase()
+    return p === 'baritone' ? 'bari' : p
+  }
+  return lower || null
 }
 
 export function pathMatchesParts(

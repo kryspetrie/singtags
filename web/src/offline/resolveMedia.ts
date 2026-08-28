@@ -29,6 +29,7 @@ import {
 } from '../audio/partLeftReconstruct'
 import { blobUrlFromCached, getStarred, type StarredTagRecord } from './starredDb'
 import { audioPack, sheetsPack } from './libraryPack'
+import { isPlausibleMediaBody } from './downloadQueue'
 
 export type ResolvedMedia =
   | { kind: 'blob'; url: string; source: 'star' | 'pack' | 'reconstruct'; tier?: string }
@@ -78,14 +79,28 @@ function packLookupKeys(absolute: string): string[] {
   return [...new Set(keys)]
 }
 
+async function packBlobFromResponse(
+  pack: typeof audioPack,
+  key: string,
+  res: Response,
+): Promise<string | null> {
+  const buf = await res.arrayBuffer()
+  const mime = res.headers.get('Content-Type') || 'application/octet-stream'
+  // Drop SPA HTML that was cached when missing /library files returned index.html.
+  if (!isPlausibleMediaBody(buf, mime)) {
+    await pack.delete(key)
+    return null
+  }
+  return URL.createObjectURL(new Blob([buf], { type: mime }))
+}
+
 async function packGetBlobUrl(absolute: string): Promise<string | null> {
   const pack = isAudioAbsolute(absolute) ? audioPack : sheetsPack
   for (const key of packLookupKeys(absolute)) {
     const res = await pack.get(key)
     if (!res) continue
-    const buf = await res.arrayBuffer()
-    const mime = res.headers.get('Content-Type') || 'application/octet-stream'
-    return URL.createObjectURL(new Blob([buf], { type: mime }))
+    const url = await packBlobFromResponse(pack, key, res)
+    if (url) return url
   }
   // Origin mismatch fallback: match by pathname suffix.
   try {
@@ -98,9 +113,8 @@ async function packGetBlobUrl(absolute: string): Promise<string | null> {
         if (sp === want || stored.endsWith(want)) {
           const res = await pack.get(stored)
           if (!res) continue
-          const buf = await res.arrayBuffer()
-          const mime = res.headers.get('Content-Type') || 'application/octet-stream'
-          return URL.createObjectURL(new Blob([buf], { type: mime }))
+          const url = await packBlobFromResponse(pack, stored, res)
+          if (url) return url
         }
       } catch {
         /* ignore */

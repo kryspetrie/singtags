@@ -2,6 +2,27 @@
 
 import type { OfflinePackStore } from './libraryPack'
 
+/** True when bytes look like an HTML document (SPA fallback poison). */
+export function bodyLooksLikeHtml(buf: ArrayBuffer): boolean {
+  const n = Math.min(buf.byteLength, 64)
+  if (n < 15) return false
+  const head = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(buf, 0, n))
+  const t = head.trimStart().toLowerCase()
+  return t.startsWith('<!doctype html') || t.startsWith('<html')
+}
+
+/** Reject empty/truncated responses (real media is never this small). */
+export function isEmptyMediaBody(buf: ArrayBuffer): boolean {
+  return buf.byteLength < 64
+}
+
+/** True when a cached/fetched body is safe to keep as media. */
+export function isPlausibleMediaBody(buf: ArrayBuffer, contentType = ''): boolean {
+  if (/text\/html/i.test(contentType)) return false
+  if (isEmptyMediaBody(buf) || bodyLooksLikeHtml(buf)) return false
+  return true
+}
+
 export interface DownloadProgress {
   label: string
   done: number
@@ -23,6 +44,7 @@ export interface DownloadItem {
 export type DownloadStatus = 'idle' | 'running' | 'paused' | 'done' | 'error' | 'quota'
 
 export interface DownloadQueueOptions {
+  /** Parallel fetch/store workers. Default 16 (tiny files are latency-bound). */
   concurrency?: number
   onProgress?: (p: DownloadProgress) => void
   /** Called when status changes. */
@@ -34,6 +56,11 @@ export interface DownloadQueueOptions {
    * Return a new Response to store.
    */
   transformResponse?: (item: DownloadItem, response: Response) => Promise<Response>
+  /** Min ms between UI progress emits while running (status changes always emit). Default 100. */
+  progressMinMs?: number
+  /** Skip failed items instead of aborting the whole pack (audio sync). */
+  continueOnError?: boolean
+  onItemError?: (path: string, error: string) => void
 }
 
 export class DownloadQueue {
@@ -48,6 +75,8 @@ export class DownloadQueue {
   private error: string | null = null
   private store: OfflinePackStore
   private options: DownloadQueueOptions
+  private lastProgressAt = 0
+  private pendingProgressPath: string | undefined
 
   constructor(store: OfflinePackStore, options: DownloadQueueOptions = {}) {
     this.store = store
@@ -81,7 +110,7 @@ export class DownloadQueue {
     this.pauseRequested = false
     this.abort = new AbortController()
     this.setStatus('running')
-    const concurrency = Math.max(1, this.options.concurrency ?? 4)
+    const concurrency = Math.max(1, this.options.concurrency ?? 16)
     const workers = Array.from({ length: concurrency }, () => this.worker())
     await Promise.all(workers)
     if (this.status === 'quota' || this.status === 'error') return
@@ -101,10 +130,19 @@ export class DownloadQueue {
     this.status = s
     if (err) this.error = err
     this.options.onStatus?.(s, err)
-    this.emitProgress()
+    this.emitProgress(undefined, true)
   }
 
-  private emitProgress(currentPath?: string): void {
+  private emitProgress(currentPath?: string, force = false): void {
+    if (currentPath !== undefined) this.pendingProgressPath = currentPath
+    const minMs = this.options.progressMinMs ?? 100
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    if (!force && this.status === 'running' && now - this.lastProgressAt < minMs) {
+      return
+    }
+    this.lastProgressAt = now
+    const path = this.pendingProgressPath
+    this.pendingProgressPath = undefined
     const total = this.items.length
     this.options.onProgress?.({
       label:
@@ -124,7 +162,7 @@ export class DownloadQueue {
       doneBytes: this.doneBytes,
       totalBytes: this.totalBytes,
       ratio: total <= 0 ? 1 : this.done / total,
-      currentPath,
+      currentPath: path,
     })
   }
 
@@ -140,21 +178,36 @@ export class DownloadQueue {
       if (i == null) return
       const item = this.items[i]!
       try {
-        if (await this.store.has(item.url)) {
-          this.done++
-          this.doneBytes += item.bytes ?? 0
-          this.options.onItemDone?.(item.path, i)
-          this.emitProgress(item.path)
-          continue
+        // Single lookup (avoid has+get opening Cache twice per file).
+        const existing = await this.store.get(item.url)
+        if (existing) {
+          const existingBuf = await existing.arrayBuffer()
+          const existingType = existing.headers.get('Content-Type') || ''
+          if (isPlausibleMediaBody(existingBuf, existingType)) {
+            this.done++
+            this.doneBytes += item.bytes ?? existingBuf.byteLength
+            this.options.onItemDone?.(item.path, i)
+            this.emitProgress(item.path)
+            continue
+          }
+          await this.store.delete(item.url)
         }
         const res = await fetch(item.url, { signal: this.abort?.signal })
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${item.path}`)
+        const contentType = res.headers.get('Content-Type') || ''
+        if (/text\/html/i.test(contentType)) {
+          throw new Error(`Got HTML instead of media for ${item.path} (check library URL)`)
+        }
         let toStore = res
         if (this.options.transformResponse) {
           toStore = await this.options.transformResponse(item, res)
         }
         const clone = toStore.clone()
         const buf = await toStore.arrayBuffer()
+        // Guard against SPA shells / empty bodies (not tiny-but-valid WebPs).
+        if (!isPlausibleMediaBody(buf, clone.headers.get('Content-Type') || contentType)) {
+          throw new Error(`Invalid media body for ${item.path} (${buf.byteLength} bytes)`)
+        }
         await this.store.put(
           item.url,
           new Response(buf, {
@@ -177,7 +230,14 @@ export class DownloadQueue {
           this.abort?.abort()
           return
         }
-        this.setStatus('error', e instanceof Error ? e.message : String(e))
+        const msg = e instanceof Error ? e.message : String(e)
+        this.options.onItemError?.(item.path, msg)
+        if (this.options.continueOnError) {
+          this.done++
+          this.emitProgress(item.path)
+          continue
+        }
+        this.setStatus('error', msg)
         this.abort?.abort()
         return
       }

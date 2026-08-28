@@ -158,15 +158,21 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         if playback:
             tiers["playback"] = lib_url(folder.name, playback)
         if part == "mix":
-            ultra = find_tier_file(folder, fname, "ultra mix") or find_tier_file(
+            ultra_mix = find_tier_file(folder, fname, "ultra mix") or find_tier_file(
                 folder, fname, part, "ultra"
             )
-            if ultra:
-                tiers["ultra_mix"] = lib_url(folder.name, ultra)
+            if ultra_mix:
+                tiers["ultra_mix"] = lib_url(folder.name, ultra_mix)
         else:
+            # Library uses "Lead - Solo.opus" (not lead.solo.opus / *ultra*).
+            solo = find_tier_file(folder, fname, part, "solo")
+            if solo:
+                tiers["ultra_solo"] = lib_url(folder.name, solo)
+            downmix = find_tier_file(folder, fname, part, "downmix")
+            if downmix:
+                tiers["ultra_downmix"] = lib_url(folder.name, downmix)
             ultra = find_tier_file(folder, fname, part, "ultra")
-            if ultra:
-                # Prefer stereo ultra label used by the SPA when present
+            if ultra and ultra != solo and ultra != downmix:
                 tiers["ultra_stereo"] = lib_url(folder.name, ultra)
         audio_tiers[part] = tiers
 

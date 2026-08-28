@@ -36,10 +36,12 @@ describe('DownloadQueue', () => {
 
   it('downloads missing items and skips existing', async () => {
     const store = memoryStore()
-    await store.put('https://x/a.webp', new Response(new Uint8Array([1, 2, 3])))
+    const blobA = new Uint8Array(96).fill(1)
+    const blobB = new Uint8Array(96).fill(2)
+    await store.put('https://x/a.webp', new Response(blobA))
     const fetchMock = vi.fn(async (url: string) => {
       expect(url).toBe('https://x/b.webp')
-      return new Response(new Uint8Array([4, 5]), {
+      return new Response(blobB, {
         status: 200,
         headers: { 'Content-Type': 'image/webp' },
       })
@@ -52,8 +54,8 @@ describe('DownloadQueue', () => {
       onStatus: (s) => statuses.push(s),
     })
     q.setItems([
-      { url: 'https://x/a.webp', path: 'a.webp', bytes: 3 },
-      { url: 'https://x/b.webp', path: 'b.webp', bytes: 2 },
+      { url: 'https://x/a.webp', path: 'a.webp', bytes: 96 },
+      { url: 'https://x/b.webp', path: 'b.webp', bytes: 96 },
     ])
     await q.start()
     expect(q.getStatus()).toBe('done')
@@ -80,7 +82,7 @@ describe('DownloadQueue', () => {
     await Promise.resolve()
     await Promise.resolve()
     q.pause()
-    release(new Response(new Uint8Array([1]), { status: 200 }))
+    release(new Response(new Uint8Array(96).fill(9), { status: 200, headers: { 'Content-Type': 'image/webp' } }))
     await startP
     expect(['paused', 'done', 'error']).toContain(q.getStatus())
   })

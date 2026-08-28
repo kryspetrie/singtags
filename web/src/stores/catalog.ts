@@ -5,9 +5,12 @@ import type { ExpansionMap } from '../search/expansions'
 import {
   buildBrowseRows,
   indexOfSection,
+  parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
+  isClassicCollection,
+  is100DaysCollection,
   sortBrowseTags,
   type BrowseSortMode,
 } from '../search/browse'
@@ -244,20 +247,37 @@ export const useCatalogStore = defineStore('catalog', () => {
       const hit = tags.value.find((t) => t.id === tagNum)
       return hit ? [hit] : []
     }
-    // `c99` / `classic:99` → classic booklet number (exact)
+    // `c99` / `classic:99` → Classic booklet number only (exact)
     const classicNum = parseClassicNumberQuery(debouncedQuery.value)
     if (classicNum != null) {
       return sortBrowseTags(
-        tags.value.filter((t) => Number(t.classic) === classicNum),
+        tags.value.filter(
+          (t) => isClassicCollection(t.collection) && Number(t.classic) === classicNum,
+        ),
         sortMode.value,
         sortReverse.value,
       )
     }
-    // Bare `3558` → exact Tag # and/or Classic # only (no number-word FTS expansion)
+    // `p12` / `100days:12` → 100 Days booklet number (exact)
+    const daysNum = parse100DaysNumberQuery(debouncedQuery.value)
+    if (daysNum != null) {
+      return sortBrowseTags(
+        tags.value.filter(
+          (t) => is100DaysCollection(t.collection) && Number(t.classic) === daysNum,
+        ),
+        sortMode.value,
+        sortReverse.value,
+      )
+    }
+    // Bare `3558` → exact Tag # and/or Classic booklet # only (not 100 Days)
     const bareNum = parseExactTagIdQuery(debouncedQuery.value)
     if (bareNum != null) {
       return sortBrowseTags(
-        tags.value.filter((t) => t.id === bareNum || Number(t.classic) === bareNum),
+        tags.value.filter(
+          (t) =>
+            t.id === bareNum ||
+            (isClassicCollection(t.collection) && Number(t.classic) === bareNum),
+        ),
         sortMode.value,
         sortReverse.value,
       )
@@ -336,6 +356,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       'year',
       'downloads',
       'id',
+      'collection',
     ]
     sortMode.value = allowed.includes(sort) ? sort : 'rating'
     sortReverse.value = query.rev === '1'

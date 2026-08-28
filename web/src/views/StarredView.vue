@@ -271,7 +271,6 @@ function rowStarLabel(title: string, tagId: number): string {
     <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
       <StarsNoticeLine :notice="stars.lastNotice" />
     </p>
-    <p v-if="stars.error" class="error" role="alert">{{ stars.error }}</p>
 
     <p v-if="!stars.loaded" class="text-muted" role="status">Loading starred tags…</p>
     <EmptyState

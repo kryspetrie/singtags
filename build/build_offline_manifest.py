@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Build offline pack manifests (sheets + audio) for progressive PWA caching."""
+"""Build offline pack manifests (sheets + audio) from published tag JSON + library/.
+
+Reads slim metadata under web/public/tags/ (from build_indexes.py) and sizes files
+under library/. Paths stay library-relative (percent-encoded) for VITE_MEDIA_BASE.
+"""
 
 from __future__ import annotations
 
@@ -8,24 +12,144 @@ import gzip
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import unquote
 
 
-def file_size(sample: Path, rel: str) -> int:
-    p = sample / rel
+SITE_ROOT = Path(__file__).resolve().parents[1]
+
+
+# Offline pack only ships decodable audio (legacy learning stems are often `.bin` MPEG).
+AUDIO_EXTENSIONS = {".opus", ".ogg", ".m4a", ".mp3", ".mp4", ".aac", ".wav", ".webm", ".bin"}
+MIN_AUDIO_BYTES = 256
+
+
+def is_offline_audio_path(library: Path, rel: str) -> bool:
+    """True when path exists, is large enough, and looks like audio (ext or MPEG/Ogg magic)."""
+    if not rel:
+        return False
+    path = library / unquote(rel)
+    try:
+        size = path.stat().st_size if path.is_file() else 0
+    except OSError:
+        return False
+    if size < MIN_AUDIO_BYTES:
+        return False
+    suffix = path.suffix.lower()
+    if suffix not in AUDIO_EXTENSIONS:
+        return False
+    if suffix != ".bin":
+        return True
+    try:
+        head = path.read_bytes()[:16]
+    except OSError:
+        return False
+    # MPEG ADTS / ID3 / Ogg / ftyp
+    if head.startswith(b"OggS") or head.startswith(b"ID3"):
+        return True
+    if len(head) >= 2 and head[0] == 0xFF and (head[1] & 0xE0) == 0xE0:
+        return True
+    if len(head) >= 8 and head[4:8] == b"ftyp":
+        return True
+    return False
+
+
+
+def file_size(library: Path, rel: str) -> int:
+    """Size of a library-relative (possibly percent-encoded) path."""
+    if not rel:
+        return 0
+    p = library / unquote(rel)
     try:
         return p.stat().st_size if p.is_file() else 0
     except OSError:
         return 0
 
 
-def build(sample: Path, out: Path) -> None:
-    tags_dir = sample / "tags"
+def pick_audio_paths(meta: dict) -> tuple[list[str], str | None]:
+    """Choose offline-pack audio paths (prefer ultra tiers, else playback)."""
+    audio_tiers = meta.get("audio_tiers") or {}
+    audio = meta.get("audio") or {}
+    layout = meta.get("audio_layout_summary") or {}
+    ultra_policy = layout.get("ultra_low") if isinstance(layout, dict) else None
+    if not isinstance(ultra_policy, str):
+        ultra_policy = None
+
+    paths: list[str] = []
+    if isinstance(audio_tiers, dict) and audio_tiers:
+        for part, tiers in audio_tiers.items():
+            if not isinstance(tiers, dict):
+                continue
+            chosen = None
+            if ultra_policy == "mono_solos":
+                if part == "mix" and (
+                    layout.get("mix_disjoint") or layout.get("parts_recombinable") is False
+                ):
+                    chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
+                elif layout.get("parts_recombinable") is False:
+                    chosen = tiers.get("ultra_stereo") or tiers.get("playback")
+                else:
+                    # Voice solos only — mix is reconstructed client-side.
+                    if part == "mix":
+                        chosen = None
+                    else:
+                        chosen = tiers.get("ultra_solo")
+            elif ultra_policy == "mono_downmix":
+                chosen = tiers.get("ultra_downmix") or tiers.get("ultra_solo")
+            elif part == "mix" and tiers.get("ultra_mix"):
+                chosen = tiers.get("ultra_mix")
+            elif ultra_policy == "stereo_fallback":
+                if part == "mix":
+                    chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
+                else:
+                    chosen = tiers.get("ultra_stereo")
+            if not chosen and ultra_policy not in {
+                "mono_solos",
+                "mono_downmix",
+                "stereo_fallback",
+            }:
+                chosen = (
+                    tiers.get("ultra_solo")
+                    or tiers.get("ultra_mix")
+                    or tiers.get("ultra_stereo")
+                    or tiers.get("playback")
+                    or tiers.get("original")
+                )
+            # Always have something for offline when policy left a gap
+            if not chosen and part != "mix":
+                chosen = (
+                    tiers.get("ultra_solo")
+                    or tiers.get("ultra_stereo")
+                    or tiers.get("playback")
+                    or tiers.get("original")
+                )
+            if not chosen and part == "mix" and ultra_policy != "mono_solos":
+                chosen = (
+                    tiers.get("ultra_mix")
+                    or tiers.get("playback")
+                    or tiers.get("original")
+                )
+            if isinstance(chosen, str) and chosen:
+                paths.append(chosen)
+    elif isinstance(audio, dict):
+        paths = [p for p in audio.values() if isinstance(p, str)]
+
+    # Dedupe while preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out, ultra_policy
+
+
+def build(tags_dir: Path, library: Path, out: Path) -> None:
     sheet_entries: list[dict] = []
     audio_entries: list[dict] = []
     sheet_total = 0
     audio_total = 0
 
-    for meta_path in sorted(tags_dir.glob("*/metadata.json")):
+    for meta_path in sorted(tags_dir.glob("*/metadata.json"), key=lambda p: int(p.parent.name)):
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         tid = meta.get("tag_id")
         if not isinstance(tid, int):
@@ -35,19 +159,22 @@ def build(sample: Path, out: Path) -> None:
         if not isinstance(pages, list):
             pages = []
         page_paths = [p for p in pages if isinstance(p, str)]
-        detail_rel = f"tags/{tid}/metadata.json"
+        detail_rel = f"/tags/{tid}/metadata.json"
         preview = meta.get("sheet_preview")
         if isinstance(preview, str) and preview:
-            cache_paths = [preview]
-            bytes_sheets = file_size(sample, preview) + file_size(sample, detail_rel)
+            cache_paths = [preview] if file_size(library, preview) > 0 else []
+            bytes_sheets = file_size(library, preview) if cache_paths else 0
         elif page_paths:
-            cache_paths = page_paths
-            bytes_sheets = sum(file_size(sample, p) for p in page_paths) + file_size(
-                sample, detail_rel
-            )
+            cache_paths = [p for p in page_paths if file_size(library, p) > 0]
+            bytes_sheets = sum(file_size(library, p) for p in cache_paths)
         else:
             cache_paths = []
             bytes_sheets = 0
+        # Include slim tag JSON size (served from app origin, not library)
+        try:
+            bytes_sheets += meta_path.stat().st_size
+        except OSError:
+            pass
         if cache_paths:
             sheet_entries.append(
                 {
@@ -59,58 +186,17 @@ def build(sample: Path, out: Path) -> None:
             )
             sheet_total += bytes_sheets
 
-        audio = meta.get("audio") or {}
-        audio_tiers = meta.get("audio_tiers") or {}
-        layout = meta.get("audio_layout_summary") or {}
-        ultra_policy = layout.get("ultra_low") if isinstance(layout, dict) else None
-
-        # Prefer ultra-low pack paths when seeded; fall back to originals.
-        audio_paths: list[str] = []
-        if isinstance(audio_tiers, dict) and audio_tiers:
-            for part, tiers in audio_tiers.items():
-                if not isinstance(tiers, dict):
-                    continue
-                chosen = None
-                if ultra_policy == "mono_solos":
-                    if part == "mix" and (
-                        layout.get("mix_disjoint")
-                        or layout.get("parts_recombinable") is False
-                    ):
-                        chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
-                    elif layout.get("parts_recombinable") is False:
-                        chosen = tiers.get("ultra_stereo") or tiers.get("playback")
-                    else:
-                        # Voice solos only — mix is reconstructed client-side.
-                        chosen = tiers.get("ultra_solo")
-                elif ultra_policy == "mono_downmix":
-                    chosen = tiers.get("ultra_downmix")
-                elif part == "mix" and tiers.get("ultra_mix"):
-                    # Mix-only tags (often labeled stereo_fallback with only mix).
-                    chosen = tiers.get("ultra_mix")
-                elif ultra_policy == "stereo_fallback":
-                    if part == "mix":
-                        chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
-                    else:
-                        chosen = tiers.get("ultra_stereo")
-                if not chosen and ultra_policy not in {
-                    "mono_solos",
-                    "mono_downmix",
-                    "stereo_fallback",
-                }:
-                    chosen = tiers.get("playback") or tiers.get("original")
-                if isinstance(chosen, str):
-                    audio_paths.append(chosen)
-        elif isinstance(audio, dict):
-            audio_paths = [p for p in audio.values() if isinstance(p, str)]
-
-        bytes_audio = sum(file_size(sample, p) for p in audio_paths)
+        audio_paths, ultra_policy = pick_audio_paths(meta)
+        # Drop missing / empty files so we never publish broken pack URLs.
+        audio_paths = [p for p in audio_paths if is_offline_audio_path(library, p)]
+        bytes_audio = sum(file_size(library, p) for p in audio_paths)
         if audio_paths:
-            entry = {
+            entry: dict = {
                 "tagId": tid,
                 "paths": audio_paths,
                 "bytes": bytes_audio,
             }
-            if isinstance(ultra_policy, str):
+            if ultra_policy:
                 entry["ultraLow"] = ultra_policy
             audio_entries.append(entry)
             audio_total += bytes_audio
@@ -147,24 +233,36 @@ def build(sample: Path, out: Path) -> None:
     )
     print(
         f"Wrote offline manifests: {len(sheet_entries)} sheet tags "
-        f"({sheet_total} B), {len(audio_entries)} audio tags ({audio_total} B) → {out}"
+        f"({sheet_total / 1e6:.1f} MB), {len(audio_entries)} audio tags "
+        f"({audio_total / 1e6:.1f} MB) → {out}"
     )
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--sample",
+        "--tags",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "sample-data",
+        default=SITE_ROOT / "web" / "public" / "tags",
+        help="Slim per-tag JSON from build_indexes.py",
+    )
+    p.add_argument(
+        "--library",
+        type=Path,
+        default=SITE_ROOT / "library",
+        help="Working library root (for byte sizes)",
     )
     p.add_argument(
         "--out",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "web" / "public" / "indexes",
+        default=SITE_ROOT / "web" / "public" / "indexes",
     )
     args = p.parse_args()
-    build(args.sample, args.out)
+    if not args.tags.is_dir():
+        raise SystemExit(f"tags dir missing: {args.tags} — run build/build_indexes.py first")
+    if not args.library.is_dir():
+        raise SystemExit(f"library missing: {args.library}")
+    build(args.tags, args.library, args.out)
     return 0
 
 

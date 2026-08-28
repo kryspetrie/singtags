@@ -86,7 +86,6 @@ function rowStarLabel(tag: TagSummary): string {
     <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
       <StarsNoticeLine :notice="stars.lastNotice" />
     </p>
-    <p v-if="stars.error" class="warn" role="alert">{{ stars.error }}</p>
 
     <EmptyState
       v-if="!recent.count"

@@ -1,4 +1,5 @@
 import type { TagDetail } from '../types/tag'
+import { collectionLabel, collectionNumberBadge } from './collections'
 import { barbershopTagsTagUrl } from './barbershopTags'
 
 export type TagDetailRow = {
@@ -23,9 +24,15 @@ export function buildTagDetailRows(d: TagDetail): TagDetailRow[] {
     rows.push({ label: 'Written key', value: d.writ_key.trim() })
   }
   if (hasText(d.type)) rows.push({ label: 'Type', value: d.type.trim() })
-  if (hasText(d.collection)) rows.push({ label: 'Collection', value: d.collection.trim() })
-  if (d.classic != null && String(d.classic).trim() !== '') {
-    rows.push({ label: 'Classic #', value: String(d.classic) })
+  if (hasText(d.collection)) {
+    rows.push({
+      label: 'Collection',
+      value: collectionLabel(d.collection) || d.collection.trim(),
+    })
+  }
+  const booklet = collectionNumberBadge(d.collection, d.classic)
+  if (booklet) {
+    rows.push({ label: booklet.label.split(' #')[0] + ' #', value: String(booklet.number) })
   }
   if (d.year != null) rows.push({ label: 'Year', value: String(d.year) })
   if (d.rating != null) {
