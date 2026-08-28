@@ -1,0 +1,7 @@
+# Local ASR (GPU optional). For Lambda / CPU-only images use requirements-asr-cpu.txt.
+-r requirements-asr-cpu.txt
+# CUDA runtime libs for GPU acceleration (RTX / CUDA 12) — local workstation only
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
+nvidia-cuda-runtime-cu12
+nvidia-cuda-nvrtc-cu12

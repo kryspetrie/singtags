@@ -1,0 +1,4 @@
+# CPU-only ASR for Lambda / container images (no CUDA wheels).
+# Bake small.en into the image at build time:
+#   python -c "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8')"
+faster-whisper>=1.0.0

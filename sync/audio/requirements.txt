@@ -1,0 +1,9 @@
+# Audio batch tools — deps if split from mirror
+
+```
+numpy>=1.24.0
+```
+
+System: `ffmpeg` on PATH.
+
+Also take `lib/audio_layout.py`, `lib/audio_align.py`, `lib/audio_tiers.py`, plus `lib/complete.py`, `lib/config.py`, `lib/state.py`, `lib/http.py`, `lib/names.py`.

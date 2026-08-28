@@ -4,9 +4,26 @@ web/dist/
 *.log
 .env
 .env.*
+!.env.deploy.example
 
-# Tag-page media (audio + sheets). Rebuild with scripts/seed_sample.py
-# and scripts/rasterize_sheets.py. Keep sample-data/tags/*/metadata.json
-# and sample-data/manifest.json — those are needed for indexes / browse.
+# Working mirror library (never commit). Lyric review queue lives in library/_state/.
+library/
+
+# Pipeline / tool virtualenvs
+sync/.venv/
+sync/venv/
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Terraform local state under sync infra
+sync/infra/.terraform/
+sync/infra/*.tfstate*
+sync/infra/.terraform.lock.hcl
+
+# Generated from library/ by build/build_indexes.py
+web/public/tags/
+
+# Legacy sample media (if still present locally)
 sample-data/media/
 sample-data/sheets/

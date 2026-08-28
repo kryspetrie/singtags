@@ -1,0 +1,40 @@
+# Lambda container: sync + OCR + CPU ASR (small.en baked in).
+# Build from repo root: infra/scripts/lambda_build_push.sh
+FROM public.ecr.aws/lambda/python:3.12
+
+# ffmpeg (static) for left-channel extract; libgomp for onnxruntime
+RUN dnf install -y libgomp mesa-libGL tar xz gzip findutils \
+    && curl -fsSL -o /tmp/ffmpeg.tar.xz \
+         https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
+    && mkdir -p /tmp/ffmpeg \
+    && tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg --strip-components=1 \
+    && install -m 0755 /tmp/ffmpeg/ffmpeg /usr/local/bin/ffmpeg \
+    && rm -rf /tmp/ffmpeg /tmp/ffmpeg.tar.xz \
+    && dnf clean all
+
+# Hugging Face / faster-whisper cache lives in the image (baked model)
+ENV HF_HOME=/opt/hf-cache \
+    XDG_CACHE_HOME=/opt/hf-cache \
+    MIRROR_ROOT=/tmp/mirror \
+    ASR_ENABLED=1 \
+    ASR_MODEL=small.en \
+    ASR_BEAM_SIZE=1 \
+    ASR_MIN_REMAINING_SECONDS=90 \
+    ORIGIN_RETRY_INTERVAL_SECONDS=3600 \
+    ORIGIN_RETRY_MAX_ATTEMPTS=24 \
+    PYTHONPATH=${LAMBDA_TASK_ROOT}
+
+COPY mirror/requirements.txt mirror/requirements-asr-cpu.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt \
+        -r ${LAMBDA_TASK_ROOT}/requirements-asr-cpu.txt \
+    && mkdir -p /opt/hf-cache \
+    && python -c "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8')" \
+    && echo "Baked ASR model small.en into /opt/hf-cache"
+
+# App code (keep image lean via .dockerignore)
+COPY mirror/lambda_sync.py mirror/sync.py mirror/enrich.py mirror/assets.py \
+     mirror/normalize.py mirror/extract_text.py mirror/extract_audio_lyrics.py \
+     mirror/build_catalog.py mirror/inventory.py ${LAMBDA_TASK_ROOT}/
+COPY lib ${LAMBDA_TASK_ROOT}/lib
+
+CMD ["lambda_sync.handler"]

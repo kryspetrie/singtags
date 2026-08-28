@@ -2,6 +2,16 @@
 
 Static Vue 3 + TypeScript site for a Barbershop Tags mirror. No backend — indexes and media are static (S3-ready).
 
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `web/` | Vue SPA |
+| `library/` | Working media mirror (**gitignored**) — lyric review progress in `library/_state/` |
+| `sync/` | Mirror / enrich the library (audio tiers, sheets, lyrics reviewer, …) |
+| `build/` | Build SPA indexes from `library/` (no media remux) |
+| `deploy/` | Independent S3 pushes: website vs library |
+
 ## Docs
 
 - [**Setup from zero** (Namecheap + Cloudflare)](docs/SETUP.md) — start here if you have no domain/hosting yet
@@ -15,59 +25,35 @@ Static Vue 3 + TypeScript site for a Barbershop Tags mirror. No backend — inde
 ## Quick start
 
 ```bash
+# Library must exist locally (rsync from your mirror / extradrive copy)
+python3 build/build_indexes.py
+
 cd web
 npm install
 npm run dev
 ```
 
-Production builds register a service worker (PWA). Use **Add to Home Screen** / install on mobile; open **Offline** settings to download songbook sheets (~300 MB full library) and star tags for audio. Airplane mode then works for browse + sheets + starred audio.
+Vite serves `library/` at `/library`. Production builds register a service worker (PWA).
 
-## Scripts
+## Lyric review (preserve progress)
+
+Progress lives in `library/_state/lyric_review_queue.json` (and related `lyric_*` files) plus finalized fields on each tag’s `metadata.json`. Continue with:
 
 ```bash
-# Remux finalized tags → sample-data (MP4 AAC); default library on extradrive1
-python3 scripts/seed_sample.py --limit 250 --force
-
-# Rasterize sheets → WebP pages
-python3 scripts/rasterize_sheets.py --force
-
-# Build gzip indexes into web/public/indexes
-python3 scripts/build_indexes.py
-
-# Offline pack manifests (sheets + audio) for progressive PWA download
-python3 scripts/build_offline_manifest.py
-
-# Tests / coverage / Storybook (widget book)
-cd web && npm test && npm run test:coverage
-cd web && npm run storybook
-
-# Deploy (copy .env.deploy.example → .env.deploy first)
-./scripts/publish.sh s3       # Amazon S3 (+ optional CloudFront)
-./scripts/publish.sh pages    # Cloudflare Pages
-./scripts/publish.sh r2       # Cloudflare R2
+cd sync && source .venv/bin/activate  # after sync/install.sh
+python lyrics/review_queue_gui.py
 ```
 
-See [docs/PUBLISH.md](docs/PUBLISH.md) for env vars and CloudFront / R2 setup. Offline PWA tiers: [docs/decisions/offline-library.md](docs/decisions/offline-library.md).
+## Deploy (independent tracks)
 
-## Features in this tree
+```bash
+# Website only (SPA + indexes)
+S3_BUCKET=my-bucket ./deploy/website_s3.sh
 
-- Browse/search with **filter chips** (full text, sheet/audio, rating, key, arranger, …), **320ms debounce** on free text, inverted indexes, shareable URL
-- Star from browse or tag page (IndexedDB, progress, metadata-only, refresh offline media) + export/import `starred.tags` with optional media fetch
-- Mobile-first chrome: bottom tabs with badges, safe areas, installable **PWA** (service worker + install nudge)
-- Tag page: next/prev in results, shareable key shift (`?shift=`), **fullscreen sheet** with floating pay-the-key, A–B loop, unified key ↔ pitch
-- **Practice set** from Starred (reorder, auto-advance through tags)
-- Recent tags on home; pitch pipe; zip download queue
-- Storybook component gallery (`SingTags/*`)
+# Library only (large; resumable)
+S3_BUCKET=my-bucket ./deploy/library_s3.sh
 
-## Layout
+./deploy/publish.sh website|library|all
+```
 
-| Path | Purpose |
-| --- | --- |
-| `web/` | Vite + Vue 3 + TypeScript SPA |
-| `docs/SETUP.md` | From-zero: Namecheap domain → Cloudflare → go live |
-| `docs/VIBE_SEARCH.md` | Search by Vibe spec (Workers AI; planned) |
-| `docs/decisions/` | ADRs (sheets, offline library) |
-| `docs/PLAN.md` | Full phased plan |
-| `docs/PUBLISH.md` | Local + full-library + S3 / Cloudflare deploy commands |
-| `scripts/` | Seed, rasterize, indexes, S3 / Cloudflare deploy |
-| `sample-data/` | 250-tag sample (metadata, sheets/WebP, MP4) |
+See [docs/PUBLISH.md](docs/PUBLISH.md).

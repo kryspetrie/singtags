@@ -1,0 +1,16 @@
+# Lyrics review — deps if split from mirror
+
+Already covered by `mirror/requirements.txt` in the shared venv:
+
+```
+Pillow>=10.0.0
+pypdfium2>=4.30.0
+```
+
+System: Python `tkinter` (GUI).
+
+When extracting this tool into its own repo, also take:
+
+- `lib/lyric_choose.py`, `lib/lyric_proposals.py`, `lib/lyric_postprocess.py`
+- `lib/complete.py`, `lib/config.py`, `lib/state.py` (or a slimmed shared package)
+- and ensure `mirror/extract_text.py` helpers used by lyric choose are available

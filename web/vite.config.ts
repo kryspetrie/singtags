@@ -1,6 +1,12 @@
-import { defineConfig } from 'vite'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
+import sirv from 'sirv'
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+const libraryDir = path.resolve(rootDir, '..', 'library')
 
 /** Site root path, e.g. `/` or `/singtags/`. Set via VITE_BASE when deploying under a prefix. */
 function viteBase(): string {
@@ -9,10 +15,33 @@ function viteBase(): string {
   return `/${raw.replace(/^\/+|\/+$/g, '')}/`
 }
 
+/** Serve repo `library/` at `/library` during `vite dev` / preview. */
+function serveLibraryPlugin(): Plugin {
+  return {
+    name: 'serve-library',
+    configureServer(server) {
+      server.middlewares.use(
+        '/library',
+        sirv(libraryDir, { dev: true, etag: true, single: false }),
+      )
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(
+        '/library',
+        sirv(libraryDir, { dev: false, etag: true, single: false }),
+      )
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: viteBase(),
+  server: {
+    fs: { allow: [rootDir, libraryDir] },
+  },
   plugins: [
+    serveLibraryPlugin(),
     vue(),
     VitePWA({
       registerType: 'prompt',

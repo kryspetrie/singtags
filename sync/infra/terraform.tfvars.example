@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and edit as needed.
+project_name      = "barbershop-tags"
+aws_region        = "us-east-1"
+# aws_profile      = "default"
+schedule_expression = "rate(7 days)"
+lambda_memory_mb  = 3008
+lambda_timeout_seconds = 900
+image_tag         = "latest"
+origin_retry_interval_seconds = 3600
+origin_retry_max_attempts     = 24
+enable_signed_media = false
+# First bootstrap: scripts set this false, push image, then true
+create_lambda     = true

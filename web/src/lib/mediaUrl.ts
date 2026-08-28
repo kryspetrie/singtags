@@ -1,14 +1,19 @@
-/** Single source for static media / tag detail paths (avoid scattered `/sample-data/`). */
+/** Single source for static media / tag detail paths. */
 
 function appBase(): string {
   const base = import.meta.env.BASE_URL || '/'
   return base.replace(/\/$/, '')
 }
 
+/**
+ * Media (library audio/sheets) base.
+ * Local default: `/library` (Vite serves ../library).
+ * Prod: set VITE_MEDIA_BASE to the S3/CDN library prefix.
+ */
 export function mediaBaseUrl(): string {
   const env = import.meta.env.VITE_MEDIA_BASE as string | undefined
   if (env) return env.endsWith('/') ? env.slice(0, -1) : env
-  return `${appBase()}/sample-data`
+  return `${appBase()}/library`
 }
 
 export function mediaUrl(path: string): string {
@@ -24,8 +29,9 @@ export function mediaUrl(path: string): string {
   return `${mediaBaseUrl()}/${path}`
 }
 
+/** Slim per-tag JSON published under the app origin (not the media library). */
 export function tagDetailUrl(id: number | string): string {
-  return `${mediaBaseUrl()}/tags/${id}/metadata.json`
+  return `${appBase()}/tags/${id}/metadata.json`
 }
 
 export function indexesUrl(name: string): string {

@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { mediaBaseUrl, mediaUrl, tagDetailUrl, indexesUrl } from './mediaUrl'
 
 describe('mediaUrl', () => {
-  it('prefixes relative paths', () => {
-    expect(mediaUrl('media/1/lead.m4a')).toBe('/sample-data/media/1/lead.m4a')
-    expect(tagDetailUrl(9)).toBe('/sample-data/tags/9/metadata.json')
+  it('prefixes relative paths with /library by default', () => {
+    expect(mediaUrl('Some Tag/Lead.mp3')).toBe('/library/Some Tag/Lead.mp3')
+    expect(tagDetailUrl(9)).toBe('/tags/9/metadata.json')
     expect(indexesUrl('core.json.gz')).toBe('/indexes/core.json.gz')
   })
 
@@ -17,9 +17,10 @@ describe('mediaUrl', () => {
   })
 
   it('respects VITE_MEDIA_BASE when set', () => {
-    vi.stubEnv('VITE_MEDIA_BASE', 'https://cdn.example/media/')
-    expect(mediaBaseUrl()).toBe('https://cdn.example/media')
-    expect(mediaUrl('a.m4a')).toBe('https://cdn.example/media/a.m4a')
+    vi.stubEnv('VITE_MEDIA_BASE', 'https://cdn.example/library/')
+    expect(mediaBaseUrl()).toBe('https://cdn.example/library')
+    expect(mediaUrl('a.m4a')).toBe('https://cdn.example/library/a.m4a')
+    expect(tagDetailUrl(3)).toBe('/tags/3/metadata.json')
     vi.unstubAllEnvs()
   })
 })

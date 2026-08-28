@@ -75,7 +75,7 @@ describe('manualOfflineFetch', () => {
   })
 
   it('still blocks uncached media when offline', async () => {
-    const mediaUrl = 'http://localhost/sample-data/media/31/lead.m4a'
+    const mediaUrl = 'http://localhost/library/Some%20Tag/lead.m4a'
     const native = vi.fn(async () => new Response('', { status: 200 }))
     vi.stubGlobal('caches', {
       open: vi.fn(async () => ({ match: vi.fn(async () => null) })),
@@ -89,11 +89,7 @@ describe('manualOfflineFetch', () => {
   })
 
   it('allowServiceWorkerFetch permits metadata but not sheet images', () => {
-    expect(allowServiceWorkerFetch('http://localhost/sample-data/tags/31/metadata.json')).toBe(
-      true,
-    )
-    expect(allowServiceWorkerFetch('http://localhost/sample-data/tags/31/sheets/page-1.webp')).toBe(
-      false,
-    )
+    expect(allowServiceWorkerFetch('http://localhost/tags/31/metadata.json')).toBe(true)
+    expect(allowServiceWorkerFetch('http://localhost/library/Some%20Tag/Sheet.png')).toBe(false)
   })
 })

@@ -1,0 +1,89 @@
+{
+  "Comment": "Weekly tags mirror sync: invoke Lambda; if origin down, wait 1h and retry up to 24 times (~1 day). No Lambda time spent waiting.",
+  "StartAt": "Sync",
+  "States": {
+    "Sync": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${SyncLambdaArn}",
+        "Payload": {
+          "attempt.$": "$.attempt",
+          "limit.$": "$.limit"
+        }
+      },
+      "ResultSelector": {
+        "ok.$": "$.Payload.ok",
+        "retry_origin.$": "$.Payload.retry_origin",
+        "exhausted.$": "$.Payload.exhausted",
+        "attempt.$": "$.Payload.attempt",
+        "next_attempt.$": "$.Payload.next_attempt",
+        "max_attempts.$": "$.Payload.max_attempts",
+        "interval_seconds.$": "$.Payload.interval_seconds",
+        "reason.$": "$.Payload.reason",
+        "max_confirmed_id.$": "$.Payload.max_confirmed_id",
+        "asr_pending.$": "$.Payload.asr_pending"
+      },
+      "ResultPath": "$.result",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "OriginOk?"
+    },
+    "OriginOk?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.result.ok",
+          "BooleanEquals": true,
+          "Next": "Succeeded"
+        },
+        {
+          "And": [
+            {
+              "Variable": "$.result.retry_origin",
+              "BooleanEquals": true
+            },
+            {
+              "Variable": "$.result.exhausted",
+              "BooleanEquals": false
+            }
+          ],
+          "Next": "WaitHour"
+        }
+      ],
+      "Default": "GaveUp"
+    },
+    "WaitHour": {
+      "Type": "Wait",
+      "SecondsPath": "$.result.interval_seconds",
+      "Next": "BumpAttempt"
+    },
+    "BumpAttempt": {
+      "Type": "Pass",
+      "Parameters": {
+        "attempt.$": "$.result.next_attempt",
+        "limit.$": "$.limit"
+      },
+      "Next": "Sync"
+    },
+    "Succeeded": {
+      "Type": "Succeed"
+    },
+    "GaveUp": {
+      "Type": "Fail",
+      "Error": "OriginUnavailable",
+      "Cause": "barbershoptags.com still unreachable after ORIGIN_RETRY_MAX_ATTEMPTS (default 24 hourly tries)"
+    }
+  }
+}

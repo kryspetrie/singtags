@@ -1,0 +1,10 @@
+# Sheets batch tools — deps if split from mirror
+
+```
+Pillow>=10.0.0
+pypdfium2>=4.30.0
+```
+
+Optional for PDF crop path: `pikepdf` (if used by your local env).
+
+Also take `lib/sheet_export.py`, `lib/complete.py`, `lib/config.py`, `lib/state.py`, `lib/http.py`, and `mirror/assets.ensure_sheet_preview` (or inline it).

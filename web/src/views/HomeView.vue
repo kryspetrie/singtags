@@ -159,7 +159,7 @@ async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
     /* try pack / starred */
   }
   try {
-    const packed = await sheetsPack.get(mediaUrl(`tags/${id}/metadata.json`))
+    const packed = await sheetsPack.get(tagDetailUrl(id))
     if (packed) return (await packed.json()) as TagDetail
   } catch {
     /* try starred */

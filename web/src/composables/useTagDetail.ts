@@ -396,7 +396,7 @@ export function useTagDetail(id: Ref<string> | string) {
         fromCache.value = true
         return cached.detail
       }
-      const metaUrl = mediaUrl(`tags/${wantedId}/metadata.json`)
+      const metaUrl = tagDetailUrl(wantedId)
       const packed = await sheetsPack.get(metaUrl)
       if (packed) {
         fromCache.value = true

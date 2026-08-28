@@ -17,7 +17,7 @@ describe('zip helpers', () => {
   })
 
   it('sampleUrl and fetchBytes', async () => {
-    expect(sampleUrl('media/1/lead.m4a')).toBe('/sample-data/media/1/lead.m4a')
+    expect(sampleUrl('media/1/lead.m4a')).toBe('/library/media/1/lead.m4a')
     expect(sampleUrl('/abs')).toBe('/abs')
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array([1, 2]), { status: 200 })))
     const bytes = await fetchBytes('/x')
