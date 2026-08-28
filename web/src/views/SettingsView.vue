@@ -229,7 +229,7 @@ function cancelClear(): void {
 
     <p class="lede">
       Save the songbook and learning tracks on this device for fast, offline practice. Start with
-      sheets, then choose which audio parts to cache — or star individual tags as you browse.
+      sheets, then choose which audio parts to cache — or favorite individual tags as you browse.
     </p>
 
     <p class="status" role="status">{{ offlineLib.statusLabel }}</p>
@@ -334,10 +334,10 @@ function cancelClear(): void {
       </p>
 
       <label class="quality quick-quality">
-        <span>Starred tag storage quality</span>
+        <span>Favorited tag storage quality</span>
         <select
           :value="prefs.audioEncodeQuality"
-          aria-label="Audio storage quality when starring tags"
+          aria-label="Audio storage quality when favoriting tags"
           @change="onQualityChange(($event.target as HTMLSelectElement).value)"
         >
           <option v-for="q in qualityOptions" :key="q.id" :value="q.id">{{ q.label }}</option>
@@ -394,10 +394,10 @@ function cancelClear(): void {
       </div>
     </section>
 
-    <section class="card primary-card" aria-labelledby="starred-h">
-      <h2 id="starred-h">Starred tags</h2>
+    <section class="card primary-card" aria-labelledby="favorites-h">
+      <h2 id="favorites-h">Favorites</h2>
       <p class="hint">
-        {{ stars.count }} starred · uses the storage quality above when you star from Browse.
+        {{ stars.count }} favorited · uses the storage quality above when you favorite from Browse.
         Mix on multi-part tags is reconstructed at play time when stored at Ultra.
       </p>
       <div class="actions">
@@ -407,7 +407,7 @@ function cancelClear(): void {
           :disabled="offline || stars.busy || !stars.count"
           @click="stars.ensureAudioForAllStarred()"
         >
-          Cache audio for all starred
+          Cache audio for all favorites
         </button>
       </div>
       <p v-if="stars.progress" class="hint progress-lbl">{{ stars.progress.label }}</p>
@@ -422,7 +422,7 @@ function cancelClear(): void {
       <section class="card" aria-labelledby="quality-detail-h">
         <h2 id="quality-detail-h">Storage quality details</h2>
         <p class="hint">
-          Online playback uses 64&nbsp;kbps Opus unless you have downloaded the original. Starred
+          Online playback uses 64&nbsp;kbps Opus unless you have downloaded the original. Favorites
           tags and the learning-tracks library follow the quality setting above.
         </p>
       </section>
@@ -483,7 +483,7 @@ function cancelClear(): void {
       <section class="card" aria-labelledby="cache-tools-h">
         <h2 id="cache-tools-h">Backup &amp; restore</h2>
         <p class="hint">
-          Export cached sheets, audio, starred media, and pitch pipe settings as one zip — or restore
+          Export cached sheets, audio, favorited media, and pitch pipe settings as one zip — or restore
           a zip onto this device (merges with whatever is already cached).
         </p>
         <div
@@ -551,7 +551,7 @@ function cancelClear(): void {
           </button>
         </div>
         <p v-if="confirmClear" class="hint warn-inline" role="alert">
-          Removes downloaded sheets, audio pack, starred tags, and cached catalog metadata on this
+          Removes downloaded sheets, audio pack, favorited tags, and cached catalog metadata on this
           device. Download queue, recent tags, and settings are kept.
         </p>
       </section>

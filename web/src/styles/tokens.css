@@ -10,7 +10,7 @@
   --radius: 10px;
   --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --font-display: "IBM Plex Serif", Georgia, serif;
-  --header-h: 3.5rem;
+  --header-h: 3.5rem; /* fallback; App overwrites with measured sticky header height */
   --bottom-nav-h: 3.75rem;
   --touch: 44px;
 }

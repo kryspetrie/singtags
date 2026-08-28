@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { collectionLabel } from '../lib/collections'
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { CatalogFilters } from '../search/filters'
 import { arrangersByLastInitial, formatArrangerLastFirst } from '../search/browse'
 import FilterSheet from './FilterSheet.vue'
@@ -8,7 +8,7 @@ import FilterSheet from './FilterSheet.vue'
 const props = defineProps<{
   open: boolean
   filters: CatalogFilters
-  keys: string[]
+  years: number[]
   arrangers: string[]
   types: string[]
   collections: string[]
@@ -19,9 +19,59 @@ const emit = defineEmits<{
   clear: []
 }>()
 
-const sheet = ref<'key' | 'arranger' | 'type' | 'collection' | 'rating' | null>(null)
+const sheet = ref<'arranger' | 'type' | 'collection' | 'rating' | 'year' | null>(null)
 const arrangerQ = ref('')
 const arrangerLetter = ref<string | null>(null)
+const chipsWrap = ref<HTMLElement | null>(null)
+/** Bottom of the filter chips in viewport coords — sheets stretch up to here on mobile. */
+const sheetAnchorTop = ref<number | null>(null)
+
+function measureSheetAnchor(): void {
+  if (typeof window === 'undefined') return
+  if (window.matchMedia('(min-width: 768px)').matches) {
+    sheetAnchorTop.value = null
+    return
+  }
+  const el = chipsWrap.value
+  if (!el) {
+    sheetAnchorTop.value = null
+    return
+  }
+  const bottom = el.getBoundingClientRect().bottom
+  // If chips scrolled off-screen, fall back to default sheet height.
+  sheetAnchorTop.value = bottom > 48 ? Math.round(bottom) : null
+}
+
+function openSheet(kind: 'arranger' | 'type' | 'collection' | 'rating' | 'year'): void {
+  // Measure before opening so the panel mounts already anchored (enter animation uses final layout).
+  measureSheetAnchor()
+  sheet.value = kind
+}
+
+watch(sheet, (openSheet) => {
+  if (!openSheet) {
+    sheetAnchorTop.value = null
+    return
+  }
+  // Re-measure after paint in case layout shifted.
+  void nextTick(() => measureSheetAnchor())
+})
+
+function onViewportChange(): void {
+  if (sheet.value) measureSheetAnchor()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', onViewportChange)
+  window.visualViewport?.addEventListener('resize', onViewportChange)
+  window.visualViewport?.addEventListener('scroll', onViewportChange)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onViewportChange)
+  window.visualViewport?.removeEventListener('resize', onViewportChange)
+  window.visualViewport?.removeEventListener('scroll', onViewportChange)
+})
 
 const arrangerGroups = computed(() => arrangersByLastInitial(props.arrangers))
 
@@ -46,9 +96,10 @@ const filteredArrangerGroups = computed(() => {
 
 function filtersActive(f: CatalogFilters): boolean {
   return (
-    f.keys.length > 0 ||
     f.arrangers.length > 0 ||
     f.minRating != null ||
+    f.yearMin != null ||
+    f.yearMax != null ||
     f.hasSheet === true ||
     f.hasAudio === true ||
     f.types.length > 0 ||
@@ -57,6 +108,16 @@ function filtersActive(f: CatalogFilters): boolean {
 }
 
 const hasActive = computed(() => filtersActive(props.filters))
+
+const yearChipLabel = computed(() => {
+  const { yearMin, yearMax } = props.filters
+  if (yearMin != null && yearMax != null) {
+    return yearMin === yearMax ? String(yearMin) : `${yearMin}–${yearMax}`
+  }
+  if (yearMin != null) return `${yearMin}+`
+  if (yearMax != null) return `–${yearMax}`
+  return 'Year'
+})
 
 function toggleSheet(): void {
   emit('patch', { hasSheet: props.filters.hasSheet === true ? null : true })
@@ -68,11 +129,20 @@ function setRating(n: number | null): void {
   emit('patch', { minRating: n })
   sheet.value = null
 }
-function toggleKey(k: string): void {
-  const keys = props.filters.keys.includes(k)
-    ? props.filters.keys.filter((x) => x !== k)
-    : [...props.filters.keys, k]
-  emit('patch', { keys })
+function setYearMin(raw: string): void {
+  const yearMin = raw === '' ? null : Number(raw)
+  let yearMax = props.filters.yearMax
+  if (yearMin != null && yearMax != null && yearMin > yearMax) yearMax = yearMin
+  emit('patch', { yearMin, yearMax })
+}
+function setYearMax(raw: string): void {
+  const yearMax = raw === '' ? null : Number(raw)
+  let yearMin = props.filters.yearMin
+  if (yearMin != null && yearMax != null && yearMin > yearMax) yearMin = yearMax
+  emit('patch', { yearMin, yearMax })
+}
+function clearYearRange(): void {
+  emit('patch', { yearMin: null, yearMax: null })
 }
 function toggleArranger(a: string): void {
   const arrangers = props.filters.arrangers.includes(a)
@@ -93,16 +163,13 @@ function toggleCollection(c: string): void {
   emit('patch', { collections })
 }
 
-function removeKey(k: string): void {
-  emit('patch', { keys: props.filters.keys.filter((x) => x !== k) })
-}
 function removeArranger(a: string): void {
   emit('patch', { arrangers: props.filters.arrangers.filter((x) => x !== a) })
 }
 </script>
 
 <template>
-  <div class="chips-wrap">
+  <div ref="chipsWrap" class="chips-wrap">
     <div v-show="open" class="chip-row" role="toolbar" aria-label="Search filters">
       <button
         type="button"
@@ -129,25 +196,25 @@ function removeArranger(a: string): void {
         class="chip"
         :class="{ on: filters.minRating != null }"
         title="Minimum average star rating"
-        @click="sheet = 'rating'"
+        @click="openSheet('rating')"
       >
         {{ filters.minRating != null ? `★ ${filters.minRating}+` : 'Min rating' }}
       </button>
       <button
         type="button"
         class="chip"
-        :class="{ on: filters.keys.length > 0 }"
-        title="Filter by written key"
-        @click="sheet = 'key'"
+        :class="{ on: filters.yearMin != null || filters.yearMax != null }"
+        title="Filter by calendar year range"
+        @click="openSheet('year')"
       >
-        Key{{ filters.keys.length ? ` (${filters.keys.length})` : '' }}
+        {{ yearChipLabel }}
       </button>
       <button
         type="button"
         class="chip"
         :class="{ on: filters.arrangers.length > 0 }"
         title="Filter by arranger"
-        @click="sheet = 'arranger'"
+        @click="openSheet('arranger')"
       >
         Arranger{{ filters.arrangers.length ? ` (${filters.arrangers.length})` : '' }}
       </button>
@@ -157,7 +224,7 @@ function removeArranger(a: string): void {
         class="chip"
         :class="{ on: filters.types.length > 0 }"
         title="Filter by tag type"
-        @click="sheet = 'type'"
+        @click="openSheet('type')"
       >
         Type{{ filters.types.length ? ` (${filters.types.length})` : '' }}
       </button>
@@ -167,7 +234,7 @@ function removeArranger(a: string): void {
         class="chip"
         :class="{ on: filters.collections.length > 0 }"
         title="Filter by collection"
-        @click="sheet = 'collection'"
+        @click="openSheet('collection')"
       >
         Collection{{ filters.collections.length ? ` (${filters.collections.length})` : '' }}
       </button>
@@ -182,17 +249,7 @@ function removeArranger(a: string): void {
       </button>
     </div>
 
-    <div v-if="open && (filters.keys.length || filters.arrangers.length)" class="active">
-      <button
-        v-for="k in filters.keys"
-        :key="'k-' + k"
-        type="button"
-        class="chip on sm"
-        :title="`Remove key filter: ${k}`"
-        @click="removeKey(k)"
-      >
-        {{ k }} ✕
-      </button>
+    <div v-if="open && filters.arrangers.length" class="active">
       <button
         v-for="a in filters.arrangers"
         :key="'a-' + a"
@@ -205,7 +262,12 @@ function removeArranger(a: string): void {
       </button>
     </div>
 
-    <FilterSheet :open="sheet === 'rating'" title="Minimum rating" @close="sheet = null">
+    <FilterSheet
+      :open="sheet === 'rating'"
+      title="Minimum rating"
+      :anchor-top="sheetAnchorTop"
+      @close="sheet = null"
+    >
       <div class="opts">
         <button type="button" class="btn" @click="setRating(null)">Any</button>
         <button type="button" class="btn" @click="setRating(3)">★ 3+</button>
@@ -214,24 +276,51 @@ function removeArranger(a: string): void {
       </div>
     </FilterSheet>
 
-    <FilterSheet :open="sheet === 'key'" title="Key" @close="sheet = null">
-      <div class="opts wrap">
-        <button
-          v-for="k in keys"
-          :key="k"
-          type="button"
-          class="chip"
-          :class="{ on: filters.keys.includes(k) }"
-          @click="toggleKey(k)"
-        >
-          {{ k }}
-        </button>
+    <FilterSheet
+      :open="sheet === 'year'"
+      title="Year range"
+      :anchor-top="sheetAnchorTop"
+      @close="sheet = null"
+    >
+      <p class="hint">Inclusive calendar years. Tags without a year are hidden when a range is set.</p>
+      <div class="year-row">
+        <label class="year-field">
+          <span>From</span>
+          <select
+            :value="filters.yearMin ?? ''"
+            aria-label="Year from"
+            @change="setYearMin(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Any</option>
+            <option v-for="y in years" :key="'min-' + y" :value="y">{{ y }}</option>
+          </select>
+        </label>
+        <label class="year-field">
+          <span>To</span>
+          <select
+            :value="filters.yearMax ?? ''"
+            aria-label="Year to"
+            @change="setYearMax(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Any</option>
+            <option v-for="y in years" :key="'max-' + y" :value="y">{{ y }}</option>
+          </select>
+        </label>
       </div>
+      <button
+        v-if="filters.yearMin != null || filters.yearMax != null"
+        type="button"
+        class="btn"
+        @click="clearYearRange"
+      >
+        Clear year range
+      </button>
     </FilterSheet>
 
     <FilterSheet
       :open="sheet === 'arranger'"
       title="Arranger (by last name)"
+      :anchor-top="sheetAnchorTop"
       @close="sheet = null; arrangerLetter = null; arrangerQ = ''"
     >
       <input
@@ -281,7 +370,12 @@ function removeArranger(a: string): void {
       </div>
     </FilterSheet>
 
-    <FilterSheet :open="sheet === 'type'" title="Type" @close="sheet = null">
+    <FilterSheet
+      :open="sheet === 'type'"
+      title="Type"
+      :anchor-top="sheetAnchorTop"
+      @close="sheet = null"
+    >
       <div class="opts wrap">
         <button
           v-for="t in types"
@@ -296,7 +390,12 @@ function removeArranger(a: string): void {
       </div>
     </FilterSheet>
 
-    <FilterSheet :open="sheet === 'collection'" title="Collection" @close="sheet = null">
+    <FilterSheet
+      :open="sheet === 'collection'"
+      title="Collection"
+      :anchor-top="sheetAnchorTop"
+      @close="sheet = null"
+    >
       <div class="opts wrap">
         <button
           v-for="c in collections"
@@ -378,6 +477,28 @@ function removeArranger(a: string): void {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+.year-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.year-field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.year-field select {
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  background: var(--surface);
+  color: inherit;
 }
 .search {
   width: 100%;

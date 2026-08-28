@@ -1,5 +1,6 @@
 import { foldText } from './normalize'
 import type { TagSummary } from '../types/tag'
+import { normalizeYear } from '../lib/year'
 import {
   collectionBadge,
   collectionInfo,
@@ -15,8 +16,6 @@ import {
 export type BrowseSortMode =
   | 'rating'
   | 'title'
-  | 'arranger'
-  | 'arranger-last'
   | 'year'
   | 'downloads'
   | 'id'
@@ -34,12 +33,6 @@ export function arrangerLastName(name: string | null | undefined): string {
   const skip = /^(jr|sr|ii|iii|iv|phd|md|esq)\.?$/i
   while (parts.length > 1 && skip.test(parts[parts.length - 1]!)) parts.pop()
   return parts[parts.length - 1] || parts[0]!
-}
-
-export function arrangerFirstName(name: string | null | undefined): string {
-  if (!name?.trim()) return ''
-  const parts = name.trim().replace(/,/g, ' ').split(/\s+/).filter(Boolean)
-  return parts[0] || ''
 }
 
 /** Display "Last, First …" when possible. */
@@ -65,12 +58,10 @@ export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
   switch (mode) {
     case 'title':
       return titleSortLetter(tag.title)
-    case 'arranger':
-      return titleSortLetter(arrangerFirstName(tag.arranger) || tag.arranger)
-    case 'arranger-last':
-      return titleSortLetter(arrangerLastName(tag.arranger) || tag.arranger)
-    case 'year':
-      return tag.year != null ? String(tag.year) : 'Unknown year'
+    case 'year': {
+      const y = normalizeYear(tag.year)
+      return y != null ? String(y) : 'Unknown year'
+    }
     case 'id':
       return 'All'
     case 'collection': {
@@ -94,13 +85,7 @@ export function sectionLabel(key: string, mode: BrowseSortMode): string {
 
 /** Modes that show an A–Z / year jump rail. */
 export function hasJumpRail(mode: BrowseSortMode): boolean {
-  return (
-    mode === 'title' ||
-    mode === 'arranger' ||
-    mode === 'arranger-last' ||
-    mode === 'year' ||
-    mode === 'collection'
-  )
+  return mode === 'title' || mode === 'year' || mode === 'collection'
 }
 
 export function sortBrowseTags(
@@ -116,21 +101,6 @@ export function sortBrowseTags(
     case 'title':
       sorted = copy.sort((a, b) => cmpStr(a.title, b.title) || a.id - b.id)
       break
-    case 'arranger':
-      sorted = copy.sort(
-        (a, b) =>
-          cmpStr(a.arranger, b.arranger) || cmpStr(a.title, b.title) || a.id - b.id,
-      )
-      break
-    case 'arranger-last':
-      sorted = copy.sort(
-        (a, b) =>
-          cmpStr(arrangerLastName(a.arranger), arrangerLastName(b.arranger)) ||
-          cmpStr(a.arranger, b.arranger) ||
-          cmpStr(a.title, b.title) ||
-          a.id - b.id,
-      )
-      break
     case 'rating':
       sorted = copy.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || cmpStr(a.title, b.title))
       break
@@ -140,9 +110,11 @@ export function sortBrowseTags(
       )
       break
     case 'year':
-      sorted = copy.sort(
-        (a, b) => (b.year ?? 0) - (a.year ?? 0) || cmpStr(a.title, b.title) || a.id - b.id,
-      )
+      sorted = copy.sort((a, b) => {
+        const ya = normalizeYear(a.year) ?? 0
+        const yb = normalizeYear(b.year) ?? 0
+        return yb - ya || cmpStr(a.title, b.title) || a.id - b.id
+      })
       break
     case 'id':
       sorted = copy.sort((a, b) => a.id - b.id)

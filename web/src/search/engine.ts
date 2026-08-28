@@ -10,6 +10,7 @@ import {
 } from './numbers'
 import type { FieldName, SearchQuery } from './query'
 import type { TagSummary } from '../types/tag'
+import { normalizeYear } from '../lib/year'
 import { collectionSearchTokens, collectionTextTokens, isClassicCollection } from '../lib/collections'
 
 export interface LyricDoc {
@@ -149,8 +150,10 @@ function fieldHaystack(tag: TagSummary, field: FieldName): string {
       return isClassicCollection(tag.collection)
         ? foldText(String(tag.classic ?? ''))
         : ''
-    case 'year':
-      return foldText(String(tag.year ?? ''))
+    case 'year': {
+      const y = normalizeYear(tag.year)
+      return y != null ? foldText(String(y)) : ''
+    }
     default:
       return ''
   }
@@ -385,6 +388,12 @@ export class SearchEngine {
     if (query.hasAudio === false && tag.audioParts.length > 0) return false
     if (query.hasSheet === true && !tag.hasSheet) return false
     if (query.hasSheet === false && tag.hasSheet) return false
+    if (query.yearMin != null || query.yearMax != null) {
+      const y = normalizeYear(tag.year)
+      if (y == null) return false
+      if (query.yearMin != null && y < query.yearMin) return false
+      if (query.yearMax != null && y > query.yearMax) return false
+    }
     return true
   }
 
@@ -468,7 +477,9 @@ export class SearchEngine {
       !query.fields.length &&
       query.minRating == null &&
       query.hasAudio == null &&
-      query.hasSheet == null
+      query.hasSheet == null &&
+      query.yearMin == null &&
+      query.yearMax == null
 
     if (empty) return this.tags.slice()
 
@@ -523,7 +534,7 @@ export function sortTags(
         return ac - bc || cmpStr(a.title, b.title)
       })
     case 'year':
-      return copy.sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
+      return copy.sort((a, b) => (normalizeYear(b.year) ?? 0) - (normalizeYear(a.year) ?? 0))
     default:
       return copy
   }

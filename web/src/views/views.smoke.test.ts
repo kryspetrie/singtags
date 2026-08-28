@@ -7,7 +7,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import HomeView from './HomeView.vue'
-import StarredView from './StarredView.vue'
+import FavoritesView from './FavoritesView.vue'
 import PitchPipeView from './PitchPipeView.vue'
 import TagView from './TagView.vue'
 import { useCatalogStore } from '../stores/catalog'
@@ -165,7 +165,7 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('StarredView sorts and reorders', async () => {
+  it('FavoritesView sorts and reorders', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const stars = useStarsStore()
@@ -215,11 +215,11 @@ describe('view smoke tests', () => {
     practice.resetFromStarred([2, 1])
 
     const router = makeRouter([
-      { path: '/starred', component: StarredView },
+      { path: '/favorites', component: FavoritesView },
       { path: '/tag/:id', component: { template: '<div />' } },
     ])
-    await router.push('/starred')
-    const w = mount(StarredView, {
+    await router.push('/favorites')
+    const w = mount(FavoritesView, {
       global: {
         plugins: [pinia, router],
         stubs: { EmptyState: true, RouterLink: true },
@@ -229,7 +229,7 @@ describe('view smoke tests', () => {
     expect(practice.order).toEqual([2, 1])
     expect(w.find('.drag-handle').exists()).toBe(true)
     expect(w.text()).not.toMatch(/Start practice|Auto-advance|Reset order/)
-    const sortSelect = w.find('select[aria-label="Sort starred tags"]')
+    const sortSelect = w.find('select[aria-label="Sort favorites"]')
     expect(sortSelect.exists()).toBe(true)
     expect((sortSelect.element as HTMLSelectElement).value).toBe('custom')
     practice.reorder(1, 0)
@@ -330,7 +330,7 @@ describe('view smoke tests', () => {
     expect(bar).toBeTruthy()
     await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.includes('Add to zip'))!.click()
     await flushPromises()
-    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Star')!.click()
+    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Favorite')!.click()
     await flushPromises()
     expect(stars.starMany).toHaveBeenCalled()
     expect(w.find('[aria-label="Search tags"]').exists()).toBe(true)
@@ -399,11 +399,11 @@ describe('view smoke tests', () => {
     })
     await flushPromises()
     expect(catalog.results.length).toBeGreaterThan(0)
-    const starBtn = w.find('button.row-star')
-    expect(starBtn.text()).toBe('☆')
+    const starBtn = w.find('button.row-fav')
+    expect(starBtn.text()).toBe('♡')
     await starBtn.trigger('click')
     await w.vm.$nextTick()
-    expect(starBtn.text()).toBe('★')
+    expect(starBtn.text()).toBe('♥')
     w.unmount()
   })
 
@@ -438,7 +438,7 @@ describe('view smoke tests', () => {
     document.body.innerHTML = ''
   })
 
-  it('StarredView export, apply sort, and unstar', async () => {
+  it('FavoritesView export, apply sort, and unstar', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const stars = useStarsStore()
@@ -500,11 +500,11 @@ describe('view smoke tests', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
 
     const router = makeRouter([
-      { path: '/starred', component: StarredView },
+      { path: '/favorites', component: FavoritesView },
       { path: '/tag/:id', component: { template: '<div />' } },
     ])
-    await router.push('/starred')
-    const w = mount(StarredView, {
+    await router.push('/favorites')
+    const w = mount(FavoritesView, {
       attachTo: document.body,
       global: { plugins: [pinia, router], stubs: { EmptyState: true, RouterLink: true } },
     })
@@ -512,19 +512,19 @@ describe('view smoke tests', () => {
     await w.findAll('button').find((b) => b.text().includes('Backup & restore'))!.trigger('click')
     await flushPromises()
     const backupBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
-      (b.textContent || '').includes('Backup starred'),
+      (b.textContent || '').includes('Backup favorites'),
     )
     expect(backupBtn).toBeTruthy()
     backupBtn!.click()
     expect(click).toHaveBeenCalled()
-    await w.find('select[aria-label="Sort starred tags"]').setValue('starred-new')
+    await w.find('select[aria-label="Sort favorites"]').setValue('starred-new')
     await w.findAll('button').find((b) => b.text() === 'Apply sort')!.trigger('click')
     expect(practice.order).toEqual([2, 1])
     expect(
-      (w.find('select[aria-label="Sort starred tags"]').element as HTMLSelectElement).value,
+      (w.find('select[aria-label="Sort favorites"]').element as HTMLSelectElement).value,
     ).toBe('custom')
-    const starBtn = w.find('button.row-star')
-    expect(starBtn.attributes('title')).toMatch(/Unstar/)
+    const starBtn = w.find('button.row-fav')
+    expect(starBtn.attributes('title')).toMatch(/Unfavorite/)
     await starBtn.trigger('click')
     expect(stars.unstar).toHaveBeenCalledWith(2)
     w.unmount()
@@ -615,7 +615,7 @@ describe('view smoke tests', () => {
 
     const router = makeRouter([
       { path: '/tag/:id', name: 'tag', component: TagView, props: true },
-      { path: '/starred', component: { template: '<div />' } },
+      { path: '/favorites', component: { template: '<div />' } },
     ])
     await router.push({ path: '/tag/3', query: { set: 'practice', shift: '1' } })
     const push = vi.spyOn(router, 'push')
@@ -631,12 +631,12 @@ describe('view smoke tests', () => {
     await flushPromises()
 
     expect(w.text()).toContain('Practice Me')
-    const starBtn = w.findAll('button').find((b) => /star/i.test(b.text()))
+    const starBtn = w.findAll('button').find((b) => /favorite/i.test(b.text()))
     expect(starBtn).toBeTruthy()
     await starBtn!.trigger('click')
     expect(stars.toggle).toHaveBeenCalled()
 
-    const queueBtn = w.findAll('button').find((b) => /queue/i.test(b.text()) && !/Star/i.test(b.text()))
+    const queueBtn = w.findAll('button').find((b) => /queue/i.test(b.text()) && !/Favorite/i.test(b.text()))
     if (queueBtn) {
       await queueBtn.trigger('click')
       await flushPromises()

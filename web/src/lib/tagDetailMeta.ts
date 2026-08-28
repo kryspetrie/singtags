@@ -1,5 +1,6 @@
 import type { TagDetail } from '../types/tag'
 import { collectionLabel, collectionNumberBadge } from './collections'
+import { normalizeYear } from './year'
 import { barbershopTagsTagUrl } from './barbershopTags'
 
 export type TagDetailRow = {
@@ -34,7 +35,8 @@ export function buildTagDetailRows(d: TagDetail): TagDetailRow[] {
   if (booklet) {
     rows.push({ label: booklet.label.split(' #')[0] + ' #', value: String(booklet.number) })
   }
-  if (d.year != null) rows.push({ label: 'Year', value: String(d.year) })
+  const year = normalizeYear(d.year)
+  if (year != null) rows.push({ label: 'Year', value: String(year) })
   if (d.rating != null) {
     let rating = `★ ${d.rating.toFixed(2)}`
     if (d.rating_count != null) rating += ` (${d.rating_count})`

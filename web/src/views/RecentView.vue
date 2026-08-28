@@ -52,12 +52,12 @@ function rowStarTip(tag: TagSummary): string {
   if (stars.isTagCaching(tag.id)) {
     return stars.tagCachingLabel(tag.id) || 'Caching for offline'
   }
-  return stars.isStarred(tag.id) ? 'Unstar' : 'Star'
+  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 
 function rowStarLabel(tag: TagSummary): string {
   if (stars.isTagCaching(tag.id)) return 'Caching for offline'
-  return stars.isStarred(tag.id) ? 'Unstar' : 'Star'
+  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 </script>
 
@@ -121,7 +121,7 @@ function rowStarLabel(tag: TagSummary): string {
         <button
           v-if="tag"
           type="button"
-          class="row-star"
+          class="row-fav"
           :aria-pressed="stars.isStarred(tag.id)"
           :aria-busy="stars.isTagCaching(tag.id)"
           :aria-label="rowStarLabel(tag)"
@@ -130,10 +130,10 @@ function rowStarLabel(tag: TagSummary): string {
         >
           <span
             v-if="stars.isTagCaching(tag.id)"
-            class="row-star-spinner"
+            class="row-fav-spinner"
             aria-hidden="true"
           />
-          <span v-else>{{ stars.isStarred(tag.id) ? '★' : '☆' }}</span>
+          <span v-else>{{ stars.isStarred(tag.id) ? '♥' : '♡' }}</span>
         </button>
         <button
           type="button"
@@ -205,10 +205,10 @@ function rowStarLabel(tag: TagSummary): string {
 .list-row:focus-within {
   border-color: var(--border);
 }
-.list-row:has(.row-star) {
+.list-row:has(.row-fav) {
   grid-template-columns: 1fr auto auto;
 }
-.list-row:not(:has(.row-star)) {
+.list-row:not(:has(.row-fav)) {
   grid-template-columns: 1fr auto;
 }
 .row-link {
@@ -229,7 +229,7 @@ function rowStarLabel(tag: TagSummary): string {
 .row-link.missing {
   color: var(--muted);
 }
-.row-star {
+.row-fav {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
@@ -263,19 +263,19 @@ function rowStarLabel(tag: TagSummary): string {
 .row-remove:hover {
   color: var(--danger, #b42318);
 }
-.row-star[aria-busy='true'] {
+.row-fav[aria-busy='true'] {
   color: var(--muted);
 }
-.row-star-spinner {
+.row-fav-spinner {
   display: block;
   width: 1.1rem;
   height: 1.1rem;
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: row-star-spin 0.65s linear infinite;
+  animation: row-fav-spin 0.65s linear infinite;
 }
-@keyframes row-star-spin {
+@keyframes row-fav-spin {
   to {
     transform: rotate(360deg);
   }

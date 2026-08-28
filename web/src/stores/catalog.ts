@@ -22,6 +22,7 @@ import {
   filtersToRouteQuery,
   type CatalogFilters,
 } from '../search/filters'
+import { normalizeYear } from '../lib/year'
 import type { CoreIndex, LyricsIndex, TagSummary } from '../types/tag'
 import {
   loadCatalogSnapshotAsync,
@@ -294,7 +295,14 @@ export const useCatalogStore = defineStore('catalog', () => {
   const filterCount = computed(() => activeFilterCount(filters.value))
 
   const arrangers = computed(() => uniqueFieldValues(tags.value, 'arranger'))
-  const keys = computed(() => uniqueFieldValues(tags.value, 'key'))
+  const years = computed(() => {
+    const set = new Set<number>()
+    for (const t of tags.value) {
+      const y = normalizeYear(t.year)
+      if (y != null) set.add(y)
+    }
+    return [...set].sort((a, b) => b - a)
+  })
   const types = computed(() => uniqueFieldValues(tags.value, 'type'))
   const collections = computed(() => uniqueFieldValues(tags.value, 'collection'))
 
@@ -343,7 +351,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     filters.value = {
       ...EMPTY_FILTERS,
       ...parsed,
-      keys: parsed.keys ?? [],
       arrangers: parsed.arrangers ?? [],
       types: parsed.types ?? [],
       collections: parsed.collections ?? [],
@@ -351,8 +358,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     const allowed: SortMode[] = [
       'rating',
       'title',
-      'arranger',
-      'arranger-last',
       'year',
       'downloads',
       'id',
@@ -418,7 +423,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     hasMoreResults,
     filterCount,
     arrangers,
-    keys,
+    years,
     types,
     collections,
     lyricsLoaded,

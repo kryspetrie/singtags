@@ -325,7 +325,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="inPractice"
           class="btn page-back"
-          to="/starred"
+          to="/favorites"
           title="Back to practice set"
         >← Practice set</RouterLink>
         <RouterLink v-else class="btn page-back" to="/" title="Back to browse">← Back</RouterLink>
@@ -369,20 +369,20 @@ async function onRetryLoad(): Promise<void> {
           type="button"
           class="btn update-btn"
           :disabled="stars.busy"
-          aria-label="Update offline media for this starred tag"
-          title="Re-download sheet and audio for this starred tag"
+          aria-label="Update offline media for this favorited tag"
+          title="Re-download sheet and audio for this favorited tag"
           @click="onRefreshMedia"
         >
           {{ stars.busy ? 'Updating…' : 'Update' }}
         </button>
         <button
           type="button"
-          class="star"
+          class="fav"
           :aria-pressed="starred"
-          :title="starred ? 'Unstar — remove from saved tags' : 'Star — save for offline use and practice sets'"
+          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use and practice sets'"
           @click="onToggleStar"
         >
-          {{ starred ? '★ Starred' : '☆ Star' }}
+          {{ starred ? '♥ Favorited' : '♡ Favorite' }}
         </button>
       </div>
     </div>
@@ -444,7 +444,7 @@ async function onRetryLoad(): Promise<void> {
       </p>
     </header>
     <p v-if="fromCache && mediaSource === 'star' && !offline" class="warn" role="status">
-      Loaded from starred offline cache.
+      Loaded from favorites offline cache.
     </p>
     <p
       v-if="offline && detail && hasAudio && !hasOfflinePlayback && !starred"
@@ -452,14 +452,14 @@ async function onRetryLoad(): Promise<void> {
       role="status"
     >
       Learning tracks for this tag aren’t cached yet. Download the audio library in
-      <RouterLink to="/settings">Offline settings</RouterLink>, or star this tag while online.
+      <RouterLink to="/settings">Offline settings</RouterLink>, or favorite this tag while online.
     </p>
     <p
       v-else-if="offline && detail && hasAudio && !hasOfflinePlayback && starred"
       class="warn"
       role="status"
     >
-      No audio cached for this starred tag. We’ll retry caching when you’re back online, or tap
+      No audio cached for this favorited tag. We’ll retry caching when you’re back online, or tap
       <strong>Update</strong> /
       <RouterLink to="/settings">Offline settings</RouterLink>.
     </p>
@@ -594,7 +594,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="inPractice"
           class="btn page-back"
-          to="/starred"
+          to="/favorites"
           title="Back to practice set"
         >← Practice set</RouterLink>
         <RouterLink v-else class="btn page-back" to="/" title="Back to browse">← Back</RouterLink>
@@ -638,20 +638,20 @@ async function onRetryLoad(): Promise<void> {
           type="button"
           class="btn update-btn"
           :disabled="stars.busy"
-          aria-label="Update offline media for this starred tag"
-          title="Re-download sheet and audio for this starred tag"
+          aria-label="Update offline media for this favorited tag"
+          title="Re-download sheet and audio for this favorited tag"
           @click="onRefreshMedia"
         >
           {{ stars.busy ? 'Updating…' : 'Update' }}
         </button>
         <button
           type="button"
-          class="star"
+          class="fav"
           :aria-pressed="starred"
-          :title="starred ? 'Unstar — remove from saved tags' : 'Star — save for offline use and practice sets'"
+          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use and practice sets'"
           @click="onToggleStar"
         >
-          {{ starred ? '★ Starred' : '☆ Star' }}
+          {{ starred ? '♥ Favorited' : '♡ Favorite' }}
         </button>
       </div>
     </div>
@@ -759,7 +759,7 @@ async function onRetryLoad(): Promise<void> {
       :title="offline ? 'Sheets and audio not on this device' : 'Could not load full tag'"
       :message="
         offline
-          ? 'Catalog info is shown from memory. Connect to the network to load sheets and tracks — or download the songbook / star this tag while online.'
+          ? 'Catalog info is shown from memory. Connect to the network to load sheets and tracks — or download the songbook / favorite this tag while online.'
           : error || 'Retry when you have a connection, or open Offline settings to cache the library.'
       "
       tone="danger"
@@ -935,7 +935,7 @@ async function onRetryLoad(): Promise<void> {
     font-size: 0.85rem;
     margin: 0;
   }
-  .star {
+  .fav {
     white-space: nowrap;
   }
 }
@@ -968,7 +968,7 @@ async function onRetryLoad(): Promise<void> {
   border-color: var(--accent);
   color: var(--accent-hover);
 }
-.star-actions {
+.fav-actions {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -997,7 +997,7 @@ async function onRetryLoad(): Promise<void> {
   color: var(--muted);
   min-height: 44px;
 }
-.star {
+.fav {
   min-height: 44px;
   padding: 0.45rem 0.85rem;
   border-radius: 10px;
@@ -1006,7 +1006,7 @@ async function onRetryLoad(): Promise<void> {
   color: var(--accent);
   font-weight: 600;
 }
-.star[aria-pressed='true'] {
+.fav[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .progress {

@@ -157,7 +157,7 @@ function insertIndexForDrop(): number | null {
 function onDragMove(e: PointerEvent): void {
   if (!dragActive.value) return
   const el = document.elementFromPoint(e.clientX, e.clientY)
-  const row = el?.closest<HTMLElement>('li.starred-row')
+  const row = el?.closest<HTMLElement>('li.favorites-row')
   if (!row) return
   setDropTarget(row, e.clientY)
 }
@@ -198,7 +198,7 @@ function downloadStarredFile(): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'starred.tags'
+  a.download = 'favorites.tags'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -228,17 +228,17 @@ function rowStarTip(title: string, tagId: number): string {
   if (stars.isTagCaching(tagId)) {
     return stars.tagCachingLabel(tagId) || 'Saving for offline…'
   }
-  return `Unstar ${title || `tag #${tagId}`} — remove from saved tags`
+  return `Unfavorite ${title || `tag #${tagId}`} — remove from saved tags`
 }
 
 function rowStarLabel(title: string, tagId: number): string {
   if (stars.isTagCaching(tagId)) return 'Saving for offline'
-  return `Unstar ${title || `tag #${tagId}`}`
+  return `Unfavorite ${title || `tag #${tagId}`}`
 }
 </script>
 
 <template>
-  <section class="starred" aria-label="Starred">
+  <section class="favorites" aria-label="Favorites">
     <p class="muted intro">
       Offline favorites on this device. Pick a sort to preview, then Apply sort to save it as your
       custom order — or drag the handle to rearrange.
@@ -248,7 +248,7 @@ function rowStarLabel(title: string, tagId: number): string {
     <div class="actions">
       <label class="sort-field">
         <span class="sort-lbl">Sort</span>
-        <select v-model="sortMode" aria-label="Sort starred tags" :disabled="!stars.count">
+        <select v-model="sortMode" aria-label="Sort favorites" :disabled="!stars.count">
           <option v-for="s in sortOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
         </select>
       </label>
@@ -272,23 +272,23 @@ function rowStarLabel(title: string, tagId: number): string {
       <StarsNoticeLine :notice="stars.lastNotice" />
     </p>
 
-    <p v-if="!stars.loaded" class="text-muted" role="status">Loading starred tags…</p>
+    <p v-if="!stars.loaded" class="text-muted" role="status">Loading favorites…</p>
     <EmptyState
       v-else-if="!stars.records.length"
-      title="No starred tags yet"
-      message="Star from Browse or a tag page to save for quick recall and offline use."
+      title="No favorites yet"
+      message="Favorite from Browse or a tag page to save for quick recall and offline use."
     />
 
     <ol
       v-else
       class="list"
       :class="{ 'list-dragging': dragActive }"
-      aria-label="Starred tags"
+      aria-label="Favorites"
     >
       <li
         v-for="(r, i) in orderedRecords"
         :key="r!.tagId"
-        class="starred-row"
+        class="favorites-row"
         :data-index="i"
         :class="{
           dragging: draggingId === r!.tagId,
@@ -340,7 +340,7 @@ function rowStarLabel(title: string, tagId: number): string {
           </RouterLink>
           <button
             type="button"
-            class="row-star"
+            class="row-fav"
             :aria-pressed="true"
             :aria-busy="stars.isTagCaching(r!.tagId)"
             :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
@@ -349,10 +349,10 @@ function rowStarLabel(title: string, tagId: number): string {
           >
             <span
               v-if="stars.isTagCaching(r!.tagId)"
-              class="row-star-spinner"
+              class="row-fav-spinner"
               aria-hidden="true"
             />
-            <span v-else>★</span>
+            <span v-else>♥</span>
           </button>
         </div>
       </li>
@@ -361,8 +361,8 @@ function rowStarLabel(title: string, tagId: number): string {
     <FilterSheet :open="backupOpen" title="Backup & restore" @close="backupOpen = false">
       <div class="backup">
         <p class="backup-desc">
-          Your starred list lives in this browser only. <strong>Backup</strong> downloads a
-          <code>starred.tags</code> file with your tags and list order so you can keep a copy or move
+          Your favorites list lives in this browser only. <strong>Backup</strong> downloads a
+          <code>favorites.tags</code> file with your tags and list order so you can keep a copy or move
           it to another device. <strong>Restore</strong> replaces the list on this device from that
           file. Optionally fetch sheet and audio media during restore so tags work offline right away.
         </p>
@@ -372,7 +372,7 @@ function rowStarLabel(title: string, tagId: number): string {
             :title="
               stars.count
                 ? undefined
-                : 'Star at least one tag before backing up — there’s nothing to export yet.'
+                : 'Favorite at least one tag before backing up — there’s nothing to export yet.'
             "
           >
             <button
@@ -382,7 +382,7 @@ function rowStarLabel(title: string, tagId: number): string {
               :aria-disabled="!stars.count"
               @click="downloadStarredFile"
             >
-              Backup starred list
+              Backup favorites list
             </button>
           </span>
           <button type="button" @click="fileInput?.click()">Restore from file…</button>
@@ -550,7 +550,7 @@ function rowStarLabel(title: string, tagId: number): string {
   user-select: none;
   cursor: grabbing;
 }
-.list-dragging .starred-row:not(.dragging) {
+.list-dragging .favorites-row:not(.dragging) {
   opacity: 0.55;
 }
 li {
@@ -668,7 +668,7 @@ li.drop-after::after {
   color: var(--accent);
   font-weight: 600;
 }
-.row-star {
+.row-fav {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
@@ -689,29 +689,29 @@ li.drop-after::after {
   line-height: 1;
   cursor: pointer;
 }
-.row-star:hover:not(:disabled) {
+.row-fav:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.row-star[aria-pressed='true'] {
+.row-fav[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   border-color: var(--accent);
   color: var(--accent);
 }
-.row-star[aria-busy='true'] {
+.row-fav[aria-busy='true'] {
   color: var(--muted);
 }
-.row-star-spinner {
+.row-fav-spinner {
   display: block;
   width: 1.1rem;
   height: 1.1rem;
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: row-star-spin 0.65s linear infinite;
+  animation: row-fav-spin 0.65s linear infinite;
 }
-@keyframes row-star-spin {
+@keyframes row-fav-spin {
   to {
     transform: rotate(360deg);
   }

@@ -195,7 +195,7 @@ export const useStarsStore = defineStore('stars', () => {
     void runStarBackground(summary.id, gen, summary, detail, options)
   }
 
-  /** Star many tags from browse (fetch detail when missing). */
+  /** Favorite many tags from browse (fetch detail when missing). */
   async function starMany(
     summaries: TagSummary[],
     options: Pick<StarOptions, 'metadataOnly'> = {},
@@ -205,7 +205,7 @@ export const useStarsStore = defineStore('stars', () => {
 
     const pending = summaries.filter((s) => !isStarred(s.id))
     if (!pending.length) {
-      lastNotice.value = { type: 'text', message: 'Nothing new to star' }
+      lastNotice.value = { type: 'text', message: 'Nothing new to favorite' }
       return 0
     }
 
@@ -220,11 +220,11 @@ export const useStarsStore = defineStore('stars', () => {
       void runStarBackground(summary.id, gen, summary, null, options)
     }
 
-    lastNotice.value = { type: 'text', message: `Starred ${pending.length} tag(s)` }
+    lastNotice.value = { type: 'text', message: `Favorited ${pending.length} tag(s)` }
     return pending.length
   }
 
-  /** Fetch audio for starred tags that lack audio blobs (background queue). */
+  /** Fetch audio for favorited tags that lack audio blobs (background queue). */
   async function ensureAudioForAllStarred(): Promise<number> {
     busy.value = true
     error.value = null
@@ -271,8 +271,8 @@ export const useStarsStore = defineStore('stars', () => {
       lastNotice.value = {
         type: 'text',
         message: n
-          ? `Saved audio for ${n} starred tag(s)`
-          : 'All starred tags already have audio',
+          ? `Saved audio for ${n} favorited tag(s)`
+          : 'All favorited tags already have audio',
       }
       return n
     } catch (e) {
@@ -292,7 +292,7 @@ export const useStarsStore = defineStore('stars', () => {
     try {
       await ensureLoaded()
       const existing = await getStarred(tagId)
-      if (!existing) throw new Error('Tag is not starred')
+      if (!existing) throw new Error('Tag is not favorited')
       let d = detail ?? existing.detail
       if (!d) {
         const res = await fetchCached(tagDetailUrl(tagId))
@@ -353,7 +353,7 @@ export const useStarsStore = defineStore('stars', () => {
       } else {
         lastNotice.value = {
           type: 'text',
-          message: `Imported ${n} starred tag(s) (metadata; media not restored)`,
+          message: `Imported ${n} favorited tag(s) (metadata; media not restored)`,
         }
       }
       return n

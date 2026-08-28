@@ -9,7 +9,7 @@ const meta = {
   args: {
     open: true,
     filters: { ...EMPTY_FILTERS },
-    keys: ['C', 'G', 'Bb'],
+    years: [2024, 2020, 2015, 2010, 2000],
     arrangers: ['Paul Paddock', 'Other'],
     types: ['Barbershop'],
     collections: [],
@@ -27,7 +27,8 @@ export const ActiveFilters: Story = {
       ...EMPTY_FILTERS,
       hasSheet: true,
       minRating: 4,
-      keys: ['Bb'],
+      yearMin: 2010,
+      yearMax: 2020,
       arrangers: ['Paul Paddock'],
     },
   },

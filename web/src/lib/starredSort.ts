@@ -1,4 +1,3 @@
-import { arrangerLastName } from '../search/browse'
 import { foldText } from '../search/normalize'
 import type { StarredTagRecord } from '../offline/starredDb'
 
@@ -7,19 +6,15 @@ export type StarredSortMode =
   | 'starred-new'
   | 'starred-old'
   | 'title'
-  | 'arranger'
-  | 'arranger-last'
   | 'rating'
   | 'key'
   | 'id'
 
 export const STARRED_SORT_OPTIONS: Array<{ id: StarredSortMode; label: string }> = [
   { id: 'custom', label: 'Custom order' },
-  { id: 'starred-new', label: 'Date starred (newest)' },
-  { id: 'starred-old', label: 'Date starred (oldest)' },
-  { id: 'title', label: 'Title A–Z' },
-  { id: 'arranger', label: 'Arranger (First Last)' },
-  { id: 'arranger-last', label: 'Arranger (Last, First)' },
+  { id: 'starred-new', label: 'Date favorited (newest)' },
+  { id: 'starred-old', label: 'Date favorited (oldest)' },
+  { id: 'title', label: 'Title' },
   { id: 'rating', label: 'Rating' },
   { id: 'key', label: 'Key' },
   { id: 'id', label: 'Tag #' },
@@ -51,21 +46,6 @@ export function sortStarredRecords(
       return copy.sort(
         (a, b) =>
           cmpStr(a.summary.title, b.summary.title) || a.tagId - b.tagId,
-      )
-    case 'arranger':
-      return copy.sort(
-        (a, b) =>
-          cmpStr(a.summary.arranger, b.summary.arranger) ||
-          cmpStr(a.summary.title, b.summary.title) ||
-          a.tagId - b.tagId,
-      )
-    case 'arranger-last':
-      return copy.sort(
-        (a, b) =>
-          cmpStr(arrangerLastName(a.summary.arranger), arrangerLastName(b.summary.arranger)) ||
-          cmpStr(a.summary.arranger, b.summary.arranger) ||
-          cmpStr(a.summary.title, b.summary.title) ||
-          a.tagId - b.tagId,
       )
     case 'rating':
       return copy.sort(

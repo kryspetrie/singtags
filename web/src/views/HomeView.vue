@@ -22,13 +22,13 @@ import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import {
   bookletBadgeForTag,
-  formatArrangerLastFirst,
   hasJumpRail,
   parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
 } from '../search/browse'
+import { normalizeYear } from '../lib/year'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { useOnline } from '../composables/useOnline'
 
@@ -45,7 +45,7 @@ const lyricsError = ref<string | null>(null)
 const syncingRoute = ref(false)
 const bulkMsg = ref<string | null>(null)
 const tipsOpen = ref(false)
-const filtersOpen = ref(false)
+const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
 
 function closeWelcome(): void {
@@ -73,7 +73,8 @@ const chipFilterCount = computed(() => {
   if (f.hasSheet === true) n++
   if (f.hasAudio === true) n++
   if (f.minRating != null) n++
-  n += f.keys.length + f.arrangers.length + f.types.length + f.collections.length
+  if (f.yearMin != null || f.yearMax != null) n++
+  n += f.arrangers.length + f.types.length + f.collections.length
   return n
 })
 
@@ -88,9 +89,11 @@ watch(
   },
 )
 
-function toggleFullTextSearch(): void {
-  if (!catalog.filters.fullText && catalog.lyricsLoading) return
-  catalog.patchFilters({ fullText: !catalog.filters.fullText })
+function onLyricsChange(e: Event): void {
+  if (catalog.lyricsLoading && !catalog.filters.fullText) return
+  const on = (e.target as HTMLInputElement).checked
+  if (on === catalog.filters.fullText) return
+  catalog.patchFilters({ fullText: on })
 }
 
 function openSearchTips(): void {
@@ -239,25 +242,35 @@ function onResultKey(e: KeyboardEvent, id: number): void {
 
 const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'rating', label: 'Rating' },
-  { id: 'title', label: 'Title A–Z' },
-  { id: 'arranger', label: 'Arranger (First Last)' },
-  { id: 'arranger-last', label: 'Arranger (Last, First)' },
+  { id: 'title', label: 'Title' },
   { id: 'year', label: 'Year' },
   { id: 'downloads', label: 'Downloads' },
   { id: 'id', label: 'Tag #' },
   { id: 'collection', label: 'Collection #' },
 ]
 
-const filterToggleTip = computed(() => {
-  if (filtersOpen.value) return 'Hide filters'
+const optionsToggleTip = computed(() => {
+  if (optionsOpen.value) return 'Hide search options'
+  const parts: string[] = []
+  if (catalog.filters.fullText) parts.push('search lyrics on')
   if (hasChipFilters.value) {
-    return `${chipFilterCount.value} filter${chipFilterCount.value === 1 ? '' : 's'} active — click to edit`
+    parts.push(`${chipFilterCount.value} filter${chipFilterCount.value === 1 ? '' : 's'} active`)
   }
-  return 'Filter by sheet, audio, key, arranger, and more'
+  if (parts.length) return `Show search options (${parts.join(', ')})`
+  return 'Show search lyrics and filters'
+})
+
+const optionsSummary = computed(() => {
+  const parts: string[] = []
+  if (catalog.filters.fullText) parts.push('Lyrics')
+  if (chipFilterCount.value) {
+    parts.push(`${chipFilterCount.value} filter${chipFilterCount.value === 1 ? '' : 's'}`)
+  }
+  return parts.join(' · ')
 })
 
 const searchLyricsTip = computed(() => {
-  if (catalog.filters.fullText) return 'Searching lyrics too — click to turn off'
+  if (catalog.filters.fullText) return 'Searching lyrics too — turn off to match titles and arrangers only'
   if (catalog.lyricsLoading) return 'Loading lyrics index…'
   return 'Also match words in tag lyrics (uses the lyrics index)'
 })
@@ -267,20 +280,20 @@ function rowStarTip(tag: TagSummary): string {
     return stars.tagCachingLabel(tag.id) || 'Caching for offline'
   }
   return stars.isStarred(tag.id)
-    ? 'Unstar — remove from saved tags'
-    : 'Star — save for offline use and practice sets'
+    ? 'Unfavorite — remove from saved tags'
+    : 'Favorite — save for offline use and practice sets'
 }
 
 function rowStarLabel(tag: TagSummary): string {
   if (stars.isTagCaching(tag.id)) return 'Caching for offline'
-  return stars.isStarred(tag.id) ? 'Unstar' : 'Star'
+  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 
 function selectRowTip(tag: TagSummary): string {
   const name = tag.title || `Tag ${tag.id}`
   return catalog.selectedIds.has(tag.id)
     ? `Deselect ${name}`
-    : `Select ${name} for bulk star or zip (Space while row is focused)`
+    : `Select ${name} for bulk favorite or zip (Space while row is focused)`
 }
 
 function rowOpenTip(tag: TagSummary): string {
@@ -293,8 +306,6 @@ function sortOptionTip(id: SortMode): string {
   const tips: Record<SortMode, string> = {
     rating: 'Highest rated tags first',
     title: 'Alphabetical by title',
-    arranger: 'Alphabetical by arranger (first name)',
-    'arranger-last': 'Alphabetical by arranger (last name)',
     year: 'Newest year first',
     downloads: 'Most downloaded first',
     id: 'Numeric tag ID order',
@@ -352,7 +363,7 @@ async function jumpToSection(key: string): Promise<void> {
   })
 }
 
-/** Enter or search button: `n123` → Tag #; `c99` / bare digits → classic or tag when unique. */
+/** Enter: `n123` → Tag #; `c99` / bare digits → classic or tag when unique. */
 function submitSearch(e?: Event): void {
   if (e) e.preventDefault()
   const q = catalog.queryText
@@ -413,102 +424,104 @@ watch(
 
 <template>
   <section class="home" :class="{ 'has-selection': catalog.selectedIds.size }">
-    <header class="hero">
-      <div class="search-toolbar sticky-search">
-        <div class="searchrow">
-          <div class="search-field">
-            <input
-              v-model="catalog.queryText"
-              type="search"
-              enterkeyhint="search"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              placeholder="Search titles, arrangers, or n123…"
-              aria-label="Search tags"
-              title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
-              autofocus
-              @keydown="onSearchKeydown"
-            />
-            <div class="search-infield">
+    <div class="search-toolbar">
+      <div class="searchrow">
+        <div class="search-field">
+          <input
+            v-model="catalog.queryText"
+            type="search"
+            enterkeyhint="search"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="Search titles, arrangers, or n123…"
+            aria-label="Search tags"
+            title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
+            autofocus
+            @keydown="onSearchKeydown"
+          />
+          <div class="search-infield">
+            <button
+              v-if="catalog.queryText"
+              type="button"
+              class="icon-btn clear-infield"
+              aria-label="Clear search"
+              title="Clear search"
+              @click="catalog.queryText = ''"
+            >
+              ✕
+            </button>
+            <div class="tips-wrap">
               <button
-                v-if="catalog.queryText"
                 type="button"
-                class="icon-btn clear-infield"
-                aria-label="Clear search"
-                title="Clear search"
-                @click="catalog.queryText = ''"
+                class="icon-btn tips-btn"
+                aria-label="Search tips"
+                aria-describedby="search-tips-popover"
+                title="Search tips — n123, c45, quotes, exclusions"
+                @click="openSearchTips"
               >
-                ✕
+                i
               </button>
-              <div class="tips-wrap">
-                <button
-                  type="button"
-                  class="icon-btn tips-btn"
-                  aria-label="Search tips"
-                  aria-describedby="search-tips-popover"
-                  title="Search tips — n123, c45, quotes, exclusions"
-                  @click="openSearchTips"
-                >
-                  i
-                </button>
-                <div id="search-tips-popover" class="tips-popover" role="tooltip">
-                  <p>
-                    Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
-                    <code>-word</code>; quotes for an exact phrase.
-                  </p>
-                </div>
+              <div id="search-tips-popover" class="tips-popover" role="tooltip">
+                <p>
+                  Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
+                  <code>-word</code>; quotes for an exact phrase.
+                </p>
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            class="search-submit"
-            aria-label="Search"
-            title="Run search (Enter)"
-            @click="submitSearch()"
-          >
-            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-              <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.25" />
-              <path
-                d="M15.5 15.5 L21 21"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.25"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="search-mode"
-            :class="{ on: catalog.filters.fullText }"
-            :aria-pressed="catalog.filters.fullText"
-            :disabled="catalog.lyricsLoading && !catalog.filters.fullText"
-            :title="searchLyricsTip"
-            @click="toggleFullTextSearch"
-          >
-            {{
-              catalog.lyricsLoading && !catalog.filters.fullText ? 'Search lyrics…' : 'Search lyrics'
-            }}
-          </button>
-          <button
-            type="button"
-            class="filter-toggle"
-            :class="{ on: filtersOpen || hasChipFilters }"
-            :aria-expanded="filtersOpen"
-            aria-controls="browse-filters"
-            :title="filterToggleTip"
-            @click="filtersOpen = !filtersOpen"
-          >
-            Filter{{ chipFilterCount ? ` (${chipFilterCount})` : '' }}
-          </button>
         </div>
-        <div v-show="filtersOpen" id="browse-filters" class="filters-panel">
+        <button
+          type="button"
+          class="options-btn"
+          :class="{ open: optionsOpen, active: catalog.filters.fullText || hasChipFilters }"
+          :aria-expanded="optionsOpen"
+          aria-controls="browse-options"
+          :aria-label="optionsToggleTip"
+          :title="optionsToggleTip"
+          @click="optionsOpen = !optionsOpen"
+        >
+          <svg class="options-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <circle cx="12" cy="5" r="2" fill="currentColor" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <circle cx="12" cy="19" r="2" fill="currentColor" />
+          </svg>
+          <span v-if="optionsSummary" class="options-dot" aria-hidden="true" />
+        </button>
+      </div>
+      <div v-show="optionsOpen" id="browse-options" class="options-panel">
+        <div class="options-setting">
+          <label
+            class="setting-row"
+            :class="{ on: catalog.filters.fullText, disabled: catalog.lyricsLoading && !catalog.filters.fullText }"
+            :title="searchLyricsTip"
+          >
+            <span class="setting-copy">
+              <span class="setting-title">Search lyrics</span>
+              <span class="setting-desc">Match words in lyrics, not just titles</span>
+            </span>
+            <input
+              type="checkbox"
+              class="setting-switch"
+              role="switch"
+              :checked="catalog.filters.fullText"
+              :disabled="catalog.lyricsLoading && !catalog.filters.fullText"
+              :aria-checked="catalog.filters.fullText"
+              :aria-label="
+                catalog.lyricsLoading && !catalog.filters.fullText
+                  ? 'Search lyrics (loading…)'
+                  : 'Search lyrics'
+              "
+              @change="onLyricsChange"
+            />
+          </label>
+        </div>
+        <div class="options-filters">
+          <p class="filters-heading">Filters</p>
           <SearchChips
-            :open="filtersOpen"
+            :open="optionsOpen"
             :filters="catalog.filters"
-            :keys="catalog.keys"
+            :years="catalog.years"
             :arrangers="catalog.arrangers"
             :types="catalog.types"
             :collections="catalog.collections"
@@ -517,26 +530,26 @@ watch(
           />
         </div>
       </div>
-      <FilterSheet :open="tipsOpen" title="Search tips" @close="closeSearchTips">
-        <p class="search-hint">
-          Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
-          <code>-word</code>; quotes for an exact phrase.
-        </p>
-      </FilterSheet>
-      <BrowseWelcomeDialog
-        :open="welcomeOpen"
-        @close="closeWelcome"
-        @continue="onWelcomeContinue"
-      />
-      <p v-if="ftsPending" class="warn" role="status">
-        Search lyrics is on — matching titles until the lyrics index finishes loading.
+    </div>
+    <FilterSheet :open="tipsOpen" title="Search tips" @close="closeSearchTips">
+      <p class="search-hint">
+        Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
+        <code>-word</code>; quotes for an exact phrase.
       </p>
-      <p v-if="lyricsError" class="warn" role="alert">{{ lyricsError }}</p>
-      <p v-if="bulkMsg" class="ok" role="status">{{ bulkMsg }}</p>
-      <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
-        <StarsNoticeLine :notice="stars.lastNotice" />
-      </p>
-    </header>
+    </FilterSheet>
+    <BrowseWelcomeDialog
+      :open="welcomeOpen"
+      @close="closeWelcome"
+      @continue="onWelcomeContinue"
+    />
+    <p v-if="ftsPending" class="warn" role="status">
+      Search lyrics is on — matching titles until the lyrics index finishes loading.
+    </p>
+    <p v-if="lyricsError" class="warn" role="alert">{{ lyricsError }}</p>
+    <p v-if="bulkMsg" class="ok" role="status">{{ bulkMsg }}</p>
+    <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
+      <StarsNoticeLine :notice="stars.lastNotice" />
+    </p>
 
     <p v-if="catalog.loading || (!catalog.loaded && !catalog.error)" class="text-muted" role="status">
       Loading catalog…
@@ -664,12 +677,8 @@ watch(
                 <span
                   v-if="row.tag.arranger"
                   :title="`Arranger: ${row.tag.arranger}`"
-                >{{
-                  catalog.sortMode === 'arranger-last'
-                    ? formatArrangerLastFirst(row.tag.arranger)
-                    : row.tag.arranger
-                }}</span>
-                <span v-if="row.tag.year" title="Year published or added">{{ row.tag.year }}</span>
+                >{{ row.tag.arranger }}</span>
+                <span v-if="normalizeYear(row.tag.year)" title="Year published or added">{{ normalizeYear(row.tag.year) }}</span>
                 <span
                   v-if="row.tag.rating != null"
                   :title="`Average rating${row.tag.ratingCount != null ? ` (${row.tag.ratingCount} votes)` : ''}`"
@@ -693,7 +702,7 @@ watch(
             </RouterLink>
             <button
               type="button"
-              class="row-star"
+              class="row-fav"
               :aria-pressed="stars.isStarred(row.tag.id)"
               :aria-busy="stars.isTagCaching(row.tag.id)"
               :aria-label="rowStarLabel(row.tag)"
@@ -702,10 +711,10 @@ watch(
             >
               <span
                 v-if="stars.isTagCaching(row.tag.id)"
-                class="row-star-spinner"
+                class="row-fav-spinner"
                 aria-hidden="true"
               />
-              <span v-else>{{ stars.isStarred(row.tag.id) ? '★' : '☆' }}</span>
+              <span v-else>{{ stars.isStarred(row.tag.id) ? '♥' : '♡' }}</span>
             </button>
           </div>
         </template>
@@ -725,10 +734,10 @@ watch(
         <button
           type="button"
           class="btn btn-primary"
-          title="Star selected tags and cache for offline"
+          title="Favorite selected tags and cache for offline"
           @click="starSelected"
         >
-          Star
+          Favorite
         </button>
         <button
           type="button"
@@ -755,6 +764,9 @@ watch(
 .home {
   min-width: 0;
   max-width: 100%;
+  /* Measured --header-h (set on :root by App) already includes safe-area padding. */
+  --jump-rail-offset: var(--header-h, 3.5rem);
+  --jump-rail-h: 2.75rem;
 }
 .home.has-selection {
   padding-bottom: 5.5rem;
@@ -766,28 +778,21 @@ watch(
   color: var(--accent);
   font-size: 0.9rem;
 }
-.sticky-search {
-  position: sticky;
-  top: calc(var(--header-h, 3.5rem) + env(safe-area-inset-top));
-  z-index: 5;
-  padding: 0.35rem 0;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-}
 .search-toolbar {
   display: grid;
   gap: 0.4rem;
   margin-bottom: 0.35rem;
+  padding: 0.35rem 0 0;
 }
 .searchrow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 0.4rem;
 }
 .search-field {
   position: relative;
-  flex: 1 1 10rem;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: stretch;
@@ -849,60 +854,139 @@ watch(
   font-style: italic;
   font-size: 0.95rem;
 }
-.search-mode,
-.filter-toggle {
+.options-btn {
+  position: relative;
   flex: 0 0 auto;
-  align-self: center;
-  min-height: 44px;
-  padding: 0.35rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.search-mode.on,
-.filter-toggle.on {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  border-color: var(--accent);
-  color: var(--accent-hover);
-}
-.filter-toggle[aria-expanded='true'] {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  border-color: var(--accent);
-  color: var(--accent-hover);
-}
-.search-mode:disabled {
-  opacity: 0.55;
-}
-.search-submit {
-  flex: 0 0 auto;
-  align-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  min-height: 52px;
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
   padding: 0;
-  border: 0;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--accent);
-  color: #fff;
+  background: var(--surface);
+  color: var(--muted);
   cursor: pointer;
 }
-.search-submit:hover {
-  background: var(--accent-hover);
+.options-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 22%, var(--border));
+  background: color-mix(in srgb, var(--border) 28%, var(--surface));
 }
-.search-submit svg {
+.options-btn.open,
+.options-btn.active {
+  color: var(--accent-hover);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.options-icon {
   display: block;
 }
-.filters-panel {
-  padding-top: 0.15rem;
+.options-btn.open .options-icon {
+  color: var(--accent-hover);
+}
+.options-dot {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.options-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+  padding: 0.65rem 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.options-setting {
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  cursor: pointer;
+}
+.setting-row.on .setting-title {
+  color: var(--accent-hover);
+}
+.setting-row.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.setting-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.setting-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.setting-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.setting-switch {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 1.45rem;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 55%, var(--surface));
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.setting-switch::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: calc(1.45rem - 4px);
+  height: calc(1.45rem - 4px);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease;
+}
+.setting-switch:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.setting-switch:checked::after {
+  transform: translateX(1.15rem);
+}
+.setting-switch:disabled {
+  cursor: not-allowed;
+}
+.setting-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.filters-heading {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .tips-wrap {
   position: relative;
@@ -962,11 +1046,6 @@ watch(
 @media (min-width: 640px) {
   .searchrow {
     flex-wrap: nowrap;
-  }
-  .search-mode,
-  .filter-toggle {
-    font-size: 0.85rem;
-    padding: 0.35rem 0.85rem;
   }
 }
 .results-meta {
@@ -1033,7 +1112,7 @@ watch(
 }
 .jump-rail {
   position: sticky;
-  top: calc(var(--header-h, 3.5rem) + 3.75rem + env(safe-area-inset-top));
+  top: var(--jump-rail-offset);
   z-index: 4;
   display: flex;
   flex-wrap: wrap;
@@ -1066,7 +1145,7 @@ watch(
   font-family: var(--font-display);
   font-size: 1.1rem;
   border-bottom: 1px solid var(--border);
-  scroll-margin-top: calc(var(--header-h, 3.5rem) + 6.5rem + env(safe-area-inset-top));
+  scroll-margin-top: calc(var(--jump-rail-offset) + var(--jump-rail-h));
 }
 .list {
   list-style: none;
@@ -1149,7 +1228,7 @@ watch(
   text-decoration: none;
   color: var(--accent-hover);
 }
-.row-star {
+.row-fav {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
@@ -1170,29 +1249,29 @@ watch(
   line-height: 1;
   cursor: pointer;
 }
-.row-star:hover:not(:disabled) {
+.row-fav:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.row-star[aria-pressed='true'] {
+.row-fav[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   border-color: var(--accent);
   color: var(--accent);
 }
-.row-star[aria-busy='true'] {
+.row-fav[aria-busy='true'] {
   color: var(--muted);
 }
-.row-star-spinner {
+.row-fav-spinner {
   display: block;
   width: 1.1rem;
   height: 1.1rem;
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: row-star-spin 0.65s linear infinite;
+  animation: row-fav-spin 0.65s linear infinite;
 }
-@keyframes row-star-spin {
+@keyframes row-fav-spin {
   to {
     transform: rotate(360deg);
   }

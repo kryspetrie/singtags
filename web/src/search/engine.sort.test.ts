@@ -60,4 +60,12 @@ describe('sortTags + meta filters', () => {
     const q = buildSearchQuery('', { ...EMPTY_FILTERS, types: ['Religious'], collections: ['B'] })
     expect(engine.search(q).map((t) => t.id)).toEqual([2])
   })
+
+  it('filters by year range', () => {
+    const engine = new SearchEngine({ tags, expansions: {} })
+    expect(engine.search(parseQuery('yearMin:2000', false)).map((t) => t.id)).toEqual([2])
+    expect(engine.search(parseQuery('yearMax:1995', false)).map((t) => t.id)).toEqual([1])
+    const q = buildSearchQuery('', { ...EMPTY_FILTERS, yearMin: 1990, yearMax: 2005 })
+    expect(engine.search(q).map((t) => t.id).sort()).toEqual([1, 2])
+  })
 })

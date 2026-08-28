@@ -9,7 +9,7 @@ import { EMPTY_FILTERS } from '../search/filters'
 const base = {
   open: true,
   filters: { ...EMPTY_FILTERS },
-  keys: ['C', 'G', 'Bb'],
+  years: [2024, 2020, 2010, 2000],
   arrangers: ['Paul', 'Other Arranger', 'Zoe'],
   types: ['Barbershop', 'Religious'],
   collections: ['Classic', 'New'],
@@ -67,20 +67,22 @@ describe('SearchChips', () => {
     w.unmount()
   })
 
-  it('toggles keys and removes active key chips', async () => {
-    const w = mount(SearchChips, {
-      props: { ...base, filters: { ...EMPTY_FILTERS, keys: ['C'] } },
-      attachTo: document.body,
-    })
+  it('sets year range from selects', async () => {
+    const w = mount(SearchChips, { props: base, attachTo: document.body })
     await openFilters(w)
-    await chip(w, 'Key').trigger('click')
+    await chip(w, 'Year').trigger('click')
     await flushPromises()
-    bodyBtn(/^G$/).click()
+    const from = document.body.querySelector('select[aria-label="Year from"]') as HTMLSelectElement
+    const to = document.body.querySelector('select[aria-label="Year to"]') as HTMLSelectElement
+    from.value = '2010'
+    from.dispatchEvent(new Event('change'))
     await flushPromises()
-    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ keys: ['C', 'G'] })
-    await w.setProps({ filters: { ...EMPTY_FILTERS, keys: ['C', 'G'] } })
-    await w.findAll('button.chip.sm').find((b) => b.text().startsWith('C'))!.trigger('click')
-    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ keys: ['G'] })
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ yearMin: 2010, yearMax: null })
+    await w.setProps({ filters: { ...EMPTY_FILTERS, yearMin: 2010 } })
+    to.value = '2020'
+    to.dispatchEvent(new Event('change'))
+    await flushPromises()
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ yearMin: 2010, yearMax: 2020 })
     w.unmount()
   })
 
@@ -113,7 +115,7 @@ describe('SearchChips', () => {
 
   it('emits clear when filters active', async () => {
     const w = mount(SearchChips, {
-      props: { ...base, filters: { ...EMPTY_FILTERS, keys: ['C'] } },
+      props: { ...base, filters: { ...EMPTY_FILTERS, yearMin: 2010 } },
     })
     await chip(w, 'Clear').trigger('click')
     expect(w.emitted('clear')).toBeTruthy()

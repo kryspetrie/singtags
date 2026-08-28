@@ -41,7 +41,7 @@ watch(
 )
 
 const onTagPage = computed(() => route.name === 'tag')
-const backTarget = computed(() => (route.query.set === 'practice' ? '/starred' : '/'))
+const backTarget = computed(() => (route.query.set === 'practice' ? '/favorites' : '/'))
 const backLabel = computed(() => (route.query.set === 'practice' ? '← Practice set' : '← Back'))
 
 const { needRefresh, updateServiceWorker } = useRegisterSW({
@@ -99,17 +99,34 @@ function onAppInstalled(): void {
   markInstallDone()
 }
 
+const topEl = ref<HTMLElement | null>(null)
+let headerResizeObserver: ResizeObserver | null = null
+
+function publishHeaderHeight(): void {
+  const el = topEl.value
+  if (!el) return
+  const h = Math.ceil(el.getBoundingClientRect().height)
+  document.documentElement.style.setProperty('--header-h', `${h}px`)
+}
+
 onMounted(() => {
   void stars.ensureLoaded()
   void offlineLib.loadManifests()
   if (isStandaloneDisplay()) markInstallDone()
   window.addEventListener('beforeinstallprompt', onBeforeInstall)
   window.addEventListener('appinstalled', onAppInstalled)
+  publishHeaderHeight()
+  if (typeof ResizeObserver !== 'undefined' && topEl.value) {
+    headerResizeObserver = new ResizeObserver(() => publishHeaderHeight())
+    headerResizeObserver.observe(topEl.value)
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('beforeinstallprompt', onBeforeInstall)
   window.removeEventListener('appinstalled', onAppInstalled)
+  headerResizeObserver?.disconnect()
+  headerResizeObserver = null
 })
 
 function dismissUpdate(): void {
@@ -155,7 +172,7 @@ async function syncPacksFromPrompt(): Promise<void> {
 
 <template>
   <div class="app">
-    <header class="top">
+    <header ref="topEl" class="top">
       <div class="top-start">
         <RouterLink v-if="onTagPage" class="top-back" :to="backTarget">{{ backLabel }}</RouterLink>
         <RouterLink class="brand" to="/">
@@ -168,7 +185,7 @@ async function syncPacksFromPrompt(): Promise<void> {
       <nav class="topnav" aria-label="Primary">
         <RouterLink to="/">Browse</RouterLink>
         <RouterLink to="/recent">Recent</RouterLink>
-        <RouterLink to="/starred">Starred</RouterLink>
+        <RouterLink to="/favorites">Favorites</RouterLink>
         <RouterLink to="/pitch-pipe">Pitch Pipe</RouterLink>
         <RouterLink to="/queue">Downloads<span v-if="queue.count" class="n">{{ queue.count }}</span></RouterLink>
         <RouterLink to="/settings">Offline</RouterLink>
@@ -204,9 +221,9 @@ async function syncPacksFromPrompt(): Promise<void> {
         <span class="ico" aria-hidden="true">◷</span>
         Recent
       </RouterLink>
-      <RouterLink to="/starred" class="tab">
-        <span class="ico" aria-hidden="true">★</span>
-        Starred
+      <RouterLink to="/favorites" class="tab">
+        <span class="ico" aria-hidden="true">♥</span>
+        Favorites
       </RouterLink>
       <RouterLink to="/pitch-pipe" class="tab">
         <span class="ico" aria-hidden="true">♪</span>
@@ -260,7 +277,7 @@ async function syncPacksFromPrompt(): Promise<void> {
       <span>
         Make SingTags work offline? Download songbook sheets
         ({{ formatBytes(offlineLib.sheetsTotalBytes) }}) and optional lo-fi learning tracks
-        (~{{ offlineLib.audioBallparkLabel }}). Star tags for original quality.
+        (~{{ offlineLib.audioBallparkLabel }}). Favorite tags for original quality.
       </span>
       <button type="button" class="btn btn-primary" @click="downloadSheetsFromPrompt">
         Download sheets
@@ -346,7 +363,6 @@ async function syncPacksFromPrompt(): Promise<void> {
   padding: 0;
 }
 .top {
-  --header-h: 3.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;

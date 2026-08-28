@@ -3,13 +3,14 @@ import {
   arrangerLastName,
   arrangersByLastInitial,
   buildBrowseRows,
+  bookletBadgeForTag,
   formatArrangerLastFirst,
   parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
+  sectionKeyFor,
   sortBrowseTags,
-  bookletBadgeForTag,
   titleSortLetter,
 } from './browse'
 import type { TagSummary } from '../types/tag'
@@ -96,6 +97,22 @@ describe('browse helpers', () => {
     )
   })
 
+  it('groups year sort sections by calendar year, not full dates', () => {
+    const tags = [
+      tag({ id: 1, title: 'A', year: 'Wed, 13 Dec 2023' }),
+      tag({ id: 2, title: 'B', year: 2023 }),
+      tag({ id: 3, title: 'C', year: 'Sat, 4 Apr 2009' }),
+      tag({ id: 4, title: 'D', year: null }),
+    ]
+    expect(sortBrowseTags(tags, 'year').map((x) => x.id)).toEqual([1, 2, 3, 4])
+    expect(sectionKeyFor(tags[0]!, 'year')).toBe('2023')
+    expect(sectionKeyFor(tags[1]!, 'year')).toBe('2023')
+    expect(sectionKeyFor(tags[2]!, 'year')).toBe('2009')
+    expect(sectionKeyFor(tags[3]!, 'year')).toBe('Unknown year')
+    const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'year'), 'year', 10)
+    expect(jumpKeys).toEqual(['2023', '2009', 'Unknown year'])
+  })
+
   it('sorts by collection booklet then tag id', () => {
     const tags = [
       tag({ id: 30, title: 'Z', collection: '100', classic: 2 }),
@@ -107,21 +124,16 @@ describe('browse helpers', () => {
     expect(sortBrowseTags(tags, 'collection').map((x) => x.id)).toEqual([20, 10, 40, 30, 5])
   })
 
-  it('sorts by last name and builds letter sections', () => {
+  it('sorts by title and builds letter sections', () => {
     const tags = [
       tag({ id: 1, title: 'Zebra', arranger: 'Joe Liles', year: 2001 }),
       tag({ id: 2, title: 'Alpha', arranger: 'Burt Szabo', year: 1999 }),
       tag({ id: 3, title: 'Beta', arranger: 'Paul Paddock', year: 2001 }),
     ]
-    expect(sortBrowseTags(tags, 'arranger-last').map((t) => t.id)).toEqual([1, 3, 2])
+    expect(sortBrowseTags(tags, 'title').map((t) => t.id)).toEqual([2, 3, 1])
     expect(sortBrowseTags(tags, 'title', true).map((t) => t.id)).toEqual([1, 3, 2])
     expect(titleSortLetter("Don't Worry")).toBe('D')
-    const { rows, jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'title'), 'title', 10)
+    const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'title'), 'title', 10)
     expect(jumpKeys).toEqual(['A', 'B', 'Z'])
-    expect(rows.filter((r) => r.type === 'section').map((r) => r.type === 'section' && r.label)).toEqual([
-      'A',
-      'B',
-      'Z',
-    ])
   })
 })

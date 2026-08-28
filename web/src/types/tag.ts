@@ -88,7 +88,7 @@ export interface TagSummary {
   type: string | null
   collection: string | null
   classic?: string | number | null
-  year?: number | null
+  year?: number | string | null
   parts?: number | null
   hasSheet: boolean
   audioParts: PartId[]
@@ -113,7 +113,7 @@ export interface TagDetail {
   type?: string | null
   collection?: string | null
   classic?: string | number | null
-  year?: number | null
+  year?: number | string | null
   parts_count?: number | null
   lyrics?: string | null
   /** Primary / legacy single sheet path (PDF or image). */

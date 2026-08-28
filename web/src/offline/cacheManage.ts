@@ -217,7 +217,7 @@ export async function exportOfflineCacheZip(
         data: new Uint8Array(sheet.data),
       })
       done++
-      report(onProgress, `Starred #${rec.tagId} sheets…`, done, total)
+      report(onProgress, `Favorite #${rec.tagId} sheets…`, done, total)
     }
     for (const [part, audio] of Object.entries(rec.audioBlobs ?? {})) {
       files.push({
@@ -225,7 +225,7 @@ export async function exportOfflineCacheZip(
         data: new Uint8Array(audio.data),
       })
       done++
-      report(onProgress, `Starred #${rec.tagId} audio…`, done, total)
+      report(onProgress, `Favorite #${rec.tagId} audio…`, done, total)
     }
   }
 
@@ -346,7 +346,7 @@ export async function importOfflineCacheZip(
   if (metaBytes) {
     const file = parseStarredFile(JSON.parse(new TextDecoder().decode(metaBytes)))
     done++
-    report(onProgress, 'Restoring starred tags…', done, total)
+    report(onProgress, 'Restoring favorites…', done, total)
 
     for (const t of file.tags) {
       if (!t.summary?.id) continue
@@ -365,7 +365,7 @@ export async function importOfflineCacheZip(
           data: copy.buffer,
         })
         done++
-        report(onProgress, `Starred #${tagId} sheets…`, done, total)
+        report(onProgress, `Favorite #${tagId} sheets…`, done, total)
       }
 
       const audioBlobs: NonNullable<StarredTagRecord['audioBlobs']> = {}
@@ -383,7 +383,7 @@ export async function importOfflineCacheZip(
           data: copy.buffer,
         }
         done++
-        report(onProgress, `Starred #${tagId} audio…`, done, total)
+        report(onProgress, `Favorite #${tagId} audio…`, done, total)
       }
 
       const hasMedia = sheetBlobs.length > 0 || Object.keys(audioBlobs).length > 0
@@ -401,7 +401,7 @@ export async function importOfflineCacheZip(
     }
   } else {
     done++
-    report(onProgress, 'No starred metadata in zip', done, total)
+    report(onProgress, 'No favorites metadata in zip', done, total)
   }
 
   let pitchPipePrefs = false

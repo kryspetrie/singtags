@@ -635,7 +635,9 @@ def download_parts_for_tag(
     elif present:
         meta["status"] = "partial"
     else:
-        meta["status"] = "missing_assets"
+        # Empty stub — effectively deleted / unpublished on origin.
+        meta["status"] = "unavailable"
+        meta["unavailable_reason"] = "missing_assets"
 
     save_metadata(folder, meta)
     return meta

@@ -250,6 +250,58 @@ def has_audio_parts(folder: Path, meta: dict) -> bool:
     return False
 
 
+_AUDIO_MEDIA_EXTS = {".mp3", ".opus", ".m4a", ".ogg", ".webm"}
+_SHEET_PAGE_HINTS = ("sheet", "preview", "page", "notation")
+_REMOTE_MEDIA_KEYS = ("sheet", "notation", "lead", "tenor", "bari", "bass", "mix")
+
+
+def remote_advertises_media(meta: dict | None) -> bool:
+    """True when bulk/API metadata advertises a downloadable sheet or learning track.
+
+    A bare ``_zip`` entry does not count — deleted tags often still expose an empty
+    zip download URL while the public tag page is gone.
+    """
+    if not meta:
+        return False
+    assets = meta.get("discovered_assets")
+    if not isinstance(assets, dict):
+        return False
+    for key in _REMOTE_MEDIA_KEYS:
+        info = assets.get(key)
+        if isinstance(info, dict) and info.get("url"):
+            return True
+    return False
+
+
+def has_usable_media(folder: Path, meta: dict | None = None) -> bool:
+    """True when the library folder has a sheet and/or learning-track audio on disk.
+
+    Tags with neither are treated as effectively deleted on the origin site and
+    must not be published to the SPA catalog.
+    """
+    meta = meta if isinstance(meta, dict) else {}
+    if find_sheet_file(folder, meta) is not None:
+        return True
+    for part in ("lead", "tenor", "bari", "bass", "mix"):
+        if find_audio_part_file(folder, part, meta) is not None:
+            return True
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return False
+    for path in entries:
+        if not path.is_file() or path.stat().st_size <= 0:
+            continue
+        suffix = path.suffix.lower()
+        if suffix in _AUDIO_MEDIA_EXTS:
+            return True
+        if suffix in SHEET_EXTENSIONS or suffix in {".webp", ".png", ".jpg", ".jpeg"}:
+            low = path.name.lower()
+            if any(h in low for h in _SHEET_PAGE_HINTS):
+                return True
+    return False
+
+
 def tag_looks_complete(
     folder: Path,
     meta: dict,

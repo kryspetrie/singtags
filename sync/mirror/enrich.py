@@ -202,10 +202,21 @@ def apply_remote_row(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Match one remote row to a local folder and write merged metadata."""
+    from lib.complete import has_usable_media, remote_advertises_media
+
     tag_id = remote.get("tag_id")
     folder, method = match_remote_to_folder(remote, local_index, claimed=claimed)
+    advertises = remote_advertises_media(remote)
 
     if folder is None and create_missing and isinstance(tag_id, int):
+        # Do not create stubs for origin rows with no sheet/audio (deleted / empty).
+        if not advertises:
+            return {
+                "status": "skipped_no_media",
+                "tag_id": tag_id,
+                "title": remote.get("title"),
+                "method": "no_media",
+            }
         if dry_run:
             return {"status": "would_create", "tag_id": tag_id, "method": "new"}
         folder = ensure_tag_folder(tag_id, remote, root)
@@ -225,6 +236,10 @@ def apply_remote_row(
     merged["match_method"] = method
     if isinstance(tag_id, int):
         merged["tag_id"] = tag_id
+    # Origin listing with no sheet/audio (or local empty stub) → hide from catalog.
+    if not advertises and not has_usable_media(folder, merged):
+        merged["status"] = "unavailable"
+        merged["unavailable_reason"] = "no_remote_media"
     if dry_run:
         return {
             "status": "ok",
@@ -278,6 +293,7 @@ def apply_bulk_export(
         "matched_identity": 0,
         "matched_sheet_alt": 0,
         "matched_tag_id": 0,
+        "skipped_no_media": 0,
         "unmatched": 0,
         "errors": 0,
     }
@@ -323,13 +339,16 @@ def apply_bulk_export(
                 )
         elif status == "would_create":
             stats["created"] += 1
+        elif status == "skipped_no_media":
+            stats["skipped_no_media"] += 1
         else:
             stats["unmatched"] += 1
             unmatched_rows.append(result)
 
-    # Local folders never claimed by a remote row
+    # Local folders never claimed by a remote row (removed from origin export).
     orphans = [f for f in local_index["folders"] if f not in claimed]
     stats["local_orphans"] = len(orphans)
+    unavailable_orphans = 0
     if orphans and not dry_run:
         orphan_list = []
         for folder in orphans:
@@ -341,9 +360,19 @@ def apply_bulk_export(
                     "identity_key": meta.get("identity_key") or identity_key(meta),
                 }
             )
+            # Gone from the bulk export and no local media → treat as deleted.
+            from lib.complete import has_usable_media
+
+            if not has_usable_media(folder, meta):
+                meta = dict(meta)
+                meta["status"] = "unavailable"
+                meta["unavailable_reason"] = "removed_from_remote_export"
+                save_metadata(folder, meta)
+                unavailable_orphans += 1
         from lib.state import save_json
 
         save_json(state_path("local_orphans.json"), orphan_list)
+    stats["unavailable_orphans"] = unavailable_orphans
 
     state = load_sync_state()
     ids = [t.get("tag_id") for t in (export.get("tags") or []) if isinstance(t.get("tag_id"), int)]

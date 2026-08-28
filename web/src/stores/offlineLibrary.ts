@@ -371,7 +371,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       await refreshEstimate()
       if (result.sheetsFiles > 0 && sheetsStatus.value === 'idle') sheetsStatus.value = 'done'
       if (result.audioFiles > 0 && audioStatus.value === 'idle') audioStatus.value = 'done'
-      cacheMessage.value = `Restored ${result.sheetsFiles} sheet file(s), ${result.audioFiles} audio file(s), ${result.starredTags} starred tag(s)${result.pitchPipePrefs ? ', pitch pipe settings' : ''}.`
+      cacheMessage.value = `Restored ${result.sheetsFiles} sheet file(s), ${result.audioFiles} audio file(s), ${result.starredTags} favorited tag(s)${result.pitchPipePrefs ? ', pitch pipe settings' : ''}.`
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {

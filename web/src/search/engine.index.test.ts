@@ -85,6 +85,8 @@ describe('indexed SearchEngine', () => {
       minRating: null,
       hasAudio: null,
       hasSheet: null,
+      yearMin: null,
+      yearMax: null,
       raw: '',
     })
     expect(hit.map((t) => t.id).sort()).toEqual([2, 3])

@@ -58,7 +58,7 @@ describe('stars store coverage', () => {
     })
     expect(n).toBe(1)
     expect(stars.isStarred(43)).toBe(true)
-    expect(stars.lastNotice).toEqual({ type: 'text', message: 'Starred 1 tag(s)' })
+    expect(stars.lastNotice).toEqual({ type: 'text', message: 'Favorited 1 tag(s)' })
   })
 
   it('updateOfflineMedia refreshes blobs', async () => {

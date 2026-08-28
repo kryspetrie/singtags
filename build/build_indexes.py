@@ -11,10 +11,16 @@ import argparse
 import gzip
 import json
 import re
+import sys
 from pathlib import Path
 from urllib.parse import quote
 
 SITE_ROOT = Path(__file__).resolve().parents[1]
+_SYNC_ROOT = SITE_ROOT / "sync"
+if str(_SYNC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SYNC_ROOT))
+
+from lib.complete import has_usable_media  # noqa: E402
 
 # Bidirectional lyric expansions (pre-fold forms → meaning variants).
 BASE_EXPANSIONS: dict[str, list[str]] = {
@@ -133,6 +139,25 @@ def tag_id_of(meta: dict, folder: Path) -> int | None:
     return int(m.group(1)) if m else None
 
 
+
+def normalize_year(raw) -> int | None:
+    """Coerce Year / Date Posted to a calendar year (never keep full date strings)."""
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        n = int(raw)
+        return n if 1000 <= n <= 2100 else None
+    s = str(raw).strip()
+    if re.fullmatch(r"\d{4}", s):
+        n = int(s)
+        return n if 1000 <= n <= 2100 else None
+    matches = re.findall(r"\b(?:1[7-9]\d{2}|20\d{2})\b", s)
+    if not matches:
+        return None
+    return int(matches[-1])
+
 def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
     """SPA-shaped metadata with library-relative media paths."""
     parts = meta.get("parts") if isinstance(meta.get("parts"), dict) else {}
@@ -213,7 +238,7 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         "type": meta.get("type"),
         "collection": meta.get("collection"),
         "classic": meta.get("classic"),
-        "year": meta.get("year") or meta.get("date_posted"),
+        "year": normalize_year(meta.get("year") or meta.get("date_posted")),
         "parts_count": meta.get("parts_count"),
         "lyrics": meta.get("lyrics"),
         "lyrics_source": meta.get("lyrics_source"),
@@ -234,6 +259,8 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
     core: list[dict] = []
     lyrics_docs: list[dict] = []
     tags_out.mkdir(parents=True, exist_ok=True)
+    published_ids: set[int] = set()
+    skipped_no_media = 0
 
     folders = sorted(
         p for p in library.iterdir() if p.is_dir() and p.name not in SKIP_DIRS and not p.name.startswith(".")
@@ -250,6 +277,11 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
         if tid is None:
             continue
 
+        # Effectively-deleted origin tags (no sheet, no learning tracks).
+        if not has_usable_media(folder, meta):
+            skipped_no_media += 1
+            continue
+
         published = spa_metadata(folder, meta, tid)
         tag_dir = tags_out / str(tid)
         tag_dir.mkdir(parents=True, exist_ok=True)
@@ -257,6 +289,7 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
             json.dumps(published, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+        published_ids.add(tid)
 
         audio = published.get("audio") or {}
         audio_tiers = published.get("audio_tiers") or {}
@@ -301,6 +334,25 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
         if lyr:
             lyrics_docs.append({"id": tid, "lyrics": lyr})
 
+    # Drop published detail JSON for tags we no longer expose.
+    pruned = 0
+    if tags_out.is_dir():
+        for child in tags_out.iterdir():
+            if not child.is_dir() or not child.name.isdigit():
+                continue
+            tid = int(child.name)
+            if tid in published_ids:
+                continue
+            meta_json = child / "metadata.json"
+            if meta_json.is_file():
+                meta_json.unlink()
+            try:
+                child.rmdir()
+                pruned += 1
+            except OSError:
+                # Non-empty (legacy media copies, etc.) — leave folder, remove catalog entry only.
+                pass
+
     indexes_out.mkdir(parents=True, exist_ok=True)
 
     def write_gz(name: str, payload: object) -> None:
@@ -316,8 +368,13 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
         json.dumps({"version": 1, "map": BASE_EXPANSIONS}, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote indexes for {len(core)} tags ({len(lyrics_docs)} with lyrics) → {indexes_out}")
+    print(
+        f"Wrote indexes for {len(core)} tags ({len(lyrics_docs)} with lyrics) → {indexes_out}"
+    )
     print(f"Wrote slim tag JSON → {tags_out}")
+    print(f"Skipped {skipped_no_media} tag(s) with no usable sheet/audio")
+    if pruned:
+        print(f"Pruned {pruned} stale published tag folder(s)")
 
 
 def main() -> int:

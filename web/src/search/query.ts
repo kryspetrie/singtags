@@ -28,6 +28,10 @@ export interface SearchQuery {
   minRating: number | null
   hasAudio: boolean | null
   hasSheet: boolean | null
+  /** Inclusive calendar year lower bound (from chips or yearMin: DSL). */
+  yearMin: number | null
+  /** Inclusive calendar year upper bound (from chips or yearMax: DSL). */
+  yearMax: number | null
   raw: string
 }
 
@@ -35,8 +39,15 @@ const FIELD_RE =
   /\b(arranger|title|key|type|collection|classic|year):(?:"([^"]+)"|(\S+))/gi
 const PHRASE_RE = /"([^"]+)"/g
 const MIN_RATING_RE = /\bminRating:(\d+(?:\.\d+)?)/gi
+const YEAR_MIN_RE = /\byearMin:(\d{4})\b/gi
+const YEAR_MAX_RE = /\byearMax:(\d{4})\b/gi
 const HAS_AUDIO_RE = /\b(hasAudio|noAudio)\b/gi
 const HAS_SHEET_RE = /\b(hasSheet|noSheet)\b/gi
+
+function parseYearToken(n: string): number | null {
+  const y = Number(n)
+  return y >= 1000 && y <= 2100 ? y : null
+}
 
 export function parseQuery(raw: string, fullText = false): SearchQuery {
   let rest = raw
@@ -46,6 +57,18 @@ export function parseQuery(raw: string, fullText = false): SearchQuery {
   let minRating: number | null = null
   rest = rest.replace(MIN_RATING_RE, (_m, n: string) => {
     minRating = Number(n)
+    return ' '
+  })
+
+  let yearMin: number | null = null
+  rest = rest.replace(YEAR_MIN_RE, (_m, n: string) => {
+    yearMin = parseYearToken(n)
+    return ' '
+  })
+
+  let yearMax: number | null = null
+  rest = rest.replace(YEAR_MAX_RE, (_m, n: string) => {
+    yearMax = parseYearToken(n)
     return ' '
   })
 
@@ -101,6 +124,8 @@ export function parseQuery(raw: string, fullText = false): SearchQuery {
     minRating,
     hasAudio,
     hasSheet,
+    yearMin,
+    yearMax,
     raw,
   }
 }

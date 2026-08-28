@@ -27,6 +27,11 @@ describe('FilterSheet', () => {
       attachTo: document.body,
     })
     await flushPromises()
+    // Content mounts after a double rAF so the enter animation can run.
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+    await flushPromises()
     expect(document.body.textContent).toContain('Pick')
     ;(document.body.querySelector('.backdrop') as HTMLButtonElement).click()
     expect(w.emitted('close')).toBeTruthy()

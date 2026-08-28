@@ -31,7 +31,7 @@ describe('App shell', () => {
       routes: [
         { path: '/', component: { template: '<div>home</div>' } },
         { path: '/tag/:id', name: 'tag', component: { template: '<div>tag</div>' }, props: true },
-        { path: '/starred', component: { template: '<div />' } },
+        { path: '/favorites', component: { template: '<div />' } },
         { path: '/recent', component: { template: '<div />' } },
         { path: '/pitch-pipe', component: { template: '<div />' } },
         { path: '/queue', component: { template: '<div />' } },
@@ -42,7 +42,7 @@ describe('App shell', () => {
     await flushPromises()
     expect(w.text()).toContain('SingTags')
     expect(w.find('.brand-tagline').exists()).toBe(true)
-    expect(w.text()).toMatch(/Browse|Recent|Starred|Queue/)
+    expect(w.text()).toMatch(/Browse|Recent|Favorites|Queue/)
     expect(w.find('.top-back').exists()).toBe(false)
     await router.push('/tag/1')
     await flushPromises()

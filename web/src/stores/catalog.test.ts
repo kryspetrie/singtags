@@ -163,11 +163,12 @@ describe('catalog store', () => {
 
     const catalog = useCatalogStore()
     await catalog.load()
-    catalog.patchFilters({ hasSheet: true, minRating: 4, keys: ['Bb'] })
+    catalog.patchFilters({ hasSheet: true, minRating: 4, arrangers: ['Paul'] })
     expect(catalog.results.map((t) => t.id)).toEqual([1])
-    catalog.syncFromRoute({ q: '', sheet: '1', min: '4', key: 'Bb' }, 'title')
+    catalog.syncFromRoute({ q: '', sheet: '1', min: '4', arr: 'Paul' }, 'title')
     expect(catalog.filters.hasSheet).toBe(true)
     expect(catalog.filters.minRating).toBe(4)
+    expect(catalog.filters.arrangers).toEqual(['Paul'])
   })
 
   it('supports pagination, selection, neighbors, and route patch', async () => {

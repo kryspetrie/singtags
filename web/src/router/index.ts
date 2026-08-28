@@ -18,10 +18,11 @@ export const router = createRouter({
       component: () => import('../views/RecentView.vue'),
     },
     {
-      path: '/starred',
-      name: 'starred',
-      component: () => import('../views/StarredView.vue'),
+      path: '/favorites',
+      name: 'favorites',
+      component: () => import('../views/FavoritesView.vue'),
     },
+    { path: '/starred', redirect: '/favorites' },
     {
       path: '/pitch-pipe',
       name: 'pitch-pipe',

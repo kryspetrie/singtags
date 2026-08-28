@@ -7,7 +7,10 @@ export interface CatalogFilters {
   hasSheet: boolean | null
   hasAudio: boolean | null
   minRating: number | null
-  keys: string[]
+  /** Inclusive calendar year lower bound. */
+  yearMin: number | null
+  /** Inclusive calendar year upper bound. */
+  yearMax: number | null
   arrangers: string[]
   types: string[]
   collections: string[]
@@ -18,7 +21,8 @@ export const EMPTY_FILTERS: CatalogFilters = {
   hasSheet: null,
   hasAudio: null,
   minRating: null,
-  keys: [],
+  yearMin: null,
+  yearMax: null,
   arrangers: [],
   types: [],
   collections: [],
@@ -29,7 +33,8 @@ export function activeFilterCount(f: CatalogFilters): number {
   if (f.hasSheet === true) n++
   if (f.hasAudio === true) n++
   if (f.minRating != null) n++
-  n += f.keys.length + f.arrangers.length + f.types.length + f.collections.length
+  if (f.yearMin != null || f.yearMax != null) n++
+  n += f.arrangers.length + f.types.length + f.collections.length
   return n
 }
 
@@ -44,7 +49,6 @@ export function buildSearchQuery(text: string, filters: CatalogFilters): SearchQ
     // One filter per field so values OR within the field (engine unions values).
     fields.push({ field, values: cleaned, mode: 'or' })
   }
-  pushField('key', filters.keys)
   pushField('arranger', filters.arrangers)
   pushField('type', filters.types)
   pushField('collection', filters.collections)
@@ -56,6 +60,8 @@ export function buildSearchQuery(text: string, filters: CatalogFilters): SearchQ
     minRating: filters.minRating ?? base.minRating,
     hasAudio: filters.hasAudio ?? base.hasAudio,
     hasSheet: filters.hasSheet ?? base.hasSheet,
+    yearMin: filters.yearMin ?? base.yearMin,
+    yearMax: filters.yearMax ?? base.yearMax,
   }
 }
 
@@ -66,11 +72,18 @@ export function filtersToRouteQuery(f: CatalogFilters): Record<string, string | 
     sheet: f.hasSheet === true ? '1' : f.hasSheet === false ? '0' : undefined,
     audio: f.hasAudio === true ? '1' : f.hasAudio === false ? '0' : undefined,
     min: f.minRating != null ? String(f.minRating) : undefined,
-    key: f.keys.length ? f.keys.join('|') : undefined,
+    ymin: f.yearMin != null ? String(f.yearMin) : undefined,
+    ymax: f.yearMax != null ? String(f.yearMax) : undefined,
     arr: f.arrangers.length ? f.arrangers.join('|') : undefined,
     type: f.types.length ? f.types.join('|') : undefined,
     col: f.collections.length ? f.collections.join('|') : undefined,
   }
+}
+
+function parseYearParam(raw: string): number | null {
+  if (!/^\d{4}$/.test(raw)) return null
+  const n = Number(raw)
+  return n >= 1000 && n <= 2100 ? n : null
 }
 
 export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<CatalogFilters> {
@@ -84,7 +97,8 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
     hasSheet: sheet === '1' ? true : sheet === '0' ? false : null,
     hasAudio: audio === '1' ? true : audio === '0' ? false : null,
     minRating: min ? Number(min) : null,
-    keys: split('key'),
+    yearMin: parseYearParam(str('ymin')),
+    yearMax: parseYearParam(str('ymax')),
     arrangers: split('arr'),
     types: split('type'),
     collections: split('col'),

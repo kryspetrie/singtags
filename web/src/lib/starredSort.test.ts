@@ -63,13 +63,4 @@ describe('sortStarredRecords', () => {
     expect(sortStarredRecords(rows, 'id').map((r) => r.tagId)).toEqual([1, 2, 3])
     expect(sortStarredRecords(rows, 'rating').map((r) => r.tagId)).toEqual([1, 2, 3])
   })
-
-  it('sorts by arranger last name', () => {
-    const rows = [
-      rec(1, { title: 'A', arranger: 'Alice Smith' }),
-      rec(2, { title: 'B', arranger: 'Bob Adams' }),
-    ]
-    expect(sortStarredRecords(rows, 'arranger-last').map((r) => r.tagId)).toEqual([2, 1])
-    expect(sortStarredRecords(rows, 'arranger').map((r) => r.tagId)).toEqual([1, 2])
-  })
 })

@@ -10,10 +10,10 @@ const ariaLabel = computed(() => {
     const parts: string[] = []
     if (n.audio) parts.push('audio')
     if (n.sheets) parts.push('sheets')
-    return parts.length ? `Starred with ${parts.join(' and ')}` : 'Starred'
+    return parts.length ? `Favorited with ${parts.join(' and ')}` : 'Favorited'
   }
-  if (n.type === 'starred') return 'Starred'
-  if (n.type === 'removed') return 'Removed from starred'
+  if (n.type === 'starred') return 'Favorited'
+  if (n.type === 'removed') return 'Removed from favorites'
   return n.message
 })
 </script>
@@ -21,11 +21,11 @@ const ariaLabel = computed(() => {
 <template>
   <span class="stars-notice" :aria-label="ariaLabel">
     <template v-if="notice.type === 'cached'">
-      <span>Starred</span>
+      <span>Favorited</span>
       <span v-if="notice.audio" class="ico" aria-hidden="true">♪</span>
       <span v-if="notice.sheets" class="ico" aria-hidden="true">📄</span>
     </template>
-    <template v-else-if="notice.type === 'starred'">Starred</template>
+    <template v-else-if="notice.type === 'starred'">Favorited</template>
     <template v-else-if="notice.type === 'removed'">Removed</template>
     <template v-else>{{ notice.message }}</template>
   </span>
