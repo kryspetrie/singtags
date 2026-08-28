@@ -53,6 +53,21 @@ describe('sheetAssets', () => {
     expect(assets.canChooseFormat).toBe(false)
   })
 
+  it('does not treat Sheet Preview.webp as a distinct image format beside pages', () => {
+    const assets = resolveSheetAssets({
+      sheet: 'sheets/1/sheet.pdf',
+      sheets: [
+        'sheets/1/sheet.pdf',
+        'sheets/1/Song Title - Sheet Preview.webp',
+      ],
+      sheet_preview: 'sheets/1/preview.webp',
+      sheet_pages: ['sheets/1/preview.webp'],
+    })
+    expect(assets.imageSets.map((s) => s.label)).toEqual(['Pages'])
+    expect(assets.pdfs).toHaveLength(1)
+    expect(assets.canChooseFormat).toBe(false)
+  })
+
   it('keeps alternate images alongside pages from a primary PDF', () => {
     const assets = resolveSheetAssets({
       sheet: 'sheets/1/sheet.pdf',

@@ -16,7 +16,12 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
+      includeAssets: [
+        'favicon.png',
+        'apple-touch-icon.png',
+        'icon-192.png',
+        'icon-512.png',
+      ],
       manifest: {
         name: 'SingTags',
         short_name: 'SingTags',

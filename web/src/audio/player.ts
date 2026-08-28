@@ -652,7 +652,27 @@ export class TagAudioPlayer {
     }
 
     this._baking = false
-    await swapPlayable(baked, { ...req })
+    const prevPlayable = this.playable
+    const prevAudible = { ...this.audible }
+    const resumePlaying = this.playing
+    try {
+      await swapPlayable(baked, { ...req })
+    } catch (err) {
+      console.warn('[TagAudioPlayer] bake swap failed', err)
+      this.playable = prevPlayable
+      this.audible = prevAudible
+      this.requested = { ...prevAudible }
+      this._bakeError = 'Pitch/speed transform failed. Previous audio kept.'
+      if (prevPlayable && resumePlaying) {
+        try {
+          await this.startSource()
+        } catch {
+          /* ignore secondary failure */
+        }
+      }
+      this.onUpdate?.()
+      return
+    }
 
     const pinKey = bakeCacheKey({
       sourceRevision: this.sourceRevision,

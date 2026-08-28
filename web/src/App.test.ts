@@ -77,6 +77,64 @@ describe('App shell', () => {
     expect(w.text()).toMatch(/Install SingTags/)
     await w.findAll('button').find((b) => b.text() === 'Not now')!.trigger('click')
     expect(w.text()).not.toMatch(/Install SingTags/)
+    expect(localStorage.getItem('singtags.installPrompt.dismissed')).toBe('1')
+    w.unmount()
+  })
+
+  it('hides install toast when appinstalled fires after Chrome title-bar install', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
+    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+    const ev = new Event('beforeinstallprompt')
+    Object.assign(ev, {
+      prompt: vi.fn(async () => {}),
+      userChoice: Promise.resolve({ outcome: 'accepted' }),
+      preventDefault: () => {},
+    })
+    window.dispatchEvent(ev)
+    await flushPromises()
+    expect(w.text()).toMatch(/Install SingTags/)
+    window.dispatchEvent(new Event('appinstalled'))
+    await flushPromises()
+    expect(w.text()).not.toMatch(/Install SingTags/)
+    expect(localStorage.getItem('singtags.pwaInstalled')).toBe('1')
+    w.unmount()
+  })
+
+  it('does not show install toast after prior install', async () => {
+    localStorage.setItem('singtags.pwaInstalled', '1')
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
+    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+    const ev = new Event('beforeinstallprompt')
+    Object.assign(ev, {
+      prompt: vi.fn(async () => {}),
+      userChoice: Promise.resolve({ outcome: 'dismissed' }),
+      preventDefault: () => {},
+    })
+    window.dispatchEvent(ev)
+    await flushPromises()
+    expect(w.text()).not.toMatch(/Install SingTags/)
     w.unmount()
   })
 

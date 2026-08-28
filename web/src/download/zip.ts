@@ -10,6 +10,8 @@ export const MAX_QUEUE_TRACKS = 100
 /** How tracks are arranged inside the downloaded zip. */
 export type ZipLayout = 'flat' | 'folders'
 
+export type QueueItemKind = 'audio' | 'sheet'
+
 export function normalizeZipLayout(value: unknown): ZipLayout {
   return value === 'flat' ? 'flat' : 'folders'
 }
@@ -17,11 +19,30 @@ export function normalizeZipLayout(value: unknown): ZipLayout {
 export interface QueueTrack {
   tagId: number
   title: string
-  part: PartId
+  /**
+   * Audio part id, or sheet asset id (e.g. `pdf-…`, `image-…`).
+   * Used with tagId as the stable queue key.
+   */
+  part: PartId | string
   /** Relative path under media base or absolute URL. */
   path: string
+  /** Defaults to `audio` for older persisted queue rows. */
+  kind?: QueueItemKind
+  /** Display label for sheets (PDF / Image) or optional audio override. */
+  label?: string
   format?: DownloadFormat
   transform?: AudioTransform
+}
+
+export function queueItemKind(t: Pick<QueueTrack, 'kind'>): QueueItemKind {
+  return t.kind === 'sheet' ? 'sheet' : 'audio'
+}
+
+export function queueItemFileName(t: QueueTrack, format: DownloadFormat, transform: AudioTransform): string {
+  if (queueItemKind(t) === 'sheet') {
+    return t.path.split('/').pop() || t.label || 'sheet'
+  }
+  return downloadFilename(String(t.part), format, transform)
 }
 
 export function sampleUrl(path: string): string {
@@ -90,7 +111,7 @@ export async function zipQueueTracks(
   const layout = opts.layout ?? 'folders'
 
   if (tracks.length > MAX_QUEUE_TRACKS) {
-    throw new Error(`Zip limited to ${MAX_QUEUE_TRACKS} tracks`)
+    throw new Error(`Zip limited to ${MAX_QUEUE_TRACKS} files`)
   }
   const files: Array<{ name: string; data: Uint8Array }> = []
   let done = 0
@@ -99,14 +120,17 @@ export async function zipQueueTracks(
     const raw = await fetchBytes(sampleUrl(t.path))
     const format = normalizeDownloadFormat(t.format ?? opts.defaultFormat)
     const transform = t.transform ?? opts.defaultTransform ?? IDENTITY_TRANSFORM
-    const data = await prepareDownloadBytes({
-      input: raw,
-      format,
-      transform,
-      signal: opts.signal,
-      encodeQuality: encodeQualityForDownload(format),
-    })
-    const fileName = downloadFilename(t.part, format, transform)
+    let data = raw
+    if (queueItemKind(t) === 'audio') {
+      data = await prepareDownloadBytes({
+        input: raw,
+        format,
+        transform,
+        signal: opts.signal,
+        encodeQuality: encodeQualityForDownload(format),
+      })
+    }
+    const fileName = queueItemFileName(t, format, transform)
     files.push({
       name: queueTrackZipPath(t, fileName, layout),
       data,
@@ -115,5 +139,5 @@ export async function zipQueueTracks(
     opts.onProgress?.(done, tracks.length)
   }
   const zipped = buildZip(files)
-  downloadBlob(zipped, `singtags-${tracks.length}-tracks.zip`, 'application/zip')
+  downloadBlob(zipped, `singtags-${tracks.length}-files.zip`, 'application/zip')
 }

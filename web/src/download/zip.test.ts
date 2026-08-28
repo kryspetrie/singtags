@@ -39,7 +39,7 @@ describe('zip helpers', () => {
     expect(click).toHaveBeenCalled()
   })
 
-  it('zipQueueTracks fetches, zips, and downloads', async () => {
+  it('zipQueueTracks fetches audio and sheet files', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(new Uint8Array([10, 20, 30]), { status: 200 })),
@@ -54,14 +54,24 @@ describe('zip helpers', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const progress: number[] = []
     await zipQueueTracks(
-      [{ tagId: 1, title: 'Hello World!', part: 'lead', path: 'media/1/lead.m4a' }],
+      [
+        { tagId: 1, title: 'Hello World!', part: 'lead', path: 'media/1/lead.m4a' },
+        {
+          kind: 'sheet',
+          tagId: 1,
+          title: 'Hello World!',
+          part: 'pdf-x',
+          path: 'sheets/1/hello.pdf',
+          label: 'PDF',
+        },
+      ],
       {
         onProgress: (d, t) => progress.push(d / t),
         defaultFormat: 'm4a',
         encodeQuality: 'original',
       },
     )
-    expect(progress).toEqual([1])
+    expect(progress).toEqual([0.5, 1])
     expect(click).toHaveBeenCalled()
   })
 

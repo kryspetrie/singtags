@@ -24,16 +24,42 @@ export class FakeAudioBuffer {
   }
 }
 
+/** Reused only to call createBuffer — never decode/play on this context. */
+let shimCtx: AudioContext | null = null
+
+function bufferViaAudioContext(
+  channels: number,
+  length: number,
+  sampleRate: number,
+): AudioBuffer {
+  if (!shimCtx || shimCtx.state === 'closed' || shimCtx.sampleRate !== sampleRate) {
+    const prev = shimCtx
+    shimCtx = new AudioContext({ sampleRate })
+    void prev?.close().catch(() => {})
+  }
+  return shimCtx.createBuffer(channels, length, sampleRate)
+}
+
+/**
+ * Allocate an AudioBuffer without tying it to a live playback graph.
+ *
+ * Important: OfflineAudioContext's constructor `length` is the render quantum size.
+ * Passing the full track length here used to allocate a second full-song buffer on
+ * every bake (worse at speed < 1) and often failed, falling through to a new
+ * AudioContext per call (browser limit ~6) or a FakeAudioBuffer that cannot play.
+ */
 export function createAudioBuffer(
   channels: number,
   length: number,
   sampleRate: number,
 ): AudioBuffer {
+  const frames = Math.max(1, Math.floor(length))
   if (typeof OfflineAudioContext !== 'undefined') {
     try {
-      return new OfflineAudioContext(channels, length, sampleRate).createBuffer(
+      // Tiny render length — we only need createBuffer, not offline rendering.
+      return new OfflineAudioContext(channels, 1, sampleRate).createBuffer(
         channels,
-        length,
+        frames,
         sampleRate,
       )
     } catch {
@@ -42,10 +68,10 @@ export function createAudioBuffer(
   }
   if (typeof AudioContext !== 'undefined') {
     try {
-      return new AudioContext({ sampleRate }).createBuffer(channels, length, sampleRate)
+      return bufferViaAudioContext(channels, frames, sampleRate)
     } catch {
       /* fall through */
     }
   }
-  return new FakeAudioBuffer(channels, length, sampleRate) as unknown as AudioBuffer
+  return new FakeAudioBuffer(channels, frames, sampleRate) as unknown as AudioBuffer
 }

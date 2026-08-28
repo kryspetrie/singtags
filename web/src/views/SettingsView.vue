@@ -23,7 +23,8 @@ const cacheFileInput = ref<HTMLInputElement | null>(null)
 
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
-  if (!offlineLib.loaded) await offlineLib.loadManifests()
+  // Always refresh manifests when online so new remote tags can be detected.
+  if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
   else await offlineLib.refreshEstimate()
 })
 
@@ -62,6 +63,45 @@ const canStartAudioDownload = computed(
   () => !offline.value && offlineLib.audioStatus !== 'running',
 )
 
+const sheetsActionLabel = computed(() => {
+  if (offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota') {
+    return 'Resume sheets'
+  }
+  if (offlineLib.sheetsSyncAvailable) {
+    return `Sync missing sheets (${offlineLib.sheetsMissingCount})`
+  }
+  if (offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0) {
+    return 'Sync missing sheets'
+  }
+  return 'Download all sheets'
+})
+
+const audioActionLabel = computed(() => {
+  if (offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota') {
+    return 'Resume audio'
+  }
+  if (offlineLib.audioSyncAvailable) {
+    return `Sync missing audio (${offlineLib.audioMissingCount})`
+  }
+  if (offlineLib.audioStatus === 'done' || offlineLib.audioCachedCount > 0) {
+    return 'Sync missing audio'
+  }
+  return 'Download learning tracks'
+})
+
+const packSyncBanner = computed(() => {
+  const sheets = offlineLib.sheetsSyncAvailable
+  const audio = offlineLib.audioSyncAvailable
+  if (!sheets && !audio) return null
+  if (sheets && audio) {
+    return `New tags are available remotely — ${offlineLib.sheetsMissingCount} sheet file(s) and ${offlineLib.audioMissingCount} audio file(s) aren’t on this device yet. Sync keeps what you already have and only downloads the missing files.`
+  }
+  if (sheets) {
+    return `New tags are available remotely — ${offlineLib.sheetsMissingCount} sheet file(s) aren’t on this device yet. Sync keeps what you already have and only downloads the missing files.`
+  }
+  return `New learning tracks are available remotely — ${offlineLib.audioMissingCount} audio file(s) aren’t on this device yet. Sync keeps what you already have and only downloads the missing files.`
+})
+
 const publishedTiersShipped = computed(() => {
   const m = offlineLib.audioManifest
   if (!m?.entries.length) return true
@@ -97,6 +137,7 @@ async function onImportCacheFile(e: Event): Promise<void> {
   if (!file) return
   try {
     await offlineLib.importOfflineCache(file)
+    prefs.hydratePitchPipePrefs()
     await stars.refresh()
   } finally {
     input.value = ''
@@ -179,6 +220,18 @@ function cancelClear(): void {
     <p v-if="offlineLib.error" class="warn" role="alert">{{ offlineLib.error }}</p>
     <p v-if="offlineLib.cacheMessage" class="ok" role="status">{{ offlineLib.cacheMessage }}</p>
 
+    <p v-if="packSyncBanner && !offline" class="ok sync-banner" role="status">
+      {{ packSyncBanner }}
+      <button
+        type="button"
+        class="btn btn-primary sync-banner-btn"
+        :disabled="offlineLib.sheetsStatus === 'running' || offlineLib.audioStatus === 'running'"
+        @click="offlineLib.syncMissingPacks()"
+      >
+        Sync missing
+      </button>
+    </p>
+
     <section class="card primary-card" aria-labelledby="sheets-h">
       <h2 id="sheets-h">Songbook sheets</h2>
       <p class="hint">
@@ -186,9 +239,10 @@ function cancelClear(): void {
         {{ offlineLib.formatBytes(offlineLib.sheetsTotalBytes) }} to download.
         <template v-if="offlineLib.sheetsCachedCount">
           <strong>{{ offlineLib.formatBytes(offlineLib.sheetsCachedBytes) }}</strong> stored
-          ({{ offlineLib.sheetsCachedCount }} files).
+          ({{ offlineLib.sheetsCachedCount }} of {{ offlineLib.sheetsExpectedCount }} files).
         </template>
-        PDF sheet view still needs the network; offline mode uses the cached page images.
+        Already-cached files are kept; sync only downloads what’s missing. PDF sheet view still needs
+        the network; offline mode uses the cached page images.
       </p>
       <div
         v-if="offlineLib.sheetsProgress"
@@ -208,13 +262,7 @@ function cancelClear(): void {
           :disabled="offline || offlineLib.sheetsStatus === 'running'"
           @click="offlineLib.startPack('sheets')"
         >
-          {{
-            offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota'
-              ? 'Resume sheets'
-              : offlineLib.sheetsStatus === 'done'
-                ? 'Re-download sheets'
-                : 'Download all sheets'
-          }}
+          {{ sheetsActionLabel }}
         </button>
         <button
           type="button"
@@ -240,6 +288,7 @@ function cancelClear(): void {
       <p class="hint">
         Cache ultra-low solo stems for every voice part so individual tracks and mix
         (reconstructed at play time) work offline. Mix-only tags download the mix file only.
+        Already-cached files are kept; sync only downloads what’s missing.
       </p>
 
       <label class="quality quick-quality">
@@ -258,7 +307,7 @@ function cancelClear(): void {
         current settings.
         <template v-if="offlineLib.audioCachedCount">
           <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> stored on device
-          ({{ offlineLib.audioCachedCount }} files).
+          ({{ offlineLib.audioCachedCount }} of {{ offlineLib.audioExpectedCount }} files).
         </template>
         Use Wi‑Fi when possible.
       </p>
@@ -282,13 +331,7 @@ function cancelClear(): void {
           :disabled="!canStartAudioDownload"
           @click="offlineLib.startPack('audio')"
         >
-          {{
-            offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota'
-              ? 'Resume audio'
-              : offlineLib.audioStatus === 'done'
-                ? 'Re-download audio'
-                : 'Download learning tracks'
-          }}
+          {{ audioActionLabel }}
         </button>
         <button
           type="button"
@@ -398,8 +441,8 @@ function cancelClear(): void {
       <section class="card" aria-labelledby="cache-tools-h">
         <h2 id="cache-tools-h">Backup &amp; restore</h2>
         <p class="hint">
-          Export cached sheets, audio, and starred media as one zip — or restore a zip onto this
-          device (merges with whatever is already cached).
+          Export cached sheets, audio, starred media, and pitch pipe settings as one zip — or restore
+          a zip onto this device (merges with whatever is already cached).
         </p>
         <div
           v-if="offlineLib.cacheProgress"
@@ -593,6 +636,21 @@ function cancelClear(): void {
 .ok {
   margin: 0 0 0.75rem;
   color: var(--accent-hover);
+}
+.sync-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  line-height: 1.4;
+}
+.sync-banner-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 .advanced {
   margin-top: 0.5rem;

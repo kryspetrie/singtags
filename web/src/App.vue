@@ -33,23 +33,63 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+const INSTALL_DISMISSED_KEY = 'singtags.installPrompt.dismissed'
+const INSTALL_DONE_KEY = 'singtags.pwaInstalled'
+
 const installEvent = shallowRef<BeforeInstallPromptEvent | null>(null)
 const showInstall = ref(false)
+
+function isStandaloneDisplay(): boolean {
+  if (typeof window === 'undefined') return false
+  if (window.matchMedia('(display-mode: standalone)').matches) return true
+  if (window.matchMedia('(display-mode: fullscreen)').matches) return true
+  if (window.matchMedia('(display-mode: minimal-ui)').matches) return true
+  const nav = window.navigator as Navigator & { standalone?: boolean }
+  return nav.standalone === true
+}
+
+function shouldOfferInstall(): boolean {
+  if (isStandaloneDisplay()) return false
+  try {
+    if (localStorage.getItem(INSTALL_DONE_KEY) === '1') return false
+    if (localStorage.getItem(INSTALL_DISMISSED_KEY) === '1') return false
+  } catch {
+    /* ignore */
+  }
+  return true
+}
+
+function markInstallDone(): void {
+  try {
+    localStorage.setItem(INSTALL_DONE_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+  showInstall.value = false
+  installEvent.value = null
+}
 
 function onBeforeInstall(e: Event): void {
   e.preventDefault()
   installEvent.value = e as BeforeInstallPromptEvent
-  showInstall.value = true
+  if (shouldOfferInstall()) showInstall.value = true
+}
+
+function onAppInstalled(): void {
+  markInstallDone()
 }
 
 onMounted(() => {
   void stars.ensureLoaded()
   void offlineLib.loadManifests()
+  if (isStandaloneDisplay()) markInstallDone()
   window.addEventListener('beforeinstallprompt', onBeforeInstall)
+  window.addEventListener('appinstalled', onAppInstalled)
 })
 
 onUnmounted(() => {
   window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+  window.removeEventListener('appinstalled', onAppInstalled)
 })
 
 function dismissUpdate(): void {
@@ -64,12 +104,21 @@ async function installApp(): Promise<void> {
   const ev = installEvent.value
   if (!ev) return
   await ev.prompt()
-  await ev.userChoice
+  const choice = await ev.userChoice
+  if (choice.outcome === 'accepted') {
+    markInstallDone()
+    return
+  }
   showInstall.value = false
   installEvent.value = null
 }
 
 function dismissInstall(): void {
+  try {
+    localStorage.setItem(INSTALL_DISMISSED_KEY, '1')
+  } catch {
+    /* ignore */
+  }
   showInstall.value = false
 }
 
@@ -77,11 +126,14 @@ async function downloadSheetsFromPrompt(): Promise<void> {
   await offlineLib.dismissSheetsPrompt()
   await offlineLib.startPack('sheets')
 }
+
+async function syncPacksFromPrompt(): Promise<void> {
+  await offlineLib.syncMissingPacks()
+}
 </script>
 
 <template>
   <div class="app">
-    <a class="skip" href="#main">Skip to content</a>
     <header class="top">
       <div class="top-start">
         <RouterLink v-if="onTagPage" class="top-back" :to="backTarget">{{ backLabel }}</RouterLink>
@@ -155,6 +207,23 @@ async function downloadSheetsFromPrompt(): Promise<void> {
       <button type="button" class="btn btn-ghost" @click="dismissUpdate">Later</button>
     </div>
     <div
+      v-else-if="offlineLib.showPackSyncPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      class="toast toast-wide"
+      role="status"
+    >
+      <span>
+        New tags are available. Sync missing offline files? Already-cached sheets and tracks stay on
+        this device — only what’s missing is downloaded.
+      </span>
+      <button type="button" class="btn btn-primary" @click="syncPacksFromPrompt">Sync</button>
+      <RouterLink class="btn btn-ghost" to="/settings" @click="offlineLib.dismissPackSyncPrompt()">
+        Settings
+      </RouterLink>
+      <button type="button" class="btn btn-ghost" @click="offlineLib.dismissPackSyncPrompt()">
+        Not now
+      </button>
+    </div>
+    <div
       v-else-if="offlineLib.showSheetsPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
@@ -183,19 +252,6 @@ async function downloadSheetsFromPrompt(): Promise<void> {
 </template>
 
 <style scoped>
-.skip {
-  position: absolute;
-  left: -999px;
-  top: 0;
-  background: var(--accent);
-  color: #fff;
-  padding: 0.5rem 0.75rem;
-  z-index: 100;
-}
-.skip:focus {
-  left: 0.5rem;
-  top: calc(0.5rem + env(safe-area-inset-top));
-}
 .app {
   min-height: 100dvh;
   display: flex;

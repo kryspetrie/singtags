@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi } from 'vitest'
-import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
+import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
 
 describe('pitchPlayer helpers', () => {
   it('maps keys to tonic notes in E3–E4', () => {
@@ -54,10 +54,16 @@ describe('pitchPlayer helpers', () => {
   it('exposes chromatic pitch-pipe note grids', () => {
     expect(PITCH_PIPE_NOTES['f3-f4']).toHaveLength(13)
     expect(PITCH_PIPE_NOTES['e3-e4']).toHaveLength(13)
+    expect(PITCH_PIPE_NOTES['c3-c4']).toHaveLength(13)
+    expect(PITCH_PIPE_NOTES['c4-c5']).toHaveLength(13)
     expect(PITCH_PIPE_NOTES['f3-f4'][0]).toBe('F3')
     expect(PITCH_PIPE_NOTES['f3-f4'][12]).toBe('F4')
     expect(PITCH_PIPE_NOTES['e3-e4'][0]).toBe('E3')
     expect(PITCH_PIPE_NOTES['e3-e4'][12]).toBe('E4')
+    expect(PITCH_PIPE_NOTES['c3-c4'][0]).toBe('C3')
+    expect(PITCH_PIPE_NOTES['c3-c4'].at(-1)).toBe('C4')
+    expect(PITCH_PIPE_NOTES['c4-c5'][0]).toBe('C4')
+    expect(PITCH_PIPE_NOTES['c4-c5'].at(-1)).toBe('C5')
     expect(PITCH_PIPE_NOTES['f3-f4']).toContain('A#3')
     expect(PITCH_PIPE_NOTES['f3-f4']).toContain('C#4')
     expect(pitchPipeNotes('f3-f4')).toEqual([...PITCH_PIPE_NOTES['f3-f4']])
@@ -71,22 +77,36 @@ describe('pitchPlayer helpers', () => {
   it('labels sharps with flat equivalents for pitch pipe', () => {
     expect(pitchPipeDisplay('C#3')).toEqual({
       note: 'C#3',
-      sharp: 'C#',
-      flat: 'Db',
+      sharp: 'C♯',
+      flat: 'D♭',
       octave: '3',
       isBlack: true,
       pitchClass: 'C',
     })
-    expect(pitchPipeDisplay('A#4')).toMatchObject({ flat: 'Bb', octave: '4', isBlack: true })
+    expect(pitchPipeDisplay('A#4')).toMatchObject({ flat: 'B♭', octave: '4', isBlack: true })
     expect(pitchPipeDisplay('Bb3')).toMatchObject({
       isBlack: true,
-      sharp: 'A#',
-      flat: 'Bb',
+      sharp: 'A♯',
+      flat: 'B♭',
       octave: '3',
     })
-    expect(pitchPipeDisplay('E3')).toMatchObject({ isBlack: false, flat: null })
-    expect(pitchPipeAriaLabel('F#2')).toBe('Play F#2 (Gb2)')
+    expect(pitchPipeDisplay('E3')).toMatchObject({ isBlack: false, flat: null, sharp: 'E' })
+    expect(pitchPipeAriaLabel('F#2')).toBe('Play F♯2 (G♭2)')
     expect(pitchPipeAriaLabel('G3')).toBe('Play G3')
+  })
+
+  it('formats accidentals with music glyphs', () => {
+    expect(toPitchGlyph('C#')).toBe('C♯')
+    expect(toPitchGlyph('Db')).toBe('D♭')
+    expect(toPitchGlyph('A')).toBe('A')
+  })
+
+  it('builds vertical piano white/black slots', () => {
+    const slots = pitchPipePianoSlots(pitchPipeNotes('f3-f4'))
+    expect(slots.whites[0]).toBe('F3')
+    expect(slots.whites.at(-1)).toBe('F4')
+    expect(slots.blacks.some((b) => b.note === 'F#3' && b.after === 'F3')).toBe(true)
+    expect(slots.blacks.some((b) => b.note === 'C#4' && b.after === 'C4')).toBe(true)
   })
 })
 

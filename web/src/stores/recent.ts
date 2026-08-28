@@ -116,6 +116,15 @@ export const useRecentStore = defineStore('recent', () => {
     localStorage.removeItem(STORAGE_KEY)
   }
 
+  function remove(id: number): void {
+    const next = entries.value.filter((r) => r.id !== id)
+    if (next.length === entries.value.length) return
+    entries.value = next
+    if (pendingBrowseOpen === id) pendingBrowseOpen = null
+    if (next.length) persist()
+    else localStorage.removeItem(STORAGE_KEY)
+  }
+
   return {
     entries,
     count,
@@ -126,6 +135,7 @@ export const useRecentStore = defineStore('recent', () => {
     recordOpen,
     push,
     clear,
+    remove,
     load,
   }
 })

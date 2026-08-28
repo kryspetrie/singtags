@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { mediaUrl } from '../lib/mediaUrl'
 import type { SheetImageSet, SheetPdfFile } from '../lib/sheetAssets'
 import { cropImageUrl } from '../lib/contentCrop'
 import { renderPdfToPageUrls } from '../lib/pdfRender'
+import {
+  fitSheetZoomPan,
+  identitySheetZoomPan,
+  panSheet,
+  sheetZoomPanCss,
+  wheelZoomFactor,
+  zoomSheetAt,
+  type SheetFitMode,
+  type SheetZoomPan,
+} from '../lib/sheetZoomPan'
 
 export type SheetDisplayMode = 'images' | 'pdf'
 
@@ -18,7 +28,7 @@ const props = withDefaults(
     /** Show Images|PDF only when uploads of both kinds exist (not raster-of-PDF). */
     canChooseFormat?: boolean
     baseUrl?: string
-    /** When set, show a floating hold-to-sound pitch control in fullscreen. */
+    /** When set, show a hold-to-sound pitch control in the fullscreen toolbar. */
     payKeyEnabled?: boolean
     keyLabel?: string
     shift?: number
@@ -57,6 +67,29 @@ const loadError = ref<string | null>(null)
 const ownedUrls = ref<string[]>([])
 let loadAbort: AbortController | null = null
 let loadSeq = 0
+
+const sheetEl = ref<HTMLElement | null>(null)
+const stageEl = ref<HTMLElement | null>(null)
+const zoomPan = ref<SheetZoomPan>(identitySheetZoomPan())
+const fitMode = ref<SheetFitMode>('width')
+
+const stageStyle = computed(() =>
+  fullscreen.value ? { transform: sheetZoomPanCss(zoomPan.value) } : undefined,
+)
+const fitButtonLabel = computed(() => (fitMode.value === 'width' ? 'Fit width' : 'Fit all'))
+const fitButtonTitle = computed(() =>
+  fitMode.value === 'width'
+    ? 'Fit mode: width — tap for fit all'
+    : 'Fit mode: all — tap for fit width',
+)
+
+type ActivePointer = { id: number; x: number; y: number }
+const pointers = new Map<number, ActivePointer>()
+let pinchStartDist = 0
+let pinchStartScale = 1
+let dragging = false
+let lastDragX = 0
+let lastDragY = 0
 
 const resolvedImageSets = computed<SheetImageSet[]>(() => {
   if (props.imageSets.length) return props.imageSets
@@ -140,9 +173,9 @@ function syncSelection(resetMode: boolean): void {
     pdfId.value = pdfs[0]?.id ?? ''
   }
   if (resetMode) {
-    // First-open / tag change: prefer images when available.
-    if (hasImages.value) mode.value = 'images'
-    else if (hasPdf.value) mode.value = 'pdf'
+    // Prefer PDF when available (300 DPI client raster beats cached ~800px WebPs).
+    if (hasPdf.value) mode.value = 'pdf'
+    else if (hasImages.value) mode.value = 'images'
   } else if (mode.value === 'images' && !hasImages.value && hasPdf.value) {
     mode.value = 'pdf'
   } else if (mode.value === 'pdf' && !hasPdf.value && hasImages.value) {
@@ -195,7 +228,6 @@ async function rebuildDisplay(): Promise<void> {
     return
   }
 
-  // Prefer parent-prefetched pages for the default image set (no second crop / flash).
   const paths = activeImageSet.value?.paths ?? []
   if (!paths.length) return
   const raw = paths.map((p) => src(p, props.baseUrl))
@@ -258,10 +290,79 @@ watch(
   { immediate: true },
 )
 
+function measureViewportAndContent(): {
+  viewport: { width: number; height: number }
+  content: { width: number; height: number }
+} | null {
+  const sheet = sheetEl.value
+  const stage = stageEl.value
+  if (!sheet || !stage) return null
+  const vr = sheet.getBoundingClientRect()
+  const width = stage.offsetWidth
+  const height = stage.scrollHeight
+  if (vr.width <= 0 || vr.height <= 0 || width <= 0 || height <= 0) return null
+  return {
+    viewport: { width: vr.width, height: vr.height },
+    content: { width, height },
+  }
+}
+
+function applyFit(next: SheetFitMode): void {
+  fitMode.value = next
+  const measured = measureViewportAndContent()
+  if (!measured) {
+    zoomPan.value = identitySheetZoomPan()
+    return
+  }
+  zoomPan.value = fitSheetZoomPan(next, measured.viewport, measured.content)
+}
+
+function cycleFit(): void {
+  applyFit(fitMode.value === 'width' ? 'all' : 'width')
+}
+
+async function waitForImages(): Promise<void> {
+  await nextTick()
+  const stage = stageEl.value
+  if (!stage) return
+  const imgs = [...stage.querySelectorAll('img')]
+  await Promise.all(
+    imgs.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            img.addEventListener('load', () => resolve(), { once: true })
+            img.addEventListener('error', () => resolve(), { once: true })
+          }),
+    ),
+  )
+  await nextTick()
+}
+
+async function enterFullscreenLayout(): Promise<void> {
+  fitMode.value = 'all'
+  await waitForImages()
+  applyFit('all')
+}
+
+function setScrollLock(on: boolean): void {
+  const v = on ? 'hidden' : ''
+  document.documentElement.style.overflow = v
+  document.body.style.overflow = v
+}
+
 function setFullscreen(on: boolean): void {
   fullscreen.value = on
+  pointers.clear()
+  dragging = false
+  pinchStartDist = 0
+  if (on) {
+    void enterFullscreenLayout()
+  } else {
+    zoomPan.value = identitySheetZoomPan()
+  }
   emit('fullscreen-change', on)
-  document.body.style.overflow = on ? 'hidden' : ''
+  setScrollLock(on)
 }
 
 function toggleFullscreen(): void {
@@ -284,6 +385,111 @@ function onPayKey(e: KeyboardEvent): void {
   }
 }
 
+function viewportPoint(clientX: number, clientY: number): { x: number; y: number } {
+  const el = sheetEl.value
+  if (!el) return { x: clientX, y: clientY }
+  const r = el.getBoundingClientRect()
+  return { x: clientX - r.left, y: clientY - r.top }
+}
+
+function pointerDistance(): number {
+  const pts = [...pointers.values()]
+  if (pts.length < 2) return 0
+  const a = pts[0]!
+  const b = pts[1]!
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+function pointerMidpoint(): { x: number; y: number } {
+  const pts = [...pointers.values()]
+  if (pts.length < 2) return { x: 0, y: 0 }
+  const a = pts[0]!
+  const b = pts[1]!
+  return viewportPoint((a.x + b.x) / 2, (a.y + b.y) / 2)
+}
+
+function isChromeTarget(t: EventTarget | null): boolean {
+  return !!(t as HTMLElement | null)?.closest?.('.chrome, .fs-fab')
+}
+
+function onWheel(e: WheelEvent): void {
+  if (!fullscreen.value) return
+  e.preventDefault()
+  if (e.ctrlKey || e.metaKey) {
+    const { x, y } = viewportPoint(e.clientX, e.clientY)
+    const factor = wheelZoomFactor(e.deltaY)
+    zoomPan.value = zoomSheetAt(zoomPan.value, x, y, zoomPan.value.scale * factor)
+    return
+  }
+  zoomPan.value = panSheet(zoomPan.value, -e.deltaX, -e.deltaY)
+}
+
+function onPointerDown(e: PointerEvent): void {
+  if (!fullscreen.value) return
+  if (isChromeTarget(e.target)) return
+
+  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+  pointers.set(e.pointerId, { id: e.pointerId, x: e.clientX, y: e.clientY })
+
+  if (pointers.size === 2) {
+    dragging = false
+    pinchStartDist = pointerDistance()
+    pinchStartScale = zoomPan.value.scale
+  } else if (pointers.size === 1) {
+    dragging = true
+    lastDragX = e.clientX
+    lastDragY = e.clientY
+  }
+}
+
+function onPointerMove(e: PointerEvent): void {
+  if (!fullscreen.value || !pointers.has(e.pointerId)) return
+  pointers.set(e.pointerId, { id: e.pointerId, x: e.clientX, y: e.clientY })
+
+  if (pointers.size >= 2 && pinchStartDist > 0) {
+    const dist = pointerDistance()
+    if (dist <= 0) return
+    const mid = pointerMidpoint()
+    const next = pinchStartScale * (dist / pinchStartDist)
+    zoomPan.value = zoomSheetAt(zoomPan.value, mid.x, mid.y, next)
+    return
+  }
+
+  if (dragging && pointers.size === 1) {
+    const dx = e.clientX - lastDragX
+    const dy = e.clientY - lastDragY
+    lastDragX = e.clientX
+    lastDragY = e.clientY
+    zoomPan.value = panSheet(zoomPan.value, dx, dy)
+  }
+}
+
+function onPointerUp(e: PointerEvent): void {
+  pointers.delete(e.pointerId)
+  if (pointers.size < 2) {
+    pinchStartDist = 0
+  }
+  if (pointers.size === 1) {
+    const rem = [...pointers.values()][0]!
+    dragging = true
+    lastDragX = rem.x
+    lastDragY = rem.y
+  } else if (pointers.size === 0) {
+    dragging = false
+  }
+}
+
+function onDoubleClick(e: MouseEvent): void {
+  if (!fullscreen.value) return
+  if (isChromeTarget(e.target)) return
+  if (zoomPan.value.scale > 1.05 || fitMode.value === 'all') {
+    applyFit('width')
+    return
+  }
+  const { x, y } = viewportPoint(e.clientX, e.clientY)
+  zoomPan.value = zoomSheetAt(zoomPan.value, x, y, 2.5)
+}
+
 watch(
   () => resolvedImageSets.value.length + resolvedPdfs.value.length,
   (n) => {
@@ -291,10 +497,20 @@ watch(
   },
 )
 
+watch(displayPages, () => {
+  if (fullscreen.value) void enterFullscreenLayout()
+})
+
+watch(sheetEl, (el, prev) => {
+  prev?.removeEventListener('wheel', onWheel)
+  el?.addEventListener('wheel', onWheel, { passive: false })
+})
+
 onMounted(() => window.addEventListener('keydown', onKey))
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
-  document.body.style.overflow = ''
+  sheetEl.value?.removeEventListener('wheel', onWheel)
+  setScrollLock(false)
   loadAbort?.abort()
   revokeOwned()
 })
@@ -303,11 +519,17 @@ onUnmounted(() => {
 <template>
   <div v-if="hasImages || hasPdf" class="wrap">
     <div
+      ref="sheetEl"
       class="sheet"
-      :class="{ fullscreen }"
+      :class="{ fullscreen, zoomed: fullscreen && zoomPan.scale > 1.01 }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
       :aria-busy="loading"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointercancel="onPointerUp"
+      @dblclick="onDoubleClick"
     >
       <button
         v-if="!fullscreen"
@@ -324,40 +546,61 @@ onUnmounted(() => {
           />
         </svg>
       </button>
-      <div v-if="fullscreen" class="chrome">
-        <button type="button" class="exit" aria-label="Exit fullscreen" @click="setFullscreen(false)">
-          ✕
-        </button>
-      </div>
 
       <p v-if="loading && !displayPages.length" class="status" role="status">
         {{ showingPdf ? 'Preparing PDF…' : 'Preparing sheet…' }}
       </p>
       <p v-else-if="loadError" class="status err" role="alert">{{ loadError }}</p>
 
-      <img
-        v-for="(page, i) in displayPages"
-        :key="`${mode}-${imageSetId}-${pdfId}-${i}-${page}`"
-        :src="page"
-        :alt="`Sheet page ${i + 1}`"
-        loading="lazy"
-        decoding="async"
-      />
+      <div ref="stageEl" class="stage" :style="stageStyle">
+        <img
+          v-for="(page, i) in displayPages"
+          :key="`${mode}-${imageSetId}-${pdfId}-${i}-${page}`"
+          :src="page"
+          :alt="`Sheet page ${i + 1}`"
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+        />
+      </div>
 
-      <button
-        v-if="fullscreen && payKeyEnabled && displayPages.length"
-        type="button"
-        class="pitch-fab"
-        :aria-label="`Pitch${keyLabel ? ` (${keyLabel})` : ''} — hold to hear tonic`"
-        @pointerdown.prevent="emit('pay-down')"
-        @pointerup.prevent="emit('pay-up')"
-        @pointerleave.prevent="emit('pay-up')"
-        @pointercancel.prevent="emit('pay-up')"
-        @keydown="onPayKey"
-        @keyup="onPayKey"
-      >
-        <span class="pitch-label">{{ keyLabel || 'Pitch' }}</span>
-      </button>
+      <div v-if="fullscreen" class="chrome" role="toolbar" aria-label="Sheet controls">
+        <button
+          v-if="payKeyEnabled && displayPages.length"
+          type="button"
+          class="chrome-btn pitch-fab"
+          :aria-label="`Pitch${keyLabel ? ` (${keyLabel})` : ''} — hold to hear tonic`"
+          title="Hold for pitch"
+          @pointerdown.prevent="emit('pay-down')"
+          @pointerup.prevent="emit('pay-up')"
+          @pointerleave.prevent="emit('pay-up')"
+          @pointercancel.prevent="emit('pay-up')"
+          @keydown="onPayKey"
+          @keyup="onPayKey"
+        >
+          <span class="pitch-label">{{ keyLabel || 'Pitch' }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="chrome-btn fit"
+          :aria-label="fitButtonTitle"
+          :title="fitButtonTitle"
+          @click="cycleFit"
+        >
+          {{ fitButtonLabel }}
+        </button>
+
+        <button
+          type="button"
+          class="chrome-btn exit"
+          aria-label="Exit fullscreen"
+          title="Close"
+          @click="setFullscreen(false)"
+        >
+          ✕
+        </button>
+      </div>
     </div>
 
     <div v-if="showPickers" class="pickers">
@@ -367,18 +610,10 @@ onUnmounted(() => {
         role="group"
         aria-label="Sheet music format"
       >
-        <button
-          type="button"
-          :aria-pressed="mode === 'images'"
-          @click="setMode('images')"
-        >
+        <button type="button" :aria-pressed="mode === 'images'" @click="setMode('images')">
           Images
         </button>
-        <button
-          type="button"
-          :aria-pressed="mode === 'pdf'"
-          @click="setMode('pdf')"
-        >
+        <button type="button" :aria-pressed="mode === 'pdf'" @click="setMode('pdf')">
           PDF
         </button>
       </div>
@@ -468,12 +703,40 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: 60;
-  max-height: none;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   border-radius: 0;
   border: 0;
-  padding: calc(0.5rem + env(safe-area-inset-top)) 0.5rem
-    calc(5.5rem + env(safe-area-inset-bottom));
+  padding: 0;
   background: #0d0d0d;
+  overflow: hidden;
+  overflow: clip;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+  display: block;
+  /* Pan/zoom is transform-based; never show a native scrollbar. */
+  scrollbar-width: none;
+}
+.sheet.fullscreen::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.stage {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.sheet.fullscreen .stage {
+  gap: 0;
+  width: 100%;
+  transform-origin: 0 0;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .fs-fab {
   position: absolute;
@@ -507,31 +770,63 @@ onUnmounted(() => {
   height: 24px;
 }
 .chrome {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: absolute;
+  top: calc(0.5rem + env(safe-area-inset-top));
+  right: calc(0.5rem + env(safe-area-inset-right));
+  left: calc(0.5rem + env(safe-area-inset-left));
+  z-index: 80;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.45rem;
   pointer-events: none;
 }
-.exit {
+.chrome > * {
   pointer-events: auto;
+}
+.chrome-btn {
   box-sizing: border-box;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0;
-  border: 0;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(20, 20, 20, 0.38);
   color: #fff;
-  font-size: 1.35rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(6px);
+  gap: 0.35rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.chrome-btn:hover {
+  background: rgba(40, 40, 40, 0.52);
+}
+.chrome-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.chrome-btn.exit {
+  width: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+.chrome-btn.fit {
+  min-width: 5.75rem;
+}
+.pitch-fab {
+  margin-right: auto;
 }
 .sheet img {
   width: 100%;
@@ -540,6 +835,12 @@ onUnmounted(() => {
   height: auto;
   display: block;
   background: #fff;
+}
+.sheet.fullscreen img {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  pointer-events: none;
 }
 .status {
   margin: 0;
@@ -550,35 +851,6 @@ onUnmounted(() => {
 }
 .status.err {
   color: var(--danger, #b42318);
-}
-.pitch-fab {
-  position: fixed;
-  left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 70;
-  min-width: min(280px, calc(100vw - 2rem));
-  min-height: 56px;
-  padding: 0.65rem 1.25rem;
-  border: 0;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-weight: 700;
-  font-size: 1.05rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.1rem;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-  touch-action: manipulation;
-  user-select: none;
-}
-.pitch-fab:active {
-  filter: brightness(0.92);
-  transform: translateX(-50%) scale(0.98);
 }
 .pitch-label {
   line-height: 1.1;

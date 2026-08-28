@@ -358,17 +358,33 @@ function chromaticNotesBetween(from: string, to: string): string[] {
 }
 
 /** Pitch-pipe page note sets (chromatic, inclusive). */
-export type PitchPipeRange = 'f3-f4' | 'e3-e4'
+export type PitchPipeRange = 'e3-e4' | 'f3-f4' | 'c3-c4' | 'c4-c5'
 
 export const PITCH_PIPE_RANGE_OPTIONS: Array<{ value: PitchPipeRange; label: string }> = [
-  { value: 'f3-f4', label: 'F3 – F4' },
   { value: 'e3-e4', label: 'E3 – E4' },
+  { value: 'f3-f4', label: 'F3 – F4' },
+  { value: 'c3-c4', label: 'C3 – C4' },
+  { value: 'c4-c5', label: 'C4 – C5' },
 ]
 
 /** Chromatic notes for the pitch-pipe grid, low → high. */
 export const PITCH_PIPE_NOTES: Record<PitchPipeRange, readonly string[]> = {
-  'f3-f4': chromaticNotesBetween('F3', 'F4'),
   'e3-e4': chromaticNotesBetween('E3', 'E4'),
+  'f3-f4': chromaticNotesBetween('F3', 'F4'),
+  'c3-c4': chromaticNotesBetween('C3', 'C4'),
+  'c4-c5': chromaticNotesBetween('C4', 'C5'),
+}
+
+export function isPitchPipeRange(v: unknown): v is PitchPipeRange {
+  return v === 'e3-e4' || v === 'f3-f4' || v === 'c3-c4' || v === 'c4-c5'
+}
+
+/** Map retired range ids (and current ones) to a valid PitchPipeRange. */
+export function normalizePitchPipeRange(v: unknown): PitchPipeRange | null {
+  if (isPitchPipeRange(v)) return v
+  if (v === 'c2-c4') return 'c3-c4'
+  if (v === 'c4-c6') return 'c4-c5'
+  return null
 }
 
 export function pitchPipeNotes(range: PitchPipeRange): string[] {
@@ -393,15 +409,20 @@ const FLAT_TO_SHARP: Record<string, string> = {
   Bb: 'A#',
 }
 
-/** Pitch-class hue for natural keys on the pitch-pipe grid. */
-export const PITCH_PIPE_NATURAL_COLORS: Record<string, string> = {
-  C: '#2563eb',
-  D: '#16a34a',
-  E: '#ca8a04',
-  F: '#ea580c',
-  G: '#dc2626',
-  A: '#9333ea',
-  B: '#0891b2',
+/** Pitch-pipe button arrangements. */
+export type PitchPipeLayout = 'grid' | 'list' | 'piano'
+
+export const PITCH_PIPE_LAYOUT_OPTIONS: Array<{ value: PitchPipeLayout; label: string }> = [
+  { value: 'grid', label: 'Grid' },
+  { value: 'list', label: 'Wide list' },
+  { value: 'piano', label: 'Vertical piano' },
+]
+
+/** Display pitch token with ♯ / ♭ (e.g. C# → C♯, Db → D♭). */
+export function toPitchGlyph(token: string): string {
+  if (token.endsWith('#')) return `${token.slice(0, -1)}♯`
+  if (token.length === 2 && token[1]?.toLowerCase() === 'b') return `${token[0]!.toUpperCase()}♭`
+  return token
 }
 
 export type PitchPipeDisplay = {
@@ -411,7 +432,7 @@ export type PitchPipeDisplay = {
   octave: string
   /** Black-key / enharmonic pair (shows both spellings). */
   isBlack: boolean
-  /** Letter name for color coding (C…B). */
+  /** Letter name for natural keys (C…B). */
   pitchClass: string
 }
 
@@ -420,7 +441,7 @@ function pitchClassToken(pitch: string): string {
   return m?.[1]?.toUpperCase() ?? pitch[0]?.toUpperCase() ?? 'C'
 }
 
-/** Pitch-pipe label — enharmonics show sharp and flat spellings. */
+/** Pitch-pipe label — enharmonics show sharp and flat spellings with ♯/♭. */
 export function pitchPipeDisplay(note: string): PitchPipeDisplay {
   const m = note.match(/^([A-G](?:#|b)?)(\d+)$/i)
   if (!m) {
@@ -430,31 +451,58 @@ export function pitchPipeDisplay(note: string): PitchPipeDisplay {
   const octave = m[2]!
   const pitchClass = pitchClassToken(pitch)
   if (pitch.includes('#')) {
+    const sharpAscii = pitch[0]!.toUpperCase() + '#'
+    const flatAscii = SHARP_TO_FLAT[sharpAscii] ?? null
     return {
       note,
-      sharp: pitch,
-      flat: SHARP_TO_FLAT[pitch] ?? null,
+      sharp: toPitchGlyph(sharpAscii),
+      flat: flatAscii ? toPitchGlyph(flatAscii) : null,
       octave,
       isBlack: true,
       pitchClass,
     }
   }
   if (/b/i.test(pitch.slice(1))) {
-    const flat = pitch[0]!.toUpperCase() + 'b'
+    const flatAscii = pitch[0]!.toUpperCase() + 'b'
+    const sharpAscii = FLAT_TO_SHARP[flatAscii] ?? null
     return {
       note,
-      sharp: FLAT_TO_SHARP[flat] ?? null,
-      flat,
+      sharp: sharpAscii ? toPitchGlyph(sharpAscii) : null,
+      flat: toPitchGlyph(flatAscii),
       octave,
       isBlack: true,
       pitchClass,
     }
   }
-  return { note, sharp: pitch, flat: null, octave, isBlack: false, pitchClass }
+  return { note, sharp: toPitchGlyph(pitch), flat: null, octave, isBlack: false, pitchClass }
 }
 
 export function pitchPipeAriaLabel(note: string): string {
   const d = pitchPipeDisplay(note)
   if (d.isBlack && d.sharp && d.flat) return `Play ${d.sharp}${d.octave} (${d.flat}${d.octave})`
-  return `Play ${note}`
+  return `Play ${d.sharp ?? note}${d.octave}`
+}
+
+/** White / black key slots for a vertical piano strip (low → high in data order).
+ * Views that show high pitches at the top should reverse `whites` for display and
+ * place each black key on the boundary above its `after` (lower) white key.
+ */
+export function pitchPipePianoSlots(notes: string[]): {
+  whites: string[]
+  /** Black key and the white-key note immediately below it in pitch (lower neighbor). */
+  blacks: Array<{ note: string; after: string }>
+} {
+  const whites: string[] = []
+  const blacks: Array<{ note: string; after: string }> = []
+  let lastWhite: string | null = null
+  for (const note of notes) {
+    const d = pitchPipeDisplay(note)
+    if (d.isBlack) {
+      if (lastWhite) blacks.push({ note, after: lastWhite })
+    } else {
+      whites.push(note)
+      lastWhite = note
+    }
+  }
+  return { whites, blacks }
 }

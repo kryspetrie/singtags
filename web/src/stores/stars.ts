@@ -271,7 +271,7 @@ export const useStarsStore = defineStore('stars', () => {
       lastNotice.value = {
         type: 'text',
         message: n
-          ? `Cached audio for ${n} starred tag(s)`
+          ? `Saved audio for ${n} starred tag(s)`
           : 'All starred tags already have audio',
       }
       return n
@@ -309,39 +309,6 @@ export const useStarsStore = defineStore('stars', () => {
       })
       applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
       lastNotice.value = noticeFromStarRecord(rec, existing.summary, d, { skipSheets })
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy.value = false
-      progress.value = null
-    }
-  }
-
-  /** Fetch hosted originals for every part and store them on the starred record. */
-  async function cacheOriginalAudio(tagId: number, detail: TagDetail): Promise<void> {
-    busy.value = true
-    error.value = null
-    lastNotice.value = null
-    progress.value = null
-    try {
-      await ensureLoaded()
-      const existing = await getStarred(tagId)
-      if (!existing) throw new Error('Tag is not starred')
-      const rec = await refreshStarMedia(existing, detail, {
-        skipSheets: true,
-        audioQuality: 'original',
-        onProgress: (p) => {
-          progress.value = p
-        },
-      })
-      lastNotice.value =
-        rec.audioBlobs && Object.keys(rec.audioBlobs).length
-          ? { type: 'cached', audio: true, sheets: false }
-          : {
-              type: 'text',
-              message: rec.quotaWarning || 'Could not cache high-quality audio',
-            }
-      await refresh()
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -423,7 +390,6 @@ export const useStarsStore = defineStore('stars', () => {
     starMany,
     ensureAudioForAllStarred,
     updateOfflineMedia,
-    cacheOriginalAudio,
     unstar,
     exportFile,
     importFromJson,

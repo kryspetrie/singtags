@@ -145,7 +145,13 @@ Pipeline per token: **fold punctuation → expand aliases → expand digit ↔ n
 
 ## Pitch pipe page (`/pitch-pipe`)
 
-Port [`pitch_trainer_page.dart`](/home/kpetrie/dev/krys/music-website/lib/pages/pitch_trainer_page.dart) / [`pitch_player_web.dart`](/home/kpetrie/dev/krys/music-website/lib/utils/pitch_player_web.dart): C2–B4 grid, press-and-hold, detune ±100 cents, optional A4 Hz display. Pure Web Audio — no heavy libs.
+Port [`pitch_trainer_page.dart`](/home/kpetrie/dev/krys/music-website/lib/pages/pitch_trainer_page.dart) / [`pitch_player_web.dart`](/home/kpetrie/dev/krys/music-website/lib/utils/pitch_player_web.dart): chromatic layouts (grid / wide list / vertical piano), press-and-hold, detune ±50 cents, concert A presets. Pure Web Audio — no heavy libs. Highest pitches render toward the top.
+
+**Virtual piano (polyphonic, separate page):** see [VIRTUAL_PIANO_PLAN.md](VIRTUAL_PIANO_PLAN.md).
+
+**Tag roulette (weighted random suggestions):** see [TAG_ROULETTE_PLAN.md](TAG_ROULETTE_PLAN.md).
+
+**Non-recombinable learning tracks** (hosted Opus when stems/mix won’t rebuild): see [NON_RECOMBINABLE_TRACKS_PLAN.md](NON_RECOMBINABLE_TRACKS_PLAN.md).
 
 ---
 

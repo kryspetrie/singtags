@@ -29,26 +29,27 @@
     "lead": {
       "original": "media/3068/lead.m4a",
       "playback": "media/3068/lead.playback.opus",
-      "ultra_solo": "media/3068/lead.solo.opus"
+      "ultra_stereo": "media/3068/lead.ultra.opus"
     },
     "tenor": {
       "original": "media/3068/tenor.m4a",
       "playback": "media/3068/tenor.playback.opus",
-      "ultra_solo": "media/3068/tenor.solo.opus"
+      "ultra_stereo": "media/3068/tenor.ultra.opus"
     },
     "bari": {
       "original": "media/3068/bari.m4a",
       "playback": "media/3068/bari.playback.opus",
-      "ultra_solo": "media/3068/bari.solo.opus"
+      "ultra_stereo": "media/3068/bari.ultra.opus"
     },
     "bass": {
       "original": "media/3068/bass.m4a",
       "playback": "media/3068/bass.playback.opus",
-      "ultra_solo": "media/3068/bass.solo.opus"
+      "ultra_stereo": "media/3068/bass.ultra.opus"
     },
     "mix": {
       "original": "media/3068/mix.m4a",
-      "playback": "media/3068/mix.playback.opus"
+      "playback": "media/3068/mix.playback.opus",
+      "ultra_mix": "media/3068/mix.ultra_mix.opus"
     }
   },
   "sheets": [
@@ -62,9 +63,14 @@
   "audio_layout_summary": {
     "parts": "part_left",
     "mix": "part_right",
-    "ultra_low": "mono_solos",
+    "ultra_low": "stereo_fallback",
     "solo_side": "left",
-    "analyzed_at": "2026-08-25T19:46:36.194330+00:00"
+    "mix_correlation": 0.0065,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": false,
+    "recombine_reason": "align_untrusted",
+    "analyzed_at": "2026-08-28T14:57:12.511771+00:00"
   },
   "audio_layouts": {
     "lead": {
@@ -109,14 +115,14 @@
     }
   },
   "audio_align_summary": {
-    "status": "ok",
+    "status": "untrusted",
     "ref_part": "lead",
     "min_offset_ms": 50,
     "trusted_parts": [
       "lead"
     ],
     "applied_ms": {},
-    "analyzed_at": "2026-08-26T14:32:23.356552+00:00"
+    "analyzed_at": "2026-08-28T14:57:14.981784+00:00"
   },
   "audio_align": {
     "lead": {
@@ -128,7 +134,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:21.725454+00:00"
+      "analyzed_at": "2026-08-28T14:57:12.989609+00:00"
     },
     "tenor": {
       "ref_part": "lead",
@@ -139,7 +145,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:21.977346+00:00"
+      "analyzed_at": "2026-08-28T14:57:13.297966+00:00"
     },
     "bari": {
       "ref_part": "lead",
@@ -150,7 +156,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:22.662174+00:00"
+      "analyzed_at": "2026-08-28T14:57:14.169771+00:00"
     },
     "bass": {
       "ref_part": "lead",
@@ -161,13 +167,20 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:23.356527+00:00"
+      "analyzed_at": "2026-08-28T14:57:14.981741+00:00"
     }
   },
   "audio_tiers_summary": {
-    "ultra_policy": "mono_solos",
+    "ultra_policy": "stereo_fallback",
     "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": false,
+    "recombine_reason": "align_untrusted",
     "playback_kbps": 64,
-    "encoded_at": "2026-08-25T21:05:49.170309+00:00"
+    "align_status": "untrusted",
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-08-28T15:32:28.080533+00:00"
   }
 }

@@ -48,7 +48,8 @@ export const useQueueStore = defineStore('queue', () => {
         const parsed = JSON.parse(raw) as QueueTrack[]
         tracks.value = parsed.map((t) => ({
           ...t,
-          format: normalizeDownloadFormat(t.format),
+          kind: t.kind === 'sheet' ? 'sheet' : 'audio',
+          format: t.kind === 'sheet' ? undefined : normalizeDownloadFormat(t.format),
         }))
       }
     } catch {
@@ -90,7 +91,7 @@ export const useQueueStore = defineStore('queue', () => {
       return
     }
     if (tracks.value.length >= MAX_QUEUE_TRACKS) {
-      error.value = `Queue limited to ${MAX_QUEUE_TRACKS} tracks`
+      error.value = `Queue limited to ${MAX_QUEUE_TRACKS} files`
       return
     }
     tracks.value = [...tracks.value, track]
@@ -99,7 +100,7 @@ export const useQueueStore = defineStore('queue', () => {
   function addMany(items: QueueTrack[]): void {
     for (const item of items) {
       if (tracks.value.length >= MAX_QUEUE_TRACKS) {
-        error.value = `Queue limited to ${MAX_QUEUE_TRACKS} tracks`
+        error.value = `Queue limited to ${MAX_QUEUE_TRACKS} files`
         break
       }
       add(item)
@@ -127,7 +128,9 @@ export const useQueueStore = defineStore('queue', () => {
 
   function setFormat(fmt: DownloadFormat): void {
     format.value = fmt
-    tracks.value = tracks.value.map((item) => ({ ...item, format: fmt }))
+    tracks.value = tracks.value.map((item) =>
+      item.kind === 'sheet' ? item : { ...item, format: fmt },
+    )
   }
 
   async function downloadZip(): Promise<void> {

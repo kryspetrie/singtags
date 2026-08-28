@@ -290,8 +290,41 @@ def select_candidates(
     return out
 
 
-def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -> int:
-    if dest.exists() and force and not refresh:
+def select_by_ids(
+    library: Path, tag_ids: list[int]
+) -> list[tuple[Path, dict, Path, dict[str, Path]]]:
+    """Resolve specific tag ids from the mirror for seeding fixtures."""
+    index = build_library_index(library)
+    out: list[tuple[Path, dict, Path, dict[str, Path]]] = []
+    for tid in tag_ids:
+        folder = index.get(tid)
+        if folder is None:
+            print(f"  warn: library folder missing for #{tid}", file=sys.stderr)
+            continue
+        meta = load_meta(folder)
+        if not meta:
+            print(f"  warn: no metadata for #{tid}", file=sys.stderr)
+            continue
+        meta["tag_id"] = tid
+        sheet = find_sheet(folder, meta)
+        audio = find_audio_parts(folder, meta)
+        if sheet is None or not audio:
+            print(f"  warn: incomplete assets for #{tid}", file=sys.stderr)
+            continue
+        out.append((folder, meta, sheet, audio))
+    return out
+
+
+def seed(
+    library: Path,
+    dest: Path,
+    limit: int,
+    *,
+    force: bool,
+    refresh: bool,
+    tag_ids: list[int] | None = None,
+) -> int:
+    if dest.exists() and force and not refresh and not tag_ids:
         shutil.rmtree(dest)
     dest.mkdir(parents=True, exist_ok=True)
     media_root = dest / "media"
@@ -301,7 +334,10 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -
     sheets_root.mkdir(exist_ok=True)
     tags_root.mkdir(exist_ok=True)
 
-    if refresh:
+    if tag_ids:
+        candidates = select_by_ids(library, tag_ids)
+        print(f"Seeding {len(candidates)} tag(s) by id: {tag_ids}…")
+    elif refresh:
         candidates = select_existing_sample_ids(library, dest)
         print(f"Refreshing {len(candidates)} existing sample tag(s)…")
     else:
@@ -311,7 +347,7 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -
     skipped = 0
 
     for folder, meta, sheet, audio in candidates:
-        if not refresh and len(manifest) >= limit:
+        if not refresh and not tag_ids and len(manifest) >= limit:
             break
         tid = meta["tag_id"]
         slim: dict = {
@@ -415,6 +451,8 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -
                     "mix_correlation",
                     "mix_disjoint",
                     "mix_cache",
+                    "parts_recombinable",
+                    "recombine_reason",
                     "analyzed_at",
                 )
                 if k in summary
@@ -469,6 +507,8 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -
                     "mix_only",
                     "mix_disjoint",
                     "mix_cache",
+                    "parts_recombinable",
+                    "recombine_reason",
                     "playback_kbps",
                     "align_status",
                     "align_applied_ms",
@@ -511,6 +551,48 @@ def seed(library: Path, dest: Path, limit: int, *, force: bool, refresh: bool) -
         n_tiers = sum(len(v) - 1 for v in audio_tiers.values())
         print(f"seeded #{tid} {slim['title']} ({len(ok_audio)} originals, {n_tiers} tier files)")
 
+    if tag_ids:
+        # Keep other sample tags; rebuild manifest from everything under tags/.
+        manifest = []
+        for meta_path in sorted(
+            tags_root.glob("*/metadata.json"),
+            key=lambda p: int(p.parent.name) if p.parent.name.isdigit() else 0,
+        ):
+            try:
+                slim = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            tid = slim.get("tag_id")
+            if not isinstance(tid, int):
+                continue
+            audio = slim.get("audio") or {}
+            tiers = slim.get("audio_tiers") or {}
+            tier_kinds = sorted(
+                {
+                    t
+                    for part_tiers in tiers.values()
+                    if isinstance(part_tiers, dict)
+                    for t in part_tiers
+                    if t != "original"
+                }
+            )
+            manifest.append(
+                {
+                    "id": tid,
+                    "title": slim.get("title"),
+                    "arranger": slim.get("arranger"),
+                    "key": slim.get("key"),
+                    "rating": slim.get("rating"),
+                    "type": slim.get("type"),
+                    "collection": slim.get("collection"),
+                    "hasSheet": True,
+                    "audioParts": sorted(audio.keys()) if isinstance(audio, dict) else [],
+                    "audioTiers": tier_kinds,
+                    "ultraLow": (slim.get("audio_layout_summary") or {}).get("ultra_low"),
+                    "sheet": slim.get("sheet"),
+                }
+            )
+
     (dest / "manifest.json").write_text(
         json.dumps(
             {
@@ -552,6 +634,12 @@ def main() -> int:
         action="store_true",
         help="Update existing sample tags in place (keeps AAC remuxes; recopies Opus tiers)",
     )
+    parser.add_argument(
+        "--ids",
+        type=str,
+        default="",
+        help="Comma-separated tag ids to seed/update (e.g. 3068,1929)",
+    )
     args = parser.parse_args()
     if not args.library.is_dir():
         print(f"library not found: {args.library}", file=sys.stderr)
@@ -559,15 +647,24 @@ def main() -> int:
     if shutil.which("ffmpeg") is None:
         print("ffmpeg not found on PATH", file=sys.stderr)
         return 1
-    refresh = args.refresh or (
-        not args.force and (args.dest / "tags").is_dir() and any((args.dest / "tags").iterdir())
+    tag_ids: list[int] | None = None
+    if args.ids.strip():
+        try:
+            tag_ids = [int(x.strip()) for x in args.ids.split(",") if x.strip()]
+        except ValueError:
+            print(f"invalid --ids: {args.ids}", file=sys.stderr)
+            return 1
+    refresh = (not tag_ids) and (
+        args.refresh
+        or (not args.force and (args.dest / "tags").is_dir() and any((args.dest / "tags").iterdir()))
     )
     return seed(
         args.library,
         args.dest,
         args.limit,
-        force=args.force,
+        force=args.force or bool(tag_ids),
         refresh=refresh,
+        tag_ids=tag_ids,
     )
 
 

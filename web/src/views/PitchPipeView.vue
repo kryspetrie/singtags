@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,
   PITCH_PIPE_GRID_COLS,
-  PITCH_PIPE_NATURAL_COLORS,
+  PITCH_PIPE_LAYOUT_OPTIONS,
   PITCH_PIPE_RANGE_OPTIONS,
   aHzToCents,
   pitchPipeAriaLabel,
   pitchPipeDisplay,
   pitchPipeNotes,
+  pitchPipePianoSlots,
   PitchPlayer,
   type PitchPipeAHz,
+  type PitchPipeLayout,
   type PitchPipeRange,
 } from '../audio/pitchPlayer'
 import { usePreferencesStore } from '../stores/preferences'
@@ -18,11 +20,17 @@ import { usePreferencesStore } from '../stores/preferences'
 const prefs = usePreferencesStore()
 const player = new PitchPlayer()
 /** Concert A reference (Hz). */
-const aHz = ref<PitchPipeAHz>(440)
+const aHz = computed({
+  get: (): PitchPipeAHz => prefs.pitchPipeAHz,
+  set: (v: PitchPipeAHz) => prefs.setPitchPipeAHz(v),
+})
 /** Extra fine adjust in cents on top of the selected A. */
-const fineCents = ref(0)
+const fineCents = computed({
+  get: () => prefs.pitchPipeFineCents,
+  set: (v: number) => prefs.setPitchPipeFineCents(v),
+})
 const current = ref<string | null>(null)
-const gridRef = ref<HTMLElement | null>(null)
+const keysRef = ref<HTMLElement | null>(null)
 
 const baseCents = computed(() => aHzToCents(aHz.value))
 const detune = computed(() => baseCents.value + fineCents.value)
@@ -37,22 +45,41 @@ const pipeRange = computed({
   set: (v: PitchPipeRange) => prefs.setPitchPipeRange(v),
 })
 
+const pipeLayout = computed({
+  get: (): PitchPipeLayout => prefs.pitchPipeLayout,
+  set: (v: PitchPipeLayout) => prefs.setPitchPipeLayout(v),
+})
+
 const noteList = computed(() => pitchPipeNotes(pipeRange.value))
 
+/** High → low for on-screen order (highest pitches at the top). */
+const visualNotes = computed(() => [...noteList.value].reverse())
+
 const noteRows = computed(() =>
-  noteList.value.map((note) => {
+  visualNotes.value.map((note) => {
     const display = pitchPipeDisplay(note)
     return {
       note,
       display,
       aria: pitchPipeAriaLabel(note),
-      accent: PITCH_PIPE_NATURAL_COLORS[display.pitchClass] ?? 'var(--accent)',
     }
   }),
 )
 
-onMounted(() => {
-  /* AudioContext created on first press (browser autoplay policy). */
+const byNote = computed(() => {
+  const map = new Map<string, (typeof noteRows.value)[number]>()
+  for (const row of noteRows.value) map.set(row.note, row)
+  return map
+})
+
+const pianoSlots = computed(() => pitchPipePianoSlots(noteList.value))
+
+/** White keys top → bottom = high → low. */
+const visualWhites = computed(() => [...pianoSlots.value.whites].reverse())
+
+const whiteKeyPct = computed(() => {
+  const n = visualWhites.value.length
+  return n > 0 ? 100 / n : 100
 })
 
 onUnmounted(() => player.dispose())
@@ -68,8 +95,8 @@ watch(pipeRange, () => {
 })
 
 function resetDetune(): void {
-  aHz.value = 440
-  fineCents.value = 0
+  prefs.setPitchPipeAHz(440)
+  prefs.setPitchPipeFineCents(0)
 }
 
 async function down(note: string): Promise<void> {
@@ -90,120 +117,239 @@ function onNoteKey(e: KeyboardEvent, note: string): void {
   }
 }
 
-function focusNeighbor(e: KeyboardEvent, index: number): void {
-  const cols = PITCH_PIPE_GRID_COLS
-  const max = noteList.value.length - 1
+function focusNeighbor(e: KeyboardEvent, note: string): void {
+  const order = visualNotes.value
+  const cols = pipeLayout.value === 'grid' ? PITCH_PIPE_GRID_COLS : 1
+  const index = order.indexOf(note)
+  if (index < 0) return
+  const max = order.length - 1
   let next = index
+  // Visual order is high→low top→bottom / LTR in grid rows.
   if (e.key === 'ArrowRight') next = Math.min(max, index + 1)
   else if (e.key === 'ArrowLeft') next = Math.max(0, index - 1)
   else if (e.key === 'ArrowDown') next = Math.min(max, index + cols)
   else if (e.key === 'ArrowUp') next = Math.max(0, index - cols)
   else return
   e.preventDefault()
-  const btn = gridRef.value?.querySelectorAll<HTMLButtonElement>('button.note')[next]
+  const target = order[next]
+  if (!target) return
+  const btn = keysRef.value?.querySelector<HTMLButtonElement>(
+    `button.note[data-note="${CSS.escape(target)}"]`,
+  )
   btn?.focus()
+}
+
+/** Black key sits on the boundary above the lower white (`after`) toward the higher white. */
+function blackTopPct(after: string): number {
+  const idx = visualWhites.value.indexOf(after)
+  if (idx < 0) return 0
+  return idx * whiteKeyPct.value
 }
 </script>
 
 <template>
   <section class="pipe" aria-label="Pitch pipe">
     <p class="muted intro">
-      Press and hold a pitch. Chromatic notes show sharp and flat names. Choose F3–F4 or E3–E4,
-      set concert A, then fine-tune ±50 cents if needed.
+      Press and hold a pitch. Accidentals show ♯ and ♭ names. Choose a layout and note range, set
+      concert A, then fine-tune ±50 cents if needed.
     </p>
 
-    <div class="tuning" role="group" aria-label="Pitch pipe tuning">
-      <label class="range-ref">
-        <span class="lbl">Note range</span>
-        <select v-model="pipeRange" aria-label="Pitch pipe note range">
-          <option v-for="r in PITCH_PIPE_RANGE_OPTIONS" :key="r.value" :value="r.value">
-            {{ r.label }}
-          </option>
-        </select>
-      </label>
+    <details class="settings">
+      <summary>Settings</summary>
+      <div class="tuning" role="group" aria-label="Pitch pipe tuning">
+        <label class="range-ref">
+          <span class="lbl">Layout</span>
+          <select v-model="pipeLayout" aria-label="Pitch pipe layout">
+            <option v-for="r in PITCH_PIPE_LAYOUT_OPTIONS" :key="r.value" :value="r.value">
+              {{ r.label }}
+            </option>
+          </select>
+        </label>
 
-      <label class="a-ref">
-        <span class="lbl">Concert A</span>
-        <select v-model.number="aHz" aria-label="Concert A frequency">
-          <option v-for="t in PITCH_PIPE_A_TUNINGS" :key="t.hz" :value="t.hz">
-            {{ t.label }}
-          </option>
-        </select>
-      </label>
+        <label class="range-ref">
+          <span class="lbl">Note range</span>
+          <select v-model="pipeRange" aria-label="Pitch pipe note range">
+            <option v-for="r in PITCH_PIPE_RANGE_OPTIONS" :key="r.value" :value="r.value">
+              {{ r.label }}
+            </option>
+          </select>
+        </label>
 
-      <label class="detune">
-        <span class="lbl">Fine detune <strong>{{ detuneLabel }}</strong></span>
-        <input
-          v-model.number="fineCents"
-          type="range"
-          min="-50"
-          max="50"
-          step="1"
-          aria-valuemin="-50"
-          aria-valuemax="50"
-          :aria-valuenow="fineCents"
-          aria-label="Fine detune in cents"
-        />
-      </label>
+        <label class="a-ref">
+          <span class="lbl">Concert A</span>
+          <select v-model.number="aHz" aria-label="Concert A frequency">
+            <option v-for="t in PITCH_PIPE_A_TUNINGS" :key="t.hz" :value="t.hz">
+              {{ t.label }}
+            </option>
+          </select>
+        </label>
 
-      <button
-        type="button"
-        class="btn reset"
-        :disabled="aHz === 440 && fineCents === 0"
-        title="Reset to A = 440 Hz with no fine detune"
-        @click="resetDetune"
+        <label class="detune">
+          <span class="lbl">Fine detune <strong>{{ detuneLabel }}</strong></span>
+          <input
+            v-model.number="fineCents"
+            type="range"
+            min="-50"
+            max="50"
+            step="1"
+            aria-valuemin="-50"
+            aria-valuemax="50"
+            :aria-valuenow="fineCents"
+            aria-label="Fine detune in cents"
+          />
+        </label>
+
+        <button
+          type="button"
+          class="btn reset"
+          :disabled="aHz === 440 && fineCents === 0"
+          title="Reset to A = 440 Hz with no fine detune"
+          @click="resetDetune"
+        >
+          Reset
+        </button>
+      </div>
+    </details>
+
+    <div class="stage">
+      <div
+        v-if="pipeLayout === 'piano'"
+        ref="keysRef"
+        class="piano"
+        role="group"
+        :aria-label="`Pitch pipe piano (${pipeRange})`"
+        :style="{ '--white-count': visualWhites.length }"
       >
-        Reset
-      </button>
-    </div>
+        <div class="piano-whites">
+          <button
+            v-for="note in visualWhites"
+            :key="note"
+            type="button"
+            class="note natural"
+            :data-note="note"
+            :class="{ active: current === note }"
+            :aria-pressed="current === note"
+            :aria-label="byNote.get(note)?.aria"
+            @pointerdown.prevent="down(note)"
+            @pointerup.prevent="up"
+            @pointerleave.prevent="up"
+            @pointercancel.prevent="up"
+            @keydown="onNoteKey($event, note); focusNeighbor($event, note)"
+            @keyup="onNoteKey($event, note)"
+          >
+            <span class="note-single"
+              >{{ byNote.get(note)?.display.sharp }}{{ byNote.get(note)?.display.octave }}</span
+            >
+          </button>
+        </div>
+        <div class="piano-blacks">
+          <button
+            v-for="b in pianoSlots.blacks"
+            :key="b.note"
+            type="button"
+            class="note black"
+            :data-note="b.note"
+            :class="{ active: current === b.note }"
+            :style="{ top: `${blackTopPct(b.after)}%` }"
+            :aria-pressed="current === b.note"
+            :aria-label="byNote.get(b.note)?.aria"
+            @pointerdown.prevent="down(b.note)"
+            @pointerup.prevent="up"
+            @pointerleave.prevent="up"
+            @pointercancel.prevent="up"
+            @keydown="onNoteKey($event, b.note); focusNeighbor($event, b.note)"
+            @keyup="onNoteKey($event, b.note)"
+          >
+            <span class="note-dual">
+              <span class="note-sharp"
+                >{{ byNote.get(b.note)?.display.sharp }}{{ byNote.get(b.note)?.display.octave }}</span
+              >
+              <span class="note-sep" aria-hidden="true">/</span>
+              <span class="note-flat"
+                >{{ byNote.get(b.note)?.display.flat }}{{ byNote.get(b.note)?.display.octave }}</span
+              >
+            </span>
+          </button>
+        </div>
+      </div>
 
-    <div
-      ref="gridRef"
-      class="grid"
-      role="group"
-      :aria-label="`Pitch pipe notes (${pipeRange})`"
-    >
-      <button
-        v-for="(entry, i) in noteRows"
-        :key="entry.note"
-        type="button"
-        class="note"
-        :class="{ active: current === entry.note, black: entry.display.isBlack, natural: !entry.display.isBlack }"
-        :style="entry.display.isBlack ? undefined : { '--note-accent': entry.accent }"
-        :aria-pressed="current === entry.note"
-        :aria-label="entry.aria"
-        @pointerdown.prevent="down(entry.note)"
-        @pointerup.prevent="up"
-        @pointerleave.prevent="up"
-        @pointercancel.prevent="up"
-        @keydown="onNoteKey($event, entry.note); focusNeighbor($event, i)"
-        @keyup="onNoteKey($event, entry.note)"
+      <div
+        v-else
+        ref="keysRef"
+        class="keys"
+        :class="pipeLayout === 'list' ? 'keys-list' : 'keys-grid'"
+        role="group"
+        :aria-label="`Pitch pipe notes (${pipeRange})`"
       >
-        <span v-if="entry.display.isBlack && entry.display.sharp && entry.display.flat" class="note-dual">
-          <span class="note-line note-sharp">{{ entry.display.sharp }}{{ entry.display.octave }}</span>
-          <span class="note-line note-flat">{{ entry.display.flat }}{{ entry.display.octave }}</span>
-        </span>
-        <span v-else class="note-single">{{ entry.display.sharp }}{{ entry.display.octave }}</span>
-      </button>
+        <button
+          v-for="entry in noteRows"
+          :key="entry.note"
+          type="button"
+          class="note"
+          :data-note="entry.note"
+          :class="{
+            active: current === entry.note,
+            black: entry.display.isBlack,
+            natural: !entry.display.isBlack,
+          }"
+          :aria-pressed="current === entry.note"
+          :aria-label="entry.aria"
+          @pointerdown.prevent="down(entry.note)"
+          @pointerup.prevent="up"
+          @pointerleave.prevent="up"
+          @pointercancel.prevent="up"
+          @keydown="onNoteKey($event, entry.note); focusNeighbor($event, entry.note)"
+          @keyup="onNoteKey($event, entry.note)"
+        >
+          <span
+            v-if="entry.display.isBlack && entry.display.sharp && entry.display.flat"
+            class="note-dual"
+          >
+            <span class="note-sharp">{{ entry.display.sharp }}{{ entry.display.octave }}</span>
+            <span class="note-sep" aria-hidden="true">/</span>
+            <span class="note-flat">{{ entry.display.flat }}{{ entry.display.octave }}</span>
+          </span>
+          <span v-else class="note-single"
+            >{{ entry.display.sharp }}{{ entry.display.octave }}</span
+          >
+        </button>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+.pipe {
+  padding: 1rem 1rem 5rem;
+  max-width: 44rem;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
 .muted {
   color: var(--muted);
 }
 .intro {
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.75rem;
   line-height: 1.45;
-  max-width: 40rem;
+  text-align: left;
+}
+.settings {
+  margin: 0 0 1.25rem;
+}
+.settings > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
 }
 .tuning {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem 1rem;
   align-items: flex-end;
-  margin: 1rem 0 1.25rem;
+  margin: 0.5rem 0 0;
 }
 .range-ref,
 .a-ref,
@@ -261,12 +407,37 @@ function focusNeighbor(e: KeyboardEvent, index: number): void {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.grid {
+
+.stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.keys-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.55rem;
+  width: 100%;
   max-width: 36rem;
 }
+.keys-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  max-width: 28rem;
+}
+.keys-list .note {
+  min-height: 3.25rem;
+  width: 100%;
+  justify-content: flex-start;
+  padding-inline: 1rem;
+}
+.keys-list .note-dual {
+  justify-content: flex-start;
+}
+
 .note {
   border: 2px solid var(--border);
   background: var(--surface);
@@ -281,38 +452,35 @@ function focusNeighbor(e: KeyboardEvent, index: number): void {
   align-items: center;
   justify-content: center;
   text-align: center;
+  color: var(--text);
 }
 .note-single {
   font-size: clamp(1.35rem, 4vw, 1.75rem);
   line-height: 1.1;
-  color: var(--note-accent, var(--text));
 }
 .note-dual {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-  line-height: 1.05;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem 0.35rem;
+  line-height: 1.1;
   width: 100%;
+  font-size: clamp(1.2rem, 3.6vw, 1.55rem);
 }
-.note-line {
-  display: block;
-}
-.note-sharp {
-  font-size: clamp(1.15rem, 3.5vw, 1.45rem);
-}
-.note-flat {
-  font-size: clamp(1.15rem, 3.5vw, 1.45rem);
-  opacity: 0.92;
+.note-sep {
+  opacity: 0.55;
+  font-weight: 600;
 }
 .note.natural {
-  background: color-mix(in srgb, var(--note-accent, var(--accent)) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--note-accent, var(--accent)) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) 88%, #fff);
+  border-color: color-mix(in srgb, var(--border) 70%, #999);
 }
 .note.black {
-  background: #151515;
-  color: #f8f8f8;
-  border-color: #0a0a0a;
+  background: color-mix(in srgb, var(--text) 42%, var(--surface));
+  color: color-mix(in srgb, var(--surface) 92%, #fff);
+  border-color: color-mix(in srgb, var(--text) 55%, var(--border));
 }
 .note.active {
   outline: 3px solid var(--accent);
@@ -321,17 +489,75 @@ function focusNeighbor(e: KeyboardEvent, index: number): void {
   color: #fff;
   border-color: var(--accent);
 }
-.note.active.natural,
-.note.active.black {
-  color: #fff;
+
+.piano {
+  --white-count: 8;
+  --white-h: calc(100% / var(--white-count));
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: visible;
+  background: color-mix(in srgb, var(--border) 35%, var(--surface));
 }
+.piano-whites {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.piano-whites .note {
+  min-height: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  border-color: var(--border);
+  justify-content: flex-start;
+  padding-inline: 1rem;
+}
+.piano-whites .note:last-child {
+  border-bottom: 0;
+}
+.piano-blacks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.piano-blacks .note {
+  pointer-events: auto;
+  position: absolute;
+  right: 0.45rem;
+  /* At least half a white key; prefer ~60% for easier touch. */
+  width: min(58%, 12rem);
+  height: max(1.85rem, calc(3.5rem * 0.6));
+  min-height: max(1.85rem, calc(3.5rem * 0.5));
+  border-radius: 10px;
+  z-index: 2;
+  padding: 0.35rem 0.45rem;
+  transform: translateY(-50%);
+  box-shadow: 0 2px 6px color-mix(in srgb, #000 22%, transparent);
+}
+.piano-blacks .note-dual {
+  font-size: clamp(1.05rem, 3.2vw, 1.25rem);
+  gap: 0.2rem 0.3rem;
+}
+
 @media (min-width: 720px) {
-  .grid {
+  .keys-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     max-width: 44rem;
   }
-  .note {
+  .keys-grid .note {
     min-height: 5.75rem;
+  }
+  .piano-whites .note {
+    min-height: 3.75rem;
+    height: 3.75rem;
+  }
+  .piano-blacks .note {
+    height: max(2.1rem, calc(3.75rem * 0.6));
+    min-height: max(2.1rem, calc(3.75rem * 0.5));
   }
 }
 </style>

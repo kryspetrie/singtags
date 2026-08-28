@@ -34,6 +34,13 @@ import {
   flattenFilteredAudioManifest,
   flattenManifestEntries,
 } from '../lib/offlineManifest'
+import {
+  expectedAudioFileCount,
+  expectedSheetsFileCount,
+  packMissingFileCount,
+  packStartIndex,
+  packSyncAvailable,
+} from '../lib/packSync'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 import { fetchGzipJson, parseGzipJsonBuffer } from '../lib/gunzipJson'
 import { matchOfflineCache } from '../lib/manualOfflineFetch'
@@ -121,6 +128,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const estimate = ref<StorageEstimateInfo | null>(null)
   const error = ref<string | null>(null)
   const showSheetsPrompt = ref(false)
+  /** Remote library grew vs local pack — toast offers sync (skip-existing). */
+  const showPackSyncPrompt = ref(false)
   const catalogCachedAt = ref<string | null>(null)
   const loaded = ref(false)
   const cacheBusy = ref(false)
@@ -133,6 +142,21 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const sheetsTotalBytes = computed(() => sheetsManifest.value?.totalBytes ?? 0)
   const audioTotalBytes = computed(() => audioManifest.value?.totalBytes ?? 0)
   const audioBallparkLabel = computed(() => OFFLINE_LOFI_AUDIO_BALLPARK_LABEL)
+
+  const sheetsExpectedCount = computed(() => expectedSheetsFileCount(sheetsManifest.value))
+  const audioExpectedCount = computed(() => expectedAudioFileCount(audioManifest.value))
+  const sheetsSyncAvailable = computed(() =>
+    packSyncAvailable(sheetsCachedCount.value, sheetsExpectedCount.value, sheetsStatus.value),
+  )
+  const audioSyncAvailable = computed(() =>
+    packSyncAvailable(audioCachedCount.value, audioExpectedCount.value, audioStatus.value),
+  )
+  const sheetsMissingCount = computed(() =>
+    packMissingFileCount(sheetsCachedCount.value, sheetsExpectedCount.value, sheetsStatus.value),
+  )
+  const audioMissingCount = computed(() =>
+    packMissingFileCount(audioCachedCount.value, audioExpectedCount.value, audioStatus.value),
+  )
 
   const readyState = computed<OfflineReadyState>(() => {
     if (sheetsStatus.value === 'running' || audioStatus.value === 'running') {
@@ -193,6 +217,38 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  function packSyncDismissKey(sheets: OfflineManifest | null, audio: OfflineManifest | null): string {
+    return `${sheets?.builtAt ?? ''}|${audio?.builtAt ?? ''}|${expectedSheetsFileCount(sheets)}|${expectedAudioFileCount(audio)}`
+  }
+
+  function readDismissedPackSyncKey(): string | null {
+    try {
+      return localStorage.getItem('singtags.dismissedPackSync.v1')
+    } catch {
+      return null
+    }
+  }
+
+  function writeDismissedPackSyncKey(key: string): void {
+    try {
+      localStorage.setItem('singtags.dismissedPackSync.v1', key)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function refreshPackSyncPrompt(): void {
+    const needs =
+      packSyncAvailable(sheetsCachedCount.value, sheetsExpectedCount.value, sheetsStatus.value) ||
+      packSyncAvailable(audioCachedCount.value, audioExpectedCount.value, audioStatus.value)
+    if (!needs) {
+      showPackSyncPrompt.value = false
+      return
+    }
+    const key = packSyncDismissKey(sheetsManifest.value, audioManifest.value)
+    showPackSyncPrompt.value = readDismissedPackSyncKey() !== key
+  }
+
   async function loadManifests(): Promise<void> {
     error.value = null
     try {
@@ -219,6 +275,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     } finally {
       loaded.value = true
       await refreshEstimate()
+      refreshPackSyncPrompt()
     }
   }
 
@@ -308,7 +365,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       await refreshEstimate()
       if (result.sheetsFiles > 0 && sheetsStatus.value === 'idle') sheetsStatus.value = 'done'
       if (result.audioFiles > 0 && audioStatus.value === 'idle') audioStatus.value = 'done'
-      cacheMessage.value = `Restored ${result.sheetsFiles} sheet file(s), ${result.audioFiles} audio file(s), ${result.starredTags} starred tag(s).`
+      cacheMessage.value = `Restored ${result.sheetsFiles} sheet file(s), ${result.audioFiles} audio file(s), ${result.starredTags} starred tag(s)${result.pitchPipePrefs ? ', pitch pipe settings' : ''}.`
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -340,13 +397,14 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   async function startPack(kind: PackKind, _opts?: StartPackOptions): Promise<void> {
     error.value = null
     await requestPersistentStorage()
-    let manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
-    if (!manifest) {
+    // Refresh remote manifests so newly published tags are included.
+    if (!offlineMode.offline) {
       await loadManifests()
-      manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
+    } else if (!(kind === 'sheets' ? sheetsManifest.value : audioManifest.value)) {
+      await loadManifests()
     }
+    const manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
     if (!manifest) {
-      const offlineMode = useOfflineModeStore()
       if (offlineMode.manualOffline) {
         error.value =
           'Offline mode is on — go online once so SingTags can load download lists, then try again.'
@@ -376,8 +434,14 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         ? flattenFilteredAudioManifest(manifest, 'all', [])
         : flattenManifest(manifest)
     const prev = await getPackProgress(kind)
-    const startIndex =
-      prev?.manifestVersion === manifest.version ? prev.cursor : 0
+    // Mid-download resume only; otherwise rescan from 0 and skip files already on device.
+    const startIndex = packStartIndex({
+      status: prev?.status,
+      progressVersion: prev?.manifestVersion,
+      manifestVersion: manifest.version,
+      cursor: prev?.cursor,
+      itemCount: items.length,
+    })
 
     const store = kind === 'sheets' ? sheetsPack : audioPack
     const packReencodes =
@@ -395,7 +459,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         else audioStatus.value = s
         if (err) error.value = err
         void persistProgress(kind, { status: s, cursor: queue.getCursor() })
-        void refreshEstimate()
+        void refreshEstimate().then(() => refreshPackSyncPrompt())
       },
       onItemDone: (_path, index) => {
         void persistProgress(kind, {
@@ -439,6 +503,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       dismissedPrompt: true,
     })
     showSheetsPrompt.value = false
+    showPackSyncPrompt.value = false
     await queue.start()
     const finalStatus = queue.getStatus()
     await persistProgress(kind, {
@@ -448,11 +513,36 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       dismissedPrompt: true,
     })
     await refreshEstimate()
+    refreshPackSyncPrompt()
   }
 
   function pausePack(kind: PackKind): void {
     if (kind === 'sheets') sheetsQueue?.pause()
     else audioQueue?.pause()
+  }
+
+  async function dismissPackSyncPrompt(): Promise<void> {
+    writeDismissedPackSyncKey(packSyncDismissKey(sheetsManifest.value, audioManifest.value))
+    showPackSyncPrompt.value = false
+  }
+
+  /** Download only missing pack files (keeps existing cache). */
+  async function syncMissingPacks(): Promise<void> {
+    await dismissPackSyncPrompt()
+    const doSheets =
+      sheetsSyncAvailable.value ||
+      sheetsStatus.value === 'paused' ||
+      sheetsStatus.value === 'quota'
+    const doAudio =
+      audioSyncAvailable.value ||
+      audioStatus.value === 'paused' ||
+      audioStatus.value === 'quota'
+    if (doSheets) await startPack('sheets')
+    if (doAudio) await startPack('audio')
+    if (!doSheets && !doAudio) {
+      if (sheetsCachedCount.value > 0) await startPack('sheets')
+      else if (audioCachedCount.value > 0) await startPack('audio')
+    }
   }
 
   async function clearPack(kind: PackKind): Promise<void> {
@@ -513,6 +603,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     estimate,
     error,
     showSheetsPrompt,
+    showPackSyncPrompt,
     catalogCachedAt,
     loaded,
     cacheBusy,
@@ -521,6 +612,12 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     sheetsTotalBytes,
     audioTotalBytes,
     audioBallparkLabel,
+    sheetsExpectedCount,
+    audioExpectedCount,
+    sheetsSyncAvailable,
+    audioSyncAvailable,
+    sheetsMissingCount,
+    audioMissingCount,
     readyState,
     statusLabel,
     isLikelyMeteredConnection,
@@ -534,6 +631,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     pausePack,
     clearPack,
     dismissSheetsPrompt,
+    dismissPackSyncPrompt,
+    syncMissingPacks,
     ensureSheetsForTag,
     requestPersistentStorage: ensurePersistentStorage,
     clearAllOfflineData,

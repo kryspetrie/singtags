@@ -1,11 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import type { AudioEncodeQuality } from '../types/audio'
-import type { PitchPipeRange } from '../audio/pitchPlayer'
+import {
+  PITCH_PIPE_A_TUNINGS,
+  normalizePitchPipeRange,
+  type PitchPipeAHz,
+  type PitchPipeLayout,
+  type PitchPipeRange,
+} from '../audio/pitchPlayer'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { normalizeCustomParts } from '../lib/audioParts'
 
 export type PartSide = 'left' | 'right'
+
+/** Pitch-pipe UI prefs (localStorage + offline cache zip). */
+export type PitchPipePrefs = {
+  range: PitchPipeRange
+  layout: PitchPipeLayout
+  aHz: PitchPipeAHz
+  fineCents: number
+}
 
 const STORAGE_KEY = 'singtags.audioEncodeQuality.v1'
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -13,8 +27,99 @@ const MIX_PAN_KEY = 'singtags.partMixPan.v1'
 const BROWSE_WELCOME_KEY = 'singtags.browseWelcomeDismissed.v1'
 const LIBRARY_PARTS_MODE_KEY = 'singtags.libraryAudioPartsMode.v1'
 const LIBRARY_PARTS_KEY = 'singtags.libraryAudioParts.v1'
+const PITCH_PIPE_PREFS_KEY = 'singtags.pitchPipe.v1'
+/** @deprecated migrated into PITCH_PIPE_PREFS_KEY */
 const PITCH_PIPE_RANGE_KEY = 'singtags.pitchPipeRange.v1'
+/** @deprecated migrated into PITCH_PIPE_LAYOUT_KEY */
+const PITCH_PIPE_LAYOUT_KEY = 'singtags.pitchPipeLayout.v1'
 const DEFAULT_QUALITY: AudioEncodeQuality = 'standard'
+
+const A_HZ_SET = new Set<number>(PITCH_PIPE_A_TUNINGS.map((t) => t.hz))
+
+export function defaultPitchPipePrefs(): PitchPipePrefs {
+  return { range: 'e3-e4', layout: 'grid', aHz: 440, fineCents: 0 }
+}
+
+function clampFineCents(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(-50, Math.min(50, Math.round(n)))
+}
+
+export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const range = normalizePitchPipeRange(o.range)
+  const layout = o.layout === 'grid' || o.layout === 'list' || o.layout === 'piano' ? o.layout : null
+  const aHz = typeof o.aHz === 'number' && A_HZ_SET.has(o.aHz) ? (o.aHz as PitchPipeAHz) : null
+  if (!range || !layout || aHz == null) return null
+  return {
+    range,
+    layout,
+    aHz,
+    fineCents: clampFineCents(typeof o.fineCents === 'number' ? o.fineCents : 0),
+  }
+}
+
+function loadLegacyPitchPipeRange(): PitchPipeRange {
+  try {
+    const mapped = normalizePitchPipeRange(localStorage.getItem(PITCH_PIPE_RANGE_KEY))
+    if (mapped) return mapped
+  } catch {
+    /* ignore */
+  }
+  return 'e3-e4'
+}
+
+function loadLegacyPitchPipeLayout(): PitchPipeLayout {
+  try {
+    const raw = localStorage.getItem(PITCH_PIPE_LAYOUT_KEY)
+    if (raw === 'grid' || raw === 'list' || raw === 'piano') return raw
+  } catch {
+    /* ignore */
+  }
+  return 'grid'
+}
+
+export function loadPitchPipePrefs(): PitchPipePrefs {
+  try {
+    const raw = localStorage.getItem(PITCH_PIPE_PREFS_KEY)
+    if (raw) {
+      const parsed = parsePitchPipePrefs(JSON.parse(raw) as unknown)
+      if (parsed) return parsed
+    }
+  } catch {
+    /* ignore */
+  }
+  return {
+    range: loadLegacyPitchPipeRange(),
+    layout: loadLegacyPitchPipeLayout(),
+    aHz: 440,
+    fineCents: 0,
+  }
+}
+
+export function savePitchPipePrefs(prefs: PitchPipePrefs): void {
+  try {
+    localStorage.setItem(PITCH_PIPE_PREFS_KEY, JSON.stringify(prefs))
+    localStorage.removeItem(PITCH_PIPE_RANGE_KEY)
+    localStorage.removeItem(PITCH_PIPE_LAYOUT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Snapshot for offline cache zip (`preferences/pitch-pipe.json`). */
+export function pitchPipePrefsSnapshot(): PitchPipePrefs {
+  return loadPitchPipePrefs()
+}
+
+/** Apply snapshot from offline cache zip into localStorage. */
+export function applyPitchPipePrefsSnapshot(raw: unknown): boolean {
+  const parsed = parsePitchPipePrefs(raw)
+  if (!parsed) return false
+  savePitchPipePrefs(parsed)
+  return true
+}
 
 function loadQuality(): AudioEncodeQuality {
   try {
@@ -59,16 +164,6 @@ function loadPartsMode(): LibraryAudioPartsMode {
   return 'all'
 }
 
-function loadPitchPipeRange(): PitchPipeRange {
-  try {
-    const raw = localStorage.getItem(PITCH_PIPE_RANGE_KEY)
-    if (raw === 'f3-f4' || raw === 'e3-e4') return raw
-  } catch {
-    /* ignore */
-  }
-  return 'f3-f4'
-}
-
 function loadSideMap(key: string): Record<string, PartSide> {
   try {
     const raw = localStorage.getItem(key)
@@ -90,6 +185,7 @@ function loadSideMap(key: string): Record<string, PartSide> {
  * Also stores multi-part mix: which file channel is the solo, and hard-pan placement.
  */
 export const usePreferencesStore = defineStore('preferences', () => {
+  const initialPipe = loadPitchPipePrefs()
   const audioEncodeQuality = ref<AudioEncodeQuality>(loadQuality())
   const partSoloInFile = ref<Record<string, PartSide>>(loadSideMap(SOLO_IN_FILE_KEY))
   const partMixPan = ref<Record<string, PartSide>>(loadSideMap(MIX_PAN_KEY))
@@ -98,10 +194,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const libraryAudioParts = ref<string[]>(
     loadStringArray(LIBRARY_PARTS_KEY, ['lead']),
   )
-  /** Pitch-pipe grid: F3–F4 (default) or E3–E4. */
-  const pitchPipeRange = ref<PitchPipeRange>(loadPitchPipeRange())
+  const pitchPipeRange = ref<PitchPipeRange>(initialPipe.range)
+  const pitchPipeLayout = ref<PitchPipeLayout>(initialPipe.layout)
+  const pitchPipeAHz = ref<PitchPipeAHz>(initialPipe.aHz)
+  const pitchPipeFineCents = ref(initialPipe.fineCents)
   /** When false, browse shows the one-time welcome / offline prompt. */
   const browseWelcomeDismissed = ref(loadBool(BROWSE_WELCOME_KEY, false))
+
+  function persistPitchPipe(): void {
+    savePitchPipePrefs({
+      range: pitchPipeRange.value,
+      layout: pitchPipeLayout.value,
+      aHz: pitchPipeAHz.value,
+      fineCents: clampFineCents(pitchPipeFineCents.value),
+    })
+  }
 
   watch(
     audioEncodeQuality,
@@ -140,14 +247,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
-    pitchPipeRange,
-    (v) => {
-      try {
-        localStorage.setItem(PITCH_PIPE_RANGE_KEY, v)
-      } catch {
-        /* ignore */
-      }
-    },
+    [pitchPipeRange, pitchPipeLayout, pitchPipeAHz, pitchPipeFineCents],
+    () => persistPitchPipe(),
     { flush: 'sync' },
   )
 
@@ -227,6 +328,27 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeRange.value = range
   }
 
+  function setPitchPipeLayout(layout: PitchPipeLayout): void {
+    pitchPipeLayout.value = layout
+  }
+
+  function setPitchPipeAHz(hz: PitchPipeAHz): void {
+    pitchPipeAHz.value = hz
+  }
+
+  function setPitchPipeFineCents(cents: number): void {
+    pitchPipeFineCents.value = clampFineCents(cents)
+  }
+
+  /** Reload pitch-pipe prefs from storage (e.g. after offline cache restore). */
+  function hydratePitchPipePrefs(): void {
+    const p = loadPitchPipePrefs()
+    pitchPipeRange.value = p.range
+    pitchPipeLayout.value = p.layout
+    pitchPipeAHz.value = p.aHz
+    pitchPipeFineCents.value = p.fineCents
+  }
+
   return {
     audioEncodeQuality,
     partSoloInFile,
@@ -235,6 +357,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     libraryAudioPartsMode,
     libraryAudioParts,
     pitchPipeRange,
+    pitchPipeLayout,
+    pitchPipeAHz,
+    pitchPipeFineCents,
     setAudioEncodeQuality,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
@@ -244,5 +369,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     getPartMixPan,
     setPartMixPan,
     setPitchPipeRange,
+    setPitchPipeLayout,
+    setPitchPipeAHz,
+    setPitchPipeFineCents,
+    hydratePitchPipePrefs,
   }
 })

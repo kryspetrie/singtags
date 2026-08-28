@@ -38,10 +38,25 @@ export function mixIsDisjoint(detail: TagDetail): boolean {
   return detail.audio_tiers_summary?.mix_disjoint === true
 }
 
+/**
+ * Voice parts can safely be mono-solo extracted and client-reconstructed.
+ * False for piano/misaligned stems — play hosted ultra_stereo / playback instead.
+ */
+export function partsAreRecombinable(detail: TagDetail): boolean {
+  const layout = detail.audio_layout_summary
+  if (layout?.parts_recombinable === false) return false
+  if (layout?.ultra_low === 'stereo_fallback') return false
+  if (detail.audio_tiers_summary?.parts_recombinable === false) return false
+  const policy = detail.audio_tiers_summary?.ultra_policy ?? layout?.ultra_low
+  if (policy === 'stereo_fallback') return false
+  return true
+}
+
 /** Mix can be rebuilt offline from ≥2 cached voice stems. */
 export function canOfferReconstructedMix(detail: TagDetail): boolean {
   if (isMixOnlyTag(detail)) return false
   if (mixIsDisjoint(detail)) return false
+  if (!partsAreRecombinable(detail)) return false
   const voices = voiceAudioParts(detail).filter((p) => hasOfflineVoiceTier(detail, p))
   return voices.length >= 2
 }
@@ -131,7 +146,7 @@ export function ultraAudioPath(detail: TagDetail, part: string): string | null {
 
   if (policy === 'mono_solos') {
     if (key === 'mix') {
-      if (mixIsDisjoint(detail)) {
+      if (mixIsDisjoint(detail) || !partsAreRecombinable(detail)) {
         return (
           tierPath(detail, part, 'ultra_mix') ??
           tierPath(detail, part, 'ultra_stereo') ??
@@ -139,6 +154,13 @@ export function ultraAudioPath(detail: TagDetail, part: string): string | null {
         )
       }
       return null // reconstructed client-side
+    }
+    if (!partsAreRecombinable(detail)) {
+      return (
+        tierPath(detail, part, 'ultra_stereo') ??
+        tierPath(detail, part, 'playback') ??
+        tierPath(detail, part, 'ultra_solo')
+      )
     }
     return tierPath(detail, part, 'ultra_solo')
   }
@@ -170,6 +192,7 @@ export function isMixOnlyTag(detail: TagDetail): boolean {
 }
 
 export function usesMonoSolos(detail: TagDetail): boolean {
+  if (!partsAreRecombinable(detail)) return false
   const policy =
     detail.audio_layout_summary?.ultra_low ?? detail.audio_tiers_summary?.ultra_policy
   return policy === 'mono_solos'

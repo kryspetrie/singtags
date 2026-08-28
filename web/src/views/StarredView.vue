@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import StarsNoticeLine from '../components/StarsNoticeLine.vue'
 import { useStarsStore } from '../stores/stars'
 import { usePracticeStore } from '../stores/practice'
 import { useOnline } from '../composables/useOnline'
+import {
+  STARRED_SORT_OPTIONS,
+  type StarredSortMode,
+  sortStarredRecords,
+} from '../lib/starredSort'
 
 const stars = useStarsStore()
 const practice = usePracticeStore()
 const { offline } = useOnline()
-const router = useRouter()
 const fileInput = ref<HTMLInputElement | null>(null)
 const fetchMediaOnImport = ref(false)
 const backupOpen = ref(false)
+const sortMode = ref<StarredSortMode>('custom')
+const sortOptions = STARRED_SORT_OPTIONS
 
 const DRAG_HOLD_MS = 280
 
@@ -29,8 +35,13 @@ let holdStartY = 0
 
 const orderedRecords = computed(() => {
   const byId = new Map(stars.records.map((r) => [r.tagId, r]))
-  return practice.order.map((id) => byId.get(id)).filter(Boolean)
+  if (sortMode.value === 'custom') {
+    return practice.order.map((id) => byId.get(id)).filter(Boolean)
+  }
+  return sortStarredRecords(stars.records, sortMode.value)
 })
+
+const canApplySort = computed(() => stars.count > 0 && sortMode.value !== 'custom')
 
 const finePointer = computed(() =>
   typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches,
@@ -163,7 +174,14 @@ function onDragEnd(): void {
   window.removeEventListener('pointermove', onHoldMove)
   if (dragActive.value && draggingId.value != null) {
     const toIndex = insertIndexForDrop()
-    if (toIndex != null) practice.reorder(draggingId.value, toIndex)
+    if (toIndex != null) {
+      // Dragging adopts the current view as custom order, then reorders.
+      if (sortMode.value !== 'custom') {
+        practice.resetFromStarred(orderedRecords.value.map((r) => r!.tagId))
+        sortMode.value = 'custom'
+      }
+      practice.reorder(draggingId.value, toIndex)
+    }
   }
   dragActive.value = false
   draggingId.value = null
@@ -200,48 +218,48 @@ async function onImportFile(e: Event): Promise<void> {
   }
 }
 
-async function refreshOne(tagId: number): Promise<void> {
-  await stars.updateOfflineMedia(tagId, null)
+function applySort(): void {
+  if (sortMode.value === 'custom') return
+  practice.resetFromStarred(orderedRecords.value.map((r) => r!.tagId))
+  sortMode.value = 'custom'
 }
 
-function startPractice(): void {
-  practice.syncFromStarred(stars.records.map((r) => r.tagId))
-  const first = practice.firstId()
-  if (first == null) return
-  void router.push({ path: `/tag/${first}`, query: { set: 'practice' } })
+function rowStarTip(title: string, tagId: number): string {
+  if (stars.isTagCaching(tagId)) {
+    return stars.tagCachingLabel(tagId) || 'Saving for offline…'
+  }
+  return `Unstar ${title || `tag #${tagId}`} — remove from saved tags`
 }
 
-function resetOrder(): void {
-  practice.resetFromStarred(stars.records.map((r) => r.tagId))
+function rowStarLabel(title: string, tagId: number): string {
+  if (stars.isTagCaching(tagId)) return 'Saving for offline'
+  return `Unstar ${title || `tag #${tagId}`}`
 }
 </script>
 
 <template>
   <section class="starred" aria-label="Starred">
     <p class="muted intro">
-      Offline favorites on this device. Hold the handle and drag to reorder, then start a practice set
-      that auto-advances through tags.
+      Offline favorites on this device. Pick a sort to preview, then Apply sort to save it as your
+      custom order — or drag the handle to rearrange.
       <RouterLink to="/settings">Offline library settings</RouterLink>
     </p>
 
     <div class="actions">
+      <label class="sort-field">
+        <span class="sort-lbl">Sort</span>
+        <select v-model="sortMode" aria-label="Sort starred tags" :disabled="!stars.count">
+          <option v-for="s in sortOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
+        </select>
+      </label>
       <button
         type="button"
         class="primary"
-        :disabled="!stars.count"
-        @click="startPractice"
+        :disabled="!canApplySort"
+        title="Save the current sort as your custom order"
+        @click="applySort"
       >
-        Start practice
-      </button>
-      <button type="button" :disabled="!stars.count" @click="resetOrder">Reset order</button>
-      <button
-        type="button"
-        class="toggle-btn"
-        :class="{ on: practice.autoAdvance }"
-        :aria-pressed="practice.autoAdvance"
-        @click="practice.autoAdvance = !practice.autoAdvance"
-      >
-        Auto-advance
+        Apply sort
       </button>
       <button type="button" @click="backupOpen = true">Backup &amp; restore</button>
     </div>
@@ -259,7 +277,7 @@ function resetOrder(): void {
     <EmptyState
       v-else-if="!stars.records.length"
       title="No starred tags yet"
-      message="Star from Browse or a tag page to save for quick recall, offline use, and practice sets."
+      message="Star from Browse or a tag page to save for quick recall and offline use."
     />
 
     <ol
@@ -297,45 +315,47 @@ function resetOrder(): void {
         >
           ⠿
         </button>
-        <RouterLink
-          :to="{ path: `/tag/${r!.tagId}`, query: { set: 'practice' } }"
+        <div
           class="card"
           :class="{ 'no-nav': dragActive }"
-          @click="dragActive && $event.preventDefault()"
         >
-          <span class="title"
-            ><span class="num">{{ i + 1 }}.</span> {{ r!.summary.title || `Tag ${r!.tagId}` }}</span
+          <RouterLink
+            :to="`/tag/${r!.tagId}`"
+            class="row-link"
+            @click="dragActive && $event.preventDefault()"
           >
-          <span class="meta">
-            <span v-if="r!.summary.key">{{ r!.summary.key }}</span>
-            <span v-if="r!.summary.arranger">{{ r!.summary.arranger }}</span>
-            <span class="badge" :data-on="!!(r!.audioBlobs && Object.keys(r!.audioBlobs).length)">{{
-              r!.audioBlobs && Object.keys(r!.audioBlobs).length
-                ? 'Audio offline'
-                : r!.offlineMedia
-                  ? 'Sheets offline'
-                  : 'Metadata'
-            }}</span>
-          </span>
-        </RouterLink>
-        <button
-          v-if="!offline"
-          type="button"
-          class="refresh"
-          :disabled="stars.busy"
-          :aria-label="`Update offline media for ${r!.summary.title || r!.tagId}`"
-          @click="refreshOne(r!.tagId)"
-        >
-          ↻
-        </button>
-        <button
-          type="button"
-          class="unstar"
-          :aria-label="`Unstar ${r!.summary.title || r!.tagId}`"
-          @click="stars.unstar(r!.tagId)"
-        >
-          ★
-        </button>
+            <span class="title"
+              ><span class="num">{{ i + 1 }}.</span> {{ r!.summary.title || `Tag ${r!.tagId}` }}</span
+            >
+            <span class="meta">
+              <span v-if="r!.summary.key">{{ r!.summary.key }}</span>
+              <span v-if="r!.summary.arranger">{{ r!.summary.arranger }}</span>
+              <span class="badge" :data-on="!!(r!.audioBlobs && Object.keys(r!.audioBlobs).length)">{{
+                r!.audioBlobs && Object.keys(r!.audioBlobs).length
+                  ? 'Audio offline'
+                  : r!.offlineMedia
+                    ? 'Sheets offline'
+                    : 'Metadata'
+              }}</span>
+            </span>
+          </RouterLink>
+          <button
+            type="button"
+            class="row-star"
+            :aria-pressed="true"
+            :aria-busy="stars.isTagCaching(r!.tagId)"
+            :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
+            :title="rowStarTip(r!.summary.title || '', r!.tagId)"
+            @click.stop="stars.unstar(r!.tagId)"
+          >
+            <span
+              v-if="stars.isTagCaching(r!.tagId)"
+              class="row-star-spinner"
+              aria-hidden="true"
+            />
+            <span v-else>★</span>
+          </button>
+        </div>
       </li>
     </ol>
 
@@ -343,10 +363,9 @@ function resetOrder(): void {
       <div class="backup">
         <p class="backup-desc">
           Your starred list lives in this browser only. <strong>Backup</strong> downloads a
-          <code>starred.tags</code> file with your tags and practice order so you can keep a copy or
-          move it to another device. <strong>Restore</strong> replaces the list on this device from
-          that file. Optionally fetch sheet and audio media during restore so tags work offline right
-          away.
+          <code>starred.tags</code> file with your tags and list order so you can keep a copy or move
+          it to another device. <strong>Restore</strong> replaces the list on this device from that
+          file. Optionally fetch sheet and audio media during restore so tags work offline right away.
         </p>
         <div class="backup-actions">
           <span
@@ -415,11 +434,40 @@ function resetOrder(): void {
   background: var(--surface);
   font: inherit;
 }
+.sort-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sort-lbl {
+  font-weight: 600;
+}
+.sort-field select {
+  font: inherit;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.sort-field select:disabled {
+  opacity: 0.5;
+}
 .actions .primary,
 .backup-actions .primary {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+}
+.actions .primary:disabled {
+  background: color-mix(in srgb, var(--muted) 35%, var(--surface));
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+  opacity: 1;
 }
 .backup-actions .primary:disabled {
   background: color-mix(in srgb, var(--muted) 35%, var(--surface));
@@ -509,7 +557,7 @@ function resetOrder(): void {
 li {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr;
   gap: 0.4rem;
   align-items: stretch;
   border-radius: var(--radius);
@@ -524,9 +572,7 @@ li.dragging {
   transform: scale(1.02) translateY(-2px);
 }
 li.dragging .card,
-li.dragging .drag-handle,
-li.dragging .refresh,
-li.dragging .unstar {
+li.dragging .drag-handle {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 18%, transparent);
@@ -572,21 +618,34 @@ li.drop-after::after {
 .drag-handle:active {
   cursor: grabbing;
 }
-.card.no-nav {
+.card.no-nav .row-link {
   pointer-events: none;
 }
 .card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.9rem 1rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.35rem 0.35rem 0.35rem 0.85rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  color: inherit;
-  text-decoration: none;
   min-height: 44px;
   transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+.row-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.35rem;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+}
+.row-link:hover {
+  color: var(--accent-hover);
 }
 .title {
   font-weight: 600;
@@ -610,15 +669,53 @@ li.drop-after::after {
   color: var(--accent);
   font-weight: 600;
 }
-.refresh,
-.unstar {
+.row-star {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 44px;
   min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  align-self: center;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.row-star:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
-  font-size: 1.2rem;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.row-star[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.row-star[aria-busy='true'] {
+  color: var(--muted);
+}
+.row-star-spinner {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: row-star-spin 0.65s linear infinite;
+}
+@keyframes row-star-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .ok {
   color: var(--accent);

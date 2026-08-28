@@ -174,7 +174,12 @@ describe('cacheManage', () => {
     ])
 
     const result = await importOfflineCacheZip(zip)
-    expect(result).toEqual({ sheetsFiles: 1, audioFiles: 1, starredTags: 1 })
+    expect(result).toEqual({
+      sheetsFiles: 1,
+      audioFiles: 1,
+      starredTags: 1,
+      pitchPipePrefs: false,
+    })
     expect(await sheetsPack.has(mediaUrl('sheets/9/pages/page-01.webp'))).toBe(true)
     expect(await audioPack.has(mediaUrl('media/9/lead.m4a'))).toBe(true)
 
@@ -183,6 +188,44 @@ describe('cacheManage', () => {
     expect(rec?.sheetBlobs?.[0]?.path).toBe('sheets/9/pages/page-01.webp')
     expect(rec?.audioBlobs?.lead?.mime).toBe('audio/mp4')
     expect(await listStarred()).toHaveLength(1)
+  })
+
+  it('imports pitch pipe preferences from offline cache zip', async () => {
+    const zip = buildZip([
+      {
+        name: 'manifest.json',
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            version: 1,
+            kind: 'singtags.offline-cache',
+            exportedAt: '2026-01-01T00:00:00.000Z',
+            sheetsFiles: 0,
+            audioFiles: 0,
+            starredTags: 0,
+          }),
+        ),
+      },
+      {
+        name: 'preferences/pitch-pipe.json',
+        data: new TextEncoder().encode(
+          JSON.stringify({
+            range: 'e3-e4',
+            layout: 'piano',
+            aHz: 432,
+            fineCents: -12,
+          }),
+        ),
+      },
+    ])
+
+    const result = await importOfflineCacheZip(zip)
+    expect(result.pitchPipePrefs).toBe(true)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
+      range: 'e3-e4',
+      layout: 'piano',
+      aHz: 432,
+      fineCents: -12,
+    })
   })
 
   it('rejects non-cache zips', async () => {

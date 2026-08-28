@@ -1827,9 +1827,10 @@
       ],
       "audioTiers": [
         "playback",
-        "ultra_solo"
+        "ultra_mix",
+        "ultra_stereo"
       ],
-      "ultraLow": "mono_solos",
+      "ultraLow": "stereo_fallback",
       "sheet": "sheets/3068/All Alone Too (G Major) - Paul Paddock - Sheet.pdf"
     },
     {

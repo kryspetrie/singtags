@@ -21,6 +21,8 @@ Related: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md), [offline-libra
 
 Publish encoding rules and layout classification live in the mirror repo (`audio_layout_summary.ultra_low`: `mono_solos` | `mono_downmix` | `stereo_fallback`). For `mono_solos`, the mirror also estimates accompaniment-channel timing vs Lead and **bakes trusted offsets ≥50 ms into Opus Solo/Playback files** so client reconstruction can assume a shared t=0.
 
+When stems are not recombinable (`parts_recombinable: false`), the mirror demotes to **`stereo_fallback`** and the client plays/caches hosted Opus stereo (and hosted mix) — see [NON_RECOMBINABLE_TRACKS_PLAN.md](../NON_RECOMBINABLE_TRACKS_PLAN.md).
+
 ### Online tag page
 
 1. **Play** uses **Playback (64 kbps)** unless **Original** is already in device cache.

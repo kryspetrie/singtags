@@ -15,6 +15,10 @@ import {
   toStarredFile,
   type StarredTagRecord,
 } from './starredDb'
+import {
+  applyPitchPipePrefsSnapshot,
+  pitchPipePrefsSnapshot,
+} from '../stores/preferences'
 
 export interface CacheProgress {
   label: string
@@ -36,6 +40,8 @@ export interface OfflineCacheImportResult {
   sheetsFiles: number
   audioFiles: number
   starredTags: number
+  /** True when preferences/pitch-pipe.json was applied. */
+  pitchPipePrefs?: boolean
 }
 
 const SW_CACHE_PREFIX = 'singtags'
@@ -188,7 +194,7 @@ export async function exportOfflineCacheZip(
     blobCount += rec.audioBlobs ? Object.keys(rec.audioBlobs).length : 0
   }
 
-  const total = sheetUrls.length + audioUrls.length + blobCount + 2
+  const total = sheetUrls.length + audioUrls.length + blobCount + 3
   let done = 0
   const files: Array<{ name: string; data: Uint8Array }> = []
 
@@ -222,6 +228,13 @@ export async function exportOfflineCacheZip(
       report(onProgress, `Starred #${rec.tagId} audio…`, done, total)
     }
   }
+
+  files.push({
+    name: 'preferences/pitch-pipe.json',
+    data: new TextEncoder().encode(JSON.stringify(pitchPipePrefsSnapshot(), null, 2)),
+  })
+  done++
+  report(onProgress, 'Writing pitch pipe settings…', done, total)
 
   const manifest: OfflineCacheManifest = {
     version: 1,
@@ -320,7 +333,7 @@ export async function importOfflineCacheZip(
   const starredAudioNames = Object.keys(tree).filter(
     (n) => /^starred\/\d+\/audio\//.test(n) && !n.endsWith('/'),
   )
-  const total = packNames.length + starredSheetNames.length + starredAudioNames.length + 2
+  const total = packNames.length + starredSheetNames.length + starredAudioNames.length + 3
   let done = 0
 
   const sheets = await restorePackEntries('sheets', sheetsPack, tree, onProgress, done, total)
@@ -391,11 +404,30 @@ export async function importOfflineCacheZip(
     report(onProgress, 'No starred metadata in zip', done, total)
   }
 
+  let pitchPipePrefs = false
+  const pipeBytes = tree['preferences/pitch-pipe.json']
+  if (pipeBytes) {
+    try {
+      const raw = JSON.parse(new TextDecoder().decode(pipeBytes)) as unknown
+      pitchPipePrefs = applyPitchPipePrefsSnapshot(raw)
+    } catch {
+      pitchPipePrefs = false
+    }
+  }
+  done++
+  report(
+    onProgress,
+    pitchPipePrefs ? 'Restored pitch pipe settings…' : 'No pitch pipe settings in zip',
+    done,
+    total,
+  )
+
   report(onProgress, 'Restore complete', total, total)
   return {
     sheetsFiles: sheets.count,
     audioFiles: audio.count,
     starredTags,
+    pitchPipePrefs,
   }
 }
 

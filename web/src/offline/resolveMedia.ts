@@ -11,6 +11,7 @@ import {
   isUltraSoloPath,
   mixIsDisjoint,
   originalAudioPath,
+  partsAreRecombinable,
   playableAudioParts,
   playbackAudioPath,
   tierPath,
@@ -314,7 +315,7 @@ async function tryReconstructMix(
   detail: TagDetail,
   starred?: StarredTagRecord | null,
 ): Promise<ResolvedMedia | null> {
-  if (mixIsDisjoint(detail)) return null
+  if (mixIsDisjoint(detail) || !partsAreRecombinable(detail)) return null
   const inputs = await collectVoiceStemUrls(detail, { starred: starred ?? null })
   if (inputs.length < 2) {
     for (const i of inputs) URL.revokeObjectURL(i.url)

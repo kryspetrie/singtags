@@ -10,7 +10,7 @@ const ariaLabel = computed(() => {
     const parts: string[] = []
     if (n.audio) parts.push('audio')
     if (n.sheets) parts.push('sheets')
-    return parts.length ? `Cached offline ${parts.join(' and ')}` : 'Cached'
+    return parts.length ? `Starred with ${parts.join(' and ')}` : 'Starred'
   }
   if (n.type === 'starred') return 'Starred'
   if (n.type === 'removed') return 'Removed from starred'
@@ -21,7 +21,7 @@ const ariaLabel = computed(() => {
 <template>
   <span class="stars-notice" :aria-label="ariaLabel">
     <template v-if="notice.type === 'cached'">
-      <span>Cached</span>
+      <span>Starred</span>
       <span v-if="notice.audio" class="ico" aria-hidden="true">♪</span>
       <span v-if="notice.sheets" class="ico" aria-hidden="true">📄</span>
     </template>

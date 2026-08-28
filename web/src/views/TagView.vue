@@ -6,9 +6,10 @@ import { useQueueStore } from '../stores/queue'
 import { useStarsStore } from '../stores/stars'
 import { useRecentStore } from '../stores/recent'
 import { usePracticeStore } from '../stores/practice'
-import type { PartId } from '../types/tag'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { catalogOriginalPaths } from '../lib/audioTiers'
-import { downloadFormatLabel, IDENTITY_TRANSFORM, type UserDownloadFormat } from '../types/audio'
+import { downloadFormatLabel } from '../types/audio'
+import type { QueueTrack } from '../download/zip'
 import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
 import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
@@ -38,7 +39,6 @@ const {
   fromCache,
   audioParts,
   availableAudioParts,
-  hasLowerQualityAudio,
   hasPackAudio,
   sheetAssets,
   preparedSheet,
@@ -56,7 +56,6 @@ const playerTransform = ref<AudioTransform>({ pitchSemitones: 0, speed: 1 })
 const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
 const practiceDone = ref(false)
-const cachingHq = ref(false)
 
 const inPractice = computed(() => route.query.set === 'practice')
 
@@ -148,9 +147,6 @@ const hasOfflinePlayback = computed(
     hasPackAudio.value ||
     (offline.value && availableAudioParts.value.length > 0),
 )
-const showCacheHighQuality = computed(
-  () => !offline.value && starred.value && hasLowerQualityAudio.value,
-)
 const showUpdate = computed(() => starred.value && !offline.value)
 const nav = computed(() =>
   inPractice.value
@@ -172,10 +168,11 @@ const downloadBlockedReason = computed(() =>
 )
 
 const queueBlockedReason = computed(() => {
-  if (!hasAudio.value) return 'No audio tracks to queue.'
   const d = detail.value
   if (!d) return 'Tag details unavailable.'
-  if (!Object.keys(catalogOriginalPaths(d)).length) return 'No downloadable tracks on this tag.'
+  const hasSheets = downloadableSheetAssets(d).length > 0
+  const hasTracks = Object.keys(catalogOriginalPaths(d)).length > 0
+  if (!hasSheets && !hasTracks) return 'No downloadable files on this tag.'
   return null
 })
 
@@ -276,22 +273,21 @@ function onPayKey(e: KeyboardEvent): void {
   }
 }
 
-function addTracksToQueue(parts: PartId[], format: UserDownloadFormat): void {
+function addItemsToQueue(items: QueueTrack[]): void {
   const d = detail.value
-  if (!d || queueBlockedReason.value || !parts.length) return
-  const originals = catalogOriginalPaths(d)
-  const items = parts.filter((part) => originals[part])
-  queue.addMany(
-    items.map((part) => ({
-      tagId: d.tag_id,
-      title: d.title || `Tag ${d.tag_id}`,
-      part,
-      path: originals[part]!,
-      transform: { ...IDENTITY_TRANSFORM },
-      format,
-    })),
-  )
-  queueMsg.value = `Added ${items.length} track(s) as ${downloadFormatLabel(format)}.`
+  if (!d || queueBlockedReason.value || !items.length) return
+  queue.addMany(items)
+  const sheets = items.filter((i) => i.kind === 'sheet').length
+  const tracks = items.length - sheets
+  const bits: string[] = []
+  if (sheets) bits.push(`${sheets} sheet file${sheets === 1 ? '' : 's'}`)
+  if (tracks) {
+    const fmt = items.find((i) => i.kind !== 'sheet')?.format
+    bits.push(
+      `${tracks} track${tracks === 1 ? '' : 's'}${fmt ? ` as ${downloadFormatLabel(fmt)}` : ''}`,
+    )
+  }
+  queueMsg.value = `Added ${bits.join(' and ')} to downloads.`
 }
 
 function onToggleStar(): void {
@@ -302,17 +298,6 @@ function onToggleStar(): void {
 async function onRefreshMedia(): Promise<void> {
   await stars.updateOfflineMedia(Number(props.id), detail.value)
   await load()
-}
-
-async function onCacheHighQuality(): Promise<void> {
-  if (!detail.value || cachingHq.value) return
-  cachingHq.value = true
-  try {
-    await stars.cacheOriginalAudio(Number(props.id), detail.value)
-    await load()
-  } finally {
-    cachingHq.value = false
-  }
 }
 
 async function onCacheUpgraded(): Promise<void> {
@@ -556,19 +541,7 @@ async function onRetryLoad(): Promise<void> {
           @transform="playerTransform = $event"
           @update:pitch-semitones="keyShift = $event"
           @ended="onTrackEnded"
-        >
-          <template v-if="showCacheHighQuality" #advanced-actions>
-            <button
-              type="button"
-              class="cache-hq"
-              :disabled="cachingHq || stars.busy"
-              title="Replace compressed starred audio with original hosted M4A files"
-              @click="onCacheHighQuality"
-            >
-              {{ cachingHq ? 'Caching…' : 'Upgrade starred audio to Original' }}
-            </button>
-          </template>
-        </TagPlayer>
+        />
         <EmptyState
           v-else-if="!hasAudio"
           title="No audio available"
@@ -587,7 +560,7 @@ async function onRetryLoad(): Promise<void> {
       :download-blocked-reason="downloadBlockedReason"
       :queue-blocked-reason="queueBlockedReason"
       :queue-message="queueMsg"
-      @add-to-queue="addTracksToQueue"
+      @add-to-queue="addItemsToQueue"
       @cache-upgraded="onCacheUpgraded"
     />
 
@@ -1044,28 +1017,6 @@ async function onRetryLoad(): Promise<void> {
   border-radius: 2px;
   background: var(--accent);
   transition: width 0.2s ease;
-}
-.cache-hq {
-  min-height: 32px;
-  padding: 0.25rem 0.55rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-.cache-hq:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-.cache-hq:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 .tag h1 {
   font-family: var(--font-display);

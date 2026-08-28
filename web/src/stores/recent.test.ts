@@ -51,6 +51,16 @@ describe('recent store', () => {
     expect(r2.entries).toEqual([])
   })
 
+  it('removes a single entry', () => {
+    const r = useRecentStore()
+    r.recordOpen(5)
+    r.recordOpen(6)
+    r.remove(5)
+    expect(r.sortedRecords('recent').map((e) => e.id)).toEqual([6])
+    setActivePinia(createPinia())
+    expect(useRecentStore().sortedRecords('recent').map((e) => e.id)).toEqual([6])
+  })
+
   it('migrates legacy id list', () => {
     localStorage.setItem('singtags.recent.v1', JSON.stringify([3, 1, 2]))
     setActivePinia(createPinia())

@@ -72,8 +72,13 @@ def build(sample: Path, out: Path) -> None:
                     continue
                 chosen = None
                 if ultra_policy == "mono_solos":
-                    if part == "mix" and layout.get("mix_disjoint"):
+                    if part == "mix" and (
+                        layout.get("mix_disjoint")
+                        or layout.get("parts_recombinable") is False
+                    ):
                         chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
+                    elif layout.get("parts_recombinable") is False:
+                        chosen = tiers.get("ultra_stereo") or tiers.get("playback")
                     else:
                         # Voice solos only — mix is reconstructed client-side.
                         chosen = tiers.get("ultra_solo")
@@ -83,7 +88,10 @@ def build(sample: Path, out: Path) -> None:
                     # Mix-only tags (often labeled stereo_fallback with only mix).
                     chosen = tiers.get("ultra_mix")
                 elif ultra_policy == "stereo_fallback":
-                    chosen = tiers.get("ultra_stereo")
+                    if part == "mix":
+                        chosen = tiers.get("ultra_mix") or tiers.get("ultra_stereo")
+                    else:
+                        chosen = tiers.get("ultra_stereo")
                 if not chosen and ultra_policy not in {
                     "mono_solos",
                     "mono_downmix",
@@ -120,7 +128,7 @@ def build(sample: Path, out: Path) -> None:
     write_gz(
         "offline-sheets.json.gz",
         {
-            "version": 1,
+            "version": len(sheet_entries),
             "kind": "sheets",
             "builtAt": built_at,
             "totalBytes": sheet_total,
@@ -130,7 +138,7 @@ def build(sample: Path, out: Path) -> None:
     write_gz(
         "offline-audio.json.gz",
         {
-            "version": 1,
+            "version": len(audio_entries),
             "kind": "audio",
             "builtAt": built_at,
             "totalBytes": audio_total,

@@ -147,13 +147,21 @@ export function resolveSheetAssets(detail: {
   const imagePaths = originals.filter((p) => isImageSheetPath(p))
   const pages = (detail.sheet_pages ?? []).filter(Boolean)
   const primary = detail.sheet ?? null
-  const canChooseFormat = pdfPaths.length > 0 && imagePaths.length > 0
   const redundant = (path: string) =>
     isRedundantWithSheetPages(path, {
       primary,
       pages,
       sheetPreview: detail.sheet_preview ?? null,
     })
+  /** Uploads that aren't just mirrors of `sheet_pages` / preview. */
+  const distinctImageUploads = imagePaths.filter((p) => !redundant(p))
+  /**
+   * Images|PDF toggle only when a real alternate image upload exists alongside a PDF.
+   * Raster `sheet_pages` (and “Sheet Preview.webp” mirrors) are not a second format.
+   */
+  const canChooseFormat =
+    pdfPaths.length > 0 &&
+    (pages.length > 0 ? distinctImageUploads.length > 0 : imagePaths.length > 0)
 
   const imageSets: SheetImageSet[] = []
   if (pages.length) {
@@ -162,8 +170,7 @@ export function resolveSheetAssets(detail: {
       label: pages.length > 1 ? `Pages (${pages.length})` : 'Pages',
       paths: pages,
     })
-    for (const [i, path] of imagePaths.entries()) {
-      if (redundant(path)) continue
+    for (const [i, path] of distinctImageUploads.entries()) {
       imageSets.push({
         id: `image-${i}-${path}`,
         label: sheetFileLabel(path),

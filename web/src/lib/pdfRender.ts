@@ -18,11 +18,54 @@ async function loadPdfJs() {
   return pdfjs
 }
 
+/** PDF user units are 1/72″. Viewport scale 1 ⇒ 72 DPI. */
+export const PDF_USER_SPACE_DPI = 72
+
+/**
+ * Default client-side PDF render resolution — much sharper than the cached
+ * 2-bit WebP sheet previews used for browse/offline.
+ */
+export const DEFAULT_PDF_RENDER_DPI = 300
+
+/** Soft cap on the longest canvas edge to limit peak memory on large pages. */
+export const MAX_PDF_CANVAS_EDGE = 8192
+
 export type RenderPdfOptions = {
-  /** Target CSS pixel width before devicePixelRatio. */
+  /**
+   * Render resolution in DPI (default {@link DEFAULT_PDF_RENDER_DPI}).
+   * Independent of devicePixelRatio — 300 DPI already exceeds typical screen density.
+   */
+  dpi?: number
+  /**
+   * @deprecated Prefer {@link RenderPdfOptions.dpi}. When set without `dpi`,
+   * scales so the page width is about this many CSS pixels (× dpr, capped).
+   */
   targetWidth?: number
   crop?: boolean
   signal?: AbortSignal
+}
+
+/**
+ * pdf.js viewport scale for a page sized `baseW`×`baseH` at scale 1 (PDF points).
+ */
+export function pdfRenderScale(
+  baseW: number,
+  baseH: number,
+  opts: { dpi?: number; targetWidth?: number } = {},
+): number {
+  const dpi = opts.dpi ?? (opts.targetWidth != null ? null : DEFAULT_PDF_RENDER_DPI)
+  let scale: number
+  if (dpi != null) {
+    scale = dpi / PDF_USER_SPACE_DPI
+  } else {
+    const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1
+    scale = ((opts.targetWidth ?? 960) / baseW) * dpr
+  }
+  const longest = Math.max(baseW * scale, baseH * scale)
+  if (longest > MAX_PDF_CANVAS_EDGE) {
+    scale *= MAX_PDF_CANVAS_EDGE / longest
+  }
+  return scale
 }
 
 function canvasToUrl(canvas: HTMLCanvasElement): Promise<string> {
@@ -46,7 +89,7 @@ export async function renderPdfToPageUrls(
   url: string,
   opts: RenderPdfOptions = {},
 ): Promise<string[]> {
-  const { targetWidth = 960, crop = true, signal } = opts
+  const { dpi, targetWidth, crop = true, signal } = opts
   const pdfjs = await loadPdfJs()
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
@@ -72,8 +115,7 @@ export async function renderPdfToPageUrls(
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
       const page = await pdf.getPage(n)
       const base = page.getViewport({ scale: 1 })
-      const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1
-      const scale = (targetWidth / base.width) * dpr
+      const scale = pdfRenderScale(base.width, base.height, { dpi, targetWidth })
       const viewport = page.getViewport({ scale })
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(viewport.width)

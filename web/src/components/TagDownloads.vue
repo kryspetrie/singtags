@@ -12,7 +12,7 @@ import { originalAudioPath, playableAudioParts } from '../lib/audioTiers'
 import { partTrackLabel, sortPartIds } from '../lib/parts'
 import { mediaUrl } from '../lib/mediaUrl'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
-import { downloadBlob, fetchBytes, sampleUrl, buildZip } from '../download/zip'
+import { downloadBlob, fetchBytes, sampleUrl, buildZip, type QueueTrack } from '../download/zip'
 import { downloadFilename, prepareDownloadBytes } from '../download/transform'
 import { useStarsStore } from '../stores/stars'
 
@@ -27,7 +27,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'add-to-queue': [parts: PartId[], format: UserDownloadFormat]
+  'add-to-queue': [items: QueueTrack[]]
   'cache-upgraded': []
 }>()
 
@@ -65,23 +65,12 @@ const assets = computed(() => {
 
 const selected = ref<Set<string>>(new Set())
 
-function defaultSelection(list: Asset[]): Set<string> {
-  const next = new Set<string>()
-  const image = list.find((a) => a.kind === 'page' || (a.kind === 'sheet' && a.label === 'Image'))
-  if (image) next.add(image.id)
-  const pdf = list.find((a) => a.kind === 'sheet' && a.label === 'PDF')
-  if (pdf) next.add(pdf.id)
-  if (next.size) return next
-  for (const a of list) {
-    if (a.kind === 'page') next.add(a.id)
-  }
-  return next
-}
-
 watch(
   assets,
   (list) => {
-    selected.value = defaultSelection(list)
+    const ids = new Set(list.map((a) => a.id))
+    // Drop selections for assets that disappeared; do not auto-select anything new.
+    selected.value = new Set([...selected.value].filter((id) => ids.has(id)))
   },
   { immediate: true },
 )
@@ -91,9 +80,9 @@ const audioSelected = computed(() =>
   assets.value.some((a) => a.kind === 'audio' && selected.value.has(a.id)),
 )
 const queueSelectionCount = computed(
-  () =>
-    assets.value.filter((a) => a.kind === 'audio' && a.part && selected.value.has(a.id)).length,
+  () => assets.value.filter((a) => selected.value.has(a.id)).length,
 )
+const queueAllCount = computed(() => assets.value.length)
 const directDownloadDisabled = computed(
   () => !!props.offline || !!props.downloadBlockedReason,
 )
@@ -104,18 +93,6 @@ function toggle(id: string): void {
   if (next.has(id)) next.delete(id)
   else next.add(id)
   selected.value = next
-}
-
-function selectAll(): void {
-  selected.value = new Set(assets.value.map((a) => a.id))
-}
-
-function selectNone(): void {
-  selected.value = new Set()
-}
-
-function selectTracksOnly(): void {
-  selected.value = new Set(assets.value.filter((a) => a.kind === 'audio').map((a) => a.id))
 }
 
 function mimeForAsset(a: Asset, name: string): string {
@@ -172,14 +149,43 @@ async function preparePickedFiles(): Promise<Array<{ name: string; data: Uint8Ar
   return files
 }
 
-function selectedAudioParts(): PartId[] {
-  return assets.value
-    .filter((a) => a.kind === 'audio' && a.part && selected.value.has(a.id))
-    .map((a) => a.part!)
+function queueItemsFor(ids: ReadonlySet<string> | 'all'): QueueTrack[] {
+  const d = props.detail
+  const title = d.title || `Tag ${d.tag_id}`
+  const items: QueueTrack[] = []
+  for (const a of assets.value) {
+    if (ids !== 'all' && !ids.has(a.id)) continue
+    if (a.kind === 'audio' && a.part) {
+      items.push({
+        kind: 'audio',
+        tagId: d.tag_id,
+        title,
+        part: a.part,
+        path: a.path,
+        transform: { ...IDENTITY_TRANSFORM },
+        format: audioFormat.value,
+        label: a.label,
+      })
+    } else {
+      items.push({
+        kind: 'sheet',
+        tagId: d.tag_id,
+        title,
+        part: a.id,
+        path: a.path,
+        label: a.label,
+      })
+    }
+  }
+  return items
 }
 
 function addSelectedToQueue(): void {
-  emit('add-to-queue', selectedAudioParts(), audioFormat.value)
+  emit('add-to-queue', queueItemsFor(selected.value))
+}
+
+function addAllToQueue(): void {
+  emit('add-to-queue', queueItemsFor('all'))
 }
 
 function zipBaseName(): string {
@@ -226,14 +232,9 @@ async function downloadSelectedZip(): Promise<void> {
       <span class="section-title">Download</span>
     </summary>
     <div class="body">
-      <div v-if="assets.length" class="picker-head">
-        <p class="picker-hint">Tap to select sheet music and learning tracks.</p>
-        <div class="picker-quick" role="group" aria-label="Selection shortcuts">
-          <button type="button" class="ghost" @click="selectAll">All</button>
-          <button type="button" class="ghost" @click="selectNone">None</button>
-          <button type="button" class="ghost" @click="selectTracksOnly">Tracks Only</button>
-        </div>
-      </div>
+      <p v-if="assets.length" class="picker-hint">
+        Tap files to select them for download or the queue.
+      </p>
       <p v-else class="muted">No downloadable files on this tag.</p>
 
       <div v-if="assets.length" class="toggles" role="group" aria-label="Download files">
@@ -267,7 +268,7 @@ async function downloadSelectedZip(): Promise<void> {
       <p v-if="downloadBlockedReason" class="muted tip">{{ downloadBlockedReason }}</p>
 
       <p v-if="offline" class="muted offline-hint" role="status">
-        Offline — add tracks to your downloads queue; zip export runs when you’re back online.
+        Offline — use Queue selected / Queue all; zip export runs when you’re back online.
       </p>
 
       <div class="actions">
@@ -277,7 +278,7 @@ async function downloadSelectedZip(): Promise<void> {
           :disabled="!!busyMode || !selectedCount || directDownloadDisabled"
           :title="
             downloadBlockedReason ||
-              (offline ? 'Connect to download files — use Add to queue while offline' : undefined)
+              (offline ? 'Connect to download files — use Queue while offline' : undefined)
           "
           @click="downloadSelected"
         >
@@ -296,7 +297,7 @@ async function downloadSelectedZip(): Promise<void> {
           :disabled="!!busyMode || directDownloadDisabled"
           :title="
             downloadBlockedReason ||
-              (offline ? 'Connect to download files — use Add to queue while offline' : undefined)
+              (offline ? 'Connect to download files — use Queue while offline' : undefined)
           "
           @click="downloadSelectedZip"
         >
@@ -306,16 +307,36 @@ async function downloadSelectedZip(): Promise<void> {
               : `Download selected as zip (${selectedCount})`
           }}
         </button>
-        <button
-          type="button"
-          class="go secondary"
-          :disabled="!!busyMode || !!queueBlockedReason || !queueSelectionCount"
-          :title="queueBlockedReason || undefined"
-          @click="addSelectedToQueue"
-        >
-          Add to downloads
-        </button>
       </div>
+
+      <div v-if="assets.length" class="queue-actions">
+        <p class="queue-lbl">Download queue</p>
+        <div class="actions queue-btns">
+          <button
+            type="button"
+            class="go secondary"
+            :disabled="!!busyMode || !!queueBlockedReason || !queueSelectionCount"
+            :title="
+              queueBlockedReason || 'Add the checked files to the downloads queue (works offline)'
+            "
+            @click="addSelectedToQueue"
+          >
+            Queue selected ({{ queueSelectionCount }})
+          </button>
+          <button
+            type="button"
+            class="go secondary"
+            :disabled="!!busyMode || !!queueBlockedReason || !queueAllCount"
+            :title="
+              queueBlockedReason || 'Add every file on this tag to the downloads queue (works offline)'
+            "
+            @click="addAllToQueue"
+          >
+            Queue all ({{ queueAllCount }})
+          </button>
+        </div>
+      </div>
+
       <p v-if="queueBlockedReason" class="muted tip">{{ queueBlockedReason }}</p>
       <p v-if="queueMessage" class="ok" role="status">{{ queueMessage }}</p>
       <p v-if="msg" class="ok" role="status">{{ msg }}</p>
@@ -363,35 +384,11 @@ details[open] > .section-summary.head::before {
 .section-title {
   min-width: 0;
 }
-.picker-head {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--border) 28%, var(--bg));
-  min-width: 0;
-}
 .picker-hint {
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.4;
-}
-.picker-quick {
-  display: flex;
-  gap: 0.45rem;
-  flex-wrap: wrap;
-}
-.ghost {
-  min-height: 40px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 0.3rem 0.75rem;
-  font: inherit;
-  flex: 1 1 auto;
-  min-width: 0;
 }
 .body {
   display: grid;
@@ -482,6 +479,21 @@ details[open] > .section-summary.head::before {
   gap: 0.65rem;
   margin-top: 0.15rem;
 }
+.queue-actions {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+.queue-lbl {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.queue-btns {
+  margin-top: 0;
+}
 .ok {
   margin: 0;
   color: var(--accent);
@@ -502,9 +514,6 @@ details[open] > .section-summary.head::before {
   }
   .section-summary.head {
     font-size: 1.15rem;
-  }
-  .ghost {
-    flex: 0 0 auto;
   }
   .toggle {
     flex: 0 0 auto;

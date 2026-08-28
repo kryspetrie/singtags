@@ -33,17 +33,17 @@ function onFormatChange(fmt: UserDownloadFormat): void {
 <template>
   <section aria-label="Downloads">
     <p class="muted intro">
-      Build a zip of learning tracks across tags. Max {{ queue.max }} tracks.
+      Build a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
       {{ queue.count }} in list.
     </p>
     <p v-if="queue.error" class="error" role="alert">{{ queue.error }}</p>
 
     <div class="prefs">
       <label>
-        Download as
+        Audio as
         <select
           :value="queue.format"
-          aria-label="Download as"
+          aria-label="Download audio as"
           @change="onFormatChange(($event.target as HTMLSelectElement).value as UserDownloadFormat)"
         >
           <option v-for="f in DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
@@ -59,11 +59,13 @@ function onFormatChange(fmt: UserDownloadFormat): void {
       </label>
     </div>
     <p class="hint">
-      Original keeps the hosted AAC file (~128 kbps, .m4a). MP3 is transcoded on your device (LAME VBR quality&nbsp;2).
+      Sheets stay as PDF/image. For audio, Original keeps the hosted AAC file (~128 kbps, .m4a). MP3 is
+      transcoded on your device (LAME VBR quality&nbsp;2).
     </p>
 
     <p v-if="offline" class="hint warn-offline" role="status">
-      Zip exports need a network connection. Your queue is saved on this device.
+      Zip exports need a network connection. Your queue is saved on this device — you can add files
+      while offline.
     </p>
 
     <div class="actions">
@@ -72,7 +74,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
         :disabled="!queue.count || queue.busy || offline"
         :title="
           !queue.count
-            ? 'Add tracks from Browse or a tag page first'
+            ? 'Add files from Browse or a tag page first'
             : offline
               ? 'Zip export needs a network connection'
               : undefined
@@ -95,8 +97,14 @@ function onFormatChange(fmt: UserDownloadFormat): void {
     <ul v-if="queue.tracks.length" class="list">
       <li v-for="t in queue.tracks" :key="`${t.tagId}-${t.part}`">
         <div class="meta">
-          <span>#{{ t.tagId }} {{ t.title }} — {{ t.part }}</span>
-          <span class="muted tiny">{{ downloadFormatLabel(t.format ?? queue.format) }}</span>
+          <span>#{{ t.tagId }} {{ t.title }} — {{ t.label || t.part }}</span>
+          <span class="muted tiny">
+            {{
+              t.kind === 'sheet'
+                ? 'Sheet'
+                : downloadFormatLabel(t.format ?? queue.format)
+            }}
+          </span>
         </div>
         <button type="button" @click="queue.remove(t.tagId, t.part)">Remove</button>
       </li>
@@ -104,7 +112,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
     <EmptyState
       v-else
       title="Nothing to download yet"
-      message="Select tags on Browse or add tracks from a tag page."
+      message="Select tags on Browse or add sheets and tracks from a tag page."
     />
   </section>
 </template>

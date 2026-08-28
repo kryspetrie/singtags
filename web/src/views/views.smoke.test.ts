@@ -165,7 +165,7 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('StarredView starts practice and reorders', async () => {
+  it('StarredView sorts and reorders', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const stars = useStarsStore()
@@ -219,7 +219,6 @@ describe('view smoke tests', () => {
       { path: '/tag/:id', component: { template: '<div />' } },
     ])
     await router.push('/starred')
-    const push = vi.spyOn(router, 'push')
     const w = mount(StarredView, {
       global: {
         plugins: [pinia, router],
@@ -227,13 +226,27 @@ describe('view smoke tests', () => {
       },
     })
     await flushPromises()
-    // RouterLink stubbed — assert practice order controls instead of link text
     expect(practice.order).toEqual([2, 1])
     expect(w.find('.drag-handle').exists()).toBe(true)
-    practice.reorder(2, 0)
-    expect(practice.order[0]).toBe(2)
-    await w.findAll('button').find((b) => b.text() === 'Start practice')!.trigger('click')
-    expect(push).toHaveBeenCalled()
+    expect(w.text()).not.toMatch(/Start practice|Auto-advance|Reset order/)
+    const sortSelect = w.find('select[aria-label="Sort starred tags"]')
+    expect(sortSelect.exists()).toBe(true)
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('custom')
+    practice.reorder(1, 0)
+    expect(practice.order).toEqual([1, 2])
+    await sortSelect.setValue('starred-new')
+    // Preview only — persisted custom order unchanged until Apply
+    expect(practice.order).toEqual([1, 2])
+    const applyBtn = w.findAll('button').find((b) => b.text() === 'Apply sort')!
+    expect(applyBtn.attributes('disabled')).toBeUndefined()
+    await applyBtn.trigger('click')
+    expect(practice.order).toEqual([2, 1])
+    expect((sortSelect.element as HTMLSelectElement).value).toBe('custom')
+    expect(applyBtn.attributes('disabled')).toBeDefined()
+    await sortSelect.setValue('title')
+    expect(practice.order).toEqual([2, 1])
+    await applyBtn.trigger('click')
+    expect(practice.order).toEqual([1, 2])
     w.unmount()
   })
 
@@ -425,13 +438,12 @@ describe('view smoke tests', () => {
     document.body.innerHTML = ''
   })
 
-  it('StarredView export, reset, refresh, and unstar', async () => {
+  it('StarredView export, apply sort, and unstar', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const stars = useStarsStore()
     const practice = usePracticeStore()
     vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'updateOfflineMedia').mockResolvedValue()
     vi.spyOn(stars, 'unstar').mockResolvedValue()
     stars.$patch({
       records: [
@@ -505,12 +517,16 @@ describe('view smoke tests', () => {
     expect(backupBtn).toBeTruthy()
     backupBtn!.click()
     expect(click).toHaveBeenCalled()
-    await w.findAll('button').find((b) => b.text() === 'Reset order')!.trigger('click')
-    expect(practice.order).toEqual([1, 2])
-    await w.findAll('button.refresh').at(0)!.trigger('click')
-    expect(stars.updateOfflineMedia).toHaveBeenCalledWith(1, null)
-    await w.findAll('button.unstar').at(0)!.trigger('click')
-    expect(stars.unstar).toHaveBeenCalledWith(1)
+    await w.find('select[aria-label="Sort starred tags"]').setValue('starred-new')
+    await w.findAll('button').find((b) => b.text() === 'Apply sort')!.trigger('click')
+    expect(practice.order).toEqual([2, 1])
+    expect(
+      (w.find('select[aria-label="Sort starred tags"]').element as HTMLSelectElement).value,
+    ).toBe('custom')
+    const starBtn = w.find('button.row-star')
+    expect(starBtn.attributes('title')).toMatch(/Unstar/)
+    await starBtn.trigger('click')
+    expect(stars.unstar).toHaveBeenCalledWith(2)
     w.unmount()
   })
 

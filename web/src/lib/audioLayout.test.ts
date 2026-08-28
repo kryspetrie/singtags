@@ -22,9 +22,21 @@ describe('supportsCustomSoloMix', () => {
     expect(supportsCustomSoloMix({ parts: 'mixed', ultra_low: 'mono_downmix' })).toBe(true)
   })
 
-  it('disables mono layout without ultra stem policy', () => {
-    expect(supportsCustomSoloMix({ parts: 'mono' })).toBe(false)
-    expect(supportsCustomSoloMix({ parts: 'near_mono' })).toBe(false)
+  it('disables custom when parts are not recombinable', () => {
+    expect(
+      supportsCustomSoloMix({
+        parts: 'part_left',
+        ultra_low: 'stereo_fallback',
+        parts_recombinable: false,
+      }),
+    ).toBe(false)
+    expect(
+      supportsCustomSoloMix({
+        parts: 'part_left',
+        ultra_low: 'mono_solos',
+        parts_recombinable: false,
+      }),
+    ).toBe(false)
   })
 })
 

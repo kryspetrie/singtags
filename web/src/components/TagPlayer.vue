@@ -14,6 +14,7 @@ import {
 } from '../lib/audioLayout'
 import { partLabel, preferredDefaultPart, sortPartIds } from '../lib/parts'
 import { clampMarkA, clampMarkB, minLoopGapSec } from '../lib/waveformLayout'
+import { shouldResetPlayheadOnPartSwitch } from '../lib/partSwitchPlayhead'
 import type { AudioTransform } from '../types/audio'
 import { mediaUrl } from '../lib/mediaUrl'
 import { usePreferencesStore, type PartSide } from '../stores/preferences'
@@ -293,6 +294,7 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
     const preserve = opts?.preservePlayback === true
     const resumeAt = preserve ? player.currentTime : 0
     const wasPlaying = preserve && !player.paused
+    const prevDuration = player.duration
     const prevMarkA = markA.value
     const prevMarkB = markB.value
 
@@ -430,13 +432,15 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
       player.setLoop(false)
 
       const dur = player.duration
-      if (preserve && dur > 0) {
+      if (preserve && dur > 0 && !shouldResetPlayheadOnPartSwitch(prevDuration, dur)) {
         const t = Math.min(Math.max(0, resumeAt), Math.max(0, dur - 0.05))
         await player.seek(t)
         markA.value = Math.min(prevMarkA, dur)
         markB.value = Math.min(prevMarkB > 0 ? prevMarkB : dur, dur)
         if (markB.value <= markA.value) syncLoopMarks(dur)
       } else {
+        // Different-length learning tracks (or a fresh load): start at 0 with full A–B.
+        await player.seek(0)
         syncLoopMarks(dur)
       }
 
@@ -652,6 +656,8 @@ watch(pitch, (v) => {
     return
   }
   void player.setPitchSemitones(c).then(() => {
+    // Aborted/superseded bakes resolve too — ignore if the user already moved on.
+    if (pitch.value !== c) return
     // Bake failure reverts requested → audible; keep UI truthful.
     if (player.getPitchSemitones() !== c) pitch.value = player.getPitchSemitones()
     if (player.getSpeed() !== speed.value) speed.value = player.getSpeed()
@@ -662,6 +668,7 @@ watch(pitch, (v) => {
 })
 watch(speed, (v) => {
   void player.setSpeed(v).then(() => {
+    if (speed.value !== v) return
     if (player.getSpeed() !== v) speed.value = player.getSpeed()
     if (player.getPitchSemitones() !== pitch.value) pitch.value = player.getPitchSemitones()
     tick.value++
@@ -1038,9 +1045,6 @@ async function stopPlayback(): Promise<void> {
             </p>
           </div>
         </details>
-        <div v-if="$slots['advanced-actions']" class="advanced-actions">
-          <slot name="advanced-actions" />
-        </div>
       </div>
     </div>
   </div>
@@ -1204,9 +1208,10 @@ async function stopPlayback(): Promise<void> {
 }
 .mini-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
+  width: 100%;
   min-width: 0;
 }
 .mini-lbl {
@@ -1223,6 +1228,8 @@ async function stopPlayback(): Promise<void> {
 .mini-seg {
   flex: 1 1 8rem;
   min-width: 0;
+  width: 100%;
+  display: flex;
 }
 .muted {
   opacity: 0.45;
@@ -1236,18 +1243,25 @@ async function stopPlayback(): Promise<void> {
 .adjust {
   display: grid;
   gap: 0.65rem;
+  width: 100%;
   min-width: 0;
 }
 .seg {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   width: 100%;
+  max-width: 100%;
 }
 .adjust-row {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
   align-items: end;
+  width: 100%;
+  min-width: 0;
+}
+.adjust-field {
+  width: 100%;
   min-width: 0;
 }
 .balance-field input[type='range'] {
@@ -1275,19 +1289,20 @@ async function stopPlayback(): Promise<void> {
 }
 .pitch-field .pitch-btns {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.35rem;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
   min-width: 0;
 }
 .pitch-btns button {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   border: 1px solid var(--border);
   background: var(--bg);
   border-radius: 10px;
   padding: 0.4rem 0.55rem;
   min-height: 44px;
-  min-width: 2.75rem;
+  min-width: 0;
   font: inherit;
   font-weight: 600;
 }
@@ -1306,20 +1321,13 @@ async function stopPlayback(): Promise<void> {
   color: var(--muted);
 }
 .advanced-bar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem 0.75rem;
+  width: 100%;
   min-width: 0;
 }
 .advanced-playback {
-  flex: 1 1 auto;
+  width: 100%;
   margin: 0;
   min-width: 0;
-}
-.advanced-actions {
-  flex: 0 0 auto;
-  padding-top: 0.3rem;
 }
 .advanced-playback > summary {
   cursor: pointer;
@@ -1396,7 +1404,7 @@ async function stopPlayback(): Promise<void> {
     font-size: 0.92rem;
   }
   .adjust-row {
-    grid-template-columns: minmax(11rem, 1.15fr) minmax(0, 1.35fr) auto auto;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(6.5rem, 0.9fr) minmax(0, 1fr);
     gap: 0.65rem 1rem;
     align-items: end;
   }
@@ -1405,11 +1413,11 @@ async function stopPlayback(): Promise<void> {
     grid-column: auto;
   }
   .speed-field select {
-    width: auto;
-    min-width: 6.5rem;
+    width: 100%;
+    min-width: 0;
   }
   .pitch-btns button {
-    flex: 0 0 auto;
+    flex: 1 1 0;
   }
   .combine-ctrls {
     grid-template-columns: 1fr 1fr;

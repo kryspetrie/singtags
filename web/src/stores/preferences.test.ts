@@ -51,4 +51,36 @@ describe('preferences store', () => {
     const prefs = usePreferencesStore()
     expect(prefs.libraryAudioPartsMode).toBe('all')
   })
+
+  it('persists pitch pipe layout, range, A, and fine cents', () => {
+    const prefs = usePreferencesStore()
+    prefs.setPitchPipeLayout('piano')
+    prefs.setPitchPipeRange('e3-e4')
+    prefs.setPitchPipeAHz(432)
+    prefs.setPitchPipeFineCents(-7)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
+      range: 'e3-e4',
+      layout: 'piano',
+      aHz: 432,
+      fineCents: -7,
+    })
+    setActivePinia(createPinia())
+    const again = usePreferencesStore()
+    expect(again.pitchPipeLayout).toBe('piano')
+    expect(again.pitchPipeRange).toBe('e3-e4')
+    expect(again.pitchPipeAHz).toBe(432)
+    expect(again.pitchPipeFineCents).toBe(-7)
+  })
+
+  it('migrates legacy pitch pipe range/layout keys', () => {
+    localStorage.setItem('singtags.pitchPipeRange.v1', 'e3-e4')
+    localStorage.setItem('singtags.pitchPipeLayout.v1', 'list')
+    setActivePinia(createPinia())
+    const prefs = usePreferencesStore()
+    expect(prefs.pitchPipeRange).toBe('e3-e4')
+    expect(prefs.pitchPipeLayout).toBe('list')
+    prefs.setPitchPipeFineCents(1)
+    expect(localStorage.getItem('singtags.pitchPipeRange.v1')).toBeNull()
+    expect(localStorage.getItem('singtags.pitchPipeLayout.v1')).toBeNull()
+  })
 })

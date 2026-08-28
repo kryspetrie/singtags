@@ -25,6 +25,11 @@ export interface AudioLayoutSummary {
   mix?: string
   ultra_low?: string
   solo_side?: PartSide | null
+  mix_correlation?: number
+  mix_disjoint?: boolean
+  mix_cache?: 'hosted' | 'reconstruct'
+  parts_recombinable?: boolean
+  recombine_reason?: string
   analyzed_at?: string
 }
 
@@ -32,6 +37,8 @@ export interface AudioLayoutSummary {
 export function supportsCustomSoloMix(
   summary: AudioLayoutSummary | null | undefined,
 ): boolean {
+  if (summary?.parts_recombinable === false) return false
+  if (summary?.ultra_low === 'stereo_fallback') return false
   if (!summary?.parts && !summary?.ultra_low) return true
   if (summary.ultra_low === 'mono_solos' || summary.ultra_low === 'mono_downmix') return true
   const parts = summary.parts

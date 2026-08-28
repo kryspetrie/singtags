@@ -54,19 +54,24 @@ describe('SheetViewer fullscreen + pay key', () => {
     await w.get('button.fs-fab').trigger('click')
     expect(w.emitted('fullscreen-change')?.[0]).toEqual([true])
     expect(document.body.style.overflow).toBe('hidden')
+    expect(document.documentElement.style.overflow).toBe('hidden')
     const fab = w.get('button.pitch-fab')
     await fab.trigger('pointerdown')
     expect(w.emitted('pay-down')).toBeTruthy()
     await fab.trigger('pointerup')
     expect(w.emitted('pay-up')).toBeTruthy()
+    expect(w.find('.pitch-expand').exists()).toBe(false)
+    expect(w.find('.pitch-expanded-wrap').exists()).toBe(false)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
     expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
     w.unmount()
     expect(document.body.style.overflow).toBe('')
+    expect(document.documentElement.style.overflow).toBe('')
   })
 
-  it('defaults to images; no format toggle for PDF + its own raster pages', async () => {
+  it('defaults to PDF (no format toggle) when PDF + its own raster pages exist', async () => {
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
     const w = mount(SheetViewer, {
       props: {
         pages: ['sheets/1/p1.webp'],
@@ -77,8 +82,10 @@ describe('SheetViewer fullscreen + pay key', () => {
     })
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
-    expect(w.findAll('img').length).toBeGreaterThan(0)
     expect(w.find('iframe').exists()).toBe(false)
+    expect(w.findAll('img').length).toBe(2)
+    expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
     w.unmount()
   })
 
@@ -100,18 +107,19 @@ describe('SheetViewer fullscreen + pay key', () => {
 
     const group = w.get('[aria-label="Sheet music format"]')
     const [imagesBtn, pdfBtn] = group.findAll('button')
-    expect(imagesBtn!.attributes('aria-pressed')).toBe('true')
-    expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
-    expect(w.findAll('img').length).toBeGreaterThan(0)
-
-    await pdfBtn!.trigger('click')
-    await flushPromises()
-    expect(imagesBtn!.attributes('aria-pressed')).toBe('false')
+    // Online default: PDF at 300 DPI rather than cached WebP pages.
     expect(pdfBtn!.attributes('aria-pressed')).toBe('true')
-    expect(w.find('iframe').exists()).toBe(false)
+    expect(imagesBtn!.attributes('aria-pressed')).toBe('false')
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
     expect(renderPdfToPageUrls).toHaveBeenCalled()
+
+    await imagesBtn!.trigger('click')
+    await flushPromises()
+    expect(imagesBtn!.attributes('aria-pressed')).toBe('true')
+    expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
+    expect(w.find('iframe').exists()).toBe(false)
+    expect(w.findAll('img').length).toBeGreaterThan(0)
     w.unmount()
   })
 
@@ -146,20 +154,21 @@ describe('SheetViewer fullscreen + pay key', () => {
       },
     })
     await flushPromises()
+    // Defaults to PDF when available.
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
     expect(w.findAll('img')).toHaveLength(2)
+    const pdfSelect = w.get('select[aria-label="Choose PDF sheet"]')
+    await pdfSelect.setValue('pdf-b')
+    await flushPromises()
+    expect(vi.mocked(renderPdfToPageUrls).mock.calls.at(-1)?.[0]).toContain('learn.pdf')
+
+    await w.get('[aria-label="Sheet music format"]').findAll('button')[0]!.trigger('click')
+    await flushPromises()
     const imageSelect = w.get('select[aria-label="Choose image sheet"]')
     await imageSelect.setValue('img-a')
     await flushPromises()
     expect(w.findAll('img')).toHaveLength(1)
     expect(w.find('img').attributes('src')).toContain('scan.jpg')
-
-    await w.get('[aria-label="Sheet music format"]').findAll('button')[1]!.trigger('click')
-    await flushPromises()
-    expect(renderPdfToPageUrls).toHaveBeenCalled()
-    const pdfSelect = w.get('select[aria-label="Choose PDF sheet"]')
-    await pdfSelect.setValue('pdf-b')
-    await flushPromises()
-    expect(vi.mocked(renderPdfToPageUrls).mock.calls.at(-1)?.[0]).toContain('learn.pdf')
     w.unmount()
   })
 })

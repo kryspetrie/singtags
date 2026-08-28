@@ -136,6 +136,15 @@ function rowStarLabel(tag: TagSummary): string {
           />
           <span v-else>{{ stars.isStarred(tag.id) ? '★' : '☆' }}</span>
         </button>
+        <button
+          type="button"
+          class="row-remove"
+          :aria-label="`Remove ${tag?.title || `tag #${rec.id}`} from recent`"
+          title="Remove from recent"
+          @click.stop="recent.remove(rec.id)"
+        >
+          ×
+        </button>
       </li>
     </ul>
   </section>
@@ -186,8 +195,8 @@ function rowStarLabel(tag: TagSummary): string {
 }
 .list-row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.35rem;
   align-items: center;
   padding: 0.45rem 0.35rem;
   border-radius: var(--radius);
@@ -196,6 +205,12 @@ function rowStarLabel(tag: TagSummary): string {
 }
 .list-row:focus-within {
   border-color: var(--border);
+}
+.list-row:has(.row-star) {
+  grid-template-columns: 1fr auto auto;
+}
+.list-row:not(:has(.row-star)) {
+  grid-template-columns: 1fr auto;
 }
 .row-link {
   display: flex;
@@ -229,6 +244,25 @@ function rowStarLabel(tag: TagSummary): string {
   background: transparent;
   color: var(--accent);
   font-size: 1.25rem;
+}
+.row-remove {
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.row-remove:hover {
+  color: var(--danger, #b42318);
 }
 .row-star[aria-busy='true'] {
   color: var(--muted);

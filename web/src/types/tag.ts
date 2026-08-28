@@ -29,6 +29,13 @@ export interface AudioLayoutSummary {
   mix_disjoint?: boolean
   /** `hosted` = ship mix in offline pack; `reconstruct` = build from solos. */
   mix_cache?: 'hosted' | 'reconstruct'
+  /**
+   * False when voice parts must not be mono-solo extracted / client-reconstructed
+   * (piano stems, untrusted alignment, etc.). Prefer hosted ultra_stereo.
+   */
+  parts_recombinable?: boolean
+  /** Why parts_recombinable is false (mirror diagnostic). */
+  recombine_reason?: string
   analyzed_at?: string
 }
 
@@ -59,6 +66,8 @@ export interface AudioTiersSummary {
   mix_only?: boolean
   mix_disjoint?: boolean
   mix_cache?: 'hosted' | 'reconstruct'
+  parts_recombinable?: boolean
+  recombine_reason?: string
   playback_kbps?: number
   align_status?: string
   align_applied_ms?: Record<string, number>

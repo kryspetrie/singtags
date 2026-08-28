@@ -7,6 +7,8 @@ import { useStarsStore } from '../stores/stars'
 import { useRecentStore } from '../stores/recent'
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import { catalogOriginalPaths } from '../lib/audioTiers'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
+import { partTrackLabel } from '../lib/parts'
 import EmptyState from '../components/EmptyState.vue'
 import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
@@ -176,34 +178,44 @@ async function addSelectedToQueue(): Promise<void> {
       skipped++
       continue
     }
+    const title = d.title || `Tag ${d.tag_id}`
+    const sheetItems = downloadableSheetAssets(d).map((s) => ({
+      kind: 'sheet' as const,
+      tagId: d.tag_id,
+      title,
+      part: s.id,
+      path: s.path,
+      label: s.label,
+    }))
     const originals = catalogOriginalPaths(d)
     const parts = Object.keys(originals) as PartId[]
     const prefer = parts.filter((p) => p !== 'mix')
     const use = prefer.length ? prefer : parts
-    if (!use.length) {
+    const audioItems = use.map((part) => ({
+      kind: 'audio' as const,
+      tagId: d.tag_id,
+      title,
+      part,
+      path: originals[part]!,
+      label: partTrackLabel(part),
+    }))
+    if (!sheetItems.length && !audioItems.length) {
       skipped++
       continue
     }
-    queue.addMany(
-      use.map((part) => ({
-        tagId: d.tag_id,
-        title: d.title || `Tag ${d.tag_id}`,
-        part,
-        path: originals[part]!,
-      })),
-    )
+    queue.addMany([...sheetItems, ...audioItems])
     ok++
   }
   bulkMsg.value =
     skipped > 0
       ? offline.value
-        ? `Queued tracks from ${ok} tag(s); ${skipped} skipped (not cached on device).`
-        : `Queued tracks from ${ok} tag(s); skipped ${skipped}.`
+        ? `Queued files from ${ok} tag(s); ${skipped} skipped (not cached on device).`
+        : `Queued files from ${ok} tag(s); skipped ${skipped}.`
       : ok
-        ? `Queued tracks from ${ok} tag(s).`
+        ? `Queued sheets and tracks from ${ok} tag(s).`
         : offline.value
           ? 'No cached tag details — open tags online once, or reconnect.'
-          : 'No tracks queued.'
+          : 'No files queued.'
 }
 
 async function starSelected(): Promise<void> {
@@ -706,7 +718,7 @@ watch(
         <button
           type="button"
           class="btn"
-          title="Add selected tags' tracks to the download queue"
+          title="Add selected tags' sheets and tracks to the download queue"
           @click="addSelectedToQueue"
         >
           Add to zip

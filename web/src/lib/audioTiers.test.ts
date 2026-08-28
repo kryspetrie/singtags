@@ -15,6 +15,7 @@ import {
   usesMonoSolos,
   canOfferReconstructedMix,
   mixIsDisjoint,
+  partsAreRecombinable,
 } from './audioTiers'
 
 function detail(partial: Partial<TagDetail> & Pick<TagDetail, 'tag_id' | 'audio'>): TagDetail {
@@ -103,6 +104,8 @@ describe('audioTiers', () => {
 
   it('selects hosted ultra_mix when mix is disjoint from voice parts', () => {
     const disjoint = detail({
+      tag_id: 99,
+      audio: { lead: 'media/99/lead.m4a', mix: 'media/99/mix.m4a' },
       audio_layout_summary: {
         parts: 'part_left',
         ultra_low: 'mono_solos',
@@ -118,6 +121,38 @@ describe('audioTiers', () => {
     expect(ultraAudioPath(disjoint, 'mix')).toBe('media/99/mix.ultra_mix.opus')
     expect(canOfferReconstructedMix(disjoint)).toBe(false)
     expect(storageAudioPath(disjoint, 'mix', 'lofi')).toBe('media/99/mix.ultra_mix.opus')
+  })
+
+  it('uses hosted stereo when parts are not recombinable', () => {
+    const demoted = detail({
+      tag_id: 3068,
+      audio: {
+        lead: 'media/3068/lead.m4a',
+        bari: 'media/3068/bari.m4a',
+        mix: 'media/3068/mix.m4a',
+      },
+      audio_layout_summary: {
+        parts: 'part_left',
+        ultra_low: 'stereo_fallback',
+        parts_recombinable: false,
+        recombine_reason: 'align_untrusted',
+        mix_cache: 'hosted',
+      },
+      audio_tiers: {
+        lead: {
+          ultra_stereo: 'media/3068/lead.ultra.opus',
+          playback: 'media/3068/lead.playback.opus',
+        },
+        bari: { ultra_stereo: 'media/3068/bari.ultra.opus' },
+        mix: { ultra_mix: 'media/3068/mix.ultra_mix.opus' },
+      },
+      audio_tiers_summary: { ultra_policy: 'stereo_fallback', parts_recombinable: false },
+    })
+    expect(partsAreRecombinable(demoted)).toBe(false)
+    expect(usesMonoSolos(demoted)).toBe(false)
+    expect(ultraAudioPath(demoted, 'lead')).toBe('media/3068/lead.ultra.opus')
+    expect(ultraAudioPath(demoted, 'mix')).toBe('media/3068/mix.ultra_mix.opus')
+    expect(canOfferReconstructedMix(demoted)).toBe(false)
   })
 
   it('selects ultra_mix for mix-only tags', () => {

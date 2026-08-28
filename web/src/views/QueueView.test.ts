@@ -51,7 +51,7 @@ describe('QueueView', () => {
     const w = mount(QueueView, { global: { plugins: [pinia] } })
     const btn = w.findAll('button').find((b) => b.text() === 'Download zip')
     expect(btn?.attributes('disabled')).toBeDefined()
-    expect(btn?.attributes('title')).toMatch(/Add tracks/i)
+    expect(btn?.attributes('title')).toMatch(/Add files/i)
   })
 
   it('disables Download zip when offline even with tracks', async () => {
@@ -73,13 +73,22 @@ describe('QueueView', () => {
     const q = useQueueStore()
     q.add({ tagId: 1, title: 'T', part: 'lead', path: 'a' })
     q.add({ tagId: 1, title: 'T', part: 'bass', path: 'b' })
+    q.add({
+      kind: 'sheet',
+      tagId: 1,
+      title: 'T',
+      part: 'pdf-1',
+      path: 'sheets/1.pdf',
+      label: 'PDF',
+    })
     const w = mount(QueueView, { global: { plugins: [pinia] } })
-    await w.get('[aria-label="Download as"]').setValue('mp3')
+    await w.get('[aria-label="Download audio as"]').setValue('mp3')
     expect(q.format).toBe('mp3')
-    expect(q.tracks.every((t) => t.format === 'mp3')).toBe(true)
+    expect(q.tracks.filter((t) => t.kind !== 'sheet').every((t) => t.format === 'mp3')).toBe(true)
+    expect(q.tracks.find((t) => t.kind === 'sheet')?.format).toBeUndefined()
 
     await w.findAll('button').find((b) => b.text() === 'Remove')!.trigger('click')
-    expect(q.count).toBe(1)
+    expect(q.count).toBe(2)
 
     await w.findAll('button').find((b) => b.text() === 'Download zip')!.trigger('click')
     await flushPromises()

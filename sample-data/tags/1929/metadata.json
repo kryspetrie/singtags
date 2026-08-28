@@ -64,7 +64,11 @@
     "mix": "part_left",
     "ultra_low": "mono_solos",
     "solo_side": "left",
-    "analyzed_at": "2026-08-25T19:46:37.765428+00:00"
+    "mix_correlation": 0.9918,
+    "mix_disjoint": false,
+    "mix_cache": "reconstruct",
+    "parts_recombinable": true,
+    "analyzed_at": "2026-08-28T14:57:15.550510+00:00"
   },
   "audio_layouts": {
     "lead": {
@@ -119,7 +123,7 @@
       "tenor"
     ],
     "applied_ms": {},
-    "analyzed_at": "2026-08-26T14:32:24.734026+00:00"
+    "analyzed_at": "2026-08-28T14:57:19.190546+00:00"
   },
   "audio_align": {
     "lead": {
@@ -131,7 +135,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:22.809363+00:00"
+      "analyzed_at": "2026-08-28T14:57:16.677157+00:00"
     },
     "tenor": {
       "ref_part": "lead",
@@ -142,7 +146,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:23.464917+00:00"
+      "analyzed_at": "2026-08-28T14:57:17.553258+00:00"
     },
     "bari": {
       "ref_part": "lead",
@@ -153,7 +157,7 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:24.115319+00:00"
+      "analyzed_at": "2026-08-28T14:57:18.411751+00:00"
     },
     "bass": {
       "ref_part": "lead",
@@ -164,13 +168,20 @@
       "applied_ms": 0.0,
       "method": "accomp_xcorr",
       "min_offset_ms": 50,
-      "analyzed_at": "2026-08-26T14:32:24.734001+00:00"
+      "analyzed_at": "2026-08-28T14:57:19.190513+00:00"
     }
   },
   "audio_tiers_summary": {
     "ultra_policy": "mono_solos",
     "mix_only": false,
+    "mix_disjoint": false,
+    "mix_cache": "reconstruct",
+    "parts_recombinable": true,
+    "recombine_reason": null,
     "playback_kbps": 64,
-    "encoded_at": "2026-08-25T21:05:49.380532+00:00"
+    "align_status": "ok",
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-08-28T15:32:28.210657+00:00"
   }
 }

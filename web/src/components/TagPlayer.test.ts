@@ -443,6 +443,8 @@ describe('TagPlayer', () => {
 
     mockState.currentTime = 12
     mockState.paused = false
+    // Same length as the prior part — playhead should be preserved.
+    mockState.duration = 60
     const tenorTab = w.findAll('.part-btn').find((b) => b.text() === 'Tenor')
     expect(tenorTab).toBeTruthy()
     await tenorTab!.trigger('click')
@@ -454,6 +456,42 @@ describe('TagPlayer', () => {
     expect(mockState.seek).toHaveBeenCalled()
     const seekTimes = mockState.seek.mock.calls.map((c) => c[0] as number)
     expect(seekTimes.some((t) => t >= 11.5 && t <= 12.5)).toBe(true)
+    w.unmount()
+  })
+
+  it('resets playhead when switching to a part whose duration differs by >0.5s', async () => {
+    mockState.effectivelyMono = false
+    mockState.channels = 2
+    mockState.currentTime = 0
+    mockState.paused = true
+    mockState.duration = 60
+
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'blob:lead', bari: 'blob:bari' },
+        availableParts: ['lead', 'bari'],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    mockState.currentTime = 20
+    mockState.paused = false
+    mockState.seek.mockClear()
+
+    // Simulate a shorter learning track loading after the tab click.
+    mockState.load.mockImplementationOnce(async () => {
+      mockState.duration = 8
+    })
+
+    const bariTab = w.findAll('.part-btn').find((b) => b.text() === 'Bari')
+    expect(bariTab).toBeTruthy()
+    await bariTab!.trigger('click')
+    await flushPromises()
+
+    const seekTimes = mockState.seek.mock.calls.map((c) => c[0] as number)
+    expect(seekTimes.some((t) => t >= 19.5 && t <= 20.5)).toBe(false)
+    expect(seekTimes.at(-1)).toBe(0)
     w.unmount()
   })
 
