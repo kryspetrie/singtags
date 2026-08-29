@@ -29,6 +29,7 @@ import {
   bookletBadgeForTag,
   hasJumpRail,
   hasScrubRail,
+  type BrowseRow,
   parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
@@ -438,12 +439,21 @@ function syncStickyBrowsePad(): void {
   stickyBrowsePad.value = stickyBrowsePadPx()
 }
 
+/** Extra rows while scrubbing so mid-drag jumps stay filled longer. */
+const BROWSE_OVERSCAN = 14
+const BROWSE_SCRUB_OVERSCAN = 48
+const SCRUB_GHOST_SECTION_H = 48
+const SCRUB_GHOST_TAG_H = 72
+
+/** True while year/tag# scrub is driving the list — drives overscan + ghost layer. */
+const scrubbing = ref(false)
+
 const rowVirtualizer = useWindowVirtualizer(
   computed(() => ({
     count: browseRows.value.length,
     estimateSize: (index: number) =>
       browseRows.value[index]?.type === 'section' ? 48 : 72,
-    overscan: 14,
+    overscan: scrubbing.value ? BROWSE_SCRUB_OVERSCAN : BROWSE_OVERSCAN,
     scrollMargin: listScrollMargin.value,
     scrollPaddingStart: stickyBrowsePad.value,
   })),
@@ -580,8 +590,6 @@ function onRowContextMenu(e: Event): void {
 /** Browse index nearest the reading focus — drives the scrub cursor while scrolling. */
 const scrubScrollIndex = ref(0)
 let scrubScrollRaf = 0
-/** True while the year scrub gesture is driving the list (ignore scroll→cursor feedback). */
-let scrubGestureActive = false
 
 function browseFocusY(): number {
   const rail = document.querySelector('.scrub-rail') as HTMLElement | null
@@ -621,14 +629,92 @@ function syncScrubFromScroll(): void {
 }
 
 function onBrowseScroll(): void {
-  if (scrubGestureActive) return
+  if (scrubbing.value) return
   if (scrubScrollRaf) return
   scrubScrollRaf = requestAnimationFrame(() => {
     scrubScrollRaf = 0
-    if (scrubGestureActive) return
+    if (scrubbing.value) return
     syncScrubFromScroll()
   })
 }
+
+type ScrubGhostItem = {
+  key: string
+  row: BrowseRow
+  focus: boolean
+}
+
+/**
+ * Full-format rows in normal document flow while scrubbing (same spacing/radius as
+ * the real list). Absolute 72px packing overlapped real row heights and hid gaps.
+ */
+const scrubGhostItems = computed((): ScrubGhostItem[] => {
+  if (!scrubbing.value || !showScrub.value) return []
+  const rows = browseRows.value
+  if (!rows.length) return []
+  let focus = browseRowIndexForTagIndex(scrubScrollIndex.value)
+  if (focus < 0) focus = Math.min(rows.length - 1, Math.max(0, scrubScrollIndex.value))
+  if (!rows[focus]) return []
+
+  const bottomNav =
+    typeof window !== 'undefined'
+      ? Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--bottom-nav-h'),
+        ) || 60
+      : 60
+  const viewH =
+    typeof window !== 'undefined'
+      ? Math.max(240, window.innerHeight - stickyBrowsePad.value - bottomNav)
+      : 480
+
+  // How many rows to cover the viewport (estimates only size the window, not gaps).
+  let before = 0
+  let used = 0
+  for (let i = focus - 1; i >= 0 && used < viewH; i--) {
+    used += rows[i]!.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+    before++
+  }
+  const start = focus - before
+  const out: ScrubGhostItem[] = []
+  let afterUsed = 0
+  for (let i = start; i < rows.length; i++) {
+    const row = rows[i]!
+    const key = row.type === 'section' ? `g-s-${row.key}-${i}` : `g-t-${row.tag.id}-${i}`
+    out.push({ key, row, focus: i === focus })
+    if (i > focus) {
+      afterUsed += row.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+      if (afterUsed > viewH) break
+    }
+  }
+  return out
+})
+
+/** Rough offset so the focused ghost row sits near mid-viewport. */
+const scrubGhostShiftY = computed(() => {
+  const items = scrubGhostItems.value
+  if (!items.length) return 0
+  const bottomNav =
+    typeof window !== 'undefined'
+      ? Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--bottom-nav-h'),
+        ) || 60
+      : 60
+  const viewH =
+    typeof window !== 'undefined'
+      ? Math.max(240, window.innerHeight - stickyBrowsePad.value - bottomNav)
+      : 480
+  let before = 0
+  let focusH = SCRUB_GHOST_TAG_H
+  for (const item of items) {
+    const h = item.row.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+    if (item.focus) {
+      focusH = h
+      break
+    }
+    before += h
+  }
+  return viewH / 2 - before - focusH / 2
+})
 
 /** Year scrub: newest-first → reverse axis. Tag #: ascending → normal axis. */
 const scrubReverseAxis = computed(() => {
@@ -660,7 +746,7 @@ function scrubValueAtIndex(index: number): number {
 }
 
 function onScrub(index: number): void {
-  scrubGestureActive = true
+  scrubbing.value = true
   const idx = catalog.revealIndex(index)
   if (idx < 0) return
   scrubScrollIndex.value = idx
@@ -672,7 +758,7 @@ function onScrub(index: number): void {
 }
 
 function onScrubEnd(): void {
-  scrubGestureActive = false
+  scrubbing.value = false
   // Do not sync from scroll immediately: the list may still be at the pre-jump
   // offset for a frame (and used to snap the ↑ jump right back). Keep the last
   // scrubbed index; the next user scroll will re-sync if needed.
@@ -1153,9 +1239,157 @@ watch(
         v-else
         ref="listEl"
         class="list"
+        :class="{ 'is-scrubbing': scrubbing }"
         aria-label="Search results"
         :style="{ height: `${browseListHeight}px`, position: 'relative', width: '100%' }"
       >
+        <div
+          v-if="scrubbing && scrubGhostItems.length"
+          class="scrub-ghost"
+          aria-hidden="true"
+          :style="{ top: `${stickyBrowsePad}px` }"
+        >
+          <div
+            class="scrub-ghost-layer"
+            :style="{ transform: `translateY(${scrubGhostShiftY}px)` }"
+          >
+            <div
+              v-for="g in scrubGhostItems"
+              :key="g.key"
+              class="virt-row scrub-ghost-row"
+              :class="{ focus: g.focus }"
+            >
+              <h2 v-if="g.row.type === 'section'" class="section-head">
+                <span class="section-head-label">
+                  <CustomCollectionMark v-if="g.row.custom" />
+                  {{ g.row.label }}
+                </span>
+              </h2>
+              <div
+                v-else
+                class="list-row"
+                :class="{ 'show-select': showRowSelect }"
+              >
+                <span
+                  v-if="showRowSelect"
+                  class="sel-btn"
+                  :class="{ on: catalog.selectedIds.has(g.row.tag.id) }"
+                >{{ catalog.selectedIds.has(g.row.tag.id) ? '✓' : '' }}</span>
+                <div class="row-link">
+                  <span class="title">
+                    <span class="title-line">
+                      <span class="tag-num" title="Tag number">#{{ g.row.tag.id }}</span>
+                      <template
+                        v-for="badge in [bookletBadgeForTag(g.row.tag)]"
+                        :key="'gbb-' + g.row.tag.id"
+                      >
+                        <span
+                          v-if="badge"
+                          class="classic-num"
+                          :class="'booklet-' + badge.kind"
+                          :title="badge.label"
+                        >{{ badge.short }}</span>
+                      </template>
+                      {{ g.row.tag.title || `Tag ${g.row.tag.id}` }}
+                    </span>
+                    <span v-if="browseAltTitle(g.row.tag)" class="alt-title">{{
+                      browseAltTitle(g.row.tag)
+                    }}</span>
+                  </span>
+                  <span class="meta">
+                    <span v-if="g.row.tag.key" title="Written key">{{ g.row.tag.key }}</span>
+                    <span
+                      v-if="g.row.tag.arranger"
+                      :title="`Arranger: ${g.row.tag.arranger}`"
+                    >{{ g.row.tag.arranger }}</span>
+                    <span
+                      v-if="normalizeYear(g.row.tag.year)"
+                      title="Year published or added"
+                    >{{ normalizeYear(g.row.tag.year) }}</span>
+                    <span
+                      v-if="g.row.tag.rating != null"
+                      :title="`Average rating${g.row.tag.ratingCount != null ? ` (${g.row.tag.ratingCount} votes)` : ''}`"
+                    >★ {{ g.row.tag.rating.toFixed(2) }}</span>
+                    <span
+                      v-if="formatDownloads(g.row.tag.downloads)"
+                      class="dl-count"
+                      title="Downloads on barbershoptags.com"
+                    >↓ {{ formatDownloads(g.row.tag.downloads) }}</span>
+                    <span
+                      v-if="!g.row.tag.hasSheet"
+                      class="badge badge-icon"
+                      title="No sheet music on file"
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M7 3.5h7.5L19 8v12.5H7z"
+                        />
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M14.5 3.5V8H19M9.5 12h5M9.5 15.5h5"
+                        />
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          d="M5 5l14 14"
+                        />
+                      </svg>
+                    </span>
+                    <span
+                      v-if="!g.row.tag.audioParts?.length"
+                      class="badge badge-icon"
+                      title="No learning tracks on file"
+                    >
+                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M11 5.5L7 9H4.5v6H7l4 3.5zM15.2 9.8a3.2 3.2 0 010 4.4"
+                        />
+                        <path
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          d="M5 5l14 14"
+                        />
+                      </svg>
+                    </span>
+                  </span>
+                  <span
+                    v-for="snip in [catalog.lyricsSnippet(g.row.tag.id)]"
+                    v-show="snip"
+                    :key="'gly-' + g.row.tag.id"
+                    class="lyrics-snip"
+                    title="Lyrics match"
+                    >{{ snip }}</span
+                  >
+                </div>
+                <span class="row-fav" aria-hidden="true">
+                  <span
+                    v-if="stars.isTagCaching(g.row.tag.id)"
+                    class="row-fav-spinner"
+                  />
+                  <span v-else>{{ stars.isStarred(g.row.tag.id) ? '♥' : '♡' }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div
           v-for="item in virtualBrowseItems"
           :key="String(item.v.key)"
@@ -1924,6 +2158,51 @@ watch(
   padding: 0;
   margin: 0;
   /* Virtual rows are absolutely positioned; spacing lives on .virt-row. */
+}
+.list.is-scrubbing > .virt-row {
+  /* Hide only real virtualized rows (direct children). Ghost rows nest under .scrub-ghost. */
+  opacity: 0;
+  pointer-events: none;
+}
+.scrub-ghost {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg, #f4f6f5);
+}
+.scrub-ghost-layer {
+  position: relative;
+  height: 100%;
+  max-width: 56rem;
+  margin: 0 auto;
+  box-sizing: border-box;
+  will-change: transform;
+}
+.scrub-ghost-row {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  box-sizing: border-box;
+}
+.scrub-ghost-row .list-row {
+  /* Match real rows: surface card + radius (ghost sits on page bg). */
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid transparent;
+}
+.scrub-ghost .row-link {
+  /* Non-interactive stand-in for RouterLink — keep normal row-link layout. */
+  color: inherit;
+  text-decoration: none;
+}
+.scrub-ghost .row-fav {
+  pointer-events: none;
+}
+.scrub-ghost .sel-btn {
+  pointer-events: none;
 }
 .virt-row {
   padding-bottom: 0.35rem;
