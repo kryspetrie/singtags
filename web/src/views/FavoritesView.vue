@@ -361,12 +361,6 @@ function rowStarLabel(title: string, tagId: number): string {
 
 <template>
   <section class="favorites" aria-label="Favorites">
-    <p class="muted intro">
-      Offline favorites on this device. Pick a sort to preview, then Apply sort to save it as your
-      custom order — or drag the handle to rearrange.
-      <RouterLink to="/settings">Offline library settings</RouterLink>
-    </p>
-
     <div class="actions">
       <label class="sort-field">
         <span class="sort-lbl">Sort</span>
@@ -671,14 +665,6 @@ function rowStarLabel(title: string, tagId: number): string {
 </template>
 
 <style scoped>
-.muted {
-  color: var(--muted);
-  margin: 0 0 1rem;
-}
-.intro {
-  max-width: 36rem;
-  line-height: 1.45;
-}
 .actions {
   display: flex;
   flex-wrap: wrap;

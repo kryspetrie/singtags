@@ -263,7 +263,10 @@ function cancelClear(): void {
     <section class="connection-card" aria-labelledby="connection-h">
       <div class="connection-row">
         <div class="connection-copy">
-          <h2 id="connection-h">Connection</h2>
+          <h2 id="connection-h">
+            Connection
+            <span class="connection-state">{{ offline ? 'Offline' : 'Online' }}</span>
+          </h2>
           <p class="hint">
             Go offline to use cached sheets and tracks only — saves data and avoids downloads on
             slow or metered connections.
@@ -284,8 +287,6 @@ function cancelClear(): void {
       Save the songbook and learning tracks on this device for fast, offline practice. Start with
       sheets, then choose which audio parts to cache — or favorite individual tags as you browse.
     </p>
-
-    <p class="status" role="status">{{ offlineLib.statusLabel }}</p>
 
     <dl v-if="offlineLib.sheetsCachedCount || offlineLib.audioCachedCount" class="storage-summary">
       <div>
@@ -662,6 +663,15 @@ function cancelClear(): void {
 .connection-copy h2 {
   margin: 0 0 0.35rem;
   font-size: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.65rem;
+}
+.connection-state {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted, #5a635f);
 }
 .connection-copy .hint {
   margin: 0;
@@ -679,13 +689,6 @@ function cancelClear(): void {
   margin: 0 0 1rem;
   color: var(--muted, #5a635f);
   line-height: 1.45;
-}
-.status {
-  margin: 0 0 1rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
 }
 .storage-summary {
   display: grid;

@@ -63,11 +63,6 @@ function rowStarLabel(tag: TagSummary): string {
 
 <template>
   <section class="recent-page" aria-label="Recent tags">
-    <p class="muted intro">
-      Tags you open from Browse or Recent. Next/previous on a tag page does not add to this list or
-      increase open counts.
-    </p>
-
     <p v-if="catalog.loading && !catalog.loaded" class="muted intro" role="status">
       Loading catalog…
     </p>

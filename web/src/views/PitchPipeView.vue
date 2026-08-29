@@ -151,11 +151,6 @@ function blackTopPct(after: string): number {
 
 <template>
   <section class="pipe" aria-label="Pitch pipe">
-    <p class="muted intro">
-      Press and hold a pitch. Accidentals show ♯ and ♭ names. Choose a layout and note range, set
-      concert A, then fine-tune ±50 cents if needed.
-    </p>
-
     <details class="settings">
       <summary>Settings</summary>
       <div class="tuning" role="group" aria-label="Pitch pipe tuning">
@@ -332,14 +327,6 @@ function blackTopPct(after: string): number {
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
-}
-.muted {
-  color: var(--muted);
-}
-.intro {
-  margin: 0 0 0.75rem;
-  line-height: 1.45;
-  text-align: left;
 }
 .settings {
   margin: 0 0 1.25rem;
