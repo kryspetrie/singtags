@@ -29,7 +29,7 @@ function rec(partial: Partial<StarredTagRecord> = {}): StarredTagRecord {
 }
 
 describe('noticeFromStarRecord', () => {
-  it('returns cached with audio and sheets icons when both apply', () => {
+  it('returns cached when audio and sheets both apply', () => {
     const notice = noticeFromStarRecord(
       rec({
         audioBlobs: { lead: { path: 'x', mime: 'audio/mp4', data: new ArrayBuffer(1) } },
@@ -41,7 +41,7 @@ describe('noticeFromStarRecord', () => {
     expect(notice).toEqual({ type: 'cached', audio: true, sheets: true } satisfies StarsNotice)
   })
 
-  it('shows sheet icon when sheets come from library pack', () => {
+  it('marks sheets when they come from the library pack', () => {
     const notice = noticeFromStarRecord(
       rec({
         audioBlobs: { lead: { path: 'x', mime: 'audio/mp4', data: new ArrayBuffer(1) } },

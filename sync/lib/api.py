@@ -20,7 +20,7 @@ from xml.etree.ElementTree import Element
 from .config import API_BULK_N, API_CLIENT, API_URL, BASE_URL, STATE_DIR
 from .http import fetch_with_retry
 from .identity import ensure_identity_fields, normalize_writ_key
-from .names import keyword_tokens, sanitize_segment
+from .names import keyword_tokens, normalize_arranger, sanitize_segment
 from .parse_tag_page import download_file_url
 from .state import save_json, state_path
 
@@ -99,7 +99,8 @@ def parse_tag_element(tag_el: Element) -> dict[str, Any]:
     teach_vid = _text(_child(tag_el, "TeachVid"))
     lyrics = _text(_child(tag_el, "Lyrics"))
     notes = _text(_child(tag_el, "Notes"))
-    arranger = sanitize_segment(_text(_child(tag_el, "Arranger")))
+    # Do not path-sanitize arranger — commas separate co-arrangers.
+    arranger = normalize_arranger(_text(_child(tag_el, "Arranger")))
     arranger_website = _text(_child(tag_el, "ArrWebsite"))
     arranged = _int(_text(_child(tag_el, "Arranged")))
     sung_by = _text(_child(tag_el, "SungBy"))

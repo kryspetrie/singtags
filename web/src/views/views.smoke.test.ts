@@ -617,7 +617,8 @@ describe('view smoke tests', () => {
     await w.findAll('button').find((b) => b.text().includes('Backup & restore'))!.trigger('click')
     await flushPromises()
     const backupBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
-      (b.textContent || '').includes('Backup favorites'),
+      (b.textContent || '').includes('Backup favorites & collections') ||
+        (b.textContent || '').includes('Backup favorites'),
     )
     expect(backupBtn).toBeTruthy()
     backupBtn!.click()
@@ -636,7 +637,9 @@ describe('view smoke tests', () => {
   })
 
   it('PitchPipeView plays notes and moves focus with arrows', async () => {
-    const w = mount(PitchPipeView, { attachTo: document.body, global: { plugins: [createPinia()] } })
+    const pinia = createPinia()
+    const w = mount(PitchPipeView, { attachTo: document.body, global: { plugins: [pinia] } })
+    const prefs = usePreferencesStore(pinia)
     const notes = w.findAll('button.note')
     expect(notes.length).toBeGreaterThanOrEqual(13)
     await notes[0]!.trigger('pointerdown')
@@ -648,6 +651,12 @@ describe('view smoke tests', () => {
     const detune = w.get('input[type="range"]')
     await detune.setValue(25)
     expect(w.text()).toContain('25')
+    const concertA = w.get('select[aria-label="Concert A frequency"]')
+    expect(concertA.element.value).toBe('custom')
+    await concertA.setValue('432')
+    expect(prefs.pitchPipeAHz).toBe(432)
+    expect(prefs.pitchPipeDetuneCents).toBe(-32)
+    expect((detune.element as HTMLInputElement).value).toBe('-32')
     w.unmount()
   })
 

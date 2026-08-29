@@ -10,6 +10,8 @@ import {
   collectionSortKey,
   is100DaysCollection,
   isClassicCollection,
+  isUserCollectionFilterId,
+  userCollectionFilterId,
 } from '../lib/collections'
 
 /** Sort modes exposed in the browse UI (classic booklet order removed — obscure). */
@@ -45,6 +47,45 @@ export function formatArrangerLastFirst(name: string | null | undefined): string
   return rest ? `${last}, ${rest}` : last
 }
 
+
+/** Split a tag's arranger credit into individual people for filter facets. */
+export function splitArrangerNames(raw: string | null | undefined): string[] {
+  if (!raw?.trim()) return []
+  let s = raw.trim()
+
+  const arranged = s.match(/\barranged\s+by\s+(.+)$/i)
+  if (arranged && /\b(words|music|lyrics)\b/i.test(s)) {
+    s = arranged[1]!.trim()
+  }
+  s = s.replace(/\s*,?\s*lyrics\s+by\b.*$/i, '')
+  s = s.replace(/^(?:words\s+and\s+music|music|words)(?:\s+by)?\s*[:\-]?\s*/i, '')
+  s = s.replace(/^arranged\s+by\s*[:\-]?\s*/i, '')
+  s = s.replace(/\s+/g, ' ').trim()
+  if (!s) return []
+
+  // Keep "Bobby Gray, Jr." as one person when splitting on commas.
+  const protectedNames = s.replace(
+    /,(\s*(?:jr\.|sr\.|jr|sr|ii|iii|iv|phd|md|esq))\b/gi,
+    (_m, suf: string) => `«GEN»${suf}`,
+  )
+
+  const parts = protectedNames
+    .split(/\s*(?:&+|\/|;|\+|\band\b|\bor\b|\band\/or\b)\s*|,\s*/i)
+    .map((p) => p.replace(/«GEN»/g, ',').replace(/\s+/g, ' ').trim())
+    .filter((p) => p && !/^(et\s+al\.?|anon\.?|unknown|originally)$/i.test(p))
+
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const name of parts) {
+    const key = foldText(name)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(name)
+  }
+  return out.length ? out : [s]
+}
+
+
 export function titleSortLetter(title: string | null | undefined): string {
   const f = foldText(title ?? '')
   if (!f) return '#'
@@ -53,6 +94,13 @@ export function titleSortLetter(title: string | null | undefined): string {
   if (ch >= '0' && ch <= '9') return '0–9'
   return '#'
 }
+
+/** Letters offered by browse “View by Title” sections / the Title filter sheet. */
+export const TITLE_LETTER_FILTER_OPTIONS: string[] = [
+  ...Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)),
+  '0–9',
+  '#',
+]
 
 /**
  * Hybrid year section key: `<1920` (also missing years), decade buckets through
@@ -118,6 +166,50 @@ export function sectionLabel(key: string, mode: BrowseSortMode): string {
   return key
 }
 
+/** Inclusive year bounds for a browse year-section key, or null if unknown. */
+export function yearBoundsForSectionKey(
+  key: string,
+): { yearMin: number | null; yearMax: number | null } | null {
+  if (key === '<1920') return { yearMin: null, yearMax: 1919 }
+  const decade = /^(\d{3})0s$/.exec(key)
+  if (decade) {
+    const start = Number(decade[1] + '0')
+    return { yearMin: start, yearMax: start + 9 }
+  }
+  if (/^\d{4}$/.test(key)) {
+    const y = Number(key)
+    return { yearMin: y, yearMax: y }
+  }
+  return null
+}
+
+/** Map a collection section label/key back to a filter id (catalog or `user:…`). */
+export function collectionIdForSectionKey(
+  key: string,
+  knownIds: string[],
+): string | null {
+  if (!key || key === 'Other') return null
+  // Custom browse sections use the filter id as the section key.
+  if (isUserCollectionFilterId(key)) return key
+  for (const id of knownIds) {
+    const info = collectionInfo(id)
+    if (info?.label === key || id === key) return id
+  }
+  const folded = key.trim().toLowerCase()
+  for (const id of knownIds) {
+    if (id.toLowerCase() === folded) return id
+  }
+  return null
+}
+
+/** User playlist shape for collection browse sections / jump keys. */
+export type UserCollectionBrowse = {
+  id: string
+  name: string
+  tagIds: number[]
+}
+
+
 /** Modes that show an A–Z / collection jump rail (chip buttons). */
 export function hasJumpRail(mode: BrowseSortMode): boolean {
   return mode === 'title' || mode === 'collection'
@@ -179,15 +271,81 @@ export function sortBrowseTags(
 }
 
 export type BrowseRow =
-  | { type: 'section'; key: string; label: string }
+  | { type: 'section'; key: string; label: string; custom?: boolean }
   | { type: 'tag'; tag: TagSummary; index: number }
+
+/**
+ * Collection browse: catalog series (existing order), then custom collections A–Z,
+ * then Other last. Tags in a custom collection also keep their catalog section.
+ */
+function buildCollectionBrowseRows(
+  sorted: TagSummary[],
+  limit: number,
+  userCollections: UserCollectionBrowse[],
+): { rows: BrowseRow[]; jumpKeys: string[] } {
+  const byId = new Map(sorted.map((t) => [t.id, t]))
+  const inResults = new Set(byId.keys())
+
+  const groups = new Map<string, TagSummary[]>()
+  const order: string[] = []
+  for (const tag of sorted) {
+    const key = sectionKeyFor(tag, 'collection')
+    if (!groups.has(key)) {
+      groups.set(key, [])
+      order.push(key)
+    }
+    groups.get(key)!.push(tag)
+  }
+
+  const defaultKeys = order.filter((k) => k !== 'Other')
+  const otherTags = groups.get('Other') ?? []
+  const userSecs = [...userCollections]
+    .filter((c) => c.tagIds.some((id) => inResults.has(id)))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+
+  const jumpKeys = [
+    ...defaultKeys,
+    ...userSecs.map((c) => userCollectionFilterId(c.id)),
+    ...(otherTags.length ? ['Other'] : []),
+  ]
+
+  const rows: BrowseRow[] = []
+  let shown = 0
+
+  const pushSection = (key: string, label: string, tags: TagSummary[], custom = false) => {
+    if (!tags.length || shown >= limit) return
+    rows.push({ type: 'section', key, label, custom: custom || undefined })
+    for (const tag of tags) {
+      if (shown >= limit) break
+      const index = sorted.findIndex((t) => t.id === tag.id)
+      rows.push({ type: 'tag', tag, index: index >= 0 ? index : shown })
+      shown++
+    }
+  }
+
+  for (const key of defaultKeys) {
+    pushSection(key, sectionLabel(key, 'collection'), groups.get(key) ?? [])
+  }
+  for (const c of userSecs) {
+    const tags = c.tagIds.map((id) => byId.get(id)).filter((t): t is TagSummary => !!t)
+    pushSection(userCollectionFilterId(c.id), c.name, tags, true)
+  }
+  if (otherTags.length) pushSection('Other', 'Other', otherTags)
+
+  return { rows, jumpKeys }
+}
 
 /** Build sectioned rows for the visible window of sorted tags. */
 export function buildBrowseRows(
   sorted: TagSummary[],
   mode: BrowseSortMode,
   limit: number,
+  options?: { userCollections?: UserCollectionBrowse[] },
 ): { rows: BrowseRow[]; jumpKeys: string[] } {
+  if (mode === 'collection' && (options?.userCollections?.length ?? 0) > 0) {
+    return buildCollectionBrowseRows(sorted, limit, options!.userCollections!)
+  }
+
   const jumpKeys: string[] = []
   const seen = new Set<string>()
   for (const t of sorted) {

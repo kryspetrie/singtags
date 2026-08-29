@@ -276,11 +276,6 @@ export function inferLowerQualityFromStarred(
   return false
 }
 
-/** Storage-quality choices for Settings when publish tiers are available. */
-export function publishedStarStorageQualityOptions(): AudioEncodeQuality[] {
-  return ['original', 'standard', 'lofi']
-}
-
 /** Candidate paths to probe in Cache API for a part, best → smallest. */
 export function cachedPathCandidates(detail: TagDetail, part: string): string[] {
   const out: string[] = []

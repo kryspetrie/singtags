@@ -4,13 +4,14 @@ import type { StarsNotice } from '../stores/starNotice'
 
 const props = defineProps<{ notice: StarsNotice }>()
 
-const ariaLabel = computed(() => {
+/** Single plain-text status line — no emoji badges. */
+const label = computed(() => {
   const n = props.notice
   if (n.type === 'cached') {
-    const parts: string[] = []
-    if (n.audio) parts.push('audio')
-    if (n.sheets) parts.push('sheets')
-    return parts.length ? `Favorited with ${parts.join(' and ')}` : 'Favorited'
+    if (n.audio && n.sheets) return 'Favorited · audio and sheets saved'
+    if (n.audio) return 'Favorited · audio saved'
+    if (n.sheets) return 'Favorited · sheets saved'
+    return 'Favorited'
   }
   if (n.type === 'starred') return 'Favorited'
   if (n.type === 'removed') return 'Removed from favorites'
@@ -19,27 +20,11 @@ const ariaLabel = computed(() => {
 </script>
 
 <template>
-  <span class="stars-notice" :aria-label="ariaLabel">
-    <template v-if="notice.type === 'cached'">
-      <span>Favorited</span>
-      <span v-if="notice.audio" class="ico" aria-hidden="true">♪</span>
-      <span v-if="notice.sheets" class="ico" aria-hidden="true">📄</span>
-    </template>
-    <template v-else-if="notice.type === 'starred'">Favorited</template>
-    <template v-else-if="notice.type === 'removed'">Removed</template>
-    <template v-else>{{ notice.message }}</template>
-  </span>
+  <span class="stars-notice">{{ label }}</span>
 </template>
 
 <style scoped>
 .stars-notice {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
   white-space: nowrap;
-}
-.ico {
-  opacity: 0.88;
-  line-height: 1;
 }
 </style>

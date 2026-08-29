@@ -11,6 +11,7 @@ import {
 import type { FieldName, SearchQuery } from './query'
 import type { TagSummary } from '../types/tag'
 import { normalizeYear } from '../lib/year'
+import { splitArrangerNames, titleSortLetter } from './browse'
 import { collectionSearchTokens, collectionTextTokens, isClassicCollection } from '../lib/collections'
 
 export interface LyricDoc {
@@ -373,6 +374,20 @@ export class SearchEngine {
       for (const id of hit ?? []) {
         if (!candidates.has(id)) continue
         const hay = this.fieldBlob.get(`${field}:${id}`) ?? ''
+        if (field === 'arranger') {
+          const tag = this.byId.get(id)
+          const names = splitArrangerNames(tag?.arranger)
+          if (
+            names.some((n) => {
+              const fn = foldText(n)
+              return fn === folded || fn.includes(folded)
+            }) ||
+            hay.includes(folded)
+          ) {
+            verified.add(id)
+          }
+          continue
+        }
         if (hay.includes(folded)) verified.add(id)
       }
       out = out ? new Set([...out, ...verified]) : verified
@@ -390,9 +405,16 @@ export class SearchEngine {
     if (query.hasSheet === false && tag.hasSheet) return false
     if (query.yearMin != null || query.yearMax != null) {
       const y = normalizeYear(tag.year)
-      if (y == null) return false
+      if (y == null) {
+        // Browse "<1920" includes missing years — keep them when only an upper bound < 1920 is set.
+        return query.yearMin == null && query.yearMax != null && query.yearMax < 1920
+      }
       if (query.yearMin != null && y < query.yearMin) return false
       if (query.yearMax != null && y > query.yearMax) return false
+    }
+    if (query.titleLetters?.length) {
+      const letter = titleSortLetter(tag.title)
+      if (!query.titleLetters.includes(letter)) return false
     }
     return true
   }

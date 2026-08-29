@@ -33,7 +33,11 @@ def _ascii_fold(text: str) -> str:
 
 
 def sanitize_segment(text: Optional[str], *, allow_empty: bool = True) -> Optional[str]:
-    """Normalize a path segment. Returns None if empty after cleaning."""
+    """Normalize a path segment. Returns None if empty after cleaning.
+
+    Intended for folder/file names only — do **not** use for catalog metadata
+    fields like ``arranger`` (it strips commas that separate co-arrangers).
+    """
     if text is None:
         return None
     raw = str(text).strip()
@@ -50,6 +54,106 @@ def sanitize_segment(text: Optional[str], *, allow_empty: bool = True) -> Option
     if not cleaned:
         return None if allow_empty else "Untitled"
     return cleaned
+
+
+_HTML_ENTITIES = {
+    "&amp;": "&",
+    "&amp": "&",
+    "&quot;": '"',
+    "&#39;": "'",
+    "&#039;": "'",
+    "&apos;": "'",
+    "&lt;": "<",
+    "&gt;": ">",
+}
+
+
+def normalize_arranger(text: Optional[str]) -> Optional[str]:
+    """Clean an arranger credit for metadata (preserve co-arranger separators).
+
+    Unlike :func:`sanitize_segment`, commas / ``&`` / ``and`` are kept so we can
+    split multi-arranger credits later. Strips common lyricist/composer noise
+    that sometimes lands in the Arranger API field.
+    """
+    if text is None:
+        return None
+    raw = str(text).strip()
+    if not raw:
+        return None
+
+    for ent, ch in _HTML_ENTITIES.items():
+        raw = raw.replace(ent, ch)
+
+    lowered = raw.lower()
+    if lowered in {"unknown", "unknown arranger", "n/a", "na", "-"}:
+        return None
+
+    # Prefer an explicit "arranged by …" credit when the field is a songwriting dump.
+    arranged = re.search(r"\barranged\s+by\s+(.+)$", raw, flags=re.IGNORECASE)
+    if arranged and re.search(
+        r"\b(words|music|lyrics)\b", raw, flags=re.IGNORECASE
+    ):
+        raw = arranged.group(1).strip()
+
+    # Drop lyricist tails: "Paul Olguin, Lyrics by William Hill"
+    raw = re.sub(r"\s*,?\s*lyrics\s+by\b.*$", "", raw, flags=re.IGNORECASE)
+    # Drop leading songwriter boilerplate when an arranger name remains after.
+    raw = re.sub(
+        r"^(?:words\s+and\s+music|music|words)(?:\s+by)?\s*[:\-]?\s*",
+        "",
+        raw,
+        flags=re.IGNORECASE,
+    )
+    raw = re.sub(r"^arranged\s+by\s*[:\-]?\s*", "", raw, flags=re.IGNORECASE)
+
+    # Keep apostrophes in names (O'Connell); _ascii_fold strips them for paths.
+    raw = raw.replace("'", "«APOS»").replace("\u2019", "«APOS»").replace("\u2018", "«APOS»")
+    cleaned = _ascii_fold(raw).replace("«APOS»", "'")
+    # Keep list separators: comma, ampersand, slash, semicolon, plus, apostrophe.
+    cleaned = re.sub(r"[^A-Za-z0-9\s\-()#.&,/;+']", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"\s*,\s*", ", ", cleaned)
+    cleaned = re.sub(r"\s+&\s+", " & ", cleaned)
+    cleaned = cleaned.strip(" -_,;/")
+    if not cleaned:
+        return None
+    if cleaned.lower() in {"unknown", "unknown arranger", "n/a", "na"}:
+        return None
+    return cleaned
+
+
+def split_arranger_names(text: Optional[str]) -> list[str]:
+    """Split a (possibly multi-person) arranger credit into individual names."""
+    cleaned = normalize_arranger(text)
+    if not cleaned:
+        return []
+    # Protect generational suffixes so "Bobby Gray, Jr." stays one person.
+    protected = re.sub(
+        r",(\s*(?:jr\.|sr\.|jr|sr|ii|iii|iv|phd|md|esq))\b",
+        lambda m: "«GEN»" + m.group(1),
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    parts = re.split(
+        r"\s*(?:&+|/|;|\+|,\s*and\b|\band\b|\bor\b|\band/or\b)\s*|,\s*",
+        protected,
+        flags=re.IGNORECASE,
+    )
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        name = part.replace("«GEN»", ",").strip(" -_")
+        name = re.sub(r"\s+", " ", name).strip()
+        if not name:
+            continue
+        if re.fullmatch(r"(et\s+al\.?|anon\.?|unknown|originally)", name, flags=re.IGNORECASE):
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(name)
+    return out
 
 
 def build_base_name(

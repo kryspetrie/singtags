@@ -21,6 +21,7 @@ if str(_SYNC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SYNC_ROOT))
 
 from lib.complete import has_usable_media  # noqa: E402
+from lib.names import normalize_arranger  # noqa: E402
 
 # Bidirectional lyric expansions (pre-fold forms → meaning variants).
 BASE_EXPANSIONS: dict[str, list[str]] = {
@@ -229,7 +230,7 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         "tag_id": tid,
         "title": title,
         "alt_title": meta.get("alt_title"),
-        "arranger": meta.get("arranger"),
+        "arranger": normalize_arranger(meta.get("arranger")) if meta.get("arranger") else meta.get("arranger"),
         "key": meta.get("key"),
         "writ_key": meta.get("writ_key") or meta.get("written_key"),
         "rating": meta.get("rating"),

@@ -21,7 +21,7 @@ from .config import (
     SHEET_EXTENSIONS,
 )
 from .http import absolute_url, is_guidelines_url
-from .names import keyword_tokens, sanitize_segment
+from .names import keyword_tokens, normalize_arranger, sanitize_segment
 
 NOT_FOUND_RE = re.compile(r"Tag\s+\d+\s+not\s+found", re.IGNORECASE)
 NO_MATCH_RE = re.compile(r"No database item matches|item matches look up criteria", re.IGNORECASE)
@@ -327,10 +327,7 @@ def parse_tag_page(html: str, tag_id: int) -> dict[str, Any]:
 
     arranger = _parse_arranger(soup, page_text)
     if arranger:
-        arranger = sanitize_segment(arranger) and _clean_value(arranger)
-        # sanitize_segment returns cleaned or None; prefer cleaned display form
-        cleaned = sanitize_segment(arranger)
-        arranger = cleaned
+        arranger = normalize_arranger(_clean_value(arranger) or arranger)
 
     year = None
     ymatch = re.search(r"Year:\s*(\d{4})", page_text, re.IGNORECASE)

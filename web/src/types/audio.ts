@@ -43,6 +43,12 @@ export function encodeQualityForDownload(format: DownloadFormat): AudioEncodeQua
  */
 export type AudioEncodeQuality = 'original' | 'standard' | 'compact' | 'lofi'
 
+/**
+ * Fixed on-device storage for favorited tags and offline audio packs: 64 kbps Opus.
+ * Not user-configurable.
+ */
+export const DEVICE_AUDIO_STORAGE_QUALITY: AudioEncodeQuality = 'standard'
+
 export const AUDIO_ENCODE_QUALITY_LABELS: Record<AudioEncodeQuality, string> = {
   original: 'Original (hosted AAC in M4A)',
   standard: 'Playback (64 kbps Opus)',
@@ -58,8 +64,7 @@ export function opusBitrate(quality: Exclude<AudioEncodeQuality, 'original'>): n
 /** Rough on-device size vs hosted original when re-encoding. */
 export function storageSizeFactor(quality: AudioEncodeQuality): number {
   if (quality === 'original') return 1
-  if (quality === 'standard') return 0.75
-  if (quality === 'compact') return 0.5
+  if (quality === 'standard' || quality === 'compact') return 0.5
   return 0.3
 }
 
@@ -73,9 +78,8 @@ export function aacBitrate(quality: Exclude<AudioEncodeQuality, 'original'>): nu
     case 'lofi':
       return 32_000
     case 'compact':
+    case 'standard':
       return 64_000
-    default:
-      return 96_000
   }
 }
 

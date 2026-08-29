@@ -84,6 +84,19 @@ export const usePracticeStore = defineStore('practice', () => {
     return order.value[0] ?? null
   }
 
+  function exportSnapshot(): { order: number[]; autoAdvance: boolean } {
+    return { order: [...order.value], autoAdvance: autoAdvance.value }
+  }
+
+  function importSnapshot(raw: { order?: unknown; autoAdvance?: unknown } | null | undefined): void {
+    if (!raw || typeof raw !== 'object') return
+    if (Array.isArray(raw.order)) {
+      order.value = raw.order.filter((n): n is number => typeof n === 'number' && Number.isFinite(n))
+    }
+    if (typeof raw.autoAdvance === 'boolean') autoAdvance.value = raw.autoAdvance
+  }
+
+
   return {
     order,
     autoAdvance,
@@ -96,5 +109,7 @@ export const usePracticeStore = defineStore('practice', () => {
     neighbors,
     firstId,
     load,
+    exportSnapshot,
+    importSnapshot,
   }
 })

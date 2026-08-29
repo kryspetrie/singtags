@@ -220,11 +220,12 @@ describe('cacheManage', () => {
 
     const result = await importOfflineCacheZip(zip)
     expect(result.pitchPipePrefs).toBe(true)
+    // Legacy fineCents is relative to concert A; absolute detune is aHzToCents(432)+(-12).
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
       range: 'e3-e4',
       layout: 'piano',
-      aHz: 432,
-      fineCents: -12,
+      aHz: null,
+      detuneCents: -44,
     })
   })
 

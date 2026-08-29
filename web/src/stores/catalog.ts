@@ -12,8 +12,10 @@ import {
   isClassicCollection,
   is100DaysCollection,
   sortBrowseTags,
+  splitArrangerNames,
   type BrowseSortMode,
 } from '../search/browse'
+import { foldText } from '../search/normalize'
 import {
   activeFilterCount,
   buildSearchQuery,
@@ -34,6 +36,11 @@ import { fetchGzipJsonCached, fetchJsonCached } from '../lib/gunzipJson'
 import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
 import { useOfflineLibraryStore } from './offlineLibrary'
 import { useOfflineModeStore } from './offlineMode'
+import { useUserCollectionsStore } from './userCollections'
+import {
+  filterTagsByCollectionOptions,
+  isUserCollectionFilterId,
+} from '../lib/collections'
 
 export type SortMode = BrowseSortMode
 
@@ -47,7 +54,7 @@ export const RESULTS_PAGE_SIZE = 480
 const SCOPED_SORTS = new Set<SortMode>(['rating', 'downloads'])
 
 /** Default when browsing the full catalog (or after leaving a scoped sort). */
-export const DEFAULT_BROWSE_SORT: SortMode = 'title'
+export const DEFAULT_BROWSE_SORT: SortMode = 'collection'
 
 export const useCatalogStore = defineStore('catalog', () => {
   const tags = ref<TagSummary[]>([])
@@ -300,19 +307,42 @@ export const useCatalogStore = defineStore('catalog', () => {
         sortReverse.value,
       )
     }
-    const q = buildSearchQuery(debouncedQuery.value, filters.value)
-    return sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
+    const userCols = useUserCollectionsStore()
+    const colFilters = filters.value.collections
+    const hasUserCol = colFilters.some((c) => isUserCollectionFilterId(c))
+    const engineFilters = hasUserCol
+      ? { ...filters.value, collections: [] }
+      : filters.value
+    const q = buildSearchQuery(debouncedQuery.value, engineFilters)
+    let found = sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
+    if (hasUserCol) {
+      found = filterTagsByCollectionOptions(found, colFilters, userCols.collections)
+    }
+    return found
   })
 
   const results = computed(() => allResults.value)
   const hasMoreResults = computed(() => false)
   /** Full sectioned list for window virtualization (not a paged window). */
-  const browseWindow = computed(() =>
-    buildBrowseRows(allResults.value, sortMode.value, allResults.value.length),
-  )
+  const browseWindow = computed(() => {
+    const userCols = useUserCollectionsStore()
+    return buildBrowseRows(allResults.value, sortMode.value, allResults.value.length, {
+      userCollections: userCols.collections.map((c) => ({
+        id: c.id,
+        name: c.name,
+        tagIds: c.tagIds,
+      })),
+    })
+  })
   const filterCount = computed(() => activeFilterCount(filters.value))
 
-  const arrangers = computed(() => uniqueFieldValues(tags.value, 'arranger'))
+  const arrangers = computed(() => {
+    const set = new Set<string>()
+    for (const t of tags.value) {
+      for (const name of splitArrangerNames(t.arranger)) set.add(name)
+    }
+    return [...set].sort((a, b) => foldText(a).localeCompare(foldText(b)))
+  })
   const years = computed(() => {
     const set = new Set<number>()
     for (const t of tags.value) {
@@ -350,6 +380,13 @@ export const useCatalogStore = defineStore('catalog', () => {
 
   /** First tag index for a section key (list is fully available to the virtualizer). */
   function revealSection(sectionKey: string): number {
+    const secIdx = browseWindow.value.rows.findIndex(
+      (r) => r.type === 'section' && r.key === sectionKey,
+    )
+    if (secIdx >= 0) {
+      const next = browseWindow.value.rows[secIdx + 1]
+      if (next?.type === 'tag') return next.index
+    }
     return indexOfSection(allResults.value, sortMode.value, sectionKey)
   }
 
@@ -368,6 +405,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       arrangers: parsed.arrangers ?? [],
       types: parsed.types ?? [],
       collections: parsed.collections ?? [],
+      titleLetters: parsed.titleLetters ?? [],
     }
     const allowed: SortMode[] = [
       'rating',

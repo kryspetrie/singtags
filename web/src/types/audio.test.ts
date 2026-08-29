@@ -33,7 +33,7 @@ describe('AudioTransform helpers', () => {
   })
 
   it('maps encode qualities to AAC bitrates and MP3 VBR', () => {
-    expect(aacBitrate('standard')).toBe(96_000)
+    expect(aacBitrate('standard')).toBe(64_000)
     expect(aacBitrate('compact')).toBe(64_000)
     expect(aacBitrate('lofi')).toBe(32_000)
     expect(mp3VbrQuality('standard')).toBe(2)

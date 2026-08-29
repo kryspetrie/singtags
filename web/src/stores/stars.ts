@@ -19,7 +19,7 @@ import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetOfflinePaths, summarySheetPages } from '../lib/sheetPaths'
 import { packHasAnySheets } from '../offline/resolveMedia'
-import { usePreferencesStore } from './preferences'
+import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
 import { noticeFromStarRecord, type StarsNotice } from './starNotice'
 
 function buildPlaceholder(summary: TagSummary, detail: TagDetail | null): StarredTagRecord {
@@ -138,10 +138,9 @@ export const useStarsStore = defineStore('stars', () => {
         /* ignore */
       }
 
-      const prefs = usePreferencesStore()
       const fullRec = await refreshStarMedia(metaRec, d, {
         skipSheets,
-        audioQuality: prefs.audioEncodeQuality,
+        audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
         onProgress: (p) => {
           setTagProgress(tagId, p)
         },
@@ -205,7 +204,6 @@ export const useStarsStore = defineStore('stars', () => {
 
     const pending = summaries.filter((s) => !isStarred(s.id))
     if (!pending.length) {
-      lastNotice.value = { type: 'text', message: 'Nothing new to favorite' }
       return 0
     }
 
@@ -257,7 +255,7 @@ export const useStarsStore = defineStore('stars', () => {
         if (!d) continue
         await refreshStarMedia(existing, d, {
           skipSheets: true,
-          audioQuality: usePreferencesStore().audioEncodeQuality,
+          audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
           onProgress: (p) => {
             progress.value = {
               ...p,
@@ -302,7 +300,7 @@ export const useStarsStore = defineStore('stars', () => {
       const skipSheets = await packHasAnySheets(sheetOfflinePaths(d)).catch(() => false)
       const rec = await refreshStarMedia(existing, d, {
         skipSheets,
-        audioQuality: usePreferencesStore().audioEncodeQuality,
+        audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
         onProgress: (p) => {
           progress.value = p
         },
@@ -341,7 +339,7 @@ export const useStarsStore = defineStore('stars', () => {
           const existing = await getStarred(t.summary.id)
           if (!existing) continue
           await refreshStarMedia(existing, t.detail, {
-            audioQuality: usePreferencesStore().audioEncodeQuality,
+            audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
             onProgress: (p) => {
               progress.value = p
             },

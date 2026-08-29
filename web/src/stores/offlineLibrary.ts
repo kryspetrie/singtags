@@ -48,8 +48,12 @@ import { loadPersistentSnapshot, savePersistentSnapshot } from '../lib/persisten
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { encodeBytesForStorage } from '../offline/compactAudio'
 import { isPublishedTierPath } from '../lib/audioTiers'
-import { storageSizeFactor, HOSTED_AUDIO_MIME, usesOpusStorage } from '../types/audio'
-import { usePreferencesStore } from './preferences'
+import {
+  DEVICE_AUDIO_STORAGE_QUALITY,
+  storageSizeFactor,
+  HOSTED_AUDIO_MIME,
+  usesOpusStorage,
+} from '../types/audio'
 import { useOfflineModeStore } from './offlineMode'
 
 export type { OfflineManifest, OfflineManifestEntry }
@@ -459,14 +463,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       return
     }
 
-    const prefs = usePreferencesStore()
 
     if (kind === 'audio') {
       const est = await getStorageEstimate()
       const { totalBytes, entries } = filterAudioManifest(manifest, 'all', [])
       const paths = entries.flatMap((e) => e.paths)
       const publishedOnly = paths.length > 0 && paths.every(isPublishedTierPath)
-      const sizeFactor = publishedOnly ? 1 : storageSizeFactor(prefs.audioEncodeQuality)
+      const sizeFactor = publishedOnly ? 1 : storageSizeFactor(DEVICE_AUDIO_STORAGE_QUALITY)
       const need = totalBytes * sizeFactor
       if (est && est.quota > 0 && est.quota - est.usage < need) {
         error.value = `Not enough storage for the learning library (~${formatBytes(need)} estimated). Free space and try again.`
@@ -491,7 +494,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     const store = kind === 'sheets' ? sheetsPack : audioPack
     const packReencodes =
       kind === 'audio' &&
-      usesOpusStorage(prefs.audioEncodeQuality) &&
+      usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY) &&
       items.some((i) => !isPublishedTierPath(i.path))
     const queue = new DownloadQueue(store, {
       // Tiny sheet WebPs are latency-bound; keep re-encode audio modest.
@@ -515,14 +518,14 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         schedulePersistCursor(kind, index + 1, manifest.version)
       },
       transformResponse:
-        kind === 'audio' && usesOpusStorage(prefs.audioEncodeQuality)
+        kind === 'audio' && usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY)
           ? async (item, response) => {
               if (isPublishedTierPath(item.path)) return response
               const buf = new Uint8Array(await response.arrayBuffer())
               const hostedMime = response.headers.get('content-type') || HOSTED_AUDIO_MIME
               const { bytes, mime } = await encodeBytesForStorage(
                 buf,
-                prefs.audioEncodeQuality,
+                DEVICE_AUDIO_STORAGE_QUALITY,
                 hostedMime,
                 item.path,
               )

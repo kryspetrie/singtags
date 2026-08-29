@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   arrangerLastName,
   arrangersByLastInitial,
+  splitArrangerNames,
   buildBrowseRows,
   bookletBadgeForTag,
   formatArrangerLastFirst,
@@ -12,11 +13,14 @@ import {
   sectionKeyFor,
   sortBrowseTags,
   titleSortLetter,
+  TITLE_LETTER_FILTER_OPTIONS,
   hasScrubRail,
   tagIdHundredKey,
   tagIdLoupeTickStep,
   tagIdTickKey,
   yearSectionKey,
+  yearBoundsForSectionKey,
+  collectionIdForSectionKey,
 } from './browse'
 import type { TagSummary } from '../types/tag'
 
@@ -147,6 +151,15 @@ describe('browse helpers', () => {
     expect(sortBrowseTags(tags, 'title').map((t) => t.id)).toEqual([2, 3, 1])
     expect(sortBrowseTags(tags, 'title', true).map((t) => t.id)).toEqual([1, 3, 2])
     expect(titleSortLetter("Don't Worry")).toBe('D')
+    expect(titleSortLetter('99 Bottles')).toBe('0–9')
+    expect(titleSortLetter('!!!')).toBe('#')
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain('A')
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain('Z')
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain('0–9')
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain('#')
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain(titleSortLetter("Don't Worry"))
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain(titleSortLetter('99 Bottles'))
+    expect(TITLE_LETTER_FILTER_OPTIONS).toContain(titleSortLetter('!!!'))
     const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'title'), 'title', 10)
     expect(jumpKeys).toEqual(['A', 'B', 'Z'])
   })
@@ -172,5 +185,56 @@ describe('tag # scrub bins', () => {
     expect(tagIdLoupeTickStep(400)).toBe(100)
     expect(tagIdLoupeTickStep(560)).toBe(50)
     expect(tagIdLoupeTickStep(900)).toBe(25)
+  })
+})
+
+describe('section → filter helpers', () => {
+  it('maps year section keys to inclusive bounds', () => {
+    expect(yearBoundsForSectionKey('<1920')).toEqual({ yearMin: null, yearMax: 1919 })
+    expect(yearBoundsForSectionKey('1990s')).toEqual({ yearMin: 1990, yearMax: 1999 })
+    expect(yearBoundsForSectionKey('2023')).toEqual({ yearMin: 2023, yearMax: 2023 })
+    expect(yearBoundsForSectionKey('nope')).toBeNull()
+  })
+
+  it('maps collection section labels to catalog ids', () => {
+    expect(collectionIdForSectionKey('Classic', ['classic', '100'])).toBe('classic')
+    expect(collectionIdForSectionKey('Other', ['classic'])).toBeNull()
+  })
+})
+
+describe('splitArrangerNames', () => {
+  it('splits comma / and / ampersand credits into people', () => {
+    expect(splitArrangerNames('Adam Scott, Jay Dougherty and Lucas Bitzer')).toEqual([
+      'Adam Scott',
+      'Jay Dougherty',
+      'Lucas Bitzer',
+    ])
+    expect(splitArrangerNames('Brandon Hall & Nathan Menke')).toEqual([
+      'Brandon Hall',
+      'Nathan Menke',
+    ])
+  })
+
+  it('strips lyrics tails', () => {
+    expect(splitArrangerNames('Paul Olguin, Lyrics by William Hill')).toEqual(['Paul Olguin'])
+    expect(splitArrangerNames('Bobby Gray, Jr.')).toEqual(['Bobby Gray, Jr.'])
+  })
+})
+
+describe('custom collection browse sections', () => {
+  it('places custom sections after catalog and before Other', () => {
+    const tags = [
+      tag({ id: 1, title: 'A', collection: 'classic', classic: 1 }),
+      tag({ id: 2, title: 'B', collection: null }),
+      tag({ id: 3, title: 'C', collection: 'classic', classic: 2 }),
+    ]
+    const sorted = sortBrowseTags(tags, 'collection')
+    const { jumpKeys, rows } = buildBrowseRows(sorted, 'collection', 100, {
+      userCollections: [{ id: 'u1', name: 'Contest set', tagIds: [3, 2] }],
+    })
+    expect(jumpKeys.indexOf('Classic')).toBeLessThan(jumpKeys.indexOf('user:u1'))
+    expect(jumpKeys.indexOf('user:u1')).toBeLessThan(jumpKeys.indexOf('Other'))
+    const customSec = rows.find((r) => r.type === 'section' && r.key === 'user:u1')
+    expect(customSec).toMatchObject({ type: 'section', label: 'Contest set', custom: true })
   })
 })

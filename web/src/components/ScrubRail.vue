@@ -492,15 +492,28 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 .scrub-top {
-  min-width: 2rem;
-  min-height: 36px;
-  padding: 0.2rem 0.45rem;
+  box-sizing: border-box;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  flex: 0 0 2.75rem;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
   border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-weight: 700;
-  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);
   align-self: center;
+  cursor: pointer;
+}
+.scrub-top:hover,
+.scrub-top:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
 }
 .scrub-track {
   position: relative;

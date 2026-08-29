@@ -5,7 +5,6 @@ import {
   PITCH_PIPE_GRID_COLS,
   PITCH_PIPE_LAYOUT_OPTIONS,
   PITCH_PIPE_RANGE_OPTIONS,
-  aHzToCents,
   pitchPipeAriaLabel,
   pitchPipeDisplay,
   pitchPipeNotes,
@@ -19,26 +18,34 @@ import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
 const player = new PitchPlayer()
-/** Concert A reference (Hz). */
-const aHz = computed({
-  get: (): PitchPipeAHz => prefs.pitchPipeAHz,
-  set: (v: PitchPipeAHz) => prefs.setPitchPipeAHz(v),
-})
-/** Extra fine adjust in cents on top of the selected A. */
-const fineCents = computed({
-  get: () => prefs.pitchPipeFineCents,
-  set: (v: number) => prefs.setPitchPipeFineCents(v),
+/** Concert A preset (`null` = custom / “—”). */
+const aHz = computed(() => prefs.pitchPipeAHz)
+/** Absolute cents vs A440 (slider + playback). */
+const detune = computed({
+  get: () => prefs.pitchPipeDetuneCents,
+  set: (v: number) => prefs.setPitchPipeDetuneCents(v, { clearConcertA: true }),
 })
 const current = ref<string | null>(null)
 const keysRef = ref<HTMLElement | null>(null)
 
-const baseCents = computed(() => aHzToCents(aHz.value))
-const detune = computed(() => baseCents.value + fineCents.value)
+const concertASelectValue = computed(() => (aHz.value == null ? 'custom' : String(aHz.value)))
+
 const detuneLabel = computed(() => {
   const n = detune.value
   const sign = n > 0 ? '+' : ''
   return `${sign}${n} cents`
 })
+
+function onConcertAChange(e: Event): void {
+  const raw = (e.target as HTMLSelectElement).value
+  const hz = Number(raw)
+  if (!PITCH_PIPE_A_TUNINGS.some((t) => t.hz === hz)) return
+  prefs.setPitchPipeConcertA(hz as PitchPipeAHz)
+}
+
+function resetDetune(): void {
+  prefs.setPitchPipeConcertA(440)
+}
 
 const pipeRange = computed({
   get: (): PitchPipeRange => prefs.pitchPipeRange,
@@ -93,11 +100,6 @@ watch(pipeRange, () => {
     up()
   }
 })
-
-function resetDetune(): void {
-  prefs.setPitchPipeAHz(440)
-  prefs.setPitchPipeFineCents(0)
-}
 
 async function down(note: string): Promise<void> {
   current.value = note
@@ -177,8 +179,13 @@ function blackTopPct(after: string): number {
 
         <label class="a-ref">
           <span class="lbl">Concert A</span>
-          <select v-model.number="aHz" aria-label="Concert A frequency">
-            <option v-for="t in PITCH_PIPE_A_TUNINGS" :key="t.hz" :value="t.hz">
+          <select
+            :value="concertASelectValue"
+            aria-label="Concert A frequency"
+            @change="onConcertAChange"
+          >
+            <option v-if="aHz == null" value="custom" disabled>—</option>
+            <option v-for="t in PITCH_PIPE_A_TUNINGS" :key="t.hz" :value="String(t.hz)">
               {{ t.label }}
             </option>
           </select>
@@ -187,14 +194,14 @@ function blackTopPct(after: string): number {
         <label class="detune">
           <span class="lbl">Fine detune <strong>{{ detuneLabel }}</strong></span>
           <input
-            v-model.number="fineCents"
+            v-model.number="detune"
             type="range"
             min="-50"
             max="50"
             step="1"
             aria-valuemin="-50"
             aria-valuemax="50"
-            :aria-valuenow="fineCents"
+            :aria-valuenow="detune"
             aria-label="Fine detune in cents"
           />
         </label>
@@ -202,7 +209,7 @@ function blackTopPct(after: string): number {
         <button
           type="button"
           class="btn reset"
-          :disabled="aHz === 440 && fineCents === 0"
+          :disabled="aHz === 440 && detune === 0"
           title="Reset to A = 440 Hz with no fine detune"
           @click="resetDetune"
         >

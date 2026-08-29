@@ -215,13 +215,13 @@ describe('catalog store', () => {
     expect(catalog.getById(1)?.title).toBe('Tag 1')
     catalog.clearFilters()
     expect(catalog.filterCount).toBe(0)
-    catalog.sortMode = 'title'
+    catalog.sortMode = 'collection'
     expect(catalog.routeQueryPatch().sort).toBeUndefined()
     catalog.debouncedQuery = 'hello'
     catalog.sortMode = 'rating'
     expect(catalog.routeQueryPatch().sort).toBe('rating')
     catalog.syncFromRoute({}, 'rating')
-    expect(catalog.sortMode).toBe('title')
+    expect(catalog.sortMode).toBe('collection')
     expect(catalog.routeQueryPatch().sort).toBeUndefined()
   })
 

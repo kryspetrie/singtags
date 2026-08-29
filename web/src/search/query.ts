@@ -32,6 +32,8 @@ export interface SearchQuery {
   yearMin: number | null
   /** Inclusive calendar year upper bound (from chips or yearMax: DSL). */
   yearMax: number | null
+  /** Title sort letters to keep (A–Z, 0–9, #). */
+  titleLetters: string[]
   raw: string
 }
 
@@ -126,6 +128,7 @@ export function parseQuery(raw: string, fullText = false): SearchQuery {
     hasSheet,
     yearMin,
     yearMax,
+    titleLetters: [],
     raw,
   }
 }

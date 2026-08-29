@@ -14,6 +14,8 @@ export interface CatalogFilters {
   arrangers: string[]
   types: string[]
   collections: string[]
+  /** Title A–Z / 0–9 / # section letters (from browse section “Filter to”). */
+  titleLetters: string[]
 }
 
 export const EMPTY_FILTERS: CatalogFilters = {
@@ -26,6 +28,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
   arrangers: [],
   types: [],
   collections: [],
+  titleLetters: [],
 }
 
 export function activeFilterCount(f: CatalogFilters): number {
@@ -34,7 +37,7 @@ export function activeFilterCount(f: CatalogFilters): number {
   if (f.hasAudio === true) n++
   if (f.minRating != null) n++
   if (f.yearMin != null || f.yearMax != null) n++
-  n += f.arrangers.length + f.types.length + f.collections.length
+  n += f.arrangers.length + f.types.length + f.collections.length + f.titleLetters.length
   return n
 }
 
@@ -62,6 +65,7 @@ export function buildSearchQuery(text: string, filters: CatalogFilters): SearchQ
     hasSheet: filters.hasSheet ?? base.hasSheet,
     yearMin: filters.yearMin ?? base.yearMin,
     yearMax: filters.yearMax ?? base.yearMax,
+    titleLetters: filters.titleLetters.length ? [...filters.titleLetters] : base.titleLetters,
   }
 }
 
@@ -77,6 +81,7 @@ export function filtersToRouteQuery(f: CatalogFilters): Record<string, string | 
     arr: f.arrangers.length ? f.arrangers.join('|') : undefined,
     type: f.types.length ? f.types.join('|') : undefined,
     col: f.collections.length ? f.collections.join('|') : undefined,
+    tl: f.titleLetters.length ? f.titleLetters.join('|') : undefined,
   }
 }
 
@@ -102,5 +107,6 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
     arrangers: split('arr'),
     types: split('type'),
     collections: split('col'),
+    titleLetters: split('tl'),
   }
 }

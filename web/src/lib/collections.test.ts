@@ -4,6 +4,9 @@ import {
   collectionNumberBadge,
   collectionSearchTokens,
   collectionSortKey,
+  mergeBrowseCollectionOptions,
+  filterTagsByCollectionOptions,
+  userCollectionFilterId,
 } from './collections'
 
 describe('collections', () => {
@@ -33,5 +36,40 @@ describe('collections', () => {
     expect(b[0]).toBeLessThan(a[0])
     const c = collectionSortKey({ id: 3, collection: 'classic', classic: 1 })
     expect(c[1]).toBeLessThan(b[1])
+  })
+})
+
+describe('user collection browse helpers', () => {
+  it('orders catalog by sortRank then custom A–Z', () => {
+    const opts = mergeBrowseCollectionOptions(
+      ['easytags', 'classic', '100'],
+      [
+        { id: 'u2', name: 'Zebra' },
+        { id: 'u1', name: 'Contest set' },
+      ],
+    )
+    expect(opts.map((o) => o.label)).toEqual([
+      'Classic',
+      '100 Days: 100 Tags',
+      'Easy Tags',
+      'Contest set',
+      'Zebra',
+    ])
+    expect(opts.filter((o) => o.custom).every((o) => o.id.startsWith('user:'))).toBe(true)
+  })
+
+  it('filters by catalog id or user membership (OR)', () => {
+    const tags = [
+      { id: 1, collection: 'classic' },
+      { id: 2, collection: null },
+      { id: 3, collection: '100' },
+    ] as any
+    const user = [{ id: 'u1', tagIds: [2, 3] }]
+    const hit = filterTagsByCollectionOptions(
+      tags,
+      ['classic', userCollectionFilterId('u1')],
+      user,
+    )
+    expect(hit.map((t: any) => t.id).sort()).toEqual([1, 2, 3])
   })
 })

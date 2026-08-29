@@ -16,6 +16,9 @@ import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
 import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
+import CustomCollectionMark from '../components/CustomCollectionMark.vue'
+import { useUserCollectionsStore } from '../stores/userCollections'
 import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetsPack } from '../offline/libraryPack'
@@ -32,7 +35,10 @@ import {
   parseTagNumberQuery,
   tagIdHundredKey,
   yearSectionKey,
+  yearBoundsForSectionKey,
+  collectionIdForSectionKey,
 } from '../search/browse'
+import { isUserCollectionFilterId } from '../lib/collections'
 import { normalizeYear } from '../lib/year'
 import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
@@ -41,6 +47,7 @@ import { useOnline } from '../composables/useOnline'
 const catalog = useCatalogStore()
 const queue = useQueueStore()
 const stars = useStarsStore()
+const userCollections = useUserCollectionsStore()
 const recent = useRecentStore()
 const offlineLib = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
@@ -217,6 +224,28 @@ async function addSelectedToQueue(): Promise<void> {
           : 'No files queued.'
 }
 
+const collectionPickerOpen = ref(false)
+
+const selectedTagIds = computed(() => [...catalog.selectedIds])
+
+async function favoriteSelectedToCollection(collectionId: string, collectionName: string): Promise<void> {
+  const summaries = selectedTagIds.value
+    .map((id) => catalog.getById(id))
+    .filter((x): x is NonNullable<typeof x> => !!x)
+  const favorited = summaries.length
+    ? await stars.starMany(summaries, { metadataOnly: false })
+    : 0
+  stars.lastNotice = {
+    type: 'text',
+    message:
+      favorited > 0
+        ? `Favorited ${favorited} and added to “${collectionName}”`
+        : `Added to “${collectionName}”`,
+  }
+  catalog.clearSelection()
+  collectionPickerOpen.value = false
+}
+
 async function starSelected(): Promise<void> {
   const summaries = [...catalog.selectedIds]
     .map((id) => catalog.getById(id))
@@ -244,7 +273,7 @@ const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'year', label: 'Year' },
   { id: 'downloads', label: 'Downloads' },
   { id: 'id', label: 'Tag #' },
-  { id: 'collection', label: 'Collection #' },
+  { id: 'collection', label: 'Collection' },
 ]
 
 /** Rating/Downloads only when the catalog is narrowed by search or filters. */
@@ -260,7 +289,7 @@ const availableSorts = computed(() =>
 
 watch(hasSearchOrFilter, (scoped) => {
   if (scoped) return
-  if (scopedSortIds.has(catalog.sortMode)) catalog.sortMode = 'title'
+  if (scopedSortIds.has(catalog.sortMode)) catalog.sortMode = 'collection'
 })
 
 const optionsToggleTip = computed(() =>
@@ -307,7 +336,7 @@ function sortOptionTip(id: SortMode): string {
     year: 'Group and order by newest year first',
     downloads: 'Group and order by most downloads first',
     id: 'Group and order by tag number',
-    collection: 'Group by collection booklet # (Classic, then 100 Days), then tag #',
+    collection: 'Group by collection (Classic, then 100 Days), then tag #',
   }
   const base = tips[id]
   return catalog.sortReverse ? `${base} (reversed)` : base
@@ -376,6 +405,39 @@ function syncListScrollMargin(): void {
   listScrollMargin.value = listEl.value?.offsetTop ?? 0
 }
 
+/**
+ * Space taken by sticky browse chrome (header + jump/scrub rail).
+ * Used as virtualizer scrollPaddingStart so align:"start" lands just under the rail.
+ */
+function stickyBrowsePadPx(): number {
+  const rail =
+    showJump.value && jumpRailEl.value
+      ? jumpRailEl.value
+      : showScrub.value
+        ? (document.querySelector('.scrub-rail') as HTMLElement | null)
+        : null
+  if (rail) {
+    // `top` resolves to px for position:sticky — pad = stuck offset + rail height.
+    const stickyTop = Number.parseFloat(getComputedStyle(rail).top) || 0
+    return Math.ceil(stickyTop + rail.offsetHeight)
+  }
+  // No jump/scrub rail (e.g. filtered to one group) — still clear the fixed header.
+  const home = document.querySelector('.home') as HTMLElement | null
+  const offsetRaw = home ? getComputedStyle(home).getPropertyValue('--jump-rail-offset') : ''
+  const headerPad = Number.parseFloat(offsetRaw)
+  if (Number.isFinite(headerPad) && headerPad > 0) return Math.ceil(headerPad)
+  const rootH = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--header-h'),
+  )
+  return Math.ceil(Number.isFinite(rootH) && rootH > 0 ? rootH : 56)
+}
+
+const stickyBrowsePad = ref(0)
+
+function syncStickyBrowsePad(): void {
+  stickyBrowsePad.value = stickyBrowsePadPx()
+}
+
 const rowVirtualizer = useWindowVirtualizer(
   computed(() => ({
     count: browseRows.value.length,
@@ -383,6 +445,7 @@ const rowVirtualizer = useWindowVirtualizer(
       browseRows.value[index]?.type === 'section' ? 48 : 72,
     overscan: 14,
     scrollMargin: listScrollMargin.value,
+    scrollPaddingStart: stickyBrowsePad.value,
   })),
 )
 
@@ -422,6 +485,7 @@ function browseRowIndexForSection(key: string): number {
 function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' | 'auto' = 'start'): void {
   if (rowIndex < 0) return
   syncListScrollMargin()
+  syncStickyBrowsePad()
   rowVirtualizer.value.scrollToIndex(rowIndex, { align })
 }
 
@@ -618,11 +682,112 @@ function jumpSectionTip(key: string): string {
   const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
   return row?.type === 'section' ? `Jump to ${row.label}` : `Jump to ${key}`
 }
+function jumpKeyLabel(key: string): string {
+  const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
+  return row?.type === 'section' ? row.label : key
+}
+
+function isCustomJumpKey(key: string): boolean {
+  return isUserCollectionFilterId(key)
+}
+
+
+
+/** Whether this section can map onto a catalog filter. */
+function canFilterSection(key: string): boolean {
+  const mode = catalog.sortMode
+  if (mode === 'title') return true
+  if (mode === 'year') return yearBoundsForSectionKey(key) != null
+  if (mode === 'collection') {
+    return collectionIdForSectionKey(key, catalog.collections) != null
+  }
+  return false
+}
+
+function isSectionFilterActive(key: string): boolean {
+  const mode = catalog.sortMode
+  const f = catalog.filters
+  if (mode === 'title') return f.titleLetters.includes(key)
+  if (mode === 'year') {
+    const bounds = yearBoundsForSectionKey(key)
+    if (!bounds) return false
+    return f.yearMin === bounds.yearMin && f.yearMax === bounds.yearMax
+  }
+  if (mode === 'collection') {
+    const id = collectionIdForSectionKey(key, catalog.collections)
+    return id != null && f.collections.includes(id)
+  }
+  return false
+}
+
+function sectionFilterTip(key: string, label: string): string {
+  return isSectionFilterActive(key) ? `Remove filter: ${label}` : `Filter to ${label}`
+}
+
+/** After filtering to a section, reset scroll and pin that heading under sticky chrome. */
+async function scrollToFilteredSection(key: string): Promise<void> {
+  // Filter collapses the list while window.scrollY stays deep — blank/wrong position.
+  // Always reset to top first, then align the section under the sticky chrome.
+  scrollBrowseTop()
+  await nextTick()
+  syncListScrollMargin()
+  syncStickyBrowsePad()
+  await nextTick()
+  const rowIndex = browseRowIndexForSection(key)
+  if (rowIndex < 0) return
+  scrollToBrowseRow(rowIndex, 'start')
+  requestAnimationFrame(() => {
+    syncListScrollMargin()
+    syncStickyBrowsePad()
+    const again = browseRowIndexForSection(key)
+    if (again >= 0) scrollToBrowseRow(again, 'start')
+  })
+}
+
+function toggleSectionFilter(key: string): void {
+  const mode = catalog.sortMode
+  const wasActive = isSectionFilterActive(key)
+
+  if (mode === 'title') {
+    const cur = catalog.filters.titleLetters
+    const next = wasActive ? cur.filter((x) => x !== key) : [...cur, key]
+    catalog.patchFilters({ titleLetters: next })
+  } else if (mode === 'year') {
+    const bounds = yearBoundsForSectionKey(key)
+    if (!bounds) return
+    if (wasActive) {
+      catalog.patchFilters({ yearMin: null, yearMax: null })
+    } else {
+      catalog.patchFilters({ yearMin: bounds.yearMin, yearMax: bounds.yearMax })
+    }
+  } else if (mode === 'collection') {
+    const id = collectionIdForSectionKey(key, catalog.collections)
+    if (!id) return
+    const cur = catalog.filters.collections
+    const next = wasActive ? cur.filter((x) => x !== id) : [...cur, id]
+    catalog.patchFilters({ collections: next })
+  } else {
+    return
+  }
+
+  // Activating: jump to the sole/filtered group under the chrome.
+  // Clearing: reset to top so the restored long list isn't mid-void.
+  if (!wasActive) void scrollToFilteredSection(key)
+  else scrollBrowseTop()
+}
 
 async function jumpToSection(key: string): Promise<void> {
   catalog.revealSection(key)
+  syncStickyBrowsePad()
   await nextTick()
-  scrollToBrowseRow(browseRowIndexForSection(key), 'start')
+  const rowIndex = browseRowIndexForSection(key)
+  scrollToBrowseRow(rowIndex, 'start')
+  // Re-align after the section row measures — first pass may use the estimate.
+  await nextTick()
+  syncStickyBrowsePad()
+  requestAnimationFrame(() => {
+    scrollToBrowseRow(rowIndex, 'start')
+  })
 }
 
 /** Enter: `n123` → Tag #; `c99` / bare digits → classic or tag when unique. */
@@ -671,12 +836,14 @@ onMounted(async () => {
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
   await nextTick()
   syncListScrollMargin()
+  syncStickyBrowsePad()
   syncScrubFromScroll()
   syncJumpCols()
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
   jumpRailRo = new ResizeObserver(() => {
     syncJumpCols()
     syncListScrollMargin()
+    syncStickyBrowsePad()
   })
   if (jumpRailEl.value) jumpRailRo.observe(jumpRailEl.value)
   if (listEl.value) jumpRailRo.observe(listEl.value)
@@ -701,6 +868,7 @@ watch(
     await nextTick()
     syncJumpCols()
     syncListScrollMargin()
+    syncStickyBrowsePad()
     if (jumpRailRo && jumpRailEl.value) {
       jumpRailRo.disconnect()
       jumpRailRo.observe(jumpRailEl.value)
@@ -835,6 +1003,7 @@ watch(
             :arrangers="catalog.arrangers"
             :types="catalog.types"
             :collections="catalog.collections"
+            :user-collections="userCollections.collections"
             @patch="catalog.patchFilters($event)"
             @clear="catalog.clearFilters()"
           />
@@ -944,10 +1113,12 @@ watch(
             :key="key"
             type="button"
             class="jump"
+            :class="{ custom: isCustomJumpKey(key) }"
             :title="jumpSectionTip(key)"
             @click="jumpToSection(key)"
           >
-            {{ key }}
+            <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+            {{ jumpKeyLabel(key) }}
           </button>
         </div>
       </nav>
@@ -1004,7 +1175,31 @@ watch(
             :id="`sec-${item.row.key}`"
             class="section-head"
           >
-            {{ item.row.label }}
+            <span class="section-head-label">
+              <CustomCollectionMark v-if="item.row.custom" />
+              {{ item.row.label }}
+            </span>
+            <button
+              v-if="canFilterSection(item.row.key)"
+              type="button"
+              class="section-filter-btn"
+              :class="{ on: isSectionFilterActive(item.row.key) }"
+              :aria-pressed="isSectionFilterActive(item.row.key)"
+              :aria-label="sectionFilterTip(item.row.key, item.row.label)"
+              :title="sectionFilterTip(item.row.key, item.row.label)"
+              @click.stop="toggleSectionFilter(item.row.key)"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 6h16M7 12h10M10 18h4"
+                />
+              </svg>
+            </button>
           </h2>
           <div
             v-else
@@ -1178,6 +1373,14 @@ watch(
         <button
           type="button"
           class="btn"
+          title="Favorite selected tags and add them to a collection"
+          @click="collectionPickerOpen = true"
+        >
+          Add to collection
+        </button>
+        <button
+          type="button"
+          class="btn"
           title="Add selected tags' sheets and tracks to the download queue"
           @click="addSelectedToQueue"
         >
@@ -1193,6 +1396,14 @@ watch(
         </button>
       </div>
     </Teleport>
+
+    <CollectionPickerSheet
+      :open="collectionPickerOpen"
+      :tag-ids="selectedTagIds"
+      title="Add to collection"
+      @close="collectionPickerOpen = false"
+      @done="favoriteSelectedToCollection"
+    />
   </section>
 </template>
 
@@ -1425,6 +1636,8 @@ watch(
 }
 .tips-wrap {
   position: relative;
+  /* Above sticky jump/scrub rails (z-index: 4) so the [i] popover isn’t covered. */
+  z-index: 5;
 }
 .tips-popover {
   display: none;
@@ -1600,7 +1813,12 @@ watch(
   gap: 0.35rem;
   overflow-x: auto;
 }
-.jump-rail-fit .jump {
+.jump-rail-fit .jump.custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.jump {
   flex: 0 0 auto;
   min-width: auto;
   padding: 0.2rem 0.55rem;
@@ -1616,6 +1834,11 @@ watch(
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(8px);
 }
+.jump.custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
 .jump {
   min-width: 0;
   min-height: 36px;
@@ -1629,23 +1852,72 @@ watch(
   text-align: center;
 }
 .jump-top {
-  min-width: 2rem;
-  padding: 0.2rem 0.45rem;
-  font-weight: 700;
-  color: var(--accent);
+  /* Match year-scrub ↑: fixed footprint so title/collection rails don’t resize it. */
+  box-sizing: border-box;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  flex: 0 0 2.75rem;
+  min-height: 44px;
+  padding: 0.35rem 0.55rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);
   align-self: center;
+}
+.jump-top:hover,
+.jump-top:focus-visible {
+  filter: brightness(1.08);
+  outline: none;
 }
 .dl-count {
   font-variant-numeric: tabular-nums;
 }
 .section-head {
   /* Padding (not margin) so window-virtualizer measureElement includes spacing. */
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   margin: 0;
   padding: 1.35rem 0 0.7rem;
   font-family: var(--font-display);
   font-size: 1.1rem;
   border-bottom: 1px solid var(--border);
   scroll-margin-top: calc(var(--jump-rail-offset) + var(--jump-rail-h));
+}
+.section-head-label {
+  min-width: 0;
+}
+.section-filter-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.section-filter-btn:hover,
+.section-filter-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--border);
+  background: var(--surface);
+  outline: none;
+}
+.section-filter-btn.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .list {
   list-style: none;

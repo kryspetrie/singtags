@@ -12,6 +12,7 @@ import { formatBytes } from './offline/storageEstimate'
 import { navigateBack } from './lib/navigateBack'
 import { useReconnectCaches } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
+import AboutDialog from './components/AboutDialog.vue'
 
 const stars = useStarsStore()
 const queue = useQueueStore()
@@ -44,6 +45,7 @@ watch(
 
 const onTagPage = computed(() => route.name === 'tag')
 const backLabel = computed(() => (route.query.set === 'practice' ? '← Practice set' : '← Back'))
+const aboutOpen = ref(false)
 
 /** History back restores browse scroll; practice always returns to the set list. */
 function goBack(): void {
@@ -191,12 +193,23 @@ async function syncPacksFromPrompt(): Promise<void> {
           :title="backLabel"
           @click="goBack"
         >{{ backLabel }}</button>
-        <RouterLink class="brand" to="/">
-          <span class="brand-lockup">
-            <span class="brand-name">SingTags</span>
-            <span class="brand-tagline">Barbershop tags… fast.</span>
-          </span>
-        </RouterLink>
+        <div class="brand-cluster">
+          <RouterLink class="brand" to="/">
+            <span class="brand-lockup">
+              <span class="brand-name">SingTags</span>
+              <span class="brand-tagline">Barbershop tags… fast.</span>
+            </span>
+          </RouterLink>
+          <button
+            type="button"
+            class="about-btn"
+            aria-label="About SingTags"
+            title="About SingTags"
+            @click="aboutOpen = true"
+          >
+            i
+          </button>
+        </div>
       </div>
       <nav class="topnav" aria-label="Primary">
         <RouterLink to="/">Browse</RouterLink>
@@ -225,6 +238,7 @@ async function syncPacksFromPrompt(): Promise<void> {
       <span>{{ offlineBannerMessage }}</span>
       <RouterLink class="offline-banner-link" to="/settings">Offline settings</RouterLink>
     </div>
+    <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
     <main id="main">
       <RouterView />
     </main>
@@ -417,6 +431,12 @@ async function syncPacksFromPrompt(): Promise<void> {
   color: var(--accent-hover);
   text-decoration: none;
 }
+.brand-cluster {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 0;
+}
 .brand {
   display: flex;
   align-items: center;
@@ -433,16 +453,16 @@ async function syncPacksFromPrompt(): Promise<void> {
   align-items: baseline;
   gap: 0.45rem;
   min-width: 0;
-  overflow: hidden;
 }
 .brand-name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.15rem;
   line-height: 1.15;
+  flex-shrink: 0;
 }
 .brand-tagline {
-  display: none;
+  display: inline;
   font-family: var(--font);
   font-size: 0.78rem;
   font-weight: 500;
@@ -450,18 +470,36 @@ async function syncPacksFromPrompt(): Promise<void> {
   line-height: 1.2;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-@media (min-width: 560px) {
-  .brand-tagline {
-    display: inline;
-  }
+.about-btn {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: Georgia, 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1;
+  cursor: pointer;
 }
-@media (max-width: 767px) {
-  .top-back ~ .brand .brand-tagline {
-    display: none;
-  }
+.about-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 22%, var(--border));
+  background: color-mix(in srgb, var(--border) 28%, transparent);
+}
+.about-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .topnav {
   display: none;

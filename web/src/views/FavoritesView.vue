@@ -4,8 +4,14 @@ import { RouterLink } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
+import CustomCollectionMark from '../components/CustomCollectionMark.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useStarsStore } from '../stores/stars'
 import { usePracticeStore } from '../stores/practice'
+import { useUserCollectionsStore } from '../stores/userCollections'
+import { buildFavoritesBackup, parseFavoritesBackup } from '../lib/favoritesBackup'
+import { downloadBlob } from '../download/zip'
 import { useOnline } from '../composables/useOnline'
 import {
   STARRED_SORT_OPTIONS,
@@ -15,10 +21,18 @@ import {
 
 const stars = useStarsStore()
 const practice = usePracticeStore()
+const userCollections = useUserCollectionsStore()
 const { offline } = useOnline()
 const fileInput = ref<HTMLInputElement | null>(null)
 const fetchMediaOnImport = ref(false)
 const backupOpen = ref(false)
+const manageOpen = ref(false)
+const addOpen = ref(false)
+const activeCollectionId = ref<string | null>(null)
+const pendingUnfavorite = ref<{ tagId: number; title: string } | null>(null)
+const renameDraft = ref<Record<string, string>>({})
+const newCollectionName = ref('')
+const manageError = ref<string | null>(null)
 const sortMode = ref<StarredSortMode>('custom')
 const sortOptions = STARRED_SORT_OPTIONS
 
@@ -35,13 +49,49 @@ let holdStartY = 0
 
 const orderedRecords = computed(() => {
   const byId = new Map(stars.records.map((r) => [r.tagId, r]))
+  const colId = activeCollectionId.value
+  if (colId) {
+    const colIds = userCollections.byId(colId)?.tagIds ?? []
+    const members = colIds.map((id) => byId.get(id)).filter(Boolean)
+    if (sortMode.value === 'custom') return members
+    return sortStarredRecords(
+      members as NonNullable<(typeof members)[number]>[],
+      sortMode.value,
+    )
+  }
   if (sortMode.value === 'custom') {
     return practice.order.map((id) => byId.get(id)).filter(Boolean)
   }
   return sortStarredRecords(stars.records, sortMode.value)
 })
 
+const collectionChips = computed(() =>
+  [...userCollections.collections].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  ),
+)
+
+const activeCollection = computed(() =>
+  activeCollectionId.value ? userCollections.byId(activeCollectionId.value) : null,
+)
+
+const addPickerTagIds = computed(() => orderedRecords.value.map((r) => r!.tagId))
+
 const canApplySort = computed(() => stars.count > 0 && sortMode.value !== 'custom')
+
+watch(
+  () => stars.records.map((r) => r.tagId),
+  (ids) => userCollections.pruneToStarred(ids),
+)
+
+watch(manageOpen, (open) => {
+  if (!open) return
+  manageError.value = null
+  newCollectionName.value = ''
+  const drafts: Record<string, string> = {}
+  for (const c of userCollections.collections) drafts[c.id] = c.name
+  renameDraft.value = drafts
+})
 
 const finePointer = computed(() =>
   typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches,
@@ -175,12 +225,16 @@ function onDragEnd(): void {
   if (dragActive.value && draggingId.value != null) {
     const toIndex = insertIndexForDrop()
     if (toIndex != null) {
+      const colId = activeCollectionId.value
+      const ids = orderedRecords.value.map((r) => r!.tagId)
       // Dragging adopts the current view as custom order, then reorders.
       if (sortMode.value !== 'custom') {
-        practice.resetFromStarred(orderedRecords.value.map((r) => r!.tagId))
+        if (colId) userCollections.setTagOrder(colId, ids)
+        else practice.resetFromStarred(ids)
         sortMode.value = 'custom'
       }
-      practice.reorder(draggingId.value, toIndex)
+      if (colId) userCollections.reorderTag(colId, draggingId.value, toIndex)
+      else practice.reorder(draggingId.value, toIndex)
     }
   }
   dragActive.value = false
@@ -193,14 +247,13 @@ function onDragEnd(): void {
 }
 
 function downloadStarredFile(): void {
-  const data = stars.exportFile()
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'favorites.tags'
-  a.click()
-  URL.revokeObjectURL(url)
+  const data = buildFavoritesBackup({
+    records: stars.records,
+    collections: userCollections.exportSnapshot(),
+    practice: practice.exportSnapshot(),
+  })
+  const bytes = new TextEncoder().encode(JSON.stringify(data, null, 2))
+  downloadBlob(bytes, 'favorites.tags', 'application/json')
 }
 
 async function onImportFile(e: Event): Promise<void> {
@@ -209,7 +262,10 @@ async function onImportFile(e: Event): Promise<void> {
   if (!file) return
   try {
     const text = await file.text()
-    await stars.importFromJson(JSON.parse(text), fetchMediaOnImport.value && !offline.value)
+    const backup = parseFavoritesBackup(JSON.parse(text))
+    await stars.importFromJson(backup.starred, fetchMediaOnImport.value && !offline.value)
+    userCollections.replaceAll(backup.collections)
+    practice.importSnapshot(backup.practice)
     backupOpen.value = false
   } catch (err) {
     stars.error = err instanceof Error ? err.message : String(err)
@@ -220,13 +276,79 @@ async function onImportFile(e: Event): Promise<void> {
 
 function applySort(): void {
   if (sortMode.value === 'custom') return
-  practice.resetFromStarred(orderedRecords.value.map((r) => r!.tagId))
+  const ids = orderedRecords.value.map((r) => r!.tagId)
+  const colId = activeCollectionId.value
+  if (colId) userCollections.setTagOrder(colId, ids)
+  else practice.resetFromStarred(ids)
   sortMode.value = 'custom'
+}
+
+function selectCollection(id: string | null): void {
+  activeCollectionId.value = id
+}
+
+function saveRename(id: string): void {
+  manageError.value = null
+  if (!userCollections.rename(id, renameDraft.value[id] ?? '')) {
+    manageError.value = 'Enter a collection name'
+  }
+}
+
+function deleteCollection(id: string): void {
+  manageError.value = null
+  const col = userCollections.byId(id)
+  if (!col) return
+  if (!confirm(`Delete collection “${col.name}”? Favorites stay favorited.`)) return
+  userCollections.remove(id)
+  if (activeCollectionId.value === id) activeCollectionId.value = null
+  const { [id]: _removed, ...rest } = renameDraft.value
+  renameDraft.value = rest
+}
+
+function createManagedCollection(): void {
+  manageError.value = null
+  const col = userCollections.create(newCollectionName.value)
+  if (!col) {
+    manageError.value = 'Enter a collection name'
+    return
+  }
+  renameDraft.value = { ...renameDraft.value, [col.id]: col.name }
+  newCollectionName.value = ''
+  activeCollectionId.value = col.id
+}
+
+function removeFromActiveCollection(tagId: number): void {
+  const colId = activeCollectionId.value
+  if (!colId) return
+  userCollections.removeTags(colId, [tagId])
+}
+
+function onAddedToCollection(_id: string, name: string): void {
+  stars.lastNotice = { type: 'text', message: `Added to “${name}”` }
+}
+
+function requestUnfavorite(tagId: number, title: string): void {
+  const inCollections = userCollections.collections.some((c) => c.tagIds.includes(tagId))
+  if (activeCollectionId.value || inCollections) {
+    pendingUnfavorite.value = { tagId, title }
+    return
+  }
+  void stars.unstar(tagId)
+}
+
+async function confirmPendingUnfavorite(): Promise<void> {
+  const pending = pendingUnfavorite.value
+  pendingUnfavorite.value = null
+  if (!pending) return
+  await stars.unstar(pending.tagId)
 }
 
 function rowStarTip(title: string, tagId: number): string {
   if (stars.isTagCaching(tagId)) {
     return stars.tagCachingLabel(tagId) || 'Saving for offline…'
+  }
+  if (activeCollectionId.value) {
+    return `Unfavorite ${title || `tag #${tagId}`} — removes from favorites and all collections`
   }
   return `Unfavorite ${title || `tag #${tagId}`} — remove from saved tags`
 }
@@ -262,7 +384,46 @@ function rowStarLabel(title: string, tagId: number): string {
         Apply sort
       </button>
       <button type="button" @click="backupOpen = true">Backup &amp; restore</button>
+      <button type="button" @click="manageOpen = true">Manage collections</button>
     </div>
+
+    <div class="collection-bar" role="toolbar" aria-label="Favorite collections">
+      <button
+        type="button"
+        class="chip"
+        :class="{ on: !activeCollectionId }"
+        :aria-pressed="!activeCollectionId"
+        @click="selectCollection(null)"
+      >
+        All
+      </button>
+      <button
+        v-for="c in collectionChips"
+        :key="c.id"
+        type="button"
+        class="chip"
+        :class="{ on: activeCollectionId === c.id }"
+        :aria-pressed="activeCollectionId === c.id"
+        @click="selectCollection(c.id)"
+      >
+        <CustomCollectionMark />
+        {{ c.name }}
+        <span class="chip-n">{{ c.tagIds.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="chip chip-add"
+        :disabled="!orderedRecords.length && !stars.count"
+        title="Add currently listed favorites to a collection"
+        @click="addOpen = true"
+      >
+        Add listed…
+      </button>
+    </div>
+    <p v-if="activeCollection" class="collection-hint">
+      Showing “{{ activeCollection.name }}”
+      <button type="button" class="linkish" @click="selectCollection(null)">Show all</button>
+    </p>
 
     <div v-if="stars.progress" class="progress" role="status">
       <div class="bar" :style="{ width: `${Math.round(stars.progress.ratio * 100)}%` }" />
@@ -278,9 +439,14 @@ function rowStarLabel(title: string, tagId: number): string {
       title="No favorites yet"
       message="Favorite from Browse or a tag page to save for quick recall and offline use."
     />
+    <EmptyState
+      v-else-if="!orderedRecords.length && activeCollection"
+      title="Nothing in this collection"
+      message="From Browse, select tags and use Add to collection — or pick another collection."
+    />
 
     <ol
-      v-else
+      v-else-if="orderedRecords.length"
       class="list"
       :class="{ 'list-dragging': dragActive }"
       aria-label="Favorites"
@@ -338,22 +504,34 @@ function rowStarLabel(title: string, tagId: number): string {
               }}</span>
             </span>
           </RouterLink>
-          <button
-            type="button"
-            class="row-fav"
-            :aria-pressed="true"
-            :aria-busy="stars.isTagCaching(r!.tagId)"
-            :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
-            :title="rowStarTip(r!.summary.title || '', r!.tagId)"
-            @click.stop="stars.unstar(r!.tagId)"
-          >
-            <span
-              v-if="stars.isTagCaching(r!.tagId)"
-              class="row-fav-spinner"
-              aria-hidden="true"
-            />
-            <span v-else>♥</span>
-          </button>
+          <div class="row-actions" :class="{ 'in-collection': !!activeCollectionId }">
+            <button
+              v-if="activeCollectionId"
+              type="button"
+              class="row-remove-col"
+              :aria-label="`Remove ${r!.summary.title || r!.tagId} from collection`"
+              title="Remove from this collection only — keeps it favorited"
+              @click.stop="removeFromActiveCollection(r!.tagId)"
+            >
+              Remove from collection
+            </button>
+            <button
+              type="button"
+              class="row-fav"
+              :aria-pressed="true"
+              :aria-busy="stars.isTagCaching(r!.tagId)"
+              :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
+              :title="rowStarTip(r!.summary.title || '', r!.tagId)"
+              @click.stop="requestUnfavorite(r!.tagId, r!.summary.title || '')"
+            >
+              <span
+                v-if="stars.isTagCaching(r!.tagId)"
+                class="row-fav-spinner"
+                aria-hidden="true"
+              />
+              <span v-else>♥</span>
+            </button>
+          </div>
         </div>
       </li>
     </ol>
@@ -361,10 +539,10 @@ function rowStarLabel(title: string, tagId: number): string {
     <FilterSheet :open="backupOpen" title="Backup & restore" @close="backupOpen = false">
       <div class="backup">
         <p class="backup-desc">
-          Your favorites list lives in this browser only. <strong>Backup</strong> downloads a
-          <code>favorites.tags</code> file with your tags and list order so you can keep a copy or move
-          it to another device. <strong>Restore</strong> replaces the list on this device from that
-          file. Optionally fetch sheet and audio media during restore so tags work offline right away.
+          Your favorites and custom collections live in this browser only. <strong>Backup</strong> downloads a
+          <code>favorites.tags</code> file with favorited tags, collection membership, and practice order.
+          <strong>Restore</strong> replaces favorites and collections on this device from that file.
+          Optionally fetch sheet and audio media during restore so tags work offline right away.
         </p>
         <div class="backup-actions">
           <span
@@ -382,7 +560,7 @@ function rowStarLabel(title: string, tagId: number): string {
               :aria-disabled="!stars.count"
               @click="downloadStarredFile"
             >
-              Backup favorites list
+              Backup favorites &amp; collections
             </button>
           </span>
           <button type="button" @click="fileInput?.click()">Restore from file…</button>
@@ -406,6 +584,89 @@ function rowStarLabel(title: string, tagId: number): string {
         />
       </div>
     </FilterSheet>
+
+    <CollectionPickerSheet
+      :open="addOpen"
+      :tag-ids="addPickerTagIds"
+      title="Add listed favorites to collection"
+      @close="addOpen = false"
+      @done="onAddedToCollection"
+    />
+
+    <FilterSheet :open="manageOpen" title="Manage collections" @close="manageOpen = false">
+      <div class="manage">
+        <p class="manage-desc">
+          Collections group favorites for practice. They stay on this device. Unfavoriting a tag
+          removes it from every collection.
+        </p>
+        <p v-if="manageError" class="manage-err" role="alert">{{ manageError }}</p>
+
+        <ul v-if="collectionChips.length" class="manage-list" aria-label="Your collections">
+          <li v-for="c in collectionChips" :key="c.id" class="manage-row">
+            <label class="manage-field">
+              <span class="manage-lbl">
+                {{ c.name }}
+                <span class="manage-count">{{ c.tagIds.length }} tag{{ c.tagIds.length === 1 ? '' : 's' }}</span>
+              </span>
+              <input
+                v-model="renameDraft[c.id]"
+                type="text"
+                maxlength="80"
+                :aria-label="`Rename ${c.name}`"
+                @keydown.enter.prevent="saveRename(c.id)"
+              />
+            </label>
+            <div class="manage-row-actions">
+              <button
+                type="button"
+                class="manage-btn manage-btn-primary"
+                :disabled="!(renameDraft[c.id] ?? '').trim() || (renameDraft[c.id] ?? '').trim() === c.name"
+                @click="saveRename(c.id)"
+              >
+                Save name
+              </button>
+              <button type="button" class="manage-btn manage-btn-danger" @click="deleteCollection(c.id)">
+                Delete
+              </button>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="manage-empty">No collections yet.</p>
+
+        <div class="manage-create">
+          <label class="manage-field">
+            <span class="manage-lbl">New collection</span>
+            <input
+              v-model="newCollectionName"
+              type="text"
+              maxlength="80"
+              placeholder="e.g. Contest set"
+              aria-label="New collection name"
+              @keydown.enter.prevent="createManagedCollection"
+            />
+          </label>
+          <button
+            type="button"
+            class="manage-btn manage-btn-primary manage-create-btn"
+            :disabled="!newCollectionName.trim()"
+            @click="createManagedCollection"
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </FilterSheet>
+
+    <ConfirmDialog
+      :open="!!pendingUnfavorite"
+      title="Unfavorite this tag?"
+      :message="pendingUnfavorite
+        ? `“${pendingUnfavorite.title || ('tag #' + pendingUnfavorite.tagId)}” will be removed from your favorites and from every collection.`
+        : ''"
+      confirm-label="Unfavorite"
+      @close="pendingUnfavorite = null"
+      @confirm="confirmPendingUnfavorite"
+    />
   </section>
 </template>
 
@@ -632,6 +893,41 @@ li.drop-after::after {
   min-height: 44px;
   transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
+.row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.row-actions.in-collection {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.4rem;
+  align-items: center;
+  min-width: 12.5rem;
+  max-width: 16rem;
+}
+.row-remove-col {
+  min-height: 44px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  white-space: normal;
+}
+.row-remove-col:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
 .row-link {
   display: flex;
   flex-direction: column;
@@ -706,6 +1002,7 @@ li.drop-after::after {
   display: block;
   width: 1.1rem;
   height: 1.1rem;
+  margin: 0 auto;
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   border-radius: 50%;
@@ -731,5 +1028,173 @@ li.drop-after::after {
 }
 code {
   font-size: 0.9em;
+}
+
+.collection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.65rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+.chip-n {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.chip-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.collection-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.linkish {
+  margin-left: 0.45rem;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.manage {
+  display: grid;
+  gap: 0.9rem;
+}
+.manage-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.manage-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.manage-err {
+  margin: 0;
+  color: var(--danger, #9b2c2c);
+  font-size: 0.9rem;
+}
+.manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+  max-height: min(45vh, 18rem);
+  overflow: auto;
+}
+.manage-row {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg, var(--surface));
+}
+.manage-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.manage-lbl {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.manage-count {
+  font-weight: 500;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.manage-row input,
+.manage-create input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.manage-row-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+.manage-btn {
+  min-height: 44px;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.manage-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.manage-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.manage-btn-primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  filter: brightness(1.05);
+}
+.manage-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+.manage-btn-danger {
+  color: var(--danger, #9b2c2c);
+}
+.manage-btn-danger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--danger, #9b2c2c) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger, #9b2c2c) 8%, var(--surface));
+}
+.manage-create {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.manage-create-btn {
+  width: 100%;
 }
 </style>

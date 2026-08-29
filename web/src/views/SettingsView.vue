@@ -5,13 +5,17 @@ import { useOfflineModeStore } from '../stores/offlineMode'
 import { useStarsStore } from '../stores/stars'
 import { usePreferencesStore } from '../stores/preferences'
 import { useOnline } from '../composables/useOnline'
-import {
-  AUDIO_ENCODE_QUALITY_LABELS,
-  type AudioEncodeQuality,
-} from '../types/audio'
+import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
 import { estimateAudioDownloadBytes } from '../lib/offlineManifest'
-import { isPublishedTierPath } from '../lib/audioTiers'
 import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import { useUserCollectionsStore } from '../stores/userCollections'
+import { usePracticeStore } from '../stores/practice'
+import {
+  applyLocalStorageSnapshot,
+  downloadAppStateBackup,
+  loadAppStateBackupFile,
+  restoreOfflineCacheBytes,
+} from '../lib/appStateBackup'
 
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
@@ -20,6 +24,12 @@ const prefs = usePreferencesStore()
 const { offline } = useOnline()
 const confirmClear = ref(false)
 const cacheFileInput = ref<HTMLInputElement | null>(null)
+const appBackupFileInput = ref<HTMLInputElement | null>(null)
+const includeCacheInAppBackup = ref(false)
+const appBackupBusy = ref(false)
+const appBackupMessage = ref<string | null>(null)
+const userCollections = useUserCollectionsStore()
+const practice = usePracticeStore()
 
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
@@ -53,7 +63,7 @@ const audioDownloadBytes = computed(() =>
     offlineLib.audioManifest,
     'all',
     [],
-    prefs.audioEncodeQuality,
+    DEVICE_AUDIO_STORAGE_QUALITY,
   ),
 )
 
@@ -144,19 +154,6 @@ const canSyncMissing = computed(
     (offlineLib.sheetsSyncAvailable || offlineLib.audioSyncAvailable),
 )
 
-const publishedTiersShipped = computed(() => {
-  const m = offlineLib.audioManifest
-  if (!m?.entries.length) return true
-  return m.entries.some((e) => e.paths.some(isPublishedTierPath))
-})
-
-const qualityOptions = computed(() => {
-  const keys = (Object.keys(AUDIO_ENCODE_QUALITY_LABELS) as AudioEncodeQuality[]).filter(
-    (id) => !publishedTiersShipped.value || id !== 'compact',
-  )
-  return keys.map((id) => ({ id, label: AUDIO_ENCODE_QUALITY_LABELS[id] }))
-})
-
 const hasOfflineCache = computed(
   () =>
     offlineLib.sheetsCachedCount > 0 ||
@@ -165,8 +162,64 @@ const hasOfflineCache = computed(
     !!offlineLib.catalogCachedAt,
 )
 
-function onQualityChange(v: string): void {
-  prefs.setAudioEncodeQuality(v as AudioEncodeQuality)
+
+async function onExportAppState(): Promise<void> {
+  appBackupBusy.value = true
+  appBackupMessage.value = null
+  try {
+    await stars.ensureLoaded()
+    const result = await downloadAppStateBackup(
+      {
+        records: stars.records,
+        collections: userCollections.exportSnapshot(),
+        practice: practice.exportSnapshot(),
+      },
+      {
+        includeCache: includeCacheInAppBackup.value,
+        onProgress: (p) => {
+          offlineLib.cacheProgress = p
+        },
+      },
+    )
+    appBackupMessage.value = result.includeCache
+      ? 'Downloaded app backup zip (includes offline cache).'
+      : 'Downloaded app-state JSON (settings & favorites; no media cache).'
+  } catch (e) {
+    appBackupMessage.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    appBackupBusy.value = false
+    offlineLib.cacheProgress = null
+  }
+}
+
+async function onImportAppStateFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  appBackupBusy.value = true
+  appBackupMessage.value = null
+  try {
+    const { state, cacheBytes } = await loadAppStateBackupFile(file, (p) => {
+      offlineLib.cacheProgress = p
+    })
+    await stars.importFromJson(state.favorites.starred, false)
+    userCollections.replaceAll(state.favorites.collections)
+    practice.importSnapshot(state.favorites.practice)
+    applyLocalStorageSnapshot(state.localStorage)
+    if (cacheBytes) {
+      await restoreOfflineCacheBytes(cacheBytes, (p) => {
+        offlineLib.cacheProgress = p
+      })
+    }
+    appBackupMessage.value = 'App backup restored. Reloading…'
+    window.setTimeout(() => window.location.reload(), 400)
+  } catch (err) {
+    appBackupMessage.value = err instanceof Error ? err.message : String(err)
+    appBackupBusy.value = false
+    offlineLib.cacheProgress = null
+  } finally {
+    input.value = ''
+  }
 }
 
 async function onExportCache(): Promise<void> {
@@ -333,20 +386,9 @@ function cancelClear(): void {
         Already-cached files are kept; sync only downloads what’s missing.
       </p>
 
-      <label class="quality quick-quality">
-        <span>Favorited tag storage quality</span>
-        <select
-          :value="prefs.audioEncodeQuality"
-          aria-label="Audio storage quality when favoriting tags"
-          @change="onQualityChange(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="q in qualityOptions" :key="q.id" :value="q.id">{{ q.label }}</option>
-        </select>
-      </label>
-
       <p class="hint bandwidth-est">
-        Estimated download: <strong>~{{ audioDownloadLabel }}</strong> over the network at your
-        current settings.
+        Estimated download: <strong>~{{ audioDownloadLabel }}</strong> over the network
+        (64&nbsp;kbps Opus).
         <template v-if="offlineLib.audioCachedCount">
           <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> stored on device
           ({{ offlineLib.audioCachedCount }} of {{ offlineLib.audioExpectedCount }} files).
@@ -397,8 +439,8 @@ function cancelClear(): void {
     <section class="card primary-card" aria-labelledby="favorites-h">
       <h2 id="favorites-h">Favorites</h2>
       <p class="hint">
-        {{ stars.count }} favorited · uses the storage quality above when you favorite from Browse.
-        Mix on multi-part tags is reconstructed at play time when stored at Ultra.
+        {{ stars.count }} favorited · audio is stored as 64&nbsp;kbps Opus when you favorite from
+        Browse.
       </p>
       <div class="actions">
         <button
@@ -418,14 +460,6 @@ function cancelClear(): void {
 
     <details class="advanced">
       <summary>Advanced offline settings</summary>
-
-      <section class="card" aria-labelledby="quality-detail-h">
-        <h2 id="quality-detail-h">Storage quality details</h2>
-        <p class="hint">
-          Online playback uses 64&nbsp;kbps Opus unless you have downloaded the original. Favorites
-          tags and the learning-tracks library follow the quality setting above.
-        </p>
-      </section>
 
       <section class="card" aria-labelledby="storage-h">
         <h2 id="storage-h">Storage</h2>
@@ -484,7 +518,8 @@ function cancelClear(): void {
         <h2 id="cache-tools-h">Backup &amp; restore</h2>
         <p class="hint">
           Export cached sheets, audio, favorited media, and pitch pipe settings as one zip — or restore
-          a zip onto this device (merges with whatever is already cached).
+          a zip onto this device (merges with whatever is already cached). For settings, favorites, and
+          collections too, use <strong>App state backup</strong> below.
         </p>
         <div
           v-if="offlineLib.cacheProgress"
@@ -555,6 +590,47 @@ function cancelClear(): void {
           device. Download queue, recent tags, and settings are kept.
         </p>
       </section>
+
+      <section class="card" aria-labelledby="app-backup-h">
+        <h2 id="app-backup-h">App state backup</h2>
+        <p class="hint">
+          Save SingTags settings, favorites, collections, practice order, recent tags, and download
+          queue. Optionally include the offline media cache (sheets/audio packs and favorited media) —
+          that zip is much larger.
+        </p>
+        <label class="check">
+          <input v-model="includeCacheInAppBackup" type="checkbox" />
+          Include offline media cache
+        </label>
+        <p v-if="appBackupMessage" class="hint" role="status">{{ appBackupMessage }}</p>
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="appBackupBusy || offlineLib.cacheBusy"
+            @click="onExportAppState"
+          >
+            {{ appBackupBusy ? 'Working…' : includeCacheInAppBackup ? 'Backup app + cache' : 'Backup app state' }}
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="appBackupBusy || offlineLib.cacheBusy"
+            @click="appBackupFileInput?.click()"
+          >
+            Restore app backup…
+          </button>
+          <input
+            ref="appBackupFileInput"
+            class="sr"
+            type="file"
+            accept=".json,.zip,application/json,application/zip"
+            aria-label="Restore app state backup"
+            @change="onImportAppStateFile"
+          />
+        </div>
+      </section>
+
     </details>
   </section>
 </template>
@@ -738,22 +814,6 @@ function cancelClear(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-}
-.quick-quality,
-.quality {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-  margin-bottom: 0.65rem;
-}
-.quick-quality select,
-.quality select {
-  max-width: 100%;
-  padding: 0.45rem 0.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg, #fff);
 }
 .bar {
   height: 8px;

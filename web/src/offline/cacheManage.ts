@@ -188,9 +188,10 @@ export async function clearAllOfflineData(): Promise<void> {
 }
 
 /** Export cached sheets/audio packs and starred blobs as a zip archive. */
-export async function exportOfflineCacheZip(
+/** Build an offline-cache zip in memory (does not download). */
+export async function buildOfflineCacheZip(
   onProgress?: (p: CacheProgress) => void,
-): Promise<{ fileCount: number; bytes: number }> {
+): Promise<{ fileCount: number; bytes: Uint8Array; exportedAt: string }> {
   const starred = await listStarred()
   const sheetUrls = await sheetsPack.listUrls()
   const audioUrls = await audioPack.listUrls()
@@ -259,11 +260,9 @@ export async function exportOfflineCacheZip(
   report(onProgress, 'Building zip…', done, total)
 
   const zipped = buildZip(files)
-  const stamp = manifest.exportedAt.slice(0, 10)
-  downloadBlob(zipped, `singtags-offline-cache-${stamp}.zip`, 'application/zip')
-  report(onProgress, 'Download started', total, total)
+  report(onProgress, 'Zip ready', total, total)
 
-  return { fileCount: files.length, bytes: zipped.byteLength }
+  return { fileCount: files.length, bytes: zipped, exportedAt: manifest.exportedAt }
 }
 
 async function restorePackEntries(
@@ -302,6 +301,18 @@ async function restorePackEntries(
 }
 
 /** Restore packs + starred media from a SingTags offline-cache zip (merges into existing data). */
+
+/** Build and download an offline-cache zip. */
+export async function exportOfflineCacheZip(
+  onProgress?: (p: CacheProgress) => void,
+): Promise<{ fileCount: number; bytes: number }> {
+  const built = await buildOfflineCacheZip(onProgress)
+  const stamp = built.exportedAt.slice(0, 10)
+  downloadBlob(built.bytes, `singtags-offline-cache-${stamp}.zip`, 'application/zip')
+  report(onProgress, 'Download started', 1, 1)
+  return { fileCount: built.fileCount, bytes: built.bytes.byteLength }
+}
+
 export async function importOfflineCacheZip(
   input: Blob | ArrayBuffer | Uint8Array,
   onProgress?: (p: CacheProgress) => void,
