@@ -12,6 +12,10 @@ import {
   sectionKeyFor,
   sortBrowseTags,
   titleSortLetter,
+  hasScrubRail,
+  tagIdHundredKey,
+  tagIdLoupeTickStep,
+  tagIdTickKey,
   yearSectionKey,
 } from './browse'
 import type { TagSummary } from '../types/tag'
@@ -145,5 +149,28 @@ describe('browse helpers', () => {
     expect(titleSortLetter("Don't Worry")).toBe('D')
     const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'title'), 'title', 10)
     expect(jumpKeys).toEqual(['A', 'B', 'Z'])
+  })
+})
+
+describe('tag # scrub bins', () => {
+  it('labels ids in hundreds and enables the id scrub rail', () => {
+    expect(tagIdHundredKey(1)).toBe('0')
+    expect(tagIdHundredKey(99)).toBe('0')
+    expect(tagIdHundredKey(100)).toBe('100')
+    expect(tagIdHundredKey(599)).toBe('500')
+    expect(tagIdHundredKey(600)).toBe('600')
+    expect(tagIdHundredKey(2500)).toBe('2500')
+    expect(hasScrubRail('year')).toBe(true)
+    expect(hasScrubRail('id')).toBe(true)
+    expect(hasScrubRail('title')).toBe(false)
+  })
+
+  it('picks denser loupe tick steps on wider tracks', () => {
+    expect(tagIdTickKey(575, 100)).toBe('500')
+    expect(tagIdTickKey(575, 50)).toBe('550')
+    expect(tagIdTickKey(575, 25)).toBe('575')
+    expect(tagIdLoupeTickStep(400)).toBe(100)
+    expect(tagIdLoupeTickStep(560)).toBe(50)
+    expect(tagIdLoupeTickStep(900)).toBe(25)
   })
 })

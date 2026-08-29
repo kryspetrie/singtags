@@ -30,9 +30,11 @@ import {
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
+  tagIdHundredKey,
   yearSectionKey,
 } from '../search/browse'
 import { normalizeYear } from '../lib/year'
+import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { useOnline } from '../composables/useOnline'
 
@@ -323,7 +325,9 @@ function formatDownloads(n: number | null | undefined): string | null {
 }
 
 function scrollBrowseTop(): void {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  // Instant: smooth scrolling raced with scrub-end cursor sync and felt broken.
+  window.scrollTo({ top: 0, behavior: 'auto' })
+  scrubScrollIndex.value = 0
 }
 
 const showJump = computed(
@@ -512,6 +516,8 @@ function onRowContextMenu(e: Event): void {
 /** Browse index nearest the reading focus — drives the scrub cursor while scrolling. */
 const scrubScrollIndex = ref(0)
 let scrubScrollRaf = 0
+/** True while the year scrub gesture is driving the list (ignore scroll→cursor feedback). */
+let scrubGestureActive = false
 
 function browseFocusY(): number {
   const rail = document.querySelector('.scrub-rail') as HTMLElement | null
@@ -551,36 +557,61 @@ function syncScrubFromScroll(): void {
 }
 
 function onBrowseScroll(): void {
+  if (scrubGestureActive) return
   if (scrubScrollRaf) return
   scrubScrollRaf = requestAnimationFrame(() => {
     scrubScrollRaf = 0
+    if (scrubGestureActive) return
     syncScrubFromScroll()
   })
 }
 
+/** Year scrub: newest-first → reverse axis. Tag #: ascending → normal axis. */
+const scrubReverseAxis = computed(() => {
+  if (catalog.sortMode === 'year') return !catalog.sortReverse
+  if (catalog.sortMode === 'id') return catalog.sortReverse
+  return false
+})
+
+/** Tag # uses equal-width 100s bins; year keeps density-softened spacing. */
+const scrubAxisBlend = computed(() => (catalog.sortMode === 'id' ? 1 : DEFAULT_AXIS_BLEND))
+
+const scrubAriaLabel = computed(() =>
+  catalog.sortMode === 'id' ? 'Scrub by tag number' : 'Scrub by year',
+)
+
+const scrubJumpTopLabel = computed(() =>
+  catalog.sortMode === 'id' ? 'Jump to top' : 'Jump to newest',
+)
+
 function scrubLabelAtIndex(index: number): string {
   const tag = catalog.allResults[index]
   if (!tag) return ''
+  if (catalog.sortMode === 'id') return tagIdHundredKey(tag.id)
   return yearSectionKey(normalizeYear(tag.year))
 }
 
-async function onScrub(index: number): Promise<void> {
+function scrubValueAtIndex(index: number): number {
+  return catalog.allResults[index]?.id ?? 0
+}
+
+function onScrub(index: number): void {
+  scrubGestureActive = true
   const idx = catalog.revealIndex(index)
   if (idx < 0) return
+  scrubScrollIndex.value = idx
   if (idx === 0) {
     scrollBrowseTop()
-    scrubScrollIndex.value = 0
     return
   }
-  scrubScrollIndex.value = idx
-  await nextTick()
   scrollToBrowseRow(browseRowIndexForTagIndex(idx), 'center')
-  await nextTick()
-  syncScrubFromScroll()
 }
 
 function onScrubEnd(): void {
-  /* no-op: loupe focus is pointer-driven */
+  scrubGestureActive = false
+  // Do not sync from scroll immediately: the list may still be at the pre-jump
+  // offset for a frame (and used to snap the ↑ jump right back). Keep the last
+  // scrubbed index; the next user scroll will re-sync if needed.
 }
 
 function jumpSectionTip(key: string): string {
@@ -924,14 +955,19 @@ watch(
       <div
         v-if="showScrub"
         class="scrub-rail"
-        aria-label="Scrub by year"
+        :aria-label="scrubAriaLabel"
       >
         <ScrubRail
           :length="catalog.allResults.length"
           :label-at-index="scrubLabelAtIndex"
           :active-index="scrubScrollIndex"
-          reverse-axis
-          aria-label="Scrub through years"
+          :reverse-axis="scrubReverseAxis"
+          :axis-blend="scrubAxisBlend"
+          :aria-label="scrubAriaLabel"
+          :jump-top-label="scrubJumpTopLabel"
+          :dense-loupe-ticks="catalog.sortMode === 'id'"
+          :value-at-index="scrubValueAtIndex"
+          :tick-at-start="catalog.sortMode === 'id'"
           @scrub="onScrub"
           @scrub-end="onScrubEnd"
         />
@@ -1575,8 +1611,8 @@ watch(
   position: sticky;
   top: var(--jump-rail-offset);
   z-index: 4;
-  margin: 0 0 0.5rem;
-  padding: 0.15rem 0 0.35rem;
+  margin: 0.15rem 0 0.65rem;
+  padding: 0.35rem 5px 0.5rem;
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(8px);
 }

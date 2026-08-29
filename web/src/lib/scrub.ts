@@ -87,6 +87,13 @@ export function buildLabelAnchors(
   labelAtIndex: (index: number) => string,
   reverseAxis = false,
   axisBlend: number = DEFAULT_AXIS_BLEND,
+  /**
+   * Where to place the tick/label within each bucket.
+   * - `center` (default): mid-mass — good for year density scrub.
+   * - `start`: left edge of the bucket — ruler ticks (0, 100, 200…) so the
+   *   loupe can sit on “0” at the left extreme instead of left of it.
+   */
+  tickAt: 'center' | 'start' = 'center',
 ): ScrubLabelAnchor[] {
   if (length <= 0) return []
   const runs: { label: string; startIndex: number; endIndex: number; mass: number }[] = []
@@ -122,7 +129,7 @@ export function buildLabelAnchors(
       mass: r.mass,
       displayStart,
       displayEnd,
-      center: (displayStart + displayEnd) / 2,
+      center: tickAt === 'start' ? displayStart : (displayStart + displayEnd) / 2,
     })
     cursor = displayEnd
   }
@@ -130,7 +137,8 @@ export function buildLabelAnchors(
   if (anchors.length > 0) {
     anchors[anchors.length - 1]!.displayEnd = 1
     const last = anchors[anchors.length - 1]!
-    last.center = (last.displayStart + last.displayEnd) / 2
+    last.center =
+      tickAt === 'start' ? last.displayStart : (last.displayStart + last.displayEnd) / 2
   }
   return anchors
 }
@@ -221,10 +229,13 @@ export function pickLandmarkAnchors(
 export type LoupeOptions = {
   /**
    * Half-width of the loupe glass as a fraction of the **full** track strip.
-   * Each side of the strip also reserves this as a gutter so the loupe can sit
-   * centered on the oldest/newest values without shrinking.
    */
   radius: number
+  /**
+   * Optional end margin (fraction of track). Defaults to `radius`.
+   * Prefer a few CSS pixels of padding on the rail for small side gaps.
+   */
+  edgeGutter?: number
   /**
    * Base magnification of the content axis inside the loupe.
    * Dense bucket clusters raise zoom automatically above this floor so labels
@@ -249,14 +260,14 @@ export type LoupeOptions = {
 }
 
 export const DEFAULT_LOUPE: LoupeOptions = {
-  /** Narrow glass — ~16% of the track. */
+  /** Glass half-width (~16% of track); also the default end gutter. */
   radius: 0.08,
   /** Floor magnification; rises automatically in dense bucket clusters. */
   zoom: 1.75,
   /** Fraction floor when the loupe is wide. */
-  minLabelGap: 0.38,
-  /** ~decade label width + breathing room; dominates on small screens. */
-  minLabelGapPx: 56,
+  minLabelGap: 0.42,
+  /** Tick label width + breathing room inside the glass. */
+  minLabelGapPx: 64,
   maxZoom: 96,
   maxLabels: 3,
 }
@@ -484,10 +495,12 @@ export function trackToContent(x: number, gutter: number): number {
  */
 export function loupeGeometry(
   focus: number,
-  gutter: number,
+  radius: number,
+  edgeGutter?: number,
 ): { left: number; width: number; center: number } {
-  const g = clampGutter(gutter)
-  const center = contentToTrack(focus, g)
-  const width = 2 * g
-  return { left: center - g, width, center }
+  const r = clampGutter(radius)
+  const gutter = clampGutter(edgeGutter ?? radius)
+  const center = contentToTrack(focus, gutter)
+  const width = 2 * r
+  return { left: center - r, width, center }
 }

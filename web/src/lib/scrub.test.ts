@@ -143,7 +143,8 @@ describe('scrub helpers', () => {
     const wide = effectiveMinLabelGap(DEFAULT_LOUPE, 400)
     const narrow = effectiveMinLabelGap(DEFAULT_LOUPE, 64)
     expect(narrow).toBeGreaterThan(wide)
-    expect(narrow).toBeCloseTo(56 / 64, 5)
+    // Pixel floor is capped so labels cannot demand more than ~92% of the glass.
+    expect(narrow).toBeCloseTo(0.92, 5)
   })
 
   it('auto-zooms harder on a narrow loupe so decade labels stay spaced', () => {
@@ -185,6 +186,30 @@ describe('scrub helpers', () => {
     expect(right.width).toBeCloseTo(2 * r)
     expect(right.center).toBeCloseTo(1 - r)
     expect(right.left + right.width).toBeCloseTo(1)
+  })
+
+  it('places ruler ticks at bucket starts so 0 sits under the loupe at the left', () => {
+    const labels = [...Array(50).fill('0'), ...Array(50).fill('100')]
+    const mid = buildLabelAnchors(labels.length, (i) => labels[i]!, false, 1, 'center')
+    const start = buildLabelAnchors(labels.length, (i) => labels[i]!, false, 1, 'start')
+    expect(mid[0]!.center).toBeGreaterThan(0)
+    expect(start[0]!.center).toBe(0)
+    expect(start[0]!.label).toBe('0')
+  })
+
+  it('keeps extra left/right margin when edgeGutter exceeds radius', () => {
+    const r = 0.08
+    const g = 0.16
+    const left = loupeGeometry(0, r, g)
+    expect(left.width).toBeCloseTo(2 * r)
+    expect(left.center).toBeCloseTo(g)
+    expect(left.left).toBeCloseTo(g - r)
+    expect(left.left).toBeGreaterThan(0)
+
+    const right = loupeGeometry(1, r, g)
+    expect(right.center).toBeCloseTo(1 - g)
+    expect(right.left + right.width).toBeCloseTo(1 - g + r)
+    expect(right.left + right.width).toBeLessThan(1)
   })
 
   it('maps content↔track through gutters', () => {
@@ -244,6 +269,21 @@ describe('scrub helpers', () => {
     expect(labels[idx]).toBe('1930s')
     const back = displayFractionFromIndex(idx, anchors, true)
     expect(back).toBeCloseTo(thirties.center, 5)
+  })
+
+
+  it('axisBlend 1 gives equal-width buckets (linear hundred ticks)', () => {
+    const labels = [
+      ...Array(10).fill('0'),
+      ...Array(90).fill('100'),
+      ...Array(5).fill('200'),
+    ]
+    const anchors = buildLabelAnchors(labels.length, (i) => labels[i]!, false, 1)
+    expect(anchors).toHaveLength(3)
+    const spans = anchors.map((a) => a.displayEnd - a.displayStart)
+    expect(spans[0]).toBeCloseTo(1 / 3, 5)
+    expect(spans[1]).toBeCloseTo(1 / 3, 5)
+    expect(spans[2]).toBeCloseTo(1 / 3, 5)
   })
 
 })

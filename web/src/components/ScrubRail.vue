@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   buildLabelAnchors,
+  DEFAULT_AXIS_BLEND,
   buildLoupeLabels,
   displayFractionFromIndex,
   contentToTrack,
@@ -12,6 +13,7 @@ import {
   trackToContent,
   type LoupeOptions,
 } from '../lib/scrub'
+import { tagIdLoupeTickStep } from '../search/browse'
 
 const props = withDefaults(
   defineProps<{
@@ -32,12 +34,36 @@ const props = withDefaults(
      * Updates the idle cursor when the user is not actively scrubbing.
      */
     activeIndex?: number | null
+    /**
+     * Axis blend for bucket widths: 0 = tag-mass density, 1 = equal (linear) bins.
+     * Year scrub uses the default soft blend; Tag # scrub uses 1.
+     */
+    axisBlend?: number
+    /** Accessible / tooltip label for the ↑ jump-to-start control. */
+    jumpTopLabel?: string
+    /**
+     * When set with `valueAtIndex`, the loupe can show denser ticks (50s / 25s)
+     * on wider tracks while the idle rail keeps coarser labels from `labelAtIndex`.
+     */
+    denseLoupeTicks?: boolean
+    /** Numeric value at list index (e.g. tag id) for dense loupe ticks. */
+    valueAtIndex?: (index: number) => number
+    /**
+     * Place idle ticks at the start of each bucket (ruler). Use for Tag #
+     * so the loupe sits on 0 at the left extreme, not left of it.
+     */
+    tickAtStart?: boolean
   }>(),
   {
     ariaLabel: 'Scrub through results',
     reverseAxis: true,
     landmarkGap: 0.1,
     activeIndex: null,
+    axisBlend: DEFAULT_AXIS_BLEND,
+    jumpTopLabel: 'Jump to newest',
+    denseLoupeTicks: false,
+    valueAtIndex: undefined,
+    tickAtStart: false,
   },
 )
 
@@ -63,10 +89,40 @@ const loupeActive = computed(() => dragging.value || hovering.value)
 /** Where the loupe looks; falls back to committed when idle. */
 const loupeFocus = computed(() => (loupeActive.value ? preview.value : committed.value))
 
-const loupeOpts = computed<LoupeOptions>(() => ({
-  ...DEFAULT_LOUPE,
-  ...props.loupe,
-}))
+const loupeTickStep = computed(() => {
+  if (!props.denseLoupeTicks || !props.valueAtIndex) return 100
+  const w =
+    trackWidthPx.value > 0
+      ? trackWidthPx.value
+      : typeof window !== 'undefined'
+        ? window.innerWidth
+        : 800
+  return tagIdLoupeTickStep(w)
+})
+
+const loupeOpts = computed<LoupeOptions>(() => {
+  const step = loupeTickStep.value
+  const maxLabels = step <= 25 ? 7 : step <= 50 ? 5 : 3
+  return {
+    ...DEFAULT_LOUPE,
+    maxLabels,
+    ...props.loupe,
+  }
+})
+
+/** Left/right empty margin on the track (larger than glass radius). */
+/** ~5px side pad so the loupe glass never kisses the track edge. */
+const EDGE_PAD_PX = 5
+
+const edgeGutter = computed(() => {
+  const r = loupeOpts.value.radius
+  const override = loupeOpts.value.edgeGutter
+  if (override != null) return override
+  const w = trackWidthPx.value
+  if (w <= 0) return r
+  // content 0 maps to gutter; loupe left = gutter - radius ≈ EDGE_PAD_PX
+  return Math.min(0.35, r + EDGE_PAD_PX / w)
+})
 
 /** Loupe glass width in CSS pixels (track × 2×radius). */
 const loupeWidthPx = computed(() => {
@@ -76,8 +132,28 @@ const loupeWidthPx = computed(() => {
 })
 
 const anchors = computed(() =>
-  buildLabelAnchors(props.length, props.labelAtIndex, props.reverseAxis),
+  buildLabelAnchors(
+    props.length,
+    props.labelAtIndex,
+    props.reverseAxis,
+    props.axisBlend,
+    props.tickAtStart ? 'start' : 'center',
+  ),
 )
+
+/** Finer loupe-only anchors (50s / 25s) when Tag # dense ticks are enabled. */
+const loupeAnchors = computed(() => {
+  const step = loupeTickStep.value
+  const valueAt = props.valueAtIndex
+  if (!props.denseLoupeTicks || !valueAt || step >= 100) return anchors.value
+  return buildLabelAnchors(
+    props.length,
+    (i) => String(Math.floor(valueAt(i) / step) * step),
+    props.reverseAxis,
+    props.axisBlend,
+    props.tickAtStart ? 'start' : 'center',
+  )
+})
 
 /** Keep the idle cursor aligned with the browse list scroll position. */
 watch(
@@ -97,20 +173,21 @@ const landmarks = computed(() => pickLandmarkAnchors(anchors.value, props.landma
 const landmarkOpacity = computed(() => {
   if (!loupeActive.value) return landmarks.value.map(() => 1)
   // Dim landmarks under the glass so the magnified view reads clearly
-  const g = loupeOpts.value.radius
+  const g = edgeGutter.value
+  const r = loupeOpts.value.radius
   return landmarks.value.map((m) => {
     const trackX = contentToTrack(m.center, g)
     const loupeCenter = contentToTrack(loupeFocus.value, g)
     const d = Math.abs(trackX - loupeCenter)
-    if (d >= g) return 1
-    return Math.max(0.15, d / g)
+    if (d >= r) return 1
+    return Math.max(0.15, d / r)
   })
 })
 
 const loupeLabels = computed(() => {
   if (!loupeActive.value) return []
   return buildLoupeLabels(
-    anchors.value,
+    loupeAnchors.value,
     loupeFocus.value,
     loupeOpts.value,
     loupeWidthPx.value,
@@ -125,7 +202,7 @@ const loupeLabels = computed(() => {
 })
 
 const loupeStyle = computed(() => {
-  const g = loupeGeometry(loupeFocus.value, loupeOpts.value.radius)
+  const g = loupeGeometry(loupeFocus.value, loupeOpts.value.radius, edgeGutter.value)
   return {
     left: `${g.center * 100}%`,
     width: `${g.width * 100}%`,
@@ -133,7 +210,7 @@ const loupeStyle = computed(() => {
 })
 
 const landmarkStyles = computed(() => {
-  const g = loupeOpts.value.radius
+  const g = edgeGutter.value
   return landmarks.value.map((m, i) => ({
     left: `${contentToTrack(m.center, g) * 100}%`,
     opacity: landmarkOpacity.value[i]!,
@@ -141,7 +218,7 @@ const landmarkStyles = computed(() => {
 })
 
 const cursorStyle = computed(() => ({
-  left: `${contentToTrack(committed.value, loupeOpts.value.radius) * 100}%`,
+  left: `${contentToTrack(committed.value, edgeGutter.value) * 100}%`,
 }))
 
 const committedLabel = computed(() => {
@@ -162,18 +239,54 @@ function fractionFromClientX(clientX: number): number {
   const rect = el.getBoundingClientRect()
   if (rect.width <= 0) return 0
   const x = (clientX - rect.left) / rect.width
-  return trackToContent(x, loupeOpts.value.radius)
+  return trackToContent(x, edgeGutter.value)
 }
 
-/** Commit position and scroll the list (pointer-up / keyboard / jump). */
-function commit(t: number): void {
+/** Last list index emitted during a gesture — skip redundant live updates. */
+let lastEmittedIndex = Number.NaN
+let scrubRaf = 0
+let pendingScrubT: number | null = null
+
+/** Update rail position and scroll the list (live drag / click / keyboard). */
+function emitScrub(t: number): void {
   committed.value = t
   preview.value = t
   if (props.length <= 0) return
-  emit('scrub', indexFromDisplayFraction(t, anchors.value, props.reverseAxis))
-  emit('scrubEnd')
+  const i = indexFromDisplayFraction(t, anchors.value, props.reverseAxis)
+  if (i === lastEmittedIndex) return
+  lastEmittedIndex = i
+  emit('scrub', i)
 }
 
+/** Coalesce high-frequency pointer moves onto one scrub per frame. */
+function scheduleLiveScrub(t: number): void {
+  pendingScrubT = t
+  if (scrubRaf) return
+  scrubRaf = requestAnimationFrame(() => {
+    scrubRaf = 0
+    const next = pendingScrubT
+    pendingScrubT = null
+    if (next != null) emitScrub(next)
+  })
+}
+
+function flushLiveScrub(): void {
+  if (scrubRaf) {
+    cancelAnimationFrame(scrubRaf)
+    scrubRaf = 0
+  }
+  const next = pendingScrubT
+  pendingScrubT = null
+  if (next != null) emitScrub(next)
+}
+
+/** Final commit: scrub + scrubEnd (pointer-up / keyboard / jump). */
+function commit(t: number): void {
+  flushLiveScrub()
+  emitScrub(t)
+  emit('scrubEnd')
+  lastEmittedIndex = Number.NaN
+}
 
 function measureTrack(): void {
   const el = trackEl.value
@@ -199,14 +312,21 @@ function onPointerDown(e: PointerEvent): void {
   if (props.length <= 0) return
   dragging.value = true
   hovering.value = true
+  lastEmittedIndex = Number.NaN
   trackEl.value?.setPointerCapture(e.pointerId)
-  preview.value = fractionFromClientX(e.clientX)
+  const t = fractionFromClientX(e.clientX)
+  preview.value = t
+  // Live scrub starts immediately so a click (down+up) and a drag both scroll.
+  emitScrub(t)
 }
 
 function onPointerMove(e: PointerEvent): void {
   if (props.length <= 0) return
   if (!dragging.value && !hovering.value) return
-  preview.value = fractionFromClientX(e.clientX)
+  const t = fractionFromClientX(e.clientX)
+  preview.value = t
+  // Hover-only: loupe preview. Dragging: keep the list locked to the loupe.
+  if (dragging.value) scheduleLiveScrub(t)
 }
 
 function onPointerUp(e: PointerEvent): void {
@@ -234,6 +354,9 @@ function onPointerUp(e: PointerEvent): void {
 }
 
 function jumpToNewest(): void {
+  // Force a scrub emit even when the rail is already parked at newest —
+  // the list may still be scrolled away (e.g. after a prior jump settled early).
+  lastEmittedIndex = Number.NaN
   commit(props.reverseAxis ? 1 : 0)
 }
 
@@ -271,6 +394,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (scrubRaf) cancelAnimationFrame(scrubRaf)
+  scrubRaf = 0
+  pendingScrubT = null
   trackRo?.disconnect()
   trackRo = null
 })
@@ -292,8 +418,8 @@ onBeforeUnmount(() => {
     <button
       type="button"
       class="scrub-top"
-      title="Jump to newest"
-      aria-label="Jump to newest"
+      :title="jumpTopLabel"
+      :aria-label="jumpTopLabel"
       @click="jumpToNewest"
     >
       ↑
@@ -358,10 +484,10 @@ onBeforeUnmount(() => {
 .scrub {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.45rem;
+  gap: 0.55rem;
   align-items: stretch;
-  min-height: 3.2rem;
-  padding: 0.2rem 0;
+  min-height: 4rem;
+  padding: 0.35rem 0;
   touch-action: none;
   user-select: none;
 }
@@ -378,8 +504,8 @@ onBeforeUnmount(() => {
 }
 .scrub-track {
   position: relative;
-  min-height: 3.2rem;
-  border-radius: 10px;
+  min-height: 4rem;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background:
     linear-gradient(
@@ -398,7 +524,7 @@ onBeforeUnmount(() => {
 }
 .scrub-landmark {
   position: absolute;
-  top: 0.3rem;
+  top: 0.45rem;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -419,8 +545,8 @@ onBeforeUnmount(() => {
 }
 .scrub-cursor {
   position: absolute;
-  top: 0.2rem;
-  bottom: 0.2rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
   z-index: 3;
   transform: translateX(-50%);
   pointer-events: none;
@@ -450,8 +576,8 @@ onBeforeUnmount(() => {
 }
 .scrub-loupe {
   position: absolute;
-  top: 0.15rem;
-  bottom: 0.15rem;
+  top: 0.4rem;
+  bottom: 0.4rem;
   z-index: 3;
   pointer-events: none;
   transform: translateX(-50%);
@@ -462,7 +588,7 @@ onBeforeUnmount(() => {
 .scrub-loupe-glass {
   position: relative;
   flex: 1;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1.5px solid color-mix(in srgb, var(--accent) 70%, var(--border));
   background:
     linear-gradient(
@@ -477,8 +603,8 @@ onBeforeUnmount(() => {
 }
 .scrub-loupe-hairline {
   position: absolute;
-  top: 0.2rem;
-  bottom: 0.2rem;
+  top: 0.35rem;
+  bottom: 0.35rem;
   left: 50%;
   width: 1px;
   transform: translateX(-50%);

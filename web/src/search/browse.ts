@@ -64,6 +64,33 @@ export function yearSectionKey(year: number | null): string {
   return String(year)
 }
 
+/** Ruler-tick label for Tag # scrub: 0, 100, 200, … (not range text). */
+export function tagIdHundredKey(id: number): string {
+  const n = Number.isFinite(id) ? Math.trunc(id) : 0
+  const safe = n < 0 ? 0 : n
+  return String(Math.floor(safe / 100) * 100)
+}
+
+/** Snap a tag id to a tick label at `step` (100 / 50 / 25). */
+export function tagIdTickKey(id: number, step: number): string {
+  const n = Number.isFinite(id) ? Math.trunc(id) : 0
+  const safe = n < 0 ? 0 : n
+  const s = step > 0 ? Math.trunc(step) : 100
+  return String(Math.floor(safe / s) * s)
+}
+
+/**
+ * Loupe tick spacing for Tag # scrub from available width.
+ * Narrow: 100s · medium: 50s · wide: 25s.
+ */
+export function tagIdLoupeTickStep(widthPx: number): 25 | 50 | 100 {
+  if (widthPx >= 900) return 25
+  if (widthPx >= 560) return 50
+  return 100
+}
+
+
+
 export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
   switch (mode) {
     case 'title':
@@ -98,7 +125,7 @@ export function hasJumpRail(mode: BrowseSortMode): boolean {
 
 /** Modes that show the density scrub rail (dock magnification). */
 export function hasScrubRail(mode: BrowseSortMode): boolean {
-  return mode === 'year'
+  return mode === 'year' || mode === 'id'
 }
 
 /** Modes that insert section headers while walking the sorted list. */
