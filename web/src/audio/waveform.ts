@@ -3,6 +3,7 @@
  */
 
 import { getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
+import { assertDecodableAudioBytes } from './audioBytes'
 
 /** Seeded pseudo-random in [0,1). */
 function hash01(n: number): number {
@@ -78,6 +79,7 @@ export async function loadWaveformPeaks(
     if (!res.ok) throw new Error(String(res.status))
     const buf = await res.arrayBuffer()
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+    assertDecodableAudioBytes(buf)
     const decoded = await withTimeout(ctx.decodeAudioData(buf.slice(0)), 20_000, 'Waveform decode')
     return {
       peaks: peaksFromAudioBuffer(decoded, bars),

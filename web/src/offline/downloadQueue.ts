@@ -1,5 +1,6 @@
 /** Concurrent pause/resume download queue into an OfflinePackStore. */
 
+import { isNonAudioPayload } from '../audio/audioBytes'
 import type { OfflinePackStore } from './libraryPack'
 
 /** True when bytes look like an HTML document (SPA fallback poison). */
@@ -18,8 +19,12 @@ export function isEmptyMediaBody(buf: ArrayBuffer): boolean {
 
 /** True when a cached/fetched body is safe to keep as media. */
 export function isPlausibleMediaBody(buf: ArrayBuffer, contentType = ''): boolean {
-  if (/text\/html/i.test(contentType)) return false
+  if (/text\/html|application\/json|text\/plain|application\/xml|text\/xml/i.test(contentType)) {
+    return false
+  }
   if (isEmptyMediaBody(buf) || bodyLooksLikeHtml(buf)) return false
+  // Also reject JSON/XML SPA/API bodies even when Content-Type is wrong/missing.
+  if (isNonAudioPayload(buf)) return false
   return true
 }
 
@@ -195,8 +200,8 @@ export class DownloadQueue {
         const res = await fetch(item.url, { signal: this.abort?.signal })
         if (!res.ok) throw new Error(`HTTP ${res.status} for ${item.path}`)
         const contentType = res.headers.get('Content-Type') || ''
-        if (/text\/html/i.test(contentType)) {
-          throw new Error(`Got HTML instead of media for ${item.path} (check library URL)`)
+        if (/text\/html|application\/json/i.test(contentType)) {
+          throw new Error(`Got non-media Content-Type (${contentType}) for ${item.path}`)
         }
         let toStore = res
         if (this.options.transformResponse) {

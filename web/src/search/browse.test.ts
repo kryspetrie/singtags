@@ -12,6 +12,7 @@ import {
   sectionKeyFor,
   sortBrowseTags,
   titleSortLetter,
+  yearSectionKey,
 } from './browse'
 import type { TagSummary } from '../types/tag'
 
@@ -97,20 +98,29 @@ describe('browse helpers', () => {
     )
   })
 
-  it('groups year sort sections by calendar year, not full dates', () => {
+  it('groups year sort with hybrid bins (decades then per-year from 2000)', () => {
+    expect(yearSectionKey(1910)).toBe('<1920')
+    expect(yearSectionKey(1999)).toBe('1990s')
+    expect(yearSectionKey(2009)).toBe('2009')
+    expect(yearSectionKey(null)).toBe('<1920')
+
     const tags = [
       tag({ id: 1, title: 'A', year: 'Wed, 13 Dec 2023' }),
       tag({ id: 2, title: 'B', year: 2023 }),
       tag({ id: 3, title: 'C', year: 'Sat, 4 Apr 2009' }),
+      tag({ id: 5, title: 'E', year: 1995 }),
+      tag({ id: 6, title: 'F', year: 1998 }),
       tag({ id: 4, title: 'D', year: null }),
     ]
-    expect(sortBrowseTags(tags, 'year').map((x) => x.id)).toEqual([1, 2, 3, 4])
+    expect(sortBrowseTags(tags, 'year').map((x) => x.id)).toEqual([1, 2, 3, 6, 5, 4])
     expect(sectionKeyFor(tags[0]!, 'year')).toBe('2023')
     expect(sectionKeyFor(tags[1]!, 'year')).toBe('2023')
     expect(sectionKeyFor(tags[2]!, 'year')).toBe('2009')
-    expect(sectionKeyFor(tags[3]!, 'year')).toBe('Unknown year')
-    const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'year'), 'year', 10)
-    expect(jumpKeys).toEqual(['2023', '2009', 'Unknown year'])
+    expect(sectionKeyFor(tags[3]!, 'year')).toBe('1990s')
+    expect(sectionKeyFor(tags[4]!, 'year')).toBe('1990s')
+    expect(sectionKeyFor(tags[5]!, 'year')).toBe('<1920')
+    const { jumpKeys } = buildBrowseRows(sortBrowseTags(tags, 'year'), 'year', 20)
+    expect(jumpKeys).toEqual(['2023', '2009', '1990s', '<1920'])
   })
 
   it('sorts by collection booklet then tag id', () => {

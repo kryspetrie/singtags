@@ -7,6 +7,7 @@ import { audioPack, sheetsPack, type PackKind } from './libraryPack'
 import { clearAllPackProgress } from './packProgressDb'
 import { clearCatalogSnapshot } from '../lib/catalogSnapshot'
 import { clearIndexSnapshotsIdb } from './indexSnapshotDb'
+import { clearPdfRasterCache } from './pdfRasterCache'
 import {
   clearAllStarred,
   listStarred,
@@ -169,7 +170,13 @@ async function addPackFiles(
 
 /** Remove all offline packs, starred data, pack progress, and SingTags service-worker caches. */
 export async function clearAllOfflineData(): Promise<void> {
-  await Promise.all([sheetsPack.clear(), audioPack.clear(), clearAllStarred(), clearAllPackProgress()])
+  await Promise.all([
+    sheetsPack.clear(),
+    audioPack.clear(),
+    clearAllStarred(),
+    clearAllPackProgress(),
+    clearPdfRasterCache(),
+  ])
   await clearServiceWorkerCaches()
   try {
     localStorage.removeItem(CATALOG_CACHED_KEY)

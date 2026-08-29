@@ -15,7 +15,7 @@ export type RecentRecord = {
 
 export const useRecentStore = defineStore('recent', () => {
   const entries = ref<RecentRecord[]>([])
-  /** Set when the user opens a tag from Browse; consumed once on TagView load. */
+  /** Set when opening a tag from Browse/Recent; consumed once on TagView so next/prev stays silent. */
   let pendingBrowseOpen: number | null = null
 
   function persist(): void {

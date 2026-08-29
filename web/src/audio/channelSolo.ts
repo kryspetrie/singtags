@@ -1,3 +1,4 @@
+import { assertDecodableAudioBytes } from './audioBytes'
 /** Solo left/right channel → mono blob URL (music-website pattern). */
 
 export type SoloMode = 'stereo' | 'left' | 'right'
@@ -82,6 +83,7 @@ export async function soloChannelToObjectUrl(
   const res = await fetch(audioUrl)
   if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
   const buf = await res.arrayBuffer()
+  assertDecodableAudioBytes(buf)
   const decoded = await ctx.decodeAudioData(buf.slice(0))
   const idx = channel === 'left' ? 0 : Math.min(1, decoded.numberOfChannels - 1)
   const data = decoded.getChannelData(idx)

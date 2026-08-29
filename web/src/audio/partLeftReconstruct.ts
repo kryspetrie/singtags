@@ -7,6 +7,7 @@
  *   Tenor −0.5 · Lead −0.25 · Bass +0.25 · Bari +0.5
  */
 
+import { assertDecodableAudioBytes } from './audioBytes'
 import { audioBufferToWavBlob, getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 import { sideVoiceGain } from './multiPartMix'
 import type { PartSide } from '../lib/audioLayout'
@@ -49,6 +50,7 @@ async function decodeUrl(url: string): Promise<AudioBuffer> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
   const buf = await res.arrayBuffer()
+  assertDecodableAudioBytes(buf)
   return ctx.decodeAudioData(buf.slice(0))
 }
 

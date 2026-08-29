@@ -40,8 +40,14 @@ export type SortMode = BrowseSortMode
 /** Dwell before running free-text search (~30+ WPM desktop). Chips apply immediately. */
 export const SEARCH_DEBOUNCE_MS = 320
 
-/** How many more rows to reveal when the user scrolls near the end. */
-export const RESULTS_PAGE_SIZE = 48
+/** How many browse rows to show initially / add per infinite-scroll page (~6% of a 7.5k catalog). */
+export const RESULTS_PAGE_SIZE = 480
+
+/** Sort modes that only make sense on a narrowed result set. */
+const SCOPED_SORTS = new Set<SortMode>(['rating', 'downloads'])
+
+/** Default when browsing the full catalog (or after leaving a scoped sort). */
+export const DEFAULT_BROWSE_SORT: SortMode = 'title'
 
 export const useCatalogStore = defineStore('catalog', () => {
   const tags = ref<TagSummary[]>([])
@@ -57,7 +63,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   const queryText = ref('')
   /** Debounced free-text used for search + URL. */
   const debouncedQuery = ref('')
-  const sortMode = ref<SortMode>('rating')
+  const sortMode = ref<SortMode>(DEFAULT_BROWSE_SORT)
   const sortReverse = ref(false)
   const selectedIds = ref<Set<number>>(new Set())
   const searching = ref(false)
@@ -67,6 +73,15 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Reactive so result computeds re-run when the search index is ready. */
   const engine = shallowRef<SearchEngine | null>(null)
 
+  function hasSearchOrFilter(): boolean {
+    return debouncedQuery.value.trim().length > 0 || activeFilterCount(filters.value) > 0
+  }
+
+  function coerceSortMode(mode: SortMode): SortMode {
+    if (SCOPED_SORTS.has(mode) && !hasSearchOrFilter()) return DEFAULT_BROWSE_SORT
+    return mode
+  }
+
   watch(queryText, (q) => {
     searching.value = true
     if (debounceTimer) clearTimeout(debounceTimer)
@@ -74,6 +89,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       debouncedQuery.value = q
       searching.value = false
       resultLimit.value = RESULTS_PAGE_SIZE
+      sortMode.value = coerceSortMode(sortMode.value)
     }, SEARCH_DEBOUNCE_MS)
   })
 
@@ -81,6 +97,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     filters,
     () => {
       resultLimit.value = RESULTS_PAGE_SIZE
+      sortMode.value = coerceSortMode(sortMode.value)
     },
     { deep: true },
   )
@@ -338,17 +355,17 @@ export const useCatalogStore = defineStore('catalog', () => {
     return idx
   }
 
+  /** Reveal enough rows that tag index `idx` is in the window. */
+  function revealIndex(idx: number): number {
+    if (idx < 0 || idx >= allResults.value.length) return -1
+    resultLimit.value = Math.max(resultLimit.value, idx + RESULTS_PAGE_SIZE)
+    return idx
+  }
+
   function syncFromRoute(query: Record<string, unknown>, sort: SortMode): void {
     const q = typeof query.q === 'string' ? query.q : ''
-    queryText.value = q
-    debouncedQuery.value = q
-    searching.value = false
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
     const parsed = filtersFromRouteQuery(query)
-    filters.value = {
+    const nextFilters: CatalogFilters = {
       ...EMPTY_FILTERS,
       ...parsed,
       arrangers: parsed.arrangers ?? [],
@@ -363,15 +380,43 @@ export const useCatalogStore = defineStore('catalog', () => {
       'id',
       'collection',
     ]
-    sortMode.value = allowed.includes(sort) ? sort : 'rating'
-    sortReverse.value = query.rev === '1'
-    resultLimit.value = RESULTS_PAGE_SIZE
+    const requested = allowed.includes(sort) ? sort : DEFAULT_BROWSE_SORT
+    const nextRev = query.rev === '1'
+    const prevBrowseKey = JSON.stringify({
+      q: debouncedQuery.value,
+      sort: sortMode.value,
+      rev: sortReverse.value,
+      f: filtersToRouteQuery(filters.value),
+    })
+
+    // Apply query/filters before coerce so scoped sorts drop when the catalog widens.
+    queryText.value = q
+    debouncedQuery.value = q
+    searching.value = false
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+    filters.value = nextFilters
+    const nextSort = coerceSortMode(requested)
+    sortMode.value = nextSort
+    sortReverse.value = nextRev
+
+    const nextBrowseKey = JSON.stringify({
+      q,
+      sort: nextSort,
+      rev: nextRev,
+      f: filtersToRouteQuery(nextFilters),
+    })
+    // Remounting browse (tag → back) re-applies the same route — keep infinite-scroll
+    // window so scroll restoration has enough content height.
+    if (prevBrowseKey !== nextBrowseKey) resultLimit.value = RESULTS_PAGE_SIZE
   }
 
   function routeQueryPatch(): Record<string, string | undefined> {
     return {
       q: debouncedQuery.value || undefined,
-      sort: sortMode.value === 'rating' ? undefined : sortMode.value,
+      sort: sortMode.value === DEFAULT_BROWSE_SORT ? undefined : sortMode.value,
       rev: sortReverse.value ? '1' : undefined,
       ...filtersToRouteQuery(filters.value),
     }
@@ -443,6 +488,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     clearSelection,
     showMoreResults,
     revealSection,
+    revealIndex,
     syncFromRoute,
     routeQueryPatch,
     toggleSortReverse,

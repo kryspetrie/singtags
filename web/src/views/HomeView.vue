@@ -10,6 +10,7 @@ import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { partTrackLabel } from '../lib/parts'
 import EmptyState from '../components/EmptyState.vue'
+import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
@@ -23,10 +24,12 @@ import { usePreferencesStore } from '../stores/preferences'
 import {
   bookletBadgeForTag,
   hasJumpRail,
+  hasScrubRail,
   parse100DaysNumberQuery,
   parseClassicNumberQuery,
   parseExactTagIdQuery,
   parseTagNumberQuery,
+  yearSectionKey,
 } from '../search/browse'
 import { normalizeYear } from '../lib/year'
 import { visibleAltTitle } from '../lib/tagDisplay'
@@ -101,7 +104,9 @@ function browseAltTitle(tag: TagSummary): string | null {
 
 function applyRoute(): void {
   syncingRoute.value = true
-  const sort = (typeof route.query.sort === 'string' ? route.query.sort : 'rating') as SortMode
+  const sort = (
+    typeof route.query.sort === 'string' ? route.query.sort : 'title'
+  ) as SortMode
   catalog.syncFromRoute(route.query as Record<string, unknown>, sort)
   queueMicrotask(() => {
     syncingRoute.value = false
@@ -223,7 +228,10 @@ function toggleRowStar(summary: TagSummary): void {
 function onResultKey(e: KeyboardEvent, id: number): void {
   if (e.key === ' ' || e.key === 'x' || e.key === 'X') {
     e.preventDefault()
+    const wasSelected = catalog.selectedIds.has(id)
     catalog.toggleSelect(id)
+    // Narrow: Space entering selection also reveals the select column.
+    if (!wasSelected) selectMode.value = true
   }
 }
 
@@ -235,6 +243,22 @@ const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'id', label: 'Tag #' },
   { id: 'collection', label: 'Collection #' },
 ]
+
+/** Rating/Downloads only when the catalog is narrowed by search or filters. */
+const scopedSortIds = new Set<SortMode>(['rating', 'downloads'])
+
+const hasSearchOrFilter = computed(
+  () => catalog.queryText.trim().length > 0 || catalog.filterCount > 0,
+)
+
+const availableSorts = computed(() =>
+  sorts.filter((s) => !scopedSortIds.has(s.id) || hasSearchOrFilter.value),
+)
+
+watch(hasSearchOrFilter, (scoped) => {
+  if (scoped) return
+  if (scopedSortIds.has(catalog.sortMode)) catalog.sortMode = 'title'
+})
 
 const optionsToggleTip = computed(() =>
   optionsOpen.value ? 'Hide search options' : 'Show search lyrics and filters',
@@ -275,12 +299,12 @@ function rowOpenTip(tag: TagSummary): string {
 
 function sortOptionTip(id: SortMode): string {
   const tips: Record<SortMode, string> = {
-    rating: 'Highest rated tags first',
-    title: 'Alphabetical by title',
-    year: 'Newest year first',
-    downloads: 'Most downloaded first',
-    id: 'Numeric tag ID order',
-    collection: 'By collection booklet # (Classic, then 100 Days), then tag #',
+    rating: 'Group and order by highest rating first',
+    title: 'Group and order alphabetically by title',
+    year: 'Group and order by newest year first',
+    downloads: 'Group and order by most downloads first',
+    id: 'Group and order by tag number',
+    collection: 'Group by collection booklet # (Classic, then 100 Days), then tag #',
   }
   const base = tips[id]
   return catalog.sortReverse ? `${base} (reversed)` : base
@@ -288,8 +312,8 @@ function sortOptionTip(id: SortMode): string {
 
 function sortReverseTip(): string {
   return catalog.sortReverse
-    ? 'Reverse sort is on — click for default direction'
-    : 'Reverse the current sort order'
+    ? 'Reverse order is on — click for the default direction'
+    : 'Reverse the current view order'
 }
 
 function formatDownloads(n: number | null | undefined): string | null {
@@ -301,7 +325,213 @@ function scrollBrowseTop(): void {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-const showJump = computed(() => hasJumpRail(catalog.sortMode) && catalog.browseWindow.jumpKeys.length > 1)
+const showJump = computed(
+  () => hasJumpRail(catalog.sortMode) && catalog.browseWindow.jumpKeys.length > 1,
+)
+/** Letter/booklet keys only — ↑ sits outside the key grid like year scrub. */
+const jumpKeyCount = computed(() => catalog.browseWindow.jumpKeys.length)
+const jumpRailEl = ref<HTMLElement | null>(null)
+const jumpCols = ref(9)
+/** Tracks 2 vs 3 row layout for sticky scroll-margin height. */
+const jumpRows = ref(3)
+let jumpRailRo: ResizeObserver | null = null
+
+function syncJumpCols(): void {
+  const n = jumpKeyCount.value
+  if (n < 1) return
+  // Collection: one content-sized row beside ↑.
+  if (catalog.sortMode === 'collection') {
+    jumpRows.value = 1
+    jumpCols.value = n
+    return
+  }
+  const w = jumpRailEl.value?.clientWidth ?? (typeof window !== 'undefined' ? window.innerWidth : 800)
+  const rows = w < 640 ? 3 : 2
+  jumpRows.value = rows
+  jumpCols.value = Math.max(1, Math.ceil(n / rows))
+}
+
+const jumpKeysStyle = computed(() => {
+  if (catalog.sortMode === 'collection') return undefined
+  return {
+    gridTemplateColumns: `repeat(${jumpCols.value}, minmax(0, 1fr))`,
+  }
+})
+
+const showScrub = computed(
+  () => hasScrubRail(catalog.sortMode) && catalog.allResults.length > 1,
+)
+
+/** Narrow browse: hide persistent select column until long-press / selection. */
+const NARROW_SELECT_MQ = '(max-width: 639px)'
+const LONG_PRESS_MS = 450
+const LONG_PRESS_MOVE_PX = 10
+const isNarrow = ref(false)
+const selectMode = ref(false)
+let narrowMq: MediaQueryList | null = null
+
+const showRowSelect = computed(
+  () => selectMode.value || catalog.selectedIds.size > 0 || !isNarrow.value,
+)
+
+function syncNarrowSelect(): void {
+  isNarrow.value = narrowMq?.matches ?? false
+}
+
+watch(
+  () => catalog.selectedIds.size,
+  (n) => {
+    if (n === 0) selectMode.value = false
+  },
+)
+
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressId: number | null = null
+let longPressX = 0
+let longPressY = 0
+let suppressRowClick = false
+
+function clearLongPressTimer(): void {
+  if (longPressTimer != null) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  longPressId = null
+}
+
+function onRowPointerDown(e: PointerEvent, id: number): void {
+  if (!isNarrow.value || showRowSelect.value) return
+  if (e.button !== 0) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest('.sel-btn, .row-fav')) return
+  clearLongPressTimer()
+  longPressX = e.clientX
+  longPressY = e.clientY
+  longPressId = id
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    const tagId = longPressId
+    longPressId = null
+    if (tagId == null) return
+    selectMode.value = true
+    if (!catalog.selectedIds.has(tagId)) catalog.toggleSelect(tagId)
+    suppressRowClick = true
+    try {
+      navigator.vibrate?.(10)
+    } catch {
+      /* ignore */
+    }
+  }, LONG_PRESS_MS)
+}
+
+function onRowPointerMove(e: PointerEvent): void {
+  if (longPressTimer == null) return
+  if (
+    Math.abs(e.clientX - longPressX) > LONG_PRESS_MOVE_PX ||
+    Math.abs(e.clientY - longPressY) > LONG_PRESS_MOVE_PX
+  ) {
+    clearLongPressTimer()
+  }
+}
+
+function onRowPointerEnd(): void {
+  clearLongPressTimer()
+}
+
+function onRowClickCapture(e: MouseEvent): void {
+  if (!suppressRowClick) return
+  e.preventDefault()
+  e.stopPropagation()
+  suppressRowClick = false
+}
+
+function onRowContextMenu(e: Event): void {
+  if (isNarrow.value && (selectMode.value || suppressRowClick)) e.preventDefault()
+}
+
+/** Browse index nearest the reading focus — drives the scrub cursor while scrolling. */
+const scrubScrollIndex = ref(0)
+let scrubScrollRaf = 0
+
+function browseFocusY(): number {
+  const rail = document.querySelector('.scrub-rail') as HTMLElement | null
+  if (rail) {
+    const r = rail.getBoundingClientRect()
+    return Math.min(window.innerHeight - 48, Math.max(96, r.bottom + 28))
+  }
+  return Math.min(220, window.innerHeight * 0.32)
+}
+
+function syncScrubFromScroll(): void {
+  if (!showScrub.value) return
+  const nodes = document.querySelectorAll<HTMLElement>('[data-browse-index]')
+  if (!nodes.length) return
+  const y = browseFocusY()
+  let bestIdx = scrubScrollIndex.value
+  let bestDist = Infinity
+  for (const el of nodes) {
+    const raw = el.getAttribute('data-browse-index')
+    if (raw == null) continue
+    const idx = Number(raw)
+    if (!Number.isFinite(idx)) continue
+    const rect = el.getBoundingClientRect()
+    const mid = (rect.top + rect.bottom) / 2
+    const dist =
+      rect.bottom < y - 8
+        ? y - rect.bottom
+        : rect.top > y + 8
+          ? rect.top - y
+          : Math.abs(mid - y) * 0.25
+    if (dist < bestDist) {
+      bestDist = dist
+      bestIdx = idx
+    }
+  }
+  scrubScrollIndex.value = bestIdx
+}
+
+function onBrowseScroll(): void {
+  if (scrubScrollRaf) return
+  scrubScrollRaf = requestAnimationFrame(() => {
+    scrubScrollRaf = 0
+    syncScrubFromScroll()
+  })
+}
+
+function scrubLabelAtIndex(index: number): string {
+  const tag = catalog.allResults[index]
+  if (!tag) return ''
+  return yearSectionKey(normalizeYear(tag.year))
+}
+
+async function onScrub(index: number): Promise<void> {
+  const idx = catalog.revealIndex(index)
+  if (idx < 0) return
+  if (idx === 0) {
+    scrollBrowseTop()
+    scrubScrollIndex.value = 0
+    return
+  }
+  await nextTick()
+  const el = document.querySelector(`[data-browse-index="${idx}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'auto', block: 'center' })
+  } else {
+    catalog.revealIndex(idx)
+    await nextTick()
+    document.querySelector(`[data-browse-index="${idx}"]`)?.scrollIntoView({
+      behavior: 'auto',
+      block: 'center',
+    })
+  }
+  scrubScrollIndex.value = idx
+  await nextTick()
+  syncScrubFromScroll()
+}
+
+function onScrubEnd(): void {
+  /* no-op: loupe focus is pointer-driven */
+}
 
 function jumpSectionTip(key: string): string {
   const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
@@ -320,7 +550,7 @@ function setupInfiniteScroll(): void {
         catalog.showMoreResults()
       }
     },
-    { rootMargin: '240px' },
+    { rootMargin: '1200px' },
   )
   observer.observe(scrollSentinel.value)
 }
@@ -380,10 +610,38 @@ onMounted(async () => {
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
   await nextTick()
   setupInfiniteScroll()
+  syncScrubFromScroll()
+  syncJumpCols()
+  window.addEventListener('scroll', onBrowseScroll, { passive: true })
+  jumpRailRo = new ResizeObserver(() => syncJumpCols())
+  if (jumpRailEl.value) jumpRailRo.observe(jumpRailEl.value)
+  narrowMq = window.matchMedia(NARROW_SELECT_MQ)
+  syncNarrowSelect()
+  narrowMq.addEventListener('change', syncNarrowSelect)
 })
 
-onUnmounted(() => observer?.disconnect())
+onUnmounted(() => {
+  observer?.disconnect()
+  jumpRailRo?.disconnect()
+  jumpRailRo = null
+  narrowMq?.removeEventListener('change', syncNarrowSelect)
+  narrowMq = null
+  clearLongPressTimer()
+  window.removeEventListener('scroll', onBrowseScroll)
+  if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
+})
 
+watch(
+  () => [showJump.value, jumpKeyCount.value, catalog.sortMode] as const,
+  async () => {
+    await nextTick()
+    syncJumpCols()
+    if (jumpRailRo && jumpRailEl.value) {
+      jumpRailRo.disconnect()
+      jumpRailRo.observe(jumpRailEl.value)
+    }
+  },
+)
 watch(
   () => [catalog.hasMoreResults, catalog.results.length] as const,
   async () => {
@@ -391,10 +649,25 @@ watch(
     setupInfiniteScroll()
   },
 )
+
+watch(
+  () => [showScrub.value, catalog.allResults.length, catalog.browseWindow.rows.length] as const,
+  async () => {
+    await nextTick()
+    syncScrubFromScroll()
+  },
+)
 </script>
 
 <template>
-  <section class="home" :class="{ 'has-selection': catalog.selectedIds.size }">
+  <section
+    class="home"
+    :class="{
+      'has-selection': catalog.selectedIds.size,
+      'jump-rows-2': showJump && jumpRows === 2,
+      'jump-rows-1': showJump && jumpRows === 1,
+    }"
+  >
     <div class="search-toolbar">
       <div class="searchrow">
         <div class="search-field">
@@ -564,10 +837,14 @@ watch(
           </template>
         </div>
         <div class="sort-controls">
-          <label class="sort-field" title="Choose how matching tags are ordered">
-            <span class="sort-lbl">Sort</span>
-            <select v-model="catalog.sortMode" aria-label="Sort results">
-              <option v-for="s in sorts" :key="s.id" :value="s.id" :title="sortOptionTip(s.id)">
+          <label class="sort-field" title="Choose how matching tags are grouped and ordered">
+            <span class="sort-lbl">View by</span>
+            <select
+              v-model="catalog.sortMode"
+              aria-label="View results by"
+              @change="($event.target as HTMLSelectElement).blur()"
+            >
+              <option v-for="s in availableSorts" :key="s.id" :value="s.id" :title="sortOptionTip(s.id)">
                 {{ s.label }}
               </option>
             </select>
@@ -578,7 +855,7 @@ watch(
             :class="{ on: catalog.sortReverse }"
             :aria-pressed="catalog.sortReverse"
             :title="sortReverseTip()"
-            aria-label="Reverse sort order"
+            aria-label="Reverse view order"
             @click="catalog.toggleSortReverse()"
           >
             ⇅
@@ -588,7 +865,9 @@ watch(
 
       <nav
         v-if="showJump"
+        ref="jumpRailEl"
         class="jump-rail"
+        :class="{ 'jump-rail-fit': catalog.sortMode === 'collection' }"
         aria-label="Jump to section"
       >
         <button
@@ -600,17 +879,35 @@ watch(
         >
           ↑
         </button>
-        <button
-          v-for="key in catalog.browseWindow.jumpKeys"
-          :key="key"
-          type="button"
-          class="jump"
-          :title="jumpSectionTip(key)"
-          @click="jumpToSection(key)"
-        >
-          {{ key }}
-        </button>
+        <div class="jump-keys" :style="jumpKeysStyle">
+          <button
+            v-for="key in catalog.browseWindow.jumpKeys"
+            :key="key"
+            type="button"
+            class="jump"
+            :title="jumpSectionTip(key)"
+            @click="jumpToSection(key)"
+          >
+            {{ key }}
+          </button>
+        </div>
       </nav>
+
+      <div
+        v-if="showScrub"
+        class="scrub-rail"
+        aria-label="Scrub by year"
+      >
+        <ScrubRail
+          :length="catalog.allResults.length"
+          :label-at-index="scrubLabelAtIndex"
+          :active-index="scrubScrollIndex"
+          reverse-axis
+          aria-label="Scrub through years"
+          @scrub="onScrub"
+          @scrub-end="onScrubEnd"
+        />
+      </div>
 
       <EmptyState
         v-if="!catalog.results.length"
@@ -629,10 +926,19 @@ watch(
           <div
             v-else
             class="list-row"
+            :class="{ 'show-select': showRowSelect }"
+            :data-browse-index="row.index"
             tabindex="0"
             @keydown="onResultKey($event, row.tag.id)"
+            @pointerdown="onRowPointerDown($event, row.tag.id)"
+            @pointermove="onRowPointerMove"
+            @pointerup="onRowPointerEnd"
+            @pointercancel="onRowPointerEnd"
+            @click.capture="onRowClickCapture"
+            @contextmenu="onRowContextMenu"
           >
             <button
+              v-if="showRowSelect"
               type="button"
               class="sel-btn"
               :class="{ on: catalog.selectedIds.has(row.tag.id) }"
@@ -678,8 +984,62 @@ watch(
                   class="dl-count"
                   title="Downloads on barbershoptags.com"
                 >↓ {{ formatDownloads(row.tag.downloads) }}</span>
-                <span v-if="!row.tag.hasSheet" class="badge" title="No sheet music on file">No sheet</span>
-                <span v-if="!row.tag.audioParts?.length" class="badge" title="No learning tracks on file">No audio</span>
+                <span
+                  v-if="!row.tag.hasSheet"
+                  class="badge badge-icon"
+                  title="No sheet music on file"
+                  aria-label="No sheet music on file"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M7 3.5h7.5L19 8v12.5H7z"
+                    />
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M14.5 3.5V8H19M9.5 12h5M9.5 15.5h5"
+                    />
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      d="M5 5l14 14"
+                    />
+                  </svg>
+                </span>
+                <span
+                  v-if="!row.tag.audioParts?.length"
+                  class="badge badge-icon"
+                  title="No learning tracks on file"
+                  aria-label="No learning tracks on file"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.75"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M11 5.5L7 9H4.5v6H7l4 3.5zM15.2 9.8a3.2 3.2 0 010 4.4"
+                    />
+                    <path
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      d="M5 5l14 14"
+                    />
+                  </svg>
+                </span>
               </span>
               <span
                 v-for="snip in [catalog.lyricsSnippet(row.tag.id)]"
@@ -756,7 +1116,14 @@ watch(
   max-width: 100%;
   /* Measured --header-h (set on :root by App) already includes safe-area padding. */
   --jump-rail-offset: var(--header-h, 3.5rem);
-  --jump-rail-h: 2.75rem;
+  /* Sticky section scroll-margin: 3-row jump rail (narrow); row classes override. */
+  --jump-rail-h: 7.5rem;
+}
+.home.jump-rows-2 {
+  --jump-rail-h: 5.5rem;
+}
+.home.jump-rows-1 {
+  --jump-rail-h: 3.25rem;
 }
 .home.has-selection {
   padding-bottom: 5.5rem;
@@ -1121,27 +1488,66 @@ watch(
   position: sticky;
   top: var(--jump-rail-offset);
   z-index: 4;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  display: grid;
+  /* Same chrome as year scrub: ↑ fixed left, keys/track fill the rest. */
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem;
+  align-items: center;
   padding: 0.4rem 0;
   margin: 0 0 0.5rem;
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(8px);
 }
+.jump-keys {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+/* Collection booklet jumps: size to label text so nothing wraps. */
+.jump-rail-fit {
+  align-items: center;
+}
+.jump-rail-fit .jump-keys {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+}
+.jump-rail-fit .jump {
+  flex: 0 0 auto;
+  min-width: auto;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.scrub-rail {
+  position: sticky;
+  top: var(--jump-rail-offset);
+  z-index: 4;
+  margin: 0 0 0.5rem;
+  padding: 0.15rem 0 0.35rem;
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+}
 .jump {
-  min-width: 2rem;
+  min-width: 0;
   min-height: 36px;
-  padding: 0.2rem 0.45rem;
+  padding: 0.2rem 0.2rem;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: clamp(0.72rem, 2.4vw, 0.85rem);
+  line-height: 1.1;
+  text-align: center;
 }
 .jump-top {
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
   font-weight: 700;
   color: var(--accent);
+  align-self: center;
 }
 .dl-count {
   font-variant-numeric: tabular-nums;
@@ -1163,13 +1569,20 @@ watch(
 }
 .list-row {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* Default: title + favorite (narrow idle). `.show-select` adds the select column. */
+  grid-template-columns: 1fr auto;
   gap: 0.5rem;
   align-items: center;
   padding: 0.45rem 0.35rem;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.list-row.show-select {
+  grid-template-columns: auto 1fr auto;
 }
 .list-row:focus-within {
   border-color: var(--border);
@@ -1321,25 +1734,38 @@ watch(
   color: var(--danger);
   font-size: 0.8rem;
 }
+.badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.badge-icon svg {
+  display: block;
+}
 .sel-btn {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  min-width: 48px;
-  min-height: 48px;
-  margin: 0.15rem;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0.35rem 0.55rem;
+  margin: 0;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--surface);
   font: inherit;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
+  line-height: 1;
   color: var(--accent);
   align-self: center;
+  cursor: pointer;
 }
 .sel-btn.on {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));

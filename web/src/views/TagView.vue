@@ -2,6 +2,7 @@
 import { bookletBadgeForTag, collectionLabel } from '../search/browse'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { navigateBack } from '../lib/navigateBack'
 import { useCatalogStore } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
 import { useStarsStore } from '../stores/stars'
@@ -59,6 +60,15 @@ const syncingShift = ref(false)
 const practiceDone = ref(false)
 
 const inPractice = computed(() => route.query.set === 'practice')
+
+/** Prefer history back so browse scroll is restored; practice exits to the set. */
+function goBack(): void {
+  if (inPractice.value) {
+    void router.push('/favorites')
+    return
+  }
+  navigateBack(router, '/')
+}
 
 function readShiftFromRoute(): number {
   const raw = route.query.shift
@@ -322,13 +332,12 @@ async function onRetryLoad(): Promise<void> {
   <section v-else-if="detail" class="tag">
     <div class="toprow">
       <div class="toprow-start">
-        <RouterLink
-          v-if="inPractice"
+        <button
+          type="button"
           class="btn page-back"
-          to="/favorites"
-          title="Back to practice set"
-        >← Practice set</RouterLink>
-        <RouterLink v-else class="btn page-back" to="/" title="Back to browse">← Back</RouterLink>
+          :title="inPractice ? 'Back to practice set' : 'Back to browse'"
+          @click="goBack"
+        >{{ inPractice ? '← Practice set' : '← Back' }}</button>
       </div>
       <nav
         v-if="nav.total > 1 && nav.index >= 0"
@@ -503,15 +512,22 @@ async function onRetryLoad(): Promise<void> {
       </div>
     </section>
 
-    <p v-if="sheetPreparing" class="tag-loading below-pitch" role="status" aria-live="polite">
-      Preparing sheet…
-    </p>
-    <template v-else>
     <details class="section" open>
       <summary class="section-summary">Sheet music</summary>
-      <div class="section-body">
+      <div
+        class="section-body sheet-slot"
+        :class="{ 'is-pending': sheetPreparing && (sheetAssets.imageSets.length || sheetAssets.pdfs.length || !detail) }"
+      >
+        <p
+          v-if="sheetPreparing"
+          class="tag-loading sheet-slot-status"
+          role="status"
+          aria-live="polite"
+        >
+          Preparing sheet…
+        </p>
         <SheetViewer
-          v-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
+          v-else-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
           :image-sets="sheetAssets.imageSets"
           :pdfs="offline ? [] : sheetAssets.pdfs"
           :can-choose-format="!offline && sheetAssets.canChooseFormat"
@@ -586,18 +602,16 @@ async function onRetryLoad(): Promise<void> {
         </dl>
       </div>
     </details>
-    </template>
   </section>
   <section v-else-if="partialUnavailable && summary" class="tag tag-partial" aria-live="polite">
     <div class="toprow">
       <div class="toprow-start">
-        <RouterLink
-          v-if="inPractice"
+        <button
+          type="button"
           class="btn page-back"
-          to="/favorites"
-          title="Back to practice set"
-        >← Practice set</RouterLink>
-        <RouterLink v-else class="btn page-back" to="/" title="Back to browse">← Back</RouterLink>
+          :title="inPractice ? 'Back to practice set' : 'Back to browse'"
+          @click="goBack"
+        >{{ inPractice ? '← Practice set' : '← Back' }}</button>
       </div>
       <nav
         v-if="nav.total > 1 && nav.index >= 0"
@@ -1256,6 +1270,14 @@ async function onRetryLoad(): Promise<void> {
   display: grid;
   gap: 0.75rem;
   min-width: 0;
+}
+/* Hold space while sheet decodes so Tracks do not jump up on online reload. */
+.sheet-slot.is-pending {
+  min-height: min(70vh, 52rem);
+}
+.sheet-slot-status {
+  margin: 1.25rem auto;
+  text-align: center;
 }
 .pitch-section .section-body {
   margin-top: 0.65rem;

@@ -23,6 +23,17 @@ describe('recent store', () => {
     expect(r.sortedRecords('opens')[0]?.id).toBe(5)
   })
 
+  it('counts opens marked from Recent the same as Browse', () => {
+    const r = useRecentStore()
+    r.markBrowseNavigation(7)
+    expect(r.consumeBrowseNavigation(7)).toBe(true)
+    r.recordOpen(7)
+    r.markBrowseNavigation(7)
+    expect(r.consumeBrowseNavigation(7)).toBe(true)
+    r.recordOpen(7)
+    expect(r.entries.find((e) => e.id === 7)?.opens).toBe(2)
+  })
+
   it('does not count next/prev navigation without browse mark', () => {
     const r = useRecentStore()
     expect(r.consumeBrowseNavigation(9)).toBe(false)

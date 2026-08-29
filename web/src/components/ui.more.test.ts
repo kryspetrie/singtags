@@ -13,6 +13,7 @@ vi.mock('../lib/contentCrop', () => ({
 }))
 
 vi.mock('../lib/pdfRender', () => ({
+  DEFAULT_PDF_RENDER_DPI: 300,
   renderPdfToPageUrls: vi.fn(async (url: string) => {
     const name = url.split('/').pop() || 'sheet.pdf'
     return [`blob:pdf-page-1-${name}`, `blob:pdf-page-2-${name}`]
@@ -75,7 +76,7 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(document.documentElement.style.overflow).toBe('')
   })
 
-  it('defaults to PDF (no format toggle) when PDF + its own raster pages exist', async () => {
+  it('defaults to WebP inline; PDF rasterizes only on fullscreen', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
     const w = mount(SheetViewer, {
       props: {
@@ -84,13 +85,24 @@ describe('SheetViewer fullscreen + pay key', () => {
         baseUrl: '/sample-data/',
         canChooseFormat: false,
       },
+      attachTo: document.body,
     })
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
     expect(w.find('iframe').exists()).toBe(false)
+    expect(w.findAll('img').length).toBe(1)
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+
+    await w.get('button.fs-fab').trigger('click')
+    await flushPromises()
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
-    expect(renderPdfToPageUrls).toHaveBeenCalled()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
     w.unmount()
   })
 
@@ -112,19 +124,49 @@ describe('SheetViewer fullscreen + pay key', () => {
 
     const group = w.get('[aria-label="Sheet music format"]')
     const [imagesBtn, pdfBtn] = group.findAll('button')
-    // Online default: PDF at 300 DPI rather than cached WebP pages.
+    // Inline default: WebP; PDF is opt-in via the format toggle (or fullscreen).
+    expect(imagesBtn!.attributes('aria-pressed')).toBe('true')
+    expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
+    expect(w.findAll('img').length).toBeGreaterThan(0)
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+
+    await pdfBtn!.trigger('click')
+    await flushPromises()
     expect(pdfBtn!.attributes('aria-pressed')).toBe('true')
     expect(imagesBtn!.attributes('aria-pressed')).toBe('false')
+    expect(w.find('iframe').exists()).toBe(false)
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
     expect(renderPdfToPageUrls).toHaveBeenCalled()
+    w.unmount()
+  })
 
-    await imagesBtn!.trigger('click')
+  it('keeps WebP on screen while PDF rasterizes; never shows Preparing PDF', async () => {
+    let finish!: (urls: string[]) => void
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    vi.mocked(renderPdfToPageUrls).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp'],
+        pdf: 'sheets/1/sheet.pdf',
+        baseUrl: '/sample-data/',
+        canChooseFormat: true,
+      },
+    })
     await flushPromises()
-    expect(imagesBtn!.attributes('aria-pressed')).toBe('true')
-    expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
-    expect(w.find('iframe').exists()).toBe(false)
-    expect(w.findAll('img').length).toBeGreaterThan(0)
+    await w.get('[aria-label="Sheet music format"]').findAll('button')[1]!.trigger('click')
+    await flushPromises()
+    expect(w.text()).not.toContain('Preparing PDF')
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
+    finish(['blob:pdf-page-ready-1', 'blob:pdf-page-ready-2'])
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toContain('blob:pdf-page-ready')
     w.unmount()
   })
 
@@ -159,7 +201,14 @@ describe('SheetViewer fullscreen + pay key', () => {
       },
     })
     await flushPromises()
-    // Defaults to PDF when available.
+    // Defaults to images; PDF only after switching format.
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    expect(w.findAll('img')).toHaveLength(2)
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
+
+    const formatBtns = w.get('[aria-label="Sheet music format"]').findAll('button')
+    await formatBtns[1]!.trigger('click') // PDF
+    await flushPromises()
     expect(renderPdfToPageUrls).toHaveBeenCalled()
     expect(w.findAll('img')).toHaveLength(2)
     const pdfSelect = w.get('select[aria-label="Choose PDF sheet"]')
@@ -167,7 +216,7 @@ describe('SheetViewer fullscreen + pay key', () => {
     await flushPromises()
     expect(vi.mocked(renderPdfToPageUrls).mock.calls.at(-1)?.[0]).toContain('learn.pdf')
 
-    await w.get('[aria-label="Sheet music format"]').findAll('button')[0]!.trigger('click')
+    await formatBtns[0]!.trigger('click') // Images
     await flushPromises()
     const imageSelect = w.get('select[aria-label="Choose image sheet"]')
     await imageSelect.setValue('img-a')

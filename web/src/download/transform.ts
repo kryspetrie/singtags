@@ -1,3 +1,4 @@
+import { assertDecodableAudioBytes } from '../audio/audioBytes'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { isIdentityTransform, transformFilenameSuffix } from '../types/audio'
 import { processOfflineTransform } from '../audio/bakeClient'
@@ -38,6 +39,7 @@ export function audioBufferToWav(buffer: AudioBuffer): Uint8Array {
 }
 
 async function decodeBytes(data: Uint8Array): Promise<AudioBuffer> {
+  assertDecodableAudioBytes(data)
   const ctx = new AudioContext()
   try {
     const ab = new ArrayBuffer(data.byteLength)

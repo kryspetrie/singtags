@@ -64,7 +64,8 @@ function rowStarLabel(tag: TagSummary): string {
 <template>
   <section class="recent-page" aria-label="Recent tags">
     <p class="muted intro">
-      Tags you open from Browse. Next/previous on a tag page does not add to this list or increase open counts.
+      Tags you open from Browse or Recent. Next/previous on a tag page does not add to this list or
+      increase open counts.
     </p>
 
     <p v-if="catalog.loading && !catalog.loaded" class="muted intro" role="status">
@@ -90,7 +91,7 @@ function rowStarLabel(tag: TagSummary): string {
     <EmptyState
       v-if="!recent.count"
       title="No recent tags yet"
-      message="Open tags from Browse — they will show up here with how often you visit them."
+      message="Open tags from Browse or Recent — they will show up here with how often you visit them."
     />
     <ul v-else class="list">
       <li v-for="{ rec, tag } in rows" :key="rec.id" class="list-row">
@@ -98,6 +99,7 @@ function rowStarLabel(tag: TagSummary): string {
           v-if="tag"
           :to="`/tag/${rec.id}`"
           class="row-link"
+          @click="recent.markBrowseNavigation(rec.id)"
         >
           <span class="title">
             <span class="tag-num">#{{ rec.id }}</span>

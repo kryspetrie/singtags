@@ -40,7 +40,12 @@ export const router = createRouter({
     },
   ],
   scrollBehavior(to, from, saved) {
-    if (saved) return saved
+    // Browser / in-app back: restore after a frame so remounted browse has height.
+    if (saved) {
+      return new Promise((resolve) => {
+        requestAnimationFrame(() => resolve(saved))
+      })
+    }
     // Query-only updates (e.g. ?shift=) must not jump the page to the top
     if (from && to.path === from.path) return false
     return { top: 0 }

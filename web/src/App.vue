@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref, shallowRef, watch } from 'vue'
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useStarsStore } from './stores/stars'
 import { useQueueStore } from './stores/queue'
@@ -9,6 +9,7 @@ import { useOfflineModeStore } from './stores/offlineMode'
 import { usePreferencesStore } from './stores/preferences'
 import { useSnackbarStore } from './stores/snackbar'
 import { formatBytes } from './offline/storageEstimate'
+import { navigateBack } from './lib/navigateBack'
 import { useReconnectCaches } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
 
@@ -19,6 +20,7 @@ const offlineMode = useOfflineModeStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const route = useRoute()
+const router = useRouter()
 useReconnectCaches()
 const { message: offlineBannerMessage } = useOfflineBanner()
 
@@ -41,8 +43,16 @@ watch(
 )
 
 const onTagPage = computed(() => route.name === 'tag')
-const backTarget = computed(() => (route.query.set === 'practice' ? '/favorites' : '/'))
 const backLabel = computed(() => (route.query.set === 'practice' ? '← Practice set' : '← Back'))
+
+/** History back restores browse scroll; practice always returns to the set list. */
+function goBack(): void {
+  if (route.query.set === 'practice') {
+    void router.push('/favorites')
+    return
+  }
+  navigateBack(router, '/')
+}
 
 const { needRefresh, updateServiceWorker } = useRegisterSW({
   immediate: true,
@@ -174,7 +184,13 @@ async function syncPacksFromPrompt(): Promise<void> {
   <div class="app">
     <header ref="topEl" class="top">
       <div class="top-start">
-        <RouterLink v-if="onTagPage" class="top-back" :to="backTarget">{{ backLabel }}</RouterLink>
+        <button
+          v-if="onTagPage"
+          type="button"
+          class="top-back"
+          :title="backLabel"
+          @click="goBack"
+        >{{ backLabel }}</button>
         <RouterLink class="brand" to="/">
           <span class="brand-lockup">
             <span class="brand-name">SingTags</span>
@@ -391,9 +407,11 @@ async function syncPacksFromPrompt(): Promise<void> {
   background: var(--bg);
   color: var(--text);
   text-decoration: none;
+  font: inherit;
   font-size: 0.9rem;
   font-weight: 600;
   align-items: center;
+  cursor: pointer;
 }
 .top-back:hover {
   color: var(--accent-hover);

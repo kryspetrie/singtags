@@ -337,6 +337,111 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
+  it('HomeView hides select buttons on narrow until long-press, then clear exits', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
+
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => {
+        const narrow = String(query).includes('max-width: 639px')
+        return {
+          matches: narrow,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+          onchange: null,
+        }
+      }),
+    )
+
+    const core = {
+      version: 1,
+      tags: [
+        {
+          id: 1,
+          title: 'My Tag',
+          arranger: 'A',
+          key: 'C',
+          rating: 4,
+          type: 'Barbershop',
+          collection: null,
+          hasSheet: true,
+          audioParts: ['lead'],
+          sheet: null,
+        },
+        {
+          id: 2,
+          title: 'Other',
+          arranger: 'B',
+          key: 'G',
+          rating: 3,
+          type: null,
+          collection: null,
+          hasSheet: false,
+          audioParts: ['bass'],
+          sheet: null,
+        },
+      ],
+    }
+    const gz = await new Response(
+      new Blob([JSON.stringify(core)]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).arrayBuffer()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('core.json.gz')) return new Response(gz, { status: 200 })
+        if (String(url).includes('expansions.json')) {
+          return new Response(JSON.stringify({ map: {} }), { status: 200 })
+        }
+        return new Response(null, { status: 404 })
+      }),
+    )
+
+    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    const catalog = useCatalogStore()
+    await catalog.load()
+    expect(catalog.error).toBeNull()
+    expect(catalog.results.length).toBeGreaterThan(0)
+
+    const router = makeRouter([
+      { path: '/', component: HomeView },
+      { path: '/tag/:id', component: { template: '<div />' } },
+    ])
+    await router.push('/')
+    const w = mount(HomeView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ScrubRail: true },
+      },
+    })
+    await flushPromises()
+
+    expect(w.find('.list-row').exists()).toBe(true)
+    expect(w.find('.sel-btn').exists()).toBe(false)
+
+    vi.useFakeTimers()
+    const row = w.find('.list-row')
+    await row.trigger('pointerdown', { button: 0, clientX: 10, clientY: 10 })
+    await vi.advanceTimersByTimeAsync(450)
+    await flushPromises()
+    await w.vm.$nextTick()
+
+    expect(catalog.selectedIds.has(1)).toBe(true)
+    expect(w.findAll('.sel-btn').length).toBeGreaterThan(0)
+
+    catalog.clearSelection()
+    await w.vm.$nextTick()
+    expect(w.find('.sel-btn').exists()).toBe(false)
+
+    w.unmount()
+    vi.useRealTimers()
+  })
+
   it('HomeView row star toggles icon immediately', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)

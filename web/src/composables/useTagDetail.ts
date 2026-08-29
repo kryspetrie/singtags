@@ -1,4 +1,4 @@
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import {
   cachedPathCandidates,
@@ -11,7 +11,7 @@ import { preferredDefaultPart, sortPartIds } from '../lib/parts'
 import { mediaUrl, tagDetailUrl } from '../lib/mediaUrl'
 import { resolveSheetAssets } from '../lib/sheetAssets'
 import { sheetDisplayPages } from '../lib/sheetPaths'
-import { prepareDefaultSheet, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
+import { prepareDefaultSheet, preloadSheetPages, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
 import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/starredDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { packHasPath, probeAvailableAudioParts, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
@@ -347,12 +347,15 @@ export function useTagDetail(id: Ref<string> | string) {
           offlineOnly: true,
         })
         if (!resolved || resolved.kind !== 'blob') continue
+        // Never revoke a shared learning-stereo URL — finalizeBlobUrl may return
+        // the same session-cached blob that audioParts / the player still hold.
+        const sharedStereo = hasCachedLearningStereo(d.tag_id, p, resolved.url)
         if (detail.value !== d) {
-          URL.revokeObjectURL(resolved.url)
+          if (!sharedStereo) URL.revokeObjectURL(resolved.url)
           return
         }
         if (audioParts.value[p]) {
-          URL.revokeObjectURL(resolved.url)
+          if (!sharedStereo) URL.revokeObjectURL(resolved.url)
           continue
         }
         audioParts.value = { ...audioParts.value, [p]: track(resolved.url) }
@@ -424,8 +427,16 @@ export function useTagDetail(id: Ref<string> | string) {
     sheetPreparing.value = true
     error.value = null
     fromCache.value = false
-    detail.value = null
-    clearMedia()
+    // Keep the previous tag painted while refreshing the same id — clearing
+    // detail collapses Sheet+Tracks and flickers on online reload.
+    const sameTag = detail.value != null && idStr() === wantedId
+    if (sameTag) {
+      revokePreparedSheet(preparedSheet.value)
+      preparedSheet.value = null
+    } else {
+      detail.value = null
+      clearMedia()
+    }
 
     const numericId = Number(wantedId)
     try {
@@ -442,14 +453,14 @@ export function useTagDetail(id: Ref<string> | string) {
       }
 
       applyDetailSync(d)
-      sheetPreparing.value = false
+      // Keep sheetPreparing true until pages are display-ready. Clearing it early
+      // mounts SheetViewer with empty/raw images, which collapses the sheet block
+      // and makes Tracks jump (especially noticeable on online reload).
 
       const offlineMode = useOfflineModeStore()
       const offlineOnly = offlineMode.offline
       await resolveSheetsAndAudio(d, cached ?? undefined, offlineOnly)
       if (seq !== loadSeq) return
-
-      loading.value = false
 
       try {
         const assets = sheetAssets.value
@@ -469,6 +480,12 @@ export function useTagDetail(id: Ref<string> | string) {
               return
             }
             preparedSheet.value = prepared
+          }
+          // Decode before mounting so the sheet has height on first paint (no Tracks jump).
+          const pages = preparedSheet.value?.pages ?? []
+          if (pages.length) {
+            await preloadSheetPages(pages, signal)
+            if (signal.aborted || seq !== loadSeq) return
           }
         } else {
           preparedSheet.value = { pages: [], owned: [] }
@@ -512,6 +529,12 @@ export function useTagDetail(id: Ref<string> | string) {
       sheetPages: d.sheet_pages,
     }
   }
+
+  // useObjectUrls revokes blobs on unmount; drop learning-stereo map entries so
+  // a later visit cannot reuse revoked blob: URLs from the session cache.
+  onUnmounted(() => {
+    clearLearningStereoCache(detail.value?.tag_id)
+  })
 
   return {
     detail,

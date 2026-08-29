@@ -42,7 +42,6 @@ describe('compactAudio', () => {
     expect(out?.encoded).toBe(true)
     expect(encodeDecodedBytes).toHaveBeenCalled()
   })
-})
 
   it('falls back to original bytes when decode/re-encode fails', async () => {
     const { encodeDecodedBytes } = await import('../download/encode')
@@ -54,3 +53,31 @@ describe('compactAudio', () => {
     expect(out.mime).toBe('audio/mpeg')
     expect([...out.bytes]).toEqual([...mp3])
   })
+
+  it('refuses to store HTML/JSON poison', async () => {
+    const { encodeBytesForStorage } = await import('./compactAudio')
+    await expect(
+      encodeBytesForStorage(
+        new TextEncoder().encode('<!DOCTYPE html><html></html>'),
+        'standard',
+      ),
+    ).rejects.toThrow(/non-audio/)
+    await expect(
+      encodeBytesForStorage(new TextEncoder().encode('{"tag_id":1}'), 'standard'),
+    ).rejects.toThrow(/non-audio/)
+  })
+
+  it('returns null when fetch body is HTML/JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response('<!DOCTYPE html><html></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    )
+    const { fetchAudioForStorage } = await import('./compactAudio')
+    expect(await fetchAudioForStorage('media/1/lead.m4a', 'original')).toBeNull()
+  })
+})

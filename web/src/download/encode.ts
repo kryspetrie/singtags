@@ -9,6 +9,7 @@
 import { createEncoder } from 'wasm-media-encoders'
 import type { AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { aacBitrate, mp3VbrQuality, oggVbrQuality, opusBitrate } from '../types/audio'
+import { assertDecodableAudioBytes } from '../audio/audioBytes'
 
 type Encoder = {
   configure: (opts: {
@@ -202,6 +203,7 @@ export async function encodeAudioBuffer(
 }
 
 async function decodeBytes(input: Uint8Array): Promise<AudioBuffer> {
+  assertDecodableAudioBytes(input)
   const ctx = new AudioContext()
   try {
     const ab = new ArrayBuffer(input.byteLength)

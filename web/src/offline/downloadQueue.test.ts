@@ -34,6 +34,17 @@ describe('DownloadQueue', () => {
     vi.restoreAllMocks()
   })
 
+  it('rejects HTML and JSON bodies as implausible media', async () => {
+    const { isPlausibleMediaBody } = await import('./downloadQueue')
+    const html = new TextEncoder().encode('<!DOCTYPE html><html><body>x</body></html>').buffer
+    const json = new TextEncoder().encode('{"ok":true,"n":1}').buffer
+    const ok = new Uint8Array(96).fill(0xff).buffer
+    expect(isPlausibleMediaBody(html)).toBe(false)
+    expect(isPlausibleMediaBody(json)).toBe(false)
+    expect(isPlausibleMediaBody(ok, 'application/json')).toBe(false)
+    expect(isPlausibleMediaBody(ok, 'image/webp')).toBe(true)
+  })
+
   it('downloads missing items and skips existing', async () => {
     const store = memoryStore()
     const blobA = new Uint8Array(96).fill(1)

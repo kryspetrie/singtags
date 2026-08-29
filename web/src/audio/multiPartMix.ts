@@ -7,6 +7,7 @@
 
 import { audioBufferToWavBlob, getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 import type { PartSide } from '../stores/preferences'
+import { assertDecodableAudioBytes } from './audioBytes'
 
 export interface MixPartInput {
   url: string
@@ -75,6 +76,7 @@ export async function buildSoloMixObjectUrl(parts: MixPartInput[]): Promise<Solo
     const res = await fetch(p.url)
     if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
     const buf = await res.arrayBuffer()
+    assertDecodableAudioBytes(buf)
     decoded.push(await ctx.decodeAudioData(buf.slice(0)))
   }
 

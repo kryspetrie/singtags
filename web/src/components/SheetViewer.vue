@@ -5,6 +5,12 @@ import type { SheetImageSet, SheetPdfFile } from '../lib/sheetAssets'
 import { cropImageUrl } from '../lib/contentCrop'
 import { renderPdfToPageUrls } from '../lib/pdfRender'
 import {
+  loadPdfRasterObjectUrls,
+  pdfRasterCacheKey,
+  pdfRasterMemoryHit,
+  putPdfRasterFromObjectUrls,
+} from '../offline/pdfRasterCache'
+import {
   fitSheetZoomPan,
   identitySheetZoomPan,
   panSheet,
@@ -67,6 +73,8 @@ const loadError = ref<string | null>(null)
 const ownedUrls = ref<string[]>([])
 let loadAbort: AbortController | null = null
 let loadSeq = 0
+/** Auto-switched to PDF raster for fullscreen sharpness; revert on exit. */
+let autoPdfForFullscreen = false
 
 const sheetEl = ref<HTMLElement | null>(null)
 const stageEl = ref<HTMLElement | null>(null)
@@ -160,6 +168,7 @@ function revokeOwned(): void {
 function setMode(next: SheetDisplayMode): void {
   if (next === 'pdf' && !hasPdf.value) return
   if (next === 'images' && !hasImages.value) return
+  autoPdfForFullscreen = false
   mode.value = next
 }
 
@@ -173,9 +182,9 @@ function syncSelection(resetMode: boolean): void {
     pdfId.value = pdfs[0]?.id ?? ''
   }
   if (resetMode) {
-    // Prefer PDF when available (300 DPI client raster beats cached ~800px WebPs).
-    if (hasPdf.value) mode.value = 'pdf'
-    else if (hasImages.value) mode.value = 'images'
+    // Inline view prefers WebP; PDF is rasterized for fullscreen (or manual toggle).
+    if (hasImages.value) mode.value = 'images'
+    else if (hasPdf.value) mode.value = 'pdf'
   } else if (mode.value === 'images' && !hasImages.value && hasPdf.value) {
     mode.value = 'pdf'
   } else if (mode.value === 'pdf' && !hasPdf.value && hasImages.value) {
@@ -195,21 +204,72 @@ watch(
   { immediate: true },
 )
 
+/** Immediate image URLs for the active set (prefetch or raw) — never waits. */
+function imagePreviewUrls(): string[] {
+  const paths = activeImageSet.value?.paths ?? []
+  if (!paths.length) return []
+  const raw = paths.map((p) => src(p, props.baseUrl))
+  const prefetch = props.prefetchedPages
+  const defaultSetId = resolvedImageSets.value[0]?.id
+  const canUsePrefetch =
+    !!prefetch?.length &&
+    activeImageSet.value?.id === defaultSetId &&
+    prefetch.length === paths.length
+  return canUsePrefetch ? prefetch! : raw
+}
+
 async function rebuildDisplay(): Promise<void> {
   loadAbort?.abort()
   loadAbort = new AbortController()
   const { signal } = loadAbort
   const seq = ++loadSeq
-  revokeOwned()
-  displayPages.value = []
   loadError.value = null
 
   if (showingPdf.value) {
     const pdf = activePdf.value
     if (!pdf) return
-    loading.value = true
+    const pdfUrl = src(pdf.path, props.baseUrl)
+    const cacheKey = pdfRasterCacheKey(pdfUrl, { crop: props.cropToContent })
+
+    const applyPages = (urls: string[]) => {
+      const previousOwned = ownedUrls.value
+      ownedUrls.value = urls
+      displayPages.value = urls
+      for (const u of previousOwned) URL.revokeObjectURL(u)
+    }
+
+    // Session cache: high-res immediately, skip low-res flash.
+    const memHit = pdfRasterMemoryHit(cacheKey)
+    if (memHit) {
+      applyPages(memHit)
+      loading.value = false
+      return
+    }
+
+    // Always paint WebP (or keep prior pages) while we check IDB / rasterize.
+    if (!displayPages.value.length) {
+      const preview = imagePreviewUrls()
+      if (preview.length) {
+        revokeOwned()
+        displayPages.value = preview
+      } else {
+        revokeOwned()
+        displayPages.value = []
+        loading.value = true
+      }
+    }
     try {
-      const urls = await renderPdfToPageUrls(src(pdf.path, props.baseUrl), {
+      const idbHit = await loadPdfRasterObjectUrls(cacheKey)
+      if (signal.aborted || seq !== loadSeq) {
+        if (idbHit) for (const u of idbHit) URL.revokeObjectURL(u)
+        return
+      }
+      if (idbHit) {
+        applyPages(idbHit)
+        return
+      }
+
+      const urls = await renderPdfToPageUrls(pdfUrl, {
         crop: props.cropToContent,
         signal,
       })
@@ -217,8 +277,8 @@ async function rebuildDisplay(): Promise<void> {
         for (const u of urls) URL.revokeObjectURL(u)
         return
       }
-      ownedUrls.value = urls
-      displayPages.value = urls
+      applyPages(urls)
+      void putPdfRasterFromObjectUrls(cacheKey, urls)
     } catch (e) {
       if (signal.aborted || seq !== loadSeq) return
       loadError.value = e instanceof Error ? e.message : String(e)
@@ -229,24 +289,39 @@ async function rebuildDisplay(): Promise<void> {
   }
 
   const paths = activeImageSet.value?.paths ?? []
-  if (!paths.length) return
+  if (!paths.length) {
+    revokeOwned()
+    displayPages.value = []
+    return
+  }
+
   const raw = paths.map((p) => src(p, props.baseUrl))
+  const preview = imagePreviewUrls()
   const prefetch = props.prefetchedPages
   const defaultSetId = resolvedImageSets.value[0]?.id
-  const canUsePrefetch =
+  const usingPrefetch =
     !!prefetch?.length &&
     activeImageSet.value?.id === defaultSetId &&
     prefetch.length === paths.length
 
-  if (canUsePrefetch) {
+  // Parent already prepared these pages (cropped). Painting them then re-cropping
+  // swaps dimensions and flickers layout — especially on online reload.
+  if (usingPrefetch) {
+    revokeOwned()
     displayPages.value = prefetch!
+    loading.value = false
     return
   }
 
+  // Show WebP immediately; optional content-crop upgrades in place.
   if (!props.cropToContent) {
-    displayPages.value = raw
+    revokeOwned()
+    displayPages.value = preview
     return
   }
+
+  // Paint raw first so crop never blanks the stage.
+  displayPages.value = preview
 
   loading.value = true
   try {
@@ -262,12 +337,14 @@ async function rebuildDisplay(): Promise<void> {
       for (const u of owned) URL.revokeObjectURL(u)
       return
     }
+    const previousOwned = ownedUrls.value
     ownedUrls.value = owned
     displayPages.value = next
+    for (const u of previousOwned) URL.revokeObjectURL(u)
   } catch (e) {
     if (signal.aborted || seq !== loadSeq) return
     if (e instanceof DOMException && e.name === 'AbortError') return
-    displayPages.value = raw
+    displayPages.value = preview
   } finally {
     if (seq === loadSeq) loading.value = false
   }
@@ -357,8 +434,17 @@ function setFullscreen(on: boolean): void {
   dragging = false
   pinchStartDist = 0
   if (on) {
+    // Upgrade to PDF raster in fullscreen when available; keep WebP until ready.
+    if (hasPdf.value && hasImages.value && mode.value === 'images') {
+      autoPdfForFullscreen = true
+      mode.value = 'pdf'
+    }
     void enterFullscreenLayout()
   } else {
+    if (autoPdfForFullscreen && hasImages.value) {
+      autoPdfForFullscreen = false
+      mode.value = 'images'
+    }
     zoomPan.value = identitySheetZoomPan()
   }
   emit('fullscreen-change', on)
@@ -521,7 +607,11 @@ onUnmounted(() => {
     <div
       ref="sheetEl"
       class="sheet"
-      :class="{ fullscreen, zoomed: fullscreen && zoomPan.scale > 1.01 }"
+      :class="{
+        fullscreen,
+        zoomed: fullscreen && zoomPan.scale > 1.01,
+        'is-awaiting': loading && !displayPages.length,
+      }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
       :aria-busy="loading"
@@ -548,17 +638,17 @@ onUnmounted(() => {
       </button>
 
       <p v-if="loading && !displayPages.length" class="status" role="status">
-        {{ showingPdf ? 'Preparing PDF…' : 'Preparing sheet…' }}
+        Preparing sheet…
       </p>
       <p v-else-if="loadError" class="status err" role="alert">{{ loadError }}</p>
 
       <div ref="stageEl" class="stage" :style="stageStyle">
         <img
           v-for="(page, i) in displayPages"
-          :key="`${mode}-${imageSetId}-${pdfId}-${i}-${page}`"
+          :key="`${mode}-${imageSetId}-${pdfId}-${i}`"
           :src="page"
           :alt="`Sheet page ${i + 1}`"
-          loading="lazy"
+          loading="eager"
           decoding="async"
           draggable="false"
         />
@@ -699,6 +789,11 @@ onUnmounted(() => {
   padding: 0.65rem;
   -webkit-overflow-scrolling: touch;
 }
+
+.sheet.is-awaiting {
+  min-height: min(60vh, 48rem);
+}
+
 .sheet.fullscreen {
   position: fixed;
   inset: 0;

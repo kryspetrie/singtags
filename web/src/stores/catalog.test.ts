@@ -172,7 +172,7 @@ describe('catalog store', () => {
   })
 
   it('supports pagination, selection, neighbors, and route patch', async () => {
-    const tags = Array.from({ length: 50 }, (_, i) => ({
+    const tags = Array.from({ length: 500 }, (_, i) => ({
       id: i + 1,
       title: `Tag ${i + 1}`,
       arranger: 'A',
@@ -199,11 +199,14 @@ describe('catalog store', () => {
     )
     const catalog = useCatalogStore()
     await catalog.load()
-    expect(catalog.results).toHaveLength(48)
+    expect(catalog.results).toHaveLength(480)
     expect(catalog.hasMoreResults).toBe(true)
     catalog.showMoreResults()
-    expect(catalog.results).toHaveLength(50)
+    expect(catalog.results).toHaveLength(500)
     expect(catalog.hasMoreResults).toBe(false)
+    // Same route re-sync (browse remount after tag) must keep the scroll window.
+    catalog.syncFromRoute({}, 'title')
+    expect(catalog.results).toHaveLength(500)
     catalog.toggleSelect(1)
     catalog.toggleSelect(2)
     expect(catalog.selectedIds.size).toBe(2)
@@ -214,9 +217,14 @@ describe('catalog store', () => {
     expect(catalog.getById(1)?.title).toBe('Tag 1')
     catalog.clearFilters()
     expect(catalog.filterCount).toBe(0)
+    catalog.sortMode = 'title'
+    expect(catalog.routeQueryPatch().sort).toBeUndefined()
+    catalog.debouncedQuery = 'hello'
     catalog.sortMode = 'rating'
-    const patch = catalog.routeQueryPatch()
-    expect(patch.sort).toBeUndefined()
+    expect(catalog.routeQueryPatch().sort).toBe('rating')
+    catalog.syncFromRoute({}, 'rating')
+    expect(catalog.sortMode).toBe('title')
+    expect(catalog.routeQueryPatch().sort).toBeUndefined()
   })
 
   it('falls back to sample manifest when indexes fail', async () => {

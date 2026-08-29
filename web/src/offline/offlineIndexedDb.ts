@@ -1,11 +1,13 @@
 /** Shared IndexedDB for offline pack progress + index snapshots. */
 
 export const OFFLINE_DB_NAME = 'singtags-offline'
-export const OFFLINE_DB_VERSION = 2
+export const OFFLINE_DB_VERSION = 3
 
 export const PACK_PROGRESS_STORE = 'packProgress'
 export const CATALOG_SNAPSHOT_STORE = 'catalogSnapshot'
 export const LYRICS_SNAPSHOT_STORE = 'lyricsSnapshot'
+/** Client-side high-res PDF page rasters (derived; safe to clear). */
+export const PDF_RASTER_STORE = 'pdfRaster'
 
 export function openOfflineDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -26,6 +28,9 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(LYRICS_SNAPSHOT_STORE)) {
         db.createObjectStore(LYRICS_SNAPSHOT_STORE, { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains(PDF_RASTER_STORE)) {
+        db.createObjectStore(PDF_RASTER_STORE, { keyPath: 'key' })
       }
     }
   })

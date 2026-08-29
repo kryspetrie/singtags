@@ -12,7 +12,7 @@ Keep the current publish model:
 
 1. **Display / offline cache:** Pre-rasterized **2-bit dither WebP** previews at sync/publish time (`build_sheet_preview_webp` → `sheet_preview` / `sheet_pages`).
 2. **Download / optional view:** Keep **original PDF** (and other uploaded images) when present.
-3. **Viewer:** Native image display in `SheetViewer`; **pdf.js** only when the user chooses PDF mode and originals exist.
+3. **Viewer:** Inline view always prefers **WebP** when pages exist (online and offline). **pdf.js** rasterizes for **fullscreen** (sharper zoom) when a PDF is available online, or when the user manually chooses PDF mode. Offline never loads PDFs (`TagView` passes empty `pdfs`). Whenever WebP exists, paint it immediately and swap in PDF rasters when ready — never blank the stage or show “Preparing PDF…”.
 4. **Do not** adopt DjVu as the primary format, ship a DjVu viewer in the SPA, or convert DjVu → PDF/PNG/WebP in the browser on download.
 
 Optional later (without DjVu): tune WebP quality, or add **AVIF** as an alternate display format at publish time.

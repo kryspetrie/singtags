@@ -102,7 +102,8 @@ async function packGetBlobUrl(absolute: string): Promise<string | null> {
     const url = await packBlobFromResponse(pack, key, res)
     if (url) return url
   }
-  // Origin mismatch fallback: match by pathname suffix.
+  // Origin mismatch fallback: exact pathname only (never raw endsWith — that can
+  // attach the wrong pack entry when one URL path is a suffix of another).
   try {
     const base =
       typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
@@ -110,12 +111,11 @@ async function packGetBlobUrl(absolute: string): Promise<string | null> {
     for (const stored of await pack.listUrls()) {
       try {
         const sp = new URL(stored, base).pathname
-        if (sp === want || stored.endsWith(want)) {
-          const res = await pack.get(stored)
-          if (!res) continue
-          const url = await packBlobFromResponse(pack, stored, res)
-          if (url) return url
-        }
+        if (sp !== want) continue
+        const res = await pack.get(stored)
+        if (!res) continue
+        const url = await packBlobFromResponse(pack, stored, res)
+        if (url) return url
       } catch {
         /* ignore */
       }
@@ -137,8 +137,7 @@ async function packHasAbsolute(absolute: string): Promise<boolean> {
     const want = new URL(absolute, base).pathname
     for (const stored of await pack.listUrls()) {
       try {
-        const sp = new URL(stored, base).pathname
-        if (sp === want || stored.endsWith(want)) return true
+        if (new URL(stored, base).pathname === want) return true
       } catch {
         /* ignore */
       }
@@ -255,6 +254,11 @@ async function finalizeBlobUrl(
   // True mono tags (or missing layout): hard-pan left (part-left) vs dual-mono.
   const hard = await monoSoloToHardPanObjectUrl(url, 'left')
   URL.revokeObjectURL(url)
+  // Cache like the other finalize branches so remounts/prefetch don't rebuild
+  // (and so callers can detect shared learning-stereo URLs before revoking).
+  if (ctx) {
+    learningStereoCache.set(learningStereoKey(ctx.detail.tag_id, ctx.part), hard.url)
+  }
   return hard.url
 }
 

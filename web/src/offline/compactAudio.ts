@@ -3,6 +3,7 @@
  * Pre-published Opus tiers are stored as-is (no on-device re-encode).
  */
 
+import { isNonAudioPayload } from '../audio/audioBytes'
 import { encodeDecodedBytes } from '../download/encode'
 import { isPublishedTierPath } from '../lib/audioTiers'
 import type { AudioEncodeQuality } from '../types/audio'
@@ -26,6 +27,7 @@ export async function fetchAudioForStorage(
     const res = await fetch(sampleUrl(path))
     if (!res.ok) return null
     const data = await res.arrayBuffer()
+    if (isNonAudioPayload(data)) return null
     const hostedMime = res.headers.get('content-type') || HOSTED_AUDIO_MIME
 
     if (!usesOpusStorage(quality) || isPublishedTierPath(path)) {
@@ -75,6 +77,10 @@ export async function encodeBytesForStorage(
   hostedMime = HOSTED_AUDIO_MIME,
   sourcePath?: string,
 ): Promise<{ bytes: Uint8Array; mime: string }> {
+  // Never persist SPA/API poison even when the caller skips the download-queue guard.
+  if (isNonAudioPayload(data)) {
+    throw new Error('Unable to store non-audio payload (HTML/JSON document)')
+  }
   const mime = sniffAudioMime(data, hostedMime)
   if (!usesOpusStorage(quality) || (sourcePath && isPublishedTierPath(sourcePath))) {
     return { bytes: data, mime }
@@ -84,8 +90,10 @@ export async function encodeBytesForStorage(
       quality: quality as Exclude<AudioEncodeQuality, 'original'>,
     })
     return { bytes: encoded, mime: 'audio/ogg' }
-  } catch {
+  } catch (err) {
     // Legacy .bin / corrupt stems must not abort the whole pack — store original bytes.
+    // But never fall back to storing an obvious non-audio document.
+    if (isNonAudioPayload(data)) throw err
     return { bytes: data, mime }
   }
 }

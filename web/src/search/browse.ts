@@ -54,14 +54,22 @@ export function titleSortLetter(title: string | null | undefined): string {
   return '#'
 }
 
+/**
+ * Hybrid year section key: `<1920` (also missing years), decade buckets through
+ * the 1990s, then one key per calendar year from 2000 onward.
+ */
+export function yearSectionKey(year: number | null): string {
+  if (year == null || year < 1920) return '<1920'
+  if (year < 2000) return `${Math.floor(year / 10) * 10}s`
+  return String(year)
+}
+
 export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
   switch (mode) {
     case 'title':
       return titleSortLetter(tag.title)
-    case 'year': {
-      const y = normalizeYear(tag.year)
-      return y != null ? String(y) : 'Unknown year'
-    }
+    case 'year':
+      return yearSectionKey(normalizeYear(tag.year))
     case 'id':
       return 'All'
     case 'collection': {
@@ -77,14 +85,24 @@ export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
 }
 
 export function sectionLabel(key: string, mode: BrowseSortMode): string {
-  if (mode === 'year') return key === 'Unknown year' ? key : key
+  if (mode === 'year') return key
   if (key === '0–9') return '0–9'
   if (key === '#') return '#'
   return key
 }
 
-/** Modes that show an A–Z / year jump rail. */
+/** Modes that show an A–Z / collection jump rail (chip buttons). */
 export function hasJumpRail(mode: BrowseSortMode): boolean {
+  return mode === 'title' || mode === 'collection'
+}
+
+/** Modes that show the density scrub rail (dock magnification). */
+export function hasScrubRail(mode: BrowseSortMode): boolean {
+  return mode === 'year'
+}
+
+/** Modes that insert section headers while walking the sorted list. */
+export function hasSectionHeaders(mode: BrowseSortMode): boolean {
   return mode === 'title' || mode === 'year' || mode === 'collection'
 }
 
@@ -135,7 +153,7 @@ export function sortBrowseTags(
 
 export type BrowseRow =
   | { type: 'section'; key: string; label: string }
-  | { type: 'tag'; tag: TagSummary }
+  | { type: 'tag'; tag: TagSummary; index: number }
 
 /** Build sectioned rows for the visible window of sorted tags. */
 export function buildBrowseRows(
@@ -152,23 +170,24 @@ export function buildBrowseRows(
       jumpKeys.push(k)
     }
   }
-  if (!hasJumpRail(mode)) {
+  if (!hasSectionHeaders(mode)) {
     return {
-      rows: sorted.slice(0, limit).map((tag) => ({ type: 'tag' as const, tag })),
+      rows: sorted.slice(0, limit).map((tag, index) => ({ type: 'tag' as const, tag, index })),
       jumpKeys: [],
     }
   }
   const rows: BrowseRow[] = []
   let last = ''
   let shown = 0
-  for (const tag of sorted) {
+  for (let index = 0; index < sorted.length; index++) {
     if (shown >= limit) break
+    const tag = sorted[index]!
     const key = sectionKeyFor(tag, mode)
     if (key !== last) {
       rows.push({ type: 'section', key, label: sectionLabel(key, mode) })
       last = key
     }
-    rows.push({ type: 'tag', tag })
+    rows.push({ type: 'tag', tag, index })
     shown++
   }
   return { rows, jumpKeys }

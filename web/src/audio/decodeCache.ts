@@ -2,6 +2,7 @@
  * Deduplicating decode service + session decode cache.
  * Keyed by source identity + content revision + sample-rate policy.
  */
+import { assertDecodableAudioBytes } from './audioBytes'
 import { channelsEffectivelyMono } from './playerUtils'
 import { createAudioBuffer } from './audioBufferFactory'
 
@@ -175,13 +176,9 @@ export class DecodeService {
     const ab = await res.arrayBuffer()
     if (opts?.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 
-    // Common failure: SPA index.html cached/served for a missing media URL.
-    const head = new TextDecoder('utf-8', { fatal: false }).decode(ab.slice(0, 64)).trimStart().toLowerCase()
-    if (head.startsWith('<!doctype html') || head.startsWith('<html')) {
-      throw new Error(
-        'Unable to decode audio data (received HTML — clear Offline audio pack and re-sync)',
-      )
-    }
+    // Refuse HTML/JSON/empty before decodeAudioData — Chromium logs the native
+    // "Unable to decode audio data" even when that promise is caught.
+    assertDecodableAudioBytes(ab)
 
     // decodeAudioData is uncancellable — generation gates happen in the player.
     const sr = opts?.offlineSampleRate
