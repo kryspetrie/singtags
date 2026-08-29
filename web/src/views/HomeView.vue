@@ -67,19 +67,6 @@ async function onWelcomeContinue(opts: { cacheSheets: boolean; cacheAudio: boole
   }
 }
 
-const chipFilterCount = computed(() => {
-  const f = catalog.filters
-  let n = 0
-  if (f.hasSheet === true) n++
-  if (f.hasAudio === true) n++
-  if (f.minRating != null) n++
-  if (f.yearMin != null || f.yearMax != null) n++
-  n += f.arrangers.length + f.types.length + f.collections.length
-  return n
-})
-
-const hasChipFilters = computed(() => chipFilterCount.value > 0)
-
 const ftsPending = computed(() => catalog.filters.fullText && !catalog.lyricsLoaded)
 
 watch(
@@ -249,25 +236,9 @@ const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'collection', label: 'Collection #' },
 ]
 
-const optionsToggleTip = computed(() => {
-  if (optionsOpen.value) return 'Hide search options'
-  const parts: string[] = []
-  if (catalog.filters.fullText) parts.push('search lyrics on')
-  if (hasChipFilters.value) {
-    parts.push(`${chipFilterCount.value} filter${chipFilterCount.value === 1 ? '' : 's'} active`)
-  }
-  if (parts.length) return `Show search options (${parts.join(', ')})`
-  return 'Show search lyrics and filters'
-})
-
-const optionsSummary = computed(() => {
-  const parts: string[] = []
-  if (catalog.filters.fullText) parts.push('Lyrics')
-  if (chipFilterCount.value) {
-    parts.push(`${chipFilterCount.value} filter${chipFilterCount.value === 1 ? '' : 's'}`)
-  }
-  return parts.join(' · ')
-})
+const optionsToggleTip = computed(() =>
+  optionsOpen.value ? 'Hide search options' : 'Show search lyrics and filters',
+)
 
 const searchLyricsTip = computed(() => {
   if (catalog.filters.fullText) return 'Searching lyrics too — turn off to match titles and arrangers only'
@@ -474,19 +445,26 @@ watch(
         <button
           type="button"
           class="options-btn"
-          :class="{ open: optionsOpen, active: catalog.filters.fullText || hasChipFilters }"
+          :class="{ open: optionsOpen }"
           :aria-expanded="optionsOpen"
           aria-controls="browse-options"
           :aria-label="optionsToggleTip"
           :title="optionsToggleTip"
           @click="optionsOpen = !optionsOpen"
         >
-          <svg class="options-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+          <svg
+            v-if="!optionsOpen"
+            class="options-icon"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="5" r="2" fill="currentColor" />
             <circle cx="12" cy="12" r="2" fill="currentColor" />
             <circle cx="12" cy="19" r="2" fill="currentColor" />
           </svg>
-          <span v-if="optionsSummary" class="options-dot" aria-hidden="true" />
+          <span v-else class="options-chevron" aria-hidden="true">▴</span>
         </button>
       </div>
       <div v-show="optionsOpen" id="browse-options" class="options-panel">
@@ -566,13 +544,25 @@ watch(
     />
     <template v-else>
       <div class="results-meta" aria-live="polite">
-        <p class="text-muted count">
-          Showing {{ catalog.results.length }} of {{ catalog.allResults.length }} matches
-          <span v-if="catalog.filterCount">
-            · {{ catalog.filterCount }} filter{{ catalog.filterCount === 1 ? '' : 's' }}
-          </span>
-          · {{ catalog.tags.length }} in catalog
-        </p>
+        <div class="text-muted count">
+          <template v-if="!catalog.queryText.trim() && !catalog.filterCount">
+            {{ catalog.tags.length }} tags in catalog
+          </template>
+          <template v-else>
+            Matched {{ catalog.allResults.length }} of {{ catalog.tags.length }}
+            <button
+              v-if="catalog.filterCount"
+              type="button"
+              class="clear-filters"
+              :aria-label="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
+              :title="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
+              @click="catalog.clearFilters()"
+            >
+              · {{ catalog.filterCount }} filter{{ catalog.filterCount === 1 ? '' : 's' }}
+              <span aria-hidden="true">✕</span>
+            </button>
+          </template>
+        </div>
         <div class="sort-controls">
           <label class="sort-field" title="Choose how matching tags are ordered">
             <span class="sort-lbl">Sort</span>
@@ -875,26 +865,18 @@ watch(
   border-color: color-mix(in srgb, var(--text) 22%, var(--border));
   background: color-mix(in srgb, var(--border) 28%, var(--surface));
 }
-.options-btn.open,
-.options-btn.active {
-  color: var(--accent-hover);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+.options-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .options-icon {
   display: block;
 }
-.options-btn.open .options-icon {
-  color: var(--accent-hover);
-}
-.options-dot {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: var(--accent);
+.options-chevron {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
 }
 .options-panel {
   display: grid;
@@ -1062,6 +1044,31 @@ watch(
   min-width: 0;
   font-size: 0.88rem;
   line-height: 1.35;
+}
+.clear-filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.15rem 0.35rem;
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.clear-filters:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+.clear-filters:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .sort-controls {
   display: flex;
