@@ -199,12 +199,10 @@ describe('catalog store', () => {
     )
     const catalog = useCatalogStore()
     await catalog.load()
-    expect(catalog.results).toHaveLength(480)
-    expect(catalog.hasMoreResults).toBe(true)
-    catalog.showMoreResults()
     expect(catalog.results).toHaveLength(500)
     expect(catalog.hasMoreResults).toBe(false)
-    // Same route re-sync (browse remount after tag) must keep the scroll window.
+    expect(catalog.browseWindow.rows.length).toBeGreaterThan(0)
+    // Same route re-sync still exposes the full list to the virtualizer.
     catalog.syncFromRoute({}, 'title')
     expect(catalog.results).toHaveLength(500)
     catalog.toggleSelect(1)

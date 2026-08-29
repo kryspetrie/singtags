@@ -212,7 +212,7 @@ async function finalizeBlobUrl(
     const summary = detail.audio_layout_summary
     // Offline mono_solos rebuild is always part-left: solo hard L, accompaniment hard R.
     // (Published originals may be part_right; that layout is not used for stem reconstruct.)
-    const soloSide: PartSide =
+    const soloSide: PartSide | null =
       usesMonoSolos(detail) ? 'left' : soloSideForPart(part, detail.audio_layouts, summary)
 
     const trueMono = summary?.parts === 'mono' || summary?.parts === 'near_mono'

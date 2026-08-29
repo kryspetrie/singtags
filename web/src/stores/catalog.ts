@@ -304,10 +304,11 @@ export const useCatalogStore = defineStore('catalog', () => {
     return sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
   })
 
-  const results = computed(() => allResults.value.slice(0, resultLimit.value))
-  const hasMoreResults = computed(() => allResults.value.length > resultLimit.value)
+  const results = computed(() => allResults.value)
+  const hasMoreResults = computed(() => false)
+  /** Full sectioned list for window virtualization (not a paged window). */
   const browseWindow = computed(() =>
-    buildBrowseRows(allResults.value, sortMode.value, resultLimit.value),
+    buildBrowseRows(allResults.value, sortMode.value, allResults.value.length),
   )
   const filterCount = computed(() => activeFilterCount(filters.value))
 
@@ -344,21 +345,17 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function showMoreResults(): void {
-    resultLimit.value += RESULTS_PAGE_SIZE
+    /* no-op: browse list is window-virtualized over the full result set */
   }
 
-  /** Reveal enough rows that `sectionKey` is in the window; returns tag index. */
+  /** First tag index for a section key (list is fully available to the virtualizer). */
   function revealSection(sectionKey: string): number {
-    const idx = indexOfSection(allResults.value, sortMode.value, sectionKey)
-    if (idx < 0) return -1
-    resultLimit.value = Math.max(resultLimit.value, idx + RESULTS_PAGE_SIZE)
-    return idx
+    return indexOfSection(allResults.value, sortMode.value, sectionKey)
   }
 
-  /** Reveal enough rows that tag index `idx` is in the window. */
+  /** Tag index for scrub/jump (list is fully available to the virtualizer). */
   function revealIndex(idx: number): number {
     if (idx < 0 || idx >= allResults.value.length) return -1
-    resultLimit.value = Math.max(resultLimit.value, idx + RESULTS_PAGE_SIZE)
     return idx
   }
 

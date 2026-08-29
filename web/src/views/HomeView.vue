@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useWindowVirtualizer } from '@tanstack/vue-virtual'
 import { useCatalogStore, type SortMode } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
 import { useStarsStore } from '../stores/stars'
@@ -15,7 +16,7 @@ import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
 import StarsNoticeLine from '../components/StarsNoticeLine.vue'
-import { tagDetailUrl, mediaUrl } from '../lib/mediaUrl'
+import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetsPack } from '../offline/libraryPack'
 import { getStarred } from '../offline/starredDb'
@@ -362,6 +363,65 @@ const showScrub = computed(
   () => hasScrubRail(catalog.sortMode) && catalog.allResults.length > 1,
 )
 
+/** Full browse rows (sections + tags) — window-virtualized below. */
+const browseRows = computed(() => catalog.browseWindow.rows)
+const listEl = ref<HTMLElement | null>(null)
+const listScrollMargin = ref(0)
+
+function syncListScrollMargin(): void {
+  listScrollMargin.value = listEl.value?.offsetTop ?? 0
+}
+
+const rowVirtualizer = useWindowVirtualizer(
+  computed(() => ({
+    count: browseRows.value.length,
+    estimateSize: (index: number) =>
+      browseRows.value[index]?.type === 'section' ? 48 : 72,
+    overscan: 14,
+    scrollMargin: listScrollMargin.value,
+  })),
+)
+
+const virtualBrowseRows = computed(() => rowVirtualizer.value.getVirtualItems())
+const browseListHeight = computed(() => rowVirtualizer.value.getTotalSize())
+
+/** Pair each virtual slot with its browse row (templates can't use TS assertions). */
+const virtualBrowseItems = computed(() => {
+  const rows = browseRows.value
+  return virtualBrowseRows.value.flatMap((v) => {
+    const row = rows[v.index]
+    return row ? [{ v, row }] : []
+  })
+})
+
+function measureBrowseRow(el: unknown): void {
+  const node =
+    el instanceof HTMLElement
+      ? el
+      : el &&
+          typeof el === 'object' &&
+          '$el' in el &&
+          (el as { $el: unknown }).$el instanceof HTMLElement
+        ? (el as { $el: HTMLElement }).$el
+        : null
+  if (node) rowVirtualizer.value.measureElement(node)
+}
+
+function browseRowIndexForTagIndex(tagIndex: number): number {
+  return browseRows.value.findIndex((r) => r.type === 'tag' && r.index === tagIndex)
+}
+
+function browseRowIndexForSection(key: string): number {
+  return browseRows.value.findIndex((r) => r.type === 'section' && r.key === key)
+}
+
+function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' | 'auto' = 'start'): void {
+  if (rowIndex < 0) return
+  syncListScrollMargin()
+  rowVirtualizer.value.scrollToIndex(rowIndex, { align })
+}
+
+
 /** Narrow browse: hide persistent select column until long-press / selection. */
 const NARROW_SELECT_MQ = '(max-width: 639px)'
 const LONG_PRESS_MS = 450
@@ -512,19 +572,9 @@ async function onScrub(index: number): Promise<void> {
     scrubScrollIndex.value = 0
     return
   }
-  await nextTick()
-  const el = document.querySelector(`[data-browse-index="${idx}"]`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'auto', block: 'center' })
-  } else {
-    catalog.revealIndex(idx)
-    await nextTick()
-    document.querySelector(`[data-browse-index="${idx}"]`)?.scrollIntoView({
-      behavior: 'auto',
-      block: 'center',
-    })
-  }
   scrubScrollIndex.value = idx
+  await nextTick()
+  scrollToBrowseRow(browseRowIndexForTagIndex(idx), 'center')
   await nextTick()
   syncScrubFromScroll()
 }
@@ -538,30 +588,10 @@ function jumpSectionTip(key: string): string {
   return row?.type === 'section' ? `Jump to ${row.label}` : `Jump to ${key}`
 }
 
-const scrollSentinel = ref<HTMLElement | null>(null)
-let observer: IntersectionObserver | null = null
-
-function setupInfiniteScroll(): void {
-  observer?.disconnect()
-  if (!scrollSentinel.value) return
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries.some((e) => e.isIntersecting) && catalog.hasMoreResults) {
-        catalog.showMoreResults()
-      }
-    },
-    { rootMargin: '1200px' },
-  )
-  observer.observe(scrollSentinel.value)
-}
-
 async function jumpToSection(key: string): Promise<void> {
   catalog.revealSection(key)
   await nextTick()
-  document.getElementById(`sec-${key}`)?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  })
+  scrollToBrowseRow(browseRowIndexForSection(key), 'start')
 }
 
 /** Enter: `n123` → Tag #; `c99` / bare digits → classic or tag when unique. */
@@ -609,19 +639,22 @@ onMounted(async () => {
   applyRoute()
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
   await nextTick()
-  setupInfiniteScroll()
+  syncListScrollMargin()
   syncScrubFromScroll()
   syncJumpCols()
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
-  jumpRailRo = new ResizeObserver(() => syncJumpCols())
+  jumpRailRo = new ResizeObserver(() => {
+    syncJumpCols()
+    syncListScrollMargin()
+  })
   if (jumpRailEl.value) jumpRailRo.observe(jumpRailEl.value)
+  if (listEl.value) jumpRailRo.observe(listEl.value)
   narrowMq = window.matchMedia(NARROW_SELECT_MQ)
   syncNarrowSelect()
   narrowMq.addEventListener('change', syncNarrowSelect)
 })
 
 onUnmounted(() => {
-  observer?.disconnect()
   jumpRailRo?.disconnect()
   jumpRailRo = null
   narrowMq?.removeEventListener('change', syncNarrowSelect)
@@ -632,21 +665,16 @@ onUnmounted(() => {
 })
 
 watch(
-  () => [showJump.value, jumpKeyCount.value, catalog.sortMode] as const,
+  () => [showJump.value, jumpKeyCount.value, catalog.sortMode, browseRows.value.length] as const,
   async () => {
     await nextTick()
     syncJumpCols()
+    syncListScrollMargin()
     if (jumpRailRo && jumpRailEl.value) {
       jumpRailRo.disconnect()
       jumpRailRo.observe(jumpRailEl.value)
+      if (listEl.value) jumpRailRo.observe(listEl.value)
     }
-  },
-)
-watch(
-  () => [catalog.hasMoreResults, catalog.results.length] as const,
-  async () => {
-    await nextTick()
-    setupInfiniteScroll()
   },
 )
 
@@ -914,23 +942,42 @@ watch(
         title="No matching tags"
         message="Try clearing filters or turning off Search lyrics."
       />
-      <div v-else class="list" aria-label="Search results">
-        <template v-for="row in catalog.browseWindow.rows" :key="row.type === 'section' ? `s-${row.key}` : row.tag.id">
+      <div
+        v-else
+        ref="listEl"
+        class="list"
+        aria-label="Search results"
+        :style="{ height: `${browseListHeight}px`, position: 'relative', width: '100%' }"
+      >
+        <div
+          v-for="item in virtualBrowseItems"
+          :key="String(item.v.key)"
+          :ref="measureBrowseRow"
+          class="virt-row"
+          :data-index="item.v.index"
+          :style="{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            transform: `translateY(${item.v.start - listScrollMargin}px)`,
+          }"
+        >
           <h2
-            v-if="row.type === 'section'"
-            :id="`sec-${row.key}`"
+            v-if="item.row.type === 'section'"
+            :id="`sec-${item.row.key}`"
             class="section-head"
           >
-            {{ row.label }}
+            {{ item.row.label }}
           </h2>
           <div
             v-else
             class="list-row"
             :class="{ 'show-select': showRowSelect }"
-            :data-browse-index="row.index"
+            :data-browse-index="item.row.index"
             tabindex="0"
-            @keydown="onResultKey($event, row.tag.id)"
-            @pointerdown="onRowPointerDown($event, row.tag.id)"
+            @keydown="onResultKey($event, item.row.tag.id)"
+            @pointerdown="onRowPointerDown($event, item.row.tag.id)"
             @pointermove="onRowPointerMove"
             @pointerup="onRowPointerEnd"
             @pointercancel="onRowPointerEnd"
@@ -941,51 +988,56 @@ watch(
               v-if="showRowSelect"
               type="button"
               class="sel-btn"
-              :class="{ on: catalog.selectedIds.has(row.tag.id) }"
-              :aria-pressed="catalog.selectedIds.has(row.tag.id)"
-              :aria-label="`Select ${row.tag.title || row.tag.id}`"
-              :title="selectRowTip(row.tag)"
-              @click.stop="catalog.toggleSelect(row.tag.id)"
+              :class="{ on: catalog.selectedIds.has(item.row.tag.id) }"
+              :aria-pressed="catalog.selectedIds.has(item.row.tag.id)"
+              :aria-label="`Select ${item.row.tag.title || item.row.tag.id}`"
+              :title="selectRowTip(item.row.tag)"
+              @click.stop="catalog.toggleSelect(item.row.tag.id)"
             >
-              {{ catalog.selectedIds.has(row.tag.id) ? '✓' : '' }}
+              {{ catalog.selectedIds.has(item.row.tag.id) ? '✓' : '' }}
             </button>
             <RouterLink
-              :to="`/tag/${row.tag.id}`"
+              :to="`/tag/${item.row.tag.id}`"
               class="row-link"
-              :title="rowOpenTip(row.tag)"
-              @click="markBrowseOpen(row.tag.id)"
+              :title="rowOpenTip(item.row.tag)"
+              @click="markBrowseOpen(item.row.tag.id)"
             >
               <span class="title">
                 <span class="title-line">
-                  <span class="tag-num" title="Tag number">#{{ row.tag.id }}</span>
-                  <span
-                    v-if="bookletBadgeForTag(row.tag)"
-                    class="classic-num"
-                    :class="'booklet-' + bookletBadgeForTag(row.tag)!.kind"
-                    :title="bookletBadgeForTag(row.tag)!.label"
-                  >{{ bookletBadgeForTag(row.tag)!.short }}</span>
-                  {{ row.tag.title || `Tag ${row.tag.id}` }}
+                  <span class="tag-num" title="Tag number">#{{ item.row.tag.id }}</span>
+                  <template
+                    v-for="badge in [bookletBadgeForTag(item.row.tag)]"
+                    :key="'bb-' + item.row.tag.id"
+                  >
+                    <span
+                      v-if="badge"
+                      class="classic-num"
+                      :class="'booklet-' + badge.kind"
+                      :title="badge.label"
+                    >{{ badge.short }}</span>
+                  </template>
+                  {{ item.row.tag.title || `Tag ${item.row.tag.id}` }}
                 </span>
-                <span v-if="browseAltTitle(row.tag)" class="alt-title">{{ browseAltTitle(row.tag) }}</span>
+                <span v-if="browseAltTitle(item.row.tag)" class="alt-title">{{ browseAltTitle(item.row.tag) }}</span>
               </span>
               <span class="meta">
-                <span v-if="row.tag.key" title="Written key">{{ row.tag.key }}</span>
+                <span v-if="item.row.tag.key" title="Written key">{{ item.row.tag.key }}</span>
                 <span
-                  v-if="row.tag.arranger"
-                  :title="`Arranger: ${row.tag.arranger}`"
-                >{{ row.tag.arranger }}</span>
-                <span v-if="normalizeYear(row.tag.year)" title="Year published or added">{{ normalizeYear(row.tag.year) }}</span>
+                  v-if="item.row.tag.arranger"
+                  :title="`Arranger: ${item.row.tag.arranger}`"
+                >{{ item.row.tag.arranger }}</span>
+                <span v-if="normalizeYear(item.row.tag.year)" title="Year published or added">{{ normalizeYear(item.row.tag.year) }}</span>
                 <span
-                  v-if="row.tag.rating != null"
-                  :title="`Average rating${row.tag.ratingCount != null ? ` (${row.tag.ratingCount} votes)` : ''}`"
-                >★ {{ row.tag.rating.toFixed(2) }}</span>
+                  v-if="item.row.tag.rating != null"
+                  :title="`Average rating${item.row.tag.ratingCount != null ? ` (${item.row.tag.ratingCount} votes)` : ''}`"
+                >★ {{ item.row.tag.rating.toFixed(2) }}</span>
                 <span
-                  v-if="formatDownloads(row.tag.downloads)"
+                  v-if="formatDownloads(item.row.tag.downloads)"
                   class="dl-count"
                   title="Downloads on barbershoptags.com"
-                >↓ {{ formatDownloads(row.tag.downloads) }}</span>
+                >↓ {{ formatDownloads(item.row.tag.downloads) }}</span>
                 <span
-                  v-if="!row.tag.hasSheet"
+                  v-if="!item.row.tag.hasSheet"
                   class="badge badge-icon"
                   title="No sheet music on file"
                   aria-label="No sheet music on file"
@@ -1017,7 +1069,7 @@ watch(
                   </svg>
                 </span>
                 <span
-                  v-if="!row.tag.audioParts?.length"
+                  v-if="!item.row.tag.audioParts?.length"
                   class="badge badge-icon"
                   title="No learning tracks on file"
                   aria-label="No learning tracks on file"
@@ -1042,9 +1094,9 @@ watch(
                 </span>
               </span>
               <span
-                v-for="snip in [catalog.lyricsSnippet(row.tag.id)]"
+                v-for="snip in [catalog.lyricsSnippet(item.row.tag.id)]"
                 v-show="snip"
-                :key="'ly-' + row.tag.id"
+                :key="'ly-' + item.row.tag.id"
                 class="lyrics-snip"
                 title="Lyrics match"
                 >{{ snip }}</span
@@ -1053,23 +1105,21 @@ watch(
             <button
               type="button"
               class="row-fav"
-              :aria-pressed="stars.isStarred(row.tag.id)"
-              :aria-busy="stars.isTagCaching(row.tag.id)"
-              :aria-label="rowStarLabel(row.tag)"
-              :title="rowStarTip(row.tag)"
-              @click.stop="toggleRowStar(row.tag)"
+              :aria-pressed="stars.isStarred(item.row.tag.id)"
+              :aria-busy="stars.isTagCaching(item.row.tag.id)"
+              :aria-label="rowStarLabel(item.row.tag)"
+              :title="rowStarTip(item.row.tag)"
+              @click.stop="toggleRowStar(item.row.tag)"
             >
               <span
-                v-if="stars.isTagCaching(row.tag.id)"
+                v-if="stars.isTagCaching(item.row.tag.id)"
                 class="row-fav-spinner"
                 aria-hidden="true"
               />
-              <span v-else>{{ stars.isStarred(row.tag.id) ? '♥' : '♡' }}</span>
+              <span v-else>{{ stars.isStarred(item.row.tag.id) ? '♥' : '♡' }}</span>
             </button>
           </div>
-        </template>
-        <div ref="scrollSentinel" class="scroll-sentinel" aria-hidden="true" />
-        <p v-if="catalog.hasMoreResults" class="text-muted more-hint">Scroll for more…</p>
+        </div>
       </div>
     </template>
 
@@ -1553,8 +1603,9 @@ watch(
   font-variant-numeric: tabular-nums;
 }
 .section-head {
-  margin: 1rem 0 0.35rem;
-  padding: 0.35rem 0;
+  /* Padding (not margin) so window-virtualizer measureElement includes spacing. */
+  margin: 0;
+  padding: 1.35rem 0 0.7rem;
   font-family: var(--font-display);
   font-size: 1.1rem;
   border-bottom: 1px solid var(--border);
@@ -1564,8 +1615,11 @@ watch(
   list-style: none;
   padding: 0;
   margin: 0;
-  display: grid;
-  gap: 0.35rem;
+  /* Virtual rows are absolutely positioned; spacing lives on .virt-row. */
+}
+.virt-row {
+  padding-bottom: 0.35rem;
+  box-sizing: border-box;
 }
 .list-row {
   display: grid;
@@ -1616,14 +1670,6 @@ watch(
   font-size: 0.78em;
   letter-spacing: 0.02em;
   vertical-align: 0.05em;
-}
-.scroll-sentinel {
-  height: 1px;
-}
-.more-hint {
-  text-align: center;
-  font-size: 0.85rem;
-  padding: 0.75rem 0 1.25rem;
 }
 .meta-only {
   display: flex;
