@@ -211,6 +211,27 @@ async function syncPacksFromPrompt(): Promise<void> {
           </button>
         </div>
       </div>
+      <div class="top-mid">
+        <div
+          v-if="offlineMode.manualOffline"
+          class="offline-ribbon"
+          role="status"
+        >
+          <span
+            class="offline-ribbon-label"
+            title="Offline mode — using cached content only. Click × to go back online."
+          >Offline</span>
+          <button
+            type="button"
+            class="offline-ribbon-dismiss"
+            aria-label="Go online"
+            title="Go online"
+            @click="offlineMode.setManualOffline(false)"
+          >
+            ×
+          </button>
+        </div>
+      </div>
       <nav class="topnav" aria-label="Primary">
         <RouterLink to="/">Browse</RouterLink>
         <RouterLink to="/recent">Recent</RouterLink>
@@ -220,21 +241,7 @@ async function syncPacksFromPrompt(): Promise<void> {
         <RouterLink to="/settings">Offline</RouterLink>
       </nav>
     </header>
-    <div
-      v-if="offlineMode.manualOffline"
-      class="offline-banner offline-banner-manual"
-      role="status"
-    >
-      <span>Offline mode — using cached content only.</span>
-      <button
-        type="button"
-        class="offline-banner-link"
-        @click="offlineMode.setManualOffline(false)"
-      >
-        Go online
-      </button>
-    </div>
-    <div v-else-if="offlineBannerMessage" class="offline-banner" role="status">
+    <div v-if="!offlineMode.manualOffline && offlineBannerMessage" class="offline-banner" role="status">
       <span>{{ offlineBannerMessage }}</span>
       <RouterLink class="offline-banner-link" to="/settings">Offline settings</RouterLink>
     </div>
@@ -380,21 +387,9 @@ async function syncPacksFromPrompt(): Promise<void> {
   color: var(--accent-hover);
   text-decoration: underline;
 }
-.offline-banner-manual {
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  color: var(--accent-hover);
-  border-bottom-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-}
-.offline-banner-manual .offline-banner-link {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-}
 .top {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   gap: 0.75rem;
   padding: calc(0.65rem + env(safe-area-inset-top)) 0.75rem 0.65rem;
@@ -405,11 +400,97 @@ async function syncPacksFromPrompt(): Promise<void> {
   z-index: 10;
   min-width: 0;
 }
+.top-mid {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 0;
+  overflow: visible;
+  /* Nearly fill the header band (leave a slim edge above/below). */
+  margin-top: -0.5rem;
+  margin-bottom: -0.5rem;
+}
+.offline-ribbon {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--accent-hover);
+  white-space: nowrap;
+  /* Soft ribbon: tinted band that dissolves into the topbar on both sides. */
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface) 100%, transparent) 0%,
+    color-mix(in srgb, var(--accent) 18%, var(--surface)) 18%,
+    color-mix(in srgb, var(--accent) 18%, var(--surface)) 82%,
+    color-mix(in srgb, var(--surface) 100%, transparent) 100%
+  );
+}
+.offline-ribbon-label {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  min-width: 0;
+  /* May spill into the side fades when the mid gap is narrow. */
+  overflow: visible;
+  text-align: center;
+}
+.offline-ribbon-dismiss {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: start;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0 0 0 0.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.offline-ribbon-dismiss:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.offline-ribbon-dismiss:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .top-start {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  min-width: 0;
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: max-content;
+}
+.brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  min-width: max-content;
 }
 .top-back {
   display: none;
@@ -431,12 +512,6 @@ async function syncPacksFromPrompt(): Promise<void> {
   color: var(--accent-hover);
   text-decoration: none;
 }
-.brand-cluster {
-  display: flex;
-  align-items: baseline;
-  gap: 0.3rem;
-  min-width: 0;
-}
 .brand {
   display: flex;
   align-items: center;
@@ -450,24 +525,28 @@ async function syncPacksFromPrompt(): Promise<void> {
 }
 .brand-lockup {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.18rem;
   min-width: 0;
+  /* Keep the two-line lockup ≈ about-btn height so the header doesn’t grow. */
+  min-height: 1.7rem;
 }
 .brand-name {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.15rem;
-  line-height: 1.15;
+  font-size: 1.4rem;
+  line-height: 1;
   flex-shrink: 0;
 }
 .brand-tagline {
-  display: inline;
+  display: block;
   font-family: var(--font);
-  font-size: 0.78rem;
+  font-size: 0.62rem;
   font-weight: 500;
   color: var(--muted);
-  line-height: 1.2;
+  line-height: 1.1;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
@@ -503,6 +582,8 @@ async function syncPacksFromPrompt(): Promise<void> {
 }
 .topnav {
   display: none;
+  flex: 0 0 auto;
+  align-self: center;
   gap: 0.85rem;
   flex-wrap: wrap;
   align-items: center;
