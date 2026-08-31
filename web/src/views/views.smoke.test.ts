@@ -11,7 +11,7 @@ import FavoritesView from './FavoritesView.vue'
 import PitchPipeView from './PitchPipeView.vue'
 import TagView from './TagView.vue'
 import { useCatalogStore } from '../stores/catalog'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { usePracticeStore } from '../stores/practice'
 import { usePreferencesStore } from '../stores/preferences'
 
@@ -145,8 +145,8 @@ describe('view smoke tests', () => {
         ],
       })
     })
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
 
     const router = makeRouter([
       { path: '/', component: HomeView },
@@ -168,10 +168,10 @@ describe('view smoke tests', () => {
   it('FavoritesView sorts and reorders', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    const stars = useStarsStore()
+    const favorites = useFavoritesStore()
     const practice = usePracticeStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    stars.$patch({
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    favorites.$patch({
       records: [
         {
           tagId: 2,
@@ -234,7 +234,7 @@ describe('view smoke tests', () => {
     expect((sortSelect.element as HTMLSelectElement).value).toBe('custom')
     practice.reorder(1, 0)
     expect(practice.order).toEqual([1, 2])
-    await sortSelect.setValue('starred-new')
+    await sortSelect.setValue('favorited-new')
     // Preview only — persisted custom order unchanged until Apply
     expect(practice.order).toEqual([1, 2])
     const applyBtn = w.findAll('button').find((b) => b.text() === 'Apply sort')!
@@ -294,9 +294,9 @@ describe('view smoke tests', () => {
         ],
       })
     })
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'starMany').mockResolvedValue(1)
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'starMany').mockResolvedValue(1)
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
@@ -332,7 +332,7 @@ describe('view smoke tests', () => {
     await flushPromises()
     await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Favorite')!.click()
     await flushPromises()
-    expect(stars.starMany).toHaveBeenCalled()
+    expect(favorites.starMany).toHaveBeenCalled()
     expect(w.find('[aria-label="Search tags"]').exists()).toBe(true)
     w.unmount()
   })
@@ -402,7 +402,7 @@ describe('view smoke tests', () => {
       }),
     )
 
-    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
     const catalog = useCatalogStore()
     await catalog.load()
     expect(catalog.error).toBeNull()
@@ -459,10 +459,10 @@ describe('view smoke tests', () => {
       audioParts: ['lead'],
       sheet: null,
     }
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'toggle').mockImplementation(async () => {
-      stars.$patch({
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'toggle').mockImplementation(async () => {
+      favorites.$patch({
         records: [
           {
             tagId: 7,
@@ -519,7 +519,7 @@ describe('view smoke tests', () => {
     vi.spyOn(catalog, 'load').mockImplementation(async () => {
       catalog.$patch({ loaded: true, loading: false, tags: [] })
     })
-    vi.spyOn(useStarsStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
 
     const router = makeRouter([{ path: '/', component: HomeView }])
     await router.push('/')
@@ -546,11 +546,11 @@ describe('view smoke tests', () => {
   it('FavoritesView export, apply sort, and unstar', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    const stars = useStarsStore()
+    const favorites = useFavoritesStore()
     const practice = usePracticeStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'unstar').mockResolvedValue()
-    stars.$patch({
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'unstar').mockResolvedValue()
+    favorites.$patch({
       records: [
         {
           tagId: 1,
@@ -616,14 +616,17 @@ describe('view smoke tests', () => {
     await flushPromises()
     await w.findAll('button').find((b) => b.text().includes('Backup & restore'))!.trigger('click')
     await flushPromises()
-    const backupBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
-      (b.textContent || '').includes('Backup favorites & collections') ||
+    // FilterSheet reveals slot content after paint (double rAF).
+    const backupBtn = await vi.waitFor(() => {
+      const btn = Array.from(document.body.querySelectorAll('button')).find((b) =>
         (b.textContent || '').includes('Backup favorites'),
-    )
-    expect(backupBtn).toBeTruthy()
-    backupBtn!.click()
+      )
+      expect(btn).toBeTruthy()
+      return btn as HTMLButtonElement
+    })
+    backupBtn.click()
     expect(click).toHaveBeenCalled()
-    await w.find('select[aria-label="Sort favorites"]').setValue('starred-new')
+    await w.find('select[aria-label="Sort favorites"]').setValue('favorited-new')
     await w.findAll('button').find((b) => b.text() === 'Apply sort')!.trigger('click')
     expect(practice.order).toEqual([2, 1])
     expect(
@@ -632,7 +635,7 @@ describe('view smoke tests', () => {
     const starBtn = w.find('button.row-fav')
     expect(starBtn.attributes('title')).toMatch(/Unfavorite/)
     await starBtn.trigger('click')
-    expect(stars.unstar).toHaveBeenCalledWith(2)
+    expect(favorites.unstar).toHaveBeenCalledWith(2)
     w.unmount()
   })
 
@@ -660,7 +663,7 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('TagView stars, queues, exits practice, and advances on ended', async () => {
+  it('TagView favorites, queues, exits practice, and advances on ended', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const catalog = useCatalogStore()
@@ -699,11 +702,11 @@ describe('view smoke tests', () => {
     const practice = usePracticeStore()
     practice.resetFromStarred([3, 4])
     practice.autoAdvance = true
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'get').mockResolvedValue(undefined)
-    vi.spyOn(stars, 'toggle').mockResolvedValue()
-    vi.spyOn(stars, 'isStarred').mockReturnValue(false)
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'get').mockResolvedValue(undefined)
+    vi.spyOn(favorites, 'toggle').mockResolvedValue()
+    vi.spyOn(favorites, 'isStarred').mockReturnValue(false)
 
     vi.stubGlobal(
       'fetch',
@@ -748,7 +751,7 @@ describe('view smoke tests', () => {
     const starBtn = w.findAll('button').find((b) => /favorite/i.test(b.text()))
     expect(starBtn).toBeTruthy()
     await starBtn!.trigger('click')
-    expect(stars.toggle).toHaveBeenCalled()
+    expect(favorites.toggle).toHaveBeenCalled()
 
     const queueBtn = w.findAll('button').find((b) => /queue/i.test(b.text()) && !/Favorite/i.test(b.text()))
     if (queueBtn) {

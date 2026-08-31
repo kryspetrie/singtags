@@ -1,13 +1,19 @@
+/**
+ * Practice-mode tag order and auto-advance preference.
+ * Order is persisted in localStorage and synced from the user's Favorites list.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
 const ORDER_KEY = 'singtags.practiceOrder.v1'
 const AUTO_KEY = 'singtags.practiceAuto.v1'
 
+/** Pinia store for practice playlist order and navigation settings. */
 export const usePracticeStore = defineStore('practice', () => {
   const order = ref<number[]>([])
   const autoAdvance = ref(true)
 
+  /** Reload order and auto-advance from localStorage. */
   function load(): void {
     try {
       const raw = localStorage.getItem(ORDER_KEY)
@@ -29,17 +35,33 @@ export const usePracticeStore = defineStore('practice', () => {
 
   const count = computed(() => order.value.length)
 
-  /** Build / refresh practice order from starred ids (keeps existing relative order when possible). */
-  function syncFromStarred(starredIds: number[]): void {
-    const keep = order.value.filter((id) => starredIds.includes(id))
-    const missing = starredIds.filter((id) => !keep.includes(id))
+  /**
+   * Merge practice order with current favorite tag ids.
+   * Keeps existing relative order for ids still favorited; appends newly favorited ids at the end.
+   *
+   * @param favoriteIds - Tag ids from the Favorites store (may come from `listStarred` / IDB).
+   */
+  function syncFromStarred(favoriteIds: number[]): void {
+    const keep = order.value.filter((id) => favoriteIds.includes(id))
+    const missing = favoriteIds.filter((id) => !keep.includes(id))
     order.value = [...keep, ...missing]
   }
 
-  function resetFromStarred(starredIds: number[]): void {
-    order.value = [...starredIds]
+  /**
+   * Replace practice order with the full favorites list (same order as `favoriteIds`).
+   *
+   * @param favoriteIds - Tag ids from the Favorites store.
+   */
+  function resetFromStarred(favoriteIds: number[]): void {
+    order.value = [...favoriteIds]
   }
 
+  /**
+   * Move a tag one step earlier or later in practice order.
+   *
+   * @param tagId - Tag to move.
+   * @param dir - `-1` up, `+1` down. Side effect: persists order to localStorage.
+   */
   function move(tagId: number, dir: -1 | 1): void {
     const i = order.value.indexOf(tagId)
     if (i < 0) return
@@ -48,6 +70,12 @@ export const usePracticeStore = defineStore('practice', () => {
     reorder(tagId, j)
   }
 
+  /**
+   * Move a tag to a new index in practice order.
+   *
+   * @param tagId - Tag to move.
+   * @param toIndex - Target index (clamped). Side effect: localStorage.
+   */
   function reorder(tagId: number, toIndex: number): void {
     const from = order.value.indexOf(tagId)
     if (from < 0) return
@@ -59,10 +87,17 @@ export const usePracticeStore = defineStore('practice', () => {
     order.value = next
   }
 
+  /** Remove a tag from practice order. Side effect: localStorage. */
   function remove(tagId: number): void {
     order.value = order.value.filter((id) => id !== tagId)
   }
 
+  /**
+   * Previous/next tag in practice order for navigation UI.
+   *
+   * @param id - Current tag id.
+   * @returns Neighbors and index; `index === -1` when `id` is not in order.
+   */
   function neighbors(id: number): {
     prev: number | null
     next: number | null
@@ -80,14 +115,20 @@ export const usePracticeStore = defineStore('practice', () => {
     }
   }
 
+  /** First tag in practice order, or `null` when empty. */
   function firstId(): number | null {
     return order.value[0] ?? null
   }
 
+  /** Snapshot for backup export (does not mutate store). */
   function exportSnapshot(): { order: number[]; autoAdvance: boolean } {
     return { order: [...order.value], autoAdvance: autoAdvance.value }
   }
 
+  /**
+   * Restore practice state from a backup snapshot.
+   * Side effect: localStorage via watchers when values change.
+   */
   function importSnapshot(raw: { order?: unknown; autoAdvance?: unknown } | null | undefined): void {
     if (!raw || typeof raw !== 'object') return
     if (Array.isArray(raw.order)) {

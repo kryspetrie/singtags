@@ -10,8 +10,15 @@ import { useOnline } from './useOnline'
 import { useObjectUrls } from './useObjectUrls'
 import { useTagDetail } from './useTagDetail'
 import { useReconnectCaches } from './useReconnectCaches'
+import {
+  reconnectMediaPromptVisible,
+  reconnectMediaPlan,
+  acceptReconnectMediaPrompt,
+  dismissReconnectMediaPrompt,
+  reconnectMediaPromptMessage,
+} from './useReconnectCaches'
 import { offlineBannerText } from './useOfflineBanner'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import type { TagDetail } from '../types/tag'
@@ -92,18 +99,19 @@ describe('useReconnectCaches', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    dismissReconnectMediaPrompt()
   })
 
-  it('caches missing starred audio and resumes paused packs when back online', async () => {
+  it('shows a reconnect prompt for missing starred audio and paused packs (does not auto-download)', async () => {
     Object.defineProperty(navigator, 'onLine', {
       configurable: true,
       get: () => false,
     })
     setActivePinia(createPinia())
     useOfflineModeStore().init()
-    const stars = useStarsStore()
+    const favorites = useFavoritesStore()
     const offlineLib = useOfflineLibraryStore()
-    stars.records = [
+    favorites.records = [
       {
         tagId: 1,
         starredAt: '2026-01-01T00:00:00.000Z',
@@ -124,13 +132,13 @@ describe('useReconnectCaches', () => {
         quotaWarning: null,
       },
     ]
-    stars.loaded = true
+    favorites.loaded = true
     offlineLib.sheetsStatus = 'paused'
     offlineLib.audioStatus = 'idle'
 
-    const ensureAudio = vi.spyOn(stars, 'ensureAudioForAllStarred').mockResolvedValue(1)
+    const ensureAudio = vi.spyOn(favorites, 'ensureAudioForAllStarred').mockResolvedValue(1)
     const startPack = vi.spyOn(offlineLib, 'startPack').mockResolvedValue()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
 
     const Comp = defineComponent({
       setup() {
@@ -149,10 +157,51 @@ describe('useReconnectCaches', () => {
     })
     window.dispatchEvent(new Event('online'))
     await flushPromises()
-    await vi.waitFor(() => expect(ensureAudio).toHaveBeenCalled())
+    await vi.waitFor(() => expect(reconnectMediaPromptVisible.value).toBe(true))
+    expect(reconnectMediaPlan.value).toEqual({
+      favoritesAudio: true,
+      resumeSheets: true,
+      resumeAudio: false,
+    })
+    expect(ensureAudio).not.toHaveBeenCalled()
+    expect(startPack).not.toHaveBeenCalled()
+
+    await acceptReconnectMediaPrompt()
+    await flushPromises()
+    expect(reconnectMediaPromptVisible.value).toBe(false)
+    expect(ensureAudio).toHaveBeenCalled()
     expect(startPack).toHaveBeenCalledWith('sheets')
     expect(startPack).not.toHaveBeenCalledWith('audio')
     w.unmount()
+  })
+
+  it('dismissReconnectMediaPrompt hides without downloading', async () => {
+    reconnectMediaPlan.value = {
+      favoritesAudio: true,
+      resumeSheets: false,
+      resumeAudio: false,
+    }
+    reconnectMediaPromptVisible.value = true
+    dismissReconnectMediaPrompt()
+    expect(reconnectMediaPromptVisible.value).toBe(false)
+    expect(reconnectMediaPlan.value).toBeNull()
+  })
+
+  it('reconnectMediaPromptMessage lists pending work', () => {
+    expect(
+      reconnectMediaPromptMessage({
+        favoritesAudio: true,
+        resumeSheets: false,
+        resumeAudio: false,
+      }),
+    ).toMatch(/favorites/i)
+    expect(
+      reconnectMediaPromptMessage({
+        favoritesAudio: true,
+        resumeSheets: true,
+        resumeAudio: true,
+      }),
+    ).toMatch(/sheet/i)
   })
 })
 
@@ -200,9 +249,12 @@ describe('useTagDetail', () => {
     return { api, w, pinia }
   }
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    const { sheetsPack, audioPack } = await import('../offline/libraryPack')
+    await sheetsPack.clear()
+    await audioPack.clear()
   })
 
   it('loads network detail and builds summary', async () => {
@@ -215,12 +267,42 @@ describe('useTagDetail', () => {
     await flushPromises()
     expect(api.detail.value?.title).toBe('Hello')
     expect(api.availableAudioParts.value).toEqual(['lead'])
-    // Default part is warmed so TagPlayer can paint without a blank first load.
+    // Default part is warmed in the background so TagPlayer can paint without a blank first load.
     expect(api.audioParts.value).toEqual({ lead: 'media/7/lead.m4a' })
     expect(api.sheetPages.value).toEqual(['sheets/7/pages/page-01.webp'])
     expect(api.sheetAssets.value.pdfs).toEqual([])
     expect(api.toSummary()?.id).toBe(7)
     expect(api.error.value).toBeNull()
+    w.unmount()
+  })
+
+  it('prefers pack metadata online so sheets are not blocked on network fetch', async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify(detail), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const { sheetsPack } = await import('../offline/libraryPack')
+    const { tagDetailUrl } = await import('../lib/mediaUrl')
+    const packed: TagDetail = {
+      ...detail,
+      sheet_pages: ['sheets/7/pages/page-01.webp'],
+      sheet: 'sheets/7/sheet.pdf',
+    }
+    await sheetsPack.put(
+      tagDetailUrl('7'),
+      new Response(JSON.stringify(packed), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const { api, w } = mountApi('7')
+    await api.load()
+    await flushPromises()
+    expect(api.detail.value?.tag_id).toBe(7)
+    expect(api.fromCache.value).toBe(true)
+    expect(api.sheetPreparing.value).toBe(false)
+    expect(api.sheetAssets.value.imageSets[0]?.paths).toEqual(['sheets/7/pages/page-01.webp'])
+    expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes('/tags/7/metadata.json'))).toBe(
+      false,
+    )
     w.unmount()
   })
 
@@ -282,9 +364,9 @@ describe('useTagDetail', () => {
   it('falls back to starred cache when fetch fails', async () => {
     const { api, w, pinia } = mountApi('7')
     setActivePinia(pinia)
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'get').mockResolvedValue({
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'get').mockResolvedValue({
       tagId: 7,
       starredAt: '2026-01-01T00:00:00.000Z',
       summary: {
@@ -362,11 +444,16 @@ describe('useTagDetail', () => {
     const offlineMode = useOfflineModeStore()
     offlineMode.init()
 
-    const { audioPack } = await import('../offline/libraryPack')
-    const { mediaUrl } = await import('../lib/mediaUrl')
+    const { audioPack, sheetsPack } = await import('../offline/libraryPack')
+    const { mediaUrl, tagDetailUrl } = await import('../lib/mediaUrl')
     await audioPack.put(
       mediaUrl('media/7/lead.solo.opus'),
       new Response(new Uint8Array([9, 9, 9]), { headers: { 'Content-Type': 'audio/ogg' } }),
+    )
+    // Detail must resolve even if the fetch patch bypasses vi.stubGlobal('fetch').
+    await sheetsPack.put(
+      mediaUrl(tagDetailUrl('7')),
+      new Response(JSON.stringify(tagged), { headers: { 'Content-Type': 'application/json' } }),
     )
 
     await api.load()
@@ -401,9 +488,9 @@ describe('useTagDetail', () => {
     offlineMode.init()
     expect(offlineMode.offline).toBe(true)
 
-    const stars = useStarsStore()
-    vi.spyOn(stars, 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(stars, 'get').mockResolvedValue({
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'get').mockResolvedValue({
       tagId: 7,
       starredAt: '2026-01-01T00:00:00.000Z',
       summary: {

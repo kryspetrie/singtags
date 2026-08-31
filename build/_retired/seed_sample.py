@@ -621,7 +621,7 @@ def main() -> int:
     parser.add_argument(
         "--dest",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "sample-data",
+        default=Path(__file__).resolve().parents[2] / "sample-data",
     )
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument(

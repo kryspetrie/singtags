@@ -1,10 +1,16 @@
+/**
+ * Shared Web Audio context, WAV encoding, and solo-channel extraction.
+ * Learning tracks use hard L/R panning elsewhere; this module isolates one channel
+ * from stereo sources and reuses a single `AudioContext` to avoid browser limits.
+ */
 import { assertDecodableAudioBytes } from './audioBytes'
-/** Solo left/right channel → mono blob URL (music-website pattern). */
 
+/** Playback routing: full stereo, left channel only, or right channel only. */
 export type SoloMode = 'stereo' | 'left' | 'right'
 
 let sharedCtx: AudioContext | null = null
 
+/** Lazily create the app-wide decode/mix `AudioContext` (one per session). */
 export function getSharedAudioContext(): AudioContext {
   if (!sharedCtx) sharedCtx = new AudioContext()
   return sharedCtx
@@ -74,6 +80,10 @@ export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
   return new Blob([array], { type: 'audio/wav' })
 }
 
+/**
+ * Fetch stereo audio, extract one channel to mono WAV, return a blob object URL.
+ * Caller must `URL.revokeObjectURL` when done.
+ */
 export async function soloChannelToObjectUrl(
   audioUrl: string,
   channel: 'left' | 'right',

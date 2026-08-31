@@ -1,3 +1,8 @@
+/**
+ * Browse list sorting, section keys, scrub rails, and shortcut query parsers.
+ * Shared by the catalog browse UI and search engine (arranger splitting).
+ */
+
 import { foldText } from './normalize'
 import type { TagSummary } from '../types/tag'
 import { normalizeYear } from '../lib/year'
@@ -139,6 +144,7 @@ export function tagIdLoupeTickStep(widthPx: number): 25 | 50 | 100 {
 
 
 
+/** Section key for a tag under the current browse sort mode. */
 export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
   switch (mode) {
     case 'title':
@@ -159,6 +165,7 @@ export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
   }
 }
 
+/** Human label for a section header key (mostly passthrough; year keys unchanged). */
 export function sectionLabel(key: string, mode: BrowseSortMode): string {
   if (mode === 'year') return key
   if (key === '0–9') return '0–9'
@@ -225,6 +232,7 @@ export function hasSectionHeaders(mode: BrowseSortMode): boolean {
   return mode === 'title' || mode === 'year' || mode === 'collection'
 }
 
+/** Sort tags for browse (optionally reversed); stable tie-breakers per mode. */
 export function sortBrowseTags(
   tags: TagSummary[],
   mode: BrowseSortMode,
@@ -270,6 +278,7 @@ export function sortBrowseTags(
   return sorted
 }
 
+/** One virtualized browse row: section header or tag entry with sort index. */
 export type BrowseRow =
   | { type: 'section'; key: string; label: string; custom?: boolean }
   | { type: 'tag'; tag: TagSummary; index: number }
@@ -379,6 +388,7 @@ export function buildBrowseRows(
 }
 
 /** Index of first tag in `sorted` belonging to section key. */
+/** Jump-rail index of the first tag in `sorted` with the given section key. */
 export function indexOfSection(sorted: TagSummary[], mode: BrowseSortMode, key: string): number {
   return sorted.findIndex((t) => sectionKeyFor(t, mode) === key)
 }

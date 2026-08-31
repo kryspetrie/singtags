@@ -1,5 +1,6 @@
 /** Single source for static media / tag detail paths. */
 
+/** Strip trailing slash from the Vite app base path. */
 function appBase(): string {
   const base = import.meta.env.BASE_URL || '/'
   return base.replace(/\/$/, '')
@@ -16,6 +17,7 @@ export function mediaBaseUrl(): string {
   return `${appBase()}/library`
 }
 
+/** Build an absolute URL for a catalog-relative media or sheet path. */
 export function mediaUrl(path: string): string {
   if (
     path.startsWith('/') ||
@@ -34,6 +36,7 @@ export function tagDetailUrl(id: number | string): string {
   return `${appBase()}/tags/${id}/metadata.json`
 }
 
+/** URL for a gzip/plain catalog index under `/indexes/`. */
 export function indexesUrl(name: string): string {
   return `${appBase()}/indexes/${name}`
 }

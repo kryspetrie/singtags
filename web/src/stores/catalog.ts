@@ -1,3 +1,9 @@
+/**
+ * Catalog browse state: tag index, search, filters, sort, lyrics, and route sync.
+ *
+ * Loads from network (gzip indexes) with fallbacks to manifest and IndexedDB snapshots.
+ * Writes catalog/lyrics snapshots to IndexedDB and localStorage mirror on successful fetch.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { SearchEngine, uniqueFieldValues } from '../search/engine'
@@ -56,6 +62,7 @@ const SCOPED_SORTS = new Set<SortMode>(['rating', 'downloads'])
 /** Default when browsing the full catalog (or after leaving a scoped sort). */
 export const DEFAULT_BROWSE_SORT: SortMode = 'collection'
 
+/** Pinia store for the tag catalog, search, and browse UI state. */
 export const useCatalogStore = defineStore('catalog', () => {
   const tags = ref<TagSummary[]>([])
   const loaded = ref(false)
@@ -80,10 +87,12 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Reactive so result computeds re-run when the search index is ready. */
   const engine = shallowRef<SearchEngine | null>(null)
 
+  /** True when free-text query or any filter chip is active. */
   function hasSearchOrFilter(): boolean {
     return debouncedQuery.value.trim().length > 0 || activeFilterCount(filters.value) > 0
   }
 
+  /** Downgrade rating/downloads sort when browsing the full unfiltered catalog. */
   function coerceSortMode(mode: SortMode): SortMode {
     if (SCOPED_SORTS.has(mode) && !hasSearchOrFilter()) return DEFAULT_BROWSE_SORT
     return mode
@@ -117,6 +126,10 @@ export const useCatalogStore = defineStore('catalog', () => {
     resultLimit.value = RESULTS_PAGE_SIZE
   })
 
+  /**
+   * Apply fetched catalog tags and expansions; rebuild search engine.
+   * Side effects: IndexedDB catalog snapshot, offline library `markCatalogCached`.
+   */
   function applyCatalogData(list: TagSummary[], exp: ExpansionMap): void {
     expansions.value = exp
     engine.value = new SearchEngine({
@@ -134,6 +147,12 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
+  /**
+   * Load catalog from network (or manifest / IDB fallback).
+   * Side effects: network, IndexedDB snapshot, prefetches lyrics when online.
+   *
+   * @param opts.refresh - Force re-fetch even when already loaded.
+   */
   async function load(opts?: { refresh?: boolean }): Promise<void> {
     if (loading.value) return
     if (loaded.value && !opts?.refresh) {
@@ -188,6 +207,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     return true
   }
 
+  /** Merge lyrics into search engine and in-memory map; does not persist alone. */
   function applyLyricsDocs(docs: Array<{ id: number; lyrics: string }>): void {
     engine.value?.setLyrics(docs)
     const map = new Map<number, string>()
@@ -218,6 +238,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     return ok
   }
 
+  /** Load lyrics index only from IndexedDB (when catalog already in memory). */
   async function hydrateLyricsFromIndexedDb(): Promise<boolean> {
     if (lyricsLoaded.value) return true
     const docs = await loadLyricsSnapshotAsync()
@@ -226,6 +247,10 @@ export const useCatalogStore = defineStore('catalog', () => {
     return true
   }
 
+  /**
+   * Background-fetch lyrics index when online.
+   * Side effects: network, IndexedDB lyrics snapshot on success.
+   */
   async function prefetchLyrics(): Promise<void> {
     if (lyricsLoaded.value || lyricsLoading.value) return
     lyricsLoading.value = true
@@ -248,6 +273,12 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
+  /**
+   * One-line lyrics preview for browse rows.
+   *
+   * @param id - Tag id.
+   * @param maxLen - Max characters before ellipsis.
+   */
   function lyricsSnippet(id: number, maxLen = 110): string | null {
     const raw = lyricsById.value.get(id)
     if (!raw) return null
@@ -256,10 +287,12 @@ export const useCatalogStore = defineStore('catalog', () => {
     return `${oneLine.slice(0, maxLen - 1).trimEnd()}…`
   }
 
+  /** Ensure lyrics index is loaded (no-op when already present). */
   async function ensureLyrics(): Promise<void> {
     if (!lyricsLoaded.value) await prefetchLyrics()
   }
 
+  /** Full filtered/sorted result set (virtualizer uses entire list). */
   const allResults = computed(() => {
     const eng = engine.value
     if (!eng) return [] as TagSummary[]
@@ -321,7 +354,9 @@ export const useCatalogStore = defineStore('catalog', () => {
     return found
   })
 
+  /** Alias of `allResults` (legacy name for paged browse). */
   const results = computed(() => allResults.value)
+  /** Always false — browse uses window virtualization over the full result set. */
   const hasMoreResults = computed(() => false)
   /** Full sectioned list for window virtualization (not a paged window). */
   const browseWindow = computed(() => {
@@ -334,8 +369,10 @@ export const useCatalogStore = defineStore('catalog', () => {
       })),
     })
   })
+  /** Count of active filter chips (excludes free-text, handled separately). */
   const filterCount = computed(() => activeFilterCount(filters.value))
 
+  /** Unique arranger names across the catalog (split combined strings). */
   const arrangers = computed(() => {
     const set = new Set<string>()
     for (const t of tags.value) {
@@ -343,6 +380,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
     return [...set].sort((a, b) => foldText(a).localeCompare(foldText(b)))
   })
+  /** Distinct normalized years present in the catalog (newest first). */
   const years = computed(() => {
     const set = new Set<number>()
     for (const t of tags.value) {
@@ -351,18 +389,23 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
     return [...set].sort((a, b) => b - a)
   })
+  /** Distinct tag types for filter chips. */
   const types = computed(() => uniqueFieldValues(tags.value, 'type'))
+  /** Distinct catalog collection names for filter chips. */
   const collections = computed(() => uniqueFieldValues(tags.value, 'collection'))
 
+  /** Merge partial filter state (resets result window via watcher). */
   function patchFilters(patch: Partial<CatalogFilters>): void {
     filters.value = { ...filters.value, ...patch }
   }
 
+  /** Clear all filter chips but keep full-text search mode flag. */
   function clearFilters(): void {
     const fullText = filters.value.fullText
     filters.value = { ...EMPTY_FILTERS, fullText }
   }
 
+  /** Toggle multi-select id in browse bulk actions. */
   function toggleSelect(id: number): void {
     const next = new Set(selectedIds.value)
     if (next.has(id)) next.delete(id)
@@ -370,6 +413,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     selectedIds.value = next
   }
 
+  /** Clear browse multi-selection. */
   function clearSelection(): void {
     selectedIds.value = new Set()
   }
@@ -396,6 +440,10 @@ export const useCatalogStore = defineStore('catalog', () => {
     return idx
   }
 
+  /**
+   * Apply route query to store (deep-link / back navigation).
+   * Resets result limit when browse key changes.
+   */
   function syncFromRoute(query: Record<string, unknown>, sort: SortMode): void {
     const q = typeof query.q === 'string' ? query.q : ''
     const parsed = filtersFromRouteQuery(query)
@@ -448,6 +496,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (prevBrowseKey !== nextBrowseKey) resultLimit.value = RESULTS_PAGE_SIZE
   }
 
+  /** Build router query patch from current browse state. */
   function routeQueryPatch(): Record<string, string | undefined> {
     return {
       q: debouncedQuery.value || undefined,
@@ -457,14 +506,21 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
+  /** Flip ascending/descending for the current sort mode. */
   function toggleSortReverse(): void {
     sortReverse.value = !sortReverse.value
   }
 
+  /** Lookup one tag summary by id from the loaded catalog. */
   function getById(id: number): TagSummary | undefined {
     return tags.value.find((t) => t.id === id)
   }
 
+  /**
+   * Previous/next tag within current search results (for tag view navigation).
+   *
+   * @returns `index === -1` when id is not in the current result set.
+   */
   function neighbors(id: number): { prev: number | null; next: number | null; index: number; total: number } {
     const ids = allResults.value.map((t) => t.id)
     const index = ids.indexOf(id)

@@ -1,11 +1,15 @@
 <script setup lang="ts">
+/**
+ * Tag detail page: sheet viewer, learning-track player, downloads, favorites toggle,
+ * and practice-set integration.
+ */
 import { bookletBadgeForTag, collectionLabel } from '../search/browse'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { navigateBack } from '../lib/navigateBack'
+import { goTagBack, tagBackLabel } from '../lib/tagReturn'
 import { useCatalogStore } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
 import { usePracticeStore } from '../stores/practice'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
@@ -16,7 +20,7 @@ import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, cl
 import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import TagDownloads from '../components/TagDownloads.vue'
-import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
 import { useOnline } from '../composables/useOnline'
@@ -25,10 +29,13 @@ import { buildTagDetailRows } from '../lib/tagDetailMeta'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { barbershopTagsTagUrl } from '../lib/barbershopTags'
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{
+  /** Route param: numeric tag id as string. */
+  id: string
+}>()
 const catalog = useCatalogStore()
 const queue = useQueueStore()
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const recent = useRecentStore()
 const practice = usePracticeStore()
 const route = useRoute()
@@ -61,13 +68,11 @@ const practiceDone = ref(false)
 
 const inPractice = computed(() => route.query.set === 'practice')
 
-/** Prefer history back so browse scroll is restored; practice exits to the set. */
+const backLabel = computed(() => tagBackLabel(route))
+
+/** Return to the originating list (Browse / Favorites / …), not a previous tag. */
 function goBack(): void {
-  if (inPractice.value) {
-    void router.push('/favorites')
-    return
-  }
-  navigateBack(router, '/')
+  goTagBack(router, route)
 }
 
 function readShiftFromRoute(): number {
@@ -83,7 +88,7 @@ function bumpKeyShift(delta: number): void {
 
 onMounted(async () => {
   await catalog.load()
-  await stars.ensureLoaded()
+  await favorites.ensureLoaded()
   keyShift.value = readShiftFromRoute()
   await load()
   if (recent.consumeBrowseNavigation(Number(props.id))) {
@@ -148,7 +153,8 @@ watch(offline, (now, prev) => {
 })
 
 const summary = computed(() => catalog.getById(Number(props.id)) ?? toSummary())
-const starred = computed(() => stars.ids.has(Number(props.id)))
+/** Whether this tag is in the user's favorites list. */
+const starred = computed(() => favorites.ids.has(Number(props.id)))
 const hasAudio = computed(
   () => availableAudioParts.value.length > 0 || Object.keys(audioParts.value).length > 0,
 )
@@ -158,7 +164,6 @@ const hasOfflinePlayback = computed(
     hasPackAudio.value ||
     (offline.value && availableAudioParts.value.length > 0),
 )
-const showUpdate = computed(() => starred.value && !offline.value)
 const nav = computed(() =>
   inPractice.value
     ? practice.neighbors(Number(props.id))
@@ -241,7 +246,7 @@ function onTrackEnded(): void {
   const next = practice.neighbors(Number(props.id)).next
   if (next != null) {
     practiceDone.value = false
-    void router.push(tagLink(next) as { path: string; query: Record<string, string | string[] | undefined> })
+    void router.replace(tagLink(next) as { path: string; query: Record<string, string | string[] | undefined> })
   } else {
     practiceDone.value = true
   }
@@ -301,15 +306,28 @@ function addItemsToQueue(items: QueueTrack[]): void {
   queueMsg.value = `Added ${bits.join(' and ')} to downloads.`
 }
 
+
 function onToggleStar(): void {
   if (!summary.value) return
-  void stars.toggle(summary.value, detail.value, { metadataOnly: false })
+  void favorites.toggle(summary.value, detail.value, { metadataOnly: false })
 }
 
-async function onRefreshMedia(): Promise<void> {
-  await stars.updateOfflineMedia(Number(props.id), detail.value)
-  await load()
+/** When catalog media sync/paths change, quietly refresh favorited offline blobs. */
+async function maybeRefreshStaleFavoriteMedia(): Promise<void> {
+  if (offline.value || !starred.value || !detail.value) return
+  const did = await favorites.refreshOfflineMediaIfStale(Number(props.id), detail.value)
+  if (did) await load()
 }
+
+watch(
+  [detail, starred, offline],
+  () => {
+    void maybeRefreshStaleFavoriteMedia()
+  },
+  { flush: 'post' },
+)
+
+
 
 async function onCacheUpgraded(): Promise<void> {
   await load()
@@ -335,9 +353,9 @@ async function onRetryLoad(): Promise<void> {
         <button
           type="button"
           class="btn page-back"
-          :title="inPractice ? 'Back to practice set' : 'Back to browse'"
+          :title="backLabel"
           @click="goBack"
-        >{{ inPractice ? '← Practice set' : '← Back' }}</button>
+        >{{ backLabel }}</button>
       </div>
       <nav
         v-if="nav.total > 1 && nav.index >= 0"
@@ -347,6 +365,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="nav.prev != null"
           class="btn"
+          replace
           :to="tagLink(nav.prev)"
           title="Previous tag in this list"
         >
@@ -361,6 +380,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="nav.next != null"
           class="btn"
+          replace
           :to="tagLink(nav.next)"
           title="Next tag in this list"
         >
@@ -373,17 +393,6 @@ async function onRetryLoad(): Promise<void> {
         </span>
       </nav>
       <div class="toprow-end">
-        <button
-          v-if="showUpdate"
-          type="button"
-          class="btn update-btn"
-          :disabled="stars.busy"
-          aria-label="Update offline media for this favorited tag"
-          title="Re-download sheet and audio for this favorited tag"
-          @click="onRefreshMedia"
-        >
-          {{ stars.busy ? 'Updating…' : 'Update' }}
-        </button>
         <button
           type="button"
           class="fav"
@@ -468,16 +477,15 @@ async function onRetryLoad(): Promise<void> {
       class="warn"
       role="status"
     >
-      No audio cached for this favorited tag. We’ll retry caching when you’re back online, or tap
-      <strong>Update</strong> /
+      No audio cached for this favorited tag. We’ll retry caching when you’re back online, or open
       <RouterLink to="/settings">Offline settings</RouterLink>.
     </p>
-    <div v-if="stars.progress" class="progress" role="status" aria-live="polite">
-      <div class="bar" :style="{ width: `${Math.round(stars.progress.ratio * 100)}%` }" />
-      <span>{{ stars.progress.label }}</span>
+    <div v-if="favorites.progress" class="progress" role="status" aria-live="polite">
+      <div class="bar" :style="{ width: `${Math.round(favorites.progress.ratio * 100)}%` }" />
+      <span>{{ favorites.progress.label }}</span>
     </div>
-    <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
-      <StarsNoticeLine :notice="stars.lastNotice" />
+    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
+      <FavoritesNoticeLine :notice="favorites.lastNotice" />
     </p>
 
     <section class="section pitch-section" aria-labelledby="pitch-heading">
@@ -519,7 +527,7 @@ async function onRetryLoad(): Promise<void> {
         :class="{ 'is-pending': sheetPreparing && (sheetAssets.imageSets.length || sheetAssets.pdfs.length || !detail) }"
       >
         <p
-          v-if="sheetPreparing"
+          v-if="sheetPreparing && !(sheetAssets.imageSets.length || sheetAssets.pdfs.length)"
           class="tag-loading sheet-slot-status"
           role="status"
           aria-live="polite"
@@ -527,10 +535,12 @@ async function onRetryLoad(): Promise<void> {
           Preparing sheet…
         </p>
         <SheetViewer
-          v-else-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
+          v-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
           :image-sets="sheetAssets.imageSets"
-          :pdfs="offline ? [] : sheetAssets.pdfs"
+          :pdfs="sheetAssets.pdfs"
+          :offline="offline"
           :can-choose-format="!offline && sheetAssets.canChooseFormat"
+          :crop-to-content="false"
           :prefetched-pages="preparedSheet?.pages ?? null"
           :pay-key-enabled="canPayKey"
           :key-label="pitchLabel"
@@ -538,7 +548,7 @@ async function onRetryLoad(): Promise<void> {
           @pay-down="payKeyDown"
           @pay-up="payKeyUp"
         />
-        <p v-else class="text-muted tip">No sheet music on this tag.</p>
+        <p v-else-if="!sheetPreparing" class="text-muted tip">No sheet music on this tag.</p>
       </div>
     </details>
 
@@ -609,9 +619,9 @@ async function onRetryLoad(): Promise<void> {
         <button
           type="button"
           class="btn page-back"
-          :title="inPractice ? 'Back to practice set' : 'Back to browse'"
+          :title="backLabel"
           @click="goBack"
-        >{{ inPractice ? '← Practice set' : '← Back' }}</button>
+        >{{ backLabel }}</button>
       </div>
       <nav
         v-if="nav.total > 1 && nav.index >= 0"
@@ -621,6 +631,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="nav.prev != null"
           class="btn"
+          replace
           :to="tagLink(nav.prev)"
           title="Previous tag in this list"
         >
@@ -635,6 +646,7 @@ async function onRetryLoad(): Promise<void> {
         <RouterLink
           v-if="nav.next != null"
           class="btn"
+          replace
           :to="tagLink(nav.next)"
           title="Next tag in this list"
         >
@@ -647,17 +659,6 @@ async function onRetryLoad(): Promise<void> {
         </span>
       </nav>
       <div class="toprow-end">
-        <button
-          v-if="showUpdate"
-          type="button"
-          class="btn update-btn"
-          :disabled="stars.busy"
-          aria-label="Update offline media for this favorited tag"
-          title="Re-download sheet and audio for this favorited tag"
-          @click="onRefreshMedia"
-        >
-          {{ stars.busy ? 'Updating…' : 'Update' }}
-        </button>
         <button
           type="button"
           class="fav"
@@ -988,20 +989,6 @@ async function onRetryLoad(): Promise<void> {
   gap: 0.65rem;
   flex-wrap: wrap;
   margin-left: 0;
-}
-.update-btn {
-  min-height: 44px;
-  padding: 0.45rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font: inherit;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-}
-.update-btn:disabled {
-  opacity: 0.55;
 }
 .meta-only {
   display: flex;

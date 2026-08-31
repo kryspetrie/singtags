@@ -1,10 +1,12 @@
 /**
- * Offline pitch/speed for downloads — same bake as playback (bakeClient).
+ * Offline pitch/speed for downloads — same bake pipeline as {@link bakeClient}.
  * @deprecated Import from bakeClient; kept as a thin re-export during migration.
  */
 export { processOfflineTransform, preloadBakePipeline } from './bakeClient'
 
-/** Sync path — dynamically loads DSP so this module does not eagerly pull WSOLA/formant. */
+/**
+ * Dynamically import sync DSP (no worker) for tests and degraded environments.
+ */
 export async function processOfflineTransformSync(
   input: AudioBuffer,
   pitchSemitones: number,

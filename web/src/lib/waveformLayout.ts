@@ -54,6 +54,7 @@ export function guttersForWidth(w: number): number {
   return Math.max(MIN_GUTTER_PAD, gutterPad)
 }
 
+/** Layout metrics for the player waveform, loop brackets, and shared time→x mapping. */
 export type WaveformLayout = {
   w: number
   h: number
@@ -61,6 +62,7 @@ export type WaveformLayout = {
   trackInner: number
 }
 
+/** Build layout from track width/height; returns null when too small to render. */
 export function waveformLayout(w: number, h: number): WaveformLayout | null {
   if (w < 2 || h < 2) return null
   const gutterPad = guttersForWidth(w)
@@ -72,6 +74,7 @@ export function waveformLayout(w: number, h: number): WaveformLayout | null {
   }
 }
 
+/** Clamp a time value to [0, duration]. */
 export function clampTime(t: number, duration: number): number {
   if (duration <= 0) return 0
   return Math.min(duration, Math.max(0, t))
@@ -99,6 +102,7 @@ export function xToTime(
   return clampTime(((x - gutterPad) / trackInner) * duration, duration)
 }
 
+/** Peak bar count to draw for the given inner track width. */
 export function barCountFor(peaksLength: number, trackInner: number): number {
   if (peaksLength <= 0) return 0
   return Math.min(peaksLength, Math.max(40, Math.floor(trackInner / 2.5)))

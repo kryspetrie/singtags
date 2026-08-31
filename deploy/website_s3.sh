@@ -41,7 +41,6 @@ aws s3 sync "$DIST" "$DEST" \
   --delete \
   --cache-control "public,max-age=300" \
   --exclude "library/*" \
-  --exclude "sample-data/*" \
   --exclude "indexes/*" \
   --exclude "assets/*"
 

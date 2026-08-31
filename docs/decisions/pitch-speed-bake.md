@@ -2,7 +2,6 @@
 
 **Status:** accepted  
 **Date:** 2026-08-25  
-**Plan:** [PITCH_SPEED_PLAN.md](../PITCH_SPEED_PLAN.md)
 
 ## Decision
 

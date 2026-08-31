@@ -1,8 +1,14 @@
+/**
+ * Build condensed metadata rows for the tag detail panel.
+ * Omits empty fields; lyrics is the only multiline value.
+ */
+
 import type { TagDetail } from '../types/tag'
 import { collectionLabel, collectionNumberBadge } from './collections'
 import { normalizeYear } from './year'
 import { barbershopTagsTagUrl } from './barbershopTags'
 
+/** One label/value pair (optional link or multiline body) in the tag detail list. */
 export type TagDetailRow = {
   label: string
   value: string
@@ -10,6 +16,7 @@ export type TagDetailRow = {
   href?: string
 }
 
+/** True when a catalog string field has non-whitespace content. */
 function hasText(v: string | null | undefined): v is string {
   return typeof v === 'string' && v.trim().length > 0
 }

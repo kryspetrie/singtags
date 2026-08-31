@@ -20,6 +20,7 @@ const NOTE_OFFSETS: Record<string, number> = {
   B: 11,
 }
 
+/** Convert a note name like `A4` or `Bb3` to frequency in Hz (equal temperament). */
 export function noteToFrequency(note: string): number {
   const m = note.trim().toUpperCase().match(/^([A-G])([#B]?)(-?\d+)$/)
   if (!m) throw new Error(`Invalid note: ${note}`)
@@ -227,6 +228,10 @@ export function formatKeyShiftLabel(key: string | null | undefined, shift: numbe
   return neu ? `${base} ${adj} (${neu})` : `${base} ${adj}`
 }
 
+/**
+ * Web Audio pitch pipe: blended saw + sine oscillators with fade in/out.
+ * Used by the pitch-pipe page and tag-page pay-the-key control.
+ */
 export class PitchPlayer {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null

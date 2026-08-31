@@ -1,7 +1,9 @@
 /** Helpers for learning-track stereo layout metadata (part-left / mono / …). */
 
+/** Which stereo channel carries the solo voice on a learning track. */
 export type PartSide = 'left' | 'right'
 
+/** Classifier for how a stem is panned in the published file. */
 export type AudioLayoutKind =
   | 'part_left'
   | 'part_right'
@@ -11,6 +13,7 @@ export type AudioLayoutKind =
   | 'mixed'
   | 'unknown'
 
+/** Per-part layout analysis from the publish pipeline. */
 export interface AudioPartLayout {
   kind: AudioLayoutKind | string
   solo_side?: PartSide | null
@@ -20,6 +23,7 @@ export interface AudioPartLayout {
   side_mid?: number
 }
 
+/** Tag-level audio layout summary (mix policy, recombine flags, ultra tier). */
 export interface AudioLayoutSummary {
   parts: string
   mix?: string

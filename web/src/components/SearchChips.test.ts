@@ -1,7 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SearchChips from './SearchChips.vue'
 import { EMPTY_FILTERS } from '../search/filters'
@@ -31,6 +31,35 @@ function bodyBtn(text: string | RegExp) {
   ) as HTMLButtonElement
 }
 
+/** FilterSheet mounts slot content after paint (double rAF). */
+async function waitBodyBtn(text: string | RegExp): Promise<HTMLButtonElement> {
+  return vi.waitFor(() => {
+    const btn = bodyBtn(text)
+    expect(btn).toBeTruthy()
+    return btn
+  })
+}
+
+async function waitBodySelect(label: string): Promise<HTMLSelectElement> {
+  return vi.waitFor(() => {
+    const el = document.body.querySelector(
+      `select[aria-label="${label}"]`,
+    ) as HTMLSelectElement | null
+    expect(el).toBeTruthy()
+    return el as HTMLSelectElement
+  })
+}
+
+async function waitBodyInput(label: string): Promise<HTMLInputElement> {
+  return vi.waitFor(() => {
+    const el = document.body.querySelector(
+      `input[aria-label="${label}"]`,
+    ) as HTMLInputElement | null
+    expect(el).toBeTruthy()
+    return el as HTMLInputElement
+  })
+}
+
 describe('SearchChips', () => {
   it('toggles has sheet filter on and off', async () => {
     const wrapper = mount(SearchChips, { props: base })
@@ -52,14 +81,14 @@ describe('SearchChips', () => {
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ hasAudio: null })
     await chip(w, 'Min rating').trigger('click')
     await flushPromises()
-    bodyBtn('★ 4+').click()
+    ;(await waitBodyBtn('★ 4+')).click()
     await flushPromises()
     expect(w.emitted('patch')?.some((e) => (e[0] as { minRating?: number }).minRating === 4)).toBe(
       true,
     )
     await chip(w, 'Min rating').trigger('click')
     await flushPromises()
-    bodyBtn('Any').click()
+    ;(await waitBodyBtn('Any')).click()
     await flushPromises()
     expect(w.emitted('patch')?.some((e) => (e[0] as { minRating: null }).minRating === null)).toBe(
       true,
@@ -72,8 +101,8 @@ describe('SearchChips', () => {
     await openFilters(w)
     await chip(w, 'Year').trigger('click')
     await flushPromises()
-    const from = document.body.querySelector('select[aria-label="Year from"]') as HTMLSelectElement
-    const to = document.body.querySelector('select[aria-label="Year to"]') as HTMLSelectElement
+    const from = await waitBodySelect('Year from')
+    const to = await waitBodySelect('Year to')
     from.value = '2010'
     from.dispatchEvent(new Event('change'))
     await flushPromises()
@@ -91,23 +120,23 @@ describe('SearchChips', () => {
     await openFilters(w)
     await chip(w, 'Arranger').trigger('click')
     await flushPromises()
-    const input = document.body.querySelector('input[aria-label="Search arrangers"]') as HTMLInputElement
+    const input = await waitBodyInput('Search arrangers')
     input.value = 'paul'
     input.dispatchEvent(new Event('input'))
     await flushPromises()
-    bodyBtn(/Paul/).click()
+    ;(await waitBodyBtn(/Paul/)).click()
     await flushPromises()
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ arrangers: ['Paul'] })
 
     await chip(w, 'Type').trigger('click')
     await flushPromises()
-    bodyBtn('Religious').click()
+    ;(await waitBodyBtn('Religious')).click()
     await flushPromises()
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ types: ['Religious'] })
 
     await chip(w, 'Collection').trigger('click')
     await flushPromises()
-    bodyBtn('Classic').click()
+    ;(await waitBodyBtn('Classic')).click()
     await flushPromises()
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ collections: ['Classic'] })
     w.unmount()

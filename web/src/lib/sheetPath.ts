@@ -1,3 +1,7 @@
+/**
+ * Sheet path predicates: PDF vs raster image extensions (query/hash stripped).
+ */
+
 /** True when `path` looks like a PDF (ignores query/hash). */
 export function isPdfPath(path: string | null | undefined): boolean {
   if (!path) return false

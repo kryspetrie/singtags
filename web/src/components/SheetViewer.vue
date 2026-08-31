@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Sheet music viewer: image sets and PDFs with zoom/pan, fullscreen, optional pay-the-key,
+ * and offline PDF raster cache integration.
+ */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { mediaUrl } from '../lib/mediaUrl'
 import type { SheetImageSet, SheetPdfFile } from '../lib/sheetAssets'
@@ -45,6 +49,11 @@ const props = withDefaults(
      * When set for the initial image set, skip a second crop pass.
      */
     prefetchedPages?: string[] | null
+    /**
+     * When true, never fetch/rasterize PDFs — only reuse memory/IDB rasters
+     * (or keep WebP). Online prerenders are stored in pdfRasterCache for this.
+     */
+    offline?: boolean
   }>(),
   {
     pages: () => [],
@@ -54,6 +63,7 @@ const props = withDefaults(
     canChooseFormat: false,
     cropToContent: true,
     prefetchedPages: null,
+    offline: false,
   },
 )
 
@@ -73,6 +83,11 @@ const loadError = ref<string | null>(null)
 const ownedUrls = ref<string[]>([])
 let loadAbort: AbortController | null = null
 let loadSeq = 0
+/** Incoming hi-res pages fading over {@link displayPages} (WebP → PDF raster). */
+const upgradePages = ref<string[] | null>(null)
+const upgradeOpaque = ref(false)
+let fadeGen = 0
+let fadeTimer: ReturnType<typeof setTimeout> | null = null
 /** Auto-switched to PDF raster for fullscreen sharpness; revert on exit. */
 let autoPdfForFullscreen = false
 
@@ -165,6 +180,122 @@ function revokeOwned(): void {
   ownedUrls.value = []
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function clearUpgradeLayer(revoke = false): void {
+  fadeGen++
+  if (fadeTimer) {
+    clearTimeout(fadeTimer)
+    fadeTimer = null
+  }
+  if (revoke && upgradePages.value) {
+    for (const u of upgradePages.value) {
+      if (u.startsWith('blob:')) URL.revokeObjectURL(u)
+    }
+  }
+  upgradePages.value = null
+  upgradeOpaque.value = false
+}
+
+function preloadImageUrls(urls: string[]): Promise<void> {
+  if (typeof Image === 'undefined') return Promise.resolve()
+  // Best-effort decode kickoff — never block the cross-fade on slow/hung loads
+  // (happy-dom / blob: placeholders often never fire onload).
+  return Promise.race([
+    Promise.all(
+      urls.map(
+        (url) =>
+          new Promise<void>((resolve) => {
+            const img = new Image()
+            img.onload = () => resolve()
+            img.onerror = () => resolve()
+            img.src = url
+          }),
+      ),
+    ).then(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, 80)),
+  ])
+}
+
+/**
+ * Swap to `urls` (owned blob URLs). When a same-length preview is already on screen,
+ * cross-fade instead of hard-cutting — keeps low-res WebP visible until hi-res is ready.
+ */
+async function applyOwnedPages(
+  urls: string[],
+  opts: { signal?: AbortSignal; seq?: number; fade?: boolean } = {},
+): Promise<void> {
+  const { signal, seq, fade = true } = opts
+  const from = displayPages.value
+  const canFade =
+    fade &&
+    !prefersReducedMotion() &&
+    from.length > 0 &&
+    from.length === urls.length &&
+    from.some((u, i) => u !== urls[i])
+
+  if (!canFade) {
+    clearUpgradeLayer(true)
+    const previousOwned = ownedUrls.value
+    ownedUrls.value = urls
+    displayPages.value = urls
+    for (const u of previousOwned) URL.revokeObjectURL(u)
+    return
+  }
+
+  const token = ++fadeGen
+  await preloadImageUrls(urls)
+  if (signal?.aborted || (seq != null && seq !== loadSeq) || token !== fadeGen) {
+    for (const u of urls) URL.revokeObjectURL(u)
+    return
+  }
+
+  upgradePages.value = urls
+  upgradeOpaque.value = false
+  await nextTick()
+  if (signal?.aborted || (seq != null && seq !== loadSeq) || token !== fadeGen) {
+    for (const u of urls) URL.revokeObjectURL(u)
+    if (upgradePages.value === urls) {
+      upgradePages.value = null
+      upgradeOpaque.value = false
+    }
+    return
+  }
+
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+  if (signal?.aborted || (seq != null && seq !== loadSeq) || token !== fadeGen) {
+    for (const u of urls) URL.revokeObjectURL(u)
+    if (upgradePages.value === urls) {
+      upgradePages.value = null
+      upgradeOpaque.value = false
+    }
+    return
+  }
+  upgradeOpaque.value = true
+
+  await new Promise<void>((resolve) => {
+    fadeTimer = setTimeout(() => {
+      fadeTimer = null
+      resolve()
+    }, 300)
+  })
+
+  if (signal?.aborted || (seq != null && seq !== loadSeq) || token !== fadeGen) {
+    // A newer rebuild owns cleanup via clearUpgradeLayer / applyOwnedPages.
+    return
+  }
+
+  const previousOwned = ownedUrls.value
+  ownedUrls.value = urls
+  displayPages.value = urls
+  upgradePages.value = null
+  upgradeOpaque.value = false
+  for (const u of previousOwned) URL.revokeObjectURL(u)
+}
+
+
 function setMode(next: SheetDisplayMode): void {
   if (next === 'pdf' && !hasPdf.value) return
   if (next === 'images' && !hasImages.value) return
@@ -220,6 +351,7 @@ function imagePreviewUrls(): string[] {
 
 async function rebuildDisplay(): Promise<void> {
   loadAbort?.abort()
+  clearUpgradeLayer(true)
   loadAbort = new AbortController()
   const { signal } = loadAbort
   const seq = ++loadSeq
@@ -231,18 +363,11 @@ async function rebuildDisplay(): Promise<void> {
     const pdfUrl = src(pdf.path, props.baseUrl)
     const cacheKey = pdfRasterCacheKey(pdfUrl, { crop: props.cropToContent })
 
-    const applyPages = (urls: string[]) => {
-      const previousOwned = ownedUrls.value
-      ownedUrls.value = urls
-      displayPages.value = urls
-      for (const u of previousOwned) URL.revokeObjectURL(u)
-    }
-
-    // Session cache: high-res immediately, skip low-res flash.
+    // Session cache: high-res immediately (still fade if WebP is already up).
     const memHit = pdfRasterMemoryHit(cacheKey)
     if (memHit) {
-      applyPages(memHit)
-      loading.value = false
+      await applyOwnedPages(memHit, { signal, seq, fade: true })
+      if (seq === loadSeq) loading.value = false
       return
     }
 
@@ -265,7 +390,12 @@ async function rebuildDisplay(): Promise<void> {
         return
       }
       if (idbHit) {
-        applyPages(idbHit)
+        await applyOwnedPages(idbHit, { signal, seq, fade: true })
+        return
+      }
+
+      // Offline: keep WebP — never fetch/rasterize the PDF without a cache hit.
+      if (props.offline) {
         return
       }
 
@@ -277,8 +407,9 @@ async function rebuildDisplay(): Promise<void> {
         for (const u of urls) URL.revokeObjectURL(u)
         return
       }
-      applyPages(urls)
+      // Persist before fade so abort mid-transition still keeps HQ for next visit.
       void putPdfRasterFromObjectUrls(cacheKey, urls)
+      await applyOwnedPages(urls, { signal, seq, fade: true })
     } catch (e) {
       if (signal.aborted || seq !== loadSeq) return
       loadError.value = e instanceof Error ? e.message : String(e)
@@ -310,21 +441,19 @@ async function rebuildDisplay(): Promise<void> {
     revokeOwned()
     displayPages.value = prefetch!
     loading.value = false
+    void tryUpgradeFromCachedPdfRaster(signal, seq)
     return
   }
 
-  // Show WebP immediately; optional content-crop upgrades in place.
-  if (!props.cropToContent) {
-    revokeOwned()
-    displayPages.value = preview
-    return
-  }
-
-  // Paint raw first so crop never blanks the stage.
+  // Show WebP immediately; optional HQ-cache / content-crop upgrades in place.
   displayPages.value = preview
 
   loading.value = true
   try {
+    if (await tryUpgradeFromCachedPdfRaster(signal, seq)) return
+    if (signal.aborted || seq !== loadSeq) return
+    if (!props.cropToContent) return
+
     const next: string[] = []
     const owned: string[] = []
     for (const url of raw) {
@@ -337,10 +466,11 @@ async function rebuildDisplay(): Promise<void> {
       for (const u of owned) URL.revokeObjectURL(u)
       return
     }
-    const previousOwned = ownedUrls.value
-    ownedUrls.value = owned
-    displayPages.value = next
-    for (const u of previousOwned) URL.revokeObjectURL(u)
+    await applyOwnedPages(next, { signal, seq, fade: true })
+    // Only revoke blob URLs we created (cropped); leave network/prefetch URLs alone.
+    if (seq === loadSeq) {
+      ownedUrls.value = owned
+    }
   } catch (e) {
     if (signal.aborted || seq !== loadSeq) return
     if (e instanceof DOMException && e.name === 'AbortError') return
@@ -350,6 +480,44 @@ async function rebuildDisplay(): Promise<void> {
   }
 }
 
+/**
+ * When HQ PDF rasters are already in memory/IDB, fade them over the WebP preview
+ * (inline and fullscreen). Does not run pdf.js — that stays fullscreen/PDF-mode only.
+ *
+ * @returns true when an upgrade was applied (or aborted after a hit).
+ */
+async function tryUpgradeFromCachedPdfRaster(
+  signal: AbortSignal,
+  seq: number,
+): Promise<boolean> {
+  if (!hasPdf.value || showingPdf.value) return false
+  const pdf = activePdf.value
+  if (!pdf) return false
+  const pdfUrl = src(pdf.path, props.baseUrl)
+  const cacheKey = pdfRasterCacheKey(pdfUrl, { crop: props.cropToContent })
+
+  const memHit = pdfRasterMemoryHit(cacheKey)
+  if (memHit) {
+    await applyOwnedPages(memHit, { signal, seq, fade: true })
+    return true
+  }
+
+  try {
+    const idbHit = await loadPdfRasterObjectUrls(cacheKey)
+    if (signal.aborted || seq !== loadSeq) {
+      if (idbHit) for (const u of idbHit) URL.revokeObjectURL(u)
+      return !!idbHit
+    }
+    if (idbHit) {
+      await applyOwnedPages(idbHit, { signal, seq, fade: true })
+      return true
+    }
+  } catch {
+    /* best-effort upgrade */
+  }
+  return false
+}
+
 watch(
   () =>
     [
@@ -357,6 +525,7 @@ watch(
       imageSetId.value,
       pdfId.value,
       props.cropToContent,
+      props.offline,
       activeImageSet.value?.paths.join('\0') ?? '',
       activePdf.value?.path ?? '',
       props.prefetchedPages?.join('\0') ?? '',
@@ -598,6 +767,7 @@ onUnmounted(() => {
   sheetEl.value?.removeEventListener('wheel', onWheel)
   setScrollLock(false)
   loadAbort?.abort()
+  clearUpgradeLayer(true)
   revokeOwned()
 })
 </script>
@@ -643,15 +813,31 @@ onUnmounted(() => {
       <p v-else-if="loadError" class="status err" role="alert">{{ loadError }}</p>
 
       <div ref="stageEl" class="stage" :style="stageStyle">
-        <img
+        <div
           v-for="(page, i) in displayPages"
           :key="`${mode}-${imageSetId}-${pdfId}-${i}`"
-          :src="page"
-          :alt="`Sheet page ${i + 1}`"
-          loading="eager"
-          decoding="async"
-          draggable="false"
-        />
+          class="page"
+        >
+          <img
+            class="page-base"
+            :src="page"
+            :alt="`Sheet page ${i + 1}`"
+            loading="eager"
+            decoding="async"
+            draggable="false"
+          />
+          <img
+            v-if="upgradePages?.[i]"
+            class="page-upgrade"
+            :class="{ 'is-in': upgradeOpaque }"
+            :src="upgradePages[i]"
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+            decoding="async"
+            draggable="false"
+          />
+        </div>
       </div>
 
       <div v-if="fullscreen" class="chrome" role="toolbar" aria-label="Sheet controls">
@@ -923,18 +1109,42 @@ onUnmounted(() => {
 .pitch-fab {
   margin-right: auto;
 }
-.sheet img {
+.page {
+  position: relative;
   width: 100%;
   max-width: 960px;
   margin: 0 auto;
+}
+.page img {
+  width: 100%;
   height: auto;
   display: block;
   background: #fff;
+  margin: 0;
 }
-.sheet.fullscreen img {
+.page-upgrade {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
+  height: auto;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+.page-upgrade.is-in {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-upgrade {
+    transition: none;
+  }
+}
+.sheet.fullscreen .page {
   max-width: none;
   margin: 0;
+}
+.sheet.fullscreen .page img {
   pointer-events: none;
 }
 .status {

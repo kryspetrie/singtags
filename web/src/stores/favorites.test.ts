@@ -4,8 +4,8 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import * as starredDb from '../offline/starredDb'
-import { useStarsStore } from './stars'
+import * as favoritesDb from '../offline/favoritesDb'
+import { useFavoritesStore } from './favorites'
 import type { TagDetail, TagSummary } from '../types/tag'
 
 const summary: TagSummary = {
@@ -30,7 +30,7 @@ const detail: TagDetail = {
   sheet: 'sheets/42/pages/page-01.webp',
 }
 
-describe('stars store', () => {
+describe('favorites store', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     await new Promise<void>((resolve, reject) => {
@@ -48,21 +48,21 @@ describe('stars store', () => {
   it('stars metadata only without fetching media', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    await vi.waitFor(() => expect(stars.isStarred(42)).toBe(true))
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    await vi.waitFor(() => expect(favorites.isStarred(42)).toBe(true))
     expect(fetchMock).not.toHaveBeenCalled()
-    await vi.waitFor(() => expect(stars.lastNotice).toEqual({ type: 'starred' }))
+    await vi.waitFor(() => expect(favorites.lastNotice).toEqual({ type: 'favorited' }))
   })
 
   it('toggle updates starred state immediately', async () => {
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    expect(stars.ids.has(42)).toBe(true)
-    expect(stars.count).toBe(1)
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    expect(stars.ids.has(42)).toBe(false)
-    expect(stars.count).toBe(0)
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    expect(favorites.ids.has(42)).toBe(true)
+    expect(favorites.count).toBe(1)
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    expect(favorites.ids.has(42)).toBe(false)
+    expect(favorites.count).toBe(0)
   })
 
   it('tracks per-tag caching progress', async () => {
@@ -70,17 +70,17 @@ describe('stars store', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
-    vi.spyOn(starredDb, 'refreshStarMedia').mockImplementation(async (rec, _detail, opts) => {
+    vi.spyOn(favoritesDb, 'refreshStarMedia').mockImplementation(async (rec, _detail, opts) => {
       opts?.onProgress?.({ label: 'Audio lead', done: 1, total: 2, ratio: 0.5 })
       await gate
       return { ...rec, offlineMedia: true, audioBlobs: { lead: { path: 'x', mime: 'audio/mp4', data: new ArrayBuffer(0) } } }
     })
 
-    const stars = useStarsStore()
-    void stars.toggle(summary, detail)
-    await vi.waitFor(() => expect(stars.isTagCaching(42)).toBe(true))
-    expect(stars.tagCachingLabel(42)).toBe('Audio lead')
+    const favorites = useFavoritesStore()
+    void favorites.toggle(summary, detail)
+    await vi.waitFor(() => expect(favorites.isTagCaching(42)).toBe(true))
+    expect(favorites.tagCachingLabel(42)).toBe('Audio lead')
     release()
-    await vi.waitFor(() => expect(stars.isTagCaching(42)).toBe(false))
+    await vi.waitFor(() => expect(favorites.isTagCaching(42)).toBe(false))
   })
 })

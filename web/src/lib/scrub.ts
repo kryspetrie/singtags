@@ -226,6 +226,7 @@ export function pickLandmarkAnchors(
   return picked
 }
 
+/** Options for loupe magnification and label spacing on density scrub rails. */
 export type LoupeOptions = {
   /**
    * Half-width of the loupe glass as a fraction of the **full** track strip.
@@ -259,6 +260,7 @@ export type LoupeOptions = {
   maxLabels?: number
 }
 
+/** Default loupe parameters for year/id scrub rails. */
 export const DEFAULT_LOUPE: LoupeOptions = {
   /** Glass half-width (~16% of track); also the default end gutter. */
   radius: 0.08,
@@ -272,6 +274,7 @@ export const DEFAULT_LOUPE: LoupeOptions = {
   maxLabels: 3,
 }
 
+/** One label anchor positioned inside the loupe glass (with fade/active state). */
 export type LoupeLabel = ScrubLabelAnchor & {
   /**
    * Horizontal position inside the loupe glass in [0, 1]

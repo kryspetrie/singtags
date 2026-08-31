@@ -41,7 +41,7 @@ Extrapolated from the ~250-tag sample (~399 MB total, ~356 MB audio, ~11 MB WebP
 | Offline sheet pack | Cache API `singtags-sheets-v1` (+ OPFS fallback) |
 | Offline audio pack | Cache API `singtags-audio-v1` |
 | Starred + offline media | IndexedDB `starred` — prefer audio; skip sheet blobs when pack has them |
-| Manifests | `indexes/offline-sheets.json.gz`, `offline-audio.json.gz` from `scripts/build_offline_manifest.py` |
+| Manifests | `indexes/offline-sheets.json.gz`, `offline-audio.json.gz` from `build/build_offline_manifest.py` |
 | UI | `/settings`, first-run sheets toast, Home offline status |
 
 **Resolve order** (`web/src/offline/resolveMedia.ts`): starred blob → pack → network.
@@ -107,7 +107,11 @@ Implementation: `web/src/lib/audioTiers.ts`, `web/src/offline/compactAudio.ts`, 
 
 Zip queue: format/quality for explicit downloads unchanged — see [audio-storage-cache.md](audio-storage-cache.md).
 
-Follow-up notes: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md).
+**Cull quality upgrades** (Settings → Advanced → Storage): clears 300dpi PDF rasters, warmed
+playback/original files in the audio pack, and favorited HQ blobs, while keeping the WebP sheets
+pack and ultra/lo-fi audio pack (`cullUpgradeCaches` in `cacheManage.ts`).
+
+See also: [audio-storage-cache.md](audio-storage-cache.md).
 
 
 ---
@@ -121,4 +125,4 @@ Follow-up notes: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md).
 | `web/src/offline/resolveMedia.ts` | Star → pack → network |
 | `web/src/stores/offlineLibrary.ts` | Pinia status + actions |
 | `web/src/views/SettingsView.vue` | Offline controls |
-| `scripts/build_offline_manifest.py` | Sheet + audio manifests |
+| `build/build_offline_manifest.py` | Sheet + audio manifests |

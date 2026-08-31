@@ -49,7 +49,7 @@ describe('SheetViewer fullscreen + pay key', () => {
     const w = mount(SheetViewer, {
       props: {
         pages: ['sheets/1/p1.webp'],
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
         payKeyEnabled: true,
         keyLabel: 'Bb',
         shift: 1,
@@ -80,9 +80,9 @@ describe('SheetViewer fullscreen + pay key', () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
     const w = mount(SheetViewer, {
       props: {
-        pages: ['sheets/1/p1.webp'],
+        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
         pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
         canChooseFormat: false,
       },
       attachTo: document.body,
@@ -90,13 +90,16 @@ describe('SheetViewer fullscreen + pay key', () => {
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
     expect(w.find('iframe').exists()).toBe(false)
-    expect(w.findAll('img').length).toBe(1)
+    expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('p1.webp')
     expect(renderPdfToPageUrls).not.toHaveBeenCalled()
 
     await w.get('button.fs-fab').trigger('click')
     await flushPromises()
     expect(renderPdfToPageUrls).toHaveBeenCalled()
+    // Equal page counts cross-fade; settle preload (80ms) + fade (300ms).
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
 
@@ -106,13 +109,74 @@ describe('SheetViewer fullscreen + pay key', () => {
     w.unmount()
   })
 
-  it('shows format toggle only when uploads of both kinds exist', async () => {
+
+  it('offline upgrades to cached PDF rasters without calling pdf.js', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    const {
+      pdfRasterCacheKey,
+      putPdfRasterBlobs,
+      clearPdfRasterCache,
+    } = await import('../offline/pdfRasterCache')
+    await clearPdfRasterCache()
+    const pdfUrl = '/library/sheets/1/sheet.pdf'
+    const key = pdfRasterCacheKey(pdfUrl, { crop: true })
+    await putPdfRasterBlobs(key, [
+      new Blob(['hi'], { type: 'image/webp' }),
+      new Blob(['hi2'], { type: 'image/webp' }),
+    ])
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
+        pdf: 'sheets/1/sheet.pdf',
+        baseUrl: '/library/',
+        offline: true,
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    // Cached HQ is applied inline (WebP → IDB rasters) without pdf.js.
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toMatch(/^blob:/)
+    await w.get('button.fs-fab').trigger('click')
+    await flushPromises()
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    expect(w.find('img').attributes('src')).toMatch(/^blob:/)
+    w.unmount()
+    await clearPdfRasterCache()
+  })
+
+  it('offline keeps WebP when PDF rasters are not cached', async () => {
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    const { clearPdfRasterCache } = await import('../offline/pdfRasterCache')
+    await clearPdfRasterCache()
+    vi.mocked(renderPdfToPageUrls).mockClear()
     const w = mount(SheetViewer, {
       props: {
         pages: ['sheets/1/p1.webp'],
         pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
+        offline: true,
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await w.get('button.fs-fab').trigger('click')
+    await flushPromises()
+    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    expect(w.find('img').attributes('src')).toContain('p1.webp')
+    w.unmount()
+  })
+
+
+  it('shows format toggle only when uploads of both kinds exist', async () => {
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
+        pdf: 'sheets/1/sheet.pdf',
+        baseUrl: '/library/',
         canChooseFormat: true,
       },
     })
@@ -136,6 +200,8 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(pdfBtn!.attributes('aria-pressed')).toBe('true')
     expect(imagesBtn!.attributes('aria-pressed')).toBe('false')
     expect(w.find('iframe').exists()).toBe(false)
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
     expect(renderPdfToPageUrls).toHaveBeenCalled()
@@ -153,9 +219,9 @@ describe('SheetViewer fullscreen + pay key', () => {
     )
     const w = mount(SheetViewer, {
       props: {
-        pages: ['sheets/1/p1.webp'],
+        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
         pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
         canChooseFormat: true,
       },
     })
@@ -166,16 +232,61 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(w.find('img').attributes('src')).toContain('p1.webp')
     finish(['blob:pdf-page-ready-1', 'blob:pdf-page-ready-2'])
     await flushPromises()
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page-ready')
     w.unmount()
   })
+
+
+  it('cross-fades from WebP preview into hi-res PDF rasters', async () => {
+    vi.useFakeTimers()
+    let finish!: (urls: string[]) => void
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    vi.mocked(renderPdfToPageUrls).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp'],
+        pdf: 'sheets/1/sheet.pdf',
+        baseUrl: '/library/',
+        canChooseFormat: true,
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await w.get('[aria-label="Sheet music format"]').findAll('button')[1]!.trigger('click')
+    await flushPromises()
+    expect(w.text()).not.toContain('Preparing PDF')
+    expect(w.text()).not.toContain('Preparing sheet')
+    expect(w.find('img.page-base').attributes('src')).toContain('p1.webp')
+    finish(['blob:pdf-hi-1'])
+    await flushPromises()
+    // preload timeout (80ms) + fade (300ms); also flush rAF if available
+    await vi.advanceTimersByTimeAsync(80)
+    await flushPromises()
+    // upgrade layer should be mounting / fading
+    expect(w.find('img.page-upgrade').exists()).toBe(true)
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+    // After fade settles, base src is the hi-res blob
+    expect(w.find('img.page-base').attributes('src')).toContain('blob:pdf-hi-1')
+    expect(w.find('img.page-upgrade').exists()).toBe(false)
+    w.unmount()
+    vi.useRealTimers()
+  })
+
 
   it('shows PDF pages alone when there are no image pages', async () => {
     const w = mount(SheetViewer, {
       props: {
         pages: [],
         pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
       },
     })
     await flushPromises()
@@ -197,7 +308,7 @@ describe('SheetViewer fullscreen + pay key', () => {
           { id: 'pdf-b', label: 'learn.pdf', path: 'sheets/1/learn.pdf' },
         ],
         canChooseFormat: true,
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
       },
     })
     await flushPromises()

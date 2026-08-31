@@ -13,7 +13,7 @@ import {
   refreshStarMedia,
   removeStarred,
   starTag,
-} from './starredDb'
+} from './favoritesDb'
 import type { TagDetail, TagSummary } from '../types/tag'
 
 const summary: TagSummary = {
@@ -47,7 +47,7 @@ async function resetDb(): Promise<void> {
   })
 }
 
-describe('starredDb IDB', () => {
+describe('favoritesDb IDB', () => {
   beforeEach(async () => {
     await resetDb()
     vi.stubGlobal(

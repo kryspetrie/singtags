@@ -1,4 +1,4 @@
-/** Primary learning-track ids (preferred order in UI). */
+/** Primary learning-track ids in preferred UI order (mix first). */
 export const PRIMARY_PARTS = ['mix', 'lead', 'tenor', 'bari', 'bass'] as const
 
 export type PrimaryPartId = (typeof PRIMARY_PARTS)[number]
@@ -43,7 +43,7 @@ function humanizePartId(part: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** Sort: primary parts first (mix…bass), then any extras A–Z. */
+/** Sort learning-track ids: primary parts first, then extras A–Z. */
 export function sortPartIds(parts: Iterable<string>): string[] {
   const list = [...new Set(parts)].filter(Boolean)
   return list.sort((a, b) => {
@@ -56,6 +56,7 @@ export function sortPartIds(parts: Iterable<string>): string[] {
   })
 }
 
+/** Default part to select when opening a tag (mix, then lead, then first available). */
 export function preferredDefaultPart(parts: string[]): string | null {
   if (!parts.length) return null
   if (parts.includes('mix')) return 'mix'

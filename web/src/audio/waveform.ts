@@ -65,6 +65,10 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   })
 }
 
+/**
+ * Decode audio (or synthesize on failure) into normalized peak bars for waveform UI.
+ * Uses the shared audio context; abort via `signal` during fetch/decode.
+ */
 export async function loadWaveformPeaks(
   url: string,
   bars = 256,

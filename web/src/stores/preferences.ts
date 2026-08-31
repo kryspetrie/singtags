@@ -1,3 +1,8 @@
+/**
+ * Shared UI preferences: multi-part audio mix/solo, pitch pipe, browse welcome,
+ * and library audio part selection. Most fields persist to localStorage; pitch pipe
+ * also round-trips through offline cache zip snapshots.
+ */
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import {
@@ -43,15 +48,18 @@ try {
   /* ignore */
 }
 
+/** Default pitch-pipe settings (E3–E4 grid at A440). */
 export function defaultPitchPipePrefs(): PitchPipePrefs {
   return { range: 'e3-e4', layout: 'grid', aHz: 440, detuneCents: 0 }
 }
 
+/** Clamp detune slider to ±50 cents (integer). */
 function clampDetuneCents(n: number): number {
   if (!Number.isFinite(n)) return 0
   return Math.max(-50, Math.min(50, Math.round(n)))
 }
 
+/** Map absolute detune cents to a known concert-A preset, if exact match. */
 function matchConcertA(cents: number): PitchPipeAHz | null {
   for (const t of PITCH_PIPE_A_TUNINGS) {
     if (aHzToCents(t.hz) === cents) return t.hz
@@ -64,6 +72,12 @@ function fromLegacyFineCents(aHz: PitchPipeAHz, fineCents: number): PitchPipePre
   return clampDetuneCents(aHzToCents(aHz) + fineCents)
 }
 
+/**
+ * Parse pitch-pipe prefs from JSON (localStorage or offline zip).
+ * Supports current `detuneCents` format and legacy `fineCents` offset format.
+ *
+ * @returns Parsed prefs or null when invalid.
+ */
 export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
@@ -96,6 +110,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   }
 }
 
+/** Read deprecated per-key pitch pipe range from localStorage. */
 function loadLegacyPitchPipeRange(): PitchPipeRange {
   try {
     const mapped = normalizePitchPipeRange(localStorage.getItem(PITCH_PIPE_RANGE_KEY))
@@ -106,6 +121,7 @@ function loadLegacyPitchPipeRange(): PitchPipeRange {
   return 'e3-e4'
 }
 
+/** Read deprecated per-key pitch pipe layout from localStorage. */
 function loadLegacyPitchPipeLayout(): PitchPipeLayout {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_LAYOUT_KEY)
@@ -116,6 +132,10 @@ function loadLegacyPitchPipeLayout(): PitchPipeLayout {
   return 'grid'
 }
 
+/**
+ * Load pitch-pipe prefs from localStorage, with legacy key migration fallback.
+ * Side effect: reads localStorage only.
+ */
 export function loadPitchPipePrefs(): PitchPipePrefs {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_PREFS_KEY)
@@ -134,6 +154,10 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
   }
 }
 
+/**
+ * Persist pitch-pipe prefs and remove deprecated split keys.
+ * Side effect: localStorage write/remove.
+ */
 export function savePitchPipePrefs(prefs: PitchPipePrefs): void {
   try {
     localStorage.setItem(PITCH_PIPE_PREFS_KEY, JSON.stringify(prefs))
@@ -157,6 +181,7 @@ export function applyPitchPipePrefsSnapshot(raw: unknown): boolean {
   return true
 }
 
+/** Read a boolean flag from localStorage (`1`/`0`, `true`/`false`). */
 function loadBool(key: string, fallback: boolean): boolean {
   try {
     const raw = localStorage.getItem(key)
@@ -168,6 +193,7 @@ function loadBool(key: string, fallback: boolean): boolean {
   return fallback
 }
 
+/** Read a string array from localStorage JSON; normalizes custom audio part names. */
 function loadStringArray(key: string, fallback: string[]): string[] {
   try {
     const raw = localStorage.getItem(key)
@@ -180,6 +206,7 @@ function loadStringArray(key: string, fallback: string[]): string[] {
   }
 }
 
+/** Read library audio parts mode from localStorage. */
 function loadPartsMode(): LibraryAudioPartsMode {
   try {
     const raw = localStorage.getItem(LIBRARY_PARTS_MODE_KEY)
@@ -190,6 +217,7 @@ function loadPartsMode(): LibraryAudioPartsMode {
   return 'all'
 }
 
+/** Read per-part left/right map from localStorage (solo or mix pan). */
 function loadSideMap(key: string): Record<string, PartSide> {
   try {
     const raw = localStorage.getItem(key)
@@ -224,6 +252,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** When false, browse shows the one-time welcome / offline prompt. */
   const browseWelcomeDismissed = ref(loadBool(BROWSE_WELCOME_KEY, false))
 
+  /** Write current pitch-pipe refs to localStorage. Side effect: `savePitchPipePrefs`. */
   function persistPitchPipe(): void {
     savePitchPipePrefs({
       range: pitchPipeRange.value,
@@ -299,14 +328,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
     { deep: true, flush: 'sync' },
   )
 
+  /** Dismiss the one-time browse welcome / offline prompt. Side effect: localStorage. */
   function dismissBrowseWelcome(): void {
     browseWelcomeDismissed.value = true
   }
 
+  /** Set which learning-track parts to include in full-library audio pack. Side effect: localStorage. */
   function setLibraryAudioPartsMode(mode: LibraryAudioPartsMode): void {
     libraryAudioPartsMode.value = mode
   }
 
+  /** Toggle one part name in the custom library parts list (case-insensitive). */
   function toggleLibraryAudioPart(part: string): void {
     const key = part.toLowerCase()
     const next = new Set(libraryAudioParts.value.map((p) => p.toLowerCase()))
@@ -315,30 +347,37 @@ export const usePreferencesStore = defineStore('preferences', () => {
     libraryAudioParts.value = [...next]
   }
 
+  /** Solo channel for a part when playing a single file (`left` default). */
   function getPartSoloInFile(part: string): PartSide {
     return partSoloInFile.value[part] ?? 'left'
   }
 
+  /** Set solo channel for a part. Side effect: localStorage. */
   function setPartSoloInFile(part: string, side: PartSide): void {
     partSoloInFile.value = { ...partSoloInFile.value, [part]: side }
   }
 
+  /** Mix pan side for a part in multi-part playback (`left` default). */
   function getPartMixPan(part: string): PartSide {
     return partMixPan.value[part] ?? 'left'
   }
 
+  /** Set mix pan side for a part. Side effect: localStorage. */
   function setPartMixPan(part: string, side: PartSide): void {
     partMixPan.value = { ...partMixPan.value, [part]: side }
   }
 
+  /** Set pitch-pipe note range. Side effect: localStorage via pitch-pipe watcher. */
   function setPitchPipeRange(range: PitchPipeRange): void {
     pitchPipeRange.value = range
   }
 
+  /** Set pitch-pipe layout (grid, list, piano). Side effect: localStorage. */
   function setPitchPipeLayout(layout: PitchPipeLayout): void {
     pitchPipeLayout.value = layout
   }
 
+  /** Set concert-A preset highlight (may be null when detune is custom). */
   function setPitchPipeAHz(hz: PitchPipeAHz | null): void {
     pitchPipeAHz.value = hz
   }

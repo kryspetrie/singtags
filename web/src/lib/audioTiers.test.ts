@@ -13,9 +13,13 @@ import {
   storageAudioPath,
   ultraAudioPath,
   usesMonoSolos,
+  needsOnlineVirtualPartLearning,
+  isUltraMonoStemPath,
   canOfferReconstructedMix,
   mixIsDisjoint,
   partsAreRecombinable,
+  isBaseOfflineAudioPackPath,
+  isUpgradeAudioCachePath,
 } from './audioTiers'
 
 function detail(partial: Partial<TagDetail> & Pick<TagDetail, 'tag_id' | 'audio'>): TagDetail {
@@ -196,5 +200,32 @@ describe('audioTiers', () => {
 
   it('playableAudioParts is mix-only for mix-only tags', () => {
     expect(playableAudioParts(mixOnly, 'offline')).toEqual(['mix'])
+  })
+
+  it('treats mono_downmix like mono solos for virtual part-left', () => {
+    const monoDownmix = detail({
+      tag_id: 922,
+      audio: {
+        lead: 'media/922/lead.mp3',
+        tenor: 'media/922/tenor.mp3',
+        bari: 'media/922/bari.mp3',
+        bass: 'media/922/bass.mp3',
+      },
+      audio_layout_summary: { parts: 'mono', ultra_low: 'mono_downmix' },
+      audio_tiers_summary: { ultra_policy: 'mono_downmix', mix_only: false },
+    })
+    expect(usesMonoSolos(monoDownmix)).toBe(true)
+    expect(needsOnlineVirtualPartLearning(monoDownmix)).toBe(true)
+    expect(needsOnlineVirtualPartLearning(monoSolos)).toBe(false)
+    expect(isUltraMonoStemPath('1776 - Lead - Downmix.opus')).toBe(true)
+    expect(isUltraMonoStemPath('lead.solo.opus')).toBe(true)
+    expect(isUltraMonoStemPath('lead.playback.opus')).toBe(false)
+  })
+
+  it('classifies base offline pack vs upgrade audio paths', () => {
+    expect(isBaseOfflineAudioPackPath('media/9/lead.solo.opus')).toBe(true)
+    expect(isBaseOfflineAudioPackPath('media/9/mix.ultra_mix.opus')).toBe(true)
+    expect(isUpgradeAudioCachePath('media/9/lead.playback.opus')).toBe(true)
+    expect(isUpgradeAudioCachePath('media/9/lead.m4a')).toBe(true)
   })
 })

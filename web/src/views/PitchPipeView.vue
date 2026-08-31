@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * Chromatic pitch pipe page: concert-A tuning, note range/layout prefs, hold-to-play keys.
+ */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,

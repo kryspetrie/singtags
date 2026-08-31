@@ -2,8 +2,8 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it } from 'vitest'
-import { parseStarredFile, toStarredFile } from './starredDb'
-import type { StarredTagRecord } from './starredDb'
+import { parseStarredFile, toStarredFile } from './favoritesDb'
+import type { StarredTagRecord } from './favoritesDb'
 
 describe('starred.tags file', () => {
   it('round-trips metadata export shape', () => {

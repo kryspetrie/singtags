@@ -8,14 +8,12 @@ deploy_root() {
   cd "$here/.." && pwd
 }
 
-# Load optional env file: DEPLOY_ENV, then .env.deploy, then scripts/.env.deploy
+# Load optional env file: DEPLOY_ENV, else repo-root .env.deploy
 deploy_load_env() {
   local root="$1"
   local file="${DEPLOY_ENV:-}"
   if [[ -z "$file" && -f "$root/.env.deploy" ]]; then
     file="$root/.env.deploy"
-  elif [[ -z "$file" && -f "$root/scripts/.env.deploy" ]]; then
-    file="$root/scripts/.env.deploy"
   fi
   if [[ -n "$file" ]]; then
     if [[ ! -f "$file" ]]; then

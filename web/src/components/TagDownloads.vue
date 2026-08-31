@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Per-tag download panel: pick sheets/audio assets, queue zip jobs, or download directly.
+ * Can upgrade favorite audio quality via `upgradeStarredAudioPart` when originals are selected.
+ */
 import { computed, ref, watch } from 'vue'
 import type { PartId, TagDetail } from '../types/tag'
 import {
@@ -14,9 +18,10 @@ import { mediaUrl } from '../lib/mediaUrl'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { downloadBlob, fetchBytes, sampleUrl, buildZip, type QueueTrack } from '../download/zip'
 import { downloadFilename, prepareDownloadBytes } from '../download/transform'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 
 const props = defineProps<{
+  /** Full tag detail for asset listing and queue/download actions. */
   detail: TagDetail
   offline?: boolean
   /** When set, direct file/zip download is disabled (e.g. cache-only tag detail). */
@@ -31,7 +36,7 @@ const emit = defineEmits<{
   'cache-upgraded': []
 }>()
 
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const err = ref<string | null>(null)
 const msg = ref<string | null>(null)
 const audioFormat = ref<UserDownloadFormat>('m4a')
@@ -125,8 +130,8 @@ async function preparePickedFiles(): Promise<Array<{ name: string; data: Uint8Ar
       const name = downloadFilename(a.part, audioFormat.value, IDENTITY_TRANSFORM)
       files.push({ name, data, mime: mimeForAsset(a, name) })
 
-      if (stars.ids.has(props.detail.tag_id)) {
-        const { upgradeStarredAudioPart } = await import('../offline/starredDb')
+      if (favorites.ids.has(props.detail.tag_id)) {
+        const { upgradeStarredAudioPart } = await import('../offline/favoritesDb')
         const copy = new Uint8Array(raw.byteLength)
         copy.set(raw)
         await upgradeStarredAudioPart(props.detail.tag_id, a.part, {

@@ -1,20 +1,26 @@
 /** Math helpers for fullscreen sheet zoom / pan (transform: translate + scale). */
 
-/** Allow zooming out past fit-width (and a bit past fit-all). */
+/** Minimum zoom scale for fullscreen sheet view. */
 export const SHEET_ZOOM_MIN = 0.15
+/** Maximum zoom scale for fullscreen sheet view. */
 export const SHEET_ZOOM_MAX = 6
+/** Exponential wheel sensitivity (multiplier per pixel of deltaY). */
 export const SHEET_ZOOM_WHEEL_STEP = 0.0018
 
+/** Current pan/zoom state for a sheet image (CSS transform inputs). */
 export type SheetZoomPan = {
   scale: number
   panX: number
   panY: number
 }
 
+/** How to fit sheet content inside the viewport when resetting zoom. */
 export type SheetFitMode = 'width' | 'all'
 
+/** Viewport or content dimensions in CSS pixels. */
 export type SheetSize = { width: number; height: number }
 
+/** Clamp scale to {@link SHEET_ZOOM_MIN}…{@link SHEET_ZOOM_MAX}. */
 export function clampSheetZoom(scale: number): number {
   return Math.min(SHEET_ZOOM_MAX, Math.max(SHEET_ZOOM_MIN, scale))
 }
@@ -58,6 +64,7 @@ export function fitAllScale(viewport: SheetSize, content: SheetSize): number {
   )
 }
 
+/** Compute pan/zoom to fit content by width or entirely within the viewport. */
 export function fitSheetZoomPan(
   mode: SheetFitMode,
   viewport: SheetSize,
@@ -93,6 +100,7 @@ export function wheelZoomFactor(deltaY: number): number {
   return Math.exp(-deltaY * SHEET_ZOOM_WHEEL_STEP)
 }
 
+/** Apply a drag delta to pan offsets (scale unchanged). */
 export function panSheet(state: SheetZoomPan, dx: number, dy: number): SheetZoomPan {
   return {
     scale: state.scale,
@@ -101,6 +109,7 @@ export function panSheet(state: SheetZoomPan, dx: number, dy: number): SheetZoom
   }
 }
 
+/** CSS `transform` string for a {@link SheetZoomPan} (translate then scale). */
 export function sheetZoomPanCss(state: SheetZoomPan): string {
   return `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`
 }

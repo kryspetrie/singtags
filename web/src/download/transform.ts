@@ -1,9 +1,15 @@
+/**
+ * Per-track download pipeline: decode, optional pitch/speed transform, re-encode.
+ * Keeps hosted M4A bytes at `original` quality when no transform is applied.
+ */
+
 import { assertDecodableAudioBytes } from '../audio/audioBytes'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { isIdentityTransform, transformFilenameSuffix } from '../types/audio'
 import { processOfflineTransform } from '../audio/bakeClient'
 import { encodeAudioBuffer, encodeAudioBufferToM4a, encodeAudioBufferToOggOpus, encodeDecodedBytes } from './encode'
 
+/** Encode an {@link AudioBuffer} as 16-bit PCM WAV bytes. */
 export function audioBufferToWav(buffer: AudioBuffer): Uint8Array {
   const numChannels = buffer.numberOfChannels
   const sampleRate = buffer.sampleRate
@@ -38,6 +44,7 @@ export function audioBufferToWav(buffer: AudioBuffer): Uint8Array {
   return new Uint8Array(array)
 }
 
+/** Decode raw audio bytes via a short-lived {@link AudioContext}. */
 async function decodeBytes(data: Uint8Array): Promise<AudioBuffer> {
   assertDecodableAudioBytes(data)
   const ctx = new AudioContext()
@@ -61,6 +68,7 @@ export function resolveOutputFormat(
   return format
 }
 
+/** Options for {@link prepareDownloadBytes}. */
 export interface PrepareDownloadOptions {
   input: Uint8Array
   format: DownloadFormat
@@ -74,6 +82,10 @@ export interface PrepareDownloadOptions {
   encodeQuality?: AudioEncodeQuality
 }
 
+/**
+ * Fetch, optionally transform, and encode one media file for download or zip.
+ * @throws When pitch/speed is requested but the offline bake path is unavailable.
+ */
 export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promise<Uint8Array> {
   const { input, format, transform, signal, encodeQuality = 'original', sourceRevision } = opts
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -117,6 +129,7 @@ export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promis
   return encodeAudioBuffer(processed, outFormat as 'mp3' | 'ogg', encOpts)
 }
 
+/** Suggested filename for a downloaded part (includes transform suffix when non-identity). */
 export function downloadFilename(
   part: string,
   format: DownloadFormat,

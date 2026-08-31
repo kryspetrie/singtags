@@ -13,6 +13,7 @@ export async function parseGzipJsonBuffer<T>(buf: ArrayBuffer): Promise<T> {
   return JSON.parse(text) as T
 }
 
+/** Fetch JSON from a URL (gzip or plain UTF-8 body). */
 export async function fetchGzipJson<T>(url: string): Promise<T> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`)

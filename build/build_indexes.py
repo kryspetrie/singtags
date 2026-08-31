@@ -253,6 +253,9 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         "sheet_preview": sheet_preview,
         "source_folder": folder.name,
         "parts_recombinable": meta.get("parts_recombinable"),
+        # Media freshness for client offline cache invalidation
+        "downloaded_at": meta.get("downloaded_at"),
+        "last_updated_remote": meta.get("last_updated_remote") or meta.get("stamp"),
     }
 
 

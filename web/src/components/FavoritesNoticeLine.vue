@@ -1,8 +1,14 @@
 <script setup lang="ts">
+/**
+ * Compact favorites status line (favorited, cached media, removed) for tag rows and settings.
+ */
 import { computed } from 'vue'
-import type { StarsNotice } from '../stores/starNotice'
+import type { FavoritesNotice } from '../stores/favoritesNotice'
 
-const props = defineProps<{ notice: StarsNotice }>()
+const props = defineProps<{
+  /** Favorites notice payload from {@link useFavoritesNoticeStore} helpers. */
+  notice: FavoritesNotice
+}>()
 
 /** Single plain-text status line — no emoji badges. */
 const label = computed(() => {
@@ -13,18 +19,18 @@ const label = computed(() => {
     if (n.sheets) return 'Favorited · sheets saved'
     return 'Favorited'
   }
-  if (n.type === 'starred') return 'Favorited'
+  if (n.type === 'favorited') return 'Favorited'
   if (n.type === 'removed') return 'Removed from favorites'
   return n.message
 })
 </script>
 
 <template>
-  <span class="stars-notice">{{ label }}</span>
+  <span class="favorites-notice">{{ label }}</span>
 </template>
 
 <style scoped>
-.stars-notice {
+.favorites-notice {
   white-space: nowrap;
 }
 </style>

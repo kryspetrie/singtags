@@ -1,5 +1,11 @@
+/**
+ * Sheet path selection for offline cache vs on-screen display.
+ * Prefers compact preview WebP for cache; full pages for display.
+ */
+
 import type { TagDetail, TagSummary } from '../types/tag'
 
+/** Subset of tag fields needed to resolve sheet paths. */
 type SheetPathDetail = Pick<TagDetail, 'sheet_preview' | 'sheet_pages' | 'sheet'>
 
 /** Compact offline cache path(s): prefer dedicated preview over full page raster. */
@@ -16,6 +22,7 @@ export function sheetDisplayPages(detail: SheetPathDetail): string[] {
   return []
 }
 
+/** Raster pages for browse cards from a {@link TagSummary}. */
 export function summarySheetPages(summary: TagSummary): string[] {
   if (summary.sheetPages?.length) return summary.sheetPages
   if (summary.sheetPreview) return [summary.sheetPreview]

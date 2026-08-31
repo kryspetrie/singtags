@@ -32,14 +32,14 @@ describe('SheetViewer', () => {
     const w = mount(SheetViewer, {
       props: {
         pages: ['sheets/1/pages/page-01.webp'],
-        baseUrl: '/sample-data/',
+        baseUrl: '/library/',
         cropToContent: false,
       },
     })
     await flushPromises()
     const img = w.find('img')
     expect(img.exists()).toBe(true)
-    expect(img.attributes('src')).toBe('/sample-data/sheets/1/pages/page-01.webp')
+    expect(img.attributes('src')).toBe('/library/sheets/1/pages/page-01.webp')
     expect(img.attributes('alt')).toBe('Sheet page 1')
   })
 })

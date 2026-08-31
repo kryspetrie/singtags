@@ -7,7 +7,7 @@ const meta = {
   tags: ['autodocs'],
   args: {
     pages: [],
-    baseUrl: '/sample-data/',
+    baseUrl: '/library/',
   },
 } satisfies Meta<typeof SheetViewer>
 

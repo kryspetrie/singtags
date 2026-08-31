@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Horizontal scrub rail with loupe preview for virtualized browse lists (year, tag #, …).
+ * Emits scrub indices while dragging; syncs idle cursor to scroll `activeIndex`.
+ */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   buildLabelAnchors,
@@ -41,6 +45,8 @@ const props = withDefaults(
     axisBlend?: number
     /** Accessible / tooltip label for the ↑ jump-to-start control. */
     jumpTopLabel?: string
+    /** When true, ↑ is inert (already at document/search top). */
+    jumpTopDisabled?: boolean
     /**
      * When set with `valueAtIndex`, the loupe can show denser ticks (50s / 25s)
      * on wider tracks while the idle rail keeps coarser labels from `labelAtIndex`.
@@ -61,6 +67,7 @@ const props = withDefaults(
     activeIndex: null,
     axisBlend: DEFAULT_AXIS_BLEND,
     jumpTopLabel: 'Jump to newest',
+    jumpTopDisabled: false,
     denseLoupeTicks: false,
     valueAtIndex: undefined,
     tickAtStart: false,
@@ -70,6 +77,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   scrub: [index: number]
   scrubEnd: []
+  /** ↑ control — parent owns two-step scroll (first group → search). */
+  jumpTop: []
 }>()
 
 const trackEl = ref<HTMLElement | null>(null)
@@ -353,11 +362,9 @@ function onPointerUp(e: PointerEvent): void {
   if (!hovering.value) preview.value = committed.value
 }
 
-function jumpToNewest(): void {
-  // Force a scrub emit even when the rail is already parked at newest —
-  // the list may still be scrolled away (e.g. after a prior jump settled early).
-  lastEmittedIndex = Number.NaN
-  commit(props.reverseAxis ? 1 : 0)
+function onJumpTopClick(): void {
+  if (props.jumpTopDisabled) return
+  emit('jumpTop')
 }
 
 function onKeyDown(e: KeyboardEvent): void {
@@ -418,9 +425,10 @@ onBeforeUnmount(() => {
     <button
       type="button"
       class="scrub-top"
+      :disabled="jumpTopDisabled"
       :title="jumpTopLabel"
       :aria-label="jumpTopLabel"
-      @click="jumpToNewest"
+      @click="onJumpTopClick"
     >
       ↑
     </button>
@@ -510,10 +518,16 @@ onBeforeUnmount(() => {
   align-self: center;
   cursor: pointer;
 }
-.scrub-top:hover,
-.scrub-top:focus-visible {
+.scrub-top:hover:not(:disabled),
+.scrub-top:focus-visible:not(:disabled) {
   filter: brightness(1.08);
   outline: none;
+}
+.scrub-top:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+  box-shadow: none;
 }
 .scrub-track {
   position: relative;

@@ -4,7 +4,7 @@
 **Date:** 2026-08-25  
 **Context:** Full-quality MP3/AAC learning tracks (~5.5 GB library) dominate egress and offline size. Opus tiers and mono-solo reconstruction reduce bandwidth while preserving original downloads.
 
-Related: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md), [offline-library.md](decisions/offline-library.md), [ARCHITECTURE.md](../ARCHITECTURE.md), mirror repo `Barbershop/tags/docs/AUDIO_STORAGE_AND_CACHE.md`.
+Related: [offline-library.md](offline-library.md), [architecture.md](../architecture.md), [non-recombinable-tracks](../plans/non-recombinable-tracks.md), mirror `sync/docs/AUDIO_STORAGE_AND_CACHE.md`.
 
 ---
 
@@ -21,7 +21,7 @@ Related: [TIERED_AUDIO_FOLLOWUP.md](../TIERED_AUDIO_FOLLOWUP.md), [offline-libra
 
 Publish encoding rules and layout classification live in the mirror repo (`audio_layout_summary.ultra_low`: `mono_solos` | `mono_downmix` | `stereo_fallback`). For `mono_solos`, the mirror also estimates accompaniment-channel timing vs Lead and **bakes trusted offsets ≥50 ms into Opus Solo/Playback files** so client reconstruction can assume a shared t=0.
 
-When stems are not recombinable (`parts_recombinable: false`), the mirror demotes to **`stereo_fallback`** and the client plays/caches hosted Opus stereo (and hosted mix) — see [NON_RECOMBINABLE_TRACKS_PLAN.md](../NON_RECOMBINABLE_TRACKS_PLAN.md).
+When stems are not recombinable (`parts_recombinable: false`), the mirror demotes to **`stereo_fallback`** and the client plays/caches hosted Opus stereo (and hosted mix) — see [non-recombinable-tracks](../plans/non-recombinable-tracks.md).
 
 ### Online tag page
 
@@ -60,11 +60,14 @@ Pack contents:
 none → ultra_low → playback → original
 ```
 
-Playback resolution (`resolveMedia` extension):
+Playback resolution (`resolveMedia`):
 
-1. Original blob (star / pack / IndexedDB) if present  
-2. Else online: fetch Playback tier  
-3. Else offline: reconstruct from ultra_low mono solos (or ultra_mix for mix-only)
+1. Original blob (star / pack / IndexedDB) if present for that part  
+2. Else Playback blob if already cached for that part (including after online play warm-cache)  
+3. Else online: fetch Playback tier (and warm the audio pack for later offline use)  
+4. Else offline: reconstruct from ultra_low mono solos (or ultra_mix for mix-only)
+
+Reconstruction always uses **ultra/lofi stems for accompaniment**, even when the active part plays from a higher-quality cache.
 
 ---
 
@@ -78,7 +81,7 @@ Playback resolution (`resolveMedia` extension):
 | Starred “Original” keeps hosted file | Star/download stores **Original** tier |
 | Full audio pack = all hosted MP4s | Full audio pack = ultra-low solos + optional playback; originals only when user downloaded |
 
-On-device re-encode (`compactAudio.ts`) may remain as fallback for legacy sample-data without tier URLs until publish pipeline ships.
+On-device re-encode (`compactAudio.ts`) may remain as fallback for legacy tags without tier URLs until publish pipeline ships.
 
 ---
 

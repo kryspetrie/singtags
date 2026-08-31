@@ -1,5 +1,6 @@
 /** Mirror JSON snapshots in sessionStorage + localStorage for offline refresh. */
 
+/** Return localStorage and sessionStorage when available (private mode may omit one). */
 function storageStores(): Storage[] {
   const out: Storage[] = []
   try {
@@ -15,6 +16,7 @@ function storageStores(): Storage[] {
   return out
 }
 
+/** Write JSON to every available browser storage mirror. */
 export function savePersistentSnapshot(key: string, data: unknown): void {
   const json = JSON.stringify(data)
   for (const store of storageStores()) {
@@ -26,6 +28,10 @@ export function savePersistentSnapshot(key: string, data: unknown): void {
   }
 }
 
+/**
+ * Read and validate a mirrored JSON snapshot from session or local storage.
+ * @param validate Type guard; invalid payloads are skipped.
+ */
 export function loadPersistentSnapshot<T>(
   key: string,
   validate: (data: unknown) => data is T,
@@ -43,6 +49,7 @@ export function loadPersistentSnapshot<T>(
   return null
 }
 
+/** Remove a snapshot key from all storage mirrors. */
 export function clearPersistentSnapshot(key: string): void {
   for (const store of storageStores()) {
     try {

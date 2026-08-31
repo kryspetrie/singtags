@@ -1,12 +1,26 @@
-/** Browser storage estimate + persistent storage request. */
+/**
+ * Browser storage quota helpers for offline download UX.
+ *
+ * Wraps `navigator.storage` estimate/persist APIs and formats byte counts for display.
+ */
 
+/** Snapshot of origin storage usage from {@link getStorageEstimate}. */
 export interface StorageEstimateInfo {
+  /** Bytes currently used by the origin (best-effort). */
   usage: number
+  /** Storage quota in bytes (best-effort). */
   quota: number
+  /** {@link usage} / {@link quota}, or `0` when quota is unknown/zero. */
   usageRatio: number
+  /** Whether the origin has been granted persistent storage. */
   persisted: boolean
 }
 
+/**
+ * Request persistent storage so offline caches are less likely to be evicted.
+ *
+ * @returns `true` when persistence was granted.
+ */
 export async function requestPersistentStorage(): Promise<boolean> {
   try {
     if (!navigator.storage?.persist) return false
@@ -16,6 +30,11 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
 }
 
+/**
+ * Read current storage usage and persistence state.
+ *
+ * @returns Estimate info, or `null` when `navigator.storage.estimate` is unavailable.
+ */
 export async function getStorageEstimate(): Promise<StorageEstimateInfo | null> {
   try {
     if (!navigator.storage?.estimate) return null
@@ -39,6 +58,11 @@ export async function getStorageEstimate(): Promise<StorageEstimateInfo | null> 
   }
 }
 
+/**
+ * Human-readable byte size for UI labels.
+ *
+ * @param n Byte count (non-finite or negative values render as `"—"`).
+ */
 export function formatBytes(n: number): string {
   if (!Number.isFinite(n) || n < 0) return '—'
   if (n < 1024) return `${Math.round(n)} B`
@@ -47,7 +71,11 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 ** 3).toFixed(2)} GB`
 }
 
-/** Best-effort: true when on a metered / cellular connection. */
+/**
+ * Best-effort: `true` when the Network Information API suggests a metered connection.
+ *
+ * Used to warn before large offline downloads on cellular or save-data mode.
+ */
 export function isLikelyMeteredConnection(): boolean {
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean; type?: string; effectiveType?: string } })
     .connection

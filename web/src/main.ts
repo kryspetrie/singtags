@@ -1,3 +1,7 @@
+/**
+ * SingTags SPA bootstrap: Pinia, offline fetch patch, catalog hydration,
+ * router mount, and idle preload of the pitch/speed DSP worker.
+ */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'

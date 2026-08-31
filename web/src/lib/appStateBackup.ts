@@ -1,3 +1,8 @@
+/**
+ * Full app-state export/import: Favorites backup payload, practice order,
+ * and selected `localStorage` keys (optionally bundled with offline cache zip).
+ */
+
 import { unzipSync } from 'fflate'
 import { buildZip, downloadBlob } from '../download/zip'
 import {
@@ -5,7 +10,7 @@ import {
   importOfflineCacheZip,
   type CacheProgress,
 } from '../offline/cacheManage'
-import type { StarredTagRecord } from '../offline/starredDb'
+import type { StarredTagRecord } from '../offline/favoritesDb'
 import {
   buildFavoritesBackup,
   parseFavoritesBackup,
@@ -19,6 +24,7 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.practiceOrder.v1',
   'singtags.practiceAuto.v1',
   'singtags.recent.v2',
+  'singtags.recentSort.v1',
   'singtags.zipQueue.v2',
   'singtags.zipLayout.v2',
   'singtags.manualOffline',
@@ -34,6 +40,7 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.audioEncodeQuality.v1',
 ] as const
 
+/** On-disk / zip `app-state.json` schema (v1). */
 export type AppStateBackupFile = {
   version: 1
   kind: 'singtags.app-state'
@@ -44,12 +51,14 @@ export type AppStateBackupFile = {
   localStorage: Record<string, string>
 }
 
+/** Live app data needed to build an app-state backup. */
 export type AppStateSnapshotInput = {
   records: StarredTagRecord[]
   collections: UserCollection[]
   practice: { order: number[]; autoAdvance: boolean }
 }
 
+/** Snapshot only keys listed in {@link APP_STATE_LOCAL_KEYS}. */
 function readLocalStorageSnapshot(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const key of APP_STATE_LOCAL_KEYS) {
@@ -76,6 +85,7 @@ export function applyLocalStorageSnapshot(snapshot: Record<string, string>): voi
   }
 }
 
+/** Assemble a portable app-state object (JSON-serializable). */
 export function buildAppStateBackup(
   input: AppStateSnapshotInput,
   includeCache: boolean,
@@ -94,6 +104,7 @@ export function buildAppStateBackup(
   }
 }
 
+/** Validate and normalize parsed JSON into {@link AppStateBackupFile}. */
 export function parseAppStateBackup(raw: unknown): AppStateBackupFile {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid app-state backup')
   const obj = raw as Record<string, unknown>
@@ -117,6 +128,10 @@ export function parseAppStateBackup(raw: unknown): AppStateBackupFile {
   }
 }
 
+/**
+ * Build and trigger browser download of app-state JSON or zip (+ optional offline cache).
+ * @returns Approximate byte size and whether cache was included.
+ */
 export async function downloadAppStateBackup(
   input: AppStateSnapshotInput,
   opts: { includeCache: boolean; onProgress?: (p: CacheProgress) => void },
@@ -167,6 +182,7 @@ export async function loadAppStateBackupFile(
   return { state, cacheBytes: null }
 }
 
+/** Import offline cache bytes from a full app backup zip into Cache API / packs. */
 export async function restoreOfflineCacheBytes(
   cacheBytes: Uint8Array,
   onProgress?: (p: CacheProgress) => void,

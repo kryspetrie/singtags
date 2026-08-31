@@ -1,5 +1,6 @@
 /** Minimal AudioBuffer-like object for environments without Web Audio (happy-dom). */
 
+/** Test shim implementing the `AudioBuffer` surface when Web Audio is unavailable. */
 export class FakeAudioBuffer {
   readonly numberOfChannels: number
   readonly length: number

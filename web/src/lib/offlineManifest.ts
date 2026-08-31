@@ -1,3 +1,8 @@
+/**
+ * Offline manifest filtering and flattening for library audio downloads.
+ * Applies per-part mode (all / mix / custom) before queueing fetch items.
+ */
+
 import type { OfflineManifest, OfflineManifestEntry } from '../offline/manifestTypes'
 import type { DownloadItem } from '../offline/downloadQueue'
 import { mediaUrl, tagDetailUrl } from './mediaUrl'
@@ -11,10 +16,15 @@ import { isPublishedTierPath } from './audioTiers'
 import type { AudioEncodeQuality } from '../types/audio'
 import { storageSizeFactor } from '../types/audio'
 
+/** Sort mix paths before voice parts in download queues. */
 function mixFirst(path: string): number {
   return partFromMediaPath(path) === 'mix' ? 0 : 1
 }
 
+/**
+ * Filter manifest entries to paths matching the library audio-parts setting.
+ * @returns Filtered entries plus adjusted byte/file totals.
+ */
 export function filterAudioManifest(
   manifest: OfflineManifest,
   mode: LibraryAudioPartsMode,
@@ -41,6 +51,7 @@ export function filterAudioManifest(
   return { entries, totalBytes, fileCount }
 }
 
+/** Expand a full offline manifest into per-file {@link DownloadItem} rows. */
 export function flattenManifestEntries(manifest: OfflineManifest): DownloadItem[] {
   const items: DownloadItem[] = []
   for (const e of manifest.entries) {
@@ -65,6 +76,7 @@ export function flattenManifestEntries(manifest: OfflineManifest): DownloadItem[
   return items
 }
 
+/** Like {@link flattenManifestEntries} but honors library audio-parts filter (mix first). */
 export function flattenFilteredAudioManifest(
   manifest: OfflineManifest,
   mode: LibraryAudioPartsMode,
@@ -83,6 +95,10 @@ export function flattenFilteredAudioManifest(
   return items
 }
 
+/**
+ * Estimate download bytes for filtered audio paths at a storage quality.
+ * Published Opus tiers use manifest sizes; hosted M4A applies {@link storageSizeFactor}.
+ */
 export function estimateAudioDownloadBytes(
   manifest: OfflineManifest | null,
   mode: LibraryAudioPartsMode,

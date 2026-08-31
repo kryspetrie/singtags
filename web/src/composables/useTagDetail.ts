@@ -1,27 +1,41 @@
+/**
+ * Tag detail page composable: load metadata, resolve offline/online media, prepare sheets.
+ *
+ * Orchestrates favorites (IndexedDB `starred` records), tier-2 packs, and network fetches.
+ * Audio parts resolve lazily on first play; sheets are prepared for display when possible.
+ */
+
 import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import {
-  cachedPathCandidates,
   inferLowerQualityFromStarred,
+  isUltraMonoStemPath,
   isUltraSoloPath,
   listAudioParts,
+  needsOnlineVirtualPartLearning,
   usesMonoSolos,
 } from '../lib/audioTiers'
 import { preferredDefaultPart, sortPartIds } from '../lib/parts'
 import { mediaUrl, tagDetailUrl } from '../lib/mediaUrl'
 import { resolveSheetAssets } from '../lib/sheetAssets'
 import { sheetDisplayPages } from '../lib/sheetPaths'
-import { prepareDefaultSheet, preloadSheetPages, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
-import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/starredDb'
+import { prepareDefaultSheet, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
+import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/favoritesDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
-import { packHasPath, probeAvailableAudioParts, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
+import { probeTagAudioAvailability, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
 import { sheetsPack } from '../offline/libraryPack'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { useObjectUrls } from './useObjectUrls'
 
+/**
+ * Reactive state and loaders for a single tag detail view.
+ *
+ * @param id Tag id as a ref or plain string (watched when a ref).
+ * @returns Detail JSON, resolved media URLs, sheet assets, and load/resolve helpers.
+ */
 export function useTagDetail(id: Ref<string> | string) {
-  const stars = useStarsStore()
+  const favorites = useFavoritesStore()
   const { track, revokeAll } = useObjectUrls()
   const detail = ref<TagDetail | null>(null)
   const error = ref<string | null>(null)
@@ -34,26 +48,19 @@ export function useTagDetail(id: Ref<string> | string) {
   /** True when any learning-track tier for this tag is in the offline audio pack. */
   const hasPackAudio = ref(false)
   const cachedSheetPages = ref<string[] | null>(null)
+  /** Where sheet/audio bytes came from after the last resolve pass. */
   const mediaSource = ref<'network' | 'star' | 'pack' | 'mixed'>('network')
   const preparedSheet = ref<PreparedSheet | null>(null)
   const loading = ref(false)
   const sheetPreparing = ref(false)
 
+  /** Favorites IndexedDB record for this tag, when loaded (legacy `StarredTagRecord` type). */
   let starredRecord: StarredTagRecord | undefined
   let fetchAbort: AbortController | null = null
   let loadSeq = 0
 
   function isBlobPlaybackUrl(url: string): boolean {
     return url.startsWith('blob:')
-  }
-
-  async function probePackAudio(d: TagDetail): Promise<boolean> {
-    for (const part of listAudioParts(d)) {
-      for (const path of cachedPathCandidates(d, part)) {
-        if (await packHasPath(path)) return true
-      }
-    }
-    return false
   }
 
   function dropNonBlobAudioParts(): void {
@@ -66,18 +73,37 @@ export function useTagDetail(id: Ref<string> | string) {
     if (changed) audioParts.value = next
   }
 
+  /** Coming online via TagView load(): clear resolved blobs so HQ can replace ultra/lofi. */
+  function dropResolvedAudioForOnlineUpgrade(): void {
+    const tagId = detail.value?.tag_id
+    audioParts.value = {}
+    hasLowerQualityAudio.value = false
+    if (tagId != null) clearLearningStereoCache(tagId)
+  }
+
   watch(
     () => useOfflineModeStore().offline,
     (now, prev) => {
-      if (now && !prev) dropNonBlobAudioParts()
       const d = detail.value
-      if (d) {
-        void probeAvailableAudioParts(d, {
-          starred: starredRecord ?? null,
-          offlineOnly: now,
-        }).then((parts) => {
-          if (detail.value === d) availableAudioParts.value = parts
-        })
+      if (!d) return
+      // Coming online: TagView calls load() for a full upgrade pass — avoid duplicating work here.
+      if (now && !prev) {
+        dropNonBlobAudioParts()
+        void (async () => {
+          await resolveSheets(d, starredRecord, true)
+          if (detail.value !== d) return
+          if (cachedSheetPages.value?.length) {
+            preparedSheet.value = { pages: [...cachedSheetPages.value], owned: [] }
+          }
+          const { parts, hasPackAudio: packHit } = await probeTagAudioAvailability(d, {
+            starred: starredRecord ?? null,
+            offlineOnly: true,
+          })
+          if (detail.value !== d) return
+          availableAudioParts.value = parts
+          hasPackAudio.value = packHit
+          void warmDefaultAudio(d, starredRecord, true)
+        })()
       }
     },
   )
@@ -91,10 +117,11 @@ export function useTagDetail(id: Ref<string> | string) {
     preparedSheet.value = null
   }
 
-  function clearMedia(): void {
-    const tagId = detail.value?.tag_id
+  function clearMedia(tagId?: number): void {
+    // Prefer explicit id — callers often null `detail` before clearing.
+    const id = tagId ?? detail.value?.tag_id
     revokeAll()
-    clearLearningStereoCache(tagId)
+    clearLearningStereoCache(id)
     audioParts.value = {}
     availableAudioParts.value = []
     hasLowerQualityAudio.value = false
@@ -158,9 +185,8 @@ export function useTagDetail(id: Ref<string> | string) {
   }
 
   /**
-   * Seed audio from starred blobs only — no network/pack/mix work at tag load.
-   * Offline mono_solos voice stems are skipped so resolveAudioPart can rebuild
-   * learning-track stereo (solo hard on one side, accompaniment on the other).
+   * Seed audio from favorite-tag blobs only — no network/pack/mix work at tag load.
+   * Skips ultra/lofi voice stems offline (mono_solos rebuild) and online (so HQ pack/network can win).
    */
   function seedStarredAudio(
     cached: StarredTagRecord | undefined,
@@ -169,16 +195,15 @@ export function useTagDetail(id: Ref<string> | string) {
   ): Set<'star' | 'pack' | 'network'> {
     const sources = new Set<'star' | 'pack' | 'network'>()
     const parts: Record<string, string> = {}
-    const skipUltraVoiceSeed = offlineOnly && !!d && usesMonoSolos(d)
 
     if (cached?.audioBlobs) {
       for (const [part, entry] of Object.entries(cached.audioBlobs)) {
-        if (
-          skipUltraVoiceSeed &&
+        const degraded =
           part.toLowerCase() !== 'mix' &&
           (isUltraSoloPath(entry.path) || entry.quality === 'lofi')
-        ) {
-          continue
+        if (degraded) {
+          // Online: leave room for pack/network HQ. Offline mono_solos: rebuild via resolveAudioPart.
+          if (!offlineOnly || (d && usesMonoSolos(d))) continue
         }
         const url = blobUrlFromCached(entry)
         if (url) {
@@ -193,6 +218,31 @@ export function useTagDetail(id: Ref<string> | string) {
     return sources
   }
 
+
+  /** Offline: force re-resolve only when the blob still needs learning-stereo rebuild. */
+  function needsOfflineVoiceRebuild(d: TagDetail, part: string, existingUrl: string): boolean {
+    if (part.toLowerCase() === 'mix' || !usesMonoSolos(d)) return false
+    if (hasCachedLearningStereo(d.tag_id, part, existingUrl)) return false
+    // Dual-mono hosts always need a learning-stereo rebuild (unless already cached above).
+    if (needsOnlineVirtualPartLearning(d)) return true
+    const blobs = starredRecord?.audioBlobs
+    const entry =
+      blobs?.[part] ??
+      (blobs
+        ? Object.entries(blobs).find(([k]) => k.toLowerCase() === part.toLowerCase())?.[1]
+        : undefined)
+    if (
+      entry &&
+      entry.quality !== 'lofi' &&
+      !isUltraSoloPath(entry.path) &&
+      !isUltraMonoStemPath(entry.path)
+    ) {
+      // Cached original/playback for mono_solos is already a learning track.
+      return false
+    }
+    return true
+  }
+
   async function warmPreferredPart(
     d: TagDetail,
     preferred: string,
@@ -200,11 +250,9 @@ export function useTagDetail(id: Ref<string> | string) {
     offlineOnly: boolean,
   ): Promise<'star' | 'pack' | 'network' | 'reconstruct' | null> {
     const existing = audioParts.value[preferred]
-    const needsOfflineVoiceReconstruct =
-      offlineOnly &&
-      usesMonoSolos(d) &&
-      preferred.toLowerCase() !== 'mix'
-    if (existing && !(needsOfflineVoiceReconstruct && isBlobPlaybackUrl(existing) && !hasCachedLearningStereo(d.tag_id, preferred, existing))) {
+    const forceOfflineRebuild =
+      offlineOnly && needsOfflineVoiceRebuild(d, preferred, existing ?? '')
+    if (existing && !(forceOfflineRebuild && isBlobPlaybackUrl(existing))) {
       if (isBlobPlaybackUrl(existing)) {
         return hasCachedLearningStereo(d.tag_id, preferred, existing) ? 'reconstruct' : 'star'
       }
@@ -235,35 +283,37 @@ export function useTagDetail(id: Ref<string> | string) {
     }
   }
 
+  /**
+   * Resolve sheet blobs + seed audio tabs. Does **not** warm/decode the default
+   * audio part — that can take seconds (especially offline mono_downmix / mono_solos
+   * reconstruct) and must not block sheet paint when 800px WebPs are already cached.
+   */
   async function resolveSheetsAndAudio(
     d: TagDetail,
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
+    opts?: { sheetsAlreadyResolved?: boolean },
   ): Promise<void> {
     starredRecord = cached
-    const probed = await probeAvailableAudioParts(d, {
+    const sheetSources = opts?.sheetsAlreadyResolved
+      ? new Set<'star' | 'pack' | 'network'>(
+          cachedSheetPages.value?.length
+            ? [cached?.sheetBlobs?.length ? 'star' : 'pack']
+            : [],
+        )
+      : await resolveSheets(d, cached, offlineOnly)
+
+    const { parts: probed, hasPackAudio: packHit } = await probeTagAudioAvailability(d, {
       starred: cached ?? null,
       offlineOnly,
     })
-
-    const sheetSources = await resolveSheets(d, cached, offlineOnly)
     const audioSources = seedStarredAudio(cached, d, offlineOnly)
 
     // Publish tabs immediately so a slow/hung Mix reconstruct cannot leave "No audio".
     availableAudioParts.value = sortPartIds([
       ...new Set([...probed, ...Object.keys(audioParts.value)]),
     ])
-    hasPackAudio.value = await probePackAudio(d)
-
-    const preferred = preferredDefaultPart(probed)
-    if (preferred) {
-      const src = await warmPreferredPart(d, preferred, cached, offlineOnly)
-      if (src) audioSources.add(src === 'reconstruct' ? 'pack' : src)
-    }
-
-    availableAudioParts.value = sortPartIds([
-      ...new Set([...probed, ...Object.keys(audioParts.value)]),
-    ])
+    hasPackAudio.value = packHit
 
     const sources = new Set([...sheetSources, ...audioSources])
     if (hasPackAudio.value) sources.add('pack')
@@ -271,6 +321,27 @@ export function useTagDetail(id: Ref<string> | string) {
     if (sources.size === 0) mediaSource.value = 'network'
     else if (sources.size === 1) mediaSource.value = [...sources][0]!
     else mediaSource.value = 'mixed'
+  }
+
+  /** Warm the default learning track after sheets are on screen. */
+  async function warmDefaultAudio(
+    d: TagDetail,
+    cached: StarredTagRecord | undefined,
+    offlineOnly: boolean,
+  ): Promise<void> {
+    const preferred = preferredDefaultPart(availableAudioParts.value)
+    if (!preferred) return
+    const src = await warmPreferredPart(d, preferred, cached, offlineOnly)
+    if (!src) return
+    const sources = new Set<string>([mediaSource.value === 'mixed' ? 'star' : mediaSource.value])
+    if (src === 'reconstruct') sources.add('pack')
+    else sources.add(src)
+    if (hasPackAudio.value) sources.add('pack')
+    if (sources.size <= 1) mediaSource.value = (src === 'reconstruct' ? 'pack' : src) as typeof mediaSource.value
+    else mediaSource.value = 'mixed'
+    availableAudioParts.value = sortPartIds([
+      ...new Set([...availableAudioParts.value, ...Object.keys(audioParts.value)]),
+    ])
   }
 
   /**
@@ -283,16 +354,10 @@ export function useTagDetail(id: Ref<string> | string) {
 
     const offlineOnly = useOfflineModeStore().offline
     const existing = audioParts.value[part]
-    const needsOfflineVoiceReconstruct =
-      offlineOnly && usesMonoSolos(d) && part.toLowerCase() !== 'mix'
-
     if (existing) {
       if (isBlobPlaybackUrl(existing)) {
-        // Offline voice parts must be learning-stereo (solo vs accompaniment), not raw dual-mono.
-        if (
-          !needsOfflineVoiceReconstruct ||
-          hasCachedLearningStereo(d.tag_id, part, existing)
-        ) {
+        // Offline: keep HQ playback/original; only rebuild when still on ultra/lofi or dual-mono.
+        if (!offlineOnly || !needsOfflineVoiceRebuild(d, part, existing)) {
           return existing
         }
       } else if (!offlineOnly) {
@@ -338,7 +403,9 @@ export function useTagDetail(id: Ref<string> | string) {
   /** Background-resolve other voice parts so tab switches don't stall mid-playback. */
   async function prefetchOfflineVoiceParts(d: TagDetail, exceptPart: string): Promise<void> {
     const except = exceptPart.toLowerCase()
+    const seq = loadSeq
     for (const p of availableAudioParts.value) {
+      if (seq !== loadSeq || detail.value !== d) return
       if (p.toLowerCase() === except || p.toLowerCase() === 'mix') continue
       if (audioParts.value[p]) continue
       try {
@@ -346,14 +413,16 @@ export function useTagDetail(id: Ref<string> | string) {
           starred: starredRecord ?? null,
           offlineOnly: true,
         })
+        if (seq !== loadSeq || detail.value !== d) {
+          if (resolved?.kind === 'blob' && !hasCachedLearningStereo(d.tag_id, p, resolved.url)) {
+            URL.revokeObjectURL(resolved.url)
+          }
+          return
+        }
         if (!resolved || resolved.kind !== 'blob') continue
         // Never revoke a shared learning-stereo URL — finalizeBlobUrl may return
         // the same session-cached blob that audioParts / the player still hold.
         const sharedStereo = hasCachedLearningStereo(d.tag_id, p, resolved.url)
-        if (detail.value !== d) {
-          if (!sharedStereo) URL.revokeObjectURL(resolved.url)
-          return
-        }
         if (audioParts.value[p]) {
           if (!sharedStereo) URL.revokeObjectURL(resolved.url)
           continue
@@ -384,17 +453,16 @@ export function useTagDetail(id: Ref<string> | string) {
 
   const sheetPages = computed(() => sheetAssets.value.imageSets[0]?.paths ?? [])
 
+  /** Fetch tag JSON from network, favorites fallback, or sheets pack cache. */
   async function loadDetailJson(
     wantedId: string,
     signal: AbortSignal,
     cached: StarredTagRecord | undefined,
   ): Promise<TagDetail | null> {
-    try {
-      const res = await fetchCached(tagDetailUrl(wantedId), { signal })
-      if (!res.ok) throw new Error(`Missing tag (${res.status})`)
-      return (await res.json()) as TagDetail
-    } catch (e) {
-      if (signal.aborted) return null
+    const offlineMode = useOfflineModeStore()
+    const offline = offlineMode.offline
+
+    async function fromLocal(): Promise<TagDetail | null> {
       if (cached?.detail) {
         fromCache.value = true
         return cached.detail
@@ -405,17 +473,38 @@ export function useTagDetail(id: Ref<string> | string) {
         fromCache.value = true
         return (await packed.json()) as TagDetail
       }
-      const offlineMode = useOfflineModeStore()
-      const offline = offlineMode.offline
-      error.value = offline
-        ? 'This tag isn’t cached on this device yet.'
-        : e instanceof Error
+      return null
+    }
+
+    // Offline: never wait on a network timeout before showing cached sheets.
+    if (offline) {
+      const local = await fromLocal()
+      if (local) return local
+      if (signal.aborted) return null
+      error.value = 'This tag isn’t cached on this device yet.'
+      return null
+    }
+
+    // Online: prefer pack/favorite metadata when present so WebP can paint without
+    // waiting on a network round-trip (prev/next through a cached library).
+    const local = await fromLocal()
+    if (local) return local
+
+    try {
+      const res = await fetchCached(tagDetailUrl(wantedId), { signal })
+      if (!res.ok) throw new Error(`Missing tag (${res.status})`)
+      return (await res.json()) as TagDetail
+    } catch (e) {
+      if (signal.aborted) return null
+      error.value =
+        e instanceof Error
           ? e.message
           : String(e)
       return null
     }
   }
 
+  /** Load or reload tag detail and prepare display-ready sheet pages. */
   async function load(): Promise<void> {
     fetchAbort?.abort()
     fetchAbort = new AbortController()
@@ -433,16 +522,22 @@ export function useTagDetail(id: Ref<string> | string) {
     if (sameTag) {
       revokePreparedSheet(preparedSheet.value)
       preparedSheet.value = null
+      // Online reconnect / same-tag reload: drop degraded session audio so HQ can win.
+      if (!useOfflineModeStore().offline) {
+        dropResolvedAudioForOnlineUpgrade()
+      }
     } else {
+      const prevTagId = detail.value?.tag_id
       detail.value = null
-      clearMedia()
+      clearMedia(prevTagId)
     }
 
     const numericId = Number(wantedId)
+    let cached: StarredTagRecord | undefined
     try {
-      await stars.ensureLoaded()
+      await favorites.ensureLoaded()
       if (seq !== loadSeq) return
-      const cached = (await stars.get(numericId)) ?? (await getStarred(numericId))
+      cached = (await favorites.get(numericId)) ?? (await getStarred(numericId))
       if (seq !== loadSeq) return
 
       const d = await loadDetailJson(wantedId, signal, cached)
@@ -453,57 +548,80 @@ export function useTagDetail(id: Ref<string> | string) {
       }
 
       applyDetailSync(d)
-      // Keep sheetPreparing true until pages are display-ready. Clearing it early
-      // mounts SheetViewer with empty/raw images, which collapses the sheet block
-      // and makes Tracks jump (especially noticeable on online reload).
 
       const offlineMode = useOfflineModeStore()
       const offlineOnly = offlineMode.offline
-      await resolveSheetsAndAudio(d, cached ?? undefined, offlineOnly)
+      const assets = resolveSheetAssets(d)
+      const hasSheet = assets.imageSets.length > 0 || assets.pdfs.length > 0
+
+      // Unblock SheetViewer as soon as detail lists sheets — viewer paints WebP via
+      // path URLs immediately (ADR). Prefetch blobs/crop land afterwards.
+      if (hasSheet) {
+        sheetPreparing.value = false
+      }
+
+      // Sheets first (fast blob resolve); audio probe can be expensive on large packs.
+      await resolveSheets(d, cached ?? undefined, offlineOnly)
       if (seq !== loadSeq) return
 
-      try {
-        const assets = sheetAssets.value
-        const hasSheet = assets.imageSets.length > 0 || assets.pdfs.length > 0
-        if (hasSheet) {
-          // Blob pages from star/pack resolve are already display-ready — skip re-crop.
+      if (hasSheet) {
+        try {
           if (cachedSheetPages.value?.length) {
             preparedSheet.value = { pages: [...cachedSheetPages.value], owned: [] }
-          } else {
-            const prepared = await prepareDefaultSheet(assets, {
+          } else if (!offlineOnly) {
+            // Background crop — SheetViewer already has raw WebP URLs on screen.
+            void prepareDefaultSheet(assets, {
               crop: true,
               signal,
-              allowPdf: !offlineOnly,
+              allowPdf: true,
+            }).then((prepared) => {
+              if (signal.aborted || seq !== loadSeq) {
+                revokePreparedSheet(prepared)
+                return
+              }
+              if (cachedSheetPages.value?.length) {
+                revokePreparedSheet(prepared)
+                return
+              }
+              const prev = preparedSheet.value
+              preparedSheet.value = prepared
+              if (prev && prev !== prepared) revokePreparedSheet(prev)
             })
-            if (signal.aborted || seq !== loadSeq) {
-              revokePreparedSheet(prepared)
-              return
-            }
-            preparedSheet.value = prepared
           }
-          // Decode before mounting so the sheet has height on first paint (no Tracks jump).
-          const pages = preparedSheet.value?.pages ?? []
-          if (pages.length) {
-            await preloadSheetPages(pages, signal)
-            if (signal.aborted || seq !== loadSeq) return
+        } catch (e) {
+          if (signal.aborted || seq !== loadSeq) return
+          if (!(e instanceof DOMException && e.name === 'AbortError')) {
+            /* keep whatever pages we already painted */
           }
-        } else {
-          preparedSheet.value = { pages: [], owned: [] }
         }
-      } catch (e) {
-        if (signal.aborted || seq !== loadSeq) return
-        if (!(e instanceof DOMException && e.name === 'AbortError')) {
-          preparedSheet.value = { pages: [], owned: [] }
-        }
+      } else {
+        preparedSheet.value = { pages: [], owned: [] }
       }
+
+      // Seed tabs / pack flags after sheets are visible.
+      await resolveSheetsAndAudio(d, cached ?? undefined, offlineOnly, {
+        sheetsAlreadyResolved: true,
+      })
+      if (seq !== loadSeq) return
     } finally {
       if (seq === loadSeq) {
         loading.value = false
         sheetPreparing.value = false
       }
     }
+
+    // Warm default audio after sheets are shown — do not block load() on reconstruct.
+    if (seq === loadSeq && detail.value) {
+      const warmDetail = detail.value
+      const warmCached = cached ?? undefined
+      const warmOffline = useOfflineModeStore().offline
+      void warmDefaultAudio(warmDetail, warmCached, warmOffline).catch(() => {
+        /* warm is best-effort */
+      })
+    }
   }
 
+  /** Build a {@link TagSummary} from the loaded detail (for starring / list cards). */
   function toSummary(): TagSummary | null {
     const d = detail.value
     if (!d) return null

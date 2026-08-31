@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { StarredTagRecord } from '../offline/starredDb'
-import { sortStarredRecords } from './starredSort'
+import type { StarredTagRecord } from '../offline/favoritesDb'
+import { sortFavoriteRecords } from './favoritesSort'
 
 function rec(
   tagId: number,
@@ -41,15 +41,15 @@ function rec(
   }
 }
 
-describe('sortStarredRecords', () => {
-  it('sorts by date starred', () => {
+describe('sortFavoriteRecords', () => {
+  it('sorts by date favorited', () => {
     const rows = [
       rec(1, { starredAt: '2026-01-01T00:00:00.000Z', title: 'A' }),
       rec(2, { starredAt: '2026-01-03T00:00:00.000Z', title: 'B' }),
       rec(3, { starredAt: '2026-01-02T00:00:00.000Z', title: 'C' }),
     ]
-    expect(sortStarredRecords(rows, 'starred-new').map((r) => r.tagId)).toEqual([2, 3, 1])
-    expect(sortStarredRecords(rows, 'starred-old').map((r) => r.tagId)).toEqual([1, 3, 2])
+    expect(sortFavoriteRecords(rows, 'favorited-new').map((r) => r.tagId)).toEqual([2, 3, 1])
+    expect(sortFavoriteRecords(rows, 'favorited-old').map((r) => r.tagId)).toEqual([1, 3, 2])
   })
 
   it('sorts by title, key, id, and rating', () => {
@@ -58,9 +58,9 @@ describe('sortStarredRecords', () => {
       rec(1, { title: 'Alpha', key: 'C', rating: 5 }),
       rec(2, { title: 'Beta', key: 'F', rating: 5 }),
     ]
-    expect(sortStarredRecords(rows, 'title').map((r) => r.tagId)).toEqual([1, 2, 3])
-    expect(sortStarredRecords(rows, 'key').map((r) => r.tagId)).toEqual([1, 2, 3])
-    expect(sortStarredRecords(rows, 'id').map((r) => r.tagId)).toEqual([1, 2, 3])
-    expect(sortStarredRecords(rows, 'rating').map((r) => r.tagId)).toEqual([1, 2, 3])
+    expect(sortFavoriteRecords(rows, 'title').map((r) => r.tagId)).toEqual([1, 2, 3])
+    expect(sortFavoriteRecords(rows, 'key').map((r) => r.tagId)).toEqual([1, 2, 3])
+    expect(sortFavoriteRecords(rows, 'id').map((r) => r.tagId)).toEqual([1, 2, 3])
+    expect(sortFavoriteRecords(rows, 'rating').map((r) => r.tagId)).toEqual([1, 2, 3])
   })
 })

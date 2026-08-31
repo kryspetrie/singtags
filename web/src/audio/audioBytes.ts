@@ -4,8 +4,10 @@
  * caught — so skip decode when the payload is clearly not audio (HTML/JSON/empty).
  */
 
+/** Detected container/format from the first bytes of a payload. */
 export type AudioMagicKind = 'ogg' | 'mpeg' | 'mp4' | 'wav' | 'aac-adts' | 'unknown'
 
+/** Inspect magic bytes to guess audio container before calling `decodeAudioData`. */
 export function sniffAudioMagic(data: ArrayBuffer | Uint8Array): AudioMagicKind {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
   if (bytes.byteLength < 4) return 'unknown'

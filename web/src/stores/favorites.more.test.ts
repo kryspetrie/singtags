@@ -4,8 +4,8 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import * as starredDb from '../offline/starredDb'
-import { useStarsStore } from './stars'
+import * as favoritesDb from '../offline/favoritesDb'
+import { useFavoritesStore } from './favorites'
 import type { TagDetail, TagSummary } from '../types/tag'
 
 const summary: TagSummary = {
@@ -40,7 +40,7 @@ async function resetDb(): Promise<void> {
   })
 }
 
-describe('stars store coverage', () => {
+describe('favorites store coverage', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     await resetDb()
@@ -51,65 +51,65 @@ describe('stars store coverage', () => {
   })
 
   it('starMany skips already starred and reports message', async () => {
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    const n = await stars.starMany([summary, { ...summary, id: 43, title: 'Other' }], {
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    const n = await favorites.starMany([summary, { ...summary, id: 43, title: 'Other' }], {
       metadataOnly: true,
     })
     expect(n).toBe(1)
-    expect(stars.isStarred(43)).toBe(true)
-    expect(stars.lastNotice).toEqual({ type: 'text', message: 'Favorited 1 tag(s)' })
+    expect(favorites.isStarred(43)).toBe(true)
+    expect(favorites.lastNotice).toEqual({ type: 'text', message: 'Favorited 1 tag(s)' })
   })
 
   it('updateOfflineMedia refreshes blobs', async () => {
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
     const proxyDetail = new Proxy(detail, {
       get(target, prop, receiver) {
         return Reflect.get(target, prop, receiver)
       },
     })
-    await stars.updateOfflineMedia(42, proxyDetail as TagDetail)
-    expect(stars.error).toBeNull()
-    expect(stars.lastNotice?.type).toBe('cached')
-    const rec = await stars.get(42)
+    await favorites.updateOfflineMedia(42, proxyDetail as TagDetail)
+    expect(favorites.error).toBeNull()
+    expect(favorites.lastNotice?.type).toBe('cached')
+    const rec = await favorites.get(42)
     expect(rec?.offlineMedia).toBe(true)
   })
 
   it('importFromJson with and without media fetch', async () => {
-    const stars = useStarsStore()
+    const favorites = useFavoritesStore()
     const file = {
       version: 1 as const,
       kind: 'singtags.starred' as const,
       exportedAt: '2026-01-01T00:00:00.000Z',
       tags: [{ starredAt: '2026-01-01T00:00:00.000Z', summary, detail }],
     }
-    await stars.importFromJson(file, false)
-    expect(stars.count).toBe(1)
-    expect(stars.lastNotice?.type).toBe('text')
-    expect(stars.lastNotice && 'message' in stars.lastNotice && stars.lastNotice.message).toMatch(/metadata/)
-    await stars.importFromJson(file, true)
-    expect(stars.lastNotice && 'message' in stars.lastNotice && stars.lastNotice.message).toMatch(/fetched media/i)
+    await favorites.importFromJson(file, false)
+    expect(favorites.count).toBe(1)
+    expect(favorites.lastNotice?.type).toBe('text')
+    expect(favorites.lastNotice && 'message' in favorites.lastNotice && favorites.lastNotice.message).toMatch(/metadata/)
+    await favorites.importFromJson(file, true)
+    expect(favorites.lastNotice && 'message' in favorites.lastNotice && favorites.lastNotice.message).toMatch(/fetched media/i)
   })
 
   it('unstar removes record', async () => {
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    await stars.unstar(42)
-    expect(stars.isStarred(42)).toBe(false)
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    await favorites.unstar(42)
+    expect(favorites.isStarred(42)).toBe(false)
   })
 
   it('records error when starTag throws', async () => {
-    vi.spyOn(starredDb, 'starTag').mockRejectedValueOnce(new Error('boom'))
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    await vi.waitFor(() => expect(stars.error).toBe('boom'))
+    vi.spyOn(favoritesDb, 'starTag').mockRejectedValueOnce(new Error('boom'))
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    await vi.waitFor(() => expect(favorites.error).toBe('boom'))
   })
 
   it('exportFile returns portable shape', async () => {
-    const stars = useStarsStore()
-    await stars.toggle(summary, detail, { metadataOnly: true })
-    expect(stars.exportFile().kind).toBe('singtags.starred')
-    expect(stars.exportFile().tags).toHaveLength(1)
+    const favorites = useFavoritesStore()
+    await favorites.toggle(summary, detail, { metadataOnly: true })
+    expect(favorites.exportFile().kind).toBe('singtags.starred')
+    expect(favorites.exportFile().tags).toHaveLength(1)
   })
 })

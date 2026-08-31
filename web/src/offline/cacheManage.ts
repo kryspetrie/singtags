@@ -1,3 +1,15 @@
+/**
+ * Export, import, and wipe SingTags offline data as a portable zip archive.
+ *
+ * Zip layout:
+ * - `packs/sheets/` and `packs/audio/` — tier-2 library pack caches
+ * - `starred/` — favorites media and `starred.tags.json` metadata (legacy path names)
+ * - `preferences/pitch-pipe.json` — pitch-pipe settings snapshot
+ * - `manifest.json` — format/version header
+ *
+ * Product UI refers to favorites; persistence and zip paths still use `starred*` names.
+ */
+
 import { unzipSync } from 'fflate'
 import { buildZip, downloadBlob } from '../download/zip'
 import { mediaBaseUrl, mediaUrl } from '../lib/mediaUrl'
@@ -7,7 +19,13 @@ import { audioPack, sheetsPack, type PackKind } from './libraryPack'
 import { clearAllPackProgress } from './packProgressDb'
 import { clearCatalogSnapshot } from '../lib/catalogSnapshot'
 import { clearIndexSnapshotsIdb } from './indexSnapshotDb'
-import { clearPdfRasterCache } from './pdfRasterCache'
+import { clearPdfRasterCache, pdfRasterCacheBytes } from './pdfRasterCache'
+import { clearLearningStereoCache } from './resolveMedia'
+import {
+  isBaseOfflineAudioPackPath,
+  isUpgradeAudioCachePath,
+} from '../lib/audioTiers'
+import type { OfflineManifest } from './manifestTypes'
 import {
   clearAllStarred,
   listStarred,
@@ -15,39 +33,55 @@ import {
   putStarred,
   toStarredFile,
   type StarredTagRecord,
-} from './starredDb'
+} from './favoritesDb'
 import {
   applyPitchPipePrefsSnapshot,
   pitchPipePrefsSnapshot,
 } from '../stores/preferences'
 
+/** Progress payload emitted while building or restoring an offline-cache zip. */
 export interface CacheProgress {
+  /** Human-readable step label (e.g. "Reading sheets cache…"). */
   label: string
+  /** Completed work units in the current operation. */
   done: number
+  /** Total work units for the current operation. */
   total: number
+  /** {@link done} / {@link total}, or `1` when {@link total} is zero. */
   ratio: number
 }
 
+/** Header written to `manifest.json` inside an offline-cache export zip. */
 export interface OfflineCacheManifest {
   version: 1
   kind: 'singtags.offline-cache'
+  /** ISO timestamp when the zip was built. */
   exportedAt: string
+  /** Count of sheet pack entries at export time (informational). */
   sheetsFiles: number
+  /** Count of audio pack entries at export time (informational). */
   audioFiles: number
+  /** Count of favorite tags with metadata at export time (maps to `starredTags` in JSON). */
   starredTags: number
 }
 
+/** Summary returned after {@link importOfflineCacheZip} completes. */
 export interface OfflineCacheImportResult {
+  /** Sheet pack files restored from the zip. */
   sheetsFiles: number
+  /** Audio pack files restored from the zip. */
   audioFiles: number
+  /** Favorite tags restored (metadata + any bundled media blobs). */
   starredTags: number
-  /** True when preferences/pitch-pipe.json was applied. */
+  /** True when `preferences/pitch-pipe.json` was applied. */
   pitchPipePrefs?: boolean
 }
 
 const SW_CACHE_PREFIX = 'singtags'
+/** localStorage key recording when the catalog was last cached for offline use. */
 const CATALOG_CACHED_KEY = 'singtags.catalogCachedAt'
 
+/** Emit a normalized {@link CacheProgress} snapshot when a callback is provided. */
 function report(onProgress: ((p: CacheProgress) => void) | undefined, label: string, done: number, total: number): void {
   onProgress?.({
     label,
@@ -57,7 +91,12 @@ function report(onProgress: ((p: CacheProgress) => void) | undefined, label: str
   })
 }
 
-/** Map an absolute media URL back to a relative path for zip layout. */
+/**
+ * Map an absolute media URL back to a relative path for zip layout.
+ *
+ * @param url Absolute or origin-relative media URL.
+ * @returns Path relative to {@link mediaBaseUrl}, or `null` when the URL is external.
+ */
 export function urlToRelativePath(url: string): string | null {
   const base = mediaBaseUrl()
   if (url.startsWith(base + '/')) return url.slice(base.length + 1)
@@ -74,12 +113,18 @@ export function urlToRelativePath(url: string): string | null {
   return null
 }
 
+/** Zip entry path for a cached pack URL (`packs/{kind}/…`). */
 function zipPathForUrl(kind: PackKind, url: string): string {
   const rel = urlToRelativePath(url) ?? `by-url/${encodeURIComponent(url)}`
   return `packs/${kind}/${rel}`
 }
 
-/** Reverse of zipPathForUrl — absolute media URL for a pack zip entry. */
+/**
+ * Reverse of {@link zipPathForUrl} — resolve a pack zip entry to an absolute media URL.
+ *
+ * @param kind Pack kind (`sheets` or `audio`).
+ * @param entryPath Zip path under `packs/{kind}/`.
+ */
 export function packUrlFromZipPath(kind: PackKind, entryPath: string): string | null {
   const prefix = `packs/${kind}/`
   if (!entryPath.startsWith(prefix) || entryPath.endsWith('/')) return null
@@ -136,6 +181,7 @@ function audioPathForRestore(
   return `media/${tagId}/${filename}`
 }
 
+/** Delete all Cache API buckets whose names start with {@link SW_CACHE_PREFIX}. */
 async function clearServiceWorkerCaches(): Promise<void> {
   if (typeof caches === 'undefined') return
   for (const name of await caches.keys()) {
@@ -143,6 +189,7 @@ async function clearServiceWorkerCaches(): Promise<void> {
   }
 }
 
+/** Append all entries from one pack store into the in-memory zip file list. */
 async function addPackFiles(
   kind: PackKind,
   store: typeof sheetsPack,
@@ -168,7 +215,10 @@ async function addPackFiles(
   return done
 }
 
-/** Remove all offline packs, starred data, pack progress, and SingTags service-worker caches. */
+/**
+ * Remove all offline data: library packs, favorites (IndexedDB `starred` store),
+ * pack progress, PDF rasters, catalog/index snapshots, and SingTags service-worker caches.
+ */
 export async function clearAllOfflineData(): Promise<void> {
   await Promise.all([
     sheetsPack.clear(),
@@ -177,6 +227,7 @@ export async function clearAllOfflineData(): Promise<void> {
     clearAllPackProgress(),
     clearPdfRasterCache(),
   ])
+  clearLearningStereoCache()
   await clearServiceWorkerCaches()
   try {
     localStorage.removeItem(CATALOG_CACHED_KEY)
@@ -187,8 +238,136 @@ export async function clearAllOfflineData(): Promise<void> {
   }
 }
 
-/** Export cached sheets/audio packs and starred blobs as a zip archive. */
-/** Build an offline-cache zip in memory (does not download). */
+/** Result of {@link cullUpgradeCaches}. */
+export type CullUpgradeResult = {
+  /** High-res PDF raster cache was wiped. */
+  pdfRastersCleared: boolean
+  /** Bytes freed from PDF raster IDB/memory (best-effort). */
+  pdfRasterBytesRemoved: number
+  /** Bytes removed from the audio pack (playback/original warms). */
+  audioPackBytesRemoved: number
+  /** Audio pack URLs deleted. */
+  audioPackFilesRemoved: number
+  /** Favorite-tag audio parts demoted (HQ blobs deleted). */
+  starredPartsRemoved: number
+}
+
+function pathFromPackUrl(url: string): string {
+  if (!url) return ''
+  return urlToRelativePath(url) ?? url
+}
+
+function shouldKeepAudioPackUrl(url: string, manifestKeep: Set<string> | null): boolean {
+  if (!url) return false
+  const rel = pathFromPackUrl(url)
+  if (manifestKeep) {
+    if (manifestKeep.has(url) || manifestKeep.has(rel)) return true
+    try {
+      const abs = mediaUrl(rel)
+      if (manifestKeep.has(abs)) return true
+    } catch {
+      /* ignore */
+    }
+  }
+  return isBaseOfflineAudioPackPath(rel)
+}
+
+/**
+ * Remove browse-time quality upgrades while keeping the deliberate offline pack:
+ * WebP sheets, ultra/lo-fi audio pack entries, and catalog metadata.
+ *
+ * Clears: 300dpi PDF rasters, warmed playback/original audio in the pack,
+ * favorited original/playback blobs, and in-session learning-stereo cache.
+ */
+export async function cullUpgradeCaches(opts?: {
+  audioManifest?: OfflineManifest | null
+  onProgress?: (p: CacheProgress) => void
+}): Promise<CullUpgradeResult> {
+  const onProgress = opts?.onProgress
+  report(onProgress, 'Clearing high-res sheet rasters…', 0, 4)
+
+  const pdfBytesBefore = await pdfRasterCacheBytes()
+  await clearPdfRasterCache()
+  clearLearningStereoCache()
+
+  report(onProgress, 'Culling upgraded learning tracks…', 1, 4)
+  let manifestKeep: Set<string> | null = null
+  const manifest = opts?.audioManifest
+  if (manifest?.entries?.length) {
+    manifestKeep = new Set<string>()
+    for (const entry of manifest.entries) {
+      for (const p of entry.paths) {
+        manifestKeep.add(p)
+        manifestKeep.add(mediaUrl(p))
+      }
+    }
+  }
+
+  let audioPackBytesRemoved = 0
+  let audioPackFilesRemoved = 0
+  const audioUrls = await audioPack.listUrls()
+  for (const url of audioUrls) {
+    if (!url) continue
+    if (shouldKeepAudioPackUrl(url, manifestKeep)) continue
+    // Without a manifest, only remove paths that look like HQ upgrades.
+    if (!manifestKeep && !isUpgradeAudioCachePath(pathFromPackUrl(url))) continue
+    try {
+      const res = await audioPack.get(url)
+      if (res) audioPackBytesRemoved += (await res.arrayBuffer()).byteLength
+      await audioPack.delete(url)
+      audioPackFilesRemoved++
+    } catch {
+      /* ignore */
+    }
+  }
+  report(onProgress, 'Demoting favorited high-quality audio…', 2, 4)
+  let starredPartsRemoved = 0
+  const starred = await listStarred()
+  for (const rec of starred) {
+    const blobs = rec.audioBlobs
+    if (!blobs) continue
+    let changed = false
+    const next: NonNullable<StarredTagRecord['audioBlobs']> = { ...blobs }
+    for (const [part, entry] of Object.entries(blobs)) {
+      // Keep deliberate ultra/lo-fi favorite blobs; drop playback/original upgrades.
+      if (entry.quality === 'lofi' || isBaseOfflineAudioPackPath(entry.path)) continue
+      const hq =
+        entry.quality === 'original' ||
+        entry.quality === 'standard' ||
+        entry.quality === 'compact' ||
+        isUpgradeAudioCachePath(entry.path)
+      if (!hq) continue
+      delete next[part]
+      changed = true
+      starredPartsRemoved++
+    }
+    if (!changed) continue
+    await putStarred({
+      ...rec,
+      audioBlobs: Object.keys(next).length ? next : undefined,
+      offlineMedia: Object.keys(next).length > 0 || !!rec.sheetBlobs?.length,
+    })
+  }
+
+  report(onProgress, 'Done', 4, 4)
+  return {
+    pdfRastersCleared: true,
+    pdfRasterBytesRemoved: pdfBytesBefore,
+    audioPackBytesRemoved,
+    audioPackFilesRemoved,
+    starredPartsRemoved,
+  }
+}
+
+/**
+ * Build an offline-cache zip in memory (does not trigger a browser download).
+ *
+ * Collects tier-2 sheet/audio packs, favorite tag media from IndexedDB (`starred/` paths),
+ * pitch-pipe preferences, and a {@link OfflineCacheManifest}.
+ *
+ * @param onProgress Optional progress callback.
+ * @returns Raw zip bytes plus export metadata.
+ */
 export async function buildOfflineCacheZip(
   onProgress?: (p: CacheProgress) => void,
 ): Promise<{ fileCount: number; bytes: Uint8Array; exportedAt: string }> {
@@ -265,6 +444,7 @@ export async function buildOfflineCacheZip(
   return { fileCount: files.length, bytes: zipped, exportedAt: manifest.exportedAt }
 }
 
+/** Restore `packs/{kind}/…` zip entries into the matching {@link OfflinePackStore}. */
 async function restorePackEntries(
   kind: PackKind,
   store: typeof sheetsPack,
@@ -300,9 +480,14 @@ async function restorePackEntries(
   return { done, count }
 }
 
-/** Restore packs + starred media from a SingTags offline-cache zip (merges into existing data). */
-
-/** Build and download an offline-cache zip. */
+/**
+ * Build an offline-cache zip and start a browser download.
+ *
+ * Thin wrapper around {@link buildOfflineCacheZip} that saves
+ * `singtags-offline-cache-{date}.zip` via {@link downloadBlob}.
+ *
+ * @param onProgress Optional progress callback (includes a final "Download started" step).
+ */
 export async function exportOfflineCacheZip(
   onProgress?: (p: CacheProgress) => void,
 ): Promise<{ fileCount: number; bytes: number }> {
@@ -313,6 +498,16 @@ export async function exportOfflineCacheZip(
   return { fileCount: built.fileCount, bytes: built.bytes.byteLength }
 }
 
+/**
+ * Restore packs and favorite-tag media from a SingTags offline-cache zip.
+ *
+ * Merges into existing IndexedDB / pack data (does not wipe first). Validates
+ * `manifest.json` and restores `starred/starred.tags.json` plus any bundled blobs.
+ *
+ * @param input Zip bytes as a Blob, ArrayBuffer, or Uint8Array.
+ * @param onProgress Optional progress callback.
+ * @throws When the input is not a supported SingTags offline-cache zip.
+ */
 export async function importOfflineCacheZip(
   input: Blob | ArrayBuffer | Uint8Array,
   onProgress?: (p: CacheProgress) => void,
@@ -449,4 +644,5 @@ export async function importOfflineCacheZip(
   }
 }
 
+/** @internal Re-exported for tests — clears SingTags-prefixed Cache API entries. */
 export { clearServiceWorkerCaches, CATALOG_CACHED_KEY }

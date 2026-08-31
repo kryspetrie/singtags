@@ -1,5 +1,6 @@
 /** Tone analysis helpers for pitch/speed synthetic tests. */
 
+/** Peak absolute sample magnitude in a channel (used by bake + analysis). */
 export function channelPeak(data: Float32Array): number {
   let peak = 0
   for (let i = 0; i < data.length; i++) {
@@ -9,6 +10,7 @@ export function channelPeak(data: Float32Array): number {
   return peak
 }
 
+/** Root-mean-square level of a channel (energy proxy for tests). */
 export function measureRms(data: Float32Array): number {
   if (data.length === 0) return 0
   let sum = 0

@@ -6,6 +6,7 @@ import { cropDrawnCanvas } from './contentCrop'
 
 let workerReady = false
 
+/** Lazy-load pdf.js and configure its worker (once per page). */
 async function loadPdfJs() {
   const pdfjs = await import('pdfjs-dist')
   if (!workerReady) {
@@ -68,6 +69,7 @@ export function pdfRenderScale(
   return scale
 }
 
+/** Encode a rendered page canvas as a WebP blob URL. */
 function canvasToUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(

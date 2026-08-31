@@ -1,3 +1,7 @@
+/**
+ * URL helpers for barbershoptags.com tag pages (slug is best-effort; id is authoritative).
+ */
+
 /** Slug for barbershoptags.com tag URLs (best-effort; site resolves by id). */
 export function barbershopTagsTitleSlug(title: string): string {
   return title

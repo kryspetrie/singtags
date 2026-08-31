@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * About SingTags dialog with nested offline/install details and storage estimates.
+ */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
@@ -6,6 +9,7 @@ import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 
 const props = defineProps<{
+  /** Dialog visibility. */
   open: boolean
 }>()
 

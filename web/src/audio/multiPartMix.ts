@@ -9,6 +9,7 @@ import { audioBufferToWavBlob, getSharedAudioContext, resumeAudioContextBestEffo
 import type { PartSide } from '../stores/preferences'
 import { assertDecodableAudioBytes } from './audioBytes'
 
+/** One learning part fed into a custom hard-pan mix. */
 export interface MixPartInput {
   url: string
   /** Which channel of the source file holds the solo voice. */
@@ -17,6 +18,7 @@ export interface MixPartInput {
   pan: PartSide
 }
 
+/** Stereo WAV object URL plus timing metadata from {@link buildSoloMixObjectUrl}. */
 export interface SoloMixResult {
   url: string
   sampleRate: number

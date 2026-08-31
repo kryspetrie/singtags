@@ -1,3 +1,8 @@
+/**
+ * Offline library pack sync helpers: expected file counts, update detection,
+ * and resume cursor when manifest version changes.
+ */
+
 import type { OfflineManifest } from '../offline/manifestTypes'
 import { filterAudioManifest, flattenManifestEntries } from './offlineManifest'
 
@@ -27,6 +32,7 @@ export function packSyncAvailable(
   return cachedCount > 0 && expectedCount > cachedCount
 }
 
+/** Number of new files available when {@link packSyncAvailable} is true. */
 export function packMissingFileCount(
   cachedCount: number,
   expectedCount: number,

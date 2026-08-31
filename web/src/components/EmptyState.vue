@@ -1,5 +1,7 @@
 <script setup lang="ts">
+/** Centered empty-state panel with optional message slot for list views. */
 defineProps<{
+  /** Primary empty-state heading. */
   title: string
   message?: string
   tone?: 'muted' | 'danger'

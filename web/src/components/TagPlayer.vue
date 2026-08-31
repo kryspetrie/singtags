@@ -1,8 +1,12 @@
 <script setup lang="ts">
+/**
+ * Full learning-track player UI: part tabs, waveform, pitch/speed, solo/balance,
+ * A–B loop, and optional custom multi-part hard-pan mix.
+ */
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { TagAudioPlayer, type SoloMode } from '../audio/player'
 import { formatKeyShiftLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
-import { loadWaveformPeaks, syntheticPeaks } from '../audio/waveform'
+import { loadWaveformPeaks, peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
 import { buildSoloMixObjectUrl, defaultMixPanForNextSelection } from '../audio/multiPartMix'
 import { buildUltraMixObjectUrl } from '../audio/partLeftReconstruct'
 import {
@@ -66,6 +70,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   transform: [AudioTransform]
   'update:pitchSemitones': [number]
+  /** Natural end of track (not A–B region boundary). */
   ended: []
 }>()
 
@@ -398,12 +403,6 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
         URL.revokeObjectURL(prevMix)
       }
 
-      const wavePromise = loadWaveformPeaks(url, 280, signal).then((wave) => {
-        if (signal.aborted || seq !== loadSeq) return
-        peaks.value = wave.peaks
-        tick.value++
-      })
-
       // One custom part: preview that voice’s solo channel; combined mix is stereo.
       const loadSolo =
         combineMode.value
@@ -444,10 +443,20 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
         syncLoopMarks(dur)
       }
 
-      await wavePromise
-      if (signal.aborted || seq !== loadSeq) return
       if (!preserve) syncLoopMarks(player.duration)
       if (wasPlaying) await player.play()
+
+      // Prefer peaks from the buffer the player just decoded — skip a second fetch/decode.
+      const decoded = player.getOriginalBuffer?.() ?? null
+      if (decoded) {
+        peaks.value = peaksFromAudioBuffer(decoded, 280)
+        tick.value++
+      } else {
+        const wave = await loadWaveformPeaks(url, 280, signal)
+        if (signal.aborted || seq !== loadSeq) return
+        peaks.value = wave.peaks
+        tick.value++
+      }
     } catch (e) {
       if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return
       if (seq !== loadSeq) return
@@ -584,9 +593,13 @@ watch(
 )
 
 watch(
-  () => Object.keys(props.parts).sort().join('\0'),
-  (keys, prev) => {
-    if (keys === prev) return
+  () =>
+    Object.entries(props.parts)
+      .map(([k, v]) => `${k}\x1f${v}`)
+      .sort()
+      .join('\0'),
+  (sig, prev) => {
+    if (sig === prev) return
     if (!available.value.length) {
       loadAbort?.abort()
       loadSeq++ // invalidate in-flight load so it cannot leave waveLoading stuck
@@ -610,10 +623,19 @@ watch(
       part.value = preferred
       return
     }
+    const prevEntries = (prev ?? '').split('\0').filter(Boolean)
+    const nextEntries = sig.split('\0').filter(Boolean)
+    const prevKeys = prevEntries.map((e) => e.split('\x1f')[0]!).filter(Boolean)
+    const nextKeys = nextEntries.map((e) => e.split('\x1f')[0]!).filter(Boolean)
+    const sameKeySet =
+      prevKeys.length === nextKeys.length && prevKeys.every((k) => nextKeys.includes(k))
+    // Same part keys but URL changed (cache upgrade / online reconnect) — reload.
+    if (sameKeySet && part.value && part.value !== CUSTOM_PART && props.parts[part.value]) {
+      void loadCurrent({ preservePlayback: true })
+      return
+    }
     // Lazy resolvePart adds keys as each part is first played. Reloading here
     // without preservePlayback aborts the in-flight part switch and resets the playhead.
-    const prevKeys = (prev ?? '').split('\0').filter(Boolean)
-    const nextKeys = keys.split('\0').filter(Boolean)
     const onlyAddedKeys =
       nextKeys.length >= prevKeys.length && prevKeys.every((k) => nextKeys.includes(k))
     if (onlyAddedKeys) {

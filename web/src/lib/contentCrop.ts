@@ -204,6 +204,7 @@ export function findContentBounds(
   return { x: minX, y: minY, w, h }
 }
 
+/** Draw a sub-rectangle of `source` onto a new white-backed canvas. */
 export function cropCanvas(
   source: HTMLCanvasElement | OffscreenCanvas,
   bounds: ContentBounds,
@@ -229,6 +230,7 @@ export function cropCanvas(
   return out
 }
 
+/** Encode a cropped canvas as WebP (PNG fallback) and return a blob URL. */
 function canvasToBlobUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) => {
     const done = (blob: Blob | null) => {

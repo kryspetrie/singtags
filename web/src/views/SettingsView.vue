@@ -1,13 +1,17 @@
 <script setup lang="ts">
+/**
+ * Offline settings: tier-2 pack downloads, favorites media, manual offline mode,
+ * cache export/import, and app state backup/restore.
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
 import { useOnline } from '../composables/useOnline'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
 import { estimateAudioDownloadBytes } from '../lib/offlineManifest'
-import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { usePracticeStore } from '../stores/practice'
 import {
@@ -19,10 +23,11 @@ import {
 
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const prefs = usePreferencesStore()
 const { offline } = useOnline()
 const confirmClear = ref(false)
+const confirmCullUpgrades = ref(false)
 const cacheFileInput = ref<HTMLInputElement | null>(null)
 const appBackupFileInput = ref<HTMLInputElement | null>(null)
 const includeCacheInAppBackup = ref(false)
@@ -158,7 +163,7 @@ const hasOfflineCache = computed(
   () =>
     offlineLib.sheetsCachedCount > 0 ||
     offlineLib.audioCachedCount > 0 ||
-    stars.count > 0 ||
+    favorites.count > 0 ||
     !!offlineLib.catalogCachedAt,
 )
 
@@ -167,10 +172,10 @@ async function onExportAppState(): Promise<void> {
   appBackupBusy.value = true
   appBackupMessage.value = null
   try {
-    await stars.ensureLoaded()
+    await favorites.ensureLoaded()
     const result = await downloadAppStateBackup(
       {
-        records: stars.records,
+        records: favorites.records,
         collections: userCollections.exportSnapshot(),
         practice: practice.exportSnapshot(),
       },
@@ -202,7 +207,7 @@ async function onImportAppStateFile(e: Event): Promise<void> {
     const { state, cacheBytes } = await loadAppStateBackupFile(file, (p) => {
       offlineLib.cacheProgress = p
     })
-    await stars.importFromJson(state.favorites.starred, false)
+    await favorites.importFromJson(state.favorites.starred, false)
     userCollections.replaceAll(state.favorites.collections)
     practice.importSnapshot(state.favorites.practice)
     applyLocalStorageSnapshot(state.localStorage)
@@ -233,7 +238,7 @@ async function onImportCacheFile(e: Event): Promise<void> {
   try {
     await offlineLib.importOfflineCache(file)
     prefs.hydratePitchPipePrefs()
-    await stars.refresh()
+    await favorites.refresh()
   } finally {
     input.value = ''
   }
@@ -249,12 +254,30 @@ function onClearCacheClick(): void {
 
 async function clearAllCache(): Promise<void> {
   await offlineLib.clearAllOfflineData()
-  await stars.refresh()
+  await favorites.refresh()
   confirmClear.value = false
 }
 
 function cancelClear(): void {
   confirmClear.value = false
+}
+
+function onCullUpgradesClick(): void {
+  if (!confirmCullUpgrades.value) {
+    confirmCullUpgrades.value = true
+    return
+  }
+  void cullUpgrades()
+}
+
+async function cullUpgrades(): Promise<void> {
+  await offlineLib.cullUpgradeCaches()
+  await favorites.refresh()
+  confirmCullUpgrades.value = false
+}
+
+function cancelCullUpgrades(): void {
+  confirmCullUpgrades.value = false
 }
 </script>
 
@@ -440,22 +463,22 @@ function cancelClear(): void {
     <section class="card primary-card" aria-labelledby="favorites-h">
       <h2 id="favorites-h">Favorites</h2>
       <p class="hint">
-        {{ stars.count }} favorited · audio is stored as 64&nbsp;kbps Opus when you favorite from
+        {{ favorites.count }} favorited · audio is stored as 64&nbsp;kbps Opus when you favorite from
         Browse.
       </p>
       <div class="actions">
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="offline || stars.busy || !stars.count"
-          @click="stars.ensureAudioForAllStarred()"
+          :disabled="offline || favorites.busy || !favorites.count"
+          @click="favorites.ensureAudioForAllStarred()"
         >
           Cache audio for all favorites
         </button>
       </div>
-      <p v-if="stars.progress" class="hint progress-lbl">{{ stars.progress.label }}</p>
-      <p v-if="stars.lastNotice" class="hint stars-notice-wrap" role="status">
-        <StarsNoticeLine :notice="stars.lastNotice" />
+      <p v-if="favorites.progress" class="hint progress-lbl">{{ favorites.progress.label }}</p>
+      <p v-if="favorites.lastNotice" class="hint favorites-notice-wrap" role="status">
+        <FavoritesNoticeLine :notice="favorites.lastNotice" />
       </p>
     </section>
 
@@ -512,7 +535,41 @@ function cancelClear(): void {
           <button type="button" class="btn btn-ghost" @click="offlineLib.refreshEstimate()">
             Refresh estimate
           </button>
+          <button
+            v-if="confirmCullUpgrades"
+            type="button"
+            class="btn btn-danger"
+            :disabled="offlineLib.cacheBusy"
+            @click="onCullUpgradesClick"
+          >
+            Confirm cull upgrades
+          </button>
+          <button
+            v-else
+            type="button"
+            class="btn btn-ghost"
+            :disabled="offlineLib.cacheBusy"
+            :title="
+              'Remove high-res sheet rasters and upgraded learning tracks; keep WebP sheets and ultra audio pack'
+            "
+            @click="onCullUpgradesClick"
+          >
+            Cull quality upgrades
+          </button>
+          <button
+            v-if="confirmCullUpgrades"
+            type="button"
+            class="btn btn-ghost"
+            :disabled="offlineLib.cacheBusy"
+            @click="cancelCullUpgrades"
+          >
+            Cancel
+          </button>
         </div>
+        <p v-if="confirmCullUpgrades" class="hint warn-inline" role="alert">
+          Frees space from 300&nbsp;dpi sheet rasters and warmed playback/original tracks. Keeps the
+          WebP sheets pack and ultra/lo-fi learning-track pack so you do not need a full cache dump.
+        </p>
       </section>
 
       <section class="card" aria-labelledby="cache-tools-h">

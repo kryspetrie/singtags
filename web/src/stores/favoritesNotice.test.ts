@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { noticeFromStarRecord, type StarsNotice } from './starNotice'
-import type { StarredTagRecord } from '../offline/starredDb'
+import { noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
+import type { StarredTagRecord } from '../offline/favoritesDb'
 import type { TagSummary } from '../types/tag'
 
 const summary: TagSummary = {
@@ -28,9 +28,9 @@ function rec(partial: Partial<StarredTagRecord> = {}): StarredTagRecord {
   }
 }
 
-describe('noticeFromStarRecord', () => {
+describe('noticeFromFavoriteRecord', () => {
   it('returns cached when audio and sheets both apply', () => {
-    const notice = noticeFromStarRecord(
+    const notice = noticeFromFavoriteRecord(
       rec({
         audioBlobs: { lead: { path: 'x', mime: 'audio/mp4', data: new ArrayBuffer(1) } },
         sheetBlobs: [{ path: 'p', mime: 'image/webp', data: new ArrayBuffer(1) }],
@@ -38,11 +38,11 @@ describe('noticeFromStarRecord', () => {
       summary,
       null,
     )
-    expect(notice).toEqual({ type: 'cached', audio: true, sheets: true } satisfies StarsNotice)
+    expect(notice).toEqual({ type: 'cached', audio: true, sheets: true } satisfies FavoritesNotice)
   })
 
   it('marks sheets when they come from the library pack', () => {
-    const notice = noticeFromStarRecord(
+    const notice = noticeFromFavoriteRecord(
       rec({
         audioBlobs: { lead: { path: 'x', mime: 'audio/mp4', data: new ArrayBuffer(1) } },
         offlineMedia: true,
@@ -55,8 +55,8 @@ describe('noticeFromStarRecord', () => {
   })
 
   it('returns starred for metadata-only', () => {
-    expect(noticeFromStarRecord(rec(), summary, null, { metadataOnly: true })).toEqual({
-      type: 'starred',
+    expect(noticeFromFavoriteRecord(rec(), summary, null, { metadataOnly: true })).toEqual({
+      type: 'favorited',
     })
   })
 })

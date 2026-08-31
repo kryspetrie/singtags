@@ -2,6 +2,7 @@
 
 import { audioPack, sheetsPack } from '../offline/libraryPack'
 
+/** Cache names consulted by {@link matchOfflineCache} (indexes, meta, pack v1). */
 export const OFFLINE_CACHE_NAMES = [
   'singtags-indexes',
   'singtags-tag-meta',
@@ -12,6 +13,7 @@ export const OFFLINE_CACHE_NAMES = [
 let blocked = false
 let nativeFetch: typeof fetch | null = null
 
+/** Resolve a fetch URL string from RequestInfo (for the offline fetch patch). */
 function resolveRequestUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') {
     const base = typeof window !== 'undefined' ? window.location.href : 'http://localhost/'
@@ -60,6 +62,7 @@ export function allowServiceWorkerFetch(url: string): boolean {
   }
 }
 
+/** Probe Cache API buckets (known names, then other singtags/workbox caches). */
 async function matchCacheStorage(url: string): Promise<Response | null> {
   if (typeof caches === 'undefined') return null
   const seen = new Set<string>()
@@ -93,6 +96,7 @@ async function matchCacheStorage(url: string): Promise<Response | null> {
   return null
 }
 
+/** Cache API hit, then offline pack lookup, for a single URL. */
 export async function matchOfflineCache(url: string): Promise<Response | null> {
   const fromCaches = await matchCacheStorage(url)
   if (fromCaches) return fromCaches
@@ -107,7 +111,12 @@ export async function matchOfflineCache(url: string): Promise<Response | null> {
   return null
 }
 
-/** fetch with Cache API + offline pack fallback (for explicit offline-safe reads). */
+/**
+ * Fetch with Cache API + offline pack fallback (for explicit offline-safe reads).
+ * When manual-offline is on or the browser reports offline, prefer cache/pack
+ * *before* touching the network so tag sheets aren’t stuck on “Preparing…” waiting
+ * for a timed-out fetch.
+ */
 export async function fetchCached(
   input: RequestInfo | URL,
   init?: RequestInit,
@@ -118,17 +127,27 @@ export async function fetchCached(
   if (url.startsWith('blob:') || url.startsWith('data:')) {
     return nativeFetch(input, init)
   }
+
+  const browserOffline =
+    typeof navigator !== 'undefined' && navigator.onLine === false
+  if (blocked || browserOffline) {
+    const cached = await matchOfflineCache(url)
+    if (cached) return cached
+    throw new TypeError('This file is not cached on your device yet')
+  }
+
   try {
     const res = await nativeFetch(input, init)
     if (res.ok) return res
   } catch {
-    /* blocked or offline */
+    /* network failed — fall through to cache */
   }
   const cached = await matchOfflineCache(url)
   if (cached) return cached
   throw new TypeError('This file is not cached on your device yet')
 }
 
+/** Install the global fetch interceptor (idempotent). */
 export function ensureFetchPatchInstalled(): void {
   if (typeof globalThis.fetch !== 'function') return
   const current = globalThis.fetch as typeof fetch & { __singtagsPatched?: boolean }
@@ -157,11 +176,13 @@ export function ensureFetchPatchInstalled(): void {
   globalThis.fetch = patched as typeof fetch
 }
 
+/** Enable or disable manual offline mode (cache-only media fetches). */
 export function setManualOfflineFetch(on: boolean): void {
   ensureFetchPatchInstalled()
   blocked = on
 }
 
+/** True when manual offline mode is blocking uncached network fetches. */
 export function isManualOfflineFetchBlocked(): boolean {
   return blocked
 }

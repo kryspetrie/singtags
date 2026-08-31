@@ -1,3 +1,7 @@
+/**
+ * Shared audio transform, download format, and on-device encode quality types.
+ * Identity transform means hosted files play without re-encoding or baking.
+ */
 import { canonicalizeTransform, isCanonicalIdentity } from '../audio/transformContract'
 
 /** Playback / download pitch+tempo transform. Identity = hosted as-is. */

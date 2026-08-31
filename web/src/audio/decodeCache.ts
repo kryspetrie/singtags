@@ -6,12 +6,14 @@ import { assertDecodableAudioBytes } from './audioBytes'
 import { channelsEffectivelyMono } from './playerUtils'
 import { createAudioBuffer } from './audioBufferFactory'
 
+/** Stable identity for deduplicating decode across URL + content revision. */
 export type SourceIdentity = {
   url: string
   /** Content revision: ETag, version query, or hash. Falls back to url. */
   revision: string
 }
 
+/** Cached decode result with channel peaks and mono detection for the player graph. */
 export type DecodedTrack = {
   buffer: AudioBuffer
   identity: SourceIdentity
@@ -23,6 +25,7 @@ export type DecodedTrack = {
   byteSize: number
 }
 
+/** Session counters for decode cache hit rate and retained byte size. */
 export type DecodeCacheStats = {
   hits: number
   misses: number
@@ -61,6 +64,7 @@ function downmixOrReject(buf: AudioBuffer): AudioBuffer {
   return out
 }
 
+/** Build a cache revision string from fetch response headers (ETag / Last-Modified). */
 export function sourceRevisionFromResponse(url: string, res: Response): string {
   const etag = res.headers.get('ETag') || res.headers.get('etag')
   const lastMod = res.headers.get('Last-Modified')
@@ -69,6 +73,10 @@ export function sourceRevisionFromResponse(url: string, res: Response): string {
   return url
 }
 
+/**
+ * Fetch, validate, downmix (>2ch), and cache decoded tracks under a byte budget.
+ * Deduplicates concurrent decodes for the same URL or revision key.
+ */
 export class DecodeService {
   private cache = new Map<string, DecodedTrack>()
   private inflight = new Map<string, Promise<DecodedTrack>>()
@@ -106,6 +114,10 @@ export class DecodeService {
     }
   }
 
+  /**
+   * Fetch, decode, cache, and return a track. Dedupes by `revision` or in-flight URL.
+   * @param offlineSampleRate When set, decode via `OfflineAudioContext` at this rate.
+   */
   async decode(
     url: string,
     opts?: {

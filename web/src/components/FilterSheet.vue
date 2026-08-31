@@ -1,7 +1,11 @@
 <script setup lang="ts">
+/**
+ * Reusable mobile-first bottom sheet shell with enter/leave animation and optional anchor top.
+ */
 import { computed, nextTick, ref, watch } from 'vue'
 
 const props = defineProps<{
+  /** Sheet open state controlled by parent. */
   open: boolean
   title: string
   /** Viewport Y of the panel top on mobile (e.g. bottom of filter chips). */

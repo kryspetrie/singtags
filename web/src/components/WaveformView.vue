@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * Canvas waveform with playhead, A–B loop brackets, and pointer seek/drag handling.
+ */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   barCountFor,

@@ -48,7 +48,7 @@ Use `metadata.json` → `audio_layout_summary.ultra_low`:
 
 **Mix disjoint from voice parts** (`audio_layout_summary.mix_disjoint: true`): some tags ship a mix track that is **not** the sum of the learning parts (different recording, wrong files, etc.). When mono downmix cross-correlation between mix and all voice parts is below **0.25**, publish **32 kbps `ultra_mix`** for the mix and include it in the offline pack instead of reconstructing mix from mono solos.
 
-**Parts not recombinable** (`audio_layout_summary.parts_recombinable: false`): voice stems are not safe to mono-solo extract or client-reconstruct (untrusted accompaniment alignment, piano/full-stereo files, etc.). Force `ultra_low: stereo_fallback`, publish **32 kbps `ultra_stereo`** per voice part (+ hosted `ultra_mix` when a mix file exists). See SingTags `docs/NON_RECOMBINABLE_TRACKS_PLAN.md`.
+**Parts not recombinable** (`audio_layout_summary.parts_recombinable: false`): voice stems are not safe to mono-solo extract or client-reconstruct (untrusted accompaniment alignment, piano/full-stereo files, etc.). Force `ultra_low: stereo_fallback`, publish **32 kbps `ultra_stereo`** per voice part (+ hosted `ultra_mix` when a mix file exists). See SingTags `docs/plans/non-recombinable-tracks.md`.
 
 `audio_align_summary.status`:
 - `ok` — enough non-Lead voices trusted
@@ -122,8 +122,8 @@ none → ultra_low → playback → original
 
 | State | Offline play | Online play |
 | --- | --- | --- |
-| `ultra_low` | Reconstruct from mono solo | Prefer playback fetch; keep ultra_low |
-| `playback` | Reconstruct if ultra_low also present; else playback blob | 64 kbps |
+| `ultra_low` | Reconstruct from mono solo (for parts without HQ cache) | Prefer playback fetch; keep ultra_low for reconstruct |
+| `playback` | Play cached playback for that part; reconstruct other parts from ultra_low | 64 kbps |
 | `original` | Original | Original |
 
 Resolve order for playback bytes: **Original (if cached) → Playback (online) → Ultra-low reconstruct (offline)**.

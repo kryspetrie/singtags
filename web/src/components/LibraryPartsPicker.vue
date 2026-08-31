@@ -1,8 +1,13 @@
 <script setup lang="ts">
+/**
+ * Offline library audio pack part picker (all parts, mix only, or custom subset).
+ */
 import { COMMON_AUDIO_PARTS, partLabel, type LibraryAudioPartsMode } from '../lib/audioParts'
 
 defineProps<{
+  /** Offline audio pack part selection mode. */
   mode: LibraryAudioPartsMode
+  /** Selected part ids when `mode === 'custom'`. */
   selected: string[]
 }>()
 

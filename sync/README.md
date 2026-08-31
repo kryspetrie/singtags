@@ -25,7 +25,7 @@ Each top-level folder is an **independent tool** you can split out later. Shared
 |-------|--------|
 | Per-tag HTML metadata scrape | **Do not use** — crashes origin (no DB indexes). Use `mirror/sync.py --bulk-meta` |
 | `lib/parse_tag_page.parse_tag_page()` | Unused leftover; URL helpers still live |
-| Old root `scripts/` / `tools/` layout | Merged into the folders above |
+| Old root `scripts/` / `tools/` layout | Removed; use `sync/` / `build/` / `deploy/` |
 
 ---
 

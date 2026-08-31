@@ -1,3 +1,8 @@
+/**
+ * In-memory catalog search: inverted indexes over tag summaries and optional lyrics.
+ * Parses {@link SearchQuery} from the query DSL and supports browse sort helpers.
+ */
+
 import { expandTokens, type ExpansionMap } from './expansions'
 import { foldText, tokenize } from './normalize'
 import {
@@ -14,17 +19,20 @@ import { normalizeYear } from '../lib/year'
 import { splitArrangerNames, titleSortLetter } from './browse'
 import { collectionSearchTokens, collectionTextTokens, isClassicCollection } from '../lib/collections'
 
+/** Lyrics document keyed by tag id for full-text search. */
 export interface LyricDoc {
   id: number
   lyrics: string
 }
 
+/** Inputs to build a {@link SearchEngine} index at catalog load. */
 export interface SearchEngineOptions {
   tags: TagSummary[]
   expansions: ExpansionMap
   lyrics?: LyricDoc[]
 }
 
+/** Inverted index: folded token → set of tag ids. */
 type Posting = Map<string, Set<number>>
 
 function emptyPosting(): Posting {
@@ -43,6 +51,7 @@ function isExactNumericToken(token: string): boolean {
   )
 }
 
+/** Add one posting for `token` → tag `id`. */
 function addToken(index: Posting, token: string, id: number): void {
   let set = index.get(token)
   if (!set) {
@@ -52,6 +61,7 @@ function addToken(index: Posting, token: string, id: number): void {
   set.add(id)
 }
 
+/** Tokenize `text`, index tokens (plus digit↔word expansions) for tag `id`. */
 function addAllTokens(index: Posting, text: string, id: number): void {
   const toks = tokenize(text)
   for (const tok of toks) {
@@ -216,6 +226,7 @@ export class SearchEngine {
   private lyricTokens: Posting | null = null
   private readonly allIds: Set<number>
 
+  /** Build inverted indexes from catalog tags (and optional lyrics). */
   constructor(opts: SearchEngineOptions) {
     this.tags = opts.tags
     this.byId = new Map(opts.tags.map((t) => [t.id, t]))
@@ -247,6 +258,7 @@ export class SearchEngine {
     if (opts.lyrics) this.setLyrics(opts.lyrics)
   }
 
+  /** Replace or attach lyrics docs and invalidate the lazy lyric index. */
   setLyrics(docs: LyricDoc[]): void {
     this.lyricFold.clear()
     this.lyricTokens = null
@@ -491,6 +503,10 @@ export class SearchEngine {
     return false
   }
 
+  /**
+   * Run a search and return matching tags in catalog order.
+   * Empty query (no text, fields, or meta filters) returns the full tag list.
+   */
   search(query: SearchQuery): TagSummary[] {
     const empty =
       !query.include.length &&
@@ -501,7 +517,8 @@ export class SearchEngine {
       query.hasAudio == null &&
       query.hasSheet == null &&
       query.yearMin == null &&
-      query.yearMax == null
+      query.yearMax == null &&
+      !query.titleLetters?.length
 
     if (empty) return this.tags.slice()
 
@@ -530,6 +547,7 @@ export class SearchEngine {
   }
 }
 
+/** Sort tag summaries for browse or legacy list modes (does not mutate input). */
 export function sortTags(
   tags: TagSummary[],
   mode: 'title' | 'arranger' | 'rating' | 'downloads' | 'classic' | 'year',
@@ -562,6 +580,7 @@ export function sortTags(
   }
 }
 
+/** Distinct non-empty string values for a tag field (sorted, folded). */
 export function uniqueFieldValues(
   tags: TagSummary[],
   field: 'arranger' | 'key' | 'type' | 'collection',

@@ -13,7 +13,7 @@ const meta = {
       bass: 'media/4011/bass.m4a',
       mix: 'media/4011/mix.m4a',
     },
-    baseUrl: '/sample-data/',
+    baseUrl: '/library/',
     title: 'Beautiful I Know',
     tagId: 4011,
   },

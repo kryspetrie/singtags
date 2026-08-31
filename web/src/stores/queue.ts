@@ -1,3 +1,7 @@
+/**
+ * Zip download queue: tracks selected audio/sheet parts, layout, and batch download progress.
+ * Queue and zip layout persist in localStorage.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import {
@@ -13,6 +17,7 @@ import { encodeQualityForDownload, IDENTITY_TRANSFORM, normalizeDownloadFormat }
 const STORAGE_KEY = 'singtags.zipQueue.v2'
 const LAYOUT_KEY = 'singtags.zipLayout.v2'
 
+/** Read zip folder layout preference from localStorage. */
 function loadLayout(): ZipLayout {
   try {
     return normalizeZipLayout(localStorage.getItem(LAYOUT_KEY))
@@ -21,6 +26,7 @@ function loadLayout(): ZipLayout {
   }
 }
 
+/** Pinia store for the multi-file zip download queue. */
 export const useQueueStore = defineStore('queue', () => {
   const tracks = ref<QueueTrack[]>([])
   const busy = ref(false)
@@ -41,6 +47,7 @@ export const useQueueStore = defineStore('queue', () => {
     },
   })
 
+  /** Restore queue from localStorage; normalizes track kind and format. */
   function load(): void {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -81,10 +88,15 @@ export const useQueueStore = defineStore('queue', () => {
 
   const count = computed(() => tracks.value.length)
 
+  /** Stash playback transform for preview while editing queue items (not used in zip encode). */
   function setPlaybackTransform(t: AudioTransform): void {
     playbackTransform.value = { ...t }
   }
 
+  /**
+   * Add one track if not duplicate and under `MAX_QUEUE_TRACKS`.
+   * Side effect: localStorage via watcher.
+   */
   function add(track: QueueTrack): void {
     error.value = null
     if (tracks.value.some((t) => t.tagId === track.tagId && t.part === track.part)) {
@@ -97,6 +109,7 @@ export const useQueueStore = defineStore('queue', () => {
     tracks.value = [...tracks.value, track]
   }
 
+  /** Add many tracks; stops at queue limit and sets error when capped. */
   function addMany(items: QueueTrack[]): void {
     for (const item of items) {
       if (tracks.value.length >= MAX_QUEUE_TRACKS) {
@@ -107,15 +120,21 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
+  /** Remove a track by tag id and part name. Side effect: localStorage. */
   function remove(tagId: number, part: string): void {
     tracks.value = tracks.value.filter((t) => !(t.tagId === tagId && t.part === part))
   }
 
+  /** Empty the queue and clear errors. Side effect: localStorage. */
   function clear(): void {
     tracks.value = []
     error.value = null
   }
 
+  /**
+   * Patch format or transform on one queue row.
+   * Side effect: localStorage.
+   */
   function updateTrack(
     tagId: number,
     part: string,
@@ -126,6 +145,7 @@ export const useQueueStore = defineStore('queue', () => {
     )
   }
 
+  /** Set default download format for all audio tracks in the queue. */
   function setFormat(fmt: DownloadFormat): void {
     format.value = fmt
     tracks.value = tracks.value.map((item) =>
@@ -133,6 +153,10 @@ export const useQueueStore = defineStore('queue', () => {
     )
   }
 
+  /**
+   * Build and download a zip of all queued tracks.
+   * Side effect: network fetches, browser download; updates `progress` and `busy`.
+   */
   async function downloadZip(): Promise<void> {
     if (!tracks.value.length) return
     busy.value = true
@@ -162,8 +186,14 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
+  /** Abort an in-progress zip download if any. */
   function cancelZip(): void {
     abort?.abort()
+  }
+
+  /** Clear queue error message. */
+  function clearError(): void {
+    error.value = null
   }
 
   return {
@@ -186,8 +216,6 @@ export const useQueueStore = defineStore('queue', () => {
     setFormat,
     setPlaybackTransform,
     max: MAX_QUEUE_TRACKS,
-    clearError: () => {
-      error.value = null
-    },
+    clearError,
   }
 })

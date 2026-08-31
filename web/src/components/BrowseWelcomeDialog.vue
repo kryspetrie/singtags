@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * First-visit browse welcome: optional background download of sheets and lo-fi audio packs.
+ */
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
@@ -7,6 +10,7 @@ import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 
 const props = defineProps<{
+  /** First-run splash visibility. */
   open: boolean
 }>()
 

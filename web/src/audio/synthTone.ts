@@ -3,10 +3,13 @@
 import { createAudioBuffer } from './audioBufferFactory'
 
 export type SynthToneOpts = {
+  /** Fundamental frequency in Hz. */
   frequencyHz?: number
+  /** Duration in seconds. */
   durationSec?: number
   sampleRate?: number
   channels?: 1 | 2
+  /** Right-channel frequency when `channels === 2`. */
   frequencyHzR?: number
   phaseOffsetR?: number
   amplitude?: number

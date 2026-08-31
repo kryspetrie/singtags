@@ -1,5 +1,10 @@
+/**
+ * Search query AST and string parser (`field:value`, phrases, minRating, year bounds, …).
+ */
+
 import { foldText, tokenize } from './normalize'
 
+/** Indexed tag field names for `field:value` filters. */
 export type FieldName =
   | 'title'
   | 'arranger'
@@ -9,6 +14,7 @@ export type FieldName =
   | 'classic'
   | 'year'
 
+/** One field filter with one or more OR/AND values (engine unions values per field). */
 export interface FieldFilter {
   field: FieldName
   values: string[]
@@ -16,6 +22,7 @@ export interface FieldFilter {
   mode: 'or' | 'and'
 }
 
+/** Parsed search state consumed by {@link SearchEngine.search}. */
 export interface SearchQuery {
   /** Inclusive free-text tokens (title by default; lyrics when fullText). */
   include: string[]
@@ -51,6 +58,10 @@ function parseYearToken(n: string): number | null {
   return y >= 1000 && y <= 2100 ? y : null
 }
 
+/**
+ * Parse a raw search box string into a {@link SearchQuery}.
+ * @param fullText When true, free-text tokens also match lyrics (when indexed).
+ */
 export function parseQuery(raw: string, fullText = false): SearchQuery {
   let rest = raw
   const fields: FieldFilter[] = []

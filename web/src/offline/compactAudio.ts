@@ -1,6 +1,8 @@
 /**
  * Fetch hosted audio and optionally re-encode for smaller on-device storage.
+ *
  * Pre-published Opus tiers are stored as-is (no on-device re-encode).
+ * Used when favoriting tags and when the download queue transforms audio pack items.
  */
 
 import { isNonAudioPayload } from '../audio/audioBytes'
@@ -10,14 +12,25 @@ import type { AudioEncodeQuality } from '../types/audio'
 import { HOSTED_AUDIO_MIME, usesOpusStorage } from '../types/audio'
 import { sampleUrl } from '../download/zip'
 
+/** Result of fetching (and optionally encoding) one audio file for local storage. */
 export interface CompactedAudio {
+  /** Catalog-relative path that was fetched. */
   path: string
+  /** MIME type to store alongside bytes. */
   mime: string
   data: ArrayBuffer
-  /** True when bytes were re-encoded (not the hosted M4A). */
+  /** `true` when bytes were re-encoded (not the hosted M4A as served). */
   encoded: boolean
 }
 
+/**
+ * Download one audio path and optionally compact it to Opus for favorites storage.
+ *
+ * @param path Catalog-relative audio path.
+ * @param quality Target encode quality (`original` skips re-encode).
+ * @param onLabel Optional callback when re-encoding starts (UI label).
+ * @returns Compacted bytes, or `null` on fetch/validation failure.
+ */
 export async function fetchAudioForStorage(
   path: string,
   quality: AudioEncodeQuality,
@@ -51,7 +64,12 @@ export async function fetchAudioForStorage(
   }
 }
 
-/** Best-effort MIME from magic bytes (legacy `.bin` learning tracks are often MP3/ADTS). */
+/**
+ * Best-effort MIME from magic bytes (legacy `.bin` learning tracks are often MP3/ADTS).
+ *
+ * @param data Raw audio bytes.
+ * @param fallback MIME when no signature matches.
+ */
 export function sniffAudioMime(data: Uint8Array, fallback = HOSTED_AUDIO_MIME): string {
   if (data.byteLength >= 4) {
     const a = data[0]!,
@@ -70,7 +88,15 @@ export function sniffAudioMime(data: Uint8Array, fallback = HOSTED_AUDIO_MIME): 
   return fallback
 }
 
-/** Re-encode downloaded bytes for offline pack storage. */
+/**
+ * Re-encode downloaded bytes for offline pack storage.
+ *
+ * @param data Fetched response body.
+ * @param quality Target quality tier.
+ * @param hostedMime Content-Type from the server (fallback for sniffing).
+ * @param sourcePath Catalog path (skips re-encode for pre-published tiers).
+ * @throws When bytes are a non-audio HTML/JSON document.
+ */
 export async function encodeBytesForStorage(
   data: Uint8Array,
   quality: AudioEncodeQuality,

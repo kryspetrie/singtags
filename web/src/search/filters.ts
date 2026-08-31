@@ -1,7 +1,12 @@
+/**
+ * Structured catalog filter chips merged with debounced free-text search.
+ * Serializes to URL query params alongside `q`.
+ */
+
 import type { FieldFilter, SearchQuery } from './query'
 import { parseQuery } from './query'
 
-/** Structured filters from chips (immediate); free-text stays debounced separately. */
+/** Chip/filter state applied immediately (merged with debounced free-text `q`). */
 export interface CatalogFilters {
   fullText: boolean
   hasSheet: boolean | null
@@ -18,6 +23,7 @@ export interface CatalogFilters {
   titleLetters: string[]
 }
 
+/** Default empty chip filter state. */
 export const EMPTY_FILTERS: CatalogFilters = {
   fullText: false,
   hasSheet: null,
@@ -31,6 +37,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
   titleLetters: [],
 }
 
+/** Count active chip filters (for badge display). */
 export function activeFilterCount(f: CatalogFilters): number {
   let n = 0
   if (f.hasSheet === true) n++
@@ -91,6 +98,7 @@ function parseYearParam(raw: string): number | null {
   return n >= 1000 && n <= 2100 ? n : null
 }
 
+/** Rehydrate {@link CatalogFilters} from Vue Router query params. */
 export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<CatalogFilters> {
   const str = (k: string) => (typeof query[k] === 'string' ? (query[k] as string) : '')
   const split = (k: string) => str(k).split('|').map((s) => s.trim()).filter(Boolean)

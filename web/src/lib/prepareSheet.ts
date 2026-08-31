@@ -1,8 +1,14 @@
+/**
+ * Offscreen sheet preparation: resolve URLs, optional whitespace crop, PDF rasterization.
+ * Produces display-ready page URLs before the tag view mounts (avoids layout flash).
+ */
+
 import { cropImageUrl } from './contentCrop'
 import { mediaUrl } from './mediaUrl'
 import { renderPdfToPageUrls } from './pdfRender'
 import type { SheetAssets } from './sheetAssets'
 
+/** Result of {@link prepareDefaultSheet}: pages to show and blob URLs the caller must revoke. */
 export type PreparedSheet = {
   /** Ready-to-display page URLs (may be blob:). */
   pages: string[]
@@ -10,6 +16,7 @@ export type PreparedSheet = {
   owned: string[]
 }
 
+/** Resolve a catalog-relative path to an absolute fetch/display URL. */
 function resolveSrc(path: string, baseUrl?: string): string {
   if (
     path.startsWith('/') ||
@@ -61,6 +68,7 @@ export async function prepareDefaultSheet(
   return { pages: [], owned: [] }
 }
 
+/** Revoke blob URLs listed in {@link PreparedSheet.owned}. */
 export function revokePreparedSheet(prepared: PreparedSheet | null | undefined): void {
   if (!prepared) return
   for (const u of prepared.owned) URL.revokeObjectURL(u)

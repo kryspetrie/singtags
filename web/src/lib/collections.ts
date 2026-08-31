@@ -1,3 +1,8 @@
+/**
+ * Catalog series metadata (Classic, 100 Days, Easy Tags) and user-collection filter helpers.
+ * Distinct from user-defined Favorites playlists (`user:` filter prefix).
+ */
+
 import type { TagSummary } from '../types/tag'
 
 /**
@@ -26,12 +31,14 @@ const KNOWN: Record<string, CollectionInfo> = {
   easytags: { id: 'easytags', label: 'Easy Tags', prefix: null, sortRank: 2 },
 }
 
+/** Normalize a raw collection id for comparison and filter keys. */
 export function normalizeCollectionId(raw: string | null | undefined): string | null {
   if (raw == null) return null
   const s = String(raw).trim().toLowerCase()
   return s || null
 }
 
+/** Resolve catalog metadata for a collection id (known series or generic fallback). */
 export function collectionInfo(raw: string | null | undefined): CollectionInfo | null {
   const id = normalizeCollectionId(raw)
   if (!id) return null
@@ -60,10 +67,12 @@ export function collectionNumber(
   return Number.isFinite(n) ? n : null
 }
 
+/** True when the tag belongs to the Classic numbered series. */
 export function isClassicCollection(raw: string | null | undefined): boolean {
   return normalizeCollectionId(raw) === 'classic'
 }
 
+/** True when the tag belongs to the 100 Days: 100 Tags series. */
 export function is100DaysCollection(raw: string | null | undefined): boolean {
   return normalizeCollectionId(raw) === '100'
 }
@@ -178,16 +187,19 @@ export function collectionTextTokens(collection: string | null | undefined): str
 /** Prefix for user-defined collection filter / section ids (vs catalog series). */
 export const USER_COLLECTION_FILTER_PREFIX = 'user:'
 
+/** Build a browse/filter id for a user-defined collection (`user:<id>`). */
 export function userCollectionFilterId(collectionId: string): string {
   return `${USER_COLLECTION_FILTER_PREFIX}${collectionId}`
 }
 
+/** Extract the user collection id from a `user:` filter id, or null. */
 export function parseUserCollectionFilterId(raw: string | null | undefined): string | null {
   if (raw == null || !raw.startsWith(USER_COLLECTION_FILTER_PREFIX)) return null
   const id = raw.slice(USER_COLLECTION_FILTER_PREFIX.length)
   return id || null
 }
 
+/** True when `raw` is a user-collection filter id (`user:…`). */
 export function isUserCollectionFilterId(raw: string | null | undefined): boolean {
   return parseUserCollectionFilterId(raw) != null
 }

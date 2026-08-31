@@ -1,3 +1,10 @@
+/**
+ * Offline library packs: sheet and learning-track bulk downloads, storage estimates,
+ * cache import/export, and sync prompts when remote manifests grow.
+ *
+ * Uses IndexedDB pack stores, pack progress DB, persistent manifest snapshots,
+ * and localStorage for catalog-cached timestamp and dismissed sync keys.
+ */
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
@@ -8,6 +15,11 @@ import {
   type DownloadProgress,
   type DownloadStatus,
 } from '../offline/downloadQueue'
+import {
+  adaptivePackConcurrency,
+  packDownloadInflight,
+  refreshPackDownloadInflightCap,
+} from '../offline/downloadConcurrency'
 import {
   clearPackProgress,
   getPackProgress,
@@ -23,6 +35,7 @@ import {
 } from '../offline/storageEstimate'
 import {
   clearAllOfflineData as clearAllOfflineDataImpl,
+  cullUpgradeCaches as cullUpgradeCachesImpl,
   exportOfflineCacheZip,
   importOfflineCacheZip,
   type CacheProgress,
@@ -58,6 +71,7 @@ import { useOfflineModeStore } from './offlineMode'
 
 export type { OfflineManifest, OfflineManifestEntry }
 
+/** High-level offline readiness for status UI and gating. */
 export type OfflineReadyState =
   | 'online'
   | 'offline-ready'
@@ -73,10 +87,12 @@ export type StartPackOptions = {
 const SHEETS_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineSheetsManifest.v1'
 const AUDIO_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineAudioManifest.v1'
 
+/** Persist manifest JSON to durable snapshot storage (survives refresh). */
 function saveManifestSnapshot(key: string, manifest: OfflineManifest): void {
   savePersistentSnapshot(key, manifest)
 }
 
+/** Type guard for offline manifest snapshot JSON. */
 function isOfflineManifest(data: unknown): data is OfflineManifest {
   return (
     typeof data === 'object' &&
@@ -85,10 +101,15 @@ function isOfflineManifest(data: unknown): data is OfflineManifest {
   )
 }
 
+/** Load manifest from persistent snapshot when network/cache miss. */
 function loadManifestSnapshot(key: string): OfflineManifest | null {
   return loadPersistentSnapshot(key, isOfflineManifest)
 }
 
+/**
+ * Fetch gzip manifest from indexes URL, with offline cache and snapshot fallback.
+ * Side effects: network or cache read; saves snapshot on success.
+ */
 async function loadOfflineManifest(
   fileName: string,
   snapshotKey: string,
@@ -113,10 +134,12 @@ async function loadOfflineManifest(
   }
 }
 
+/** Flatten manifest entries into download queue items (sheets pack). */
 function flattenManifest(manifest: OfflineManifest): DownloadItem[] {
   return flattenManifestEntries(manifest)
 }
 
+/** Pinia store for offline sheet/audio library packs and cache management. */
 export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const offlineMode = useOfflineModeStore()
   const sheetsManifest = ref<OfflineManifest | null>(null)
@@ -164,6 +187,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     packMissingFileCount(audioCachedCount.value, audioExpectedCount.value, audioStatus.value),
   )
 
+  /** Combined offline readiness from pack status, catalog cache, and connectivity. */
   const readyState = computed<OfflineReadyState>(() => {
     if (sheetsStatus.value === 'running' || audioStatus.value === 'running') {
       return 'downloading'
@@ -179,6 +203,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     return 'unknown'
   })
 
+  /** Human-readable status line derived from `readyState` and download progress. */
   const statusLabel = computed(() => {
     switch (readyState.value) {
       case 'online':
@@ -202,6 +227,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   })
 
+  /**
+   * Refresh storage quota estimate and cached file counts/bytes in both packs.
+   * Side effects: IndexedDB reads via pack APIs.
+   */
   async function refreshEstimate(): Promise<void> {
     estimate.value = await getStorageEstimate()
     try {
@@ -223,10 +252,12 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /** Key for dismissing “library grew” sync toast until manifests change again. */
   function packSyncDismissKey(sheets: OfflineManifest | null, audio: OfflineManifest | null): string {
     return `${sheets?.builtAt ?? ''}|${audio?.builtAt ?? ''}|${expectedSheetsFileCount(sheets)}|${expectedAudioFileCount(audio)}`
   }
 
+  /** Read dismissed pack-sync key from localStorage. */
   function readDismissedPackSyncKey(): string | null {
     try {
       return localStorage.getItem('singtags.dismissedPackSync.v1')
@@ -235,6 +266,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /** Persist dismissed pack-sync key. Side effect: localStorage. */
   function writeDismissedPackSyncKey(key: string): void {
     try {
       localStorage.setItem('singtags.dismissedPackSync.v1', key)
@@ -243,6 +275,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /** Show or hide pack sync prompt based on missing files and dismiss key. */
   function refreshPackSyncPrompt(): void {
     if (packSyncBusy.value) {
       showPackSyncPrompt.value = false
@@ -259,6 +292,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     showPackSyncPrompt.value = readDismissedPackSyncKey() !== key
   }
 
+  /**
+   * Load sheet and audio offline manifests and restore pack progress from IDB.
+   * Side effects: network/cache, IndexedDB progress read, updates `showSheetsPrompt`.
+   */
   async function loadManifests(): Promise<void> {
     error.value = null
     try {
@@ -289,6 +326,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /**
+   * Record that the catalog index is cached for offline browse.
+   * Side effect: localStorage `CATALOG_CACHED_KEY`.
+   */
   function markCatalogCached(): void {
     catalogCachedAt.value = new Date().toISOString()
     try {
@@ -298,6 +339,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /** Restore catalog-cached timestamp from localStorage on startup. */
   function restoreCatalogCached(): void {
     try {
       catalogCachedAt.value = localStorage.getItem(CATALOG_CACHED_KEY)
@@ -319,6 +361,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     return false
   }
 
+  /**
+   * Wipe all offline data (packs, favorites IDB, snapshots, etc.).
+   * Side effects: IndexedDB clears, pauses active queues.
+   */
   async function clearAllOfflineData(): Promise<void> {
     cacheBusy.value = true
     cacheMessage.value = null
@@ -345,6 +391,49 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /**
+   * Remove browse-time quality upgrades (HQ PDF rasters, warmed playback/original
+   * audio, favorited HQ blobs) while keeping WebP sheets + ultra audio pack.
+   */
+  async function cullUpgradeCaches(): Promise<void> {
+    cacheBusy.value = true
+    cacheMessage.value = null
+    error.value = null
+    try {
+      const result = await cullUpgradeCachesImpl({
+        audioManifest: audioManifest.value,
+        onProgress: (p) => {
+          cacheProgress.value = p
+        },
+      })
+      const freed = result.pdfRasterBytesRemoved + result.audioPackBytesRemoved
+      const parts = [
+        result.pdfRastersCleared ? 'high-res sheet rasters' : null,
+        result.audioPackFilesRemoved
+          ? `${result.audioPackFilesRemoved} upgraded track file${result.audioPackFilesRemoved === 1 ? '' : 's'}`
+          : null,
+        result.starredPartsRemoved
+          ? `${result.starredPartsRemoved} favorited HQ part${result.starredPartsRemoved === 1 ? '' : 's'}`
+          : null,
+      ].filter(Boolean)
+      const detail = parts.length ? parts.join(', ') : 'nothing extra found'
+      cacheMessage.value =
+        freed > 0
+          ? `Quality upgrades cleared (~${formatBytes(freed)}): ${detail}.`
+          : `Quality upgrades cleared (${detail}). Ultra pack and WebP sheets kept.`
+      await refreshEstimate()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      cacheBusy.value = false
+      cacheProgress.value = null
+    }
+  }
+
+  /**
+   * Export full offline cache as a zip download.
+   * Side effects: reads IndexedDB/cache; triggers browser download.
+   */
   async function exportOfflineCache(): Promise<void> {
     cacheBusy.value = true
     cacheMessage.value = null
@@ -363,6 +452,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /**
+   * Import offline cache zip (sheets, audio, favorites, pitch pipe prefs, etc.).
+   * Side effects: IndexedDB writes, storage refresh; may mark packs done.
+   */
   async function importOfflineCache(file: File): Promise<void> {
     cacheBusy.value = true
     cacheMessage.value = null
@@ -384,6 +477,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /** Merge pack download progress into IndexedDB (`putPackProgress`). */
   async function persistProgress(
     kind: PackKind,
     patch: Partial<PackProgressRecord>,
@@ -411,6 +505,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     audio: { lastAt: 0, lastCursor: 0, timer: null },
   }
 
+  /**
+   * Throttled cursor persistence during pack download (avoid IDB write per file).
+   * Side effect: deferred `persistProgress` to IndexedDB.
+   */
   function schedulePersistCursor(
     kind: PackKind,
     cursor: number,
@@ -441,6 +539,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     if (!st.timer) st.timer = setTimeout(flush, 750)
   }
 
+  /**
+   * Start or resume downloading one pack (`sheets` or `audio`).
+   * Side effects: network, IndexedDB pack store, progress IDB, optional Opus re-encode.
+   *
+   * @param kind - Which offline pack to download.
+   * @param _opts - Reserved; `partsMode` override for audio filtering.
+   */
   async function startPack(kind: PackKind, _opts?: StartPackOptions): Promise<void> {
     if (kind === 'sheets' && sheetsStatus.value === 'running') return
     if (kind === 'audio' && audioStatus.value === 'running') return
@@ -496,13 +601,24 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       kind === 'audio' &&
       usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY) &&
       items.some((i) => !isPublishedTierPath(i.path))
+    refreshPackDownloadInflightCap()
+    const concurrencyKind =
+      kind === 'sheets' ? 'sheets' : packReencodes ? 'audio-reencode' : 'audio-fetch'
+    const { fetch: fetchConcurrency, transform: transformConcurrency } =
+      adaptivePackConcurrency(concurrencyKind)
     const queue = new DownloadQueue(store, {
-      // Tiny sheet WebPs are latency-bound; keep re-encode audio modest.
+      // Adaptive workers + shared inflight gate; re-encode pipelines behind a transform cap.
       continueOnError: kind === 'audio',
       onItemError: (p, err) => {
         console.warn('[offline audio]', p, err)
       },
-      concurrency: packReencodes ? 2 : kind === 'sheets' ? 24 : 12,
+      concurrency: fetchConcurrency,
+      transformConcurrency: transformConcurrency > 0 ? transformConcurrency : undefined,
+      needsTransform:
+        kind === 'audio' && usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY)
+          ? (item) => !isPublishedTierPath(item.path)
+          : undefined,
+      inflight: packDownloadInflight,
       onProgress: (p) => {
         if (kind === 'sheets') sheetsProgress.value = p
         else audioProgress.value = p
@@ -565,11 +681,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     refreshPackSyncPrompt()
   }
 
+  /** Pause an in-flight pack download queue. */
   function pausePack(kind: PackKind): void {
     if (kind === 'sheets') sheetsQueue?.pause()
     else audioQueue?.pause()
   }
 
+  /** Dismiss sync prompt and remember manifest versions. Side effect: localStorage. */
   async function dismissPackSyncPrompt(): Promise<void> {
     writeDismissedPackSyncKey(packSyncDismissKey(sheetsManifest.value, audioManifest.value))
     showPackSyncPrompt.value = false
@@ -596,6 +714,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
   }
 
+  /**
+   * Clear one pack’s cached files and progress (sheets or audio).
+   * Side effects: IndexedDB pack clear, progress record delete.
+   */
   async function clearPack(kind: PackKind): Promise<void> {
     if (kind === 'sheets') {
       sheetsQueue?.pause()
@@ -615,11 +737,17 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     await refreshEstimate()
   }
 
+  /** Dismiss first-run sheets download prompt. Side effect: pack progress IDB. */
   async function dismissSheetsPrompt(): Promise<void> {
     showSheetsPrompt.value = false
     await persistProgress('sheets', { dismissedPrompt: true })
   }
 
+  /**
+   * Check whether all sheet paths for a tag exist in the sheets pack.
+   *
+   * @returns false when manifest missing, tag not listed, or any path absent.
+   */
   async function ensureSheetsForTag(tagId: number): Promise<boolean> {
     const m = sheetsManifest.value
     if (!m) return false
@@ -631,6 +759,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     return entry.paths.length > 0
   }
 
+  /**
+   * Request persistent storage quota (reduces eviction under pressure).
+   * Side effects: browser permission API, refreshes estimate, sets `cacheMessage`.
+   */
   async function ensurePersistentStorage(): Promise<boolean> {
     const ok = await requestPersistentStorage()
     await refreshEstimate()
@@ -638,6 +770,11 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       ? 'Persistent storage granted — the browser is less likely to clear this site’s offline cache under storage pressure.'
       : 'Persistent storage was not granted. Cached data may still be cleared if the device is low on space.'
     return ok
+  }
+
+  /** Clear store error message. */
+  function clearError(): void {
+    error.value = null
   }
 
   return {
@@ -688,10 +825,9 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     ensureSheetsForTag,
     requestPersistentStorage: ensurePersistentStorage,
     clearAllOfflineData,
+    cullUpgradeCaches,
     exportOfflineCache,
     importOfflineCache,
-    clearError: () => {
-      error.value = null
-    },
+    clearError,
   }
 })

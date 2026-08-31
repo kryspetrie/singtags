@@ -1,6 +1,11 @@
+/**
+ * Vue Router table for SingTags views.
+ * `/starred` redirects to `/favorites` for legacy bookmarks.
+ */
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import TagView from '../views/TagView.vue'
+import { onTagReturnBeforeEach } from '../lib/tagReturn'
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -46,8 +51,12 @@ export const router = createRouter({
         requestAnimationFrame(() => resolve(saved))
       })
     }
-    // Query-only updates (e.g. ?shift=) must not jump the page to the top
+    // Query-only updates (e.g. ?shift=) must not jump the page to the top.
     if (from && to.path === from.path) return false
     return { top: 0 }
   },
+})
+
+router.beforeEach((to, from) => {
+  onTagReturnBeforeEach(to, from)
 })

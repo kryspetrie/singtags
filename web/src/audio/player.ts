@@ -1,7 +1,7 @@
 /**
  * Tag track player — bake-first independent pitch & speed.
  *
- * Invariants (docs/PITCH_SPEED_PLAN.md):
+ * Invariants (docs/decisions/pitch-speed-bake.md):
  * - Audible AudioBufferSourceNode.playbackRate is always 1.
  * - Identity (pitch=0, speed=1) never enters the bake pipeline.
  * - Solo/balance live in a persistent gain graph.
@@ -37,6 +37,10 @@ export {
   channelsEffectivelyMono,
 } from './playerUtils'
 
+/**
+ * Tag learning-track player with bake-first pitch/speed, solo/balance graph,
+ * A–B loop, and original-timeline playhead. See module header invariants.
+ */
 export class TagAudioPlayer {
   private solo: SoloMode = 'stereo'
   /** When set, mono / dual-mono buffers play on this side only (not fanned to both). */
@@ -91,10 +95,12 @@ export class TagAudioPlayer {
   private regionB = 0
   private regionActive = false
 
+  /** Register a callback fired on playhead / bake / solo updates (~50 ms while playing). */
   setUpdateListener(fn: (() => void) | null): void {
     this.onUpdate = fn
   }
 
+  /** Register a callback when playback reaches natural end (not A–B region stop). */
   setEndedListener(fn: (() => void) | null): void {
     this.onEnded = fn
   }
@@ -146,6 +152,14 @@ export class TagAudioPlayer {
 
   get effectivelyMono(): boolean {
     return this._effectivelyMono
+  }
+
+  /**
+   * Decoded original buffer after a successful {@link load}, or null.
+   * Callers can derive waveform peaks without a second fetch/decode.
+   */
+  getOriginalBuffer(): AudioBuffer | null {
+    return this.original
   }
 
   getBalance(): number {
@@ -469,6 +483,10 @@ export class TagAudioPlayer {
     bakeCache.setPinned(null)
   }
 
+  /**
+   * Fetch and decode a track URL; resets playhead and applies any pending transform.
+   * @param monoPanSide Hard-pan mono/dual-mono learning tracks to L or R when set.
+   */
   async load(
     url: string,
     solo: SoloMode = 'stereo',
@@ -508,6 +526,7 @@ export class TagAudioPlayer {
     this.onUpdate?.()
   }
 
+  /** Drop the current source without closing the audio context. */
   clearSource(): void {
     this.loadGen++
     this.bakeAbort?.abort()
@@ -761,6 +780,7 @@ export class TagAudioPlayer {
     }
   }
 
+  /** Tear down nodes, abort bakes, and close the audio context. */
   dispose(): void {
     this.loadGen++
     this.bakeAbort?.abort()

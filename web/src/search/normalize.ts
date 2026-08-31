@@ -12,10 +12,12 @@ export function foldText(input: string): string {
     .trim()
 }
 
+/** Fold and strip spaces from a single token (for alias map keys). */
 export function normalizeToken(token: string): string {
   return foldText(token).replace(/\s+/g, '')
 }
 
+/** Split folded text into search tokens (whitespace-separated). */
 export function tokenize(input: string): string[] {
   const folded = foldText(input)
   if (!folded) return []

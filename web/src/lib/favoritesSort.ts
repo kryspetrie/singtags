@@ -1,44 +1,52 @@
-import { foldText } from '../search/normalize'
-import type { StarredTagRecord } from '../offline/starredDb'
+/**
+ * Sort modes and ordering helpers for the Favorites list.
+ * Operates on persisted {@link StarredTagRecord} rows; legacy storage ids may use `starred-*`.
+ */
 
-export type StarredSortMode =
+import { foldText } from '../search/normalize'
+import type { StarredTagRecord } from '../offline/favoritesDb'
+
+/** User-selectable sort order for the Favorites view (custom drag order is separate). */
+export type FavoritesSortMode =
   | 'custom'
-  | 'starred-new'
-  | 'starred-old'
+  | 'favorited-new'
+  | 'favorited-old'
   | 'title'
   | 'rating'
   | 'key'
   | 'id'
 
-export const STARRED_SORT_OPTIONS: Array<{ id: StarredSortMode; label: string }> = [
+/** Labels paired with {@link FavoritesSortMode} ids for the sort picker. */
+export const FAVORITES_SORT_OPTIONS: Array<{ id: FavoritesSortMode; label: string }> = [
   { id: 'custom', label: 'Custom order' },
-  { id: 'starred-new', label: 'Date favorited (newest)' },
-  { id: 'starred-old', label: 'Date favorited (oldest)' },
+  { id: 'favorited-new', label: 'Date favorited (newest)' },
+  { id: 'favorited-old', label: 'Date favorited (oldest)' },
   { id: 'title', label: 'Title' },
   { id: 'rating', label: 'Rating' },
   { id: 'key', label: 'Key' },
   { id: 'id', label: 'Tag #' },
 ]
 
+/** Case- and punctuation-insensitive string compare for title/key sorts. */
 function cmpStr(a: string | null | undefined, b: string | null | undefined): number {
   return foldText(a ?? '').localeCompare(foldText(b ?? ''), undefined, { sensitivity: 'base' })
 }
 
 /**
- * Sort starred records for a non-custom mode (does not mutate input).
+ * Sort favorite records for a non-custom mode (does not mutate input).
  * `custom` is handled by the view via the persisted order list.
  */
-export function sortStarredRecords(
+export function sortFavoriteRecords(
   records: readonly StarredTagRecord[],
-  mode: Exclude<StarredSortMode, 'custom'>,
+  mode: Exclude<FavoritesSortMode, 'custom'>,
 ): StarredTagRecord[] {
   const copy = [...records]
   switch (mode) {
-    case 'starred-new':
+    case 'favorited-new':
       return copy.sort(
         (a, b) => b.starredAt.localeCompare(a.starredAt) || a.tagId - b.tagId,
       )
-    case 'starred-old':
+    case 'favorited-old':
       return copy.sort(
         (a, b) => a.starredAt.localeCompare(b.starredAt) || a.tagId - b.tagId,
       )
@@ -68,6 +76,14 @@ export function sortStarredRecords(
   }
 }
 
-export function isStarredSortMode(v: unknown): v is StarredSortMode {
-  return STARRED_SORT_OPTIONS.some((o) => o.id === v)
+/** Type guard for a valid {@link FavoritesSortMode} id. */
+export function isFavoritesSortMode(v: unknown): v is FavoritesSortMode {
+  return FAVORITES_SORT_OPTIONS.some((o) => o.id === v)
+}
+
+/** Map persisted sort ids (including legacy starred-*) onto current FavoritesSortMode. */
+export function normalizeFavoritesSortMode(v: unknown): FavoritesSortMode {
+  if (v === 'starred-new') return 'favorited-new'
+  if (v === 'starred-old') return 'favorited-old'
+  return isFavoritesSortMode(v) ? v : 'custom'
 }

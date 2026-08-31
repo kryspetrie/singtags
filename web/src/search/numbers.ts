@@ -109,10 +109,12 @@ export function digitByDigitWords(digits: string): string {
 
 const DIGITS_RE = /^\d+$/
 
+/** True when the token is all digits (tag id / booklet number style). */
 export function isDigitToken(token: string): boolean {
   return DIGITS_RE.test(token)
 }
 
+/** True when the token is a known English number word. */
 export function isNumberWord(token: string): boolean {
   return Object.prototype.hasOwnProperty.call(WORD_TO_VALUE, token)
 }
@@ -147,6 +149,7 @@ export function numberWordTokens(digits: string): string[] {
   return [...out]
 }
 
+/** Parse a standard cardinal phrase ("three hundred forty five") to an integer. */
 function parseCardinal(tokens: string[]): number | null {
   let total = 0
   let current = 0

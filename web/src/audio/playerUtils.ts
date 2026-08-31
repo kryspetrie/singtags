@@ -4,6 +4,7 @@ export const BALANCE_MAX_BOOST = 2
 export const CHANNEL_NORM_MAX = 4
 export const OUTPUT_HEADROOM = 0.99
 
+/** Compute L/R gain nodes for the stereo balance slider (−1…+1). */
 export function stereoBalanceGains(
   balance: number,
   opts?: {
@@ -42,6 +43,10 @@ export function stereoBalanceGains(
   return { l, r }
 }
 
+/**
+ * True when L and R channels carry effectively the same signal (dual-mono).
+ * Used to route mono fan-out vs true stereo splitter in {@link TagAudioPlayer}.
+ */
 export function channelsEffectivelyMono(
   left: Float32Array,
   right: Float32Array | null | undefined,

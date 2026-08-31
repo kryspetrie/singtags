@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFavoritesBackup, parseFavoritesBackup } from './favoritesBackup'
-import type { StarredTagRecord } from '../offline/starredDb'
+import type { StarredTagRecord } from '../offline/favoritesDb'
 import type { TagSummary } from '../types/tag'
 
 function summary(id: number): TagSummary {

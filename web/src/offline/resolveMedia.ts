@@ -1,6 +1,8 @@
 /**
- * Resolve media for display: starred IndexedDB → offline pack → network URL.
- * Audio parts follow the quality ladder in audio-storage-cache ADR.
+ * Resolve media for display: favorites IndexedDB → offline pack → network URL.
+ *
+ * Audio parts follow the quality ladder in the audio-storage-cache ADR.
+ * Product UI refers to favorites; code uses `star` source labels and `starred*` DB names.
  */
 
 import type { TagDetail } from '../types/tag'
@@ -8,12 +10,14 @@ import {
   cachedPathCandidates,
   isMixOnlyTag,
   isPublishedTierPath,
-  isUltraSoloPath,
+  isUltraMonoStemPath,
   mixIsDisjoint,
+  needsOnlineVirtualPartLearning,
   originalAudioPath,
   partsAreRecombinable,
   playableAudioParts,
   playbackAudioPath,
+  listAudioParts,
   tierPath,
   ultraAudioPath,
   usesMonoSolos,
@@ -27,16 +31,19 @@ import {
   buildUltraMixObjectUrl,
   monoSoloToHardPanObjectUrl,
 } from '../audio/partLeftReconstruct'
-import { blobUrlFromCached, getStarred, type StarredTagRecord } from './starredDb'
+import { blobUrlFromCached, getStarred, type StarredTagRecord } from './favoritesDb'
 import { audioPack, sheetsPack } from './libraryPack'
 import { isPlausibleMediaBody } from './downloadQueue'
 
+/** Result of resolving a sheet path or audio part to a playable URL. */
 export type ResolvedMedia =
   | { kind: 'blob'; url: string; source: 'star' | 'pack' | 'reconstruct'; tier?: string }
   | { kind: 'network'; url: string; source: 'network'; path: string; tier?: string }
 
 /** Session cache of reconstructed learning-track stereo blob URLs (tagId:part → blob:). */
 const learningStereoCache = new Map<string, string>()
+/** In-flight reconstructs so warmDefaultAudio + TagPlayer don't double-build. */
+const learningStereoInflight = new Map<string, Promise<string>>()
 
 function learningStereoKey(tagId: number, part: string): string {
   return `${tagId}:${part.toLowerCase()}`
@@ -46,11 +53,15 @@ function learningStereoKey(tagId: number, part: string): string {
 export function clearLearningStereoCache(tagId?: number): void {
   if (tagId == null) {
     learningStereoCache.clear()
+    learningStereoInflight.clear()
     return
   }
   const prefix = `${tagId}:`
   for (const k of [...learningStereoCache.keys()]) {
     if (k.startsWith(prefix)) learningStereoCache.delete(k)
+  }
+  for (const k of [...learningStereoInflight.keys()]) {
+    if (k.startsWith(prefix)) learningStereoInflight.delete(k)
   }
 }
 
@@ -102,27 +113,6 @@ async function packGetBlobUrl(absolute: string): Promise<string | null> {
     const url = await packBlobFromResponse(pack, key, res)
     if (url) return url
   }
-  // Origin mismatch fallback: exact pathname only (never raw endsWith — that can
-  // attach the wrong pack entry when one URL path is a suffix of another).
-  try {
-    const base =
-      typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
-    const want = new URL(absolute, base).pathname
-    for (const stored of await pack.listUrls()) {
-      try {
-        const sp = new URL(stored, base).pathname
-        if (sp !== want) continue
-        const res = await pack.get(stored)
-        if (!res) continue
-        const url = await packBlobFromResponse(pack, stored, res)
-        if (url) return url
-      } catch {
-        /* ignore */
-      }
-    }
-  } catch {
-    /* ignore */
-  }
   return null
 }
 
@@ -130,20 +120,6 @@ async function packHasAbsolute(absolute: string): Promise<boolean> {
   const pack = isAudioAbsolute(absolute) ? audioPack : sheetsPack
   for (const key of packLookupKeys(absolute)) {
     if (await pack.has(key)) return true
-  }
-  try {
-    const base =
-      typeof window !== 'undefined' ? window.location.href : 'http://127.0.0.1/'
-    const want = new URL(absolute, base).pathname
-    for (const stored of await pack.listUrls()) {
-      try {
-        if (new URL(stored, base).pathname === want) return true
-      } catch {
-        /* ignore */
-      }
-    }
-  } catch {
-    /* ignore */
   }
   return false
 }
@@ -153,7 +129,12 @@ function accompanimentVoiceParts(detail: TagDetail, activePart: string): string[
   return voiceAudioParts(detail).filter((p) => p.toLowerCase() !== active)
 }
 
-/** Case-insensitive lookup into starred audio blobs. */
+/**
+ * Case-insensitive lookup into a favorite tag's cached audio blobs.
+ *
+ * @param starred Favorite record from IndexedDB (`StarredTagRecord`), or null.
+ * @param part Learning-track part id (any casing).
+ */
 export function starredAudioEntry(
   starred: StarredTagRecord | null | undefined,
   part: string,
@@ -185,7 +166,8 @@ async function finalizeBlobUrl(
   catalogPath: string,
   ctx?: { detail: TagDetail; part: string; starred?: StarredTagRecord | null },
 ): Promise<string> {
-  // Only rewrite ultra mono stems (and lofi-starred solos). Leave originals / playback alone.
+  // Rewrite ultra mono stems (solo *or* downmix) and lofi-starred solos.
+  // Leave hosted originals / part-left playback alone.
   const starredEntry = ctx ? starredAudioEntry(ctx.starred, ctx.part) : undefined
   const lofiSolo =
     !!starredEntry &&
@@ -194,7 +176,7 @@ async function finalizeBlobUrl(
     ctx.part.toLowerCase() !== 'mix' &&
     usesMonoSolos(ctx.detail)
   if (
-    (!isUltraSoloPath(catalogPath) && !lofiSolo) ||
+    (!isUltraMonoStemPath(catalogPath) && !lofiSolo) ||
     typeof AudioContext === 'undefined'
   ) {
     return url
@@ -208,57 +190,72 @@ async function finalizeBlobUrl(
       URL.revokeObjectURL(url)
       return cached
     }
+    const pending = learningStereoInflight.get(cacheKey)
+    if (pending) {
+      URL.revokeObjectURL(url)
+      return pending
+    }
 
-    const summary = detail.audio_layout_summary
-    // Offline mono_solos rebuild is always part-left: solo hard L, accompaniment hard R.
-    // (Published originals may be part_right; that layout is not used for stem reconstruct.)
-    const soloSide: PartSide | null =
-      usesMonoSolos(detail) ? 'left' : soloSideForPart(part, detail.audio_layouts, summary)
+    const build = (async (): Promise<string> => {
+      const summary = detail.audio_layout_summary
+      // Virtual part-left: solo hard L, accompaniment hard R (mono_solos + mono_downmix).
+      // Published part_right originals are not used for stem reconstruct.
+      const soloSide: PartSide | null =
+        usesMonoSolos(detail) ? 'left' : soloSideForPart(part, detail.audio_layouts, summary)
 
-    const trueMono = summary?.parts === 'mono' || summary?.parts === 'near_mono'
-
-    if (!trueMono && soloSide) {
-      const required = accompanimentVoiceParts(detail, part)
-      const others = await collectVoiceStemUrls(detail, {
-        excludePart: part,
-        starred: starred ?? null,
-      })
-      if (canReconstructLearningStereo(others, required)) {
-        try {
-          const stereo = await buildPartLearningStereoObjectUrl({
-            activePart: part,
-            activeUrl: url,
-            otherParts: others,
-            soloSide,
-          })
-          URL.revokeObjectURL(url)
-          for (const o of others) URL.revokeObjectURL(o.url)
-          learningStereoCache.set(cacheKey, stereo.url)
-          return stereo.url
-        } catch (err) {
-          console.warn('[singtags] learning-stereo reconstruct failed', detail.tag_id, part, err)
+      // Per-part mono/dual-mono stems still recombine: each file is one voice, not a finished
+      // learning track. Only skip multi-stem rebuild when we lack a solo side and aren't
+      // in the mono-stem ultra policies.
+      if (soloSide) {
+        const required = accompanimentVoiceParts(detail, part)
+        const others = await collectVoiceStemUrls(detail, {
+          excludePart: part,
+          starred: starred ?? null,
+        })
+        if (canReconstructLearningStereo(others, required)) {
+          try {
+            const stereo = await buildPartLearningStereoObjectUrl({
+              activePart: part,
+              activeUrl: url,
+              otherParts: others,
+              soloSide,
+            })
+            URL.revokeObjectURL(url)
+            for (const o of others) URL.revokeObjectURL(o.url)
+            learningStereoCache.set(cacheKey, stereo.url)
+            return stereo.url
+          } catch (err) {
+            console.warn('[singtags] learning-stereo reconstruct failed', detail.tag_id, part, err)
+            for (const o of others) URL.revokeObjectURL(o.url)
+          }
+        } else {
           for (const o of others) URL.revokeObjectURL(o.url)
         }
-      } else {
-        for (const o of others) URL.revokeObjectURL(o.url)
+
+        // Never dual-mono for learning tracks — hard-pan solo so it is only in one speaker.
+        const hard = await monoSoloToHardPanObjectUrl(url, soloSide)
+        URL.revokeObjectURL(url)
+        learningStereoCache.set(cacheKey, hard.url)
+        return hard.url
       }
 
-      // Never dual-mono for learning tracks — hard-pan solo so it is only in one speaker.
-      const hard = await monoSoloToHardPanObjectUrl(url, soloSide)
+      const hard = await monoSoloToHardPanObjectUrl(url, 'left')
       URL.revokeObjectURL(url)
       learningStereoCache.set(cacheKey, hard.url)
       return hard.url
+    })()
+
+    learningStereoInflight.set(cacheKey, build)
+    try {
+      return await build
+    } finally {
+      learningStereoInflight.delete(cacheKey)
     }
   }
 
-  // True mono tags (or missing layout): hard-pan left (part-left) vs dual-mono.
+  // Missing solo side / no ctx: hard-pan left vs dual-mono.
   const hard = await monoSoloToHardPanObjectUrl(url, 'left')
   URL.revokeObjectURL(url)
-  // Cache like the other finalize branches so remounts/prefetch don't rebuild
-  // (and so callers can detect shared learning-stereo URLs before revoking).
-  if (ctx) {
-    learningStereoCache.set(learningStereoKey(ctx.detail.tag_id, ctx.part), hard.url)
-  }
   return hard.url
 }
 
@@ -273,7 +270,7 @@ async function firstPackHit(
 ): Promise<{ path: string; url: string } | null> {
   for (const path of paths) {
     const absolute = mediaUrl(path)
-    if (!(await packHasAbsolute(absolute))) continue
+    // One get() — pack store resolves relative/absolute/pathname variants.
     const raw = await packGetBlobUrl(absolute)
     if (!raw) continue
     const url = opts?.skipFinalize
@@ -304,7 +301,7 @@ async function collectVoiceStemUrls(
     const starEntry = starredAudioEntry(starred, part)
     if (
       starEntry &&
-      (isUltraSoloPath(starEntry.path) || starEntry.quality === 'lofi')
+      (isUltraMonoStemPath(starEntry.path) || starEntry.quality === 'lofi')
     ) {
       const url = blobUrlFromCached(starEntry)
       if (url) {
@@ -321,7 +318,7 @@ async function collectVoiceStemUrls(
     add(tierPath(detail, part, 'ultra_downmix'))
     add(ultraAudioPath(detail, part))
     for (const p of cachedPathCandidates(detail, part)) {
-      if (isPublishedTierPath(p) && isUltraSoloPath(p)) add(p)
+      if (isPublishedTierPath(p) && isUltraMonoStemPath(p)) add(p)
     }
     const hit = await firstPackHit(paths, { skipFinalize: true })
     if (hit) inputs.push({ part, url: hit.url })
@@ -349,28 +346,105 @@ async function tryReconstructMix(
   }
 }
 
-async function voicePartInPack(detail: TagDetail, part: string): Promise<boolean> {
-  for (const path of cachedPathCandidates(detail, part)) {
-    if (await packHasPath(path)) return true
-  }
-  return false
+async function packPathsPresent(paths: string[]): Promise<Set<string>> {
+  const unique = [...new Set(paths.filter(Boolean))]
+  const present = new Set<string>()
+  if (!unique.length) return present
+  await Promise.all(
+    unique.map(async (path) => {
+      if (await packHasPath(path)) present.add(path)
+    }),
+  )
+  return present
 }
 
-async function countVoiceStemsInPack(detail: TagDetail): Promise<number> {
-  let count = 0
+function partHasPackHit(detail: TagDetail, part: string, present: Set<string>): boolean {
+  return cachedPathCandidates(detail, part).some((p) => present.has(p))
+}
+
+function offlineMixAvailableFromPresence(detail: TagDetail, present: Set<string>): boolean {
+  if (isMixOnlyTag(detail)) return partHasPackHit(detail, 'mix', present)
+  let stems = 0
   for (const part of voiceAudioParts(detail)) {
-    if (await voicePartInPack(detail, part)) count++
+    if (partHasPackHit(detail, part, present)) stems++
+    if (stems >= 2) return true
   }
-  return count
+  return partHasPackHit(detail, 'mix', present)
 }
 
-async function offlineMixAvailable(detail: TagDetail): Promise<boolean> {
-  if (isMixOnlyTag(detail)) return voicePartInPack(detail, 'mix')
-  if ((await countVoiceStemsInPack(detail)) >= 2) return true
-  for (const path of cachedPathCandidates(detail, 'mix')) {
-    if (await packHasPath(path)) return true
+/**
+ * Offline (and online) availability for player tabs + whether any audio pack hit exists.
+ * Offline path batches pack existence checks in parallel instead of sequential walks.
+ */
+export async function probeTagAudioAvailability(
+  detail: TagDetail,
+  opts?: {
+    starred?: StarredTagRecord | null
+    offlineOnly?: boolean
+  },
+): Promise<{ parts: string[]; hasPackAudio: boolean }> {
+  const offlineOnly = opts?.offlineOnly === true
+  const starred = opts?.starred
+  const candidates = sortPartIds([
+    ...new Set([
+      ...playableAudioParts(detail, offlineOnly ? 'offline' : 'online'),
+      ...(offlineOnly
+        ? [...playableAudioParts(detail, 'online'), ...Object.keys(starred?.audioBlobs ?? {})]
+        : []),
+    ]),
+  ])
+
+  if (!offlineOnly) {
+    const parts: string[] = []
+    let hasPackAudio = false
+    const packCheckPaths: string[] = []
+    for (const part of candidates) {
+      const starEntry = starredAudioEntry(starred, part)
+      if (starEntry?.data) {
+        parts.push(part)
+        continue
+      }
+      if (playbackAudioPath(detail, part) || originalAudioPath(detail, part)) {
+        parts.push(part)
+      }
+      for (const p of cachedPathCandidates(detail, part)) packCheckPaths.push(p)
+    }
+    // Soft signal for UI: any pack hit for this tag (does not block tabs).
+    const present = await packPathsPresent(packCheckPaths)
+    hasPackAudio = present.size > 0
+    return { parts: sortPartIds(parts), hasPackAudio }
   }
-  return false
+
+  const packCheckPaths: string[] = []
+  for (const part of candidates) {
+    const starEntry = starredAudioEntry(starred, part)
+    if (starEntry?.data) continue
+    for (const p of cachedPathCandidates(detail, part)) packCheckPaths.push(p)
+    // Mix reconstruct may need any voice stem — include all voice candidates once.
+    if (part.toLowerCase() === 'mix' && !isMixOnlyTag(detail)) {
+      for (const voice of voiceAudioParts(detail)) {
+        for (const p of cachedPathCandidates(detail, voice)) packCheckPaths.push(p)
+      }
+    }
+  }
+  const present = await packPathsPresent(packCheckPaths)
+  const hasPackAudio = present.size > 0
+  const out: string[] = []
+
+  for (const part of candidates) {
+    const starEntry = starredAudioEntry(starred, part)
+    if (starEntry?.data) {
+      out.push(part)
+      continue
+    }
+    if (part.toLowerCase() === 'mix') {
+      if (offlineMixAvailableFromPresence(detail, present)) out.push(part)
+    } else if (partHasPackHit(detail, part, present)) {
+      out.push(part)
+    }
+  }
+
+  return { parts: sortPartIds(out), hasPackAudio }
 }
 
 /**
@@ -384,44 +458,25 @@ export async function probeAvailableAudioParts(
     offlineOnly?: boolean
   },
 ): Promise<string[]> {
-  const offlineOnly = opts?.offlineOnly === true
-  const starred = opts?.starred
-  // Offline: also consider online path lists + starred keys so originals-only / starred
-  // parts aren't dropped before we check the pack or IndexedDB blobs.
-  const candidates = sortPartIds([
-    ...new Set([
-      ...playableAudioParts(detail, offlineOnly ? 'offline' : 'online'),
-      ...(offlineOnly
-        ? [...playableAudioParts(detail, 'online'), ...Object.keys(starred?.audioBlobs ?? {})]
-        : []),
-    ]),
-  ])
-  const out: string[] = []
-
-  for (const part of candidates) {
-    const starEntry = starredAudioEntry(starred, part)
-    if (starEntry?.data) {
-      out.push(part)
-      continue
-    }
-
-    if (!offlineOnly) {
-      if (playbackAudioPath(detail, part) || originalAudioPath(detail, part)) {
-        out.push(part)
-      }
-      continue
-    }
-
-    if (part.toLowerCase() === 'mix') {
-      if (await offlineMixAvailable(detail)) out.push(part)
-    } else if (await voicePartInPack(detail, part)) {
-      out.push(part)
-    }
-  }
-
-  return sortPartIds(out)
+  const { parts } = await probeTagAudioAvailability(detail, opts)
+  return parts
 }
 
+/** True when any learning-track path for this tag is present in the audio pack. */
+export async function probePackAudioPresence(detail: TagDetail): Promise<boolean> {
+  const paths: string[] = []
+  for (const part of listAudioParts(detail)) {
+    for (const p of cachedPathCandidates(detail, part)) paths.push(p)
+  }
+  const present = await packPathsPresent(paths)
+  return present.size > 0
+}
+
+/**
+ * Resolve a catalog-relative path to blob or network media.
+ *
+ * Checks favorite blobs first, then pack cache, then network (unless `offlineOnly`).
+ */
 export async function resolvePathUrl(
   path: string,
   opts?: {
@@ -459,6 +514,250 @@ export async function resolvePathUrl(
  * original cache → online playback → offline ultra / reconstruct.
  * Call on first play of a part (lazy fetch).
  */
+
+/**
+ * Online: for mono_downmix tags, synthesize virtual part-left learning stereo from
+ * the four mono playback/downmix stems (hosted playback is dual-mono, not part-left).
+ */
+async function resolveOnlineVirtualPartLearning(
+  detail: TagDetail,
+  part: string,
+  starred?: StarredTagRecord | null,
+): Promise<ResolvedMedia | null> {
+  if (part.toLowerCase() === 'mix') return null
+  if (!needsOnlineVirtualPartLearning(detail)) return null
+
+  const cacheKey = learningStereoKey(detail.tag_id, part)
+  const cached = learningStereoCache.get(cacheKey)
+  if (cached) {
+    return { kind: 'blob', url: cached, source: 'reconstruct', tier: 'playback' }
+  }
+
+  const activePath =
+    playbackAudioPath(detail, part) ?? originalAudioPath(detail, part) ?? ultraAudioPath(detail, part)
+  if (!activePath) return null
+
+  let activeUrl: string | null = null
+  let activeOwned = false
+  const packHit = await firstPackHit([activePath], { skipFinalize: true, starred })
+  if (packHit) {
+    activeUrl = packHit.url
+    activeOwned = true
+  }
+  if (!activeUrl) {
+    const starEntry = starredAudioEntry(starred, part)
+    if (starEntry) {
+      activeUrl = blobUrlFromCached(starEntry)
+      activeOwned = !!activeUrl
+    }
+  }
+  if (!activeUrl) activeUrl = mediaUrl(activePath)
+
+  const others: Array<{ part: string; url: string }> = []
+  const owned: string[] = []
+  for (const voice of voiceAudioParts(detail)) {
+    if (voice.toLowerCase() === part.toLowerCase()) continue
+    const path =
+      playbackAudioPath(detail, voice) ??
+      originalAudioPath(detail, voice) ??
+      ultraAudioPath(detail, voice)
+    if (!path) continue
+    const hit = await firstPackHit([path], { skipFinalize: true, starred })
+    if (hit) {
+      others.push({ part: voice, url: hit.url })
+      owned.push(hit.url)
+      continue
+    }
+    const starEntry = starredAudioEntry(starred, voice)
+    if (starEntry) {
+      const u = blobUrlFromCached(starEntry)
+      if (u) {
+        others.push({ part: voice, url: u })
+        owned.push(u)
+        continue
+      }
+    }
+    others.push({ part: voice, url: mediaUrl(path) })
+  }
+
+  if (!others.length) {
+    for (const u of owned) URL.revokeObjectURL(u)
+    if (activeOwned) URL.revokeObjectURL(activeUrl)
+    return null
+  }
+
+  try {
+    const stereo = await buildPartLearningStereoObjectUrl({
+      activePart: part,
+      activeUrl,
+      otherParts: others,
+      soloSide: 'left',
+    })
+    for (const u of owned) URL.revokeObjectURL(u)
+    if (activeOwned) URL.revokeObjectURL(activeUrl)
+    learningStereoCache.set(cacheKey, stereo.url)
+    return { kind: 'blob', url: stereo.url, source: 'reconstruct', tier: 'playback' }
+  } catch (err) {
+    console.warn('[singtags] online virtual part-left failed', detail.tag_id, part, err)
+    for (const u of owned) URL.revokeObjectURL(u)
+    if (activeOwned) URL.revokeObjectURL(activeUrl)
+    return null
+  }
+}
+
+/** True when a cached blob is original/playback (not ultra/lofi mono stem). */
+function isHighQualityAudioBlob(path: string, quality?: string): boolean {
+  if (quality === 'lofi') return false
+  if (isUltraMonoStemPath(path)) return false
+  return true
+}
+
+/** Best-effort: store a network playback/original response in the audio pack for later offline use. */
+function warmAudioPackFromNetwork(catalogPath: string): void {
+  void (async () => {
+    try {
+      const absolute = mediaUrl(catalogPath)
+      if (await packHasAbsolute(absolute)) return
+      const res = await fetch(absolute)
+      if (!res.ok) return
+      const buf = await res.arrayBuffer()
+      const mime = res.headers.get('Content-Type') || 'application/octet-stream'
+      if (!isPlausibleMediaBody(buf, mime)) return
+      await audioPack.put(
+        absolute,
+        new Response(buf, { status: 200, headers: { 'Content-Type': mime } }),
+      )
+    } catch {
+      /* ignore — warm is an optimization */
+    }
+  })()
+}
+
+/**
+ * Rebuild learning-stereo using a caller-provided active stem URL (HQ playback/original)
+ * and ultra/lofi stems for accompaniment. Accompaniment stays on the ultra ladder.
+ */
+async function rebuildLearningStereoWithActive(
+  detail: TagDetail,
+  part: string,
+  activeUrl: string,
+  starred: StarredTagRecord | null | undefined,
+  tier: string,
+): Promise<ResolvedMedia | null> {
+  const cacheKey = learningStereoKey(detail.tag_id, part)
+  const cached = learningStereoCache.get(cacheKey)
+  if (cached) {
+    URL.revokeObjectURL(activeUrl)
+    return { kind: 'blob', url: cached, source: 'reconstruct', tier }
+  }
+  if (typeof AudioContext === 'undefined') return null
+
+  const summary = detail.audio_layout_summary
+  const soloSide: PartSide | null =
+    usesMonoSolos(detail) ? 'left' : soloSideForPart(part, detail.audio_layouts, summary)
+  if (!soloSide) return null
+
+  const required = accompanimentVoiceParts(detail, part)
+  const others = await collectVoiceStemUrls(detail, {
+    excludePart: part,
+    starred: starred ?? null,
+  })
+
+  if (canReconstructLearningStereo(others, required)) {
+    try {
+      const stereo = await buildPartLearningStereoObjectUrl({
+        activePart: part,
+        activeUrl,
+        otherParts: others,
+        soloSide,
+      })
+      URL.revokeObjectURL(activeUrl)
+      for (const o of others) URL.revokeObjectURL(o.url)
+      learningStereoCache.set(cacheKey, stereo.url)
+      return { kind: 'blob', url: stereo.url, source: 'reconstruct', tier }
+    } catch (err) {
+      console.warn('[singtags] HQ-active learning-stereo rebuild failed', detail.tag_id, part, err)
+      for (const o of others) URL.revokeObjectURL(o.url)
+    }
+  } else {
+    for (const o of others) URL.revokeObjectURL(o.url)
+  }
+
+  try {
+    const hard = await monoSoloToHardPanObjectUrl(activeUrl, soloSide)
+    URL.revokeObjectURL(activeUrl)
+    learningStereoCache.set(cacheKey, hard.url)
+    return { kind: 'blob', url: hard.url, source: 'reconstruct', tier }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Prefer cached original/playback for a voice part.
+ * For mono_downmix (dual-mono hosts), rebuild learning-stereo with the HQ file as the
+ * active stem and ultra solos for accompaniment.
+ */
+async function resolveCachedHighQualityVoice(
+  detail: TagDetail,
+  part: string,
+  starred?: StarredTagRecord | null,
+): Promise<ResolvedMedia | null> {
+  const cacheKey = learningStereoKey(detail.tag_id, part)
+  const cached = learningStereoCache.get(cacheKey)
+  if (cached) {
+    return { kind: 'blob', url: cached, source: 'reconstruct', tier: 'playback' }
+  }
+
+  const needsVirtual = needsOnlineVirtualPartLearning(detail)
+
+  const starEntry = starredAudioEntry(starred, part)
+  if (starEntry && isHighQualityAudioBlob(starEntry.path, starEntry.quality)) {
+    const raw = blobUrlFromCached(starEntry)
+    if (raw) {
+      const tier =
+        starEntry.quality === 'original' ? 'original' : starEntry.quality || 'cached'
+      if (!needsVirtual) {
+        return { kind: 'blob', url: raw, source: 'star', tier }
+      }
+      const rebuilt = await rebuildLearningStereoWithActive(
+        detail,
+        part,
+        raw,
+        starred,
+        tier,
+      )
+      if (rebuilt) return rebuilt
+    }
+  }
+
+  const hqPaths: Array<{ path: string; tier: string }> = []
+  const original = originalAudioPath(detail, part)
+  if (original) hqPaths.push({ path: original, tier: 'original' })
+  const playbackOnly = tierPath(detail, part, 'playback')
+  if (playbackOnly && playbackOnly !== original) {
+    hqPaths.push({ path: playbackOnly, tier: 'playback' })
+  }
+
+  for (const { path: catalogPath, tier } of hqPaths) {
+    const hit = await firstPackHit([catalogPath], { skipFinalize: true, starred })
+    if (!hit) continue
+    if (!needsVirtual) {
+      return { kind: 'blob', url: hit.url, source: 'pack', tier }
+    }
+    const rebuilt = await rebuildLearningStereoWithActive(
+      detail,
+      part,
+      hit.url,
+      starred,
+      tier,
+    )
+    if (rebuilt) return rebuilt
+  }
+
+  return null
+}
+
 export async function resolveAudioPart(
   detail: TagDetail,
   part: string,
@@ -473,29 +772,37 @@ export async function resolveAudioPart(
   const offlineVoiceMonoSolos =
     offlineOnly && partKey !== 'mix' && usesMonoSolos(detail)
 
-  // Offline learning tracks: rebuild hard L/R from ultra solos first (not dual-mono /
-  // soft-balanced originals or playback that may be cached from starring).
+  // Offline learning tracks: prefer cached original/playback for this part when present;
+  // otherwise rebuild from ultra solos (accompaniment stems stay on the ultra ladder).
   if (offlineVoiceMonoSolos) {
+    const fromHq = await resolveCachedHighQualityVoice(detail, part, starred)
+    if (fromHq) return fromHq
     const fromUltra = await resolveOfflineUltraVoice(detail, part, starred)
     if (fromUltra) return fromUltra
   }
 
   const starEntry = starredAudioEntry(starred, part)
   if (starEntry) {
-    const raw = blobUrlFromCached(starEntry)
-    if (raw) {
-      const tier = starEntry.quality === 'original' ? 'original' : starEntry.quality || 'cached'
-      const url = await finalizeBlobUrl(raw, starEntry.path, {
-        detail,
-        part,
-        starred: starred ?? null,
-      })
-      const reconstructed = hasCachedLearningStereo(detail.tag_id, part, url)
-      return {
-        kind: 'blob',
-        url,
-        source: reconstructed ? 'reconstruct' : 'star',
-        tier,
+    const degraded =
+      partKey !== 'mix' &&
+      (starEntry.quality === 'lofi' || isUltraMonoStemPath(starEntry.path))
+    // Online: skip degraded star blobs so pack/network HQ can upgrade.
+    if (!(degraded && !offlineOnly)) {
+      const raw = blobUrlFromCached(starEntry)
+      if (raw) {
+        const tier = starEntry.quality === 'original' ? 'original' : starEntry.quality || 'cached'
+        const url = await finalizeBlobUrl(raw, starEntry.path, {
+          detail,
+          part,
+          starred: starred ?? null,
+        })
+        const reconstructed = hasCachedLearningStereo(detail.tag_id, part, url)
+        return {
+          kind: 'blob',
+          url,
+          source: reconstructed ? 'reconstruct' : 'star',
+          tier,
+        }
       }
     }
   }
@@ -508,15 +815,29 @@ export async function resolveAudioPart(
       part: offlineVoiceMonoSolos ? part : undefined,
     })
     if (hit) {
-      // Offline mono_solos must not play raw originals when we can rebuild; if we
-      // reached here, ultra stems were missing — still return the original hit.
       return { kind: 'blob', url: hit.url, source: 'pack', tier: 'original' }
     }
   }
 
   if (!offlineOnly) {
+    // Prefer pack-cached original/playback before hitting the network.
+    if (partKey !== 'mix' && !needsOnlineVirtualPartLearning(detail)) {
+      const fromHq = await resolveCachedHighQualityVoice(detail, part, starred)
+      if (fromHq) return fromHq
+    }
+    // mono_downmix: hosted playback is dual-mono — rebuild virtual part-left online.
+    if (partKey !== 'mix' && needsOnlineVirtualPartLearning(detail)) {
+      const virtual = await resolveOnlineVirtualPartLearning(detail, part, starred)
+      if (virtual) return virtual
+    }
     const playback = playbackAudioPath(detail, part)
     if (playback) {
+      const packPlayback = await firstPackHit([playback], { skipFinalize: true, starred })
+      if (packPlayback && !needsOnlineVirtualPartLearning(detail)) {
+        return { kind: 'blob', url: packPlayback.url, source: 'pack', tier: 'playback' }
+      }
+      if (packPlayback) URL.revokeObjectURL(packPlayback.url)
+      warmAudioPackFromNetwork(playback)
       return {
         kind: 'network',
         url: mediaUrl(playback),
@@ -552,7 +873,7 @@ export async function resolveAudioPart(
   return null
 }
 
-/** Offline ultra solo → learning-stereo blob (or hard-pan fallback). */
+
 async function resolveOfflineUltraVoice(
   detail: TagDetail,
   part: string,
@@ -572,7 +893,7 @@ async function resolveOfflineUltraVoice(
     }
   }
 
-  const soloPaths = cachedPathCandidates(detail, part).filter(isUltraSoloPath)
+  const soloPaths = cachedPathCandidates(detail, part).filter(isUltraMonoStemPath)
   if (soloPaths.length) {
     const hit = await firstPackHit(soloPaths, { detail, part, starred })
     if (hit) {
@@ -590,7 +911,7 @@ async function resolveOfflineUltraVoice(
   const starEntry = starredAudioEntry(starred, part)
   if (
     starEntry &&
-    (isUltraSoloPath(starEntry.path) || starEntry.quality === 'lofi')
+    (isUltraMonoStemPath(starEntry.path) || starEntry.quality === 'lofi')
   ) {
     const raw = blobUrlFromCached(starEntry)
     if (raw) {
@@ -611,6 +932,12 @@ async function resolveOfflineUltraVoice(
   return null
 }
 
+/**
+ * Resolve many paths for a tag, optionally loading its favorite record by id.
+ *
+ * @param paths Catalog-relative paths.
+ * @param opts.tagId When set, loads favorites from IndexedDB for blob hits.
+ */
 export async function resolvePaths(
   paths: string[],
   opts?: { tagId?: number; offlineOnly?: boolean },
@@ -632,10 +959,12 @@ export async function resolvePaths(
   return out
 }
 
+/** Whether a catalog-relative path exists in either sheets or audio pack. */
 export async function packHasPath(path: string): Promise<boolean> {
   return packHasAbsolute(mediaUrl(path))
 }
 
+/** True when any of the given sheet paths is present in the sheets pack. */
 export async function packHasAnySheets(paths: string[]): Promise<boolean> {
   for (const p of paths) {
     if (await packHasPath(p)) return true

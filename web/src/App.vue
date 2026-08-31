@@ -1,20 +1,33 @@
 <script setup lang="ts">
+/**
+ * Root shell: primary navigation, offline ribbon, PWA install/update toasts,
+ * global snackbar, and routed main content.
+ */
 import { onMounted, onUnmounted, computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
-import { useStarsStore } from './stores/stars'
+import { useFavoritesStore } from './stores/favorites'
 import { useQueueStore } from './stores/queue'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { usePreferencesStore } from './stores/preferences'
 import { useSnackbarStore } from './stores/snackbar'
 import { formatBytes } from './offline/storageEstimate'
-import { navigateBack } from './lib/navigateBack'
-import { useReconnectCaches } from './composables/useReconnectCaches'
+import { goTagBack, tagBackLabel } from './lib/tagReturn'
+import {
+  useReconnectCaches,
+  reconnectMediaPromptVisible,
+  reconnectMediaPlan,
+  reconnectMediaBusy,
+  reconnectMediaPromptMessage,
+  reconnectMediaPromptActionLabel,
+  acceptReconnectMediaPrompt,
+  dismissReconnectMediaPrompt,
+} from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
 import AboutDialog from './components/AboutDialog.vue'
 
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const queue = useQueueStore()
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
@@ -39,21 +52,17 @@ watch(
   (msg) => pushStoreError(msg, () => queue.clearError()),
 )
 watch(
-  () => stars.error,
-  (msg) => pushStoreError(msg, () => stars.clearError()),
+  () => favorites.error,
+  (msg) => pushStoreError(msg, () => favorites.clearError()),
 )
 
 const onTagPage = computed(() => route.name === 'tag')
-const backLabel = computed(() => (route.query.set === 'practice' ? '← Practice set' : '← Back'))
+const backLabel = computed(() => tagBackLabel(route))
 const aboutOpen = ref(false)
 
-/** History back restores browse scroll; practice always returns to the set list. */
+/** Return to Browse/Favorites/… (not a previous tag from Prev/Next). */
 function goBack(): void {
-  if (route.query.set === 'practice') {
-    void router.push('/favorites')
-    return
-  }
-  navigateBack(router, '/')
+  goTagBack(router, route)
 }
 
 const { needRefresh, updateServiceWorker } = useRegisterSW({
@@ -122,7 +131,7 @@ function publishHeaderHeight(): void {
 }
 
 onMounted(() => {
-  void stars.ensureLoaded()
+  void favorites.ensureLoaded()
   void offlineLib.loadManifests()
   if (isStandaloneDisplay()) markInstallDone()
   window.addEventListener('beforeinstallprompt', onBeforeInstall)
@@ -171,14 +180,102 @@ function dismissInstall(): void {
   showInstall.value = false
 }
 
+/** User hid the pack download progress snack; download keeps running. */
+const packProgressSnackHidden = ref(false)
+
+const packDownloadActive = computed(
+  () =>
+    offlineLib.sheetsStatus === 'running' ||
+    offlineLib.audioStatus === 'running' ||
+    offlineLib.packSyncBusy,
+)
+
+const showPackProgressSnack = computed(
+  () => packDownloadActive.value && !packProgressSnackHidden.value,
+)
+
+const packProgressSnackPct = computed(() => {
+  const sheetsOn = offlineLib.sheetsStatus === 'running'
+  const audioOn = offlineLib.audioStatus === 'running'
+  const sheetsRatio = offlineLib.sheetsProgress?.ratio ?? 0
+  const audioRatio = offlineLib.audioProgress?.ratio ?? 0
+  if (sheetsOn && audioOn) return Math.round(((sheetsRatio + audioRatio) / 2) * 100)
+  if (sheetsOn) return Math.round(sheetsRatio * 100)
+  if (audioOn) return Math.round(audioRatio * 100)
+  return 0
+})
+
+const packProgressSnackLabel = computed(() => {
+  const sheetsOn = offlineLib.sheetsStatus === 'running'
+  const audioOn = offlineLib.audioStatus === 'running'
+  if (offlineLib.packSyncBusy && !sheetsOn && !audioOn) return 'Syncing offline library…'
+  if (sheetsOn && audioOn) {
+    return `Downloading offline library… ${packProgressSnackPct.value}%`
+  }
+  if (sheetsOn) {
+    return offlineLib.sheetsProgress?.label || `Downloading sheets… ${packProgressSnackPct.value}%`
+  }
+  if (audioOn) {
+    return offlineLib.audioProgress?.label || `Downloading learning tracks… ${packProgressSnackPct.value}%`
+  }
+  return 'Downloading…'
+})
+
+function dismissPackProgressSnack(): void {
+  packProgressSnackHidden.value = true
+}
+
+function revealPackProgressSnack(): void {
+  packProgressSnackHidden.value = false
+}
+
+watch(
+  [
+    () => offlineLib.sheetsStatus,
+    () => offlineLib.audioStatus,
+    () => offlineLib.packSyncBusy,
+  ],
+  ([sheets, audio, busy], prev) => {
+    const [prevSheets, prevAudio, prevBusy] = prev ?? [sheets, audio, busy]
+    const wasActive = prevSheets === 'running' || prevAudio === 'running' || Boolean(prevBusy)
+    const isActive = sheets === 'running' || audio === 'running' || Boolean(busy)
+    if (isActive && !wasActive) {
+      // New download/sync — show the snack even if the previous run was dismissed.
+      packProgressSnackHidden.value = false
+      return
+    }
+    if (!isActive && wasActive) {
+      packProgressSnackHidden.value = true
+      const finishedOk =
+        (prevSheets === 'running' && sheets === 'done') ||
+        (prevAudio === 'running' && audio === 'done') ||
+        (Boolean(prevBusy) && !busy && (sheets === 'done' || audio === 'done'))
+      if (finishedOk) {
+        snackbar.show('Offline library updated — browse Settings for details.', {
+          tone: 'ok',
+          ms: 6_000,
+        })
+      }
+    }
+  },
+)
+
 async function downloadSheetsFromPrompt(): Promise<void> {
+  revealPackProgressSnack()
   await offlineLib.dismissSheetsPrompt()
   await offlineLib.startPack('sheets')
 }
 
 async function syncPacksFromPrompt(): Promise<void> {
   if (offlineLib.packSyncBusy) return
+  revealPackProgressSnack()
   await offlineLib.syncMissingPacks()
+}
+
+async function acceptReconnectPrompt(): Promise<void> {
+  if (reconnectMediaBusy.value) return
+  revealPackProgressSnack()
+  await acceptReconnectMediaPrompt()
 }
 </script>
 
@@ -282,6 +379,28 @@ async function syncPacksFromPrompt(): Promise<void> {
       <button type="button" class="btn btn-ghost" @click="dismissUpdate">Later</button>
     </div>
     <div
+      v-else-if="reconnectMediaPromptVisible && reconnectMediaPlan && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      class="toast toast-wide"
+      role="status"
+    >
+      <span>{{ reconnectMediaPromptMessage(reconnectMediaPlan) }}</span>
+      <button
+        type="button"
+        class="btn btn-primary"
+        :disabled="reconnectMediaBusy"
+        :aria-busy="reconnectMediaBusy"
+        @click="acceptReconnectPrompt"
+      >
+        {{ reconnectMediaBusy ? 'Downloading…' : reconnectMediaPromptActionLabel }}
+      </button>
+      <RouterLink class="btn btn-ghost" to="/settings" @click="dismissReconnectMediaPrompt()">
+        Offline
+      </RouterLink>
+      <button type="button" class="btn btn-ghost" @click="dismissReconnectMediaPrompt()">
+        Not now
+      </button>
+    </div>
+    <div
       v-else-if="offlineLib.showPackSyncPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
@@ -332,6 +451,37 @@ async function syncPacksFromPrompt(): Promise<void> {
       <button type="button" class="btn btn-ghost" @click="dismissInstall">Not now</button>
     </div>
     <div
+      v-if="showPackProgressSnack"
+      class="toast toast-wide toast-progress"
+      :class="{
+        'toast-snack-raised':
+          needRefresh ||
+          reconnectMediaPromptVisible ||
+          offlineLib.showPackSyncPrompt ||
+          offlineLib.showSheetsPrompt ||
+          showInstall,
+      }"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div class="toast-progress-main">
+        <span>{{ packProgressSnackLabel }}</span>
+        <div
+          class="toast-progress-bar"
+          role="progressbar"
+          :aria-valuenow="packProgressSnackPct"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-label="packProgressSnackLabel"
+        >
+          <div class="toast-progress-fill" :style="{ width: `${packProgressSnackPct}%` }" />
+        </div>
+      </div>
+      <RouterLink class="btn btn-ghost" to="/settings">Details</RouterLink>
+      <button type="button" class="btn btn-ghost" @click="dismissPackProgressSnack">Dismiss</button>
+    </div>
+    <div
       v-if="snackbar.message"
       class="toast toast-snack"
       :class="[
@@ -339,9 +489,11 @@ async function syncPacksFromPrompt(): Promise<void> {
         {
           'toast-snack-raised':
             needRefresh ||
+            reconnectMediaPromptVisible ||
             offlineLib.showPackSyncPrompt ||
             offlineLib.showSheetsPrompt ||
-            showInstall,
+            showInstall ||
+            showPackProgressSnack,
         },
       ]"
       role="alert"
@@ -698,6 +850,33 @@ main {
 .toast-snack {
   z-index: 50;
   width: min(96vw, 36rem);
+}
+.toast-progress {
+  z-index: 45;
+  align-items: flex-end;
+}
+.toast-progress.toast-wide > .toast-progress-main > span {
+  flex: none;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+.toast-progress-main {
+  flex: 1 1 12rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.toast-progress-bar {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 80%, var(--surface));
+  overflow: hidden;
+}
+.toast-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s ease;
 }
 .toast-snack-raised {
   bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom) + 5.5rem);

@@ -1,25 +1,29 @@
 <script setup lang="ts">
+/**
+ * Favorites list: sort/reorder, collections, practice set, backup import/export,
+ * and bulk unfavorite with confirm dialog.
+ */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import FilterSheet from '../components/FilterSheet.vue'
-import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { usePracticeStore } from '../stores/practice'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { buildFavoritesBackup, parseFavoritesBackup } from '../lib/favoritesBackup'
 import { downloadBlob } from '../download/zip'
 import { useOnline } from '../composables/useOnline'
 import {
-  STARRED_SORT_OPTIONS,
-  type StarredSortMode,
-  sortStarredRecords,
-} from '../lib/starredSort'
+  FAVORITES_SORT_OPTIONS,
+  type FavoritesSortMode,
+  sortFavoriteRecords,
+} from '../lib/favoritesSort'
 
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const practice = usePracticeStore()
 const userCollections = useUserCollectionsStore()
 const { offline } = useOnline()
@@ -33,8 +37,8 @@ const pendingUnfavorite = ref<{ tagId: number; title: string } | null>(null)
 const renameDraft = ref<Record<string, string>>({})
 const newCollectionName = ref('')
 const manageError = ref<string | null>(null)
-const sortMode = ref<StarredSortMode>('custom')
-const sortOptions = STARRED_SORT_OPTIONS
+const sortMode = ref<FavoritesSortMode>('custom')
+const sortOptions = FAVORITES_SORT_OPTIONS
 
 const DRAG_HOLD_MS = 280
 
@@ -48,13 +52,13 @@ let holdPointerId: number | null = null
 let holdStartY = 0
 
 const orderedRecords = computed(() => {
-  const byId = new Map(stars.records.map((r) => [r.tagId, r]))
+  const byId = new Map(favorites.records.map((r) => [r.tagId, r]))
   const colId = activeCollectionId.value
   if (colId) {
     const colIds = userCollections.byId(colId)?.tagIds ?? []
     const members = colIds.map((id) => byId.get(id)).filter(Boolean)
     if (sortMode.value === 'custom') return members
-    return sortStarredRecords(
+    return sortFavoriteRecords(
       members as NonNullable<(typeof members)[number]>[],
       sortMode.value,
     )
@@ -62,7 +66,7 @@ const orderedRecords = computed(() => {
   if (sortMode.value === 'custom') {
     return practice.order.map((id) => byId.get(id)).filter(Boolean)
   }
-  return sortStarredRecords(stars.records, sortMode.value)
+  return sortFavoriteRecords(favorites.records, sortMode.value)
 })
 
 const collectionChips = computed(() =>
@@ -77,10 +81,10 @@ const activeCollection = computed(() =>
 
 const addPickerTagIds = computed(() => orderedRecords.value.map((r) => r!.tagId))
 
-const canApplySort = computed(() => stars.count > 0 && sortMode.value !== 'custom')
+const canApplySort = computed(() => favorites.count > 0 && sortMode.value !== 'custom')
 
 watch(
-  () => stars.records.map((r) => r.tagId),
+  () => favorites.records.map((r) => r.tagId),
   (ids) => userCollections.pruneToStarred(ids),
 )
 
@@ -98,8 +102,8 @@ const finePointer = computed(() =>
 )
 
 onMounted(async () => {
-  await stars.ensureLoaded()
-  practice.syncFromStarred(stars.records.map((r) => r.tagId))
+  await favorites.ensureLoaded()
+  practice.syncFromStarred(favorites.records.map((r) => r.tagId))
 })
 
 onUnmounted(() => {
@@ -108,9 +112,9 @@ onUnmounted(() => {
 })
 
 watch(
-  () => stars.records.map((r) => r.tagId).join(','),
+  () => favorites.records.map((r) => r.tagId).join(','),
   () => {
-    practice.syncFromStarred(stars.records.map((r) => r.tagId))
+    practice.syncFromStarred(favorites.records.map((r) => r.tagId))
   },
 )
 
@@ -248,7 +252,7 @@ function onDragEnd(): void {
 
 function downloadStarredFile(): void {
   const data = buildFavoritesBackup({
-    records: stars.records,
+    records: favorites.records,
     collections: userCollections.exportSnapshot(),
     practice: practice.exportSnapshot(),
   })
@@ -263,12 +267,12 @@ async function onImportFile(e: Event): Promise<void> {
   try {
     const text = await file.text()
     const backup = parseFavoritesBackup(JSON.parse(text))
-    await stars.importFromJson(backup.starred, fetchMediaOnImport.value && !offline.value)
+    await favorites.importFromJson(backup.starred, fetchMediaOnImport.value && !offline.value)
     userCollections.replaceAll(backup.collections)
     practice.importSnapshot(backup.practice)
     backupOpen.value = false
   } catch (err) {
-    stars.error = err instanceof Error ? err.message : String(err)
+    favorites.error = err instanceof Error ? err.message : String(err)
   } finally {
     input.value = ''
   }
@@ -324,7 +328,7 @@ function removeFromActiveCollection(tagId: number): void {
 }
 
 function onAddedToCollection(_id: string, name: string): void {
-  stars.lastNotice = { type: 'text', message: `Added to “${name}”` }
+  favorites.lastNotice = { type: 'text', message: `Added to “${name}”` }
 }
 
 function requestUnfavorite(tagId: number, title: string): void {
@@ -333,19 +337,19 @@ function requestUnfavorite(tagId: number, title: string): void {
     pendingUnfavorite.value = { tagId, title }
     return
   }
-  void stars.unstar(tagId)
+  void favorites.unstar(tagId)
 }
 
 async function confirmPendingUnfavorite(): Promise<void> {
   const pending = pendingUnfavorite.value
   pendingUnfavorite.value = null
   if (!pending) return
-  await stars.unstar(pending.tagId)
+  await favorites.unstar(pending.tagId)
 }
 
 function rowStarTip(title: string, tagId: number): string {
-  if (stars.isTagCaching(tagId)) {
-    return stars.tagCachingLabel(tagId) || 'Saving for offline…'
+  if (favorites.isTagCaching(tagId)) {
+    return favorites.tagCachingLabel(tagId) || 'Saving for offline…'
   }
   if (activeCollectionId.value) {
     return `Unfavorite ${title || `tag #${tagId}`} — removes from favorites and all collections`
@@ -354,7 +358,7 @@ function rowStarTip(title: string, tagId: number): string {
 }
 
 function rowStarLabel(title: string, tagId: number): string {
-  if (stars.isTagCaching(tagId)) return 'Saving for offline'
+  if (favorites.isTagCaching(tagId)) return 'Saving for offline'
   return `Unfavorite ${title || `tag #${tagId}`}`
 }
 </script>
@@ -364,7 +368,7 @@ function rowStarLabel(title: string, tagId: number): string {
     <div class="actions">
       <label class="sort-field">
         <span class="sort-lbl">Sort</span>
-        <select v-model="sortMode" aria-label="Sort favorites" :disabled="!stars.count">
+        <select v-model="sortMode" aria-label="Sort favorites" :disabled="!favorites.count">
           <option v-for="s in sortOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
         </select>
       </label>
@@ -407,7 +411,7 @@ function rowStarLabel(title: string, tagId: number): string {
       <button
         type="button"
         class="chip chip-add"
-        :disabled="!orderedRecords.length && !stars.count"
+        :disabled="!orderedRecords.length && !favorites.count"
         title="Add currently listed favorites to a collection"
         @click="addOpen = true"
       >
@@ -419,17 +423,17 @@ function rowStarLabel(title: string, tagId: number): string {
       <button type="button" class="linkish" @click="selectCollection(null)">Show all</button>
     </p>
 
-    <div v-if="stars.progress" class="progress" role="status">
-      <div class="bar" :style="{ width: `${Math.round(stars.progress.ratio * 100)}%` }" />
-      <span>{{ stars.progress.label }}</span>
+    <div v-if="favorites.progress" class="progress" role="status">
+      <div class="bar" :style="{ width: `${Math.round(favorites.progress.ratio * 100)}%` }" />
+      <span>{{ favorites.progress.label }}</span>
     </div>
-    <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
-      <StarsNoticeLine :notice="stars.lastNotice" />
+    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
+      <FavoritesNoticeLine :notice="favorites.lastNotice" />
     </p>
 
-    <p v-if="!stars.loaded" class="text-muted" role="status">Loading favorites…</p>
+    <p v-if="!favorites.loaded" class="text-muted" role="status">Loading favorites…</p>
     <EmptyState
-      v-else-if="!stars.records.length"
+      v-else-if="!favorites.records.length"
       title="No favorites yet"
       message="Favorite from Browse or a tag page to save for quick recall and offline use."
     />
@@ -513,13 +517,13 @@ function rowStarLabel(title: string, tagId: number): string {
               type="button"
               class="row-fav"
               :aria-pressed="true"
-              :aria-busy="stars.isTagCaching(r!.tagId)"
+              :aria-busy="favorites.isTagCaching(r!.tagId)"
               :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
               :title="rowStarTip(r!.summary.title || '', r!.tagId)"
               @click.stop="requestUnfavorite(r!.tagId, r!.summary.title || '')"
             >
               <span
-                v-if="stars.isTagCaching(r!.tagId)"
+                v-if="favorites.isTagCaching(r!.tagId)"
                 class="row-fav-spinner"
                 aria-hidden="true"
               />
@@ -542,7 +546,7 @@ function rowStarLabel(title: string, tagId: number): string {
           <span
             class="backup-tip"
             :title="
-              stars.count
+              favorites.count
                 ? undefined
                 : 'Favorite at least one tag before backing up — there’s nothing to export yet.'
             "
@@ -550,8 +554,8 @@ function rowStarLabel(title: string, tagId: number): string {
             <button
               type="button"
               class="primary"
-              :disabled="!stars.count"
-              :aria-disabled="!stars.count"
+              :disabled="!favorites.count"
+              :aria-disabled="!favorites.count"
               @click="downloadStarredFile"
             >
               Backup favorites &amp; collections

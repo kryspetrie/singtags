@@ -1,9 +1,11 @@
-/** Common learning-track part ids on barbershoptags.com. Tags may include extra parts. */
+/** Default voice part ids and library download filter helpers. */
 
 export const COMMON_AUDIO_PARTS = ['mix', 'lead', 'tenor', 'bari', 'bass'] as const
 
+/** Subset of {@link COMMON_AUDIO_PARTS} as a union type. */
 export type CommonAudioPart = (typeof COMMON_AUDIO_PARTS)[number]
 
+/** UI labels for standard learning-track part ids. */
 export const AUDIO_PART_LABELS: Record<string, string> = {
   mix: 'Mix',
   lead: 'Lead',
@@ -12,8 +14,10 @@ export const AUDIO_PART_LABELS: Record<string, string> = {
   bass: 'Bass',
 }
 
+/** Which voice parts to include when downloading the full library audio pack. */
 export type LibraryAudioPartsMode = 'all' | 'mix' | 'custom'
 
+/** Human-readable label for a part id (falls back to the raw id). */
 export function partLabel(part: string): string {
   return AUDIO_PART_LABELS[part] ?? part
 }
@@ -48,6 +52,10 @@ export function partFromMediaPath(path: string): string | null {
   return lower || null
 }
 
+/**
+ * True when a media path should be downloaded for the current parts mode.
+ * Unknown paths pass through (`true`) so new tier filenames are not dropped.
+ */
 export function pathMatchesParts(
   path: string,
   mode: LibraryAudioPartsMode,
@@ -61,6 +69,7 @@ export function pathMatchesParts(
   return wanted.has(part)
 }
 
+/** Dedupe and lowercase custom part ids for set membership checks. */
 export function normalizeCustomParts(parts: string[]): string[] {
   const out = new Set<string>()
   for (const p of parts) {

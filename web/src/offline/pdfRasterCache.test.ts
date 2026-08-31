@@ -3,7 +3,7 @@
  */
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
+import { hasPdfRasterCached,
   clearPdfRasterCache,
   loadPdfRasterObjectUrls,
   MAX_PDF_RASTER_ENTRIES,
@@ -71,4 +71,14 @@ describe('pdfRasterCache', () => {
     expect(hit).not.toBeNull()
     for (const u of hit!) URL.revokeObjectURL(u)
   })
+
+  it('reports hasPdfRasterCached from memory and IDB', async () => {
+    const key = pdfRasterCacheKey('https://x/has.pdf', { crop: true })
+    expect(await hasPdfRasterCached(key)).toBe(false)
+    await putPdfRasterBlobs(key, [new Blob(['p'], { type: 'image/webp' })])
+    expect(await hasPdfRasterCached(key)).toBe(true)
+    wipePdfRasterMemoryForTests()
+    expect(await hasPdfRasterCached(key)).toBe(true)
+  })
+
 })

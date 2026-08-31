@@ -1,3 +1,7 @@
+/**
+ * Tag title display helpers (alt title deduplication).
+ */
+
 /** Alt title when it adds information beyond the primary title. */
 export function visibleAltTitle(
   altTitle: string | null | undefined,

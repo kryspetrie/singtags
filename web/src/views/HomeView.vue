@@ -1,10 +1,14 @@
 <script setup lang="ts">
+/**
+ * Browse home: virtualized tag list, search/filters, scrub rails, bulk queue/favorite actions,
+ * and first-run welcome flow.
+ */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useWindowVirtualizer } from '@tanstack/vue-virtual'
 import { useCatalogStore, type SortMode } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import { catalogOriginalPaths } from '../lib/audioTiers'
@@ -15,14 +19,14 @@ import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
-import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetsPack } from '../offline/libraryPack'
-import { getStarred } from '../offline/starredDb'
+import { getStarred } from '../offline/favoritesDb'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import {
@@ -47,7 +51,7 @@ import { useOnline } from '../composables/useOnline'
 
 const catalog = useCatalogStore()
 const queue = useQueueStore()
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const userCollections = useUserCollectionsStore()
 const recent = useRecentStore()
 const offlineLib = useOfflineLibraryStore()
@@ -157,19 +161,19 @@ async function onEnsureLyrics(): Promise<void> {
   }
 }
 
-/** Tag metadata for queueing — Cache API, sheets pack, or starred detail (works offline). */
+/** Tag metadata for queueing — Cache API, sheets pack, or favorites detail (`getStarred`, works offline). */
 async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
   try {
     const res = await fetchCached(tagDetailUrl(id))
     if (res.ok) return (await res.json()) as TagDetail
   } catch {
-    /* try pack / starred */
+    /* try pack / favorites record */
   }
   try {
     const packed = await sheetsPack.get(tagDetailUrl(id))
     if (packed) return (await packed.json()) as TagDetail
   } catch {
-    /* try starred */
+    /* try favorites IndexedDB (`getStarred`) */
   }
   const starred = await getStarred(id)
   return starred?.detail ?? null
@@ -229,14 +233,14 @@ const collectionPickerOpen = ref(false)
 
 const selectedTagIds = computed(() => [...catalog.selectedIds])
 
-async function favoriteSelectedToCollection(collectionId: string, collectionName: string): Promise<void> {
+async function favoriteSelectedToCollection(_collectionId: string, collectionName: string): Promise<void> {
   const summaries = selectedTagIds.value
     .map((id) => catalog.getById(id))
     .filter((x): x is NonNullable<typeof x> => !!x)
   const favorited = summaries.length
-    ? await stars.starMany(summaries, { metadataOnly: false })
+    ? await favorites.starMany(summaries, { metadataOnly: false })
     : 0
-  stars.lastNotice = {
+  favorites.lastNotice = {
     type: 'text',
     message:
       favorited > 0
@@ -251,11 +255,11 @@ async function starSelected(): Promise<void> {
   const summaries = [...catalog.selectedIds]
     .map((id) => catalog.getById(id))
     .filter((t): t is NonNullable<typeof t> => !!t)
-  void stars.starMany(summaries, { metadataOnly: false })
+  void favorites.starMany(summaries, { metadataOnly: false })
 }
 
 function toggleRowStar(summary: TagSummary): void {
-  void stars.toggle(summary, null, { metadataOnly: false })
+  void favorites.toggle(summary, null, { metadataOnly: false })
 }
 
 function onResultKey(e: KeyboardEvent, id: number): void {
@@ -304,17 +308,17 @@ const searchLyricsTip = computed(() => {
 })
 
 function rowStarTip(tag: TagSummary): string {
-  if (stars.isTagCaching(tag.id)) {
-    return stars.tagCachingLabel(tag.id) || 'Caching for offline'
+  if (favorites.isTagCaching(tag.id)) {
+    return favorites.tagCachingLabel(tag.id) || 'Caching for offline'
   }
-  return stars.isStarred(tag.id)
+  return favorites.isStarred(tag.id)
     ? 'Unfavorite — remove from saved tags'
     : 'Favorite — save for offline use and practice sets'
 }
 
 function rowStarLabel(tag: TagSummary): string {
-  if (stars.isTagCaching(tag.id)) return 'Caching for offline'
-  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
+  if (favorites.isTagCaching(tag.id)) return 'Caching for offline'
+  return favorites.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 
 function selectRowTip(tag: TagSummary): string {
@@ -354,17 +358,83 @@ function formatDownloads(n: number | null | undefined): string | null {
   return n.toLocaleString()
 }
 
+/**
+ * Pin the first browse group under sticky jump/scrub chrome.
+ * Do not scroll to document y=0 — that reveals search and unsticks the rail.
+ * The ↑ control uses {@link onJumpTopClick} for the two-step (group → search).
+ */
 function scrollBrowseTop(): void {
-  // Instant: smooth scrolling raced with scrub-end cursor sync and felt broken.
-  window.scrollTo({ top: 0, behavior: 'auto' })
   scrubScrollIndex.value = 0
+  if (!browseRows.value.length) {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    return
+  }
+  // Instant: smooth scrolling raced with scrub-end cursor sync and felt broken.
+  scrollToBrowseRow(0, 'start')
+}
+
+/** Document scroll Y — drives ↑ enabled/disabled and two-step jump-top. */
+const windowScrollY = ref(typeof window !== 'undefined' ? window.scrollY : 0)
+
+const DOC_TOP_EPS = 2
+const BROWSE_FLOOR_EPS = 8
+
+/** True when search/filters are fully in view (↑ should be disabled). */
+const jumpTopDisabled = computed(() => windowScrollY.value <= DOC_TOP_EPS)
+
+/**
+ * True when the first group is pinned under sticky chrome (or between that and search).
+ * Another ↑ click reveals search.
+ */
+const atBrowseChromeTop = computed(() => {
+  const y = windowScrollY.value
+  if (y <= DOC_TOP_EPS) return false
+  const floor = Math.max(0, listScrollMargin.value - stickyBrowsePad.value)
+  return y <= floor + BROWSE_FLOOR_EPS
+})
+
+/** ↑ tip: deeper → first group; at first group → search; at search → disabled. */
+const jumpTopLabel = computed(() => {
+  if (jumpTopDisabled.value) return 'Already at search'
+  if (atBrowseChromeTop.value) return 'Back to search'
+  if (catalog.sortMode === 'id') return 'Jump to top'
+  if (showScrub.value) return 'Jump to newest'
+  return 'Jump to first section'
+})
+
+/**
+ * ↑: from deep list → first group under chrome; from first group → search; at search → no-op.
+ */
+function onJumpTopClick(): void {
+  windowScrollY.value = window.scrollY
+  if (jumpTopDisabled.value) return
+  if (atBrowseChromeTop.value) {
+    scrubScrollIndex.value = 0
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    windowScrollY.value = 0
+    return
+  }
+  scrollBrowseTop()
+  // Virtualizer scroll may settle a frame later — refresh ↑ state for the second step.
+  windowScrollY.value = window.scrollY
+  requestAnimationFrame(() => {
+    windowScrollY.value = window.scrollY
+  })
 }
 
 const showJump = computed(
-  () => hasJumpRail(catalog.sortMode) && catalog.browseWindow.jumpKeys.length > 1,
+  () => hasJumpRail(catalog.sortMode) && catalog.browseWindow.jumpKeys.length >= 1,
 )
 /** Letter/booklet keys only — ↑ sits outside the key grid like year scrub. */
 const jumpKeyCount = computed(() => catalog.browseWindow.jumpKeys.length)
+/** One filtered section: show ↑ + status text, not a lone category chip. */
+const singleJumpGroup = computed(() => jumpKeyCount.value === 1)
+
+const jumpRailStatus = computed(() => {
+  const n = catalog.allResults.length
+  return n === 1 ? 'Showing 1 result' : `Showing ${n} results`
+})
+
 const jumpRailEl = ref<HTMLElement | null>(null)
 const jumpCols = ref(9)
 /** Tracks 2 vs 3 row layout for sticky scroll-margin height. */
@@ -374,8 +444,8 @@ let jumpRailRo: ResizeObserver | null = null
 function syncJumpCols(): void {
   const n = jumpKeyCount.value
   if (n < 1) return
-  // Collection: one content-sized row beside ↑.
-  if (catalog.sortMode === 'collection') {
+  // Single filtered group (or collection fit): one compact row beside ↑.
+  if (n === 1 || catalog.sortMode === 'collection') {
     jumpRows.value = 1
     jumpCols.value = n
     return
@@ -394,7 +464,7 @@ const jumpKeysStyle = computed(() => {
 })
 
 const showScrub = computed(
-  () => hasScrubRail(catalog.sortMode) && catalog.allResults.length > 1,
+  () => hasScrubRail(catalog.sortMode) && catalog.allResults.length >= 1,
 )
 
 /** Full browse rows (sections + tags) — window-virtualized below. */
@@ -492,11 +562,27 @@ function browseRowIndexForSection(key: string): number {
   return browseRows.value.findIndex((r) => r.type === 'section' && r.key === key)
 }
 
+/** Min window.scrollY where sticky jump/scrub chrome stays stuck (search stays off-screen). */
+function browseScrollFloorY(): number {
+  return Math.max(0, listScrollMargin.value - stickyBrowsePad.value)
+}
+
+/** After programmatic list scrolls, never leave the rail unstuck above search. */
+function clampBrowseScrollFloor(): void {
+  const floor = browseScrollFloorY()
+  if (window.scrollY < floor) {
+    window.scrollTo({ top: floor, behavior: 'auto' })
+  }
+  windowScrollY.value = window.scrollY
+}
+
 function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' | 'auto' = 'start'): void {
   if (rowIndex < 0) return
   syncListScrollMargin()
   syncStickyBrowsePad()
   rowVirtualizer.value.scrollToIndex(rowIndex, { align })
+  // Center-align near the top can request scrollY below the sticky threshold.
+  clampBrowseScrollFloor()
 }
 
 
@@ -629,6 +715,7 @@ function syncScrubFromScroll(): void {
 }
 
 function onBrowseScroll(): void {
+  windowScrollY.value = window.scrollY
   if (scrubbing.value) return
   if (scrubScrollRaf) return
   scrubScrollRaf = requestAnimationFrame(() => {
@@ -728,10 +815,6 @@ const scrubAxisBlend = computed(() => (catalog.sortMode === 'id' ? 1 : DEFAULT_A
 
 const scrubAriaLabel = computed(() =>
   catalog.sortMode === 'id' ? 'Scrub by tag number' : 'Scrub by year',
-)
-
-const scrubJumpTopLabel = computed(() =>
-  catalog.sortMode === 'id' ? 'Jump to top' : 'Jump to newest',
 )
 
 function scrubLabelAtIndex(index: number): string {
@@ -917,7 +1000,7 @@ function onSearchKeydown(e: KeyboardEvent): void {
 }
 
 onMounted(async () => {
-  await Promise.all([catalog.load(), stars.ensureLoaded()])
+  await Promise.all([catalog.load(), favorites.ensureLoaded()])
   applyRoute()
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
   await nextTick()
@@ -925,6 +1008,7 @@ onMounted(async () => {
   syncStickyBrowsePad()
   syncScrubFromScroll()
   syncJumpCols()
+  windowScrollY.value = window.scrollY
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
   jumpRailRo = new ResizeObserver(() => {
     syncJumpCols()
@@ -1112,8 +1196,8 @@ watch(
     </p>
     <p v-if="lyricsError" class="warn" role="alert">{{ lyricsError }}</p>
     <p v-if="bulkMsg" class="ok" role="status">{{ bulkMsg }}</p>
-    <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
-      <StarsNoticeLine :notice="stars.lastNotice" />
+    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
+      <FavoritesNoticeLine :notice="favorites.lastNotice" />
     </p>
 
     <p v-if="catalog.loading || (!catalog.loaded && !catalog.error)" class="text-muted" role="status">
@@ -1187,13 +1271,17 @@ watch(
         <button
           type="button"
           class="jump jump-top"
-          title="Back to top"
-          aria-label="Back to top"
-          @click="scrollBrowseTop"
+          :disabled="jumpTopDisabled"
+          :title="jumpTopLabel"
+          :aria-label="jumpTopLabel"
+          @click="onJumpTopClick"
         >
           ↑
         </button>
-        <div class="jump-keys" :style="jumpKeysStyle">
+        <p v-if="singleJumpGroup" class="jump-rail-status" role="status">
+          {{ jumpRailStatus }}
+        </p>
+        <div v-else class="jump-keys" :style="jumpKeysStyle">
           <button
             v-for="key in catalog.browseWindow.jumpKeys"
             :key="key"
@@ -1221,12 +1309,14 @@ watch(
           :reverse-axis="scrubReverseAxis"
           :axis-blend="scrubAxisBlend"
           :aria-label="scrubAriaLabel"
-          :jump-top-label="scrubJumpTopLabel"
+          :jump-top-label="jumpTopLabel"
+          :jump-top-disabled="jumpTopDisabled"
           :dense-loupe-ticks="catalog.sortMode === 'id'"
           :value-at-index="scrubValueAtIndex"
           :tick-at-start="catalog.sortMode === 'id'"
           @scrub="onScrub"
           @scrub-end="onScrubEnd"
+          @jump-top="onJumpTopClick"
         />
       </div>
 
@@ -1381,10 +1471,10 @@ watch(
                 </div>
                 <span class="row-fav" aria-hidden="true">
                   <span
-                    v-if="stars.isTagCaching(g.row.tag.id)"
+                    v-if="favorites.isTagCaching(g.row.tag.id)"
                     class="row-fav-spinner"
                   />
-                  <span v-else>{{ stars.isStarred(g.row.tag.id) ? '♥' : '♡' }}</span>
+                  <span v-else>{{ favorites.isStarred(g.row.tag.id) ? '♥' : '♡' }}</span>
                 </span>
               </div>
             </div>
@@ -1570,18 +1660,18 @@ watch(
             <button
               type="button"
               class="row-fav"
-              :aria-pressed="stars.isStarred(item.row.tag.id)"
-              :aria-busy="stars.isTagCaching(item.row.tag.id)"
+              :aria-pressed="favorites.isStarred(item.row.tag.id)"
+              :aria-busy="favorites.isTagCaching(item.row.tag.id)"
               :aria-label="rowStarLabel(item.row.tag)"
               :title="rowStarTip(item.row.tag)"
               @click.stop="toggleRowStar(item.row.tag)"
             >
               <span
-                v-if="stars.isTagCaching(item.row.tag.id)"
+                v-if="favorites.isTagCaching(item.row.tag.id)"
                 class="row-fav-spinner"
                 aria-hidden="true"
               />
-              <span v-else>{{ stars.isStarred(item.row.tag.id) ? '♥' : '♡' }}</span>
+              <span v-else>{{ favorites.isStarred(item.row.tag.id) ? '♥' : '♡' }}</span>
             </button>
           </div>
         </div>
@@ -2031,6 +2121,14 @@ watch(
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(8px);
 }
+.jump-rail-status {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.2;
+}
 .jump-keys {
   display: grid;
   gap: 0.3rem;
@@ -2103,10 +2201,16 @@ watch(
   box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);
   align-self: center;
 }
-.jump-top:hover,
-.jump-top:focus-visible {
+.jump-top:hover:not(:disabled),
+.jump-top:focus-visible:not(:disabled) {
   filter: brightness(1.08);
   outline: none;
+}
+.jump-top:disabled {
+  opacity: 0.45;
+  cursor: default;
+  filter: none;
+  box-shadow: none;
 }
 .dl-count {
   font-variant-numeric: tabular-nums;

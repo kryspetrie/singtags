@@ -1,3 +1,9 @@
+/**
+ * Catalog tag shapes: browse summaries, full tag detail, and index manifest types.
+ * Audio tier and layout fields mirror server-side mirror/publish metadata.
+ */
+
+/** Learning-track part id (lead, tenor, bass, bari, mix, …). */
 export type PartId = string
 
 /** Published audio quality ladder (see audio-storage-cache ADR). */
@@ -9,6 +15,7 @@ export type AudioTierId =
   | 'ultra_stereo'
   | 'ultra_mix'
 
+/** Per-part stereo geometry from mirror analysis (solo side, channel count, …). */
 export interface AudioPartLayout {
   kind: string
   solo_side?: 'left' | 'right' | null
@@ -18,6 +25,7 @@ export interface AudioPartLayout {
   side_mid?: number
 }
 
+/** Tag-level stereo layout summary (part-left learning tracks, mix policy, …). */
 export interface AudioLayoutSummary {
   parts: string
   mix?: string
@@ -75,6 +83,7 @@ export interface AudioTiersSummary {
   encoded_at?: string
 }
 
+/** Browse-list row: lightweight tag metadata for search and virtualized lists. */
 export interface TagSummary {
   id: number
   title: string | null
@@ -100,6 +109,7 @@ export interface TagSummary {
   sheetPages?: string[]
 }
 
+/** Full tag payload from catalog API / favorites IndexedDB (`starred` store) detail field. */
 export interface TagDetail {
   tag_id: number
   title: string | null
@@ -142,19 +152,32 @@ export interface TagDetail {
   audio_align?: Record<string, AudioAlignEntry> | null
   audio_align_summary?: AudioAlignSummary | null
   source_folder?: string
+  /**
+   * When the library mirror last downloaded/synced media for this tag
+   * (`metadata.json` → `downloaded_at`). Used to refresh favorited offline cache.
+   */
+  downloaded_at?: string | null
+  /**
+   * Origin last-updated stamp from barbershoptags (`last_updated_remote` / `stamp`).
+   * Fallback freshness signal when `downloaded_at` is absent.
+   */
+  last_updated_remote?: string | null
 }
 
+/** Sample / dev catalog manifest (`tags.json` subset). */
 export interface SampleManifest {
   count: number
   source: string
   tags: TagSummary[]
 }
 
+/** Persistent core index snapshot (all tag summaries). */
 export interface CoreIndex {
   version: number
   tags: TagSummary[]
 }
 
+/** Lyrics sidecar index keyed by tag id. */
 export interface LyricsIndex {
   version: number
   docs: Array<{ id: number; lyrics: string }>

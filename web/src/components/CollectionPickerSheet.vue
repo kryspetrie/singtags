@@ -1,10 +1,14 @@
 <script setup lang="ts">
+/**
+ * Bottom sheet to add one or more tags to an existing user collection or create a new one.
+ */
 import { computed, ref, watch } from 'vue'
 import FilterSheet from './FilterSheet.vue'
 import CustomCollectionMark from './CustomCollectionMark.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
 
 const props = defineProps<{
+  /** Sheet visibility. */
   open: boolean
   /** Tag ids to add once a collection is chosen or created. */
   tagIds: number[]

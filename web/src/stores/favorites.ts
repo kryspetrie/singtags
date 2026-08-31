@@ -1,3 +1,10 @@
+/**
+ * Favorites (user-curated tags with optional offline media).
+ *
+ * UI and product copy use “Favorites”; persistence still goes through the legacy
+ * `starred*` IndexedDB API (`starTag`, `listStarred`, `StarredTagRecord`, etc.)
+ * for backward-compatible storage and import/export.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { TagDetail, TagSummary } from '../types/tag'
@@ -14,14 +21,19 @@ import {
   type StarProgress,
   type StarredTagRecord,
   type StarredTagsFile,
-} from '../offline/starredDb'
+} from '../offline/favoritesDb'
+import { isFavoriteMediaStale } from '../lib/mediaCacheKey'
 import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetOfflinePaths, summarySheetPages } from '../lib/sheetPaths'
 import { packHasAnySheets } from '../offline/resolveMedia'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
-import { noticeFromStarRecord, type StarsNotice } from './starNotice'
+import { noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
 
+/**
+ * Optimistic in-memory row shown before IDB write completes.
+ * Uses `starredAt` field name from the legacy record shape.
+ */
 function buildPlaceholder(summary: TagSummary, detail: TagDetail | null): StarredTagRecord {
   return {
     tagId: summary.id,
@@ -33,40 +45,46 @@ function buildPlaceholder(summary: TagSummary, detail: TagDetail | null): Starre
   }
 }
 
-export const useStarsStore = defineStore('stars', () => {
+/** Pinia store for favoriting tags and managing offline favorite media. */
+export const useFavoritesStore = defineStore('favorites', () => {
   const records = ref<StarredTagRecord[]>([])
   const loaded = ref(false)
   /** Blocks UI for explicit long operations (update, import, cache-all). */
   const busy = ref(false)
   const backgroundCount = ref(0)
   const error = ref<string | null>(null)
-  const lastNotice = ref<StarsNotice | null>(null)
+  const lastNotice = ref<FavoritesNotice | null>(null)
   /** Global progress for explicit bulk operations (settings, import). */
   const progress = ref<StarProgress | null>(null)
   /** Per-tag progress while background caching from browse rows. */
   const tagProgress = ref<Record<number, StarProgress>>({})
 
+  /** Generation counter per tag — stale background jobs bail when superseded. */
   const tagJobGen = new Map<number, number>()
 
   const ids = computed(() => new Set(records.value.map((r) => r.tagId)))
   const count = computed(() => records.value.length)
   const backgroundActive = computed(() => backgroundCount.value > 0)
 
+  /** Replace in-memory list and mark store loaded (does not write IDB). */
   function applyRecords(next: StarredTagRecord[]): void {
     records.value = next
     loaded.value = true
   }
 
+  /** Bump job generation for a tag; returns the new generation id. */
   function nextTagGen(tagId: number): number {
     const gen = (tagJobGen.get(tagId) ?? 0) + 1
     tagJobGen.set(tagId, gen)
     return gen
   }
 
+  /** True when `gen` is still the active background job for `tagId`. */
   function isTagJobCurrent(tagId: number, gen: number): boolean {
     return tagJobGen.get(tagId) === gen
   }
 
+  /** Set or clear per-tag caching progress for browse-row UI. */
   function setTagProgress(tagId: number, p: StarProgress | null): void {
     if (p === null) {
       const next = { ...tagProgress.value }
@@ -77,26 +95,40 @@ export const useStarsStore = defineStore('stars', () => {
     tagProgress.value = { ...tagProgress.value, [tagId]: p }
   }
 
+  /** Whether a tag currently has an active background media fetch. */
   function isTagCaching(tagId: number): boolean {
     return tagId in tagProgress.value
   }
 
+  /** Human-readable progress label for a caching tag, if any. */
   function tagCachingLabel(tagId: number): string | null {
     return tagProgress.value[tagId]?.label ?? null
   }
 
+  /**
+   * Reload all favorite records from IndexedDB (`listStarred`).
+   * Side effect: IDB read.
+   */
   async function refresh(): Promise<void> {
     applyRecords(await listStarred())
   }
 
+  /** Load from IDB once if not yet loaded. */
   async function ensureLoaded(): Promise<void> {
     if (!loaded.value) await refresh()
   }
 
+  /** Whether a tag id is in the in-memory favorites list. */
   function isStarred(tagId: number): boolean {
     return records.value.some((r) => r.tagId === tagId)
   }
 
+  /**
+   * Background favorite pipeline: metadata via `starTag`, then optional media via `refreshStarMedia`.
+   * Aborts when unfavorited or superseded by a newer job generation.
+   *
+   * Side effects: network (detail fetch), IndexedDB writes, `lastNotice`, `error` on failure.
+   */
   async function runStarBackground(
     tagId: number,
     gen: number,
@@ -123,7 +155,7 @@ export const useStarsStore = defineStore('stars', () => {
       applyRecords([metaRec, ...records.value.filter((r) => r.tagId !== tagId)])
 
       if (options.metadataOnly || !d) {
-        lastNotice.value = noticeFromStarRecord(metaRec, summary, d, {
+        lastNotice.value = noticeFromFavoriteRecord(metaRec, summary, d, {
           metadataOnly: true,
         })
         return
@@ -147,7 +179,7 @@ export const useStarsStore = defineStore('stars', () => {
       })
       if (!isTagJobCurrent(tagId, gen) || !isStarred(tagId)) return
       applyRecords([fullRec, ...records.value.filter((r) => r.tagId !== tagId)])
-      lastNotice.value = noticeFromStarRecord(fullRec, summary, d, {
+      lastNotice.value = noticeFromFavoriteRecord(fullRec, summary, d, {
         metadataOnly: false,
         skipSheets,
       })
@@ -163,6 +195,14 @@ export const useStarsStore = defineStore('stars', () => {
     }
   }
 
+  /**
+   * Favorite or unfavorite one tag (optimistic UI).
+   * Favorite path persists via `starTag` / `refreshStarMedia`; unfavorite via `removeStarred`.
+   *
+   * @param summary - Tag to toggle.
+   * @param detail - Optional detail (fetched when missing and not metadata-only).
+   * @param options.metadataOnly - Skip audio/sheet blob download.
+   */
   async function toggle(
     summary: TagSummary,
     detail: TagDetail | null,
@@ -194,7 +234,13 @@ export const useStarsStore = defineStore('stars', () => {
     void runStarBackground(summary.id, gen, summary, detail, options)
   }
 
-  /** Favorite many tags from browse (fetch detail when missing). */
+  /**
+   * Favorite many tags from browse (fetch detail when missing).
+   *
+   * @param summaries - Tags to favorite (already-favorited ids are skipped).
+   * @param options.metadataOnly - Skip media download for each tag.
+   * @returns Count of newly favorited tags.
+   */
   async function starMany(
     summaries: TagSummary[],
     options: Pick<StarOptions, 'metadataOnly'> = {},
@@ -222,7 +268,12 @@ export const useStarsStore = defineStore('stars', () => {
     return pending.length
   }
 
-  /** Fetch audio for favorited tags that lack audio blobs (background queue). */
+  /**
+   * Fetch audio for favorited tags that lack audio blobs (background queue).
+   * Side effects: network, IndexedDB via `refreshStarMedia`, sets `busy` and `progress`.
+   *
+   * @returns Number of tags that received new audio blobs.
+   */
   async function ensureAudioForAllStarred(): Promise<number> {
     busy.value = true
     error.value = null
@@ -266,12 +317,6 @@ export const useStarsStore = defineStore('stars', () => {
         n++
       }
       await refresh()
-      lastNotice.value = {
-        type: 'text',
-        message: n
-          ? `Saved audio for ${n} favorited tag(s)`
-          : 'All favorited tags already have audio',
-      }
       return n
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
@@ -279,6 +324,57 @@ export const useStarsStore = defineStore('stars', () => {
     } finally {
       busy.value = false
       progress.value = null
+    }
+  }
+
+  /**
+   * Re-download offline media for one favorited tag (settings “update cache”).
+   * Side effects: network, IndexedDB, `busy`, global `progress`.
+   *
+   * @throws Sets `error` when tag is not favorited or detail cannot load.
+   */
+
+  /**
+   * Silently re-cache favorited offline media when catalog media fingerprint changed
+   * (`downloaded_at` / `last_updated_remote` + media paths). No-op when fresh or offline-only.
+   * Does not surface a success notice (automatic maintenance).
+   *
+   * @returns true when media was refreshed.
+   */
+  async function refreshOfflineMediaIfStale(
+    tagId: number,
+    detail: TagDetail,
+  ): Promise<boolean> {
+    await ensureLoaded()
+    const existing = await getStarred(tagId)
+    if (!existing || !isFavoriteMediaStale(existing, detail)) return false
+
+    const gen = nextTagGen(tagId)
+    backgroundCount.value++
+    setTagProgress(tagId, { label: 'Refreshing media…', done: 0, total: 1, ratio: 0 })
+    try {
+      const skipSheets = await packHasAnySheets(sheetOfflinePaths(detail)).catch(() => false)
+      if (!isTagJobCurrent(tagId, gen) || !isStarred(tagId)) return false
+      const rec = await refreshStarMedia(existing, detail, {
+        skipSheets,
+        audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
+        onProgress: (p) => {
+          if (!isTagJobCurrent(tagId, gen)) return
+          setTagProgress(tagId, p)
+        },
+      })
+      if (!isTagJobCurrent(tagId, gen)) return false
+      applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
+      return true
+    } catch (e) {
+      // Soft-fail: keep existing cache; surface only if nothing else is showing.
+      if (!error.value) {
+        error.value = e instanceof Error ? e.message : String(e)
+      }
+      return false
+    } finally {
+      if (isTagJobCurrent(tagId, gen)) setTagProgress(tagId, null)
+      backgroundCount.value = Math.max(0, backgroundCount.value - 1)
     }
   }
 
@@ -306,7 +402,7 @@ export const useStarsStore = defineStore('stars', () => {
         },
       })
       applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
-      lastNotice.value = noticeFromStarRecord(rec, existing.summary, d, { skipSheets })
+      lastNotice.value = noticeFromFavoriteRecord(rec, existing.summary, d, { skipSheets })
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -315,16 +411,28 @@ export const useStarsStore = defineStore('stars', () => {
     }
   }
 
+  /**
+   * Remove a favorite by id (awaitable, no optimistic race with toggle).
+   * Side effect: IndexedDB `removeStarred`.
+   */
   async function unstar(tagId: number): Promise<void> {
     nextTagGen(tagId)
     await removeStarred(tagId)
     applyRecords(records.value.filter((r) => r.tagId !== tagId))
   }
 
+  /** Export favorites as JSON file shape (`StarredTagsFile` / legacy backup format). */
   function exportFile(): StarredTagsFile {
     return toStarredFile(records.value)
   }
 
+  /**
+   * Import favorites from parsed JSON backup.
+   *
+   * @param raw - Unknown JSON (validated by `parseStarredFile`).
+   * @param fetchMedia - When true, re-fetch media blobs after metadata import.
+   * @returns Number of tags imported. Side effects: IndexedDB, optional network.
+   */
   async function importFromJson(raw: unknown, fetchMedia = false): Promise<number> {
     busy.value = true
     error.value = null
@@ -364,8 +472,17 @@ export const useStarsStore = defineStore('stars', () => {
     }
   }
 
+  /**
+   * Read one favorite record from IndexedDB (`getStarred`).
+   * Does not require `ensureLoaded`.
+   */
   async function get(tagId: number): Promise<StarredTagRecord | undefined> {
     return getStarred(tagId)
+  }
+
+  /** Clear the last favorites operation error message. */
+  function clearError(): void {
+    error.value = null
   }
 
   return {
@@ -388,12 +505,11 @@ export const useStarsStore = defineStore('stars', () => {
     starMany,
     ensureAudioForAllStarred,
     updateOfflineMedia,
+    refreshOfflineMediaIfStale,
     unstar,
     exportFile,
     importFromJson,
     get,
-    clearError: () => {
-      error.value = null
-    },
+    clearError,
   }
 })

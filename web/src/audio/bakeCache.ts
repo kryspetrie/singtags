@@ -4,6 +4,7 @@
  */
 import { bakeCacheKey } from './transformContract'
 
+/** One cached baked buffer entry (pitch/speed transform of a source revision). */
 export type BakedEntry = {
   key: string
   buffer: AudioBuffer
@@ -21,6 +22,7 @@ function bufferBytes(buf: AudioBuffer): number {
   return buf.length * buf.numberOfChannels * 4
 }
 
+/** LRU byte-budget cache for offline pitch/speed bakes; pins the audible buffer. */
 export class BakeCache {
   private map = new Map<string, BakedEntry>()
   private budgetBytes: number

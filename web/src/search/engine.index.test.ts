@@ -74,6 +74,25 @@ describe('indexed SearchEngine', () => {
     expect(engine.search(parseQuery('', false))).toHaveLength(3)
   })
 
+  it('filters by titleLetters alone (no free-text)', () => {
+    const engine = new SearchEngine({ tags, expansions: {} })
+    const hit = engine.search({
+      include: [],
+      exclude: [],
+      phrases: [],
+      fields: [],
+      fullText: false,
+      minRating: null,
+      hasAudio: null,
+      hasSheet: null,
+      yearMin: null,
+      yearMax: null,
+      titleLetters: ['H', 'L'],
+      raw: '',
+    })
+    expect(hit.map((t) => t.id).sort()).toEqual([2, 3])
+  })
+
   it('ORs multiple keys from chip-style field filter', () => {
     const engine = new SearchEngine({ tags, expansions: {} })
     const hit = engine.search({

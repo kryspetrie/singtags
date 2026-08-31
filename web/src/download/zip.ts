@@ -1,3 +1,7 @@
+/**
+ * Multi-track download queue: fetch, transform, zip, and trigger browser save.
+ */
+
 import { zipSync } from 'fflate'
 import type { PartId } from '../types/tag'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
@@ -5,17 +9,21 @@ import { encodeQualityForDownload, IDENTITY_TRANSFORM, normalizeDownloadFormat }
 import { mediaUrl } from '../lib/mediaUrl'
 import { downloadFilename, prepareDownloadBytes } from './transform'
 
+/** Maximum tracks allowed in one zip (guard against huge queues). */
 export const MAX_QUEUE_TRACKS = 100
 
 /** How tracks are arranged inside the downloaded zip. */
 export type ZipLayout = 'flat' | 'folders'
 
+/** Audio or sheet row in the bulk download zip queue. */
 export type QueueItemKind = 'audio' | 'sheet'
 
+/** Normalize persisted layout preference (`flat` or default `folders`). */
 export function normalizeZipLayout(value: unknown): ZipLayout {
   return value === 'flat' ? 'flat' : 'folders'
 }
 
+/** One queued audio part or sheet asset awaiting download. */
 export interface QueueTrack {
   tagId: number
   title: string
@@ -34,10 +42,12 @@ export interface QueueTrack {
   transform?: AudioTransform
 }
 
+/** Resolve audio vs sheet for a queue row (defaults to audio). */
 export function queueItemKind(t: Pick<QueueTrack, 'kind'>): QueueItemKind {
   return t.kind === 'sheet' ? 'sheet' : 'audio'
 }
 
+/** Final filename inside the zip for one queue item. */
 export function queueItemFileName(t: QueueTrack, format: DownloadFormat, transform: AudioTransform): string {
   if (queueItemKind(t) === 'sheet') {
     return t.path.split('/').pop() || t.label || 'sheet'
@@ -45,16 +55,19 @@ export function queueItemFileName(t: QueueTrack, format: DownloadFormat, transfo
   return downloadFilename(String(t.part), format, transform)
 }
 
+/** Absolute fetch URL for a catalog-relative queue path. */
 export function sampleUrl(path: string): string {
   return mediaUrl(path)
 }
 
+/** Fetch a URL and return raw bytes (throws on non-OK status). */
 export async function fetchBytes(url: string): Promise<Uint8Array> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Download failed ${res.status}: ${url}`)
   return new Uint8Array(await res.arrayBuffer())
 }
 
+/** Build a deflate zip from named file entries (level 6). */
 export function buildZip(
   files: Array<{ name: string; data: Uint8Array }>,
 ): Uint8Array {
@@ -63,6 +76,7 @@ export function buildZip(
   return zipSync(tree, { level: 6 })
 }
 
+/** Trigger a browser download of in-memory bytes. */
 export function downloadBlob(
   data: Uint8Array,
   filename: string,
@@ -79,6 +93,7 @@ export function downloadBlob(
   URL.revokeObjectURL(url)
 }
 
+/** Path inside the zip for one track (flat or per-tag folder layout). */
 export function queueTrackZipPath(
   track: Pick<QueueTrack, 'tagId' | 'title'>,
   fileName: string,
@@ -90,6 +105,7 @@ export function queueTrackZipPath(
   return `${folder}/${fileName}`
 }
 
+/** Progress, abort, format, and layout options for {@link zipQueueTracks}. */
 export interface ZipOptions {
   onProgress?: (done: number, total: number) => void
   signal?: AbortSignal
@@ -100,6 +116,9 @@ export interface ZipOptions {
   encodeQuality?: AudioEncodeQuality
 }
 
+/**
+ * Download all queue tracks, encode audio, zip, and save `singtags-N-files.zip`.
+ */
 export async function zipQueueTracks(
   tracks: QueueTrack[],
   onProgressOrOpts?: ((done: number, total: number) => void) | ZipOptions,

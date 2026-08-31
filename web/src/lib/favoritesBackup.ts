@@ -1,8 +1,13 @@
-import type { StarredTagRecord, StarredTagsFile } from '../offline/starredDb'
-import { parseStarredFile, toStarredFile } from '../offline/starredDb'
+/**
+ * Portable Favorites backup format: favorited tags, custom collections, and practice order.
+ * On disk the tag list lives under the legacy `starred` field ({@link StarredTagsFile}).
+ */
+
+import type { StarredTagRecord, StarredTagsFile } from '../offline/favoritesDb'
+import { parseStarredFile, toStarredFile } from '../offline/favoritesDb'
 import type { UserCollection } from '../stores/userCollections'
 
-/** Portable Favorites backup: starred tags + custom collections + practice order. */
+/** On-disk schema for a Favorites export (tag list under legacy `starred` field). */
 export type FavoritesBackupFile = {
   version: 1
   kind: 'singtags.favorites-backup'
@@ -15,6 +20,7 @@ export type FavoritesBackupFile = {
   }
 }
 
+/** Build a {@link FavoritesBackupFile} from live Favorites / collections / practice state. */
 export function buildFavoritesBackup(input: {
   records: StarredTagRecord[]
   collections: UserCollection[]
@@ -39,6 +45,7 @@ export function buildFavoritesBackup(input: {
   }
 }
 
+/** Parse and validate user collection objects from backup JSON. */
 function parseCollections(raw: unknown): UserCollection[] {
   if (!Array.isArray(raw)) return []
   const out: UserCollection[] = []
@@ -58,6 +65,7 @@ function parseCollections(raw: unknown): UserCollection[] {
   return out
 }
 
+/** Parse practice queue order and auto-advance flag from backup JSON. */
 function parsePractice(raw: unknown): { order: number[]; autoAdvance: boolean } {
   if (!raw || typeof raw !== 'object') return { order: [], autoAdvance: true }
   const o = raw as Record<string, unknown>

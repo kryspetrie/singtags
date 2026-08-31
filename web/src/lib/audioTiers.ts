@@ -16,9 +16,10 @@ const TIER_ORDER: AudioTierId[] = [
   'ultra_mix',
 ]
 
+/** Whether playable parts are resolved for online streaming or offline cache. */
 export type PlayablePartsContext = 'online' | 'offline'
 
-/** Voice parts only (excludes mix). */
+/** List voice learning parts from tag metadata (excludes mix). */
 export function voiceAudioParts(detail: TagDetail): string[] {
   return listAudioParts(detail).filter((p) => p.toLowerCase() !== 'mix')
 }
@@ -110,6 +111,7 @@ export function listAudioParts(detail: TagDetail): string[] {
   return [...keys]
 }
 
+/** Resolve a catalog-relative path for a specific published tier (or legacy original). */
 export function tierPath(
   detail: TagDetail,
   part: string,
@@ -185,17 +187,36 @@ export function ultraAudioPath(detail: TagDetail, part: string): string | null {
   )
 }
 
+/** True when the tag exposes only a mix track (no voice stems). */
 export function isMixOnlyTag(detail: TagDetail): boolean {
   if (detail.audio_tiers_summary?.mix_only === true) return true
   const parts = listAudioParts(detail).map((p) => p.toLowerCase())
   return parts.length === 1 && parts[0] === 'mix'
 }
 
+/**
+ * Ultra-low policy stores per-voice mono stems that can rebuild virtual part-left
+ * learning tracks (solo hard L, other parts hard R). Covers:
+ * - `mono_solos` — solo channel extracted from part-left/right stereo
+ * - `mono_downmix` — source files are already mono/dual-mono per part (e.g. tag 922)
+ */
 export function usesMonoSolos(detail: TagDetail): boolean {
   if (!partsAreRecombinable(detail)) return false
   const policy =
     detail.audio_layout_summary?.ultra_low ?? detail.audio_tiers_summary?.ultra_policy
-  return policy === 'mono_solos'
+  return policy === 'mono_solos' || policy === 'mono_downmix'
+}
+
+/**
+ * True when online playback files are dual-mono (not pre-baked part-left), so the
+ * client should synthesize virtual part-left from the four mono stems while online.
+ * Classic `mono_solos` tags keep using hosted playback stereo online.
+ */
+export function needsOnlineVirtualPartLearning(detail: TagDetail): boolean {
+  if (!partsAreRecombinable(detail)) return false
+  const policy =
+    detail.audio_layout_summary?.ultra_low ?? detail.audio_tiers_summary?.ultra_policy
+  return policy === 'mono_downmix'
 }
 
 /** Original paths keyed by part (for downloads / catalogPaths). */
@@ -223,12 +244,13 @@ export function isPublishedTierPath(path: string): boolean {
   return /\.(opus|ogg)(\?|$)/i.test(path)
 }
 
+/** True when any part has a non-empty published tier map. */
 export function hasPublishedTiers(detail: TagDetail): boolean {
   const tiers = detail.audio_tiers
   return !!tiers && typeof tiers === 'object' && Object.keys(tiers).length > 0
 }
 
-/** True when path is an ultra-low mono solo stem. */
+/** True when path is an ultra-low mono solo stem (extracted solo channel). */
 export function isUltraSoloPath(path: string): boolean {
   let p = path
   try {
@@ -244,7 +266,26 @@ export function isUltraSoloPath(path: string): boolean {
 }
 
 /**
- * Path to fetch when starring at a storage-quality setting.
+ * Ultra mono stem used for virtual part-left rebuild: solo *or* downmix opus.
+ * Source dual-mono learning tracks publish as `* - Downmix.opus`.
+ */
+export function isUltraMonoStemPath(path: string): boolean {
+  if (isUltraSoloPath(path)) return true
+  let p = path
+  try {
+    p = decodeURIComponent(path)
+  } catch {
+    /* keep raw */
+  }
+  return (
+    /\.downmix\.opus(\?|$)/i.test(p) ||
+    /(?:^|[\s\-_/])downmix\.opus(\?|$)/i.test(p) ||
+    /ultra_downmix/i.test(p)
+  )
+}
+
+/**
+ * Path to fetch when favoriting at a storage-quality setting.
  * Uses publish pipeline tiers when available; falls back to original + on-device re-encode.
  * Mix on mono_solos tags is omitted at lofi — reconstructed at play time.
  */
@@ -265,7 +306,35 @@ export function storageAudioPath(
   return playbackAudioPath(detail, part)
 }
 
-/** Infer whether starred blobs are below original quality (no byte fetch). */
+/**
+ * True when a path belongs to the deliberate ultra/lo-fi offline audio pack
+ * (not a browse-time playback/original warm into the pack).
+ */
+export function isBaseOfflineAudioPackPath(path: string): boolean {
+  if (isUltraMonoStemPath(path)) return true
+  let p = path
+  try {
+    p = decodeURIComponent(path)
+  } catch {
+    /* keep raw */
+  }
+  if (/\.ultra_mix\./i.test(p) || /(?:^|[\s\-_/])ultra_mix/i.test(p)) return true
+  // Playback / originals are upgrades on top of the ultra pack.
+  if (/\.playback\./i.test(p)) return false
+  if (/\.(m4a|mp3|aac|wav)(\?|$)/i.test(p)) return false
+  // Other published Opus (e.g. mix-only ultra mix filenames) stay.
+  return isPublishedTierPath(p)
+}
+
+/** Inverse of {@link isBaseOfflineAudioPackPath} — warmed HQ or non-pack audio. */
+export function isUpgradeAudioCachePath(path: string): boolean {
+  return !isBaseOfflineAudioPackPath(path)
+}
+
+/**
+ * Infer whether favorited/offline audio blobs are below original quality (no byte fetch).
+ * Reads the optional `quality` field on cached blob metadata.
+ */
 export function inferLowerQualityFromStarred(
   audioBlobs: Record<string, { quality?: string }> | undefined,
 ): boolean {

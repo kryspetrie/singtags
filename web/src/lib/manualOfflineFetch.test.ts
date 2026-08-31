@@ -88,8 +88,24 @@ describe('manualOfflineFetch', () => {
     expect(native).not.toHaveBeenCalled()
   })
 
-  it('allowServiceWorkerFetch permits metadata but not sheet images', () => {
-    expect(allowServiceWorkerFetch('http://localhost/tags/31/metadata.json')).toBe(true)
-    expect(allowServiceWorkerFetch('http://localhost/library/Some%20Tag/Sheet.png')).toBe(false)
+  it('fetchCached prefers cache when the browser is offline', async () => {
+    const url = 'http://localhost/tags/1/metadata.json'
+    const body = '{"tag_id":1}'
+    const match = vi.fn(async (u: string) =>
+      u === url ? new Response(body, { status: 200 }) : null,
+    )
+    const native = vi.fn(async () => new Response('network', { status: 200 }))
+    vi.stubGlobal('caches', {
+      open: vi.fn(async () => ({ match })),
+      keys: vi.fn(async () => ['singtags-indexes']),
+    })
+    vi.stubGlobal('fetch', native)
+    vi.stubGlobal('navigator', { onLine: false })
+    ensureFetchPatchInstalled()
+    setManualOfflineFetch(false)
+    const { fetchCached } = await import('./manualOfflineFetch')
+    const res = await fetchCached(url)
+    expect(await res.text()).toBe(body)
+    expect(native).not.toHaveBeenCalled()
   })
 })

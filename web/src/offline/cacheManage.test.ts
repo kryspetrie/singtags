@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildZip } from '../download/zip'
 import {
   clearAllOfflineData,
+  cullUpgradeCaches,
   exportOfflineCacheZip,
   importOfflineCacheZip,
   packUrlFromZipPath,
@@ -13,7 +14,8 @@ import {
 } from './cacheManage'
 import { mediaBaseUrl, mediaUrl } from '../lib/mediaUrl'
 import { sheetsPack, audioPack } from './libraryPack'
-import { getStarred, listStarred, putStarred, type StarredTagRecord } from './starredDb'
+import { getStarred, listStarred, putStarred, type StarredTagRecord } from './favoritesDb'
+import { putPdfRasterBlobs, hasPdfRasterCached } from './pdfRasterCache'
 import type { TagDetail, TagSummary } from '../types/tag'
 
 const summary: TagSummary = {
@@ -97,16 +99,13 @@ describe('cacheManage', () => {
 
   it('exports cached data as a zip', async () => {
     const click = vi.fn()
-    vi.stubGlobal(
-      'URL',
-      class {
-        static createObjectURL = vi.fn(() => 'blob:zip')
-        static revokeObjectURL = vi.fn()
-      },
+    const createObjectURL = vi.fn(() => 'blob:zip')
+    const revokeObjectURL = vi.fn()
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURL)
+    vi.spyOn(document, 'createElement').mockImplementation(
+      () => ({ click, href: '', download: '' }) as unknown as HTMLElement,
     )
-    vi.stubGlobal('document', {
-      createElement: () => ({ click, href: '', download: '' }),
-    })
 
     await putStarred({
       tagId: 9,
@@ -232,5 +231,62 @@ describe('cacheManage', () => {
   it('rejects non-cache zips', async () => {
     const zip = buildZip([{ name: 'readme.txt', data: new TextEncoder().encode('nope') }])
     await expect(importOfflineCacheZip(zip)).rejects.toThrow(/manifest/)
+  })
+
+  it('culls upgraded audio/PDF caches while keeping ultra pack and WebP sheets', async () => {
+    const sheetsUrl = mediaUrl('sheets/9/pages/page-01.webp')
+    const ultraUrl = mediaUrl('media/9/lead.solo.opus')
+    const playbackUrl = mediaUrl('media/9/lead.playback.opus')
+    const originalUrl = mediaUrl('media/9/lead.m4a')
+
+    await sheetsPack.put(sheetsUrl, new Response(new Uint8Array([1, 2, 3]), { status: 200 }))
+    await audioPack.put(ultraUrl, new Response(new Uint8Array([10, 11]), { status: 200 }))
+    await audioPack.put(playbackUrl, new Response(new Uint8Array([20, 21, 22]), { status: 200 }))
+    await audioPack.put(originalUrl, new Response(new Uint8Array([30, 31, 32, 33]), { status: 200 }))
+    await putPdfRasterBlobs('pdf:test', [new Blob([new Uint8Array([9, 9, 9])])])
+
+    await putStarred({
+      tagId: 9,
+      starredAt: '2026-01-01T00:00:00.000Z',
+      summary,
+      detail,
+      offlineMedia: true,
+      audioBlobs: {
+        lead: {
+          path: 'media/9/lead.m4a',
+          mime: 'audio/mp4',
+          data: new Uint8Array([4, 5]).buffer,
+          quality: 'original',
+        },
+        bari: {
+          path: 'media/9/bari.solo.opus',
+          mime: 'audio/ogg',
+          data: new Uint8Array([6]).buffer,
+          quality: 'lofi',
+        },
+      },
+    } satisfies StarredTagRecord)
+
+    const result = await cullUpgradeCaches({
+      audioManifest: {
+        version: 1,
+        kind: 'audio',
+        builtAt: '2026-01-01T00:00:00.000Z',
+        totalBytes: 2,
+        entries: [{ tagId: 9, paths: ['media/9/lead.solo.opus'], bytes: 2 }],
+      },
+    })
+
+    expect(await sheetsPack.has(sheetsUrl)).toBe(true)
+    expect(await audioPack.has(ultraUrl)).toBe(true)
+    expect(await audioPack.has(playbackUrl)).toBe(false)
+    expect(await audioPack.has(originalUrl)).toBe(false)
+    expect(await hasPdfRasterCached('pdf:test')).toBe(false)
+    expect(result.audioPackFilesRemoved).toBe(2)
+    expect(result.starredPartsRemoved).toBe(1)
+
+    const starred = await getStarred(9)
+    expect(starred?.audioBlobs?.lead).toBeUndefined()
+    expect(starred?.audioBlobs?.bari?.quality).toBe('lofi')
   })
 })

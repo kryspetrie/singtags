@@ -1,35 +1,43 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+/**
+ * Recently opened tags with sort by last visit or open count; inline favorite toggle.
+ */
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
-import StarsNoticeLine from '../components/StarsNoticeLine.vue'
+import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import { useCatalogStore } from '../stores/catalog'
-import { useStarsStore } from '../stores/stars'
+import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore, type RecentSort } from '../stores/recent'
 import type { TagSummary } from '../types/tag'
 
 const catalog = useCatalogStore()
-const stars = useStarsStore()
+const favorites = useFavoritesStore()
 const recent = useRecentStore()
-const sort = ref<RecentSort>('recent')
 
 const sorts: Array<{ id: RecentSort; label: string }> = [
   { id: 'recent', label: 'Most recent' },
   { id: 'opens', label: 'Most opens' },
 ]
 
+/** Bound to persisted store sort (changing clears visit freeze). */
+const sort = computed({
+  get: () => recent.listSort,
+  set: (v: RecentSort) => recent.setListSort(v),
+})
+
 const rows = computed(() =>
-  recent.sortedRecords(sort.value).map((rec) => ({
+  recent.displayRecords().map((rec) => ({
     rec,
     tag:
       catalog.getById(rec.id) ??
-      stars.records.find((r) => r.tagId === rec.id)?.summary ??
+      favorites.records.find((r) => r.tagId === rec.id)?.summary ??
       null,
   })),
 )
 
 onMounted(async () => {
-  await Promise.all([catalog.load(), stars.ensureLoaded()])
+  await Promise.all([catalog.load(), favorites.ensureLoaded()])
 })
 
 function formatWhen(iso: string): string {
@@ -45,19 +53,19 @@ function formatWhen(iso: string): string {
 }
 
 function toggleRowStar(summary: TagSummary): void {
-  void stars.toggle(summary, null, { metadataOnly: false })
+  void favorites.toggle(summary, null, { metadataOnly: false })
 }
 
 function rowStarTip(tag: TagSummary): string {
-  if (stars.isTagCaching(tag.id)) {
-    return stars.tagCachingLabel(tag.id) || 'Caching for offline'
+  if (favorites.isTagCaching(tag.id)) {
+    return favorites.tagCachingLabel(tag.id) || 'Caching for offline'
   }
-  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
+  return favorites.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 
 function rowStarLabel(tag: TagSummary): string {
-  if (stars.isTagCaching(tag.id)) return 'Caching for offline'
-  return stars.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
+  if (favorites.isTagCaching(tag.id)) return 'Caching for offline'
+  return favorites.isStarred(tag.id) ? 'Unfavorite' : 'Favorite'
 }
 </script>
 
@@ -79,8 +87,8 @@ function rowStarLabel(tag: TagSummary): string {
       </button>
     </div>
 
-    <p v-if="stars.lastNotice" class="ok stars-notice-wrap" role="status">
-      <StarsNoticeLine :notice="stars.lastNotice" />
+    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
+      <FavoritesNoticeLine :notice="favorites.lastNotice" />
     </p>
 
     <EmptyState
@@ -119,18 +127,18 @@ function rowStarLabel(tag: TagSummary): string {
           v-if="tag"
           type="button"
           class="row-fav"
-          :aria-pressed="stars.isStarred(tag.id)"
-          :aria-busy="stars.isTagCaching(tag.id)"
+          :aria-pressed="favorites.isStarred(tag.id)"
+          :aria-busy="favorites.isTagCaching(tag.id)"
           :aria-label="rowStarLabel(tag)"
           :title="rowStarTip(tag)"
           @click.stop="toggleRowStar(tag)"
         >
           <span
-            v-if="stars.isTagCaching(tag.id)"
+            v-if="favorites.isTagCaching(tag.id)"
             class="row-fav-spinner"
             aria-hidden="true"
           />
-          <span v-else>{{ stars.isStarred(tag.id) ? '♥' : '♡' }}</span>
+          <span v-else>{{ favorites.isStarred(tag.id) ? '♥' : '♡' }}</span>
         </button>
         <button
           type="button"

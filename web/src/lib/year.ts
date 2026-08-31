@@ -1,5 +1,7 @@
-/** Coerce catalog `year` values to a calendar year.
-
+/**
+ * Calendar year normalization for browse sections and search filters.
+ *
+ * Coerce catalog `year` values to a calendar year.
  * Indexes sometimes store `date_posted` strings like `Wed, 13 Dec 2023`
  * when no explicit Year field exists — those must not become sort sections.
  */

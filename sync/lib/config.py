@@ -79,7 +79,7 @@ AUDIO_ALIGN_RATE = 16000
 AUDIO_MIX_DISJOINT_CORR = 0.25
 
 # Voice-part recombinability (mono_solos → stereo_fallback demotion).
-# See SingTags docs/NON_RECOMBINABLE_TRACKS_PLAN.md.
+# See SingTags docs/plans/non-recombinable-tracks.md.
 AUDIO_PARTS_RECOMBINE_MIN_TRUSTED_NONLEAD = 2
 AUDIO_PARTS_RECOMBINE_MIN_MEAN_CORR = 0.25
 AUDIO_PARTS_STEREO_CORR = 0.55

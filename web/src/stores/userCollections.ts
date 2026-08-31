@@ -1,3 +1,7 @@
+/**
+ * User-defined tag groupings (custom collections), separate from catalog series.
+ * Persisted in localStorage; used as browse filters and organizational lists.
+ */
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
@@ -12,15 +16,18 @@ export type UserCollection = {
   updatedAt: string
 }
 
+/** Generate a stable collection id (crypto UUID or time-based fallback). */
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Trim and collapse whitespace in collection display names. */
 function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }
 
+/** Parse and validate collection records from JSON backup or localStorage. */
 function parseCollections(raw: unknown): UserCollection[] {
   if (!Array.isArray(raw)) return []
   const out: UserCollection[] = []
@@ -40,6 +47,7 @@ function parseCollections(raw: unknown): UserCollection[] {
   return out
 }
 
+/** Load collections from localStorage. */
 function loadCollections(): UserCollection[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -50,6 +58,7 @@ function loadCollections(): UserCollection[] {
   }
 }
 
+/** Pinia store for user-created tag collections. */
 export const useUserCollectionsStore = defineStore('userCollections', () => {
   const collections = ref<UserCollection[]>(loadCollections())
 
@@ -67,10 +76,18 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
 
   const count = computed(() => collections.value.length)
 
+  /** Find one collection by id. */
   function byId(id: string): UserCollection | undefined {
     return collections.value.find((c) => c.id === id)
   }
 
+  /**
+   * Create a new collection.
+   *
+   * @param name - Display name (trimmed; empty name returns null).
+   * @param tagIds - Initial member tag ids.
+   * @returns New collection or null when name is invalid. Side effect: localStorage.
+   */
   function create(name: string, tagIds: number[] = []): UserCollection | null {
     const trimmed = normalizeName(name)
     if (!trimmed) return null
@@ -86,6 +103,11 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return col
   }
 
+  /**
+   * Rename a collection.
+   *
+   * @returns false when id missing or name empty.
+   */
   function rename(id: string, name: string): boolean {
     const trimmed = normalizeName(name)
     if (!trimmed) return false
@@ -98,12 +120,18 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return true
   }
 
+  /** Delete a collection by id. @returns true when one was removed. */
   function remove(id: string): boolean {
     const before = collections.value.length
     collections.value = collections.value.filter((c) => c.id !== id)
     return collections.value.length < before
   }
 
+  /**
+   * Add tag ids to a collection (deduped).
+   *
+   * @returns false when collection id not found.
+   */
   function addTags(id: string, tagIds: number[]): boolean {
     const i = collections.value.findIndex((c) => c.id === id)
     if (i < 0) return false
@@ -119,6 +147,11 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return true
   }
 
+  /**
+   * Remove tag ids from a collection.
+   *
+   * @returns false when collection id not found.
+   */
   function removeTags(id: string, tagIds: number[]): boolean {
     const i = collections.value.findIndex((c) => c.id === id)
     if (i < 0) return false
@@ -132,13 +165,19 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return true
   }
 
+  /** Whether a tag is a member of the given collection. */
   function hasTag(id: string, tagId: number): boolean {
     return byId(id)?.tagIds.includes(tagId) ?? false
   }
 
-  /** Drop unfavorited ids from every collection (keeps lists aligned with favorites). */
-  function pruneToStarred(starredIds: Iterable<number>): void {
-    const keep = new Set(starredIds)
+  /**
+   * Drop tag ids that are no longer favorited from every collection.
+   * Keeps custom collections aligned with the Favorites list.
+   *
+   * @param favoriteIds - Iterable of favorited tag ids (often from favorites store `ids`).
+   */
+  function pruneToStarred(favoriteIds: Iterable<number>): void {
+    const keep = new Set(favoriteIds)
     let changed = false
     const next = collections.value.map((c) => {
       const tagIds = c.tagIds.filter((id) => keep.has(id))
@@ -149,7 +188,10 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     if (changed) collections.value = next
   }
 
-  /** Replace collection membership order (keeps unknown ids out; appends any missing members). */
+  /**
+   * Replace member order within a collection.
+   * Unknown ids are ignored; any members omitted from `tagIds` are appended in prior order.
+   */
   function setTagOrder(id: string, tagIds: number[]): boolean {
     const i = collections.value.findIndex((c) => c.id === id)
     if (i < 0) return false
@@ -169,6 +211,7 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return true
   }
 
+  /** Move one tag within a collection to a new index (via `setTagOrder`). */
   function reorderTag(id: string, tagId: number, toIndex: number): boolean {
     const col = byId(id)
     if (!col) return false
@@ -182,11 +225,15 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     return setTagOrder(id, nextIds)
   }
 
-  /** Replace all collections (used by backup restore). */
+  /**
+   * Replace all collections (backup restore).
+   * Side effect: localStorage via watcher.
+   */
   function replaceAll(next: UserCollection[]): void {
     collections.value = parseCollections(next)
   }
 
+  /** Deep copy of all collections for export/backup. */
   function exportSnapshot(): UserCollection[] {
     return collections.value.map((c) => ({
       id: c.id,

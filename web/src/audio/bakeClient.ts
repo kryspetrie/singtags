@@ -19,6 +19,7 @@ import { bakeCache, type BakedEntry } from './bakeCache'
 import { createAudioBuffer } from './audioBufferFactory'
 import type { WorkerBakeRequest, WorkerResponse } from './voiceTransform.worker'
 
+/** Result of a successful worker/main-thread bake including cache key metadata. */
 export type BakeJobResult = {
   buffer: AudioBuffer
   peakL: number
@@ -374,6 +375,7 @@ export async function processOfflineTransform(
   }
 }
 
+/** Abort all in-flight worker jobs (e.g. on navigation teardown). */
 export function cancelAllWorkerJobs(): void {
   for (const [id, p] of pending) {
     worker?.postMessage({ type: 'cancel', jobId: id })
@@ -382,6 +384,7 @@ export function cancelAllWorkerJobs(): void {
   pending.clear()
 }
 
+/** @internal Reset worker, cache, and inflight state between tests. */
 export function resetBakeClientForTests(): void {
   cancelAllWorkerJobs()
   worker?.terminate()

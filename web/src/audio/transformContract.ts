@@ -1,5 +1,5 @@
 /**
- * Pitch/speed transform contracts (PITCH_SPEED_PLAN Phase 0).
+ * Pitch/speed transform contracts (pitch-speed-bake ADR).
  *
  * Kill-list: no MES for tag playback; no audible playbackRate ≠ 1; no PSOLA stretch
  * as default; no silent coupled fallback; no main-thread batch DSP; no automatic
@@ -15,6 +15,7 @@ export const MAX_SPEED = 2
 export const ALGORITHM_ID = 'wsola+formant'
 export const ALGORITHM_VERSION = '1.0.0'
 
+/** Canonical pitch (semitones) and speed multipliers after UI clamping/rounding. */
 export type CanonicalTransform = {
   pitchSemitones: number
   speed: number

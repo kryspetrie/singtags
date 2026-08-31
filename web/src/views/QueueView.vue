@@ -1,4 +1,7 @@
 <script setup lang="ts">
+/**
+ * Multi-tag download queue: format/zip layout prefs, build zip, and clear list.
+ */
 import { computed } from 'vue'
 import { useQueueStore } from '../stores/queue'
 import { useOnline } from '../composables/useOnline'

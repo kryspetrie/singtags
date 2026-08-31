@@ -86,4 +86,34 @@ describe('recent store', () => {
     const r = useRecentStore()
     expect(r.entries).toEqual([])
   })
+
+  it('freezes display order across recordOpen so Back scroll stays stable', () => {
+    const r = useRecentStore()
+    r.entries = [
+      { id: 1, opens: 1, lastOpenedAt: '2024-01-01T00:00:00.000Z' },
+      { id: 2, opens: 1, lastOpenedAt: '2024-01-02T00:00:00.000Z' },
+      { id: 3, opens: 1, lastOpenedAt: '2024-01-03T00:00:00.000Z' },
+    ]
+    expect(r.displayRecords().map((e) => e.id)).toEqual([3, 2, 1])
+    r.freezeListForReturn()
+    r.recordOpen(1)
+    expect(r.sortedRecords('recent').map((e) => e.id)[0]).toBe(1)
+    expect(r.displayRecords().map((e) => e.id)).toEqual([3, 2, 1])
+    r.clearListFreeze()
+    expect(r.displayRecords().map((e) => e.id)[0]).toBe(1)
+  })
+
+  it('persists list sort and clears freeze when sort changes', () => {
+    const r = useRecentStore()
+    r.recordOpen(1)
+    r.recordOpen(2)
+    r.setListSort('opens')
+    expect(localStorage.getItem('singtags.recentSort.v1')).toBe('opens')
+    r.freezeListForReturn()
+    expect(r.frozenOrder).not.toBeNull()
+    r.setListSort('recent')
+    expect(r.frozenOrder).toBeNull()
+    setActivePinia(createPinia())
+    expect(useRecentStore().listSort).toBe('recent')
+  })
 })

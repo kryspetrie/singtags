@@ -93,6 +93,7 @@ vi.mock('../audio/player', () => {
     pause = mockState.pause
     clearSource = vi.fn()
     dispose = vi.fn()
+    getOriginalBuffer = vi.fn(() => null)
   }
   return { TagAudioPlayer: MockPlayer }
 })

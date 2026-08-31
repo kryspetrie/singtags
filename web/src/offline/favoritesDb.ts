@@ -1,14 +1,23 @@
+/**
+ * Favorites persistence in IndexedDB (legacy store name `starred`).
+ *
+ * Product UI calls these "favorites"; API/type names retain `star*` for compatibility
+ * with export files (`singtags.starred`) and zip paths (`starred/`).
+ */
+
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import type { AudioEncodeQuality } from '../types/audio'
 import { listAudioParts, storageAudioPath } from '../lib/audioTiers'
 import { sampleUrl } from '../download/zip'
 import { sheetDisplayPages } from '../lib/sheetPaths'
 import { fetchAudioForStorage } from './compactAudio'
+import { mediaCacheKey } from '../lib/mediaCacheKey'
 
 const DB_NAME = 'singtags'
 const DB_VERSION = 1
 const STORE = 'starred'
 
+/** Progress payload while favoriting a tag and caching its media. */
 export interface StarProgress {
   label: string
   done: number
@@ -16,17 +25,21 @@ export interface StarProgress {
   ratio: number
 }
 
+/** Options for {@link starTag} / {@link refreshStarMedia}. */
 export interface StarOptions {
+  /** Save summary/detail only — skip sheet and audio blob downloads. */
   metadataOnly?: boolean
-  /** Skip fetching sheet blobs (e.g. when Tier 2 pack already has them). */
+  /** Skip fetching sheet blobs (e.g. when tier-2 pack already has them). */
   skipSheets?: boolean
   /** How to store audio on device. Default: standard (stereo AAC). */
   audioQuality?: AudioEncodeQuality
   onProgress?: (p: StarProgress) => void
 }
 
+/** One favorited tag row in IndexedDB (`starred` object store). */
 export interface StarredTagRecord {
   tagId: number
+  /** ISO timestamp when the tag was favorited. */
   starredAt: string
   summary: TagSummary
   detail: TagDetail | null
@@ -37,10 +50,17 @@ export interface StarredTagRecord {
     string,
     { path: string; mime: string; data: ArrayBuffer; quality?: AudioEncodeQuality }
   >
+  /** Whether any offline media blobs were stored for this favorite. */
   offlineMedia: boolean
+  /**
+   * Fingerprint of catalog media when blobs were cached
+   * ({@link mediaCacheKey}); used to detect stale offline media.
+   */
+  mediaCacheKey?: string | null
   quotaWarning?: string | null
 }
 
+/** Portable JSON export of favorite tag metadata (no media blobs). */
 export interface StarredTagsFile {
   version: 1
   kind: 'singtags.starred'
@@ -81,6 +101,7 @@ function idbTx(tx: IDBTransaction): Promise<void> {
   })
 }
 
+/** List all favorited tags, newest {@link StarredTagRecord.starredAt} first. */
 export async function listStarred(): Promise<StarredTagRecord[]> {
   const db = await openDb()
   try {
@@ -93,6 +114,7 @@ export async function listStarred(): Promise<StarredTagRecord[]> {
   }
 }
 
+/** Load one favorite by tag id, or `undefined` when not favorited. */
 export async function getStarred(tagId: number): Promise<StarredTagRecord | undefined> {
   const db = await openDb()
   try {
@@ -105,10 +127,12 @@ export async function getStarred(tagId: number): Promise<StarredTagRecord | unde
   }
 }
 
+/** Whether a tag id exists in the favorites store. */
 export async function isStarred(tagId: number): Promise<boolean> {
   return !!(await getStarred(tagId))
 }
 
+/** Upsert a favorite record (clones via {@link cloneStarredRecord} for IndexedDB safety). */
 export async function putStarred(record: StarredTagRecord): Promise<void> {
   const plain = cloneStarredRecord(record)
   const db = await openDb()
@@ -121,6 +145,7 @@ export async function putStarred(record: StarredTagRecord): Promise<void> {
   }
 }
 
+/** Remove a tag from favorites. */
 export async function removeStarred(tagId: number): Promise<void> {
   const db = await openDb()
   try {
@@ -186,11 +211,16 @@ export function cloneStarredRecord(record: StarredTagRecord): StarredTagRecord {
         )
       : undefined,
     offlineMedia: record.offlineMedia,
+    mediaCacheKey: record.mediaCacheKey ?? null,
     quotaWarning: record.quotaWarning ?? null,
   }
 }
 
-/** Star a tag; optionally cache sheets + audio for offline. */
+/**
+ * Favorite a tag; optionally download sheet/audio blobs for offline playback.
+ *
+ * On quota failure, saves metadata-only with {@link StarredTagRecord.quotaWarning}.
+ */
 export async function starTag(
   summary: TagSummary,
   detail: TagDetail | null,
@@ -254,6 +284,9 @@ export async function starTag(
         sheets.length ||
         (skipSheets && (detail.sheet_pages?.length ?? 0) > 0)
       )
+      if (record.offlineMedia) {
+        record.mediaCacheKey = mediaCacheKey(detail)
+      }
     } catch (e) {
       if (e instanceof DOMException && e.name === 'QuotaExceededError') {
         record.quotaWarning = 'Storage full — starred metadata only (no offline media).'
@@ -282,7 +315,11 @@ export async function starTag(
   return cloneStarredRecord(record)
 }
 
-/** Re-fetch sheet/audio blobs for an existing starred tag (online refresh). */
+/**
+ * Re-fetch sheet/audio blobs for an existing favorite (online refresh).
+ *
+ * Preserves the original {@link StarredTagRecord.starredAt} timestamp.
+ */
 export async function refreshStarMedia(
   existing: StarredTagRecord,
   detail: TagDetail,
@@ -298,7 +335,11 @@ export async function refreshStarMedia(
   }
 }
 
-/** Replace one cached audio part (e.g. upgrade compressed → original after online play). */
+/**
+ * Replace one cached audio part on a favorite (e.g. upgrade compressed → original).
+ *
+ * @returns Updated record, or `undefined` when the tag is not favorited.
+ */
 export async function upgradeStarredAudioPart(
   tagId: number,
   part: string,
@@ -313,11 +354,13 @@ export async function upgradeStarredAudioPart(
       [part]: blob,
     },
     offlineMedia: true,
+    mediaCacheKey: existing.detail ? mediaCacheKey(existing.detail) : existing.mediaCacheKey,
   }
   await putStarred(next)
   return next
 }
 
+/** Serialize favorite records to a portable metadata file (no blobs). */
 export function toStarredFile(records: StarredTagRecord[]): StarredTagsFile {
   return {
     version: 1,
@@ -331,6 +374,7 @@ export function toStarredFile(records: StarredTagRecord[]): StarredTagsFile {
   }
 }
 
+/** Parse and validate a `starred.tags.json` / favorites export file. */
 export function parseStarredFile(raw: unknown): StarredTagsFile {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid starred.tags file')
   const obj = raw as Partial<StarredTagsFile>
@@ -340,7 +384,13 @@ export function parseStarredFile(raw: unknown): StarredTagsFile {
   return obj as StarredTagsFile
 }
 
-/** Merge imported metadata into IndexedDB (does not restore media blobs). */
+/**
+ * Merge imported favorites metadata into IndexedDB.
+ *
+ * Does not restore media blobs — existing blobs on matching tag ids are preserved.
+ *
+ * @returns Number of tags written.
+ */
 export async function importStarredFile(file: StarredTagsFile): Promise<number> {
   let n = 0
   for (const t of file.tags) {
@@ -361,6 +411,7 @@ export async function importStarredFile(file: StarredTagsFile): Promise<number> 
   return n
 }
 
+/** Delete every favorite (used by "clear offline data"). */
 export async function clearAllStarred(): Promise<void> {
   const db = await openDb()
   try {
@@ -372,6 +423,11 @@ export async function clearAllStarred(): Promise<void> {
   }
 }
 
+/**
+ * Create a temporary `blob:` URL from a cached sheet/audio entry.
+ *
+ * Caller must revoke the URL when done (see {@link useObjectUrls}).
+ */
 export function blobUrlFromCached(
   entry: { mime: string; data: ArrayBuffer } | undefined,
 ): string | null {

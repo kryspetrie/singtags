@@ -1,11 +1,18 @@
+/**
+ * Resolve sheet image sets and PDF uploads for the viewer and download UI.
+ * Handles redundant mirrors of raster `sheet_pages` and format toggles.
+ */
+
 import { isImageSheetPath, isPdfPath } from './sheetPath'
 
+/** One selectable raster source (single image or multi-page set). */
 export type SheetImageSet = {
   id: string
   label: string
   paths: string[]
 }
 
+/** One selectable PDF upload in the sheet viewer. */
 export type SheetPdfFile = {
   id: string
   label: string
@@ -74,6 +81,7 @@ export function originalSheetPaths(detail: {
   return out
 }
 
+/** One row in the per-tag sheet download list (image or PDF). */
 export type DownloadableSheetAsset = {
   id: string
   label: string

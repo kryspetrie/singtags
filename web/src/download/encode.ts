@@ -33,6 +33,7 @@ let mp3Ready: Promise<Encoder> | null = null
 let oggReady: Promise<Encoder> | null = null
 let aacEncoderReady: Promise<void> | null = null
 
+/** Lazy-load wasm encoder module URL for LAME or Vorbis. */
 async function loadWasmUrl(format: 'mp3' | 'ogg'): Promise<string> {
   // Package exports `./wasm/mp3` → mp3.wasm (the `./wasm/mp3.wasm` export path is broken upstream).
   if (format === 'mp3') {
@@ -81,6 +82,7 @@ async function ensureAacEncoder(): Promise<void> {
   return aacEncoderReady
 }
 
+/** Concatenate encoded audio chunks into one byte array. */
 function concatChunks(parts: Uint8Array[]): Uint8Array {
   let total = 0
   for (const p of parts) total += p.byteLength
@@ -93,6 +95,7 @@ function concatChunks(parts: Uint8Array[]): Uint8Array {
   return out
 }
 
+/** Downmix a multi-channel buffer to mono (explicit opt-in only). */
 export function downmixToMono(buffer: AudioBuffer): AudioBuffer {
   if (buffer.numberOfChannels <= 1) return buffer
   const length = buffer.length
@@ -214,6 +217,9 @@ async function decodeBytes(input: Uint8Array): Promise<AudioBuffer> {
   }
 }
 
+/**
+ * Decode hosted bytes then encode to the requested download format/quality.
+ */
 export async function encodeDecodedBytes(
   input: Uint8Array,
   format: DownloadFormat,

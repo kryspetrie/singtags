@@ -1,5 +1,9 @@
 <script setup lang="ts">
-defineProps<{ title?: string }>()
+/** Inline SVG mark distinguishing user-defined collections from catalog series. */
+defineProps<{
+  /** Accessible tooltip for the collection icon. */
+  title?: string
+}>()
 </script>
 
 <template>

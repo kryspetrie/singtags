@@ -1,5 +1,9 @@
 <script setup lang="ts">
+/**
+ * Modal confirm/cancel dialog teleported to `body` (destructive actions, unfavorite, clear cache).
+ */
 defineProps<{
+  /** Modal visibility. */
   open: boolean
   title: string
   message: string

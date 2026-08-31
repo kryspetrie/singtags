@@ -1,3 +1,7 @@
+/**
+ * Playhead behavior when switching between learning tracks of different length.
+ */
+
 /** Reset playhead when switching parts whose lengths differ by more than this (seconds). */
 export const PART_SWITCH_DURATION_RESET_SEC = 0.5
 

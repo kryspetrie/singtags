@@ -1,6 +1,8 @@
 <script setup lang="ts">
+/**
+ * Browse filter chips and anchored filter sheets (arranger, type, collection, rating, year, title).
+ */
 import {
-  collectionLabel,
   mergeBrowseCollectionOptions,
 } from '../lib/collections'
 import CustomCollectionMark from './CustomCollectionMark.vue'
@@ -14,6 +16,7 @@ import {
 import FilterSheet from './FilterSheet.vue'
 
 const props = defineProps<{
+  /** Filter sheet open state. */
   open: boolean
   filters: CatalogFilters
   years: number[]

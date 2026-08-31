@@ -9,8 +9,9 @@ import { idbReq, openOfflineDb, PDF_RASTER_STORE } from './offlineIndexedDb'
 export const PDF_RASTER_CACHE_VERSION = 1
 
 /** Soft cap on how many distinct PDF renders to keep (LRU). */
-export const MAX_PDF_RASTER_ENTRIES = 12
+export const MAX_PDF_RASTER_ENTRIES = 48
 
+/** Options encoded into a {@link pdfRasterCacheKey}. */
 export type PdfRasterCacheOpts = {
   dpi?: number
   crop?: boolean
@@ -24,6 +25,7 @@ export type PdfRasterPageBytes = {
   data: ArrayBuffer
 }
 
+/** IndexedDB record for one cached PDF render (multiple page images). */
 export interface PdfRasterRecord {
   key: string
   pages: PdfRasterPageBytes[]
@@ -40,6 +42,11 @@ type MemEntry = {
 
 const memory = new Map<string, MemEntry>()
 
+/**
+ * Stable cache key for a PDF URL and render options.
+ *
+ * Includes {@link PDF_RASTER_CACHE_VERSION} so format changes invalidate old entries.
+ */
 export function pdfRasterCacheKey(pdfUrl: string, opts: PdfRasterCacheOpts = {}): string {
   const crop = opts.crop !== false
   let dpiPart: string
@@ -228,6 +235,14 @@ export async function putPdfRasterFromObjectUrls(key: string, urls: string[]): P
   }
 }
 
+/** True when memory or IndexedDB already has rasters for `key` (no object URLs created). */
+export async function hasPdfRasterCached(key: string): Promise<boolean> {
+  if (memory.has(key) && (memory.get(key)?.pages.length ?? 0) > 0) return true
+  const rec = await readIdb(key)
+  return !!rec?.pages?.length
+}
+
+/** Wipe in-memory and IndexedDB PDF raster entries. */
 export async function clearPdfRasterCache(): Promise<void> {
   memory.clear()
   try {
@@ -241,6 +256,27 @@ export async function clearPdfRasterCache(): Promise<void> {
   } catch {
     /* ignore */
   }
+}
+
+/** Sum of stored PDF raster page bytes (memory + IndexedDB; best-effort). */
+export async function pdfRasterCacheBytes(): Promise<number> {
+  let total = 0
+  for (const entry of memory.values()) total += entry.bytes
+  try {
+    const db = await openOfflineDb()
+    try {
+      const tx = db.transaction(PDF_RASTER_STORE, 'readonly')
+      const all = (await idbReq(tx.objectStore(PDF_RASTER_STORE).getAll())) as PdfRasterRecord[]
+      for (const rec of all) {
+        if (!memory.has(rec.key)) total += rec.bytes
+      }
+    } finally {
+      db.close()
+    }
+  } catch {
+    /* ignore */
+  }
+  return total
 }
 
 /** Test helper: memory size. */

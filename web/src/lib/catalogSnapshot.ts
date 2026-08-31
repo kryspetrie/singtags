@@ -1,3 +1,8 @@
+/**
+ * Catalog snapshot persistence: tag summaries + search expansions in IndexedDB
+ * with a localStorage mirror for synchronous boot.
+ */
+
 import type { ExpansionMap } from '../search/expansions'
 import type { TagSummary } from '../types/tag'
 import {
@@ -10,13 +15,16 @@ import {
   savePersistentSnapshot,
 } from './persistentSnapshot'
 
+/** localStorage key for the catalog snapshot mirror. */
 export const CATALOG_SNAPSHOT_KEY = 'singtags.catalogSnapshot.v1'
 
+/** localStorage / IDB payload shape for the full tag index. */
 export interface CatalogSnapshot {
   tags: TagSummary[]
   expansions: ExpansionMap
 }
 
+/** Runtime type guard for {@link CatalogSnapshot}. */
 function isCatalogSnapshot(data: unknown): data is CatalogSnapshot {
   return (
     typeof data === 'object' &&
@@ -33,6 +41,7 @@ export function saveCatalogSnapshot(tags: TagSummary[], expansions: ExpansionMap
   })
 }
 
+/** Synchronous read from the localStorage mirror only. */
 export function loadCatalogSnapshotSync(): CatalogSnapshot | null {
   const snap = loadPersistentSnapshot(CATALOG_SNAPSHOT_KEY, isCatalogSnapshot)
   if (!snap) return null
@@ -59,6 +68,7 @@ export async function loadCatalogSnapshotAsync(): Promise<CatalogSnapshot | null
   return fromLocal
 }
 
+/** Drop catalog snapshot from browser storage mirrors (IDB cleared separately if needed). */
 export function clearCatalogSnapshot(): void {
   clearPersistentSnapshot(CATALOG_SNAPSHOT_KEY)
 }

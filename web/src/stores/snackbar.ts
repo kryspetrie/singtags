@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
+/** Visual tone for snackbar messages. */
 export type SnackbarTone = 'error' | 'info' | 'ok'
 
 /**
@@ -13,6 +14,7 @@ export const useSnackbarStore = defineStore('snackbar', () => {
   let timer: ReturnType<typeof setTimeout> | null = null
   let onDismissCb: (() => void) | null = null
 
+  /** Hide the snackbar, clear the auto-dismiss timer, and run any `onDismiss` callback. */
   function dismiss(): void {
     if (timer) {
       clearTimeout(timer)
@@ -24,6 +26,14 @@ export const useSnackbarStore = defineStore('snackbar', () => {
     cb?.()
   }
 
+  /**
+   * Show a transient message. Replaces any visible snackbar and resets its timer.
+   *
+   * @param msg - Text shown in the toast.
+   * @param opts.tone - Visual style (`info`, `ok`, `error`). Default `info`.
+   * @param opts.ms - Auto-dismiss delay; `0` stays until dismissed. Default 10s errors, 5s otherwise.
+   * @param opts.onDismiss - Called once when the snackbar is dismissed (manual or timeout).
+   */
   function show(
     msg: string,
     opts?: {

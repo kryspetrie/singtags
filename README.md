@@ -1,4 +1,8 @@
-# SingTags.com (barbershop-website)
+# SingTags.com
+
+<p align="center">
+  <img src="docs/assets/logo.png" alt="SingTags" width="192" />
+</p>
 
 Static Vue 3 + TypeScript site for a Barbershop Tags mirror. No backend — indexes and media are static (S3-ready).
 
@@ -7,20 +11,21 @@ Static Vue 3 + TypeScript site for a Barbershop Tags mirror. No backend — inde
 | Path | Purpose |
 |---|---|
 | `web/` | Vue SPA |
-| `library/` | Working media mirror (**gitignored**) — lyric review progress in `library/_state/` |
-| `sync/` | Mirror / enrich the library (audio tiers, sheets, lyrics reviewer, …) |
+| `library/` | Working media mirror (**gitignored**) |
+| `sync/` | Mirror / enrich the library (audio tiers, sheets, lyrics, …) |
 | `build/` | Build SPA indexes from `library/` (no media remux) |
 | `deploy/` | Independent S3 pushes: website vs library |
 
 ## Docs
 
-- [**Setup from zero** (Namecheap + Cloudflare)](docs/SETUP.md) — start here if you have no domain/hosting yet
-- [Phased development plan](docs/PLAN.md)
-- [Publish & deploy runbook](docs/PUBLISH.md)
-- [**Search by Vibe** (planned)](docs/VIBE_SEARCH.md) — Workers AI spec
-- [Architecture notes](docs/ARCHITECTURE.md)
-- [Architecture decisions](docs/decisions/README.md) — sheet format, offline tiers
-- [Feature pass plan](docs/FEATURE_PASS_PLAN.md) (Must/Should/Could from usability review)
+Full index: [docs/README.md](docs/README.md)
+
+- [**Setup from zero**](docs/setup.md) — Namecheap + Cloudflare DNS + S3
+- [Publish & deploy](docs/publish.md)
+- [Status & open work](docs/status.md)
+- [Architecture](docs/architecture.md)
+- [Decisions](docs/decisions/README.md)
+- Planned: [vibe search](docs/plans/vibe-search.md), [tag roulette](docs/plans/tag-roulette.md), [virtual piano](docs/plans/virtual-piano.md)
 
 ## Quick start
 
@@ -35,25 +40,12 @@ npm run dev
 
 Vite serves `library/` at `/library`. Production builds register a service worker (PWA).
 
-## Lyric review (preserve progress)
-
-Progress lives in `library/_state/lyric_review_queue.json` (and related `lyric_*` files) plus finalized fields on each tag’s `metadata.json`. Continue with:
+## Deploy
 
 ```bash
-cd sync && source .venv/bin/activate  # after sync/install.sh
-python lyrics/review_queue_gui.py
-```
-
-## Deploy (independent tracks)
-
-```bash
-# Website only (SPA + indexes)
 S3_BUCKET=my-bucket ./deploy/website_s3.sh
-
-# Library only (large; resumable)
 S3_BUCKET=my-bucket ./deploy/library_s3.sh
-
 ./deploy/publish.sh website|library|all
 ```
 
-See [docs/PUBLISH.md](docs/PUBLISH.md).
+See [docs/publish.md](docs/publish.md).
