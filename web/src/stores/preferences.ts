@@ -15,6 +15,12 @@ import {
 } from '../audio/pitchPlayer'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { normalizeCustomParts } from '../lib/audioParts'
+import {
+  DEFAULT_OPTICAL_FRAME_BYTES,
+  DEFAULT_OPTICAL_TX_FPS,
+  normalizeOpticalFrameBytes,
+  normalizeOpticalTxFps,
+} from '../lib/decimen/sendSettings'
 
 export type PartSide = 'left' | 'right'
 
@@ -34,6 +40,9 @@ const BROWSE_WELCOME_KEY = 'singtags.browseWelcomeDismissed.v1'
 const SING_MODE_KEY = 'singtags.singMode.v1'
 const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
 const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
+const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
+const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
+const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
 const LIBRARY_PARTS_MODE_KEY = 'singtags.libraryAudioPartsMode.v1'
 const LIBRARY_PARTS_KEY = 'singtags.libraryAudioParts.v1'
 const PITCH_PIPE_PREFS_KEY = 'singtags.pitchPipe.v1'
@@ -197,6 +206,17 @@ function loadBool(key: string, fallback: boolean): boolean {
   return fallback
 }
 
+function loadNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw == null) return fallback
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : fallback
+  } catch {
+    return fallback
+  }
+}
+
 /** Read a string array from localStorage JSON; normalizes custom audio part names. */
 function loadStringArray(key: string, fallback: string[]): string[] {
   try {
@@ -273,6 +293,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * When true, Copy/Share/QR use the barbershoptags.com tag page instead of this app.
    */
   const shareBarbershopTags = ref(loadBool(SHARE_BARBERSHOP_TAGS_KEY, false))
+  /** Payload bytes per animated QR frame for optical transfer. */
+  const opticalTransferFrameBytes = ref(
+    normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
+  )
+  /** Animated frames per second while sending an optical transfer. */
+  const opticalTransferTxFps = ref(
+    normalizeOpticalTxFps(loadNumber(OPTICAL_TX_FPS_KEY, DEFAULT_OPTICAL_TX_FPS)),
+  )
+  /** Stage zoom multiplier for the fullscreen optical transfer QR. */
+  const opticalTransferDisplayScale = ref(
+    Math.min(6, Math.max(1, loadNumber(OPTICAL_DISPLAY_SCALE_KEY, 2))),
+  )
 
   /** Write current pitch-pipe refs to localStorage. Side effect: `savePitchPipePrefs`. */
   function persistPitchPipe(): void {
@@ -367,6 +399,42 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SHARE_BARBERSHOP_TAGS_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferFrameBytes,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_FRAME_BYTES_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferTxFps,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_TX_FPS_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferDisplayScale,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_DISPLAY_SCALE_KEY, String(v))
       } catch {
         /* ignore */
       }
@@ -498,6 +566,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareBarbershopTags.value = on
   }
 
+  function setOpticalTransferFrameBytes(value: number): void {
+    opticalTransferFrameBytes.value = normalizeOpticalFrameBytes(value)
+  }
+
+  function setOpticalTransferTxFps(value: number): void {
+    opticalTransferTxFps.value = normalizeOpticalTxFps(value)
+  }
+
+  function setOpticalTransferDisplayScale(scale: number): void {
+    opticalTransferDisplayScale.value = Math.min(6, Math.max(1, Math.round(scale * 4) / 4))
+  }
+
   return {
     partSoloInFile,
     partMixPan,
@@ -506,6 +586,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singMode,
     shareFullscreen,
     shareBarbershopTags,
+    opticalTransferFrameBytes,
+    opticalTransferTxFps,
+    opticalTransferDisplayScale,
     libraryAudioPartsMode,
     libraryAudioParts,
     pitchPipeRange,
@@ -519,6 +602,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSingMode,
     setShareFullscreen,
     setShareBarbershopTags,
+    setOpticalTransferFrameBytes,
+    setOpticalTransferTxFps,
+    setOpticalTransferDisplayScale,
     globalPitchDetuneCents,
     getPartSoloInFile,
     setPartSoloInFile,

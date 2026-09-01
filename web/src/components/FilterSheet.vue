@@ -14,6 +14,8 @@ const props = defineProps<{
   elevated?: boolean
   /** Hide the visible title; dialog `aria-label` still uses `title`. */
   hideTitle?: boolean
+  /** Mobile: full-height drawer; desktop: large centered panel. */
+  fullScreen?: boolean
 }>()
 
 defineEmits<{
@@ -68,7 +70,7 @@ function onPanelAfterLeave(): void {
     <div
       v-if="layerOpen"
       class="sheet-root"
-      :class="{ anchored, elevated }"
+      :class="{ anchored, elevated, fullScreen: fullScreen }"
       :style="rootStyle"
       role="dialog"
       aria-modal="true"
@@ -130,6 +132,13 @@ function onPanelAfterLeave(): void {
 .sheet-root.elevated .panel {
   margin-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 }
+.sheet-root.fullScreen.elevated .panel {
+  margin-bottom: 0;
+}
+.sheet-root.fullScreen.elevated .backdrop {
+  top: 0;
+  bottom: 0;
+}
 .panel {
   pointer-events: auto;
   position: relative;
@@ -143,6 +152,16 @@ function onPanelAfterLeave(): void {
   flex-direction: column;
   gap: 0.5rem;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.12);
+}
+.sheet-root.fullScreen .panel {
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.sheet-root.fullScreen .body {
+  flex: 1;
+  min-height: 0;
 }
 
 .head {
@@ -164,9 +183,9 @@ function onPanelAfterLeave(): void {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
   flex: 1;
-  /* Room for :focus-visible outline (2px + 2px offset) so inputs aren’t clipped. */
-  padding: 0.35rem;
-  margin: 0 -0.35rem;
+  /* Room for chip borders and :focus-visible outlines without clipping. */
+  padding: 0.5rem 0.45rem;
+  margin: 0;
 }
 
 .sheet-fade-enter-active {
@@ -240,6 +259,26 @@ function onPanelAfterLeave(): void {
     height: auto;
     border-radius: 12px 12px 0 0;
   }
+  .sheet-root.fullScreen {
+    justify-content: stretch;
+  }
+  .sheet-root.fullScreen .panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-bottom: 0;
+    max-height: none;
+    height: auto;
+    border-radius: 0;
+    padding: max(0.65rem, env(safe-area-inset-top)) 0.85rem
+      max(0.85rem, env(safe-area-inset-bottom)) 0.85rem;
+  }
+  .sheet-root.fullScreen .head {
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--border);
+  }
 }
 @media (min-width: 768px) {
   .backdrop {
@@ -255,6 +294,16 @@ function onPanelAfterLeave(): void {
     max-height: 70vh;
     margin-bottom: 0;
     border-radius: var(--radius);
+  }
+  .sheet-root.fullScreen {
+    padding: 1.25rem;
+  }
+  .sheet-root.fullScreen .panel {
+    width: min(960px, 94vw);
+    height: min(88vh, calc(100dvh - 2.5rem));
+    max-height: none;
+    border-radius: calc(var(--radius, 10px) + 2px);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
   }
   @keyframes sheet-slide-in {
     from {

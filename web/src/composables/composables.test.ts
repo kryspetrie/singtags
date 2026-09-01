@@ -10,6 +10,7 @@ import { useOnline } from './useOnline'
 import { useObjectUrls } from './useObjectUrls'
 import { useTagDetail } from './useTagDetail'
 import { useReconnectCaches } from './useReconnectCaches'
+import { countItemsWithinRows, countRowsUsed } from './useTwoRowStripPaging'
 import {
   reconnectMediaPromptVisible,
   reconnectMediaPlan,
@@ -85,7 +86,7 @@ describe('offlineBannerText', () => {
   })
 
   it('warns when offline without catalog cache', () => {
-    expect(offlineBannerText(true, null, 'Offline status unknown')).toMatch(/catalog not cached/)
+    expect(offlineBannerText(true, null, 'Offline status unknown')).toMatch(/Receive tags optically/)
   })
 
   it('uses library status when catalog is cached', () => {
@@ -574,5 +575,21 @@ describe('useTagDetail', () => {
     expect(api.availableAudioParts.value).toContain('lead')
     expect(api.audioParts.value.lead).toBe('blob:star-lead')
     w.unmount()
+  })
+})
+
+describe('useTwoRowStripPaging helpers', () => {
+  it('countItemsWithinRows stops before a third row', () => {
+    const host = document.createElement('div')
+    for (let i = 0; i < 5; i++) {
+      const el = document.createElement('span')
+      Object.defineProperty(el, 'offsetTop', {
+        configurable: true,
+        get: () => (i < 2 ? 0 : i < 4 ? 40 : 80),
+      })
+      host.appendChild(el)
+    }
+    expect(countItemsWithinRows(host, 2)).toBe(4)
+    expect(countRowsUsed(host, 4)).toBe(2)
   })
 })

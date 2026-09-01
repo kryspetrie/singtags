@@ -21,6 +21,7 @@ import {
   yearSectionKey,
   yearBoundsForSectionKey,
   collectionIdForSectionKey,
+  collectionJumpLabel,
 } from './browse'
 import type { TagSummary } from '../types/tag'
 
@@ -236,5 +237,57 @@ describe('custom collection browse sections', () => {
     expect(jumpKeys.indexOf('user:u1')).toBeLessThan(jumpKeys.indexOf('Other'))
     const customSec = rows.find((r) => r.type === 'section' && r.key === 'user:u1')
     expect(customSec).toMatchObject({ type: 'section', label: 'Contest set', custom: true })
+  })
+
+  it('collectionJumpLabel resolves user collection names from ids', () => {
+    expect(
+      collectionJumpLabel('user:u1', [{ id: 'u1', name: 'Contest set', tagIds: [1] }]),
+    ).toBe('Contest set')
+    expect(collectionJumpLabel('Classic', [])).toBe('Classic')
+  })
+
+  it('uses a flat list when one collection filter is active', () => {
+    const tags = [
+      tag({ id: 1, title: 'A', collection: 'classic', classic: 1 }),
+      tag({ id: 2, title: 'B', collection: 'classic', classic: 2 }),
+    ]
+    const sorted = sortBrowseTags(tags, 'collection')
+    const userCollections = [
+      { id: 'u1', name: 'Contest set', tagIds: [1, 2] },
+      { id: 'u2', name: 'Warm-ups', tagIds: [1] },
+    ]
+    const filtered = buildBrowseRows(sorted, 'collection', 100, {
+      userCollections,
+      singleCollectionFilter: 'user:u1',
+    })
+    expect(filtered.jumpKeys).toEqual([])
+    expect(filtered.rows.every((r) => r.type === 'tag')).toBe(true)
+    expect(filtered.rows).toHaveLength(2)
+    expect(filtered.rows.map((r) => (r.type === 'tag' ? r.tag.id : -1))).toEqual([1, 2])
+  })
+
+  it('pins the filtered user collection section first when multiple collection filters are active', () => {
+    const tags = [
+      tag({ id: 1, title: 'A', collection: 'classic', classic: 1 }),
+      tag({ id: 2, title: 'B', collection: 'classic', classic: 2 }),
+    ]
+    const sorted = sortBrowseTags(tags, 'collection')
+    const userCollections = [
+      { id: 'u1', name: 'Contest set', tagIds: [1, 2] },
+      { id: 'u2', name: 'Warm-ups', tagIds: [1] },
+    ]
+    const filtered = buildBrowseRows(sorted, 'collection', 100, {
+      userCollections,
+      activeUserCollectionFilters: ['user:u1'],
+    })
+    expect(filtered.jumpKeys[0]).toBe('user:u1')
+    expect(filtered.jumpKeys).toContain('Classic')
+    expect(filtered.jumpKeys).toContain('user:u2')
+    const sections = filtered.rows.filter((r) => r.type === 'section')
+    expect(sections[0]).toMatchObject({ key: 'user:u1', label: 'Contest set', custom: true })
+    expect(sections.some((s) => s.type === 'section' && s.key === 'Classic')).toBe(true)
+    expect(sections.some((s) => s.type === 'section' && s.key === 'user:u2')).toBe(true)
+    // Tag 1 appears under Contest set, Classic, and Warm-ups.
+    expect(filtered.rows.filter((r) => r.type === 'tag' && r.tag.id === 1)).toHaveLength(3)
   })
 })

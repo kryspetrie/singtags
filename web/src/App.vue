@@ -28,6 +28,7 @@ import { useOfflineBanner } from './composables/useOfflineBanner'
 import AboutDialog from './components/AboutDialog.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
+import OfflineOpticalTransferPrompt from './components/OfflineOpticalTransferPrompt.vue'
 
 const favorites = useFavoritesStore()
 const queue = useQueueStore()
@@ -76,6 +77,7 @@ function onDesktopNavMq(ev: MediaQueryListEvent): void {
 const moreNavActive = computed(
   () =>
     route.name === 'settings' ||
+    route.name === 'optical-transfer' ||
     (route.name === 'queue' && !desktopNav.value),
 )
 
@@ -394,7 +396,13 @@ async function acceptReconnectPrompt(): Promise<void> {
       </nav>
     </header>
     <div v-if="!offlineMode.manualOffline && offlineBannerMessage" class="offline-banner" role="status">
-      <span>{{ offlineBannerMessage }}</span>
+      <div class="offline-banner-copy">
+        <span>{{ offlineBannerMessage }}</span>
+        <OfflineOpticalTransferPrompt
+          v-if="!offlineLib.catalogCachedAt"
+          compact
+        />
+      </div>
       <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
     </div>
     <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
@@ -642,10 +650,10 @@ async function acceptReconnectPrompt(): Promise<void> {
 .offline-banner {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 0.45rem 0.75rem;
-  padding: 0.45rem 0.75rem;
+  padding: 0.55rem 0.75rem;
   font-size: 0.88rem;
   font-weight: 500;
   line-height: 1.35;
@@ -653,6 +661,13 @@ async function acceptReconnectPrompt(): Promise<void> {
   background: color-mix(in srgb, var(--danger) 10%, var(--surface));
   color: var(--danger);
   border-bottom: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
+}
+.offline-banner-copy {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 16rem;
+  max-width: 42rem;
+  text-align: left;
 }
 .offline-banner .btn {
   min-height: 36px;

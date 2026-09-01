@@ -72,6 +72,46 @@ export function matchesCachedFilter(
   return !sheets && !audio
 }
 
+export type OfflineBrowseMediaFilters = {
+  cached: CachedFilter
+  hasSheet: boolean | null
+  hasAudio: boolean | null
+}
+
+/** True when the Available offline chip filter is active. */
+export function isOfflineBrowseFilterActive(filters: OfflineBrowseMediaFilters): boolean {
+  return filters.cached != null
+}
+
+/**
+ * When Available offline is active, apply cached + has sheet/audio against device readiness.
+ * When inactive, returns true (catalog hasSheet/hasAudio are handled by the search engine).
+ */
+export function matchesOfflineBrowseFilters(
+  ready: TagCacheReady | undefined,
+  filters: OfflineBrowseMediaFilters,
+): boolean {
+  if (!isOfflineBrowseFilterActive(filters)) return true
+  if (!matchesCachedFilter(ready, filters.cached)) return false
+  if (filters.hasSheet === true && !ready?.sheets) return false
+  if (filters.hasAudio === true && !ready?.audio) return false
+  return true
+}
+
+const CACHED_FILTER_LABELS: Record<Exclude<CachedFilter, null>, string> = {
+  any: 'any files',
+  sheets: 'sheet files',
+  audio: 'audio files',
+  both: 'sheet + audio',
+  none: 'none',
+}
+
+/** Short label for the Available offline chip when a sub-filter is set. */
+export function cachedFilterChipLabel(filter: CachedFilter): string {
+  if (filter == null) return ''
+  return CACHED_FILTER_LABELS[filter]
+}
+
 /** Load offline readiness with one bulk listing per pack plus one favorites read. */
 export async function loadOfflineReadinessIndex(): Promise<Map<number, TagCacheReady>> {
   const [sheetUrls, audioUrls, starred] = await Promise.all([

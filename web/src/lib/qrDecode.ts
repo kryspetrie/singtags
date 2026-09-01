@@ -6,7 +6,7 @@ import jsQR from 'jsqr'
 export type QrDecodeResult = {
   /** UTF-8 / text payload when present. */
   text: string | null
-  /** Raw bytes (preferred for STX1 sheet transfer frames). */
+  /** Raw bytes when the QR uses binary mode. */
   bytes: Uint8Array | null
 }
 

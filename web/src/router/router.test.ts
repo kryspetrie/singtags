@@ -16,7 +16,7 @@ describe('router', () => {
 
   it('registers primary routes', () => {
     const names = router.getRoutes().map((r) => r.name)
-    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'favorites', 'pitch-pipe', 'queue']))
+    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'favorites', 'pitch-pipe', 'queue', 'optical-transfer']))
   })
 
   it('scrollBehavior restores armed tag-return Y on Browse instead of top', async () => {

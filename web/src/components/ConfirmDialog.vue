@@ -58,7 +58,7 @@ const emit = defineEmits<{
 .confirm-root {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 110;
   display: flex;
   align-items: center;
   justify-content: center;

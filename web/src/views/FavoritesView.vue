@@ -6,11 +6,16 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
+import OfflineOpticalTransferPrompt from '../components/OfflineOpticalTransferPrompt.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
-import CollectionsOrderSheet from '../components/CollectionsOrderSheet.vue'
+import CollectionsManageSheet from '../components/CollectionsManageSheet.vue'
+import FavoritesShareSheet from '../components/FavoritesShareSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import TagListRowContent from '../components/TagListRowContent.vue'
+import TagSelectionBar from '../components/TagSelectionBar.vue'
+import type { TagSummary } from '../types/tag'
 import { useFavoritesStore } from '../stores/favorites'
 import { useCatalogStore } from '../stores/catalog'
 import { usePracticeStore } from '../stores/practice'
@@ -18,6 +23,8 @@ import { useUserCollectionsStore } from '../stores/userCollections'
 import { buildFavoritesBackup, parseFavoritesBackup } from '../lib/favoritesBackup'
 import { downloadBlob } from '../download/zip'
 import { useOnline } from '../composables/useOnline'
+import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
+import { useSortableListDrag } from '../composables/useSortableListDrag'
 import {
   decodeFavoritesSharePayload,
   favoritesSharePath,
@@ -25,6 +32,7 @@ import {
   type FavoritesSharePayload,
 } from '../lib/favoritesShare'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
+import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import {
   FAVORITES_SORT_OPTIONS,
   type FavoritesSortMode,
@@ -32,10 +40,17 @@ import {
 } from '../lib/favoritesSort'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
+import { useQueueStore } from '../stores/queue'
+import { useSnackbarStore } from '../stores/snackbar'
 import { tagOpenLocation } from '../lib/tagOpen'
-import { qrDataUrl } from '../lib/qr'
-
-const SHARE_URL_WARN_LEN = 2000
+import { catalogOriginalPaths } from '../lib/audioTiers'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
+import { partTrackLabel } from '../lib/parts'
+import { tagDetailUrl } from '../lib/mediaUrl'
+import { fetchCached } from '../lib/manualOfflineFetch'
+import { sheetsPack } from '../offline/libraryPack'
+import { getStarred } from '../offline/favoritesDb'
+import type { PartId, TagDetail } from '../types/tag'
 
 const favorites = useFavoritesStore()
 const catalog = useCatalogStore()
@@ -43,32 +58,31 @@ const practice = usePracticeStore()
 const userCollections = useUserCollectionsStore()
 const offlineLibrary = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
+const queue = useQueueStore()
+const snackbar = useSnackbarStore()
 const route = useRoute()
+
+function rowTag(tagId: number, summary: TagSummary): TagSummary {
+  return catalog.getById(tagId) ?? summary
+}
 const router = useRouter()
 const { offline } = useOnline()
 const fileInput = ref<HTMLInputElement | null>(null)
 const fetchMediaOnImport = ref(false)
 const backupOpen = ref(false)
 const manageOpen = ref(false)
+const moreMenuOpen = ref(false)
+const moreMenuRef = ref<HTMLElement | null>(null)
 const collectionPickerOpen = ref(false)
-const reorderCollectionsOpen = ref(false)
-/** ~2 wrap lines of collection chips on a typical phone Favorites toolbar. */
-const COLLECTION_BAR_PAGE_SIZE = 6
-const collectionPage = ref(0)
 const tagIdsOpen = ref(false)
 const shareOpen = ref(false)
 const shareUrl = ref('')
-const shareQr = ref('')
-const shareUrlTooLong = ref(false)
 const tagIdText = ref('')
 const tagIdNotice = ref<string | null>(null)
 const pendingImport = ref<FavoritesSharePayload | null>(null)
 const importFetchMedia = ref(true)
 const activeCollectionId = ref<string | null>(null)
 const pendingUnfavorite = ref<{ tagId: number; title: string } | null>(null)
-const renameDraft = ref<Record<string, string>>({})
-const newCollectionName = ref('')
-const manageError = ref<string | null>(null)
 const sortMode = ref<FavoritesSortMode>('custom')
 const sortOptions = FAVORITES_SORT_OPTIONS
 
@@ -85,17 +99,6 @@ let longPressId: number | null = null
 let longPressX = 0
 let longPressY = 0
 let suppressRowClick = false
-
-const DRAG_HOLD_MS = 280
-
-const draggingId = ref<number | null>(null)
-const dragOverIndex = ref<number | null>(null)
-const dragOverEdge = ref<'before' | 'after' | null>(null)
-const dragFromIndex = ref(-1)
-const dragActive = ref(false)
-let holdTimer: ReturnType<typeof setTimeout> | null = null
-let holdPointerId: number | null = null
-let holdStartY = 0
 
 const orderedRecords = computed(() => {
   const byId = new Map(favorites.records.map((r) => [r.tagId, r]))
@@ -115,24 +118,42 @@ const orderedRecords = computed(() => {
   return sortFavoriteRecords(favorites.records, sortMode.value)
 })
 
+const {
+  dragActive,
+  onHandlePointerDown,
+  onDragEnter,
+  rowDragClass,
+  listDraggingClass,
+} = useSortableListDrag<number>({
+  rowSelector: 'li.favorites-row',
+  onReorder: (tagId, toIndex) => {
+    const colId = activeCollectionId.value
+    const ids = orderedRecords.value.map((r) => r!.tagId)
+    if (sortMode.value !== 'custom') {
+      if (colId) userCollections.setTagOrder(colId, ids)
+      else practice.resetFromStarred(ids)
+      sortMode.value = 'custom'
+    }
+    if (colId) userCollections.reorderTag(colId, tagId, toIndex)
+    else practice.reorder(tagId, toIndex)
+  },
+})
+
 /** Store order (reorder modal); not A–Z. */
 const collectionChips = computed(() => userCollections.collections)
 
-const collectionPageCount = computed(() =>
-  Math.max(1, Math.ceil(collectionChips.value.length / COLLECTION_BAR_PAGE_SIZE)),
-)
+const collectionStripHost = ref<HTMLElement | null>(null)
+const collectionMeasureEl = ref<HTMLElement | null>(null)
 
-const showCollectionPager = computed(
-  () => collectionChips.value.length > COLLECTION_BAR_PAGE_SIZE,
-)
-
-const pagedCollectionChips = computed(() => {
-  const start = collectionPage.value * COLLECTION_BAR_PAGE_SIZE
-  return collectionChips.value.slice(start, start + COLLECTION_BAR_PAGE_SIZE)
-})
-
-watch(collectionPageCount, (n) => {
-  if (collectionPage.value > n - 1) collectionPage.value = Math.max(0, n - 1)
+const {
+  page: collectionPage,
+  showPager: showCollectionPager,
+  pageCount: collectionPageCount,
+  pagedItems: pagedCollectionChips,
+  pageForIndex: collectionPageForIndex,
+} = useTwoRowStripPaging(collectionChips, {
+  hostEl: collectionStripHost,
+  measureEl: collectionMeasureEl,
 })
 
 watch(
@@ -141,7 +162,7 @@ watch(
     if (!id || !showCollectionPager.value) return
     const idx = collectionChips.value.findIndex((c) => c.id === id)
     if (idx < 0) return
-    collectionPage.value = Math.floor(idx / COLLECTION_BAR_PAGE_SIZE)
+    collectionPage.value = collectionPageForIndex(idx)
   },
 )
 
@@ -156,9 +177,6 @@ const showRowSelect = computed(
 )
 
 const canApplySort = computed(() => favorites.count > 0 && sortMode.value !== 'custom')
-const canNativeShare = computed(
-  () => typeof navigator !== 'undefined' && typeof navigator.share === 'function',
-)
 
 /** Collections that include this tag (for at-a-glance membership). */
 function collectionsForTag(tagId: number) {
@@ -184,7 +202,9 @@ function clearSelection(): void {
 
 function selectRowTip(title: string, tagId: number): string {
   const name = title || `tag #${tagId}`
-  return selectedIds.value.has(tagId) ? `Deselect ${name}` : `Select ${name}`
+  return selectedIds.value.has(tagId)
+    ? `Deselect ${name}`
+    : `Select ${name} for bulk collection or zip`
 }
 
 function clearLongPressTimer(): void {
@@ -199,7 +219,7 @@ function onRowPointerDown(e: PointerEvent, id: number): void {
   if (!isNarrow.value || showRowSelect.value) return
   if (e.button !== 0) return
   const t = e.target as HTMLElement | null
-  if (t?.closest('.sel-btn, .row-fav, .drag-handle, .row-remove-col')) return
+  if (t?.closest('.sel-btn, .row-fav, .drag-handle, .row-remove')) return
   clearLongPressTimer()
   longPressX = e.clientX
   longPressY = e.clientY
@@ -241,6 +261,84 @@ function onRowClickCapture(e: MouseEvent): void {
   suppressRowClick = false
 }
 
+/** Tag metadata for queueing — in-memory favorite, cache, pack, or IndexedDB detail. */
+async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
+  const rec = favorites.records.find((r) => r.tagId === id)
+  if (rec?.detail) return rec.detail
+  try {
+    const res = await fetchCached(tagDetailUrl(id))
+    if (res.ok) return (await res.json()) as TagDetail
+  } catch {
+    /* try pack / favorites record */
+  }
+  try {
+    const packed = await sheetsPack.get(tagDetailUrl(id))
+    if (packed) return (await packed.json()) as TagDetail
+  } catch {
+    /* try favorites IndexedDB */
+  }
+  const starred = await getStarred(id)
+  return starred?.detail ?? null
+}
+
+async function addSelectedToQueue(): Promise<void> {
+  let ok = 0
+  let skipped = 0
+  for (const id of selectedIds.value) {
+    const d = await loadTagDetailForQueue(id)
+    if (!d) {
+      skipped++
+      continue
+    }
+    const title = d.title || `Tag ${d.tag_id}`
+    const sheetItems = downloadableSheetAssets(d).map((s) => ({
+      kind: 'sheet' as const,
+      tagId: d.tag_id,
+      title,
+      part: s.id,
+      path: s.path,
+      label: s.label,
+    }))
+    const originals = catalogOriginalPaths(d)
+    const parts = Object.keys(originals) as PartId[]
+    const prefer = parts.filter((p) => p !== 'mix')
+    const use = prefer.length ? prefer : parts
+    const audioItems = use.map((part) => ({
+      kind: 'audio' as const,
+      tagId: d.tag_id,
+      title,
+      part,
+      path: originals[part]!,
+      label: partTrackLabel(part),
+    }))
+    if (!sheetItems.length && !audioItems.length) {
+      skipped++
+      continue
+    }
+    queue.addMany([...sheetItems, ...audioItems])
+    ok++
+  }
+  const msg =
+    skipped > 0
+      ? offline.value
+        ? `Queued files from ${ok} tag(s); ${skipped} skipped (not cached on device).`
+        : `Queued files from ${ok} tag(s); skipped ${skipped}.`
+      : ok
+        ? `Queued sheets and tracks from ${ok} tag(s).`
+        : offline.value
+          ? 'No cached tag details — open tags online once, or reconnect.'
+          : 'No files queued.'
+  snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
+}
+
+function transferSelectedOptically(): void {
+  if (!selectedIds.value.size) return
+  navigateToOpticalTransfer(router, {
+    tagIds: selectedTagIds.value,
+    name: activeCollection.value?.name ?? 'Favorites',
+  })
+}
+
 function removeSelectedFromActiveCollection(): void {
   const colId = activeCollectionId.value
   if (!colId || !selectedIds.value.size) return
@@ -269,17 +367,12 @@ watch(
   (ids) => userCollections.pruneToStarred(ids),
 )
 
-watch(manageOpen, (open) => {
-  if (!open) return
-  manageError.value = null
-  newCollectionName.value = ''
-  const drafts: Record<string, string> = {}
-  for (const c of userCollections.collections) drafts[c.id] = c.name
-  renameDraft.value = drafts
-})
-
-const finePointer = computed(() =>
-  typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches,
+watch(
+  () => userCollections.collections.map((c) => c.id).join(','),
+  () => {
+    const id = activeCollectionId.value
+    if (id && !userCollections.byId(id)) activeCollectionId.value = null
+  },
 )
 
 onMounted(async () => {
@@ -304,9 +397,8 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  clearHoldTimer()
-  stopDragListeners()
   clearLongPressTimer()
+  document.removeEventListener('pointerdown', onMoreMenuDocPointer)
   narrowMq?.removeEventListener('change', syncNarrowSelect)
   narrowMq = null
 })
@@ -317,138 +409,6 @@ watch(
     practice.syncFromStarred(favorites.records.map((r) => r.tagId))
   },
 )
-
-function clearHoldTimer(): void {
-  if (holdTimer) {
-    clearTimeout(holdTimer)
-    holdTimer = null
-  }
-}
-
-function stopDragListeners(): void {
-  window.removeEventListener('pointermove', onHoldMove)
-  window.removeEventListener('pointermove', onDragMove)
-  window.removeEventListener('pointerup', onDragEnd)
-  window.removeEventListener('pointercancel', onDragEnd)
-}
-
-function beginDrag(tagId: number, index: number, pointerId: number, handle: HTMLElement): void {
-  dragActive.value = true
-  draggingId.value = tagId
-  dragFromIndex.value = index
-  dragOverIndex.value = index
-  dragOverEdge.value = null
-  handle.setPointerCapture(pointerId)
-  window.addEventListener('pointermove', onDragMove)
-  window.addEventListener('pointerup', onDragEnd)
-  window.addEventListener('pointercancel', onDragEnd)
-}
-
-function onHandlePointerDown(e: PointerEvent, tagId: number, index: number): void {
-  if (dragActive.value) return
-  const handle = e.currentTarget as HTMLElement
-  holdPointerId = e.pointerId
-  holdStartY = e.clientY
-
-  const start = (): void => {
-    clearHoldTimer()
-    window.removeEventListener('pointermove', onHoldMove)
-    window.removeEventListener('pointerup', cancelHold)
-    window.removeEventListener('pointercancel', cancelHold)
-    if (holdPointerId !== e.pointerId) return
-    beginDrag(tagId, index, e.pointerId, handle)
-  }
-
-  if (finePointer.value) {
-    e.preventDefault()
-    start()
-    return
-  }
-
-  window.addEventListener('pointermove', onHoldMove)
-  window.addEventListener('pointerup', cancelHold)
-  window.addEventListener('pointercancel', cancelHold)
-  holdTimer = setTimeout(start, DRAG_HOLD_MS)
-}
-
-function onHoldMove(e: PointerEvent): void {
-  if (holdPointerId !== e.pointerId) return
-  if (Math.abs(e.clientY - holdStartY) > 8) cancelHold()
-}
-
-function cancelHold(): void {
-  clearHoldTimer()
-  holdPointerId = null
-  window.removeEventListener('pointermove', onHoldMove)
-  window.removeEventListener('pointerup', cancelHold)
-  window.removeEventListener('pointercancel', cancelHold)
-}
-
-function setDropTarget(row: HTMLElement, clientY: number): void {
-  const index = Number(row.dataset.index)
-  if (!Number.isFinite(index)) return
-  if (index === dragFromIndex.value) {
-    dragOverIndex.value = index
-    dragOverEdge.value = null
-    return
-  }
-  const rect = row.getBoundingClientRect()
-  const edge: 'before' | 'after' = clientY < rect.top + rect.height / 2 ? 'before' : 'after'
-  dragOverIndex.value = index
-  dragOverEdge.value = edge
-}
-
-function insertIndexForDrop(): number | null {
-  const over = dragOverIndex.value
-  const edge = dragOverEdge.value
-  const from = dragFromIndex.value
-  if (over == null || edge == null || from < 0) return null
-  let insertAt = edge === 'after' ? over + 1 : over
-  if (from < insertAt) insertAt--
-  return insertAt
-}
-
-function onDragMove(e: PointerEvent): void {
-  if (!dragActive.value) return
-  const el = document.elementFromPoint(e.clientX, e.clientY)
-  const row = el?.closest<HTMLElement>('li.favorites-row')
-  if (!row) return
-  setDropTarget(row, e.clientY)
-}
-
-function onDragEnter(e: PointerEvent, index: number): void {
-  if (!dragActive.value) return
-  const row = e.currentTarget as HTMLElement
-  if (Number(row.dataset.index) !== index) return
-  setDropTarget(row, e.clientY)
-}
-
-function onDragEnd(): void {
-  clearHoldTimer()
-  window.removeEventListener('pointermove', onHoldMove)
-  if (dragActive.value && draggingId.value != null) {
-    const toIndex = insertIndexForDrop()
-    if (toIndex != null) {
-      const colId = activeCollectionId.value
-      const ids = orderedRecords.value.map((r) => r!.tagId)
-      // Dragging adopts the current view as custom order, then reorders.
-      if (sortMode.value !== 'custom') {
-        if (colId) userCollections.setTagOrder(colId, ids)
-        else practice.resetFromStarred(ids)
-        sortMode.value = 'custom'
-      }
-      if (colId) userCollections.reorderTag(colId, draggingId.value, toIndex)
-      else practice.reorder(draggingId.value, toIndex)
-    }
-  }
-  dragActive.value = false
-  draggingId.value = null
-  dragFromIndex.value = -1
-  dragOverIndex.value = null
-  dragOverEdge.value = null
-  holdPointerId = null
-  stopDragListeners()
-}
 
 function downloadStarredFile(): void {
   const data = buildFavoritesBackup({
@@ -491,34 +451,12 @@ function selectCollection(id: string | null): void {
   activeCollectionId.value = id
 }
 
-function saveRename(id: string): void {
-  manageError.value = null
-  if (!userCollections.rename(id, renameDraft.value[id] ?? '')) {
-    manageError.value = 'Enter a collection name'
-  }
+function onManageCollectionCreated(id: string): void {
+  activeCollectionId.value = id
 }
 
-function deleteCollection(id: string): void {
-  manageError.value = null
-  const col = userCollections.byId(id)
-  if (!col) return
-  if (!confirm(`Delete collection “${col.name}”? Favorites stay favorited.`)) return
-  userCollections.remove(id)
+function onManageCollectionDeleted(id: string): void {
   if (activeCollectionId.value === id) activeCollectionId.value = null
-  const { [id]: _removed, ...rest } = renameDraft.value
-  renameDraft.value = rest
-}
-
-function createManagedCollection(): void {
-  manageError.value = null
-  const col = userCollections.create(newCollectionName.value)
-  if (!col) {
-    manageError.value = 'Enter a collection name'
-    return
-  }
-  renameDraft.value = { ...renameDraft.value, [col.id]: col.name }
-  newCollectionName.value = ''
-  activeCollectionId.value = col.id
 }
 
 function removeFromActiveCollection(tagId: number): void {
@@ -532,9 +470,31 @@ function onAddedToCollection(_id: string, name: string): void {
   clearSelection()
 }
 
+function collectionIdsForTag(tagId: number): string[] {
+  return userCollections.collections.filter((c) => c.tagIds.includes(tagId)).map((c) => c.id)
+}
+
+/** Whether unfavoriting should show the multi-collection confirm dialog. */
+function unfavoriteNeedsConfirm(tagId: number): boolean {
+  const memberIds = collectionIdsForTag(tagId)
+  if (!memberIds.length) return false
+  const active = activeCollectionId.value
+  return !(active && memberIds.length === 1 && memberIds[0] === active)
+}
+
+function unfavoriteConfirmMessage(title: string, tagId: number): string {
+  const label = title || `tag #${tagId}`
+  return `“${label}” will be removed from your favorites and from every collection.`
+}
+
+const pendingUnfavoriteMessage = computed(() => {
+  const pending = pendingUnfavorite.value
+  if (!pending) return ''
+  return unfavoriteConfirmMessage(pending.title, pending.tagId)
+})
+
 function requestUnfavorite(tagId: number, title: string): void {
-  const inCollections = userCollections.collections.some((c) => c.tagIds.includes(tagId))
-  if (activeCollectionId.value || inCollections) {
+  if (unfavoriteNeedsConfirm(tagId)) {
     pendingUnfavorite.value = { tagId, title }
     return
   }
@@ -552,7 +512,12 @@ function rowStarTip(title: string, tagId: number): string {
   if (favorites.isTagCaching(tagId)) {
     return favorites.tagCachingLabel(tagId) || 'Saving for offline…'
   }
-  if (activeCollectionId.value) {
+  const memberIds = collectionIdsForTag(tagId)
+  const active = activeCollectionId.value
+  if (active && memberIds.length === 1 && memberIds[0] === active) {
+    return `Unfavorite ${title || `tag #${tagId}`} — removes from favorites and this collection`
+  }
+  if (memberIds.length) {
     return `Unfavorite ${title || `tag #${tagId}`} — removes from favorites and all collections`
   }
   return `Unfavorite ${title || `tag #${tagId}`} — remove from saved tags`
@@ -563,45 +528,11 @@ function rowStarLabel(title: string, tagId: number): string {
   return `Unfavorite ${title || `tag #${tagId}`}`
 }
 
-async function openShare(): Promise<void> {
+function openShare(): void {
   const ids = orderedRecords.value.map((record) => record!.tagId)
   const path = favoritesSharePath(ids, activeCollection.value?.name)
   shareUrl.value = new URL(path, window.location.origin).toString()
-  shareUrlTooLong.value = shareUrl.value.length > SHARE_URL_WARN_LEN
-  shareQr.value = ''
   shareOpen.value = true
-  try {
-    shareQr.value = await qrDataUrl(shareUrl.value, 200)
-  } catch {
-    shareQr.value = ''
-  }
-}
-
-async function copyShareUrl(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(shareUrl.value)
-    favorites.lastNotice = { type: 'text', message: 'Share link copied' }
-  } catch {
-    favorites.error = 'Could not copy the share link. Select and copy it manually.'
-  }
-}
-
-function selectShareUrl(event: Event): void {
-  const input = event.target as HTMLInputElement
-  input.select()
-}
-
-async function shareFavorites(): Promise<void> {
-  if (!navigator.share) return
-  try {
-    await navigator.share({
-      title: activeCollection.value?.name || 'SingTags favorites',
-      url: shareUrl.value,
-    })
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') return
-    favorites.error = 'Could not open the device share menu.'
-  }
 }
 
 async function addTagIds(tagIds: number[], collectionName?: string): Promise<void> {
@@ -644,6 +575,31 @@ function openTagIdsAdd(): void {
   tagIdsOpen.value = true
 }
 
+function closeMoreMenu(): void {
+  moreMenuOpen.value = false
+}
+
+function openBackupFromMenu(): void {
+  closeMoreMenu()
+  backupOpen.value = true
+}
+
+function openBulkAddFromMenu(): void {
+  closeMoreMenu()
+  openTagIdsAdd()
+}
+
+function onMoreMenuDocPointer(e: PointerEvent): void {
+  if (!moreMenuOpen.value) return
+  const root = moreMenuRef.value
+  if (root && !root.contains(e.target as Node)) closeMoreMenu()
+}
+
+watch(moreMenuOpen, (open) => {
+  if (open) document.addEventListener('pointerdown', onMoreMenuDocPointer)
+  else document.removeEventListener('pointerdown', onMoreMenuDocPointer)
+})
+
 function closeTagIdsAdd(): void {
   tagIdsOpen.value = false
   tagIdNotice.value = null
@@ -666,11 +622,6 @@ async function confirmImport(): Promise<void> {
   await addTagIds(shared.tagIds, shared.name)
   await clearImportQuery()
 }
-
-function formatCollectionDate(value: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
-}
 </script>
 
 <template>
@@ -680,21 +631,35 @@ function formatCollectionDate(value: string): string {
     aria-label="Favorites"
   >
     <div class="actions">
-      <button type="button" class="btn" @click="backupOpen = true">Backup &amp; restore</button>
       <button type="button" class="btn" @click="manageOpen = true">Manage collections</button>
-      <button
-        type="button"
-        class="btn"
-        :disabled="!collectionChips.length"
-        title="Change which collections appear first"
-        @click="reorderCollectionsOpen = true"
-      >
-        Reorder collections
-      </button>
       <button type="button" class="btn" :disabled="!orderedRecords.length" @click="openShare">
-        Share list
+        Share
       </button>
-      <button type="button" class="btn" @click="openTagIdsAdd">Bulk add</button>
+      <div ref="moreMenuRef" class="more-menu-wrap">
+        <button
+          type="button"
+          class="btn more-menu-btn"
+          aria-haspopup="menu"
+          :aria-expanded="moreMenuOpen"
+          aria-label="More favorites actions"
+          title="More actions"
+          @click="moreMenuOpen = !moreMenuOpen"
+        >
+          <svg class="more-menu-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <circle cx="12" cy="5" r="2" fill="currentColor" />
+            <circle cx="12" cy="12" r="2" fill="currentColor" />
+            <circle cx="12" cy="19" r="2" fill="currentColor" />
+          </svg>
+        </button>
+        <div v-if="moreMenuOpen" class="more-menu" role="menu" aria-label="More favorites actions">
+          <button type="button" role="menuitem" class="more-menu-item" @click="openBackupFromMenu">
+            Backup &amp; restore
+          </button>
+          <button type="button" role="menuitem" class="more-menu-item" @click="openBulkAddFromMenu">
+            Bulk add
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="collection-bar" role="toolbar" aria-label="Favorite collections">
@@ -707,49 +672,55 @@ function formatCollectionDate(value: string): string {
       >
         All
       </button>
-      <div class="collection-page" aria-label="Collection page">
+      <div class="collection-strip" :class="{ paged: showCollectionPager }">
         <button
-          v-for="c in pagedCollectionChips"
-          :key="c.id"
+          v-if="showCollectionPager"
           type="button"
-          class="chip"
-          :class="{ on: activeCollectionId === c.id }"
-          :aria-pressed="activeCollectionId === c.id"
-          @click="selectCollection(c.id)"
+          class="collection-strip-nav"
+          :disabled="collectionPage <= 0"
+          aria-label="Previous collections"
+          @click="collectionPage -= 1"
         >
-          <CustomCollectionMark />
-          {{ c.name }}
-          <span class="chip-n">{{ c.tagIds.length }}</span>
+          <span aria-hidden="true">‹</span>
         </button>
+        <div ref="collectionStripHost" class="collection-strip-body">
+          <div ref="collectionMeasureEl" class="collection-measure" aria-hidden="true">
+            <span v-for="c in collectionChips" :key="c.id" class="chip">
+              <CustomCollectionMark />
+              {{ c.name }}
+              <span class="chip-n">{{ c.tagIds.length }}</span>
+            </span>
+          </div>
+          <div class="collection-page" aria-label="Collection page">
+            <button
+              v-for="c in pagedCollectionChips"
+              :key="c.id"
+              type="button"
+              class="chip"
+              :class="{ on: activeCollectionId === c.id }"
+              :aria-pressed="activeCollectionId === c.id"
+              @click="selectCollection(c.id)"
+            >
+              <CustomCollectionMark />
+              {{ c.name }}
+              <span class="chip-n">{{ c.tagIds.length }}</span>
+            </button>
+          </div>
+        </div>
+        <button
+          v-if="showCollectionPager"
+          type="button"
+          class="collection-strip-nav"
+          :disabled="collectionPage >= collectionPageCount - 1"
+          aria-label="Next collections"
+          @click="collectionPage += 1"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
+        <span v-if="showCollectionPager" class="sr">
+          Page {{ collectionPage + 1 }} of {{ collectionPageCount }}
+        </span>
       </div>
-    </div>
-    <div
-      v-if="showCollectionPager"
-      class="collection-pager"
-      role="group"
-      aria-label="Collection pages"
-    >
-      <button
-        type="button"
-        class="btn"
-        :disabled="collectionPage <= 0"
-        aria-label="Previous collection page"
-        @click="collectionPage -= 1"
-      >
-        ← Prev
-      </button>
-      <span class="collection-page-ind" aria-live="polite">
-        {{ collectionPage + 1 }} / {{ collectionPageCount }}
-      </span>
-      <button
-        type="button"
-        class="btn"
-        :disabled="collectionPage >= collectionPageCount - 1"
-        aria-label="Next collection page"
-        @click="collectionPage += 1"
-      >
-        Next →
-      </button>
     </div>
 
     <div
@@ -797,8 +768,14 @@ function formatCollectionDate(value: string): string {
     <EmptyState
       v-else-if="!favorites.records.length"
       title="No favorites yet"
-      message="Favorite from Browse or a tag page to save for quick recall and offline use."
-    />
+      :message="
+        offline
+          ? 'Favorite tags from Browse, receive sheets optically from another device, or import a backup.'
+          : 'Favorite from Browse or a tag page to save for quick recall and offline use.'
+      "
+    >
+      <OfflineOpticalTransferPrompt v-if="offline" />
+    </EmptyState>
     <EmptyState
       v-else-if="!orderedRecords.length && activeCollection"
       title="Nothing in this collection"
@@ -808,7 +785,7 @@ function formatCollectionDate(value: string): string {
     <ol
       v-else-if="orderedRecords.length"
       class="list"
-      :class="{ 'list-dragging': dragActive, 'has-selection': selectedIds.size }"
+      :class="[{ 'has-selection': selectedIds.size }, listDraggingClass]"
       aria-label="Favorites"
     >
       <li
@@ -819,17 +796,7 @@ function formatCollectionDate(value: string): string {
         :class="{
           'show-select': showRowSelect,
           'no-nav': dragActive,
-          dragging: draggingId === r!.tagId,
-          'drop-before':
-            dragActive &&
-            dragOverIndex === i &&
-            dragOverEdge === 'before' &&
-            draggingId !== r!.tagId,
-          'drop-after':
-            dragActive &&
-            dragOverIndex === i &&
-            dragOverEdge === 'after' &&
-            draggingId !== r!.tagId,
+          ...rowDragClass(r!.tagId, i),
         }"
         @pointerenter="onDragEnter($event, i)"
         @pointerdown="onRowPointerDown($event, r!.tagId)"
@@ -865,20 +832,7 @@ function formatCollectionDate(value: string): string {
             class="row-link"
             @click="(dragActive || suppressRowClick) && $event.preventDefault()"
           >
-            <span class="title"
-              ><span class="num">{{ i + 1 }}.</span> {{ r!.summary.title || `Tag ${r!.tagId}` }}</span
-            >
-            <span class="meta">
-              <span v-if="r!.summary.key">{{ r!.summary.key }}</span>
-              <span v-if="r!.summary.arranger">{{ r!.summary.arranger }}</span>
-              <span class="badge" :data-on="!!(r!.audioBlobs && Object.keys(r!.audioBlobs).length)">{{
-                r!.audioBlobs && Object.keys(r!.audioBlobs).length
-                  ? 'Audio offline'
-                  : r!.offlineMedia
-                    ? 'Sheets offline'
-                    : 'Metadata'
-              }}</span>
-            </span>
+            <TagListRowContent :tag="rowTag(r!.tagId, r!.summary)" />
           </RouterLink>
           <div
             v-if="collectionsForTag(r!.tagId).length"
@@ -910,17 +864,7 @@ function formatCollectionDate(value: string): string {
             </button>
           </div>
         </div>
-        <div class="row-actions" :class="{ 'in-collection': !!activeCollectionId }">
-          <button
-            v-if="activeCollectionId"
-            type="button"
-            class="row-remove-col"
-            :aria-label="`Remove ${r!.summary.title || r!.tagId} from collection`"
-            title="Remove from this collection only — keeps it favorited"
-            @click.stop="removeFromActiveCollection(r!.tagId)"
-          >
-            Remove from collection
-          </button>
+        <div class="row-actions">
           <button
             type="button"
             class="row-fav"
@@ -936,6 +880,16 @@ function formatCollectionDate(value: string): string {
               aria-hidden="true"
             />
             <span v-else>♥</span>
+          </button>
+          <button
+            v-if="activeCollectionId"
+            type="button"
+            class="row-remove"
+            :aria-label="`Remove ${r!.summary.title || `tag #${r!.tagId}`} from ${activeCollection?.name ?? 'collection'}`"
+            title="Remove from this collection only — keeps it favorited"
+            @click.stop="removeFromActiveCollection(r!.tagId)"
+          >
+            ×
           </button>
         </div>
       </li>
@@ -1011,32 +965,15 @@ function formatCollectionDate(value: string): string {
       </div>
     </FilterSheet>
 
-    <FilterSheet :open="shareOpen" title="Share favorites" @close="shareOpen = false">
-      <div class="share-panel">
-        <p>
-          Anyone with this link can review and add these {{ orderedRecords.length }} tags to their
-          favorites.
-        </p>
-        <label for="favorites-share-url">Share link</label>
-        <input id="favorites-share-url" :value="shareUrl" readonly @focus="selectShareUrl" />
-        <p v-if="shareUrlTooLong" class="share-warn" role="status">
-          This link is very long ({{ shareUrl.length }} chars) and may fail in SMS or some QR scanners.
-          Prefer Copy URL or Share… on the same network.
-        </p>
-        <img
-          v-if="shareQr"
-          class="share-qr"
-          :src="shareQr"
-          width="200"
-          height="200"
-          alt="QR code for this favorites share link"
-        />
-        <div class="share-actions">
-          <button type="button" class="primary" @click="copyShareUrl">Copy URL</button>
-          <button v-if="canNativeShare" type="button" @click="shareFavorites">Share…</button>
-        </div>
-      </div>
-    </FilterSheet>
+    <FavoritesShareSheet
+      :open="shareOpen"
+      :url="shareUrl"
+      :tag-count="orderedRecords.length"
+      :tag-ids="orderedRecords.map((record) => record!.tagId)"
+      :collection-id="activeCollectionId"
+      :title="activeCollection?.name"
+      @close="shareOpen = false"
+    />
 
     <CollectionPickerSheet
       :open="collectionPickerOpen"
@@ -1045,121 +982,38 @@ function formatCollectionDate(value: string): string {
       @close="collectionPickerOpen = false"
       @done="onAddedToCollection"
     />
-    <CollectionsOrderSheet
-      :open="reorderCollectionsOpen"
-      @close="reorderCollectionsOpen = false"
+    <CollectionsManageSheet
+      :open="manageOpen"
+      @close="manageOpen = false"
+      @created="onManageCollectionCreated"
+      @deleted="onManageCollectionDeleted"
     />
 
-    <Teleport to="body">
-      <div
-        v-if="selectedIds.size"
-        class="selection-bar"
-        role="toolbar"
-        aria-label="Selected favorites"
+    <TagSelectionBar
+      :count="selectedIds.size"
+      toolbar-label="Selected favorites"
+      :show-favorite="false"
+      @collection="collectionPickerOpen = true"
+      @optical="transferSelectedOptically"
+      @zip="addSelectedToQueue"
+      @clear="clearSelection"
+    >
+      <button
+        v-if="activeCollectionId"
+        type="button"
+        class="btn btn-remove-icon"
+        :aria-label="`Remove selected from ${activeCollection?.name ?? 'collection'}`"
+        title="Remove selected tags from this collection only — keeps them favorited"
+        @click="removeSelectedFromActiveCollection"
       >
-        <span class="sel-count">{{ selectedIds.size }} selected</span>
-        <button
-          type="button"
-          class="btn"
-          title="Add selected favorites to a collection"
-          @click="collectionPickerOpen = true"
-        >
-          Add to collection
-        </button>
-        <button
-          v-if="activeCollectionId"
-          type="button"
-          class="btn"
-          title="Remove selected tags from this collection only — keeps them favorited"
-          @click="removeSelectedFromActiveCollection"
-        >
-          Remove from collection
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost"
-          title="Clear selection"
-          @click="clearSelection"
-        >
-          Clear
-        </button>
-      </div>
-    </Teleport>
-
-    <FilterSheet :open="manageOpen" title="Manage collections" @close="manageOpen = false">
-      <div class="manage">
-        <p class="manage-desc">
-          Collections group favorites. They stay on this device. Unfavoriting a tag
-          removes it from every collection.
-        </p>
-        <p v-if="manageError" class="manage-err" role="alert">{{ manageError }}</p>
-
-        <ul v-if="collectionChips.length" class="manage-list" aria-label="Your collections">
-          <li v-for="c in collectionChips" :key="c.id" class="manage-row">
-            <label class="manage-field">
-              <span class="manage-lbl">
-                {{ c.name }}
-                <span class="manage-count">{{ c.tagIds.length }} tag{{ c.tagIds.length === 1 ? '' : 's' }}</span>
-              </span>
-              <span class="manage-dates">
-                Created {{ formatCollectionDate(c.createdAt) }} · Updated
-                {{ formatCollectionDate(c.updatedAt) }}
-              </span>
-              <input
-                v-model="renameDraft[c.id]"
-                type="text"
-                maxlength="80"
-                :aria-label="`Rename ${c.name}`"
-                @keydown.enter.prevent="saveRename(c.id)"
-              />
-            </label>
-            <div class="manage-row-actions">
-              <button
-                type="button"
-                class="manage-btn manage-btn-primary"
-                :disabled="!(renameDraft[c.id] ?? '').trim() || (renameDraft[c.id] ?? '').trim() === c.name"
-                @click="saveRename(c.id)"
-              >
-                Save name
-              </button>
-              <button type="button" class="manage-btn manage-btn-danger" @click="deleteCollection(c.id)">
-                Delete
-              </button>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="manage-empty">No collections yet.</p>
-
-        <div class="manage-create">
-          <label class="manage-field">
-            <span class="manage-lbl">New collection</span>
-            <input
-              v-model="newCollectionName"
-              type="text"
-              maxlength="80"
-              placeholder="e.g. Contest set"
-              aria-label="New collection name"
-              @keydown.enter.prevent="createManagedCollection"
-            />
-          </label>
-          <button
-            type="button"
-            class="manage-btn manage-btn-primary manage-create-btn"
-            :disabled="!newCollectionName.trim()"
-            @click="createManagedCollection"
-          >
-            Create
-          </button>
-        </div>
-      </div>
-    </FilterSheet>
+        ×
+      </button>
+    </TagSelectionBar>
 
     <ConfirmDialog
       :open="!!pendingUnfavorite"
       title="Unfavorite this tag?"
-      :message="pendingUnfavorite
-        ? `“${pendingUnfavorite.title || ('tag #' + pendingUnfavorite.tagId)}” will be removed from your favorites and from every collection.`
-        : ''"
+      :message="pendingUnfavoriteMessage"
       confirm-label="Unfavorite"
       @close="pendingUnfavorite = null"
       @confirm="confirmPendingUnfavorite"
@@ -1193,6 +1047,49 @@ function formatCollectionDate(value: string): string {
   gap: 0.6rem;
   margin-bottom: 1rem;
   align-items: center;
+}
+.more-menu-wrap {
+  position: relative;
+  margin-left: auto;
+}
+.more-menu-btn {
+  min-width: 44px;
+  padding-inline: 0.65rem;
+}
+.more-menu-icon {
+  display: block;
+}
+.more-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 12;
+  min-width: 11.5rem;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 14%, transparent);
+}
+.more-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.more-menu-item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent-hover);
 }
 .results-meta {
   display: flex;
@@ -1274,8 +1171,7 @@ function formatCollectionDate(value: string): string {
   outline-offset: 2px;
 }
 .backup-actions .primary,
-.tag-id-actions .primary,
-.share-actions .primary {
+.tag-id-actions .primary {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
@@ -1365,7 +1261,7 @@ function formatCollectionDate(value: string): string {
 .list-dragging .favorites-row:not(.dragging) {
   opacity: 0.55;
 }
-li {
+.favorites-row {
   position: relative;
   display: grid;
   /* Drag | title/actions — `.show-select` adds the checkbox column (Browse-like). */
@@ -1384,10 +1280,10 @@ li {
     border-color 0.12s ease,
     background 0.12s ease;
 }
-li.show-select {
+.favorites-row.show-select {
   grid-template-columns: auto auto 1fr auto;
 }
-li.no-nav .row-link {
+.favorites-row.no-nav .row-link {
   pointer-events: none;
 }
 .sel-btn {
@@ -1417,7 +1313,7 @@ li.no-nav .row-link {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   border-color: var(--accent);
 }
-li.dragging {
+.favorites-row.dragging {
   z-index: 3;
   opacity: 1;
   transform: scale(1.02) translateY(-2px);
@@ -1425,13 +1321,13 @@ li.dragging {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 18%, transparent);
 }
-li.dragging .drag-handle {
+.favorites-row.dragging .drag-handle {
   color: var(--accent);
   cursor: grabbing;
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
-li.drop-before::before,
-li.drop-after::after {
+.favorites-row.drop-before::before,
+.favorites-row.drop-after::after {
   content: '';
   position: absolute;
   left: 0;
@@ -1443,10 +1339,10 @@ li.drop-after::after {
   pointer-events: none;
   z-index: 4;
 }
-li.drop-before::before {
+.favorites-row.drop-before::before {
   top: -0.28rem;
 }
-li.drop-after::after {
+.favorites-row.drop-after::after {
   bottom: -0.28rem;
 }
 .drag-handle {
@@ -1530,32 +1426,24 @@ li.drop-after::after {
   gap: 0.4rem;
   flex-shrink: 0;
 }
-.row-actions.in-collection {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.4rem;
+.row-remove {
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
-  min-width: 12.5rem;
-  max-width: 16rem;
-}
-.row-remove-col {
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
-  padding: 0.35rem 0.6rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
   cursor: pointer;
-  white-space: normal;
 }
-.row-remove-col:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+.row-remove:hover {
+  color: var(--danger, #b42318);
 }
 .row-link {
   display: flex;
@@ -1570,28 +1458,6 @@ li.drop-after::after {
 }
 .row-link:hover {
   color: var(--accent-hover);
-}
-.title {
-  font-weight: 600;
-}
-.num {
-  color: var(--muted);
-  font-weight: 500;
-  margin-right: 0.15rem;
-}
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-.badge {
-  color: var(--muted);
-}
-.badge[data-on='true'] {
-  color: var(--accent);
-  font-weight: 600;
 }
 .row-fav {
   position: relative;
@@ -1664,38 +1530,81 @@ code {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.4rem;
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.65rem;
+}
+.collection-strip {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.collection-strip-body {
+  position: relative;
+  min-width: 0;
+}
+.collection-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.4rem;
+  overflow: visible;
+}
+.collection-strip.paged {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+.collection-strip-nav {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.collection-strip-nav:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--accent-hover);
+}
+.collection-strip-nav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.collection-strip-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 .collection-page {
   display: flex;
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 0.4rem;
-  flex: 1 1 12rem;
   min-width: 0;
-  /* Cap to ~2 chip rows; prev/next pages the rest. */
+  /* Cap to ~2 chip rows; side chevrons page the rest. */
   max-height: calc(36px * 2 + 0.4rem);
   overflow: hidden;
 }
-.collection-pager {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0 0 0.65rem;
-}
-.collection-pager .btn {
-  min-height: 36px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.85rem;
-}
-.collection-page-ind {
-  font-size: 0.85rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  min-width: 3.5rem;
-  text-align: center;
+.collection-strip.paged .collection-page {
+  /* Keep a fixed two-row slot while paging, even on single-row pages. */
+  min-height: calc(36px * 2 + 0.4rem);
 }
 .chip {
   display: inline-flex;
@@ -1730,13 +1639,11 @@ code {
   display: grid;
   gap: 0.65rem;
 }
-.tag-id-add-panel label,
-.share-panel label {
+.tag-id-add-panel label {
   font-size: 0.85rem;
   font-weight: 600;
 }
-.tag-id-add-panel textarea,
-.share-panel input {
+.tag-id-add-panel textarea {
   box-sizing: border-box;
   width: 100%;
   padding: 0.6rem 0.7rem;
@@ -1746,8 +1653,6 @@ code {
   color: var(--text);
   font: inherit;
   font-size: 16px;
-}
-.tag-id-add-panel textarea {
   resize: vertical;
   min-height: 6rem;
 }
@@ -1762,14 +1667,12 @@ code {
   width: 1.1rem;
   height: 1.1rem;
 }
-.tag-id-actions,
-.share-actions {
+.tag-id-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
-.tag-id-actions button,
-.share-actions button {
+.tag-id-actions button {
   min-height: 44px;
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--border);
@@ -1778,202 +1681,15 @@ code {
   color: var(--text);
   font: inherit;
 }
-.tag-id-add-panel p,
-.share-panel p {
+.tag-id-add-panel p {
   margin: 0;
   color: var(--muted);
   font-size: 0.9rem;
-}
-.share-panel {
-  display: grid;
-  gap: 0.75rem;
-}
-.share-warn {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted, #666);
 }
 .import-media {
   display: flex;
   align-items: center;
   gap: 0.45rem;
   font-size: 0.92rem;
-}
-.share-qr {
-  width: 200px;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
-  border-radius: 6px;
-  background: #fff;
-}
-.share-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-.manage {
-  display: grid;
-  gap: 0.9rem;
-}
-.manage-desc {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-.manage-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-.manage-err {
-  margin: 0;
-  color: var(--danger, #9b2c2c);
-  font-size: 0.9rem;
-}
-.manage-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-  max-height: min(45vh, 18rem);
-  overflow: auto;
-}
-.manage-row {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.65rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg, var(--surface));
-}
-.manage-field {
-  display: grid;
-  gap: 0.3rem;
-  min-width: 0;
-}
-.manage-lbl {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.manage-count {
-  font-weight: 500;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.manage-dates {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 400;
-  line-height: 1.35;
-}
-.manage-row input,
-.manage-create input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 44px;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 16px;
-}
-.manage-row-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
-}
-.manage-btn {
-  min-height: 44px;
-  padding: 0.45rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.manage-btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-}
-.manage-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.manage-btn-primary:hover:not(:disabled) {
-  border-color: var(--accent);
-  filter: brightness(1.05);
-}
-.manage-btn-primary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: none;
-}
-.manage-btn-danger {
-  color: var(--danger, #9b2c2c);
-}
-.manage-btn-danger:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--danger, #9b2c2c) 45%, var(--border));
-  background: color-mix(in srgb, var(--danger, #9b2c2c) 8%, var(--surface));
-}
-.manage-create {
-  display: grid;
-  gap: 0.55rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border);
-}
-.manage-create-btn {
-  width: 100%;
-}
-</style>
-
-<style>
-.selection-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  z-index: 25;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
-}
-.selection-bar .sel-count {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  margin-right: auto;
-  font-size: 0.95rem;
-}
-.selection-bar .btn {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-@media (min-width: 768px) {
-  .selection-bar {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: min(960px, calc(100% - 2rem));
-    bottom: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
-  }
 }
 </style>

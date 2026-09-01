@@ -8,6 +8,7 @@ import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOnline } from '../composables/useOnline'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
+import OfflineOpticalTransferPrompt from './OfflineOpticalTransferPrompt.vue'
 
 const props = defineProps<{
   /** First-run splash visibility. */
@@ -151,14 +152,19 @@ function onContinue(): void {
             set.
           </p>
 
-          <p v-if="offline" class="warn" role="status">You are offline — connect to download media.</p>
+          <p v-if="offline" class="warn" role="status">
+            You are offline — connect to download media packs, or receive tag sheets from another
+            device below.
+          </p>
+
+          <OfflineOpticalTransferPrompt v-if="offline" />
         </div>
 
         <footer class="actions">
           <button type="button" class="btn btn-primary" @click="onContinue">
             {{ continueLabel }}
           </button>
-          <RouterLink class="btn btn-ghost" to="/settings" @click="emit('close')">
+          <RouterLink v-if="!offline" class="btn btn-ghost" to="/settings" @click="emit('close')">
             Offline settings
           </RouterLink>
         </footer>

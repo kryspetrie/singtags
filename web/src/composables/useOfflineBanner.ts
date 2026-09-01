@@ -23,7 +23,7 @@ export function offlineBannerText(
 ): string | null {
   if (!isOffline) return null
   if (!catalogCachedAt) {
-    return 'Offline — catalog not cached yet. Reconnect before refreshing.'
+    return 'Offline — no catalog on this device. Receive tags optically or reconnect to download.'
   }
   return statusLabel
 }

@@ -13,7 +13,8 @@ import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
 import { usePracticeStore } from '../stores/practice'
 import { PRACTICE_MODE_ENABLED } from '../lib/practiceMode'
-import { downloadableSheetAssets } from '../lib/sheetAssets'
+import { downloadableSheetAssets, resolveSheetAssets } from '../lib/sheetAssets'
+import { highResTransferAvailable } from '../lib/decimen/loadTagForTransfer'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
 import type { QueueTrack } from '../download/zip'
@@ -32,8 +33,7 @@ import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
 import TagShareSheet from '../components/TagShareSheet.vue'
-import SheetTransferSheet from '../components/SheetTransferSheet.vue'
-import type { SheetTransferMeta } from '../lib/sheetQrTransfer'
+import TagOpticalTransferSheet from '../components/TagOpticalTransferSheet.vue'
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -409,42 +409,24 @@ const barbershopPageUrl = computed(() =>
 )
 
 const shareOpen = ref(false)
-const transferOpen = ref(false)
+const opticalTransferOpen = ref(false)
 
 const shareHref = computed(() => resolveShareHref())
 
-const transferImageUrl = computed(() => {
-  const prepared = preparedSheet.value?.pages?.[0]
-  if (prepared) return prepared
-  return sheetAssets.value.imageSets[0]?.paths?.[0] ?? null
-})
-
-const transferMeta = computed((): SheetTransferMeta | null => {
+const canOpticalTransfer = computed(() => {
   const d = detail.value
-  const s = summary.value
-  const id = Number(props.id)
-  if (!Number.isFinite(id)) return null
-  return {
-    v: 1,
-    id,
-    title: d?.title ?? s?.title ?? null,
-    altTitle: d?.alt_title ?? s?.altTitle ?? null,
-    arranger: d?.arranger ?? s?.arranger ?? null,
-    key: d?.key ?? s?.key ?? null,
-    writKey: d?.writ_key ?? s?.writKey ?? null,
-    type: d?.type ?? s?.type ?? null,
-    collection: d?.collection ?? s?.collection ?? null,
-    year: d?.year ?? s?.year ?? null,
-    parts: d?.parts_count ?? s?.parts ?? null,
-    mime: 'image/jpeg',
-    width: 800,
-    height: 1100,
-  }
+  if (!d) return false
+  const assets = resolveSheetAssets(d)
+  return assets.imageSets.length > 0 || assets.pdfs.length > 0
 })
 
-function openTransferSheet(): void {
+const highResTransferReady = computed(() =>
+  detail.value ? highResTransferAvailable(detail.value) : false,
+)
+
+function openOpticalTransfer(): void {
   shareOpen.value = false
-  transferOpen.value = true
+  opticalTransferOpen.value = true
 }
 
 function resolveShareHref(opts?: { fullscreen?: boolean }): string {
@@ -1085,15 +1067,16 @@ async function onRetryLoad(): Promise<void> {
     :url="shareHref"
     :barbershop-url="barbershopPageUrl"
     :title="pageTitleDisplay"
-    :can-transfer-sheet="!!transferImageUrl"
+    :can-optical-transfer="canOpticalTransfer"
     @close="closeShare"
-    @transfer-sheet="openTransferSheet"
+    @optical-transfer="openOpticalTransfer"
   />
-  <SheetTransferSheet
-    :open="transferOpen"
-    :image-url="transferImageUrl"
-    :meta="transferMeta"
-    @close="transferOpen = false"
+  <TagOpticalTransferSheet
+    :open="opticalTransferOpen"
+    :tag-id="Number(id)"
+    :tag-title="pageTitleDisplay"
+    :high-res-available="highResTransferReady"
+    @close="opticalTransferOpen = false"
   />
 </template>
 

@@ -37,6 +37,26 @@ describe('userCollections store', () => {
     expect(store.byId(col.id)?.tagIds).toEqual([30])
   })
 
+  it('deletes a collection when its last tag is removed', () => {
+    const store = useUserCollectionsStore()
+    const solo = store.create('Solo', [42])!
+    const shared = store.create('Shared', [1, 2])!
+    store.removeTags(solo.id, [42])
+    expect(store.byId(solo.id)).toBeUndefined()
+    expect(store.count).toBe(1)
+    store.removeTags(shared.id, [1, 2])
+    expect(store.byId(shared.id)).toBeUndefined()
+    expect(store.count).toBe(0)
+  })
+
+  it('deletes empty collections during pruneToStarred', () => {
+    const store = useUserCollectionsStore()
+    const col = store.create('Set', [10, 20])!
+    store.pruneToStarred([99])
+    expect(store.byId(col.id)).toBeUndefined()
+    expect(store.count).toBe(0)
+  })
+
   it('persists to localStorage', () => {
     const store = useUserCollectionsStore()
     const col = store.create('Saved', [5])!
@@ -49,6 +69,19 @@ describe('userCollections store', () => {
   it('rejects empty names', () => {
     const store = useUserCollectionsStore()
     expect(store.create('   ')).toBeNull()
+    expect(store.validateName('   ')).toBe('Enter a collection name')
+  })
+
+  it('rejects duplicate names (case-insensitive)', () => {
+    const store = useUserCollectionsStore()
+    store.create('Contest set', [1])!
+    expect(store.create('contest set')).toBeNull()
+    expect(store.create('  CONTEST   SET  ')).toBeNull()
+    expect(store.validateName('Contest Set')).toBe('A collection with that name already exists')
+
+    const second = store.create('Warm-ups', [2])!
+    expect(store.rename(second.id, 'contest set')).toBe(false)
+    expect(store.rename(second.id, 'warm-ups')).toBe(true)
   })
 
   it('setTagOrder and reorderTag only affect that collection', () => {

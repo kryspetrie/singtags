@@ -42,6 +42,10 @@ watch(
   },
 )
 
+watch(newName, () => {
+  if (error.value) error.value = null
+})
+
 function addTo(id: string): void {
   error.value = null
   const col = collections.byId(id)
@@ -56,9 +60,14 @@ function addTo(id: string): void {
 
 function createAndAdd(): void {
   error.value = null
+  const nameError = collections.validateName(newName.value)
+  if (nameError) {
+    error.value = nameError
+    return
+  }
   const col = collections.create(newName.value, props.tagIds)
   if (!col) {
-    error.value = 'Enter a collection name'
+    error.value = 'Could not create collection'
     return
   }
   emit('done', col.id, col.name)
@@ -75,8 +84,6 @@ function createAndAdd(): void {
     <p class="hint">
       Choose a collection for {{ tagCountLabel }}, or create a new one.
     </p>
-
-    <p v-if="error" class="err" role="alert">{{ error }}</p>
 
     <ul v-if="sorted.length" class="list" aria-label="Your collections">
       <li v-for="c in sorted" :key="c.id">
@@ -97,8 +104,13 @@ function createAndAdd(): void {
           maxlength="80"
           placeholder="e.g. Contest set"
           aria-label="New collection name"
+          :aria-invalid="!!error"
+          aria-describedby="collection-create-error"
           @keydown.enter.prevent="createAndAdd"
         />
+        <p id="collection-create-error" class="field-error" role="alert" aria-live="polite">
+          {{ error }}
+        </p>
       </label>
       <button
         type="button"
@@ -124,10 +136,12 @@ function createAndAdd(): void {
   color: var(--muted);
   font-size: 0.92rem;
 }
-.err {
-  margin: 0 0 0.65rem;
+.field-error {
+  margin: 0;
+  min-height: calc(1.35rem * 2 + 0.15rem);
+  font-size: 0.85rem;
+  line-height: 1.35;
   color: var(--danger, #9b2c2c);
-  font-size: 0.9rem;
 }
 .list {
   list-style: none;

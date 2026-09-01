@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Fullscreen SingTags QR scanner: live camera + pick-from-file fallback.
+ * Fullscreen SingTags QR scanner: tag URL codes + Decimen sheet transfer receive.
  */
 import { nextTick, onUnmounted, ref, watch } from 'vue'
 import {
@@ -8,6 +8,8 @@ import {
   decodeQrDetailedFromVideo,
   type QrDecodeResult,
 } from '../lib/qrDecode'
+import { DecimenReceiveCapture } from '../lib/decimen/receiveCapture'
+import type { OpticalFile } from '../../vendor/decimen/shared/protocol'
 
 const props = defineProps<{
   open: boolean
@@ -15,8 +17,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  /** Decoded QR (text and/or bytes). */
+  /** Decoded tag URL QR (text and/or bytes). */
   detected: [result: QrDecodeResult]
+  /** Decimen fountain progress while receiving a sheet transfer. */
+  sheetTransferProgress: [label: string]
+  /** Completed Decimen optical file (SingTags sheet container). */
+  sheetTransferComplete: [file: OpticalFile]
+  sheetTransferError: [message: string]
   error: [message: string]
 }>()
 
@@ -29,8 +36,13 @@ let stream: MediaStream | null = null
 let raf = 0
 let closed = true
 let handling = false
+let decimenCapture: DecimenReceiveCapture | null = null
+let receivingSheet = false
 
 function stopCamera(): void {
+  decimenCapture?.stop()
+  decimenCapture = null
+  receivingSheet = false
   if (raf) {
     cancelAnimationFrame(raf)
     raf = 0
@@ -40,9 +52,30 @@ function stopCamera(): void {
     stream = null
   }
   const video = videoRef.value
-  if (video) {
-    video.srcObject = null
+  if (video) video.srcObject = null
+}
+
+function ensureDecimenCapture(video: HTMLVideoElement): DecimenReceiveCapture {
+  if (!decimenCapture) {
+    decimenCapture = new DecimenReceiveCapture({
+      onProgress: (p) => {
+        receivingSheet = true
+        status.value = p.label
+        emit('sheetTransferProgress', p.label)
+      },
+      onComplete: (file) => {
+        receivingSheet = true
+        handling = true
+        emit('sheetTransferComplete', file)
+      },
+      onError: (message) => {
+        emit('sheetTransferError', message)
+        if (receivingSheet) status.value = message
+      },
+    })
   }
+  decimenCapture.attachVideo(video)
+  return decimenCapture
 }
 
 async function startCamera(): Promise<void> {
@@ -77,7 +110,8 @@ async function startCamera(): Promise<void> {
     stopCamera()
     return
   }
-  status.value = 'Point at a SingTags QR code'
+  status.value = 'Point at a tag link or sheet transfer QR'
+  ensureDecimenCapture(video).start()
   scheduleScan()
 }
 
@@ -98,14 +132,13 @@ async function tickScan(): Promise<void> {
   }
   try {
     const result = await decodeQrDetailedFromVideo(video)
-    if (result?.bytes?.length || result?.text) {
+    if (result?.text && !result.bytes?.length) {
       handling = true
       emit('detected', result)
-      // Resume if the parent kept the scanner open (e.g. multi-frame transfer).
       window.setTimeout(() => {
         if (closed || !props.open) return
         handling = false
-        status.value = 'Point at a SingTags QR code'
+        if (!receivingSheet) status.value = 'Point at a tag link or sheet transfer QR'
         scheduleScan()
       }, 450)
       return
@@ -139,7 +172,7 @@ async function onFileChange(event: Event): Promise<void> {
     window.setTimeout(() => {
       if (closed || !props.open) return
       handling = false
-      status.value = 'Point at a SingTags QR code'
+      status.value = 'Point at a tag link or sheet transfer QR'
       scheduleScan()
     }, 450)
   } catch {
@@ -164,12 +197,15 @@ watch(
     if (open) {
       closed = false
       handling = false
+      receivingSheet = false
       window.addEventListener('keydown', onKey)
+      await nextTick()
       await startCamera()
       return
     }
     closed = true
     handling = false
+    receivingSheet = false
     window.removeEventListener('keydown', onKey)
     stopCamera()
     status.value = ''

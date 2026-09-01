@@ -16,6 +16,7 @@ import {
   is100DaysCollection,
   isClassicCollection,
   isUserCollectionFilterId,
+  parseUserCollectionFilterId,
   userCollectionFilterId,
 } from '../lib/collections'
 
@@ -173,6 +174,22 @@ export function sectionLabel(key: string, mode: BrowseSortMode): string {
   return key
 }
 
+/** Jump-rail pill label for collection browse keys (catalog label or user collection name). */
+export function collectionJumpLabel(
+  key: string,
+  userCollections: UserCollectionBrowse[],
+): string {
+  if (isUserCollectionFilterId(key)) {
+    const uid = parseUserCollectionFilterId(key)
+    if (uid) {
+      const col = userCollections.find((c) => c.id === uid)
+      if (col) return col.name
+    }
+    return key
+  }
+  return sectionLabel(key, 'collection')
+}
+
 /** Inclusive year bounds for a browse year-section key, or null if unknown. */
 export function yearBoundsForSectionKey(
   key: string,
@@ -291,6 +308,7 @@ function buildCollectionBrowseRows(
   sorted: TagSummary[],
   limit: number,
   userCollections: UserCollectionBrowse[],
+  activeUserCollectionFilters?: string[],
 ): { rows: BrowseRow[]; jumpKeys: string[] } {
   const byId = new Map(sorted.map((t) => [t.id, t]))
   const inResults = new Set(byId.keys())
@@ -308,15 +326,36 @@ function buildCollectionBrowseRows(
 
   const defaultKeys = order.filter((k) => k !== 'Other')
   const otherTags = groups.get('Other') ?? []
+  const activeUser = activeUserCollectionFilters?.filter(isUserCollectionFilterId) ?? []
   const userSecs = [...userCollections]
     .filter((c) => c.tagIds.some((id) => inResults.has(id)))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
 
-  const jumpKeys = [
-    ...defaultKeys,
-    ...userSecs.map((c) => userCollectionFilterId(c.id)),
-    ...(otherTags.length ? ['Other'] : []),
-  ]
+  const activeUserSet = new Set(activeUser)
+  const pinnedUserSecs =
+    activeUser.length > 0
+      ? activeUser
+          .map((fid) => userSecs.find((c) => userCollectionFilterId(c.id) === fid))
+          .filter((c): c is UserCollectionBrowse => !!c)
+      : []
+  const restUserSecs =
+    activeUser.length > 0
+      ? userSecs.filter((c) => !activeUserSet.has(userCollectionFilterId(c.id)))
+      : userSecs
+
+  const jumpKeys =
+    activeUser.length > 0
+      ? [
+          ...pinnedUserSecs.map((c) => userCollectionFilterId(c.id)),
+          ...defaultKeys,
+          ...restUserSecs.map((c) => userCollectionFilterId(c.id)),
+          ...(otherTags.length ? ['Other'] : []),
+        ]
+      : [
+          ...defaultKeys,
+          ...userSecs.map((c) => userCollectionFilterId(c.id)),
+          ...(otherTags.length ? ['Other'] : []),
+        ]
 
   const rows: BrowseRow[] = []
   let shown = 0
@@ -332,12 +371,22 @@ function buildCollectionBrowseRows(
     }
   }
 
-  for (const key of defaultKeys) {
-    pushSection(key, sectionLabel(key, 'collection'), groups.get(key) ?? [])
-  }
-  for (const c of userSecs) {
+  const pushUserSec = (c: UserCollectionBrowse) => {
     const tags = c.tagIds.map((id) => byId.get(id)).filter((t): t is TagSummary => !!t)
     pushSection(userCollectionFilterId(c.id), c.name, tags, true)
+  }
+
+  if (activeUser.length > 0) {
+    for (const c of pinnedUserSecs) pushUserSec(c)
+    for (const key of defaultKeys) {
+      pushSection(key, sectionLabel(key, 'collection'), groups.get(key) ?? [])
+    }
+    for (const c of restUserSecs) pushUserSec(c)
+  } else {
+    for (const key of defaultKeys) {
+      pushSection(key, sectionLabel(key, 'collection'), groups.get(key) ?? [])
+    }
+    for (const c of userSecs) pushUserSec(c)
   }
   if (otherTags.length) pushSection('Other', 'Other', otherTags)
 
@@ -349,10 +398,28 @@ export function buildBrowseRows(
   sorted: TagSummary[],
   mode: BrowseSortMode,
   limit: number,
-  options?: { userCollections?: UserCollectionBrowse[] },
+  options?: {
+    userCollections?: UserCollectionBrowse[]
+    /** When set, pinned user-collection sections render first (filtered group stays in view). */
+    activeUserCollectionFilters?: string[]
+    /** One collection chip/section filter — flat tag list, no section headers. */
+    singleCollectionFilter?: string
+  },
 ): { rows: BrowseRow[]; jumpKeys: string[] } {
+  if (mode === 'collection' && options?.singleCollectionFilter) {
+    return {
+      rows: sorted.slice(0, limit).map((tag, index) => ({ type: 'tag' as const, tag, index })),
+      jumpKeys: [],
+    }
+  }
+
   if (mode === 'collection' && (options?.userCollections?.length ?? 0) > 0) {
-    return buildCollectionBrowseRows(sorted, limit, options!.userCollections!)
+    return buildCollectionBrowseRows(
+      sorted,
+      limit,
+      options!.userCollections!,
+      options?.activeUserCollectionFilters,
+    )
   }
 
   const jumpKeys: string[] = []

@@ -27,6 +27,18 @@ function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ')
 }
 
+/** Case-insensitive key for duplicate-name checks. */
+function nameKey(name: string): string {
+  return normalizeName(name).toLowerCase()
+}
+
+/** Whether another collection already uses this name (optionally excluding one id). */
+function isNameTaken(collections: UserCollection[], name: string, exceptId?: string): boolean {
+  const key = nameKey(name)
+  if (!key) return false
+  return collections.some((c) => c.id !== exceptId && nameKey(c.name) === key)
+}
+
 /** Parse and validate collection records from JSON backup or localStorage. */
 function parseCollections(raw: unknown): UserCollection[] {
   if (!Array.isArray(raw)) return []
@@ -82,15 +94,29 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
   }
 
   /**
+   * Validate a collection display name.
+   *
+   * @returns Error message, or null when the name is usable.
+   */
+  function validateName(name: string, exceptId?: string): string | null {
+    const trimmed = normalizeName(name)
+    if (!trimmed) return 'Enter a collection name'
+    if (isNameTaken(collections.value, trimmed, exceptId)) {
+      return 'A collection with that name already exists'
+    }
+    return null
+  }
+
+  /**
    * Create a new collection.
    *
-   * @param name - Display name (trimmed; empty name returns null).
+   * @param name - Display name (trimmed; empty or duplicate name returns null).
    * @param tagIds - Initial member tag ids.
    * @returns New collection or null when name is invalid. Side effect: localStorage.
    */
   function create(name: string, tagIds: number[] = []): UserCollection | null {
     const trimmed = normalizeName(name)
-    if (!trimmed) return null
+    if (!trimmed || isNameTaken(collections.value, trimmed)) return null
     const now = new Date().toISOString()
     const col: UserCollection = {
       id: newId(),
@@ -110,7 +136,7 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
    */
   function rename(id: string, name: string): boolean {
     const trimmed = normalizeName(name)
-    if (!trimmed) return false
+    if (!trimmed || isNameTaken(collections.value, trimmed, id)) return false
     const i = collections.value.findIndex((c) => c.id === id)
     if (i < 0) return false
     const cur = collections.value[i]!
@@ -149,6 +175,7 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
 
   /**
    * Remove tag ids from a collection.
+   * Deletes the collection when it becomes empty.
    *
    * @returns false when collection id not found.
    */
@@ -159,6 +186,10 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     const cur = collections.value[i]!
     const filtered = cur.tagIds.filter((t) => !drop.has(t))
     if (filtered.length === cur.tagIds.length) return true
+    if (filtered.length === 0) {
+      collections.value = collections.value.filter((c) => c.id !== id)
+      return true
+    }
     const next = [...collections.value]
     next[i] = { ...cur, tagIds: filtered, updatedAt: new Date().toISOString() }
     collections.value = next
@@ -172,6 +203,7 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
 
   /**
    * Drop tag ids that are no longer favorited from every collection.
+   * Removes collections that become empty.
    * Keeps custom collections aligned with the Favorites list.
    *
    * @param favoriteIds - Iterable of favorited tag ids (often from favorites store `ids`).
@@ -179,13 +211,15 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
   function pruneToStarred(favoriteIds: Iterable<number>): void {
     const keep = new Set(favoriteIds)
     let changed = false
-    const next = collections.value.map((c) => {
-      const tagIds = c.tagIds.filter((id) => keep.has(id))
-      if (tagIds.length === c.tagIds.length) return c
-      changed = true
-      return { ...c, tagIds, updatedAt: new Date().toISOString() }
-    })
-    if (changed) collections.value = next
+    const next = collections.value
+      .map((c) => {
+        const tagIds = c.tagIds.filter((id) => keep.has(id))
+        if (tagIds.length === c.tagIds.length) return c
+        changed = true
+        return { ...c, tagIds, updatedAt: new Date().toISOString() }
+      })
+      .filter((c) => c.tagIds.length > 0)
+    if (changed || next.length !== collections.value.length) collections.value = next
   }
 
   /**
@@ -289,6 +323,7 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     collections,
     count,
     byId,
+    validateName,
     create,
     rename,
     remove,

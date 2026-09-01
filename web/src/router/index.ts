@@ -52,6 +52,11 @@ export const router = createRouter({
       name: 'settings',
       component: () => import('../views/SettingsView.vue'),
     },
+    {
+      path: '/optical-transfer',
+      name: 'optical-transfer',
+      component: () => import('../views/OpticalTransferView.vue'),
+    },
   ],
   scrollBehavior(to, from, saved) {
     const tagReturnY = peekTagReturnScrollY()

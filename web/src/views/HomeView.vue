@@ -19,8 +19,11 @@ import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
+import OfflineOpticalTransferPrompt from '../components/OfflineOpticalTransferPrompt.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
+import TagListRowContent from '../components/TagListRowContent.vue'
+import TagSelectionBar from '../components/TagSelectionBar.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
@@ -31,8 +34,8 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { browseScrollIntent } from '../router'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
+import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import {
-  bookletBadgeForTag,
   hasJumpRail,
   hasScrubRail,
   type BrowseRow,
@@ -44,23 +47,19 @@ import {
   yearSectionKey,
   yearBoundsForSectionKey,
   collectionIdForSectionKey,
+  collectionJumpLabel,
 } from '../search/browse'
 import { isUserCollectionFilterId } from '../lib/collections'
 import { normalizeYear } from '../lib/year'
 import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { tagOpenLocation } from '../lib/tagOpen'
+import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { parseTagQrPayload } from '../lib/tagQrScan'
-import {
-  SheetTransferAssembler,
-  isSheetTransferFrame,
-  parseSheetTransferFrame,
-  unpackSheetTransfer,
-} from '../lib/sheetQrTransfer'
+import { unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
+import type { OpticalFile } from '../../vendor/decimen/shared/protocol'
 import { putTransferredTag } from '../offline/transferredDb'
 import {
-  decodeQrDetailedFromFile,
-  probeCameraAccess,
   type QrDecodeResult,
 } from '../lib/qrDecode'
 import { useOnline } from '../composables/useOnline'
@@ -83,7 +82,6 @@ const tipsOpen = ref(false)
 const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
 const qrScannerOpen = ref(false)
-const qrFileInputRef = ref<HTMLInputElement | null>(null)
 
 function closeWelcome(): void {
   prefs.dismissBrowseWelcome()
@@ -137,14 +135,9 @@ function closeSearchTips(): void {
   tipsOpen.value = false
 }
 
-/** Open live camera scanner, or the photo picker when no camera is available. */
-async function onScanQrClick(): Promise<void> {
-  const hasCamera = await probeCameraAccess()
-  if (hasCamera) {
-    qrScannerOpen.value = true
-    return
-  }
-  qrFileInputRef.value?.click()
+/** Open the fullscreen QR scanner (camera + choose-photo fallback). */
+function onScanQrClick(): void {
+  qrScannerOpen.value = true
 }
 
 function openTagFromQrPayload(payload: string): void {
@@ -157,47 +150,29 @@ function openTagFromQrPayload(payload: string): void {
   void router.push(loc)
 }
 
-let transferAssembler: SheetTransferAssembler | null = null
+function onSheetTransferProgress(label: string): void {
+  snackbar.show(label, { tone: 'ok', ms: 2500 })
+}
 
-async function onTransferFrame(bytes: Uint8Array): Promise<boolean> {
-  const frame = parseSheetTransferFrame(bytes)
-  if (!frame) return false
-
-  if (
-    !transferAssembler ||
-    transferAssembler.transferId !== frame.transferId ||
-    transferAssembler.frameCount !== frame.count
-  ) {
-    transferAssembler = new SheetTransferAssembler(frame.transferId, frame.count)
-  }
-  transferAssembler.accept(frame)
-  const got = transferAssembler.receivedCount
-  const total = transferAssembler.frameCount
-  snackbar.show(`Sheet transfer: ${got} / ${total} frames`, { tone: 'ok', ms: 2500 })
-
-  if (!transferAssembler.complete) return true
-
+async function onSheetTransferComplete(file: OpticalFile): Promise<void> {
   try {
-    const pkg = unpackSheetTransfer(transferAssembler.buildPackage())
+    const pkg = unpackSingtagsSheetFile(file)
     await putTransferredTag(pkg.meta, pkg.imageBytes)
-    transferAssembler = null
     qrScannerOpen.value = false
     snackbar.show(`Received “${pkg.meta.title || `Tag ${pkg.meta.id}`}”`, { tone: 'ok' })
     void router.push(`/tag/${pkg.meta.id}`)
   } catch (e) {
-    transferAssembler = null
-    snackbar.show(e instanceof Error ? e.message : 'Could not assemble sheet transfer.', {
+    snackbar.show(e instanceof Error ? e.message : 'Could not receive sheet transfer.', {
       tone: 'error',
     })
   }
-  return true
+}
+
+function onSheetTransferError(message: string): void {
+  snackbar.show(message, { tone: 'error' })
 }
 
 async function onQrDetected(result: QrDecodeResult): Promise<void> {
-  if (result.bytes && isSheetTransferFrame(result.bytes)) {
-    await onTransferFrame(result.bytes)
-    return
-  }
   if (result.text) {
     openTagFromQrPayload(result.text)
     return
@@ -213,38 +188,12 @@ function onQrScannerError(message: string): void {
   snackbar.show(message, { tone: 'error' })
 }
 
-async function onQrFilePicked(event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  try {
-    const result = await decodeQrDetailedFromFile(file)
-    if (!result?.bytes?.length && !result?.text) {
-      snackbar.show('No QR code found in that image.', { tone: 'error' })
-      return
-    }
-    await onQrDetected(result!)
-  } catch {
-    snackbar.show('Could not read that image.', { tone: 'error' })
-  }
-}
-
 function markBrowseOpen(id: number): void {
   recent.markBrowseNavigation(id)
 }
 
 function browseAltTitle(tag: TagSummary): string | null {
   return visibleAltTitle(tag.altTitle, tag.title)
-}
-
-function cacheReadyLabel(tagId: number): string | null {
-  const ready = catalog.cacheReadyByTag.get(tagId)
-  if (!ready) return null
-  if (ready.sheets && ready.audio) return 'Sheets+tracks'
-  if (ready.sheets) return 'Sheets'
-  if (ready.audio) return 'Tracks'
-  return null
 }
 
 function applyRoute(): void {
@@ -388,6 +337,14 @@ async function starSelected(): Promise<void> {
   void favorites.starMany(summaries, { metadataOnly: false })
 }
 
+function transferSelectedOptically(): void {
+  if (!catalog.selectedIds.size) return
+  navigateToOpticalTransfer(router, {
+    tagIds: selectedTagIds.value,
+    name: 'Browse',
+  })
+}
+
 function toggleRowStar(summary: TagSummary): void {
   void favorites.toggle(summary, null, { metadataOnly: false })
 }
@@ -484,11 +441,6 @@ function sortReverseTip(): string {
     : 'Reverse the current view order'
 }
 
-function formatDownloads(n: number | null | undefined): string | null {
-  if (n == null || n <= 0) return null
-  return n.toLocaleString()
-}
-
 /**
  * Pin the first browse group under sticky jump/scrub chrome.
  * Do not scroll to document y=0 — that reveals search and unsticks the rail.
@@ -558,6 +510,25 @@ const showJump = computed(
 )
 /** Letter/booklet keys only — ↑ sits outside the key grid like year scrub. */
 const jumpKeyCount = computed(() => catalog.browseWindow.jumpKeys.length)
+
+const collectionJumpKeys = computed(() =>
+  catalog.sortMode === 'collection' ? catalog.browseWindow.jumpKeys : [],
+)
+
+const collectionStripHost = ref<HTMLElement | null>(null)
+const collectionMeasureEl = ref<HTMLElement | null>(null)
+
+const {
+  page: collectionJumpPage,
+  showPager: showCollectionJumpPager,
+  pageCount: collectionJumpPageCount,
+  pagedItems: pagedCollectionJumpKeys,
+  stripRows: collectionStripRows,
+} = useTwoRowStripPaging(collectionJumpKeys, {
+  hostEl: collectionStripHost,
+  measureEl: collectionMeasureEl,
+})
+
 /** One filtered section: show ↑ + status text, not a lone category chip. */
 const singleJumpGroup = computed(() => jumpKeyCount.value === 1)
 
@@ -575,8 +546,12 @@ let jumpRailRo: ResizeObserver | null = null
 function syncJumpCols(): void {
   const n = jumpKeyCount.value
   if (n < 1) return
-  // Single filtered group (or collection fit): one compact row beside ↑.
-  if (n === 1 || catalog.sortMode === 'collection') {
+  if (catalog.sortMode === 'collection') {
+    jumpRows.value = collectionStripRows.value
+    return
+  }
+  // Single filtered group: one compact row beside ↑.
+  if (n === 1) {
     jumpRows.value = 1
     jumpCols.value = n
     return
@@ -983,6 +958,9 @@ function jumpSectionTip(key: string): string {
   return row?.type === 'section' ? `Jump to ${row.label}` : `Jump to ${key}`
 }
 function jumpKeyLabel(key: string): string {
+  if (catalog.sortMode === 'collection') {
+    return collectionJumpLabel(key, userCollections.collections)
+  }
   const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
   return row?.type === 'section' ? row.label : key
 }
@@ -1026,22 +1004,27 @@ function sectionFilterTip(key: string, label: string): string {
 
 /** After filtering to a section, reset scroll and pin that heading under sticky chrome. */
 async function scrollToFilteredSection(key: string): Promise<void> {
-  // Filter collapses the list while window.scrollY stays deep — blank/wrong position.
-  // Always reset to top first, then align the section under the sticky chrome.
   scrollBrowseTop()
-  await nextTick()
   syncListScrollMargin()
   syncStickyBrowsePad()
-  await nextTick()
-  const rowIndex = browseRowIndexForSection(key)
-  if (rowIndex < 0) return
-  scrollToBrowseRow(rowIndex, 'start')
-  requestAnimationFrame(() => {
-    syncListScrollMargin()
-    syncStickyBrowsePad()
-    const again = browseRowIndexForSection(key)
-    if (again >= 0) scrollToBrowseRow(again, 'start')
-  })
+
+  // Filter rebuilds section rows asynchronously — retry until the target header exists.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await nextTick()
+    const rowIndex = browseRowIndexForSection(key)
+    if (rowIndex >= 0) {
+      scrollToBrowseRow(rowIndex, 'start')
+      requestAnimationFrame(() => {
+        syncListScrollMargin()
+        syncStickyBrowsePad()
+        const again = browseRowIndexForSection(key)
+        if (again >= 0) scrollToBrowseRow(again, 'start')
+      })
+      return
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  }
+  scrollBrowseTop()
 }
 
 function toggleSectionFilter(key: string): void {
@@ -1064,7 +1047,15 @@ function toggleSectionFilter(key: string): void {
     const id = collectionIdForSectionKey(key, catalog.collections)
     if (!id) return
     const cur = catalog.filters.collections
-    const next = wasActive ? cur.filter((x) => x !== id) : [...cur, id]
+    let next: string[]
+    if (wasActive) {
+      next = cur.filter((x) => x !== id)
+    } else if (isUserCollectionFilterId(id)) {
+      // Custom collection filter only — tags may still appear under catalog headers below.
+      next = [id]
+    } else {
+      next = [...cur.filter((x) => !isUserCollectionFilterId(x)), id]
+    }
     catalog.patchFilters({ collections: next })
   } else {
     return
@@ -1174,6 +1165,12 @@ onUnmounted(() => {
   if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
 })
 
+watch(collectionStripRows, () => {
+  if (catalog.sortMode !== 'collection') return
+  syncJumpCols()
+  syncStickyBrowsePad()
+})
+
 watch(
   () => [showJump.value, jumpKeyCount.value, catalog.sortMode, browseRows.value.length] as const,
   async () => {
@@ -1277,7 +1274,6 @@ watch(
           @click="optionsOpen = !optionsOpen"
         >
           <svg
-            v-if="!optionsOpen"
             class="options-icon"
             viewBox="0 0 24 24"
             width="22"
@@ -1288,7 +1284,6 @@ watch(
             <circle cx="12" cy="12" r="2" fill="currentColor" />
             <circle cx="12" cy="19" r="2" fill="currentColor" />
           </svg>
-          <span v-else class="options-chevron" aria-hidden="true">▴</span>
         </button>
       </div>
       <div v-show="optionsOpen" id="browse-options" class="options-panel">
@@ -1345,15 +1340,9 @@ watch(
       @close="qrScannerOpen = false"
       @detected="onQrScannerDetected"
       @error="onQrScannerError"
-    />
-    <input
-      ref="qrFileInputRef"
-      class="visually-hidden"
-      type="file"
-      accept="image/*"
-      aria-hidden="true"
-      tabindex="-1"
-      @change="onQrFilePicked"
+      @sheet-transfer-progress="onSheetTransferProgress"
+      @sheet-transfer-complete="onSheetTransferComplete"
+      @sheet-transfer-error="onSheetTransferError"
     />
     <BrowseWelcomeDialog
       :open="welcomeOpen"
@@ -1370,14 +1359,16 @@ watch(
     </p>
     <EmptyState
       v-else-if="catalog.error"
-      :title="offline ? 'Offline — catalog not cached yet' : 'Catalog failed to load'"
+      :title="offline ? 'Offline — nothing cached yet' : 'Catalog failed to load'"
       :message="
         offline
-          ? 'Open SingTags online once so the catalog saves to this device, then try again.'
+          ? 'Connect once to download the full catalog, or receive tag sheets from another device with optical transfer.'
           : catalog.error
       "
       tone="danger"
-    />
+    >
+      <OfflineOpticalTransferPrompt v-if="offline" />
+    </EmptyState>
     <template v-else>
       <div class="results-meta" aria-live="polite">
         <div class="text-muted count">
@@ -1446,6 +1437,65 @@ watch(
         <p v-if="singleJumpGroup" class="jump-rail-status" role="status">
           {{ jumpRailStatus }}
         </p>
+        <div
+          v-else-if="catalog.sortMode === 'collection'"
+          class="collection-strip"
+          :class="{ paged: showCollectionJumpPager }"
+          role="group"
+          :aria-label="
+            showCollectionJumpPager
+              ? `Collection page ${collectionJumpPage + 1} of ${collectionJumpPageCount}`
+              : 'Collections'
+          "
+        >
+          <button
+            v-if="showCollectionJumpPager"
+            type="button"
+            class="collection-strip-nav"
+            :disabled="collectionJumpPage <= 0"
+            aria-label="Previous collections"
+            @click="collectionJumpPage -= 1"
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
+          <div ref="collectionStripHost" class="collection-strip-body">
+            <div ref="collectionMeasureEl" class="collection-measure" aria-hidden="true">
+              <span
+                v-for="key in collectionJumpKeys"
+                :key="key"
+                class="jump"
+                :class="{ custom: isCustomJumpKey(key) }"
+              >
+                <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+                {{ jumpKeyLabel(key) }}
+              </span>
+            </div>
+            <div class="collection-page jump-keys-collection">
+              <button
+                v-for="key in pagedCollectionJumpKeys"
+                :key="key"
+                type="button"
+                class="jump"
+                :class="{ custom: isCustomJumpKey(key) }"
+                :title="jumpSectionTip(key)"
+                @click="jumpToSection(key)"
+              >
+                <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+                {{ jumpKeyLabel(key) }}
+              </button>
+            </div>
+          </div>
+          <button
+            v-if="showCollectionJumpPager"
+            type="button"
+            class="collection-strip-nav"
+            :disabled="collectionJumpPage >= collectionJumpPageCount - 1"
+            aria-label="Next collections"
+            @click="collectionJumpPage += 1"
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
         <div v-else class="jump-keys" :style="jumpKeysStyle">
           <button
             v-for="key in catalog.browseWindow.jumpKeys"
@@ -1531,108 +1581,10 @@ watch(
                   :class="{ on: catalog.selectedIds.has(g.row.tag.id) }"
                 >{{ catalog.selectedIds.has(g.row.tag.id) ? '✓' : '' }}</span>
                 <div class="row-link">
-                  <span class="title">
-                    <span class="title-line">
-                      <span class="tag-num" title="Tag number">#{{ g.row.tag.id }}</span>
-                      <template
-                        v-for="badge in [bookletBadgeForTag(g.row.tag)]"
-                        :key="'gbb-' + g.row.tag.id"
-                      >
-                        <span
-                          v-if="badge"
-                          class="classic-num"
-                          :class="'booklet-' + badge.kind"
-                          :title="badge.label"
-                        >{{ badge.short }}</span>
-                      </template>
-                      {{ g.row.tag.title || `Tag ${g.row.tag.id}` }}
-                    </span>
-                    <span v-if="browseAltTitle(g.row.tag)" class="alt-title">{{
-                      browseAltTitle(g.row.tag)
-                    }}</span>
-                  </span>
-                  <span class="meta">
-                    <span v-if="g.row.tag.key" title="Written key">{{ g.row.tag.key }}</span>
-                    <span
-                      v-if="g.row.tag.arranger"
-                      :title="`Arranger: ${g.row.tag.arranger}`"
-                    >{{ g.row.tag.arranger }}</span>
-                    <span
-                      v-if="normalizeYear(g.row.tag.year)"
-                      title="Year published or added"
-                    >{{ normalizeYear(g.row.tag.year) }}</span>
-                    <span
-                      v-if="g.row.tag.rating != null"
-                      :title="`Average rating${g.row.tag.ratingCount != null ? ` (${g.row.tag.ratingCount} votes)` : ''}`"
-                    >★ {{ g.row.tag.rating.toFixed(2) }}</span>
-                    <span
-                      v-if="formatDownloads(g.row.tag.downloads)"
-                      class="dl-count"
-                      title="Downloads on barbershoptags.com"
-                    >↓ {{ formatDownloads(g.row.tag.downloads) }}</span>
-                    <span
-                      v-if="!g.row.tag.hasSheet"
-                      class="badge badge-icon"
-                      title="No sheet music on file"
-                    >
-                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.75"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M7 3.5h7.5L19 8v12.5H7z"
-                        />
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.75"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M14.5 3.5V8H19M9.5 12h5M9.5 15.5h5"
-                        />
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          d="M5 5l14 14"
-                        />
-                      </svg>
-                    </span>
-                    <span
-                      v-if="!g.row.tag.audioParts?.length"
-                      class="badge badge-icon"
-                      title="No learning tracks on file"
-                    >
-                      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.75"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          d="M11 5.5L7 9H4.5v6H7l4 3.5zM15.2 9.8a3.2 3.2 0 010 4.4"
-                        />
-                        <path
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                          stroke-linecap="round"
-                          d="M5 5l14 14"
-                        />
-                      </svg>
-                    </span>
-                  </span>
-                  <span
-                    v-for="snip in [catalog.lyricsSnippet(g.row.tag.id)]"
-                    v-show="snip"
-                    :key="'gly-' + g.row.tag.id"
-                    class="lyrics-snip"
-                    title="Lyrics match"
-                    >{{ snip }}</span
-                  >
+                  <TagListRowContent
+                    :tag="g.row.tag"
+                    :lyrics-snippet="catalog.lyricsSnippet(g.row.tag.id)"
+                  />
                 </div>
                 <span class="row-fav" aria-hidden="true">
                   <span
@@ -1722,110 +1674,10 @@ watch(
               :title="rowOpenTip(item.row.tag)"
               @click="markBrowseOpen(item.row.tag.id)"
             >
-              <span class="title">
-                <span class="title-line">
-                  <span class="tag-num" title="Tag number">#{{ item.row.tag.id }}</span>
-                  <template
-                    v-for="badge in [bookletBadgeForTag(item.row.tag)]"
-                    :key="'bb-' + item.row.tag.id"
-                  >
-                    <span
-                      v-if="badge"
-                      class="classic-num"
-                      :class="'booklet-' + badge.kind"
-                      :title="badge.label"
-                    >{{ badge.short }}</span>
-                  </template>
-                  {{ item.row.tag.title || `Tag ${item.row.tag.id}` }}
-                </span>
-                <span v-if="browseAltTitle(item.row.tag)" class="alt-title">{{ browseAltTitle(item.row.tag) }}</span>
-              </span>
-              <span class="meta">
-                <span v-if="item.row.tag.key" title="Written key">{{ item.row.tag.key }}</span>
-                <span
-                  v-if="item.row.tag.arranger"
-                  :title="`Arranger: ${item.row.tag.arranger}`"
-                >{{ item.row.tag.arranger }}</span>
-                <span v-if="normalizeYear(item.row.tag.year)" title="Year published or added">{{ normalizeYear(item.row.tag.year) }}</span>
-                <span
-                  v-if="item.row.tag.rating != null"
-                  :title="`Average rating${item.row.tag.ratingCount != null ? ` (${item.row.tag.ratingCount} votes)` : ''}`"
-                >★ {{ item.row.tag.rating.toFixed(2) }}</span>
-                <span
-                  v-if="formatDownloads(item.row.tag.downloads)"
-                  class="dl-count"
-                  title="Downloads on barbershoptags.com"
-                >↓ {{ formatDownloads(item.row.tag.downloads) }}</span>
-                <span
-                  v-if="cacheReadyLabel(item.row.tag.id)"
-                  class="badge cache-ready"
-                  :title="`Cached offline: ${cacheReadyLabel(item.row.tag.id)}`"
-                >{{ cacheReadyLabel(item.row.tag.id) }}</span>
-                <span
-                  v-if="!item.row.tag.hasSheet"
-                  class="badge badge-icon"
-                  title="No sheet music on file"
-                  aria-label="No sheet music on file"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M7 3.5h7.5L19 8v12.5H7z"
-                    />
-                    <path
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M14.5 3.5V8H19M9.5 12h5M9.5 15.5h5"
-                    />
-                    <path
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      d="M5 5l14 14"
-                    />
-                  </svg>
-                </span>
-                <span
-                  v-if="!item.row.tag.audioParts?.length"
-                  class="badge badge-icon"
-                  title="No learning tracks on file"
-                  aria-label="No learning tracks on file"
-                >
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.75"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M11 5.5L7 9H4.5v6H7l4 3.5zM15.2 9.8a3.2 3.2 0 010 4.4"
-                    />
-                    <path
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      d="M5 5l14 14"
-                    />
-                  </svg>
-                </span>
-              </span>
-              <span
-                v-for="snip in [catalog.lyricsSnippet(item.row.tag.id)]"
-                v-show="snip"
-                :key="'ly-' + item.row.tag.id"
-                class="lyrics-snip"
-                title="Lyrics match"
-                >{{ snip }}</span
-              >
+              <TagListRowContent
+                :tag="item.row.tag"
+                :lyrics-snippet="catalog.lyricsSnippet(item.row.tag.id)"
+              />
             </RouterLink>
             <button
               type="button"
@@ -1848,48 +1700,15 @@ watch(
       </div>
     </template>
 
-    <Teleport to="body">
-      <div
-        v-if="catalog.selectedIds.size"
-        class="selection-bar"
-        role="toolbar"
-        aria-label="Selected tags"
-      >
-        <span class="sel-count">{{ catalog.selectedIds.size }} selected</span>
-        <button
-          type="button"
-          class="btn btn-primary"
-          title="Favorite selected tags and cache for offline"
-          @click="starSelected"
-        >
-          Favorite
-        </button>
-        <button
-          type="button"
-          class="btn"
-          title="Favorite selected tags and add them to a collection"
-          @click="collectionPickerOpen = true"
-        >
-          Add to collection
-        </button>
-        <button
-          type="button"
-          class="btn"
-          title="Add selected tags' sheets and tracks to the download queue"
-          @click="addSelectedToQueue"
-        >
-          Add to zip
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost"
-          title="Clear selection"
-          @click="catalog.clearSelection()"
-        >
-          Clear
-        </button>
-      </div>
-    </Teleport>
+    <TagSelectionBar
+      :count="catalog.selectedIds.size"
+      toolbar-label="Selected tags"
+      @favorite="starSelected"
+      @collection="collectionPickerOpen = true"
+      @optical="transferSelectedOptically"
+      @zip="addSelectedToQueue"
+      @clear="catalog.clearSelection()"
+    />
 
     <CollectionPickerSheet
       :open="collectionPickerOpen"
@@ -2038,18 +1857,22 @@ watch(
   border-color: color-mix(in srgb, var(--text) 22%, var(--border));
   background: color-mix(in srgb, var(--border) 28%, var(--surface));
 }
+.options-btn.open {
+  color: var(--accent-hover, var(--accent));
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent);
+}
+.options-btn.open:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
 .options-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .options-icon {
   display: block;
-}
-.options-chevron {
-  display: block;
-  font-size: 1.15rem;
-  font-weight: 700;
-  line-height: 1;
 }
 .options-panel {
   display: grid;
@@ -2319,23 +2142,91 @@ watch(
   gap: 0.3rem;
   min-width: 0;
 }
-/* Collection booklet jumps: size to label text so nothing wraps. */
+/* Collection jumps: chevrons flank up to two pill rows (no scroll). */
 .jump-rail-fit {
   align-items: center;
 }
-.jump-rail-fit .jump-keys {
+.collection-strip {
+  min-width: 0;
+}
+.collection-strip-body {
+  position: relative;
+  min-width: 0;
+}
+.collection-measure {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-content: flex-start;
   align-items: center;
   gap: 0.35rem;
-  overflow-x: auto;
+  overflow: visible;
+}
+.collection-strip.paged {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.35rem;
+}
+.collection-strip-nav {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.collection-strip-nav:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--accent-hover);
+}
+.collection-strip-nav:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.collection-strip-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.jump-keys-collection,
+.collection-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-height: calc(36px * 2 + 0.35rem);
+  overflow: hidden;
+}
+.collection-strip.paged .collection-page {
+  /* Keep a fixed two-row slot while paging, even on single-row pages. */
+  min-height: calc(36px * 2 + 0.35rem);
 }
 .jump-rail-fit .jump.custom {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
 }
-.jump {
+.jump-rail-fit .jump-keys-collection .jump {
   flex: 0 0 auto;
   min-width: auto;
   padding: 0.2rem 0.55rem;
@@ -2396,9 +2287,6 @@ watch(
   cursor: default;
   filter: none;
   box-shadow: none;
-}
-.dl-count {
-  font-variant-numeric: tabular-nums;
 }
 .section-head {
   /* Padding (not margin) so window-virtualizer measureElement includes spacing. */
@@ -2517,36 +2405,6 @@ watch(
 .list-row:focus-within {
   border-color: var(--border);
 }
-.tag-num {
-  display: inline-block;
-  margin-right: 0.35rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 0.9em;
-}
-.classic-num.booklet-days100 {
-  color: color-mix(in srgb, var(--accent) 70%, var(--text));
-}
-.classic-num.booklet-easytags {
-  color: color-mix(in srgb, var(--text) 75%, var(--accent));
-  border-color: color-mix(in srgb, var(--border) 70%, var(--accent));
-  background: color-mix(in srgb, var(--surface) 92%, var(--accent));
-}
-.classic-num {
-  display: inline-block;
-  margin-right: 0.4rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 0.78em;
-  letter-spacing: 0.02em;
-  vertical-align: 0.05em;
-}
 .meta-only {
   display: flex;
   align-items: center;
@@ -2618,54 +2476,6 @@ watch(
     transform: rotate(360deg);
   }
 }
-.title {
-  font-weight: 600;
-}
-.title-line {
-  min-width: 0;
-}
-.alt-title {
-  display: block;
-  color: var(--muted);
-  font-weight: 500;
-  font-size: 0.88em;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-.lyrics-snip {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.86rem;
-  line-height: 1.35;
-  font-weight: 400;
-  max-width: 42rem;
-}
-.badge {
-  color: var(--danger);
-  font-size: 0.8rem;
-}
-.badge-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.9;
-}
-.badge-icon svg {
-  display: block;
-}
 .sel-btn {
   position: relative;
   z-index: 1;
@@ -2710,46 +2520,5 @@ watch(
 }
 code {
   font-size: 0.9em;
-}
-</style>
-
-<style>
-.selection-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  z-index: 25;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
-}
-.selection-bar .sel-count {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  margin-right: auto;
-  font-size: 0.95rem;
-}
-.selection-bar .btn {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-@media (min-width: 768px) {
-  .selection-bar {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: min(960px, calc(100% - 2rem));
-    bottom: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
-  }
 }
 </style>

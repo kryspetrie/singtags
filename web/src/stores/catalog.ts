@@ -47,9 +47,10 @@ import { useUserCollectionsStore } from './userCollections'
 import {
   filterTagsByCollectionOptions,
   isUserCollectionFilterId,
+  parseUserCollectionFilterId,
 } from '../lib/collections'
 import {
-  matchesCachedFilter,
+  matchesOfflineBrowseFilters,
   type TagCacheReady,
 } from '../lib/offlineReadiness'
 
@@ -304,9 +305,10 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function filterByCachedReadiness(list: TagSummary[]): TagSummary[] {
-    const cached = filters.value.cached
-    if (cached == null) return list
-    return list.filter((tag) => matchesCachedFilter(cacheReadyByTag.value.get(tag.id), cached))
+    if (filters.value.cached == null) return list
+    return list.filter((tag) =>
+      matchesOfflineBrowseFilters(cacheReadyByTag.value.get(tag.id), filters.value),
+    )
   }
 
   /** Full filtered/sorted result set (virtualizer uses entire list). */
@@ -360,9 +362,11 @@ export const useCatalogStore = defineStore('catalog', () => {
     const userCols = useUserCollectionsStore()
     const colFilters = filters.value.collections
     const hasUserCol = colFilters.some((c) => isUserCollectionFilterId(c))
-    const engineFilters = hasUserCol
-      ? { ...filters.value, collections: [] }
-      : filters.value
+    let engineFilters = hasUserCol ? { ...filters.value, collections: [] } : filters.value
+    // Available offline: has sheet/audio apply to cached blobs, not catalog metadata.
+    if (engineFilters.cached != null) {
+      engineFilters = { ...engineFilters, hasSheet: null, hasAudio: null }
+    }
     const q = buildSearchQuery(debouncedQuery.value, engineFilters)
     let found = sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
     if (hasUserCol) {
@@ -378,12 +382,23 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Full sectioned list for window virtualization (not a paged window). */
   const browseWindow = computed(() => {
     const userCols = useUserCollectionsStore()
+    const collectionFilters = filters.value.collections
+    const singleCollectionFilter =
+      sortMode.value === 'collection' && collectionFilters.length === 1
+        ? collectionFilters[0]
+        : undefined
+    const activeUserCollectionFilters = collectionFilters.filter(isUserCollectionFilterId)
     return buildBrowseRows(allResults.value, sortMode.value, allResults.value.length, {
       userCollections: userCols.collections.map((c) => ({
         id: c.id,
         name: c.name,
         tagIds: c.tagIds,
       })),
+      activeUserCollectionFilters:
+        !singleCollectionFilter && activeUserCollectionFilters.length
+          ? activeUserCollectionFilters
+          : undefined,
+      singleCollectionFilter,
     })
   })
   /** Count of active filter chips (excludes free-text, handled separately). */
@@ -447,6 +462,16 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (secIdx >= 0) {
       const next = browseWindow.value.rows[secIdx + 1]
       if (next?.type === 'tag') return next.index
+    }
+    if (isUserCollectionFilterId(sectionKey)) {
+      const uid = parseUserCollectionFilterId(sectionKey)
+      const col = useUserCollectionsStore().collections.find((c) => c.id === uid)
+      if (col) {
+        for (let i = 0; i < allResults.value.length; i++) {
+          if (col.tagIds.includes(allResults.value[i]!.id)) return i
+        }
+      }
+      return -1
     }
     return indexOfSection(allResults.value, sortMode.value, sectionKey)
   }

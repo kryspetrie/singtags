@@ -8,7 +8,7 @@
 /** IndexedDB database name for offline progress and snapshots. */
 export const OFFLINE_DB_NAME = 'singtags-offline'
 /** Schema version; bump when adding object stores or migrations. */
-export const OFFLINE_DB_VERSION = 4
+export const OFFLINE_DB_VERSION = 5
 
 /** Object store: {@link PackProgressRecord} keyed by pack kind. */
 export const PACK_PROGRESS_STORE = 'packProgress'

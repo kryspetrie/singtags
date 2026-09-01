@@ -1,24 +1,41 @@
 <script setup lang="ts">
 /**
  * Recently opened tags with sort by last visit or open count; inline favorite toggle.
- * Multi-select (Browse/Favorites-like) to add tags to a collection.
+ * Multi-select (Browse/Favorites-like) for favorite, collection, and zip actions.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import EmptyState from '../components/EmptyState.vue'
+import TagListRowContent from '../components/TagListRowContent.vue'
+import TagSelectionBar from '../components/TagSelectionBar.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
 import { useRecentStore, type RecentSort } from '../stores/recent'
+import { useQueueStore } from '../stores/queue'
+import { useSnackbarStore } from '../stores/snackbar'
+import { useOnline } from '../composables/useOnline'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
-import type { TagSummary } from '../types/tag'
+import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
+import { catalogOriginalPaths } from '../lib/audioTiers'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
+import { partTrackLabel } from '../lib/parts'
+import { tagDetailUrl } from '../lib/mediaUrl'
+import { fetchCached } from '../lib/manualOfflineFetch'
+import { sheetsPack } from '../offline/libraryPack'
+import { getStarred } from '../offline/favoritesDb'
+import type { PartId, TagDetail, TagSummary } from '../types/tag'
 
 const catalog = useCatalogStore()
 const favorites = useFavoritesStore()
 const recent = useRecentStore()
+const router = useRouter()
 const prefs = usePreferencesStore()
+const queue = useQueueStore()
+const snackbar = useSnackbarStore()
+const { offline } = useOnline()
 
 const sorts: Array<{ id: RecentSort; label: string }> = [
   { id: 'recent', label: 'Most recent' },
@@ -34,10 +51,7 @@ const sort = computed({
 const rows = computed(() =>
   recent.displayRecords().map((rec) => ({
     rec,
-    tag:
-      catalog.getById(rec.id) ??
-      favorites.records.find((r) => r.tagId === rec.id)?.summary ??
-      null,
+    tag: summaryForId(rec.id),
   })),
 )
 
@@ -74,6 +88,16 @@ function toggleSelect(id: number): void {
   if (next.size) selectMode.value = true
 }
 
+function summaryForId(id: number): TagSummary | null {
+  return catalog.getById(id) ?? favorites.records.find((r) => r.tagId === id)?.summary ?? null
+}
+
+function selectedSummaries(): TagSummary[] {
+  return selectedTagIds.value
+    .map((id) => summaryForId(id))
+    .filter((x): x is TagSummary => !!x)
+}
+
 function clearSelection(): void {
   selectedIds.value = new Set()
   selectMode.value = false
@@ -81,7 +105,9 @@ function clearSelection(): void {
 
 function selectRowTip(title: string, tagId: number): string {
   const name = title || `tag #${tagId}`
-  return selectedIds.value.has(tagId) ? `Deselect ${name}` : `Select ${name}`
+  return selectedIds.value.has(tagId)
+    ? `Deselect ${name}`
+    : `Select ${name} for bulk favorite or zip`
 }
 
 function clearLongPressTimer(): void {
@@ -138,18 +164,91 @@ function onRowClickCapture(e: MouseEvent): void {
   suppressRowClick = false
 }
 
+/** Tag metadata for queueing — Cache API, sheets pack, or favorites detail. */
+async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
+  try {
+    const res = await fetchCached(tagDetailUrl(id))
+    if (res.ok) return (await res.json()) as TagDetail
+  } catch {
+    /* try pack / favorites record */
+  }
+  try {
+    const packed = await sheetsPack.get(tagDetailUrl(id))
+    if (packed) return (await packed.json()) as TagDetail
+  } catch {
+    /* try favorites IndexedDB */
+  }
+  const starred = await getStarred(id)
+  return starred?.detail ?? null
+}
+
+async function addSelectedToQueue(): Promise<void> {
+  let ok = 0
+  let skipped = 0
+  for (const id of selectedIds.value) {
+    const d = await loadTagDetailForQueue(id)
+    if (!d) {
+      skipped++
+      continue
+    }
+    const title = d.title || `Tag ${d.tag_id}`
+    const sheetItems = downloadableSheetAssets(d).map((s) => ({
+      kind: 'sheet' as const,
+      tagId: d.tag_id,
+      title,
+      part: s.id,
+      path: s.path,
+      label: s.label,
+    }))
+    const originals = catalogOriginalPaths(d)
+    const parts = Object.keys(originals) as PartId[]
+    const prefer = parts.filter((p) => p !== 'mix')
+    const use = prefer.length ? prefer : parts
+    const audioItems = use.map((part) => ({
+      kind: 'audio' as const,
+      tagId: d.tag_id,
+      title,
+      part,
+      path: originals[part]!,
+      label: partTrackLabel(part),
+    }))
+    if (!sheetItems.length && !audioItems.length) {
+      skipped++
+      continue
+    }
+    queue.addMany([...sheetItems, ...audioItems])
+    ok++
+  }
+  const msg =
+    skipped > 0
+      ? offline.value
+        ? `Queued files from ${ok} tag(s); ${skipped} skipped (not cached on device).`
+        : `Queued files from ${ok} tag(s); skipped ${skipped}.`
+      : ok
+        ? `Queued sheets and tracks from ${ok} tag(s).`
+        : offline.value
+          ? 'No cached tag details — open tags online once, or reconnect.'
+          : 'No files queued.'
+  snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
+}
+
+function transferSelectedOptically(): void {
+  if (!selectedIds.value.size) return
+  navigateToOpticalTransfer(router, {
+    tagIds: selectedTagIds.value,
+    name: 'Recent',
+  })
+}
+
+async function starSelected(): Promise<void> {
+  void favorites.starMany(selectedSummaries(), { metadataOnly: false })
+}
+
 async function favoriteSelectedToCollection(
   _collectionId: string,
   collectionName: string,
 ): Promise<void> {
-  const summaries = selectedTagIds.value
-    .map(
-      (id) =>
-        catalog.getById(id) ??
-        favorites.records.find((r) => r.tagId === id)?.summary ??
-        null,
-    )
-    .filter((x): x is TagSummary => !!x)
+  const summaries = selectedSummaries()
   const favorited = summaries.length
     ? await favorites.starMany(summaries, { metadataOnly: false })
     : 0
@@ -285,16 +384,12 @@ function rowStarLabel(tag: TagSummary): string {
             }
           "
         >
-          <span class="title">
-            <span class="tag-num">#{{ rec.id }}</span>
-            {{ tag.title || `Tag ${rec.id}` }}
-          </span>
-          <span class="meta">
-            <span>{{ rec.opens }} open{{ rec.opens === 1 ? '' : 's' }}</span>
-            <span>{{ formatWhen(rec.lastOpenedAt) }}</span>
-            <span v-if="tag.key">{{ tag.key }}</span>
-            <span v-if="tag.arranger">{{ tag.arranger }}</span>
-          </span>
+          <TagListRowContent :tag="tag">
+            <template #extra-meta>
+              <span>{{ rec.opens }} open{{ rec.opens === 1 ? '' : 's' }}</span>
+              <span>{{ formatWhen(rec.lastOpenedAt) }}</span>
+            </template>
+          </TagListRowContent>
         </RouterLink>
         <div v-else-if="catalog.loaded" class="row-link missing">
           <span class="title">#{{ rec.id }}</span>
@@ -341,32 +436,15 @@ function rowStarLabel(tag: TagSummary): string {
       @done="favoriteSelectedToCollection"
     />
 
-    <Teleport to="body">
-      <div
-        v-if="selectedIds.size"
-        class="selection-bar"
-        role="toolbar"
-        aria-label="Selected recent tags"
-      >
-        <span class="sel-count">{{ selectedIds.size }} selected</span>
-        <button
-          type="button"
-          class="btn"
-          title="Favorite selected tags and add them to a collection"
-          @click="collectionPickerOpen = true"
-        >
-          Add to collection
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost"
-          title="Clear selection"
-          @click="clearSelection"
-        >
-          Clear
-        </button>
-      </div>
-    </Teleport>
+    <TagSelectionBar
+      :count="selectedIds.size"
+      toolbar-label="Selected recent tags"
+      @favorite="starSelected"
+      @collection="collectionPickerOpen = true"
+      @optical="transferSelectedOptically"
+      @zip="addSelectedToQueue"
+      @clear="clearSelection"
+    />
   </section>
 </template>
 
@@ -542,65 +620,6 @@ function rowStarLabel(tag: TagSummary): string {
 @keyframes row-fav-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-.title {
-  font-weight: 600;
-}
-.tag-num {
-  display: inline-block;
-  margin-right: 0.35rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 0.9em;
-}
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-</style>
-
-<style>
-.selection-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  z-index: 25;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.65rem 0.75rem;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
-}
-.selection-bar .sel-count {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  margin-right: auto;
-  font-size: 0.95rem;
-}
-.selection-bar .btn {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-@media (min-width: 768px) {
-  .selection-bar {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: min(960px, calc(100% - 2rem));
-    bottom: 1rem;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
   }
 }
 </style>

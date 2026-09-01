@@ -5,6 +5,15 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import TagQrScanner from './TagQrScanner.vue'
 
+vi.mock('../lib/decimen/receiveCapture', () => ({
+  DecimenReceiveCapture: class {
+    attachVideo = vi.fn()
+    start = vi.fn()
+    stop = vi.fn()
+    constructor(_callbacks: unknown) {}
+  },
+}))
+
 vi.mock('../lib/qrDecode', () => ({
   decodeQrDetailedFromVideo: vi.fn(async () => null),
   decodeQrDetailedFromFile: vi.fn(async () => ({

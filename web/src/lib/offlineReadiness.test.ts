@@ -14,8 +14,11 @@ vi.mock('../offline/favoritesDb', () => ({ listStarred }))
 
 import {
   buildReadinessFromUrlLists,
+  cachedFilterChipLabel,
+  isOfflineBrowseFilterActive,
   loadOfflineReadinessIndex,
   matchesCachedFilter,
+  matchesOfflineBrowseFilters,
   tagIdFromMediaPath,
 } from './offlineReadiness'
 
@@ -59,6 +62,29 @@ describe('offline readiness', () => {
     expect(matchesCachedFilter(sheets, 'both')).toBe(false)
     expect(matchesCachedFilter(sheets, 'none')).toBe(false)
     expect(matchesCachedFilter(undefined, 'none')).toBe(true)
+  })
+
+  it('combines Available offline with has sheet/audio against device readiness', () => {
+    const ready = { sheets: true, audio: false }
+    expect(isOfflineBrowseFilterActive({ cached: null, hasSheet: null, hasAudio: null })).toBe(false)
+    expect(isOfflineBrowseFilterActive({ cached: 'any', hasSheet: null, hasAudio: null })).toBe(true)
+    expect(matchesOfflineBrowseFilters(ready, { cached: 'any', hasSheet: true, hasAudio: null })).toBe(
+      true,
+    )
+    expect(matchesOfflineBrowseFilters(ready, { cached: 'any', hasSheet: null, hasAudio: true })).toBe(
+      false,
+    )
+    expect(matchesOfflineBrowseFilters(ready, { cached: 'audio', hasSheet: true, hasAudio: null })).toBe(
+      false,
+    )
+    expect(matchesOfflineBrowseFilters(undefined, { cached: null, hasSheet: true, hasAudio: null })).toBe(
+      true,
+    )
+  })
+
+  it('formats cached filter chip labels', () => {
+    expect(cachedFilterChipLabel('both')).toBe('sheet + audio')
+    expect(cachedFilterChipLabel(null)).toBe('')
   })
 
   it('loads each bulk source once', async () => {

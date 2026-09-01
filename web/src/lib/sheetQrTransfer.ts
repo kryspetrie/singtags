@@ -1,19 +1,8 @@
 /**
- * Multi-frame QR protocol for peer sheet + tag-metadata transfer (STX1).
- *
- * Binary QR payloads (ECC M, ~2200 byte chunks). Warn when frame count > 4.
+ * SingTags sheet + tag-metadata blob for Decimen optical transfer.
+ * The packed bytes are sent inside a Decimen file container (see decimen/singtagsPayload.ts).
  */
 import { deflateSync, inflateSync } from 'fflate'
-import { qrDataUrlFromBytes } from './qr'
-
-/** Soft UX budget — still allow more frames, but warn above this. */
-export const SHEET_QR_WARN_FRAME_COUNT = 4
-
-/** Byte-mode payload per frame after the 12-byte STX1 header (under ECC-M max 2331). */
-export const SHEET_QR_CHUNK_PAYLOAD = 2200
-
-export const SHEET_QR_MAGIC = 'STX1'
-const HEADER_BYTES = 12
 
 export type SheetTransferMeta = {
   v: 1
@@ -37,22 +26,6 @@ export type SheetTransferPackage = {
   imageBytes: Uint8Array
 }
 
-export type SheetTransferFrameInfo = {
-  transferId: number
-  index: number
-  count: number
-  payload: Uint8Array
-}
-
-export type BuiltSheetTransfer = {
-  transferId: number
-  frames: Uint8Array[]
-  frameCount: number
-  /** True when frameCount exceeds {@link SHEET_QR_WARN_FRAME_COUNT}. */
-  warnOverBudget: boolean
-  packageBytes: number
-}
-
 function textEncoder(): TextEncoder {
   return new TextEncoder()
 }
@@ -67,16 +40,6 @@ function writeU32(view: DataView, offset: number, value: number): void {
 
 function readU32(view: DataView, offset: number): number {
   return view.getUint32(offset, false)
-}
-
-/** Random 32-bit id for one send session. */
-export function newSheetTransferId(): number {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const buf = new Uint32Array(1)
-    crypto.getRandomValues(buf)
-    return buf[0]! >>> 0
-  }
-  return (Math.floor(Math.random() * 0xffffffff) >>> 0) || 1
 }
 
 /** Serialize meta + image, then deflate. */
@@ -104,136 +67,17 @@ export function unpackSheetTransfer(compressed: Uint8Array): SheetTransferPackag
   return { meta, imageBytes }
 }
 
-/** How many QR frames a compressed package needs. */
-export function sheetTransferFrameCount(packageBytes: number): number {
-  const n = Math.max(0, Math.floor(packageBytes))
-  if (n === 0) return 1
-  return Math.ceil(n / SHEET_QR_CHUNK_PAYLOAD)
-}
-
-export function sheetTransferWarnOverBudget(frameCount: number): boolean {
-  return frameCount > SHEET_QR_WARN_FRAME_COUNT
-}
-
-/** Split compressed bytes into STX1 frames. */
-export function buildSheetTransferFrames(
-  compressed: Uint8Array,
-  opts?: { transferId?: number },
-): BuiltSheetTransfer {
-  const transferId = (opts?.transferId ?? newSheetTransferId()) >>> 0
-  const frameCount = sheetTransferFrameCount(compressed.length)
-  const frames: Uint8Array[] = []
-  for (let i = 0; i < frameCount; i++) {
-    const start = i * SHEET_QR_CHUNK_PAYLOAD
-    const chunk = compressed.subarray(start, start + SHEET_QR_CHUNK_PAYLOAD)
-    const frame = new Uint8Array(HEADER_BYTES + chunk.length)
-    const magic = textEncoder().encode(SHEET_QR_MAGIC)
-    frame.set(magic, 0)
-    const view = new DataView(frame.buffer)
-    writeU32(view, 4, transferId)
-    frame[8] = i
-    frame[9] = frameCount
-    frame[10] = 0
-    frame[11] = 0
-    frame.set(chunk, HEADER_BYTES)
-    frames.push(frame)
-  }
-  return {
-    transferId,
-    frames,
-    frameCount,
-    warnOverBudget: sheetTransferWarnOverBudget(frameCount),
-    packageBytes: compressed.length,
-  }
-}
-
-/** Parse one STX1 frame; null if not our magic / malformed. */
-export function parseSheetTransferFrame(bytes: Uint8Array): SheetTransferFrameInfo | null {
-  if (bytes.length < HEADER_BYTES) return null
-  const magic = textDecoder().decode(bytes.subarray(0, 4))
-  if (magic !== SHEET_QR_MAGIC) return null
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  const transferId = readU32(view, 4)
-  const index = bytes[8]!
-  const count = bytes[9]!
-  if (count < 1 || index >= count) return null
-  return {
-    transferId,
-    index,
-    count,
-    payload: bytes.subarray(HEADER_BYTES),
-  }
-}
-
-/** True when bytes look like an STX1 frame (for scanner routing). */
-export function isSheetTransferFrame(bytes: Uint8Array): boolean {
-  return parseSheetTransferFrame(bytes) != null
-}
-
-/** Assemble frames for one transferId (any order; ignores duplicates). */
-export class SheetTransferAssembler {
-  readonly transferId: number
-  readonly frameCount: number
-  private readonly parts: Array<Uint8Array | null>
-  private got = 0
-
-  constructor(transferId: number, frameCount: number) {
-    this.transferId = transferId
-    this.frameCount = frameCount
-    this.parts = Array.from({ length: frameCount }, () => null)
-  }
-
-  get receivedCount(): number {
-    return this.got
-  }
-
-  get complete(): boolean {
-    return this.got >= this.frameCount
-  }
-
-  /** @returns true if this frame was newly accepted */
-  accept(frame: SheetTransferFrameInfo): boolean {
-    if (frame.transferId !== this.transferId) return false
-    if (frame.count !== this.frameCount) return false
-    if (frame.index < 0 || frame.index >= this.frameCount) return false
-    if (this.parts[frame.index]) return false
-    this.parts[frame.index] = frame.payload
-    this.got += 1
-    return true
-  }
-
-  /** Concat payloads once complete. */
-  buildPackage(): Uint8Array {
-    if (!this.complete) throw new Error('Transfer incomplete')
-    let total = 0
-    for (const p of this.parts) total += p!.length
-    const out = new Uint8Array(total)
-    let offset = 0
-    for (const p of this.parts) {
-      out.set(p!, offset)
-      offset += p!.length
-    }
-    return out
-  }
-}
-
 /**
- * Encode an image source as JPEG sized for QR transfer.
- * Drops quality (and width as a last resort) aiming for ≤ warn frame budget.
+ * Encode an image source as JPEG sized for optical transfer.
  */
 export async function encodeSheetImageForTransfer(
   source: CanvasImageSource | Blob,
-  opts?: {
-    maxWidth?: number
-    /** Prefer packages that fit this many frames (default: warn threshold). */
-    targetMaxFrames?: number
-  },
+  opts?: { maxWidth?: number },
 ): Promise<{ bytes: Uint8Array; mime: string; width: number; height: number; quality: number }> {
-  const targetFrames = opts?.targetMaxFrames ?? SHEET_QR_WARN_FRAME_COUNT
-  const targetBytes = targetFrames * SHEET_QR_CHUNK_PAYLOAD - 256
-  const maxWidth = opts?.maxWidth ?? 800
+  const maxWidth = opts?.maxWidth ?? 1200
+  const qualities = [0.72, 0.6, 0.48, 0.36, 0.28, 0.22]
+  const widths = [maxWidth, Math.min(maxWidth, 960), Math.min(maxWidth, 720)]
 
-  // When given a non-ImageBitmap canvas source, createImageBitmap owns it.
   let bmp: ImageBitmap
   let closeBmp = false
   if (source instanceof Blob) {
@@ -247,11 +91,7 @@ export async function encodeSheetImageForTransfer(
   }
 
   try {
-    const qualities = [0.72, 0.6, 0.48, 0.36, 0.28, 0.22]
-    const widths = [maxWidth, Math.min(maxWidth, 640), Math.min(maxWidth, 480)]
-
     let best: { bytes: Uint8Array; width: number; height: number; quality: number } | null = null
-
     for (const wMax of widths) {
       const scale = Math.min(1, wMax / Math.max(1, bmp.width))
       const width = Math.max(1, Math.round(bmp.width * scale))
@@ -273,9 +113,6 @@ export async function encodeSheetImageForTransfer(
         const bytes = new Uint8Array(await blob.arrayBuffer())
         const candidate = { bytes, width, height, quality }
         if (!best || bytes.length < best.bytes.length) best = candidate
-        if (bytes.length <= targetBytes) {
-          return { ...candidate, mime: 'image/jpeg' }
-        }
       }
     }
 
@@ -289,41 +126,5 @@ export async function encodeSheetImageForTransfer(
         /* ignore */
       }
     }
-  }
-}
-
-/** Build a full transfer (pack + frames) from meta + already-encoded image bytes. */
-export function buildSheetTransfer(
-  meta: SheetTransferMeta,
-  imageBytes: Uint8Array,
-  opts?: { transferId?: number },
-): BuiltSheetTransfer {
-  const compressed = packSheetTransfer({ meta, imageBytes })
-  return buildSheetTransferFrames(compressed, opts)
-}
-
-/** Render STX1 frames to QR data URLs for on-screen display. */
-export async function sheetTransferQrDataUrls(
-  frames: Uint8Array[],
-  size = 512,
-): Promise<string[]> {
-  const out: string[] = []
-  for (const frame of frames) {
-    out.push(await qrDataUrlFromBytes(frame, size))
-  }
-  return out
-}
-
-/** Estimate frames for meta + image without building QR images. */
-export function estimateSheetTransferFrames(
-  meta: SheetTransferMeta,
-  imageBytes: Uint8Array,
-): { frameCount: number; warnOverBudget: boolean; packageBytes: number } {
-  const packageBytes = packSheetTransfer({ meta, imageBytes }).length
-  const frameCount = sheetTransferFrameCount(packageBytes)
-  return {
-    frameCount,
-    warnOverBudget: sheetTransferWarnOverBudget(frameCount),
-    packageBytes,
   }
 }

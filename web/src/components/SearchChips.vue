@@ -9,6 +9,7 @@ import CustomCollectionMark from './CustomCollectionMark.vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { CatalogFilters } from '../search/filters'
 import type { CachedFilter } from '../lib/offlineReadiness'
+import { cachedFilterChipLabel, isOfflineBrowseFilterActive } from '../lib/offlineReadiness'
 import {
   arrangersByLastInitial,
   formatArrangerLastFirst,
@@ -164,6 +165,28 @@ function removeTitleLetter(letter: string): void {
 
 const hasActive = computed(() => filtersActive(props.filters))
 
+const offlineBrowseActive = computed(() => isOfflineBrowseFilterActive(props.filters))
+
+const sheetChipTitle = computed(() =>
+  offlineBrowseActive.value
+    ? 'Only show tags with sheet music cached on this device'
+    : 'Only show tags that have sheet music',
+)
+
+const audioChipTitle = computed(() =>
+  offlineBrowseActive.value
+    ? 'Only show tags with learning tracks cached on this device'
+    : 'Only show tags that have learning tracks',
+)
+
+const offlineChipLabel = computed(() => {
+  const suffix = cachedFilterChipLabel(props.filters.cached)
+  return suffix ? `Available offline: ${suffix}` : 'Available offline'
+})
+
+const offlineChipTitle =
+  'Filter by files cached on this device (any sheet/audio blob; not always Mix-ready)'
+
 const yearChipLabel = computed(() => {
   const { yearMin, yearMax } = props.filters
   if (yearMin != null && yearMax != null) {
@@ -241,7 +264,7 @@ function removeArranger(a: string): void {
         class="chip"
         :class="{ on: filters.hasSheet === true }"
         :aria-pressed="filters.hasSheet === true"
-        title="Only show tags that have sheet music"
+        :title="sheetChipTitle"
         @click="toggleSheet"
       >
         Has sheet
@@ -251,7 +274,7 @@ function removeArranger(a: string): void {
         class="chip"
         :class="{ on: filters.hasAudio === true }"
         :aria-pressed="filters.hasAudio === true"
-        title="Only show tags that have learning tracks"
+        :title="audioChipTitle"
         @click="toggleAudio"
       >
         Has audio
@@ -260,10 +283,10 @@ function removeArranger(a: string): void {
         type="button"
         class="chip"
         :class="{ on: filters.cached != null }"
-        title="Filter by offline files on this device (any sheet/audio blob — not always Mix-ready)"
+        :title="offlineChipTitle"
         @click="openSheet('cached')"
       >
-        Offline files{{ filters.cached ? `: ${filters.cached}` : '' }}
+        {{ offlineChipLabel }}
       </button>
       <button
         type="button"
@@ -360,23 +383,27 @@ function removeArranger(a: string): void {
 
     <FilterSheet
       :open="sheet === 'cached'"
-      title="Offline files on this device"
+      title="Available offline on this device"
       :anchor-top="sheetAnchorTop"
       @close="sheet = null"
     >
+      <p class="hint">
+        When set, <strong>Has sheet</strong> and <strong>Has audio</strong> filter by files cached
+        here, not just what exists in the catalog.
+      </p>
       <label class="cached-field">
-        <span>Offline media</span>
+        <span>Available offline</span>
         <select
           :value="filters.cached ?? ''"
-          aria-label="Offline media"
+          aria-label="Available offline"
           @change="setCached(($event.target as HTMLSelectElement).value)"
         >
           <option value="">No filter</option>
-          <option value="any">Has any files</option>
-          <option value="sheets">Has sheet files</option>
-          <option value="audio">Has audio files</option>
-          <option value="both">Has sheet + audio files</option>
-          <option value="none">No offline files</option>
+          <option value="any">Has any cached files</option>
+          <option value="sheets">Has cached sheet files</option>
+          <option value="audio">Has cached audio files</option>
+          <option value="both">Has cached sheet + audio</option>
+          <option value="none">No cached files</option>
         </select>
       </label>
     </FilterSheet>
@@ -660,13 +687,17 @@ function removeArranger(a: string): void {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  padding: 0.15rem 0.1rem;
 }
 .collection-opts {
   /* ~2 chip rows; paging handles overflow for custom collections. */
-  max-height: calc(40px * 2 + 0.4rem);
+  --collection-chip-row: calc(40px + 2px);
+  max-height: calc(var(--collection-chip-row) * 2 + 0.4rem + 0.3rem);
   overflow: hidden;
   align-content: flex-start;
+  padding: 0.15rem 0.1rem;
   margin-bottom: 0.55rem;
+  box-sizing: border-box;
 }
 .collection-pager {
   display: flex;
@@ -763,6 +794,9 @@ function removeArranger(a: string): void {
 @media (min-width: 768px) {
   .chip {
     min-height: 44px;
+  }
+  .collection-opts {
+    --collection-chip-row: calc(44px + 2px);
   }
 }
 </style>

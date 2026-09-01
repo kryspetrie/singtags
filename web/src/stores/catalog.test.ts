@@ -175,6 +175,16 @@ describe('catalog store', () => {
     expect(catalog.results.map((t) => t.id)).toEqual([2])
     catalog.patchFilters({ cached: 'none' })
     expect(catalog.results.map((t) => t.id)).toEqual([1])
+    catalog.setCacheReadyIndex(
+      new Map([
+        [1, { sheets: true, audio: false }],
+        [2, { sheets: false, audio: true }],
+      ]),
+    )
+    catalog.patchFilters({ cached: 'any', hasSheet: true, hasAudio: null })
+    expect(catalog.results.map((t) => t.id)).toEqual([1])
+    catalog.patchFilters({ cached: 'any', hasSheet: null, hasAudio: true })
+    expect(catalog.results.map((t) => t.id)).toEqual([2])
   })
 
   it('supports pagination, selection, neighbors, and route patch', async () => {

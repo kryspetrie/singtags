@@ -119,6 +119,7 @@ function makeRouter(routes: Parameters<typeof createRouter>[0]['routes']) {
 describe('view smoke tests', () => {
   beforeEach(() => {
     localStorage.clear()
+    document.body.innerHTML = ''
     setActivePinia(createPinia())
     vi.restoreAllMocks()
   })
@@ -406,12 +407,11 @@ describe('view smoke tests', () => {
     await flushPromises()
     const bar = document.body.querySelector('.selection-bar')
     expect(bar?.textContent).toMatch(/1 selected/)
-    expect(bar?.textContent).toMatch(/Add to collection/)
-    const addBtn = [...(bar?.querySelectorAll('button') ?? [])].find((b) =>
-      (b.textContent || '').includes('Add to collection'),
-    )
+    expect(bar?.querySelector('button[aria-label="Add to collection"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Queue download"]')).toBeTruthy()
+    const addBtn = bar!.querySelector('button[aria-label="Add to collection"]') as HTMLButtonElement
     expect(addBtn).toBeTruthy()
-    addBtn!.click()
+    addBtn.click()
     await flushPromises()
     expect(w.find('[data-testid="picker"]').text()).toContain('Add to collection:2')
     w.unmount()
@@ -493,12 +493,13 @@ describe('view smoke tests', () => {
     await flushPromises()
     const bar = document.body.querySelector('.selection-bar')
     expect(bar?.textContent).toMatch(/1 selected/)
-    expect(bar?.textContent).toMatch(/Add to collection/)
-    const addBtn = [...(bar?.querySelectorAll('button') ?? [])].find((b) =>
-      (b.textContent || '').includes('Add to collection'),
-    )
+    expect(bar?.querySelector('button[aria-label="Favorite selected tags"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Add to collection"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Optical transfer"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Queue download"]')).toBeTruthy()
+    const addBtn = bar!.querySelector('button[aria-label="Add to collection"]') as HTMLButtonElement
     expect(addBtn).toBeTruthy()
-    addBtn!.click()
+    addBtn.click()
     await flushPromises()
     expect(w.find('[data-testid="picker"]').text()).toContain('Add to collection:7')
     w.unmount()
@@ -508,6 +509,24 @@ describe('view smoke tests', () => {
     const w = mount(PitchPipeView, { global: { plugins: [createPinia()] } })
     expect(w.text()).toMatch(/Pitch|F3|pipe/i)
     expect(w.findAll('button.note').length).toBeGreaterThanOrEqual(13)
+    w.unmount()
+  })
+
+  it('OpticalTransferView renders send tab with queue UI', async () => {
+    const OpticalTransferView = (await import('./OpticalTransferView.vue')).default
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/optical-transfer', component: OpticalTransferView }],
+    })
+    await router.push('/optical-transfer')
+    await router.isReady()
+    const w = mount(OpticalTransferView, {
+      global: { plugins: [createPinia(), router] },
+    })
+    await flushPromises()
+    expect(w.text()).toMatch(/Optical transfer/)
+    expect(w.text()).toMatch(/Transfer queue/)
+    expect(w.text()).toMatch(/Add files/)
     w.unmount()
   })
 
@@ -582,9 +601,9 @@ describe('view smoke tests', () => {
     await w.vm.$nextTick()
     const bar = document.body.querySelector('.selection-bar')
     expect(bar).toBeTruthy()
-    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.includes('Add to zip'))!.click()
+    await (bar!.querySelector('button[aria-label="Queue download"]') as HTMLButtonElement).click()
     await flushPromises()
-    await [...bar!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Favorite')!.click()
+    await (bar!.querySelector('button[aria-label="Favorite selected tags"]') as HTMLButtonElement).click()
     await flushPromises()
     expect(favorites.starMany).toHaveBeenCalled()
     expect(w.find('[aria-label="Search tags"]').exists()).toBe(true)
@@ -867,6 +886,8 @@ describe('view smoke tests', () => {
       attachTo: document.body,
       global: { plugins: [pinia, router], stubs: { EmptyState: true, RouterLink: true } },
     })
+    await flushPromises()
+    await w.get('button[aria-label="More favorites actions"]').trigger('click')
     await flushPromises()
     await w.findAll('button').find((b) => b.text().includes('Backup & restore'))!.trigger('click')
     await flushPromises()
