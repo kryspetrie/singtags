@@ -68,6 +68,22 @@ describe('sheetAssets', () => {
     expect(assets.canChooseFormat).toBe(false)
   })
 
+  it('omits Tag Shop Sheet.png rasters when pages already cover the arrangement', () => {
+    const assets = resolveSheetAssets({
+      sheet: 'sheets/7/Hello - Sheet.pdf',
+      sheets: [
+        'sheets/7/Hello - Sheet.pdf',
+        'sheets/7/Hello - Sheet.png',
+        'sheets/7/Hello - Sheet Preview.webp',
+      ],
+      sheet_preview: 'sheets/7/preview.webp',
+      sheet_pages: ['sheets/7/preview.webp'],
+    })
+    expect(assets.imageSets.map((s) => s.label)).toEqual(['Pages'])
+    expect(assets.pdfs).toHaveLength(1)
+    expect(assets.canChooseFormat).toBe(false)
+  })
+
   it('keeps alternate images alongside pages from a primary PDF', () => {
     const assets = resolveSheetAssets({
       sheet: 'sheets/1/sheet.pdf',

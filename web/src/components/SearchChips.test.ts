@@ -115,6 +115,18 @@ describe('SearchChips', () => {
     w.unmount()
   })
 
+  it('sets the cached media filter', async () => {
+    const w = mount(SearchChips, { props: base, attachTo: document.body })
+    await chip(w, 'Offline files').trigger('click')
+    await flushPromises()
+    const select = await waitBodySelect('Offline media')
+    select.value = 'both'
+    select.dispatchEvent(new Event('change'))
+    await flushPromises()
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ cached: 'both' })
+    w.unmount()
+  })
+
   it('filters arrangers and toggles type/collection', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
     await openFilters(w)

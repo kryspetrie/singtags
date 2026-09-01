@@ -229,6 +229,34 @@ export function formatKeyShiftLabel(key: string | null | undefined, shift: numbe
 }
 
 /**
+ * Widest label {@link formatKeyShiftLabel} produces for normal catalog keys (± one octave).
+ * Used to size pitch controls so the chip doesn’t resize or ellipsize as the shift changes.
+ */
+export const KEY_SHIFT_LABEL_SIZE_SAMPLE: string = (() => {
+  let best = formatKeyShiftLabel(null, 0)
+  const roots = [...new Set([...SHARP_PC, ...FLAT_PC])]
+  for (const root of roots) {
+    for (const quality of ['Major', 'Minor'] as const) {
+      for (const key of [`${root} ${quality}`, `${quality}:${root}`, root]) {
+        for (const shift of [
+          MIN_PITCH_SEMITONES,
+          MAX_PITCH_SEMITONES,
+          0,
+          1,
+          -1,
+          10,
+          -10,
+        ]) {
+          const label = formatKeyShiftLabel(key, shift)
+          if (label.length > best.length) best = label
+        }
+      }
+    }
+  }
+  return best
+})()
+
+/**
  * Web Audio pitch pipe: blended saw + sine oscillators with fade in/out.
  * Used by the pitch-pipe page and tag-page pay-the-key control.
  */

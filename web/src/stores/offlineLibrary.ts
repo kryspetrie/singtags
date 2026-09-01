@@ -68,6 +68,7 @@ import {
   usesOpusStorage,
 } from '../types/audio'
 import { useOfflineModeStore } from './offlineMode'
+import { loadOfflineReadinessIndex } from '../lib/offlineReadiness'
 
 export type { OfflineManifest, OfflineManifestEntry }
 
@@ -250,6 +251,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       sheetsCachedBytes.value = 0
       audioCachedBytes.value = 0
     }
+  }
+
+  /** Rebuild the catalog's per-tag cached-media index with bulk storage reads. */
+  async function refreshCacheReady(): Promise<void> {
+    const index = await loadOfflineReadinessIndex()
+    const { useCatalogStore } = await import('./catalog')
+    useCatalogStore().setCacheReadyIndex(index)
   }
 
   /** Key for dismissing “library grew” sync toast until manifests change again. */
@@ -628,7 +636,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         else audioStatus.value = s
         if (err) error.value = err
         void persistProgress(kind, { status: s, cursor: queue.getCursor() })
-        void refreshEstimate().then(() => refreshPackSyncPrompt())
+        void refreshEstimate().then(() => {
+          void refreshCacheReady().catch(() => undefined)
+          refreshPackSyncPrompt()
+        })
       },
       onItemDone: (_path, index) => {
         schedulePersistCursor(kind, index + 1, manifest.version)
@@ -678,6 +689,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       dismissedPrompt: true,
     })
     await refreshEstimate()
+    await refreshCacheReady().catch(() => undefined)
     refreshPackSyncPrompt()
   }
 
@@ -767,8 +779,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     const ok = await requestPersistentStorage()
     await refreshEstimate()
     cacheMessage.value = ok
-      ? 'Persistent storage granted — the browser is less likely to clear this site’s offline cache under storage pressure.'
-      : 'Persistent storage was not granted. Cached data may still be cleared if the device is low on space.'
+      ? 'Offline data protected — the browser is less likely to clear SingTags’ cache when storage is low.'
+      : 'Could not protect offline data. Cached sheets and tracks may still be cleared if the device is low on space.'
     return ok
   }
 
@@ -816,6 +828,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     restoreCatalogCached,
     hydrateManifestSnapshots,
     refreshEstimate,
+    refreshCacheReady,
     startPack,
     pausePack,
     clearPack,

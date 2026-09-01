@@ -108,7 +108,9 @@ function close(): void {
             <p>
               Designed for absolute performance: in-memory catalog, offline favorites, and bulk
               download tools.
-              <button type="button" class="text-link" @click="panel = 'details'">
+            </p>
+            <p class="details-action">
+              <button type="button" class="btn btn-ghost" @click="panel = 'details'">
                 Offline, install &amp; cache details
               </button>
             </p>
@@ -122,7 +124,7 @@ function close(): void {
 
         <template v-else>
           <header class="head">
-            <button type="button" class="back" @click="panel = 'about'">← About</button>
+            <button type="button" class="btn btn-ghost back" @click="panel = 'about'">← About</button>
             <p class="eyebrow">Details</p>
             <h2 id="about-details-title">Offline, install &amp; cache</h2>
           </header>
@@ -199,14 +201,17 @@ function close(): void {
             </div>
 
             <p>
-              Export and back up your starred / offline data from
-              <RouterLink to="/settings" @click="close">Offline settings</RouterLink>
-              whenever you need a copy on your device.
+              Favorites, recent tags, and media packs live in persistent browser storage. Use Offline
+              settings to export or back up your starred / offline data whenever you need a copy on
+              your device.
             </p>
           </div>
 
           <footer class="actions">
             <button type="button" class="btn btn-primary" @click="close">Close</button>
+            <RouterLink class="btn btn-ghost" to="/settings" @click="close">
+              Offline settings
+            </RouterLink>
           </footer>
         </template>
       </div>
@@ -251,22 +256,9 @@ function close(): void {
 .back {
   justify-self: start;
   margin: 0 0 0.15rem;
-  padding: 0.15rem 0.35rem;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.back:hover {
-  text-decoration: underline;
-}
-.back:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
 }
 .eyebrow {
   margin: 0;
@@ -297,9 +289,13 @@ function close(): void {
 .body p {
   margin: 0;
 }
-.body a,
-.text-link {
+.body a {
   color: var(--accent);
+}
+.details-action .btn {
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
 }
 .install-guides {
   display: grid;
@@ -319,48 +315,10 @@ function close(): void {
 .install-guides li {
   margin: 0;
 }
-.text-link {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  cursor: pointer;
-}
-.text-link:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0.4rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.btn-primary:hover {
-  filter: brightness(1.05);
 }
 </style>

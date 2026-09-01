@@ -11,15 +11,27 @@
 }
 
 .btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   font: inherit;
+  font-weight: 600;
   min-height: var(--touch, 44px);
   padding: 0.45rem 0.85rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
+}
+a.btn:hover {
+  text-decoration: none;
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 .btn:disabled {
   opacity: 0.5;
@@ -30,11 +42,26 @@
   color: #fff;
   border-color: var(--accent);
 }
+a.btn-primary:hover {
+  color: #fff;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
 .btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--accent);
-  text-decoration: underline;
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+.btn-ghost:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+a.btn-ghost:hover {
+  color: var(--accent-hover);
+  text-decoration: none;
 }
 .btn-danger {
   color: var(--danger);

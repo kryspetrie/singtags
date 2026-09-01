@@ -112,8 +112,9 @@ export function adaptiveGlobalInflightCap(hints: NetworkHints = readNetworkHints
 export class InflightLimiter {
   private active = 0
   private readonly waiters: Array<() => void> = []
+  private max: number
 
-  constructor(private max: number) {
+  constructor(max: number) {
     this.max = Math.max(1, max)
   }
 

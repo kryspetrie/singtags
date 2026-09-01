@@ -6,7 +6,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useWindowVirtualizer } from '@tanstack/vue-virtual'
-import { useCatalogStore, type SortMode } from '../stores/catalog'
+import { useCatalogStore, DEFAULT_BROWSE_SORT, type SortMode } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
 import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
@@ -19,7 +19,6 @@ import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
-import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
@@ -29,6 +28,9 @@ import { sheetsPack } from '../offline/libraryPack'
 import { getStarred } from '../offline/favoritesDb'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
+import { useSnackbarStore } from '../stores/snackbar'
+import { browseScrollIntent } from '../router'
+import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
 import {
   bookletBadgeForTag,
   hasJumpRail,
@@ -47,7 +49,11 @@ import { isUserCollectionFilterId } from '../lib/collections'
 import { normalizeYear } from '../lib/year'
 import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
+import { tagOpenLocation } from '../lib/tagOpen'
+import { parseTagQrPayload } from '../lib/tagQrScan'
+import { decodeQrFromFile, probeCameraAccess } from '../lib/qrDecode'
 import { useOnline } from '../composables/useOnline'
+import TagQrScanner from '../components/TagQrScanner.vue'
 
 const catalog = useCatalogStore()
 const queue = useQueueStore()
@@ -56,19 +62,30 @@ const userCollections = useUserCollectionsStore()
 const recent = useRecentStore()
 const offlineLib = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
+const snackbar = useSnackbarStore()
 const { offline } = useOnline()
 const route = useRoute()
 const router = useRouter()
 const lyricsError = ref<string | null>(null)
 const syncingRoute = ref(false)
-const bulkMsg = ref<string | null>(null)
 const tipsOpen = ref(false)
 const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
+const qrScannerOpen = ref(false)
+const qrFileInputRef = ref<HTMLInputElement | null>(null)
 
 function closeWelcome(): void {
   prefs.dismissBrowseWelcome()
   welcomeOpen.value = false
+  // First-run dismiss: keep search/filters in view under the dialog.
+  scrollToSearchTop()
+}
+
+/** Document y=0 — search bar and filters visible (not sticky jump-rail floor). */
+function scrollToSearchTop(): void {
+  scrubScrollIndex.value = 0
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  windowScrollY.value = 0
 }
 
 async function onWelcomeContinue(opts: { cacheSheets: boolean; cacheAudio: boolean }): Promise<void> {
@@ -109,6 +126,51 @@ function closeSearchTips(): void {
   tipsOpen.value = false
 }
 
+/** Open live camera scanner, or the photo picker when no camera is available. */
+async function onScanQrClick(): Promise<void> {
+  const hasCamera = await probeCameraAccess()
+  if (hasCamera) {
+    qrScannerOpen.value = true
+    return
+  }
+  qrFileInputRef.value?.click()
+}
+
+function openTagFromQrPayload(payload: string): void {
+  const loc = parseTagQrPayload(payload)
+  if (!loc) {
+    snackbar.show('That QR code is not a SingTags tag link.', { tone: 'error' })
+    return
+  }
+  qrScannerOpen.value = false
+  void router.push(loc)
+}
+
+function onQrScannerDetected(payload: string): void {
+  openTagFromQrPayload(payload)
+}
+
+function onQrScannerError(message: string): void {
+  snackbar.show(message, { tone: 'error' })
+}
+
+async function onQrFilePicked(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  try {
+    const payload = await decodeQrFromFile(file)
+    if (!payload) {
+      snackbar.show('No QR code found in that image.', { tone: 'error' })
+      return
+    }
+    openTagFromQrPayload(payload)
+  } catch {
+    snackbar.show('Could not read that image.', { tone: 'error' })
+  }
+}
+
 function markBrowseOpen(id: number): void {
   recent.markBrowseNavigation(id)
 }
@@ -117,10 +179,19 @@ function browseAltTitle(tag: TagSummary): string | null {
   return visibleAltTitle(tag.altTitle, tag.title)
 }
 
+function cacheReadyLabel(tagId: number): string | null {
+  const ready = catalog.cacheReadyByTag.get(tagId)
+  if (!ready) return null
+  if (ready.sheets && ready.audio) return 'Sheets+tracks'
+  if (ready.sheets) return 'Sheets'
+  if (ready.audio) return 'Tracks'
+  return null
+}
+
 function applyRoute(): void {
   syncingRoute.value = true
   const sort = (
-    typeof route.query.sort === 'string' ? route.query.sort : 'title'
+    typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_BROWSE_SORT
   ) as SortMode
   catalog.syncFromRoute(route.query as Record<string, unknown>, sort)
   queueMicrotask(() => {
@@ -180,7 +251,6 @@ async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
 }
 
 async function addSelectedToQueue(): Promise<void> {
-  bulkMsg.value = null
   let ok = 0
   let skipped = 0
   for (const id of catalog.selectedIds) {
@@ -217,7 +287,7 @@ async function addSelectedToQueue(): Promise<void> {
     queue.addMany([...sheetItems, ...audioItems])
     ok++
   }
-  bulkMsg.value =
+  const msg =
     skipped > 0
       ? offline.value
         ? `Queued files from ${ok} tag(s); ${skipped} skipped (not cached on device).`
@@ -227,6 +297,7 @@ async function addSelectedToQueue(): Promise<void> {
         : offline.value
           ? 'No cached tag details — open tags online once, or reconnect.'
           : 'No files queued.'
+  snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
 }
 
 const collectionPickerOpen = ref(false)
@@ -331,7 +402,8 @@ function selectRowTip(tag: TagSummary): string {
 function rowOpenTip(tag: TagSummary): string {
   const title = tag.title || `Tag ${tag.id}`
   const alt = browseAltTitle(tag)
-  return alt ? `Open ${title} (${alt})` : `Open ${title}`
+  const base = alt ? `Open ${title} (${alt})` : `Open ${title}`
+  return prefs.singMode ? `${base} — Sing mode (fullscreen sheet)` : base
 }
 
 function sortOptionTip(id: SortMode): string {
@@ -1000,6 +1072,7 @@ function onSearchKeydown(e: KeyboardEvent): void {
 }
 
 onMounted(async () => {
+  void offlineLib.refreshCacheReady().catch(() => undefined)
   await Promise.all([catalog.load(), favorites.ensureLoaded()])
   applyRoute()
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
@@ -1008,6 +1081,16 @@ onMounted(async () => {
   syncStickyBrowsePad()
   syncScrubFromScroll()
   syncJumpCols()
+  // Fresh Browse entry (app open, home nav, reload): land on search.
+  // Back-from-tag: keep / re-apply click position (virtualizer needs post-load height).
+  if (browseScrollIntent !== 'restore') {
+    scrollToSearchTop()
+    requestAnimationFrame(() => {
+      scrollToSearchTop()
+    })
+  } else {
+    applyTagReturnScrollIfAny()
+  }
   windowScrollY.value = window.scrollY
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
   jumpRailRo = new ResizeObserver(() => {
@@ -1091,6 +1174,18 @@ watch(
               @click="catalog.queryText = ''"
             >
               ✕
+            </button>
+            <button
+              type="button"
+              class="icon-btn scan-qr-btn"
+              aria-label="Scan SingTags QR code"
+              title="Scan a SingTags QR code to open a tag"
+              @click="onScanQrClick"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+                <circle cx="12" cy="13" r="3.25" />
+              </svg>
             </button>
             <div class="tips-wrap">
               <button
@@ -1186,6 +1281,21 @@ watch(
         <code>-word</code>; quotes for an exact phrase.
       </p>
     </FilterSheet>
+    <TagQrScanner
+      :open="qrScannerOpen"
+      @close="qrScannerOpen = false"
+      @detected="onQrScannerDetected"
+      @error="onQrScannerError"
+    />
+    <input
+      ref="qrFileInputRef"
+      class="visually-hidden"
+      type="file"
+      accept="image/*"
+      aria-hidden="true"
+      tabindex="-1"
+      @change="onQrFilePicked"
+    />
     <BrowseWelcomeDialog
       :open="welcomeOpen"
       @close="closeWelcome"
@@ -1195,10 +1305,6 @@ watch(
       Search lyrics is on — matching titles until the lyrics index finishes loading.
     </p>
     <p v-if="lyricsError" class="warn" role="alert">{{ lyricsError }}</p>
-    <p v-if="bulkMsg" class="ok" role="status">{{ bulkMsg }}</p>
-    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
-      <FavoritesNoticeLine :notice="favorites.lastNotice" />
-    </p>
 
     <p v-if="catalog.loading || (!catalog.loaded && !catalog.error)" class="text-muted" role="status">
       Loading catalog…
@@ -1552,7 +1658,7 @@ watch(
               {{ catalog.selectedIds.has(item.row.tag.id) ? '✓' : '' }}
             </button>
             <RouterLink
-              :to="`/tag/${item.row.tag.id}`"
+              :to="tagOpenLocation(item.row.tag.id, { fullscreen: prefs.singMode })"
               class="row-link"
               :title="rowOpenTip(item.row.tag)"
               @click="markBrowseOpen(item.row.tag.id)"
@@ -1591,6 +1697,11 @@ watch(
                   class="dl-count"
                   title="Downloads on barbershoptags.com"
                 >↓ {{ formatDownloads(item.row.tag.downloads) }}</span>
+                <span
+                  v-if="cacheReadyLabel(item.row.tag.id)"
+                  class="badge cache-ready"
+                  :title="`Cached offline: ${cacheReadyLabel(item.row.tag.id)}`"
+                >{{ cacheReadyLabel(item.row.tag.id) }}</span>
                 <span
                   v-if="!item.row.tag.hasSheet"
                   class="badge badge-icon"
@@ -1728,6 +1839,24 @@ watch(
       @close="collectionPickerOpen = false"
       @done="favoriteSelectedToCollection"
     />
+
+    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
+      <button
+        type="button"
+        class="sing-mode-btn"
+        :class="{ on: prefs.singMode }"
+        :aria-pressed="prefs.singMode"
+        :title="
+          prefs.singMode
+            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
+            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
+        "
+        @click="prefs.setSingMode(!prefs.singMode)"
+      >
+        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
+        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
+      </button>
+    </div>
   </section>
 </template>
 
@@ -1748,6 +1877,56 @@ watch(
 }
 .home.has-selection {
   padding-bottom: 5.5rem;
+}
+.sing-mode-fab {
+  position: fixed;
+  z-index: 24;
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
+  pointer-events: none;
+}
+.home.has-selection .sing-mode-fab {
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
+}
+.sing-mode-btn {
+  pointer-events: auto;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 4.75rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  touch-action: manipulation;
+}
+.sing-mode-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.sing-mode-kicker {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+.sing-mode-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+@media (min-width: 768px) {
+  .sing-mode-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .home.has-selection .sing-mode-fab {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
 }
 .warn {
   color: var(--danger);
@@ -1780,7 +1959,7 @@ watch(
   min-width: 0;
   width: 100%;
   min-height: 48px;
-  padding: 0.75rem 4.25rem 0.75rem 0.95rem;
+  padding: 0.75rem 6.5rem 0.75rem 0.95rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1827,10 +2006,24 @@ watch(
 .clear-infield {
   font-size: 0.85rem;
 }
+.scan-qr-btn svg {
+  display: block;
+}
 .tips-btn {
   font-family: Georgia, 'Times New Roman', serif;
   font-style: italic;
   font-size: 0.95rem;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .options-btn {
   position: relative;

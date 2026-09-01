@@ -9,11 +9,14 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import HomeView from './HomeView.vue'
 import FavoritesView from './FavoritesView.vue'
 import PitchPipeView from './PitchPipeView.vue'
+import RecentView from './RecentView.vue'
 import TagView from './TagView.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
 import { usePracticeStore } from '../stores/practice'
 import { usePreferencesStore } from '../stores/preferences'
+import { useRecentStore } from '../stores/recent'
+import { useUserCollectionsStore } from '../stores/userCollections'
 
 vi.mock('../audio/pitchPlayer', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../audio/pitchPlayer')>()
@@ -162,6 +165,95 @@ describe('view smoke tests', () => {
     await flushPromises()
     expect(catalog.loaded).toBe(true)
     expect(w.find('.search-toolbar').exists()).toBe(true)
+    expect(w.find('button.scan-qr-btn').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('HomeView Sing mode FAB toggles persisted preference', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
+    const catalog = useCatalogStore()
+    vi.spyOn(catalog, 'load').mockImplementation(async () => {
+      catalog.$patch({ loaded: true, loading: false, tags: [] })
+    })
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
+
+    const router = makeRouter([{ path: '/', name: 'home', component: HomeView }])
+    await router.push('/')
+    const w = mount(HomeView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+      },
+    })
+    await flushPromises()
+    const prefs = usePreferencesStore()
+    expect(prefs.singMode).toBe(false)
+    await w.get('.sing-mode-btn').trigger('click')
+    await flushPromises()
+    expect(prefs.singMode).toBe(true)
+    expect(w.get('.sing-mode-btn').attributes('aria-pressed')).toBe('true')
+    expect(localStorage.getItem('singtags.singMode.v1')).toBe('1')
+    w.unmount()
+  })
+
+  it('FavoritesView Sing mode tags favorite links with fullscreen=1', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const favorites = useFavoritesStore()
+    const practice = usePracticeStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    favorites.$patch({
+      records: [
+        {
+          tagId: 9,
+          starredAt: '2026-01-02T00:00:00.000Z',
+          summary: {
+            id: 9,
+            title: 'Sing Me',
+            arranger: null,
+            key: 'G',
+            rating: null,
+            type: null,
+            collection: null,
+            hasSheet: true,
+            audioParts: [],
+            sheet: null,
+          },
+          detail: null,
+          offlineMedia: false,
+        },
+      ],
+      loaded: true,
+    })
+    practice.resetFromStarred([9])
+
+    const router = makeRouter([
+      { path: '/favorites', component: FavoritesView },
+      { path: '/tag/:id', component: { template: '<div />' } },
+    ])
+    await router.push('/favorites')
+    const w = mount(FavoritesView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: {
+          EmptyState: true,
+          RouterLink: {
+            props: ['to'],
+            template: '<a class="fav-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    const prefs = usePreferencesStore()
+    expect(prefs.singMode).toBe(false)
+    await w.get('button.sing-mode-btn').trigger('click')
+    await flushPromises()
+    expect(prefs.singMode).toBe(true)
+    const tos = w.findAll('.fav-link-stub').map((a) => JSON.parse(a.attributes('data-to') || '{}'))
+    expect(tos.some((t) => t.path === '/tag/9' && t.query?.fullscreen === '1')).toBe(true)
     w.unmount()
   })
 
@@ -229,7 +321,7 @@ describe('view smoke tests', () => {
     expect(practice.order).toEqual([2, 1])
     expect(w.find('.drag-handle').exists()).toBe(true)
     expect(w.text()).not.toMatch(/Start practice|Auto-advance|Reset order/)
-    const sortSelect = w.find('select[aria-label="Sort favorites"]')
+    const sortSelect = w.find('select[aria-label="View favorites by"]')
     expect(sortSelect.exists()).toBe(true)
     expect((sortSelect.element as HTMLSelectElement).value).toBe('custom')
     practice.reorder(1, 0)
@@ -237,7 +329,7 @@ describe('view smoke tests', () => {
     await sortSelect.setValue('favorited-new')
     // Preview only — persisted custom order unchanged until Apply
     expect(practice.order).toEqual([1, 2])
-    const applyBtn = w.findAll('button').find((b) => b.text() === 'Apply sort')!
+    const applyBtn = w.find('button.sort-apply')
     expect(applyBtn.attributes('disabled')).toBeUndefined()
     await applyBtn.trigger('click')
     expect(practice.order).toEqual([2, 1])
@@ -247,6 +339,200 @@ describe('view smoke tests', () => {
     expect(practice.order).toEqual([2, 1])
     await applyBtn.trigger('click')
     expect(practice.order).toEqual([1, 2])
+    w.unmount()
+  })
+
+  it('FavoritesView selects tags for collections and shows membership chips', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const favorites = useFavoritesStore()
+    const practice = usePracticeStore()
+    const collections = useUserCollectionsStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    favorites.$patch({
+      records: [
+        {
+          tagId: 2,
+          starredAt: '2026-01-02T00:00:00.000Z',
+          summary: {
+            id: 2,
+            title: 'Second',
+            arranger: null,
+            key: 'G',
+            rating: null,
+            type: null,
+            collection: null,
+            hasSheet: false,
+            audioParts: [],
+            sheet: null,
+          },
+          detail: null,
+          offlineMedia: false,
+        },
+        {
+          tagId: 1,
+          starredAt: '2026-01-01T00:00:00.000Z',
+          summary: {
+            id: 1,
+            title: 'First',
+            arranger: null,
+            key: 'C',
+            rating: null,
+            type: null,
+            collection: null,
+            hasSheet: true,
+            audioParts: [],
+            sheet: null,
+          },
+          detail: null,
+          offlineMedia: true,
+        },
+      ],
+      loaded: true,
+    })
+    practice.resetFromStarred([2, 1])
+    collections.create('Contest set', [1])
+
+    const router = makeRouter([
+      { path: '/favorites', component: FavoritesView },
+      { path: '/tag/:id', component: { template: '<div />' } },
+    ])
+    await router.push('/favorites')
+    const w = mount(FavoritesView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: {
+          EmptyState: true,
+          RouterLink: {
+            props: ['to'],
+            template: '<a class="row-link"><slot /></a>',
+          },
+          CollectionPickerSheet: {
+            props: ['open', 'tagIds', 'title'],
+            emits: ['close', 'done'],
+            template:
+              '<div v-if="open" data-testid="picker">{{ title }}:{{ tagIds.join(",") }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(w.find('.col-chip').exists()).toBe(true)
+    expect(w.find('.col-chip').text()).toContain('Contest set')
+    expect(w.find('button.chip-add').exists()).toBe(false)
+    expect(w.text()).toMatch(/Select tags/)
+
+    await w.get('.col-chip').trigger('click')
+    await flushPromises()
+    expect(w.text()).toMatch(/Showing “Contest set”/)
+    await w.get('.col-chip').trigger('click')
+    await flushPromises()
+    expect(w.text()).not.toMatch(/Showing “Contest set”/)
+    expect(w.text()).toMatch(/Select tags/)
+
+    const sel = w.findAll('button.sel-btn')
+    expect(sel.length).toBeGreaterThan(0)
+    await sel[0]!.trigger('click')
+    await flushPromises()
+    const bar = document.body.querySelector('.selection-bar')
+    expect(bar?.textContent).toMatch(/1 selected/)
+    expect(bar?.textContent).toMatch(/Add to collection/)
+    const addBtn = [...(bar?.querySelectorAll('button') ?? [])].find((b) =>
+      (b.textContent || '').includes('Add to collection'),
+    )
+    expect(addBtn).toBeTruthy()
+    addBtn!.click()
+    await flushPromises()
+    expect(w.find('[data-testid="picker"]').text()).toContain('Add to collection:2')
+    w.unmount()
+  })
+
+  it('RecentView selects tags for collections', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const catalog = useCatalogStore()
+    const favorites = useFavoritesStore()
+    const recent = useRecentStore()
+    vi.spyOn(catalog, 'load').mockResolvedValue()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    catalog.$patch({
+      loaded: true,
+      loading: false,
+      tags: [
+        {
+          id: 7,
+          title: 'Recent One',
+          arranger: null,
+          key: 'C',
+          rating: null,
+          type: null,
+          collection: null,
+          hasSheet: true,
+          audioParts: [],
+          sheet: null,
+        },
+        {
+          id: 8,
+          title: 'Recent Two',
+          arranger: null,
+          key: 'G',
+          rating: null,
+          type: null,
+          collection: null,
+          hasSheet: false,
+          audioParts: [],
+          sheet: null,
+        },
+      ],
+    })
+    recent.$patch({
+      entries: [
+        { id: 7, opens: 3, lastOpenedAt: '2026-01-02T00:00:00.000Z' },
+        { id: 8, opens: 1, lastOpenedAt: '2026-01-01T00:00:00.000Z' },
+      ],
+    })
+
+    const router = makeRouter([
+      { path: '/recent', component: RecentView },
+      { path: '/tag/:id', component: { template: '<div />' } },
+    ])
+    await router.push('/recent')
+    const w = mount(RecentView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: {
+          EmptyState: true,
+          RouterLink: {
+            props: ['to'],
+            template: '<a class="row-link"><slot /></a>',
+          },
+          CollectionPickerSheet: {
+            props: ['open', 'tagIds', 'title'],
+            emits: ['close', 'done'],
+            template:
+              '<div v-if="open" data-testid="picker">{{ title }}:{{ tagIds.join(",") }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(w.text()).toMatch(/Select tags/)
+    const sel = w.findAll('button.sel-btn')
+    expect(sel.length).toBe(2)
+    await sel[0]!.trigger('click')
+    await flushPromises()
+    const bar = document.body.querySelector('.selection-bar')
+    expect(bar?.textContent).toMatch(/1 selected/)
+    expect(bar?.textContent).toMatch(/Add to collection/)
+    const addBtn = [...(bar?.querySelectorAll('button') ?? [])].find((b) =>
+      (b.textContent || '').includes('Add to collection'),
+    )
+    expect(addBtn).toBeTruthy()
+    addBtn!.click()
+    await flushPromises()
+    expect(w.find('[data-testid="picker"]').text()).toContain('Add to collection:7')
     w.unmount()
   })
 
@@ -626,11 +912,11 @@ describe('view smoke tests', () => {
     })
     backupBtn.click()
     expect(click).toHaveBeenCalled()
-    await w.find('select[aria-label="Sort favorites"]').setValue('favorited-new')
-    await w.findAll('button').find((b) => b.text() === 'Apply sort')!.trigger('click')
+    await w.find('select[aria-label="View favorites by"]').setValue('favorited-new')
+    await w.find('button.sort-apply').trigger('click')
     expect(practice.order).toEqual([2, 1])
     expect(
-      (w.find('select[aria-label="Sort favorites"]').element as HTMLSelectElement).value,
+      (w.find('select[aria-label="View favorites by"]').element as HTMLSelectElement).value,
     ).toBe('custom')
     const starBtn = w.find('button.row-fav')
     expect(starBtn.attributes('title')).toMatch(/Unfavorite/)
@@ -663,7 +949,7 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('TagView favorites, queues, exits practice, and advances on ended', async () => {
+  it('TagView favorites and ignores dead practice query', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const catalog = useCatalogStore()
@@ -682,61 +968,21 @@ describe('view smoke tests', () => {
           audioParts: ['lead'],
           sheet: null,
         },
-        {
-          id: 4,
-          title: 'Next',
-          arranger: 'A',
-          key: 'C',
-          rating: 3,
-          type: null,
-          collection: null,
-          hasSheet: false,
-          audioParts: ['lead'],
-          sheet: null,
-        },
       ],
       loaded: true,
       loading: false,
     })
-    vi.spyOn(catalog, 'load').mockResolvedValue()
-    const practice = usePracticeStore()
-    practice.resetFromStarred([3, 4])
-    practice.autoAdvance = true
     const favorites = useFavoritesStore()
     vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
     vi.spyOn(favorites, 'get').mockResolvedValue(undefined)
     vi.spyOn(favorites, 'toggle').mockResolvedValue()
     vi.spyOn(favorites, 'isStarred').mockReturnValue(false)
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input)
-        if (url.includes('metadata.json') || url.includes('/tags/')) {
-          return new Response(
-            JSON.stringify({
-              tag_id: 3,
-              title: 'Practice Me',
-              arranger: 'A',
-              key: 'Bb',
-              writ_key: 'Major:Bb',
-              audio: { lead: 'media/3/lead.m4a' },
-              sheet_pages: ['sheets/3/p1.webp'],
-            }),
-            { status: 200 },
-          )
-        }
-        return new Response(new Uint8Array([1]), { status: 200 })
-      }),
-    )
-
     const router = makeRouter([
       { path: '/tag/:id', name: 'tag', component: TagView, props: true },
       { path: '/favorites', component: { template: '<div />' } },
     ])
     await router.push({ path: '/tag/3', query: { set: 'practice', shift: '1' } })
-    const push = vi.spyOn(router, 'push')
-    const replace = vi.spyOn(router, 'replace')
     const w = mount(TagView, {
       props: { id: '3' },
       global: {
@@ -748,29 +994,13 @@ describe('view smoke tests', () => {
     await flushPromises()
 
     expect(w.text()).toContain('Practice Me')
+    expect(w.text()).not.toMatch(/Practice set|Auto-advance/)
+    expect(w.findAll('button').some((b) => b.text() === 'Exit')).toBe(false)
+
     const starBtn = w.findAll('button').find((b) => /favorite/i.test(b.text()))
     expect(starBtn).toBeTruthy()
     await starBtn!.trigger('click')
     expect(favorites.toggle).toHaveBeenCalled()
-
-    const queueBtn = w.findAll('button').find((b) => /queue/i.test(b.text()) && !/Favorite/i.test(b.text()))
-    if (queueBtn) {
-      await queueBtn.trigger('click')
-      await flushPromises()
-    }
-
-    await w.findAll('button').find((b) => b.text() === 'Exit')!.trigger('click')
-    expect(replace).toHaveBeenCalled()
-
-    // re-enter practice and fire ended
-    await router.push({ path: '/tag/3', query: { set: 'practice' } })
-    await flushPromises()
-    const player = w.findComponent({ name: 'TagPlayer' })
-    if (player.exists()) {
-      await player.vm.$emit('ended')
-      await flushPromises()
-      expect(push).toHaveBeenCalled()
-    }
     w.unmount()
   })
 })

@@ -6,12 +6,16 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { RouteLocationNormalized, Router } from 'vue-router'
 import { useRecentStore } from '../stores/recent'
 import {
+  applyTagReturnScrollIfAny,
+  armTagReturnScroll,
   captureTagReturnOrigin,
   clearTagReturnOrigin,
+  consumeTagReturnScrollY,
   goTagBack,
   labelForListRoute,
   onTagReturnBeforeEach,
   peekTagReturnOrigin,
+  peekTagReturnScrollY,
   setTagReturnOriginForTests,
   tagBackLabel,
 } from './tagReturn'
@@ -96,8 +100,8 @@ describe('tagReturn', () => {
     expect(recent.frozenOrder).toBeNull()
   })
 
-  it('tagBackLabel uses practice / origin / Browse default', () => {
-    expect(tagBackLabel({ query: { set: 'practice' } })).toBe('← Practice set')
+  it('tagBackLabel uses origin / Browse default (practice mode disabled)', () => {
+    expect(tagBackLabel({ query: { set: 'practice' } })).toBe('← Browse')
     expect(tagBackLabel({ query: {} })).toBe('← Browse')
     setTagReturnOriginForTests({
       name: 'favorites',
@@ -115,21 +119,33 @@ describe('tagReturn', () => {
     expect(tagBackLabel({ query: {} })).toBe('← Recent')
   })
 
-  it('goTagBack uses history.back when previous entry is not a tag', () => {
-    const router = { back: vi.fn(), push: vi.fn() } as unknown as Router
+  it('goTagBack prefers captured list origin over history.back', () => {
+    const push = vi.fn(async () => undefined)
+    const router = { back: vi.fn(), push } as unknown as Router
+    // Polluted stack: previous entry looks like a list, but origin is authoritative.
     vi.stubGlobal('history', { state: { back: '/favorites', current: '/tag/1' } })
     setTagReturnOriginForTests({
-      name: 'favorites',
-      fullPath: '/favorites',
-      label: 'Favorites',
-      scrollY: 10,
+      name: 'home',
+      fullPath: '/?q=foo',
+      label: 'Browse',
+      scrollY: 42,
     })
+    goTagBack(router, { query: {} })
+    expect(router.back).not.toHaveBeenCalled()
+    expect(push).toHaveBeenCalledWith('/?q=foo')
+    expect(peekTagReturnScrollY()).toBe(42)
+  })
+
+  it('goTagBack uses history.back when no origin was captured', () => {
+    const router = { back: vi.fn(), push: vi.fn() } as unknown as Router
+    vi.stubGlobal('history', { state: { back: '/favorites', current: '/tag/1' } })
     goTagBack(router, { query: {} })
     expect(router.back).toHaveBeenCalled()
     expect(router.push).not.toHaveBeenCalled()
+    expect(peekTagReturnScrollY()).toBeNull()
   })
 
-  it('goTagBack skips a previous tag entry and pushes the list origin', async () => {
+  it('goTagBack skips a previous tag entry and arms scroll for the list origin', () => {
     const push = vi.fn(async () => undefined)
     const router = { back: vi.fn(), push } as unknown as Router
     vi.stubGlobal('history', { state: { back: '/tag/1', current: '/tag/2' } })
@@ -139,18 +155,82 @@ describe('tagReturn', () => {
       label: 'Browse',
       scrollY: 88,
     })
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     goTagBack(router, { query: {} })
     expect(router.back).not.toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith('/?q=x')
-    await Promise.resolve()
-    await new Promise((r) => requestAnimationFrame(() => r(undefined)))
-    expect(scrollTo).toHaveBeenCalledWith({ top: 88, left: 0, behavior: 'auto' })
+    expect(peekTagReturnScrollY()).toBe(88)
   })
 
-  it('goTagBack sends practice set to favorites', () => {
-    const router = { back: vi.fn(), push: vi.fn() } as unknown as Router
+  it('goTagBack with leftover practice query uses list origin (practice mode dead)', () => {
+    const push = vi.fn(async () => undefined)
+    const router = { back: vi.fn(), push } as unknown as Router
+    vi.stubGlobal('history', { state: { back: '/tag/1', current: '/tag/2' } })
+    setTagReturnOriginForTests({
+      name: 'favorites',
+      fullPath: '/favorites',
+      label: 'Favorites',
+      scrollY: 0,
+    })
     goTagBack(router, { query: { set: 'practice' } })
-    expect(router.push).toHaveBeenCalledWith('/favorites')
+    expect(push).toHaveBeenCalledWith('/favorites')
+    expect(peekTagReturnScrollY()).toBe(0)
+  })
+
+  it('goTagBack applies armed scroll when already on the list origin', () => {
+    const push = vi.fn(async () => undefined)
+    const replace = vi.fn(async () => undefined)
+    const router = {
+      back: vi.fn(),
+      push,
+      replace,
+      currentRoute: { value: { path: '/', fullPath: '/', name: 'home' } },
+    } as unknown as Router
+    setTagReturnOriginForTests({
+      name: 'home',
+      fullPath: '/',
+      label: 'Browse',
+      scrollY: 640,
+    })
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    goTagBack(router, { query: {} })
+    expect(push).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+    expect(scrollTo).toHaveBeenCalledWith({ top: 640, left: 0, behavior: 'auto' })
+    expect(peekTagReturnScrollY()).toBeNull()
+  })
+
+  it('goTagBack replaces when already on the list path but query differs', () => {
+    const push = vi.fn(async () => undefined)
+    const replace = vi.fn(async () => undefined)
+    const router = {
+      back: vi.fn(),
+      push,
+      replace,
+      currentRoute: { value: { path: '/', fullPath: '/', name: 'home' } },
+    } as unknown as Router
+    setTagReturnOriginForTests({
+      name: 'home',
+      fullPath: '/?q=foo',
+      label: 'Browse',
+      scrollY: 120,
+    })
+    goTagBack(router, { query: {} })
+    expect(push).not.toHaveBeenCalled()
+    expect(replace).toHaveBeenCalledWith('/?q=foo')
+    expect(peekTagReturnScrollY()).toBe(120)
+  })
+
+  it('applyTagReturnScrollIfAny consumes armed Y and scrolls', async () => {
+    armTagReturnScroll(240)
+    expect(peekTagReturnScrollY()).toBe(240)
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    applyTagReturnScrollIfAny()
+    expect(consumeTagReturnScrollY()).toBeNull()
+    expect(scrollTo).toHaveBeenCalledWith({ top: 240, left: 0, behavior: 'auto' })
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)))
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)))
+    await new Promise((r) => setTimeout(r, 60))
+    expect(scrollTo.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 })
+

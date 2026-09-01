@@ -169,6 +169,12 @@ describe('catalog store', () => {
     expect(catalog.filters.hasSheet).toBe(true)
     expect(catalog.filters.minRating).toBe(4)
     expect(catalog.filters.arrangers).toEqual(['Paul'])
+    catalog.clearFilters()
+    catalog.setCacheReadyIndex(new Map([[2, { sheets: false, audio: true }]]))
+    catalog.patchFilters({ cached: 'audio' })
+    expect(catalog.results.map((t) => t.id)).toEqual([2])
+    catalog.patchFilters({ cached: 'none' })
+    expect(catalog.results.map((t) => t.id)).toEqual([1])
   })
 
   it('supports pagination, selection, neighbors, and route patch', async () => {
@@ -223,6 +229,11 @@ describe('catalog store', () => {
     catalog.syncFromRoute({}, 'rating')
     expect(catalog.sortMode).toBe('collection')
     expect(catalog.routeQueryPatch().sort).toBeUndefined()
+    // Missing sort in route uses caller-provided default (HomeView → DEFAULT_BROWSE_SORT).
+    catalog.syncFromRoute({}, 'collection')
+    expect(catalog.sortMode).toBe('collection')
+    catalog.syncFromRoute({ sort: 'title' }, 'title')
+    expect(catalog.sortMode).toBe('title')
   })
 
   it('falls back to sample manifest when indexes fail', async () => {

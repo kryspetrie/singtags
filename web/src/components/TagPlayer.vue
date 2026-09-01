@@ -503,7 +503,18 @@ function maybeEnforceRegionEnd(): void {
   }
   player.pause()
   void player.seek(Math.min(markB.value, player.duration || markB.value))
+  void releaseAudioWakeLock()
   tick.value++
+}
+
+async function releaseAudioWakeLock(): Promise<void> {
+  const { releaseWakeLock } = await import('../lib/wakeLock')
+  await releaseWakeLock('audio')
+}
+
+async function acquireAudioWakeLock(): Promise<void> {
+  const { acquireWakeLock } = await import('../lib/wakeLock')
+  await acquireWakeLock('audio')
 }
 
 onUnmounted(() => {
@@ -511,6 +522,7 @@ onUnmounted(() => {
   revokeMixUrl()
   player.setEndedListener(null)
   player.dispose()
+  void releaseAudioWakeLock()
 })
 
 watch(part, (p) => {
@@ -548,6 +560,7 @@ onMounted(() => {
     if (hasPlayRegion()) {
       void player.seek(Math.min(markB.value, player.duration || markB.value))
     }
+    void releaseAudioWakeLock()
     emit('ended')
   })
   if (available.value.length) {
@@ -677,26 +690,31 @@ watch(pitch, (v) => {
     pitch.value = c
     return
   }
-  void player.setPitchSemitones(c).then(() => {
-    // Aborted/superseded bakes resolve too — ignore if the user already moved on.
-    if (pitch.value !== c) return
-    // Bake failure reverts requested → audible; keep UI truthful.
-    if (player.getPitchSemitones() !== c) pitch.value = player.getPitchSemitones()
-    if (player.getSpeed() !== speed.value) speed.value = player.getSpeed()
-    tick.value++
-  })
   emit('transform', currentTransform.value)
   emit('update:pitchSemitones', c)
+  scheduleBake()
 })
-watch(speed, (v) => {
-  void player.setSpeed(v).then(() => {
-    if (speed.value !== v) return
-    if (player.getSpeed() !== v) speed.value = player.getSpeed()
-    if (player.getPitchSemitones() !== pitch.value) pitch.value = player.getPitchSemitones()
-    tick.value++
-  })
+watch(speed, (_v) => {
   emit('transform', currentTransform.value)
+  scheduleBake()
 })
+
+let bakeTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleBake(): void {
+  if (bakeTimer) clearTimeout(bakeTimer)
+  // Debounce rapid ± / speed taps into one WSOLA+formant bake.
+  bakeTimer = setTimeout(() => {
+    bakeTimer = null
+    const p = pitch.value
+    const s = speed.value
+    void player.setTransform(p, s).then(() => {
+      if (pitch.value !== p || speed.value !== s) return
+      if (player.getPitchSemitones() !== p) pitch.value = player.getPitchSemitones()
+      if (player.getSpeed() !== s) speed.value = player.getSpeed()
+      tick.value++
+    })
+  }, 180)
+}
 watch(loop, () => {
   // TagPlayer owns A–B via maybeEnforceRegionEnd / ended listener.
   // Keep BufferSource loop off so we don't double-loop with UI marks.
@@ -707,6 +725,7 @@ watch(playbackReady, (ready) => {
   if (ready) return
   loop.value = false
   if (!player.paused) player.pause()
+  void releaseAudioWakeLock()
   tick.value++
 })
 
@@ -758,10 +777,14 @@ async function togglePlay(): Promise<void> {
     await seekToRegionStartIfNeeded()
     try {
       await player.play()
+      void acquireAudioWakeLock()
     } catch (e) {
       err.value = e instanceof Error ? e.message : String(e)
     }
-  } else player.pause()
+  } else {
+    player.pause()
+    void releaseAudioWakeLock()
+  }
   tick.value++
 }
 
@@ -788,10 +811,28 @@ function nudge(delta: number): void {
 /** Pause and move playhead to region start (mark A) or track start — same whether playing or paused. */
 async function stopPlayback(): Promise<void> {
   player.pause()
+  void releaseAudioWakeLock()
   const start = hasPlayRegion() ? markA.value : 0
   await player.seek(start)
   tick.value++
 }
+
+const mixBaking = computed(() => {
+  void tick.value
+  return player.baking
+})
+
+defineExpose({
+  togglePlay,
+  stopPlayback,
+  seek: (t: number) => onSeek(t),
+  selectPart,
+  isPaused: () => player.paused,
+  getCurrentTime: () => player.currentTime,
+  getDuration: () => player.duration,
+  isPlayReady: () => playbackReady.value,
+  isBaking: () => player.baking,
+})
 </script>
 
 <template>
@@ -962,20 +1003,22 @@ async function stopPlayback(): Promise<void> {
         >
           +1s
         </button>
-        <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
-        <button
-          type="button"
-          class="ctrl-toggle toggle-btn"
-          :aria-pressed="loop"
-          :disabled="!playbackReady"
-          @click="loop = !loop"
+        <select
+          class="transport-speed"
+          v-model.number="speed"
+          aria-label="Playback speed"
+          :disabled="!playbackReady || mixBaking"
         >
-          Loop
-        </button>
+          <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+        <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
       </div>
+      <p v-if="mixBaking" class="hint bake-hint" role="status">Updating pitch/speed…</p>
       <p class="hint ab-hint">
         Drag the side brackets to set the play region. Playback starts at the left bracket and stops at
-        the right; turn on Loop to repeat that region.
+        the right; turn on Loop in Advanced to repeat that region.
       </p>
 
       <div class="advanced-bar">
@@ -983,6 +1026,18 @@ async function stopPlayback(): Promise<void> {
           <summary>Advanced</summary>
           <div class="adjust">
             <div class="adjust-row">
+              <div class="ctrl-field adjust-field loop-field">
+                <span class="ctrl-field-label lbl">Loop</span>
+                <button
+                  type="button"
+                  class="ctrl-toggle toggle-btn"
+                  :aria-pressed="loop"
+                  :disabled="!playbackReady"
+                  @click="loop = !loop"
+                >
+                  {{ loop ? 'On' : 'Off' }}
+                </button>
+              </div>
               <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
                 <span class="ctrl-field-label lbl">Solo</span>
                 <div class="ctrl-segment seg">
@@ -1030,21 +1085,13 @@ async function stopPlayback(): Promise<void> {
                   aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
                 />
               </label>
-              <label class="ctrl-field adjust-field speed-field">
-                <span class="ctrl-field-label lbl">Speed</span>
-                <select v-model.number="speed" aria-label="Playback speed" :disabled="!playbackReady">
-                  <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </option>
-                </select>
-              </label>
               <div class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
                 <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
                 <div class="pitch-btns">
                   <button
                     type="button"
                     aria-label="Lower pitch one semitone"
-                    :disabled="!playbackReady || pitch <= MIN_PITCH_SEMITONES"
+                    :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
                     @click="bumpPitch(-1)"
                   >
                     −
@@ -1052,12 +1099,12 @@ async function stopPlayback(): Promise<void> {
                   <button
                     type="button"
                     aria-label="Raise pitch one semitone"
-                    :disabled="!playbackReady || pitch >= MAX_PITCH_SEMITONES"
+                    :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
                     @click="bumpPitch(1)"
                   >
                     +
                   </button>
-                  <button type="button" :disabled="!playbackReady || !pitch" @click="pitch = 0">Reset</button>
+                  <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">Reset</button>
                 </div>
               </div>
             </div>
@@ -1130,7 +1177,7 @@ async function stopPlayback(): Promise<void> {
   }
 }
 
-/* Transport + Loop: one row, shrink width — not type size. */
+/* Transport: one row — Play/Stop/±1s/Speed/time. */
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
@@ -1162,18 +1209,29 @@ async function stopPlayback(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.transport .ctrl-toggle {
-  grid-column: unset;
-  flex: 1 1 0;
+.transport-speed {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 5.25rem;
+  max-width: 5.25rem;
   min-width: 0;
-  width: auto;
-  padding: 0.35rem 0.35rem;
-  font-size: 0.9rem;
-  gap: 0.25rem;
+  min-height: 44px;
+  padding: 0.3rem 0.35rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: inherit;
 }
-.transport .ctrl-toggle::before {
-  width: 0.4rem;
-  height: 0.4rem;
+.transport-speed:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.loop-field .ctrl-toggle {
+  width: 100%;
+  min-height: 44px;
 }
 .combine {
   border: 1px solid var(--border);
@@ -1295,20 +1353,6 @@ async function stopPlayback(): Promise<void> {
 .balance-field input[type='range']:disabled {
   opacity: 0.45;
 }
-.speed-field select {
-  min-height: 44px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0.4rem 0.65rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: inherit;
-}
 .pitch-field .pitch-btns {
   display: flex;
   flex-wrap: nowrap;
@@ -1385,11 +1429,14 @@ async function stopPlayback(): Promise<void> {
 
 @media (min-width: 420px) {
   .adjust-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(5.5rem, 0.55fr) 1fr;
   }
   .solo-field,
   .balance-field {
     grid-column: 1 / -1;
+  }
+  .loop-field {
+    grid-column: 1;
   }
 }
 
@@ -1418,25 +1465,19 @@ async function stopPlayback(): Promise<void> {
     text-align: right;
     font-size: 0.9rem;
   }
-  .transport .ctrl-toggle {
-    flex: 0 1 auto;
-    min-width: 5rem;
-    width: auto;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.92rem;
+  .transport-speed {
+    width: 5.75rem;
+    max-width: 5.75rem;
   }
   .adjust-row {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(6.5rem, 0.9fr) minmax(0, 1fr);
+    grid-template-columns: minmax(5rem, 0.55fr) minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 1fr);
     gap: 0.65rem 1rem;
     align-items: end;
   }
   .solo-field,
-  .balance-field {
+  .balance-field,
+  .loop-field {
     grid-column: auto;
-  }
-  .speed-field select {
-    width: 100%;
-    min-width: 0;
   }
   .pitch-btns button {
     flex: 1 1 0;

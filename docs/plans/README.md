@@ -4,6 +4,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops.
 
 | Plan | Status |
 | --- | --- |
+| [sing-session-ux.md](sing-session-ux.md) | Phased roadmap (bugfixes → wake lock → fullscreen sing → offline filters → …); gaps tracked in hardening plan |
+| [sing-session-hardening.md](sing-session-hardening.md) | Active — fix correctness/edge gaps; kill practice for now; pitch/speed bake UX |
 | [vibe-search.md](vibe-search.md) | Planned |
 | [tag-roulette.md](tag-roulette.md) | Proposed |
 | [virtual-piano.md](virtual-piano.md) | Proposed |

@@ -5,12 +5,14 @@
 
 import type { FieldFilter, SearchQuery } from './query'
 import { parseQuery } from './query'
+import type { CachedFilter } from '../lib/offlineReadiness'
 
 /** Chip/filter state applied immediately (merged with debounced free-text `q`). */
 export interface CatalogFilters {
   fullText: boolean
   hasSheet: boolean | null
   hasAudio: boolean | null
+  cached: CachedFilter
   minRating: number | null
   /** Inclusive calendar year lower bound. */
   yearMin: number | null
@@ -28,6 +30,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
   fullText: false,
   hasSheet: null,
   hasAudio: null,
+  cached: null,
   minRating: null,
   yearMin: null,
   yearMax: null,
@@ -42,6 +45,7 @@ export function activeFilterCount(f: CatalogFilters): number {
   let n = 0
   if (f.hasSheet === true) n++
   if (f.hasAudio === true) n++
+  if (f.cached != null) n++
   if (f.minRating != null) n++
   if (f.yearMin != null || f.yearMax != null) n++
   n += f.arrangers.length + f.types.length + f.collections.length + f.titleLetters.length
@@ -82,6 +86,7 @@ export function filtersToRouteQuery(f: CatalogFilters): Record<string, string | 
     ft: f.fullText ? '1' : undefined,
     sheet: f.hasSheet === true ? '1' : f.hasSheet === false ? '0' : undefined,
     audio: f.hasAudio === true ? '1' : f.hasAudio === false ? '0' : undefined,
+    cache: f.cached ?? undefined,
     min: f.minRating != null ? String(f.minRating) : undefined,
     ymin: f.yearMin != null ? String(f.yearMin) : undefined,
     ymax: f.yearMax != null ? String(f.yearMax) : undefined,
@@ -104,11 +109,16 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
   const split = (k: string) => str(k).split('|').map((s) => s.trim()).filter(Boolean)
   const sheet = str('sheet')
   const audio = str('audio')
+  const cache = str('cache')
   const min = str('min')
+  const cached: CachedFilter = ['any', 'sheets', 'audio', 'both', 'none'].includes(cache)
+    ? (cache as Exclude<CachedFilter, null>)
+    : null
   return {
     fullText: str('ft') === '1' || str('ft') === 'true',
     hasSheet: sheet === '1' ? true : sheet === '0' ? false : null,
     hasAudio: audio === '1' ? true : audio === '0' ? false : null,
+    cached,
     minRating: min ? Number(min) : null,
     yearMin: parseYearParam(str('ymin')),
     yearMax: parseYearParam(str('ymax')),

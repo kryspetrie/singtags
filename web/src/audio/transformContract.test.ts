@@ -26,10 +26,11 @@ import {
 import { bakeAudioBufferSync, bakeChannels } from './voiceTransform'
 
 describe('canonicalizeTransform', () => {
-  it('clamps and rounds; collapses -0 and float noise', () => {
+  it('clamps and rounds; preserves fractional semitones (fine detune)', () => {
     expect(canonicalizeTransform(0, 1)).toEqual({ pitchSemitones: 0, speed: 1 })
     expect(canonicalizeTransform(-0, 1)).toEqual({ pitchSemitones: 0, speed: 1 })
-    expect(canonicalizeTransform(1.6, 0.1 + 0.2)).toEqual({ pitchSemitones: 2, speed: 0.3 })
+    expect(canonicalizeTransform(1.6, 0.1 + 0.2)).toEqual({ pitchSemitones: 1.6, speed: 0.3 })
+    expect(canonicalizeTransform(2.32, 1).pitchSemitones).toBe(2.32)
     expect(canonicalizeTransform(100, 9).pitchSemitones).toBe(12)
     expect(canonicalizeTransform(0, 0.01).speed).toBe(0.25)
     expect(isCanonicalIdentity(canonicalizeTransform(0, 1))).toBe(true)

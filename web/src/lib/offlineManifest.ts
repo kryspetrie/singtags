@@ -35,7 +35,7 @@ export function filterAudioManifest(
   let totalBytes = 0
   let fileCount = 0
 
-  for (const entry of manifest.entries) {
+  for (const entry of manifest?.entries ?? []) {
     const paths = entry.paths
       .filter((p) => pathMatchesParts(p, mode, wanted))
       .slice()
@@ -54,6 +54,7 @@ export function filterAudioManifest(
 /** Expand a full offline manifest into per-file {@link DownloadItem} rows. */
 export function flattenManifestEntries(manifest: OfflineManifest): DownloadItem[] {
   const items: DownloadItem[] = []
+  if (!manifest?.entries?.length) return items
   for (const e of manifest.entries) {
     const per = e.paths.length ? Math.round(e.bytes / e.paths.length) : 0
     for (const path of e.paths) {

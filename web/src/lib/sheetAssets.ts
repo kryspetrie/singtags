@@ -42,7 +42,8 @@ export function sheetFileLabel(path: string): string {
 
 /**
  * When raster `sheet_pages` exist, skip mirror uploads that duplicate them:
- * primary full sheet, canonical preview, and "… Sheet Preview.webp" siblings.
+ * primary full sheet, canonical preview, “… Sheet Preview.webp” siblings,
+ * and Tag Shop “… - Sheet.png/jpg” full rasters (pages already cover those).
  */
 export function isRedundantWithSheetPages(
   path: string,
@@ -57,6 +58,8 @@ export function isRedundantWithSheetPages(
   if (pages.includes(path)) return true
   if (sheetPreview && path === sheetPreview) return true
   if (pages.length && / Preview\.(webp|jpe?g|png)(\?|$)/i.test(path)) return true
+  // e.g. "Song (C) - Arranger - Sheet.png" next to published WebP pages.
+  if (pages.length && /(?:^|\/| - )Sheet\.(webp|jpe?g|png)(\?|$)/i.test(path)) return true
   return false
 }
 

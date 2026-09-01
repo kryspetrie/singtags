@@ -4,34 +4,66 @@
  * and bulk unfavorite with confirm dialog.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import FilterSheet from '../components/FilterSheet.vue'
-import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
+import CollectionsOrderSheet from '../components/CollectionsOrderSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useFavoritesStore } from '../stores/favorites'
+import { useCatalogStore } from '../stores/catalog'
 import { usePracticeStore } from '../stores/practice'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { buildFavoritesBackup, parseFavoritesBackup } from '../lib/favoritesBackup'
 import { downloadBlob } from '../download/zip'
 import { useOnline } from '../composables/useOnline'
 import {
+  decodeFavoritesSharePayload,
+  favoritesSharePath,
+  parseTagIdList,
+  type FavoritesSharePayload,
+} from '../lib/favoritesShare'
+import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
+import {
   FAVORITES_SORT_OPTIONS,
   type FavoritesSortMode,
   sortFavoriteRecords,
 } from '../lib/favoritesSort'
+import { useOfflineLibraryStore } from '../stores/offlineLibrary'
+import { usePreferencesStore } from '../stores/preferences'
+import { tagOpenLocation } from '../lib/tagOpen'
+import { qrDataUrl } from '../lib/qr'
+
+const SHARE_URL_WARN_LEN = 2000
 
 const favorites = useFavoritesStore()
+const catalog = useCatalogStore()
 const practice = usePracticeStore()
 const userCollections = useUserCollectionsStore()
+const offlineLibrary = useOfflineLibraryStore()
+const prefs = usePreferencesStore()
+const route = useRoute()
+const router = useRouter()
 const { offline } = useOnline()
 const fileInput = ref<HTMLInputElement | null>(null)
 const fetchMediaOnImport = ref(false)
 const backupOpen = ref(false)
 const manageOpen = ref(false)
-const addOpen = ref(false)
+const collectionPickerOpen = ref(false)
+const reorderCollectionsOpen = ref(false)
+/** ~2 wrap lines of collection chips on a typical phone Favorites toolbar. */
+const COLLECTION_BAR_PAGE_SIZE = 6
+const collectionPage = ref(0)
+const tagIdsOpen = ref(false)
+const shareOpen = ref(false)
+const shareUrl = ref('')
+const shareQr = ref('')
+const shareUrlTooLong = ref(false)
+const tagIdText = ref('')
+const tagIdNotice = ref<string | null>(null)
+const pendingImport = ref<FavoritesSharePayload | null>(null)
+const importFetchMedia = ref(true)
 const activeCollectionId = ref<string | null>(null)
 const pendingUnfavorite = ref<{ tagId: number; title: string } | null>(null)
 const renameDraft = ref<Record<string, string>>({})
@@ -39,6 +71,20 @@ const newCollectionName = ref('')
 const manageError = ref<string | null>(null)
 const sortMode = ref<FavoritesSortMode>('custom')
 const sortOptions = FAVORITES_SORT_OPTIONS
+
+/** Browse-like multi-select for adding favorites to collections. */
+const selectedIds = ref<Set<number>>(new Set())
+const selectMode = ref(false)
+const NARROW_SELECT_MQ = '(max-width: 639px)'
+const LONG_PRESS_MS = 450
+const LONG_PRESS_MOVE_PX = 10
+const isNarrow = ref(false)
+let narrowMq: MediaQueryList | null = null
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressId: number | null = null
+let longPressX = 0
+let longPressY = 0
+let suppressRowClick = false
 
 const DRAG_HOLD_MS = 280
 
@@ -69,19 +115,154 @@ const orderedRecords = computed(() => {
   return sortFavoriteRecords(favorites.records, sortMode.value)
 })
 
-const collectionChips = computed(() =>
-  [...userCollections.collections].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  ),
+/** Store order (reorder modal); not A–Z. */
+const collectionChips = computed(() => userCollections.collections)
+
+const collectionPageCount = computed(() =>
+  Math.max(1, Math.ceil(collectionChips.value.length / COLLECTION_BAR_PAGE_SIZE)),
+)
+
+const showCollectionPager = computed(
+  () => collectionChips.value.length > COLLECTION_BAR_PAGE_SIZE,
+)
+
+const pagedCollectionChips = computed(() => {
+  const start = collectionPage.value * COLLECTION_BAR_PAGE_SIZE
+  return collectionChips.value.slice(start, start + COLLECTION_BAR_PAGE_SIZE)
+})
+
+watch(collectionPageCount, (n) => {
+  if (collectionPage.value > n - 1) collectionPage.value = Math.max(0, n - 1)
+})
+
+watch(
+  () => activeCollectionId.value,
+  (id) => {
+    if (!id || !showCollectionPager.value) return
+    const idx = collectionChips.value.findIndex((c) => c.id === id)
+    if (idx < 0) return
+    collectionPage.value = Math.floor(idx / COLLECTION_BAR_PAGE_SIZE)
+  },
 )
 
 const activeCollection = computed(() =>
   activeCollectionId.value ? userCollections.byId(activeCollectionId.value) : null,
 )
 
-const addPickerTagIds = computed(() => orderedRecords.value.map((r) => r!.tagId))
+const selectedTagIds = computed(() => [...selectedIds.value])
+
+const showRowSelect = computed(
+  () => selectMode.value || selectedIds.value.size > 0 || !isNarrow.value,
+)
 
 const canApplySort = computed(() => favorites.count > 0 && sortMode.value !== 'custom')
+const canNativeShare = computed(
+  () => typeof navigator !== 'undefined' && typeof navigator.share === 'function',
+)
+
+/** Collections that include this tag (for at-a-glance membership). */
+function collectionsForTag(tagId: number) {
+  return collectionChips.value.filter((c) => c.tagIds.includes(tagId))
+}
+
+function syncNarrowSelect(): void {
+  isNarrow.value = narrowMq?.matches ?? false
+}
+
+function toggleSelect(id: number): void {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+  if (next.size) selectMode.value = true
+}
+
+function clearSelection(): void {
+  selectedIds.value = new Set()
+  selectMode.value = false
+}
+
+function selectRowTip(title: string, tagId: number): string {
+  const name = title || `tag #${tagId}`
+  return selectedIds.value.has(tagId) ? `Deselect ${name}` : `Select ${name}`
+}
+
+function clearLongPressTimer(): void {
+  if (longPressTimer != null) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  longPressId = null
+}
+
+function onRowPointerDown(e: PointerEvent, id: number): void {
+  if (!isNarrow.value || showRowSelect.value) return
+  if (e.button !== 0) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest('.sel-btn, .row-fav, .drag-handle, .row-remove-col')) return
+  clearLongPressTimer()
+  longPressX = e.clientX
+  longPressY = e.clientY
+  longPressId = id
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    const tagId = longPressId
+    longPressId = null
+    if (tagId == null) return
+    selectMode.value = true
+    if (!selectedIds.value.has(tagId)) toggleSelect(tagId)
+    suppressRowClick = true
+    try {
+      navigator.vibrate?.(10)
+    } catch {
+      /* ignore */
+    }
+  }, LONG_PRESS_MS)
+}
+
+function onRowPointerMove(e: PointerEvent): void {
+  if (longPressTimer == null) return
+  if (
+    Math.abs(e.clientX - longPressX) > LONG_PRESS_MOVE_PX ||
+    Math.abs(e.clientY - longPressY) > LONG_PRESS_MOVE_PX
+  ) {
+    clearLongPressTimer()
+  }
+}
+
+function onRowPointerEnd(): void {
+  clearLongPressTimer()
+}
+
+function onRowClickCapture(e: MouseEvent): void {
+  if (!suppressRowClick) return
+  e.preventDefault()
+  e.stopPropagation()
+  suppressRowClick = false
+}
+
+function removeSelectedFromActiveCollection(): void {
+  const colId = activeCollectionId.value
+  if (!colId || !selectedIds.value.size) return
+  userCollections.removeTags(colId, [...selectedIds.value])
+  clearSelection()
+}
+
+watch(
+  () => selectedIds.value.size,
+  (n) => {
+    if (n === 0) selectMode.value = false
+  },
+)
+
+watch(
+  () => favorites.records.map((r) => r.tagId).join(','),
+  () => {
+    const alive = new Set(favorites.records.map((r) => r.tagId))
+    const next = new Set([...selectedIds.value].filter((id) => alive.has(id)))
+    if (next.size !== selectedIds.value.size) selectedIds.value = next
+  },
+)
 
 watch(
   () => favorites.records.map((r) => r.tagId),
@@ -102,13 +283,32 @@ const finePointer = computed(() =>
 )
 
 onMounted(async () => {
+  narrowMq = window.matchMedia(NARROW_SELECT_MQ)
+  syncNarrowSelect()
+  narrowMq.addEventListener('change', syncNarrowSelect)
+  void offlineLibrary.refreshCacheReady().catch(() => undefined)
   await favorites.ensureLoaded()
   practice.syncFromStarred(favorites.records.map((r) => r.tagId))
+  const rawImport = Array.isArray(route.query.import) ? route.query.import[0] : route.query.import
+  if (typeof rawImport === 'string') {
+    const decoded = decodeFavoritesSharePayload(rawImport)
+    if (decoded?.tagIds.length) {
+      pendingImport.value = decoded
+    } else {
+      favorites.error = 'This favorites share link is invalid.'
+      await clearImportQuery()
+    }
+  }
+  // Back-from-tag: restore scroll where the row was clicked.
+  applyTagReturnScrollIfAny()
 })
 
 onUnmounted(() => {
   clearHoldTimer()
   stopDragListeners()
+  clearLongPressTimer()
+  narrowMq?.removeEventListener('change', syncNarrowSelect)
+  narrowMq = null
 })
 
 watch(
@@ -329,6 +529,7 @@ function removeFromActiveCollection(tagId: number): void {
 
 function onAddedToCollection(_id: string, name: string): void {
   favorites.lastNotice = { type: 'text', message: `Added to “${name}”` }
+  clearSelection()
 }
 
 function requestUnfavorite(tagId: number, title: string): void {
@@ -361,28 +562,139 @@ function rowStarLabel(title: string, tagId: number): string {
   if (favorites.isTagCaching(tagId)) return 'Saving for offline'
   return `Unfavorite ${title || `tag #${tagId}`}`
 }
+
+async function openShare(): Promise<void> {
+  const ids = orderedRecords.value.map((record) => record!.tagId)
+  const path = favoritesSharePath(ids, activeCollection.value?.name)
+  shareUrl.value = new URL(path, window.location.origin).toString()
+  shareUrlTooLong.value = shareUrl.value.length > SHARE_URL_WARN_LEN
+  shareQr.value = ''
+  shareOpen.value = true
+  try {
+    shareQr.value = await qrDataUrl(shareUrl.value, 200)
+  } catch {
+    shareQr.value = ''
+  }
+}
+
+async function copyShareUrl(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(shareUrl.value)
+    favorites.lastNotice = { type: 'text', message: 'Share link copied' }
+  } catch {
+    favorites.error = 'Could not copy the share link. Select and copy it manually.'
+  }
+}
+
+function selectShareUrl(event: Event): void {
+  const input = event.target as HTMLInputElement
+  input.select()
+}
+
+async function shareFavorites(): Promise<void> {
+  if (!navigator.share) return
+  try {
+    await navigator.share({
+      title: activeCollection.value?.name || 'SingTags favorites',
+      url: shareUrl.value,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    favorites.error = 'Could not open the device share menu.'
+  }
+}
+
+async function addTagIds(tagIds: number[], collectionName?: string): Promise<void> {
+  if (!catalog.loaded) await catalog.load()
+  const summaries = tagIds
+    .map((id) => catalog.getById(id))
+    .filter((summary): summary is NonNullable<typeof summary> => !!summary)
+  const knownIds = new Set(summaries.map((summary) => summary.id))
+  const alreadyFavoriteIds = tagIds.filter((id) => favorites.isStarred(id))
+  const importable = summaries.filter((summary) => !favorites.isStarred(summary.id))
+  const metadataOnly = !(importFetchMedia.value && !offline.value)
+  const added = await favorites.starMany(importable, { metadataOnly })
+  const collectionIds = [...new Set([...alreadyFavoriteIds, ...summaries.map((s) => s.id)])]
+  if (collectionName && collectionIds.length) {
+    const existing = userCollections.collections.find(
+      (c) => c.name.trim().toLowerCase() === collectionName.trim().toLowerCase(),
+    )
+    if (existing) {
+      userCollections.addTags(existing.id, collectionIds)
+    } else {
+      userCollections.create(collectionName, collectionIds)
+    }
+  }
+  const missing = tagIds.filter((id) => !knownIds.has(id) && !favorites.isStarred(id)).length
+  tagIdNotice.value = `Added ${added} favorite${added === 1 ? '' : 's'}${missing ? `; ${missing} tag${missing === 1 ? '' : 's'} not found` : ''}${metadataOnly ? ' (metadata only — enable “Download media” when online to sing offline).' : ''}.`
+}
+
+async function addFromTagIds(): Promise<void> {
+  const tagIds = parseTagIdList(tagIdText.value)
+  if (!tagIds.length) {
+    tagIdNotice.value = 'Enter at least one positive tag number.'
+    return
+  }
+  await addTagIds(tagIds)
+  tagIdText.value = ''
+}
+
+function openTagIdsAdd(): void {
+  tagIdNotice.value = null
+  tagIdsOpen.value = true
+}
+
+function closeTagIdsAdd(): void {
+  tagIdsOpen.value = false
+  tagIdNotice.value = null
+}
+
+async function clearImportQuery(): Promise<void> {
+  const { import: _import, ...query } = route.query
+  await router.replace({ query })
+}
+
+async function closeImport(): Promise<void> {
+  pendingImport.value = null
+  await clearImportQuery()
+}
+
+async function confirmImport(): Promise<void> {
+  const shared = pendingImport.value
+  pendingImport.value = null
+  if (!shared) return
+  await addTagIds(shared.tagIds, shared.name)
+  await clearImportQuery()
+}
+
+function formatCollectionDate(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+}
 </script>
 
 <template>
-  <section class="favorites" aria-label="Favorites">
+  <section
+    class="favorites"
+    :class="{ 'has-selection': selectedIds.size }"
+    aria-label="Favorites"
+  >
     <div class="actions">
-      <label class="sort-field">
-        <span class="sort-lbl">Sort</span>
-        <select v-model="sortMode" aria-label="Sort favorites" :disabled="!favorites.count">
-          <option v-for="s in sortOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
-        </select>
-      </label>
+      <button type="button" class="btn" @click="backupOpen = true">Backup &amp; restore</button>
+      <button type="button" class="btn" @click="manageOpen = true">Manage collections</button>
       <button
         type="button"
-        class="primary"
-        :disabled="!canApplySort"
-        title="Save the current sort as your custom order"
-        @click="applySort"
+        class="btn"
+        :disabled="!collectionChips.length"
+        title="Change which collections appear first"
+        @click="reorderCollectionsOpen = true"
       >
-        Apply sort
+        Reorder collections
       </button>
-      <button type="button" @click="backupOpen = true">Backup &amp; restore</button>
-      <button type="button" @click="manageOpen = true">Manage collections</button>
+      <button type="button" class="btn" :disabled="!orderedRecords.length" @click="openShare">
+        Share list
+      </button>
+      <button type="button" class="btn" @click="openTagIdsAdd">Bulk add</button>
     </div>
 
     <div class="collection-bar" role="toolbar" aria-label="Favorite collections">
@@ -395,41 +707,99 @@ function rowStarLabel(title: string, tagId: number): string {
       >
         All
       </button>
+      <div class="collection-page" aria-label="Collection page">
+        <button
+          v-for="c in pagedCollectionChips"
+          :key="c.id"
+          type="button"
+          class="chip"
+          :class="{ on: activeCollectionId === c.id }"
+          :aria-pressed="activeCollectionId === c.id"
+          @click="selectCollection(c.id)"
+        >
+          <CustomCollectionMark />
+          {{ c.name }}
+          <span class="chip-n">{{ c.tagIds.length }}</span>
+        </button>
+      </div>
+    </div>
+    <div
+      v-if="showCollectionPager"
+      class="collection-pager"
+      role="group"
+      aria-label="Collection pages"
+    >
       <button
-        v-for="c in collectionChips"
-        :key="c.id"
         type="button"
-        class="chip"
-        :class="{ on: activeCollectionId === c.id }"
-        :aria-pressed="activeCollectionId === c.id"
-        @click="selectCollection(c.id)"
+        class="btn"
+        :disabled="collectionPage <= 0"
+        aria-label="Previous collection page"
+        @click="collectionPage -= 1"
       >
-        <CustomCollectionMark />
-        {{ c.name }}
-        <span class="chip-n">{{ c.tagIds.length }}</span>
+        ← Prev
       </button>
+      <span class="collection-page-ind" aria-live="polite">
+        {{ collectionPage + 1 }} / {{ collectionPageCount }}
+      </span>
       <button
         type="button"
-        class="chip chip-add"
-        :disabled="!orderedRecords.length && !favorites.count"
-        title="Add currently listed favorites to a collection"
-        @click="addOpen = true"
+        class="btn"
+        :disabled="collectionPage >= collectionPageCount - 1"
+        aria-label="Next collection page"
+        @click="collectionPage += 1"
       >
-        Add listed…
+        Next →
       </button>
     </div>
     <p v-if="activeCollection" class="collection-hint">
       Showing “{{ activeCollection.name }}”
-      <button type="button" class="linkish" @click="selectCollection(null)">Show all</button>
+      <button type="button" class="btn btn-ghost" @click="selectCollection(null)">Show all</button>
     </p>
+    <p v-else-if="favorites.loaded && favorites.count" class="collection-hint">
+      Select tags (checkbox<span v-if="isNarrow"> or long-press</span>), then
+      <strong>Add to collection</strong>.
+    </p>
+
+    <div
+      v-if="favorites.loaded && favorites.count"
+      class="results-meta"
+      aria-live="polite"
+    >
+      <div class="text-muted count">
+        <template v-if="activeCollection">
+          {{ orderedRecords.length }} in “{{ activeCollection.name }}”
+        </template>
+        <template v-else>{{ favorites.count }} favorite{{ favorites.count === 1 ? '' : 's' }}</template>
+      </div>
+      <div class="sort-controls">
+        <label class="sort-field" title="Choose how favorites are ordered">
+          <span class="sort-lbl">View by</span>
+          <select
+            v-model="sortMode"
+            aria-label="View favorites by"
+            :disabled="!favorites.count"
+            @change="($event.target as HTMLSelectElement).blur()"
+          >
+            <option v-for="s in sortOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="sort-apply"
+          :disabled="!canApplySort"
+          title="Apply this order as your custom list (replaces drag order)"
+          aria-label="Apply view order as custom order"
+          @click="applySort"
+        >
+          <span aria-hidden="true">✓</span>
+        </button>
+      </div>
+    </div>
 
     <div v-if="favorites.progress" class="progress" role="status">
       <div class="bar" :style="{ width: `${Math.round(favorites.progress.ratio * 100)}%` }" />
       <span>{{ favorites.progress.label }}</span>
     </div>
-    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
-      <FavoritesNoticeLine :notice="favorites.lastNotice" />
-    </p>
 
     <p v-if="!favorites.loaded" class="text-muted" role="status">Loading favorites…</p>
     <EmptyState
@@ -440,13 +810,13 @@ function rowStarLabel(title: string, tagId: number): string {
     <EmptyState
       v-else-if="!orderedRecords.length && activeCollection"
       title="Nothing in this collection"
-      message="From Browse, select tags and use Add to collection — or pick another collection."
+      message="Select favorites with the checkboxes, then use Add to collection — or pick another collection."
     />
 
     <ol
       v-else-if="orderedRecords.length"
       class="list"
-      :class="{ 'list-dragging': dragActive }"
+      :class="{ 'list-dragging': dragActive, 'has-selection': selectedIds.size }"
       aria-label="Favorites"
     >
       <li
@@ -455,6 +825,8 @@ function rowStarLabel(title: string, tagId: number): string {
         class="favorites-row"
         :data-index="i"
         :class="{
+          'show-select': showRowSelect,
+          'no-nav': dragActive,
           dragging: draggingId === r!.tagId,
           'drop-before':
             dragActive &&
@@ -468,6 +840,11 @@ function rowStarLabel(title: string, tagId: number): string {
             draggingId !== r!.tagId,
         }"
         @pointerenter="onDragEnter($event, i)"
+        @pointerdown="onRowPointerDown($event, r!.tagId)"
+        @pointermove="onRowPointerMove"
+        @pointerup="onRowPointerEnd"
+        @pointercancel="onRowPointerEnd"
+        @click.capture="onRowClickCapture"
       >
         <button
           type="button"
@@ -478,14 +855,23 @@ function rowStarLabel(title: string, tagId: number): string {
         >
           ⠿
         </button>
-        <div
-          class="card"
-          :class="{ 'no-nav': dragActive }"
+        <button
+          v-if="showRowSelect"
+          type="button"
+          class="sel-btn"
+          :class="{ on: selectedIds.has(r!.tagId) }"
+          :aria-pressed="selectedIds.has(r!.tagId)"
+          :aria-label="`Select ${r!.summary.title || r!.tagId}`"
+          :title="selectRowTip(r!.summary.title || '', r!.tagId)"
+          @click.stop="toggleSelect(r!.tagId)"
         >
+          {{ selectedIds.has(r!.tagId) ? '✓' : '' }}
+        </button>
+        <div class="row-main">
           <RouterLink
-            :to="`/tag/${r!.tagId}`"
+            :to="tagOpenLocation(r!.tagId, { fullscreen: prefs.singMode })"
             class="row-link"
-            @click="dragActive && $event.preventDefault()"
+            @click="(dragActive || suppressRowClick) && $event.preventDefault()"
           >
             <span class="title"
               ><span class="num">{{ i + 1 }}.</span> {{ r!.summary.title || `Tag ${r!.tagId}` }}</span
@@ -502,34 +888,63 @@ function rowStarLabel(title: string, tagId: number): string {
               }}</span>
             </span>
           </RouterLink>
-          <div class="row-actions" :class="{ 'in-collection': !!activeCollectionId }">
+          <div
+            v-if="collectionsForTag(r!.tagId).length"
+            class="row-cols"
+            role="group"
+            :aria-label="`Collections for ${r!.summary.title || r!.tagId}`"
+          >
             <button
-              v-if="activeCollectionId"
+              v-for="c in collectionsForTag(r!.tagId)"
+              :key="c.id"
               type="button"
-              class="row-remove-col"
-              :aria-label="`Remove ${r!.summary.title || r!.tagId} from collection`"
-              title="Remove from this collection only — keeps it favorited"
-              @click.stop="removeFromActiveCollection(r!.tagId)"
+              class="col-chip"
+              :class="{ on: activeCollectionId === c.id }"
+              :aria-pressed="activeCollectionId === c.id"
+              :title="
+                activeCollectionId === c.id
+                  ? `Showing “${c.name}” — tap to show all favorites`
+                  : `Show only “${c.name}”`
+              "
+              :aria-label="
+                activeCollectionId === c.id
+                  ? `Clear filter for collection ${c.name}`
+                  : `Filter favorites to collection ${c.name}`
+              "
+              @click="selectCollection(activeCollectionId === c.id ? null : c.id)"
             >
-              Remove from collection
-            </button>
-            <button
-              type="button"
-              class="row-fav"
-              :aria-pressed="true"
-              :aria-busy="favorites.isTagCaching(r!.tagId)"
-              :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
-              :title="rowStarTip(r!.summary.title || '', r!.tagId)"
-              @click.stop="requestUnfavorite(r!.tagId, r!.summary.title || '')"
-            >
-              <span
-                v-if="favorites.isTagCaching(r!.tagId)"
-                class="row-fav-spinner"
-                aria-hidden="true"
-              />
-              <span v-else>♥</span>
+              <CustomCollectionMark />
+              {{ c.name }}
             </button>
           </div>
+        </div>
+        <div class="row-actions" :class="{ 'in-collection': !!activeCollectionId }">
+          <button
+            v-if="activeCollectionId"
+            type="button"
+            class="row-remove-col"
+            :aria-label="`Remove ${r!.summary.title || r!.tagId} from collection`"
+            title="Remove from this collection only — keeps it favorited"
+            @click.stop="removeFromActiveCollection(r!.tagId)"
+          >
+            Remove from collection
+          </button>
+          <button
+            type="button"
+            class="row-fav"
+            :aria-pressed="true"
+            :aria-busy="favorites.isTagCaching(r!.tagId)"
+            :aria-label="rowStarLabel(r!.summary.title || '', r!.tagId)"
+            :title="rowStarTip(r!.summary.title || '', r!.tagId)"
+            @click.stop="requestUnfavorite(r!.tagId, r!.summary.title || '')"
+          >
+            <span
+              v-if="favorites.isTagCaching(r!.tagId)"
+              class="row-fav-spinner"
+              aria-hidden="true"
+            />
+            <span v-else>♥</span>
+          </button>
         </div>
       </li>
     </ol>
@@ -583,18 +998,106 @@ function rowStarLabel(title: string, tagId: number): string {
       </div>
     </FilterSheet>
 
+    <FilterSheet :open="tagIdsOpen" title="Bulk add" @close="closeTagIdsAdd">
+      <div class="tag-id-add-panel">
+        <p>Paste barbershop tag numbers to favorite them from the catalog.</p>
+        <label for="favorite-tag-ids">Tag numbers (separated by commas or spaces)</label>
+        <textarea
+          id="favorite-tag-ids"
+          v-model="tagIdText"
+          rows="4"
+          placeholder="123, 456 789"
+        />
+        <label v-if="!offline" class="tag-id-media">
+          <input v-model="importFetchMedia" type="checkbox" />
+          Download media now (for offline singing)
+        </label>
+        <div class="tag-id-actions">
+          <button type="button" class="primary" @click="addFromTagIds">Add favorites</button>
+        </div>
+        <p v-if="tagIdNotice" role="status">{{ tagIdNotice }}</p>
+      </div>
+    </FilterSheet>
+
+    <FilterSheet :open="shareOpen" title="Share favorites" @close="shareOpen = false">
+      <div class="share-panel">
+        <p>
+          Anyone with this link can review and add these {{ orderedRecords.length }} tags to their
+          favorites.
+        </p>
+        <label for="favorites-share-url">Share link</label>
+        <input id="favorites-share-url" :value="shareUrl" readonly @focus="selectShareUrl" />
+        <p v-if="shareUrlTooLong" class="share-warn" role="status">
+          This link is very long ({{ shareUrl.length }} chars) and may fail in SMS or some QR scanners.
+          Prefer Copy URL or Share… on the same network.
+        </p>
+        <img
+          v-if="shareQr"
+          class="share-qr"
+          :src="shareQr"
+          width="200"
+          height="200"
+          alt="QR code for this favorites share link"
+        />
+        <div class="share-actions">
+          <button type="button" class="primary" @click="copyShareUrl">Copy URL</button>
+          <button v-if="canNativeShare" type="button" @click="shareFavorites">Share…</button>
+        </div>
+      </div>
+    </FilterSheet>
+
     <CollectionPickerSheet
-      :open="addOpen"
-      :tag-ids="addPickerTagIds"
-      title="Add listed favorites to collection"
-      @close="addOpen = false"
+      :open="collectionPickerOpen"
+      :tag-ids="selectedTagIds"
+      title="Add to collection"
+      @close="collectionPickerOpen = false"
       @done="onAddedToCollection"
     />
+    <CollectionsOrderSheet
+      :open="reorderCollectionsOpen"
+      @close="reorderCollectionsOpen = false"
+    />
+
+    <Teleport to="body">
+      <div
+        v-if="selectedIds.size"
+        class="selection-bar"
+        role="toolbar"
+        aria-label="Selected favorites"
+      >
+        <span class="sel-count">{{ selectedIds.size }} selected</span>
+        <button
+          type="button"
+          class="btn"
+          title="Add selected favorites to a collection"
+          @click="collectionPickerOpen = true"
+        >
+          Add to collection
+        </button>
+        <button
+          v-if="activeCollectionId"
+          type="button"
+          class="btn"
+          title="Remove selected tags from this collection only — keeps them favorited"
+          @click="removeSelectedFromActiveCollection"
+        >
+          Remove from collection
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost"
+          title="Clear selection"
+          @click="clearSelection"
+        >
+          Clear
+        </button>
+      </div>
+    </Teleport>
 
     <FilterSheet :open="manageOpen" title="Manage collections" @close="manageOpen = false">
       <div class="manage">
         <p class="manage-desc">
-          Collections group favorites for practice. They stay on this device. Unfavoriting a tag
+          Collections group favorites. They stay on this device. Unfavoriting a tag
           removes it from every collection.
         </p>
         <p v-if="manageError" class="manage-err" role="alert">{{ manageError }}</p>
@@ -605,6 +1108,10 @@ function rowStarLabel(title: string, tagId: number): string {
               <span class="manage-lbl">
                 {{ c.name }}
                 <span class="manage-count">{{ c.tagIds.length }} tag{{ c.tagIds.length === 1 ? '' : 's' }}</span>
+              </span>
+              <span class="manage-dates">
+                Created {{ formatCollectionDate(c.createdAt) }} · Updated
+                {{ formatCollectionDate(c.updatedAt) }}
               </span>
               <input
                 v-model="renameDraft[c.id]"
@@ -665,10 +1172,50 @@ function rowStarLabel(title: string, tagId: number): string {
       @close="pendingUnfavorite = null"
       @confirm="confirmPendingUnfavorite"
     />
+    <ConfirmDialog
+      :open="!!pendingImport"
+      title="Add shared favorites?"
+      :message="pendingImport
+        ? `${pendingImport.name ? `“${pendingImport.name}” contains ` : 'This link contains '}${pendingImport.tagIds.length} tag${pendingImport.tagIds.length === 1 ? '' : 's'}. Existing favorites will be kept.`
+        : ''"
+      confirm-label="Add favorites"
+      :danger="false"
+      @close="closeImport"
+      @confirm="confirmImport"
+    >
+      <label v-if="!offline" class="import-media">
+        <input v-model="importFetchMedia" type="checkbox" />
+        Download media now (for offline singing)
+      </label>
+    </ConfirmDialog>
+
+    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
+      <button
+        type="button"
+        class="sing-mode-btn"
+        :class="{ on: prefs.singMode }"
+        :aria-pressed="prefs.singMode"
+        :title="
+          prefs.singMode
+            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
+            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
+        "
+        @click="prefs.setSingMode(!prefs.singMode)"
+      >
+        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
+        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
+      </button>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.favorites.has-selection {
+  padding-bottom: 5.5rem;
+}
+.favorites.has-selection .sing-mode-fab {
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
+}
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -676,48 +1223,135 @@ function rowStarLabel(title: string, tagId: number): string {
   margin-bottom: 1rem;
   align-items: center;
 }
-.actions button {
-  min-height: 44px;
-  padding: 0.55rem 0.9rem;
-  border-radius: 10px;
+.sing-mode-fab {
+  position: fixed;
+  z-index: 24;
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
+  pointer-events: none;
+}
+.sing-mode-btn {
+  pointer-events: auto;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 4.75rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.7rem;
   border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  text-align: left;
   font: inherit;
+  touch-action: manipulation;
+}
+.sing-mode-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.sing-mode-kicker {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+.sing-mode-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+@media (min-width: 768px) {
+  .sing-mode-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+.results-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem 0.75rem;
+  margin: 0.65rem 0 0.5rem;
+}
+.results-meta .count {
+  margin: 0;
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 .sort-field {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  color: var(--muted);
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  margin: 0;
 }
 .sort-lbl {
+  font-size: 0.85rem;
+  color: var(--muted);
   font-weight: 600;
+  white-space: nowrap;
 }
 .sort-field select {
   font: inherit;
-  min-height: 44px;
+  font-size: 0.9rem;
+  min-height: 40px;
   padding: 0.35rem 0.55rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  max-width: 100%;
 }
 .sort-field select:disabled {
   opacity: 0.5;
 }
-.actions .primary,
-.backup-actions .primary {
+.sort-apply {
+  box-sizing: border-box;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sort-apply:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.sort-apply:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sort-apply:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.backup-actions .primary,
+.tag-id-actions .primary,
+.share-actions .primary {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
-}
-.actions .primary:disabled {
-  background: color-mix(in srgb, var(--muted) 35%, var(--surface));
-  color: var(--muted);
-  border-color: var(--border);
-  cursor: not-allowed;
-  opacity: 1;
 }
 .backup-actions .primary:disabled {
   background: color-mix(in srgb, var(--muted) 35%, var(--surface));
@@ -807,22 +1441,59 @@ function rowStarLabel(title: string, tagId: number): string {
 li {
   position: relative;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.4rem;
-  align-items: stretch;
+  /* Drag | title/actions — `.show-select` adds the checkbox column (Browse-like). */
+  grid-template-columns: auto 1fr auto;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.35rem 0.35rem 0.35rem 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
+  min-height: 44px;
   transition:
     transform 0.12s ease,
     box-shadow 0.12s ease,
-    opacity 0.12s ease;
+    opacity 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+li.show-select {
+  grid-template-columns: auto auto 1fr auto;
+}
+li.no-nav .row-link {
+  pointer-events: none;
+}
+.sel-btn {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sel-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
 }
 li.dragging {
   z-index: 3;
   opacity: 1;
   transform: scale(1.02) translateY(-2px);
-}
-li.dragging .card,
-li.dragging .drag-handle {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 18%, transparent);
@@ -830,6 +1501,7 @@ li.dragging .drag-handle {
 li.dragging .drag-handle {
   color: var(--accent);
   cursor: grabbing;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 li.drop-before::before,
 li.drop-after::after {
@@ -851,13 +1523,19 @@ li.drop-after::after {
   bottom: -0.28rem;
 }
 .drag-handle {
-  align-self: stretch;
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 40px;
   min-height: 44px;
-  padding: 0 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  width: 40px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
   color: var(--muted);
   font: inherit;
   font-size: 1.05rem;
@@ -865,23 +1543,57 @@ li.drop-after::after {
   cursor: grab;
   touch-action: none;
 }
+.drag-handle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
 .drag-handle:active {
   cursor: grabbing;
 }
-.card.no-nav .row-link {
-  pointer-events: none;
+.row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
-.card {
-  display: grid;
-  grid-template-columns: 1fr auto;
+.row-cols {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
+  padding: 0 0.35rem 0.45rem;
+}
+.col-chip {
+  display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.35rem 0.35rem 0.85rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  min-height: 44px;
-  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  gap: 0.2rem;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--accent-hover, var(--accent));
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.25;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.col-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.col-chip.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+.col-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .row-actions {
   display: flex;
@@ -1023,8 +1735,40 @@ code {
 .collection-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.4rem;
+  margin: 0 0 0.45rem;
+}
+.collection-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.4rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  /* Cap to ~2 chip rows; prev/next pages the rest. */
+  max-height: calc(36px * 2 + 0.4rem);
+  overflow: hidden;
+}
+.collection-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
   margin: 0 0 0.65rem;
+}
+.collection-pager .btn {
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+.collection-page-ind {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  min-width: 3.5rem;
+  text-align: center;
 }
 .chip {
   display: inline-flex;
@@ -1057,18 +1801,103 @@ code {
 }
 .collection-hint {
   margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
   font-size: 0.9rem;
   color: var(--muted);
 }
-.linkish {
-  margin-left: 0.45rem;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
+.collection-hint .btn {
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+.tag-id-add-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+.tag-id-add-panel label,
+.share-panel label {
+  font-size: 0.85rem;
   font-weight: 600;
-  text-decoration: underline;
+}
+.tag-id-add-panel textarea,
+.share-panel input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.tag-id-add-panel textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+.tag-id-media {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
   cursor: pointer;
+}
+.tag-id-media input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.tag-id-actions,
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.tag-id-actions button,
+.share-actions button {
+  min-height: 44px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.tag-id-add-panel p,
+.share-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.share-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+.share-warn {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted, #666);
+}
+.import-media {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+}
+.share-qr {
+  width: 200px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 6px;
+  background: #fff;
+}
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 .manage {
   display: grid;
@@ -1124,6 +1953,12 @@ code {
   font-weight: 500;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+.manage-dates {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.35;
 }
 .manage-row input,
 .manage-create input {
@@ -1186,5 +2021,46 @@ code {
 }
 .manage-create-btn {
   width: 100%;
+}
+</style>
+
+<style>
+.selection-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
+}
+.selection-bar .sel-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+  font-size: 0.95rem;
+}
+.selection-bar .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .selection-bar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(960px, calc(100% - 2rem));
+    bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+  }
 }
 </style>

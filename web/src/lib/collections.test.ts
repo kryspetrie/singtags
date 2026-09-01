@@ -40,7 +40,7 @@ describe('collections', () => {
 })
 
 describe('user collection browse helpers', () => {
-  it('orders catalog by sortRank then custom A–Z', () => {
+  it('orders catalog by sortRank then custom in given order', () => {
     const opts = mergeBrowseCollectionOptions(
       ['easytags', 'classic', '100'],
       [
@@ -52,8 +52,8 @@ describe('user collection browse helpers', () => {
       'Classic',
       '100 Days: 100 Tags',
       'Easy Tags',
-      'Contest set',
       'Zebra',
+      'Contest set',
     ])
     expect(opts.filter((o) => o.custom).every((o) => o.id.startsWith('user:'))).toBe(true)
   })

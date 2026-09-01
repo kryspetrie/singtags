@@ -61,4 +61,16 @@ describe('userCollections store', () => {
     expect(store.reorderTag(col.id, 3, 2)).toBe(true)
     expect(store.byId(col.id)?.tagIds).toEqual([1, 2, 3])
   })
+
+  it('setOrder and moveCollection reorder the collection list', () => {
+    const store = useUserCollectionsStore()
+    const a = store.create('A', [])!
+    const b = store.create('B', [])!
+    const c = store.create('C', [])!
+    expect(store.collections.map((x) => x.id)).toEqual([a.id, b.id, c.id])
+    expect(store.setOrder([c.id, a.id, b.id])).toBe(true)
+    expect(store.collections.map((x) => x.id)).toEqual([c.id, a.id, b.id])
+    expect(store.moveCollection(c.id, 2)).toBe(true)
+    expect(store.collections.map((x) => x.id)).toEqual([a.id, b.id, c.id])
+  })
 })

@@ -212,7 +212,7 @@ export type BrowseCollectionOption = {
   custom: boolean
 }
 
-/** Catalog series by sortRank, then custom collections A–Z. */
+/** Catalog series by sortRank, then custom collections in caller/store order. */
 export function mergeBrowseCollectionOptions(
   catalogIds: string[],
   userCollections: Array<{ id: string; name: string }>,
@@ -225,16 +225,14 @@ export function mergeBrowseCollectionOptions(
     if (ra !== rb) return ra - rb
     return (ia?.label ?? a).localeCompare(ib?.label ?? b, undefined, { sensitivity: 'base' })
   })
-  const custom = [...userCollections].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-  )
+  // Preserve userCollections array order (Favorites reorder / store order).
   return [
     ...catalog.map((id) => ({
       id,
       label: collectionLabel(id) || id,
       custom: false as const,
     })),
-    ...custom.map((c) => ({
+    ...userCollections.map((c) => ({
       id: userCollectionFilterId(c.id),
       label: c.name,
       custom: true as const,

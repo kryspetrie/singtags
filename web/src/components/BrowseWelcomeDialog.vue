@@ -158,7 +158,9 @@ function onContinue(): void {
           <button type="button" class="btn btn-primary" @click="onContinue">
             {{ continueLabel }}
           </button>
-          <RouterLink class="btn" to="/settings" @click="emit('close')">Offline settings</RouterLink>
+          <RouterLink class="btn btn-ghost" to="/settings" @click="emit('close')">
+            Offline settings
+          </RouterLink>
         </footer>
       </div>
     </div>

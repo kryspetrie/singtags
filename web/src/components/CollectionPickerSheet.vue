@@ -25,9 +25,7 @@ const collections = useUserCollectionsStore()
 const newName = ref('')
 const error = ref<string | null>(null)
 
-const sorted = computed(() =>
-  [...collections.collections].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-)
+const sorted = computed(() => collections.collections)
 
 const tagCountLabel = computed(() => {
   const n = props.tagIds.length

@@ -1,17 +1,18 @@
 <script setup lang="ts">
 /**
- * Tag detail page: sheet viewer, learning-track player, downloads, favorites toggle,
- * and practice-set integration.
+ * Tag detail page: sheet viewer, learning-track player, downloads, favorites toggle.
+ * Practice-set UI is gated off via PRACTICE_MODE_ENABLED.
  */
 import { bookletBadgeForTag, collectionLabel } from '../search/browse'
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { goTagBack, tagBackLabel } from '../lib/tagReturn'
+import { goTagBack, peekTagReturnOrigin, tagBackLabel } from '../lib/tagReturn'
 import { useCatalogStore } from '../stores/catalog'
 import { useQueueStore } from '../stores/queue'
 import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
 import { usePracticeStore } from '../stores/practice'
+import { PRACTICE_MODE_ENABLED } from '../lib/practiceMode'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
@@ -20,7 +21,6 @@ import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, cl
 import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import TagDownloads from '../components/TagDownloads.vue'
-import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
 import { useOnline } from '../composables/useOnline'
@@ -28,6 +28,10 @@ import { useTagDetail } from '../composables/useTagDetail'
 import { buildTagDetailRows } from '../lib/tagDetailMeta'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { barbershopTagsTagUrl } from '../lib/barbershopTags'
+import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
+import { isTagFullscreenQuery } from '../lib/tagOpen'
+import { usePreferencesStore } from '../stores/preferences'
+import TagShareSheet from '../components/TagShareSheet.vue'
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -38,9 +42,133 @@ const queue = useQueueStore()
 const favorites = useFavoritesStore()
 const recent = useRecentStore()
 const practice = usePracticeStore()
+const prefs = usePreferencesStore()
 const route = useRoute()
 const router = useRouter()
 const { offline } = useOnline()
+const tagPlayerRef = ref<{
+  togglePlay: () => Promise<void>
+  stopPlayback: () => Promise<void>
+  seek: (t: number) => void
+  selectPart: (p: string) => void
+  isPaused: () => boolean
+  getCurrentTime: () => number
+  getDuration: () => number
+  isPlayReady: () => boolean
+  isBaking: () => boolean
+} | null>(null)
+const playerTick = ref(0)
+const openSheetFullscreen = computed(() => isTagFullscreenQuery(route.query))
+
+const mixPlaying = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.isPaused === 'function' ? !p.isPaused() : false
+})
+const mixCurrentTime = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.getCurrentTime === 'function' ? p.getCurrentTime() : 0
+})
+const mixDuration = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.getDuration === 'function' ? p.getDuration() : 0
+})
+const mixPlayReady = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.isPlayReady === 'function' ? p.isPlayReady() : false
+})
+const mixBaking = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.isBaking === 'function' ? p.isBaking() : false
+})
+
+let playerTickTimer: ReturnType<typeof setInterval> | null = null
+function startPlayerTick(): void {
+  if (playerTickTimer) return
+  playerTickTimer = setInterval(() => {
+    playerTick.value++
+  }, 250)
+}
+function stopPlayerTick(): void {
+  if (!playerTickTimer) return
+  clearInterval(playerTickTimer)
+  playerTickTimer = null
+}
+
+async function onSheetPlayToggle(): Promise<void> {
+  const p = tagPlayerRef.value
+  if (!p) return
+  if (p.selectPart && audioParts.value && 'mix' in (audioParts.value || {})) {
+    try {
+      p.selectPart('mix')
+    } catch {
+      /* ignore */
+    }
+  }
+  await p.togglePlay()
+  playerTick.value++
+  startPlayerTick()
+}
+
+function onSheetSeek(t: number): void {
+  tagPlayerRef.value?.seek(t)
+  playerTick.value++
+}
+
+async function onSheetPlayStop(): Promise<void> {
+  const p = tagPlayerRef.value
+  if (!p) return
+  await p.stopPlayback()
+  playerTick.value++
+}
+
+/** Keep `?fullscreen=1` in sync so the address bar / copyable URL matches sheet state. */
+function onSheetFullscreenChange(on: boolean): void {
+  if (on) {
+    if (isTagFullscreenQuery(route.query)) return
+    patchTagQuery((q) => {
+      q.fullscreen = '1'
+      delete q.sheet
+      delete q.sing
+    })
+    return
+  }
+  if (!isTagFullscreenQuery(route.query)) return
+  patchTagQuery((q) => {
+    delete q.fullscreen
+    delete q.sheet
+    delete q.sing
+  })
+}
+
+/** Coalesce concurrent shift / fullscreen query writes. */
+let queryPatchTimer: ReturnType<typeof setTimeout> | null = null
+let queryPatchPending: ((q: Record<string, string | string[] | undefined>) => void)[] = []
+
+function patchTagQuery(mutator: (q: Record<string, string | string[] | undefined>) => void): void {
+  queryPatchPending.push(mutator)
+  if (queryPatchTimer) return
+  queryPatchTimer = setTimeout(() => {
+    queryPatchTimer = null
+    const q = { ...route.query } as Record<string, string | string[] | undefined>
+    const batch = queryPatchPending
+    queryPatchPending = []
+    for (const m of batch) m(q)
+    void router.replace({ path: route.path, query: q })
+  }, 0)
+}
+
+/** Share from fullscreen chrome — open the share sheet (prefer fullscreen link). */
+function onFullscreenShare(): void {
+  openShare({ preferFullscreen: true })
+}
+
+const shareChromeLabel = computed(() => 'Share')
+
 const idRef = toRef(props, 'id')
 const {
   detail,
@@ -66,13 +194,52 @@ const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
 const practiceDone = ref(false)
 
-const inPractice = computed(() => route.query.set === 'practice')
+/**
+ * Fine detune from `?detune=` — session-only for this shared visit.
+ * Never written to pitch-pipe / apply-globally preferences.
+ */
+const sessionDetuneCents = computed(() => {
+  const n = readDetuneFromQuery(route.query)
+  return n == null ? 0 : n
+})
+
+/** Absolute cents for pay-the-key: URL session wins over local global detune. */
+function fineDetuneForPayKey(): number {
+  const fromQuery = readDetuneFromQuery(route.query)
+  if (fromQuery != null) return fromQuery
+  return prefs.globalPitchDetuneCents()
+}
+
+/** Semitone shift for baked playback, including session fine detune as a fraction. */
+function playbackPitchSemitones(base: number): number {
+  return clampPitchSemitones(base) + sessionDetuneCents.value / 100
+}
+
+const inPractice = computed(
+  () => PRACTICE_MODE_ENABLED && route.query.set === 'practice',
+)
 
 const backLabel = computed(() => tagBackLabel(route))
+
+/** Noun only (“Browse”) for fullscreen ✕ — same destination as Back on the tag page. */
+const exitOriginLabel = computed(() => {
+  const o = peekTagReturnOrigin()
+  if (!o?.fullPath) return 'tag page'
+  return o.label || backLabel.value.replace(/^←\s*/, '')
+})
 
 /** Return to the originating list (Browse / Favorites / …), not a previous tag. */
 function goBack(): void {
   goTagBack(router, route)
+}
+
+/**
+ * Fullscreen ✕ / Escape: return to the list that opened this tag when we have one;
+ * for direct / shared `?fullscreen=1` links, just leave fullscreen on the tag page.
+ */
+function onFullscreenExitOrigin(): void {
+  if (!peekTagReturnOrigin()?.fullPath) return
+  goBack()
 }
 
 function readShiftFromRoute(): number {
@@ -87,6 +254,11 @@ function bumpKeyShift(delta: number): void {
 }
 
 onMounted(async () => {
+  if (!PRACTICE_MODE_ENABLED && route.query.set === 'practice') {
+    patchTagQuery((q) => {
+      delete q.set
+    })
+  }
   await catalog.load()
   await favorites.ensureLoaded()
   keyShift.value = readShiftFromRoute()
@@ -96,9 +268,29 @@ onMounted(async () => {
   }
 })
 
+watch(
+  () =>
+    [
+      openSheetFullscreen.value,
+      sheetPreparing.value,
+      sheetAssets.value.imageSets.length,
+      sheetAssets.value.pdfs.length,
+    ] as const,
+  ([wantFs, preparing, images, pdfs]) => {
+    if (!wantFs || preparing) return
+    if (images + pdfs > 0) return
+    // Deep-linked fullscreen with nothing to show — drop the query.
+    patchTagQuery((q) => {
+      delete q.fullscreen
+      delete q.sheet
+      delete q.sing
+    })
+  },
+)
+
 onUnmounted(() => {
   pitch.dispose()
-  if (copyUrlTimer) clearTimeout(copyUrlTimer)
+  stopPlayerTick()
 })
 
 watch(
@@ -135,17 +327,25 @@ watch(keyShift, (v) => {
   }
   playerTransform.value = { ...playerTransform.value, pitchSemitones: c }
   if (syncingShift.value) return
-  const q = { ...route.query } as Record<string, string | string[] | undefined>
-  if (c) q.shift = String(c)
-  else delete q.shift
-  void router.replace({ query: q })
+  patchTagQuery((q) => {
+    if (c) q.shift = String(c)
+    else delete q.shift
+  })
 })
 
 watch(playerTransform, (t) => {
   const c = clampPitchSemitones(t.pitchSemitones)
   if (c !== keyShift.value) keyShift.value = c
-  queue.setPlaybackTransform({ ...t, pitchSemitones: c })
+  queue.setPlaybackTransform({ ...t, pitchSemitones: playbackPitchSemitones(c) })
 }, { deep: true })
+
+watch(sessionDetuneCents, () => {
+  const c = clampPitchSemitones(playerTransform.value.pitchSemitones)
+  queue.setPlaybackTransform({
+    ...playerTransform.value,
+    pitchSemitones: playbackPitchSemitones(c),
+  })
+})
 
 /** When connectivity returns, retry loading sheets/audio for this tag. */
 watch(offline, (now, prev) => {
@@ -202,36 +402,43 @@ const pageAltTitle = computed(() =>
 const pageTitleTooltip = computed(() =>
   pageAltTitle.value ? `${pageTitleDisplay.value} — ${pageAltTitle.value}` : pageTitleDisplay.value,
 )
-const sharePageUrl = computed(() => {
-  const resolved = router.resolve({ path: `/tag/${props.id}` })
+const barbershopPageUrl = computed(() =>
+  barbershopTagsTagUrl(Number(props.id), pageTitle.value),
+)
+
+const shareOpen = ref(false)
+
+const shareHref = computed(() => resolveShareHref())
+
+function resolveShareHref(opts?: { fullscreen?: boolean }): string {
+  // Prefer this visit’s session detune; otherwise the sharer’s applied global detune.
+  const detuneCents = readDetuneFromQuery(route.query) ?? prefs.globalPitchDetuneCents()
+  const { path, query } = buildTagSharePath(props.id, {
+    shift: keyShift.value,
+    detuneCents,
+    practice: PRACTICE_MODE_ENABLED && route.query.set === 'practice',
+    fullscreen: opts?.fullscreen ?? prefs.shareFullscreen,
+  })
+  const resolved = router.resolve({ path, query })
   if (typeof window !== 'undefined') {
     return new URL(resolved.href, window.location.origin).href
   }
   return resolved.href
-})
-const barbershopPageUrl = computed(() =>
-  barbershopTagsTagUrl(Number(props.id), pageTitle.value),
-)
-const copyUrlMsg = ref<string | null>(null)
-let copyUrlTimer: ReturnType<typeof setTimeout> | null = null
+}
 
-async function copyShareUrl(): Promise<void> {
-  copyUrlMsg.value = null
-  try {
-    await navigator.clipboard.writeText(sharePageUrl.value)
-    copyUrlMsg.value = 'Copied'
-  } catch {
-    copyUrlMsg.value = 'Copy failed'
-  }
-  if (copyUrlTimer) clearTimeout(copyUrlTimer)
-  copyUrlTimer = setTimeout(() => {
-    copyUrlMsg.value = null
-  }, 2000)
+function openShare(opts?: { preferFullscreen?: boolean }): void {
+  if (opts?.preferFullscreen) prefs.setShareFullscreen(true)
+  shareOpen.value = true
+}
+
+function closeShare(): void {
+  shareOpen.value = false
 }
 
 function tagLink(id: number): Record<string, unknown> {
   const q = { ...route.query } as Record<string, string | string[] | undefined>
   if (inPractice.value) q.set = 'practice'
+  else delete q.set
   return { path: `/tag/${id}`, query: q }
 }
 
@@ -273,7 +480,9 @@ async function payKeyDown(): Promise<void> {
   const note = tonicNote()
   if (!note) return
   // With catalog key, ± detunes the written tonic. Without, ± already picked the absolute key.
-  const detuneCents = keyDisplay.value ? keyShift.value * 100 : 0
+  // Session `?detune=` (from QR/share) applies here without touching local prefs.
+  const shiftCents = keyDisplay.value ? keyShift.value * 100 : 0
+  const detuneCents = shiftCents + fineDetuneForPayKey()
   await pitch.start(note, detuneCents)
 }
 
@@ -397,7 +606,7 @@ async function onRetryLoad(): Promise<void> {
           type="button"
           class="fav"
           :aria-pressed="starred"
-          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use and practice sets'"
+          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use'"
           @click="onToggleStar"
         >
           {{ starred ? '♥ Favorited' : '♡ Favorite' }}
@@ -405,7 +614,7 @@ async function onRetryLoad(): Promise<void> {
       </div>
     </div>
 
-    <div v-if="inPractice" class="practice-banner" role="status">
+    <div v-if="PRACTICE_MODE_ENABLED && inPractice" class="practice-banner" role="status">
       <div class="practice-row">
         <strong>Practice set</strong>
         <span v-if="nav.index >= 0">{{ nav.index + 1 }} / {{ nav.total }}</span>
@@ -431,16 +640,15 @@ async function onRetryLoad(): Promise<void> {
             <button
               type="button"
               class="title-copy"
-              :class="{ ok: copyUrlMsg === 'Copied' }"
-              :aria-label="copyUrlMsg || 'Copy link to this tag'"
-              :title="copyUrlMsg || 'Copy link to share this tag'"
-              @click="copyShareUrl"
+              aria-label="Share this tag"
+              title="Share a link to this tag"
+              @click="openShare()"
             >
-              {{ copyUrlMsg || 'Copy URL' }}
+              Share
             </button>
             <a
               :href="barbershopPageUrl"
-              class="title-ext"
+              class="btn title-ext"
               target="_blank"
               rel="noopener noreferrer"
               title="Open on barbershoptags.com"
@@ -469,8 +677,8 @@ async function onRetryLoad(): Promise<void> {
       class="warn"
       role="status"
     >
-      Learning tracks for this tag aren’t cached yet. Download the audio library in
-      <RouterLink to="/settings">Offline settings</RouterLink>, or favorite this tag while online.
+      Learning tracks for this tag aren’t cached yet. Favorite this tag while online, or open Offline
+      settings to download the audio library.
     </p>
     <p
       v-else-if="offline && detail && hasAudio && !hasOfflinePlayback && starred"
@@ -478,15 +686,18 @@ async function onRetryLoad(): Promise<void> {
       role="status"
     >
       No audio cached for this favorited tag. We’ll retry caching when you’re back online, or open
-      <RouterLink to="/settings">Offline settings</RouterLink>.
+      Offline settings.
+    </p>
+    <p
+      v-if="offline && detail && hasAudio && !hasOfflinePlayback"
+      class="warn-actions"
+    >
+      <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
     </p>
     <div v-if="favorites.progress" class="progress" role="status" aria-live="polite">
       <div class="bar" :style="{ width: `${Math.round(favorites.progress.ratio * 100)}%` }" />
       <span>{{ favorites.progress.label }}</span>
     </div>
-    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
-      <FavoritesNoticeLine :notice="favorites.lastNotice" />
-    </p>
 
     <section class="section pitch-section" aria-labelledby="pitch-heading">
       <h2 id="pitch-heading" class="section-heading">Pitch</h2>
@@ -545,9 +756,33 @@ async function onRetryLoad(): Promise<void> {
           :pay-key-enabled="canPayKey"
           :key-label="pitchLabel"
           :shift="keyShift"
+          :sing-controls="hasAudio"
+          :auto-enter-fullscreen="openSheetFullscreen"
+          :playing="mixPlaying"
+          :play-ready="mixPlayReady && hasAudio"
+          :current-time="mixCurrentTime"
+          :duration="mixDuration"
+          :baking="mixBaking"
+          :exit-origin-label="exitOriginLabel"
+          :share-label="shareChromeLabel"
           @pay-down="payKeyDown"
           @pay-up="payKeyUp"
+          @shift-delta="bumpKeyShift"
+          @shift-reset="keyShift = 0"
+          @play-toggle="onSheetPlayToggle"
+          @play-stop="onSheetPlayStop"
+          @seek="onSheetSeek"
+          @fullscreen-change="onSheetFullscreenChange"
+          @share="onFullscreenShare"
+          @exit-origin="onFullscreenExitOrigin"
         />
+        <p
+          v-else-if="!sheetPreparing && openSheetFullscreen"
+          class="text-muted tip"
+          role="status"
+        >
+          No sheet to open fullscreen — open Tracks below or pick another tag.
+        </p>
         <p v-else-if="!sheetPreparing" class="text-muted tip">No sheet music on this tag.</p>
       </div>
     </details>
@@ -557,6 +792,7 @@ async function onRetryLoad(): Promise<void> {
       <div class="section-body">
         <TagPlayer
           v-if="hasAudio"
+          ref="tagPlayerRef"
           :key="id"
           :parts="audioParts"
           :available-parts="availableAudioParts"
@@ -663,7 +899,7 @@ async function onRetryLoad(): Promise<void> {
           type="button"
           class="fav"
           :aria-pressed="starred"
-          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use and practice sets'"
+          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use'"
           @click="onToggleStar"
         >
           {{ starred ? '♥ Favorited' : '♡ Favorite' }}
@@ -679,16 +915,15 @@ async function onRetryLoad(): Promise<void> {
             <button
               type="button"
               class="title-copy"
-              :class="{ ok: copyUrlMsg === 'Copied' }"
-              :aria-label="copyUrlMsg || 'Copy link to this tag'"
-              :title="copyUrlMsg || 'Copy link to share this tag'"
-              @click="copyShareUrl"
+              aria-label="Share this tag"
+              title="Share a link to this tag"
+              @click="openShare()"
             >
-              {{ copyUrlMsg || 'Copy URL' }}
+              Share
             </button>
             <a
               :href="barbershopPageUrl"
-              class="title-ext"
+              class="btn title-ext"
               target="_blank"
               rel="noopener noreferrer"
               title="Open on barbershoptags.com"
@@ -794,7 +1029,7 @@ async function onRetryLoad(): Promise<void> {
     message="This tag isn’t in the local catalog cache. Open Browse if the catalog loaded, or reconnect once to refresh indexes."
     tone="danger"
   >
-    <RouterLink to="/">Back to browse</RouterLink>
+    <RouterLink class="btn" to="/">Back to browse</RouterLink>
   </EmptyState>
   <EmptyState
     v-else-if="error"
@@ -804,9 +1039,17 @@ async function onRetryLoad(): Promise<void> {
   >
     <div class="partial-actions">
       <button type="button" class="btn" :disabled="loading" @click="onRetryLoad">Retry</button>
-      <RouterLink to="/">Back to browse</RouterLink>
+      <RouterLink class="btn" to="/">Back to browse</RouterLink>
     </div>
   </EmptyState>
+
+  <TagShareSheet
+    :open="shareOpen"
+    :url="shareHref"
+    :barbershop-url="barbershopPageUrl"
+    :title="pageTitleDisplay"
+    @close="closeShare"
+  />
 </template>
 
 <style scoped>
@@ -1074,28 +1317,16 @@ async function onRetryLoad(): Promise<void> {
   color: var(--muted);
   white-space: nowrap;
 }
-.title-copy.ok {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-}
 .title-ext {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: 36px;
   min-height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 0.35rem;
   color: var(--accent);
-  text-decoration: none;
   font-size: 1rem;
   line-height: 1;
 }
 .title-ext:hover {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
   color: var(--accent-hover);
-  text-decoration: none;
 }
 .title-block .alt-title {
   margin: 0.2rem 0 0;
@@ -1319,6 +1550,12 @@ pre {
   color: var(--danger);
   font-size: 0.9rem;
   overflow-wrap: anywhere;
+}
+.warn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: -0.35rem 0 0.75rem;
 }
 .ok {
   color: var(--accent);

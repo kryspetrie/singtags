@@ -26,6 +26,7 @@ import {
 } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
 import AboutDialog from './components/AboutDialog.vue'
+import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
 
 const favorites = useFavoritesStore()
 const queue = useQueueStore()
@@ -282,31 +283,29 @@ async function acceptReconnectPrompt(): Promise<void> {
 <template>
   <div class="app">
     <header ref="topEl" class="top">
-      <div class="top-start">
+      <button
+        v-if="onTagPage"
+        type="button"
+        class="top-back"
+        :title="backLabel"
+        @click="goBack"
+      >{{ backLabel }}</button>
+      <div class="brand-cluster">
+        <RouterLink class="brand" to="/">
+          <span class="brand-lockup">
+            <span class="brand-name">SingTags</span>
+            <span class="brand-tagline">Barbershop tags… fast.</span>
+          </span>
+        </RouterLink>
         <button
-          v-if="onTagPage"
           type="button"
-          class="top-back"
-          :title="backLabel"
-          @click="goBack"
-        >{{ backLabel }}</button>
-        <div class="brand-cluster">
-          <RouterLink class="brand" to="/">
-            <span class="brand-lockup">
-              <span class="brand-name">SingTags</span>
-              <span class="brand-tagline">Barbershop tags… fast.</span>
-            </span>
-          </RouterLink>
-          <button
-            type="button"
-            class="about-btn"
-            aria-label="About SingTags"
-            title="About SingTags"
-            @click="aboutOpen = true"
-          >
-            i
-          </button>
-        </div>
+          class="about-btn"
+          aria-label="About SingTags"
+          title="About SingTags"
+          @click="aboutOpen = true"
+        >
+          i
+        </button>
       </div>
       <div class="top-mid">
         <div
@@ -315,9 +314,18 @@ async function acceptReconnectPrompt(): Promise<void> {
           role="status"
         >
           <span
-            class="offline-ribbon-label"
+            class="offline-ribbon-label offline-ribbon-label-static"
             title="Offline mode — using cached content only. Click × to go back online."
           >Offline</span>
+          <button
+            type="button"
+            class="offline-ribbon-label offline-ribbon-go-online"
+            title="Offline mode — using cached content only. Click to go back online."
+            aria-label="Go online"
+            @click="offlineMode.setManualOffline(false)"
+          >
+            Offline
+          </button>
           <button
             type="button"
             class="offline-ribbon-dismiss"
@@ -330,19 +338,28 @@ async function acceptReconnectPrompt(): Promise<void> {
         </div>
       </div>
       <nav class="topnav" aria-label="Primary">
-        <RouterLink to="/">Browse</RouterLink>
-        <RouterLink to="/recent">Recent</RouterLink>
-        <RouterLink to="/favorites">Favorites</RouterLink>
-        <RouterLink to="/pitch-pipe">Pitch Pipe</RouterLink>
-        <RouterLink to="/queue">Downloads<span v-if="queue.count" class="n">{{ queue.count }}</span></RouterLink>
-        <RouterLink to="/settings">Offline</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/">Browse</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/settings">Library</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/queue">
+          Downloads<span v-if="queue.count" class="n">{{ queue.count }}</span>
+        </RouterLink>
       </nav>
     </header>
     <div v-if="!offlineMode.manualOffline && offlineBannerMessage" class="offline-banner" role="status">
       <span>{{ offlineBannerMessage }}</span>
-      <RouterLink class="offline-banner-link" to="/settings">Offline settings</RouterLink>
+      <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
     </div>
     <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
+    <CollectionPickerSheet
+      :open="!!favorites.collectionPickerTagIds?.length"
+      :tag-ids="favorites.collectionPickerTagIds ?? []"
+      title="Add to collection"
+      @close="favorites.clearCollectionPicker()"
+      @done="favorites.onCollectionPickerDone"
+    />
     <main id="main">
       <RouterView />
     </main>
@@ -365,11 +382,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       </RouterLink>
       <RouterLink to="/settings" class="tab">
         <span class="ico" aria-hidden="true">⇩</span>
-        Offline
-      </RouterLink>
-      <RouterLink to="/queue" class="tab">
-        <span class="ico" aria-hidden="true">▤</span>
-        Queue
+        Library
         <span v-if="queue.count" class="n tab-n">{{ queue.count }}</span>
       </RouterLink>
     </nav>
@@ -445,7 +458,7 @@ async function acceptReconnectPrompt(): Promise<void> {
         Not now
       </button>
     </div>
-    <div v-else-if="showInstall" class="toast" role="status">
+    <div v-else-if="showInstall && prefs.browseWelcomeDismissed" class="toast" role="status">
       <span>Install SingTags</span>
       <button type="button" class="btn btn-primary" @click="installApp">Install</button>
       <button type="button" class="btn btn-ghost" @click="dismissInstall">Not now</button>
@@ -496,9 +509,17 @@ async function acceptReconnectPrompt(): Promise<void> {
             showPackProgressSnack,
         },
       ]"
-      role="alert"
+      :role="snackbar.tone === 'error' ? 'alert' : 'status'"
     >
       <span>{{ snackbar.message }}</span>
+      <button
+        v-if="snackbar.actionLabel"
+        type="button"
+        class="btn"
+        @click="snackbar.runAction()"
+      >
+        {{ snackbar.actionLabel }}
+      </button>
       <button type="button" class="btn btn-ghost" @click="snackbar.dismiss()">Dismiss</button>
     </div>
   </div>
@@ -519,7 +540,7 @@ async function acceptReconnectPrompt(): Promise<void> {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem 0.75rem;
+  gap: 0.45rem 0.75rem;
   padding: 0.45rem 0.75rem;
   font-size: 0.88rem;
   font-weight: 500;
@@ -529,18 +550,14 @@ async function acceptReconnectPrompt(): Promise<void> {
   color: var(--danger);
   border-bottom: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));
 }
-.offline-banner-link {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.offline-banner-link:hover {
-  color: var(--accent-hover);
-  text-decoration: underline;
+.offline-banner .btn {
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
 }
 .top {
   display: flex;
+  flex-wrap: nowrap;
   align-items: stretch;
   justify-content: space-between;
   gap: 0.75rem;
@@ -601,6 +618,28 @@ async function acceptReconnectPrompt(): Promise<void> {
   overflow: visible;
   text-align: center;
 }
+.offline-ribbon-go-online {
+  display: none;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  cursor: pointer;
+}
+.offline-ribbon-go-online:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.offline-ribbon-go-online:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .offline-ribbon-dismiss {
   grid-column: 3;
   grid-row: 1;
@@ -629,24 +668,37 @@ async function acceptReconnectPrompt(): Promise<void> {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.top-start {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  flex: 0 0 auto;
-  align-self: center;
-  min-width: max-content;
+/* Cramped desktop header (topnav still visible): one Offline control, no × wrap.
+ * Mobile (<768px, bottom nav) keeps Offline + × — mid column has room again. */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .offline-ribbon {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .offline-ribbon-label-static,
+  .offline-ribbon-dismiss {
+    display: none;
+  }
+  .offline-ribbon-go-online {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    grid-column: 1;
+    min-height: 2.5rem;
+  }
 }
 .brand-cluster {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   flex: 0 0 auto;
+  align-self: center;
   min-width: max-content;
 }
 .top-back {
   display: none;
   flex-shrink: 0;
+  align-self: center;
   min-height: 40px;
   padding: 0.25rem 0.55rem;
   border-radius: 8px;
@@ -736,22 +788,20 @@ async function acceptReconnectPrompt(): Promise<void> {
   display: none;
   flex: 0 0 auto;
   align-self: center;
-  gap: 0.85rem;
+  gap: 0.4rem;
   flex-wrap: wrap;
   align-items: center;
 }
-.topnav a {
-  color: var(--muted);
-  text-decoration: none;
-  font-size: 0.95rem;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.topnav a.router-link-active {
-  color: var(--accent);
+.topnav .btn {
+  min-height: 40px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
   font-weight: 600;
+}
+.topnav .btn.router-link-active {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .n {
   display: inline-flex;
@@ -781,7 +831,7 @@ main {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0;
   padding: 0.25rem 0.35rem calc(0.25rem + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 94%, transparent);
@@ -917,8 +967,48 @@ main {
   }
 }
 @media (max-width: 767px) {
+  .top {
+    gap: 0.4rem;
+  }
+  /* Back | Offline | SingTags — one row; brand stays right whether Back is present. */
   .top-back {
     display: inline-flex;
+    order: 1;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .top-mid {
+    order: 2;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .brand-cluster {
+    order: 3;
+    margin-left: auto;
+  }
+  .brand-lockup {
+    align-items: flex-end;
+    text-align: right;
+  }
+  .topnav {
+    display: none;
+  }
+  .offline-ribbon {
+    grid-template-columns: auto auto;
+    justify-content: center;
+    justify-items: center;
+    column-gap: 0.1rem;
+  }
+  .offline-ribbon-label {
+    grid-column: 1;
+  }
+  .offline-ribbon-dismiss {
+    grid-column: 2;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
   }
 }
 </style>

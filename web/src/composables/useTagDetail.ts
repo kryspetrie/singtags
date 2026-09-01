@@ -441,14 +441,18 @@ export function useTagDetail(id: Ref<string> | string) {
   const sheetAssets = computed(() => {
     const d = detail.value
     if (!d) return resolveSheetAssets({})
-    if (cachedSheetPages.value?.length) {
-      return resolveSheetAssets({
-        sheet: d.sheet,
-        sheets: d.sheets,
-        sheet_pages: cachedSheetPages.value,
-      })
+    // Always classify from catalog paths. Feeding blob: URLs as sheet_pages breaks
+    // redundancy checks and resurrects the bogus “Image file → Pages” picker.
+    const assets = resolveSheetAssets(d)
+    const cached = cachedSheetPages.value
+    if (!cached?.length) return assets
+    // Keep offline/blob display on the primary image set only.
+    const primary = assets.imageSets[0]
+    if (!primary || cached.length !== primary.paths.length) return assets
+    return {
+      ...assets,
+      imageSets: [{ ...primary, paths: cached }, ...assets.imageSets.slice(1)],
     }
-    return resolveSheetAssets(d)
   })
 
   const sheetPages = computed(() => sheetAssets.value.imageSets[0]?.paths ?? [])

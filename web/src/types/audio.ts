@@ -48,8 +48,9 @@ export function encodeQualityForDownload(format: DownloadFormat): AudioEncodeQua
 export type AudioEncodeQuality = 'original' | 'standard' | 'compact' | 'lofi'
 
 /**
- * Fixed on-device storage for favorited tags and offline audio packs: 64 kbps Opus.
- * Not user-configurable.
+ * Fixed on-device storage for favorited tags: 64 kbps Opus playback.
+ * The whole-library offline audio pack uses published ultra/lo-fi paths from the manifest
+ * (not this constant) — see Settings → Learning tracks library.
  */
 export const DEVICE_AUDIO_STORAGE_QUALITY: AudioEncodeQuality = 'standard'
 

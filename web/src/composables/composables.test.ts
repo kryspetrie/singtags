@@ -399,6 +399,61 @@ describe('useTagDetail', () => {
     w.unmount()
   })
 
+  it('does not show bogus Image-file alternates when pages resolve to blob URLs', async () => {
+    // Typical Tag Shop layout: PDF primary + Sheet.png + Preview.webp mirrors of pages.
+    const shopDetail: TagDetail = {
+      ...detail,
+      sheet: 'sheets/7/Hello - Sheet.pdf',
+      sheets: [
+        'sheets/7/Hello - Sheet.pdf',
+        'sheets/7/Hello - Sheet.png',
+        'sheets/7/Hello - Sheet Preview.webp',
+      ],
+      sheet_preview: 'sheets/7/preview.webp',
+      sheet_pages: ['sheets/7/preview.webp'],
+    }
+    const { api, w, pinia } = mountApi('7')
+    setActivePinia(pinia)
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'get').mockResolvedValue({
+      tagId: 7,
+      starredAt: '2026-01-01T00:00:00.000Z',
+      summary: {
+        id: 7,
+        title: 'Hello',
+        arranger: 'A',
+        key: 'C',
+        rating: null,
+        type: null,
+        collection: null,
+        hasSheet: true,
+        audioParts: ['lead'],
+        sheet: shopDetail.sheet,
+      },
+      detail: shopDetail,
+      audioBlobs: {
+        lead: { path: 'media/7/lead.m4a', mime: 'audio/mp4', data: new ArrayBuffer(4) },
+      },
+      sheetBlobs: [
+        { path: 'sheets/7/preview.webp', mime: 'image/webp', data: new ArrayBuffer(2) },
+      ],
+      offlineMedia: true,
+    })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 404 })))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:sheet-page')
+
+    await api.load()
+    await flushPromises()
+    // Catalog classification: pages only (png/preview are mirrors). Blob URLs must not
+    // reintroduce those uploads as selectable “Image file” options.
+    expect(api.sheetAssets.value.imageSets.map((s) => s.label)).toEqual(['Pages'])
+    expect(api.sheetAssets.value.imageSets[0]?.paths).toEqual(['blob:sheet-page'])
+    expect(api.sheetAssets.value.canChooseFormat).toBe(false)
+    expect(api.sheetAssets.value.pdfs).toHaveLength(1)
+    w.unmount()
+  })
+
   it('sets error when network and cache both missing', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 500 })))
     const { api, w } = mountApi('99')

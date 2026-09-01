@@ -6,7 +6,7 @@
  * for backward-compatible storage and import/export.
  */
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { TagDetail, TagSummary } from '../types/tag'
 import {
   getStarred,
@@ -28,7 +28,8 @@ import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetOfflinePaths, summarySheetPages } from '../lib/sheetPaths'
 import { packHasAnySheets } from '../offline/resolveMedia'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
-import { noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
+import { formatFavoritesNotice, noticeCollectionTagIds, noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
+import { useSnackbarStore } from './snackbar'
 
 /**
  * Optimistic in-memory row shown before IDB write completes.
@@ -54,10 +55,39 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const backgroundCount = ref(0)
   const error = ref<string | null>(null)
   const lastNotice = ref<FavoritesNotice | null>(null)
+  /** Tag ids for the global CollectionPickerSheet opened from a favorites snackbar. */
+  const collectionPickerTagIds = ref<number[] | null>(null)
   /** Global progress for explicit bulk operations (settings, import). */
   const progress = ref<StarProgress | null>(null)
   /** Per-tag progress while background caching from browse rows. */
   const tagProgress = ref<Record<number, StarProgress>>({})
+
+  // Completed favorite actions → transient snackbar (not sticky page copy).
+  watch(lastNotice, (n) => {
+    if (!n) return
+    const tagIds = noticeCollectionTagIds(n)
+    useSnackbarStore().show(formatFavoritesNotice(n), {
+      tone: n.type === 'removed' ? 'info' : 'ok',
+      ms: tagIds ? 8_000 : 4_000,
+      action: tagIds
+        ? {
+            label: 'Add to collection',
+            onClick: () => {
+              collectionPickerTagIds.value = tagIds
+            },
+          }
+        : undefined,
+    })
+  })
+
+  function clearCollectionPicker(): void {
+    collectionPickerTagIds.value = null
+  }
+
+  function onCollectionPickerDone(_id: string, name: string): void {
+    clearCollectionPicker()
+    lastNotice.value = { type: 'text', message: `Added to “${name}”` }
+  }
 
   /** Generation counter per tag — stale background jobs bail when superseded. */
   const tagJobGen = new Map<number, number>()
@@ -264,7 +294,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
       void runStarBackground(summary.id, gen, summary, null, options)
     }
 
-    lastNotice.value = { type: 'text', message: `Favorited ${pending.length} tag(s)` }
+    lastNotice.value = {
+      type: 'text',
+      message: `Favorited ${pending.length} tag(s)`,
+      tagIds: pending.map((s) => s.id),
+    }
     return pending.length
   }
 
@@ -492,6 +526,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     backgroundActive,
     error,
     lastNotice,
+    collectionPickerTagIds,
     progress,
     tagProgress,
     isTagCaching,
@@ -507,6 +542,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     updateOfflineMedia,
     refreshOfflineMediaIfStale,
     unstar,
+    clearCollectionPicker,
+    onCollectionPickerDone,
     exportFile,
     importFromJson,
     get,

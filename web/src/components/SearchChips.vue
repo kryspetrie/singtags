@@ -8,6 +8,7 @@ import {
 import CustomCollectionMark from './CustomCollectionMark.vue'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { CatalogFilters } from '../search/filters'
+import type { CachedFilter } from '../lib/offlineReadiness'
 import {
   arrangersByLastInitial,
   formatArrangerLastFirst,
@@ -36,7 +37,35 @@ const collectionOptions = computed(() =>
   mergeBrowseCollectionOptions(props.collections, props.userCollections ?? []),
 )
 
-const sheet = ref<'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title' | null>(null)
+/** Catalog series stay pinned; custom collections page in ~2-line chunks. */
+const COLLECTION_SHEET_PAGE_SIZE = 6
+const collectionSheetPage = ref(0)
+
+const catalogCollectionOptions = computed(() => collectionOptions.value.filter((c) => !c.custom))
+const customCollectionOptions = computed(() => collectionOptions.value.filter((c) => c.custom))
+
+const customCollectionPageCount = computed(() =>
+  Math.max(1, Math.ceil(customCollectionOptions.value.length / COLLECTION_SHEET_PAGE_SIZE)),
+)
+
+const showCustomCollectionPager = computed(
+  () => customCollectionOptions.value.length > COLLECTION_SHEET_PAGE_SIZE,
+)
+
+const pagedCustomCollectionOptions = computed(() => {
+  const start = collectionSheetPage.value * COLLECTION_SHEET_PAGE_SIZE
+  return customCollectionOptions.value.slice(start, start + COLLECTION_SHEET_PAGE_SIZE)
+})
+
+watch(customCollectionPageCount, (n) => {
+  if (collectionSheetPage.value > n - 1) {
+    collectionSheetPage.value = Math.max(0, n - 1)
+  }
+})
+
+const sheet = ref<
+  'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title' | 'cached' | null
+>(null)
 const arrangerQ = ref('')
 const arrangerLetter = ref<string | null>(null)
 const chipsWrap = ref<HTMLElement | null>(null)
@@ -59,7 +88,9 @@ function measureSheetAnchor(): void {
   sheetAnchorTop.value = bottom > 48 ? Math.round(bottom) : null
 }
 
-function openSheet(kind: 'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title'): void {
+function openSheet(
+  kind: 'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title' | 'cached',
+): void {
   // Measure before opening so the panel mounts already anchored (enter animation uses final layout).
   measureSheetAnchor()
   sheet.value = kind
@@ -70,6 +101,7 @@ watch(sheet, (openSheet) => {
     sheetAnchorTop.value = null
     return
   }
+  if (openSheet === 'collection') collectionSheetPage.value = 0
   // Re-measure after paint in case layout shifted.
   void nextTick(() => measureSheetAnchor())
 })
@@ -119,6 +151,7 @@ function filtersActive(f: CatalogFilters): boolean {
     f.yearMax != null ||
     f.hasSheet === true ||
     f.hasAudio === true ||
+    f.cached != null ||
     f.types.length > 0 ||
     f.collections.length > 0 ||
     f.titleLetters.length > 0
@@ -146,6 +179,10 @@ function toggleSheet(): void {
 }
 function toggleAudio(): void {
   emit('patch', { hasAudio: props.filters.hasAudio === true ? null : true })
+}
+function setCached(raw: string): void {
+  emit('patch', { cached: (raw || null) as CachedFilter })
+  sheet.value = null
 }
 function setRating(n: number | null): void {
   emit('patch', { minRating: n })
@@ -218,6 +255,15 @@ function removeArranger(a: string): void {
         @click="toggleAudio"
       >
         Has audio
+      </button>
+      <button
+        type="button"
+        class="chip"
+        :class="{ on: filters.cached != null }"
+        title="Filter by offline files on this device (any sheet/audio blob — not always Mix-ready)"
+        @click="openSheet('cached')"
+      >
+        Offline files{{ filters.cached ? `: ${filters.cached}` : '' }}
       </button>
       <button
         type="button"
@@ -311,6 +357,29 @@ function removeArranger(a: string): void {
         Title {{ letter }} ✕
       </button>
     </div>
+
+    <FilterSheet
+      :open="sheet === 'cached'"
+      title="Offline files on this device"
+      :anchor-top="sheetAnchorTop"
+      @close="sheet = null"
+    >
+      <label class="cached-field">
+        <span>Offline media</span>
+        <select
+          :value="filters.cached ?? ''"
+          aria-label="Offline media"
+          @change="setCached(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">No filter</option>
+          <option value="any">Has any files</option>
+          <option value="sheets">Has sheet files</option>
+          <option value="audio">Has audio files</option>
+          <option value="both">Has sheet + audio files</option>
+          <option value="none">No offline files</option>
+        </select>
+      </label>
+    </FilterSheet>
 
     <FilterSheet
       :open="sheet === 'rating'"
@@ -466,17 +535,55 @@ function removeArranger(a: string): void {
       :anchor-top="sheetAnchorTop"
       @close="sheet = null"
     >
-      <div class="opts wrap">
+      <div class="opts wrap collection-opts">
         <button
-          v-for="c in collectionOptions"
+          v-for="c in catalogCollectionOptions"
           :key="c.id"
           type="button"
           class="chip"
-          :class="{ on: filters.collections.includes(c.id), custom: c.custom }"
+          :class="{ on: filters.collections.includes(c.id) }"
           @click="toggleCollection(c.id)"
         >
-          <CustomCollectionMark v-if="c.custom" />
           {{ c.label }}
+        </button>
+        <button
+          v-for="c in pagedCustomCollectionOptions"
+          :key="c.id"
+          type="button"
+          class="chip custom"
+          :class="{ on: filters.collections.includes(c.id) }"
+          @click="toggleCollection(c.id)"
+        >
+          <CustomCollectionMark />
+          {{ c.label }}
+        </button>
+      </div>
+      <div
+        v-if="showCustomCollectionPager"
+        class="collection-pager"
+        role="group"
+        aria-label="Your collection pages"
+      >
+        <button
+          type="button"
+          class="btn"
+          :disabled="collectionSheetPage <= 0"
+          aria-label="Previous collection page"
+          @click="collectionSheetPage -= 1"
+        >
+          ← Prev
+        </button>
+        <span class="collection-page-ind" aria-live="polite">
+          {{ collectionSheetPage + 1 }} / {{ customCollectionPageCount }}
+        </span>
+        <button
+          type="button"
+          class="btn"
+          :disabled="collectionSheetPage >= customCollectionPageCount - 1"
+          aria-label="Next collection page"
+          @click="collectionSheetPage += 1"
+        >
+          Next →
         </button>
       </div>
     </FilterSheet>
@@ -554,6 +661,32 @@ function removeArranger(a: string): void {
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+.collection-opts {
+  /* ~2 chip rows; paging handles overflow for custom collections. */
+  max-height: calc(40px * 2 + 0.4rem);
+  overflow: hidden;
+  align-content: flex-start;
+  margin-bottom: 0.55rem;
+}
+.collection-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.collection-pager .btn {
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
+}
+.collection-page-ind {
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  min-width: 3.5rem;
+  text-align: center;
+}
 .year-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -575,6 +708,22 @@ function removeArranger(a: string): void {
   font-size: 16px;
   background: var(--surface);
   color: inherit;
+}
+.cached-field {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.cached-field select {
+  min-height: 44px;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
 }
 .search {
   width: 100%;

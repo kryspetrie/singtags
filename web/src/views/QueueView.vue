@@ -73,6 +73,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
     <div class="actions">
       <button
         type="button"
+        class="btn btn-primary"
         :disabled="!queue.count || queue.busy || offline"
         :title="
           !queue.count
@@ -88,12 +89,19 @@ function onFormatChange(fmt: UserDownloadFormat): void {
       <button
         v-if="queue.busy"
         type="button"
-        class="cancel"
+        class="btn btn-danger"
         @click="queue.cancelZip()"
       >
         Cancel
       </button>
-      <button type="button" :disabled="!queue.count || queue.busy" @click="queue.clear()">Clear</button>
+      <button
+        type="button"
+        class="btn btn-ghost"
+        :disabled="!queue.count || queue.busy"
+        @click="queue.clear()"
+      >
+        Clear
+      </button>
     </div>
 
     <ul v-if="queue.tracks.length" class="list">
@@ -108,7 +116,9 @@ function onFormatChange(fmt: UserDownloadFormat): void {
             }}
           </span>
         </div>
-        <button type="button" @click="queue.remove(t.tagId, t.part)">Remove</button>
+        <button type="button" class="btn btn-ghost remove" @click="queue.remove(t.tagId, t.part)">
+          Remove
+        </button>
       </li>
     </ul>
     <EmptyState
@@ -159,21 +169,6 @@ function onFormatChange(fmt: UserDownloadFormat): void {
   margin: 1rem 0;
   flex-wrap: wrap;
 }
-.actions button {
-  font: inherit;
-  padding: 0.5rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-.actions button:first-child {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.cancel {
-  color: var(--danger) !important;
-}
 .list {
   list-style: none;
   padding: 0;
@@ -183,6 +178,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
 .list li {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   padding: 0.65rem 0.85rem;
   background: var(--surface);
@@ -193,10 +189,12 @@ function onFormatChange(fmt: UserDownloadFormat): void {
   display: grid;
   gap: 0.15rem;
 }
-.list button {
-  border: 0;
-  background: none;
+.remove {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
   color: var(--danger);
-  text-decoration: underline;
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
 }
 </style>

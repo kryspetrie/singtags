@@ -1,19 +1,24 @@
 <script setup lang="ts">
 /**
  * Recently opened tags with sort by last visit or open count; inline favorite toggle.
+ * Multi-select (Browse/Favorites-like) to add tags to a collection.
  */
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import EmptyState from '../components/EmptyState.vue'
-import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
+import { usePreferencesStore } from '../stores/preferences'
 import { useRecentStore, type RecentSort } from '../stores/recent'
+import { tagOpenLocation } from '../lib/tagOpen'
+import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
 import type { TagSummary } from '../types/tag'
 
 const catalog = useCatalogStore()
 const favorites = useFavoritesStore()
 const recent = useRecentStore()
+const prefs = usePreferencesStore()
 
 const sorts: Array<{ id: RecentSort; label: string }> = [
   { id: 'recent', label: 'Most recent' },
@@ -36,8 +41,157 @@ const rows = computed(() =>
   })),
 )
 
+/** Multi-select for adding recent tags to collections. */
+const selectedIds = ref<Set<number>>(new Set())
+const selectMode = ref(false)
+const collectionPickerOpen = ref(false)
+const NARROW_SELECT_MQ = '(max-width: 639px)'
+const LONG_PRESS_MS = 450
+const LONG_PRESS_MOVE_PX = 10
+const isNarrow = ref(false)
+let narrowMq: MediaQueryList | null = null
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressId: number | null = null
+let longPressX = 0
+let longPressY = 0
+let suppressRowClick = false
+
+const selectedTagIds = computed(() => [...selectedIds.value])
+
+const showRowSelect = computed(
+  () => selectMode.value || selectedIds.value.size > 0 || !isNarrow.value,
+)
+
+function syncNarrowSelect(): void {
+  isNarrow.value = narrowMq?.matches ?? false
+}
+
+function toggleSelect(id: number): void {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+  if (next.size) selectMode.value = true
+}
+
+function clearSelection(): void {
+  selectedIds.value = new Set()
+  selectMode.value = false
+}
+
+function selectRowTip(title: string, tagId: number): string {
+  const name = title || `tag #${tagId}`
+  return selectedIds.value.has(tagId) ? `Deselect ${name}` : `Select ${name}`
+}
+
+function clearLongPressTimer(): void {
+  if (longPressTimer != null) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+  longPressId = null
+}
+
+function onRowPointerDown(e: PointerEvent, id: number): void {
+  if (!isNarrow.value || showRowSelect.value) return
+  if (e.button !== 0) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest('.sel-btn, .row-fav, .row-remove')) return
+  clearLongPressTimer()
+  longPressX = e.clientX
+  longPressY = e.clientY
+  longPressId = id
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    const tagId = longPressId
+    longPressId = null
+    if (tagId == null) return
+    selectMode.value = true
+    if (!selectedIds.value.has(tagId)) toggleSelect(tagId)
+    suppressRowClick = true
+    try {
+      navigator.vibrate?.(10)
+    } catch {
+      /* ignore */
+    }
+  }, LONG_PRESS_MS)
+}
+
+function onRowPointerMove(e: PointerEvent): void {
+  if (longPressTimer == null) return
+  if (
+    Math.abs(e.clientX - longPressX) > LONG_PRESS_MOVE_PX ||
+    Math.abs(e.clientY - longPressY) > LONG_PRESS_MOVE_PX
+  ) {
+    clearLongPressTimer()
+  }
+}
+
+function onRowPointerEnd(): void {
+  clearLongPressTimer()
+}
+
+function onRowClickCapture(e: MouseEvent): void {
+  if (!suppressRowClick) return
+  e.preventDefault()
+  e.stopPropagation()
+  suppressRowClick = false
+}
+
+async function favoriteSelectedToCollection(
+  _collectionId: string,
+  collectionName: string,
+): Promise<void> {
+  const summaries = selectedTagIds.value
+    .map(
+      (id) =>
+        catalog.getById(id) ??
+        favorites.records.find((r) => r.tagId === id)?.summary ??
+        null,
+    )
+    .filter((x): x is TagSummary => !!x)
+  const favorited = summaries.length
+    ? await favorites.starMany(summaries, { metadataOnly: false })
+    : 0
+  favorites.lastNotice = {
+    type: 'text',
+    message:
+      favorited > 0
+        ? `Favorited ${favorited} and added to “${collectionName}”`
+        : `Added to “${collectionName}”`,
+  }
+  clearSelection()
+  collectionPickerOpen.value = false
+}
+
+watch(
+  () => selectedIds.value.size,
+  (n) => {
+    if (n === 0) selectMode.value = false
+  },
+)
+
+watch(
+  () => recent.displayRecords().map((r) => r.id).join(','),
+  () => {
+    const alive = new Set(recent.displayRecords().map((r) => r.id))
+    const next = new Set([...selectedIds.value].filter((id) => alive.has(id)))
+    if (next.size !== selectedIds.value.size) selectedIds.value = next
+  },
+)
+
 onMounted(async () => {
+  narrowMq = window.matchMedia(NARROW_SELECT_MQ)
+  syncNarrowSelect()
+  narrowMq.addEventListener('change', syncNarrowSelect)
   await Promise.all([catalog.load(), favorites.ensureLoaded()])
+  applyTagReturnScrollIfAny()
+})
+
+onUnmounted(() => {
+  clearLongPressTimer()
+  narrowMq?.removeEventListener('change', syncNarrowSelect)
+  narrowMq = null
 })
 
 function formatWhen(iso: string): string {
@@ -70,7 +224,11 @@ function rowStarLabel(tag: TagSummary): string {
 </script>
 
 <template>
-  <section class="recent-page" aria-label="Recent tags">
+  <section
+    class="recent-page"
+    :class="{ 'has-selection': selectedIds.size }"
+    aria-label="Recent tags"
+  >
     <p v-if="catalog.loading && !catalog.loaded" class="muted intro" role="status">
       Loading catalog…
     </p>
@@ -87,8 +245,9 @@ function rowStarLabel(tag: TagSummary): string {
       </button>
     </div>
 
-    <p v-if="favorites.lastNotice" class="ok favorites-notice-wrap" role="status">
-      <FavoritesNoticeLine :notice="favorites.lastNotice" />
+    <p v-if="recent.count" class="select-hint">
+      Select tags (checkbox<span v-if="isNarrow"> or long-press</span>), then
+      <strong>Add to collection</strong>.
     </p>
 
     <EmptyState
@@ -97,12 +256,39 @@ function rowStarLabel(tag: TagSummary): string {
       message="Open tags from Browse or Recent — they will show up here with how often you visit them."
     />
     <ul v-else class="list">
-      <li v-for="{ rec, tag } in rows" :key="rec.id" class="list-row">
+      <li
+        v-for="{ rec, tag } in rows"
+        :key="rec.id"
+        class="list-row"
+        :class="{ 'show-select': showRowSelect && tag }"
+        @pointerdown="tag && onRowPointerDown($event, rec.id)"
+        @pointermove="onRowPointerMove"
+        @pointerup="onRowPointerEnd"
+        @pointercancel="onRowPointerEnd"
+        @click.capture="onRowClickCapture"
+      >
+        <button
+          v-if="showRowSelect && tag"
+          type="button"
+          class="sel-btn"
+          :class="{ on: selectedIds.has(rec.id) }"
+          :aria-pressed="selectedIds.has(rec.id)"
+          :aria-label="`Select ${tag.title || rec.id}`"
+          :title="selectRowTip(tag.title || '', rec.id)"
+          @click.stop="toggleSelect(rec.id)"
+        >
+          {{ selectedIds.has(rec.id) ? '✓' : '' }}
+        </button>
         <RouterLink
           v-if="tag"
-          :to="`/tag/${rec.id}`"
+          :to="tagOpenLocation(rec.id, { fullscreen: prefs.singMode })"
           class="row-link"
-          @click="recent.markBrowseNavigation(rec.id)"
+          @click="
+            (e) => {
+              if (suppressRowClick) e.preventDefault()
+              else recent.markBrowseNavigation(rec.id)
+            }
+          "
         >
           <span class="title">
             <span class="tag-num">#{{ rec.id }}</span>
@@ -151,10 +337,69 @@ function rowStarLabel(tag: TagSummary): string {
         </button>
       </li>
     </ul>
+
+    <CollectionPickerSheet
+      :open="collectionPickerOpen"
+      :tag-ids="selectedTagIds"
+      title="Add to collection"
+      @close="collectionPickerOpen = false"
+      @done="favoriteSelectedToCollection"
+    />
+
+    <Teleport to="body">
+      <div
+        v-if="selectedIds.size"
+        class="selection-bar"
+        role="toolbar"
+        aria-label="Selected recent tags"
+      >
+        <span class="sel-count">{{ selectedIds.size }} selected</span>
+        <button
+          type="button"
+          class="btn"
+          title="Favorite selected tags and add them to a collection"
+          @click="collectionPickerOpen = true"
+        >
+          Add to collection
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost"
+          title="Clear selection"
+          @click="clearSelection"
+        >
+          Clear
+        </button>
+      </div>
+    </Teleport>
+
+    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
+      <button
+        type="button"
+        class="sing-mode-btn"
+        :class="{ on: prefs.singMode }"
+        :aria-pressed="prefs.singMode"
+        :title="
+          prefs.singMode
+            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
+            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
+        "
+        @click="prefs.setSingMode(!prefs.singMode)"
+      >
+        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
+        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
+      </button>
+    </div>
   </section>
 </template>
 
 <style scoped>
+.recent-page.has-selection {
+  padding-bottom: 5.5rem;
+}
+.recent-page.has-selection .sing-mode-fab {
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
+}
 .intro {
   color: var(--muted);
   margin: 0 0 1rem;
@@ -166,7 +411,59 @@ function rowStarLabel(tag: TagSummary): string {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
+}
+.select-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sing-mode-fab {
+  position: fixed;
+  z-index: 24;
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
+  pointer-events: none;
+}
+.sing-mode-btn {
+  pointer-events: auto;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 4.75rem;
+  min-height: 3.25rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  touch-action: manipulation;
+}
+.sing-mode-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.sing-mode-kicker {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.1;
+}
+.sing-mode-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+@media (min-width: 768px) {
+  .sing-mode-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .recent-page.has-selection .sing-mode-fab {
+    bottom: calc(1rem + env(safe-area-inset-bottom) + 4.5rem);
+  }
 }
 .sort-field {
   display: flex;
@@ -182,13 +479,6 @@ function rowStarLabel(tag: TagSummary): string {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
-}
-.ok {
-  color: var(--accent);
-  font-size: 0.9rem;
-}
-.warn {
-  color: var(--danger);
 }
 .list {
   list-style: none;
@@ -207,14 +497,44 @@ function rowStarLabel(tag: TagSummary): string {
   background: var(--surface);
   border: 1px solid transparent;
 }
-.list-row:focus-within {
-  border-color: var(--border);
-}
-.list-row:has(.row-fav) {
-  grid-template-columns: 1fr auto auto;
+.list-row.show-select {
+  grid-template-columns: auto 1fr auto auto;
 }
 .list-row:not(:has(.row-fav)) {
   grid-template-columns: 1fr auto;
+}
+.list-row.show-select:not(:has(.row-fav)) {
+  grid-template-columns: auto 1fr auto;
+}
+.list-row:focus-within {
+  border-color: var(--border);
+}
+.sel-btn {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sel-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
 }
 .row-link {
   display: flex;
@@ -243,11 +563,27 @@ function rowStarLabel(tag: TagSummary): string {
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
+  padding: 0.35rem 0.55rem;
   align-self: center;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.row-fav:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
-  font-size: 1.25rem;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.row-fav[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .row-remove {
   z-index: 1;
@@ -275,6 +611,7 @@ function rowStarLabel(tag: TagSummary): string {
   display: block;
   width: 1.1rem;
   height: 1.1rem;
+  margin: 0 auto;
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   border-radius: 50%;
@@ -302,5 +639,46 @@ function rowStarLabel(tag: TagSummary): string {
   gap: 0.75rem;
   color: var(--muted);
   font-size: 0.92rem;
+}
+</style>
+
+<style>
+.selection-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
+}
+.selection-bar .sel-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+  font-size: 0.95rem;
+}
+.selection-bar .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  .selection-bar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(960px, calc(100% - 2rem));
+    bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+  }
 }
 </style>

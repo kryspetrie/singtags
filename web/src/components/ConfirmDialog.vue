@@ -35,6 +35,7 @@ const emit = defineEmits<{
       <div class="panel">
         <h2 id="confirm-dialog-title" class="title">{{ title }}</h2>
         <p class="message">{{ message }}</p>
+        <slot />
         <div class="actions">
           <button type="button" class="btn" @click="emit('close')">
             {{ cancelLabel || 'Cancel' }}

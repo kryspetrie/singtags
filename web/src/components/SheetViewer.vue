@@ -15,15 +15,23 @@ import {
   putPdfRasterFromObjectUrls,
 } from '../offline/pdfRasterCache'
 import {
+  chooseSheetFitMode,
+  clampSheetPan,
   fitSheetZoomPan,
   identitySheetZoomPan,
   panSheet,
+  preserveSheetCenter,
+  sheetZoomMinScale,
   sheetZoomPanCss,
+  sheetZoomPansNearlyEqual,
   wheelZoomFactor,
   zoomSheetAt,
+  SHEET_ZOOM_MAX,
   type SheetFitMode,
   type SheetZoomPan,
 } from '../lib/sheetZoomPan'
+import { KEY_SHIFT_LABEL_SIZE_SAMPLE } from '../audio/pitchPlayer'
+import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 
 export type SheetDisplayMode = 'images' | 'pdf'
 
@@ -51,9 +59,25 @@ const props = withDefaults(
     prefetchedPages?: string[] | null
     /**
      * When true, never fetch/rasterize PDFs — only reuse memory/IDB rasters
-     * (or keep WebP). Online prerenders are stored in pdfRasterCache for this.
+     * (or keep WebP). When false (online), WebP paints first then HQ rasters
+     * are prepared, cached, and faded in (inline and fullscreen).
      */
     offline?: boolean
+    /** Extended sing chrome: ± shift, Mix play/scrub (parent wires audio). */
+    singControls?: boolean
+    /** Enter fullscreen automatically once pages are ready. */
+    autoEnterFullscreen?: boolean
+    /** Mix playback state for sing chrome. */
+    playing?: boolean
+    playReady?: boolean
+    currentTime?: number
+    duration?: number
+    /** Label for ✕ when it returns to the list that opened this tag (“Browse”, …). */
+    exitOriginLabel?: string
+    /** Mix pitch/speed bake in flight — show on play control. */
+    baking?: boolean
+    /** Fullscreen Share button label (e.g. “Copied” after a successful share). */
+    shareLabel?: string
   }>(),
   {
     pages: () => [],
@@ -64,6 +88,15 @@ const props = withDefaults(
     cropToContent: true,
     prefetchedPages: null,
     offline: false,
+    singControls: false,
+    autoEnterFullscreen: false,
+    playing: false,
+    playReady: false,
+    currentTime: 0,
+    duration: 0,
+    exitOriginLabel: '',
+    baking: false,
+    shareLabel: 'Share',
   },
 )
 
@@ -71,9 +104,36 @@ const emit = defineEmits<{
   'pay-down': []
   'pay-up': []
   'fullscreen-change': [boolean]
+  'shift-delta': [number]
+  'shift-reset': []
+  'play-toggle': []
+  /** Stop mix and reset playhead (fullscreen playback Close). */
+  'play-stop': []
+  seek: [number]
+  share: []
+  /** Leave the tag for the list/page that opened fullscreen (✕). */
+  'exit-origin': []
 }>()
 
 const fullscreen = ref(false)
+/** Collapse pages / fit / Play / Share / Tag; Pitch ± + more + exit stay. Default on in fullscreen. */
+const chromeCompact = ref(true)
+/** Mix play/scrub panel popped open from compact Play (hides ⋮ while open). */
+const playbackOpen = ref(false)
+/**
+ * When expanded, keep ⋮ menu controls on the top row if they fit; otherwise
+ * move the whole menu group to a second row (⋮ / ✕ stay put).
+ */
+const moreInline = ref(true)
+/** Narrow widths: keep pitch + ⋮/✕ on row 1, playback controls on row 2. */
+const playbackBelow = ref(false)
+const chromeElRef = ref<HTMLElement | null>(null)
+let chromeLayoutRo: ResizeObserver | null = null
+/** After user exits FS, ignore autoEnter until the prop cycles off→on (new deep link). */
+const suppressAutoEnter = ref(false)
+/** Soft-FS history sentinel so OS back exits overlay once before leaving the tag. */
+let fsHistoryPushed = false
+const pageIndex = ref(0)
 const mode = ref<SheetDisplayMode>('images')
 const imageSetId = ref('')
 const pdfId = ref('')
@@ -95,16 +155,28 @@ const sheetEl = ref<HTMLElement | null>(null)
 const stageEl = ref<HTMLElement | null>(null)
 const zoomPan = ref<SheetZoomPan>(identitySheetZoomPan())
 const fitMode = ref<SheetFitMode>('width')
+/** False once the user pinches/wheels/double-clicks away from a fit layout. */
+let layoutIsFitted = true
+/** Last measured FS layout — used to preserve center when zoomed across resize. */
+let lastFsViewport: { width: number; height: number } | null = null
+let lastFsContent: { width: number; height: number } | null = null
 
 const stageStyle = computed(() =>
   fullscreen.value ? { transform: sheetZoomPanCss(zoomPan.value) } : undefined,
 )
 const fitButtonLabel = computed(() => (fitMode.value === 'width' ? 'Fit width' : 'Fit all'))
-const fitButtonTitle = computed(() =>
-  fitMode.value === 'width'
+/** True when cycling fit width ↔ fit all would leave the view unchanged. */
+const fitCycleDisabled = ref(false)
+const fitButtonTitle = computed(() => {
+  if (fitCycleDisabled.value) {
+    return fitMode.value === 'width'
+      ? 'Fit width — fit all looks the same for this page'
+      : 'Fit all — fit width looks the same for this page'
+  }
+  return fitMode.value === 'width'
     ? 'Fit mode: width — tap for fit all'
-    : 'Fit mode: all — tap for fit width',
-)
+    : 'Fit mode: all — tap for fit width'
+})
 
 type ActivePointer = { id: number; x: number; y: number }
 const pointers = new Map<number, ActivePointer>()
@@ -335,6 +407,17 @@ watch(
   { immediate: true },
 )
 
+/** Only the primary sheet pages get automatic WebP→PDF HQ upgrade (not alternate scans). */
+function shouldAutoUpgradePdf(): boolean {
+  if (!hasPdf.value) return false
+  const sets = resolvedImageSets.value
+  if (!sets.length) return false
+  const active = activeImageSet.value
+  if (!active) return false
+  if (sets.length === 1) return true
+  return active.id === 'pages' || active.id === sets[0]!.id
+}
+
 /** Immediate image URLs for the active set (prefetch or raw) — never waits. */
 function imagePreviewUrls(): string[] {
   const paths = activeImageSet.value?.paths ?? []
@@ -441,19 +524,58 @@ async function rebuildDisplay(): Promise<void> {
     revokeOwned()
     displayPages.value = prefetch!
     loading.value = false
-    void tryUpgradeFromCachedPdfRaster(signal, seq)
+    if (shouldAutoUpgradePdf()) void upgradeToHqPdfRaster(signal, seq)
+    else void cropWebpInPlace(raw, preview, signal, seq)
     return
   }
 
-  // Show WebP immediately; optional HQ-cache / content-crop upgrades in place.
+  // Instant session-cache HQ (no WebP flash on return from fullscreen).
+  if (shouldAutoUpgradePdf()) {
+    const pdf = activePdf.value
+    if (pdf) {
+      const cacheKey = pdfRasterCacheKey(src(pdf.path, props.baseUrl), {
+        crop: props.cropToContent,
+      })
+      const memHit = pdfRasterMemoryHit(cacheKey)
+      if (memHit) {
+        await applyOwnedPages(memHit, {
+          signal,
+          seq,
+          fade: displayPages.value.length > 0,
+        })
+        if (seq === loadSeq) loading.value = false
+        return
+      }
+    }
+  }
+
+  // Show WebP immediately; HQ PDF rasters fade in when ready (online render or IDB).
   displayPages.value = preview
+  loading.value = false
 
-  loading.value = true
+  if (shouldAutoUpgradePdf()) {
+    void (async () => {
+      if (await upgradeToHqPdfRaster(signal, seq)) return
+      if (signal.aborted || seq !== loadSeq) return
+      // Offline miss (or render failure): still crop WebP when enabled.
+      await cropWebpInPlace(raw, preview, signal, seq)
+    })()
+    return
+  }
+
+  void cropWebpInPlace(raw, preview, signal, seq)
+}
+
+/** Content-crop the WebP preview in place (no PDF available / offline cache miss). */
+async function cropWebpInPlace(
+  raw: string[],
+  preview: string[],
+  signal: AbortSignal,
+  seq: number,
+): Promise<void> {
+  if (!props.cropToContent) return
+  if (seq === loadSeq) loading.value = true
   try {
-    if (await tryUpgradeFromCachedPdfRaster(signal, seq)) return
-    if (signal.aborted || seq !== loadSeq) return
-    if (!props.cropToContent) return
-
     const next: string[] = []
     const owned: string[] = []
     for (const url of raw) {
@@ -467,7 +589,6 @@ async function rebuildDisplay(): Promise<void> {
       return
     }
     await applyOwnedPages(next, { signal, seq, fade: true })
-    // Only revoke blob URLs we created (cropped); leave network/prefetch URLs alone.
     if (seq === loadSeq) {
       ownedUrls.value = owned
     }
@@ -481,15 +602,14 @@ async function rebuildDisplay(): Promise<void> {
 }
 
 /**
- * When HQ PDF rasters are already in memory/IDB, fade them over the WebP preview
- * (inline and fullscreen). Does not run pdf.js — that stays fullscreen/PDF-mode only.
+ * Fade WebP → HQ PDF rasters when available.
+ * - Memory / IndexedDB hits: apply immediately (online or offline).
+ * - Online miss: pdf.js render → cache → fade (inline and after sing-mode entry).
+ * - Offline miss: keep WebP (no network PDF fetch).
  *
  * @returns true when an upgrade was applied (or aborted after a hit).
  */
-async function tryUpgradeFromCachedPdfRaster(
-  signal: AbortSignal,
-  seq: number,
-): Promise<boolean> {
+async function upgradeToHqPdfRaster(signal: AbortSignal, seq: number): Promise<boolean> {
   if (!hasPdf.value || showingPdf.value) return false
   const pdf = activePdf.value
   if (!pdf) return false
@@ -513,9 +633,29 @@ async function tryUpgradeFromCachedPdfRaster(
       return true
     }
   } catch {
-    /* best-effort upgrade */
+    /* best-effort cache read */
   }
-  return false
+
+  if (props.offline) return false
+
+  try {
+    const urls = await renderPdfToPageUrls(pdfUrl, {
+      crop: props.cropToContent,
+      signal,
+    })
+    if (signal.aborted || seq !== loadSeq) {
+      for (const u of urls) URL.revokeObjectURL(u)
+      return false
+    }
+    // Persist before fade so abort mid-transition still keeps HQ for next visit.
+    void putPdfRasterFromObjectUrls(cacheKey, urls)
+    await applyOwnedPages(urls, { signal, seq, fade: true })
+    return true
+  } catch (e) {
+    if (signal.aborted || seq !== loadSeq) return false
+    if (e instanceof DOMException && e.name === 'AbortError') return false
+    return false
+  }
 }
 
 watch(
@@ -553,17 +693,104 @@ function measureViewportAndContent(): {
   }
 }
 
+/** Reserve space for top/bottom overlay chrome so the sheet isn't covered on load. */
+function measureChromeInsets(): { top: number; bottom: number } {
+  const sheet = sheetEl.value
+  if (!sheet) return { top: 0, bottom: 0 }
+  const overlay = sheet.querySelector('.chrome') as HTMLElement | null
+  if (!overlay) return { top: 0, bottom: 0 }
+  const sheetR = sheet.getBoundingClientRect()
+  const or = overlay.getBoundingClientRect()
+  if (or.width <= 0 || or.height <= 0) return { top: 0, bottom: 0 }
+  const gap = 8
+  const mid = (or.top + or.bottom) / 2
+  const sheetMid = (sheetR.top + sheetR.bottom) / 2
+  if (mid <= sheetMid) {
+    return { top: Math.max(0, or.bottom - sheetR.top + gap), bottom: 0 }
+  }
+  return { top: 0, bottom: Math.max(0, sheetR.bottom - or.top + gap) }
+}
+
+function rememberFsLayout(
+  viewport: { width: number; height: number },
+  content: { width: number; height: number },
+): void {
+  lastFsViewport = viewport
+  lastFsContent = content
+}
+
+function commitZoomPan(next: SheetZoomPan): void {
+  const measured = measureViewportAndContent()
+  if (!measured) {
+    zoomPan.value = next
+    updateFitCycleDisabled()
+    return
+  }
+  const insets = measureChromeInsets()
+  const min = sheetZoomMinScale(measured.viewport, measured.content, insets)
+  const scale = Math.min(SHEET_ZOOM_MAX, Math.max(min, next.scale))
+  zoomPan.value = clampSheetPan(
+    { ...next, scale },
+    measured.viewport,
+    measured.content,
+    insets,
+  )
+  rememberFsLayout(measured.viewport, measured.content)
+  updateFitCycleDisabled()
+}
+
+/** Resolved fit transform after the same clamp path as {@link commitZoomPan}. */
+function resolvedFitZoomPan(mode: SheetFitMode): SheetZoomPan | null {
+  const measured = measureViewportAndContent()
+  if (!measured) return null
+  const insets = measureChromeInsets()
+  const next = fitSheetZoomPan(mode, measured.viewport, measured.content, { insets })
+  const min = sheetZoomMinScale(measured.viewport, measured.content, insets)
+  const scale = Math.min(SHEET_ZOOM_MAX, Math.max(min, next.scale))
+  return clampSheetPan({ ...next, scale }, measured.viewport, measured.content, insets)
+}
+
+function updateFitCycleDisabled(): void {
+  if (!fullscreen.value) {
+    fitCycleDisabled.value = false
+    return
+  }
+  const nextMode: SheetFitMode = fitMode.value === 'width' ? 'all' : 'width'
+  const target = resolvedFitZoomPan(nextMode)
+  if (!target) {
+    fitCycleDisabled.value = true
+    return
+  }
+  fitCycleDisabled.value = sheetZoomPansNearlyEqual(zoomPan.value, target)
+}
+
 function applyFit(next: SheetFitMode): void {
   fitMode.value = next
+  layoutIsFitted = true
   const measured = measureViewportAndContent()
   if (!measured) {
     zoomPan.value = identitySheetZoomPan()
+    updateFitCycleDisabled()
     return
   }
-  zoomPan.value = fitSheetZoomPan(next, measured.viewport, measured.content)
+  const insets = measureChromeInsets()
+  commitZoomPan(fitSheetZoomPan(next, measured.viewport, measured.content, { insets }))
+}
+
+/** Choose fit-width vs fit-all from usable (chrome-aware) dimensions, then apply. */
+function applyAutoFit(): void {
+  const measured = measureViewportAndContent()
+  if (!measured) {
+    zoomPan.value = identitySheetZoomPan()
+    updateFitCycleDisabled()
+    return
+  }
+  const insets = measureChromeInsets()
+  applyFit(chooseSheetFitMode(measured.viewport, measured.content, undefined, insets))
 }
 
 function cycleFit(): void {
+  if (fitCycleDisabled.value) return
   applyFit(fitMode.value === 'width' ? 'all' : 'width')
 }
 
@@ -573,22 +800,70 @@ async function waitForImages(): Promise<void> {
   if (!stage) return
   const imgs = [...stage.querySelectorAll('img')]
   await Promise.all(
-    imgs.map((img) =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise<void>((resolve) => {
-            img.addEventListener('load', () => resolve(), { once: true })
-            img.addEventListener('error', () => resolve(), { once: true })
-          }),
+    imgs.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) {
+            resolve()
+            return
+          }
+          const done = () => resolve()
+          img.addEventListener('load', done, { once: true })
+          img.addEventListener('error', done, { once: true })
+          // Happy-dom / offline: never hang layout on a stuck decode.
+          setTimeout(done, 50)
+        }),
     ),
   )
   await nextTick()
 }
 
 async function enterFullscreenLayout(): Promise<void> {
-  fitMode.value = 'all'
   await waitForImages()
-  applyFit('all')
+  // Chrome is absolute overlay — wait a frame so insets measure correctly.
+  await nextTick()
+  applyAutoFit()
+}
+
+let fsViewportRaf = 0
+function onFsViewportChange(): void {
+  if (!fullscreen.value) return
+  cancelAnimationFrame(fsViewportRaf)
+  fsViewportRaf = requestAnimationFrame(() => {
+    if (!fullscreen.value) return
+    if (layoutIsFitted) {
+      // Still in fit-width / fit-all — reflow for the new viewport.
+      applyFit(fitMode.value)
+      return
+    }
+    // Zoomed in: keep scale and the content point under the viewport center.
+    const measured = measureViewportAndContent()
+    if (!measured || !lastFsViewport || !lastFsContent) {
+      commitZoomPan(zoomPan.value)
+      return
+    }
+    commitZoomPan(
+      preserveSheetCenter(
+        zoomPan.value,
+        lastFsViewport,
+        lastFsContent,
+        measured.viewport,
+        measured.content,
+      ),
+    )
+  })
+}
+
+function attachFsViewportListeners(): void {
+  window.addEventListener('resize', onFsViewportChange)
+  window.addEventListener('orientationchange', onFsViewportChange)
+}
+
+function detachFsViewportListeners(): void {
+  window.removeEventListener('resize', onFsViewportChange)
+  window.removeEventListener('orientationchange', onFsViewportChange)
+  cancelAnimationFrame(fsViewportRaf)
+  fsViewportRaf = 0
 }
 
 function setScrollLock(on: boolean): void {
@@ -597,24 +872,137 @@ function setScrollLock(on: boolean): void {
   document.body.style.overflow = v
 }
 
-function setFullscreen(on: boolean): void {
+function setShellInert(on: boolean): void {
+  if (typeof document === 'undefined') return
+  for (const sel of ['header.app-header, header', 'nav.bottom', '.toast', '.offline-banner']) {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (on) el.setAttribute('inert', '')
+      else el.removeAttribute('inert')
+    })
+  }
+}
+
+function pushFsHistory(): void {
+  if (typeof history === 'undefined' || fsHistoryPushed) return
+  // Vitest/happy-dom: skip sentinel (pushState/popstate interactions are flaky).
+  if (import.meta.env.MODE === 'test') return
+  try {
+    // Preserve Vue Router's history.state fields — a bare { singFs } entry breaks Back.
+    const prev =
+      history.state && typeof history.state === 'object'
+        ? (history.state as Record<string, unknown>)
+        : {}
+    history.pushState({ ...prev, singFs: true }, '')
+    fsHistoryPushed = true
+  } catch {
+    /* ignore */
+  }
+}
+
+/** When true, popstate from popping our FS sentinel should be ignored. */
+let ignoreFsPop = false
+/** Resolves the awaiter in {@link clearFsHistorySentinel} once popstate runs. */
+let pendingFsPopResolve: (() => void) | null = null
+
+function finishPendingFsPop(): void {
+  const resolve = pendingFsPopResolve
+  pendingFsPopResolve = null
+  ignoreFsPop = false
+  resolve?.()
+}
+
+/** Drop the soft-FS history flag without history.back() (avoids Vue Router pop races). */
+function discardFsHistorySentinel(): void {
+  if (!fsHistoryPushed) return
+  fsHistoryPushed = false
+  if (typeof history === 'undefined') return
+  try {
+    const st = history.state as Record<string, unknown> | null
+    if (st && st.singFs) {
+      const next = { ...st }
+      delete next.singFs
+      history.replaceState(next, '')
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Pop the soft-FS history sentinel (if any). Resolves after popstate (or immediately). */
+function clearFsHistorySentinel(): Promise<void> {
+  if (!fsHistoryPushed || typeof history === 'undefined') return Promise.resolve()
+  fsHistoryPushed = false
+  try {
+    if ((history.state as { singFs?: boolean } | null)?.singFs) {
+      // Pop the sentinel so Tag-page Back is not stuck on a duplicate tag entry.
+      return new Promise((resolve) => {
+        ignoreFsPop = true
+        pendingFsPopResolve = resolve
+        history.back()
+        // Safety: some environments swallow popstate.
+        window.setTimeout(() => {
+          if (pendingFsPopResolve === resolve) finishPendingFsPop()
+        }, 100)
+      })
+    }
+  } catch {
+    finishPendingFsPop()
+  }
+  return Promise.resolve()
+}
+
+function onPopState(): void {
+  if (ignoreFsPop) {
+    finishPendingFsPop()
+    return
+  }
+  if (!fullscreen.value) return
+  // OS/browser back while soft-FS: exit overlay, stay on tag.
+  fsHistoryPushed = false
+  void setFullscreen(false, { fromPopState: true })
+}
+
+async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
   fullscreen.value = on
   pointers.clear()
   dragging = false
   pinchStartDist = 0
   if (on) {
+    chromeCompact.value = true
+    playbackOpen.value = false
+    moreInline.value = true
+    playbackBelow.value = false
+    suppressAutoEnter.value = false
     // Upgrade to PDF raster in fullscreen when available; keep WebP until ready.
     if (hasPdf.value && hasImages.value && mode.value === 'images') {
       autoPdfForFullscreen = true
       mode.value = 'pdf'
     }
+    attachFsViewportListeners()
     void enterFullscreenLayout()
+    void acquireWakeLock('sheet')
+    setShellInert(true)
+    if (!opts?.fromPopState) pushFsHistory()
+    void nextTick(() => attachChromeLayoutObserver())
   } else {
+    detachChromeLayoutObserver()
+    moreInline.value = true
+    playbackBelow.value = false
+    detachFsViewportListeners()
     if (autoPdfForFullscreen && hasImages.value) {
       autoPdfForFullscreen = false
       mode.value = 'images'
     }
     zoomPan.value = identitySheetZoomPan()
+    layoutIsFitted = true
+    lastFsViewport = null
+    lastFsContent = null
+    fitCycleDisabled.value = false
+    void releaseWakeLock('sheet')
+    setShellInert(false)
+    suppressAutoEnter.value = true
+    // Await pop so query replace / exit-origin navigation don't race the sentinel.
+    if (!opts?.fromPopState) await clearFsHistorySentinel()
   }
   emit('fullscreen-change', on)
   setScrollLock(on)
@@ -624,10 +1012,163 @@ function toggleFullscreen(): void {
   setFullscreen(!fullscreen.value)
 }
 
+function toggleChromeCompact(): void {
+  if (!fullscreen.value) return
+  // Playback panel owns the chrome strip — Close / M dismisses it first.
+  if (playbackOpen.value) {
+    closePlaybackPanel()
+    return
+  }
+  chromeCompact.value = !chromeCompact.value
+  void nextTick(() => {
+    measureChromeLayout()
+    commitZoomPan(zoomPan.value)
+  })
+}
+
+/** Play from ⋮ menu: start/stop mix and pop out scrub controls (hides ⋮). */
+function onPlayClick(): void {
+  if (!playbackOpen.value) {
+    playbackOpen.value = true
+    chromeCompact.value = true
+  }
+  emit('play-toggle')
+  void nextTick(() => {
+    measureChromeLayout()
+    commitZoomPan(zoomPan.value)
+  })
+}
+
+/** Close playback chrome: stop mix and rewind so the next open starts clean. */
+function closePlaybackPanel(): void {
+  emit('play-stop')
+  playbackOpen.value = false
+  void nextTick(() => {
+    measureChromeLayout()
+    commitZoomPan(zoomPan.value)
+  })
+}
+
+function flexContentWidth(el: HTMLElement | null, gap: number): number {
+  if (!el) return 0
+  const kids = [...el.children] as HTMLElement[]
+  if (!kids.length) return 0
+  return kids.reduce((sum, child) => sum + child.offsetWidth, 0) + gap * (kids.length - 1)
+}
+
+function measureChromeLayout(): void {
+  const chrome = chromeElRef.value
+  if (!chrome || !fullscreen.value) {
+    moreInline.value = true
+    playbackBelow.value = false
+    return
+  }
+
+  const width = chrome.clientWidth
+  if (width <= 0) return
+
+  const pitch = chrome.querySelector('.chrome-pitch-cluster') as HTMLElement | null
+  const trailing = chrome.querySelector('.chrome-trailing') as HTMLElement | null
+  const mid = chrome.querySelector('.chrome-mid') as HTMLElement | null
+  const pitchW = pitch?.offsetWidth ?? 0
+  const trailW = trailing?.offsetWidth ?? 0
+  const styles = getComputedStyle(chrome)
+  const gap = Number.parseFloat(styles.columnGap || styles.gap || '7') || 7
+  const available = Math.max(0, width - pitchW - trailW - gap * 2)
+
+  if (playbackOpen.value) {
+    const play = mid?.querySelector('.chrome-play') as HTMLElement | null
+    playbackBelow.value = flexContentWidth(play, gap) > available + 1
+    moreInline.value = true
+    return
+  }
+
+  playbackBelow.value = false
+  if (!chromeCompact.value) {
+    const more = mid?.querySelector('.chrome-more') as HTMLElement | null
+    moreInline.value = flexContentWidth(more, gap) <= available + 1
+  } else {
+    moreInline.value = true
+  }
+}
+
+function attachChromeLayoutObserver(): void {
+  detachChromeLayoutObserver()
+  if (typeof ResizeObserver === 'undefined') return
+  const chrome = chromeElRef.value
+  if (!chrome) return
+  chromeLayoutRo = new ResizeObserver(() => measureChromeLayout())
+  chromeLayoutRo.observe(chrome)
+  measureChromeLayout()
+}
+
+function detachChromeLayoutObserver(): void {
+  chromeLayoutRo?.disconnect()
+  chromeLayoutRo = null
+}
+
+/** ✕ / Escape — leave tag for the page that opened this fullscreen (parent handles navigation). */
+async function exitToOrigin(): Promise<void> {
+  // Do not history.back() the soft-FS sentinel here. Vue Router treats that popstate as
+  // "return to Browse/Recent/Favorites" *before* the parent can arm scroll restore, so the
+  // list lands at the wrong Y. Discard the sentinel in-place; parent then goTagBack().
+  discardFsHistorySentinel()
+  await setFullscreen(false, { fromPopState: true })
+  emit('exit-origin')
+}
+
+function scrollPageIntoView(index: number): void {
+  if (fullscreen.value) {
+    // Fullscreen shows one page via v-show; refit for that page's aspect.
+    applyAutoFit()
+    return
+  }
+  const root = stageEl.value
+  if (!root) return
+  const pages = root.querySelectorAll('.page')
+  const el = pages[index] as HTMLElement | undefined
+  el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+}
+
+function goPage(delta: number): void {
+  const max = Math.max(0, displayPages.value.length - 1)
+  const next = Math.max(0, Math.min(max, pageIndex.value + delta))
+  if (next === pageIndex.value) return
+  pageIndex.value = next
+  zoomPan.value = identitySheetZoomPan()
+  scrollPageIntoView(next)
+}
+
+function onSeekInput(e: Event): void {
+  const v = Number((e.target as HTMLInputElement).value)
+  if (Number.isFinite(v)) emit('seek', v)
+}
+
+function fmtTime(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const s = Math.floor(sec)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${r.toString().padStart(2, '0')}`
+}
+
 function onKey(e: KeyboardEvent): void {
-  if (e.key === 'Escape' && fullscreen.value) {
+  if (!fullscreen.value) return
+  if (e.key === 'Escape') {
     e.preventDefault()
-    setFullscreen(false)
+    // Same as ✕ — leave the tag for the list/page that opened fullscreen.
+    void exitToOrigin()
+    return
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    goPage(-1)
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    goPage(1)
+  } else if (e.key === 'm' || e.key === 'M') {
+    e.preventDefault()
+    toggleChromeCompact()
   }
 }
 
@@ -673,10 +1214,16 @@ function onWheel(e: WheelEvent): void {
   if (e.ctrlKey || e.metaKey) {
     const { x, y } = viewportPoint(e.clientX, e.clientY)
     const factor = wheelZoomFactor(e.deltaY)
-    zoomPan.value = zoomSheetAt(zoomPan.value, x, y, zoomPan.value.scale * factor)
+    const measured = measureViewportAndContent()
+    const insets = measureChromeInsets()
+    const min = measured
+      ? sheetZoomMinScale(measured.viewport, measured.content, insets)
+      : undefined
+    layoutIsFitted = false
+    commitZoomPan(zoomSheetAt(zoomPan.value, x, y, zoomPan.value.scale * factor, min))
     return
   }
-  zoomPan.value = panSheet(zoomPan.value, -e.deltaX, -e.deltaY)
+  commitZoomPan(panSheet(zoomPan.value, -e.deltaX, -e.deltaY))
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -706,7 +1253,13 @@ function onPointerMove(e: PointerEvent): void {
     if (dist <= 0) return
     const mid = pointerMidpoint()
     const next = pinchStartScale * (dist / pinchStartDist)
-    zoomPan.value = zoomSheetAt(zoomPan.value, mid.x, mid.y, next)
+    const measured = measureViewportAndContent()
+    const insets = measureChromeInsets()
+    const min = measured
+      ? sheetZoomMinScale(measured.viewport, measured.content, insets)
+      : undefined
+    layoutIsFitted = false
+    commitZoomPan(zoomSheetAt(zoomPan.value, mid.x, mid.y, next, min))
     return
   }
 
@@ -715,7 +1268,7 @@ function onPointerMove(e: PointerEvent): void {
     const dy = e.clientY - lastDragY
     lastDragX = e.clientX
     lastDragY = e.clientY
-    zoomPan.value = panSheet(zoomPan.value, dx, dy)
+    commitZoomPan(panSheet(zoomPan.value, dx, dy))
   }
 }
 
@@ -737,12 +1290,27 @@ function onPointerUp(e: PointerEvent): void {
 function onDoubleClick(e: MouseEvent): void {
   if (!fullscreen.value) return
   if (isChromeTarget(e.target)) return
-  if (zoomPan.value.scale > 1.05 || fitMode.value === 'all') {
-    applyFit('width')
+  const measured = measureViewportAndContent()
+  const insets = measured ? measureChromeInsets() : { top: 0, bottom: 0 }
+  const fitScale = measured
+    ? fitSheetZoomPan(
+        chooseSheetFitMode(measured.viewport, measured.content, undefined, insets),
+        measured.viewport,
+        measured.content,
+        { insets },
+      ).scale
+    : 1
+  // Already past the auto-fit scale → reset; otherwise zoom in on the point.
+  if (zoomPan.value.scale > fitScale * 1.08) {
+    applyAutoFit()
     return
   }
   const { x, y } = viewportPoint(e.clientX, e.clientY)
-  zoomPan.value = zoomSheetAt(zoomPan.value, x, y, 2.5)
+  const min = measured
+    ? sheetZoomMinScale(measured.viewport, measured.content, insets)
+    : undefined
+  layoutIsFitted = false
+  commitZoomPan(zoomSheetAt(zoomPan.value, x, y, Math.max(2.5, fitScale * 2), min))
 }
 
 watch(
@@ -752,23 +1320,59 @@ watch(
   },
 )
 
-watch(displayPages, () => {
+watch(displayPages, (pages, prev) => {
+  if (!prev || pages.length !== prev.length) {
+    pageIndex.value = 0
+  } else {
+    pageIndex.value = Math.min(pageIndex.value, Math.max(0, pages.length - 1))
+  }
   if (fullscreen.value) void enterFullscreenLayout()
 })
+
+watch(
+  () => props.autoEnterFullscreen,
+  (auto) => {
+    // New deep-link (or query restored) may auto-enter again.
+    if (auto) suppressAutoEnter.value = false
+  },
+)
+
+watch(
+  () => [props.autoEnterFullscreen, displayPages.value.length] as const,
+  ([auto, n]) => {
+    if (auto && n > 0 && !fullscreen.value && !suppressAutoEnter.value) setFullscreen(true)
+  },
+  { immediate: true },
+)
 
 watch(sheetEl, (el, prev) => {
   prev?.removeEventListener('wheel', onWheel)
   el?.addEventListener('wheel', onWheel, { passive: false })
 })
 
-onMounted(() => window.addEventListener('keydown', onKey))
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  window.addEventListener('popstate', onPopState)
+})
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
+  window.removeEventListener('popstate', onPopState)
+  detachFsViewportListeners()
+  detachChromeLayoutObserver()
   sheetEl.value?.removeEventListener('wheel', onWheel)
   setScrollLock(false)
+  setShellInert(false)
+  void releaseWakeLock('sheet')
   loadAbort?.abort()
   clearUpgradeLayer(true)
   revokeOwned()
+})
+
+defineExpose({
+  setFullscreen,
+  enterFullscreen: () => setFullscreen(true),
+  exitFullscreen: () => setFullscreen(false),
+  isFullscreen: () => fullscreen.value,
 })
 </script>
 
@@ -781,9 +1385,11 @@ onUnmounted(() => {
         fullscreen,
         zoomed: fullscreen && zoomPan.scale > 1.01,
         'is-awaiting': loading && !displayPages.length,
+        'sing-chrome': fullscreen && singControls,
       }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
+      :aria-modal="fullscreen ? true : undefined"
       :aria-busy="loading"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
@@ -815,6 +1421,7 @@ onUnmounted(() => {
       <div ref="stageEl" class="stage" :style="stageStyle">
         <div
           v-for="(page, i) in displayPages"
+          v-show="!fullscreen || i === pageIndex"
           :key="`${mode}-${imageSetId}-${pdfId}-${i}`"
           class="page"
         >
@@ -840,42 +1447,188 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="fullscreen" class="chrome" role="toolbar" aria-label="Sheet controls">
-        <button
-          v-if="payKeyEnabled && displayPages.length"
-          type="button"
-          class="chrome-btn pitch-fab"
-          :aria-label="`Pitch${keyLabel ? ` (${keyLabel})` : ''} — hold to hear tonic`"
-          title="Hold for pitch"
-          @pointerdown.prevent="emit('pay-down')"
-          @pointerup.prevent="emit('pay-up')"
-          @pointerleave.prevent="emit('pay-up')"
-          @pointercancel.prevent="emit('pay-up')"
-          @keydown="onPayKey"
-          @keyup="onPayKey"
+      <div
+        v-if="fullscreen"
+        ref="chromeElRef"
+        class="chrome"
+        :class="{
+          compact: chromeCompact,
+          'chrome-expanded': !chromeCompact && !playbackOpen,
+          'more-below': !chromeCompact && !playbackOpen && !moreInline,
+          'play-below': playbackOpen && playbackBelow,
+        }"
+        role="toolbar"
+        aria-label="Sheet controls"
+      >
+        <div
+          v-if="(payKeyEnabled && displayPages.length) || singControls"
+          class="chrome-pitch-cluster"
         >
-          <span class="pitch-label">{{ keyLabel || 'Pitch' }}</span>
-        </button>
+          <button
+            v-if="payKeyEnabled && displayPages.length"
+            type="button"
+            class="chrome-btn pitch-fab"
+            :aria-label="`Pitch${keyLabel ? ` (${keyLabel})` : ''} — hold to hear tonic`"
+            :title="keyLabel ? `${keyLabel} — hold for pitch` : 'Hold for pitch'"
+            @pointerdown.prevent="emit('pay-down')"
+            @pointerup.prevent="emit('pay-up')"
+            @pointerleave.prevent="emit('pay-up')"
+            @pointercancel.prevent="emit('pay-up')"
+            @keydown="onPayKey"
+            @keyup="onPayKey"
+          >
+            <span class="pitch-label-sizer" aria-hidden="true">{{ KEY_SHIFT_LABEL_SIZE_SAMPLE }}</span>
+            <span class="pitch-label">{{ keyLabel || 'Pitch' }}</span>
+          </button>
 
-        <button
-          type="button"
-          class="chrome-btn fit"
-          :aria-label="fitButtonTitle"
-          :title="fitButtonTitle"
-          @click="cycleFit"
-        >
-          {{ fitButtonLabel }}
-        </button>
+          <div v-if="singControls" class="chrome-shift" role="group" aria-label="Key shift">
+            <button type="button" class="chrome-btn" :disabled="baking" aria-label="Lower pitch one semitone" @click="emit('shift-delta', -1)">−</button>
+            <button type="button" class="chrome-btn" :disabled="baking" aria-label="Raise pitch one semitone" @click="emit('shift-delta', 1)">+</button>
+          </div>
+        </div>
 
-        <button
-          type="button"
-          class="chrome-btn exit"
-          aria-label="Exit fullscreen"
-          title="Close"
-          @click="setFullscreen(false)"
-        >
-          ✕
-        </button>
+        <div class="chrome-mid">
+          <div
+            v-if="singControls && playbackOpen"
+            class="chrome-play"
+            role="group"
+            aria-label="Mix playback"
+          >
+            <button
+              type="button"
+              class="chrome-btn"
+              :disabled="!playReady || baking"
+              :aria-label="playing ? 'Pause mix' : baking ? 'Updating pitch or speed' : 'Play mix'"
+              @click="emit('play-toggle')"
+            >
+              {{ baking ? 'Updating…' : playing ? 'Pause' : 'Play' }}
+            </button>
+            <label v-if="duration > 0" class="chrome-scrub">
+              <span class="visually-hidden">Seek</span>
+              <input
+                type="range"
+                min="0"
+                :max="duration"
+                step="0.1"
+                :value="currentTime"
+                :disabled="!playReady"
+                @input="onSeekInput"
+              />
+              <span class="scrub-time">{{ fmtTime(currentTime) }}</span>
+            </label>
+            <button
+              type="button"
+              class="chrome-btn play-close"
+              aria-label="Close playback controls"
+              title="Close playback controls"
+              @click="closePlaybackPanel"
+            >
+              Close
+            </button>
+          </div>
+
+          <div
+            v-else-if="!chromeCompact"
+            class="chrome-more"
+            role="group"
+            aria-label="More sheet controls"
+          >
+            <button
+              v-if="singControls"
+              type="button"
+              class="chrome-btn play-menu"
+              :disabled="!playReady || baking"
+              :aria-label="playing ? 'Pause mix' : baking ? 'Updating pitch or speed' : 'Play mix'"
+              :title="baking ? 'Updating pitch/speed…' : playing ? 'Pause' : 'Play mix'"
+              @click="onPlayClick"
+            >
+              {{ baking ? '…' : playing ? 'Pause' : 'Play' }}
+            </button>
+
+            <button
+              type="button"
+              class="chrome-btn share"
+              :class="{ ok: shareLabel === 'Copied' || shareLabel === 'Shared' }"
+              aria-label="Share this tag"
+              title="Copy or share a link that opens this sheet fullscreen"
+              @click.stop="emit('share')"
+            >
+              {{ shareLabel || 'Share' }}
+            </button>
+
+            <button
+              type="button"
+              class="chrome-btn tag-page"
+              aria-label="Open tag page — tracks, downloads, and details. Sing mode stays on."
+              title="Tag page (Sing mode stays on)"
+              @click="setFullscreen(false)"
+            >
+              Tag Page
+            </button>
+
+            <div v-if="displayPages.length > 1" class="chrome-pages" role="group" aria-label="Sheet pages">
+              <button
+                type="button"
+                class="chrome-btn"
+                aria-label="Previous page"
+                :disabled="pageIndex <= 0"
+                @click="goPage(-1)"
+              >
+                ‹
+              </button>
+              <span class="page-ind">{{ pageIndex + 1 }}/{{ displayPages.length }}</span>
+              <button
+                type="button"
+                class="chrome-btn"
+                aria-label="Next page"
+                :disabled="pageIndex >= displayPages.length - 1"
+                @click="goPage(1)"
+              >
+                ›
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="chrome-btn fit"
+              :disabled="fitCycleDisabled"
+              :aria-label="fitButtonTitle"
+              :title="fitButtonTitle"
+              @click="cycleFit"
+            >
+              {{ fitButtonLabel }}
+            </button>
+          </div>
+        </div>
+
+        <div class="chrome-trailing">
+          <button
+            v-if="!playbackOpen"
+            type="button"
+            class="chrome-btn more"
+            :class="{ 'is-expanded': !chromeCompact }"
+            :aria-expanded="!chromeCompact"
+            :aria-label="chromeCompact ? 'Show more sheet controls' : 'Collapse sheet controls'"
+            :title="chromeCompact ? 'More controls (M)' : 'Collapse controls (M)'"
+            @click="toggleChromeCompact"
+          >
+            <span aria-hidden="true">⋮</span>
+          </button>
+
+          <button
+            type="button"
+            class="chrome-btn exit"
+            :aria-label="
+              exitOriginLabel
+                ? `Back to ${exitOriginLabel}`
+                : 'Back to the page that opened this sheet'
+            "
+            :title="exitOriginLabel ? `Back to ${exitOriginLabel}` : 'Leave sheet'"
+            @click="exitToOrigin"
+          >
+            ✕
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1056,15 +1809,60 @@ onUnmounted(() => {
   right: calc(0.5rem + env(safe-area-inset-right));
   left: calc(0.5rem + env(safe-area-inset-left));
   z-index: 80;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'pitch mid trailing';
+  align-items: center;
+  column-gap: 0.45rem;
+  row-gap: 0.45rem;
+  pointer-events: none;
+}
+.chrome.more-below,
+.chrome.play-below {
+  grid-template-areas:
+    'pitch . trailing'
+    'mid mid mid';
+}
+.chrome-pitch-cluster {
+  grid-area: pitch;
+}
+.chrome-mid {
+  grid-area: mid;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.45rem;
+  min-width: 0;
+  pointer-events: none;
+}
+.chrome.more-below .chrome-mid,
+.chrome.play-below .chrome-mid {
+  justify-content: flex-end;
+  width: 100%;
+}
+.chrome-trailing {
+  grid-area: trailing;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem;
   pointer-events: none;
 }
-.chrome > * {
+.chrome-more,
+.chrome-play {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+  pointer-events: none;
+}
+.chrome-mid > *,
+.chrome-more > *,
+.chrome-trailing > *,
+.chrome-play > * {
   pointer-events: auto;
+  flex-shrink: 0;
 }
 .chrome-btn {
   box-sizing: border-box;
@@ -1090,12 +1888,22 @@ onUnmounted(() => {
   touch-action: manipulation;
   user-select: none;
 }
-.chrome-btn:hover {
+.chrome-btn:hover:not(:disabled) {
   background: rgba(40, 40, 40, 0.52);
+}
+.chrome-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .chrome-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+.chrome-btn.share.ok,
+.chrome-btn.more.is-expanded {
+  border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.28));
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 35%, rgba(20, 20, 20, 0.38));
 }
 .chrome-btn.exit {
   width: 44px;
@@ -1103,11 +1911,90 @@ onUnmounted(() => {
   font-size: 1.25rem;
   font-weight: 500;
 }
+.chrome-btn.more {
+  width: 44px;
+  padding: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.chrome-btn.tag-page {
+  min-width: 5.5rem;
+  font-weight: 700;
+}
+.chrome-btn.pitch-fab {
+  /* Width from invisible max-label sizer so ± don’t move as the key text changes. */
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+  width: max-content;
+  min-width: 0;
+  max-width: none;
+  padding: 0 0.55rem;
+  flex-shrink: 0;
+}
+.chrome-pitch-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.chrome-pitch-cluster > * {
+  pointer-events: auto;
+}
+.chrome-shift {
+  flex-shrink: 0;
+}
 .chrome-btn.fit {
   min-width: 5.75rem;
 }
-.pitch-fab {
-  margin-right: auto;
+.chrome-shift,
+.chrome-pages {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.page-ind {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-width: 2.75rem;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.chrome-scrub {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: min(12rem, 40vw);
+}
+.chrome-scrub input[type='range'] {
+  width: min(10rem, 32vw);
+}
+.scrub-time {
+  color: #fff;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5rem;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .sheet.fullscreen.sing-chrome .chrome {
+    top: auto;
+    bottom: calc(0.4rem + env(safe-area-inset-bottom));
+  }
 }
 .page {
   position: relative;
@@ -1157,8 +2044,17 @@ onUnmounted(() => {
 .status.err {
   color: var(--danger, #b42318);
 }
+.pitch-label-sizer,
 .pitch-label {
+  grid-area: 1 / 1;
+  white-space: nowrap;
   line-height: 1.1;
+  text-align: center;
+}
+.pitch-label-sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
 }
 .muted {
   color: var(--muted);

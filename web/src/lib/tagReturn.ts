@@ -5,7 +5,7 @@
  * should use `router.replace` so the stack stays list → current tag.
  */
 
-import type { RouteLocationNormalized, RouteLocationRaw, Router } from 'vue-router'
+import type { RouteLocationNormalized, Router } from 'vue-router'
 import { useRecentStore } from '../stores/recent'
 import { navigateBack } from './navigateBack'
 
@@ -22,6 +22,47 @@ export type TagReturnOrigin = {
 }
 
 let origin: TagReturnOrigin | null = null
+
+/**
+ * Scroll Y to restore after {@link goTagBack} pushes the list origin.
+ * `router.push` has no history `savedPosition`, so we arm this for scrollBehavior
+ * + list views (Browse remounts a virtualizer and must re-apply after layout).
+ */
+let pendingReturnScrollY: number | null = null
+
+/** Arm list scroll restore for the next navigation (used by {@link goTagBack}). */
+export function armTagReturnScroll(y: number): void {
+  pendingReturnScrollY = Math.max(0, Number.isFinite(y) ? y : 0)
+}
+
+/** Router scrollBehavior peeks without clearing — list views consume after paint. */
+export function peekTagReturnScrollY(): number | null {
+  return pendingReturnScrollY
+}
+
+/** Take and clear the armed scroll Y (or null). */
+export function consumeTagReturnScrollY(): number | null {
+  const y = pendingReturnScrollY
+  pendingReturnScrollY = null
+  return y
+}
+
+/** Re-apply armed scroll after list layout; no-op if nothing was armed. */
+export function applyTagReturnScrollIfAny(): void {
+  const y = consumeTagReturnScrollY()
+  if (y == null || typeof window === 'undefined') return
+  const apply = (): void => {
+    window.scrollTo({ top: y, left: 0, behavior: 'auto' })
+  }
+  apply()
+  // Virtualized Browse (and remounted lists) may not have final height until a
+  // couple frames after mount — re-assert so Sing ✕ lands on the clicked row.
+  requestAnimationFrame(() => {
+    apply()
+    requestAnimationFrame(apply)
+  })
+  window.setTimeout(apply, 50)
+}
 
 /** Route name → back-button noun. */
 export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 'path'>): string {
@@ -78,6 +119,7 @@ export function peekTagReturnOrigin(): TagReturnOrigin | null {
 /** Test helper — clear captured origin. */
 export function clearTagReturnOrigin(): void {
   origin = null
+  pendingReturnScrollY = null
 }
 
 /** Test helper — set origin without a navigation. */
@@ -89,8 +131,7 @@ export function setTagReturnOriginForTests(next: TagReturnOrigin | null): void {
  * Back control label on tag pages.
  * Practice set always exits to Favorites; otherwise use the captured list name.
  */
-export function tagBackLabel(route: { query: Record<string, unknown> }): string {
-  if (route.query.set === 'practice') return '← Practice set'
+export function tagBackLabel(_route: { query: Record<string, unknown> }): string {
   const o = origin
   return o ? `← ${o.label}` : '← Browse'
 }
@@ -98,16 +139,31 @@ export function tagBackLabel(route: { query: Record<string, unknown> }): string 
 /**
  * Leave the tag page for the originating list (skipping intermediate tags).
  *
- * Prefers `history.back()` when the previous entry is not another tag (so Vue Router
- * scroll restoration applies). Otherwise pushes the captured list `fullPath` and
- * restores {@link TagReturnOrigin.scrollY}.
+ * Prefer the captured list origin when present — soft-fullscreen and query
+ * replaces can leave `history.state.back` pointing at another tag entry, so
+ * `router.back()` alone is unreliable after Sing mode.
  */
-export function goTagBack(router: Router, route: { query: Record<string, unknown> }): void {
-  if (route.query.set === 'practice') {
-    void router.push('/favorites')
+export function goTagBack(router: Router, _route: { query: Record<string, unknown> }): void {
+  const o = origin
+  if (o?.fullPath) {
+    // Push (not history.back) so intermediate tags are skipped; arm scroll because
+    // push has no savedPosition and Browse would otherwise jump to search/top.
+    armTagReturnScroll(o.scrollY ?? 0)
+    const cur = router.currentRoute?.value
+    const originPath = o.fullPath.split('?')[0] || '/'
+    // Soft-FS pop (or a prior navigation) may already be on the list — don't no-op
+    // without restoring scroll, and prefer replace when only the query differs.
+    if (cur && (cur.path === originPath || cur.fullPath === o.fullPath)) {
+      if (cur.fullPath !== o.fullPath) {
+        void router.replace(o.fullPath)
+      } else {
+        applyTagReturnScrollIfAny()
+      }
+      return
+    }
+    void router.push(o.fullPath)
     return
   }
-  const o = origin
   const back = (window.history.state as { back?: unknown } | null)?.back
   const backPath = typeof back === 'string' ? back : null
   const backIsTag = backPath != null && /(^|\/)tag\//.test(backPath)
@@ -115,13 +171,7 @@ export function goTagBack(router: Router, route: { query: Record<string, unknown
     router.back()
     return
   }
-  const fallback: RouteLocationRaw = o?.fullPath || '/'
-  void router.push(fallback).then(() => {
-    const y = o?.scrollY ?? 0
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: y, left: 0, behavior: 'auto' })
-    })
-  })
+  void router.push('/')
 }
 
 /**

@@ -52,7 +52,9 @@ describe('favorites store', () => {
     await favorites.toggle(summary, detail, { metadataOnly: true })
     await vi.waitFor(() => expect(favorites.isStarred(42)).toBe(true))
     expect(fetchMock).not.toHaveBeenCalled()
-    await vi.waitFor(() => expect(favorites.lastNotice).toEqual({ type: 'favorited' }))
+    await vi.waitFor(() =>
+      expect(favorites.lastNotice).toEqual({ type: 'favorited', tagIds: [42] }),
+    )
   })
 
   it('toggle updates starred state immediately', async () => {

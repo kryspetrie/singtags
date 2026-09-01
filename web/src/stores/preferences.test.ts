@@ -90,4 +90,43 @@ describe('preferences store', () => {
     expect(localStorage.getItem('singtags.pitchPipeRange.v1')).toBeNull()
     expect(localStorage.getItem('singtags.pitchPipeLayout.v1')).toBeNull()
   })
+
+  it('persists global detune application flag', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.applyDetuneGlobally).toBe(false)
+    expect(prefs.globalPitchDetuneCents()).toBe(0)
+    prefs.setPitchPipeConcertA(432)
+    prefs.setApplyDetuneGlobally(true)
+    expect(prefs.globalPitchDetuneCents()).toBe(-32)
+    expect(localStorage.getItem('singtags.applyDetuneGlobally.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().applyDetuneGlobally).toBe(true)
+  })
+
+  it('persists sing mode off by default', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.singMode).toBe(false)
+    prefs.setSingMode(true)
+    expect(localStorage.getItem('singtags.singMode.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().singMode).toBe(true)
+  })
+
+  it('persists share-fullscreen preference', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.shareFullscreen).toBe(false)
+    prefs.setShareFullscreen(true)
+    expect(localStorage.getItem('singtags.shareFullscreen.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().shareFullscreen).toBe(true)
+  })
+
+  it('persists share-barbershoptags preference', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.shareBarbershopTags).toBe(false)
+    prefs.setShareBarbershopTags(true)
+    expect(localStorage.getItem('singtags.shareBarbershopTags.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().shareBarbershopTags).toBe(true)
+  })
 })

@@ -4,6 +4,7 @@
  * cache export/import, and app state backup/restore.
  */
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { useFavoritesStore } from '../stores/favorites'
@@ -11,7 +12,6 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useOnline } from '../composables/useOnline'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
 import { estimateAudioDownloadBytes } from '../lib/offlineManifest'
-import FavoritesNoticeLine from '../components/FavoritesNoticeLine.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { usePracticeStore } from '../stores/practice'
 import {
@@ -20,6 +20,7 @@ import {
   loadAppStateBackupFile,
   restoreOfflineCacheBytes,
 } from '../lib/appStateBackup'
+import { isPersistentStorageAvailable } from '../offline/storageEstimate'
 
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
@@ -36,11 +37,17 @@ const appBackupMessage = ref<string | null>(null)
 const userCollections = useUserCollectionsStore()
 const practice = usePracticeStore()
 
+/** Show the protect button only when the API exists and persistence is not already granted. */
+const canRequestPersistentStorage = computed(
+  () => isPersistentStorageAvailable() && !offlineLib.estimate?.persisted,
+)
+
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
   // Always refresh manifests when online so new remote tags can be detected.
   if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
   else await offlineLib.refreshEstimate()
+  await offlineLib.refreshCacheReady().catch(() => undefined)
 })
 
 const sheetsPct = computed(() => {
@@ -73,6 +80,13 @@ const audioDownloadBytes = computed(() =>
 )
 
 const audioDownloadLabel = computed(() => offlineLib.formatBytes(audioDownloadBytes.value))
+
+/** True when the offline audio pack file count matches (or exceeds) the manifest. */
+const audioPackComplete = computed(
+  () =>
+    offlineLib.audioExpectedCount > 0 &&
+    offlineLib.audioCachedCount >= offlineLib.audioExpectedCount,
+)
 
 /** Any pack download in flight (including Sync missing). */
 const packDownloadBusy = computed(
@@ -292,23 +306,26 @@ function cancelCullUpgrades(): void {
           </h2>
           <p class="hint">
             Go offline to use cached sheets and tracks only — saves data and avoids downloads on
-            slow or metered connections.
+            slow or metered connections. Zip downloads for sharing files live under Downloads.
           </p>
         </div>
-        <button
-          type="button"
-          class="btn connection-btn"
-          :class="offlineMode.manualOffline ? 'btn-primary' : 'btn-ghost'"
-          @click="offlineMode.toggleManualOffline()"
-        >
-          {{ offlineMode.manualOffline ? 'Go online' : 'Go offline' }}
-        </button>
+        <div class="connection-actions">
+          <RouterLink class="btn btn-ghost" to="/queue">Downloads</RouterLink>
+          <button
+            type="button"
+            class="btn connection-btn"
+            :class="offlineMode.manualOffline ? 'btn-primary' : 'btn-ghost'"
+            @click="offlineMode.toggleManualOffline()"
+          >
+            {{ offlineMode.manualOffline ? 'Go online' : 'Go offline' }}
+          </button>
+        </div>
       </div>
     </section>
 
     <p class="lede">
-      Save the songbook and learning tracks on this device for fast, offline practice. Start with
-      sheets, then choose which audio parts to cache — or favorite individual tags as you browse.
+      Save the songbook and optional lo-fi learning tracks on this device for offline singing.
+      Favorite individual tags while browsing when you want higher-quality audio for those songs.
     </p>
 
     <dl v-if="offlineLib.sheetsCachedCount || offlineLib.audioCachedCount" class="storage-summary">
@@ -405,16 +422,21 @@ function cancelCullUpgrades(): void {
     <section class="card primary-card" aria-labelledby="audio-h">
       <h2 id="audio-h">Learning tracks library</h2>
       <p class="hint">
-        Cache ultra-low solo stems for every voice part so individual tracks and mix
-        (reconstructed at play time) work offline. Mix-only tags download the mix file only.
-        Already-cached files are kept; sync only downloads what’s missing.
+        Downloads the published lo-fi Opus pack for the whole catalog: typically ~16&nbsp;kbps mono
+        solos per voice (mix rebuilt on device when singing offline). Mix-only tags and some
+        non-recombinable arrangements use small stereo files instead. Sync keeps what you have and
+        only fetches missing files.
       </p>
 
-      <p class="hint bandwidth-est">
-        Estimated download: <strong>~{{ audioDownloadLabel }}</strong> over the network
-        (64&nbsp;kbps Opus).
+      <p v-if="audioPackComplete" class="hint bandwidth-est">
+        Library complete:
+        <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> on device
+        ({{ offlineLib.audioCachedCount }} files). Use Wi‑Fi when syncing new tags.
+      </p>
+      <p v-else class="hint bandwidth-est">
+        Catalog pack about <strong>~{{ audioDownloadLabel }}</strong> of lo-fi Opus over the network.
         <template v-if="offlineLib.audioCachedCount">
-          <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> stored on device
+          <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> on device
           ({{ offlineLib.audioCachedCount }} of {{ offlineLib.audioExpectedCount }} files).
         </template>
         Use Wi‑Fi when possible.
@@ -463,8 +485,9 @@ function cancelCullUpgrades(): void {
     <section class="card primary-card" aria-labelledby="favorites-h">
       <h2 id="favorites-h">Favorites</h2>
       <p class="hint">
-        {{ favorites.count }} favorited · audio is stored as 64&nbsp;kbps Opus when you favorite from
-        Browse.
+        {{ favorites.count }} favorited · favoriting from Browse caches
+        <strong>64&nbsp;kbps Opus</strong> playback audio for those tags (separate from the lo-fi
+        whole-library pack above).
       </p>
       <div class="actions">
         <button
@@ -477,9 +500,6 @@ function cancelCullUpgrades(): void {
         </button>
       </div>
       <p v-if="favorites.progress" class="hint progress-lbl">{{ favorites.progress.label }}</p>
-      <p v-if="favorites.lastNotice" class="hint favorites-notice-wrap" role="status">
-        <FavoritesNoticeLine :notice="favorites.lastNotice" />
-      </p>
     </section>
 
     <details class="advanced">
@@ -487,10 +507,14 @@ function cancelCullUpgrades(): void {
 
       <section class="card" aria-labelledby="storage-h">
         <h2 id="storage-h">Storage</h2>
-        <p class="hint">
-          Persistent storage asks the browser not to wipe this site’s offline cache when the device
-          runs low on space. Desktop Chrome often grants it silently (no dialog) once you’ve used
-          the site enough — so the button can look like it did nothing.
+        <p v-if="canRequestPersistentStorage" class="hint">
+          Browsers can delete SingTags’ offline sheets and tracks when the device is low on space.
+          “Protect offline data” asks the browser to keep this site’s cache. Chrome often grants it
+          silently (no dialog). We also request this automatically when you download the songbook or
+          learning tracks.
+        </p>
+        <p v-else-if="offlineLib.estimate?.persisted" class="hint">
+          This browser said it will keep SingTags’ offline data when the device is low on space.
         </p>
         <dl class="stats">
           <div>
@@ -514,26 +538,27 @@ function cancelCullUpgrades(): void {
             <dd>{{ offlineLib.catalogCachedAt ? 'Cached' : 'Not yet' }}</dd>
           </div>
           <div>
-            <dt>Persistent</dt>
-            <dd>{{ offlineLib.estimate?.persisted ? 'Yes' : 'No' }}</dd>
+            <dt>Protected from cleanup</dt>
+            <dd>
+              {{
+                !isPersistentStorageAvailable()
+                  ? 'Not supported'
+                  : offlineLib.estimate?.persisted
+                    ? 'Yes'
+                    : 'No'
+              }}
+            </dd>
           </div>
         </dl>
         <div class="actions">
           <button
+            v-if="canRequestPersistentStorage"
             type="button"
             class="btn btn-ghost"
-            :disabled="offline || offlineLib.estimate?.persisted"
-            :title="
-              offlineLib.estimate?.persisted
-                ? 'Already granted for this site'
-                : 'Ask the browser to protect offline cache from eviction'
-            "
+            title="Ask the browser to keep offline sheets and tracks when storage is low"
             @click="offlineLib.requestPersistentStorage()"
           >
-            {{ offlineLib.estimate?.persisted ? 'Persistent storage on' : 'Request persistent storage' }}
-          </button>
-          <button type="button" class="btn btn-ghost" @click="offlineLib.refreshEstimate()">
-            Refresh estimate
+            Protect offline data
           </button>
           <button
             v-if="confirmCullUpgrades"
@@ -733,9 +758,16 @@ function cancelCullUpgrades(): void {
 .connection-copy .hint {
   margin: 0;
 }
-.connection-btn {
+.connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
   flex-shrink: 0;
   align-self: center;
+}
+.connection-btn {
+  flex-shrink: 0;
 }
 .connection-on {
   margin: 0 0 1rem;

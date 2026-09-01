@@ -29,4 +29,19 @@ describe('snackbar store', () => {
     snack.dismiss()
     expect(snack.message).toBeNull()
   })
+
+  it('runs action then dismisses', () => {
+    const snack = useSnackbarStore()
+    const onClick = vi.fn()
+    snack.show('Favorited', {
+      tone: 'ok',
+      ms: 0,
+      action: { label: 'Add to collection', onClick },
+    })
+    expect(snack.actionLabel).toBe('Add to collection')
+    snack.runAction()
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(snack.message).toBeNull()
+    expect(snack.actionLabel).toBeNull()
+  })
 })

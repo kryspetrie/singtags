@@ -6,7 +6,7 @@
  * downgrade to coupled playbackRate on worker failure; no independent per-channel
  * stretch without stereo-image proof.
  */
-import { clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
+import { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
 
 export { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES }
 
@@ -34,11 +34,20 @@ function roundTo(n: number, decimals: number): number {
 }
 
 /**
+ * Clamp pitch to ± one octave without rounding — preserves fractional semitones
+ * (e.g. shared fine detune as cents/100). UI controls still use {@link clampPitchSemitones}.
+ */
+function clampPitchSemitonesRange(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(MIN_PITCH_SEMITONES, Math.min(MAX_PITCH_SEMITONES, n))
+}
+
+/**
  * Canonicalize once at the public setter boundary.
  * Every identity / cache / worker / UI / audible comparison uses this value.
  */
 export function canonicalizeTransform(pitch: number, speed: number): CanonicalTransform {
-  const pitchSemitones = roundTo(clampPitchSemitones(pitch), 2)
+  const pitchSemitones = roundTo(clampPitchSemitonesRange(pitch), 2)
   const spd = roundTo(clampSpeed(speed), 3)
   return {
     pitchSemitones: pitchSemitones + 0,

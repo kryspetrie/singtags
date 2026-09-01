@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
+import {
+  formatFavoritesNotice,
+  noticeCollectionTagIds,
+  noticeFromFavoriteRecord,
+  type FavoritesNotice,
+} from './favoritesNotice'
 import type { StarredTagRecord } from '../offline/favoritesDb'
 import type { TagSummary } from '../types/tag'
 
@@ -38,7 +43,12 @@ describe('noticeFromFavoriteRecord', () => {
       summary,
       null,
     )
-    expect(notice).toEqual({ type: 'cached', audio: true, sheets: true } satisfies FavoritesNotice)
+    expect(notice).toEqual({
+      type: 'cached',
+      audio: true,
+      sheets: true,
+      tagIds: [1],
+    } satisfies FavoritesNotice)
   })
 
   it('marks sheets when they come from the library pack', () => {
@@ -51,12 +61,40 @@ describe('noticeFromFavoriteRecord', () => {
       null,
       { skipSheets: true },
     )
-    expect(notice).toEqual({ type: 'cached', audio: true, sheets: true })
+    expect(notice).toEqual({ type: 'cached', audio: true, sheets: true, tagIds: [1] })
   })
 
   it('returns starred for metadata-only', () => {
     expect(noticeFromFavoriteRecord(rec(), summary, null, { metadataOnly: true })).toEqual({
       type: 'favorited',
+      tagIds: [1],
     })
+  })
+})
+
+describe('formatFavoritesNotice', () => {
+  it('formats cached / favorited / text notices', () => {
+    expect(formatFavoritesNotice({ type: 'favorited', tagIds: [1] })).toBe('Favorited')
+    expect(formatFavoritesNotice({ type: 'removed' })).toBe('Removed from favorites')
+    expect(
+      formatFavoritesNotice({ type: 'cached', audio: true, sheets: true, tagIds: [1] }),
+    ).toBe('Favorited · audio and sheets saved')
+    expect(formatFavoritesNotice({ type: 'text', message: 'Added to “Contest”' })).toBe(
+      'Added to “Contest”',
+    )
+  })
+})
+
+describe('noticeCollectionTagIds', () => {
+  it('returns ids for favorited / cached / text notices', () => {
+    expect(noticeCollectionTagIds({ type: 'favorited', tagIds: [3, 4] })).toEqual([3, 4])
+    expect(
+      noticeCollectionTagIds({ type: 'cached', audio: true, sheets: false, tagIds: [9] }),
+    ).toEqual([9])
+    expect(
+      noticeCollectionTagIds({ type: 'text', message: 'Favorited 2 tag(s)', tagIds: [1, 2] }),
+    ).toEqual([1, 2])
+    expect(noticeCollectionTagIds({ type: 'removed' })).toBeNull()
+    expect(noticeCollectionTagIds({ type: 'text', message: 'Share link copied' })).toBeNull()
   })
 })

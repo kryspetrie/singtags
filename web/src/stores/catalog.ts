@@ -6,6 +6,7 @@
  */
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef, watch } from 'vue'
+import type { Ref } from 'vue'
 import { SearchEngine, uniqueFieldValues } from '../search/engine'
 import type { ExpansionMap } from '../search/expansions'
 import {
@@ -47,6 +48,10 @@ import {
   filterTagsByCollectionOptions,
   isUserCollectionFilterId,
 } from '../lib/collections'
+import {
+  matchesCachedFilter,
+  type TagCacheReady,
+} from '../lib/offlineReadiness'
 
 export type SortMode = BrowseSortMode
 
@@ -80,6 +85,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   const sortMode = ref<SortMode>(DEFAULT_BROWSE_SORT)
   const sortReverse = ref(false)
   const selectedIds = ref<Set<number>>(new Set())
+  const cacheReadyByTag: Ref<Map<number, TagCacheReady>> = ref(new Map())
   const searching = ref(false)
   const resultLimit = ref(RESULTS_PAGE_SIZE)
 
@@ -292,6 +298,17 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (!lyricsLoaded.value) await prefetchLyrics()
   }
 
+  /** Replace the bulk-built per-tag offline readiness index. */
+  function setCacheReadyIndex(map: Map<number, TagCacheReady>): void {
+    cacheReadyByTag.value = map
+  }
+
+  function filterByCachedReadiness(list: TagSummary[]): TagSummary[] {
+    const cached = filters.value.cached
+    if (cached == null) return list
+    return list.filter((tag) => matchesCachedFilter(cacheReadyByTag.value.get(tag.id), cached))
+  }
+
   /** Full filtered/sorted result set (virtualizer uses entire list). */
   const allResults = computed(() => {
     const eng = engine.value
@@ -303,34 +320,34 @@ export const useCatalogStore = defineStore('catalog', () => {
     const tagNum = parseTagNumberQuery(debouncedQuery.value)
     if (tagNum != null) {
       const hit = tags.value.find((t) => t.id === tagNum)
-      return hit ? [hit] : []
+      return filterByCachedReadiness(hit ? [hit] : [])
     }
     // `c99` / `classic:99` → Classic booklet number only (exact)
     const classicNum = parseClassicNumberQuery(debouncedQuery.value)
     if (classicNum != null) {
-      return sortBrowseTags(
+      return filterByCachedReadiness(sortBrowseTags(
         tags.value.filter(
           (t) => isClassicCollection(t.collection) && Number(t.classic) === classicNum,
         ),
         sortMode.value,
         sortReverse.value,
-      )
+      ))
     }
     // `p12` / `100days:12` → 100 Days booklet number (exact)
     const daysNum = parse100DaysNumberQuery(debouncedQuery.value)
     if (daysNum != null) {
-      return sortBrowseTags(
+      return filterByCachedReadiness(sortBrowseTags(
         tags.value.filter(
           (t) => is100DaysCollection(t.collection) && Number(t.classic) === daysNum,
         ),
         sortMode.value,
         sortReverse.value,
-      )
+      ))
     }
     // Bare `3558` → exact Tag # and/or Classic booklet # only (not 100 Days)
     const bareNum = parseExactTagIdQuery(debouncedQuery.value)
     if (bareNum != null) {
-      return sortBrowseTags(
+      return filterByCachedReadiness(sortBrowseTags(
         tags.value.filter(
           (t) =>
             t.id === bareNum ||
@@ -338,7 +355,7 @@ export const useCatalogStore = defineStore('catalog', () => {
         ),
         sortMode.value,
         sortReverse.value,
-      )
+      ))
     }
     const userCols = useUserCollectionsStore()
     const colFilters = filters.value.collections
@@ -351,7 +368,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (hasUserCol) {
       found = filterTagsByCollectionOptions(found, colFilters, userCols.collections)
     }
-    return found
+    return filterByCachedReadiness(found)
   })
 
   /** Alias of `allResults` (legacy name for paged browse). */
@@ -553,6 +570,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     sortMode,
     sortReverse,
     selectedIds,
+    cacheReadyByTag,
     results,
     allResults,
     browseWindow,
@@ -573,6 +591,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     ensureLyrics,
     prefetchLyrics,
     lyricsSnippet,
+    setCacheReadyIndex,
     patchFilters,
     clearFilters,
     toggleSelect,

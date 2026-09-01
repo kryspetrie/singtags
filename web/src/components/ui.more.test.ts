@@ -76,7 +76,7 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(document.documentElement.style.overflow).toBe('')
   })
 
-  it('defaults to WebP inline; PDF rasterizes only on fullscreen', async () => {
+  it('online: paints WebP then fades in PDF rasters and caches them', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
     const w = mount(SheetViewer, {
       props: {
@@ -89,26 +89,45 @@ describe('SheetViewer fullscreen + pay key', () => {
     })
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
-    expect(w.find('iframe').exists()).toBe(false)
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('p1.webp')
-    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
 
-    await w.get('button.fs-fab').trigger('click')
+    // Background HQ prepare (pdf.js) while WebP is already visible.
     await flushPromises()
     expect(renderPdfToPageUrls).toHaveBeenCalled()
-    // Equal page counts cross-fade; settle preload (80ms) + fade (300ms).
     await new Promise((r) => setTimeout(r, 450))
     await flushPromises()
-    expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
 
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    // Fullscreen reuses cached rasters (no second pdf.js pass needed if mem hit).
+    vi.mocked(renderPdfToPageUrls).mockClear()
+    await w.get('button.fs-fab').trigger('click')
     await flushPromises()
-    expect(w.find('img').attributes('src')).toContain('p1.webp')
+    expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
     w.unmount()
   })
 
+
+  it('auto-enters fullscreen and upgrades to PDF rasters (sing mode)', async () => {
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
+        pdf: 'sheets/1/sheet.pdf',
+        baseUrl: '/library/',
+        autoEnterFullscreen: true,
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(w.emitted('fullscreen-change')?.[0]).toEqual([true])
+    await flushPromises()
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
+    w.unmount()
+  })
 
   it('offline upgrades to cached PDF rasters without calling pdf.js', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
@@ -193,7 +212,9 @@ describe('SheetViewer fullscreen + pay key', () => {
     expect(pdfBtn!.attributes('aria-pressed')).toBe('false')
     expect(w.findAll('img').length).toBeGreaterThan(0)
     expect(w.find('img').attributes('src')).toContain('p1.webp')
-    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    // Online also starts HQ prepare in the background while WebP is visible.
+    await flushPromises()
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
 
     await pdfBtn!.trigger('click')
     await flushPromises()
@@ -204,7 +225,6 @@ describe('SheetViewer fullscreen + pay key', () => {
     await flushPromises()
     expect(w.findAll('img').length).toBe(2)
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
-    expect(renderPdfToPageUrls).toHaveBeenCalled()
     w.unmount()
   })
 
@@ -226,8 +246,7 @@ describe('SheetViewer fullscreen + pay key', () => {
       },
     })
     await flushPromises()
-    await w.get('[aria-label="Sheet music format"]').findAll('button')[1]!.trigger('click')
-    await flushPromises()
+    // Background HQ prepare started on mount (images mode).
     expect(w.text()).not.toContain('Preparing PDF')
     expect(w.find('img').attributes('src')).toContain('p1.webp')
     finish(['blob:pdf-page-ready-1', 'blob:pdf-page-ready-2'])
@@ -258,8 +277,6 @@ describe('SheetViewer fullscreen + pay key', () => {
       },
       attachTo: document.body,
     })
-    await flushPromises()
-    await w.get('[aria-label="Sheet music format"]').findAll('button')[1]!.trigger('click')
     await flushPromises()
     expect(w.text()).not.toContain('Preparing PDF')
     expect(w.text()).not.toContain('Preparing sheet')
@@ -312,28 +329,31 @@ describe('SheetViewer fullscreen + pay key', () => {
       },
     })
     await flushPromises()
-    // Defaults to images; PDF only after switching format.
-    expect(renderPdfToPageUrls).not.toHaveBeenCalled()
+    // Online: HQ prepare starts immediately for the default PDF while WebP shows.
+    expect(renderPdfToPageUrls).toHaveBeenCalled()
+    expect(vi.mocked(renderPdfToPageUrls).mock.calls[0]?.[0]).toContain('arr.pdf')
     expect(w.findAll('img')).toHaveLength(2)
     expect(w.find('img').attributes('src')).toContain('p1.webp')
 
     const formatBtns = w.get('[aria-label="Sheet music format"]').findAll('button')
     await formatBtns[1]!.trigger('click') // PDF
     await flushPromises()
-    expect(renderPdfToPageUrls).toHaveBeenCalled()
     expect(w.findAll('img')).toHaveLength(2)
     const pdfSelect = w.get('select[aria-label="Choose PDF sheet"]')
     await pdfSelect.setValue('pdf-b')
     await flushPromises()
-    expect(vi.mocked(renderPdfToPageUrls).mock.calls.at(-1)?.[0]).toContain('learn.pdf')
+    expect(vi.mocked(renderPdfToPageUrls).mock.calls.some((c) => String(c[0]).includes('learn.pdf'))).toBe(
+      true,
+    )
 
     await formatBtns[0]!.trigger('click') // Images
     await flushPromises()
     const imageSelect = w.get('select[aria-label="Choose image sheet"]')
     await imageSelect.setValue('img-a')
     await flushPromises()
-    expect(w.findAll('img')).toHaveLength(1)
-    expect(w.find('img').attributes('src')).toContain('scan.jpg')
+    await new Promise((r) => setTimeout(r, 450))
+    await flushPromises()
+    expect(w.find('img.page-base').attributes('src')).toContain('scan.jpg')
     w.unmount()
   })
 })

@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi } from 'vitest'
-import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
+import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, KEY_SHIFT_LABEL_SIZE_SAMPLE } from './pitchPlayer'
 
 describe('pitchPlayer helpers', () => {
   it('maps keys to tonic notes in E3–E4', () => {
@@ -34,6 +34,19 @@ describe('pitchPlayer helpers', () => {
     expect(formatKeyShiftLabel('', 0)).toBe('(Use +/- to choose key)')
     expect(formatKeyShiftLabel(null, 2)).toBe('D Major')
     expect(formatKeyShiftLabel(null, -1)).toBe('B Major')
+  })
+
+  it('KEY_SHIFT_LABEL_SIZE_SAMPLE is at least as wide as common pitch labels', () => {
+    const samples = [
+      formatKeyShiftLabel(null, 0),
+      formatKeyShiftLabel('C# Minor', MAX_PITCH_SEMITONES),
+      formatKeyShiftLabel('Ab Major', MIN_PITCH_SEMITONES),
+      formatKeyShiftLabel('Major:G#', 12),
+      formatKeyShiftLabel('Bb', 0),
+    ]
+    for (const s of samples) {
+      expect(KEY_SHIFT_LABEL_SIZE_SAMPLE.length).toBeGreaterThanOrEqual(s.length)
+    }
   })
 
   it('converts notes to frequency', () => {

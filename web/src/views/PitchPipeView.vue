@@ -204,6 +204,15 @@ function blackTopPct(after: string): number {
           />
         </label>
 
+        <label class="check global-detune">
+          <input
+            type="checkbox"
+            :checked="prefs.applyDetuneGlobally"
+            @change="prefs.setApplyDetuneGlobally(($event.target as HTMLInputElement).checked)"
+          />
+          Use this tuning for Pitch / Pitch Pipe (Mix stays A440-relative)
+        </label>
+
         <button
           type="button"
           class="btn reset"
@@ -387,6 +396,15 @@ function blackTopPct(after: string): number {
 .detune input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
+}
+.global-detune {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  flex: 1 1 100%;
+  margin: 0.25rem 0 0;
 }
 .reset {
   flex-shrink: 0;

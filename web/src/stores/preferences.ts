@@ -31,9 +31,13 @@ export type PitchPipePrefs = {
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
 const MIX_PAN_KEY = 'singtags.partMixPan.v1'
 const BROWSE_WELCOME_KEY = 'singtags.browseWelcomeDismissed.v1'
+const SING_MODE_KEY = 'singtags.singMode.v1'
+const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
+const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
 const LIBRARY_PARTS_MODE_KEY = 'singtags.libraryAudioPartsMode.v1'
 const LIBRARY_PARTS_KEY = 'singtags.libraryAudioParts.v1'
 const PITCH_PIPE_PREFS_KEY = 'singtags.pitchPipe.v1'
+const APPLY_DETUNE_GLOBAL_KEY = 'singtags.applyDetuneGlobally.v1'
 /** @deprecated migrated into PITCH_PIPE_PREFS_KEY */
 const PITCH_PIPE_RANGE_KEY = 'singtags.pitchPipeRange.v1'
 /** @deprecated migrated into PITCH_PIPE_LAYOUT_KEY */
@@ -249,8 +253,26 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipeLayout = ref<PitchPipeLayout>(initialPipe.layout)
   const pitchPipeAHz = ref<PitchPipeAHz | null>(initialPipe.aHz)
   const pitchPipeDetuneCents = ref(initialPipe.detuneCents)
+  /**
+   * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
+   * (and any other app pitches that consult this preference).
+   */
+  const applyDetuneGlobally = ref(loadBool(APPLY_DETUNE_GLOBAL_KEY, false))
   /** When false, browse shows the one-time welcome / offline prompt. */
   const browseWelcomeDismissed = ref(loadBool(BROWSE_WELCOME_KEY, false))
+  /**
+   * When true, Browse/Recent/Favorites open tags into sheet fullscreen (`?fullscreen=1`).
+   * When false, list taps open the normal tag page (default).
+   */
+  const singMode = ref(loadBool(SING_MODE_KEY, false))
+  /**
+   * When true, Copy/Share tag links include `fullscreen=1` so recipients open the sheet fullscreen.
+   */
+  const shareFullscreen = ref(loadBool(SHARE_FULLSCREEN_KEY, false))
+  /**
+   * When true, Copy/Share/QR use the barbershoptags.com tag page instead of this app.
+   */
+  const shareBarbershopTags = ref(loadBool(SHARE_BARBERSHOP_TAGS_KEY, false))
 
   /** Write current pitch-pipe refs to localStorage. Side effect: `savePitchPipePrefs`. */
   function persistPitchPipe(): void {
@@ -297,6 +319,54 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(BROWSE_WELCOME_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    applyDetuneGlobally,
+    (v) => {
+      try {
+        localStorage.setItem(APPLY_DETUNE_GLOBAL_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    singMode,
+    (v) => {
+      try {
+        localStorage.setItem(SING_MODE_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    shareFullscreen,
+    (v) => {
+      try {
+        localStorage.setItem(SHARE_FULLSCREEN_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    shareBarbershopTags,
+    (v) => {
+      try {
+        localStorage.setItem(SHARE_BARBERSHOP_TAGS_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -403,10 +473,39 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeDetuneCents.value = p.detuneCents
   }
 
+  /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
+  function globalPitchDetuneCents(): number {
+    return applyDetuneGlobally.value ? clampDetuneCents(pitchPipeDetuneCents.value) : 0
+  }
+
+  /** Toggle whether pitch-pipe tuning applies app-wide. */
+  function setApplyDetuneGlobally(on: boolean): void {
+    applyDetuneGlobally.value = on
+  }
+
+  /** Toggle Sing mode (list opens → fullscreen sheet). */
+  function setSingMode(on: boolean): void {
+    singMode.value = on
+  }
+
+  /** Include fullscreen=1 on shared tag links. */
+  function setShareFullscreen(on: boolean): void {
+    shareFullscreen.value = on
+  }
+
+  /** Share the barbershoptags.com page instead of a SingTags deep link. */
+  function setShareBarbershopTags(on: boolean): void {
+    shareBarbershopTags.value = on
+  }
+
   return {
     partSoloInFile,
     partMixPan,
     browseWelcomeDismissed,
+    applyDetuneGlobally,
+    singMode,
+    shareFullscreen,
+    shareBarbershopTags,
     libraryAudioPartsMode,
     libraryAudioParts,
     pitchPipeRange,
@@ -416,6 +515,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
+    setApplyDetuneGlobally,
+    setSingMode,
+    setShareFullscreen,
+    setShareBarbershopTags,
+    globalPitchDetuneCents,
     getPartSoloInFile,
     setPartSoloInFile,
     getPartMixPan,

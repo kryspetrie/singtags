@@ -226,6 +226,46 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
   }
 
   /**
+   * Reorder collections (Favorites bar / pickers use this order).
+   * Unknown ids are ignored; any collections omitted from `ids` are appended in prior order.
+   */
+  function setOrder(ids: string[]): boolean {
+    if (!ids.length && !collections.value.length) return true
+    const byIdMap = new Map(collections.value.map((c) => [c.id, c]))
+    const ordered: UserCollection[] = []
+    for (const id of ids) {
+      const c = byIdMap.get(id)
+      if (!c) continue
+      ordered.push(c)
+      byIdMap.delete(id)
+    }
+    for (const c of collections.value) {
+      if (byIdMap.has(c.id)) ordered.push(c)
+    }
+    if (
+      ordered.length === collections.value.length &&
+      ordered.every((c, i) => c.id === collections.value[i]?.id)
+    ) {
+      return true
+    }
+    collections.value = ordered
+    return true
+  }
+
+  /** Move one collection to a new index in the ordered list. */
+  function moveCollection(id: string, toIndex: number): boolean {
+    const from = collections.value.findIndex((c) => c.id === id)
+    if (from < 0) return false
+    const clamped = Math.max(0, Math.min(collections.value.length - 1, toIndex))
+    if (from === clamped) return true
+    const next = [...collections.value]
+    const [item] = next.splice(from, 1)
+    next.splice(clamped, 0, item!)
+    collections.value = next
+    return true
+  }
+
+  /**
    * Replace all collections (backup restore).
    * Side effect: localStorage via watcher.
    */
@@ -258,6 +298,8 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     pruneToStarred,
     setTagOrder,
     reorderTag,
+    setOrder,
+    moveCollection,
     replaceAll,
     exportSnapshot,
   }

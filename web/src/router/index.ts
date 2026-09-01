@@ -5,7 +5,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import TagView from '../views/TagView.vue'
-import { onTagReturnBeforeEach } from '../lib/tagReturn'
+import { onTagReturnBeforeEach, peekTagReturnScrollY } from '../lib/tagReturn'
+
+/** How Browse should settle scroll after the next home navigation (HomeView reads this). */
+export type BrowseScrollIntent = 'top' | 'restore' | null
+export let browseScrollIntent: BrowseScrollIntent = null
+
+if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
+  // Let Vue Router own scroll; avoid mid-list restores that hide the search bar on open.
+  history.scrollRestoration = 'manual'
+}
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -45,12 +54,37 @@ export const router = createRouter({
     },
   ],
   scrollBehavior(to, from, saved) {
-    // Browser / in-app back: restore after a frame so remounted browse has height.
+    const tagReturnY = peekTagReturnScrollY()
+    const restoreFromTag =
+      tagReturnY != null
+        ? new Promise<{ left: number; top: number }>((resolve) => {
+            requestAnimationFrame(() => resolve({ left: 0, top: tagReturnY }))
+          })
+        : null
+
+    if (to.name === 'home') {
+      // Browser / in-app back: restore after a frame so remounted browse has height.
+      if (saved) {
+        browseScrollIntent = 'restore'
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => resolve(saved))
+        })
+      }
+      // goTagBack uses push (skip tag stack) — restore the click position, not search top.
+      if (restoreFromTag) {
+        browseScrollIntent = 'restore'
+        return restoreFromTag
+      }
+      browseScrollIntent = 'top'
+      return { top: 0 }
+    }
+    browseScrollIntent = null
     if (saved) {
       return new Promise((resolve) => {
         requestAnimationFrame(() => resolve(saved))
       })
     }
+    if (restoreFromTag) return restoreFromTag
     // Query-only updates (e.g. ?shift=) must not jump the page to the top.
     if (from && to.path === from.path) return false
     return { top: 0 }

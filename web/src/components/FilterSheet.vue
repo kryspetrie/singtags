@@ -10,6 +10,8 @@ const props = defineProps<{
   title: string
   /** Viewport Y of the panel top on mobile (e.g. bottom of filter chips). */
   anchorTop?: number | null
+  /** Raise above fullscreen sheet chrome (default sheet is under soft-fullscreen). */
+  elevated?: boolean
 }>()
 
 defineEmits<{
@@ -64,7 +66,7 @@ function onPanelAfterLeave(): void {
     <div
       v-if="layerOpen"
       class="sheet-root"
-      :class="{ anchored }"
+      :class="{ anchored, elevated }"
       :style="rootStyle"
       role="dialog"
       aria-modal="true"
@@ -105,6 +107,9 @@ function onPanelAfterLeave(): void {
   justify-content: flex-end;
   pointer-events: none;
 }
+.sheet-root.elevated {
+  z-index: 90;
+}
 .backdrop {
   pointer-events: auto;
   position: absolute;
@@ -115,6 +120,13 @@ function onPanelAfterLeave(): void {
   bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
   border: 0;
   background: rgba(0, 0, 0, 0.4);
+}
+.sheet-root.elevated .backdrop {
+  top: 0;
+  bottom: 0;
+}
+.sheet-root.elevated .panel {
+  margin-bottom: calc(0.75rem + env(safe-area-inset-bottom));
 }
 .panel {
   pointer-events: auto;
@@ -147,6 +159,9 @@ function onPanelAfterLeave(): void {
   -webkit-overflow-scrolling: touch;
   min-height: 0;
   flex: 1;
+  /* Room for :focus-visible outline (2px + 2px offset) so inputs aren’t clipped. */
+  padding: 0.35rem;
+  margin: 0 -0.35rem;
 }
 
 .sheet-fade-enter-active {

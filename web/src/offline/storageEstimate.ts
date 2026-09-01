@@ -16,6 +16,11 @@ export interface StorageEstimateInfo {
   persisted: boolean
 }
 
+/** `true` when this browser exposes `navigator.storage.persist`. */
+export function isPersistentStorageAvailable(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.storage?.persist === 'function'
+}
+
 /**
  * Request persistent storage so offline caches are less likely to be evicted.
  *
@@ -23,7 +28,7 @@ export interface StorageEstimateInfo {
  */
 export async function requestPersistentStorage(): Promise<boolean> {
   try {
-    if (!navigator.storage?.persist) return false
+    if (!isPersistentStorageAvailable()) return false
     return await navigator.storage.persist()
   } catch {
     return false
