@@ -751,14 +751,6 @@ function formatCollectionDate(value: string): string {
         Next →
       </button>
     </div>
-    <p v-if="activeCollection" class="collection-hint">
-      Showing “{{ activeCollection.name }}”
-      <button type="button" class="btn btn-ghost" @click="selectCollection(null)">Show all</button>
-    </p>
-    <p v-else-if="favorites.loaded && favorites.count" class="collection-hint">
-      Select tags (checkbox<span v-if="isNarrow"> or long-press</span>), then
-      <strong>Add to collection</strong>.
-    </p>
 
     <div
       v-if="favorites.loaded && favorites.count"
@@ -1188,24 +1180,6 @@ function formatCollectionDate(value: string): string {
         Download media now (for offline singing)
       </label>
     </ConfirmDialog>
-
-    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
-      <button
-        type="button"
-        class="sing-mode-btn"
-        :class="{ on: prefs.singMode }"
-        :aria-pressed="prefs.singMode"
-        :title="
-          prefs.singMode
-            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
-            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
-        "
-        @click="prefs.setSingMode(!prefs.singMode)"
-      >
-        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
-        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
-      </button>
-    </div>
   </section>
 </template>
 
@@ -1213,59 +1187,12 @@ function formatCollectionDate(value: string): string {
 .favorites.has-selection {
   padding-bottom: 5.5rem;
 }
-.favorites.has-selection .sing-mode-fab {
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
-}
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
   margin-bottom: 1rem;
   align-items: center;
-}
-.sing-mode-fab {
-  position: fixed;
-  z-index: 24;
-  right: calc(0.75rem + env(safe-area-inset-right));
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
-  pointer-events: none;
-}
-.sing-mode-btn {
-  pointer-events: auto;
-  display: grid;
-  gap: 0.1rem;
-  min-width: 4.75rem;
-  min-height: 3.25rem;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  touch-action: manipulation;
-}
-.sing-mode-btn.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-}
-.sing-mode-kicker {
-  font-weight: 700;
-  font-size: 0.9rem;
-  line-height: 1.1;
-}
-.sing-mode-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
-}
-@media (min-width: 768px) {
-  .sing-mode-fab {
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
 }
 .results-meta {
   display: flex;
@@ -1798,20 +1725,6 @@ code {
 .chip-add:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-.collection-hint {
-  margin: 0 0 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem 0.65rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-.collection-hint .btn {
-  min-height: 36px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.85rem;
 }
 .tag-id-add-panel {
   display: grid;

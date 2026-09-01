@@ -21,6 +21,7 @@ import { resolveSheetAssets } from '../lib/sheetAssets'
 import { sheetDisplayPages } from '../lib/sheetPaths'
 import { prepareDefaultSheet, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
 import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/favoritesDb'
+import { getTransferredTag } from '../offline/transferredDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { probeTagAudioAvailability, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
 import { sheetsPack } from '../offline/libraryPack'
@@ -476,6 +477,20 @@ export function useTagDetail(id: Ref<string> | string) {
       if (packed) {
         fromCache.value = true
         return (await packed.json()) as TagDetail
+      }
+      const transferred = await getTransferredTag(Number(wantedId))
+      if (transferred?.detail) {
+        fromCache.value = true
+        // Reuse starred sheet resolution path with the peer-received blob.
+        starredRecord = {
+          tagId: transferred.tagId,
+          starredAt: transferred.receivedAt,
+          summary: transferred.summary,
+          detail: transferred.detail,
+          sheetBlobs: [transferred.sheet],
+          offlineMedia: true,
+        }
+        return transferred.detail
       }
       return null
     }

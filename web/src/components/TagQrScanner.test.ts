@@ -6,8 +6,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import TagQrScanner from './TagQrScanner.vue'
 
 vi.mock('../lib/qrDecode', () => ({
-  decodeQrFromVideo: vi.fn(async () => null),
-  decodeQrFromFile: vi.fn(async () => 'https://example.com/tag/7'),
+  decodeQrDetailedFromVideo: vi.fn(async () => null),
+  decodeQrDetailedFromFile: vi.fn(async () => ({
+    text: 'https://example.com/tag/7',
+    bytes: null,
+  })),
 }))
 
 describe('TagQrScanner', () => {
@@ -74,7 +77,9 @@ describe('TagQrScanner', () => {
     input.dispatchEvent(new Event('change'))
     await flushPromises()
 
-    expect(w.emitted('detected')?.[0]).toEqual(['https://example.com/tag/7'])
+    expect(w.emitted('detected')?.[0]).toEqual([
+      { text: 'https://example.com/tag/7', bytes: null },
+    ])
     w.unmount()
   })
 })

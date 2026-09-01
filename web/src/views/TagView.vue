@@ -32,6 +32,8 @@ import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
 import TagShareSheet from '../components/TagShareSheet.vue'
+import SheetTransferSheet from '../components/SheetTransferSheet.vue'
+import type { SheetTransferMeta } from '../lib/sheetQrTransfer'
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -407,8 +409,43 @@ const barbershopPageUrl = computed(() =>
 )
 
 const shareOpen = ref(false)
+const transferOpen = ref(false)
 
 const shareHref = computed(() => resolveShareHref())
+
+const transferImageUrl = computed(() => {
+  const prepared = preparedSheet.value?.pages?.[0]
+  if (prepared) return prepared
+  return sheetAssets.value.imageSets[0]?.paths?.[0] ?? null
+})
+
+const transferMeta = computed((): SheetTransferMeta | null => {
+  const d = detail.value
+  const s = summary.value
+  const id = Number(props.id)
+  if (!Number.isFinite(id)) return null
+  return {
+    v: 1,
+    id,
+    title: d?.title ?? s?.title ?? null,
+    altTitle: d?.alt_title ?? s?.altTitle ?? null,
+    arranger: d?.arranger ?? s?.arranger ?? null,
+    key: d?.key ?? s?.key ?? null,
+    writKey: d?.writ_key ?? s?.writKey ?? null,
+    type: d?.type ?? s?.type ?? null,
+    collection: d?.collection ?? s?.collection ?? null,
+    year: d?.year ?? s?.year ?? null,
+    parts: d?.parts_count ?? s?.parts ?? null,
+    mime: 'image/jpeg',
+    width: 800,
+    height: 1100,
+  }
+})
+
+function openTransferSheet(): void {
+  shareOpen.value = false
+  transferOpen.value = true
+}
 
 function resolveShareHref(opts?: { fullscreen?: boolean }): string {
   // Prefer this visit’s session detune; otherwise the sharer’s applied global detune.
@@ -1048,7 +1085,15 @@ async function onRetryLoad(): Promise<void> {
     :url="shareHref"
     :barbershop-url="barbershopPageUrl"
     :title="pageTitleDisplay"
+    :can-transfer-sheet="!!transferImageUrl"
     @close="closeShare"
+    @transfer-sheet="openTransferSheet"
+  />
+  <SheetTransferSheet
+    :open="transferOpen"
+    :image-url="transferImageUrl"
+    :meta="transferMeta"
+    @close="transferOpen = false"
   />
 </template>
 

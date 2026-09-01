@@ -8,7 +8,7 @@
 /** IndexedDB database name for offline progress and snapshots. */
 export const OFFLINE_DB_NAME = 'singtags-offline'
 /** Schema version; bump when adding object stores or migrations. */
-export const OFFLINE_DB_VERSION = 3
+export const OFFLINE_DB_VERSION = 4
 
 /** Object store: {@link PackProgressRecord} keyed by pack kind. */
 export const PACK_PROGRESS_STORE = 'packProgress'
@@ -18,6 +18,8 @@ export const CATALOG_SNAPSHOT_STORE = 'catalogSnapshot'
 export const LYRICS_SNAPSHOT_STORE = 'lyricsSnapshot'
 /** Object store: client-side high-res PDF page rasters (derived; safe to clear). */
 export const PDF_RASTER_STORE = 'pdfRaster'
+/** Object store: sheets received via peer QR transfer. */
+export const TRANSFERRED_TAGS_STORE = 'transferredTags'
 
 /**
  * Open the shared offline IndexedDB, creating stores on upgrade.
@@ -46,6 +48,9 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PDF_RASTER_STORE)) {
         db.createObjectStore(PDF_RASTER_STORE, { keyPath: 'key' })
+      }
+      if (!db.objectStoreNames.contains(TRANSFERRED_TAGS_STORE)) {
+        db.createObjectStore(TRANSFERRED_TAGS_STORE, { keyPath: 'tagId' })
       }
     }
   })

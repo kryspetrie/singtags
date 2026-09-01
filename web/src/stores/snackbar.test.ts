@@ -44,4 +44,39 @@ describe('snackbar store', () => {
     expect(snack.message).toBeNull()
     expect(snack.actionLabel).toBeNull()
   })
+
+  it('supports centered placement for prominent mobile toasts', () => {
+    const snack = useSnackbarStore()
+    snack.show('Sing mode on', { tone: 'ok', placement: 'center' })
+    expect(snack.placement).toBe('center')
+    snack.dismiss()
+    expect(snack.placement).toBe('default')
+  })
+
+  it('supports title + body for stacked center toasts', () => {
+    const snack = useSnackbarStore()
+    snack.show('Tags open in the fullscreen sheet', {
+      title: 'Sing mode on',
+      tone: 'ok',
+      placement: 'center',
+    })
+    expect(snack.title).toBe('Sing mode on')
+    expect(snack.message).toBe('Tags open in the fullscreen sheet')
+    snack.dismiss()
+    expect(snack.title).toBeNull()
+  })
+
+  it('tracks auto-dismiss duration for countdown UI', () => {
+    const snack = useSnackbarStore()
+    snack.show('Tags open in the fullscreen sheet', {
+      title: 'Sing Mode On',
+      tone: 'ok',
+      placement: 'center',
+      ms: 3000,
+    })
+    expect(snack.autoDismissMs).toBe(3000)
+    expect(snack.showToken).toBe(1)
+    snack.dismiss()
+    expect(snack.autoDismissMs).toBe(0)
+  })
 })

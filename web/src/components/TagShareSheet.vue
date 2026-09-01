@@ -25,10 +25,13 @@ const props = defineProps<{
   barbershopUrl?: string
   /** Tag title for native share. */
   title?: string
+  /** When true, show “Transfer sheet” (peer QR data mode). */
+  canTransferSheet?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
+  'transfer-sheet': []
 }>()
 
 const prefs = usePreferencesStore()
@@ -286,6 +289,20 @@ onUnmounted(() => {
           Share…
         </button>
       </div>
+
+      <div v-if="canTransferSheet" class="transfer-block">
+        <p class="transfer-hint">
+          Offline peer copy: send the sheet image and tag info as a sequence of QR codes the other
+          phone can scan.
+        </p>
+        <button
+          type="button"
+          class="btn"
+          @click="emit('transfer-sheet')"
+        >
+          Transfer sheet via QR…
+        </button>
+      </div>
     </div>
   </FilterSheet>
 
@@ -467,6 +484,18 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+.transfer-block {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+.transfer-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .qr-enlarge {

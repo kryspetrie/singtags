@@ -11,3 +11,12 @@ export async function qrDataUrl(text: string, size = 200): Promise<string> {
     errorCorrectionLevel: 'M',
   })
 }
+
+/** Render a binary (byte-mode) QR as a PNG data URL — used for sheet transfer frames. */
+export async function qrDataUrlFromBytes(data: Uint8Array, size = 512): Promise<string> {
+  return QRCode.toDataURL([{ data, mode: 'byte' }], {
+    width: size,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  })
+}

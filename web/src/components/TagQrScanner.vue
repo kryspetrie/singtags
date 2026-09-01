@@ -3,7 +3,11 @@
  * Fullscreen SingTags QR scanner: live camera + pick-from-file fallback.
  */
 import { nextTick, onUnmounted, ref, watch } from 'vue'
-import { decodeQrFromFile, decodeQrFromVideo } from '../lib/qrDecode'
+import {
+  decodeQrDetailedFromFile,
+  decodeQrDetailedFromVideo,
+  type QrDecodeResult,
+} from '../lib/qrDecode'
 
 const props = defineProps<{
   open: boolean
@@ -11,8 +15,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  /** Raw QR payload string (caller validates / navigates). */
-  detected: [payload: string]
+  /** Decoded QR (text and/or bytes). */
+  detected: [result: QrDecodeResult]
   error: [message: string]
 }>()
 
@@ -93,17 +97,17 @@ async function tickScan(): Promise<void> {
     return
   }
   try {
-    const payload = await decodeQrFromVideo(video)
-    if (payload) {
+    const result = await decodeQrDetailedFromVideo(video)
+    if (result?.bytes?.length || result?.text) {
       handling = true
-      emit('detected', payload)
-      // Resume if the parent kept the scanner open (e.g. non-tag QR).
+      emit('detected', result)
+      // Resume if the parent kept the scanner open (e.g. multi-frame transfer).
       window.setTimeout(() => {
         if (closed || !props.open) return
         handling = false
         status.value = 'Point at a SingTags QR code'
         scheduleScan()
-      }, 700)
+      }, 450)
       return
     }
   } catch {
@@ -124,20 +128,20 @@ async function onFileChange(event: Event): Promise<void> {
   busyFile.value = true
   status.value = 'Reading image…'
   try {
-    const payload = await decodeQrFromFile(file)
-    if (!payload) {
+    const result = await decodeQrDetailedFromFile(file)
+    if (!result?.bytes?.length && !result?.text) {
       status.value = 'No QR code found in that image.'
       emit('error', 'No QR code found in that image.')
       return
     }
     handling = true
-    emit('detected', payload)
+    emit('detected', result)
     window.setTimeout(() => {
       if (closed || !props.open) return
       handling = false
       status.value = 'Point at a SingTags QR code'
       scheduleScan()
-    }, 700)
+    }, 450)
   } catch {
     status.value = 'Could not read that image.'
     emit('error', 'Could not read that image.')

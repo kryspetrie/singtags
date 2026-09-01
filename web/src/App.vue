@@ -26,6 +26,7 @@ import {
 } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
 import AboutDialog from './components/AboutDialog.vue'
+import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
 
 const favorites = useFavoritesStore()
@@ -60,6 +61,31 @@ watch(
 const onTagPage = computed(() => route.name === 'tag')
 const backLabel = computed(() => tagBackLabel(route))
 const aboutOpen = ref(false)
+const moreOpen = ref(false)
+
+const DESKTOP_NAV_MQ = '(min-width: 768px)'
+const desktopNav = ref(
+  typeof window !== 'undefined' && window.matchMedia(DESKTOP_NAV_MQ).matches,
+)
+let desktopNavMq: MediaQueryList | null = null
+
+function onDesktopNavMq(ev: MediaQueryListEvent): void {
+  desktopNav.value = ev.matches
+}
+
+const moreNavActive = computed(
+  () =>
+    route.name === 'settings' ||
+    (route.name === 'queue' && !desktopNav.value),
+)
+
+function openMore(): void {
+  moreOpen.value = true
+}
+
+function closeMore(): void {
+  moreOpen.value = false
+}
 
 /** Return to Browse/Favorites/… (not a previous tag from Prev/Next). */
 function goBack(): void {
@@ -142,6 +168,11 @@ onMounted(() => {
     headerResizeObserver = new ResizeObserver(() => publishHeaderHeight())
     headerResizeObserver.observe(topEl.value)
   }
+  if (typeof window.matchMedia === 'function') {
+    desktopNavMq = window.matchMedia(DESKTOP_NAV_MQ)
+    desktopNav.value = desktopNavMq.matches
+    desktopNavMq.addEventListener('change', onDesktopNavMq)
+  }
 })
 
 onUnmounted(() => {
@@ -149,6 +180,8 @@ onUnmounted(() => {
   window.removeEventListener('appinstalled', onAppInstalled)
   headerResizeObserver?.disconnect()
   headerResizeObserver = null
+  desktopNavMq?.removeEventListener('change', onDesktopNavMq)
+  desktopNavMq = null
 })
 
 function dismissUpdate(): void {
@@ -342,10 +375,22 @@ async function acceptReconnectPrompt(): Promise<void> {
         <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
         <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
         <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/settings">Library</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/queue">
-          Downloads<span v-if="queue.count" class="n">{{ queue.count }}</span>
+        <RouterLink class="btn btn-ghost topnav-downloads" to="/queue">
+          Downloads
+          <span v-if="queue.count" class="n">{{ queue.count }}</span>
         </RouterLink>
+        <button
+          type="button"
+          class="btn btn-ghost more-btn"
+          :class="{ on: moreOpen || moreNavActive }"
+          aria-haspopup="dialog"
+          :aria-expanded="moreOpen"
+          aria-label="More"
+          title="More"
+          @click="openMore"
+        >
+          <span class="more-icon" aria-hidden="true">☰</span>
+        </button>
       </nav>
     </header>
     <div v-if="!offlineMode.manualOffline && offlineBannerMessage" class="offline-banner" role="status">
@@ -353,6 +398,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
     </div>
     <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
+    <AppMoreMenu :open="moreOpen" @close="closeMore" />
     <CollectionPickerSheet
       :open="!!favorites.collectionPickerTagIds?.length"
       :tag-ids="favorites.collectionPickerTagIds ?? []"
@@ -380,11 +426,19 @@ async function acceptReconnectPrompt(): Promise<void> {
         <span class="ico" aria-hidden="true">♪</span>
         Pitch Pipe
       </RouterLink>
-      <RouterLink to="/settings" class="tab">
-        <span class="ico" aria-hidden="true">⇩</span>
-        Library
+      <button
+        type="button"
+        class="tab more-tab"
+        :class="{ on: moreOpen || moreNavActive }"
+        aria-haspopup="dialog"
+        :aria-expanded="moreOpen"
+        aria-label="More"
+        @click="openMore"
+      >
+        <span class="ico" aria-hidden="true">☰</span>
+        More
         <span v-if="queue.count" class="n tab-n">{{ queue.count }}</span>
-      </RouterLink>
+      </button>
     </nav>
     <div v-if="needRefresh" class="toast" role="status">
       <span>Update available</span>
@@ -494,12 +548,58 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterLink class="btn btn-ghost" to="/settings">Details</RouterLink>
       <button type="button" class="btn btn-ghost" @click="dismissPackProgressSnack">Dismiss</button>
     </div>
+    <Teleport to="body">
+      <Transition name="snack-center">
+        <div
+          v-if="(snackbar.message || snackbar.title) && snackbar.placement === 'center'"
+          class="snack-center-root"
+        >
+          <button
+            type="button"
+            class="snack-center-backdrop"
+            aria-label="Dismiss notification"
+            @click="snackbar.dismiss()"
+          />
+          <div
+            class="toast toast-snack toast-center toast-has-title"
+            :class="`toast-${snackbar.tone}`"
+            :role="snackbar.tone === 'error' ? 'alert' : 'status'"
+          >
+            <div class="snack-stack">
+              <p class="snack-title">{{ snackbar.title }}</p>
+              <p v-if="snackbar.message" class="snack-detail">{{ snackbar.message }}</p>
+            </div>
+            <button
+              v-if="snackbar.actionLabel"
+              type="button"
+              class="btn"
+              @click="snackbar.runAction()"
+            >
+              {{ snackbar.actionLabel }}
+            </button>
+            <button type="button" class="btn btn-ghost" @click="snackbar.dismiss()">Dismiss</button>
+            <div
+              v-if="snackbar.autoDismissMs > 0"
+              :key="snackbar.showToken"
+              class="snack-countdown"
+              aria-hidden="true"
+            >
+              <div
+                class="snack-countdown-fill"
+                :style="{ animationDuration: `${snackbar.autoDismissMs}ms` }"
+              />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <div
-      v-if="snackbar.message"
+      v-if="(snackbar.message || snackbar.title) && snackbar.placement !== 'center'"
       class="toast toast-snack"
       :class="[
         `toast-${snackbar.tone}`,
         {
+          'toast-has-title': snackbar.title,
           'toast-snack-raised':
             needRefresh ||
             reconnectMediaPromptVisible ||
@@ -511,7 +611,11 @@ async function acceptReconnectPrompt(): Promise<void> {
       ]"
       :role="snackbar.tone === 'error' ? 'alert' : 'status'"
     >
-      <span>{{ snackbar.message }}</span>
+      <div v-if="snackbar.title" class="snack-stack">
+        <p class="snack-title">{{ snackbar.title }}</p>
+        <p v-if="snackbar.message" class="snack-detail">{{ snackbar.message }}</p>
+      </div>
+      <span v-else>{{ snackbar.message }}</span>
       <button
         v-if="snackbar.actionLabel"
         type="button"
@@ -803,6 +907,25 @@ async function acceptReconnectPrompt(): Promise<void> {
   color: var(--accent-hover);
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
+.more-btn.on,
+.more-tab.on {
+  color: var(--accent);
+}
+.more-btn {
+  padding: 0.35rem 0.55rem;
+}
+.more-icon {
+  display: block;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.more-tab {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
 .n {
   display: inline-flex;
   align-items: center;
@@ -901,6 +1024,27 @@ main {
   z-index: 50;
   width: min(96vw, 36rem);
 }
+.snack-stack {
+  display: grid;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+.snack-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+.snack-detail {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--muted);
+}
 .toast-progress {
   z-index: 45;
   align-items: flex-end;
@@ -942,6 +1086,211 @@ main {
 }
 .toast-info {
   /* default toast surface */
+}
+.snack-center-root {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+}
+.snack-center-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.snack-center-root .toast-snack.toast-center {
+  position: relative;
+  z-index: 1;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  transform: none;
+  pointer-events: auto;
+  overflow: hidden;
+}
+.snack-center-enter-active {
+  transition: opacity 0.26s ease;
+}
+.snack-center-leave-active {
+  transition: opacity 0.2s ease;
+}
+.snack-center-enter-from,
+.snack-center-leave-to {
+  opacity: 0;
+}
+.snack-countdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.28rem;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+}
+.snack-countdown-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: snack-countdown-fill linear forwards;
+}
+@keyframes snack-countdown-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (max-width: 767px) {
+  .snack-center-root {
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    padding-bottom: calc(1rem + var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
+  }
+  .snack-center-root .toast-snack.toast-center {
+    width: min(82vw, 20rem);
+    max-width: 100%;
+    flex-shrink: 0;
+    aspect-ratio: 1;
+    max-height: min(82vw, 20rem);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 1.75rem 1.5rem 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+    text-align: center;
+  }
+  .snack-center-enter-active .toast-snack.toast-center,
+  .snack-center-leave-active .toast-snack.toast-center {
+    transition:
+      opacity 0.26s ease,
+      transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .snack-center-leave-active .toast-snack.toast-center {
+    transition-duration: 0.2s;
+  }
+  .snack-center-enter-from .toast-snack.toast-center,
+  .snack-center-leave-to .toast-snack.toast-center {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  .snack-center-enter-to .toast-snack.toast-center {
+    opacity: 1;
+    transform: none;
+  }
+  .snack-center-root .snack-stack {
+    display: grid;
+    flex: 1 1 auto;
+    align-content: center;
+    justify-items: center;
+    text-align: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .snack-center-root .snack-title {
+    font-size: 1.5rem;
+  }
+  .snack-center-root .snack-detail {
+    font-size: 1.05rem;
+    line-height: 1.45;
+    max-width: 14rem;
+  }
+  .snack-center-root .btn-ghost {
+    align-self: center;
+    min-width: 7.5rem;
+    padding: 0.55rem 1.25rem;
+    font-size: 1rem;
+  }
+}
+@media (min-width: 768px) {
+  .snack-center-root {
+    inset: auto;
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: 1.25rem;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: block;
+    width: max-content;
+    max-width: min(96vw, 36rem);
+    padding: 0;
+  }
+  .snack-center-backdrop {
+    display: none;
+  }
+  .snack-center-root .toast-snack.toast-center {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    width: max-content;
+    max-width: min(96vw, 36rem);
+    aspect-ratio: auto;
+    max-height: none;
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem calc(0.65rem + 0.28rem);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    text-align: left;
+  }
+  .snack-center-root .snack-stack {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+    gap: 0.25rem;
+  }
+  .snack-center-root .snack-title {
+    font-size: 1.05rem;
+  }
+  .snack-center-root .snack-detail {
+    font-size: 0.88rem;
+    max-width: none;
+  }
+  .snack-center-root .btn-ghost {
+    align-self: center;
+    min-width: 0;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  .snack-center-enter-active .toast-snack.toast-center,
+  .snack-center-leave-active .toast-snack.toast-center {
+    transition: opacity 0.2s ease;
+  }
+  .snack-center-enter-from .toast-snack.toast-center,
+  .snack-center-leave-to .toast-snack.toast-center {
+    opacity: 0;
+    transform: none;
+  }
+  .snack-center-enter-to .toast-snack.toast-center {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snack-center-enter-active,
+  .snack-center-leave-active,
+  .snack-center-enter-active .toast-snack.toast-center,
+  .snack-center-leave-active .toast-snack.toast-center {
+    transition-duration: 0.01ms;
+  }
+  .snack-center-enter-from .toast-snack.toast-center,
+  .snack-center-leave-to .toast-snack.toast-center {
+    transform: none;
+  }
 }
 @media (min-width: 768px) {
   .app {

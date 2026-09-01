@@ -51,7 +51,18 @@ import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { parseTagQrPayload } from '../lib/tagQrScan'
-import { decodeQrFromFile, probeCameraAccess } from '../lib/qrDecode'
+import {
+  SheetTransferAssembler,
+  isSheetTransferFrame,
+  parseSheetTransferFrame,
+  unpackSheetTransfer,
+} from '../lib/sheetQrTransfer'
+import { putTransferredTag } from '../offline/transferredDb'
+import {
+  decodeQrDetailedFromFile,
+  probeCameraAccess,
+  type QrDecodeResult,
+} from '../lib/qrDecode'
 import { useOnline } from '../composables/useOnline'
 import TagQrScanner from '../components/TagQrScanner.vue'
 
@@ -146,8 +157,56 @@ function openTagFromQrPayload(payload: string): void {
   void router.push(loc)
 }
 
-function onQrScannerDetected(payload: string): void {
-  openTagFromQrPayload(payload)
+let transferAssembler: SheetTransferAssembler | null = null
+
+async function onTransferFrame(bytes: Uint8Array): Promise<boolean> {
+  const frame = parseSheetTransferFrame(bytes)
+  if (!frame) return false
+
+  if (
+    !transferAssembler ||
+    transferAssembler.transferId !== frame.transferId ||
+    transferAssembler.frameCount !== frame.count
+  ) {
+    transferAssembler = new SheetTransferAssembler(frame.transferId, frame.count)
+  }
+  transferAssembler.accept(frame)
+  const got = transferAssembler.receivedCount
+  const total = transferAssembler.frameCount
+  snackbar.show(`Sheet transfer: ${got} / ${total} frames`, { tone: 'ok', ms: 2500 })
+
+  if (!transferAssembler.complete) return true
+
+  try {
+    const pkg = unpackSheetTransfer(transferAssembler.buildPackage())
+    await putTransferredTag(pkg.meta, pkg.imageBytes)
+    transferAssembler = null
+    qrScannerOpen.value = false
+    snackbar.show(`Received “${pkg.meta.title || `Tag ${pkg.meta.id}`}”`, { tone: 'ok' })
+    void router.push(`/tag/${pkg.meta.id}`)
+  } catch (e) {
+    transferAssembler = null
+    snackbar.show(e instanceof Error ? e.message : 'Could not assemble sheet transfer.', {
+      tone: 'error',
+    })
+  }
+  return true
+}
+
+async function onQrDetected(result: QrDecodeResult): Promise<void> {
+  if (result.bytes && isSheetTransferFrame(result.bytes)) {
+    await onTransferFrame(result.bytes)
+    return
+  }
+  if (result.text) {
+    openTagFromQrPayload(result.text)
+    return
+  }
+  snackbar.show('That QR code is not a SingTags tag link.', { tone: 'error' })
+}
+
+function onQrScannerDetected(result: QrDecodeResult): void {
+  void onQrDetected(result)
 }
 
 function onQrScannerError(message: string): void {
@@ -160,12 +219,12 @@ async function onQrFilePicked(event: Event): Promise<void> {
   input.value = ''
   if (!file) return
   try {
-    const payload = await decodeQrFromFile(file)
-    if (!payload) {
+    const result = await decodeQrDetailedFromFile(file)
+    if (!result?.bytes?.length && !result?.text) {
       snackbar.show('No QR code found in that image.', { tone: 'error' })
       return
     }
-    openTagFromQrPayload(payload)
+    await onQrDetected(result!)
   } catch {
     snackbar.show('Could not read that image.', { tone: 'error' })
   }
@@ -1840,23 +1899,6 @@ watch(
       @done="favoriteSelectedToCollection"
     />
 
-    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
-      <button
-        type="button"
-        class="sing-mode-btn"
-        :class="{ on: prefs.singMode }"
-        :aria-pressed="prefs.singMode"
-        :title="
-          prefs.singMode
-            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
-            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
-        "
-        @click="prefs.setSingMode(!prefs.singMode)"
-      >
-        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
-        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
-      </button>
-    </div>
   </section>
 </template>
 
@@ -1877,56 +1919,6 @@ watch(
 }
 .home.has-selection {
   padding-bottom: 5.5rem;
-}
-.sing-mode-fab {
-  position: fixed;
-  z-index: 24;
-  right: calc(0.75rem + env(safe-area-inset-right));
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
-  pointer-events: none;
-}
-.home.has-selection .sing-mode-fab {
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
-}
-.sing-mode-btn {
-  pointer-events: auto;
-  display: grid;
-  gap: 0.1rem;
-  min-width: 4.75rem;
-  min-height: 3.25rem;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  touch-action: manipulation;
-}
-.sing-mode-btn.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-}
-.sing-mode-kicker {
-  font-weight: 700;
-  font-size: 0.9rem;
-  line-height: 1.1;
-}
-.sing-mode-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
-}
-@media (min-width: 768px) {
-  .sing-mode-fab {
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
-  .home.has-selection .sing-mode-fab {
-    bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  }
 }
 .warn {
   color: var(--danger);

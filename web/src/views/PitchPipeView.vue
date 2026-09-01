@@ -204,13 +204,23 @@ function blackTopPct(after: string): number {
           />
         </label>
 
-        <label class="check global-detune">
+        <label
+          class="setting-row global-detune"
+          :class="{ on: prefs.applyDetuneGlobally }"
+          title="Apply this concert A / fine detune to tag Pitch (Mix stays A440-relative)"
+        >
+          <span class="setting-copy">
+            <span class="setting-title">Apply tuning globally</span>
+          </span>
           <input
             type="checkbox"
+            class="setting-switch"
+            role="switch"
             :checked="prefs.applyDetuneGlobally"
+            :aria-checked="prefs.applyDetuneGlobally"
+            aria-label="Apply tuning globally"
             @change="prefs.setApplyDetuneGlobally(($event.target as HTMLInputElement).checked)"
           />
-          Use this tuning for Pitch / Pitch Pipe (Mix stays A440-relative)
         </label>
 
         <button
@@ -398,13 +408,70 @@ function blackTopPct(after: string): number {
   accent-color: var(--accent);
 }
 .global-detune {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  color: var(--text);
   flex: 1 1 100%;
   margin: 0.25rem 0 0;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.setting-row.on .setting-title {
+  color: var(--accent-hover);
+}
+.setting-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.setting-title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.setting-switch {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 1.45rem;
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--border) 55%, var(--surface));
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.setting-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.45rem - 6px);
+  height: calc(1.45rem - 6px);
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.15s ease;
+}
+.setting-switch:checked {
+  background: color-mix(in srgb, var(--accent) 70%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.setting-switch:checked::after {
+  transform: translateX(1.15rem);
+  background: #fff;
+}
+.setting-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .reset {
   flex-shrink: 0;

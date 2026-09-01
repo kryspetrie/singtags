@@ -245,11 +245,6 @@ function rowStarLabel(tag: TagSummary): string {
       </button>
     </div>
 
-    <p v-if="recent.count" class="select-hint">
-      Select tags (checkbox<span v-if="isNarrow"> or long-press</span>), then
-      <strong>Add to collection</strong>.
-    </p>
-
     <EmptyState
       v-if="!recent.count"
       title="No recent tags yet"
@@ -372,33 +367,12 @@ function rowStarLabel(tag: TagSummary): string {
         </button>
       </div>
     </Teleport>
-
-    <div class="sing-mode-fab" role="group" aria-label="Sing mode">
-      <button
-        type="button"
-        class="sing-mode-btn"
-        :class="{ on: prefs.singMode }"
-        :aria-pressed="prefs.singMode"
-        :title="
-          prefs.singMode
-            ? 'Sing mode on — tapping a tag opens the fullscreen sheet. Tap to turn off.'
-            : 'Sing mode off — tapping a tag opens the tag page. Tap to open tags fullscreen.'
-        "
-        @click="prefs.setSingMode(!prefs.singMode)"
-      >
-        <span class="sing-mode-kicker">{{ prefs.singMode ? 'Sing on' : 'Sing' }}</span>
-        <span class="sing-mode-hint">{{ prefs.singMode ? 'Fullscreen' : 'Normal' }}</span>
-      </button>
-    </div>
   </section>
 </template>
 
 <style scoped>
 .recent-page.has-selection {
   padding-bottom: 5.5rem;
-}
-.recent-page.has-selection .sing-mode-fab {
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 5.25rem);
 }
 .intro {
   color: var(--muted);
@@ -412,58 +386,6 @@ function rowStarLabel(tag: TagSummary): string {
   align-items: center;
   gap: 0.65rem;
   margin-bottom: 0.65rem;
-}
-.select-hint {
-  margin: 0 0 0.75rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-.sing-mode-fab {
-  position: fixed;
-  z-index: 24;
-  right: calc(0.75rem + env(safe-area-inset-right));
-  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom) + 0.75rem);
-  pointer-events: none;
-}
-.sing-mode-btn {
-  pointer-events: auto;
-  display: grid;
-  gap: 0.1rem;
-  min-width: 4.75rem;
-  min-height: 3.25rem;
-  padding: 0.45rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  color: var(--text);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  touch-action: manipulation;
-}
-.sing-mode-btn.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-}
-.sing-mode-kicker {
-  font-weight: 700;
-  font-size: 0.9rem;
-  line-height: 1.1;
-}
-.sing-mode-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
-}
-@media (min-width: 768px) {
-  .sing-mode-fab {
-    bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
-  .recent-page.has-selection .sing-mode-fab {
-    bottom: calc(1rem + env(safe-area-inset-bottom) + 4.5rem);
-  }
 }
 .sort-field {
   display: flex;

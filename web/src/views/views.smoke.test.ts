@@ -169,35 +169,6 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('HomeView Sing mode FAB toggles persisted preference', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    usePreferencesStore().dismissBrowseWelcome()
-    const catalog = useCatalogStore()
-    vi.spyOn(catalog, 'load').mockImplementation(async () => {
-      catalog.$patch({ loaded: true, loading: false, tags: [] })
-    })
-    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
-
-    const router = makeRouter([{ path: '/', name: 'home', component: HomeView }])
-    await router.push('/')
-    const w = mount(HomeView, {
-      global: {
-        plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
-      },
-    })
-    await flushPromises()
-    const prefs = usePreferencesStore()
-    expect(prefs.singMode).toBe(false)
-    await w.get('.sing-mode-btn').trigger('click')
-    await flushPromises()
-    expect(prefs.singMode).toBe(true)
-    expect(w.get('.sing-mode-btn').attributes('aria-pressed')).toBe('true')
-    expect(localStorage.getItem('singtags.singMode.v1')).toBe('1')
-    w.unmount()
-  })
-
   it('FavoritesView Sing mode tags favorite links with fullscreen=1', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
@@ -249,7 +220,7 @@ describe('view smoke tests', () => {
     await flushPromises()
     const prefs = usePreferencesStore()
     expect(prefs.singMode).toBe(false)
-    await w.get('button.sing-mode-btn').trigger('click')
+    prefs.setSingMode(true)
     await flushPromises()
     expect(prefs.singMode).toBe(true)
     const tos = w.findAll('.fav-link-stub').map((a) => JSON.parse(a.attributes('data-to') || '{}'))
@@ -421,15 +392,13 @@ describe('view smoke tests', () => {
     expect(w.find('.col-chip').exists()).toBe(true)
     expect(w.find('.col-chip').text()).toContain('Contest set')
     expect(w.find('button.chip-add').exists()).toBe(false)
-    expect(w.text()).toMatch(/Select tags/)
 
     await w.get('.col-chip').trigger('click')
     await flushPromises()
-    expect(w.text()).toMatch(/Showing “Contest set”/)
+    expect(w.text()).toMatch(/in “Contest set”/)
     await w.get('.col-chip').trigger('click')
     await flushPromises()
-    expect(w.text()).not.toMatch(/Showing “Contest set”/)
-    expect(w.text()).toMatch(/Select tags/)
+    expect(w.text()).not.toMatch(/in “Contest set”/)
 
     const sel = w.findAll('button.sel-btn')
     expect(sel.length).toBeGreaterThan(0)
@@ -518,7 +487,6 @@ describe('view smoke tests', () => {
     })
     await flushPromises()
 
-    expect(w.text()).toMatch(/Select tags/)
     const sel = w.findAll('button.sel-btn')
     expect(sel.length).toBe(2)
     await sel[0]!.trigger('click')

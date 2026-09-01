@@ -12,6 +12,8 @@ const props = defineProps<{
   anchorTop?: number | null
   /** Raise above fullscreen sheet chrome (default sheet is under soft-fullscreen). */
   elevated?: boolean
+  /** Hide the visible title; dialog `aria-label` still uses `title`. */
+  hideTitle?: boolean
 }>()
 
 defineEmits<{
@@ -84,8 +86,8 @@ function onPanelAfterLeave(): void {
       </Transition>
       <Transition name="sheet-slide" @after-leave="onPanelAfterLeave">
         <div v-if="contentOpen" class="panel">
-          <header class="head">
-            <h2>{{ title }}</h2>
+          <header class="head" :class="{ 'head-titleless': hideTitle }">
+            <h2 v-if="!hideTitle">{{ title }}</h2>
             <button type="button" class="btn btn-primary" @click="$emit('close')">Done</button>
           </header>
           <div class="body">
@@ -153,6 +155,9 @@ function onPanelAfterLeave(): void {
   margin: 0;
   font-size: 1.05rem;
   font-family: var(--font-display);
+}
+.head-titleless {
+  justify-content: flex-end;
 }
 .body {
   overflow: auto;
