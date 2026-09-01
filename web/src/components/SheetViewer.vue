@@ -32,6 +32,7 @@ import {
 } from '../lib/sheetZoomPan'
 import { KEY_SHIFT_LABEL_SIZE_SAMPLE } from '../audio/pitchPlayer'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
+import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
 
 export type SheetDisplayMode = 'images' | 'pdf'
 
@@ -132,7 +133,7 @@ let chromeLayoutRo: ResizeObserver | null = null
 /** After user exits FS, ignore autoEnter until the prop cycles off→on (new deep link). */
 const suppressAutoEnter = ref(false)
 /** Soft-FS history sentinel so OS back exits overlay once before leaving the tag. */
-let fsHistoryPushed = false
+const overlayHistory = new OverlayHistorySentinel()
 const pageIndex = ref(0)
 const mode = ref<SheetDisplayMode>('images')
 const imageSetId = ref('')
@@ -866,102 +867,6 @@ function detachFsViewportListeners(): void {
   fsViewportRaf = 0
 }
 
-function setScrollLock(on: boolean): void {
-  const v = on ? 'hidden' : ''
-  document.documentElement.style.overflow = v
-  document.body.style.overflow = v
-}
-
-function setShellInert(on: boolean): void {
-  if (typeof document === 'undefined') return
-  for (const sel of ['header.app-header, header', 'nav.bottom', '.toast', '.offline-banner']) {
-    document.querySelectorAll(sel).forEach((el) => {
-      if (on) el.setAttribute('inert', '')
-      else el.removeAttribute('inert')
-    })
-  }
-}
-
-function pushFsHistory(): void {
-  if (typeof history === 'undefined' || fsHistoryPushed) return
-  // Vitest/happy-dom: skip sentinel (pushState/popstate interactions are flaky).
-  if (import.meta.env.MODE === 'test') return
-  try {
-    // Preserve Vue Router's history.state fields — a bare { singFs } entry breaks Back.
-    const prev =
-      history.state && typeof history.state === 'object'
-        ? (history.state as Record<string, unknown>)
-        : {}
-    history.pushState({ ...prev, singFs: true }, '')
-    fsHistoryPushed = true
-  } catch {
-    /* ignore */
-  }
-}
-
-/** When true, popstate from popping our FS sentinel should be ignored. */
-let ignoreFsPop = false
-/** Resolves the awaiter in {@link clearFsHistorySentinel} once popstate runs. */
-let pendingFsPopResolve: (() => void) | null = null
-
-function finishPendingFsPop(): void {
-  const resolve = pendingFsPopResolve
-  pendingFsPopResolve = null
-  ignoreFsPop = false
-  resolve?.()
-}
-
-/** Drop the soft-FS history flag without history.back() (avoids Vue Router pop races). */
-function discardFsHistorySentinel(): void {
-  if (!fsHistoryPushed) return
-  fsHistoryPushed = false
-  if (typeof history === 'undefined') return
-  try {
-    const st = history.state as Record<string, unknown> | null
-    if (st && st.singFs) {
-      const next = { ...st }
-      delete next.singFs
-      history.replaceState(next, '')
-    }
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Pop the soft-FS history sentinel (if any). Resolves after popstate (or immediately). */
-function clearFsHistorySentinel(): Promise<void> {
-  if (!fsHistoryPushed || typeof history === 'undefined') return Promise.resolve()
-  fsHistoryPushed = false
-  try {
-    if ((history.state as { singFs?: boolean } | null)?.singFs) {
-      // Pop the sentinel so Tag-page Back is not stuck on a duplicate tag entry.
-      return new Promise((resolve) => {
-        ignoreFsPop = true
-        pendingFsPopResolve = resolve
-        history.back()
-        // Safety: some environments swallow popstate.
-        window.setTimeout(() => {
-          if (pendingFsPopResolve === resolve) finishPendingFsPop()
-        }, 100)
-      })
-    }
-  } catch {
-    finishPendingFsPop()
-  }
-  return Promise.resolve()
-}
-
-function onPopState(): void {
-  if (ignoreFsPop) {
-    finishPendingFsPop()
-    return
-  }
-  if (!fullscreen.value) return
-  // OS/browser back while soft-FS: exit overlay, stay on tag.
-  fsHistoryPushed = false
-  void setFullscreen(false, { fromPopState: true })
-}
-
 async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
   fullscreen.value = on
   pointers.clear()
@@ -982,7 +887,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
     void enterFullscreenLayout()
     void acquireWakeLock('sheet')
     setShellInert(true)
-    if (!opts?.fromPopState) pushFsHistory()
+    if (!opts?.fromPopState) overlayHistory.push()
     void nextTick(() => attachChromeLayoutObserver())
   } else {
     detachChromeLayoutObserver()
@@ -1001,8 +906,8 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
     void releaseWakeLock('sheet')
     setShellInert(false)
     suppressAutoEnter.value = true
-    // Await pop so query replace / exit-origin navigation don't race the sentinel.
-    if (!opts?.fromPopState) await clearFsHistorySentinel()
+    // Drop the sentinel in-place — history.back() makes Vue Router leave the tag page.
+    if (!opts?.fromPopState) overlayHistory.discard()
   }
   emit('fullscreen-change', on)
   setScrollLock(on)
@@ -1107,14 +1012,21 @@ function detachChromeLayoutObserver(): void {
   chromeLayoutRo = null
 }
 
-/** ✕ / Escape — leave tag for the page that opened this fullscreen (parent handles navigation). */
+/** ✕ / Escape — exit fullscreen; parent navigates away only in Sing mode. */
 async function exitToOrigin(): Promise<void> {
   // Do not history.back() the soft-FS sentinel here. Vue Router treats that popstate as
   // "return to Browse/Recent/Favorites" *before* the parent can arm scroll restore, so the
   // list lands at the wrong Y. Discard the sentinel in-place; parent then goTagBack().
-  discardFsHistorySentinel()
+  overlayHistory.discard()
   await setFullscreen(false, { fromPopState: true })
-  emit('exit-origin')
+  if (props.exitOriginLabel !== 'tag page') emit('exit-origin')
+}
+
+function onPopState(): void {
+  if (overlayHistory.consumeInternalPop()) return
+  if (!fullscreen.value) return
+  overlayHistory.resetPushed()
+  void setFullscreen(false, { fromPopState: true })
 }
 
 function scrollPageIntoView(index: number): void {
@@ -1156,7 +1068,6 @@ function onKey(e: KeyboardEvent): void {
   if (!fullscreen.value) return
   if (e.key === 'Escape') {
     e.preventDefault()
-    // Same as ✕ — leave the tag for the list/page that opened fullscreen.
     void exitToOrigin()
     return
   }
@@ -1205,7 +1116,7 @@ function pointerMidpoint(): { x: number; y: number } {
 }
 
 function isChromeTarget(t: EventTarget | null): boolean {
-  return !!(t as HTMLElement | null)?.closest?.('.chrome, .fs-fab')
+  return !!(t as HTMLElement | null)?.closest?.('.chrome')
 }
 
 function onWheel(e: WheelEvent): void {
@@ -1397,22 +1308,6 @@ defineExpose({
       @pointercancel="onPointerUp"
       @dblclick="onDoubleClick"
     >
-      <button
-        v-if="!fullscreen"
-        type="button"
-        class="fs-fab"
-        aria-label="Fullscreen sheet"
-        title="Fullscreen"
-        @click="toggleFullscreen"
-      >
-        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
-          <path
-            fill="currentColor"
-            d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-          />
-        </svg>
-      </button>
-
       <p v-if="loading && !displayPages.length" class="status" role="status">
         Preparing sheet…
       </p>
@@ -1771,37 +1666,6 @@ defineExpose({
   will-change: transform;
   user-select: none;
   -webkit-user-select: none;
-}
-.fs-fab {
-  position: absolute;
-  top: 0.9rem;
-  right: 0.9rem;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  color: var(--text);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(6px);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-.fs-fab:hover {
-  background: var(--surface);
-}
-.fs-fab:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.fs-fab svg {
-  width: 24px;
-  height: 24px;
 }
 .chrome {
   position: absolute;

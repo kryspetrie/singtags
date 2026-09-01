@@ -5,13 +5,14 @@
  */
 import 'fake-indexeddb/auto'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { defineComponent } from 'vue'
+import { defineComponent, ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import TagView from './TagView.vue'
 import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
+import { usePreferencesStore } from '../stores/preferences'
 import {
   clearTagReturnOrigin,
   setTagReturnOriginForTests,
@@ -40,12 +41,43 @@ vi.mock('../audio/pitchPlayer', async (importOriginal) => {
 })
 
 vi.mock('../components/TagPlayer.vue', () => ({
-  default: {
+  default: defineComponent({
     name: 'TagPlayer',
-    props: ['parts', 'pitchSemitones'],
-    emits: ['transform', 'update:pitchSemitones', 'ended'],
-    template: '<div data-testid="tag-player" />',
-  },
+    props: {
+      parts: { type: Object, default: () => ({}) },
+      pitchSemitones: Number,
+      exitOriginLabel: { type: String, default: '' },
+    },
+    emits: ['transform', 'update:pitchSemitones', 'ended', 'fullscreen-change', 'exit-origin'],
+    setup(_props, { emit, expose }) {
+      const fullscreen = ref(false)
+      function enterFullscreen(): void {
+        fullscreen.value = true
+        emit('fullscreen-change', true)
+      }
+      function exitFullscreen(): void {
+        fullscreen.value = false
+        emit('fullscreen-change', false)
+      }
+      expose({
+        enterFullscreen,
+        exitFullscreen,
+        togglePlay: async () => {},
+        stopPlayback: async () => {},
+        seek: () => {},
+        selectPart: () => {},
+        isPaused: () => true,
+        getCurrentTime: () => 0,
+        getDuration: () => 0,
+        isPlayReady: () => false,
+        isBaking: () => false,
+      })
+      return { fullscreen }
+    },
+    template: `
+      <div data-testid="tag-player" class="player" :class="{ fullscreen }" />
+    `,
+  }),
 }))
 
 vi.mock('../components/SheetViewer.vue', () => ({
@@ -227,7 +259,25 @@ describe('TagView fullscreen / sing entry', () => {
     w.unmount()
   })
 
-  it('✕ exit-origin navigates back to captured list origin', async () => {
+  it('✕ exit-origin navigates back to captured list origin in Sing mode', async () => {
+    setTagReturnOriginForTests({
+      name: 'favorites',
+      fullPath: '/favorites',
+      label: 'Favorites',
+      scrollY: 0,
+    })
+    const { w, router, pinia } = await mountTag({ fullscreen: '1' })
+    usePreferencesStore(pinia).setSingMode(true)
+    await flushPromises()
+    expect(w.get('[data-testid="exit-label"]').text()).toBe('Favorites')
+    const push = vi.spyOn(router, 'push')
+    await w.get('[data-testid="exit-origin"]').trigger('click')
+    await flushPromises()
+    expect(push).toHaveBeenCalledWith('/favorites')
+    w.unmount()
+  })
+
+  it('✕ stays on the tag page when Sing mode is off even with a list origin', async () => {
     setTagReturnOriginForTests({
       name: 'favorites',
       fullPath: '/favorites',
@@ -235,11 +285,13 @@ describe('TagView fullscreen / sing entry', () => {
       scrollY: 0,
     })
     const { w, router } = await mountTag({ fullscreen: '1' })
-    expect(w.get('[data-testid="exit-label"]').text()).toBe('Favorites')
+    expect(w.get('[data-testid="exit-label"]').text()).toBe('tag page')
     const push = vi.spyOn(router, 'push')
+    const back = vi.spyOn(router, 'back')
     await w.get('[data-testid="exit-origin"]').trigger('click')
     await flushPromises()
-    expect(push).toHaveBeenCalledWith('/favorites')
+    expect(push).not.toHaveBeenCalled()
+    expect(back).not.toHaveBeenCalled()
     w.unmount()
   })
 
@@ -260,6 +312,21 @@ describe('TagView fullscreen / sing entry', () => {
     clearTagReturnOrigin()
     const { w } = await mountTag({ fullscreen: '1' })
     expect(w.get('[data-testid="exit-label"]').text()).toBe('tag page')
+    w.unmount()
+  })
+
+  it('shows tracks fullscreen button when tag has audio', async () => {
+    const { w } = await mountTag({})
+    expect(w.find('button[aria-label="Fullscreen tracks"]').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('tracks fullscreen button opens the player overlay', async () => {
+    const { w } = await mountTag({})
+    await flushPromises()
+    await w.get('button[aria-label="Fullscreen tracks"]').trigger('click')
+    await flushPromises()
+    expect(w.find('.player.fullscreen').exists()).toBe(true)
     w.unmount()
   })
 })

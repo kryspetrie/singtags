@@ -3,9 +3,10 @@
  * Full learning-track player UI: part tabs, waveform, pitch/speed, solo/balance,
  * A–B loop, and optional custom multi-part hard-pan mix.
  */
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { TagAudioPlayer, type SoloMode } from '../audio/player'
 import { formatKeyShiftLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
+import PitchControls from './PitchControls.vue'
 import { loadWaveformPeaks, peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
 import { buildSoloMixObjectUrl, defaultMixPanForNextSelection } from '../audio/multiPartMix'
 import { buildUltraMixObjectUrl } from '../audio/partLeftReconstruct'
@@ -21,6 +22,7 @@ import { clampMarkA, clampMarkB, minLoopGapSec } from '../lib/waveformLayout'
 import { shouldResetPlayheadOnPartSwitch } from '../lib/partSwitchPlayhead'
 import type { AudioTransform } from '../types/audio'
 import { mediaUrl } from '../lib/mediaUrl'
+import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
 import { usePreferencesStore, type PartSide } from '../stores/preferences'
 import WaveformView from './WaveformView.vue'
 
@@ -55,6 +57,10 @@ const props = withDefaults(
     audioLayoutSummary?: AudioLayoutSummary | null
     /** Per-part layouts keyed by part id. */
     audioLayouts?: Record<string, AudioPartLayout> | null
+    /** Label for ✕ when returning to the list that opened this tag (“Browse”, …). */
+    exitOriginLabel?: string
+    /** Hold-to-hear tonic on the Pitch control (fullscreen chrome + parent wiring). */
+    payKeyEnabled?: boolean
   }>(),
   {
     pitchSemitones: undefined,
@@ -64,6 +70,8 @@ const props = withDefaults(
     resolvePart: undefined,
     audioLayoutSummary: undefined,
     audioLayouts: undefined,
+    exitOriginLabel: '',
+    payKeyEnabled: false,
   },
 )
 
@@ -72,7 +80,16 @@ const emit = defineEmits<{
   'update:pitchSemitones': [number]
   /** Natural end of track (not A–B region boundary). */
   ended: []
+  'fullscreen-change': [boolean]
+  /** Leave the tag for the list/page that opened fullscreen (✕ in Sing mode). */
+  'exit-origin': []
+  /** Hold-to-hear tonic (pointer / keyboard on chrome pitch button). */
+  'pay-down': []
+  'pay-up': []
 }>()
+
+const fullscreen = ref(false)
+const overlayHistory = new OverlayHistorySentinel()
 
 const prefs = usePreferencesStore()
 const player = new TagAudioPlayer()
@@ -518,6 +535,10 @@ async function acquireAudioWakeLock(): Promise<void> {
 }
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onWindowKey)
+  window.removeEventListener('popstate', onPopState)
+  setScrollLock(false)
+  setShellInert(false)
   loadAbort?.abort()
   revokeMixUrl()
   player.setEndedListener(null)
@@ -570,7 +591,48 @@ onMounted(() => {
       void loadCurrent()
     } else part.value = preferred
   }
+  window.addEventListener('keydown', onWindowKey)
+  window.addEventListener('popstate', onPopState)
 })
+
+async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
+  fullscreen.value = on
+  if (on) {
+    setShellInert(true)
+    if (!opts?.fromPopState) overlayHistory.push()
+  } else {
+    setShellInert(false)
+    // Drop the sentinel in-place — history.back() makes Vue Router leave the tag page.
+    if (!opts?.fromPopState) overlayHistory.discard()
+  }
+  emit('fullscreen-change', on)
+  setScrollLock(on)
+}
+
+async function closeFullscreen(): Promise<void> {
+  overlayHistory.discard()
+  await setFullscreen(false, { fromPopState: true })
+}
+
+async function exitOverlay(): Promise<void> {
+  await closeFullscreen()
+  if (props.exitOriginLabel !== 'tag page') emit('exit-origin')
+}
+
+function onPopState(): void {
+  if (overlayHistory.consumeInternalPop()) return
+  if (!fullscreen.value) return
+  overlayHistory.resetPushed()
+  void setFullscreen(false, { fromPopState: true })
+}
+
+function onWindowKey(e: KeyboardEvent): void {
+  if (!fullscreen.value) return
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    void exitOverlay()
+  }
+}
 
 watch(combineSignature, (sig, prev) => {
   if (!customMode.value) return
@@ -832,11 +894,47 @@ defineExpose({
   getDuration: () => player.duration,
   isPlayReady: () => playbackReady.value,
   isBaking: () => player.baking,
+  enterFullscreen: () => setFullscreen(true),
+  exitFullscreen: () => closeFullscreen(),
+  isFullscreen: () => fullscreen.value,
 })
 </script>
 
 <template>
-  <div class="player" role="region" aria-label="Tag audio player">
+  <div class="player-host">
+    <Teleport to="body" :disabled="!fullscreen">
+    <div
+      class="player"
+      :class="{ fullscreen }"
+      role="region"
+      aria-label="Tag audio player"
+      :aria-modal="fullscreen ? true : undefined"
+    >
+      <header v-if="fullscreen" class="player-chrome">
+        <PitchControls
+          v-model="pitch"
+          class="player-chrome-pitch"
+          :pitch-label="pitchLabel"
+          :pay-key-enabled="payKeyEnabled"
+          @pay-down="emit('pay-down')"
+          @pay-up="emit('pay-up')"
+        />
+        <button
+          type="button"
+          class="player-chrome-exit"
+          :aria-label="
+            exitOriginLabel
+              ? `Back to ${exitOriginLabel}`
+              : 'Back to the page that opened this player'
+          "
+          :title="exitOriginLabel ? `Back to ${exitOriginLabel}` : 'Leave fullscreen'"
+          @click="exitOverlay"
+        >
+          ✕
+        </button>
+      </header>
+
+      <div class="player-body">
     <div
       v-if="showPartPicker"
       class="ctrl-tabs parts"
@@ -1016,110 +1114,112 @@ defineExpose({
         <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
       </div>
       <p v-if="mixBaking" class="hint bake-hint" role="status">Updating pitch/speed…</p>
-      <p class="hint ab-hint">
+      <p v-if="!fullscreen" class="hint ab-hint">
         Drag the side brackets to set the play region. Playback starts at the left bracket and stops at
-        the right; turn on Loop in Advanced to repeat that region.
+        the right; turn on Loop to repeat that region.
       </p>
 
-      <div class="advanced-bar">
-        <details class="advanced-playback" :class="{ muted: !playbackReady }">
-          <summary>Advanced</summary>
-          <div class="adjust">
-            <div class="adjust-row">
-              <div class="ctrl-field adjust-field loop-field">
-                <span class="ctrl-field-label lbl">Loop</span>
-                <button
-                  type="button"
-                  class="ctrl-toggle toggle-btn"
-                  :aria-pressed="loop"
-                  :disabled="!playbackReady"
-                  @click="loop = !loop"
-                >
-                  {{ loop ? 'On' : 'Off' }}
-                </button>
-              </div>
-              <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
-                <span class="ctrl-field-label lbl">Solo</span>
-                <div class="ctrl-segment seg">
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'stereo'"
-                    :class="{ on: solo === 'stereo' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'stereo'"
-                  >
-                    Stereo
-                  </button>
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'left'"
-                    :class="{ on: solo === 'left' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'left'"
-                  >
-                    Left
-                  </button>
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'right'"
-                    :class="{ on: solo === 'right' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'right'"
-                  >
-                    Right
-                  </button>
-                </div>
-              </div>
-              <label class="ctrl-field adjust-field balance-field">
-                <span class="ctrl-field-label lbl">Balance <strong>{{ balanceLabel }}</strong></span>
-                <input
-                  v-model.number="balance"
-                  type="range"
-                  min="-1"
-                  max="1"
-                  step="0.01"
-                  :disabled="!playbackReady || solo !== 'stereo'"
-                  aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
-                />
-              </label>
-              <div class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
-                <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
-                <div class="pitch-btns">
-                  <button
-                    type="button"
-                    aria-label="Lower pitch one semitone"
-                    :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
-                    @click="bumpPitch(-1)"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Raise pitch one semitone"
-                    :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
-                    @click="bumpPitch(1)"
-                  >
-                    +
-                  </button>
-                  <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">Reset</button>
-                </div>
-              </div>
-            </div>
-            <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
-            <p v-if="monoSolo" class="warn" role="status">
-              This track is mono (or the same on both sides) — channel solo is unavailable.
-            </p>
+      <div class="playback-adjust" :class="{ muted: !playbackReady }">
+        <div class="adjust-row">
+          <div class="ctrl-field adjust-field loop-field">
+            <span class="ctrl-field-label lbl">Loop</span>
+            <button
+              type="button"
+              class="ctrl-toggle toggle-btn"
+              :aria-pressed="loop"
+              :disabled="!playbackReady"
+              @click="loop = !loop"
+            >
+              {{ loop ? 'On' : 'Off' }}
+            </button>
           </div>
-        </details>
+          <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
+            <span class="ctrl-field-label lbl">Solo</span>
+            <div class="ctrl-segment seg">
+              <button
+                type="button"
+                :aria-pressed="solo === 'stereo'"
+                :class="{ on: solo === 'stereo' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'stereo'"
+              >
+                Stereo
+              </button>
+              <button
+                type="button"
+                :aria-pressed="solo === 'left'"
+                :class="{ on: solo === 'left' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'left'"
+              >
+                Left
+              </button>
+              <button
+                type="button"
+                :aria-pressed="solo === 'right'"
+                :class="{ on: solo === 'right' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'right'"
+              >
+                Right
+              </button>
+            </div>
+          </div>
+          <label class="ctrl-field adjust-field balance-field">
+            <span class="ctrl-field-label lbl">Balance <strong>{{ balanceLabel }}</strong></span>
+            <input
+              v-model.number="balance"
+              type="range"
+              min="-1"
+              max="1"
+              step="0.01"
+              :disabled="!playbackReady || solo !== 'stereo'"
+              aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
+            />
+          </label>
+          <div v-if="!fullscreen" class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
+            <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
+            <div class="pitch-btns">
+              <button
+                type="button"
+                aria-label="Lower pitch one semitone"
+                :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
+                @click="bumpPitch(-1)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label="Raise pitch one semitone"
+                :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
+                @click="bumpPitch(1)"
+              >
+                +
+              </button>
+              <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">Reset</button>
+            </div>
+          </div>
+        </div>
+        <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
+        <p v-if="monoSolo" class="warn" role="status">
+          This track is mono (or the same on both sides) — channel solo is unavailable.
+        </p>
       </div>
     </div>
+      </div>
+    </div>
+  </Teleport>
   </div>
 </template>
 
 <style scoped>
+.player-host {
+  min-width: 0;
+  max-width: 100%;
+}
 .player {
   display: grid;
   gap: 0.75rem;
@@ -1386,45 +1486,10 @@ defineExpose({
   font-size: 0.85rem;
   color: var(--muted);
 }
-.advanced-bar {
+.playback-adjust {
   width: 100%;
   min-width: 0;
-}
-.advanced-playback {
-  width: 100%;
   margin: 0;
-  min-width: 0;
-}
-.advanced-playback > summary {
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--muted);
-  padding: 0.35rem 0;
-  list-style: none;
-}
-.advanced-playback > summary::-webkit-details-marker {
-  display: none;
-}
-.advanced-playback > summary::before {
-  content: '▸';
-  display: inline-block;
-  margin-right: 0.45rem;
-  transition: transform 0.15s ease;
-  font-size: 0.85em;
-}
-.advanced-playback[open] > summary::before {
-  transform: rotate(90deg);
-}
-.advanced-playback > summary:hover {
-  color: var(--accent-hover);
-}
-.advanced-playback[open] > summary {
-  margin-bottom: 0.65rem;
-}
-.advanced-playback .adjust {
-  padding-top: 0.15rem;
 }
 
 @media (min-width: 420px) {
@@ -1487,6 +1552,167 @@ defineExpose({
   }
   .combine {
     padding: 0.75rem;
+  }
+}
+
+.player.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  gap: 0;
+  padding: max(1.25rem, env(safe-area-inset-top))
+    max(1.5rem, env(safe-area-inset-right))
+    max(1.35rem, env(safe-area-inset-bottom))
+    max(1.5rem, env(safe-area-inset-left));
+  background: var(--surface);
+  border: 0;
+}
+.player-chrome {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 0.25rem 0.15rem 1.15rem;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+.player-chrome-pitch {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.player.fullscreen .player-chrome-pitch :deep(.pay) {
+  gap: 0.65rem;
+}
+.player.fullscreen .player-chrome-pitch :deep(.paybtn) {
+  padding: 0.65rem 1rem;
+}
+.player.fullscreen .player-chrome-pitch :deep(.pay > button:not(.paybtn)) {
+  padding: 0.55rem 0.8rem;
+  min-height: 50px;
+}
+.player-chrome-exit {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.player-chrome-exit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.player.fullscreen .player-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1rem 0.15rem 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+.player.fullscreen .parts.ctrl-tabs {
+  padding: 0.45rem;
+  gap: 0.35rem;
+}
+.player.fullscreen .parts .ctrl-tab.part-btn {
+  padding: 0.65rem 0.55rem;
+}
+.player.fullscreen .player-panel {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding: 1.25rem 1.15rem 1.15rem;
+}
+.player.fullscreen .wave-wrap {
+  flex: 0 0 auto;
+  max-width: none;
+  padding: 0.15rem 0.1rem;
+}
+.player.fullscreen .wave-wrap :deep(.wave) {
+  height: 128px;
+  max-height: min(128px, 32vh);
+  border-radius: 12px;
+}
+.player.fullscreen .transport.ctrl-transport {
+  gap: 0.65rem;
+  padding: 0.15rem 0.1rem;
+}
+.player.fullscreen .transport .ctrl-transport-btn {
+  padding: 0.55rem 0.45rem;
+}
+.player.fullscreen .transport-speed {
+  padding: 0.45rem 0.5rem;
+}
+.player.fullscreen .combine {
+  padding: 1.25rem 1.15rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.player.fullscreen .combine-list {
+  gap: 1rem;
+}
+.player.fullscreen .playback-adjust {
+  border-top: 1px solid var(--border);
+  padding: 1.15rem 0.1rem 0.15rem;
+  margin-top: 0.25rem;
+}
+.player.fullscreen .playback-adjust .adjust-row {
+  gap: 1.1rem;
+}
+.player.fullscreen .playback-adjust .ctrl-segment {
+  padding: 0.35rem;
+  gap: 0.25rem;
+}
+.player.fullscreen .playback-adjust .ctrl-segment > button {
+  padding: 0.5rem 0.65rem;
+}
+.player.fullscreen .loop-field .ctrl-toggle {
+  padding: 0.5rem 1rem;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .player.fullscreen {
+    padding: max(0.85rem, env(safe-area-inset-top))
+      max(1.1rem, env(safe-area-inset-right))
+      max(0.9rem, env(safe-area-inset-bottom))
+      max(1.1rem, env(safe-area-inset-left));
+  }
+  .player-chrome {
+    padding-bottom: 0.85rem;
+    gap: 0.75rem;
+  }
+  .player.fullscreen .player-body {
+    gap: 0.9rem;
+    padding-top: 0.65rem;
+  }
+  .player.fullscreen .player-panel {
+    gap: 0.85rem;
+    padding: 1rem 0.9rem 0.9rem;
+  }
+  .player.fullscreen .playback-adjust {
+    padding-top: 0.9rem;
+  }
+  .player.fullscreen .combine-hint {
+    display: none;
+  }
+  .player.fullscreen .transport.ctrl-transport {
+    gap: 0.45rem;
   }
 }
 </style>

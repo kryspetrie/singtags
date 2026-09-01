@@ -45,6 +45,11 @@ describe('SheetViewer fullscreen + pay key', () => {
     vi.clearAllMocks()
   })
 
+  async function enterInlineFullscreen(w: ReturnType<typeof mount>) {
+    await (w.vm as { enterFullscreen: () => void }).enterFullscreen()
+    await flushPromises()
+  }
+
   it('enters fullscreen and emits pay events', async () => {
     const w = mount(SheetViewer, {
       props: {
@@ -57,7 +62,7 @@ describe('SheetViewer fullscreen + pay key', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    await w.get('button.fs-fab').trigger('click')
+    await enterInlineFullscreen(w)
     expect(w.emitted('fullscreen-change')?.[0]).toEqual([true])
     expect(document.body.style.overflow).toBe('hidden')
     expect(document.documentElement.style.overflow).toBe('hidden')
@@ -101,7 +106,7 @@ describe('SheetViewer fullscreen + pay key', () => {
 
     // Fullscreen reuses cached rasters (no second pdf.js pass needed if mem hit).
     vi.mocked(renderPdfToPageUrls).mockClear()
-    await w.get('button.fs-fab').trigger('click')
+    await enterInlineFullscreen(w)
     await flushPromises()
     expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
     w.unmount()
@@ -158,7 +163,7 @@ describe('SheetViewer fullscreen + pay key', () => {
     await new Promise((r) => setTimeout(r, 450))
     await flushPromises()
     expect(w.find('img').attributes('src')).toMatch(/^blob:/)
-    await w.get('button.fs-fab').trigger('click')
+    await enterInlineFullscreen(w)
     await flushPromises()
     expect(renderPdfToPageUrls).not.toHaveBeenCalled()
     expect(w.find('img').attributes('src')).toMatch(/^blob:/)
@@ -181,7 +186,7 @@ describe('SheetViewer fullscreen + pay key', () => {
       attachTo: document.body,
     })
     await flushPromises()
-    await w.get('button.fs-fab').trigger('click')
+    await enterInlineFullscreen(w)
     await flushPromises()
     expect(renderPdfToPageUrls).not.toHaveBeenCalled()
     expect(w.find('img').attributes('src')).toContain('p1.webp')

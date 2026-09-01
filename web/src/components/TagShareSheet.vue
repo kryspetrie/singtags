@@ -138,7 +138,7 @@ async function nativeShare(): Promise<void> {
 </script>
 
 <template>
-  <FilterSheet :open="open" title="Share tag" elevated @close="emit('close')">
+  <FilterSheet :open="open" title="Share tag" elevated full-screen @close="emit('close')">
     <div class="share-panel">
       <p class="hint">
         Copy a link or show the QR so someone else can open this tag. Enlarge the QR to hold up from
@@ -375,6 +375,28 @@ async function nativeShare(): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+@media (max-width: 767px) {
+  .share-panel {
+    gap: 0.6rem;
+  }
+  .hint {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .share-qr {
+    width: min(180px, 38vw);
+  }
+  .share-actions {
+    gap: 0.45rem;
+  }
+  .share-actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
+  .transfer-block {
+    padding-top: 0.35rem;
+  }
 }
 .transfer-block {
   display: grid;

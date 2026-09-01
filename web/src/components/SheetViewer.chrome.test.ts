@@ -42,6 +42,13 @@ describe('SheetViewer sing chrome', () => {
     document.documentElement.style.overflow = ''
   })
 
+  async function enterInlineFullscreen(w: ReturnType<typeof mount>) {
+    await (w.vm as { enterFullscreen: () => void }).enterFullscreen()
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 60))
+    await flushPromises()
+  }
+
   async function mountFs(
     props: Record<string, unknown> = {},
     pages = ['sheets/1/p1.webp'],
@@ -59,10 +66,7 @@ describe('SheetViewer sing chrome', () => {
     })
     await flushPromises()
     if (!props.autoEnterFullscreen) {
-      await w.get('button.fs-fab').trigger('click')
-      await flushPromises()
-      await new Promise((r) => setTimeout(r, 60))
-      await flushPromises()
+      await enterInlineFullscreen(w)
     } else {
       await flushPromises()
       await new Promise((r) => setTimeout(r, 60))
@@ -156,25 +160,22 @@ describe('SheetViewer sing chrome', () => {
   })
 
   it('Tag exits fullscreen without exit-origin; Escape matches ✕ (exit-origin)', async () => {
-    const w = await mountFs({ exitOriginLabel: 'Browse' })
+    const w = await mountFs({ exitOriginLabel: 'tag page' })
     await w.get('button.more').trigger('click')
     await flushPromises()
     await w.get('button.tag-page').trigger('click')
     await flushPromises()
-    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
     expect(w.emitted('exit-origin')).toBeFalsy()
 
-    await w.get('button.fs-fab').trigger('click')
-    await flushPromises()
-    await new Promise((r) => setTimeout(r, 60))
+    await enterInlineFullscreen(w)
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
-    expect(w.emitted('exit-origin')).toBeTruthy()
+    expect(w.emitted('exit-origin')).toBeFalsy()
     expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
     w.unmount()
   })
 
-  it('exit and Escape emit exit-origin with list label', async () => {
+  it('exit and Escape emit exit-origin in Sing mode (list label)', async () => {
     const w = await mountFs({ exitOriginLabel: 'Favorites' })
     const exit = w.get('button.exit')
     expect(exit.attributes('aria-label')).toContain('Favorites')

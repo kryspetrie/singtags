@@ -18,9 +18,10 @@ import { highResTransferAvailable } from '../lib/decimen/loadTagForTransfer'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
 import type { QueueTrack } from '../download/zip'
-import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
+import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones } from '../audio/pitchPlayer'
 import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
+import PitchControls from '../components/PitchControls.vue'
 import TagDownloads from '../components/TagDownloads.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
@@ -58,7 +59,12 @@ const tagPlayerRef = ref<{
   getDuration: () => number
   isPlayReady: () => boolean
   isBaking: () => boolean
+  enterFullscreen: () => void | Promise<void>
+  exitFullscreen: () => void | Promise<void>
 } | null>(null)
+const sheetViewerRef = ref<InstanceType<typeof SheetViewer> | null>(null)
+const sheetFullscreenActive = ref(false)
+const tracksFullscreenActive = ref(false)
 const playerTick = ref(0)
 const openSheetFullscreen = computed(() => isTagFullscreenQuery(route.query))
 
@@ -130,6 +136,10 @@ async function onSheetPlayStop(): Promise<void> {
 
 /** Keep `?fullscreen=1` in sync so the address bar / copyable URL matches sheet state. */
 function onSheetFullscreenChange(on: boolean): void {
+  sheetFullscreenActive.value = on
+  if (on && tracksFullscreenActive.value) {
+    void tagPlayerRef.value?.exitFullscreen()
+  }
   if (on) {
     if (isTagFullscreenQuery(route.query)) return
     patchTagQuery((q) => {
@@ -145,6 +155,27 @@ function onSheetFullscreenChange(on: boolean): void {
     delete q.sheet
     delete q.sing
   })
+}
+
+function enterSheetFullscreen(): void {
+  if (tracksFullscreenActive.value) {
+    void tagPlayerRef.value?.exitFullscreen()
+  }
+  sheetViewerRef.value?.enterFullscreen()
+}
+
+function onTracksFullscreenChange(on: boolean): void {
+  tracksFullscreenActive.value = on
+  if (on && sheetFullscreenActive.value) {
+    void sheetViewerRef.value?.exitFullscreen()
+  }
+}
+
+function enterTracksFullscreen(): void {
+  if (sheetFullscreenActive.value) {
+    void sheetViewerRef.value?.exitFullscreen()
+  }
+  void tagPlayerRef.value?.enterFullscreen()
 }
 
 /** Coalesce concurrent shift / fullscreen query writes. */
@@ -189,6 +220,10 @@ const {
   toSummary,
 } = useTagDetail(idRef)
 
+const hasSheetContent = computed(
+  () => !!(sheetAssets.value.imageSets.length || sheetAssets.value.pdfs.length),
+)
+
 const keyShift = ref(0)
 const pitch = new PitchPlayer()
 const playerTransform = ref<AudioTransform>({ pitchSemitones: 0, speed: 1 })
@@ -223,8 +258,9 @@ const inPractice = computed(
 
 const backLabel = computed(() => tagBackLabel(route))
 
-/** Noun only (“Browse”) for fullscreen ✕ — same destination as Back on the tag page. */
+/** Noun only (“Browse”) for fullscreen ✕ when Sing mode returns to the list. */
 const exitOriginLabel = computed(() => {
+  if (!prefs.singMode) return 'tag page'
   const o = peekTagReturnOrigin()
   if (!o?.fullPath) return 'tag page'
   return o.label || backLabel.value.replace(/^←\s*/, '')
@@ -236,10 +272,11 @@ function goBack(): void {
 }
 
 /**
- * Fullscreen ✕ / Escape: return to the list that opened this tag when we have one;
- * for direct / shared `?fullscreen=1` links, just leave fullscreen on the tag page.
+ * Fullscreen ✕ / Escape: in Sing mode, return to the list that opened this tag;
+ * otherwise fullscreen exits on the tag page (handled by SheetViewer + query sync).
  */
 function onFullscreenExitOrigin(): void {
+  if (!prefs.singMode) return
   if (!peekTagReturnOrigin()?.fullPath) return
   goBack()
 }
@@ -298,6 +335,8 @@ onUnmounted(() => {
 watch(
   () => props.id,
   async () => {
+    sheetFullscreenActive.value = false
+    tracksFullscreenActive.value = false
     keyShift.value = readShiftFromRoute()
     practiceDone.value = false
     await load()
@@ -509,14 +548,6 @@ function payKeyUp(): void {
   pitch.stop(true)
 }
 
-function onPayKey(e: KeyboardEvent): void {
-  if (e.key === 'Enter' || e.key === ' ') {
-    e.preventDefault()
-    if (e.type === 'keydown') void payKeyDown()
-    else payKeyUp()
-  }
-}
-
 function addItemsToQueue(items: QueueTrack[]): void {
   const d = detail.value
   if (!d || queueBlockedReason.value || !items.length) return
@@ -722,36 +753,36 @@ async function onRetryLoad(): Promise<void> {
       <h2 id="pitch-heading" class="section-heading">Pitch</h2>
       <div class="section-body">
         <div class="keyrow">
-          <div class="pay" role="group" aria-label="Pitch">
-            <button
-              type="button"
-              class="paybtn"
-              :disabled="!canPayKey"
-              :aria-label="`Pitch ${pitchLabel} — hold to hear tonic`"
-              @pointerdown.prevent="payKeyDown"
-              @pointerup.prevent="payKeyUp"
-              @pointerleave.prevent="payKeyUp"
-              @pointercancel.prevent="payKeyUp"
-              @keydown="onPayKey"
-              @keyup="onPayKey"
-            >
-              <span class="pay-kicker">Pitch</span>
-              <strong>{{ pitchLabel }}</strong>
-            </button>
-            <button type="button" aria-label="Lower pitch one semitone" :disabled="keyShift <= MIN_PITCH_SEMITONES" @click="bumpKeyShift(-1)">−</button>
-            <button type="button" aria-label="Raise pitch one semitone" :disabled="keyShift >= MAX_PITCH_SEMITONES" @click="bumpKeyShift(1)">+</button>
-            <button type="button" :disabled="!keyShift" @click="keyShift = 0">Reset</button>
-          </div>
+          <PitchControls
+            v-model="keyShift"
+            :pitch-label="pitchLabel"
+            :pay-key-enabled="canPayKey"
+            @pay-down="payKeyDown"
+            @pay-up="payKeyUp"
+          />
         </div>
-        <p class="text-muted tip">
-          <template v-if="keyDisplay">Hold Pitch to hear the tonic. ± shifts the player and sheet control together (saved in the URL).</template>
-          <template v-else>No written key on file — use ± to choose a key, then hold Pitch to hear that tonic. Pitch shift still applies to playback (saved in the URL).</template>
-        </p>
       </div>
     </section>
 
     <details class="section" open>
-      <summary class="section-summary">Sheet music</summary>
+      <summary class="section-summary sheet-section-head">
+        <span class="sheet-section-title">Sheet music</span>
+        <button
+          v-if="hasSheetContent && !sheetFullscreenActive && !tracksFullscreenActive"
+          type="button"
+          class="sheet-section-fs"
+          aria-label="Fullscreen sheet"
+          title="Fullscreen"
+          @click.prevent.stop="enterSheetFullscreen"
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path
+              fill="currentColor"
+              d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+            />
+          </svg>
+        </button>
+      </summary>
       <div
         class="section-body sheet-slot"
         :class="{ 'is-pending': sheetPreparing && (sheetAssets.imageSets.length || sheetAssets.pdfs.length || !detail) }"
@@ -766,6 +797,7 @@ async function onRetryLoad(): Promise<void> {
         </p>
         <SheetViewer
           v-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
+          ref="sheetViewerRef"
           :image-sets="sheetAssets.imageSets"
           :pdfs="sheetAssets.pdfs"
           :offline="offline"
@@ -807,7 +839,24 @@ async function onRetryLoad(): Promise<void> {
     </details>
 
     <details class="section" open>
-      <summary class="section-summary">Tracks</summary>
+      <summary class="section-summary sheet-section-head">
+        <span class="sheet-section-title">Tracks</span>
+        <button
+          v-if="hasAudio && !tracksFullscreenActive && !sheetFullscreenActive"
+          type="button"
+          class="sheet-section-fs"
+          aria-label="Fullscreen tracks"
+          title="Fullscreen"
+          @click.prevent.stop="enterTracksFullscreen"
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+            <path
+              fill="currentColor"
+              d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+            />
+          </svg>
+        </button>
+      </summary>
       <div class="section-body">
         <TagPlayer
           v-if="hasAudio"
@@ -822,9 +871,15 @@ async function onRetryLoad(): Promise<void> {
           :song-key="keyDisplay || undefined"
           :audio-layout-summary="detail.audio_layout_summary"
           :audio-layouts="detail.audio_layouts"
+          :exit-origin-label="exitOriginLabel"
+          :pay-key-enabled="canPayKey"
           @transform="playerTransform = $event"
           @update:pitch-semitones="keyShift = $event"
           @ended="onTrackEnded"
+          @fullscreen-change="onTracksFullscreenChange"
+          @exit-origin="onFullscreenExitOrigin"
+          @pay-down="payKeyDown"
+          @pay-up="payKeyUp"
         />
         <EmptyState
           v-else-if="!hasAudio"
@@ -991,36 +1046,14 @@ async function onRetryLoad(): Promise<void> {
       <h2 id="partial-pitch-heading" class="section-heading">Pitch</h2>
       <div class="section-body">
         <div class="keyrow">
-          <div class="pay" role="group" aria-label="Pitch">
-            <button
-              type="button"
-              class="paybtn"
-              :disabled="!canPayKey"
-              :aria-label="`Pitch ${pitchLabel} — hold to hear tonic`"
-              @pointerdown.prevent="payKeyDown"
-              @pointerup.prevent="payKeyUp"
-              @pointerleave.prevent="payKeyUp"
-              @pointercancel.prevent="payKeyUp"
-              @keydown="onPayKey"
-              @keyup="onPayKey"
-            >
-              <span class="pay-kicker">Pitch</span>
-              <strong>{{ pitchLabel }}</strong>
-            </button>
-            <button type="button" aria-label="Lower pitch one semitone" :disabled="keyShift <= MIN_PITCH_SEMITONES" @click="bumpKeyShift(-1)">−</button>
-            <button type="button" aria-label="Raise pitch one semitone" :disabled="keyShift >= MAX_PITCH_SEMITONES" @click="bumpKeyShift(1)">+</button>
-            <button type="button" :disabled="!keyShift" @click="keyShift = 0">Reset</button>
-          </div>
+          <PitchControls
+            v-model="keyShift"
+            :pitch-label="pitchLabel"
+            :pay-key-enabled="canPayKey"
+            @pay-down="payKeyDown"
+            @pay-up="payKeyUp"
+          />
         </div>
-        <p class="text-muted tip">
-          <template v-if="keyDisplay"
-            >Hold Pitch to hear the tonic. ± shifts the key (saved in the URL).</template
-          >
-          <template v-else
-            >No written key on file — use ± to choose a key, then hold Pitch to hear that
-            tonic.</template
-          >
-        </p>
       </div>
     </section>
 
@@ -1415,57 +1448,10 @@ async function onRetryLoad(): Promise<void> {
   align-items: center;
   min-width: 0;
 }
-.pay {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  flex-wrap: wrap;
-  width: 100%;
-  min-width: 0;
-}
-.paybtn {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  background: var(--accent);
-  color: #fff;
-  border: 0;
-  border-radius: 12px;
-  padding: 0.55rem 0.85rem;
-  font-weight: 600;
-  min-height: 52px;
-  min-width: 0;
-  text-align: left;
-  flex: 1 1 8rem;
-}
-.paybtn:disabled {
-  opacity: 0.5;
-}
-.pay-kicker {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  opacity: 0.85;
-  font-weight: 600;
-}
-.paybtn strong {
-  font-size: clamp(1rem, 4vw, 1.15rem);
-  overflow-wrap: anywhere;
-}
 .shift {
   color: #fff;
   font-weight: 700;
   opacity: 0.95;
-}
-.pay > button:not(.paybtn) {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 0.45rem 0.65rem;
-  min-height: 48px;
-  min-width: 44px;
-  flex: 0 0 auto;
 }
 .tip {
   margin: 0.5rem 0 0;
@@ -1510,6 +1496,40 @@ async function onRetryLoad(): Promise<void> {
 }
 .section[open] > .section-summary::before {
   transform: rotate(90deg);
+}
+.section-summary.sheet-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+.sheet-section-title {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-section-fs {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: -0.15rem 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.sheet-section-fs:hover {
+  background: color-mix(in srgb, var(--surface) 65%, var(--text));
+}
+.sheet-section-fs:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .section-body {
   margin-top: 0.75rem;

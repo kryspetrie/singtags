@@ -116,7 +116,7 @@ function transferOptically(): void {
 </script>
 
 <template>
-  <FilterSheet :open="open" title="Share favorites" @close="emit('close')">
+  <FilterSheet :open="open" title="Share favorites" full-screen @close="emit('close')">
     <div class="share-panel">
       <p class="hint">
         Anyone with this link can review and add these {{ tagCount }} tags to their favorites.
@@ -234,5 +234,24 @@ function transferOptically(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+@media (max-width: 767px) {
+  .share-panel {
+    gap: 0.6rem;
+  }
+  .hint {
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .share-qr {
+    width: min(180px, 38vw);
+  }
+  .share-actions {
+    gap: 0.45rem;
+  }
+  .share-actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+  }
 }
 </style>

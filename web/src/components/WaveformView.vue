@@ -29,12 +29,15 @@ const props = withDefaults(
     markA: number
     markB: number
     interactive?: boolean
+    /** Fill parent height (fullscreen / landscape player). */
+    fillContainer?: boolean
   }>(),
   {
     peaks: () => [],
     markA: 0,
     markB: 0,
     interactive: true,
+    fillContainer: false,
   },
 )
 
@@ -384,7 +387,7 @@ onUnmounted(() => {
   <div
     ref="wrapRef"
     class="wave"
-    :class="{ inert: !interactive }"
+    :class="{ inert: !interactive, fill: fillContainer }"
     role="slider"
     :aria-valuemin="0"
     :aria-valuemax="duration || 0"
@@ -430,9 +433,16 @@ canvas {
   width: 100%;
   height: 100%;
 }
+.wave.fill {
+  height: 100%;
+  min-height: 6rem;
+}
 @media (min-width: 720px) {
   .wave {
     height: 128px;
+  }
+  .wave.fill {
+    height: 100%;
   }
 }
 </style>

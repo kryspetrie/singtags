@@ -192,8 +192,8 @@ describe('TagPlayer', () => {
     expect(w.text()).not.toContain('Start here')
     expect(w.text()).not.toContain('Full track')
     expect(w.find('[aria-label="Play"]').attributes('disabled')).toBeDefined()
-    expect(w.find('.advanced-playback button.toggle-btn').text()).toBe('Off')
-    expect(w.find('.advanced-playback button.toggle-btn').attributes('disabled')).toBeDefined()
+    expect(w.find('.playback-adjust button.toggle-btn').text()).toBe('Off')
+    expect(w.find('.playback-adjust button.toggle-btn').attributes('disabled')).toBeDefined()
     expect(w.find('.transport .toggle-btn').exists()).toBe(false)
     expect(w.find('.transport select[aria-label="Playback speed"]').exists()).toBe(true)
     expect(buildMix).not.toHaveBeenCalled()
@@ -369,7 +369,7 @@ describe('TagPlayer', () => {
     w.unmount()
   })
 
-  it('enables Advanced solo L/R when reconstructed offline part is stereo', async () => {
+  it('enables solo L/R when reconstructed offline part is stereo', async () => {
     mockState.effectivelyMono = false
     mockState.channels = 2
     const w = mount(TagPlayer, {
@@ -381,8 +381,6 @@ describe('TagPlayer', () => {
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
-    await w.find('details.advanced-playback summary').trigger('click')
-    await flushPromises()
     const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
     const rightBtn = w.findAll('button').find((b) => b.text() === 'Right')
     expect(leftBtn?.attributes('disabled')).toBeUndefined()
@@ -391,7 +389,7 @@ describe('TagPlayer', () => {
     w.unmount()
   })
 
-  it('disables Advanced solo L/R for effectively mono tracks', async () => {
+  it('disables solo L/R for effectively mono tracks', async () => {
     mockState.effectivelyMono = true
     mockState.channels = 1
     const w = mount(TagPlayer, {
@@ -401,8 +399,6 @@ describe('TagPlayer', () => {
       },
       global: { plugins: [createPinia()] },
     })
-    await flushPromises()
-    await w.find('details.advanced-playback summary').trigger('click')
     await flushPromises()
     const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
     expect(leftBtn?.attributes('disabled')).toBeDefined()
@@ -527,6 +523,134 @@ describe('TagPlayer', () => {
     await flushPromises()
     expect(mockState.pause).toHaveBeenCalled()
     expect(mockState.seek).toHaveBeenCalledWith(0)
+    w.unmount()
+  })
+
+  it('enters and exits fullscreen locally without exit-origin', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        exitOriginLabel: 'tag page',
+      },
+      global: { plugins: [createPinia()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await (w.vm as { enterFullscreen: () => Promise<void> }).enterFullscreen()
+    await flushPromises()
+    expect(w.emitted('fullscreen-change')?.[0]).toEqual([true])
+    expect(document.body.style.overflow).toBe('hidden')
+    expect(document.body.querySelector('.player.fullscreen')).toBeTruthy()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
+    expect(w.emitted('exit-origin')).toBeFalsy()
+    expect(document.body.style.overflow).toBe('')
+    w.unmount()
+  })
+
+  it('exitFullscreen does not history.back (avoids leaving the tag page)', async () => {
+    const back = vi.spyOn(history, 'back')
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        exitOriginLabel: 'tag page',
+      },
+      global: { plugins: [createPinia()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await (w.vm as { enterFullscreen: () => Promise<void> }).enterFullscreen()
+    await flushPromises()
+    await (w.vm as { exitFullscreen: () => Promise<void> }).exitFullscreen()
+    await flushPromises()
+    expect(back).not.toHaveBeenCalled()
+    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
+    back.mockRestore()
+    w.unmount()
+  })
+
+  it('shows playback adjust controls in fullscreen and caps waveform height', async () => {
+    const prevVp = window.visualViewport
+    vi.stubGlobal('innerHeight', 700)
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: { height: 700 },
+    })
+    const w = mount(TagPlayer, {
+      props: { parts: { lead: 'media/1/lead.m4a' } },
+      global: { plugins: [createPinia()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await (w.vm as { enterFullscreen: () => Promise<void> }).enterFullscreen()
+    await flushPromises()
+    expect(document.body.querySelector('.player.fullscreen')).toBeTruthy()
+    expect(document.body.querySelector('.player.fullscreen .wave.fill')).toBeFalsy()
+    expect(document.body.querySelector('.player.fullscreen .playback-adjust')).toBeTruthy()
+    expect(document.body.querySelector('.player.fullscreen details')).toBeFalsy()
+    expect(document.body.querySelector('.player.fullscreen .loop-field')).toBeTruthy()
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: prevVp,
+    })
+    vi.unstubAllGlobals()
+    w.unmount()
+  })
+
+  it('shows Pitch controls in fullscreen chrome', async () => {
+    const prevVp = window.visualViewport
+    vi.stubGlobal('innerHeight', 700)
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: { height: 700 },
+    })
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        songKey: 'Ab Major',
+        payKeyEnabled: true,
+      },
+      global: { plugins: [createPinia()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await (w.vm as { enterFullscreen: () => Promise<void> }).enterFullscreen()
+    await flushPromises()
+    expect(document.body.querySelector('.player.fullscreen .player-chrome-title')).toBeFalsy()
+    const pitchBtn = document.body.querySelector('.player.fullscreen .paybtn') as HTMLButtonElement | null
+    expect(pitchBtn).toBeTruthy()
+    pitchBtn!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    expect(w.emitted('pay-down')).toBeTruthy()
+    pitchBtn!.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }))
+    expect(w.emitted('pay-up')).toBeTruthy()
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: prevVp,
+    })
+    vi.unstubAllGlobals()
+    w.unmount()
+  })
+
+  it('emits exit-origin from fullscreen chrome when exit label is a list', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        exitOriginLabel: 'Favorites',
+      },
+      global: { plugins: [createPinia()] },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await (w.vm as { enterFullscreen: () => Promise<void> }).enterFullscreen()
+    await flushPromises()
+    const exitBtn = document.body.querySelector('.player-chrome-exit') as HTMLButtonElement
+    expect(exitBtn).toBeTruthy()
+    exitBtn.click()
+    await flushPromises()
+    expect(w.emitted('exit-origin')).toBeTruthy()
+    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
     w.unmount()
   })
 })
