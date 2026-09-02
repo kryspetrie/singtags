@@ -39,12 +39,17 @@ vi.mock('../lib/decimen/prepareCollectionTransfer', () => ({
   prepareCollectionTransfer: vi.fn(),
 }))
 
+import { OPTICAL_RX_PATH, OPTICAL_TX_PATH } from '../lib/decimen/opticalTransferNav'
+
 async function mountView() {
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/optical-transfer', component: OpticalTransferView }],
+    routes: [
+      { path: OPTICAL_TX_PATH, name: 'tx', component: OpticalTransferView },
+      { path: OPTICAL_RX_PATH, name: 'rx', component: OpticalTransferView },
+    ],
   })
-  await router.push('/optical-transfer')
+  await router.push(OPTICAL_TX_PATH)
   await router.isReady()
   return mount(OpticalTransferView, {
     attachTo: document.body,
@@ -99,6 +104,19 @@ describe('OpticalTransferView', () => {
     w.unmount()
   })
 
+  it('shows a copyable receive invite link on the send tab', async () => {
+    const w = await mountView()
+    await flushPromises()
+    expect(w.text()).toMatch(/Sending to someone without SingTags/)
+    const input = document.body.querySelector('#optical-receive-url') as HTMLInputElement | null
+    expect(input?.value).toContain('/rx')
+    expect(input?.value).not.toContain('mode=receive')
+    expect(w.text()).toMatch(/Receive link/)
+    expect(document.body.querySelector('button.copy-btn[aria-label="Copy receive link"]')).toBeTruthy()
+    expect(w.text()).toMatch(/Receive link QR/)
+    w.unmount()
+  })
+
   it('shows transfer settings in a collapsible section with dropdowns', async () => {
     const w = await mountView()
     await flushPromises()
@@ -116,12 +134,15 @@ describe('OpticalTransferView', () => {
     w.unmount()
   })
 
-  it('opens receive tab when mode=receive is in the query', async () => {
+  it('opens receive tab on /rx', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/optical-transfer', component: OpticalTransferView }],
+      routes: [
+        { path: OPTICAL_TX_PATH, name: 'tx', component: OpticalTransferView },
+        { path: OPTICAL_RX_PATH, name: 'rx', component: OpticalTransferView },
+      ],
     })
-    await router.push({ path: '/optical-transfer', query: { mode: 'receive' } })
+    await router.push(OPTICAL_RX_PATH)
     await router.isReady()
     const w = mount(OpticalTransferView, {
       attachTo: document.body,
@@ -179,9 +200,12 @@ describe('OpticalTransferView', () => {
 
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/optical-transfer', component: OpticalTransferView }],
+      routes: [
+        { path: OPTICAL_TX_PATH, name: 'tx', component: OpticalTransferView },
+        { path: OPTICAL_RX_PATH, name: 'rx', component: OpticalTransferView },
+      ],
     })
-    await router.push({ path: '/optical-transfer', query: { tags: '7', name: 'Browse' } })
+    await router.push({ path: OPTICAL_TX_PATH, query: { tags: '7', name: 'Browse' } })
     await router.isReady()
     const w = mount(OpticalTransferView, {
       attachTo: document.body,

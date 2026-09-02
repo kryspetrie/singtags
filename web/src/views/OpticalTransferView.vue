@@ -3,8 +3,10 @@
  * Send or receive arbitrary files via Decimen fountain-coded QR streams.
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
+import OpticalReceiveInvite from '../components/OpticalReceiveInvite.vue'
+import OpticalReceiveInviteOverlay from '../components/OpticalReceiveInviteOverlay.vue'
 import OpticalTransferStreamOverlay from '../components/OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from '../components/OpticalTransferQualityToggle.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
@@ -16,6 +18,7 @@ import {
   prepareOpticalTransfer,
   saveOpticalFiles,
 } from '../lib/decimen/opticalTransfer'
+import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
   isSingtagsCollectionFile,
@@ -25,7 +28,7 @@ import {
 import { prepareCollectionTransfer } from '../lib/decimen/prepareCollectionTransfer'
 import { anyHighResTransferAvailable } from '../lib/decimen/loadTagForTransfer'
 import {
-  applyCollectionToLibrary,
+  applyReceivedCollectionToLibrary,
   collectionReceiveProgress,
   importCollectionBatchTags,
   importedTagIdsForSession,
@@ -50,15 +53,19 @@ import {
 } from '../lib/decimen/sendSettings'
 import { useCatalogStore } from '../stores/catalog'
 import { parseTagIdList } from '../lib/favoritesShare'
+import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { useOnline } from '../composables/useOnline'
+import { tagOpenLocation } from '../lib/tagOpen'
+import { tagSummaryFromSheetTransferMeta } from '../lib/sheetQrTransfer'
+import type { TagSummary } from '../types/tag'
 
 type Tab = 'send' | 'receive'
 
-function tabFromRouteQuery(mode: unknown): Tab {
-  return mode === 'receive' ? 'receive' : 'send'
+function tabFromRoute(route: RouteLocationNormalizedLoaded): Tab {
+  return isOpticalReceiveRoute(route) ? 'receive' : 'send'
 }
 
 type QueuedFile = {
@@ -87,12 +94,13 @@ type SendPreview = {
 const route = useRoute()
 const router = useRouter()
 const catalog = useCatalogStore()
+const favorites = useFavoritesStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const userCollections = useUserCollectionsStore()
 const { offline } = useOnline()
 
-const tab = ref<Tab>(tabFromRouteQuery(route.query.mode))
+const tab = ref<Tab>(tabFromRoute(route))
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
 
@@ -131,6 +139,20 @@ const showSendQualityToggle = computed(() => tagTransferContext.value != null)
 
 const collectionSessions = ref<Map<string, CollectionReceiveSession>>(new Map())
 const collectionImportBusy = ref(false)
+const receiveInviteOverlayOpen = ref(false)
+
+const receiveInviteHref = computed(() => opticalReceiveAbsoluteHref(router))
+
+const sendStreamStartDisabled = computed(
+  () => !queue.value.length || sendBusy.value || streaming.value || densityTooLow.value || sendCountdown.value != null,
+)
+
+const sendStreamStartLabel = computed(() => {
+  if (sendCountdown.value != null) return `Starting in ${sendCountdown.value}…`
+  if (streaming.value) return 'Streaming…'
+  if (sendBusy.value) return 'Preparing…'
+  return 'Start QR transfer'
+})
 
 let sendStream: DecimenSendStream | null = null
 let countdownSignal: ReturnType<typeof createOpticalSendCountdownSignal> | null = null
@@ -276,6 +298,19 @@ function stopSendStream(): void {
 function onDisplayScale(scale: number): void {
   prefs.setOpticalTransferDisplayScale(scale)
   sendStream?.setDisplayScale(scale)
+}
+
+function openReceiveInviteOverlay(): void {
+  receiveInviteOverlayOpen.value = true
+}
+
+function closeReceiveInviteOverlay(): void {
+  receiveInviteOverlayOpen.value = false
+}
+
+async function startFromReceiveInviteOverlay(): Promise<void> {
+  await startSendStream()
+  if (streaming.value || sendBusy.value) receiveInviteOverlayOpen.value = false
 }
 
 async function startSendStream(): Promise<void> {
@@ -463,7 +498,8 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
     ? ` · batch ${collectionBatch.batchIndex + 1}/${collectionBatch.batchCount}`
     : ''
   receiveStatus.value = `Received ${file.name}${batchNote} · ${formatBytes(file.bytes.length)}`
-  snackbar.show(`Received “${file.name}” — save or import when ready`, { tone: 'ok' })
+  const importHint = singtagsTagId != null ? ' — import when ready, then open the tag' : ' — save or import when ready'
+  snackbar.show(`Received “${file.name}”${importHint}`, { tone: 'ok' })
 }
 
 function toggleReceivedSelected(id: string): void {
@@ -527,13 +563,28 @@ async function saveOneReceived(item: ReceivedItem): Promise<void> {
   await saveReceivedItems([item], 'save file')
 }
 
+function openImportedTag(tagId: number): void {
+  void router.push(tagOpenLocation(tagId, { fullscreen: prefs.singMode }))
+}
+
+function importedTagOpenLabel(): string {
+  return prefs.singMode ? 'Open fullscreen' : 'Open tag'
+}
+
 async function importSingtagsSheet(item: ReceivedItem): Promise<void> {
   if (item.singtagsTagId == null) return
   try {
     const pkg = unpackSingtagsSheetFile(item.file)
     await putTransferredTag(pkg.meta, pkg.imageBytes)
-    snackbar.show(`Imported “${pkg.meta.title || `Tag ${pkg.meta.id}`}”`, { tone: 'ok' })
-    void router.push(`/tag/${pkg.meta.id}`)
+    const title = pkg.meta.title || `Tag ${pkg.meta.id}`
+    snackbar.show(`Imported “${title}”`, {
+      tone: 'ok',
+      ms: 8000,
+      action: {
+        label: importedTagOpenLabel(),
+        onClick: () => openImportedTag(pkg.meta.id),
+      },
+    })
   } catch (e) {
     snackbar.show(e instanceof Error ? e.message : 'Could not import sheet.', { tone: 'error' })
   }
@@ -579,6 +630,33 @@ async function importCollectionBatch(item: ReceivedItem): Promise<void> {
   }
 }
 
+function tagSummariesForImportedIds(session: CollectionReceiveSession, tagIds: number[]): TagSummary[] {
+  const metaById = new Map<number, ReturnType<typeof tagSummaryFromSheetTransferMeta>>()
+  for (const item of received.value) {
+    if (!item.collectionBatch) continue
+    const batch = session.batches.get(item.collectionBatch.batchIndex)
+    if (!batch || batch.itemId !== item.id) continue
+    try {
+      const unpacked = unpackSingtagsCollectionFile(item.file)
+      for (const tag of unpacked.tags) {
+        metaById.set(tag.meta.id, tagSummaryFromSheetTransferMeta(tag.meta))
+      }
+    } catch {
+      /* ignore malformed batches */
+    }
+  }
+  return tagIds.map((id) => metaById.get(id) ?? catalog.getById(id) ?? tagSummaryFromSheetTransferMeta({
+    v: 1,
+    id,
+    title: `Tag ${id}`,
+    arranger: null,
+    key: null,
+    mime: 'image/jpeg',
+    width: 0,
+    height: 0,
+  }))
+}
+
 async function addCollectionToLibrary(session: CollectionReceiveSession): Promise<void> {
   if (collectionImportBusy.value) return
   const tagIds = importedTagIdsForSession(session)
@@ -588,13 +666,19 @@ async function addCollectionToLibrary(session: CollectionReceiveSession): Promis
   }
   collectionImportBusy.value = true
   try {
-    const result = applyCollectionToLibrary(userCollections, session.collectionName, tagIds)
-    snackbar.show(
-      result.created
-        ? `Created collection “${session.collectionName}” with ${tagIds.length} tags`
-        : `Added ${tagIds.length} tags to “${session.collectionName}”`,
-      { tone: 'ok' },
-    )
+    const result = applyReceivedCollectionToLibrary(userCollections, session.collectionName, tagIds)
+    await favorites.ensureLoaded()
+    void favorites.starMany(tagSummariesForImportedIds(session, tagIds), { metadataOnly: true })
+    snackbar.show(`Created collection “${result.collectionName}” with ${tagIds.length} tags`, {
+      tone: 'ok',
+      ms: 8000,
+      action: {
+        label: 'View collection',
+        onClick: () => {
+          void router.push({ path: '/favorites', query: { collection: result.collectionId } })
+        },
+      },
+    })
   } catch (e) {
     snackbar.show(e instanceof Error ? e.message : 'Could not save collection.', { tone: 'error' })
   } finally {
@@ -727,16 +811,16 @@ watch(useHighRes, () => {
 })
 
 onMounted(() => {
-  if (offline.value && tabFromRouteQuery(route.query.mode) !== 'receive') {
+  if (offline.value && tabFromRoute(route) !== 'receive') {
     tab.value = 'receive'
   }
   void loadCollectionFromQuery()
 })
 
 watch(
-  () => route.query.mode,
-  (mode) => {
-    tab.value = tabFromRouteQuery(mode)
+  () => [route.name, route.path, route.query.mode] as const,
+  () => {
+    tab.value = tabFromRoute(route)
   },
 )
 
@@ -907,27 +991,38 @@ onUnmounted(() => {
         </details>
       </div>
 
+      <OpticalReceiveInvite />
+
       <div class="send-actions">
         <button
           type="button"
           class="btn btn-primary"
-          :disabled="!queue.length || sendBusy || streaming || densityTooLow || sendCountdown != null"
+          :disabled="sendStreamStartDisabled"
           @click="startSendStream"
         >
-          {{
-            sendCountdown != null
-              ? `Starting in ${sendCountdown}…`
-              : streaming
-                ? 'Streaming…'
-                : sendBusy
-                  ? 'Preparing…'
-                  : 'Start QR transfer'
-          }}
+          {{ sendStreamStartLabel }}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          :disabled="sendBusy || streaming || sendCountdown != null"
+          @click="openReceiveInviteOverlay"
+        >
+          Receive link QR
         </button>
       </div>
 
       <p v-if="sendBusy && !streaming" class="status" role="status">Preparing transfer…</p>
       <p v-else-if="sendError && !streaming" class="err" role="alert">{{ sendError }}</p>
+
+      <OpticalReceiveInviteOverlay
+        :open="receiveInviteOverlayOpen"
+        :url="receiveInviteHref"
+        :start-disabled="sendStreamStartDisabled"
+        :start-label="sendStreamStartLabel"
+        @close="closeReceiveInviteOverlay"
+        @start="startFromReceiveInviteOverlay"
+      />
 
       <OpticalTransferStreamOverlay
         :open="streaming"

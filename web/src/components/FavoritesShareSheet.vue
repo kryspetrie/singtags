@@ -10,6 +10,7 @@ import QrEnlargeOverlay from './QrEnlargeOverlay.vue'
 import TransferButtonLabel from './TransferButtonLabel.vue'
 import { qrDataUrl } from '../lib/qr'
 import { useSnackbarStore } from '../stores/snackbar'
+import { usePreferencesStore } from '../stores/preferences'
 
 const SHARE_URL_WARN_LEN = 2000
 const SHEET_QR_PX = 200
@@ -28,7 +29,12 @@ const emit = defineEmits<{
 }>()
 
 const snackbar = useSnackbarStore()
+const prefs = usePreferencesStore()
 const router = useRouter()
+
+const showOpticalTransfer = computed(
+  () => prefs.opticalTransferEnabled && prefs.opticalTransferListButtons,
+)
 
 const qrSrc = ref('')
 const qrBusy = ref(false)
@@ -153,6 +159,7 @@ function transferOptically(): void {
       <div class="share-actions">
         <button type="button" class="btn btn-primary" @click="copyLink">Copy link</button>
         <button
+          v-if="showOpticalTransfer"
           type="button"
           class="btn"
           aria-label="Transfer optically"

@@ -5,9 +5,12 @@ const props = withDefaults(
     toolbarLabel: string
     /** When false, hide the favorite action (e.g. on the favorites list). */
     showFavorite?: boolean
+    /** When false, hide Optical Transfer (Labs list-buttons flag). */
+    showOptical?: boolean
   }>(),
   {
     showFavorite: true,
+    showOptical: false,
   },
 )
 
@@ -50,6 +53,7 @@ const emit = defineEmits<{
         <span class="label-short">+Collection</span>
       </button>
       <button
+        v-if="props.showOptical"
         type="button"
         class="btn btn-optical"
         aria-label="Optical transfer"

@@ -4,6 +4,7 @@
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import FilterSheet from './FilterSheet.vue'
+import OpticalReceiveInvite from './OpticalReceiveInvite.vue'
 import OpticalTransferStreamOverlay from './OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from './OpticalTransferQualityToggle.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
@@ -272,6 +273,8 @@ async function startTransfer(): Promise<void> {
         }}
       </p>
       <p v-if="error" class="err" role="alert">{{ error }}</p>
+
+      <OpticalReceiveInvite compact />
 
       <div class="actions">
         <button

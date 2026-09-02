@@ -10,6 +10,7 @@ import CustomCollectionMark from './CustomCollectionMark.vue'
 import TransferButtonLabel from './TransferButtonLabel.vue'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useUserCollectionsStore } from '../stores/userCollections'
+import { usePreferencesStore } from '../stores/preferences'
 
 const props = defineProps<{
   open: boolean
@@ -22,7 +23,13 @@ const emit = defineEmits<{
 }>()
 
 const store = useUserCollectionsStore()
+const prefs = usePreferencesStore()
 const router = useRouter()
+
+const showOpticalTransfer = computed(
+  () => prefs.opticalTransferEnabled && prefs.opticalTransferListButtons,
+)
+
 const { dragActive, onHandlePointerDown, onDragEnter, rowDragClass, listDraggingClass } =
   useSortableListDrag<string>({
     rowSelector: 'li.manage-row',
@@ -164,7 +171,7 @@ function transferCollectionOptically(id: string): void {
   const col = store.byId(id)
   if (!col?.tagIds.length) return
   emit('close')
-  void router.push({ name: 'optical-transfer', query: { collection: id } })
+  void router.push({ name: 'tx', query: { collection: id } })
 }
 </script>
 
@@ -213,6 +220,7 @@ function transferCollectionOptically(id: string): void {
           </div>
           <div class="manage-row-actions">
             <button
+              v-if="showOpticalTransfer"
               type="button"
               class="manage-btn"
               aria-label="Transfer optically"

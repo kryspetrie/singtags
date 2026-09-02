@@ -3,6 +3,7 @@
  * The packed bytes are sent inside a Decimen file container (see decimen/singtagsPayload.ts).
  */
 import { deflateSync, inflateSync } from 'fflate'
+import type { TagSummary } from '../types/tag'
 
 export type SheetTransferMeta = {
   v: 1
@@ -24,6 +25,26 @@ export type SheetTransferMeta = {
 export type SheetTransferPackage = {
   meta: SheetTransferMeta
   imageBytes: Uint8Array
+}
+
+/** Minimal browse summary from received sheet transfer metadata. */
+export function tagSummaryFromSheetTransferMeta(meta: SheetTransferMeta): TagSummary {
+  return {
+    id: meta.id,
+    title: meta.title,
+    altTitle: meta.altTitle ?? null,
+    arranger: meta.arranger,
+    key: meta.key,
+    writKey: meta.writKey ?? null,
+    rating: null,
+    type: meta.type ?? null,
+    collection: meta.collection ?? null,
+    year: meta.year ?? null,
+    parts: meta.parts ?? null,
+    hasSheet: true,
+    audioParts: [],
+    sheet: null,
+  }
 }
 
 function textEncoder(): TextEncoder {

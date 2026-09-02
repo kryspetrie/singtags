@@ -9,6 +9,7 @@ import { useOnline } from '../composables/useOnline'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 import OfflineOpticalTransferPrompt from './OfflineOpticalTransferPrompt.vue'
+import { usePreferencesStore } from '../stores/preferences'
 
 const props = defineProps<{
   /** First-run splash visibility. */
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
+const prefs = usePreferencesStore()
 const { offline } = useOnline()
 
 const sheetsReady = computed(
@@ -157,7 +159,7 @@ function onContinue(): void {
             device below.
           </p>
 
-          <OfflineOpticalTransferPrompt v-if="offline" />
+          <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
         </div>
 
         <footer class="actions">

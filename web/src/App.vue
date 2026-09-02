@@ -77,7 +77,8 @@ function onDesktopNavMq(ev: MediaQueryListEvent): void {
 const moreNavActive = computed(
   () =>
     route.name === 'settings' ||
-    route.name === 'optical-transfer' ||
+    route.name === 'tx' ||
+    route.name === 'rx' ||
     (route.name === 'queue' && !desktopNav.value),
 )
 
@@ -399,7 +400,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <div class="offline-banner-copy">
         <span>{{ offlineBannerMessage }}</span>
         <OfflineOpticalTransferPrompt
-          v-if="!offlineLib.catalogCachedAt"
+          v-if="prefs.opticalTransferEnabled && !offlineLib.catalogCachedAt"
           compact
         />
       </div>

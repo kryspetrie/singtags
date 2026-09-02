@@ -6,6 +6,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import TagView from '../views/TagView.vue'
 import { onTagReturnBeforeEach, peekTagReturnScrollY } from '../lib/tagReturn'
+import { usePreferencesStore } from '../stores/preferences'
 
 /** How Browse should settle scroll after the next home navigation (HomeView reads this). */
 export type BrowseScrollIntent = 'top' | 'restore' | null
@@ -53,9 +54,33 @@ export const router = createRouter({
       component: () => import('../views/SettingsView.vue'),
     },
     {
-      path: '/optical-transfer',
-      name: 'optical-transfer',
+      path: '/labs',
+      name: 'labs',
+      component: () => import('../views/LabsView.vue'),
+    },
+    {
+      path: '/tx',
+      name: 'tx',
       component: () => import('../views/OpticalTransferView.vue'),
+      meta: { requiresOpticalTransfer: true },
+    },
+    {
+      path: '/rx',
+      name: 'rx',
+      component: () => import('../views/OpticalTransferView.vue'),
+      meta: { requiresOpticalTransfer: true },
+    },
+    {
+      path: '/optical-transfer',
+      redirect: (to) => {
+        const q = { ...to.query }
+        if (q.mode === 'receive') delete q.mode
+        return {
+          path: to.query.mode === 'receive' ? '/rx' : '/tx',
+          query: q,
+          hash: to.hash,
+        }
+      },
     },
   ],
   scrollBehavior(to, from, saved) {
@@ -98,4 +123,14 @@ export const router = createRouter({
 
 router.beforeEach((to, from) => {
   onTagReturnBeforeEach(to, from)
+  if (to.meta.requiresOpticalTransfer) {
+    try {
+      const prefs = usePreferencesStore()
+      if (!prefs.opticalTransferEnabled) {
+        return { name: 'labs' }
+      }
+    } catch {
+      /* Pinia not ready (rare in tests) — allow navigation */
+    }
+  }
 })

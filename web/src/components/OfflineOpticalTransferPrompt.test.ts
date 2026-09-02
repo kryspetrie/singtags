@@ -5,24 +5,21 @@ import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import OfflineOpticalTransferPrompt from './OfflineOpticalTransferPrompt.vue'
-import { opticalReceiveRoute } from '../lib/decimen/opticalTransferNav'
+import { OPTICAL_RX_PATH, opticalReceiveRoute } from '../lib/decimen/opticalTransferNav'
 
 describe('OfflineOpticalTransferPrompt', () => {
-  it('links to receive mode on the optical transfer page', () => {
+  it('links to /rx for receive mode', () => {
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/optical-transfer', name: 'optical-transfer', component: { template: '<div />' } }],
+      routes: [{ path: OPTICAL_RX_PATH, name: 'rx', component: { template: '<div />' } }],
     })
     const w = mount(OfflineOpticalTransferPrompt, {
       global: { plugins: [router] },
     })
-    const link = w.get('a')
-    expect(link.attributes('href')).toBe('/optical-transfer?mode=receive')
+    const link = w.get('a.prompt-action')
+    expect(link.attributes('href')).toBe('/rx')
     expect(link.attributes('aria-label')).toBe('Receive tags with optical transfer')
-    expect(w.text()).toMatch(/Transfer/)
-    expect(opticalReceiveRoute).toEqual({
-      name: 'optical-transfer',
-      query: { mode: 'receive' },
-    })
+    expect(opticalReceiveRoute).toEqual({ name: 'rx' })
+    w.unmount()
   })
 })

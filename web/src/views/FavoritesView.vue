@@ -375,6 +375,19 @@ watch(
   },
 )
 
+function applyCollectionQueryFromRoute(): void {
+  const raw = Array.isArray(route.query.collection)
+    ? route.query.collection[0]
+    : route.query.collection
+  if (typeof raw !== 'string' || !raw) return
+  if (userCollections.byId(raw)) activeCollectionId.value = raw
+}
+
+async function clearCollectionQuery(): Promise<void> {
+  const { collection: _collection, ...query } = route.query
+  await router.replace({ query })
+}
+
 onMounted(async () => {
   narrowMq = window.matchMedia(NARROW_SELECT_MQ)
   syncNarrowSelect()
@@ -382,6 +395,7 @@ onMounted(async () => {
   void offlineLibrary.refreshCacheReady().catch(() => undefined)
   await favorites.ensureLoaded()
   practice.syncFromStarred(favorites.records.map((r) => r.tagId))
+  applyCollectionQueryFromRoute()
   const rawImport = Array.isArray(route.query.import) ? route.query.import[0] : route.query.import
   if (typeof rawImport === 'string') {
     const decoded = decodeFavoritesSharePayload(rawImport)
@@ -408,6 +422,11 @@ watch(
   () => {
     practice.syncFromStarred(favorites.records.map((r) => r.tagId))
   },
+)
+
+watch(
+  () => route.query.collection,
+  () => applyCollectionQueryFromRoute(),
 )
 
 function downloadStarredFile(): void {
@@ -449,6 +468,7 @@ function applySort(): void {
 
 function selectCollection(id: string | null): void {
   activeCollectionId.value = id
+  if (!id && route.query.collection) void clearCollectionQuery()
 }
 
 function onManageCollectionCreated(id: string): void {
@@ -774,7 +794,7 @@ async function confirmImport(): Promise<void> {
           : 'Favorite from Browse or a tag page to save for quick recall and offline use.'
       "
     >
-      <OfflineOpticalTransferPrompt v-if="offline" />
+      <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
     </EmptyState>
     <EmptyState
       v-else-if="!orderedRecords.length && activeCollection"
@@ -993,6 +1013,7 @@ async function confirmImport(): Promise<void> {
       :count="selectedIds.size"
       toolbar-label="Selected favorites"
       :show-favorite="false"
+      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @collection="collectionPickerOpen = true"
       @optical="transferSelectedOptically"
       @zip="addSelectedToQueue"

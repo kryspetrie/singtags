@@ -495,7 +495,7 @@ describe('view smoke tests', () => {
     expect(bar?.textContent).toMatch(/1 selected/)
     expect(bar?.querySelector('button[aria-label="Favorite selected tags"]')).toBeTruthy()
     expect(bar?.querySelector('button[aria-label="Add to collection"]')).toBeTruthy()
-    expect(bar?.querySelector('button[aria-label="Optical transfer"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Optical transfer"]')).toBeFalsy()
     expect(bar?.querySelector('button[aria-label="Queue download"]')).toBeTruthy()
     const addBtn = bar!.querySelector('button[aria-label="Add to collection"]') as HTMLButtonElement
     expect(addBtn).toBeTruthy()
@@ -516,9 +516,9 @@ describe('view smoke tests', () => {
     const OpticalTransferView = (await import('./OpticalTransferView.vue')).default
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/optical-transfer', component: OpticalTransferView }],
+      routes: [{ path: '/tx', name: 'tx', component: OpticalTransferView }],
     })
-    await router.push('/optical-transfer')
+    await router.push('/tx')
     await router.isReady()
     const w = mount(OpticalTransferView, {
       global: { plugins: [createPinia(), router] },

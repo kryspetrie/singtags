@@ -78,9 +78,14 @@ function toggleOfflineMode(): void {
         <span class="menu-desc">Cache, downloads, and offline mode</span>
       </RouterLink>
 
-      <RouterLink class="menu-item" to="/optical-transfer" @click="onNavClick">
+      <RouterLink v-if="prefs.opticalTransferEnabled" class="menu-item" to="/tx" @click="onNavClick">
         <span class="menu-label">Optical transfer</span>
         <span class="menu-desc">Send or receive files via animated QR codes</span>
+      </RouterLink>
+
+      <RouterLink class="menu-item" to="/labs" @click="onNavClick">
+        <span class="menu-label">SingTags Labs</span>
+        <span class="menu-desc">Experimental features and feature flags</span>
       </RouterLink>
 
       <RouterLink class="menu-item menu-item-downloads" to="/queue" @click="onNavClick">

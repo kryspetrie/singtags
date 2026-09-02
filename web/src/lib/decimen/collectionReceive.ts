@@ -98,23 +98,55 @@ export async function importCollectionBatchTags(
   return { imported, failed }
 }
 
-/** Create a user collection or merge imported tag ids into an existing one. */
-export function applyCollectionToLibrary(
+/** Local calendar date label for received collection names (`rx` suffix). */
+export function formatReceivedCollectionLocalDate(date = new Date()): string {
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  })
+}
+
+/** `{name} rx {local date}` — never reuses an existing collection name as-is. */
+export function buildReceivedCollectionName(baseName: string, date = new Date()): string {
+  const trimmed = baseName.trim().replace(/\s+/g, ' ')
+  return `${trimmed} rx ${formatReceivedCollectionLocalDate(date)}`
+}
+
+function collectionNameKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/** Pick a unique received collection name; append `(n)` when the dated name collides. */
+export function allocateReceivedCollectionName(
+  baseName: string,
+  existingNames: readonly string[],
+  date = new Date(),
+): string {
+  const taken = new Set(existingNames.map((name) => collectionNameKey(name)))
+  const root = buildReceivedCollectionName(baseName, date)
+  if (!taken.has(collectionNameKey(root))) return root
+  let n = 2
+  while (taken.has(collectionNameKey(`${root} (${n})`))) n += 1
+  return `${root} (${n})`
+}
+
+/** Create a new user collection for a received transfer (no merge with same-name collections). */
+export function applyReceivedCollectionToLibrary(
   store: ReturnType<typeof useUserCollectionsStore>,
   collectionName: string,
   tagIds: number[],
-): { collectionId: string; created: boolean; merged: boolean } {
+  date = new Date(),
+): { collectionId: string; collectionName: string } {
   const unique = [...new Set(tagIds)]
-  const existing = store.collections.find(
-    (c) => c.name.trim().toLowerCase() === collectionName.trim().toLowerCase(),
+  const allocated = allocateReceivedCollectionName(
+    collectionName,
+    store.collections.map((c) => c.name),
+    date,
   )
-  if (existing) {
-    store.addTags(existing.id, unique)
-    return { collectionId: existing.id, created: false, merged: true }
-  }
-  const col = store.create(collectionName, unique)
+  const col = store.create(allocated, unique)
   if (!col) throw new Error('Could not create collection.')
-  return { collectionId: col.id, created: true, merged: false }
+  return { collectionId: col.id, collectionName: allocated }
 }
 
 /** Collect tag ids imported across all received batches in a session. */

@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import FavoritesShareSheet from './FavoritesShareSheet.vue'
 import { qrDataUrl } from '../lib/qr'
+import { usePreferencesStore } from '../stores/preferences'
 
 vi.mock('../lib/qr', () => ({
   qrDataUrl: vi.fn(async (_text: string, size = 200) => `data:image/png;base64,qr-${size}`),
@@ -15,6 +16,7 @@ vi.mock('../lib/qr', () => ({
 describe('FavoritesShareSheet', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    usePreferencesStore().setOpticalTransferListButtons(true)
     vi.stubGlobal('navigator', {
       clipboard: { writeText: vi.fn(async () => undefined) },
     })

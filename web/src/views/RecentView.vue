@@ -439,6 +439,7 @@ function rowStarLabel(tag: TagSummary): string {
     <TagSelectionBar
       :count="selectedIds.size"
       toolbar-label="Selected recent tags"
+      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @favorite="starSelected"
       @collection="collectionPickerOpen = true"
       @optical="transferSelectedOptically"

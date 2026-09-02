@@ -159,8 +159,18 @@ async function onSheetTransferComplete(file: OpticalFile): Promise<void> {
     const pkg = unpackSingtagsSheetFile(file)
     await putTransferredTag(pkg.meta, pkg.imageBytes)
     qrScannerOpen.value = false
-    snackbar.show(`Received “${pkg.meta.title || `Tag ${pkg.meta.id}`}”`, { tone: 'ok' })
-    void router.push(`/tag/${pkg.meta.id}`)
+    const title = pkg.meta.title || `Tag ${pkg.meta.id}`
+    const openLabel = prefs.singMode ? 'Open fullscreen' : 'Open tag'
+    snackbar.show(`Received “${title}”`, {
+      tone: 'ok',
+      ms: 8000,
+      action: {
+        label: openLabel,
+        onClick: () => {
+          void router.push(tagOpenLocation(pkg.meta.id, { fullscreen: prefs.singMode }))
+        },
+      },
+    })
   } catch (e) {
     snackbar.show(e instanceof Error ? e.message : 'Could not receive sheet transfer.', {
       tone: 'error',
@@ -1367,7 +1377,7 @@ watch(
       "
       tone="danger"
     >
-      <OfflineOpticalTransferPrompt v-if="offline" />
+      <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
     </EmptyState>
     <template v-else>
       <div class="results-meta" aria-live="polite">
@@ -1703,6 +1713,7 @@ watch(
     <TagSelectionBar
       :count="catalog.selectedIds.size"
       toolbar-label="Selected tags"
+      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @favorite="starSelected"
       @collection="collectionPickerOpen = true"
       @optical="transferSelectedOptically"

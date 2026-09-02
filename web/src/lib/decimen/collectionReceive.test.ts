@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  allocateReceivedCollectionName,
+  buildReceivedCollectionName,
   collectionReceiveProgress,
   collectionSessionKey,
   importedTagIdsForSession,
@@ -40,5 +42,33 @@ describe('collectionReceive', () => {
     session.batches.get(2)!.importedTagIds = [3]
     expect(importedTagIdsForSession(session).sort()).toEqual([1, 2, 3])
     expect(collectionReceiveProgress(session).tagsImported).toBe(3)
+  })
+
+  it('names received collections with rx local date and disambiguates collisions', () => {
+    const date = new Date(2026, 8, 1)
+    const localDate = date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    })
+    expect(buildReceivedCollectionName('Set A', date)).toBe(`Set A rx ${localDate}`)
+
+    const existing = [`Set A rx ${localDate}`, 'Other']
+    expect(allocateReceivedCollectionName('Set A', existing, date)).toBe(`Set A rx ${localDate} (2)`)
+    expect(
+      allocateReceivedCollectionName('Set A', [...existing, `Set A rx ${localDate} (2)`], date),
+    ).toBe(`Set A rx ${localDate} (3)`)
+  })
+
+  it('treats collection name collisions case-insensitively', () => {
+    const date = new Date(2026, 8, 1)
+    const localDate = date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    })
+    expect(allocateReceivedCollectionName('Set A', [`set a rx ${localDate}`], date)).toBe(
+      `Set A rx ${localDate} (2)`,
+    )
   })
 })

@@ -453,6 +453,7 @@ const opticalTransferOpen = ref(false)
 const shareHref = computed(() => resolveShareHref())
 
 const canOpticalTransfer = computed(() => {
+  if (!prefs.opticalTransferEnabled) return false
   const d = detail.value
   if (!d) return false
   const assets = resolveSheetAssets(d)
