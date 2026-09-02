@@ -26,6 +26,7 @@ Working media lives in gitignored `library/`. Static Vue 3 + TypeScript SPA; cat
 
 | Doc | Topic |
 | --- | --- |
+| [plans/local-library-transfer.md](plans/local-library-transfer.md) | Local Library + optical / future short-lived S3 transfer |
 | [plans/vibe-search.md](plans/vibe-search.md) | Search by vibe (Workers AI) |
 | [plans/tag-roulette.md](plans/tag-roulette.md) | Tag roulette discovery |
 | [plans/virtual-piano.md](plans/virtual-piano.md) | Virtual piano (pitch pipe stays) |

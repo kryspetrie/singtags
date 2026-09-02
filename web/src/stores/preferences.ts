@@ -42,8 +42,6 @@ const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
 const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
-/** Labs: Optical Transfer buttons on Browse/Recent/Favorites. Default off. */
-const OPTICAL_TRANSFER_LIST_BUTTONS_KEY = 'singtags.labs.opticalTransfer.listButtons.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
@@ -298,15 +296,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const shareBarbershopTags = ref(loadBool(SHARE_BARBERSHOP_TAGS_KEY, false))
   /**
-   * Labs: when true, animated QR optical transfer (send/receive pages, tag sheet transfer) is available.
+   * Labs: when true, animated QR optical transfer (send/receive pages, Browse camera receive) is available.
    * Static QR share codes are unrelated and stay available either way.
    */
   const opticalTransferEnabled = ref(loadBool(OPTICAL_TRANSFER_ENABLED_KEY, true))
-  /**
-   * Labs: when true (and optical transfer is enabled), show Optical Transfer actions on
-   * Browse / Recent / Favorites selection bars and related list UIs. Default off to reduce noise.
-   */
-  const opticalTransferListButtons = ref(loadBool(OPTICAL_TRANSFER_LIST_BUTTONS_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -401,18 +394,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(OPTICAL_TRANSFER_ENABLED_KEY, v ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-    },
-    { flush: 'sync' },
-  )
-
-  watch(
-    opticalTransferListButtons,
-    (v) => {
-      try {
-        localStorage.setItem(OPTICAL_TRANSFER_LIST_BUTTONS_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -599,11 +580,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferEnabled.value = on
   }
 
-  /** Labs: show Optical Transfer buttons on Browse/Recent/Favorites. */
-  function setOpticalTransferListButtons(on: boolean): void {
-    opticalTransferListButtons.value = on
-  }
-
   /** Include fullscreen=1 on shared tag links. */
   function setShareFullscreen(on: boolean): void {
     shareFullscreen.value = on
@@ -635,7 +611,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareFullscreen,
     shareBarbershopTags,
     opticalTransferEnabled,
-    opticalTransferListButtons,
     opticalTransferFrameBytes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
@@ -651,7 +626,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setApplyDetuneGlobally,
     setSingMode,
     setOpticalTransferEnabled,
-    setOpticalTransferListButtons,
     setShareFullscreen,
     setShareBarbershopTags,
     setOpticalTransferFrameBytes,

@@ -9,7 +9,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops.
 | [vibe-search.md](vibe-search.md) | Planned |
 | [tag-roulette.md](tag-roulette.md) | Proposed |
 | [virtual-piano.md](virtual-piano.md) | Proposed |
-| [sheet-qr-transfer.md](sheet-qr-transfer.md) | In progress — peer multi-QR sheet + metadata transfer |
+| [sheet-qr-transfer.md](sheet-qr-transfer.md) | Demoted for catalog tags — Decimen kept for ad-hoc/receive; restore catalog buttons via tag `optical-transfer-catalog-buttons` |
+| [local-library-transfer.md](local-library-transfer.md) | Planned — Local Library docs + optical / future S3 short-lived links |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented |
 
 Shipped behavior belongs in [../decisions/](../decisions/README.md) or [../status.md](../status.md), not here.

@@ -13,26 +13,10 @@ function toggleOpticalTransfer(): void {
   prefs.setOpticalTransferEnabled(next)
   snackbar.show(
     next
-      ? 'Send and receive sheets with animated QR codes'
+      ? 'Send and receive files with animated QR codes from More'
       : 'Animated QR transfer is hidden — static share QR codes still work',
     {
       title: next ? 'Optical Transfer On' : 'Optical Transfer Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
-}
-
-function toggleListButtons(): void {
-  if (!prefs.opticalTransferEnabled) return
-  const next = !prefs.opticalTransferListButtons
-  prefs.setOpticalTransferListButtons(next)
-  snackbar.show(
-    next
-      ? 'Optical Transfer appears on Browse, Recent, and Favorites'
-      : 'Optical Transfer stays available from More — list buttons are hidden',
-    {
-      title: next ? 'List Buttons On' : 'List Buttons Off',
       tone: 'ok',
       ms: 3000,
     },
@@ -53,9 +37,9 @@ function toggleListButtons(): void {
     <section class="card" aria-labelledby="optical-h">
       <h2 id="optical-h" class="card-title">Optical transfer</h2>
       <p class="card-desc">
-        Animated (rolling) QR streams that send or receive tag sheets between devices — the
-        Optical Transfer page, offline receive prompts, and tag share transfer. Does not affect
-        normal share QR codes.
+        Animated (rolling) QR streams for ad-hoc file send/receive via More → Optical transfer and
+        the Browse camera. Does not affect normal share QR codes. Catalog tag list buttons were
+        removed; see Local Library plans for curated local docs.
       </p>
 
       <label
@@ -81,35 +65,6 @@ function toggleListButtons(): void {
           :aria-checked="prefs.opticalTransferEnabled"
           aria-label="Optical Transfer"
           @change="toggleOpticalTransfer"
-        />
-      </label>
-
-      <label
-        class="setting-row setting-row-nested"
-        :class="{ on: prefs.opticalTransferEnabled && prefs.opticalTransferListButtons, disabled: !prefs.opticalTransferEnabled }"
-        title="Show Optical Transfer buttons on Browse, Recent, and Favorites"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">List buttons</span>
-          <span class="setting-desc">
-            {{
-              !prefs.opticalTransferEnabled
-                ? 'Turn on Optical Transfer to change this'
-                : prefs.opticalTransferListButtons
-                  ? 'Shown on Browse, Recent, and Favorites selection bars'
-                  : 'Hidden on Browse, Recent, and Favorites — page still available in More'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
-          :aria-checked="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
-          :disabled="!prefs.opticalTransferEnabled"
-          aria-label="Optical Transfer list buttons"
-          @change="toggleListButtons"
         />
       </label>
     </section>
@@ -176,13 +131,6 @@ function toggleListButtons(): void {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.setting-row.disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.setting-row-nested {
-  margin-left: 0.75rem;
-}
 .setting-copy {
   display: grid;
   gap: 0.15rem;
@@ -228,9 +176,6 @@ function toggleListButtons(): void {
 }
 .setting-switch:checked::after {
   transform: translateX(1.15rem);
-}
-.setting-switch:disabled {
-  cursor: not-allowed;
 }
 .setting-switch:focus-visible {
   outline: 2px solid var(--accent);

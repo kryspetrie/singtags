@@ -14,29 +14,19 @@ describe('LabsView', () => {
     document.body.innerHTML = ''
   })
 
-  it('shows optical transfer on and list buttons off by default', async () => {
+  it('shows optical transfer on by default', async () => {
     const w = mount(LabsView)
     await flushPromises()
-    const prefs = usePreferencesStore()
-    expect(prefs.opticalTransferEnabled).toBe(true)
-    expect(prefs.opticalTransferListButtons).toBe(false)
+    expect(usePreferencesStore().opticalTransferEnabled).toBe(true)
     expect(w.get('input[aria-label="Optical Transfer"]').element).toHaveProperty('checked', true)
-    expect(w.get('input[aria-label="Optical Transfer list buttons"]').element).toHaveProperty(
-      'checked',
-      false,
-    )
     w.unmount()
   })
 
-  it('toggles optical transfer and disables nested list buttons when off', async () => {
+  it('toggles optical transfer', async () => {
     const w = mount(LabsView)
     await flushPromises()
     await w.get('input[aria-label="Optical Transfer"]').setValue(false)
     expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
-    expect(
-      (w.get('input[aria-label="Optical Transfer list buttons"]').element as HTMLInputElement)
-        .disabled,
-    ).toBe(true)
     w.unmount()
   })
 })

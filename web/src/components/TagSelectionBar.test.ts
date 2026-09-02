@@ -26,16 +26,11 @@ describe('TagSelectionBar', () => {
     expect(bar?.querySelector('button[aria-label="Favorite selected tags"]')).toBeFalsy()
   })
 
-  it('hides optical transfer by default and shows when showOptical is true', () => {
+  it('does not show optical transfer for catalog selection', () => {
     document.body.innerHTML = ''
     mount(TagSelectionBar, {
       props: { count: 2, toolbarLabel: 'Selected tags' },
     })
     expect(document.body.querySelector('button[aria-label="Optical transfer"]')).toBeFalsy()
-    document.body.innerHTML = ''
-    mount(TagSelectionBar, {
-      props: { count: 2, toolbarLabel: 'Selected tags', showOptical: true },
-    })
-    expect(document.body.querySelector('button[aria-label="Optical transfer"]')).toBeTruthy()
   })
 })

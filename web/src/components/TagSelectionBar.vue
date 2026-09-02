@@ -5,19 +5,15 @@ const props = withDefaults(
     toolbarLabel: string
     /** When false, hide the favorite action (e.g. on the favorites list). */
     showFavorite?: boolean
-    /** When false, hide Optical Transfer (Labs list-buttons flag). */
-    showOptical?: boolean
   }>(),
   {
     showFavorite: true,
-    showOptical: false,
   },
 )
 
 const emit = defineEmits<{
   favorite: []
   collection: []
-  optical: []
   zip: []
   clear: []
 }>()
@@ -51,20 +47,6 @@ const emit = defineEmits<{
       >
         <span class="label-long">Add to Collection</span>
         <span class="label-short">+Collection</span>
-      </button>
-      <button
-        v-if="props.showOptical"
-        type="button"
-        class="btn btn-optical"
-        aria-label="Optical transfer"
-        title="Transfer selected tags' sheets optically to another device"
-        @click="emit('optical')"
-      >
-        <span class="label-long">Optical Transfer</span>
-        <span class="label-short">
-          <span class="sel-btn-ico" aria-hidden="true">⇄</span>
-          Optical
-        </span>
       </button>
       <button
         type="button"
@@ -142,15 +124,6 @@ const emit = defineEmits<{
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.selection-bar .btn-optical .label-short {
-  display: none;
-  align-items: center;
-  gap: 0.25rem;
-}
-.selection-bar .sel-btn-ico {
-  font-size: 1.05em;
-  line-height: 1;
-}
 .selection-bar .btn-remove-icon {
   min-width: 44px;
   min-height: 44px;
@@ -169,9 +142,6 @@ const emit = defineEmits<{
   }
   .selection-bar .label-short {
     display: inline;
-  }
-  .selection-bar .btn-optical .label-short {
-    display: inline-flex;
   }
 }
 @media (min-width: 640px) {

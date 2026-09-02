@@ -1,9 +1,37 @@
 # Sheet QR transfer — peer data mode
 
-> **Status:** in progress  
+> **Status:** demoted for catalog tags — Decimen transport kept for ad-hoc `/tx`/`/rx` and Browse camera receive; future Local Library docs take the product lead ([local-library-transfer.md](local-library-transfer.md)).  
 > **Created:** 2026-09-01  
-> **Goal:** Transfer a singable tag sheet (≈800px-wide display image) plus enough metadata to populate a tag page between phones via multi-frame QR codes, without shared offline cache or network.  
-> **Related:** [sheets-format.md](../decisions/sheets-format.md), existing tag share/QR (`tagShare.ts`, `TagQrScanner.vue`).
+> **Goal (original):** Transfer a singable tag sheet plus metadata between phones via multi-frame QR, without shared offline cache or network.  
+> **Related:** [sheets-format.md](../decisions/sheets-format.md), [local-library-transfer.md](local-library-transfer.md), Labs optical flag.
+
+---
+
+## Restore catalog optical buttons
+
+Catalog list/share optical chrome was removed after this restore point. To re-add Browse/Recent/Favorites selection-bar transfer, Favorites share / collections manage transfer, and tag-page optical send:
+
+| | |
+| --- | --- |
+| **Git tag** | `optical-transfer-catalog-buttons` |
+| **Commit** | `56f511551334a7b82e56354e471a7ab67761d051` |
+
+```bash
+git show optical-transfer-catalog-buttons
+# or inspect paths:
+git checkout optical-transfer-catalog-buttons -- \
+  web/src/components/TagSelectionBar.vue \
+  web/src/components/TagOpticalTransferSheet.vue \
+  web/src/components/FavoritesShareSheet.vue \
+  web/src/components/CollectionsManageSheet.vue \
+  web/src/components/TagShareSheet.vue \
+  web/src/views/TagView.vue \
+  web/src/views/HomeView.vue \
+  web/src/views/RecentView.vue \
+  web/src/views/FavoritesView.vue
+```
+
+Note: `TagOpticalTransferSheet.vue` existed only on that tag (deleted afterward). Prefer cherry-picking or copying from the tag rather than reverting unrelated Labs/receive-invite work.
 
 ---
 
@@ -57,9 +85,11 @@ raw image bytes (image/jpeg)
 
 ## UX sketch
 
-**Sender (from Share / tag):** “Transfer sheet” → estimate → “Needs N QR codes” (+ warning if N>4) → fullscreen QR carousel (Prev/Next, optional auto-advance) → Done.
+**Sender (historical, catalog):** Share / tag → optical sheet stream (removed from catalog UI; restore via tag above).
 
-**Receiver (Browse camera):** detect `STX1` → progress “Frame 2/5” → assemble → persist → `/tag/:id`.
+**Receiver (Browse camera):** still supports Decimen sheet receive → persist → open tag.
+
+**Ad-hoc:** More → Optical transfer `/tx` / `/rx` (Labs-gated).
 
 ## Persistence
 
@@ -74,5 +104,5 @@ IndexedDB `singtags-offline` store `transferredTags`: summary/detail + sheet blo
 | Binary QR render | `web/src/lib/qr.ts` |
 | Binary scan | `web/src/lib/qrDecode.ts` |
 | IDB | `web/src/offline/transferredDb.ts` |
-| Sender UI | `web/src/components/SheetTransferSheet.vue` |
-| Receiver | `TagQrScanner` + HomeView / assembler |
+| Decimen send/receive UI | `OpticalTransferView.vue`, `TagQrScanner.vue` |
+| Catalog optical send UI | Removed — see restore tag |

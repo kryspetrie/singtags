@@ -112,18 +112,13 @@ describe('preferences store', () => {
     expect(usePreferencesStore().singMode).toBe(true)
   })
 
-  it('defaults optical transfer on and list buttons off', () => {
+  it('defaults optical transfer on', () => {
     const prefs = usePreferencesStore()
     expect(prefs.opticalTransferEnabled).toBe(true)
-    expect(prefs.opticalTransferListButtons).toBe(false)
     prefs.setOpticalTransferEnabled(false)
-    prefs.setOpticalTransferListButtons(true)
     expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('0')
-    expect(localStorage.getItem('singtags.labs.opticalTransfer.listButtons.v1')).toBe('1')
     setActivePinia(createPinia())
-    const again = usePreferencesStore()
-    expect(again.opticalTransferEnabled).toBe(false)
-    expect(again.opticalTransferListButtons).toBe(true)
+    expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
   })
 
   it('persists share-fullscreen preference', () => {

@@ -34,7 +34,6 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { browseScrollIntent } from '../router'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
-import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import {
   hasJumpRail,
   hasScrubRail,
@@ -345,14 +344,6 @@ async function starSelected(): Promise<void> {
     .map((id) => catalog.getById(id))
     .filter((t): t is NonNullable<typeof t> => !!t)
   void favorites.starMany(summaries, { metadataOnly: false })
-}
-
-function transferSelectedOptically(): void {
-  if (!catalog.selectedIds.size) return
-  navigateToOpticalTransfer(router, {
-    tagIds: selectedTagIds.value,
-    name: 'Browse',
-  })
 }
 
 function toggleRowStar(summary: TagSummary): void {
@@ -1713,10 +1704,8 @@ watch(
     <TagSelectionBar
       :count="catalog.selectedIds.size"
       toolbar-label="Selected tags"
-      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @favorite="starSelected"
       @collection="collectionPickerOpen = true"
-      @optical="transferSelectedOptically"
       @zip="addSelectedToQueue"
       @clear="catalog.clearSelection()"
     />

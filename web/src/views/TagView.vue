@@ -13,8 +13,7 @@ import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
 import { usePracticeStore } from '../stores/practice'
 import { PRACTICE_MODE_ENABLED } from '../lib/practiceMode'
-import { downloadableSheetAssets, resolveSheetAssets } from '../lib/sheetAssets'
-import { highResTransferAvailable } from '../lib/decimen/loadTagForTransfer'
+import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
 import type { QueueTrack } from '../download/zip'
@@ -34,7 +33,6 @@ import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
 import TagShareSheet from '../components/TagShareSheet.vue'
-import TagOpticalTransferSheet from '../components/TagOpticalTransferSheet.vue'
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -448,26 +446,8 @@ const barbershopPageUrl = computed(() =>
 )
 
 const shareOpen = ref(false)
-const opticalTransferOpen = ref(false)
 
 const shareHref = computed(() => resolveShareHref())
-
-const canOpticalTransfer = computed(() => {
-  if (!prefs.opticalTransferEnabled) return false
-  const d = detail.value
-  if (!d) return false
-  const assets = resolveSheetAssets(d)
-  return assets.imageSets.length > 0 || assets.pdfs.length > 0
-})
-
-const highResTransferReady = computed(() =>
-  detail.value ? highResTransferAvailable(detail.value) : false,
-)
-
-function openOpticalTransfer(): void {
-  shareOpen.value = false
-  opticalTransferOpen.value = true
-}
 
 function resolveShareHref(opts?: { fullscreen?: boolean }): string {
   // Prefer this visit’s session detune; otherwise the sharer’s applied global detune.
@@ -1101,16 +1081,7 @@ async function onRetryLoad(): Promise<void> {
     :url="shareHref"
     :barbershop-url="barbershopPageUrl"
     :title="pageTitleDisplay"
-    :can-optical-transfer="canOpticalTransfer"
     @close="closeShare"
-    @optical-transfer="openOpticalTransfer"
-  />
-  <TagOpticalTransferSheet
-    :open="opticalTransferOpen"
-    :tag-id="Number(id)"
-    :tag-title="pageTitleDisplay"
-    :high-res-available="highResTransferReady"
-    @close="opticalTransferOpen = false"
   />
 </template>
 

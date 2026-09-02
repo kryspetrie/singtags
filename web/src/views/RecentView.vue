@@ -18,7 +18,6 @@ import { useSnackbarStore } from '../stores/snackbar'
 import { useOnline } from '../composables/useOnline'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
-import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { partTrackLabel } from '../lib/parts'
@@ -232,14 +231,6 @@ async function addSelectedToQueue(): Promise<void> {
   snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
 }
 
-function transferSelectedOptically(): void {
-  if (!selectedIds.value.size) return
-  navigateToOpticalTransfer(router, {
-    tagIds: selectedTagIds.value,
-    name: 'Recent',
-  })
-}
-
 async function starSelected(): Promise<void> {
   void favorites.starMany(selectedSummaries(), { metadataOnly: false })
 }
@@ -439,10 +430,8 @@ function rowStarLabel(tag: TagSummary): string {
     <TagSelectionBar
       :count="selectedIds.size"
       toolbar-label="Selected recent tags"
-      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @favorite="starSelected"
       @collection="collectionPickerOpen = true"
-      @optical="transferSelectedOptically"
       @zip="addSelectedToQueue"
       @clear="clearSelection"
     />

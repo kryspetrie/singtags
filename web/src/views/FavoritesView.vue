@@ -32,7 +32,6 @@ import {
   type FavoritesSharePayload,
 } from '../lib/favoritesShare'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
-import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import {
   FAVORITES_SORT_OPTIONS,
   type FavoritesSortMode,
@@ -329,14 +328,6 @@ async function addSelectedToQueue(): Promise<void> {
           ? 'No cached tag details — open tags online once, or reconnect.'
           : 'No files queued.'
   snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
-}
-
-function transferSelectedOptically(): void {
-  if (!selectedIds.value.size) return
-  navigateToOpticalTransfer(router, {
-    tagIds: selectedTagIds.value,
-    name: activeCollection.value?.name ?? 'Favorites',
-  })
 }
 
 function removeSelectedFromActiveCollection(): void {
@@ -1013,9 +1004,7 @@ async function confirmImport(): Promise<void> {
       :count="selectedIds.size"
       toolbar-label="Selected favorites"
       :show-favorite="false"
-      :show-optical="prefs.opticalTransferEnabled && prefs.opticalTransferListButtons"
       @collection="collectionPickerOpen = true"
-      @optical="transferSelectedOptically"
       @zip="addSelectedToQueue"
       @clear="clearSelection"
     >

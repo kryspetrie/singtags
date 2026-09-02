@@ -3,14 +3,10 @@
  * Share a favorites list: copy link, QR, and fullscreen enlarge for stage sharing.
  */
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import FilterSheet from './FilterSheet.vue'
 import QrEnlargeOverlay from './QrEnlargeOverlay.vue'
-import TransferButtonLabel from './TransferButtonLabel.vue'
 import { qrDataUrl } from '../lib/qr'
 import { useSnackbarStore } from '../stores/snackbar'
-import { usePreferencesStore } from '../stores/preferences'
 
 const SHARE_URL_WARN_LEN = 2000
 const SHEET_QR_PX = 200
@@ -29,12 +25,6 @@ const emit = defineEmits<{
 }>()
 
 const snackbar = useSnackbarStore()
-const prefs = usePreferencesStore()
-const router = useRouter()
-
-const showOpticalTransfer = computed(
-  () => prefs.opticalTransferEnabled && prefs.opticalTransferListButtons,
-)
 
 const qrSrc = ref('')
 const qrBusy = ref(false)
@@ -109,16 +99,6 @@ async function nativeShare(): Promise<void> {
     snackbar.show('Could not open the device share menu.', { tone: 'error' })
   }
 }
-
-function transferOptically(): void {
-  if (!props.tagIds.length && !props.collectionId) return
-  emit('close')
-  navigateToOpticalTransfer(router, {
-    tagIds: props.tagIds,
-    name: props.title,
-    collectionId: props.collectionId ?? undefined,
-  })
-}
 </script>
 
 <template>
@@ -126,8 +106,7 @@ function transferOptically(): void {
     <div class="share-panel">
       <p class="hint">
         Anyone with this link can review and add these {{ tagCount }} tags to their favorites.
-        Enlarge the QR to hold up from the stage. For offline sheet transfer between devices, use
-        optical transfer instead of the link.
+        Enlarge the QR to hold up from the stage.
       </p>
 
       <label class="url-lbl" for="favorites-share-url">Share link</label>
@@ -158,16 +137,6 @@ function transferOptically(): void {
 
       <div class="share-actions">
         <button type="button" class="btn btn-primary" @click="copyLink">Copy link</button>
-        <button
-          v-if="showOpticalTransfer"
-          type="button"
-          class="btn"
-          aria-label="Transfer optically"
-          :disabled="!tagIds.length"
-          @click="transferOptically"
-        >
-          <TransferButtonLabel />
-        </button>
         <button type="button" class="btn" :disabled="!qrSrc || qrBusy" @click="openEnlarge">
           Enlarge QR
         </button>

@@ -5,7 +5,6 @@
 import { computed, ref, watch } from 'vue'
 import FilterSheet from './FilterSheet.vue'
 import QrEnlargeOverlay from './QrEnlargeOverlay.vue'
-import TransferButtonLabel from './TransferButtonLabel.vue'
 import { qrDataUrl } from '../lib/qr'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -20,13 +19,10 @@ const props = defineProps<{
   barbershopUrl?: string
   /** Tag title for native share. */
   title?: string
-  /** When true, show optical transfer for the sheet. */
-  canOpticalTransfer?: boolean
 }>()
 
 const emit = defineEmits<{
   close: []
-  'optical-transfer': []
 }>()
 
 const prefs = usePreferencesStore()
@@ -230,21 +226,6 @@ async function nativeShare(): Promise<void> {
           Share…
         </button>
       </div>
-
-      <div v-if="canOpticalTransfer" class="transfer-block">
-        <p class="transfer-hint">
-          Offline peer copy: stream the sheet and tag info as an animated QR code the other phone
-          can scan.
-        </p>
-        <button
-          type="button"
-          class="btn"
-          aria-label="Transfer optically"
-          @click="emit('optical-transfer')"
-        >
-          <TransferButtonLabel />
-        </button>
-      </div>
     </div>
   </FilterSheet>
 
@@ -394,20 +375,5 @@ async function nativeShare(): Promise<void> {
     flex: 1 1 calc(50% - 0.25rem);
     min-width: 0;
   }
-  .transfer-block {
-    padding-top: 0.35rem;
-  }
-}
-.transfer-block {
-  display: grid;
-  gap: 0.45rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid var(--border);
-}
-.transfer-hint {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.35;
 }
 </style>

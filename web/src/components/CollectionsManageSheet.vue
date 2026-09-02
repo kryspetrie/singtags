@@ -3,14 +3,11 @@
  * Manage user collections: reorder, rename, delete, and create.
  */
 import { computed, nextTick, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import CustomCollectionMark from './CustomCollectionMark.vue'
-import TransferButtonLabel from './TransferButtonLabel.vue'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useUserCollectionsStore } from '../stores/userCollections'
-import { usePreferencesStore } from '../stores/preferences'
 
 const props = defineProps<{
   open: boolean
@@ -23,12 +20,6 @@ const emit = defineEmits<{
 }>()
 
 const store = useUserCollectionsStore()
-const prefs = usePreferencesStore()
-const router = useRouter()
-
-const showOpticalTransfer = computed(
-  () => prefs.opticalTransferEnabled && prefs.opticalTransferListButtons,
-)
 
 const { dragActive, onHandlePointerDown, onDragEnter, rowDragClass, listDraggingClass } =
   useSortableListDrag<string>({
@@ -166,13 +157,6 @@ function confirmDeleteCollection(): void {
   store.remove(id)
   emit('deleted', id)
 }
-
-function transferCollectionOptically(id: string): void {
-  const col = store.byId(id)
-  if (!col?.tagIds.length) return
-  emit('close')
-  void router.push({ name: 'tx', query: { collection: id } })
-}
 </script>
 
 <template>
@@ -219,16 +203,6 @@ function transferCollectionOptically(id: string): void {
             </span>
           </div>
           <div class="manage-row-actions">
-            <button
-              v-if="showOpticalTransfer"
-              type="button"
-              class="manage-btn"
-              aria-label="Transfer optically"
-              :disabled="!c.tagIds.length"
-              @click="transferCollectionOptically(c.id)"
-            >
-              <TransferButtonLabel />
-            </button>
             <button type="button" class="manage-btn" @click="openRenameDialog(c.id)">Rename</button>
             <button type="button" class="manage-btn manage-btn-danger" @click="requestDeleteCollection(c.id)">
               Delete
