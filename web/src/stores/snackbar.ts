@@ -23,6 +23,7 @@ export const useSnackbarStore = defineStore('snackbar', () => {
   const tone = ref<SnackbarTone>('info')
   const placement = ref<SnackbarPlacement>('default')
   const actionLabel = ref<string | null>(null)
+  const secondaryActionLabel = ref<string | null>(null)
   /** Remaining auto-dismiss window in ms; 0 = manual dismiss only (no countdown bar). */
   const autoDismissMs = ref(0)
   /** Increments each `show()` so countdown animations restart. */
@@ -30,6 +31,7 @@ export const useSnackbarStore = defineStore('snackbar', () => {
   let timer: ReturnType<typeof setTimeout> | null = null
   let onDismissCb: (() => void) | null = null
   let actionCb: (() => void) | null = null
+  let secondaryActionCb: (() => void) | null = null
 
   /** Hide the snackbar, clear the auto-dismiss timer, and run any `onDismiss` callback. */
   function dismiss(): void {
@@ -41,7 +43,9 @@ export const useSnackbarStore = defineStore('snackbar', () => {
     title.value = null
     placement.value = 'default'
     actionLabel.value = null
+    secondaryActionLabel.value = null
     actionCb = null
+    secondaryActionCb = null
     autoDismissMs.value = 0
     const cb = onDismissCb
     onDismissCb = null
@@ -56,7 +60,8 @@ export const useSnackbarStore = defineStore('snackbar', () => {
    * @param opts.tone - Visual style (`info`, `ok`, `error`). Default `info`.
    * @param opts.ms - Auto-dismiss delay; `0` stays until dismissed. Default 10s errors, 5s otherwise (8s with action).
    * @param opts.onDismiss - Called once when the snackbar is dismissed (manual or timeout).
-   * @param opts.action - Optional button (e.g. Add to collection); cleared when dismissed.
+   * @param opts.action - Optional primary button; cleared when dismissed.
+   * @param opts.secondaryAction - Optional second button (e.g. Add to group).
    */
   function show(
     msg: string,
@@ -70,6 +75,7 @@ export const useSnackbarStore = defineStore('snackbar', () => {
       ms?: number
       onDismiss?: () => void
       action?: SnackbarAction
+      secondaryAction?: SnackbarAction
     },
   ): void {
     if (timer) {
@@ -84,9 +90,12 @@ export const useSnackbarStore = defineStore('snackbar', () => {
     onDismissCb = opts?.onDismiss ?? null
     actionLabel.value = opts?.action?.label ?? null
     actionCb = opts?.action?.onClick ?? null
+    secondaryActionLabel.value = opts?.secondaryAction?.label ?? null
+    secondaryActionCb = opts?.secondaryAction?.onClick ?? null
+    const hasAction = !!(opts?.action || opts?.secondaryAction)
     const ms =
       opts?.ms ??
-      (nextTone === 'error' ? 10_000 : opts?.action ? 8_000 : 5_000)
+      (nextTone === 'error' ? 10_000 : hasAction ? 8_000 : 5_000)
     autoDismissMs.value = ms > 0 ? ms : 0
     showToken.value += 1
     if (ms > 0) {
@@ -101,5 +110,24 @@ export const useSnackbarStore = defineStore('snackbar', () => {
     cb?.()
   }
 
-  return { message, title, tone, placement, actionLabel, autoDismissMs, showToken, show, dismiss, runAction }
+  function runSecondaryAction(): void {
+    const cb = secondaryActionCb
+    dismiss()
+    cb?.()
+  }
+
+  return {
+    message,
+    title,
+    tone,
+    placement,
+    actionLabel,
+    secondaryActionLabel,
+    autoDismissMs,
+    showToken,
+    show,
+    dismiss,
+    runAction,
+    runSecondaryAction,
+  }
 })

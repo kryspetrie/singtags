@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Favorites list: sort/reorder, collections, practice set, backup import/export,
+ * Favorites list: sort/reorder, collections, backup import/export,
  * and bulk unfavorite with confirm dialog.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -355,7 +355,15 @@ watch(
 
 watch(
   () => favorites.records.map((r) => r.tagId),
-  (ids) => userCollections.pruneToStarred(ids),
+  (ids, prev) => {
+    // Empty keep-set would wipe collections — only allow when we previously had
+    // favorites (intentional clear / last unfavorite), not on first paint.
+    if (!ids.length) {
+      if (prev?.length) userCollections.pruneToStarred(ids, { allowEmpty: true })
+      return
+    }
+    userCollections.pruneToStarred(ids)
+  },
 )
 
 watch(
@@ -385,6 +393,9 @@ onMounted(async () => {
   narrowMq.addEventListener('change', syncNarrowSelect)
   void offlineLibrary.refreshCacheReady().catch(() => undefined)
   await favorites.ensureLoaded()
+  // Collections live in localStorage; favorites in IDB. If IDB was cleared/lost,
+  // re-favorite collection members from the catalog so the list matches the chips.
+  await recoverOrphanCollectionFavorites()
   practice.syncFromStarred(favorites.records.map((r) => r.tagId))
   applyCollectionQueryFromRoute()
   const rawImport = Array.isArray(route.query.import) ? route.query.import[0] : route.query.import
@@ -400,6 +411,18 @@ onMounted(async () => {
   // Back-from-tag: restore scroll where the row was clicked.
   applyTagReturnScrollIfAny()
 })
+
+/** Re-star collection members missing from favorites IDB (metadata only). */
+async function recoverOrphanCollectionFavorites(): Promise<void> {
+  const orphans = userCollections.orphanTagIds(favorites.records.map((r) => r.tagId))
+  if (!orphans.length) return
+  if (!catalog.loaded) await catalog.load()
+  const summaries = orphans
+    .map((id) => catalog.getById(id))
+    .filter((s): s is TagSummary => !!s)
+  if (!summaries.length) return
+  await favorites.starMany(summaries, { metadataOnly: true })
+}
 
 onUnmounted(() => {
   clearLongPressTimer()
@@ -778,11 +801,13 @@ async function confirmImport(): Promise<void> {
     <p v-if="!favorites.loaded" class="text-muted" role="status">Loading favorites…</p>
     <EmptyState
       v-else-if="!favorites.records.length"
-      title="No favorites yet"
+      :title="userCollections.allTagIds().length ? 'Restoring favorites…' : 'No favorites yet'"
       :message="
-        offline
-          ? 'Favorite tags from Browse, receive sheets optically from another device, or import a backup.'
-          : 'Favorite from Browse or a tag page to save for quick recall and offline use.'
+        userCollections.allTagIds().length
+          ? 'Your collections still list tags, but favorites storage was empty. Re-adding them from the catalog — refresh if this stays empty (catalog may still be loading).'
+          : offline
+            ? 'Favorite tags from Browse, receive Local Library songs optically, or import a backup.'
+            : 'Favorite from Browse or a tag page to save for quick recall and offline use.'
       "
     >
       <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
@@ -890,7 +915,7 @@ async function confirmImport(): Promise<void> {
               class="row-fav-spinner"
               aria-hidden="true"
             />
-            <span v-else>♥</span>
+            <font-awesome-icon v-else :icon="['fas', 'heart']" aria-hidden="true" />
           </button>
           <button
             v-if="activeCollectionId"
@@ -910,7 +935,8 @@ async function confirmImport(): Promise<void> {
       <div class="backup">
         <p class="backup-desc">
           Your favorites and custom collections live in this browser only. <strong>Backup</strong> downloads a
-          <code>favorites.tags</code> file with favorited tags, collection membership, and practice order.
+          <code>favorites.tags</code> file with favorited tags, collection membership, and favorites
+          custom order.
           <strong>Restore</strong> replaces favorites and collections on this device from that file.
           Optionally fetch sheet and audio media during restore so tags work offline right away.
         </p>

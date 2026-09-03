@@ -54,7 +54,7 @@ const cacheLabel = computed(() => cacheReadyLabel(props.tag.id, catalog.cacheRea
     <span
       v-if="cacheLabel"
       class="badge cache-ready"
-      :title="`Cached offline: ${cacheLabel}`"
+      :title="`Cached on this device: ${cacheLabel} (may still need network for a full Mix)`"
     >{{ cacheLabel }}</span>
     <span v-if="!tag.hasSheet" class="badge badge-icon" title="No sheet music on file">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">

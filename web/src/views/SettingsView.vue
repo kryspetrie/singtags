@@ -269,6 +269,8 @@ function onClearCacheClick(): void {
 async function clearAllCache(): Promise<void> {
   await offlineLib.clearAllOfflineData()
   await favorites.refresh()
+  userCollections.replaceAll([])
+  practice.importSnapshot({ order: [], autoAdvance: practice.autoAdvance })
   confirmClear.value = false
 }
 
@@ -325,7 +327,7 @@ function cancelCullUpgrades(): void {
 
     <p class="lede">
       Save the songbook and optional lo-fi learning tracks on this device for offline singing.
-      Favorite individual tags while browsing when you want higher-quality audio for those songs.
+      Favorite individual tags while browsing to cache compact 64 kbps Mix audio for those songs.
     </p>
 
     <dl v-if="offlineLib.sheetsCachedCount || offlineLib.audioCachedCount" class="storage-summary">
@@ -669,17 +671,19 @@ function cancelCullUpgrades(): void {
           </button>
         </div>
         <p v-if="confirmClear" class="hint warn-inline" role="alert">
-          Removes downloaded sheets, audio pack, favorited tags, and cached catalog metadata on this
-          device. Download queue, recent tags, and settings are kept.
+          Removes downloaded sheets, audio pack, favorited tags, custom collections, and cached
+          catalog metadata on this device. Download queue, recent tags, settings, and Local Library
+          songs are kept.
         </p>
       </section>
 
       <section class="card" aria-labelledby="app-backup-h">
         <h2 id="app-backup-h">App state backup</h2>
         <p class="hint">
-          Save SingTags settings, favorites, collections, practice order, recent tags, and download
-          queue. Optionally include the offline media cache (sheets/audio packs and favorited media) —
-          that zip is much larger.
+          Save SingTags settings, favorites, collections, favorites custom order, recent tags, and
+          download queue. Optionally include the offline media cache (sheets/audio packs and
+          favorited media) — that zip is much larger. Local Library songs are stored separately and
+          are not included in this backup.
         </p>
         <label class="check">
           <input v-model="includeCacheInAppBackup" type="checkbox" />

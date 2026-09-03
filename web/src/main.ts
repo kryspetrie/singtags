@@ -4,6 +4,10 @@
  */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import { faHeart as faHeartSolid } from '@fortawesome/free-solid-svg-icons'
+import { faHeart as faHeartRegular } from '@fortawesome/free-regular-svg-icons'
 import App from './App.vue'
 import { router } from './router'
 // Self-hosted (npm) — no Google Fonts CDN
@@ -19,11 +23,15 @@ import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
 
+// Register FontAwesome icons
+library.add(faHeartSolid, faHeartRegular)
+
 ensureFetchPatchInstalled()
 
 async function bootstrap(): Promise<void> {
   const app = createApp(App)
   const pinia = createPinia()
+  app.component('font-awesome-icon', FontAwesomeIcon)
   app.use(pinia)
 
   const offlineMode = useOfflineModeStore()

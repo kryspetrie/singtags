@@ -28,7 +28,10 @@ import { useOfflineBanner } from './composables/useOfflineBanner'
 import AboutDialog from './components/AboutDialog.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
+import LocalGroupPickerSheet from './components/LocalGroupPickerSheet.vue'
+import LocalReceiveDuplicateDialog from './components/LocalReceiveDuplicateDialog.vue'
 import OfflineOpticalTransferPrompt from './components/OfflineOpticalTransferPrompt.vue'
+import { useLocalReceiveUiStore } from './stores/localReceiveUi'
 
 const favorites = useFavoritesStore()
 const queue = useQueueStore()
@@ -36,6 +39,7 @@ const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
+const localReceiveUi = useLocalReceiveUiStore()
 const route = useRoute()
 const router = useRouter()
 useReconnectCaches()
@@ -415,6 +419,14 @@ async function acceptReconnectPrompt(): Promise<void> {
       @close="favorites.clearCollectionPicker()"
       @done="favorites.onCollectionPickerDone"
     />
+    <LocalGroupPickerSheet
+      :open="!!localReceiveUi.groupPickerEntryIds?.length"
+      :entry-ids="localReceiveUi.groupPickerEntryIds ?? []"
+      title="Add to group"
+      @close="localReceiveUi.closeGroupPicker()"
+      @done="localReceiveUi.closeGroupPicker()"
+    />
+    <LocalReceiveDuplicateDialog />
     <main id="main">
       <RouterView />
     </main>
@@ -428,7 +440,7 @@ async function acceptReconnectPrompt(): Promise<void> {
         Recent
       </RouterLink>
       <RouterLink to="/favorites" class="tab">
-        <span class="ico" aria-hidden="true">♥</span>
+        <font-awesome-icon :icon="['fas', 'heart']" class="ico" aria-hidden="true" />
         Favorites
       </RouterLink>
       <RouterLink to="/pitch-pipe" class="tab">
@@ -509,7 +521,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <span>
         Make SingTags work offline? Download songbook sheets
         ({{ formatBytes(offlineLib.sheetsTotalBytes) }}) and optional lo-fi learning tracks
-        (~{{ offlineLib.audioBallparkLabel }}). Favorite tags for original quality.
+        (~{{ offlineLib.audioBallparkLabel }}). Favorite tags for compact offline Mix audio (64 kbps).
       </span>
       <button type="button" class="btn btn-primary" @click="downloadSheetsFromPrompt">
         Download sheets
@@ -586,6 +598,14 @@ async function acceptReconnectPrompt(): Promise<void> {
             >
               {{ snackbar.actionLabel }}
             </button>
+            <button
+              v-if="snackbar.secondaryActionLabel"
+              type="button"
+              class="btn"
+              @click="snackbar.runSecondaryAction()"
+            >
+              {{ snackbar.secondaryActionLabel }}
+            </button>
             <button type="button" class="btn btn-ghost" @click="snackbar.dismiss()">Dismiss</button>
             <div
               v-if="snackbar.autoDismissMs > 0"
@@ -632,6 +652,14 @@ async function acceptReconnectPrompt(): Promise<void> {
         @click="snackbar.runAction()"
       >
         {{ snackbar.actionLabel }}
+      </button>
+      <button
+        v-if="snackbar.secondaryActionLabel"
+        type="button"
+        class="btn"
+        @click="snackbar.runSecondaryAction()"
+      >
+        {{ snackbar.secondaryActionLabel }}
       </button>
       <button type="button" class="btn btn-ghost" @click="snackbar.dismiss()">Dismiss</button>
     </div>

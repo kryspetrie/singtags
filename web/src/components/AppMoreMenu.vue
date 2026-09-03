@@ -78,6 +78,11 @@ function toggleOfflineMode(): void {
         <span class="menu-desc">Cache, downloads, and offline mode</span>
       </RouterLink>
 
+      <RouterLink class="menu-item" to="/library" @click="onNavClick">
+        <span class="menu-label">Local Library</span>
+        <span class="menu-desc">Charts, images, and tracks on this device, with pitch and transfer</span>
+      </RouterLink>
+
       <RouterLink v-if="prefs.opticalTransferEnabled" class="menu-item" to="/tx" @click="onNavClick">
         <span class="menu-label">Optical transfer</span>
         <span class="menu-desc">Send or receive files via animated QR codes</span>
@@ -130,7 +135,7 @@ function toggleOfflineMode(): void {
         <span class="setting-copy">
           <span class="setting-title">Sing mode</span>
           <span class="setting-desc">
-            {{ prefs.singMode ? 'Tags open fullscreen' : 'Tags open on the tag page' }}
+            {{ prefs.singMode ? 'Tags with sheets open fullscreen' : 'Tags open on the tag page' }}
           </span>
         </span>
         <input

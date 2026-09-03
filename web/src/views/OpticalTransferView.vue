@@ -21,6 +21,15 @@ import {
 import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
+  isLocalDocTransferFile,
+  isLocalEntryTransferFile,
+  unpackLocalDocFile,
+  unpackLocalEntryFile,
+  packLocalEntryFile,
+  LOCAL_ENTRY_TRANSFER_MIME,
+} from '../lib/decimen/localDocTransfer'
+import { ingestLocalTransferFile } from '../lib/localDocReceive'
+import {
   isSingtagsCollectionFile,
   unpackSingtagsCollectionFile,
   type CollectionBatchManifest,
@@ -54,6 +63,7 @@ import {
 import { useCatalogStore } from '../stores/catalog'
 import { parseTagIdList } from '../lib/favoritesShare'
 import { useFavoritesStore } from '../stores/favorites'
+import { useLocalLibraryStore } from '../stores/localLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { useUserCollectionsStore } from '../stores/userCollections'
@@ -61,6 +71,10 @@ import { useOnline } from '../composables/useOnline'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { tagSummaryFromSheetTransferMeta } from '../lib/sheetQrTransfer'
 import type { TagSummary } from '../types/tag'
+import {
+  decodeLocalTransferAssetQuery,
+  defaultOpticalTransferAssets,
+} from '../types/localLibrary'
 
 type Tab = 'send' | 'receive'
 
@@ -79,7 +93,9 @@ type ReceivedItem = {
   file: OpticalFile
   singtagsTagId: number | null
   collectionBatch: CollectionBatchManifest | null
+  localDocTitle: string | null
   collectionImported: boolean
+  localDocImported: boolean
   saved: boolean
 }
 
@@ -95,6 +111,7 @@ const route = useRoute()
 const router = useRouter()
 const catalog = useCatalogStore()
 const favorites = useFavoritesStore()
+const localLibrary = useLocalLibraryStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const userCollections = useUserCollectionsStore()
@@ -355,12 +372,16 @@ async function startSendStream(): Promise<void> {
       displayScale: prefs.opticalTransferDisplayScale,
       fullscreen: true,
     })
-    let streamStatus: { k: number; qrVersion?: number; txFps: number } | null = null
+    let lastK = 0
+    let lastQrVersion: number | undefined
+    let lastTxFps: OpticalTxFps = prefs.opticalTransferTxFps as OpticalTxFps
     await sendStream.start(
       prepared.container,
       {
         onStatus: (s) => {
-          streamStatus = { k: s.k, qrVersion: s.qrVersion, txFps: s.txFps }
+          lastK = s.k
+          lastQrVersion = s.qrVersion
+          lastTxFps = s.txFps as OpticalTxFps
           if (sendCountdown.value != null) return
           sendStatus.value = `Streaming · K=${s.k} · QR v${s.qrVersion ?? '?'} · ${formatOpticalThroughput(prefs.opticalTransferFrameBytes, s.txFps)}`
         },
@@ -386,9 +407,10 @@ async function startSendStream(): Promise<void> {
       return
     }
     sendStream.resumeTransmission()
-    sendStatus.value = streamStatus
-      ? `Streaming · K=${streamStatus.k} · QR v${streamStatus.qrVersion ?? '?'} · ${formatOpticalThroughput(prefs.opticalTransferFrameBytes, streamStatus.txFps)}`
-      : `Streaming ${prepared.sendName} · ${formatBytes(prepared.container.length)} · ~${sendPreview.value?.etaLabel ?? '…'}`
+    sendStatus.value =
+      lastK > 0
+        ? `Streaming · K=${lastK} · QR v${lastQrVersion ?? '?'} · ${formatOpticalThroughput(prefs.opticalTransferFrameBytes, lastTxFps)}`
+        : `Streaming ${prepared.sendName} · ${formatBytes(prepared.container.length)} · ~${sendPreview.value?.etaLabel ?? '…'}`
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'Could not start transfer.'
     stopSendStream()
@@ -461,12 +483,28 @@ async function startReceiveCamera(): Promise<void> {
 async function onReceivedFile(file: OpticalFile): Promise<void> {
   let singtagsTagId: number | null = null
   let collectionBatch: CollectionBatchManifest | null = null
+  let localDocTitle: string | null = null
+  let openNow = false
   if (isSingtagsCollectionFile(file)) {
     try {
       const batch = unpackSingtagsCollectionFile(file)
       collectionBatch = batch.manifest
     } catch {
       collectionBatch = null
+    }
+  } else if (isLocalDocTransferFile(file)) {
+    try {
+      if (isLocalEntryTransferFile(file)) {
+        const pkg = unpackLocalEntryFile(file)
+        localDocTitle = pkg.meta.title || 'Local song'
+        openNow = !!pkg.meta.openNow
+      } else {
+        const pkg = unpackLocalDocFile(file)
+        localDocTitle = pkg.meta.title || pkg.meta.filename
+        openNow = !!pkg.meta.openNow
+      }
+    } catch {
+      localDocTitle = null
     }
   } else if (isSingtagsSheetFile(file)) {
     try {
@@ -477,17 +515,17 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
     }
   }
   const id = `${Date.now()}-${received.value.length}`
-  received.value = [
-    {
-      id,
-      file,
-      singtagsTagId,
-      collectionBatch,
-      collectionImported: false,
-      saved: false,
-    },
-    ...received.value,
-  ]
+  const item: ReceivedItem = {
+    id,
+    file,
+    singtagsTagId,
+    collectionBatch,
+    localDocTitle,
+    collectionImported: false,
+    localDocImported: false,
+    saved: false,
+  }
+  received.value = [item, ...received.value]
   if (collectionBatch) {
     const sessions = new Map(collectionSessions.value)
     upsertCollectionSession(sessions, collectionBatch, id)
@@ -498,6 +536,10 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
     ? ` · batch ${collectionBatch.batchIndex + 1}/${collectionBatch.batchCount}`
     : ''
   receiveStatus.value = `Received ${file.name}${batchNote} · ${formatBytes(file.bytes.length)}`
+  if (localDocTitle != null) {
+    await importLocalDoc(item, { openNow })
+    return
+  }
   const importHint = singtagsTagId != null ? ' — import when ready, then open the tag' : ' — save or import when ready'
   snackbar.show(`Received “${file.name}”${importHint}`, { tone: 'ok' })
 }
@@ -590,6 +632,24 @@ async function importSingtagsSheet(item: ReceivedItem): Promise<void> {
   }
 }
 
+async function importLocalDoc(
+  item: ReceivedItem,
+  opts?: { openNow?: boolean },
+): Promise<void> {
+  if (item.localDocTitle == null || item.localDocImported) return
+  try {
+    const result = await ingestLocalTransferFile(router, item.file, { openNow: opts?.openNow })
+    if (result.status !== 'dismissed') {
+      item.localDocImported = true
+      received.value = [...received.value]
+    }
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Could not import local document.', {
+      tone: 'error',
+    })
+  }
+}
+
 function findCollectionSession(item: ReceivedItem): CollectionReceiveSession | null {
   if (!item.collectionBatch) return null
   for (const session of collectionSessions.value.values()) {
@@ -669,16 +729,31 @@ async function addCollectionToLibrary(session: CollectionReceiveSession): Promis
     const result = applyReceivedCollectionToLibrary(userCollections, session.collectionName, tagIds)
     await favorites.ensureLoaded()
     void favorites.starMany(tagSummariesForImportedIds(session, tagIds), { metadataOnly: true })
-    snackbar.show(`Created collection “${result.collectionName}” with ${tagIds.length} tags`, {
-      tone: 'ok',
-      ms: 8000,
-      action: {
-        label: 'View collection',
-        onClick: () => {
-          void router.push({ path: '/favorites', query: { collection: result.collectionId } })
+    const viewCollection = () => {
+      void router.push({ path: '/favorites', query: { collection: result.collectionId } })
+    }
+    if (offline.value) {
+      snackbar.show(
+        `Created collection “${result.collectionName}” with ${tagIds.length} tags. Sheets saved — connect later to download tracks.`,
+        {
+          tone: 'ok',
+          ms: 10_000,
+          action: { label: 'View collection', onClick: viewCollection },
         },
-      },
-    })
+      )
+    } else {
+      snackbar.show(`Created collection “${result.collectionName}” with ${tagIds.length} tags`, {
+        tone: 'ok',
+        ms: 10_000,
+        action: { label: 'View collection', onClick: viewCollection },
+        secondaryAction: {
+          label: 'Cache audio',
+          onClick: () => {
+            void favorites.ensureAudioForStarred(tagIds)
+          },
+        },
+      })
+    }
   } catch (e) {
     snackbar.show(e instanceof Error ? e.message : 'Could not save collection.', { tone: 'error' })
   } finally {
@@ -686,7 +761,85 @@ async function addCollectionToLibrary(session: CollectionReceiveSession): Promis
   }
 }
 
+async function loadLocalDocsFromQuery(): Promise<boolean> {
+  const raw = route.query.localDocs
+  if (typeof raw !== 'string' || !raw.trim()) return false
+
+  const ids = [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))]
+  if (!ids.length) return false
+
+  const openNow = route.query.openNow === '1' || route.query.openNow === 'true'
+  const assetPicks = decodeLocalTransferAssetQuery(
+    typeof route.query.localAssets === 'string' ? route.query.localAssets : '',
+  )
+  tagTransferContext.value = null
+  useHighRes.value = false
+  highResAvailable.value = false
+  collectionPrepareBusy.value = true
+  collectionPrepareError.value = null
+  collectionPrepareStatus.value = 'Preparing local songs…'
+  tab.value = 'send'
+
+  try {
+    await localLibrary.ensureLoaded()
+    const queued: QueuedFile[] = []
+    let missing = 0
+    for (const id of ids) {
+      const entry =
+        localLibrary.entries.find((d) => d.id === id) ?? (await localLibrary.getLocalEntry(id))
+      if (!entry) {
+        missing += 1
+        continue
+      }
+      const allAssets = await localLibrary.reloadAssets(id)
+      const pickIds = assetPicks[id]
+      const assets = pickIds
+        ? allAssets.filter((a) => pickIds.includes(a.id))
+        : defaultOpticalTransferAssets(allAssets)
+      const blobs = new Map<string, Uint8Array>()
+      for (const asset of assets) {
+        const blobRec = await localLibrary.getLocalAssetBlob(asset.id)
+        if (!blobRec) continue
+        blobs.set(asset.id, new Uint8Array(blobRec.data))
+      }
+      // Metadata-only is allowed when the user unchecked everything or there is no sheet.
+      const packed = await packLocalEntryFile(entry, assets, blobs, { openNow })
+      queued.push({
+        id: nextQueueId++,
+        file: new File([packed.container], packed.filename, { type: LOCAL_ENTRY_TRANSFER_MIME }),
+        batchLabel:
+          assets.length === allAssets.length
+            ? entry.title
+            : `${entry.title} · ${assets.length}/${allAssets.length} files`,
+      })
+    }
+    queue.value = queued
+    refreshSendPreview()
+    if (!queued.length) {
+      collectionPrepareError.value = 'No Local Library songs found for this transfer.'
+      return true
+    }
+    const missNote = missing ? ` · ${missing} missing` : ''
+    snackbar.show(
+      `Queued ${queued.length} local song${queued.length === 1 ? '' : 's'}${missNote}`,
+      { tone: missing ? 'error' : 'ok', ms: 3600 },
+    )
+    if (missing) {
+      collectionPrepareError.value = `${missing} song${missing === 1 ? '' : 's'} could not be loaded.`
+    }
+  } catch (e) {
+    collectionPrepareError.value =
+      e instanceof Error ? e.message : 'Could not prepare local song transfer.'
+  } finally {
+    collectionPrepareBusy.value = false
+    collectionPrepareStatus.value = ''
+  }
+  return true
+}
+
 async function loadCollectionFromQuery(): Promise<void> {
+  if (await loadLocalDocsFromQuery()) return
+
   tagTransferContext.value = null
   useHighRes.value = false
   highResAvailable.value = false
@@ -798,7 +951,15 @@ watch(
 )
 
 watch(
-  () => [route.query.collection, route.query.tags, route.query.name] as const,
+  () =>
+    [
+      route.query.collection,
+      route.query.tags,
+      route.query.name,
+      route.query.localDocs,
+      route.query.localAssets,
+      route.query.openNow,
+    ] as const,
   () => {
     void loadCollectionFromQuery()
   },
@@ -835,9 +996,9 @@ onUnmounted(() => {
     <header class="page-head">
       <h1 class="page-title">Optical transfer</h1>
       <p class="intro">
-        Send or receive files with animated QR codes — works fully offline. On a fresh device with
-        no cache, use <strong>Receive</strong> to scan sheets from another phone and save them here.
-        Collections split into independent batches so partial receive stays safe. Limit
+        Send or receive files and Local Library songs with animated QR codes — works fully offline.
+        On a fresh device, use <strong>Receive</strong> to scan from another phone. Collections
+        split into independent batches so partial receive stays safe. Limit
         {{ MAX_FILE_LABEL }} per transfer.
       </p>
     </header>
@@ -1041,8 +1202,9 @@ onUnmounted(() => {
       <div class="receive-intro-card">
         <h2 class="section-title">Receive to this device</h2>
         <p class="hint">
-          Point the camera at another phone’s transfer QR stream. SingTags sheets import into this
-          device’s offline library — no network or prior cache required.
+          Point the camera at another phone’s transfer QR stream. Local Library songs and files
+          import here — SingTags collection sheets can land in Favorites. No network or prior cache
+          required.
         </p>
       </div>
 
@@ -1141,8 +1303,11 @@ onUnmounted(() => {
                 }}
                 · {{ item.collectionBatch.tagIds.length }} tags
               </span>
+              <span v-if="item.localDocTitle" class="collection-badge">
+                Local Library · {{ item.localDocTitle }}
+              </span>
               <span v-if="item.saved" class="saved-badge">Saved</span>
-              <span v-if="item.collectionImported" class="saved-badge">Imported</span>
+              <span v-if="item.collectionImported || item.localDocImported" class="saved-badge">Imported</span>
             </div>
             <div class="row-actions">
               <button type="button" class="btn btn-ghost" :disabled="saveBusy" @click="saveOneReceived(item)">
@@ -1156,6 +1321,15 @@ onUnmounted(() => {
                 @click="importCollectionBatch(item)"
               >
                 Import tags
+              </button>
+              <button
+                v-else-if="item.localDocTitle != null"
+                type="button"
+                class="btn btn-ghost"
+                :disabled="item.localDocImported"
+                @click="importLocalDoc(item)"
+              >
+                Import to Local Library
               </button>
               <button
                 v-else-if="item.singtagsTagId != null"

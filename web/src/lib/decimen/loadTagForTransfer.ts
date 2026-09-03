@@ -124,7 +124,7 @@ async function loadHighResPdfBlob(
         : mediaUrl(pdf.path)
   let urls: string[] = []
   try {
-    urls = await renderPdfToPageUrls(pdfUrl, { dpi: DEFAULT_PDF_RENDER_DPI, crop: true })
+    urls = await renderPdfToPageUrls(pdfUrl, { dpi: DEFAULT_PDF_RENDER_DPI, crop: false })
     if (!urls.length) return null
     return blobFromUrl(urls[0]!)
   } finally {

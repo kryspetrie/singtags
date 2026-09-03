@@ -24,6 +24,9 @@ import {
 
 export type PartSide = 'left' | 'right'
 
+/** Fullscreen multi-page navigation: discrete pages vs continuous scroll stack. */
+export type SheetFsPageMode = 'paging' | 'scroll'
+
 /** Pitch-pipe UI prefs (localStorage + offline cache zip). */
 export type PitchPipePrefs = {
   range: PitchPipeRange
@@ -40,6 +43,8 @@ const BROWSE_WELCOME_KEY = 'singtags.browseWelcomeDismissed.v1'
 const SING_MODE_KEY = 'singtags.singMode.v1'
 const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
 const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
+/** Fullscreen multi-page: one-page pager vs continuous vertical scroll. */
+const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
@@ -219,6 +224,19 @@ function loadNumber(key: string, fallback: number): number {
   }
 }
 
+/** Normalize / load fullscreen sheet page mode from localStorage. */
+export function normalizeSheetFsPageMode(raw: unknown): SheetFsPageMode {
+  return raw === 'scroll' ? 'scroll' : 'paging'
+}
+
+function loadSheetFsPageMode(): SheetFsPageMode {
+  try {
+    return normalizeSheetFsPageMode(localStorage.getItem(SHEET_FS_PAGE_MODE_KEY))
+  } catch {
+    return 'paging'
+  }
+}
+
 /** Read a string array from localStorage JSON; normalizes custom audio part names. */
 function loadStringArray(key: string, fallback: string[]): string[] {
   try {
@@ -295,6 +313,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * When true, Copy/Share/QR use the barbershoptags.com tag page instead of this app.
    */
   const shareBarbershopTags = ref(loadBool(SHARE_BARBERSHOP_TAGS_KEY, false))
+  /**
+   * Fullscreen multi-page navigation: discrete one-page pager vs continuous vertical scroll.
+   * Sticky across Local Library / tag sheet opens.
+   */
+  const sheetFsPageMode = ref<SheetFsPageMode>(loadSheetFsPageMode())
   /**
    * Labs: when true, animated QR optical transfer (send/receive pages, Browse camera receive) is available.
    * Static QR share codes are unrelated and stay available either way.
@@ -418,6 +441,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SHARE_BARBERSHOP_TAGS_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    sheetFsPageMode,
+    (v) => {
+      try {
+        localStorage.setItem(SHEET_FS_PAGE_MODE_KEY, v)
       } catch {
         /* ignore */
       }
@@ -590,6 +625,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareBarbershopTags.value = on
   }
 
+  /** Fullscreen multi-page: paging vs continuous scroll (persisted). */
+  function setSheetFsPageMode(mode: SheetFsPageMode): void {
+    sheetFsPageMode.value = normalizeSheetFsPageMode(mode)
+  }
+
   function setOpticalTransferFrameBytes(value: number): void {
     opticalTransferFrameBytes.value = normalizeOpticalFrameBytes(value)
   }
@@ -610,6 +650,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singMode,
     shareFullscreen,
     shareBarbershopTags,
+    sheetFsPageMode,
     opticalTransferEnabled,
     opticalTransferFrameBytes,
     opticalTransferTxFps,
@@ -628,6 +669,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOpticalTransferEnabled,
     setShareFullscreen,
     setShareBarbershopTags,
+    setSheetFsPageMode,
     setOpticalTransferFrameBytes,
     setOpticalTransferTxFps,
     setOpticalTransferDisplayScale,

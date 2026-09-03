@@ -14,9 +14,18 @@ const HISTORY_FLAG = 'singFs'
 /** Lock document scroll while a fullscreen overlay is open. */
 export function setScrollLock(on: boolean): void {
   if (typeof document === 'undefined') return
-  const v = on ? 'hidden' : ''
-  document.documentElement.style.overflow = v
-  document.body.style.overflow = v
+  const root = document.documentElement
+  if (on) {
+    // overflow:hidden drops scrollbar-gutter; pad so the layout width stays put.
+    const gutter = Math.max(0, window.innerWidth - root.clientWidth)
+    root.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    if (gutter > 0) root.style.paddingRight = `${gutter}px`
+  } else {
+    root.style.overflow = ''
+    document.body.style.overflow = ''
+    root.style.paddingRight = ''
+  }
 }
 
 /** Mark app chrome inert so focus stays in the overlay. */

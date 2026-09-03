@@ -236,6 +236,14 @@ export async function clearAllOfflineData(): Promise<void> {
   } catch {
     /* ignore */
   }
+  // Favorites metadata is in IDB; custom collections are in localStorage — clear both
+  // so collection chips do not outlive the starred tags they reference.
+  try {
+    localStorage.removeItem('singtags.userCollections.v1')
+    localStorage.removeItem('singtags.practiceOrder.v1')
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Result of {@link cullUpgradeCaches}. */

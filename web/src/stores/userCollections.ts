@@ -206,10 +206,18 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
    * Removes collections that become empty.
    * Keeps custom collections aligned with the Favorites list.
    *
+   * When `favoriteIds` is empty, does nothing unless `opts.allowEmpty` is set —
+   * an empty keep-set would wipe every collection (bad during first paint before
+   * favorites IDB loads, or when recovering orphan memberships).
+   *
    * @param favoriteIds - Iterable of favorited tag ids (often from favorites store `ids`).
    */
-  function pruneToStarred(favoriteIds: Iterable<number>): void {
+  function pruneToStarred(
+    favoriteIds: Iterable<number>,
+    opts?: { allowEmpty?: boolean },
+  ): void {
     const keep = new Set(favoriteIds)
+    if (!keep.size && !opts?.allowEmpty) return
     let changed = false
     const next = collections.value
       .map((c) => {
@@ -220,6 +228,24 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
       })
       .filter((c) => c.tagIds.length > 0)
     if (changed || next.length !== collections.value.length) collections.value = next
+  }
+
+  /** Tag ids referenced by any collection. */
+  function allTagIds(): number[] {
+    const ids = new Set<number>()
+    for (const c of collections.value) {
+      for (const id of c.tagIds) ids.add(id)
+    }
+    return [...ids]
+  }
+
+  /**
+   * Collection members that are not in `favoriteIds` (e.g. after favorites IDB
+   * was cleared while localStorage collections remained).
+   */
+  function orphanTagIds(favoriteIds: Iterable<number>): number[] {
+    const have = new Set(favoriteIds)
+    return allTagIds().filter((id) => !have.has(id))
   }
 
   /**
@@ -331,6 +357,8 @@ export const useUserCollectionsStore = defineStore('userCollections', () => {
     removeTags,
     hasTag,
     pruneToStarred,
+    allTagIds,
+    orphanTagIds,
     setTagOrder,
     reorderTag,
     setOrder,

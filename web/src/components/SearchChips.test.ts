@@ -117,9 +117,9 @@ describe('SearchChips', () => {
 
   it('sets the cached media filter', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
-    await chip(w, 'Available offline').trigger('click')
+    await chip(w, 'Cached on device').trigger('click')
     await flushPromises()
-    const select = await waitBodySelect('Available offline')
+    const select = await waitBodySelect('Cached on device')
     select.value = 'both'
     select.dispatchEvent(new Event('change'))
     await flushPromises()

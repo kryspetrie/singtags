@@ -200,6 +200,15 @@ export function clampPitchSemitones(n: number): number {
   return Math.max(MIN_PITCH_SEMITONES, Math.min(MAX_PITCH_SEMITONES, Math.round(n)))
 }
 
+/**
+ * Clamp bake pitch to ± one octave without rounding.
+ * Preserves fractional semitones (e.g. fine detune as cents/100).
+ */
+export function clampPitchSemitonesFractional(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return Math.max(MIN_PITCH_SEMITONES, Math.min(MAX_PITCH_SEMITONES, n))
+}
+
 /** Transpose a key label by whole semitones; preserves Major/Minor wording style. */
 export function transposeKeyLabel(key: string | null | undefined, semitones: number): string | null {
   const parsed = parseKey(key)

@@ -138,4 +138,13 @@ describe('preferences store', () => {
     setActivePinia(createPinia())
     expect(usePreferencesStore().shareBarbershopTags).toBe(true)
   })
+
+  it('persists fullscreen sheet page mode (paging vs scroll)', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.sheetFsPageMode).toBe('paging')
+    prefs.setSheetFsPageMode('scroll')
+    expect(localStorage.getItem('singtags.sheetFsPageMode.v1')).toBe('scroll')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().sheetFsPageMode).toBe('scroll')
+  })
 })

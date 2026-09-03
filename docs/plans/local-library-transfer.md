@@ -1,9 +1,21 @@
 # Local Library & transfer
 
-> **Status:** planned  
+> **Status:** Shell + optical Entry transfer shipped; residual polish in [local-library-hardening.md](local-library-hardening.md)  
 > **Created:** 2026-09-02  
-> **Goal:** First-class local documents (PDF / image / sheet) with metadata and pitch, plus optical (and later short-lived link) transfer that is not tied to the remote SingTags catalog.  
-> **Related:** [sheet-qr-transfer.md](sheet-qr-transfer.md) (transport restore point), Labs optical flag.
+> **Goal:** First-class on-device songs (Entry + Assets) with metadata and pitch, plus optical (and later short-lived link) transfer that is not tied to the remote SingTags catalog.  
+> **Related:** [sheet-qr-transfer.md](sheet-qr-transfer.md) (transport restore point), Labs optical flag, [local-library-hardening.md](local-library-hardening.md).
+
+---
+
+## Shipped so far
+
+- IndexedDB Local Library (`singtags-local-library`, v3) + Pinia store
+- Model: **Entry** (title, arranger, notes, key, detuneCents, groups) + **Assets** (sheet / alternateSheet / image / track / other)
+- More → Local Library (`/library`, `/library/:id`) — Tag-like item view + Edit; list with groups, Favorites-style reorder, basic search (title/arranger/key; optional notes)
+- Import: N→N files, or N→1 song with role staging; PDF / image / **audio**
+- Optical send **v2** `application/vnd.singtags.local-entry` (whole entry + selected assets); **v1** `…local-doc` still received
+- Send from list or item (asset chooser; default = primary sheet); receive on `/rx` and Browse camera → auto-import to Local Library (`openNow` supported)
+- Catalog optical list buttons removed (restore tag `optical-transfer-catalog-buttons`)
 
 ---
 
@@ -11,67 +23,58 @@
 
 | Kind | Local Library? | Metadata / pitch | Transfer |
 | --- | --- | --- | --- |
-| PDF / image / sheet music | Yes (curated docs) | title, arranger, notes, concert pitch/key | Optical: **file + metadata**; receive recreates library entry |
-| Audio | Later | same + playable | Same envelope |
-| Arbitrary other files | Not as curated docs | none | **Ad-hoc only** via `/tx` inbox; optional open-now for known MIME |
+| PDF / image / sheet | Yes (Entry + sheet/image assets) | title, arranger, notes, key, detune | Optical: selected assets + meta |
+| Audio tracks | Yes (`track` assets + TagPlayer) | same | Opt-in via asset chooser (not default) |
+| Arbitrary other files | Not as curated Entries | none | **Ad-hoc** via `/tx` inbox; optional open-now for known MIME |
 
-Catalog SingTags tags use deep links / static QR. Catalog optical list buttons were removed after tag `optical-transfer-catalog-buttons` (see sheet-qr plan).
+Catalog SingTags tags use deep links / static QR.
 
 ```mermaid
 flowchart TB
   subgraph send [Send]
     AdHoc[Ad-hoc any file]
-    LibDoc[Local Library doc]
+    LibEntry[Local Library entry]
     AdHoc --> Optical[Optical Decimen stream]
-    LibDoc --> Optical
-    LibDoc -.->|"later"| S3Link[Short-lived S3 URL QR]
+    LibEntry --> Optical
+    LibEntry -.->|"later"| S3Link[Short-lived S3 URL QR]
     AdHoc -.->|"later"| S3Link
   end
   subgraph recv [Receive]
     Optical --> Inbox[Receive inbox]
     S3Link --> Inbox
     Inbox --> OpenNow[Open now if flagged]
-    Inbox --> Promote[Promote to Local Library]
+    Inbox --> AutoLib[Auto-import local-entry/doc]
+    Inbox --> Promote[Promote other files later]
   end
 ```
 
 ---
 
-## Phase A — Local Library shell
+## Residual (do next)
 
-- IndexedDB (or OPFS) store: `LocalDoc` `{ id, title, arranger, notes, pitch (aHz/cents/key), mime, blobRef, createdAt, updatedAt, groups[] }`.
-- UI: Local Library view (More entry first; bottom nav later if needed) — import PDF/image, edit metadata, open in sheet/PDF viewer with **pitch button** (reuse TagView / pitch-pipe patterns).
-- Groups: simple named folders (light reuse of user-collections patterns).
+Tracked in **[local-library-hardening.md](local-library-hardening.md)**:
 
-**v1 defaults:** curated library = PDF + image (+ sheet-as-image); audio later.
+- Groups curation parity (add/remove like Favorites collections)
+- **Merge entries** (combine wrongly split imports — sheet + tracks → one song)
+- Receive placement + soft dedupe/replace
+- Size / multi-send honesty; store integrity; tests/migration cleanup
+- Docs/copy already partially addressed there (Phase A)
 
-## Phase B — Optical for library docs + ad-hoc
-
-- Transfer envelope: Decimen file container MIME e.g. `application/vnd.singtags.local-doc` with JSON meta + bytes; `openNow` flag; multi-file batch.
-- Ad-hoc: existing `/tx` queue any file → receive inbox without promoting.
-- Receive: honor `openNow` for PDF/image/audio; snackbar actions; multi-file progress.
-- Browse camera: keep receiving; route local-doc packages into Local Library / inbox (not fake catalog tag ids via `putTransferredTag`).
-
-Pitch travels only with curated local docs.
+---
 
 ## Phase C — Short-lived link transfer (optional, later)
 
-**Problem:** Pure client + public S3 cannot safely accept arbitrary uploads without an abuse gate. Performance without end-user auth is fine if uploads are **anonymous + size-capped + TTL + rate-limited**.
+**Problem:** Pure client + public S3 cannot safely accept arbitrary uploads without an abuse gate.
 
-**Shape (no app accounts):**
+**Shape (no app accounts):** Lambda presigned PUT + short TTL; QR → HTTPS pull; &lt;50 MB; rate limits; CAPTCHA or one-time token.
 
-- Lambda: `createUpload` → **presigned PUT** + transfer id + short TTL (15–60 min); optional `createDownload` for private GET URLs in the QR.
-- QR encodes HTTPS URL the SPA opens and pulls (`/rx?t=…` or CDN object URL).
-- Hard limits: **&lt;50 MB** per object, optional content-type allowlist, max uploads / IP / day, S3 lifecycle expiry.
-- Abuse: CAPTCHA or one-time upload token from Lambda — not full user auth.
-- Optical remains the zero-infra path; S3 is for files too large for fountain QR.
-
-Do **not** build Phase C until A/B prove Local Library value.
+Do **not** build Phase C until hardening proves Local Library value for rehearsal kits.
 
 ---
 
 ## Non-goals (near term)
 
-- Re-adding catalog optical buttons on Browse/Recent/Favorites (restore from git tag if needed).
-- Hosting unpublished charts on the SingTags library S3 bucket as permanent catalog entries.
-- End-user accounts / OAuth for transfer.
+- Re-adding catalog optical buttons on Browse/Recent/Favorites
+- Hosting unpublished charts on the SingTags library S3 bucket as permanent catalog entries
+- End-user accounts / OAuth for transfer
+- Bottom-nav Local Library (revisit after hardening)

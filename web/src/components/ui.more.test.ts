@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import FilterSheet from './FilterSheet.vue'
 import SheetViewer from './SheetViewer.vue'
 
@@ -43,7 +44,19 @@ describe('FilterSheet', () => {
 describe('SheetViewer fullscreen + pay key', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    setActivePinia(createPinia())
   })
+
+  function mountViewer(props: Record<string, unknown>) {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    return mount(SheetViewer, {
+      props,
+      global: { plugins: [pinia] },
+      attachTo: document.body,
+    })
+  }
 
   async function enterInlineFullscreen(w: ReturnType<typeof mount>) {
     await (w.vm as { enterFullscreen: () => void }).enterFullscreen()
@@ -51,15 +64,13 @@ describe('SheetViewer fullscreen + pay key', () => {
   }
 
   it('enters fullscreen and emits pay events', async () => {
-    const w = mount(SheetViewer, {
-      props: {
+    const w = mountViewer({
         pages: ['sheets/1/p1.webp'],
         baseUrl: '/library/',
         payKeyEnabled: true,
         keyLabel: 'Bb',
         shift: 1,
-      },
-      attachTo: document.body,
+      
     })
     await flushPromises()
     await enterInlineFullscreen(w)
@@ -83,14 +94,12 @@ describe('SheetViewer fullscreen + pay key', () => {
 
   it('online: paints WebP then fades in PDF rasters and caches them', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
-    const w = mount(SheetViewer, {
-      props: {
+    const w = mountViewer({
         pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
         pdf: 'sheets/1/sheet.pdf',
         baseUrl: '/library/',
         canChooseFormat: false,
-      },
-      attachTo: document.body,
+      
     })
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
@@ -115,14 +124,12 @@ describe('SheetViewer fullscreen + pay key', () => {
 
   it('auto-enters fullscreen and upgrades to PDF rasters (sing mode)', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
-    const w = mount(SheetViewer, {
-      props: {
+    const w = mountViewer({
         pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
         pdf: 'sheets/1/sheet.pdf',
         baseUrl: '/library/',
         autoEnterFullscreen: true,
-      },
-      attachTo: document.body,
+      
     })
     await flushPromises()
     expect(w.emitted('fullscreen-change')?.[0]).toEqual([true])
@@ -143,19 +150,17 @@ describe('SheetViewer fullscreen + pay key', () => {
     } = await import('../offline/pdfRasterCache')
     await clearPdfRasterCache()
     const pdfUrl = '/library/sheets/1/sheet.pdf'
-    const key = pdfRasterCacheKey(pdfUrl, { crop: true })
+    const key = pdfRasterCacheKey(pdfUrl, { crop: false })
     await putPdfRasterBlobs(key, [
       new Blob(['hi'], { type: 'image/webp' }),
       new Blob(['hi2'], { type: 'image/webp' }),
     ])
-    const w = mount(SheetViewer, {
-      props: {
+    const w = mountViewer({
         pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
         pdf: 'sheets/1/sheet.pdf',
         baseUrl: '/library/',
         offline: true,
-      },
-      attachTo: document.body,
+      
     })
     await flushPromises()
     // Cached HQ is applied inline (WebP → IDB rasters) without pdf.js.
@@ -176,14 +181,12 @@ describe('SheetViewer fullscreen + pay key', () => {
     const { clearPdfRasterCache } = await import('../offline/pdfRasterCache')
     await clearPdfRasterCache()
     vi.mocked(renderPdfToPageUrls).mockClear()
-    const w = mount(SheetViewer, {
-      props: {
+    const w = mountViewer({
         pages: ['sheets/1/p1.webp'],
         pdf: 'sheets/1/sheet.pdf',
         baseUrl: '/library/',
         offline: true,
-      },
-      attachTo: document.body,
+      
     })
     await flushPromises()
     await enterInlineFullscreen(w)
@@ -193,16 +196,35 @@ describe('SheetViewer fullscreen + pay key', () => {
     w.unmount()
   })
 
+  it('offline still rasterizes local blob PDFs (Local Library)', async () => {
+    const { renderPdfToPageUrls } = await import('../lib/pdfRender')
+    const { clearPdfRasterCache } = await import('../offline/pdfRasterCache')
+    await clearPdfRasterCache()
+    vi.mocked(renderPdfToPageUrls).mockClear()
+    const blobPdf = 'blob:http://localhost/local-doc-pdf'
+    const w = mountViewer({
+        pages: [],
+        pdfs: [{ id: 'local', label: 'PDF', path: blobPdf }],
+        offline: true,
+      
+    })
+    await flushPromises()
+    expect(renderPdfToPageUrls).toHaveBeenCalledWith(
+      blobPdf,
+      expect.objectContaining({ crop: expect.any(Boolean) }),
+    )
+    expect(w.find('img').attributes('src')).toContain('blob:pdf-page')
+    w.unmount()
+  })
+
 
   it('shows format toggle only when uploads of both kinds exist', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
-    const w = mount(SheetViewer, {
-      props: {
-        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
-        pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/library/',
-        canChooseFormat: true,
-      },
+    const w = mountViewer({
+      pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
+      pdf: 'sheets/1/sheet.pdf',
+      baseUrl: '/library/',
+      canChooseFormat: true,
     })
     await flushPromises()
     const wrap = w.get('.wrap')
@@ -242,13 +264,11 @@ describe('SheetViewer fullscreen + pay key', () => {
           finish = resolve
         }),
     )
-    const w = mount(SheetViewer, {
-      props: {
-        pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
-        pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/library/',
-        canChooseFormat: true,
-      },
+    const w = mountViewer({
+      pages: ['sheets/1/p1.webp', 'sheets/1/p2.webp'],
+      pdf: 'sheets/1/sheet.pdf',
+      baseUrl: '/library/',
+      canChooseFormat: true,
     })
     await flushPromises()
     // Background HQ prepare started on mount (images mode).
@@ -273,14 +293,11 @@ describe('SheetViewer fullscreen + pay key', () => {
           finish = resolve
         }),
     )
-    const w = mount(SheetViewer, {
-      props: {
-        pages: ['sheets/1/p1.webp'],
-        pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/library/',
-        canChooseFormat: true,
-      },
-      attachTo: document.body,
+    const w = mountViewer({
+      pages: ['sheets/1/p1.webp'],
+      pdf: 'sheets/1/sheet.pdf',
+      baseUrl: '/library/',
+      canChooseFormat: true,
     })
     await flushPromises()
     expect(w.text()).not.toContain('Preparing PDF')
@@ -304,12 +321,10 @@ describe('SheetViewer fullscreen + pay key', () => {
 
 
   it('shows PDF pages alone when there are no image pages', async () => {
-    const w = mount(SheetViewer, {
-      props: {
-        pages: [],
-        pdf: 'sheets/1/sheet.pdf',
-        baseUrl: '/library/',
-      },
+    const w = mountViewer({
+      pages: [],
+      pdf: 'sheets/1/sheet.pdf',
+      baseUrl: '/library/',
     })
     await flushPromises()
     expect(w.find('[aria-label="Sheet music format"]').exists()).toBe(false)
@@ -319,19 +334,17 @@ describe('SheetViewer fullscreen + pay key', () => {
 
   it('lets you pick among multiple PDFs and image sets', async () => {
     const { renderPdfToPageUrls } = await import('../lib/pdfRender')
-    const w = mount(SheetViewer, {
-      props: {
-        imageSets: [
-          { id: 'pages', label: 'Pages (2)', paths: ['sheets/1/p1.webp', 'sheets/1/p2.webp'] },
-          { id: 'img-a', label: 'scan.jpg', paths: ['sheets/1/scan.jpg'] },
-        ],
-        pdfs: [
-          { id: 'pdf-a', label: 'arr.pdf', path: 'sheets/1/arr.pdf' },
-          { id: 'pdf-b', label: 'learn.pdf', path: 'sheets/1/learn.pdf' },
-        ],
-        canChooseFormat: true,
-        baseUrl: '/library/',
-      },
+    const w = mountViewer({
+      imageSets: [
+        { id: 'pages', label: 'Pages (2)', paths: ['sheets/1/p1.webp', 'sheets/1/p2.webp'] },
+        { id: 'img-a', label: 'scan.jpg', paths: ['sheets/1/scan.jpg'] },
+      ],
+      pdfs: [
+        { id: 'pdf-a', label: 'arr.pdf', path: 'sheets/1/arr.pdf' },
+        { id: 'pdf-b', label: 'learn.pdf', path: 'sheets/1/learn.pdf' },
+      ],
+      canChooseFormat: true,
+      baseUrl: '/library/',
     })
     await flushPromises()
     // Online: HQ prepare starts immediately for the default PDF while WebP shows.

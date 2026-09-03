@@ -21,6 +21,10 @@ const mockState = {
   ended: null as (() => void) | null,
   load: vi.fn(async () => {}),
   setSolo: vi.fn(async () => {}),
+  setTransform: vi.fn(async (p: number, s: number) => {
+    mockState.pitch = p
+    mockState.speed = s
+  }),
   seek: vi.fn((t: number) => {
     mockState.currentTime = t
   }),
@@ -81,10 +85,7 @@ vi.mock('../audio/player', () => {
     setSpeed = vi.fn(async (n: number) => {
       mockState.speed = n
     })
-    setTransform = vi.fn(async (p: number, s: number) => {
-      mockState.pitch = p
-      mockState.speed = s
-    })
+    setTransform = mockState.setTransform
     setBalance = vi.fn(async () => {})
     setLoop = vi.fn()
     setPlayRegion = vi.fn()
@@ -137,8 +138,32 @@ describe('TagPlayer', () => {
     mockState.effectivelyMono = false
     mockState.load.mockClear()
     mockState.setSolo.mockClear()
+    mockState.setTransform.mockClear()
     buildMix.mockClear()
     buildUltraMix.mockClear()
+  })
+
+  it('folds detuneCents into Mix bake pitch', async () => {
+    vi.useFakeTimers()
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { mix: 'media/1/mix.m4a' },
+        pitchSemitones: 2,
+        detuneCents: 0,
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    mockState.setTransform.mockClear()
+    await w.setProps({ detuneCents: 50 })
+    await flushPromises()
+    vi.advanceTimersByTime(200)
+    await flushPromises()
+    expect(mockState.setTransform).toHaveBeenCalled()
+    const [pitch] = mockState.setTransform.mock.calls.at(-1)!
+    expect(pitch).toBeCloseTo(2.5, 5)
+    w.unmount()
+    vi.useRealTimers()
   })
 
   it('does not fall back to parts keys when availableParts is empty', async () => {

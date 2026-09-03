@@ -2,13 +2,10 @@
 /**
  * Shareable link for receivers who need to open SingTags in optical receive mode.
  */
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
-import { qrDataUrl } from '../lib/qr'
 import { useSnackbarStore } from '../stores/snackbar'
-
-const INLINE_QR_PX = 120
 
 withDefaults(
   defineProps<{
@@ -24,27 +21,6 @@ const router = useRouter()
 const snackbar = useSnackbarStore()
 
 const receiveHref = computed(() => opticalReceiveAbsoluteHref(router))
-const qrSrc = ref('')
-const qrBusy = ref(false)
-
-watch(
-  receiveHref,
-  async (url) => {
-    if (!url) {
-      qrSrc.value = ''
-      return
-    }
-    qrBusy.value = true
-    try {
-      qrSrc.value = await qrDataUrl(url, INLINE_QR_PX)
-    } catch {
-      qrSrc.value = ''
-    } finally {
-      qrBusy.value = false
-    }
-  },
-  { immediate: true },
-)
 
 function selectUrl(event: Event): void {
   ;(event.target as HTMLInputElement).select()
@@ -69,7 +45,7 @@ async function copyLink(): Promise<void> {
       {{
         compact
           ? 'Share this link so they can open Receive mode and scan your QR stream.'
-          : 'Share the link below. It opens optical transfer in Receive mode on their phone so they can scan your animated QR and save sheets locally — no catalog download required.'
+          : 'Share the link below. It opens optical transfer in Receive mode on their phone so they can scan your animated QR and save files locally — no catalog download required.'
       }}
     </p>
     <div class="url-row">
@@ -81,16 +57,6 @@ async function copyLink(): Promise<void> {
         readonly
         @focus="selectUrl"
       />
-      <div class="qr-wrap" :class="{ busy: qrBusy }" aria-hidden="true">
-        <img
-          v-if="qrSrc"
-          class="inline-qr"
-          :src="qrSrc"
-          width="44"
-          height="44"
-          alt=""
-        />
-      </div>
       <button
         type="button"
         class="copy-btn"
@@ -167,26 +133,6 @@ async function copyLink(): Promise<void> {
   color: var(--text);
   font: inherit;
   font-size: 16px;
-}
-.qr-wrap {
-  flex: 0 0 auto;
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: #fff;
-  border: 1px solid var(--border);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-.qr-wrap.busy {
-  background: color-mix(in srgb, var(--muted) 12%, var(--surface));
-}
-.inline-qr {
-  display: block;
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
 }
 .copy-btn {
   flex: 0 0 auto;

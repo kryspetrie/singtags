@@ -65,6 +65,42 @@ function cssVar(name: string, fallback: string): string {
   return v || fallback
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** 0–1 fade/blur for peak bars only; brackets + playhead stay sharp. */
+const barReveal = ref(1)
+let revealRaf = 0
+let revealStartedAt = 0
+const BAR_REVEAL_MS = 380
+
+function cancelBarReveal(): void {
+  if (revealRaf) {
+    cancelAnimationFrame(revealRaf)
+    revealRaf = 0
+  }
+}
+
+function startBarReveal(): void {
+  cancelBarReveal()
+  if (prefersReducedMotion()) {
+    barReveal.value = 1
+    draw()
+    return
+  }
+  barReveal.value = 0
+  revealStartedAt = performance.now()
+  const step = (now: number) => {
+    const t = Math.min(1, (now - revealStartedAt) / BAR_REVEAL_MS)
+    barReveal.value = 1 - (1 - t) * (1 - t)
+    draw()
+    if (t < 1) revealRaf = requestAnimationFrame(step)
+    else revealRaf = 0
+  }
+  revealRaf = requestAnimationFrame(step)
+}
+
 function readLayout(): WaveformLayout | null {
   const wrap = wrapRef.value
   if (!wrap) return null
@@ -125,13 +161,19 @@ function draw(): void {
   const hasRegion = props.duration > 0 && props.markB > props.markA
   const xLoopA = props.duration > 0 ? xAt(lay, props.markA) : gutterPad
   const xLoopB = props.duration > 0 ? xAt(lay, props.markB) : w - gutterPad
+  const reveal = Math.max(0, Math.min(1, barReveal.value))
 
-  if (peaks.length && hasRegion) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.42)'
-    ctx.fillRect(xLoopA, 0, Math.max(0, xLoopB - xLoopA), h)
-  }
+  if (peaks.length && reveal > 0) {
+    ctx.save()
+    ctx.globalAlpha = reveal
+    const blurPx = (1 - reveal) * 8
+    if (blurPx > 0.15) ctx.filter = `blur(${blurPx.toFixed(2)}px)`
 
-  if (peaks.length) {
+    if (hasRegion) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.42)'
+      ctx.fillRect(xLoopA, 0, Math.max(0, xLoopB - xLoopA), h)
+    }
+
     const barCount = barCountFor(peaks.length, trackInner)
     const step = peaks.length / barCount
     const barW = trackInner / barCount
@@ -155,9 +197,11 @@ function draw(): void {
       ctx.roundRect(x + gap / 2, y, rw, bh, r)
       ctx.fill()
     }
+    ctx.restore()
   }
 
-  if (props.duration > 0 && peaks.length) {
+  // Chrome stays sharp even while bars are still revealing / empty.
+  if (props.duration > 0) {
     drawBracket(ctx, xLoopA, h, 'left', bracketCol)
     drawBracket(ctx, xLoopB, h, 'right', bracketCol)
 
@@ -361,14 +405,29 @@ function onResize(): void {
 }
 
 watch(
-  () => [props.peaks, props.currentTime, props.duration, props.markA, props.markB],
+  () => props.peaks,
+  (peaks, prev) => {
+    if (!peaks.length) {
+      cancelBarReveal()
+      barReveal.value = 0
+      draw()
+      return
+    }
+    if (!prev?.length) startBarReveal()
+    else draw()
+  },
+)
+
+watch(
+  () => [props.currentTime, props.duration, props.markA, props.markB] as const,
   () => draw(),
-  { deep: true },
 )
 
 let resizeObs: ResizeObserver | null = null
 
 onMounted(() => {
+  if (props.peaks.length) barReveal.value = 1
+  else barReveal.value = 0
   draw()
   window.addEventListener('resize', onResize)
   if (typeof ResizeObserver !== 'undefined' && wrapRef.value) {
@@ -377,6 +436,7 @@ onMounted(() => {
   }
 })
 onUnmounted(() => {
+  cancelBarReveal()
   window.removeEventListener('resize', onResize)
   resizeObs?.disconnect()
   resizeObs = null

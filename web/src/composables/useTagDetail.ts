@@ -5,7 +5,7 @@
  * Audio parts resolve lazily on first play; sheets are prepared for display when possible.
  */
 
-import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch, type Ref } from 'vue'
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import {
   inferLowerQualityFromStarred,
@@ -19,7 +19,7 @@ import { preferredDefaultPart, sortPartIds } from '../lib/parts'
 import { mediaUrl, tagDetailUrl } from '../lib/mediaUrl'
 import { resolveSheetAssets } from '../lib/sheetAssets'
 import { sheetDisplayPages } from '../lib/sheetPaths'
-import { prepareDefaultSheet, revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
+import { revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
 import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/favoritesDb'
 import { getTransferredTag } from '../offline/transferredDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
@@ -27,6 +27,7 @@ import { probeTagAudioAvailability, resolveAudioPart, resolvePathUrl, clearLearn
 import { sheetsPack } from '../offline/libraryPack'
 import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineModeStore } from '../stores/offlineMode'
+import { useCatalogStore } from '../stores/catalog'
 import { useObjectUrls } from './useObjectUrls'
 
 /**
@@ -37,7 +38,7 @@ import { useObjectUrls } from './useObjectUrls'
  */
 export function useTagDetail(id: Ref<string> | string) {
   const favorites = useFavoritesStore()
-  const { track, revokeAll } = useObjectUrls()
+  const { track, revokeAll, take } = useObjectUrls()
   const detail = ref<TagDetail | null>(null)
   const error = ref<string | null>(null)
   const fromCache = ref(false)
@@ -133,11 +134,15 @@ export function useTagDetail(id: Ref<string> | string) {
     clearPreparedSheet()
   }
 
-  async function resolveSheets(
+  /**
+   * Resolve sheet display URLs from favorites / pack blobs when possible.
+   * Returns untracked blob URLs — caller must {@link track} (or revoke) them.
+   */
+  async function collectSheetBlobPages(
     d: TagDetail,
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
-  ): Promise<Set<'star' | 'pack' | 'network'>> {
+  ): Promise<{ pages: string[] | null; sources: Set<'star' | 'pack' | 'network'> }> {
     const sources = new Set<'star' | 'pack' | 'network'>()
     const sheetPaths = sheetDisplayPages(d)
 
@@ -150,11 +155,16 @@ export function useTagDetail(id: Ref<string> | string) {
         if (!entry) break
         const url = blobUrlFromCached(entry)
         if (!url) break
-        pages.push(track(url))
+        pages.push(url)
         sources.add('star')
       }
-      cachedSheetPages.value = pages.length === sheetPaths.length ? pages : null
-    } else if (sheetPaths.length) {
+      return {
+        pages: pages.length === sheetPaths.length ? pages : null,
+        sources,
+      }
+    }
+
+    if (sheetPaths.length) {
       const pages: string[] = []
       let allBlob = true
       for (const path of sheetPaths) {
@@ -164,24 +174,35 @@ export function useTagDetail(id: Ref<string> | string) {
         })
         if (!resolved || resolved.kind !== 'blob') {
           allBlob = false
-          break
+          for (const u of pages) URL.revokeObjectURL(u)
+          return { pages: null, sources }
         }
         sources.add(resolved.source === 'reconstruct' ? 'pack' : resolved.source)
-        pages.push(track(resolved.url))
+        pages.push(resolved.url)
       }
-      cachedSheetPages.value = allBlob && pages.length ? pages : null
-    } else if (cached?.sheetBlobs?.length) {
+      return { pages: allBlob && pages.length ? pages : null, sources }
+    }
+
+    if (cached?.sheetBlobs?.length) {
       const pages: string[] = []
       for (const b of cached.sheetBlobs) {
         const url = blobUrlFromCached(b)
-        if (url) pages.push(track(url))
+        if (url) pages.push(url)
       }
-      cachedSheetPages.value = pages.length ? pages : null
       if (pages.length) sources.add('star')
-    } else {
-      cachedSheetPages.value = null
+      return { pages: pages.length ? pages : null, sources }
     }
 
+    return { pages: null, sources }
+  }
+
+  async function resolveSheets(
+    d: TagDetail,
+    cached: StarredTagRecord | undefined,
+    offlineOnly: boolean,
+  ): Promise<Set<'star' | 'pack' | 'network'>> {
+    const { pages, sources } = await collectSheetBlobPages(d, cached, offlineOnly)
+    cachedSheetPages.value = pages?.map((u) => track(u)) ?? null
     return sources
   }
 
@@ -435,10 +456,6 @@ export function useTagDetail(id: Ref<string> | string) {
     }
   }
 
-  function applyDetailSync(d: TagDetail): void {
-    detail.value = d
-  }
-
   const sheetAssets = computed(() => {
     const d = detail.value
     if (!d) return resolveSheetAssets({})
@@ -530,25 +547,40 @@ export function useTagDetail(id: Ref<string> | string) {
     const { signal } = fetchAbort
     const seq = ++loadSeq
     const wantedId = idStr()
+    const prevDetail = detail.value
+    const sameTag = prevDetail != null && String(prevDetail.tag_id) === wantedId
+    const hadPaintedSheet =
+      !!prevDetail &&
+      (() => {
+        const a = resolveSheetAssets(prevDetail)
+        return a.imageSets.length > 0 || a.pdfs.length > 0
+      })()
 
     loading.value = true
-    sheetPreparing.value = true
     error.value = null
     fromCache.value = false
-    // Keep the previous tag painted while refreshing the same id — clearing
-    // detail collapses Sheet+Tracks and flickers on online reload.
-    const sameTag = detail.value != null && idStr() === wantedId
+    // Reserve empty-slot height only when nothing is on screen yet. Cross-tag
+    // nav keeps the previous sheet painted until the next one is ready.
+    if (!hadPaintedSheet) sheetPreparing.value = true
+
     if (sameTag) {
-      revokePreparedSheet(preparedSheet.value)
-      preparedSheet.value = null
       // Online reconnect / same-tag reload: drop degraded session audio so HQ can win.
       if (!useOfflineModeStore().offline) {
         dropResolvedAudioForOnlineUpgrade()
       }
-    } else {
-      const prevTagId = detail.value?.tag_id
-      detail.value = null
-      clearMedia(prevTagId)
+    } else if (prevDetail) {
+      // Soft-clear resolved URLs only. Keep part tabs (or seed from catalog summary)
+      // so the Tracks shell does not collapse while the next detail loads.
+      audioParts.value = {}
+      hasLowerQualityAudio.value = false
+      hasPackAudio.value = false
+      mediaSource.value = 'network'
+      clearLearningStereoCache(prevDetail.tag_id)
+      starredRecord = undefined
+      const nextSummaryParts = useCatalogStore().getById(Number(wantedId))?.audioParts
+      if (nextSummaryParts?.length) {
+        availableAudioParts.value = sortPartIds(nextSummaryParts)
+      }
     }
 
     const numericId = Number(wantedId)
@@ -563,59 +595,48 @@ export function useTagDetail(id: Ref<string> | string) {
       if (seq !== loadSeq || idStr() !== wantedId) return
       if (!d) {
         sheetPreparing.value = false
+        if (!sameTag && prevDetail) {
+          detail.value = null
+          clearMedia(prevDetail.tag_id)
+        }
         return
       }
-
-      applyDetailSync(d)
 
       const offlineMode = useOfflineModeStore()
       const offlineOnly = offlineMode.offline
       const assets = resolveSheetAssets(d)
       const hasSheet = assets.imageSets.length > 0 || assets.pdfs.length > 0
 
-      // Unblock SheetViewer as soon as detail lists sheets — viewer paints WebP via
-      // path URLs immediately (ADR). Prefetch blobs/crop land afterwards.
-      if (hasSheet) {
-        sheetPreparing.value = false
+      // Resolve sheet blobs before swapping UI so the first paint is final WebP
+      // (blob or network) — not network → blob → crop.
+      const { pages: nextBlobPages } = await collectSheetBlobPages(d, cached ?? undefined, offlineOnly)
+      if (seq !== loadSeq || idStr() !== wantedId) {
+        if (nextBlobPages) for (const u of nextBlobPages) URL.revokeObjectURL(u)
+        return
       }
 
-      // Sheets first (fast blob resolve); audio probe can be expensive on large packs.
-      await resolveSheets(d, cached ?? undefined, offlineOnly)
-      if (seq !== loadSeq) return
+      const staleUrls = take()
+      const stalePrepared = preparedSheet.value
+      preparedSheet.value = null
 
-      if (hasSheet) {
-        try {
-          if (cachedSheetPages.value?.length) {
-            preparedSheet.value = { pages: [...cachedSheetPages.value], owned: [] }
-          } else if (!offlineOnly) {
-            // Background crop — SheetViewer already has raw WebP URLs on screen.
-            void prepareDefaultSheet(assets, {
-              crop: true,
-              signal,
-              allowPdf: true,
-            }).then((prepared) => {
-              if (signal.aborted || seq !== loadSeq) {
-                revokePreparedSheet(prepared)
-                return
-              }
-              if (cachedSheetPages.value?.length) {
-                revokePreparedSheet(prepared)
-                return
-              }
-              const prev = preparedSheet.value
-              preparedSheet.value = prepared
-              if (prev && prev !== prepared) revokePreparedSheet(prev)
-            })
-          }
-        } catch (e) {
-          if (signal.aborted || seq !== loadSeq) return
-          if (!(e instanceof DOMException && e.name === 'AbortError')) {
-            /* keep whatever pages we already painted */
-          }
-        }
-      } else {
+      detail.value = d
+      // Part tabs are known from metadata immediately — do not wait on pack/network probe.
+      availableAudioParts.value = sortPartIds(listAudioParts(d))
+      cachedSheetPages.value = nextBlobPages?.map((u) => track(u)) ?? null
+      if (cachedSheetPages.value?.length) {
+        preparedSheet.value = { pages: [...cachedSheetPages.value], owned: [] }
+      } else if (!hasSheet) {
         preparedSheet.value = { pages: [], owned: [] }
+      } else {
+        // Let SheetViewer paint catalog WebP paths and upgrade to PDF itself.
+        // Catalog pages are published pre-cropped — no client crop pass here.
+        preparedSheet.value = null
       }
+      sheetPreparing.value = false
+
+      await nextTick()
+      revokePreparedSheet(stalePrepared)
+      for (const u of staleUrls) URL.revokeObjectURL(u)
 
       // Seed tabs / pack flags after sheets are visible.
       await resolveSheetsAndAudio(d, cached ?? undefined, offlineOnly, {

@@ -41,7 +41,7 @@ DjVu can compress **scanned** documents well. Many barbershop sheets are **vecto
 
 ### Positive
 
-- Fast offline paint (blob URLs / `<img>`), already wired into starring and content crop.
+- Fast offline paint (blob URLs / `<img>`), already wired into starring. Client content-crop is reserved for Local Library / user uploads; catalog WebP pages are published pre-cropped.
 - Publish toolchain stays simple: Pillow + `pdftoppm`.
 - Downloads ship real files; no heavy client re-encode.
 - Browser ecosystem for images/PDF is mature vs niche DjVu WASM.

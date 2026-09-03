@@ -6,7 +6,7 @@
  * downgrade to coupled playbackRate on worker failure; no independent per-channel
  * stretch without stereo-image proof.
  */
-import { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from './pitchPlayer'
+import { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, clampPitchSemitonesFractional } from './pitchPlayer'
 
 export { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES }
 
@@ -38,8 +38,7 @@ function roundTo(n: number, decimals: number): number {
  * (e.g. shared fine detune as cents/100). UI controls still use {@link clampPitchSemitones}.
  */
 function clampPitchSemitonesRange(n: number): number {
-  if (!Number.isFinite(n)) return 0
-  return Math.max(MIN_PITCH_SEMITONES, Math.min(MAX_PITCH_SEMITONES, n))
+  return clampPitchSemitonesFractional(n)
 }
 
 /**

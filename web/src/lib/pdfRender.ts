@@ -42,6 +42,7 @@ export type RenderPdfOptions = {
    * scales so the page width is about this many CSS pixels (× dpr, capped).
    */
   targetWidth?: number
+  /** Whitespace crop — default false (catalog is pre-cropped); Local Library passes true. */
   crop?: boolean
   signal?: AbortSignal
 }
@@ -84,14 +85,14 @@ function canvasToUrl(canvas: HTMLCanvasElement): Promise<string> {
 }
 
 /**
- * Render each PDF page to a cropped (optional) WebP blob URL.
+ * Render each PDF page to a WebP blob URL (optional whitespace crop).
  * Caller must revoke the returned URLs when done.
  */
 export async function renderPdfToPageUrls(
   url: string,
   opts: RenderPdfOptions = {},
 ): Promise<string[]> {
-  const { dpi, targetWidth, crop = true, signal } = opts
+  const { dpi, targetWidth, crop = false, signal } = opts
   const pdfjs = await loadPdfJs()
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 

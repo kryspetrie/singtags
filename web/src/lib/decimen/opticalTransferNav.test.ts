@@ -7,6 +7,7 @@ import {
   OPTICAL_RX_PATH,
   OPTICAL_TX_PATH,
   isOpticalReceiveRoute,
+  navigateToOpticalTransfer,
   opticalReceiveAbsoluteHref,
   opticalReceiveRoute,
 } from './opticalTransferNav'
@@ -37,5 +38,25 @@ describe('opticalTransferNav', () => {
     expect(
       isOpticalReceiveRoute({ name: 'tx', path: '/tx', query: {} }),
     ).toBe(false)
+  })
+
+  it('navigates local library docs onto /tx with openNow', async () => {
+    const router = createRouter({
+      history: createMemoryHistory('/'),
+      routes: [
+        { path: OPTICAL_TX_PATH, name: 'tx', component: { template: '<div />' } },
+        { path: OPTICAL_RX_PATH, name: 'rx', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    await navigateToOpticalTransfer(router, {
+      localDocIds: ['a', 'b'],
+      localAssetIdsByEntry: { a: ['x'], b: ['y', 'z'] },
+      openNow: true,
+    })
+    expect(router.currentRoute.value.name).toBe('tx')
+    expect(router.currentRoute.value.query.localDocs).toBe('a,b')
+    expect(router.currentRoute.value.query.openNow).toBe('1')
+    expect(router.currentRoute.value.query.localAssets).toBe('a:x,b:y+z')
   })
 })

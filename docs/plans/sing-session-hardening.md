@@ -2,7 +2,7 @@
 
 Follow-up to [sing-session-ux.md](sing-session-ux.md) after correctness + edge-case review of the uncommitted Phases 0–7 work.
 
-**Status:** Implemented (A–J landed in working tree). Practice mode disabled via `PRACTICE_MODE_ENABLED`. Residual: Mix still A440-relative vs global detune (copy updated); live DSP not pursued.
+**Status:** Implemented (A–J landed in working tree). Practice mode disabled via `PRACTICE_MODE_ENABLED`. Residual Mix↔global detune coupling moved to [product-honesty.md](product-honesty.md) Phase D (product decision: honor “Apply tuning globally” for Mix + Pitch + Local Library). Live DSP not pursued.
 
 **Out of scope for this plan:** Ephemeral singing queue (Phase 8), e-ink, vibe search, live DSP redesign that would reopen [pitch-speed-bake](../decisions/pitch-speed-bake.md).
 

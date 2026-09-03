@@ -45,6 +45,22 @@ describe('snackbar store', () => {
     expect(snack.actionLabel).toBeNull()
   })
 
+  it('runs secondary action then dismisses', () => {
+    const snack = useSnackbarStore()
+    const onSecondary = vi.fn()
+    snack.show('Imported', {
+      tone: 'ok',
+      ms: 0,
+      action: { label: 'Open', onClick: vi.fn() },
+      secondaryAction: { label: 'Add to group', onClick: onSecondary },
+    })
+    expect(snack.secondaryActionLabel).toBe('Add to group')
+    snack.runSecondaryAction()
+    expect(onSecondary).toHaveBeenCalledOnce()
+    expect(snack.message).toBeNull()
+    expect(snack.secondaryActionLabel).toBeNull()
+  })
+
   it('supports centered placement for prominent mobile toasts', () => {
     const snack = useSnackbarStore()
     snack.show('Sing mode on', { tone: 'ok', placement: 'center' })

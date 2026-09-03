@@ -3,9 +3,15 @@
  * Full learning-track player UI: part tabs, waveform, pitch/speed, solo/balance,
  * A–B loop, and optional custom multi-part hard-pan mix.
  */
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { TagAudioPlayer, type SoloMode } from '../audio/player'
-import { formatKeyShiftLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
+import {
+  formatKeyShiftLabel,
+  clampPitchSemitones,
+  clampPitchSemitonesFractional,
+  MIN_PITCH_SEMITONES,
+  MAX_PITCH_SEMITONES,
+} from '../audio/pitchPlayer'
 import PitchControls from './PitchControls.vue'
 import { loadWaveformPeaks, peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
 import { buildSoloMixObjectUrl, defaultMixPanForNextSelection } from '../audio/multiPartMix'
@@ -49,6 +55,11 @@ const props = withDefaults(
     baseUrl?: string
     title?: string
     pitchSemitones?: number
+    /**
+     * Fine detune in cents added to pitch for bake/playback (global pitch-pipe
+     * and/or per-song detune). UI ± still uses integer/fractional semitone steps.
+     */
+    detuneCents?: number
     /** Original song key for pitch label, e.g. "Ab Major". */
     songKey?: string
     /** Parent is still fetching tag media (show empty waveform + loading). */
@@ -64,6 +75,7 @@ const props = withDefaults(
   }>(),
   {
     pitchSemitones: undefined,
+    detuneCents: 0,
     songKey: undefined,
     pending: false,
     availableParts: undefined,
@@ -209,6 +221,10 @@ const currentTransform = computed<AudioTransform>(() => ({
   speed: speed.value,
 }))
 
+function effectiveBakePitch(uiPitch = pitch.value): number {
+  return clampPitchSemitonesFractional(uiPitch + (props.detuneCents ?? 0) / 100)
+}
+
 function bumpPitch(delta: number): void {
   pitch.value = clampPitchSemitones(pitch.value + delta)
 }
@@ -246,8 +262,10 @@ const bakeError = computed(() => {
 })
 
 const waveBusy = computed(
-  () => (waveLoading.value && peaks.value.length === 0) || (props.pending && !available.value.length),
+  () => waveLoading.value || (props.pending && !available.value.length),
 )
+/** Real peaks painted and load idle — drives waveform fade-in. */
+const waveReady = computed(() => peaks.value.length > 0 && !waveLoading.value)
 
 const combineSignature = computed(() =>
   selectedCombineParts.value
@@ -328,26 +346,19 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
     if (!preserve) await player.seek(0)
     err.value = null
 
+    // Blank waveform until real peaks are ready — synthetic placeholders then
+    // swapping to decoded peaks was causing a visible flicker on every load.
+    peaks.value = []
+    waveLoading.value = true
+    tick.value++
+
     let eagerUrl: string | null = null
     if (!customMode.value) {
-      // Show loading while lazy resolve / offline Mix reconstruct runs (can take seconds).
-      if (!urlFor(part.value)) {
-        peaks.value = []
-        waveLoading.value = true
-        tick.value++
-      }
       eagerUrl = (await ensurePartUrl(part.value)) ?? null
     } else if (selectedCombineParts.value.length === 1) {
       eagerUrl = (await ensurePartUrl(selectedCombineParts.value[0]!)) ?? null
     }
     if (signal.aborted || seq !== loadSeq) return
-    if (eagerUrl) {
-      peaks.value = syntheticPeaks(280, eagerUrl)
-      waveLoading.value = false
-    } else {
-      peaks.value = []
-      waveLoading.value = customMode.value && selectedCombineParts.value.length >= 2
-    }
     tick.value++
 
     try {
@@ -406,8 +417,6 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
             url = mix.url
           }
           if (prevMix) URL.revokeObjectURL(prevMix)
-          peaks.value = syntheticPeaks(280, url)
-          waveLoading.value = false
           tick.value++
         }
       } else if (!url) {
@@ -442,7 +451,7 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
           : null
       await player.load(url, loadSolo, { signal, monoPanSide })
       if (signal.aborted || seq !== loadSeq) return
-      await player.setTransform(pitch.value, speed.value)
+      await player.setTransform(effectiveBakePitch(), speed.value)
       await player.setBalance(combineMode.value ? 0 : balance.value)
       if (signal.aborted || seq !== loadSeq) return
       player.setLoop(false)
@@ -760,6 +769,12 @@ watch(speed, (_v) => {
   emit('transform', currentTransform.value)
   scheduleBake()
 })
+watch(
+  () => props.detuneCents,
+  () => {
+    scheduleBake()
+  },
+)
 
 let bakeTimer: ReturnType<typeof setTimeout> | null = null
 function scheduleBake(): void {
@@ -769,9 +784,10 @@ function scheduleBake(): void {
     bakeTimer = null
     const p = pitch.value
     const s = speed.value
-    void player.setTransform(p, s).then(() => {
+    const bakeP = effectiveBakePitch(p)
+    void player.setTransform(bakeP, s).then(() => {
       if (pitch.value !== p || speed.value !== s) return
-      if (player.getPitchSemitones() !== p) pitch.value = player.getPitchSemitones()
+      // Audible pitch includes detune — never write it back into the UI shift control.
       if (player.getSpeed() !== s) speed.value = player.getSpeed()
       tick.value++
     })
@@ -1058,9 +1074,15 @@ defineExpose({
           @update:mark-a="onMarkA"
           @update:mark-b="onMarkB"
         />
-        <div v-if="waveBusy" class="wave-loading" role="status" aria-live="polite">
+        <span v-if="!waveReady" class="visually-hidden" role="status" aria-live="polite">
           Loading waveform…
-        </div>
+        </span>
+        <Transition name="bake">
+          <p v-if="mixBaking" class="bake-pill" role="status">
+            <span class="bake-spin" aria-hidden="true" />
+            Updating pitch/speed…
+          </p>
+        </Transition>
       </div>
 
       <div class="ctrl-transport transport" :class="{ muted: !playbackReady }">
@@ -1113,7 +1135,6 @@ defineExpose({
         </select>
         <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
       </div>
-      <p v-if="mixBaking" class="hint bake-hint" role="status">Updating pitch/speed…</p>
       <p v-if="!fullscreen" class="hint ab-hint">
         Drag the side brackets to set the play region. Playback starts at the left bracket and stops at
         the right; turn on Loop to repeat that region.
@@ -1219,6 +1240,8 @@ defineExpose({
 .player-host {
   min-width: 0;
   max-width: 100%;
+  /* Match TagView .tracks-slot — tabs + wave + transport + adjust without growing in. */
+  min-height: 22.5rem;
 }
 .player {
   display: grid;
@@ -1234,22 +1257,22 @@ defineExpose({
   min-width: 0;
   max-width: 100%;
 }
-.wave-loading {
+.visually-hidden {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(2px);
-  color: var(--muted);
-  font-size: 0.95rem;
-  font-weight: 600;
-  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .player-panel {
   padding: 0.75rem;
+  /* Wave (104) + transport + A–B hint + adjust row — avoid Downloads sliding up. */
+  position: relative;
+  min-height: 18.5rem;
 }
 /* Keep voice-part tabs on one row; compress width, keep readable type. */
 .parts.ctrl-tabs {
@@ -1346,6 +1369,54 @@ defineExpose({
   font-size: 0.85rem;
   color: var(--muted);
   line-height: 1.4;
+}
+
+/* Bake status pill — floats over the waveform so it can't push controls around. */
+.bake-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 0.5rem;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  max-width: calc(100% - 1rem);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.bake-spin {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bake-spin 0.65s linear infinite;
+}
+@keyframes bake-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.bake-enter-active,
+.bake-leave-active {
+  transition: opacity 0.18s ease;
+}
+.bake-enter-from,
+.bake-leave-to {
+  opacity: 0;
 }
 .combine-need {
   margin: 0.75rem 0 0;

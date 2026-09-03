@@ -27,7 +27,17 @@ export function useObjectUrls() {
     urls.value = []
   }
 
+  /**
+   * Detach tracked URLs without revoking — caller must revoke after the UI has
+   * swapped to replacements (avoids blanking an on-screen sheet mid-nav).
+   */
+  function take(): string[] {
+    const out = urls.value.slice()
+    urls.value = []
+    return out
+  }
+
   onUnmounted(revokeAll)
 
-  return { track, revokeAll, urls }
+  return { track, revokeAll, take, urls }
 }

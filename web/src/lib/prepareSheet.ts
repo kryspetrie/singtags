@@ -1,6 +1,6 @@
 /**
  * Offscreen sheet preparation: resolve URLs, optional whitespace crop, PDF rasterization.
- * Produces display-ready page URLs before the tag view mounts (avoids layout flash).
+ * Catalog sheets are published pre-cropped — pass `crop: true` for Local Library / user uploads.
  */
 
 import { cropImageUrl } from './contentCrop'
@@ -32,14 +32,14 @@ function resolveSrc(path: string, baseUrl?: string): string {
 }
 
 /**
- * Build the default on-screen sheet (prefer raster/images) fully offscreen
- * so the tag page can wait and mount once without a crop flash.
+ * Build display-ready sheet pages offscreen (prefer raster/images).
+ * Defaults to no crop — catalog pages are pre-cropped at publish time.
  */
 export async function prepareDefaultSheet(
   assets: SheetAssets,
   opts: { crop?: boolean; baseUrl?: string; signal?: AbortSignal; allowPdf?: boolean } = {},
 ): Promise<PreparedSheet> {
-  const { crop = true, baseUrl, signal, allowPdf = true } = opts
+  const { crop = false, baseUrl, signal, allowPdf = true } = opts
   const imagePaths = assets.imageSets[0]?.paths ?? []
 
   if (imagePaths.length) {

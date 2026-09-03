@@ -33,6 +33,9 @@ body,
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* Reserve classic scrollbar width so growing content (tag sheets, etc.)
+     does not shift the page sideways when overflow appears. */
+  scrollbar-gutter: stable;
 }
 
 body {

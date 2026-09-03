@@ -23,18 +23,29 @@ describe('EmptyState', () => {
 })
 
 describe('SheetViewer', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    setActivePinia(createPinia())
+  })
+
   it('shows empty status when no pages', () => {
-    const w = mount(SheetViewer, { props: { pages: [] } })
+    const w = mount(SheetViewer, {
+      props: { pages: [] },
+      global: { plugins: [createPinia()] },
+    })
     expect(w.text()).toContain('No sheet music available')
   })
 
   it('renders images for pages', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
     const w = mount(SheetViewer, {
       props: {
         pages: ['sheets/1/pages/page-01.webp'],
         baseUrl: '/library/',
         cropToContent: false,
       },
+      global: { plugins: [pinia] },
     })
     await flushPromises()
     const img = w.find('img')

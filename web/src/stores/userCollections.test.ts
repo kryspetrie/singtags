@@ -57,6 +57,23 @@ describe('userCollections store', () => {
     expect(store.count).toBe(0)
   })
 
+  it('does not wipe collections when prune keep-set is empty unless allowEmpty', () => {
+    const store = useUserCollectionsStore()
+    const col = store.create('Set', [10, 20])!
+    store.pruneToStarred([])
+    expect(store.byId(col.id)?.tagIds).toEqual([10, 20])
+    store.pruneToStarred([], { allowEmpty: true })
+    expect(store.byId(col.id)).toBeUndefined()
+  })
+
+  it('reports orphan tag ids missing from favorites', () => {
+    const store = useUserCollectionsStore()
+    store.create('A', [1, 2])
+    store.create('B', [2, 3])
+    expect(store.orphanTagIds([1, 9]).sort()).toEqual([2, 3])
+    expect(store.orphanTagIds([1, 2, 3])).toEqual([])
+  })
+
   it('persists to localStorage', () => {
     const store = useUserCollectionsStore()
     const col = store.create('Saved', [5])!

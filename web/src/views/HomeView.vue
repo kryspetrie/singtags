@@ -55,7 +55,9 @@ import { visibleAltTitle } from '../lib/tagDisplay'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { parseTagQrPayload } from '../lib/tagQrScan'
-import { unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
+import { unpackSingtagsSheetFile, isSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
+import { isLocalDocTransferFile } from '../lib/decimen/localDocTransfer'
+import { ingestLocalTransferFile } from '../lib/localDocReceive'
 import type { OpticalFile } from '../../vendor/decimen/shared/protocol'
 import { putTransferredTag } from '../offline/transferredDb'
 import {
@@ -155,6 +157,14 @@ function onSheetTransferProgress(label: string): void {
 
 async function onSheetTransferComplete(file: OpticalFile): Promise<void> {
   try {
+    if (isLocalDocTransferFile(file)) {
+      await ingestLocalTransferFile(router, file)
+      qrScannerOpen.value = false
+      return
+    }
+    if (!isSingtagsSheetFile(file)) {
+      throw new Error('Unsupported transfer file.')
+    }
     const pkg = unpackSingtagsSheetFile(file)
     await putTransferredTag(pkg.meta, pkg.imageBytes)
     qrScannerOpen.value = false
@@ -401,7 +411,7 @@ function rowStarTip(tag: TagSummary): string {
   }
   return favorites.isStarred(tag.id)
     ? 'Unfavorite — remove from saved tags'
-    : 'Favorite — save for offline use and practice sets'
+    : 'Favorite — save for offline use'
 }
 
 function rowStarLabel(tag: TagSummary): string {
@@ -1363,7 +1373,7 @@ watch(
       :title="offline ? 'Offline — nothing cached yet' : 'Catalog failed to load'"
       :message="
         offline
-          ? 'Connect once to download the full catalog, or receive tag sheets from another device with optical transfer.'
+          ? 'Connect once to download the full catalog, or receive Local Library songs and files from another device with optical transfer.'
           : catalog.error
       "
       tone="danger"
@@ -1592,7 +1602,10 @@ watch(
                     v-if="favorites.isTagCaching(g.row.tag.id)"
                     class="row-fav-spinner"
                   />
-                  <span v-else>{{ favorites.isStarred(g.row.tag.id) ? '♥' : '♡' }}</span>
+                  <font-awesome-icon
+                    v-else
+                    :icon="favorites.isStarred(g.row.tag.id) ? ['fas', 'heart'] : ['far', 'heart']"
+                  />
                 </span>
               </div>
             </div>
@@ -1694,7 +1707,11 @@ watch(
                 class="row-fav-spinner"
                 aria-hidden="true"
               />
-              <span v-else>{{ favorites.isStarred(item.row.tag.id) ? '♥' : '♡' }}</span>
+              <font-awesome-icon
+                v-else
+                :icon="favorites.isStarred(item.row.tag.id) ? ['fas', 'heart'] : ['far', 'heart']"
+                aria-hidden="true"
+              />
             </button>
           </div>
         </div>

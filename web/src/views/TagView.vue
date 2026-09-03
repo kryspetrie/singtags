@@ -22,6 +22,7 @@ import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import PitchControls from '../components/PitchControls.vue'
 import TagDownloads from '../components/TagDownloads.vue'
+import TagPageTitle from '../components/TagPageTitle.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
 import { useOnline } from '../composables/useOnline'
@@ -229,26 +230,19 @@ const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
 const practiceDone = ref(false)
 
-/**
- * Fine detune from `?detune=` — session-only for this shared visit.
- * Never written to pitch-pipe / apply-globally preferences.
- */
-const sessionDetuneCents = computed(() => {
-  const n = readDetuneFromQuery(route.query)
-  return n == null ? 0 : n
-})
-
-/** Absolute cents for pay-the-key: URL session wins over local global detune. */
+/** Absolute cents for pay-the-key and Mix: URL session wins over local global detune. */
 function fineDetuneForPayKey(): number {
   const fromQuery = readDetuneFromQuery(route.query)
   if (fromQuery != null) return fromQuery
   return prefs.globalPitchDetuneCents()
 }
 
-/** Semitone shift for baked playback, including session fine detune as a fraction. */
+/** Semitone shift for baked playback / queue, including fine detune as a fraction. */
 function playbackPitchSemitones(base: number): number {
-  return clampPitchSemitones(base) + sessionDetuneCents.value / 100
+  return clampPitchSemitones(base) + fineDetuneForPayKey() / 100
 }
+
+const mixDetuneCents = computed(() => fineDetuneForPayKey())
 
 const inPractice = computed(
   () => PRACTICE_MODE_ENABLED && route.query.set === 'practice',
@@ -378,7 +372,7 @@ watch(playerTransform, (t) => {
   queue.setPlaybackTransform({ ...t, pitchSemitones: playbackPitchSemitones(c) })
 }, { deep: true })
 
-watch(sessionDetuneCents, () => {
+watch(mixDetuneCents, () => {
   const c = clampPitchSemitones(playerTransform.value.pitchSemitones)
   queue.setPlaybackTransform({
     ...playerTransform.value,
@@ -396,6 +390,10 @@ const summary = computed(() => catalog.getById(Number(props.id)) ?? toSummary())
 const starred = computed(() => favorites.ids.has(Number(props.id)))
 const hasAudio = computed(
   () => availableAudioParts.value.length > 0 || Object.keys(audioParts.value).length > 0,
+)
+/** True until at least one playable URL is resolved (tabs already known from metadata). */
+const audioPending = computed(
+  () => hasAudio.value && Object.keys(audioParts.value).length === 0 && loading.value,
 )
 const hasOfflinePlayback = computed(
   () =>
@@ -437,9 +435,6 @@ const pageTitle = computed(() => detail.value?.title ?? summary.value?.title ?? 
 const pageTitleDisplay = computed(() => pageTitle.value || `Tag ${props.id}`)
 const pageAltTitle = computed(() =>
   visibleAltTitle(detail.value?.alt_title ?? summary.value?.altTitle, pageTitle.value),
-)
-const pageTitleTooltip = computed(() =>
-  pageAltTitle.value ? `${pageTitleDisplay.value} — ${pageAltTitle.value}` : pageTitleDisplay.value,
 )
 const barbershopPageUrl = computed(() =>
   barbershopTagsTagUrl(Number(props.id), pageTitle.value),
@@ -640,7 +635,14 @@ async function onRetryLoad(): Promise<void> {
           :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use'"
           @click="onToggleStar"
         >
-          {{ starred ? '♥ Favorited' : '♡ Favorite' }}
+          <span class="fav-text" :class="{ 'is-hidden': !starred }">
+            <font-awesome-icon :icon="['fas', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorited</span>
+          </span>
+          <span class="fav-text" :class="{ 'is-hidden': starred }">
+            <font-awesome-icon :icon="['far', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorite</span>
+          </span>
         </button>
       </div>
     </div>
@@ -664,31 +666,12 @@ async function onRetryLoad(): Promise<void> {
     </div>
 
     <header class="title-row">
-      <div class="title-block">
-        <div class="title-head">
-          <h1 :title="pageTitleTooltip">{{ pageTitleDisplay }}</h1>
-          <div class="title-actions">
-            <button
-              type="button"
-              class="title-copy"
-              aria-label="Share this tag"
-              title="Share a link to this tag"
-              @click="openShare()"
-            >
-              Share
-            </button>
-            <a
-              :href="barbershopPageUrl"
-              class="btn title-ext"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open on barbershoptags.com"
-              aria-label="Open on barbershoptags.com"
-            >↗</a>
-          </div>
-        </div>
-        <p v-if="pageAltTitle" class="alt-title">{{ pageAltTitle }}</p>
-      </div>
+      <TagPageTitle
+        :title="pageTitleDisplay"
+        :alt-title="pageAltTitle"
+        :barbershop-url="barbershopPageUrl"
+        @share="openShare()"
+      />
       <p class="id-line">
         <span class="tag-num">Tag #{{ detail.tag_id }}</span>
         <span
@@ -748,21 +731,23 @@ async function onRetryLoad(): Promise<void> {
     <details class="section" open>
       <summary class="section-summary sheet-section-head">
         <span class="sheet-section-title">Sheet music</span>
-        <button
-          v-if="hasSheetContent && !sheetFullscreenActive && !tracksFullscreenActive"
-          type="button"
-          class="sheet-section-fs"
-          aria-label="Fullscreen sheet"
-          title="Fullscreen"
-          @click.prevent.stop="enterSheetFullscreen"
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-            <path
-              fill="currentColor"
-              d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-            />
-          </svg>
-        </button>
+        <span class="sheet-section-fs-slot">
+          <button
+            v-if="hasSheetContent && !sheetFullscreenActive && !tracksFullscreenActive"
+            type="button"
+            class="sheet-section-fs"
+            aria-label="Fullscreen sheet"
+            title="Fullscreen"
+            @click.prevent.stop="enterSheetFullscreen"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+              />
+            </svg>
+          </button>
+        </span>
       </summary>
       <div
         class="section-body sheet-slot"
@@ -783,7 +768,6 @@ async function onRetryLoad(): Promise<void> {
           :pdfs="sheetAssets.pdfs"
           :offline="offline"
           :can-choose-format="!offline && sheetAssets.canChooseFormat"
-          :crop-to-content="false"
           :prefetched-pages="preparedSheet?.pages ?? null"
           :pay-key-enabled="canPayKey"
           :key-label="pitchLabel"
@@ -822,23 +806,25 @@ async function onRetryLoad(): Promise<void> {
     <details class="section" open>
       <summary class="section-summary sheet-section-head">
         <span class="sheet-section-title">Tracks</span>
-        <button
-          v-if="hasAudio && !tracksFullscreenActive && !sheetFullscreenActive"
-          type="button"
-          class="sheet-section-fs"
-          aria-label="Fullscreen tracks"
-          title="Fullscreen"
-          @click.prevent.stop="enterTracksFullscreen"
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-            <path
-              fill="currentColor"
-              d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
-            />
-          </svg>
-        </button>
+        <span class="sheet-section-fs-slot">
+          <button
+            v-if="hasAudio && !tracksFullscreenActive && !sheetFullscreenActive"
+            type="button"
+            class="sheet-section-fs"
+            aria-label="Fullscreen tracks"
+            title="Fullscreen"
+            @click.prevent.stop="enterTracksFullscreen"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path
+                fill="currentColor"
+                d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+              />
+            </svg>
+          </button>
+        </span>
       </summary>
-      <div class="section-body">
+      <div class="section-body tracks-slot" :class="{ 'has-player': hasAudio }">
         <TagPlayer
           v-if="hasAudio"
           ref="tagPlayerRef"
@@ -846,9 +832,10 @@ async function onRetryLoad(): Promise<void> {
           :parts="audioParts"
           :available-parts="availableAudioParts"
           :resolve-part="resolvePart"
-          :pending="false"
+          :pending="audioPending"
           :title="detail.title || undefined"
           :pitch-semitones="keyShift"
+          :detune-cents="mixDetuneCents"
           :song-key="keyDisplay || undefined"
           :audio-layout-summary="detail.audio_layout_summary"
           :audio-layouts="detail.audio_layouts"
@@ -863,7 +850,7 @@ async function onRetryLoad(): Promise<void> {
           @pay-up="payKeyUp"
         />
         <EmptyState
-          v-else-if="!hasAudio"
+          v-else-if="!loading && !hasAudio"
           title="No audio available"
           :message="
             offline
@@ -957,37 +944,25 @@ async function onRetryLoad(): Promise<void> {
           :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use'"
           @click="onToggleStar"
         >
-          {{ starred ? '♥ Favorited' : '♡ Favorite' }}
+          <span class="fav-text" :class="{ 'is-hidden': !starred }">
+            <font-awesome-icon :icon="['fas', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorited</span>
+          </span>
+          <span class="fav-text" :class="{ 'is-hidden': starred }">
+            <font-awesome-icon :icon="['far', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorite</span>
+          </span>
         </button>
       </div>
     </div>
 
     <header class="title-row">
-      <div class="title-block">
-        <div class="title-head">
-          <h1 :title="pageTitleTooltip">{{ pageTitleDisplay }}</h1>
-          <div class="title-actions">
-            <button
-              type="button"
-              class="title-copy"
-              aria-label="Share this tag"
-              title="Share a link to this tag"
-              @click="openShare()"
-            >
-              Share
-            </button>
-            <a
-              :href="barbershopPageUrl"
-              class="btn title-ext"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open on barbershoptags.com"
-              aria-label="Open on barbershoptags.com"
-            >↗</a>
-          </div>
-        </div>
-        <p v-if="pageAltTitle" class="alt-title">{{ pageAltTitle }}</p>
-      </div>
+      <TagPageTitle
+        :title="pageTitleDisplay"
+        :alt-title="pageAltTitle"
+        :barbershop-url="barbershopPageUrl"
+        @share="openShare()"
+      />
       <p class="id-line">
         <span class="tag-num">Tag #{{ summary.id }}</span>
         <span
@@ -1226,9 +1201,7 @@ async function onRetryLoad(): Promise<void> {
     font-size: 0.85rem;
     margin: 0;
   }
-  .fav {
-    white-space: nowrap;
-  }
+  /* Text already forced to not wrap for consistent sizing. */
 }
 .practice-banner {
   margin: 0.5rem 0 0.75rem;
@@ -1282,6 +1255,24 @@ async function onRetryLoad(): Promise<void> {
   background: var(--surface);
   color: var(--accent);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  position: relative;
+}
+.fav-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.fav-text.is-hidden {
+  display: none;
+}
+.fav .heart-icon {
+  flex-shrink: 0;
+  width: 1em;
+  text-align: center;
 }
 .fav[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
@@ -1301,73 +1292,12 @@ async function onRetryLoad(): Promise<void> {
   background: var(--accent);
   transition: width 0.2s ease;
 }
-.tag h1 {
-  font-family: var(--font-display);
-  margin: 0;
-  font-size: clamp(1.35rem, 6vw, 2rem);
-  line-height: 1.2;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 .title-row {
   display: grid;
   gap: 0.35rem;
   margin: 0.25rem 0 0.75rem;
   min-width: 0;
   max-width: 100%;
-}
-.title-block {
-  min-width: 0;
-}
-.title-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem 0.75rem;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-.title-head h1 {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-.title-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
-}
-.title-copy {
-  min-height: 36px;
-  padding: 0.35rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.title-ext {
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0.35rem;
-  color: var(--accent);
-  font-size: 1rem;
-  line-height: 1;
-}
-.title-ext:hover {
-  color: var(--accent-hover);
-}
-.title-block .alt-title {
-  margin: 0.2rem 0 0;
-  color: var(--muted);
-  font-size: clamp(0.95rem, 3.5vw, 1.1rem);
-  font-weight: 500;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
 }
 .id-line {
   display: flex;
@@ -1479,6 +1409,17 @@ async function onRetryLoad(): Promise<void> {
   flex: 1;
   min-width: 0;
 }
+/* Always reserve the fullscreen control width so the title does not shift. */
+.sheet-section-fs-slot {
+  box-sizing: border-box;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  margin: -0.15rem 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .sheet-section-fs {
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -1487,7 +1428,7 @@ async function onRetryLoad(): Promise<void> {
   justify-content: center;
   width: 40px;
   height: 40px;
-  margin: -0.15rem 0;
+  margin: 0;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1508,6 +1449,10 @@ async function onRetryLoad(): Promise<void> {
   display: grid;
   gap: 0.75rem;
   min-width: 0;
+}
+/* Hold Tracks height only when the player is present (not EmptyState). */
+.tracks-slot.has-player {
+  min-height: 22.5rem;
 }
 /* Hold space while sheet decodes so Tracks do not jump up on online reload. */
 .sheet-slot.is-pending {
@@ -1594,12 +1539,6 @@ pre {
   .meta-grid {
     grid-template-columns: minmax(7rem, 32%) 1fr;
     gap: 0.55rem 0.85rem;
-  }
-  .tag h1 {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    overflow-wrap: normal;
   }
 }
 </style>

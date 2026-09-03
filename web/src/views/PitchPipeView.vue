@@ -207,7 +207,7 @@ function blackTopPct(after: string): number {
         <label
           class="setting-row global-detune"
           :class="{ on: prefs.applyDetuneGlobally }"
-          title="Apply this concert A / fine detune to tag Pitch (Mix stays A440-relative)"
+          title="Apply this concert A / fine detune to tag Pitch, Mix, and Local Library tracks"
         >
           <span class="setting-copy">
             <span class="setting-title">Apply tuning globally</span>

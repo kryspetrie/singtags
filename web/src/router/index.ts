@@ -59,6 +59,17 @@ export const router = createRouter({
       component: () => import('../views/LabsView.vue'),
     },
     {
+      path: '/library',
+      name: 'library',
+      component: () => import('../views/LocalLibraryView.vue'),
+    },
+    {
+      path: '/library/:id',
+      name: 'library-doc',
+      component: () => import('../views/LocalDocView.vue'),
+      props: true,
+    },
+    {
       path: '/tx',
       name: 'tx',
       component: () => import('../views/OpticalTransferView.vue'),

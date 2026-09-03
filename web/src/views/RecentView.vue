@@ -4,7 +4,7 @@
  * Multi-select (Browse/Favorites-like) for favorite, collection, and zip actions.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import EmptyState from '../components/EmptyState.vue'
 import TagListRowContent from '../components/TagListRowContent.vue'
@@ -30,7 +30,6 @@ import type { PartId, TagDetail, TagSummary } from '../types/tag'
 const catalog = useCatalogStore()
 const favorites = useFavoritesStore()
 const recent = useRecentStore()
-const router = useRouter()
 const prefs = usePreferencesStore()
 const queue = useQueueStore()
 const snackbar = useSnackbarStore()
@@ -405,7 +404,11 @@ function rowStarLabel(tag: TagSummary): string {
             class="row-fav-spinner"
             aria-hidden="true"
           />
-          <span v-else>{{ favorites.isStarred(tag.id) ? '♥' : '♡' }}</span>
+          <font-awesome-icon
+            v-else
+            :icon="favorites.isStarred(tag.id) ? ['fas', 'heart'] : ['far', 'heart']"
+            aria-hidden="true"
+          />
         </button>
         <button
           type="button"

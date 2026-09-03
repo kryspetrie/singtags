@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Prominent offline entry point: receive tag sheets optically with no prior cache.
+ * Prominent offline entry point: receive Local Library / ad-hoc files optically.
  */
 import { RouterLink } from 'vue-router'
 import TransferButtonLabel from './TransferButtonLabel.vue'
@@ -15,19 +15,19 @@ defineProps<{
 <template>
   <div class="offline-transfer-prompt" :class="{ compact }">
     <p class="prompt-title">
-      {{ compact ? 'Receive tags offline' : 'Build your library without the network' }}
+      {{ compact ? 'Receive files offline' : 'Transfer without the network' }}
     </p>
     <p class="prompt-desc">
       {{
         compact
-          ? 'Scan animated QR codes from another device — tag sheets save on this phone.'
-          : 'Another phone can stream tag sheets with animated QR codes. Received sheets stay on this device — no catalog download or network required.'
+          ? 'Scan animated QR codes from another device — Local Library songs and files save on this phone.'
+          : 'Send or receive Local Library songs and files via animated QR codes. Nothing requires a catalog download or network.'
       }}
     </p>
     <RouterLink
       :to="opticalReceiveRoute"
       class="btn btn-primary prompt-action"
-      aria-label="Receive tags with optical transfer"
+      aria-label="Receive with optical transfer"
     >
       <TransferButtonLabel />
     </RouterLink>

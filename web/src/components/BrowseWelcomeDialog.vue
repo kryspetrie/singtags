@@ -97,7 +97,7 @@ function onContinue(): void {
             <a href="https://www.barbershoptags.com/" target="_blank" rel="noopener noreferrer"
               >barbershoptags.com</a
             >
-            tag library, refreshed <strong>weekly</strong> from the official site. Search and practice
+            tag library, refreshed <strong>weekly</strong> from the official site. Search and sing
             here; for ratings, comments, and the newest uploads, use barbershoptags.com.
           </p>
 
@@ -145,18 +145,18 @@ function onContinue(): void {
             </span>
           </label>
           <p v-else-if="!sheetsReady" class="muted-note">
-            Lo-fi learning tracks are already cached. Star individual tags in Settings for original
-            quality, or manage packs in Offline settings.
+            Lo-fi learning tracks are already cached. Star tags while browsing for compact 64 kbps
+            Mix audio on those songs, or manage packs in Offline settings.
           </p>
 
           <p v-if="!audioReady && !sheetsReady" class="muted-note">
-            You can also star tags as you browse to save higher-quality audio for just your practice
-            set.
+            You can also star tags as you browse to cache compact offline Mix audio for just those
+            songs.
           </p>
 
           <p v-if="offline" class="warn" role="status">
-            You are offline — connect to download media packs, or receive tag sheets from another
-            device below.
+            You are offline — connect to download media packs, or receive Local Library songs and
+            files from another device below.
           </p>
 
           <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />

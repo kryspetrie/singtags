@@ -33,6 +33,7 @@ import {
 import { KEY_SHIFT_LABEL_SIZE_SAMPLE } from '../audio/pitchPlayer'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
+import { usePreferencesStore, type SheetFsPageMode } from '../stores/preferences'
 
 export type SheetDisplayMode = 'images' | 'pdf'
 
@@ -51,7 +52,11 @@ const props = withDefaults(
     payKeyEnabled?: boolean
     keyLabel?: string
     shift?: number
-    /** Crop whitespace margins on displayed pages (images + rendered PDFs). */
+    /**
+     * Crop whitespace margins on displayed pages (images + rendered PDFs).
+     * Default off: catalog WebP/PDF pages are published pre-cropped. Enable for
+     * Local Library / user uploads that often have scanner or page margins.
+     */
     cropToContent?: boolean
     /**
      * Default view pages already prepared by the parent (cropped offscreen).
@@ -59,9 +64,10 @@ const props = withDefaults(
      */
     prefetchedPages?: string[] | null
     /**
-     * When true, never fetch/rasterize PDFs — only reuse memory/IDB rasters
-     * (or keep WebP). When false (online), WebP paints first then HQ rasters
-     * are prepared, cached, and faded in (inline and fullscreen).
+     * When true, never fetch/rasterize remote PDFs — only reuse memory/IDB rasters
+     * (or keep WebP). Local `blob:` / `data:` PDFs still rasterize (no network).
+     * When false (online), WebP paints first then HQ rasters are prepared, cached,
+     * and faded in (inline and fullscreen).
      */
     offline?: boolean
     /** Extended sing chrome: ± shift, Mix play/scrub (parent wires audio). */
@@ -86,7 +92,7 @@ const props = withDefaults(
     imageSets: () => [],
     pdfs: () => [],
     canChooseFormat: false,
-    cropToContent: true,
+    cropToContent: false,
     prefetchedPages: null,
     offline: false,
     singControls: false,
@@ -116,8 +122,9 @@ const emit = defineEmits<{
   'exit-origin': []
 }>()
 
+const prefs = usePreferencesStore()
 const fullscreen = ref(false)
-/** Collapse pages / fit / Play / Share / Tag; Pitch ± + more + exit stay. Default on in fullscreen. */
+/** Collapse Play / Share / Tag / Fit; page pager + Pitch ± + more + exit stay. Default on in fullscreen. */
 const chromeCompact = ref(true)
 /** Mix play/scrub panel popped open from compact Play (hides ⋮ while open). */
 const playbackOpen = ref(false)
@@ -165,6 +172,21 @@ let lastFsContent: { width: number; height: number } | null = null
 const stageStyle = computed(() =>
   fullscreen.value ? { transform: sheetZoomPanCss(zoomPan.value) } : undefined,
 )
+/** Continuous multi-page stack in fullscreen (vs one-page pager). */
+const fsScrollMode = computed(
+  () =>
+    fullscreen.value &&
+    prefs.sheetFsPageMode === 'scroll' &&
+    displayPages.value.length > 1,
+)
+const pageModeButtonLabel = computed(() =>
+  prefs.sheetFsPageMode === 'scroll' ? 'Scroll' : 'Paging',
+)
+const pageModeButtonTitle = computed(() =>
+  prefs.sheetFsPageMode === 'scroll'
+    ? 'Page mode: continuous scroll — tap for one page at a time'
+    : 'Page mode: paging — tap for continuous scroll',
+)
 const fitButtonLabel = computed(() => (fitMode.value === 'width' ? 'Fit width' : 'Fit all'))
 /** True when cycling fit width ↔ fit all would leave the view unchanged. */
 const fitCycleDisabled = ref(false)
@@ -186,6 +208,10 @@ let pinchStartScale = 1
 let dragging = false
 let lastDragX = 0
 let lastDragY = 0
+/** Gesture start for fullscreen page-turn swipe (fit zoom only). */
+let gesturePanX = 0
+let gesturePanY = 0
+const PAGE_SWIPE_MIN_PX = 56
 
 const resolvedImageSets = computed<SheetImageSet[]>(() => {
   if (props.imageSets.length) return props.imageSets
@@ -246,6 +272,12 @@ function src(path: string, base?: string): string {
   }
   if (base) return `${base.endsWith('/') ? base : base + '/'}${path}`
   return mediaUrl(path)
+}
+
+/** Offline mode still allows pdf.js when the PDF bytes are already local. */
+function canRasterizePdfUrl(pdfUrl: string): boolean {
+  if (!props.offline) return true
+  return pdfUrl.startsWith('blob:') || pdfUrl.startsWith('data:')
 }
 
 function revokeOwned(): void {
@@ -478,8 +510,9 @@ async function rebuildDisplay(): Promise<void> {
         return
       }
 
-      // Offline: keep WebP — never fetch/rasterize the PDF without a cache hit.
-      if (props.offline) {
+      // Offline: keep WebP for remote PDFs — never fetch without a cache hit.
+      // Local blob/data PDFs (e.g. Local Library) still rasterize in-place.
+      if (!canRasterizePdfUrl(pdfUrl)) {
         return
       }
 
@@ -637,7 +670,7 @@ async function upgradeToHqPdfRaster(signal: AbortSignal, seq: number): Promise<b
     /* best-effort cache read */
   }
 
-  if (props.offline) return false
+  if (!canRasterizePdfUrl(pdfUrl)) return false
 
   try {
     const urls = await renderPdfToPageUrls(pdfUrl, {
@@ -778,21 +811,41 @@ function applyFit(next: SheetFitMode): void {
   commitZoomPan(fitSheetZoomPan(next, measured.viewport, measured.content, { insets }))
 }
 
-/** Choose fit-width vs fit-all from usable (chrome-aware) dimensions, then apply. */
-function applyAutoFit(): void {
-  const measured = measureViewportAndContent()
-  if (!measured) {
-    zoomPan.value = identitySheetZoomPan()
-    updateFitCycleDisabled()
-    return
+/**
+ * Default fit for a new fullscreen session.
+ * Paging multi-page shows one page at a time → Fit all.
+ * Continuous scroll stacks pages → Fit width (document reading).
+ * Single-page still auto-picks width vs all from aspect / pillarboxing.
+ */
+function initialFullscreenFitMode(): SheetFitMode {
+  if (displayPages.value.length > 1) {
+    return prefs.sheetFsPageMode === 'scroll' ? 'width' : 'all'
   }
+  const measured = measureViewportAndContent()
+  if (!measured) return 'width'
   const insets = measureChromeInsets()
-  applyFit(chooseSheetFitMode(measured.viewport, measured.content, undefined, insets))
+  return chooseSheetFitMode(measured.viewport, measured.content, undefined, insets)
 }
 
 function cycleFit(): void {
   if (fitCycleDisabled.value) return
   applyFit(fitMode.value === 'width' ? 'all' : 'width')
+}
+
+async function applyPageMode(mode: SheetFsPageMode): Promise<void> {
+  prefs.setSheetFsPageMode(mode)
+  if (!fullscreen.value) return
+  await waitForImages()
+  await nextTick()
+  if (displayPages.value.length > 1) {
+    applyFit(mode === 'scroll' ? 'width' : 'all')
+  } else {
+    applyFit(fitMode.value)
+  }
+}
+
+function cyclePageMode(): void {
+  void applyPageMode(prefs.sheetFsPageMode === 'scroll' ? 'paging' : 'scroll')
 }
 
 async function waitForImages(): Promise<void> {
@@ -819,11 +872,11 @@ async function waitForImages(): Promise<void> {
   await nextTick()
 }
 
-async function enterFullscreenLayout(): Promise<void> {
+async function enterFullscreenLayout(opts?: { resetFitMode?: boolean }): Promise<void> {
   await waitForImages()
   // Chrome is absolute overlay — wait a frame so insets measure correctly.
   await nextTick()
-  applyAutoFit()
+  applyFit(opts?.resetFitMode ? initialFullscreenFitMode() : fitMode.value)
 }
 
 let fsViewportRaf = 0
@@ -884,7 +937,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
       mode.value = 'pdf'
     }
     attachFsViewportListeners()
-    void enterFullscreenLayout()
+    void enterFullscreenLayout({ resetFitMode: true })
     void acquireWakeLock('sheet')
     setShellInert(true)
     if (!opts?.fromPopState) overlayHistory.push()
@@ -1031,8 +1084,12 @@ function onPopState(): void {
 
 function scrollPageIntoView(index: number): void {
   if (fullscreen.value) {
-    // Fullscreen shows one page via v-show; refit for that page's aspect.
-    applyAutoFit()
+    if (fsScrollMode.value) {
+      panToPage(index)
+      return
+    }
+    // Paging: one page via v-show; keep the session's Fit width / Fit all.
+    applyFit(fitMode.value)
     return
   }
   const root = stageEl.value
@@ -1042,11 +1099,63 @@ function scrollPageIntoView(index: number): void {
   el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 
+/** Pan so page `index` sits under the top chrome (scroll mode). */
+function panToPage(index: number): void {
+  const stage = stageEl.value
+  if (!stage) {
+    applyFit(fitMode.value)
+    return
+  }
+  const pages = stage.querySelectorAll('.page')
+  const el = pages[index] as HTMLElement | undefined
+  if (!el) {
+    applyFit(fitMode.value)
+    return
+  }
+  const measured = measureViewportAndContent()
+  if (!measured) return
+  const insets = measureChromeInsets()
+  const scale = zoomPan.value.scale > 0 ? zoomPan.value.scale : 1
+  commitZoomPan({
+    ...zoomPan.value,
+    panY: Math.max(0, insets.top) - el.offsetTop * scale,
+  })
+}
+
+/** Keep the page indicator in sync while panning the scroll stack. */
+function syncPageIndexFromPan(): void {
+  if (!fsScrollMode.value) return
+  const stage = stageEl.value
+  const sheet = sheetEl.value
+  if (!stage || !sheet) return
+  const pages = [...stage.querySelectorAll('.page')] as HTMLElement[]
+  if (pages.length <= 1) return
+  const scale = zoomPan.value.scale
+  if (scale <= 0) return
+  const viewMidContentY = (sheet.getBoundingClientRect().height / 2 - zoomPan.value.panY) / scale
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < pages.length; i++) {
+    const el = pages[i]!
+    const mid = el.offsetTop + el.offsetHeight / 2
+    const d = Math.abs(mid - viewMidContentY)
+    if (d < bestDist) {
+      bestDist = d
+      best = i
+    }
+  }
+  pageIndex.value = best
+}
+
 function goPage(delta: number): void {
   const max = Math.max(0, displayPages.value.length - 1)
   const next = Math.max(0, Math.min(max, pageIndex.value + delta))
   if (next === pageIndex.value) return
   pageIndex.value = next
+  if (fullscreen.value && fsScrollMode.value) {
+    scrollPageIntoView(next)
+    return
+  }
   zoomPan.value = identitySheetZoomPan()
   scrollPageIntoView(next)
 }
@@ -1135,6 +1244,7 @@ function onWheel(e: WheelEvent): void {
     return
   }
   commitZoomPan(panSheet(zoomPan.value, -e.deltaX, -e.deltaY))
+  syncPageIndexFromPan()
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -1148,10 +1258,14 @@ function onPointerDown(e: PointerEvent): void {
     dragging = false
     pinchStartDist = pointerDistance()
     pinchStartScale = zoomPan.value.scale
+    gesturePanX = 0
+    gesturePanY = 0
   } else if (pointers.size === 1) {
     dragging = true
     lastDragX = e.clientX
     lastDragY = e.clientY
+    gesturePanX = 0
+    gesturePanY = 0
   }
 }
 
@@ -1179,8 +1293,34 @@ function onPointerMove(e: PointerEvent): void {
     const dy = e.clientY - lastDragY
     lastDragX = e.clientX
     lastDragY = e.clientY
+    gesturePanX += dx
+    gesturePanY += dy
     commitZoomPan(panSheet(zoomPan.value, dx, dy))
   }
+}
+
+function fitScaleNow(): number {
+  const measured = measureViewportAndContent()
+  if (!measured) return 1
+  const insets = measureChromeInsets()
+  return fitSheetZoomPan(
+    fitMode.value,
+    measured.viewport,
+    measured.content,
+    { insets },
+  ).scale
+}
+
+/** At (or near) session fit, horizontal swipe turns pages instead of only panning. */
+function tryPageSwipe(): void {
+  if (fsScrollMode.value) return
+  if (displayPages.value.length <= 1) return
+  const fit = fitScaleNow()
+  if (zoomPan.value.scale > fit * 1.08) return
+  const ax = Math.abs(gesturePanX)
+  const ay = Math.abs(gesturePanY)
+  if (ax < PAGE_SWIPE_MIN_PX || ax < ay * 1.15) return
+  goPage(gesturePanX < 0 ? 1 : -1)
 }
 
 function onPointerUp(e: PointerEvent): void {
@@ -1194,7 +1334,13 @@ function onPointerUp(e: PointerEvent): void {
     lastDragX = rem.x
     lastDragY = rem.y
   } else if (pointers.size === 0) {
+    if (dragging) {
+      tryPageSwipe()
+      syncPageIndexFromPan()
+    }
     dragging = false
+    gesturePanX = 0
+    gesturePanY = 0
   }
 }
 
@@ -1204,16 +1350,11 @@ function onDoubleClick(e: MouseEvent): void {
   const measured = measureViewportAndContent()
   const insets = measured ? measureChromeInsets() : { top: 0, bottom: 0 }
   const fitScale = measured
-    ? fitSheetZoomPan(
-        chooseSheetFitMode(measured.viewport, measured.content, undefined, insets),
-        measured.viewport,
-        measured.content,
-        { insets },
-      ).scale
+    ? fitSheetZoomPan(fitMode.value, measured.viewport, measured.content, { insets }).scale
     : 1
-  // Already past the auto-fit scale → reset; otherwise zoom in on the point.
+  // Already past the session fit scale → reset to Fit width / Fit all; otherwise zoom in.
   if (zoomPan.value.scale > fitScale * 1.08) {
-    applyAutoFit()
+    applyFit(fitMode.value)
     return
   }
   const { x, y } = viewportPoint(e.clientX, e.clientY)
@@ -1284,6 +1425,11 @@ defineExpose({
   enterFullscreen: () => setFullscreen(true),
   exitFullscreen: () => setFullscreen(false),
   isFullscreen: () => fullscreen.value,
+  /** Test / parent helpers for session fit mode. */
+  fitMode: () => fitMode.value,
+  applyFitMode: (mode: SheetFitMode) => applyFit(mode),
+  pageMode: () => prefs.sheetFsPageMode,
+  setPageMode: (mode: SheetFsPageMode) => applyPageMode(mode),
 })
 </script>
 
@@ -1297,6 +1443,7 @@ defineExpose({
         zoomed: fullscreen && zoomPan.scale > 1.01,
         'is-awaiting': loading && !displayPages.length,
         'sing-chrome': fullscreen && singControls,
+        'fs-scroll': fsScrollMode,
       }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
@@ -1316,7 +1463,7 @@ defineExpose({
       <div ref="stageEl" class="stage" :style="stageStyle">
         <div
           v-for="(page, i) in displayPages"
-          v-show="!fullscreen || i === pageIndex"
+          v-show="!fullscreen || fsScrollMode || i === pageIndex"
           :key="`${mode}-${imageSetId}-${pdfId}-${i}`"
           class="page"
         >
@@ -1461,28 +1608,6 @@ defineExpose({
               Tag Page
             </button>
 
-            <div v-if="displayPages.length > 1" class="chrome-pages" role="group" aria-label="Sheet pages">
-              <button
-                type="button"
-                class="chrome-btn"
-                aria-label="Previous page"
-                :disabled="pageIndex <= 0"
-                @click="goPage(-1)"
-              >
-                ‹
-              </button>
-              <span class="page-ind">{{ pageIndex + 1 }}/{{ displayPages.length }}</span>
-              <button
-                type="button"
-                class="chrome-btn"
-                aria-label="Next page"
-                :disabled="pageIndex >= displayPages.length - 1"
-                @click="goPage(1)"
-              >
-                ›
-              </button>
-            </div>
-
             <button
               type="button"
               class="chrome-btn fit"
@@ -1497,6 +1622,42 @@ defineExpose({
         </div>
 
         <div class="chrome-trailing">
+          <div
+            v-if="displayPages.length > 1 && !playbackOpen"
+            class="chrome-pages"
+            role="group"
+            aria-label="Sheet pages"
+          >
+            <button
+              type="button"
+              class="chrome-btn page-mode"
+              :aria-label="pageModeButtonTitle"
+              :title="pageModeButtonTitle"
+              :aria-pressed="prefs.sheetFsPageMode === 'scroll'"
+              @click="cyclePageMode"
+            >
+              {{ pageModeButtonLabel }}
+            </button>
+            <button
+              type="button"
+              class="chrome-btn"
+              aria-label="Previous page"
+              :disabled="pageIndex <= 0"
+              @click="goPage(-1)"
+            >
+              ‹
+            </button>
+            <span class="page-ind">{{ pageIndex + 1 }}/{{ displayPages.length }}</span>
+            <button
+              type="button"
+              class="chrome-btn"
+              aria-label="Next page"
+              :disabled="pageIndex >= displayPages.length - 1"
+              @click="goPage(1)"
+            >
+              ›
+            </button>
+          </div>
           <button
             v-if="!playbackOpen"
             type="button"
@@ -1666,6 +1827,9 @@ defineExpose({
   will-change: transform;
   user-select: none;
   -webkit-user-select: none;
+}
+.sheet.fullscreen.fs-scroll .stage {
+  gap: 0.35rem;
 }
 .chrome {
   position: absolute;

@@ -5,7 +5,9 @@
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import SheetViewer from './SheetViewer.vue'
+import { usePreferencesStore } from '../stores/preferences'
 import { resetWakeLockForTests, wakeLockHoldersForTests } from '../lib/wakeLock'
 
 vi.mock('../lib/contentCrop', () => ({
@@ -22,6 +24,8 @@ vi.mock('../lib/pdfRender', () => ({
 describe('SheetViewer sing chrome', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    setActivePinia(createPinia())
     resetWakeLockForTests()
     Element.prototype.scrollIntoView = vi.fn()
     const release = vi.fn(async () => {})
@@ -53,6 +57,8 @@ describe('SheetViewer sing chrome', () => {
     props: Record<string, unknown> = {},
     pages = ['sheets/1/p1.webp'],
   ) {
+    const pinia = createPinia()
+    setActivePinia(pinia)
     const w = mount(SheetViewer, {
       props: {
         pages,
@@ -62,6 +68,7 @@ describe('SheetViewer sing chrome', () => {
         singControls: true,
         ...props,
       },
+      global: { plugins: [pinia] },
       attachTo: document.body,
     })
     await flushPromises()
@@ -217,8 +224,7 @@ describe('SheetViewer sing chrome', () => {
 
   it('advances pages in fullscreen without scrollIntoView', async () => {
     const w = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
-    await w.get('button.more').trigger('click')
-    await flushPromises()
+    // Pager stays visible in compact chrome (not buried under More).
     const pages = w.get('.chrome-pages')
     expect(pages.text()).toContain('1/2')
     await pages.get('[aria-label="Next page"]').trigger('click')
@@ -226,6 +232,52 @@ describe('SheetViewer sing chrome', () => {
     expect(pages.text()).toContain('2/2')
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
     w.unmount()
+  })
+
+  it('multi-page fullscreen defaults to Fit all and keeps Fit width across pages', async () => {
+    const w = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
+    const vm = w.vm as {
+      fitMode: () => 'width' | 'all'
+      applyFitMode: (m: 'width' | 'all') => void
+    }
+    expect(vm.fitMode()).toBe('all')
+
+    vm.applyFitMode('width')
+    await flushPromises()
+    expect(vm.fitMode()).toBe('width')
+
+    await w.get('.chrome-pages [aria-label="Next page"]').trigger('click')
+    await flushPromises()
+    expect(vm.fitMode()).toBe('width')
+    w.unmount()
+  })
+
+  it('toggles paging ↔ scroll, persists, and defaults Fit width in scroll mode', async () => {
+    const w = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
+    const vm = w.vm as {
+      fitMode: () => 'width' | 'all'
+      pageMode: () => 'paging' | 'scroll'
+      setPageMode: (m: 'paging' | 'scroll') => Promise<void>
+    }
+    expect(vm.pageMode()).toBe('paging')
+    expect(w.get('.chrome-pages .page-mode').text()).toBe('Paging')
+    expect(w.find('.fs-scroll').exists()).toBe(false)
+
+    await vm.setPageMode('scroll')
+    await flushPromises()
+    expect(vm.pageMode()).toBe('scroll')
+    expect(vm.fitMode()).toBe('width')
+    expect(w.find('.fs-scroll').exists()).toBe(true)
+    expect(localStorage.getItem('singtags.sheetFsPageMode.v1')).toBe('scroll')
+    w.unmount()
+
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().sheetFsPageMode).toBe('scroll')
+    const again = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
+    expect((again.vm as { pageMode: () => string }).pageMode()).toBe('scroll')
+    expect((again.vm as { fitMode: () => string }).fitMode()).toBe('width')
+    expect(again.find('.fs-scroll').exists()).toBe(true)
+    again.unmount()
   })
 
   it('pitch fab sizes to max label sample without ellipsis or Reset', async () => {

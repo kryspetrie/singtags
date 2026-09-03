@@ -181,7 +181,7 @@ const audioChipTitle = computed(() =>
 
 const offlineChipLabel = computed(() => {
   const suffix = cachedFilterChipLabel(props.filters.cached)
-  return suffix ? `Available offline: ${suffix}` : 'Available offline'
+  return suffix ? `Cached: ${suffix}` : 'Cached on device'
 })
 
 const offlineChipTitle =
@@ -383,19 +383,19 @@ function removeArranger(a: string): void {
 
     <FilterSheet
       :open="sheet === 'cached'"
-      title="Available offline on this device"
+      title="Cached files on this device"
       :anchor-top="sheetAnchorTop"
       @close="sheet = null"
     >
       <p class="hint">
-        When set, <strong>Has sheet</strong> and <strong>Has audio</strong> filter by files cached
-        here, not just what exists in the catalog.
+        Filters by files already on this phone. Cached sheets or audio do not guarantee a full
+        offline Mix (tracks may still be missing).
       </p>
       <label class="cached-field">
-        <span>Available offline</span>
+        <span>Cached on device</span>
         <select
           :value="filters.cached ?? ''"
-          aria-label="Available offline"
+          aria-label="Cached on device"
           @change="setCached(($event.target as HTMLSelectElement).value)"
         >
           <option value="">No filter</option>

@@ -304,11 +304,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   /**
    * Fetch audio for favorited tags that lack audio blobs (background queue).
+   * When `tagIds` is set, only those favorites are considered.
    * Side effects: network, IndexedDB via `refreshStarMedia`, sets `busy` and `progress`.
    *
    * @returns Number of tags that received new audio blobs.
    */
-  async function ensureAudioForAllStarred(): Promise<number> {
+  async function ensureAudioForStarred(tagIds?: number[]): Promise<number> {
     busy.value = true
     error.value = null
     lastNotice.value = null
@@ -316,8 +317,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
     let n = 0
     try {
       await ensureLoaded()
+      const allow = tagIds?.length ? new Set(tagIds) : null
       const need = records.value.filter(
-        (r) => !r.audioBlobs || !Object.keys(r.audioBlobs).length,
+        (r) =>
+          (!allow || allow.has(r.tagId)) &&
+          (!r.audioBlobs || !Object.keys(r.audioBlobs).length),
       )
       const total = need.length
       for (let i = 0; i < need.length; i++) {
@@ -359,6 +363,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
       busy.value = false
       progress.value = null
     }
+  }
+
+  /** Fetch missing audio for every favorited tag. */
+  async function ensureAudioForAllStarred(): Promise<number> {
+    return ensureAudioForStarred()
   }
 
   /**
@@ -538,6 +547,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     isStarred,
     toggle,
     starMany,
+    ensureAudioForStarred,
     ensureAudioForAllStarred,
     updateOfflineMedia,
     refreshOfflineMediaIfStale,

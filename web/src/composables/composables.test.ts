@@ -25,7 +25,6 @@ import { useOfflineModeStore } from '../stores/offlineMode'
 import type { TagDetail } from '../types/tag'
 
 vi.mock('../lib/prepareSheet', () => ({
-  prepareDefaultSheet: vi.fn(async () => ({ pages: ['blob:prepared'], owned: [] })),
   revokePreparedSheet: vi.fn(),
 }))
 
@@ -222,6 +221,28 @@ describe('useObjectUrls', () => {
     w.unmount()
     expect(revoke).toHaveBeenCalledWith('blob:test-1')
     expect(revoke).toHaveBeenCalledWith('blob:test-2')
+    revoke.mockRestore()
+  })
+
+  it('take() detaches URLs without revoking', () => {
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const Comp = defineComponent({
+      setup() {
+        const api = useObjectUrls()
+        api.track('blob:a')
+        api.track('blob:b')
+        const detached = api.take()
+        expect(detached).toEqual(['blob:a', 'blob:b'])
+        api.track('blob:c')
+        return api
+      },
+      template: '<div />',
+    })
+    const w = mount(Comp)
+    expect(revoke).not.toHaveBeenCalled()
+    w.unmount()
+    expect(revoke).toHaveBeenCalledWith('blob:c')
+    expect(revoke).not.toHaveBeenCalledWith('blob:a')
     revoke.mockRestore()
   })
 })
