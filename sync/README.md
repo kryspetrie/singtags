@@ -170,16 +170,16 @@ Design: [`docs/AUDIO_STORAGE_AND_CACHE.md`](docs/AUDIO_STORAGE_AND_CACHE.md) (cl
 
 ### AWS / weekly production refresh
 
-**Preferred:** one bucket (`singtags-prod`). On the machine that holds `library/`:
+**Target:** Lambda talks only to **`singtags-prod`** (ephemeral `/tmp` scratch per tag — no EFS, no second bucket). Design: [`docs/WEEKLY_PROD_SYNC.md`](docs/WEEKLY_PROD_SYNC.md).
+
+**Interim (this machine):**
 
 ```bash
 # from website repo root
 ./deploy/weekly_prod.sh
 ```
 
-Docs: [`docs/WEEKLY_PROD_SYNC.md`](docs/WEEKLY_PROD_SYNC.md).
-
-`sync/infra/` Lambda + separate mirror bucket is **parked** ([`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md)) — do not deploy it for SingTags prod.
+Legacy Terraform notes: [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md).
 
 ---
 

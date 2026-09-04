@@ -32,7 +32,7 @@ npm test                         # from web/
 
 - Delete `library/_state/` (lyric review queue and sync cursors live there)
 - Hit barbershoptags.com with thousands of per-tag HTML page requests
-- Deploy `sync/infra/`’s second mirror bucket for SingTags — use one prod bucket ([WEEKLY_PROD_SYNC](sync/docs/WEEKLY_PROD_SYNC.md))
+- Deploy `sync/infra/`’s second mirror bucket — Lambda must use **prod S3 only** ([WEEKLY_PROD_SYNC](sync/docs/WEEKLY_PROD_SYNC.md))
 
 ## Docs map
 

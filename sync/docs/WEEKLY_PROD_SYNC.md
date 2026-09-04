@@ -1,80 +1,102 @@
 # Weekly production refresh (single bucket)
 
-**Decision:** SingTags uses **one** public S3 bucket (`singtags-prod`). Weekly work adds media under `library/`, rebuilds SPA indexes, and publishes website + library. There is **no** second “mirror” bucket in the product path.
+**Decision:** SingTags uses **one** public S3 bucket (`singtags-prod`). That bucket is the **only durable store** for media, sync state, SPA indexes, and slim tag JSON. There is no second mirror bucket and no EFS / secondary library volume for syncing.
 
-**Why not the Terraform Lambda + private bucket?** Local `library/` is ~11 GB. Lambda `/tmp` cannot hold it, and `mirror/lambda_sync.py` today only writes a local tree — it never uploads to SingTags prod. Keep `sync/infra/` as a parked sketch; do not deploy it for www.singtags.com.
-
-## Where data lives
+## Source of truth
 
 | Location | Role |
 | --- | --- |
-| Workstation `library/` | Source of truth for media + `_state/` (sync cursors, lyric queue) |
-| `s3://singtags-prod/library/` | Same tree, public for the PWA |
+| `s3://singtags-prod/library/` | Media + `library/_state/` (sync cursors, lyric queue, catalog) |
 | `s3://singtags-prod/` (site root) | SPA, `indexes/`, `tags/{id}/metadata.json` |
+| Workstation `library/` | **Interim** convenience copy for manual runs of today’s CLI — not required for the Lambda design |
 
-Cloudflare points at this bucket’s website endpoint (see [docs/setup.md](../../docs/setup.md)).
+Cloudflare → this bucket’s website endpoint ([docs/setup.md](../../docs/setup.md)).
 
-## Weekly job (what actually runs)
+## Target: Lambda ↔ prod S3 only
 
-Orchestrator: [`../../deploy/weekly_prod.sh`](../../deploy/weekly_prod.sh)
+Weekly (or frontier) sync in AWS must:
+
+1. Read/write **`s3://singtags-prod`** only (IAM scoped to that bucket).
+2. **Not** mount EFS, not keep a persistent EC2 disk as the library mirror, not use a second S3 bucket.
+3. Use Lambda **`/tmp` only as ephemeral scratch** for the tag(s) in flight (download → encode → upload → delete). Scratch is not a filesystem of record.
+
+### Per-run shape
 
 ```
-1. sync/  — bulk-meta + frontier (new/missing assets, Opus tiers, light OCR/ASR)
-2. build/ — build_indexes.py + build_offline_manifest.py
-3. deploy/ — publish.sh library, then publish.sh website  →  same S3_BUCKET
+EventBridge → Step Functions (origin-down Wait retries)
+    → Lambda container
+         1. Get library/_state/sync_state.json (+ cached bulk export if present)
+         2. ONE api.php bulk-meta (origin care)
+         3. Frontier: for each missing/incomplete id
+              - scratch /tmp/{tag}/  (only this tag)
+              - fetch sheet/MP3 from origin
+              - layout / Opus tiers / light OCR·ASR
+              - PutObject → library/{folder}/…
+              - wipe /tmp/{tag}/
+         4. PutObject sync_state.json
+         5. Refresh SPA artifacts on the same bucket:
+              - Put tags/{id}/metadata.json for touched ids
+              - Rebuild or patch indexes/ (core, lyrics, offline manifests)
+                 without downloading the full media tree
 ```
 
-Typical unattended run (cron / systemd timer on the machine that already has `library/`):
+### Index rebuild without a full local library
+
+`build/build_indexes.py` today walks a disk tree. For Lambda, prefer one of:
+
+| Approach | Notes |
+| --- | --- |
+| **A. Incremental (preferred)** | After each new/updated tag, emit slim `tags/{id}/metadata.json` and patch `indexes/*` from that tag’s metadata (+ known tier keys written during encode). |
+| **B. Metadata-only full rebuild** | List/Get every `library/**/metadata.json` on S3 (small JSON only — not Opus/MP3), build indexes in memory /tmp, PutObject `indexes/` + `tags/`. |
+
+Do **not** `aws s3 sync` the entire 11 GB tree into Lambda.
+
+### Origin care (unchanged)
+
+- Metadata: **one** `api.php?n=50000` export
+- Assets: `dbaction` downloads — OK
+- Never scrape per-tag HTML
+
+### Gaps vs today’s code (implementation backlog)
+
+| Today | Needed for S3-native Lambda |
+| --- | --- |
+| `sync/` assumes `ROOT_DOWNLOAD_DIR` on disk | Storage adapter: head/list/get/put under `s3://…/library/` |
+| `lambda_sync.py` writes only local `/tmp/mirror` | Upload each completed tag to prod prefixes; load/save `_state` from S3 |
+| `build_indexes.py` disk walk | Incremental or metadata-only S3 rebuild (above) |
+| `sync/infra/` separate private bucket | Point at `singtags-prod`; drop mirror bucket / CloudFront SPA sketch |
+
+Until that lands, use the **interim workstation bridge** below.
+
+---
+
+## Interim: workstation bridge (`weekly_prod.sh`)
+
+Still valid for now: machine with a local `library/` runs sync CLI, then pushes into the **same** prod bucket.
 
 ```bash
-cd /path/to/singtags
 ./deploy/weekly_prod.sh
 ```
 
-Useful flags / env:
+```
+1. sync/  — bulk-meta + frontier (local disk)
+2. build/ — indexes + offline manifests (local)
+3. deploy/ — publish library + website → singtags-prod
+```
 
 | Flag / env | Meaning |
 | --- | --- |
-| `--skip-sync` | Only rebuild indexes + publish (library already updated) |
-| `--sync-only` | Mirror only; no indexes / no S3 |
+| `--skip-sync` | Indexes + publish only |
+| `--sync-only` | Mirror only |
 | `--miss-limit N` | Frontier miss streak (default `200`) |
-| `DRY_RUN=1` | Pass through to `aws s3 sync --dryrun` |
-| `SKIP_BUILD=1` | Reuse existing `web/dist` on website publish |
-| `.env.deploy` | `S3_BUCKET=singtags-prod` (required for publish steps) |
+| `DRY_RUN=1` / `SKIP_BUILD=1` / `.env.deploy` | Same as [docs/publish.md](../../docs/publish.md) |
 
-Manual equivalent (same order as [docs/publish.md](../../docs/publish.md)):
+Manual equivalent: [docs/publish.md](../../docs/publish.md).
 
-```bash
-cd sync && source .venv/bin/activate
-python mirror/sync.py --bulk-meta
-python mirror/sync.py --frontier --miss-limit 200
-
-cd ..
-python3 build/build_indexes.py
-python3 build/build_offline_manifest.py
-./deploy/publish.sh library
-./deploy/publish.sh website
-```
-
-## Origin care (unchanged)
-
-- Metadata: **one** `api.php?n=50000` bulk export (`--bulk-meta`)
-- Assets: `dbaction` sheet/MP3 downloads — OK
-- Never scrape per-tag HTML pages
-
-## If you later want cloud-scheduled (still one bucket)
-
-| Option | Fits? | Notes |
-| --- | --- | --- |
-| **This workstation + cron** | **Yes — preferred** | Already has the 11 GB tree; script above |
-| EC2 / Lightsail + EBS holding `library/` | Yes | Run the same script; IAM → `singtags-prod` only |
-| ECS/Fargate + EFS | Yes | Same pipeline; costlier |
-| Lambda container alone | **No** | Cannot host full library; index build walks local folders |
-
-Do **not** invent a second bucket “for sync state.” Put `_state/` under `library/_state/` (already synced by `library_s3.sh`).
+This path **copies** local → S3; it does not change the rule that **prod S3 is authoritative** once Lambda is S3-native. After Lambda ships, workstation sync is optional (lyric GUI, heavy ASR backfill, debugging).
 
 ## Related
 
 - Deploy SSOT: [docs/publish.md](../../docs/publish.md)
 - Mirror CLI: [../README.md](../README.md)
-- Parked Lambda sketch: [WEEKLY_LAMBDA_SYNC.md](WEEKLY_LAMBDA_SYNC.md) (not used for prod)
+- Legacy Terraform notes: [WEEKLY_LAMBDA_SYNC.md](WEEKLY_LAMBDA_SYNC.md)

@@ -1,21 +1,11 @@
-# `infra/scripts/` — AWS deploy helpers (parked)
+# `infra/scripts/` — AWS helpers (legacy sketch)
 
-**Not used for SingTags production.** Weekly refresh is the workstation script [`../../../deploy/weekly_prod.sh`](../../../deploy/weekly_prod.sh) against **one** public bucket — [`docs/WEEKLY_PROD_SYNC.md`](../../docs/WEEKLY_PROD_SYNC.md).
+**Target:** weekly Lambda uses **`singtags-prod` only** — see [`docs/WEEKLY_PROD_SYNC.md`](../../docs/WEEKLY_PROD_SYNC.md). No second bucket, no EFS.
 
-These scripts build/publish the **old** Terraform stack (separate private mirror bucket + Lambda). See [`docs/WEEKLY_LAMBDA_SYNC.md`](../../docs/WEEKLY_LAMBDA_SYNC.md).
+These scripts still assume the older Terraform private-mirror stack. Retarget or replace when implementing S3-native sync. Interim: [`../../../deploy/weekly_prod.sh`](../../../deploy/weekly_prod.sh).
 
-## Scripts (sketch only)
-
-| Script | Purpose |
+| Script | Legacy purpose |
 | --- | --- |
-| `_common.sh` | Shared env (sourced; not run directly) |
-| `deploy.sh` | Full Terraform + image path |
-| `infra_apply.sh` | Terraform apply |
-| `lambda_build_push.sh` | `docker build` + ECR push |
-| `lambda_publish.sh` | Build/push + update Lambda |
-| `sync_site.sh` | Sync `_state` to the Terraform mirror bucket |
-
-```bash
-# Prefer instead:
-./deploy/weekly_prod.sh
-```
+| `deploy.sh` / `infra_apply.sh` | Terraform apply |
+| `lambda_build_push.sh` / `lambda_publish.sh` | ECR image + Lambda code |
+| `sync_site.sh` | Push state to Terraform mirror bucket — **do not use for prod** |

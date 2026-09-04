@@ -63,7 +63,7 @@ Contributing / pipeline: [../CONTRIBUTING.md](../CONTRIBUTING.md), [publish.md](
 
 - Spot-listen calibration for non-recombinable demotion rates
 - Keep Cloudflare apex → www redirect if apex is still proxied without Cloud Connector coverage
-- Wire a cron/systemd timer for [`../deploy/weekly_prod.sh`](../deploy/weekly_prod.sh) on the workstation that holds `library/` ([WEEKLY_PROD_SYNC](../sync/docs/WEEKLY_PROD_SYNC.md))
+- Wire S3-native weekly Lambda against `singtags-prod` only ([WEEKLY_PROD_SYNC](../sync/docs/WEEKLY_PROD_SYNC.md)); until then use [`../deploy/weekly_prod.sh`](../deploy/weekly_prod.sh) on the workstation
 
 ## Runbooks
 

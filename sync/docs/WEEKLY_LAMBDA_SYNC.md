@@ -1,36 +1,31 @@
-# Weekly Lambda mirror sync (parked)
+# Weekly Lambda (legacy infra notes)
 
-**Status:** Not used for SingTags production. Prefer the **single-bucket workstation job**: [`WEEKLY_PROD_SYNC.md`](WEEKLY_PROD_SYNC.md) + [`../../deploy/weekly_prod.sh`](../../deploy/weekly_prod.sh).
+**Target architecture:** Lambda works **directly against `singtags-prod`** with ephemeral `/tmp` scratch only — see [`WEEKLY_PROD_SYNC.md`](WEEKLY_PROD_SYNC.md). No second bucket, no EFS, no persistent library disk.
 
-This document describes the older Terraform + container Lambda sketch under `sync/infra/`. That design assumed a **separate** private S3/CloudFront mirror and a `/tmp` library tree. It does not match www.singtags.com (public `singtags-prod`, ~11 GB `library/`). Keep the code for reference; do not deploy it expecting it to refresh production.
+**This file** keeps notes on the older `sync/infra/` sketch (separate private bucket + CloudFront). Do not deploy that stack for www.singtags.com.
 
----
+## What to reuse from the sketch
 
-Optional AWS job that runs the same frontier / enrich / assets / OCR / light ASR pipeline as local `mirror/sync.py`, on a schedule — **if** you later attach a large persistent volume (EC2/EFS) and point it at the **same** prod bucket. Until then, use the workstation script.
-
-## Defaults (sketch)
-
-| Choice | Value |
+| Piece | Reuse? |
 | --- | --- |
-| Auth | `AWS_PROFILE` / standard AWS env credentials |
-| Schedule | EventBridge → **Step Functions** → container Lambda |
-| Origin down | Lambda exits fast with `retry_origin`; SFN **Wait**s 1h, up to 24 attempts |
-| Packaging | ECR **container image** (Tesseract/RapidOCR + faster-whisper `small.en`) |
-| Region | `us-east-1` |
+| Container image (OCR + `small.en` ASR + ffmpeg) | Yes — same runtime |
+| Step Functions origin-down Wait loop | Yes — wrap the S3-native handler |
+| EventBridge weekly schedule | Yes |
+| Private mirror S3 + CloudFront OAC SPA | **No** |
+| `MIRROR_ROOT=/tmp/mirror` as library of record | **No** — scratch per tag only |
+| `sync_site.sh` → Terraform bucket | **No** |
 
-No long sleeps inside Lambda (15‑minute cap).
+## Env shape (target)
 
-## Why this is parked for SingTags
+```
+S3_BUCKET=singtags-prod          # prod only
+S3_LIBRARY_PREFIX=library
+S3_STATE_KEY=library/_state/sync_state.json
+# /tmp used only for in-flight tag folders
+```
 
-1. Prod media already lives on **public** `singtags-prod` / `library/` — a second mirror bucket adds confusion, not value.
-2. Full `library/` is multi‑GB; Lambda ephemeral storage cannot be the source of truth.
-3. `lambda_sync.py` does not upload into the SingTags website layout (`library/` + `indexes/` + `tags/`).
-4. Index rebuild (`build/build_indexes.py`) walks the local library tree; that belongs on the machine (or disk) that holds `library/`.
+Entrypoint today: [`mirror/lambda_sync.py`](../mirror/lambda_sync.py) (still local-tree oriented — needs S3 adapter work). Infra templates: [`../infra/`](../infra/) (retarget or replace).
 
-## If revisiting AWS later
+## Interim
 
-- Run [`weekly_prod.sh`](../../deploy/weekly_prod.sh) on **EC2/Lightsail** with an EBS volume for `library/`.
-- IAM: write only to `singtags-prod` (same prefixes as `deploy/`).
-- Optional: still use Step Functions for origin-down retries around a thin wrapper — not a second bucket.
-
-Entrypoint sketch: [`mirror/lambda_sync.py`](../mirror/lambda_sync.py). Infra: [`../infra/`](../infra/).
+[`../../deploy/weekly_prod.sh`](../../deploy/weekly_prod.sh) on a workstation until the S3-native Lambda path exists.

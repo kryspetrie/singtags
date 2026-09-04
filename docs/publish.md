@@ -79,9 +79,7 @@ python lyrics/review_queue_gui.py   # continues queue in library/_state/
 | --- | --- |
 | **SingTags production** (`singtags-prod` + Cloudflare) | Only bucket that matters for www — SPA at site root, media under `library/` |
 
-**Weekly refresh** (mirror → indexes → publish to that same bucket): [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md) and [`../deploy/weekly_prod.sh`](../deploy/weekly_prod.sh).
-
-The Terraform “mirror” bucket under `sync/infra/` is **parked** — not part of SingTags ops ([WEEKLY_LAMBDA_SYNC.md](../sync/docs/WEEKLY_LAMBDA_SYNC.md)).
+**Weekly refresh** (same bucket): target = Lambda↔S3 only ([WEEKLY_PROD_SYNC](../sync/docs/WEEKLY_PROD_SYNC.md)); interim = [`../deploy/weekly_prod.sh`](../deploy/weekly_prod.sh) on a workstation.
 
 ---
 

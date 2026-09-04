@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Weekly SingTags production refresh — single S3 bucket (singtags-prod).
+# Weekly SingTags production refresh — interim workstation bridge → singtags-prod.
 #
-#   sync (bulk-meta + frontier) → build indexes + offline manifests → publish library + website
+# Target architecture: Lambda ↔ prod S3 only (no EFS / second bucket). See
+# sync/docs/WEEKLY_PROD_SYNC.md. This script still uses a local library/ then
+# publishes into that same bucket.
 #
 # Usage (from repo root):
 #   ./deploy/weekly_prod.sh
