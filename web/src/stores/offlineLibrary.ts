@@ -50,6 +50,7 @@ import {
 import {
   expectedAudioFileCount,
   expectedSheetsFileCount,
+  normalizePackStatus,
   packMissingFileCount,
   packStartIndex,
   packSyncAvailable,
@@ -301,6 +302,43 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   }
 
   /**
+   * Restore pack UI status from IDB + cached counts. Orphaned mid-download
+   * (`running` / `error` / false `done`) becomes `paused` so Resume works after reload.
+   * Does not clobber an in-flight queue (`running` in memory).
+   */
+  async function hydratePackStatusesFromProgress(): Promise<void> {
+    const [sp, ap] = await Promise.all([getPackProgress('sheets'), getPackProgress('audio')])
+
+    if (sheetsStatus.value !== 'running') {
+      const next = normalizePackStatus(
+        sp?.status,
+        sheetsCachedCount.value,
+        expectedSheetsFileCount(sheetsManifest.value),
+      )
+      sheetsStatus.value = next
+      if (sp && next !== sp.status && (sp.status === 'running' || sp.status === 'error' || sp.status === 'done')) {
+        await persistProgress('sheets', { status: next })
+      }
+    }
+
+    if (audioStatus.value !== 'running') {
+      const next = normalizePackStatus(
+        ap?.status,
+        audioCachedCount.value,
+        expectedAudioFileCount(audioManifest.value),
+      )
+      audioStatus.value = next
+      if (ap && next !== ap.status && (ap.status === 'running' || ap.status === 'error' || ap.status === 'done')) {
+        await persistProgress('audio', { status: next })
+      }
+    }
+
+    if (!sp?.dismissedPrompt && sheetsManifest.value && sheetsStatus.value !== 'done') {
+      showSheetsPrompt.value = true
+    }
+  }
+
+  /**
    * Load sheet and audio offline manifests and restore pack progress from IDB.
    * Side effects: network/cache, IndexedDB progress read, updates `showSheetsPrompt`.
    */
@@ -313,23 +351,12 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       ])
       sheetsManifest.value = sheets
       audioManifest.value = audio
-
-      const sp = await getPackProgress('sheets')
-      const ap = await getPackProgress('audio')
-      if (sp?.status === 'done') sheetsStatus.value = 'done'
-      else if (sp?.status === 'paused' || sp?.status === 'quota') sheetsStatus.value = sp.status
-      if (ap?.status === 'done') audioStatus.value = 'done'
-      else if (ap?.status === 'paused' || ap?.status === 'quota') audioStatus.value = ap.status
-
-      if (!sp?.dismissedPrompt && sheets && sheetsStatus.value !== 'done') {
-        // Show prompt after catalog is known — App decides when to display
-        showSheetsPrompt.value = true
-      }
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
       loaded.value = true
       await refreshEstimate()
+      await hydratePackStatusesFromProgress()
       refreshPackSyncPrompt()
     }
   }
@@ -583,9 +610,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       const paths = entries.flatMap((e) => e.paths)
       const publishedOnly = paths.length > 0 && paths.every(isPublishedTierPath)
       const sizeFactor = publishedOnly ? 1 : storageSizeFactor(DEVICE_AUDIO_STORAGE_QUALITY)
-      const need = totalBytes * sizeFactor
-      if (est && est.quota > 0 && est.quota - est.usage < need) {
-        error.value = `Not enough storage for the learning library (~${formatBytes(need)} estimated). Free space and try again.`
+      // Remaining bytes only — a partial download must not require free space for the whole pack.
+      const need = Math.max(0, totalBytes * sizeFactor - audioCachedBytes.value)
+      if (need > 0 && est && est.quota > 0 && est.quota - est.usage < need) {
+        error.value = `Not enough storage for the remaining learning tracks (~${formatBytes(need)} estimated). Free space and try again.`
         return
       }
     }
@@ -698,6 +726,18 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     if (kind === 'sheets') sheetsQueue?.pause()
     else audioQueue?.pause()
   }
+
+  /** Best-effort: leave mid-download as paused if the tab is killed/backgrounded. */
+  let unloadGuardInstalled = false
+  function installPackUnloadGuard(): void {
+    if (unloadGuardInstalled || typeof window === 'undefined') return
+    unloadGuardInstalled = true
+    window.addEventListener('pagehide', () => {
+      pausePack('sheets')
+      pausePack('audio')
+    })
+  }
+  installPackUnloadGuard()
 
   /** Dismiss sync prompt and remember manifest versions. Side effect: localStorage. */
   async function dismissPackSyncPrompt(): Promise<void> {

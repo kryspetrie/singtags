@@ -100,11 +100,18 @@ const sheetsActionLabel = computed(() => {
   if (offlineLib.packSyncBusy && offlineLib.sheetsStatus === 'running') {
     return 'Syncing sheets…'
   }
+  if (offlineLib.sheetsStatus === 'error') return 'Retry sheets'
   if (offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota') {
     return 'Resume sheets'
   }
   if (offlineLib.sheetsSyncAvailable) {
     return `Sync missing sheets (${offlineLib.sheetsMissingCount})`
+  }
+  if (
+    offlineLib.sheetsExpectedCount > 0 &&
+    offlineLib.sheetsCachedCount < offlineLib.sheetsExpectedCount
+  ) {
+    return `Continue sheets (${offlineLib.sheetsExpectedCount - offlineLib.sheetsCachedCount} left)`
   }
   if (offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0) {
     return 'Sheets up to date'
@@ -116,11 +123,18 @@ const audioActionLabel = computed(() => {
   if (offlineLib.packSyncBusy && offlineLib.audioStatus === 'running') {
     return 'Syncing tracks…'
   }
+  if (offlineLib.audioStatus === 'error') return 'Retry audio'
   if (offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota') {
     return 'Resume audio'
   }
   if (offlineLib.audioSyncAvailable) {
     return `Sync missing audio (${offlineLib.audioMissingCount})`
+  }
+  if (
+    offlineLib.audioExpectedCount > 0 &&
+    offlineLib.audioCachedCount < offlineLib.audioExpectedCount
+  ) {
+    return `Continue audio (${offlineLib.audioExpectedCount - offlineLib.audioCachedCount} left)`
   }
   if (offlineLib.audioStatus === 'done' || offlineLib.audioCachedCount > 0) {
     return 'Tracks up to date'
@@ -128,20 +142,44 @@ const audioActionLabel = computed(() => {
   return 'Download learning tracks'
 })
 
-/** Primary sheets CTA: resume / sync missing / first download only. */
+/** Primary sheets CTA: resume / retry / sync missing / continue incomplete / first download. */
 const canStartSheetsAction = computed(() => {
   if (offline.value || packDownloadBusy.value) return false
-  if (offlineLib.sheetsStatus === 'paused' || offlineLib.sheetsStatus === 'quota') return true
+  if (
+    offlineLib.sheetsStatus === 'paused' ||
+    offlineLib.sheetsStatus === 'quota' ||
+    offlineLib.sheetsStatus === 'error'
+  ) {
+    return true
+  }
   if (offlineLib.sheetsSyncAvailable) return true
+  if (
+    offlineLib.sheetsExpectedCount > 0 &&
+    offlineLib.sheetsCachedCount < offlineLib.sheetsExpectedCount
+  ) {
+    return true
+  }
   if (offlineLib.sheetsCachedCount === 0) return true
   return false
 })
 
-/** Primary audio CTA: resume / sync missing / first download only. */
+/** Primary audio CTA: resume / retry / sync missing / continue incomplete / first download. */
 const canStartAudioDownload = computed(() => {
   if (offline.value || packDownloadBusy.value) return false
-  if (offlineLib.audioStatus === 'paused' || offlineLib.audioStatus === 'quota') return true
+  if (
+    offlineLib.audioStatus === 'paused' ||
+    offlineLib.audioStatus === 'quota' ||
+    offlineLib.audioStatus === 'error'
+  ) {
+    return true
+  }
   if (offlineLib.audioSyncAvailable) return true
+  if (
+    offlineLib.audioExpectedCount > 0 &&
+    offlineLib.audioCachedCount < offlineLib.audioExpectedCount
+  ) {
+    return true
+  }
   if (offlineLib.audioCachedCount === 0) return true
   return false
 })
@@ -369,6 +407,7 @@ function cancelCullUpgrades(): void {
         {{ packSyncBannerBtnLabel }}
       </button>
     </p>
+    <p v-if="offlineLib.error" class="warn" role="alert">{{ offlineLib.error }}</p>
 
     <section class="card primary-card" aria-labelledby="sheets-h">
       <h2 id="sheets-h">Songbook sheets</h2>

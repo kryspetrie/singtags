@@ -214,6 +214,25 @@ describe('DownloadQueue', () => {
     expect(q.getStatus()).toBe('done')
     expect(peakFetches).toBe(1)
   })
+
+  it('treats AbortError without Pause as paused, not done', async () => {
+    const store = memoryStore()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new DOMException('The operation was aborted.', 'AbortError')
+      }),
+    )
+    const q = new DownloadQueue(store, { concurrency: 2 })
+    q.setItems([
+      { url: 'https://x/a', path: 'a', bytes: 96 },
+      { url: 'https://x/b', path: 'b', bytes: 96 },
+      { url: 'https://x/c', path: 'c', bytes: 96 },
+    ])
+    await q.start()
+    expect(q.getStatus()).toBe('paused')
+    expect(store.map.size).toBe(0)
+  })
 })
 
 describe('storageEstimate formatBytes', () => {

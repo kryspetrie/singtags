@@ -5,6 +5,7 @@ import {
   packMissingFileCount,
   packStartIndex,
   packSyncAvailable,
+  normalizePackStatus,
 } from './packSync'
 import type { OfflineManifest } from '../offline/manifestTypes'
 
@@ -50,13 +51,26 @@ describe('packSync', () => {
     expect(packSyncAvailable(5, 5)).toBe(false)
     expect(packSyncAvailable(3, 5)).toBe(true)
     expect(packSyncAvailable(3, 5, 'paused')).toBe(false)
+    expect(packSyncAvailable(3, 5, 'error')).toBe(false)
     expect(packSyncAvailable(3, 5, 'done')).toBe(true)
     expect(packMissingFileCount(3, 5)).toBe(2)
     expect(packMissingFileCount(5, 5)).toBe(0)
     expect(packMissingFileCount(3, 5, 'paused')).toBe(0)
   })
 
-  it('resumes only when paused/quota on same version', () => {
+  it('normalizes orphaned running/error and false done to paused', () => {
+    expect(normalizePackStatus('running', 10, 100)).toBe('paused')
+    expect(normalizePackStatus('error', 10, 100)).toBe('paused')
+    expect(normalizePackStatus('done', 10, 100)).toBe('paused')
+    expect(normalizePackStatus('done', 100, 100)).toBe('done')
+    expect(normalizePackStatus('paused', 10, 100)).toBe('paused')
+    expect(normalizePackStatus('quota', 10, 100)).toBe('quota')
+    expect(normalizePackStatus(undefined, 10, 100)).toBe('paused')
+    expect(normalizePackStatus(undefined, 0, 100)).toBe('idle')
+    expect(normalizePackStatus('idle', 0, 0)).toBe('idle')
+  })
+
+  it('resumes when paused/quota/running/error on same version', () => {
     expect(
       packStartIndex({
         status: 'done',
@@ -69,6 +83,15 @@ describe('packSync', () => {
     expect(
       packStartIndex({
         status: 'paused',
+        progressVersion: 1,
+        manifestVersion: 1,
+        cursor: 40,
+        itemCount: 50,
+      }),
+    ).toBe(40)
+    expect(
+      packStartIndex({
+        status: 'error',
         progressVersion: 1,
         manifestVersion: 1,
         cursor: 40,

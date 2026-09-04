@@ -133,6 +133,21 @@ describe('useReconnectCaches', () => {
       },
     ]
     favorites.loaded = true
+    offlineLib.loaded = true
+    offlineLib.sheetsManifest = {
+      version: 1,
+      kind: 'sheets',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
+    offlineLib.audioManifest = {
+      version: 1,
+      kind: 'audio',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
     offlineLib.sheetsStatus = 'paused'
     offlineLib.audioStatus = 'idle'
 

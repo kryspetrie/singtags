@@ -341,7 +341,10 @@ export class DownloadQueue {
         this.options.onItemDone?.(item.path, i)
         this.emitProgress(item.path)
       } catch (e) {
-        if (this.pauseRequested || (e instanceof DOMException && e.name === 'AbortError')) {
+        const isAbort = e instanceof DOMException && e.name === 'AbortError'
+        if (this.pauseRequested || isAbort) {
+          // Browser/tab abort without Pause must not mark the pack complete.
+          if (isAbort && !this.pauseRequested) this.pauseRequested = true
           return
         }
         if (e instanceof DOMException && e.name === 'QuotaExceededError') {

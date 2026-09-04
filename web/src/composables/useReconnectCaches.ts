@@ -14,6 +14,7 @@ import { computed, ref, watch } from 'vue'
 import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
+import { packIncomplete } from '../lib/packSync'
 import { useOnline } from './useOnline'
 
 /** What a reconnect prompt would download / resume if accepted. */
@@ -117,8 +118,14 @@ export function useReconnectCaches(): void {
         !favorites.busy &&
         !favorites.backgroundActive &&
         favorites.records.some((r) => !r.audioBlobs || Object.keys(r.audioBlobs).length === 0)
-      const resumeSheets = offlineLib.sheetsStatus === 'paused'
-      const resumeAudio = offlineLib.audioStatus === 'paused'
+      const resumeSheets =
+        offlineLib.sheetsStatus === 'paused' ||
+        offlineLib.sheetsStatus === 'quota' ||
+        packIncomplete(offlineLib.sheetsCachedCount, offlineLib.sheetsExpectedCount)
+      const resumeAudio =
+        offlineLib.audioStatus === 'paused' ||
+        offlineLib.audioStatus === 'quota' ||
+        packIncomplete(offlineLib.audioCachedCount, offlineLib.audioExpectedCount)
       if (!favoritesAudio && !resumeSheets && !resumeAudio) return
 
       reconnectMediaPlan.value = { favoritesAudio, resumeSheets, resumeAudio }
