@@ -208,7 +208,7 @@ function spinAgain(): void {
 
       <div class="actions">
         <button
-          v-if="landedId != null && !openAutomatically"
+          v-if="landedId != null"
           type="button"
           class="btn btn-primary"
           @click="onOpenTag"
