@@ -1,11 +1,11 @@
 # Non-recombinable learning tracks — implementation plan
 
-> **Status:** in progress (Phase 0–2 underway; library re-analyze running)  
+> **Status:** Mostly implemented — residual Phase 3 spot-listen / threshold calibration  
 > **Created:** 2026-08-28  
-> **Updated:** 2026-08-28  
+> **Updated:** 2026-09-03  
 > **Goal:** Detect tags whose voice parts and/or mix cannot be reliably time-aligned or solo/accomp-split for reconstruction, then **cache and play hosted Opus stereo/mono** instead of mono-solo extract + client rebuild.  
 > **Exemplar:** Tag **3068** (*All Alone Too*) — demoted to `stereo_fallback` / `parts_recombinable: false` (`align_untrusted`); in `library/`.  
-> **Related:** [audio-storage-cache ADR](../decisions/audio-storage-cache.md), mirror `Barbershop/tags/docs/AUDIO_STORAGE_AND_CACHE.md`, `lib/audio_layout.py`, `lib/audio_align.py`, SingTags `web/src/lib/audioTiers.ts`, `web/src/offline/resolveMedia.ts`.
+> **Related:** [audio-storage-cache ADR](../decisions/audio-storage-cache.md), [`sync/docs/AUDIO_STORAGE_AND_CACHE.md`](../../sync/docs/AUDIO_STORAGE_AND_CACHE.md), `sync/lib/audio_layout.py`, `sync/lib/audio_align.py`, `web/src/lib/audioTiers.ts`, `web/src/offline/resolveMedia.ts`.
 
 ---
 
@@ -20,7 +20,7 @@ Most barbershop learning tracks are **homophonic** and share a common accompanim
 
 A minority of tags break that assumption: piano renders, unrelated mix files, misaligned stems, or stereo that is not a true solo/accomp split. Reconstructing those sounds wrong. Users should hear the **published playback / ultra stereo (or mono) files as-is**.
 
-**Estimate:** ~5–10% of tags may need this treatment. A partial mirror scan found ~2.8% of `mono_solos` tags with mostly untrusted non-Lead aligns; `mix_correlation` has only been written for **1** tag so far (3068), so library-wide rates are still unknown until a force re-analyze.
+**Estimate:** Library force-analyze completed (~7k folders). Demotion rates are recorded under Phase 3; residual work is spot-listen calibration, not re-detection.
 
 ---
 
@@ -28,17 +28,19 @@ A minority of tags break that assumption: piano renders, unrelated mix files, mi
 
 | Piece | Location | Behavior |
 | --- | --- | --- |
-| Mix vs voice mono xcorr | Mirror `analyze_mix_match` | Best corr &lt; **0.25** → `mix_disjoint` + `mix_cache: hosted` + publish `ultra_mix` |
-| Accomp-channel align | Mirror `audio_align.py` | Peak corr ≥ **0.5** → `trusted`; bake `applied_ms` if \|offset\| ≥ 50 ms |
-| Client mix gate | `mixIsDisjoint()` / `tryReconstructMix` | Skip reconstruct; prefer hosted `ultra_mix` |
-| Offline pack mix path | `build_offline_manifest.py` | For `mono_solos` + `mix_disjoint`, include `ultra_mix` |
+| Mix vs voice mono xcorr | `sync/lib` / analyze | Best corr &lt; **0.25** → `mix_disjoint` + `mix_cache: hosted` + publish `ultra_mix` |
+| Accomp-channel align | `sync/lib/audio_align.py` | Peak corr ≥ **0.5** → `trusted`; bake `applied_ms` if \|offset\| ≥ 50 ms |
+| `parts_recombinable` demotion | Mirror layout + encode | Force `ultra_low: stereo_fallback`; publish `ultra_stereo` |
+| Client gate | `partsAreRecombinable` / resolver | Prefer hosted ultra stereo; skip solo reconstruct |
+| Offline pack | `build_offline_manifest.py` | Includes ultra stereo / ultra mix for demoted tags |
 
-**Gaps:**
+**Shipped:** Phases 0–2 and most of Phase 3 (mirror detection, encode, client gating, library force-analyze/encode).
 
-1. No policy demotion for **voice parts** when alignment fails (3068 stays `mono_solos`).
-2. `audio_align_summary.status` stays **`ok`** whenever Lead is trusted (always), even if every other part is untrusted.
-3. `mix_correlation` / `mix_disjoint` not populated for almost the entire library (need force re-analyze).
-4. Client never reads align trust / a “parts not recombinable” flag to choose `ultra_stereo` / playback over solo reconstruct.
+**Residual ops:**
+
+1. Spot-listen calibration on demotion rates (Phase 3 open checkboxes).
+2. Optional Phase 4 homophony heuristic.
+3. Threshold tweaks if field listening warrants it.
 
 ---
 
@@ -166,7 +168,7 @@ When only `mix_disjoint` and parts **are** recombinable:
 
 ### Seed / indexes
 
-- Pass through `parts_recombinable`, `recombine_reason`, and existing mix/align fields (already mostly wired in `seed_sample.py`).
+- Pass through `parts_recombinable`, `recombine_reason`, and existing mix/align fields (already mostly wired in catalog / tag metadata).
 
 ### UX
 

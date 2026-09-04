@@ -68,8 +68,7 @@ DjVu can compress **scanned** documents well. Many barbershop sheets are **vecto
 
 | Piece | Location |
 | --- | --- |
-| Rasterize | Retired: `build/_retired/rasterize_sheets.py` (sample-data era; sheets now via `sync/`) |
-| Seed originals | Retired: `build/_retired/seed_sample.py` (`SHEET_EXTS`) |
+| Preview encode | `sync/lib/sheet_export.py`, `sync/sheets/build_sheet_previews.py` |
 | Viewer | `web/src/components/SheetViewer.vue` |
 | Offline sheet blobs | `web/src/offline/starredDb.ts` (WebP pages) |
 

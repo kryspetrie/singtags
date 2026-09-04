@@ -1,132 +1,85 @@
 # ADR: Tiered audio — S3 publish + lazy client cache
 
-**Status:** Accepted — **implemented** (client resolver + lazy fetch + published tiers)  
-**Date:** 2026-08-25  
+**Status:** Accepted — **implemented** (client resolver + lazy fetch + published Opus tiers)  
+**Date:** 2026-08-25 (doc refresh 2026-09-03)  
 **Context:** Full-quality MP3/AAC learning tracks (~5.5 GB library) dominate egress and offline size. Opus tiers and mono-solo reconstruction reduce bandwidth while preserving original downloads.
 
-Related: [offline-library.md](offline-library.md), [architecture.md](../architecture.md), [non-recombinable-tracks](../plans/non-recombinable-tracks.md), mirror `sync/docs/AUDIO_STORAGE_AND_CACHE.md`.
+**Encoder / layout detail (SSOT for bitrates & bake):** [`../../sync/docs/AUDIO_STORAGE_AND_CACHE.md`](../../sync/docs/AUDIO_STORAGE_AND_CACHE.md).  
+Related: [offline-library.md](offline-library.md), [architecture.md](../architecture.md), [non-recombinable-tracks](../plans/non-recombinable-tracks.md).
 
 ---
 
-## Decision
+## Decision (client)
 
-### S3 hosts four logical tiers per part
+### Logical tiers per part
 
 | Tier | Bitrate | Role |
 | --- | --- | --- |
 | **Original** | Source (~128 kbps AAC/MP3) | User **download** only (+ cache upgrade) |
 | **Playback** | **64 kbps Opus** | Default **online** in-tag playback |
-| **Ultra solo** | **16 kbps Opus mono** (solo channel) | Offline pack; reconstruct part-left stereo |
-| **Ultra mix** | **32 kbps Opus stereo** | Mix-only tags (no voice parts) |
+| **Ultra solo** | **16 kbps Opus mono** | Offline pack; reconstruct part-left stereo |
+| **Ultra mix / stereo** | **32 kbps Opus** | Mix-only or `stereo_fallback` / non-recombinable |
 
-Publish encoding rules and layout classification live in the mirror repo (`audio_layout_summary.ultra_low`: `mono_solos` | `mono_downmix` | `stereo_fallback`). For `mono_solos`, the mirror also estimates accompaniment-channel timing vs Lead and **bakes trusted offsets ≥50 ms into Opus Solo/Playback files** so client reconstruction can assume a shared t=0.
-
-When stems are not recombinable (`parts_recombinable: false`), the mirror demotes to **`stereo_fallback`** and the client plays/caches hosted Opus stereo (and hosted mix) — see [non-recombinable-tracks](../plans/non-recombinable-tracks.md).
+Encoding and `audio_layout_summary` live under `sync/` (`sync/lib/audio_layout.py`, `audio_align.py`, `audio_tiers.py`). For `mono_solos`, trusted ≥50 ms offsets are baked into Opus Solo/Playback files. When `parts_recombinable: false`, publish uses `stereo_fallback` — see [non-recombinable-tracks](../plans/non-recombinable-tracks.md).
 
 ### Online tag page
 
-1. **Play** uses **Playback (64 kbps)** unless **Original** is already in device cache.
-2. **Download** always fetches **Original**, saves it for the user, and **upgrades cache** for that part to Original.
-3. **Original-quality playback** only when Original is cached — never auto-fetch Original on play.
-4. **No tag-wide prefetch** — fetch a part on **first playback** of that part only.
-5. When the user returns online to a tag, use upgraded Original parts where present; still fetch 64 kbps for parts not yet upgraded.
+1. **Play** uses Playback (64 kbps) unless Original is already in device cache.
+2. **Download** always fetches Original and upgrades cache for that part.
+3. No automatic Original fetch on play; no tag-wide prefetch — first play of a part only.
+4. Decode prefers native Opus; otherwise deferred **WASM Ogg Opus** (`web/src/audio/opusWasmDecode.ts`).
 
-### Custom combine track
+### Custom combine
 
-Fetch **only the parts currently selected** for combine. Do not download all voice tracks when opening Custom.
+Fetch only selected parts. Online: solo-channel extract + pan. Offline ultra-low: fixed barbershop mix weights (below). Non-recombinable tags: no solo reconstruct (disable Custom / use hosted stems per client rules).
 
-Online combine continues to use `buildSoloMixObjectUrl` (solo channel extract + user pan). Offline ultra-low uses the fixed barbershop mix weights (below).
+### Offline ultra-low
 
-### Offline ultra-low cache
+- `mono_solos`: 16 kbps mono solos; reconstruct part-left (Tenor 50% L, Lead 25% L, Bass 25% R, Bari 50% R).
+- Mix-only / hosted mix: 32 kbps stereo.
+- Partial Original upgrade: keep ultra-low solos for parts not yet upgraded.
 
-Pack contents:
-
-- **`mono_solos` tags:** 16 kbps mono solo per voice part (not full stereo parts).
-- **Mix-only tags:** single 32 kbps stereo mix file.
-- **Reconstruct** part-left stereo and standard mix in-browser from mono solos:
-
-| Part | Pan |
-| --- | --- |
-| Tenor | 50% L |
-| Lead | 25% L |
-| Bass | 25% R |
-| Bari | 50% R |
-
-**Partial upgrade:** If some parts are cached as Original after download, **keep ultra-low solo blobs** for parts not yet upgraded so reconstruction still works offline.
-
-### Per-part cache quality ladder
+### Cache ladder
 
 ```
 none → ultra_low → playback → original
 ```
 
-Playback resolution (`resolveMedia`):
-
-1. Original blob (star / pack / IndexedDB) if present for that part  
-2. Else Playback blob if already cached for that part (including after online play warm-cache)  
-3. Else online: fetch Playback tier (and warm the audio pack for later offline use)  
-4. Else offline: reconstruct from ultra_low mono solos (or ultra_mix for mix-only)
-
-Reconstruction always uses **ultra/lofi stems for accompaniment**, even when the active part plays from a higher-quality cache.
+Resolve (`web/src/offline/resolveMedia.ts`): Original blob → Playback blob → online Playback fetch → offline ultra reconstruct.
 
 ---
 
-## Relationship to existing offline tiers
+## Relationship to offline tiers
 
-[offline-library.md](offline-library.md) Tier 3–4 and starred audio remain valid for **which tags** are cached. This ADR defines **which bytes** are stored per part:
+[offline-library.md](offline-library.md) decides **which tags** are cached. This ADR decides **which bytes** per part. Prefer pre-published Opus over on-device re-encode; `compactAudio.ts` remains a fallback when tier URLs are missing.
 
-| Old mental model | New model |
+---
+
+## Code map
+
+| Area | Path |
 | --- | --- |
-| Re-encode hosted MP4 on device (Standard/Compact/Lo-fi) | Prefer **pre-published Opus tiers** from S3 |
-| Starred “Original” keeps hosted file | Star/download stores **Original** tier |
-| Full audio pack = all hosted MP4s | Full audio pack = ultra-low solos + optional playback; originals only when user downloaded |
-
-On-device re-encode (`compactAudio.ts`) may remain as fallback for legacy tags without tier URLs until publish pipeline ships.
-
----
-
-## Storage / egress (mirror estimates)
-
-| | Size | Egress (full library once) |
-| --- | --- | --- |
-| Originals only | ~5.5 GB | ~$0.50 |
-| Playback @ 64k all parts | ~2.5 GB | ~$0.22 |
-| Ultra-low pack | ~0.8 GB | ~$0.07 |
-
-Extra S3 storage for Playback + Ultra vs Original-only: **~$0.08/mo** — negligible vs egress savings when users play rather than download everything.
+| Tier URLs / helpers | `web/src/lib/mediaUrl.ts`, `web/src/lib/audioTiers.ts`, `web/src/lib/audioLayout.ts` |
+| Playback default | `web/src/composables/useTagDetail.ts`, `web/src/audio/` |
+| Download upgrade | `web/src/components/TagDownloads.vue`, `web/src/download/` |
+| Lazy resolve | `web/src/offline/resolveMedia.ts`, `TagPlayer.vue` |
+| Ultra pack | `web/src/offline/libraryPack.ts`, `build/build_offline_manifest.py` |
+| Reconstruction | `web/src/audio/partLeftReconstruct.ts` |
+| Encode (mirror) | `sync/lib/audio_tiers.py`, `sync/audio/encode_audio_tiers.py` |
 
 ---
 
-## Code map (implementation targets)
+## Manual checks
 
-| Area | Path | Change |
-| --- | --- | --- |
-| Tier URLs | `lib/mediaUrl.ts`, `types/tag.ts` | Part paths per tier |
-| Playback default | `composables/useTagDetail`, `audio/player.ts` | 64k when online, no original |
-| Download upgrade | `components/TagDownloads.vue`, `download/` | Original fetch + cache write |
-| Lazy fetch | `TagPlayer.vue`, `resolveMedia.ts` | Per-part on first play |
-| Custom combine | `TagPlayer.vue`, `multiPartMix.ts` | Selected parts only |
-| Ultra-low pack | `offline/libraryPack.ts`, `build_offline_manifest.py` | Mono solos + mix formula |
-| Reconstruction | new `audio/partLeftReconstruct.ts` (TBD) | Pan matrix from mono solos |
-| Layout gating | `lib/audioLayout.ts` | `ultra_low`, mix-only detection |
+1. Online: play Lead — only Lead playback fetched.
+2. Download Lead — Original saved; other parts still 64k until played.
+3. Offline `mono_solos` pack — solos only; part-left reconstruct OK.
+4. Mix-only / non-recombinable — hosted ultra stereo/mix; no false solo rebuild.
+5. Custom: selected parts only.
+6. Safari without native Opus — WASM path plays.
 
 ---
 
-## Manual test checklist (when implemented)
+## Out of scope
 
-1. Online: play Lead — only Lead playback URL fetched; Bass not fetched until played.
-2. Online: download Lead — Original saved; replay Lead uses Original; Bass still 64k.
-3. Offline pack: tag with `mono_solos` — only mono solos + no stereo parts; part-left reconstruct sounds correct.
-4. Mix-only tag — single 32k stereo; no solo stubs.
-5. Custom: select Lead + Bari — only those two fetched; combine works.
-6. Partial upgrade: download Lead only; offline custom still rebuilds Bass/Tenor/Bari from ultra solos.
-7. Explicit download always Original file extension/quality, not 64k Opus.
-
----
-
-## Out of scope (v1)
-
-- Pre-fetch entire tag on page load
-- Automatic Original fetch on play
-- Server-side on-the-fly transcoding (all tiers pre-published)
-- Replacing sheet offline tiers (unchanged)
+- Prefetch entire tag on load; automatic Original on play; server-side live transcoding

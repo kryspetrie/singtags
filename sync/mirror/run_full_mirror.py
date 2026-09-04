@@ -9,7 +9,7 @@ Steps:
   5. Rebuild catalog.jsonl
 
 Safe to re-run: existing good files are skipped; state lives under
-Barbershop_Tags_Library/_state/.
+library/_state/ (website repo root).
 
 Examples:
   python mirror/run_full_mirror.py

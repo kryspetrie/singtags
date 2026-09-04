@@ -1,10 +1,12 @@
 # Sing-session UX — phased feature plan
 
+> **History:** Phases 0–7 shipped; hardening complete. Phase tables below are not open backlog (Phase 8 deferred).
+
 Roadmap for making SingTags faster for four people standing together with phones/tablets and spotty internet.
 
 **Checkpoint:** `17e1bf3` (offline upgrade cull, pack/perf fixes, docs cleanup).
 
-/** Implementation status:** Phases 0–7 largely in the working tree; hardening in progress per [sing-session-hardening.md](sing-session-hardening.md) (practice mode dead; wake lock refcount; FS paging; bake UX; offline honesty). Phase 8 remains deferred.
+/** Implementation status:** Phases 0–7 shipped; hardening complete per [sing-session-hardening.md](sing-session-hardening.md). Phase 8 (ephemeral singing queue) remains deferred.
 
 **Out of scope for this plan:** e-ink paging (known gap), vibe search, tag roulette, virtual piano, ephemeral “singing queue” (deferred — see Phase 8). **Practice mode** is treated as dead in the hardening plan (do not expand here).
 

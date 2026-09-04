@@ -6,23 +6,25 @@ Manual lyrics (`lyrics_source=manual` / `lyrics_finalized`) are never overwritte
 
 ## Progress (do not delete)
 
-State lives under the library, not in this folder:
+State lives under the working library, not in this folder:
 
 | File | Purpose |
-|------|---------|
-| `Barbershop_Tags_Library/_state/lyric_review_queue.json` | Flagged queue + cursor + resolved count |
-| `Barbershop_Tags_Library/_state/lyric_suggestions.jsonl` | Confident picks for batch accept |
-| `Barbershop_Tags_Library/_state/lyric_batch_cursor.json` | Batch paging resume |
-| `Barbershop_Tags_Library/_state/lyric_suggestions_summary.json` | Last analyze stats |
+| --- | --- |
+| `../library/_state/lyric_review_queue.json` | Flagged queue + cursor + resolved count |
+| `../library/_state/lyric_suggestions.jsonl` | Confident picks for batch accept |
+| `../library/_state/lyric_batch_cursor.json` | Batch paging resume |
+| `../library/_state/lyric_suggestions_summary.json` | Last analyze stats |
+
+(Paths relative to `sync/`. Absolute: website-repo `library/_state/`.)
 
 Per-tag edits are written into each folder’s `metadata.json`.
 
 ## Requirements
 
-Uses the shared repo venv (same as mirror):
+Uses the shared `sync/.venv` (same as mirror):
 
 ```bash
-source ./venv/bin/activate
+cd sync && source ./.venv/bin/activate
 # Pillow already in mirror/requirements.txt; tkinter is system Python
 ```
 
@@ -31,7 +33,7 @@ See [`requirements.txt`](requirements.txt) for the explicit deps this tool needs
 ## Workflow
 
 ```bash
-source ./venv/bin/activate
+cd sync && source ./.venv/bin/activate
 
 # 1) Analyze / rebuild suggestions + flag queue
 python lyrics/review_lyric_batch.py --analyze
@@ -40,7 +42,7 @@ python lyrics/review_lyric_batch.py --analyze
 python lyrics/review_lyric_batch.py
 python lyrics/review_lyric_batch.py --from-cache
 
-# 3) GUI for flagged tags (your current progress resumes from queue cursor)
+# 3) GUI for flagged tags (progress resumes from queue cursor)
 python lyrics/review_queue_gui.py
 # or: python lyrics/review_lyric_batch.py --review --gui
 ```
@@ -56,14 +58,14 @@ python lyrics/review_lyric_batch.py --review
 ## Scripts
 
 | Script | Purpose |
-|--------|---------|
+| --- | --- |
 | `review_lyric_batch.py` | Analyze, batch-accept, queue management |
 | `review_queue_gui.py` | Tk GUI with sheet + editable lyrics |
 
 ## Library code (shared, under `lib/`)
 
 | Module | Role |
-|--------|------|
+| --- | --- |
 | `lib/lyric_choose.py` | Source scoring, review queue, finalize |
 | `lib/lyric_proposals.py` | ASR/OCR normalization helpers |
 | `lib/lyric_postprocess.py` | OCR cleanup helpers |

@@ -4,7 +4,7 @@
 #   ./infra/scripts/sync_site.sh                 # sync tags + state
 #   ./infra/scripts/sync_site.sh --dry-run
 #
-# Expects local layout under Barbershop_Tags_Library/ and terraform outputs.
+# Expects local library at SITE_ROOT/library/ (website repo) and terraform outputs.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

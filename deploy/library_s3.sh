@@ -25,7 +25,7 @@ fi
 
 LIBRARY="$ROOT/library"
 if [[ ! -d "$LIBRARY" ]]; then
-  echo "library/ not found at $LIBRARY — rsync the mirror first." >&2
+  echo "library/ not found at $LIBRARY — populate via sync/ (or copy a workstation mirror) first." >&2
   exit 1
 fi
 

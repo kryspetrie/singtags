@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install mirror pipeline deps into the shared venv at the repo root.
+# Install mirror pipeline deps into the shared venv at sync/.venv.
 set -euo pipefail
 
 MIRROR_DIR="$(cd "$(dirname "$0")" && pwd)"

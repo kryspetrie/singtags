@@ -1,5 +1,7 @@
 # Product honesty — overpromise fix plan
 
+> **History:** Implemented. Phase tables below are a record of the work, not open backlog.
+
 Follow-up to an adversarial audit of SingTags UI/copy vs shipped behavior (optical, favorites quality, practice kill, pitch/offline readiness, Local Library).
 
 **Status:** Implemented (Slices 1–4 + residual copy/CTA/tests)  

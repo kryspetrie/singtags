@@ -3,7 +3,7 @@
 > **Status:** proposed (not implemented)  
 > **Created:** 2026-08-27  
 > **Goal:** A dedicated multi-touch virtual piano page with two engines — an FM-style synth with tweakable knobs, and a soundfont sampler — without replacing the one-note Pitch Pipe.  
-> **Related:** Pitch Pipe (`/pitch-pipe`, `PitchPipeView.vue`, `pitchPlayer.ts`); playback DSP plan in [pitch-speed-bake](../decisions/pitch-speed-bake.md).
+> **Related:** Pitch Pipe (`/pitch-pipe`, `PitchPipeView.vue`, `pitchPlayer.ts`); voice presets / sound lab in [pitch-pipe-voice](../decisions/pitch-pipe-voice.md); playback DSP in [pitch-speed-bake](../decisions/pitch-speed-bake.md). Note: the Labs pitch-pipe sound lab is **not** this feature — it tunes the one-note pipe, not a polyphonic piano.
 
 ---
 

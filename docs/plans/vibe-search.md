@@ -1,10 +1,10 @@
 # Search by Vibe — implementation specification
 
-**Status:** Planned (not implemented).  
-**Domain:** `singtags.com` (DNS on Cloudflare; static site on S3).  
-**AI runtime:** Cloudflare Workers AI via a dedicated Worker at `api.singtags.com`.
+**Status:** Planned — **not shipped**. There is no `workers/` tree or vibe index in the repo yet.  
+**Domain:** `singtags.com` (DNS on Cloudflare; static site on S3 — see [setup.md](../setup.md) / [publish.md](../publish.md)).  
+**AI runtime (planned):** Cloudflare Workers AI via a dedicated Worker at `api.singtags.com` (separate from SPA hosting; not Cloudflare Pages).
 
-This document is the full build spec for **Search by Vibe**: a **Search | Vibe** toggle next to the home search box. Vibe mode accepts natural-language descriptions (e.g. “bittersweet contest closer”) and returns semantically similar tags using embeddings + reranking, with sentiment computed offline during catalog sync.
+This document is the build spec for **Search by Vibe**: a **Search | Vibe** toggle next to the home search box. Vibe mode accepts natural-language descriptions (e.g. “bittersweet contest closer”) and returns semantically similar tags using embeddings + reranking, with sentiment computed offline during catalog sync.
 
 Related docs:
 
@@ -433,9 +433,8 @@ Integrate into the existing sync flow documented in [publish.md](../publish.md).
 ### Publish order (with vibe)
 
 ```bash
-# 1. Catalog sync (existing)
-python3 build/_retired/seed_sample.py --limit 250 --force
-python3 build/_retired/rasterize_sheets.py --force
+# 1. Library mirror / indexes (existing) — see sync/README.md + publish.md
+#    (working tree is library/; indexes via build/build_indexes.py)
 
 # 2. NEW — AI enrich (local machine; uses CLOUDFLARE_API_TOKEN)
 python3 build/enrich_vibe.py --force
@@ -447,11 +446,10 @@ python3 build/build_vibe_index.py
 python3 build/build_indexes.py
 
 # 5. Build + deploy SPA to S3
-cd web && npm run build
-S3_BUCKET=… ./deploy/website_s3.sh
+./deploy/publish.sh website
 ```
 
-Full library: replace `--limit 250` with `--limit 8000` and run `enrich_vibe.py` overnight (~7k API calls).
+Full library: run `enrich_vibe.py` overnight (~7k API calls).
 
 ### `build/enrich_vibe.py` (to implement)
 

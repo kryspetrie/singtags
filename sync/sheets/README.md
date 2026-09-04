@@ -2,9 +2,15 @@
 
 **Live vs one-off:** Sync downloads sheets and can build a preview when assets are fetched. Scripts here are **batch maintenance**.
 
+Client sheet format: [`../../docs/decisions/sheets-format.md`](../../docs/decisions/sheets-format.md).
+
 ## Requirements
 
-Shared venv (`mirror/requirements.txt`). See [`requirements.txt`](requirements.txt).
+Shared venv (`sync/.venv`; `mirror/requirements.txt`). See [`requirements.txt`](requirements.txt).
+
+```bash
+cd sync && source ./.venv/bin/activate
+```
 
 ## Scripts
 

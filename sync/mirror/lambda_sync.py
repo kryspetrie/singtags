@@ -5,7 +5,7 @@ Fail-fast on origin outages — do not poll/sleep for hours inside Lambda.
 Step Functions (infra/statemachine/weekly_sync.asl.json) waits 1 hour between
 attempts for up to 24 tries (~1 day), then gives up until the next weekly run.
 
-Env (defaults match docs/AWS_STATIC_MIRROR_SITE.md):
+Env (defaults match docs/WEEKLY_LAMBDA_SYNC.md):
   ASR_ENABLED=1
   ASR_MODEL=small.en
   ASR_BEAM_SIZE=1

@@ -1,41 +1,53 @@
-# Barbershop Tags Mirror
+# `sync/` — barbershop tags mirror
 
-Local mirror and repair pipeline for [barbershoptags.com](https://barbershoptags.com).
+Local mirror and repair pipeline for [barbershoptags.com](https://barbershoptags.com). Writes the working media tree used by SingTags.
 
-## Where everything lives
+| Piece | Role |
+| --- | --- |
+| This folder (`sync/`) | Enrich / download / OCR / ASR / Opus tiers / sheet previews |
+| `../library/` | **Data** (gitignored) — tag folders + `_state/` |
+| `../build/` | SPA indexes from `library/` (no remux) |
+| `../deploy/` | Publish SPA + media to **SingTags** S3 (`singtags-prod`) |
+| `../web/` | Vue SPA — [www.singtags.com](https://www.singtags.com) |
+
+Site hosting runbooks: [`../docs/setup.md`](../docs/setup.md), [`../docs/publish.md`](../docs/publish.md).  
+Optional weekly Lambda: [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md).
+
+## Layout
 
 Each top-level folder is an **independent tool** you can split out later. Shared code stays in `lib/` until that split.
 
-| Directory | What it is | Live? | Requirements |
-|-----------|------------|-------|--------------|
-| [`mirror/`](mirror/README.md) | Sync / repair / Lambda / OCR / ASR | **Yes** — day-to-day + weekly Lambda | `mirror/requirements*.txt` |
-| [`lyrics/`](lyrics/README.md) | Flagged lyric review GUI + batch | Human tool | Shared venv; see `lyrics/requirements.txt` |
-| [`audio/`](audio/README.md) | Library-wide layout + Opus tier backfill | On demand | Shared venv; see `audio/requirements.txt` |
-| [`sheets/`](sheets/README.md) | Sheet preview + PDF crop batch | On demand | Shared venv; see `sheets/requirements.txt` |
-| [`infra/`](infra/scripts/README.md) | Terraform + deploy/publish shell scripts | When changing AWS | AWS CLI, Terraform, Docker |
-| [`lib/`](lib/README.md) | Shared Python modules | — | (pulled in by tools above) |
-| [`docs/`](docs/) | Design notes | Reference | — |
-| `library/ (repo root)` | **Data** (tags + `_state/`) | — | — |
-
-**Nothing at the repo root is a sync script anymore** — only `install.sh` (wrapper), `README.md`, `venv/`, and the folders above.
-
-### Obsolete
-
-| Thing | Status |
-|-------|--------|
-| Per-tag HTML metadata scrape | **Do not use** — crashes origin (no DB indexes). Use `mirror/sync.py --bulk-meta` |
-| `lib/parse_tag_page.parse_tag_page()` | Unused leftover; URL helpers still live |
-| Old root `scripts/` / `tools/` layout | Removed; use `sync/` / `build/` / `deploy/` |
+| Directory | What it is | When | Requirements |
+| --- | --- | --- | --- |
+| [`mirror/`](mirror/README.md) | Sync / repair / Lambda / OCR / ASR | Day-to-day (+ optional weekly Lambda) | `mirror/requirements*.txt` |
+| [`lyrics/`](lyrics/README.md) | Flagged lyric review GUI + batch | Human review | Shared venv; `lyrics/requirements.txt` |
+| [`audio/`](audio/README.md) | Library-wide layout + Opus tier backfill | On demand | Shared venv; `audio/requirements.txt` |
+| [`sheets/`](sheets/README.md) | Sheet preview + PDF crop batch | On demand | Shared venv; `sheets/requirements.txt` |
+| [`infra/`](infra/scripts/README.md) | Terraform + Lambda deploy scripts | When changing AWS sync | AWS CLI, Terraform, Docker |
+| [`lib/`](lib/README.md) | Shared Python modules | — | Pulled in by tools above |
+| [`docs/`](docs/) | Design notes (audio tiers, weekly Lambda) | Reference | — |
 
 ---
 
 ## Setup
 
+From this directory (`sync/`):
+
 ```bash
-./install.sh                 # creates ./sync/.venv, installs mirror/requirements.txt
-source ./.venv/bin/activate  # from sync/
-# Library data: ../library (gitignored)
+./install.sh                 # creates sync/.venv, installs mirror/requirements.txt
+source ./.venv/bin/activate
+# Library data: ../library (gitignored) — see lib/config.py → SITE_ROOT/library
 ```
+
+From the website repo root:
+
+```bash
+./sync/install.sh
+source ./sync/.venv/bin/activate
+cd sync
+```
+
+System tools: `ffmpeg` (audio tiers / ASR), `tesseract` (OCR fallback; optional micromamba).
 
 Optional ASR:
 
@@ -54,7 +66,7 @@ pip install -r mirror/requirements-asr-cpu.txt   # CPU / matches Lambda
 The origin DB has **no indexes**. Hitting thousands of per-tag HTML pages can take the site offline.
 
 | Traffic | Allowed? |
-|---------|----------|
+| --- | --- |
 | **One** `api.php?n=50000` metadata export | Yes — preferred |
 | Sheet / MP3 downloads (`dbaction.php`) | Yes |
 | Per-tag `dbpage.php?pg=view&id=…` scrapes | **No** |
@@ -64,7 +76,7 @@ Tag `id` values are **pseudo-keys** and may change. Local folders correlate by `
 ### What a “tag” is locally
 
 ```
-library/ (repo root){name} ({key}) - {arranger} - {tag_id}/
+../library/{name} ({key}) - {arranger} - {tag_id}/
   metadata.json
   … - Sheet.pdf|.png
   … - {Bass|Bari|Lead|Tenor|Mix}.mp3
@@ -72,7 +84,7 @@ library/ (repo root){name} ({key}) - {arranger} - {tag_id}/
   … - Sheet.preview.webp
 ```
 
-Cross-library state: `library/ (repo root)_state/` (bulk XML cache, sync cursor, catalog, **lyric review queue**, orphans, logs).
+Cross-library state: `../library/_state/` (bulk XML cache, sync cursor, catalog, **lyric review queue**, orphans, logs). Never delete lyric-review progress there.
 
 ### Data flow
 
@@ -93,7 +105,12 @@ api.php (ONE bulk export)
         └──► audio_tiers ──► Opus publish files
                 │
                 ▼
-  build_catalog ──► _state/catalog.jsonl
+  build_catalog ──► ../library/_state/catalog.jsonl
+                │
+                ▼
+  ../build/build_indexes.py ──► SPA indexes (core/lyrics gzip)
+  ../build/build_offline_manifest.py ──► offline pack manifests
+  ../deploy/publish.sh         ──► SingTags prod S3 (website and/or library)
 ```
 
 ---
@@ -101,7 +118,7 @@ api.php (ONE bulk export)
 ## Day-to-day commands
 
 ```bash
-source ./venv/bin/activate
+cd sync && source ./.venv/bin/activate
 
 python mirror/sync.py --bulk-meta
 python mirror/sync.py --frontier --miss-limit 200
@@ -109,9 +126,28 @@ python mirror/sync.py --repair
 python mirror/run_full_mirror.py
 ```
 
-### Lyric review (resume your flagged queue)
+### Inventory / quarantine / arranger repair
 
-Progress is in `_state/lyric_review_queue.json` (not in `lyrics/`). Continue with:
+```bash
+python mirror/inventory.py --delete-guidelines
+python mirror/quarantine_unavailable.py    # empty / unavailable folders
+python mirror/repair_arrangers.py          # then rebuild SPA indexes
+```
+
+After library changes that affect the SPA catalog (see [`../docs/publish.md`](../docs/publish.md)):
+
+```bash
+# from website repo root
+python3 build/build_indexes.py
+python3 build/build_offline_manifest.py
+./deploy/publish.sh library
+./deploy/publish.sh website
+```
+
+Website deploy does **not** rebuild indexes.
+### Lyric review (resume flagged queue)
+
+Progress is in `../library/_state/lyric_review_queue.json` (not in `lyrics/`). Continue with:
 
 ```bash
 python lyrics/review_queue_gui.py
@@ -121,6 +157,8 @@ Full workflow: [`lyrics/README.md`](lyrics/README.md).
 
 ### Audio / sheets backfill
 
+Same logic runs incrementally inside `mirror/sync.py`. These are library-wide jobs:
+
 ```bash
 python audio/analyze_audio_layouts.py
 python audio/encode_audio_tiers.py
@@ -128,7 +166,9 @@ python sheets/build_sheet_previews.py
 python sheets/crop_library_pdfs.py
 ```
 
-### AWS
+Design: [`docs/AUDIO_STORAGE_AND_CACHE.md`](docs/AUDIO_STORAGE_AND_CACHE.md) (client ADR: [`../docs/decisions/audio-storage-cache.md`](../docs/decisions/audio-storage-cache.md)).
+
+### AWS (optional weekly Lambda)
 
 ```bash
 export AWS_PROFILE=your-profile
@@ -137,11 +177,13 @@ cp infra/terraform.tfvars.example infra/terraform.tfvars
 ./infra/scripts/lambda_publish.sh
 ```
 
-Details: [`docs/AWS_STATIC_MIRROR_SITE.md`](docs/AWS_STATIC_MIRROR_SITE.md), [`infra/scripts/README.md`](infra/scripts/README.md).
+Details: [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md), [`infra/scripts/README.md`](infra/scripts/README.md).
+
+SingTags production media/SPA use [`../deploy/`](../deploy/) (public S3 + Cloudflare). That is a **different bucket** from the optional Terraform mirror state bucket used by weekly Lambda — see [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md).
 
 ---
 
-## Sync jobs (mirror)
+## Sync jobs (`mirror/`)
 
 ### A. `python mirror/sync.py --bulk-meta`
 

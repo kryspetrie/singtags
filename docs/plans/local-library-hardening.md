@@ -1,8 +1,9 @@
 # Local Library hardening — resolution plan
 
-Follow-up to [local-library-transfer.md](local-library-transfer.md) after an adversarial review of the Entry+Asset UI (groups, search/reorder, receive, plan drift), plus a **merge entries** need for fixing bad imports (tracks vs sheet as separate songs).
+> **History:** Implemented. Phase tables below are a record of the work, not open backlog.  
+> Follow-up to [local-library-transfer.md](local-library-transfer.md).
 
-**Status:** Implemented (A–I in working tree). Residual polish only if field-testing finds gaps.  
+**Status:** Implemented (A–I). Residual polish only if field-testing finds gaps. Phase C short-lived S3 transfer remains deferred on the transfer plan.  
 **Created:** 2026-09-02  
 **Out of scope:** Phase C short-lived S3 transfer; bottom-nav promotion; catalog optical restore; indexed/full-text search; practice-set parity with Favorites.
 

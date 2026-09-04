@@ -1,12 +1,13 @@
 # Sing-session hardening — resolution plan
 
-Follow-up to [sing-session-ux.md](sing-session-ux.md) after correctness + edge-case review of the uncommitted Phases 0–7 work.
+> **History:** Implemented. Phase tables below are a record of the work, not open backlog.  
+> Follow-up to [sing-session-ux.md](sing-session-ux.md).
 
-**Status:** Implemented (A–J landed in working tree). Practice mode disabled via `PRACTICE_MODE_ENABLED`. Residual Mix↔global detune coupling moved to [product-honesty.md](product-honesty.md) Phase D (product decision: honor “Apply tuning globally” for Mix + Pitch + Local Library). Live DSP not pursued.
+**Status:** Implemented (A–J). Practice mode disabled via `PRACTICE_MODE_ENABLED`. Residual Mix↔global detune coupling moved to [product-honesty.md](product-honesty.md) Phase D (honor “Apply tuning globally” for Mix + Pitch + Local Library). Live DSP not pursued.
 
 **Out of scope for this plan:** Ephemeral singing queue (Phase 8), e-ink, vibe search, live DSP redesign that would reopen [pitch-speed-bake](../decisions/pitch-speed-bake.md).
 
-**Practice mode:** Treat as **dead for now**. Hide/disable UI and deep-link entry; keep store/code behind a flag or dead paths so we can revive later. Do **not** invest in Start practice, `?set=practice` polish, or auto-advance.
+**Practice mode:** Dead for now. Hide/disable UI and deep-link entry; keep store/code behind a flag so we can revive later. Do **not** invest in Start practice, `?set=practice` polish, or auto-advance.
 
 ---
 

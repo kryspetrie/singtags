@@ -102,9 +102,9 @@ Website endpoint form: `http://YOUR-BUCKET.s3-website-REGION.amazonaws.com`
 In Cloudflare DNS for the domain:
 
 - **www** → CNAME to `YOUR-BUCKET.s3-website-REGION.amazonaws.com` — **Proxied** (orange cloud)
-- **Apex** → CNAME to the same S3 website host (Cloudflare CNAME flattening) — **Proxied**, or redirect apex → `www` with a Redirect Rule
+- **Apex** → **Redirect Rule** apex → `https://www.…` (recommended). Proxied apex CNAME to S3 can 522 if Cloud Connector / origin routing is incomplete.
 
-Prefer one canonical host; redirect the other with a Redirect Rule.
+Canonical host for this project: **https://www.singtags.com**.
 
 SSL/TLS mode: **Flexible** (Cloudflare → visitor is HTTPS; origin S3 website is HTTP-only). **Full** / Full (strict) will 525 against the S3 website endpoint.
 
@@ -161,7 +161,7 @@ S3_BUCKET=your-bucket
 ./deploy/publish.sh website
 ```
 
-This builds `web/` and syncs the SPA + indexes to S3 (**never** uploads `library/`). Open `https://your-domain` (Cloudflare) and verify browse + a tag page.
+This builds `web/` and syncs the SPA + indexes to S3 (**never** uploads `library/`). Open `https://www.your-domain` (Cloudflare) and verify browse + a tag page.
 
 Redeploy after app or index changes with the same command.
 
@@ -185,9 +185,10 @@ Set `VITE_MEDIA_BASE` to the public library URL when building if media is not un
 
 | Task | Command |
 | --- | --- |
-| Ship app / indexes | `./deploy/publish.sh website` |
-| Rebuild indexes | `python3 build/build_indexes.py` then website publish |
+| Rebuild indexes + offline manifests | `python3 build/build_indexes.py` then `python3 build/build_offline_manifest.py` |
+| Ship app / indexes | `./deploy/publish.sh website` (does **not** rebuild indexes) |
 | Refresh media | `./deploy/publish.sh library` |
+| After new tags from sync | indexes → manifests → library → website (see [publish.md](publish.md)) |
 | Dry run | `DRY_RUN=1 S3_BUCKET=… ./deploy/library_s3.sh` |
 
 Details: [publish.md](publish.md).
@@ -207,7 +208,9 @@ The SPA itself is published only with the S3 scripts above — **not** Cloudflar
 | Symptom | Things to check |
 | --- | --- |
 | Custom domain not HTTPS | Cloudflare proxy (orange cloud) on; SSL/TLS mode **Flexible** (S3 website is HTTP-only; Full causes 525) |
+| Apex 522 / origin errors | Prefer Redirect Rule apex → www; avoid bare proxied apex without a working S3 origin route |
 | SPA route 404 on refresh | S3 website error document `index.html`; optional Cloudflare rewrite |
 | Media 404 | `VITE_MEDIA_BASE`; library sync completed; CORS if media is on another host |
 | Deploy permission errors | AWS credentials can `s3:PutObject` / `s3:DeleteObject` on the bucket |
 | AccessDenied on public URL | Bucket policy allows `s3:GetObject`; public policy not blocked |
+| Stale JS after deploy | Website script uploads `/assets` before `index.html`; purge Cloudflare cache if needed |
