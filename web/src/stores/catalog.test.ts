@@ -219,11 +219,10 @@ describe('catalog store', () => {
 
     const catalog = useCatalogStore()
     await catalog.load()
-    catalog.patchFilters({ hasSheet: true, minRating: 4, arrangers: ['Paul'] })
+    catalog.patchFilters({ hasSheet: true, arrangers: ['Paul'] })
     expect(catalog.results.map((t) => t.id)).toEqual([1])
-    catalog.syncFromRoute({ q: '', sheet: '1', min: '4', arr: 'Paul' }, 'title')
+    catalog.syncFromRoute({ q: '', sheet: '1', arr: 'Paul' }, 'title')
     expect(catalog.filters.hasSheet).toBe(true)
-    expect(catalog.filters.minRating).toBe(4)
     expect(catalog.filters.arrangers).toEqual(['Paul'])
     catalog.clearFilters()
     catalog.setCacheReadyIndex(new Map([[2, { sheets: false, audio: true }]]))

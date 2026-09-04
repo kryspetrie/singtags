@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Browse filter chips and anchored filter sheets (arranger, type, collection, rating, year, title).
+ * Browse filter chips and anchored filter sheets (arranger, type, collection, year, title, cached).
  */
 import {
   mergeBrowseCollectionOptions,
@@ -64,9 +64,7 @@ watch(customCollectionPageCount, (n) => {
   }
 })
 
-const sheet = ref<
-  'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title' | 'cached' | null
->(null)
+const sheet = ref<'arranger' | 'type' | 'collection' | 'year' | 'title' | 'cached' | null>(null)
 const arrangerQ = ref('')
 const arrangerLetter = ref<string | null>(null)
 const chipsWrap = ref<HTMLElement | null>(null)
@@ -89,9 +87,7 @@ function measureSheetAnchor(): void {
   sheetAnchorTop.value = bottom > 48 ? Math.round(bottom) : null
 }
 
-function openSheet(
-  kind: 'arranger' | 'type' | 'collection' | 'rating' | 'year' | 'title' | 'cached',
-): void {
+function openSheet(kind: 'arranger' | 'type' | 'collection' | 'year' | 'title' | 'cached'): void {
   // Measure before opening so the panel mounts already anchored (enter animation uses final layout).
   measureSheetAnchor()
   sheet.value = kind
@@ -147,7 +143,6 @@ const filteredArrangerGroups = computed(() => {
 function filtersActive(f: CatalogFilters): boolean {
   return (
     f.arrangers.length > 0 ||
-    f.minRating != null ||
     f.yearMin != null ||
     f.yearMax != null ||
     f.hasSheet === true ||
@@ -205,10 +200,6 @@ function toggleAudio(): void {
 }
 function setCached(raw: string): void {
   emit('patch', { cached: (raw || null) as CachedFilter })
-  sheet.value = null
-}
-function setRating(n: number | null): void {
-  emit('patch', { minRating: n })
   sheet.value = null
 }
 function setYearMin(raw: string): void {
@@ -287,15 +278,6 @@ function removeArranger(a: string): void {
         @click="openSheet('cached')"
       >
         {{ offlineChipLabel }}
-      </button>
-      <button
-        type="button"
-        class="chip"
-        :class="{ on: filters.minRating != null }"
-        title="Minimum average star rating"
-        @click="openSheet('rating')"
-      >
-        {{ filters.minRating != null ? `★ ${filters.minRating}+` : 'Min rating' }}
       </button>
       <button
         type="button"
@@ -406,20 +388,6 @@ function removeArranger(a: string): void {
           <option value="none">No cached files</option>
         </select>
       </label>
-    </FilterSheet>
-
-    <FilterSheet
-      :open="sheet === 'rating'"
-      title="Minimum rating"
-      :anchor-top="sheetAnchorTop"
-      @close="sheet = null"
-    >
-      <div class="opts">
-        <button type="button" class="btn" @click="setRating(null)">Any</button>
-        <button type="button" class="btn" @click="setRating(3)">★ 3+</button>
-        <button type="button" class="btn" @click="setRating(4)">★ 4+</button>
-        <button type="button" class="btn" @click="setRating(4.5)">★ 4.5+</button>
-      </div>
     </FilterSheet>
 
     <FilterSheet

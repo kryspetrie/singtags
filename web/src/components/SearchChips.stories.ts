@@ -26,7 +26,6 @@ export const ActiveFilters: Story = {
     filters: {
       ...EMPTY_FILTERS,
       hasSheet: true,
-      minRating: 4,
       yearMin: 2010,
       yearMax: 2020,
       arrangers: ['Paul Paddock'],

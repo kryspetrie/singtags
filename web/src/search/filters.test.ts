@@ -12,14 +12,12 @@ describe('buildSearchQuery', () => {
     const q = buildSearchQuery('love', {
       ...EMPTY_FILTERS,
       hasSheet: true,
-      minRating: 3,
       yearMin: 2010,
       yearMax: 2020,
       arrangers: ['Paul Paddock'],
     })
     expect(q.include).toContain('love')
     expect(q.hasSheet).toBe(true)
-    expect(q.minRating).toBe(3)
     expect(q.yearMin).toBe(2010)
     expect(q.yearMax).toBe(2020)
     expect(q.fields.some((f) => f.field === 'arranger' && f.values[0] === 'Paul Paddock')).toBe(
@@ -28,13 +26,11 @@ describe('buildSearchQuery', () => {
   })
 
   it('chips win over conflicting DSL tokens', () => {
-    const q = buildSearchQuery('minRating:2 hasSheet yearMin:1990', {
+    const q = buildSearchQuery('hasSheet yearMin:1990', {
       ...EMPTY_FILTERS,
-      minRating: 4,
       hasSheet: false,
       yearMin: 2015,
     })
-    expect(q.minRating).toBe(4)
     expect(q.hasSheet).toBe(false)
     expect(q.yearMin).toBe(2015)
   })

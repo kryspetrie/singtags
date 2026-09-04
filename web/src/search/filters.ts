@@ -13,7 +13,6 @@ export interface CatalogFilters {
   hasSheet: boolean | null
   hasAudio: boolean | null
   cached: CachedFilter
-  minRating: number | null
   /** Inclusive calendar year lower bound. */
   yearMin: number | null
   /** Inclusive calendar year upper bound. */
@@ -31,7 +30,6 @@ export const EMPTY_FILTERS: CatalogFilters = {
   hasSheet: null,
   hasAudio: null,
   cached: null,
-  minRating: null,
   yearMin: null,
   yearMax: null,
   arrangers: [],
@@ -46,7 +44,6 @@ export function activeFilterCount(f: CatalogFilters): number {
   if (f.hasSheet === true) n++
   if (f.hasAudio === true) n++
   if (f.cached != null) n++
-  if (f.minRating != null) n++
   if (f.yearMin != null || f.yearMax != null) n++
   n += f.arrangers.length + f.types.length + f.collections.length + f.titleLetters.length
   return n
@@ -71,7 +68,6 @@ export function buildSearchQuery(text: string, filters: CatalogFilters): SearchQ
     ...base,
     fullText: filters.fullText,
     fields,
-    minRating: filters.minRating ?? base.minRating,
     hasAudio: filters.hasAudio ?? base.hasAudio,
     hasSheet: filters.hasSheet ?? base.hasSheet,
     yearMin: filters.yearMin ?? base.yearMin,
@@ -87,7 +83,6 @@ export function filtersToRouteQuery(f: CatalogFilters): Record<string, string | 
     sheet: f.hasSheet === true ? '1' : f.hasSheet === false ? '0' : undefined,
     audio: f.hasAudio === true ? '1' : f.hasAudio === false ? '0' : undefined,
     cache: f.cached ?? undefined,
-    min: f.minRating != null ? String(f.minRating) : undefined,
     ymin: f.yearMin != null ? String(f.yearMin) : undefined,
     ymax: f.yearMax != null ? String(f.yearMax) : undefined,
     arr: f.arrangers.length ? f.arrangers.join('|') : undefined,
@@ -110,7 +105,6 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
   const sheet = str('sheet')
   const audio = str('audio')
   const cache = str('cache')
-  const min = str('min')
   const cached: CachedFilter = ['any', 'sheets', 'audio', 'both', 'none'].includes(cache)
     ? (cache as Exclude<CachedFilter, null>)
     : null
@@ -119,7 +113,6 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
     hasSheet: sheet === '1' ? true : sheet === '0' ? false : null,
     hasAudio: audio === '1' ? true : audio === '0' ? false : null,
     cached,
-    minRating: min ? Number(min) : null,
     yearMin: parseYearParam(str('ymin')),
     yearMax: parseYearParam(str('ymax')),
     arrangers: split('arr'),

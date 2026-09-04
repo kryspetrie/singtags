@@ -71,7 +71,7 @@ describe('SearchChips', () => {
     expect(wrapper.emitted('patch')?.at(-1)?.[0]).toEqual({ hasSheet: null })
   })
 
-  it('cycles audio, opens rating sheet, and sets rating', async () => {
+  it('cycles audio filter on and off', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
     await openFilters(w)
     await chip(w, 'Has audio').trigger('click')
@@ -79,20 +79,6 @@ describe('SearchChips', () => {
     await w.setProps({ filters: { ...EMPTY_FILTERS, hasAudio: true } })
     await chip(w, 'Has audio').trigger('click')
     expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ hasAudio: null })
-    await chip(w, 'Min rating').trigger('click')
-    await flushPromises()
-    ;(await waitBodyBtn('★ 4+')).click()
-    await flushPromises()
-    expect(w.emitted('patch')?.some((e) => (e[0] as { minRating?: number }).minRating === 4)).toBe(
-      true,
-    )
-    await chip(w, 'Min rating').trigger('click')
-    await flushPromises()
-    ;(await waitBodyBtn('Any')).click()
-    await flushPromises()
-    expect(w.emitted('patch')?.some((e) => (e[0] as { minRating: null }).minRating === null)).toBe(
-      true,
-    )
     w.unmount()
   })
 

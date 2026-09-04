@@ -31,7 +31,6 @@ describe('parseQuery', () => {
     expect(q.exclude).toContain('heart')
     expect(q.phrases).toContain('little christmas')
     expect(q.fields[0]?.field).toBe('arranger')
-    expect(q.minRating).toBe(3)
     expect(q.hasSheet).toBe(true)
     expect(q.include).not.toContain('minrating')
   })

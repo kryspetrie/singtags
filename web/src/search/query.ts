@@ -1,5 +1,5 @@
 /**
- * Search query AST and string parser (`field:value`, phrases, minRating, year bounds, …).
+ * Search query AST and string parser (`field:value`, phrases, year bounds, …).
  */
 
 import { foldText, tokenize } from './normalize'
@@ -32,7 +32,6 @@ export interface SearchQuery {
   phrases: string[]
   fields: FieldFilter[]
   fullText: boolean
-  minRating: number | null
   hasAudio: boolean | null
   hasSheet: boolean | null
   /** Inclusive calendar year lower bound (from chips or yearMin: DSL). */
@@ -47,11 +46,12 @@ export interface SearchQuery {
 const FIELD_RE =
   /\b(arranger|title|key|type|collection|classic|year):(?:"([^"]+)"|(\S+))/gi
 const PHRASE_RE = /"([^"]+)"/g
-const MIN_RATING_RE = /\bminRating:(\d+(?:\.\d+)?)/gi
 const YEAR_MIN_RE = /\byearMin:(\d{4})\b/gi
 const YEAR_MAX_RE = /\byearMax:(\d{4})\b/gi
 const HAS_AUDIO_RE = /\b(hasAudio|noAudio)\b/gi
 const HAS_SHEET_RE = /\b(hasSheet|noSheet)\b/gi
+/** Strip legacy minRating: tokens so shared URLs do not become free-text noise. */
+const LEGACY_MIN_RATING_RE = /\bminRating:(\d+(?:\.\d+)?)/gi
 
 function parseYearToken(n: string): number | null {
   const y = Number(n)
@@ -67,11 +67,7 @@ export function parseQuery(raw: string, fullText = false): SearchQuery {
   const fields: FieldFilter[] = []
   const phrases: string[] = []
 
-  let minRating: number | null = null
-  rest = rest.replace(MIN_RATING_RE, (_m, n: string) => {
-    minRating = Number(n)
-    return ' '
-  })
+  rest = rest.replace(LEGACY_MIN_RATING_RE, ' ')
 
   let yearMin: number | null = null
   rest = rest.replace(YEAR_MIN_RE, (_m, n: string) => {
@@ -134,7 +130,6 @@ export function parseQuery(raw: string, fullText = false): SearchQuery {
     phrases,
     fields,
     fullText,
-    minRating,
     hasAudio,
     hasSheet,
     yearMin,

@@ -47,11 +47,11 @@ describe('sortTags + meta filters', () => {
     expect(sortTags(tags, 'year').map((t) => t.id)).toEqual([2, 1])
   })
 
-  it('filters hasAudio / hasSheet / minRating / exclude', () => {
+  it('filters hasAudio / hasSheet / exclude', () => {
     const engine = new SearchEngine({ tags, expansions: {} })
     expect(engine.search(parseQuery('hasAudio', false)).map((t) => t.id)).toEqual([1])
     expect(engine.search(parseQuery('noSheet', false)).map((t) => t.id)).toEqual([2])
-    expect(engine.search(parseQuery('minRating:4', false)).map((t) => t.id)).toEqual([2])
+    expect(engine.search(parseQuery('minRating:4', false)).map((t) => t.id).sort()).toEqual([1, 2])
     expect(engine.search(parseQuery('Beta -Beta', false))).toHaveLength(0)
   })
 

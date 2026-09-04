@@ -408,9 +408,6 @@ export class SearchEngine {
   }
 
   private matchesMeta(tag: TagSummary, query: SearchQuery): boolean {
-    if (query.minRating != null) {
-      if (tag.rating == null || tag.rating < query.minRating) return false
-    }
     if (query.hasAudio === true && tag.audioParts.length === 0) return false
     if (query.hasAudio === false && tag.audioParts.length > 0) return false
     if (query.hasSheet === true && !tag.hasSheet) return false
@@ -513,7 +510,6 @@ export class SearchEngine {
       !query.exclude.length &&
       !query.phrases.length &&
       !query.fields.length &&
-      query.minRating == null &&
       query.hasAudio == null &&
       query.hasSheet == null &&
       query.yearMin == null &&
