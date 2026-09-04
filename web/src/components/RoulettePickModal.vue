@@ -21,7 +21,7 @@ const emit = defineEmits<{
   'update:openAutomatically': [value: boolean]
 }>()
 
-const SPIN_MS = 2200
+const SPIN_MS = 3000
 const ROW_H = 52
 const VISIBLE = 5
 const CENTER = Math.floor(VISIBLE / 2)
@@ -160,8 +160,9 @@ function onOpenTag(): void {
   emit('openTag', landedId.value)
 }
 
-function onAutoChange(e: Event): void {
-  emit('update:openAutomatically', (e.target as HTMLInputElement).checked)
+/** Flip from the prop — don't trust the input event (mobile checkbox desync). */
+function toggleAutoOpen(): void {
+  emit('update:openAutomatically', !props.openAutomatically)
 }
 
 function spinAgain(): void {
@@ -225,13 +226,20 @@ function spinAgain(): void {
         </button>
       </div>
 
-      <label class="auto">
+      <label class="auto" :class="{ on: openAutomatically }">
+        <span class="auto-copy">
+          <span class="auto-title">Open automatically</span>
+          <span class="auto-desc">Jump to the tag (fullscreen sheet) when the reel lands</span>
+        </span>
         <input
           type="checkbox"
+          class="setting-switch"
+          role="switch"
           :checked="openAutomatically"
-          @change="onAutoChange"
+          :aria-checked="openAutomatically"
+          aria-label="Open automatically"
+          @change="toggleAutoOpen"
         />
-        <span>Open automatically (fullscreen sheet)</span>
       </label>
     </div>
   </FilterSheet>
@@ -339,14 +347,69 @@ function spinAgain(): void {
 .auto {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin: 0;
-  font-size: 0.82rem;
-  color: var(--muted);
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
   cursor: pointer;
+  min-height: var(--touch);
 }
-.auto input {
-  accent-color: var(--accent);
+.auto.on {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.auto-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: left;
+}
+.auto-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.auto-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.setting-switch {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.55rem;
+  appearance: none;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted) 22%, var(--surface));
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.setting-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+.setting-switch:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.setting-switch:checked::after {
+  transform: translateX(1.15rem);
+}
+.setting-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 </style>
