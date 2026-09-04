@@ -133,9 +133,19 @@ export function originalAudioPath(detail: TagDetail, part: string): string | nul
 
 /**
  * Default online play path: 64 kbps Opus when published, else original.
+ * Catalog path only — does not consider browser codec support.
  */
 export function playbackAudioPath(detail: TagDetail, part: string): string | null {
   return tierPath(detail, part, 'playback') ?? originalAudioPath(detail, part)
+}
+
+/**
+ * Network path to fetch for in-tag play.
+ * Always prefers the Opus playback tier when published — browsers without native
+ * Ogg Opus Web Audio support software-decode via WASM (see decodeLock).
+ */
+export function onlinePlayAudioPath(detail: TagDetail, part: string): string | null {
+  return playbackAudioPath(detail, part)
 }
 
 /** Ultra-low offline pack path for a part (policy-aware). */
@@ -229,11 +239,11 @@ export function catalogOriginalPaths(detail: TagDetail): Record<string, string> 
   return out
 }
 
-/** Online play paths keyed by part (playback tier, lazy network). */
+/** Online play paths keyed by part (codec-aware; lazy network). */
 export function onlinePlaybackPaths(detail: TagDetail): Record<string, string> {
   const out: Record<string, string> = {}
   for (const part of listAudioParts(detail)) {
-    const p = playbackAudioPath(detail, part)
+    const p = onlinePlayAudioPath(detail, part)
     if (p) out[part] = p
   }
   return out

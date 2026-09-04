@@ -14,6 +14,7 @@ import {
   indexFromDisplayFraction,
   loupeGeometry,
   pickLandmarkAnchors,
+  landmarkMinGapForWidth,
   trackToContent,
   type LoupeOptions,
 } from '../lib/scrub'
@@ -177,7 +178,11 @@ watch(
   },
 )
 
-const landmarks = computed(() => pickLandmarkAnchors(anchors.value, props.landmarkGap))
+const landmarks = computed(() => {
+  const fromWidth = landmarkMinGapForWidth(trackWidthPx.value)
+  const gap = Math.max(props.landmarkGap, fromWidth)
+  return pickLandmarkAnchors(anchors.value, gap)
+})
 
 const landmarkOpacity = computed(() => {
   if (!loupeActive.value) return landmarks.value.map(() => 1)

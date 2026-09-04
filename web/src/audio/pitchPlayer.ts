@@ -1,4 +1,11 @@
-/** Web Audio pitch pipe / pay-the-key (music-website port: 40% saw + 60% sine). */
+/** Web Audio pitch pipe / pay-the-key (configurable voice; default 40% saw + 60% sine). */
+
+import {
+  clonePitchPipeVoice,
+  DEFAULT_PITCH_PIPE_VOICE,
+  getActivePitchPipeVoice,
+  type PitchPipeVoiceConfig,
+} from './pitchPipeVoice'
 
 const NOTE_OFFSETS: Record<string, number> = {
   C: 0,
@@ -266,54 +273,106 @@ export const KEY_SHIFT_LABEL_SIZE_SAMPLE: string = (() => {
 })()
 
 /**
- * Web Audio pitch pipe: blended saw + sine oscillators with fade in/out.
- * Used by the pitch-pipe page and tag-page pay-the-key control.
+ * Web Audio pitch pipe: blended oscillators with fade in/out.
+ * Used by the pitch-pipe page, tag-page pay-the-key, and the sound lab.
  */
 export class PitchPlayer {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
+  private filter: BiquadFilterNode | null = null
   private oscillators: OscillatorNode[] = []
   private gains: GainNode[] = []
   private playing = false
+  private voice: PitchPipeVoiceConfig = clonePitchPipeVoice(DEFAULT_PITCH_PIPE_VOICE)
+  /** Last note started (for live voice restarts in the lab). */
+  private lastNote: string | null = null
+  private lastDetuneCents = 0
+
+  constructor(voice?: PitchPipeVoiceConfig) {
+    this.voice = clonePitchPipeVoice(voice ?? getActivePitchPipeVoice())
+  }
+
+  /** Current voice config (clone). */
+  getVoice(): PitchPipeVoiceConfig {
+    return clonePitchPipeVoice(this.voice)
+  }
+
+  /** Replace the voice. Does not restart playback by itself. */
+  setVoice(voice: PitchPipeVoiceConfig): void {
+    this.voice = clonePitchPipeVoice(voice)
+    if (this.master) this.master.gain.value = this.voice.masterGain
+  }
 
   private ensure(): AudioContext {
     if (!this.ctx) {
       this.ctx = new AudioContext()
       this.master = this.ctx.createGain()
-      this.master.gain.value = 0.3
+      this.master.gain.value = this.voice.masterGain
       this.master.connect(this.ctx.destination)
     }
     return this.ctx
+  }
+
+  private syncFilter(ctx: AudioContext): AudioNode {
+    const cfg = this.voice.filter
+    if (!cfg) {
+      if (this.filter) {
+        try {
+          this.filter.disconnect()
+        } catch {
+          /* ignore */
+        }
+        this.filter = null
+      }
+      return this.master!
+    }
+    if (!this.filter) {
+      this.filter = ctx.createBiquadFilter()
+      this.filter.connect(this.master!)
+    }
+    this.filter.type = cfg.type
+    this.filter.frequency.value = cfg.frequencyHz
+    this.filter.Q.value = cfg.Q
+    return this.filter
   }
 
   async start(note: string, detuneCents = 0): Promise<void> {
     const ctx = this.ensure()
     if (ctx.state === 'suspended') await ctx.resume()
     this.stop(false)
+    this.lastNote = note
+    this.lastDetuneCents = detuneCents
+    if (this.master) this.master.gain.value = this.voice.masterGain
+    const mixBus = this.syncFilter(ctx)
     const base = noteToFrequency(note)
     const freq = base * 2 ** (detuneCents / 1200)
     const now = ctx.currentTime
-    const saw = ctx.createOscillator()
-    const sine = ctx.createOscillator()
-    saw.type = 'sawtooth'
-    sine.type = 'sine'
-    saw.frequency.value = freq
-    sine.frequency.value = freq
-    const sawGain = ctx.createGain()
-    const sineGain = ctx.createGain()
-    sawGain.gain.value = 0
-    sineGain.gain.value = 0
-    saw.connect(sawGain)
-    sine.connect(sineGain)
-    sawGain.connect(this.master!)
-    sineGain.connect(this.master!)
-    sawGain.gain.linearRampToValueAtTime(0.4, now + 0.05)
-    sineGain.gain.linearRampToValueAtTime(0.6, now + 0.05)
-    saw.start()
-    sine.start()
-    this.oscillators = [saw, sine]
-    this.gains = [sawGain, sineGain]
+    const attack = this.voice.attackSec
+    const oscs: OscillatorNode[] = []
+    const gains: GainNode[] = []
+    for (const partial of this.voice.partials) {
+      const osc = ctx.createOscillator()
+      const g = ctx.createGain()
+      osc.type = partial.type
+      osc.frequency.value = freq * 2 ** (partial.semitones / 12)
+      osc.detune.value = partial.detuneCents
+      g.gain.value = 0
+      osc.connect(g)
+      g.connect(mixBus)
+      g.gain.linearRampToValueAtTime(partial.gain, now + attack)
+      osc.start()
+      oscs.push(osc)
+      gains.push(g)
+    }
+    this.oscillators = oscs
+    this.gains = gains
     this.playing = true
+  }
+
+  /** Restart the current note with the latest voice (lab live-tweak). */
+  async restartIfPlaying(): Promise<void> {
+    if (!this.playing || !this.lastNote) return
+    await this.start(this.lastNote, this.lastDetuneCents)
   }
 
   stop(fade = true): void {
@@ -339,10 +398,11 @@ export class PitchPlayer {
       }
       return
     }
+    const release = this.voice.releaseSec
     for (const g of gains) {
       g.gain.cancelScheduledValues(now)
       g.gain.setValueAtTime(g.gain.value, now)
-      g.gain.linearRampToValueAtTime(0, now + 1)
+      g.gain.linearRampToValueAtTime(0, now + release)
     }
     window.setTimeout(() => {
       for (const o of osc) {
@@ -353,7 +413,7 @@ export class PitchPlayer {
           /* ignore */
         }
       }
-    }, 1100)
+    }, Math.round(release * 1000) + 100)
   }
 
   private cleanupOsc(): void {
@@ -372,6 +432,14 @@ export class PitchPlayer {
 
   dispose(): void {
     this.stop(false)
+    if (this.filter) {
+      try {
+        this.filter.disconnect()
+      } catch {
+        /* ignore */
+      }
+      this.filter = null
+    }
     void this.ctx?.close()
     this.ctx = null
     this.master = null

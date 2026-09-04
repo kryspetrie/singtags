@@ -53,7 +53,9 @@ export function useTagDetail(id: Ref<string> | string) {
   /** Where sheet/audio bytes came from after the last resolve pass. */
   const mediaSource = ref<'network' | 'star' | 'pack' | 'mixed'>('network')
   const preparedSheet = ref<PreparedSheet | null>(null)
-  const loading = ref(false)
+  /** True until the first `load()` finishes — avoids flashing “Could not load full tag”
+   * when the catalog summary hydrates before tag detail has been fetched. */
+  const loading = ref(true)
   const sheetPreparing = ref(false)
 
   /** Favorites IndexedDB record for this tag, when loaded (legacy `StarredTagRecord` type). */

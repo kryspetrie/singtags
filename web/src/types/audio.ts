@@ -17,27 +17,38 @@ export type DownloadFormat = 'm4a' | 'mp3' | 'ogg' | 'ogg-opus'
 /** IANA MIME for `.m4a` containers (AAC); not MP4 video. */
 export const HOSTED_AUDIO_MIME = 'audio/mp4'
 
-/** Formats offered in download UI (hosted AAC vs MP3 transcode). */
+/**
+ * Formats offered in download UI.
+ * - `mp3` = published original as-is (almost always an MP3 from the catalog mirror)
+ * - `m4a` = re-encode that source to AAC in an M4A at {@link DOWNLOAD_AAC_BITRATE}
+ */
 export type UserDownloadFormat = 'm4a' | 'mp3'
 
+/** AAC bitrate when the user chooses M4A download (re-encode from published original). */
+export const DOWNLOAD_AAC_BITRATE = 96_000
+
 export const DOWNLOAD_FORMAT_OPTIONS: Array<{ value: UserDownloadFormat; label: string }> = [
-  { value: 'm4a', label: 'Original (M4A)' },
-  { value: 'mp3', label: 'MP3 (VBR q2)' },
+  { value: 'mp3', label: 'Original (as published)' },
+  { value: 'm4a', label: 'M4A (96 kbps AAC)' },
 ]
 
 /** Coerce persisted queue format values to supported download formats. */
 export function normalizeDownloadFormat(format: string | undefined | null): DownloadFormat {
-  return format === 'mp3' ? 'mp3' : 'm4a'
+  return format === 'm4a' ? 'm4a' : 'mp3'
 }
 
 export function downloadFormatLabel(format: DownloadFormat | undefined | null): string {
-  if (format === 'mp3') return 'MP3 (VBR q2)'
-  return 'Original (M4A)'
+  if (format === 'm4a') return 'M4A (96 kbps AAC)'
+  return 'Original (as published)'
 }
 
-/** `prepareDownloadBytes` quality: passthrough hosted M4A, or LAME VBR q2 for MP3. */
+/**
+ * `prepareDownloadBytes` quality:
+ * - Original → passthrough hosted source bytes (usually MP3)
+ * - M4A → re-encode AAC (bitrate {@link DOWNLOAD_AAC_BITRATE} in the download path)
+ */
 export function encodeQualityForDownload(format: DownloadFormat): AudioEncodeQuality {
-  return format === 'mp3' ? 'standard' : 'original'
+  return format === 'mp3' ? 'original' : 'standard'
 }
 
 /**
@@ -55,7 +66,7 @@ export type AudioEncodeQuality = 'original' | 'standard' | 'compact' | 'lofi'
 export const DEVICE_AUDIO_STORAGE_QUALITY: AudioEncodeQuality = 'standard'
 
 export const AUDIO_ENCODE_QUALITY_LABELS: Record<AudioEncodeQuality, string> = {
-  original: 'Original (hosted AAC in M4A)',
+  original: 'Original (published source — usually MP3)',
   standard: 'Playback (64 kbps Opus)',
   compact: 'Playback (64 kbps Opus — legacy alias)',
   lofi: 'Ultra (16k solo / 32k mix)',
@@ -77,7 +88,10 @@ export function usesOpusStorage(quality: AudioEncodeQuality): boolean {
   return quality !== 'original'
 }
 
-/** Target AAC bitrate for M4A re-encode (stereo). Hosted files are ~128 kbps. */
+/**
+ * Target AAC bitrate for M4A re-encode (stereo).
+ * Device-storage helpers use 64/32 kbps; user downloads use {@link DOWNLOAD_AAC_BITRATE}.
+ */
 export function aacBitrate(quality: Exclude<AudioEncodeQuality, 'original'>): number {
   switch (quality) {
     case 'lofi':

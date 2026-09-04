@@ -45,13 +45,12 @@ export function mixPanForPart(part: string): number {
 }
 
 async function decodeUrl(url: string): Promise<AudioBuffer> {
-  const ctx = getSharedAudioContext()
-  await resumeAudioContextBestEffort(ctx)
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
   const buf = await res.arrayBuffer()
   assertDecodableAudioBytes(buf)
-  return ctx.decodeAudioData(buf.slice(0))
+  const { decodeAudioDataExclusive } = await import('./decodeLock')
+  return decodeAudioDataExclusive(buf)
 }
 
 function monoChannel(buf: AudioBuffer): Float32Array {

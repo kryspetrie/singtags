@@ -41,11 +41,12 @@ describe('AudioTransform helpers', () => {
   })
 
   it('labels download formats and maps encode quality', () => {
-    expect(downloadFormatLabel('m4a')).toBe('Original (M4A)')
-    expect(downloadFormatLabel('mp3')).toBe('MP3 (VBR q2)')
-    expect(encodeQualityForDownload('m4a')).toBe('original')
-    expect(encodeQualityForDownload('mp3')).toBe('standard')
-    expect(normalizeDownloadFormat(undefined)).toBe('m4a')
-    expect(normalizeDownloadFormat('ogg')).toBe('m4a')
+    expect(downloadFormatLabel('m4a')).toBe('M4A (96 kbps AAC)')
+    expect(downloadFormatLabel('mp3')).toBe('Original (as published)')
+    expect(encodeQualityForDownload('m4a')).toBe('standard')
+    expect(encodeQualityForDownload('mp3')).toBe('original')
+    expect(normalizeDownloadFormat(undefined)).toBe('mp3')
+    expect(normalizeDownloadFormat('ogg')).toBe('mp3')
+    expect(normalizeDownloadFormat('m4a')).toBe('m4a')
   })
 })

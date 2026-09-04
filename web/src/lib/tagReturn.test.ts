@@ -29,7 +29,7 @@ function listRoute(
     fullPath: partial.fullPath ?? partial.path,
     hash: '',
     query: {},
-    params: {},
+    params: partial.params ?? {},
     matched: partial.matched ?? [{ path: partial.path } as RouteLocationNormalized['matched'][0]],
     meta: {},
     redirectedFrom: undefined,
@@ -54,12 +54,16 @@ describe('tagReturn', () => {
   it('captures origin when entering a tag from a list, not tag→tag', () => {
     window.scrollTo(0, 420)
     Object.defineProperty(window, 'scrollY', { configurable: true, get: () => 420 })
-    captureTagReturnOrigin(listRoute({ name: 'favorites', path: '/favorites', fullPath: '/favorites?q=foo' }))
+    captureTagReturnOrigin(
+      listRoute({ name: 'favorites', path: '/favorites', fullPath: '/favorites?q=foo' }),
+      99,
+    )
     expect(peekTagReturnOrigin()).toEqual({
       name: 'favorites',
       fullPath: '/favorites?q=foo',
       label: 'Favorites',
       scrollY: 420,
+      tagId: 99,
     })
     captureTagReturnOrigin(listRoute({ name: 'tag', path: '/tag/1', fullPath: '/tag/1' }))
     expect(peekTagReturnOrigin()?.fullPath).toBe('/favorites?q=foo')
@@ -67,14 +71,15 @@ describe('tagReturn', () => {
 
   it('onTagReturnBeforeEach only captures list → tag', () => {
     onTagReturnBeforeEach(
-      listRoute({ name: 'tag', path: '/tag/9', fullPath: '/tag/9' }),
+      listRoute({ name: 'tag', path: '/tag/9', fullPath: '/tag/9', params: { id: '9' } }),
       listRoute({ name: 'home', path: '/', fullPath: '/?q=bar' }),
     )
     expect(peekTagReturnOrigin()?.label).toBe('Browse')
     expect(peekTagReturnOrigin()?.fullPath).toBe('/?q=bar')
+    expect(peekTagReturnOrigin()?.tagId).toBe(9)
 
     onTagReturnBeforeEach(
-      listRoute({ name: 'tag', path: '/tag/10', fullPath: '/tag/10' }),
+      listRoute({ name: 'tag', path: '/tag/10', fullPath: '/tag/10', params: { id: '10' } }),
       listRoute({ name: 'tag', path: '/tag/9', fullPath: '/tag/9' }),
     )
     expect(peekTagReturnOrigin()?.fullPath).toBe('/?q=bar')

@@ -14,6 +14,7 @@ import {
 } from '../audio/pitchPlayer'
 import PitchControls from './PitchControls.vue'
 import { loadWaveformPeaks, peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
+import { formatAudioDecodeError } from '../audio/decodeLock'
 import { buildSoloMixObjectUrl, defaultMixPanForNextSelection } from '../audio/multiPartMix'
 import { buildUltraMixObjectUrl } from '../audio/partLeftReconstruct'
 import {
@@ -486,7 +487,7 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
     } catch (e) {
       if (signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) return
       if (seq !== loadSeq) return
-      err.value = e instanceof Error ? e.message : String(e)
+      err.value = formatAudioDecodeError(e)
       if (!peaks.value.length) {
         const fallbackUrl = urlFor(part.value) ?? (part.value || 'wave')
         peaks.value = syntheticPeaks(280, fallbackUrl)
@@ -624,8 +625,11 @@ async function closeFullscreen(): Promise<void> {
 }
 
 async function exitOverlay(): Promise<void> {
-  await closeFullscreen()
-  if (props.exitOriginLabel !== 'tag page') emit('exit-origin')
+  overlayHistory.discard()
+  const leaveToList = props.exitOriginLabel !== 'tag page'
+  // Sing mode: navigate (arm scroll) before tearing down fullscreen / query sync.
+  if (leaveToList) emit('exit-origin')
+  await setFullscreen(false, { fromPopState: true })
 }
 
 function onPopState(): void {
@@ -857,7 +861,7 @@ async function togglePlay(): Promise<void> {
       await player.play()
       void acquireAudioWakeLock()
     } catch (e) {
-      err.value = e instanceof Error ? e.message : String(e)
+      err.value = formatAudioDecodeError(e)
     }
   } else {
     player.pause()
@@ -1137,10 +1141,108 @@ defineExpose({
       </div>
       <p v-if="!fullscreen" class="hint ab-hint">
         Drag the side brackets to set the play region. Playback starts at the left bracket and stops at
-        the right; turn on Loop to repeat that region.
+        the right; turn on Loop in Advanced to repeat that region.
       </p>
 
-      <div class="playback-adjust" :class="{ muted: !playbackReady }">
+      <!-- Normal tag page: keep Advanced collapsed; fullscreen keeps controls flat. -->
+      <div v-if="!fullscreen" class="advanced-bar">
+        <details class="advanced-playback" :class="{ muted: !playbackReady }">
+          <summary>Advanced</summary>
+          <div class="playback-adjust">
+            <div class="adjust-row">
+              <div class="ctrl-field adjust-field loop-field">
+                <span class="ctrl-field-label lbl">Loop</span>
+                <button
+                  type="button"
+                  class="ctrl-toggle toggle-btn"
+                  :aria-pressed="loop"
+                  :disabled="!playbackReady"
+                  @click="loop = !loop"
+                >
+                  {{ loop ? 'On' : 'Off' }}
+                </button>
+              </div>
+              <div class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
+                <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
+                <div class="pitch-btns">
+                  <button
+                    type="button"
+                    aria-label="Lower pitch one semitone"
+                    :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
+                    @click="bumpPitch(-1)"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Raise pitch one semitone"
+                    :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
+                    @click="bumpPitch(1)"
+                  >
+                    +
+                  </button>
+                  <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
+                <span class="ctrl-field-label lbl">Solo</span>
+                <div class="ctrl-segment seg">
+                  <button
+                    type="button"
+                    :aria-pressed="solo === 'stereo'"
+                    :class="{ on: solo === 'stereo' }"
+                    :disabled="!playbackReady || monoSolo"
+                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                    @click="solo = 'stereo'"
+                  >
+                    Stereo
+                  </button>
+                  <button
+                    type="button"
+                    :aria-pressed="solo === 'left'"
+                    :class="{ on: solo === 'left' }"
+                    :disabled="!playbackReady || monoSolo"
+                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                    @click="solo = 'left'"
+                  >
+                    Left
+                  </button>
+                  <button
+                    type="button"
+                    :aria-pressed="solo === 'right'"
+                    :class="{ on: solo === 'right' }"
+                    :disabled="!playbackReady || monoSolo"
+                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                    @click="solo = 'right'"
+                  >
+                    Right
+                  </button>
+                </div>
+              </div>
+              <label class="ctrl-field adjust-field balance-field">
+                <span class="ctrl-field-label lbl">Balance <strong>{{ balanceLabel }}</strong></span>
+                <input
+                  v-model.number="balance"
+                  type="range"
+                  min="-1"
+                  max="1"
+                  step="0.01"
+                  :disabled="!playbackReady || solo !== 'stereo'"
+                  aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
+                />
+              </label>
+            </div>
+            <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
+            <p v-if="monoSolo" class="warn" role="status">
+              This track is mono (or the same on both sides) — channel solo is unavailable.
+            </p>
+          </div>
+        </details>
+      </div>
+
+      <div v-else class="playback-adjust" :class="{ muted: !playbackReady }">
         <div class="adjust-row">
           <div class="ctrl-field adjust-field loop-field">
             <span class="ctrl-field-label lbl">Loop</span>
@@ -1201,28 +1303,6 @@ defineExpose({
               aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
             />
           </label>
-          <div v-if="!fullscreen" class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
-            <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
-            <div class="pitch-btns">
-              <button
-                type="button"
-                aria-label="Lower pitch one semitone"
-                :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
-                @click="bumpPitch(-1)"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                aria-label="Raise pitch one semitone"
-                :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
-                @click="bumpPitch(1)"
-              >
-                +
-              </button>
-              <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">Reset</button>
-            </div>
-          </div>
         </div>
         <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
         <p v-if="monoSolo" class="warn" role="status">
@@ -1300,52 +1380,53 @@ defineExpose({
   }
 }
 
-/* Transport: one row — Play/Stop/±1s/Speed/time. */
+/* Transport: one row — Play/Stop/±1s/Speed/time. Scale gradually; clock keeps room. */
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 0.3rem;
+  gap: clamp(0.2rem, 0.9vw, 0.4rem);
   width: 100%;
+  min-width: 0;
 }
 .transport .ctrl-transport-btn {
   flex: 1 1 0;
   min-width: 0;
+  max-width: none;
   width: auto;
-  padding: 0.4rem 0.2rem;
-  font-size: 0.9rem;
+  padding: clamp(0.28rem, 1.1vw, 0.4rem) clamp(0.1rem, 0.7vw, 0.35rem);
+  font-size: clamp(0.78rem, 2.35vw, 0.95rem);
 }
 .transport .ctrl-transport-btn--primary {
-  font-size: 1.05rem;
+  font-size: clamp(0.9rem, 2.8vw, 1.1rem);
 }
 .transport .time {
   grid-column: unset;
-  flex: 1.15 1 0;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 5.5rem;
   margin: 0;
+  margin-left: auto;
   align-self: center;
-  text-align: center;
+  text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: clamp(0.75rem, 2.15vw, 0.9rem);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .transport-speed {
   box-sizing: border-box;
-  flex: 0 0 auto;
-  width: 5.25rem;
-  max-width: 5.25rem;
-  min-width: 0;
+  flex: 0 1 auto;
+  width: clamp(3.55rem, 11vw, 4.75rem);
+  max-width: clamp(3.55rem, 11vw, 4.75rem);
+  min-width: 3.4rem;
   min-height: 44px;
-  padding: 0.3rem 0.35rem;
+  padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.15rem, 0.6vw, 0.35rem);
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg);
   font: inherit;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: clamp(0.72rem, 2.15vw, 0.85rem);
   color: inherit;
 }
 .transport-speed:disabled {
@@ -1557,22 +1638,57 @@ defineExpose({
   font-size: 0.85rem;
   color: var(--muted);
 }
+.advanced-bar {
+  width: 100%;
+  min-width: 0;
+}
+.advanced-playback {
+  width: 100%;
+  margin: 0;
+  min-width: 0;
+}
+.advanced-playback > summary {
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--muted);
+  padding: 0.35rem 0;
+  list-style: none;
+}
+.advanced-playback > summary::-webkit-details-marker {
+  display: none;
+}
+.advanced-playback > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 0.45rem;
+  transition: transform 0.15s ease;
+  font-size: 0.85em;
+}
+.advanced-playback[open] > summary::before {
+  transform: rotate(90deg);
+}
+.advanced-playback > summary:hover {
+  color: var(--accent-hover);
+}
+.advanced-playback[open] > summary {
+  margin-bottom: 0.65rem;
+}
 .playback-adjust {
   width: 100%;
   min-width: 0;
   margin: 0;
 }
 
+/* Narrow+: Loop + Pitch share a row; Solo / Balance stay full-width below. */
 @media (min-width: 420px) {
   .adjust-row {
-    grid-template-columns: minmax(5.5rem, 0.55fr) 1fr;
+    grid-template-columns: minmax(5.5rem, 0.55fr) minmax(0, 1fr);
   }
   .solo-field,
   .balance-field {
     grid-column: 1 / -1;
-  }
-  .loop-field {
-    grid-column: 1;
   }
 }
 
@@ -1583,36 +1699,20 @@ defineExpose({
   .player-panel {
     padding: 0.95rem 1rem 1rem;
   }
-  .transport {
-    gap: 0.45rem;
-  }
-  .transport .ctrl-transport-btn {
-    flex: 1 1 0;
-    padding: 0.4rem 0.35rem;
-    font-size: 0.95rem;
-  }
-  .transport .ctrl-transport-btn--primary {
-    font-size: 1.1rem;
-  }
   .transport .time {
-    flex: 0 1 auto;
-    margin-left: 0.15rem;
-    min-width: 6.5rem;
-    text-align: right;
-    font-size: 0.9rem;
-  }
-  .transport-speed {
-    width: 5.75rem;
-    max-width: 5.75rem;
+    min-width: 6.25rem;
+    margin-left: 0.25rem;
   }
   .adjust-row {
-    grid-template-columns: minmax(5rem, 0.55fr) minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 1fr);
+    /* Loop | Pitch | Solo | Balance */
+    grid-template-columns: minmax(5rem, 0.55fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.35fr);
     gap: 0.65rem 1rem;
     align-items: end;
   }
   .solo-field,
   .balance-field,
-  .loop-field {
+  .loop-field,
+  .pitch-field {
     grid-column: auto;
   }
   .pitch-btns button {
@@ -1721,14 +1821,16 @@ defineExpose({
   border-radius: 12px;
 }
 .player.fullscreen .transport.ctrl-transport {
-  gap: 0.65rem;
+  gap: clamp(0.45rem, 1.2vw, 0.65rem);
   padding: 0.15rem 0.1rem;
 }
 .player.fullscreen .transport .ctrl-transport-btn {
-  padding: 0.55rem 0.45rem;
+  padding: clamp(0.45rem, 1.4vw, 0.55rem) clamp(0.3rem, 1vw, 0.45rem);
 }
 .player.fullscreen .transport-speed {
-  padding: 0.45rem 0.5rem;
+  width: clamp(4.1rem, 12vw, 4.75rem);
+  max-width: clamp(4.1rem, 12vw, 4.75rem);
+  padding: clamp(0.35rem, 1.1vw, 0.45rem) clamp(0.3rem, 0.9vw, 0.4rem);
 }
 .player.fullscreen .combine {
   padding: 1.25rem 1.15rem;

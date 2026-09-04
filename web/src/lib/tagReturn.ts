@@ -19,6 +19,8 @@ export type TagReturnOrigin = {
   label: string
   /** `window.scrollY` when leaving the list (fallback if history scroll is missing). */
   scrollY: number
+  /** Tag opened from this list — preferred restore target for virtualized Browse. */
+  tagId?: number
 }
 
 let origin: TagReturnOrigin | null = null
@@ -56,12 +58,14 @@ export function applyTagReturnScrollIfAny(): void {
   }
   apply()
   // Virtualized Browse (and remounted lists) may not have final height until a
-  // couple frames after mount — re-assert so Sing ✕ lands on the clicked row.
+  // couple frames after mount — re-assert so Back lands on the clicked row.
   requestAnimationFrame(() => {
     apply()
     requestAnimationFrame(apply)
   })
   window.setTimeout(apply, 50)
+  window.setTimeout(apply, 200)
+  window.setTimeout(apply, 500)
 }
 
 /** Route name → back-button noun. */
@@ -100,7 +104,7 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
  * Remember the current list page when navigating into a tag.
  * No-op for tag→tag (prev/next) so the original list stays the return target.
  */
-export function captureTagReturnOrigin(from: RouteLocationNormalized): void {
+export function captureTagReturnOrigin(from: RouteLocationNormalized, tagId?: number): void {
   if (typeof window === 'undefined') return
   if (from.name === 'tag') return
   // Ignore empty initial navigations (no real list to return to).
@@ -113,6 +117,7 @@ export function captureTagReturnOrigin(from: RouteLocationNormalized): void {
     fullPath: from.fullPath || from.path || '/',
     label: labelForListRoute(from),
     scrollY: window.scrollY || 0,
+    tagId: tagId != null && Number.isFinite(tagId) ? tagId : undefined,
   }
 }
 
@@ -197,7 +202,10 @@ export function onTagReturnBeforeEach(
   if (from.name === 'recent') {
     useRecentStore().freezeListForReturn()
   }
-  captureTagReturnOrigin(from)
+  const raw = to.params.id
+  const idStr = Array.isArray(raw) ? raw[0] : raw
+  const tagId = typeof idStr === 'string' ? Number(idStr) : NaN
+  captureTagReturnOrigin(from, Number.isFinite(tagId) ? tagId : undefined)
 }
 
 /** @deprecated Prefer {@link goTagBack}; kept for callers that only need navigateBack. */

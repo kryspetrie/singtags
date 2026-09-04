@@ -193,19 +193,11 @@ export class DecodeService {
     assertDecodableAudioBytes(ab)
 
     // decodeAudioData is uncancellable — generation gates happen in the player.
-    const sr = opts?.offlineSampleRate
-    let decoded: AudioBuffer
-    if (sr != null && typeof OfflineAudioContext !== 'undefined') {
-      const offline = new OfflineAudioContext(2, 1, sr)
-      decoded = await offline.decodeAudioData(ab.slice(0))
-    } else {
-      const ctx = new AudioContext()
-      try {
-        decoded = await ctx.decodeAudioData(ab.slice(0))
-      } finally {
-        await ctx.close().catch(() => {})
-      }
-    }
+    // Serialize + retry: iOS often fails concurrent decode while favorites cache.
+    const { decodeAudioDataExclusive } = await import('./decodeLock')
+    let decoded = await decodeAudioDataExclusive(ab, {
+      offlineSampleRate: opts?.offlineSampleRate,
+    })
 
     decoded = downmixOrReject(decoded)
     const left = decoded.getChannelData(0)

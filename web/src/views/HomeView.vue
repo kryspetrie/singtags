@@ -33,7 +33,12 @@ import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { browseScrollIntent } from '../router'
-import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
+import {
+  applyTagReturnScrollIfAny,
+  consumeTagReturnScrollY,
+  peekTagReturnOrigin,
+  peekTagReturnScrollY,
+} from '../lib/tagReturn'
 import {
   hasJumpRail,
   hasScrubRail,
@@ -1132,6 +1137,34 @@ function onSearchKeydown(e: KeyboardEvent): void {
   submitSearch(e)
 }
 
+/**
+ * After Back from a tag: pin the opened row (virtualizer) or fall back to saved Y.
+ * Raw window.scrollTo alone often no-ops while the list height is still estimating.
+ */
+function restoreBrowseScrollFromTag(): void {
+  const tagId = peekTagReturnOrigin()?.tagId
+  const y = peekTagReturnScrollY()
+  if (tagId != null) {
+    const rowIndex = browseRows.value.findIndex(
+      (r) => r.type === 'tag' && r.tag.id === tagId,
+    )
+    if (rowIndex >= 0) {
+      consumeTagReturnScrollY()
+      const pin = () => scrollToBrowseRow(rowIndex, 'start')
+      pin()
+      requestAnimationFrame(() => {
+        pin()
+        requestAnimationFrame(pin)
+      })
+      window.setTimeout(pin, 50)
+      window.setTimeout(pin, 200)
+      window.setTimeout(pin, 500)
+      return
+    }
+  }
+  if (y != null) applyTagReturnScrollIfAny()
+}
+
 onMounted(async () => {
   void offlineLib.refreshCacheReady().catch(() => undefined)
   await Promise.all([catalog.load(), favorites.ensureLoaded()])
@@ -1150,7 +1183,7 @@ onMounted(async () => {
       scrollToSearchTop()
     })
   } else {
-    applyTagReturnScrollIfAny()
+    restoreBrowseScrollFromTag()
   }
   windowScrollY.value = window.scrollY
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
@@ -1228,7 +1261,6 @@ watch(
             placeholder="Search titles, arrangers, or n123…"
             aria-label="Search tags"
             title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
-            autofocus
             @keydown="onSearchKeydown"
           />
           <div class="search-infield">

@@ -157,6 +157,9 @@ export default defineConfig({
         // Never serve the SPA shell for media/library URLs (would poison offline audio cache).
         navigateFallbackDenylist: [/^\/library\//, /^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,wasm}'],
+        // ogg-opus-decoder ships an optional ~4 MiB ML enhancement we never load.
+        globIgnores: ['**/opus-ml*.js'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => {

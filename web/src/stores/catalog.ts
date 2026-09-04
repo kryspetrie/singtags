@@ -78,6 +78,10 @@ export const useCatalogStore = defineStore('catalog', () => {
   const lyricsById = ref<Map<number, string>>(new Map())
   const lyricsLoaded = ref(false)
   const lyricsLoading = ref(false)
+  /** Bumped whenever lyrics are (re)attached to the search engine — keeps FTS reactive after catalog refresh. */
+  const lyricsEpoch = ref(0)
+  /** In-flight lyrics prefetch so callers can await the same load. */
+  let lyricsPrefetch: Promise<void> | null = null
   const filters = ref<CatalogFilters>({ ...EMPTY_FILTERS })
   /** Live free-text input. */
   const queryText = ref('')
@@ -146,6 +150,13 @@ export const useCatalogStore = defineStore('catalog', () => {
     tags.value = list
     loaded.value = true
     error.value = null
+    // Refresh rebuilds the engine without lyrics — reattach so FTS keeps working.
+    if (lyricsById.value.size) {
+      engine.value.setLyrics(
+        [...lyricsById.value.entries()].map(([id, lyrics]) => ({ id, lyrics })),
+      )
+      lyricsEpoch.value++
+    }
     saveCatalogSnapshot(list, exp)
     try {
       useOfflineLibraryStore().markCatalogCached()
@@ -217,6 +228,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Merge lyrics into search engine and in-memory map; does not persist alone. */
   function applyLyricsDocs(docs: Array<{ id: number; lyrics: string }>): void {
     engine.value?.setLyrics(docs)
+    lyricsEpoch.value++
     const map = new Map<number, string>()
     for (const d of docs) {
       if (d.lyrics?.trim()) map.set(d.id, d.lyrics.trim())
@@ -259,25 +271,28 @@ export const useCatalogStore = defineStore('catalog', () => {
    * Side effects: network, IndexedDB lyrics snapshot on success.
    */
   async function prefetchLyrics(): Promise<void> {
-    if (lyricsLoaded.value || lyricsLoading.value) return
-    lyricsLoading.value = true
-    try {
-      if (!lyricsLoaded.value) {
+    if (lyricsLoaded.value) return
+    if (lyricsPrefetch) return lyricsPrefetch
+    lyricsPrefetch = (async () => {
+      lyricsLoading.value = true
+      try {
         const cached = await loadLyricsSnapshotAsync()
         if (cached?.length) {
           applyLyricsDocs(cached)
           return
         }
+        const idx = await fetchGzipJsonCached<LyricsIndex>(indexesUrl('lyrics.json.gz'))
+        const docs = idx.docs ?? []
+        applyLyricsDocs(docs)
+        saveLyricsSnapshot(docs)
+      } catch {
+        /* optional */
+      } finally {
+        lyricsLoading.value = false
+        lyricsPrefetch = null
       }
-      const idx = await fetchGzipJsonCached<LyricsIndex>(indexesUrl('lyrics.json.gz'))
-      const docs = idx.docs ?? []
-      applyLyricsDocs(docs)
-      saveLyricsSnapshot(docs)
-    } catch {
-      /* optional */
-    } finally {
-      lyricsLoading.value = false
-    }
+    })()
+    return lyricsPrefetch
   }
 
   /**
@@ -315,9 +330,10 @@ export const useCatalogStore = defineStore('catalog', () => {
   const allResults = computed(() => {
     const eng = engine.value
     if (!eng) return [] as TagSummary[]
-    // Re-run when the lyrics index arrives (setLyrics mutates engine in place).
+    // Re-run when the lyrics index arrives or is reattached after a catalog refresh.
     void lyricsLoaded.value
     void lyricsById.value.size
+    void lyricsEpoch.value
     // `n123` → site Tag # only (exact; never prefix / fall through to FTS)
     const tagNum = parseTagNumberQuery(debouncedQuery.value)
     if (tagNum != null) {

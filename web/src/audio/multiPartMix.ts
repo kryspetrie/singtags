@@ -79,7 +79,8 @@ export async function buildSoloMixObjectUrl(parts: MixPartInput[]): Promise<Solo
     if (!res.ok) throw new Error(`Failed to fetch audio (${res.status})`)
     const buf = await res.arrayBuffer()
     assertDecodableAudioBytes(buf)
-    decoded.push(await ctx.decodeAudioData(buf.slice(0)))
+    const { decodeAudioDataExclusive } = await import('./decodeLock')
+    decoded.push(await decodeAudioDataExclusive(buf))
   }
 
   const sampleRate = decoded[0]!.sampleRate

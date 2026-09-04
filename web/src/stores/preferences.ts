@@ -35,6 +35,8 @@ export type PitchPipePrefs = {
   aHz: PitchPipeAHz | null
   /** Absolute cents vs A440 (drives the slider and playback). */
   detuneCents: number
+  /** When true, note labels include octave (E4); default off shows letter only (E). */
+  showOctave: boolean
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -47,6 +49,8 @@ const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
 const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
+/** Labs: on-device Local Library (charts/images/tracks). Default off. */
+const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
@@ -70,7 +74,7 @@ try {
 
 /** Default pitch-pipe settings (E3–E4 grid at A440). */
 export function defaultPitchPipePrefs(): PitchPipePrefs {
-  return { range: 'e3-e4', layout: 'grid', aHz: 440, detuneCents: 0 }
+  return { range: 'e3-e4', layout: 'grid', aHz: 440, detuneCents: 0, showOctave: false }
 }
 
 /** Clamp detune slider to ±50 cents (integer). */
@@ -105,6 +109,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   const layout = o.layout === 'grid' || o.layout === 'list' || o.layout === 'piano' ? o.layout : null
   if (!range || !layout) return null
 
+  const showOctave = o.showOctave === true
+
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
     const detuneCents = clampDetuneCents(o.detuneCents)
@@ -114,7 +120,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
         : typeof o.aHz === 'number' && A_HZ_SET.has(o.aHz)
           ? (o.aHz as PitchPipeAHz)
           : matchConcertA(detuneCents)
-    return { range, layout, aHz, detuneCents }
+    return { range, layout, aHz, detuneCents, showOctave }
   }
 
   // Legacy format: aHz required + fineCents on top of that A.
@@ -127,6 +133,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     layout,
     aHz: matchConcertA(detuneCents),
     detuneCents,
+    showOctave,
   }
 }
 
@@ -171,6 +178,7 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     layout: loadLegacyPitchPipeLayout(),
     aHz: 440,
     detuneCents: 0,
+    showOctave: false,
   }
 }
 
@@ -293,6 +301,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipeLayout = ref<PitchPipeLayout>(initialPipe.layout)
   const pitchPipeAHz = ref<PitchPipeAHz | null>(initialPipe.aHz)
   const pitchPipeDetuneCents = ref(initialPipe.detuneCents)
+  const pitchPipeShowOctave = ref(initialPipe.showOctave)
   /**
    * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
    * (and any other app pitches that consult this preference).
@@ -323,6 +332,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Static QR share codes are unrelated and stay available either way.
    */
   const opticalTransferEnabled = ref(loadBool(OPTICAL_TRANSFER_ENABLED_KEY, true))
+  /**
+   * Labs: when true, Local Library (More → Local Library, /library routes) is available.
+   * Existing on-device data is kept; the UI and routes stay hidden while off.
+   */
+  const localLibraryEnabled = ref(loadBool(LOCAL_LIBRARY_ENABLED_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -343,6 +357,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       layout: pitchPipeLayout.value,
       aHz: pitchPipeAHz.value,
       detuneCents: clampDetuneCents(pitchPipeDetuneCents.value),
+      showOctave: pitchPipeShowOctave.value,
     })
   }
 
@@ -371,7 +386,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
-    [pitchPipeRange, pitchPipeLayout, pitchPipeAHz, pitchPipeDetuneCents],
+    [pitchPipeRange, pitchPipeLayout, pitchPipeAHz, pitchPipeDetuneCents, pitchPipeShowOctave],
     () => persistPitchPipe(),
     { flush: 'sync' },
   )
@@ -417,6 +432,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(OPTICAL_TRANSFER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    localLibraryEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(LOCAL_LIBRARY_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -569,6 +596,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeLayout.value = layout
   }
 
+  /** Show octave digits on note labels (E4 vs E). Side effect: localStorage. */
+  function setPitchPipeShowOctave(on: boolean): void {
+    pitchPipeShowOctave.value = on
+  }
+
   /** Set concert-A preset highlight (may be null when detune is custom). */
   function setPitchPipeAHz(hz: PitchPipeAHz | null): void {
     pitchPipeAHz.value = hz
@@ -593,6 +625,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeLayout.value = p.layout
     pitchPipeAHz.value = p.aHz
     pitchPipeDetuneCents.value = p.detuneCents
+    pitchPipeShowOctave.value = p.showOctave
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -613,6 +646,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Labs: enable/disable animated QR optical transfer. */
   function setOpticalTransferEnabled(on: boolean): void {
     opticalTransferEnabled.value = on
+  }
+
+  /** Labs: enable/disable Local Library UI and routes. */
+  function setLocalLibraryEnabled(on: boolean): void {
+    localLibraryEnabled.value = on
   }
 
   /** Include fullscreen=1 on shared tag links. */
@@ -652,6 +690,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareBarbershopTags,
     sheetFsPageMode,
     opticalTransferEnabled,
+    localLibraryEnabled,
     opticalTransferFrameBytes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
@@ -661,12 +700,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeLayout,
     pitchPipeAHz,
     pitchPipeDetuneCents,
+    pitchPipeShowOctave,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
     setApplyDetuneGlobally,
     setSingMode,
     setOpticalTransferEnabled,
+    setLocalLibraryEnabled,
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,
@@ -680,6 +721,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPartMixPan,
     setPitchPipeRange,
     setPitchPipeLayout,
+    setPitchPipeShowOctave,
     setPitchPipeAHz,
     setPitchPipeDetuneCents,
     setPitchPipeConcertA,

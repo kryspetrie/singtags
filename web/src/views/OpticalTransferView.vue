@@ -139,6 +139,21 @@ const receiveError = ref<string | null>(null)
 const received = ref<ReceivedItem[]>([])
 const selectedReceivedIds = ref<Set<string>>(new Set())
 const saveBusy = ref(false)
+/** Receive preview: fill stage height (default) vs show whole frame. */
+const cameraFit = ref<'height' | 'all'>('height')
+
+const cameraFitToggleLabel = computed(() =>
+  cameraFit.value === 'height' ? 'Fit all' : 'Fit height',
+)
+const cameraFitToggleTitle = computed(() =>
+  cameraFit.value === 'height'
+    ? 'Show the whole camera frame (letterbox)'
+    : 'Fill the preview height (crop sides)',
+)
+
+function toggleCameraFit(): void {
+  cameraFit.value = cameraFit.value === 'height' ? 'all' : 'height'
+}
 
 const sendPreview = ref<SendPreview | null>(null)
 const sendPreviewBusy = ref(false)
@@ -806,7 +821,11 @@ async function loadLocalDocsFromQuery(): Promise<boolean> {
       const packed = await packLocalEntryFile(entry, assets, blobs, { openNow })
       queued.push({
         id: nextQueueId++,
-        file: new File([packed.container], packed.filename, { type: LOCAL_ENTRY_TRANSFER_MIME }),
+        file: new File(
+          [packed.container.buffer.slice(packed.container.byteOffset, packed.container.byteOffset + packed.container.byteLength) as ArrayBuffer],
+          packed.filename,
+          { type: LOCAL_ENTRY_TRANSFER_MIME },
+        ),
         batchLabel:
           assets.length === allAssets.length
             ? entry.title
@@ -1209,7 +1228,14 @@ onUnmounted(() => {
       </div>
 
       <div class="camera-stage">
-        <video ref="videoRef" class="camera-video" playsinline muted autoplay />
+        <video
+          ref="videoRef"
+          class="camera-video"
+          :class="cameraFit === 'height' ? 'fit-height' : 'fit-all'"
+          playsinline
+          muted
+          autoplay
+        />
         <div class="camera-frame" aria-hidden="true" />
       </div>
 
@@ -1217,6 +1243,15 @@ onUnmounted(() => {
       <p v-else class="status" role="status">{{ receiveStatus }}</p>
 
       <div class="send-actions">
+        <button
+          type="button"
+          class="btn"
+          :title="cameraFitToggleTitle"
+          :aria-label="cameraFitToggleTitle"
+          @click="toggleCameraFit"
+        >
+          {{ cameraFitToggleLabel }}
+        </button>
         <button type="button" class="btn" @click="startReceiveCamera">Restart camera</button>
       </div>
 
@@ -1653,16 +1688,38 @@ onUnmounted(() => {
   aspect-ratio: 4 / 3;
   min-height: min(52vh, 28rem);
   max-height: min(72vh, 42rem);
+  container-type: size;
 }
 .camera-video {
   display: block;
+  background: #000;
+}
+.camera-video.fit-height {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  transform: translateX(-50%);
+}
+.camera-video.fit-all {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center center;
 }
 .camera-frame {
   position: absolute;
-  inset: 10%;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  aspect-ratio: 1 / 1;
+  width: min(72%, 88%);
+  width: min(72cqmin, 88%);
+  height: auto;
   border: 2px solid rgba(255, 255, 255, 0.7);
   border-radius: 12px;
   pointer-events: none;

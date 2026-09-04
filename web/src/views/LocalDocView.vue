@@ -23,6 +23,10 @@ import {
   keyToTonicNote,
   clampPitchSemitones,
 } from '../audio/pitchPlayer'
+import {
+  getActivePitchPipeVoice,
+  PITCH_PIPE_VOICE_CHANGE_EVENT,
+} from '../audio/pitchPipeVoice'
 import { useLocalLibraryStore } from '../stores/localLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -63,7 +67,7 @@ const draftDetune = ref(0)
 const saveBusy = ref(false)
 
 const keyShift = ref(0)
-const pitch = new PitchPlayer()
+const pitch = new PitchPlayer(getActivePitchPipeVoice())
 
 const imageSets = ref<SheetImageSet[]>([])
 const pdfs = ref<SheetPdfFile[]>([])
@@ -205,9 +209,19 @@ watch(
 )
 
 onUnmounted(() => {
+  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   revokeOwned()
   pitch.stop()
+  pitch.dispose()
 })
+
+function syncPitchVoice(): void {
+  pitch.setVoice(getActivePitchPipeVoice())
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+}
 
 async function saveMeta(): Promise<boolean> {
   if (!entry.value || saveBusy.value) return false

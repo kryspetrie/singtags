@@ -14,6 +14,7 @@ import {
   loupeContentRadius,
   loupeGeometry,
   pickLandmarkAnchors,
+  landmarkMinGapForWidth,
   trackFractionFromIndex,
   trackToContent,
 } from './scrub'
@@ -46,6 +47,19 @@ describe('scrub helpers', () => {
     for (let i = 1; i < marks.length; i++) {
       expect(marks[i]!.center - marks[i - 1]!.center).toBeGreaterThanOrEqual(0.15)
     }
+  })
+
+  it('widens landmark gap on narrow scrub tracks (iPhone 12 Pro class)', () => {
+    const narrow = landmarkMinGapForWidth(320)
+    const wide = landmarkMinGapForWidth(800)
+    expect(narrow).toBeGreaterThan(wide)
+    expect(narrow).toBeGreaterThanOrEqual(0.15)
+    expect(wide).toBeCloseTo(0.1, 2)
+
+    const anchors = buildLabelAnchors(40, (i) => String(1985 + i))
+    const dense = pickLandmarkAnchors(anchors, wide)
+    const sparse = pickLandmarkAnchors(anchors, narrow)
+    expect(sparse.length).toBeLessThanOrEqual(dense.length)
   })
 
   it('shrinks the content window as zoom increases', () => {

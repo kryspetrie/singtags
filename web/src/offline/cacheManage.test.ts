@@ -225,6 +225,7 @@ describe('cacheManage', () => {
       layout: 'piano',
       aHz: null,
       detuneCents: -44,
+      showOctave: false,
     })
   })
 

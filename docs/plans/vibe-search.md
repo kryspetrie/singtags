@@ -61,7 +61,7 @@ Related docs:
 
 ## Architecture
 
-SingTags remains a **static SPA on S3** (optionally CloudFront). Cloudflare provides **DNS** and a **Worker** subdomain for AI. The Worker is not hosted on S3—it is a separate Cloudflare service routed via DNS.
+SingTags remains a **static SPA on S3** (Cloudflare DNS + HTTPS in front). Cloudflare also provides a **Worker** subdomain for AI. The Worker is not hosted on S3—it is a separate Cloudflare service routed via DNS.
 
 ```mermaid
 flowchart LR
@@ -252,7 +252,7 @@ ALLOWED_ORIGINS = "https://singtags.com,https://www.singtags.com"
 3. Enter: `api.singtags.com`.
 4. Cloudflare creates a proxied DNS record automatically.
 
-No S3 or CloudFront changes required. The apex/www site continues to point at S3; only `api` points at the Worker.
+No S3 origin changes required. The apex/www site continues to point at S3 via Cloudflare; only `api` points at the Worker.
 
 ### Local development
 

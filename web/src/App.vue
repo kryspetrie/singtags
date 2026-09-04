@@ -99,6 +99,13 @@ function goBack(): void {
   goTagBack(router, route)
 }
 
+/** Browse nav from a tag should restore list scroll (same as ← Back), not a bare `/`. */
+function onBrowseNavClick(e: Event): void {
+  if (route.name !== 'tag') return
+  e.preventDefault()
+  goTagBack(router, route)
+}
+
 const { needRefresh, updateServiceWorker } = useRegisterSW({
   immediate: true,
 })
@@ -164,12 +171,24 @@ function publishHeaderHeight(): void {
   document.documentElement.style.setProperty('--header-h', `${h}px`)
 }
 
+/** Blur text fields when tapping non-editable UI so the caret doesn’t stick around. */
+function blurTextFieldOnOutsidePointer(e: PointerEvent): void {
+  const t = e.target
+  if (!(t instanceof Element)) return
+  if (t.closest('input, textarea, select, [contenteditable="true"], .user-select-text')) return
+  const ae = document.activeElement
+  if (!(ae instanceof HTMLElement)) return
+  if (!ae.matches('input, textarea, select, [contenteditable="true"]')) return
+  ae.blur()
+}
+
 onMounted(() => {
   void favorites.ensureLoaded()
   void offlineLib.loadManifests()
   if (isStandaloneDisplay()) markInstallDone()
   window.addEventListener('beforeinstallprompt', onBeforeInstall)
   window.addEventListener('appinstalled', onAppInstalled)
+  document.addEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   publishHeaderHeight()
   if (typeof ResizeObserver !== 'undefined' && topEl.value) {
     headerResizeObserver = new ResizeObserver(() => publishHeaderHeight())
@@ -185,6 +204,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('beforeinstallprompt', onBeforeInstall)
   window.removeEventListener('appinstalled', onAppInstalled)
+  document.removeEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   headerResizeObserver?.disconnect()
   headerResizeObserver = null
   desktopNavMq?.removeEventListener('change', onDesktopNavMq)
@@ -195,8 +215,30 @@ function dismissUpdate(): void {
   needRefresh.value = false
 }
 
-async function applyUpdate(): Promise<void> {
-  await updateServiceWorker(true)
+/**
+ * Activate the waiting service worker, then always reload.
+ * vite-plugin-pwa's updateServiceWorker(true) sometimes resolves without navigating
+ * (especially when `controlling` fires with `isUpdate === false` on the same tab that
+ * first registered the SW) — leaving the toast stuck under sticky hover/focus.
+ */
+async function applyUpdate(ev?: Event): Promise<void> {
+  if (ev?.currentTarget instanceof HTMLElement) ev.currentTarget.blur()
+  needRefresh.value = false
+
+  let reloaded = false
+  const reloadOnce = () => {
+    if (reloaded) return
+    reloaded = true
+    window.location.reload()
+  }
+  const fallback = window.setTimeout(reloadOnce, 900)
+  try {
+    await updateServiceWorker(true)
+  } catch {
+    /* ignore — hard reload below */
+  }
+  window.clearTimeout(fallback)
+  reloadOnce()
 }
 
 async function installApp(): Promise<void> {
@@ -378,7 +420,11 @@ async function acceptReconnectPrompt(): Promise<void> {
         </div>
       </div>
       <nav class="topnav" aria-label="Primary">
-        <RouterLink class="btn btn-ghost" to="/">Browse</RouterLink>
+        <RouterLink
+          class="btn btn-ghost"
+          to="/"
+          @click="onBrowseNavClick"
+        >Browse</RouterLink>
         <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
         <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
         <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
@@ -431,7 +477,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterView />
     </main>
     <nav class="bottom" aria-label="Mobile">
-      <RouterLink to="/" class="tab">
+      <RouterLink to="/" class="tab" @click="onBrowseNavClick">
         <span class="ico" aria-hidden="true">⌕</span>
         Browse
       </RouterLink>
@@ -463,7 +509,7 @@ async function acceptReconnectPrompt(): Promise<void> {
     </nav>
     <div v-if="needRefresh" class="toast" role="status">
       <span>Update available</span>
-      <button type="button" class="btn btn-primary" @click="applyUpdate">Reload</button>
+      <button type="button" class="btn btn-primary" @click="applyUpdate($event)">Reload</button>
       <button type="button" class="btn btn-ghost" @click="dismissUpdate">Later</button>
     </div>
     <div

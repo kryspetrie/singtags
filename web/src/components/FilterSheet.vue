@@ -16,6 +16,11 @@ const props = defineProps<{
   hideTitle?: boolean
   /** Mobile: full-height drawer; desktop: large centered panel. */
   fullScreen?: boolean
+  /**
+   * Grow the panel to its content (up to the viewport) instead of the default
+   * short max-height that forces an inner scrollbar for modest menus.
+   */
+  fitContent?: boolean
 }>()
 
 defineEmits<{
@@ -70,7 +75,7 @@ function onPanelAfterLeave(): void {
     <div
       v-if="layerOpen"
       class="sheet-root"
-      :class="{ anchored, elevated, fullScreen: fullScreen }"
+      :class="{ anchored, elevated, fullScreen: fullScreen, fitContent: fitContent }"
       :style="rootStyle"
       role="dialog"
       aria-modal="true"
@@ -188,6 +193,22 @@ function onPanelAfterLeave(): void {
   margin: 0;
 }
 
+/* Modest menus (e.g. More): grow with content; only scroll if near viewport height. */
+.sheet-root.fitContent .panel {
+  max-height: calc(
+    100dvh - var(--bottom-nav-h, 3.75rem) - env(safe-area-inset-bottom) - 0.75rem
+  );
+}
+.sheet-root.fitContent.elevated .panel {
+  max-height: calc(100dvh - env(safe-area-inset-bottom) - 1.5rem);
+}
+.sheet-root.fitContent .body {
+  flex: 0 1 auto;
+  /* Scroll only if the panel hits the viewport cap; otherwise size to content. */
+  overflow: auto;
+  min-height: 0;
+}
+
 .sheet-fade-enter-active {
   animation: sheet-fade-in 0.28s ease;
 }
@@ -294,6 +315,9 @@ function onPanelAfterLeave(): void {
     max-height: 70vh;
     margin-bottom: 0;
     border-radius: var(--radius);
+  }
+  .sheet-root.fitContent .panel {
+    max-height: min(85vh, 40rem);
   }
   .sheet-root.fullScreen {
     padding: 1.25rem;

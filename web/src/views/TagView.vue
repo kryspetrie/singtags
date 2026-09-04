@@ -18,6 +18,10 @@ import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
 import type { QueueTrack } from '../download/zip'
 import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones } from '../audio/pitchPlayer'
+import {
+  getActivePitchPipeVoice,
+  PITCH_PIPE_VOICE_CHANGE_EVENT,
+} from '../audio/pitchPipeVoice'
 import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import PitchControls from '../components/PitchControls.vue'
@@ -136,6 +140,7 @@ async function onSheetPlayStop(): Promise<void> {
 /** Keep `?fullscreen=1` in sync so the address bar / copyable URL matches sheet state. */
 function onSheetFullscreenChange(on: boolean): void {
   sheetFullscreenActive.value = on
+  if (leavingToList) return
   if (on && tracksFullscreenActive.value) {
     void tagPlayerRef.value?.exitFullscreen()
   }
@@ -180,12 +185,27 @@ function enterTracksFullscreen(): void {
 /** Coalesce concurrent shift / fullscreen query writes. */
 let queryPatchTimer: ReturnType<typeof setTimeout> | null = null
 let queryPatchPending: ((q: Record<string, string | string[] | undefined>) => void)[] = []
+/** Sing ✕ is leaving for the list — ignore fullscreen query clears that race goTagBack. */
+let leavingToList = false
+
+function cancelTagQueryPatches(): void {
+  if (queryPatchTimer) {
+    clearTimeout(queryPatchTimer)
+    queryPatchTimer = null
+  }
+  queryPatchPending = []
+}
 
 function patchTagQuery(mutator: (q: Record<string, string | string[] | undefined>) => void): void {
+  if (leavingToList) return
   queryPatchPending.push(mutator)
   if (queryPatchTimer) return
   queryPatchTimer = setTimeout(() => {
     queryPatchTimer = null
+    if (leavingToList) {
+      queryPatchPending = []
+      return
+    }
     const q = { ...route.query } as Record<string, string | string[] | undefined>
     const batch = queryPatchPending
     queryPatchPending = []
@@ -213,7 +233,6 @@ const {
   preparedSheet,
   loading,
   sheetPreparing,
-  mediaSource,
   load,
   resolvePart,
   toSummary,
@@ -224,7 +243,7 @@ const hasSheetContent = computed(
 )
 
 const keyShift = ref(0)
-const pitch = new PitchPlayer()
+const pitch = new PitchPlayer(getActivePitchPipeVoice())
 const playerTransform = ref<AudioTransform>({ pitchSemitones: 0, speed: 1 })
 const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
@@ -270,6 +289,9 @@ function goBack(): void {
 function onFullscreenExitOrigin(): void {
   if (!prefs.singMode) return
   if (!peekTagReturnOrigin()?.fullPath) return
+  // Drop pending ?fullscreen clears — they race goTagBack and can remount Browse at y=0.
+  leavingToList = true
+  cancelTagQueryPatches()
   goBack()
 }
 
@@ -290,10 +312,11 @@ onMounted(async () => {
       delete q.set
     })
   }
-  await catalog.load()
-  await favorites.ensureLoaded()
   keyShift.value = readShiftFromRoute()
-  await load()
+  // Detail fetch does not need the catalog; run in parallel so a hydrated
+  // summary cannot flash the “Could not load full tag” partial state while
+  // we wait on catalog/favorites (load() already ensureLoaded’s favorites).
+  await Promise.all([catalog.load(), load()])
   if (recent.consumeBrowseNavigation(Number(props.id))) {
     recent.recordOpen(Number(props.id))
   }
@@ -320,9 +343,19 @@ watch(
 )
 
 onUnmounted(() => {
+  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+  cancelTagQueryPatches()
   pitch.dispose()
   stopPlayerTick()
 })
+
+function syncPitchVoice(): void {
+  pitch.setVoice(getActivePitchPipeVoice())
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+}
 
 watch(
   () => props.id,
@@ -683,9 +716,6 @@ async function onRetryLoad(): Promise<void> {
         <span v-if="detail.arranger" class="arranger">{{ detail.arranger }}</span>
       </p>
     </header>
-    <p v-if="fromCache && mediaSource === 'star' && !offline" class="warn" role="status">
-      Loaded from favorites offline cache.
-    </p>
     <p
       v-if="offline && detail && hasAudio && !hasOfflinePlayback && !starred"
       class="warn"

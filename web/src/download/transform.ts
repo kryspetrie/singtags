@@ -1,11 +1,11 @@
 /**
  * Per-track download pipeline: decode, optional pitch/speed transform, re-encode.
- * Keeps hosted M4A bytes at `original` quality when no transform is applied.
+ * `original` quality keeps published source bytes (usually MP3) when no transform is applied.
+ * M4A downloads re-encode that source to AAC at {@link DOWNLOAD_AAC_BITRATE}.
  */
 
-import { assertDecodableAudioBytes } from '../audio/audioBytes'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
-import { isIdentityTransform, transformFilenameSuffix } from '../types/audio'
+import { DOWNLOAD_AAC_BITRATE, isIdentityTransform, transformFilenameSuffix } from '../types/audio'
 import { processOfflineTransform } from '../audio/bakeClient'
 import { encodeAudioBuffer, encodeAudioBufferToM4a, encodeAudioBufferToOggOpus, encodeDecodedBytes } from './encode'
 
@@ -44,17 +44,12 @@ export function audioBufferToWav(buffer: AudioBuffer): Uint8Array {
   return new Uint8Array(array)
 }
 
-/** Decode raw audio bytes via a short-lived {@link AudioContext}. */
+/** Decode raw audio bytes (serialized; OfflineAudioContext for download transforms). */
 async function decodeBytes(data: Uint8Array): Promise<AudioBuffer> {
-  assertDecodableAudioBytes(data)
-  const ctx = new AudioContext()
-  try {
-    const ab = new ArrayBuffer(data.byteLength)
-    new Uint8Array(ab).set(data)
-    return await ctx.decodeAudioData(ab)
-  } finally {
-    await ctx.close()
-  }
+  const { decodeAudioDataExclusive } = await import('../audio/decodeLock')
+  const ab = new ArrayBuffer(data.byteLength)
+  new Uint8Array(ab).set(data)
+  return await decodeAudioDataExclusive(ab, { offlineSampleRate: 48_000 })
 }
 
 /**
@@ -77,7 +72,7 @@ export interface PrepareDownloadOptions {
   sourceRevision?: string
   /**
    * Compression when re-encoding.
-   * For M4A: `original` keeps hosted bytes (identity only); otherwise stereo AAC.
+   * `original` + identity keeps published source bytes; otherwise re-encodes.
    */
   encodeQuality?: AudioEncodeQuality
 }
@@ -94,11 +89,14 @@ export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promis
   const identity = isIdentityTransform(transform)
   const reencodeQuality: Exclude<AudioEncodeQuality, 'original'> =
     encodeQuality === 'original' ? 'standard' : encodeQuality
-  const encOpts = { quality: reencodeQuality }
+  const encOpts = {
+    quality: reencodeQuality,
+    ...(outFormat === 'm4a' ? { bitrate: DOWNLOAD_AAC_BITRATE } : {}),
+  }
 
-  // Identity: original-byte passthrough for hosted M4A at original quality.
-  if (identity && outFormat === 'm4a' && encodeQuality === 'original') return input
-  // MP3/OGG always encode; M4A with non-original quality re-encodes AAC.
+  // Identity + original: keep published source bytes (almost always MP3).
+  if (identity && encodeQuality === 'original') return input
+  // Re-encode to the requested container (M4A → 96 kbps AAC; MP3/OGG via wasm encoders).
   if (identity && (outFormat === 'mp3' || outFormat === 'ogg' || outFormat === 'm4a')) {
     return encodeDecodedBytes(input, outFormat, encOpts)
   }
@@ -112,7 +110,7 @@ export async function prepareDownloadBytes(opts: PrepareDownloadOptions): Promis
     sourceRevision: sourceRevision ?? 'download',
   })
   if (!processed) {
-    throw new Error('Pitch/speed transform unavailable; try Original download.')
+    throw new Error('Pitch/speed transform unavailable; try Original (as published) download.')
   }
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
 

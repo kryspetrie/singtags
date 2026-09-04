@@ -2,7 +2,7 @@
 /**
  * Fullscreen SingTags QR scanner: tag URL codes + Decimen sheet transfer receive.
  */
-import { nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import {
   decodeQrDetailedFromFile,
   decodeQrDetailedFromVideo,
@@ -27,10 +27,23 @@ const emit = defineEmits<{
   error: [message: string]
 }>()
 
+/** Preview scale: fill stage height (crop sides) vs show the whole frame. */
+type CameraFit = 'height' | 'all'
+
 const videoRef = ref<HTMLVideoElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const status = ref('')
 const busyFile = ref(false)
+const cameraFit = ref<CameraFit>('height')
+
+const fitToggleLabel = computed(() =>
+  cameraFit.value === 'height' ? 'Fit all' : 'Fit height',
+)
+const fitToggleTitle = computed(() =>
+  cameraFit.value === 'height'
+    ? 'Show the whole camera frame (letterbox)'
+    : 'Fill the preview height (crop sides)',
+)
 
 let stream: MediaStream | null = null
 let raf = 0
@@ -38,6 +51,10 @@ let closed = true
 let handling = false
 let decimenCapture: DecimenReceiveCapture | null = null
 let receivingSheet = false
+
+function toggleCameraFit(): void {
+  cameraFit.value = cameraFit.value === 'height' ? 'all' : 'height'
+}
 
 function stopCamera(): void {
   decimenCapture?.stop()
@@ -198,6 +215,7 @@ watch(
       closed = false
       handling = false
       receivingSheet = false
+      cameraFit.value = 'height'
       window.addEventListener('keydown', onKey)
       await nextTick()
       await startCamera()
@@ -230,13 +248,29 @@ onUnmounted(() => {
       aria-label="Scan SingTags QR code"
     >
       <div class="qr-scan-stage">
-        <video ref="videoRef" class="qr-scan-video" playsinline muted autoplay />
+        <video
+          ref="videoRef"
+          class="qr-scan-video"
+          :class="cameraFit === 'height' ? 'fit-height' : 'fit-all'"
+          playsinline
+          muted
+          autoplay
+        />
         <div class="qr-scan-frame" aria-hidden="true" />
       </div>
 
       <p class="qr-scan-status" role="status">{{ status }}</p>
 
       <div class="qr-scan-actions">
+        <button
+          type="button"
+          class="btn"
+          :title="fitToggleTitle"
+          :aria-label="fitToggleTitle"
+          @click="toggleCameraFit"
+        >
+          {{ fitToggleLabel }}
+        </button>
         <button type="button" class="btn" :disabled="busyFile" @click="openFilePicker">
           Choose photo…
         </button>
@@ -273,17 +307,42 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
   background: #111;
+  container-type: size;
 }
 .qr-scan-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   display: block;
   background: #000;
 }
+/* Fill stage height; crop left/right; keep optical center in the stage center. */
+.qr-scan-video.fit-height {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  transform: translateX(-50%);
+}
+/* Show the whole frame, letterboxed, centered. */
+.qr-scan-video.fit-all {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+}
+/* Fixed square guide — does not stretch with screen width. */
 .qr-scan-frame {
   position: absolute;
-  inset: 18%;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  aspect-ratio: 1 / 1;
+  /* Prefer container size; fall back to viewport when cqmin unsupported. */
+  width: min(72vmin, 88%);
+  width: min(72cqmin, 88%);
+  height: auto;
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 16px;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.35);

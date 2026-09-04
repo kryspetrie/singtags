@@ -217,6 +217,16 @@ describe('TagPlayer', () => {
     expect(w.text()).not.toContain('Start here')
     expect(w.text()).not.toContain('Full track')
     expect(w.find('[aria-label="Play"]').attributes('disabled')).toBeDefined()
+    expect(w.find('.advanced-playback > summary').text()).toBe('Advanced')
+    expect(
+      w.findAll('.advanced-playback .adjust-row > .adjust-field').map((n) => {
+        if (n.classes().includes('loop-field')) return 'loop'
+        if (n.classes().includes('pitch-field')) return 'pitch'
+        if (n.classes().includes('solo-field')) return 'solo'
+        if (n.classes().includes('balance-field')) return 'balance'
+        return 'other'
+      }),
+    ).toEqual(['loop', 'pitch', 'solo', 'balance'])
     expect(w.find('.playback-adjust button.toggle-btn').text()).toBe('Off')
     expect(w.find('.playback-adjust button.toggle-btn').attributes('disabled')).toBeDefined()
     expect(w.find('.transport .toggle-btn').exists()).toBe(false)

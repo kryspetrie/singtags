@@ -59,15 +59,22 @@ export const router = createRouter({
       component: () => import('../views/LabsView.vue'),
     },
     {
+      path: '/labs/pitch-pipe-sound',
+      name: 'labs-pitch-pipe-sound',
+      component: () => import('../views/PitchPipeSoundLabView.vue'),
+    },
+    {
       path: '/library',
       name: 'library',
       component: () => import('../views/LocalLibraryView.vue'),
+      meta: { requiresLocalLibrary: true },
     },
     {
       path: '/library/:id',
       name: 'library-doc',
       component: () => import('../views/LocalDocView.vue'),
       props: true,
+      meta: { requiresLocalLibrary: true },
     },
     {
       path: '/tx',
@@ -116,6 +123,10 @@ export const router = createRouter({
         browseScrollIntent = 'restore'
         return restoreFromTag
       }
+      // Filter/query sync after remount must not wipe the restored scroll.
+      if (from?.name === 'home' && to.path === from.path) {
+        return false
+      }
       browseScrollIntent = 'top'
       return { top: 0 }
     }
@@ -138,6 +149,16 @@ router.beforeEach((to, from) => {
     try {
       const prefs = usePreferencesStore()
       if (!prefs.opticalTransferEnabled) {
+        return { name: 'labs' }
+      }
+    } catch {
+      /* Pinia not ready (rare in tests) — allow navigation */
+    }
+  }
+  if (to.meta.requiresLocalLibrary) {
+    try {
+      const prefs = usePreferencesStore()
+      if (!prefs.localLibraryEnabled) {
         return { name: 'labs' }
       }
     } catch {

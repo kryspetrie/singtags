@@ -52,6 +52,7 @@ describe('preferences store', () => {
       layout: 'piano',
       aHz: 432,
       detuneCents: -32,
+      showOctave: false,
     })
     prefs.setPitchPipeDetuneCents(-7, { clearConcertA: true })
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
@@ -59,6 +60,7 @@ describe('preferences store', () => {
       layout: 'piano',
       aHz: null,
       detuneCents: -7,
+      showOctave: false,
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()
@@ -66,6 +68,9 @@ describe('preferences store', () => {
     expect(again.pitchPipeRange).toBe('e3-e4')
     expect(again.pitchPipeAHz).toBeNull()
     expect(again.pitchPipeDetuneCents).toBe(-7)
+    expect(again.pitchPipeShowOctave).toBe(false)
+    again.setPitchPipeShowOctave(true)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showOctave).toBe(true)
   })
 
   it('migrates legacy fineCents-on-top-of-A pitch pipe prefs', () => {
@@ -119,6 +124,15 @@ describe('preferences store', () => {
     expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('0')
     setActivePinia(createPinia())
     expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
+  })
+
+  it('defaults local library off', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.localLibraryEnabled).toBe(false)
+    prefs.setLocalLibraryEnabled(true)
+    expect(localStorage.getItem('singtags.labs.localLibrary.enabled.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().localLibraryEnabled).toBe(true)
   })
 
   it('persists share-fullscreen preference', () => {

@@ -17,10 +17,14 @@ import {
   type PitchPipeLayout,
   type PitchPipeRange,
 } from '../audio/pitchPlayer'
+import {
+  getActivePitchPipeVoice,
+  PITCH_PIPE_VOICE_CHANGE_EVENT,
+} from '../audio/pitchPipeVoice'
 import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
-const player = new PitchPlayer()
+const player = new PitchPlayer(getActivePitchPipeVoice())
 /** Concert A preset (`null` = custom / “—”). */
 const aHz = computed(() => prefs.pitchPipeAHz)
 /** Absolute cents vs A440 (slider + playback). */
@@ -60,6 +64,16 @@ const pipeLayout = computed({
   set: (v: PitchPipeLayout) => prefs.setPitchPipeLayout(v),
 })
 
+const showOctave = computed({
+  get: () => prefs.pitchPipeShowOctave,
+  set: (v: boolean) => prefs.setPitchPipeShowOctave(v),
+})
+
+/** Octave digit for labels when the setting is on; empty when off. */
+function octaveLabel(octave: string): string {
+  return showOctave.value ? octave : ''
+}
+
 const noteList = computed(() => pitchPipeNotes(pipeRange.value))
 
 /** High → low for on-screen order (highest pitches at the top). */
@@ -92,7 +106,18 @@ const whiteKeyPct = computed(() => {
   return n > 0 ? 100 / n : 100
 })
 
-onUnmounted(() => player.dispose())
+onUnmounted(() => {
+  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+  player.dispose()
+})
+
+function syncPitchVoice(): void {
+  player.setVoice(getActivePitchPipeVoice())
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+}
 
 watch(detune, (cents) => {
   if (current.value) void player.start(current.value, cents)
@@ -173,6 +198,24 @@ function blackTopPct(after: string): number {
               {{ r.label }}
             </option>
           </select>
+        </label>
+
+        <label
+          class="setting-row octave-toggle"
+          :class="{ on: showOctave }"
+          title="Include octave numbers on note labels (E4 vs E)"
+        >
+          <span class="setting-copy">
+            <span class="setting-title">Show octave number</span>
+          </span>
+          <input
+            v-model="showOctave"
+            type="checkbox"
+            class="setting-switch"
+            role="switch"
+            :aria-checked="showOctave"
+            aria-label="Show octave number"
+          />
         </label>
 
         <label class="a-ref">
@@ -262,7 +305,7 @@ function blackTopPct(after: string): number {
             @keyup="onNoteKey($event, note)"
           >
             <span class="note-single"
-              >{{ byNote.get(note)?.display.sharp }}{{ byNote.get(note)?.display.octave }}</span
+              >{{ byNote.get(note)?.display.sharp }}{{ octaveLabel(byNote.get(note)?.display.octave ?? '') }}</span
             >
           </button>
         </div>
@@ -286,11 +329,11 @@ function blackTopPct(after: string): number {
           >
             <span class="note-dual">
               <span class="note-sharp"
-                >{{ byNote.get(b.note)?.display.sharp }}{{ byNote.get(b.note)?.display.octave }}</span
+                >{{ byNote.get(b.note)?.display.sharp }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
               >
               <span class="note-sep" aria-hidden="true">/</span>
               <span class="note-flat"
-                >{{ byNote.get(b.note)?.display.flat }}{{ byNote.get(b.note)?.display.octave }}</span
+                >{{ byNote.get(b.note)?.display.flat }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
               >
             </span>
           </button>
@@ -329,12 +372,16 @@ function blackTopPct(after: string): number {
             v-if="entry.display.isBlack && entry.display.sharp && entry.display.flat"
             class="note-dual"
           >
-            <span class="note-sharp">{{ entry.display.sharp }}{{ entry.display.octave }}</span>
+            <span class="note-sharp"
+              >{{ entry.display.sharp }}{{ octaveLabel(entry.display.octave) }}</span
+            >
             <span class="note-sep" aria-hidden="true">/</span>
-            <span class="note-flat">{{ entry.display.flat }}{{ entry.display.octave }}</span>
+            <span class="note-flat"
+              >{{ entry.display.flat }}{{ octaveLabel(entry.display.octave) }}</span
+            >
           </span>
           <span v-else class="note-single"
-            >{{ entry.display.sharp }}{{ entry.display.octave }}</span
+            >{{ entry.display.sharp }}{{ octaveLabel(entry.display.octave) }}</span
           >
         </button>
       </div>
@@ -407,7 +454,8 @@ function blackTopPct(after: string): number {
   width: 100%;
   accent-color: var(--accent);
 }
-.global-detune {
+.global-detune,
+.octave-toggle {
   flex: 1 1 100%;
   margin: 0.25rem 0 0;
 }
@@ -563,6 +611,13 @@ function blackTopPct(after: string): number {
   background: color-mix(in srgb, var(--text) 42%, var(--surface));
   color: color-mix(in srgb, var(--surface) 92%, #fff);
   border-color: color-mix(in srgb, var(--text) 55%, var(--border));
+}
+/* Grid: uniform keys — no black/white fill distinction. */
+.keys-grid .note.natural,
+.keys-grid .note.black {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 }
 .note.active {
   outline: 3px solid var(--accent);

@@ -71,14 +71,65 @@ function toggleOfflineMode(): void {
 </script>
 
 <template>
-  <FilterSheet :open="open" title="More" elevated hide-title @close="close">
+  <FilterSheet :open="open" title="More" elevated hide-title fit-content @close="close">
     <nav class="menu" aria-label="More">
+      <label
+        class="setting-row setting-sing"
+        :class="{ on: prefs.singMode }"
+        title="When on, Browse / Recent / Favorites open tags into sheet fullscreen"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Sing mode</span>
+          <span class="setting-desc">
+            {{ prefs.singMode ? 'Tags with sheets open fullscreen' : 'Tags open on the tag page' }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.singMode"
+          :aria-checked="prefs.singMode"
+          aria-label="Sing mode"
+          @change="toggleSingMode"
+        />
+      </label>
+
+      <label
+        class="setting-row setting-offline"
+        :class="{ on: offlineMode.manualOffline }"
+        title="Use cached content only — pauses downloads and live catalog fetches"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Offline mode</span>
+          <span class="setting-desc">
+            <template v-if="offlineMode.manualOffline">Using cached content only</template>
+            <template v-else-if="offlineMode.browserOffline">No network — tap to force offline</template>
+            <template v-else>Live catalog and downloads</template>
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="offlineMode.manualOffline"
+          :aria-checked="offlineMode.manualOffline"
+          aria-label="Offline mode"
+          @change="toggleOfflineMode"
+        />
+      </label>
+
       <RouterLink class="menu-item" to="/settings" @click="onNavClick">
         <span class="menu-label">Offline settings</span>
         <span class="menu-desc">Cache, downloads, and offline mode</span>
       </RouterLink>
 
-      <RouterLink class="menu-item" to="/library" @click="onNavClick">
+      <RouterLink
+        v-if="prefs.localLibraryEnabled"
+        class="menu-item"
+        to="/library"
+        @click="onNavClick"
+      >
         <span class="menu-label">Local Library</span>
         <span class="menu-desc">Charts, images, and tracks on this device, with pitch and transfer</span>
       </RouterLink>
@@ -102,52 +153,6 @@ function toggleOfflineMode(): void {
         </span>
         <span class="menu-desc">Sheet and track download queue</span>
       </RouterLink>
-
-      <label
-        class="setting-row"
-        :class="{ on: offlineMode.manualOffline }"
-        title="Use cached content only — pauses downloads and live catalog fetches"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Offline mode</span>
-          <span class="setting-desc">
-            <template v-if="offlineMode.manualOffline">Using cached content only</template>
-            <template v-else-if="offlineMode.browserOffline">No network — tap to force offline</template>
-            <template v-else>Live catalog and downloads</template>
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="offlineMode.manualOffline"
-          :aria-checked="offlineMode.manualOffline"
-          aria-label="Offline mode"
-          @change="toggleOfflineMode"
-        />
-      </label>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.singMode }"
-        title="When on, Browse / Recent / Favorites open tags into sheet fullscreen"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Sing mode</span>
-          <span class="setting-desc">
-            {{ prefs.singMode ? 'Tags with sheets open fullscreen' : 'Tags open on the tag page' }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.singMode"
-          :aria-checked="prefs.singMode"
-          aria-label="Sing mode"
-          @change="toggleSingMode"
-        />
-      </label>
     </nav>
   </FilterSheet>
 </template>
@@ -157,7 +162,9 @@ function toggleOfflineMode(): void {
   display: grid;
   gap: 0.45rem;
 }
+/* Mobile: links first, toggles at bottom (Sing then Offline). */
 .menu-item {
+  order: 1;
   display: grid;
   gap: 0.15rem;
   padding: 0.65rem 0.75rem;
@@ -167,6 +174,12 @@ function toggleOfflineMode(): void {
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+}
+.setting-sing {
+  order: 2;
+}
+.setting-offline {
+  order: 3;
 }
 .menu-item:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -267,6 +280,16 @@ function toggleOfflineMode(): void {
   outline-offset: 2px;
 }
 @media (min-width: 768px) {
+  /* Desktop: Sing mode → Offline mode at top, then links. */
+  .setting-sing {
+    order: 1;
+  }
+  .setting-offline {
+    order: 2;
+  }
+  .menu-item {
+    order: 3;
+  }
   .menu-item-downloads {
     display: none;
   }

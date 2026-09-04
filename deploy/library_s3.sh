@@ -3,7 +3,7 @@
 #
 # Required: S3_BUCKET
 # Optional: S3_PREFIX (site prefix), S3_LIBRARY_PREFIX (default: library),
-#           CLOUDFRONT_DISTRIBUTION_ID, DRY_RUN=1, DEPLOY_ENV=.env.deploy
+#           DRY_RUN=1, DEPLOY_ENV=.env.deploy
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -46,10 +46,3 @@ aws s3 sync "$LIBRARY" "$DEST" \
   --exclude "**/__pycache__/*"
 
 echo "Library deployed to ${DEST}"
-
-if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" && "${DRY_RUN:-0}" != "1" ]]; then
-  aws cloudfront create-invalidation \
-    --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
-    --paths "/${FULL_PREFIX}/*"
-  echo "CloudFront invalidation submitted for /${FULL_PREFIX}/*"
-fi

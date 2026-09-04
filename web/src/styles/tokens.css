@@ -44,6 +44,20 @@ body {
   background: var(--bg);
   line-height: 1.45;
   overscroll-behavior-y: contain;
+  /* App chrome is not a document: avoid I-beam / insertion caret on click. */
+  -webkit-user-select: none;
+  user-select: none;
+  caret-color: transparent;
+}
+
+input,
+textarea,
+select,
+[contenteditable='true'],
+.user-select-text {
+  -webkit-user-select: text;
+  user-select: text;
+  caret-color: auto;
 }
 
 a {

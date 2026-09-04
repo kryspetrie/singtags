@@ -2,6 +2,7 @@
 /**
  * Experimental / optional features (feature flags).
  */
+import { RouterLink } from 'vue-router'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 
@@ -22,6 +23,21 @@ function toggleOpticalTransfer(): void {
     },
   )
 }
+
+function toggleLocalLibrary(): void {
+  const next = !prefs.localLibraryEnabled
+  prefs.setLocalLibraryEnabled(next)
+  snackbar.show(
+    next
+      ? 'Open Local Library from More to manage charts, images, and tracks on this device'
+      : 'Local Library is hidden — songs already on this device are kept',
+    {
+      title: next ? 'Local Library On' : 'Local Library Off',
+      tone: 'ok',
+      ms: 3000,
+    },
+  )
+}
 </script>
 
 <template>
@@ -33,6 +49,49 @@ function toggleOpticalTransfer(): void {
         quiet. Static QR codes for sharing tags are not controlled here.
       </p>
     </header>
+
+    <section class="card" aria-labelledby="pitch-sound-h">
+      <h2 id="pitch-sound-h" class="card-title">Pitch pipe sound</h2>
+      <p class="card-desc">
+        Design alternate pitch-pipe / pay-the-key voices, A/B against classic, save candidates on
+        this device, and set your personal default. Share a favorite with Krys via email.
+      </p>
+      <RouterLink class="btn" to="/labs/pitch-pipe-sound">Open sound lab</RouterLink>
+    </section>
+
+    <section class="card" aria-labelledby="local-library-h">
+      <h2 id="local-library-h" class="card-title">Local Library</h2>
+      <p class="card-desc">
+        Keep your own charts, images, and learning tracks on this device — with pitch, transfer, and
+        a Tag-like player. Separate from the published SingTags catalog.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.localLibraryEnabled }"
+        title="Enable Local Library"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Local Library</span>
+          <span class="setting-desc">
+            {{
+              prefs.localLibraryEnabled
+                ? 'Feature available — open from More → Local Library'
+                : 'Hidden — More link and /library routes are off'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.localLibraryEnabled"
+          :aria-checked="prefs.localLibraryEnabled"
+          aria-label="Local Library"
+          @change="toggleLocalLibrary"
+        />
+      </label>
+    </section>
 
     <section class="card" aria-labelledby="optical-h">
       <h2 id="optical-h" class="card-title">Optical transfer</h2>

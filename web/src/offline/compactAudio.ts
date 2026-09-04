@@ -43,6 +43,7 @@ export async function fetchAudioForStorage(
     if (isNonAudioPayload(data)) return null
     const hostedMime = res.headers.get('content-type') || HOSTED_AUDIO_MIME
 
+    // Keep hosted bytes when already a published Opus tier, or when quality asks for original.
     if (!usesOpusStorage(quality) || isPublishedTierPath(path)) {
       return { path, mime: hostedMime, data, encoded: false }
     }

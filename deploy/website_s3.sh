@@ -2,8 +2,8 @@
 # Deploy the SingTags SPA (+ indexes) to S3. Never syncs library/.
 #
 # Required: S3_BUCKET
-# Optional: S3_PREFIX, VITE_BASE, VITE_MEDIA_BASE, CLOUDFRONT_DISTRIBUTION_ID,
-#           SKIP_BUILD=1, DRY_RUN=1, DEPLOY_ENV=.env.deploy
+# Optional: S3_PREFIX, VITE_BASE, VITE_MEDIA_BASE, SKIP_BUILD=1, DRY_RUN=1,
+#           DEPLOY_ENV=.env.deploy
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -35,15 +35,9 @@ fi
 deploy_require_cmd aws
 deploy_build_web "$ROOT"
 
-echo "Syncing app shell → ${DEST}"
-aws s3 sync "$DIST" "$DEST" \
-  "${DRY[@]}" \
-  --delete \
-  --cache-control "public,max-age=300" \
-  --exclude "library/*" \
-  --exclude "indexes/*" \
-  --exclude "assets/*"
-
+# Upload hashed assets BEFORE index.html. Otherwise a mid-deploy visitor (or
+# Cloudflare) can cache 404s for immutable /assets/* URLs and the shell breaks
+# until purge / new hashes.
 if [[ -d "$DIST/assets" ]]; then
   echo "Syncing hashed assets (immutable)…"
   aws s3 sync "$DIST/assets" "${DEST}assets/" \
@@ -66,16 +60,13 @@ if [[ -d "$DIST/tags" ]]; then
     --cache-control "public,max-age=3600"
 fi
 
-echo "Website deployed to ${DEST} (library not synced)"
+echo "Syncing app shell → ${DEST}"
+aws s3 sync "$DIST" "$DEST" \
+  "${DRY[@]}" \
+  --delete \
+  --cache-control "public,max-age=300" \
+  --exclude "library/*" \
+  --exclude "indexes/*" \
+  --exclude "assets/*"
 
-if [[ -n "${CLOUDFRONT_DISTRIBUTION_ID:-}" && "${DRY_RUN:-0}" != "1" ]]; then
-  if [[ -z "$PREFIX" ]]; then
-    PATHS=("/index.html" "/indexes/*" "/tags/*" "/*")
-  else
-    PATHS=("/${PREFIX}/index.html" "/${PREFIX}/indexes/*" "/${PREFIX}/tags/*" "/${PREFIX}/*")
-  fi
-  aws cloudfront create-invalidation \
-    --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
-    --paths "${PATHS[@]}"
-  echo "CloudFront invalidation submitted"
-fi
+echo "Website deployed to ${DEST} (library not synced)"

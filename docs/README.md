@@ -1,6 +1,6 @@
 # SingTags documentation
 
-Static Vue SPA hosted on **S3** (+ optional CloudFront). **Cloudflare** is for DNS (and later an optional Worker for vibe search) — not Pages.
+Static Vue SPA hosted on **S3** (public website). **Cloudflare** is for DNS + HTTPS (and later an optional Worker for vibe search) — not Pages.
 
 ## Start here
 

@@ -32,7 +32,7 @@ export const useQueueStore = defineStore('queue', () => {
   const busy = ref(false)
   const progress = ref({ done: 0, total: 0 })
   const error = ref<string | null>(null)
-  const format = ref<DownloadFormat>('m4a')
+  const format = ref<DownloadFormat>('mp3')
   /** Zip download format (M4A or MP3). */
   const encodeQuality = ref<AudioEncodeQuality>('original')
   const zipLayout = ref<ZipLayout>(loadLayout())

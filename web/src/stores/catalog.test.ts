@@ -114,6 +114,62 @@ describe('catalog store', () => {
     expect(catalog.results.map((t) => t.id)).toEqual([1540])
   })
 
+  it('keeps lyric search after a catalog refresh rebuilds the engine', async () => {
+    const core = {
+      version: 1,
+      tags: [
+        {
+          id: 125,
+          title: 'Thanks Again',
+          arranger: 'Someone',
+          key: 'C',
+          rating: 4,
+          type: 'Barbershop',
+          collection: null,
+          hasSheet: true,
+          audioParts: ['lead'],
+          sheet: null,
+        },
+      ],
+    }
+    const coreGz = await new Response(
+      new Blob([JSON.stringify(core)]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).arrayBuffer()
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (String(url).includes('core.json.gz')) {
+          return new Response(coreGz, { status: 200 })
+        }
+        if (String(url).includes('expansions.json')) {
+          return new Response(JSON.stringify({ map: {} }), { status: 200 })
+        }
+        if (String(url).includes('lyrics.json.gz')) {
+          return new Response(null, { status: 404 })
+        }
+        return new Response(null, { status: 404 })
+      }),
+    )
+
+    await putLyricsSnapshotIdb([
+      { id: 125, lyrics: 'To my beautiful life-long friends - hey mom and daddy - thanks again' },
+    ])
+
+    const catalog = useCatalogStore()
+    await catalog.load()
+    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    catalog.patchFilters({ fullText: true })
+    catalog.queryText = 'hey mom and daddy'
+    catalog.debouncedQuery = 'hey mom and daddy'
+    expect(catalog.results.map((t) => t.id)).toEqual([125])
+
+    // Background catalog refresh (bootstrap) rebuilds SearchEngine without lyrics opts.
+    await catalog.load({ refresh: true })
+    expect(catalog.lyricsLoaded).toBe(true)
+    expect(catalog.results.map((t) => t.id)).toEqual([125])
+  })
+
   it('applies chip filters immediately', async () => {
     const core = {
       version: 1,

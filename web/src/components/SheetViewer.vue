@@ -966,10 +966,6 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
   setScrollLock(on)
 }
 
-function toggleFullscreen(): void {
-  setFullscreen(!fullscreen.value)
-}
-
 function toggleChromeCompact(): void {
   if (!fullscreen.value) return
   // Playback panel owns the chrome strip — Close / M dismisses it first.
@@ -1071,8 +1067,10 @@ async function exitToOrigin(): Promise<void> {
   // "return to Browse/Recent/Favorites" *before* the parent can arm scroll restore, so the
   // list lands at the wrong Y. Discard the sentinel in-place; parent then goTagBack().
   overlayHistory.discard()
+  const leaveToList = props.exitOriginLabel !== 'tag page'
+  // Navigate first in Sing mode so goTagBack arms scroll before any ?fullscreen= clear.
+  if (leaveToList) emit('exit-origin')
   await setFullscreen(false, { fromPopState: true })
-  if (props.exitOriginLabel !== 'tag page') emit('exit-origin')
 }
 
 function onPopState(): void {

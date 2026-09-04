@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest'
+/**
+ * @vitest-environment happy-dom
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetCodecSupportForTests } from '../audio/codecSupport'
 import type { TagDetail } from '../types/tag'
 import {
   cachedPathCandidates,
@@ -6,6 +10,7 @@ import {
   inferLowerQualityFromStarred,
   isMixOnlyTag,
   isPublishedTierPath,
+  onlinePlayAudioPath,
   onlinePlaybackPaths,
   originalAudioPath,
   playableAudioParts,
@@ -32,6 +37,13 @@ function detail(partial: Partial<TagDetail> & Pick<TagDetail, 'tag_id' | 'audio'
 }
 
 describe('audioTiers', () => {
+  beforeEach(() => {
+    resetCodecSupportForTests()
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      canPlayType: () => 'probably',
+    } as unknown as HTMLAudioElement)
+  })
+
   const monoSolos = detail({
     tag_id: 31,
     audio: {
@@ -87,8 +99,17 @@ describe('audioTiers', () => {
 
   it('prefers playback for online paths', () => {
     expect(playbackAudioPath(monoSolos, 'lead')).toBe('media/31/lead.playback.opus')
+    expect(onlinePlayAudioPath(monoSolos, 'lead')).toBe('media/31/lead.playback.opus')
     expect(onlinePlaybackPaths(monoSolos).lead).toBe('media/31/lead.playback.opus')
     expect(catalogOriginalPaths(monoSolos).lead).toBe('media/31/lead.m4a')
+  })
+
+  it('keeps Opus online play path even when native Ogg Opus is unsupported', () => {
+    resetCodecSupportForTests()
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      canPlayType: () => '',
+    } as unknown as HTMLAudioElement)
+    expect(onlinePlayAudioPath(monoSolos, 'lead')).toBe('media/31/lead.playback.opus')
   })
 
   it('falls back to legacy audio when tiers missing', () => {

@@ -17,6 +17,7 @@ import {
   partsAreRecombinable,
   playableAudioParts,
   playbackAudioPath,
+  onlinePlayAudioPath,
   listAudioParts,
   tierPath,
   ultraAudioPath,
@@ -534,7 +535,7 @@ async function resolveOnlineVirtualPartLearning(
   }
 
   const activePath =
-    playbackAudioPath(detail, part) ?? originalAudioPath(detail, part) ?? ultraAudioPath(detail, part)
+    onlinePlayAudioPath(detail, part) ?? ultraAudioPath(detail, part)
   if (!activePath) return null
 
   let activeUrl: string | null = null
@@ -558,9 +559,7 @@ async function resolveOnlineVirtualPartLearning(
   for (const voice of voiceAudioParts(detail)) {
     if (voice.toLowerCase() === part.toLowerCase()) continue
     const path =
-      playbackAudioPath(detail, voice) ??
-      originalAudioPath(detail, voice) ??
-      ultraAudioPath(detail, voice)
+      onlinePlayAudioPath(detail, voice) ?? ultraAudioPath(detail, voice)
     if (!path) continue
     const hit = await firstPackHit([path], { skipFinalize: true, starred })
     if (hit) {
@@ -830,11 +829,16 @@ export async function resolveAudioPart(
       const virtual = await resolveOnlineVirtualPartLearning(detail, part, starred)
       if (virtual) return virtual
     }
-    const playback = playbackAudioPath(detail, part)
+    const playback = onlinePlayAudioPath(detail, part)
     if (playback) {
       const packPlayback = await firstPackHit([playback], { skipFinalize: true, starred })
       if (packPlayback && !needsOnlineVirtualPartLearning(detail)) {
-        return { kind: 'blob', url: packPlayback.url, source: 'pack', tier: 'playback' }
+        return {
+          kind: 'blob',
+          url: packPlayback.url,
+          source: 'pack',
+          tier: isPublishedTierPath(playback) ? 'playback' : 'original',
+        }
       }
       if (packPlayback) URL.revokeObjectURL(packPlayback.url)
       warmAudioPackFromNetwork(playback)
@@ -843,7 +847,7 @@ export async function resolveAudioPart(
         url: mediaUrl(playback),
         source: 'network',
         path: playback,
-        tier: 'playback',
+        tier: isPublishedTierPath(playback) ? 'playback' : 'original',
       }
     }
     return null

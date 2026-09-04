@@ -102,7 +102,7 @@ async function blobFromUrl(url: string): Promise<Blob | null> {
   }
   try {
     const bytes = await fetchBytes(url)
-    return new Blob([bytes])
+    return new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer])
   } catch {
     return null
   }

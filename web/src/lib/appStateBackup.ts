@@ -37,6 +37,8 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.pitchPipe.v1',
   'singtags.pitchPipeRange.v1',
   'singtags.pitchPipeLayout.v1',
+  'singtags.pitchPipeActiveVoice.v1',
+  'singtags.pitchPipeVoiceLab.library.v1',
   'singtags.audioEncodeQuality.v1',
 ] as const
 

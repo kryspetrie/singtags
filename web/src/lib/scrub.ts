@@ -226,6 +226,22 @@ export function pickLandmarkAnchors(
   return picked
 }
 
+/**
+ * Content-fraction gap between idle scrub landmark labels for a given track width.
+ * Fractional-only gaps (~0.1) look fine on wide phones but collide on ~390 CSS-px
+ * devices (iPhone 12/13 Pro) where the track is only ~320px after the ↑ control.
+ */
+export function landmarkMinGapForWidth(
+  widthPx: number,
+  opts?: { minCenterPx?: number; floor?: number; ceiling?: number },
+): number {
+  const minCenterPx = opts?.minCenterPx ?? 52
+  const floor = opts?.floor ?? 0.1
+  const ceiling = opts?.ceiling ?? 0.28
+  if (!(widthPx > 0)) return Math.max(floor, 0.12)
+  return Math.min(ceiling, Math.max(floor, minCenterPx / widthPx))
+}
+
 /** Options for loupe magnification and label spacing on density scrub rails. */
 export type LoupeOptions = {
   /**

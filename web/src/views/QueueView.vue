@@ -61,8 +61,8 @@ function onFormatChange(fmt: UserDownloadFormat): void {
       </label>
     </div>
     <p class="hint">
-      Sheets stay as PDF/image. For audio, Original keeps the hosted AAC file (~128 kbps, .m4a). MP3 is
-      transcoded on your device (LAME VBR quality&nbsp;2).
+      Sheets stay as PDF/image. For audio, Original is the published source file (almost always MP3,
+      typically ~128&nbsp;kbps). M4A re-encodes that source on your device to 96&nbsp;kbps AAC.
     </p>
 
     <p v-if="offline" class="hint warn-offline" role="status">

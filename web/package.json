@@ -28,6 +28,7 @@
     "fflate": "^0.8.3",
     "jsqr": "^1.4.0",
     "mediabunny": "^1.55.2",
+    "ogg-opus-decoder": "^1.7.5",
     "pdfjs-dist": "^4.10.38",
     "pinia": "^4.0.3",
     "qrcode": "^1.5.4",

@@ -84,7 +84,8 @@ export async function loadWaveformPeaks(
     const buf = await res.arrayBuffer()
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     assertDecodableAudioBytes(buf)
-    const decoded = await withTimeout(ctx.decodeAudioData(buf.slice(0)), 20_000, 'Waveform decode')
+    const { decodeAudioDataExclusive } = await import('./decodeLock')
+    const decoded = await withTimeout(decodeAudioDataExclusive(buf), 20_000, 'Waveform decode')
     return {
       peaks: peaksFromAudioBuffer(decoded, bars),
       channels: decoded.numberOfChannels,

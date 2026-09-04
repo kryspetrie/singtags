@@ -9,7 +9,6 @@
 import { createEncoder } from 'wasm-media-encoders'
 import type { AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { aacBitrate, mp3VbrQuality, oggVbrQuality, opusBitrate } from '../types/audio'
-import { assertDecodableAudioBytes } from '../audio/audioBytes'
 
 type Encoder = {
   configure: (opts: {
@@ -23,6 +22,8 @@ type Encoder = {
 
 export interface EncodeOptions {
   quality?: Exclude<AudioEncodeQuality, 'original'>
+  /** Override AAC/Opus target bitrate (e.g. download M4A at 96 kbps). */
+  bitrate?: number
   /** Explicit mono only when caller requests it (never used by quality presets). */
   mono?: boolean
 }
@@ -128,7 +129,7 @@ export async function encodeAudioBufferToM4a(
   })
   const track = new AudioBufferSource({
     codec: 'aac',
-    bitrate: aacBitrate(quality),
+    bitrate: opts.bitrate ?? aacBitrate(quality),
   })
   output.addAudioTrack(track)
   await output.start()
@@ -206,15 +207,12 @@ export async function encodeAudioBuffer(
 }
 
 async function decodeBytes(input: Uint8Array): Promise<AudioBuffer> {
-  assertDecodableAudioBytes(input)
-  const ctx = new AudioContext()
-  try {
-    const ab = new ArrayBuffer(input.byteLength)
-    new Uint8Array(ab).set(input)
-    return await ctx.decodeAudioData(ab)
-  } finally {
-    await ctx.close()
-  }
+  const { decodeAudioDataExclusive } = await import('../audio/decodeLock')
+  const ab = new ArrayBuffer(input.byteLength)
+  new Uint8Array(ab).set(input)
+  // Offline context: background download/favorite compaction must not open a
+  // hardware AudioContext that races tag playback on iOS.
+  return await decodeAudioDataExclusive(ab, { offlineSampleRate: 48_000 })
 }
 
 /**

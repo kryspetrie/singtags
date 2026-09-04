@@ -259,7 +259,7 @@ export function entryAssetsFromTransfer(meta: LocalEntryTransferMeta): Array<{
       label: a.label,
       mime: a.mime,
       filename: a.filename,
-      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
       sortIndex: a.sortIndex,
     }
   })

@@ -39,7 +39,7 @@ const emit = defineEmits<{
 const favorites = useFavoritesStore()
 const err = ref<string | null>(null)
 const msg = ref<string | null>(null)
-const audioFormat = ref<UserDownloadFormat>('m4a')
+const audioFormat = ref<UserDownloadFormat>('mp3')
 
 type Asset = { id: string; label: string; kind: 'sheet' | 'audio' | 'page'; path: string; part?: PartId }
 
@@ -266,7 +266,8 @@ async function downloadSelectedZip(): Promise<void> {
           </select>
         </label>
         <p class="format-hint muted">
-          Original is the hosted AAC file (~128 kbps, .m4a). MP3 is transcoded on your device (LAME VBR quality&nbsp;2).
+          Original is the published source file (almost always MP3, typically ~128&nbsp;kbps).
+          M4A re-encodes that source on your device to 96&nbsp;kbps AAC.
         </p>
       </div>
 

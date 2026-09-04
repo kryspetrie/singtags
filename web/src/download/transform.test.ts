@@ -36,11 +36,11 @@ describe('audioBufferToWav', () => {
 })
 
 describe('prepareDownloadBytes', () => {
-  it('returns input for identity m4a at original quality', async () => {
+  it('returns input for identity original quality (published source passthrough)', async () => {
     const input = new Uint8Array([1, 2, 3])
     const out = await prepareDownloadBytes({
       input,
-      format: 'm4a',
+      format: 'mp3',
       transform: IDENTITY_TRANSFORM,
       encodeQuality: 'original',
     })

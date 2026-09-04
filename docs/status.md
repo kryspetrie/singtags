@@ -37,7 +37,7 @@ Practice mode is disabled (`PRACTICE_MODE_ENABLED`); custom favorites order rema
 
 ## Ops still open
 
-- Full-library publish / CloudFront wiring for production
+- Full-library publish / Cloudflare → S3 website wiring for production
 - Spot-listen calibration for non-recombinable demotion rates
 
 ## Runbooks

@@ -1,6 +1,6 @@
 # SingTags publish & deploy runbook
 
-**First time?** No domain or hosting yet → follow [setup.md](setup.md) (Namecheap + Cloudflare DNS + S3 / CloudFront), then return here for routine publishes.
+**First time?** No domain or hosting yet → follow [setup.md](setup.md) (Namecheap + Cloudflare DNS + public S3 website), then return here for routine publishes.
 
 ## Working library
 
@@ -55,7 +55,7 @@ DRY_RUN=1 S3_BUCKET=your-bucket ./deploy/library_s3.sh
 
 Set `VITE_MEDIA_BASE` to the public library URL when building the site (defaults to `/library` under the site prefix).
 
-CloudFront invalidation is optional via `CLOUDFRONT_DISTRIBUTION_ID`.
+After sync, Cloudflare (when proxied) may cache assets; purge the cache in the Cloudflare dashboard if a deploy looks stale. Website publish uploads **hashed `/assets` first**, then `index.html`, so mid-deploy visitors do not cache 404s for immutable script URLs.
 
 **Later:** Lambda can replace `deploy/library_s3.sh` while keeping the same S3 prefix contract.
 

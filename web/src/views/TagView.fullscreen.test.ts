@@ -15,6 +15,7 @@ import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
 import {
   clearTagReturnOrigin,
+  peekTagReturnScrollY,
   setTagReturnOriginForTests,
 } from '../lib/tagReturn'
 
@@ -261,19 +262,41 @@ describe('TagView fullscreen / sing entry', () => {
 
   it('✕ exit-origin navigates back to captured list origin in Sing mode', async () => {
     setTagReturnOriginForTests({
-      name: 'favorites',
-      fullPath: '/favorites',
-      label: 'Favorites',
-      scrollY: 0,
+      name: 'home',
+      fullPath: '/',
+      label: 'Browse',
+      scrollY: 640,
+      tagId: 7,
     })
     const { w, router, pinia } = await mountTag({ fullscreen: '1' })
     usePreferencesStore(pinia).setSingMode(true)
     await flushPromises()
-    expect(w.get('[data-testid="exit-label"]').text()).toBe('Favorites')
+    expect(w.get('[data-testid="exit-label"]').text()).toBe('Browse')
+    const push = vi.spyOn(router, 'push')
+    await w.get('[data-testid="exit-origin"]').trigger('click')
+    await flushPromises()
+    expect(push).toHaveBeenCalledWith('/')
+    // Scroll restore must be armed before Browse remounts (Sing ✕ path).
+    expect(peekTagReturnScrollY()).toBe(640)
+    w.unmount()
+  })
+
+  it('✕ exit-origin from Favorites also arms scroll restore in Sing mode', async () => {
+    setTagReturnOriginForTests({
+      name: 'favorites',
+      fullPath: '/favorites',
+      label: 'Favorites',
+      scrollY: 220,
+      tagId: 7,
+    })
+    const { w, router, pinia } = await mountTag({ fullscreen: '1' })
+    usePreferencesStore(pinia).setSingMode(true)
+    await flushPromises()
     const push = vi.spyOn(router, 'push')
     await w.get('[data-testid="exit-origin"]').trigger('click')
     await flushPromises()
     expect(push).toHaveBeenCalledWith('/favorites')
+    expect(peekTagReturnScrollY()).toBe(220)
     w.unmount()
   })
 

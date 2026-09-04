@@ -60,9 +60,31 @@ describe('TagQrScanner', () => {
     await flushPromises()
 
     expect(document.body.querySelector('.qr-scan')).toBeTruthy()
+    expect(document.body.querySelector('.qr-scan-video.fit-height')).toBeTruthy()
+    expect(document.body.textContent).toMatch(/Fit all/)
     expect(document.body.textContent).toMatch(/Choose photo/)
     expect(document.body.textContent).toMatch(/Cancel/)
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalled()
+    w.unmount()
+  })
+
+  it('toggles camera fit between height and all', async () => {
+    const w = mount(TagQrScanner, {
+      props: { open: true },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 30))
+    await flushPromises()
+
+    const fitBtn = Array.from(document.body.querySelectorAll('button')).find((b) =>
+      /Fit all/i.test(b.textContent || ''),
+    ) as HTMLButtonElement
+    expect(fitBtn).toBeTruthy()
+    fitBtn.click()
+    await flushPromises()
+    expect(document.body.querySelector('.qr-scan-video.fit-all')).toBeTruthy()
+    expect(document.body.textContent).toMatch(/Fit height/)
     w.unmount()
   })
 

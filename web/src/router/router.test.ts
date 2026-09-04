@@ -16,7 +16,7 @@ describe('router', () => {
 
   it('registers primary routes', () => {
     const names = router.getRoutes().map((r) => r.name)
-    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'favorites', 'pitch-pipe', 'queue', 'tx', 'rx', 'labs', 'library', 'library-doc']))
+    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'favorites', 'pitch-pipe', 'queue', 'tx', 'rx', 'labs', 'labs-pitch-pipe-sound', 'library', 'library-doc']))
   })
 
   it('scrollBehavior restores armed tag-return Y on Browse instead of top', async () => {
@@ -77,5 +77,33 @@ describe('router', () => {
     const result = await behavior(to, from, null)
     expect(browseScrollIntent).toBe('top')
     expect(result).toEqual({ top: 0 })
+  })
+
+  it('scrollBehavior keeps position on Browse query-only updates', async () => {
+    const behavior = router.options.scrollBehavior
+    expect(behavior).toBeTypeOf('function')
+    const to = {
+      name: 'home',
+      path: '/',
+      fullPath: '/?q=foo',
+      hash: '',
+      query: { q: 'foo' },
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    const from = {
+      name: 'home',
+      path: '/',
+      fullPath: '/',
+      hash: '',
+      query: {},
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    // @ts-expect-error minimal route stubs for scrollBehavior
+    const result = await behavior(to, from, null)
+    expect(result).toBe(false)
   })
 })
