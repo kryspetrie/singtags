@@ -239,6 +239,7 @@ describe('SheetViewer sing chrome', () => {
     const vm = w.vm as {
       fitMode: () => 'width' | 'all'
       applyFitMode: (m: 'width' | 'all') => void
+      zoomPanState: () => { scale: number; panX: number; panY: number }
     }
     expect(vm.fitMode()).toBe('all')
 
@@ -248,7 +249,59 @@ describe('SheetViewer sing chrome', () => {
 
     await w.get('.chrome-pages [aria-label="Next page"]').trigger('click')
     await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
     expect(vm.fitMode()).toBe('width')
+    w.unmount()
+  })
+
+  it('paging page-turn re-applies fit instead of leaving identity zoom', async () => {
+    const w = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
+    const vm = w.vm as {
+      fitMode: () => 'width' | 'all'
+      applyFitMode: (m: 'width' | 'all') => void
+      zoomPanState: () => { scale: number }
+    }
+    const sheet = w.get('.sheet').element as HTMLElement
+    const stage = w.get('.stage').element as HTMLElement
+    vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue({
+      width: 400,
+      height: 800,
+      top: 0,
+      left: 0,
+      bottom: 800,
+      right: 400,
+      x: 0,
+      y: 0,
+      toJSON() {
+        return {}
+      },
+    })
+    let contentH = 1200
+    Object.defineProperty(stage, 'offsetWidth', { configurable: true, get: () => 400 })
+    Object.defineProperty(stage, 'scrollHeight', { configurable: true, get: () => contentH })
+
+    vm.applyFitMode('all')
+    await flushPromises()
+    const fitted = vm.zoomPanState().scale
+    expect(fitted).toBeLessThan(1)
+
+    contentH = 900
+    await w.get('.chrome-pages [aria-label="Next page"]').trigger('click')
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+    expect(vm.fitMode()).toBe('all')
+    // Must not be stuck at identity (1); should be fit-all for the new page height.
+    expect(vm.zoomPanState().scale).toBeLessThan(1)
+    expect(vm.zoomPanState().scale).not.toBe(fitted)
+
+    contentH = 1200
+    await w.get('.chrome-pages [aria-label="Previous page"]').trigger('click')
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+    expect(vm.zoomPanState().scale).toBeCloseTo(fitted, 5)
     w.unmount()
   })
 

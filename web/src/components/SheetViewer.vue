@@ -718,9 +718,28 @@ function measureViewportAndContent(): {
   const stage = stageEl.value
   if (!sheet || !stage) return null
   const vr = sheet.getBoundingClientRect()
-  const width = stage.offsetWidth
-  const height = stage.scrollHeight
-  if (vr.width <= 0 || vr.height <= 0 || width <= 0 || height <= 0) return null
+  if (vr.width <= 0 || vr.height <= 0) return null
+
+  let width = stage.offsetWidth
+  let height = stage.scrollHeight
+
+  // Paging shows one page via v-show. Prefer that page's box — stage.scrollHeight can
+  // be 0/stale for a frame after the swap, which used to snap zoom to identity.
+  if (fullscreen.value && !fsScrollMode.value) {
+    const pages = stage.querySelectorAll('.page')
+    const el = pages[pageIndex.value] as HTMLElement | undefined
+    if (el) {
+      const img = el.querySelector('img.page-base') as HTMLImageElement | null
+      const w = el.offsetWidth || img?.clientWidth || 0
+      const h = el.offsetHeight || img?.clientHeight || 0
+      if (w > 0 && h > 0) {
+        width = w
+        height = h
+      }
+    }
+  }
+
+  if (width <= 0 || height <= 0) return null
   return {
     viewport: { width: vr.width, height: vr.height },
     content: { width, height },
@@ -1145,17 +1164,32 @@ function syncPageIndexFromPan(): void {
   pageIndex.value = best
 }
 
+/** After a paging page-turn: wait for layout, then re-apply the session fit mode. */
+async function refitPagingPage(): Promise<void> {
+  await waitForImages()
+  await nextTick()
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+  if (!fullscreen.value || fsScrollMode.value) return
+  applyFit(fitMode.value)
+}
+
 function goPage(delta: number): void {
   const max = Math.max(0, displayPages.value.length - 1)
   const next = Math.max(0, Math.min(max, pageIndex.value + delta))
   if (next === pageIndex.value) return
   pageIndex.value = next
   if (fullscreen.value && fsScrollMode.value) {
-    scrollPageIntoView(next)
+    void nextTick().then(() => scrollPageIntoView(next))
     return
   }
-  zoomPan.value = identitySheetZoomPan()
-  scrollPageIntoView(next)
+  if (fullscreen.value) {
+    // Do not snap to identity first — that breaks Fit all and makes resize jump.
+    void refitPagingPage()
+    return
+  }
+  void nextTick().then(() => scrollPageIntoView(next))
 }
 
 function onSeekInput(e: Event): void {
@@ -1425,6 +1459,8 @@ defineExpose({
   isFullscreen: () => fullscreen.value,
   /** Test / parent helpers for session fit mode. */
   fitMode: () => fitMode.value,
+  /** Test helper — current stage zoom/pan. */
+  zoomPanState: () => ({ ...zoomPan.value }),
   applyFitMode: (mode: SheetFitMode) => applyFit(mode),
   pageMode: () => prefs.sheetFsPageMode,
   setPageMode: (mode: SheetFsPageMode) => applyPageMode(mode),
