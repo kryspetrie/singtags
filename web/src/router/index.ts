@@ -151,34 +151,19 @@ export const router = createRouter({
 
 router.beforeEach((to, from) => {
   onTagReturnBeforeEach(to, from)
-  if (to.meta.requiresOpticalTransfer) {
-    try {
-      const prefs = usePreferencesStore()
-      if (!prefs.opticalTransferEnabled) {
-        return { name: 'labs' }
-      }
-    } catch {
-      /* Pinia not ready (rare in tests) — allow navigation */
+  // Deep links to gated Labs features turn the flag on so shared URLs work.
+  try {
+    const prefs = usePreferencesStore()
+    if (to.meta.requiresOpticalTransfer && !prefs.opticalTransferEnabled) {
+      prefs.setOpticalTransferEnabled(true)
     }
-  }
-  if (to.meta.requiresLocalLibrary) {
-    try {
-      const prefs = usePreferencesStore()
-      if (!prefs.localLibraryEnabled) {
-        return { name: 'labs' }
-      }
-    } catch {
-      /* Pinia not ready (rare in tests) — allow navigation */
+    if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
+      prefs.setLocalLibraryEnabled(true)
     }
-  }
-  if (to.meta.requiresTagRoulette) {
-    try {
-      const prefs = usePreferencesStore()
-      if (!prefs.tagRouletteEnabled) {
-        return { name: 'labs' }
-      }
-    } catch {
-      /* Pinia not ready (rare in tests) — allow navigation */
+    if (to.meta.requiresTagRoulette && !prefs.tagRouletteEnabled) {
+      prefs.setTagRouletteEnabled(true)
     }
+  } catch {
+    /* Pinia not ready (rare in tests) — allow navigation */
   }
 })

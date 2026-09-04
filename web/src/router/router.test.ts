@@ -1,22 +1,58 @@
 /**
  * @vitest-environment happy-dom
  */
+import { createPinia, setActivePinia } from 'pinia'
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   armTagReturnScroll,
   clearTagReturnOrigin,
   peekTagReturnScrollY,
 } from '../lib/tagReturn'
+import { usePreferencesStore } from '../stores/preferences'
 import { browseScrollIntent, router } from './index'
 
 describe('router', () => {
   beforeEach(() => {
     clearTagReturnOrigin()
+    localStorage.clear()
+    setActivePinia(createPinia())
   })
 
   it('registers primary routes', () => {
     const names = router.getRoutes().map((r) => r.name)
-    expect(names).toEqual(expect.arrayContaining(['home', 'tag', 'recent', 'favorites', 'pitch-pipe', 'queue', 'tx', 'rx', 'labs', 'labs-pitch-pipe-sound', 'library', 'library-doc']))
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'home',
+        'tag',
+        'recent',
+        'favorites',
+        'pitch-pipe',
+        'queue',
+        'tx',
+        'rx',
+        'labs',
+        'labs-pitch-pipe-sound',
+        'labs-roulette',
+        'library',
+        'library-doc',
+      ]),
+    )
+  })
+
+  it('auto-enables Tag Roulette when opening a shared Labs roulette URL', async () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.tagRouletteEnabled).toBe(false)
+    await router.push('/labs/roulette')
+    expect(router.currentRoute.value.name).toBe('labs-roulette')
+    expect(prefs.tagRouletteEnabled).toBe(true)
+  })
+
+  it('auto-enables Local Library when opening /library', async () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.localLibraryEnabled).toBe(false)
+    await router.push('/library')
+    expect(router.currentRoute.value.name).toBe('library')
+    expect(prefs.localLibraryEnabled).toBe(true)
   })
 
   it('scrollBehavior restores armed tag-return Y on Browse instead of top', async () => {
