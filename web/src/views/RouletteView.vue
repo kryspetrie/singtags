@@ -45,7 +45,7 @@ const canDeal = computed(() => !loading.value && catalog.tags.length > 0)
 const modeSummary = computed(() => summarizeMode(roulette.activeMode, favoriteGroups.value))
 const canPick = computed(
   () =>
-    roulette.items.length > 0 &&
+    roulette.items.length >= 2 &&
     roulette.items.some((it) => !roulette.isWheelUsed(it.id)),
 )
 
@@ -92,7 +92,7 @@ function reset(): void {
 }
 
 function openPick(): void {
-  if (!roulette.items.length) return
+  if (roulette.items.length < 2) return
   pickOpen.value = true
 }
 
@@ -224,7 +224,11 @@ function lyricsLine(id: number): string | null {
           type="button"
           class="btn btn-primary pick"
           :disabled="!canPick"
-          title="Spin the reel to pick one tag from this batch"
+          :title="
+            roulette.items.length < 2
+              ? 'Pick one needs at least two tags in the batch'
+              : 'Spin the reel to pick one tag from this batch'
+          "
           @click="openPick"
         >
           Pick one
@@ -248,6 +252,9 @@ function lyricsLine(id: number): string | null {
     </p>
     <p v-else-if="roulette.dealStatus" class="status notice">{{ roulette.dealStatus }}</p>
     <p v-else-if="!roulette.items.length" class="status">Deal a batch to get started.</p>
+    <p v-else-if="roulette.items.length === 1" class="status">
+      Only one tag in this batch — open it from the list (no reel).
+    </p>
     <p v-else-if="!canPick" class="status">
       All tags were picked — Reset to spin again, or Deal a new batch.
     </p>

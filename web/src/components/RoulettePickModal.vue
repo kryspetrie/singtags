@@ -23,13 +23,12 @@ const emit = defineEmits<{
 
 const SPIN_MS = 3000
 const ROW_H = 52
-const VISIBLE = 5
-const CENTER = Math.floor(VISIBLE / 2)
 
 const spinning = ref(false)
 const landedId = ref<number | null>(null)
 const stripLabels = ref<string[]>([])
 const stripOffset = ref(0)
+const visibleRows = ref(5)
 const announce = ref('')
 let spinTimer: ReturnType<typeof setTimeout> | null = null
 let animFrame = 0
@@ -37,6 +36,8 @@ let animFrame = 0
 const eligible = computed(() =>
   props.items.filter((it) => !props.wheelUsedIds.includes(it.id)),
 )
+
+const centerRow = computed(() => Math.floor(visibleRows.value / 2))
 
 const landedItem = computed(() =>
   landedId.value == null ? null : props.items.find((it) => it.id === landedId.value) ?? null,
@@ -46,6 +47,13 @@ const reducedMotion = computed(() => {
   if (typeof window === 'undefined' || !window.matchMedia) return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 })
+
+/** Odd row count ≤5 so the ticker centers; shrinks with small pools to avoid repeats. */
+function visibleReelRows(poolSize: number): number {
+  if (poolSize <= 1) return 1
+  const capped = Math.min(5, poolSize)
+  return capped % 2 === 1 ? capped : capped - 1
+}
 
 function clearSpinTimer(): void {
   if (spinTimer != null) {
@@ -62,21 +70,25 @@ function labelFor(id: number): string {
   return props.items.find((it) => it.id === id)?.title ?? `Tag #${id}`
 }
 
-function buildStrip(winnerId: number): { labels: string[]; finalIndex: number } {
+function buildStrip(
+  winnerId: number,
+  visible: number,
+  center: number,
+): { labels: string[]; finalIndex: number } {
   const pool = eligible.value.length ? eligible.value : props.items
   const decoys = pool.map((it) => it.title)
   if (!decoys.length) decoys.push(labelFor(winnerId))
   const labels: string[] = []
-  const cycles = 6
+  const cycles = Math.max(4, Math.ceil(24 / Math.max(1, decoys.length)))
   for (let c = 0; c < cycles; c++) {
     for (const t of decoys) labels.push(t)
   }
   // Pad so winner lands in center after scroll
-  while (labels.length < VISIBLE + 4) labels.push(...decoys)
+  while (labels.length < visible + 4) labels.push(...decoys)
   const finalIndex = labels.length
   labels.push(labelFor(winnerId))
   // Trailing buffer below center
-  for (let i = 0; i < CENTER + 2; i++) {
+  for (let i = 0; i < center + 2; i++) {
     labels.push(decoys[i % decoys.length]!)
   }
   return { labels, finalIndex }
@@ -105,13 +117,27 @@ async function startSpin(): Promise<void> {
     return
   }
 
-  const { labels, finalIndex } = buildStrip(winnerId)
+  const poolLen = eligible.value.length || props.items.length
+  // Single remaining tag: no reel — land immediately.
+  if (poolLen <= 1) {
+    visibleRows.value = 1
+    stripLabels.value = [labelFor(winnerId)]
+    stripOffset.value = 0
+    finishLand(winnerId)
+    return
+  }
+
+  const visible = visibleReelRows(poolLen)
+  const center = Math.floor(visible / 2)
+  visibleRows.value = visible
+
+  const { labels, finalIndex } = buildStrip(winnerId, visible, center)
   stripLabels.value = labels
   stripOffset.value = 0
   spinning.value = true
   await nextTick()
 
-  const targetY = (finalIndex - CENTER) * ROW_H
+  const targetY = (finalIndex - center) * ROW_H
 
   if (reducedMotion.value) {
     stripOffset.value = targetY
@@ -186,7 +212,14 @@ function spinAgain(): void {
       </p>
 
       <div v-else class="stage-wrap">
-        <div class="reel" :style="{ '--row-h': `${ROW_H}px`, '--visible': VISIBLE }">
+        <div
+          class="reel"
+          :style="{
+            '--row-h': `${ROW_H}px`,
+            '--visible': visibleRows,
+            '--center': centerRow,
+          }"
+        >
           <div class="ticker" aria-hidden="true" />
           <div class="viewport">
             <ul
@@ -219,7 +252,7 @@ function spinAgain(): void {
         <button
           type="button"
           class="btn"
-          :disabled="spinning || eligible.length === 0"
+          :disabled="spinning || eligible.length < 2"
           @click="spinAgain"
         >
           {{ landedId != null ? 'Pick again' : 'Spin' }}
@@ -275,7 +308,7 @@ function spinAgain(): void {
   position: absolute;
   left: 0;
   right: 0;
-  top: calc(var(--row-h) * 2);
+  top: calc(var(--row-h) * var(--center));
   height: var(--row-h);
   border-top: 2px solid var(--accent);
   border-bottom: 2px solid var(--accent);
