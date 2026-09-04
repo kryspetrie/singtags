@@ -52,7 +52,7 @@ const exportJson = computed(() =>
 const playSourceOptions = computed(() => {
   const opts: Array<{ value: PlaySource; label: string }> = [
     { value: 'editor', label: 'Editor (current sliders)' },
-    { value: 'classic', label: 'Classic (built-in default)' },
+    { value: 'classic', label: 'Mellow (built-in default)' },
   ]
   for (const v of library.value) {
     opts.push({ value: v.id, label: `Saved: ${v.label}` })
@@ -173,7 +173,7 @@ async function onSustainChange(e: Event): Promise<void> {
 function loadClassicIntoEditor(): void {
   Object.assign(voice, clonePitchPipeVoice(DEFAULT_PITCH_PIPE_VOICE))
   playSource.value = 'editor'
-  flash('Loaded classic into editor')
+  flash('Loaded mellow into editor')
 }
 
 function loadActiveIntoEditor(): void {
@@ -226,7 +226,7 @@ function setAsMyPitchSound(from: PitchPipeVoiceConfig = voice as PitchPipeVoiceC
 function useClassicAsMyPitchSound(): void {
   clearActivePitchPipeVoice()
   refreshActive()
-  flash('Restored classic built-in pitch sound')
+  flash('Restored built-in pitch sound')
 }
 
 async function copyExport(): Promise<void> {
@@ -307,7 +307,7 @@ function applyImport(): void {
       <p class="hint">
         App default:
         <strong>{{ activeVoice.label }}</strong>
-        <span v-if="activeIsClassic"> (classic built-in)</span>
+        <span v-if="activeIsClassic"> (built-in)</span>
         <span v-else> (custom on this device)</span>
       </p>
       <div class="row-actions">
@@ -320,13 +320,13 @@ function applyImport(): void {
           :disabled="activeIsClassic"
           @click="useClassicAsMyPitchSound"
         >
-          Restore classic
+          Restore built-in
         </button>
         <button type="button" class="btn btn-ghost" @click="loadActiveIntoEditor">
           Load my sound into editor
         </button>
         <button type="button" class="btn btn-ghost" @click="loadClassicIntoEditor">
-          Load classic into editor
+          Load mellow into editor
         </button>
       </div>
     </section>

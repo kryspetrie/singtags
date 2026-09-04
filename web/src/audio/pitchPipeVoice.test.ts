@@ -3,12 +3,15 @@
  */
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
+  BRIGHT_PITCH_PIPE_VOICE,
   clearActivePitchPipeVoice,
   DEFAULT_PITCH_PIPE_VOICE,
   finalizePitchPipeVoiceForSave,
   formatPitchPipeVoiceExport,
   getActivePitchPipeVoice,
+  getBuiltInPitchPipeVoice,
   hasCustomActivePitchPipeVoice,
+  loadPitchPipeSoundId,
   loadPitchPipeVoiceLibrary,
   parsePitchPipeVoice,
   pitchPipeVoiceShareMailto,
@@ -26,7 +29,7 @@ describe('pitchPipeVoice', () => {
     localStorage.clear()
   })
 
-  it('round-trips the classic default', () => {
+  it('round-trips the mellow default', () => {
     const json = formatPitchPipeVoiceExport(DEFAULT_PITCH_PIPE_VOICE)
     const parsed = parsePitchPipeVoice(JSON.parse(json))
     expect(parsed).toEqual({
@@ -34,6 +37,30 @@ describe('pitchPipeVoice', () => {
       notes: DEFAULT_PITCH_PIPE_VOICE.notes,
     })
     expect(parsed?.schema).toBe(PITCH_PIPE_VOICE_SCHEMA)
+    expect(parsed?.id).toBe('mellow')
+  })
+
+  it('exposes bright built-in as square + sine', () => {
+    expect(BRIGHT_PITCH_PIPE_VOICE.partials.map((p) => p.type)).toEqual(['square', 'sine'])
+    expect(getBuiltInPitchPipeVoice('bright').id).toBe('bright')
+  })
+
+  it('reads preferred built-in sound from pitch-pipe prefs localStorage', () => {
+    expect(loadPitchPipeSoundId()).toBe('mellow')
+    expect(getActivePitchPipeVoice().id).toBe('mellow')
+    localStorage.setItem(
+      'singtags.pitchPipe.v1',
+      JSON.stringify({
+        range: 'e3-e4',
+        layout: 'grid',
+        aHz: 440,
+        detuneCents: 0,
+        showOctave: false,
+        sound: 'bright',
+      }),
+    )
+    expect(loadPitchPipeSoundId()).toBe('bright')
+    expect(getActivePitchPipeVoice().partials[0]?.type).toBe('square')
   })
 
   it('parses a lab export with filter and extra partial', () => {

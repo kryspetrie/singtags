@@ -1,19 +1,24 @@
 /**
  * Configurable pitch-pipe / pay-the-key voice.
  *
- * Production default matches the classic “40% saw + 60% sine” blend.
- * Labs → Pitch pipe sound exports JSON with schema {@link PITCH_PIPE_VOICE_SCHEMA}
- * so a tuned preset can be pasted back into the app.
+ * Built-in sounds: Mellow (default saw+sine) and Bright (square+sine).
+ * Choice persists in pitch-pipe prefs (`singtags.pitchPipe.v1` → `sound`).
+ * Labs can still override with a full custom voice JSON on this device.
  */
 
 export const PITCH_PIPE_VOICE_SCHEMA = 'singtags.pitchPipeVoice.v1' as const
 
-/** User-selected app-wide pitch pipe / pay-the-key voice (full JSON). */
+/** User-selected app-wide pitch pipe / pay-the-key voice (full JSON lab override). */
 export const PITCH_PIPE_ACTIVE_VOICE_KEY = 'singtags.pitchPipeActiveVoice.v1'
 /** Lab-saved candidate voices (array of {@link PitchPipeVoiceConfig}). */
 export const PITCH_PIPE_VOICE_LIBRARY_KEY = 'singtags.pitchPipeVoiceLab.library.v1'
 /** Fired on `window` when the active voice changes (PitchPlayer listeners sync). */
 export const PITCH_PIPE_VOICE_CHANGE_EVENT = 'singtags:pitch-pipe-voice'
+/**
+ * Same key as preferences pitch-pipe blob — read only the `sound` field here to
+ * avoid a Pinia import cycle (preferences → pitchPlayer → this module).
+ */
+const PITCH_PIPE_PREFS_STORAGE_KEY = 'singtags.pitchPipe.v1'
 
 export type PitchPipeWaveform = OscillatorType
 
@@ -69,12 +74,24 @@ export const PITCH_PIPE_WAVEFORM_OPTIONS: Array<{ value: PitchPipeWaveform; labe
 export const PITCH_PIPE_FILTER_TYPE_OPTIONS: Array<{ value: BiquadFilterType; label: string }> =
   FILTER_TYPES.map((value) => ({ value, label: value }))
 
-/** Current production voice (music-website port). */
-export const DEFAULT_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
+/** Built-in pitch-pipe / pay-the-key sounds (Settings → Sound). */
+export type PitchPipeSoundId = 'mellow' | 'bright'
+
+export const PITCH_PIPE_SOUND_OPTIONS: Array<{ value: PitchPipeSoundId; label: string }> = [
+  { value: 'mellow', label: 'Mellow' },
+  { value: 'bright', label: 'Bright' },
+]
+
+export function isPitchPipeSoundId(v: unknown): v is PitchPipeSoundId {
+  return v === 'mellow' || v === 'bright'
+}
+
+/** Soft default: 40% sawtooth + 60% sine. */
+export const MELLOW_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
   schema: PITCH_PIPE_VOICE_SCHEMA,
-  id: 'classic-saw-sine',
-  label: 'Classic saw + sine',
-  notes: 'Production default: 40% sawtooth + 60% sine, master 0.3, 50ms attack, 1s release.',
+  id: 'mellow',
+  label: 'Mellow',
+  notes: 'Built-in default: 40% sawtooth + 60% sine, master 0.3, 50ms attack, 1s release.',
   masterGain: 0.3,
   attackSec: 0.05,
   releaseSec: 1,
@@ -83,6 +100,52 @@ export const DEFAULT_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
     { type: 'sine', gain: 0.6, semitones: 0, detuneCents: 0 },
   ],
   filter: null,
+}
+
+/** Brighter alternate: 40% square + 60% sine. */
+export const BRIGHT_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
+  schema: PITCH_PIPE_VOICE_SCHEMA,
+  id: 'bright',
+  label: 'Bright',
+  notes: 'Built-in alternate: 40% square + 60% sine, master 0.3, 50ms attack, 1s release.',
+  masterGain: 0.3,
+  attackSec: 0.05,
+  releaseSec: 1,
+  partials: [
+    { type: 'square', gain: 0.4, semitones: 0, detuneCents: 0 },
+    { type: 'sine', gain: 0.6, semitones: 0, detuneCents: 0 },
+  ],
+  filter: null,
+}
+
+export const PITCH_PIPE_SOUND_PRESETS: Record<PitchPipeSoundId, PitchPipeVoiceConfig> = {
+  mellow: MELLOW_PITCH_PIPE_VOICE,
+  bright: BRIGHT_PITCH_PIPE_VOICE,
+}
+
+/** @deprecated Prefer {@link MELLOW_PITCH_PIPE_VOICE}; kept as the default built-in alias. */
+export const DEFAULT_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = MELLOW_PITCH_PIPE_VOICE
+
+/** Resolve a built-in sound preset (clone). */
+export function getBuiltInPitchPipeVoice(sound: PitchPipeSoundId = 'mellow'): PitchPipeVoiceConfig {
+  return clonePitchPipeVoice(PITCH_PIPE_SOUND_PRESETS[sound] ?? MELLOW_PITCH_PIPE_VOICE)
+}
+
+/**
+ * Preferred built-in sound from pitch-pipe prefs localStorage.
+ * Does not consult a lab custom override.
+ */
+export function loadPitchPipeSoundId(): PitchPipeSoundId {
+  try {
+    const raw = localStorage.getItem(PITCH_PIPE_PREFS_STORAGE_KEY)
+    if (!raw) return 'mellow'
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return 'mellow'
+    const sound = (parsed as { sound?: unknown }).sound
+    return isPitchPipeSoundId(sound) ? sound : 'mellow'
+  } catch {
+    return 'mellow'
+  }
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -210,7 +273,10 @@ function notifyVoiceChange(): void {
   window.dispatchEvent(new CustomEvent(PITCH_PIPE_VOICE_CHANGE_EVENT))
 }
 
-/** Voice used by pitch pipe / pay-the-key (user override or classic default). */
+/**
+ * Voice used by pitch pipe / pay-the-key:
+ * lab custom override if set, otherwise the built-in sound from pitch-pipe prefs.
+ */
 export function getActivePitchPipeVoice(): PitchPipeVoiceConfig {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_ACTIVE_VOICE_KEY)
@@ -221,10 +287,10 @@ export function getActivePitchPipeVoice(): PitchPipeVoiceConfig {
   } catch {
     /* ignore */
   }
-  return clonePitchPipeVoice(DEFAULT_PITCH_PIPE_VOICE)
+  return getBuiltInPitchPipeVoice(loadPitchPipeSoundId())
 }
 
-/** True when the user has overridden the classic production voice. */
+/** True when the user has a lab custom voice overriding built-in Mellow/Bright. */
 export function hasCustomActivePitchPipeVoice(): boolean {
   try {
     return localStorage.getItem(PITCH_PIPE_ACTIVE_VOICE_KEY) != null
@@ -233,7 +299,7 @@ export function hasCustomActivePitchPipeVoice(): boolean {
   }
 }
 
-/** Persist a voice as the app-wide pitch pipe / pay-the-key sound. */
+/** Persist a voice as the app-wide pitch pipe / pay-the-key sound (lab override). */
 export function setActivePitchPipeVoice(voice: PitchPipeVoiceConfig): void {
   const next = finalizePitchPipeVoiceForSave(voice, { keepId: true })
   try {
@@ -244,7 +310,7 @@ export function setActivePitchPipeVoice(voice: PitchPipeVoiceConfig): void {
   notifyVoiceChange()
 }
 
-/** Clear override — pitch pipe uses {@link DEFAULT_PITCH_PIPE_VOICE} again. */
+/** Clear lab override — pitch pipe uses the preferred built-in sound (Mellow/Bright). */
 export function clearActivePitchPipeVoice(): void {
   try {
     localStorage.removeItem(PITCH_PIPE_ACTIVE_VOICE_KEY)

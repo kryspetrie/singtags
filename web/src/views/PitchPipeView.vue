@@ -19,7 +19,9 @@ import {
 } from '../audio/pitchPlayer'
 import {
   getActivePitchPipeVoice,
+  PITCH_PIPE_SOUND_OPTIONS,
   PITCH_PIPE_VOICE_CHANGE_EVENT,
+  type PitchPipeSoundId,
 } from '../audio/pitchPipeVoice'
 import { usePreferencesStore } from '../stores/preferences'
 
@@ -36,6 +38,11 @@ const current = ref<string | null>(null)
 const keysRef = ref<HTMLElement | null>(null)
 
 const concertASelectValue = computed(() => (aHz.value == null ? 'custom' : String(aHz.value)))
+
+const pipeSound = computed({
+  get: (): PitchPipeSoundId => prefs.pitchPipeSound,
+  set: (v: PitchPipeSoundId) => prefs.setPitchPipeSound(v),
+})
 
 const detuneLabel = computed(() => {
   const n = detune.value
@@ -182,6 +189,15 @@ function blackTopPct(after: string): number {
     <details class="settings">
       <summary>Settings</summary>
       <div class="tuning" role="group" aria-label="Pitch pipe tuning">
+        <label class="range-ref">
+          <span class="lbl">Sound</span>
+          <select v-model="pipeSound" aria-label="Pitch pipe sound">
+            <option v-for="s in PITCH_PIPE_SOUND_OPTIONS" :key="s.value" :value="s.value">
+              {{ s.label }}
+            </option>
+          </select>
+        </label>
+
         <label class="range-ref">
           <span class="lbl">Layout</span>
           <select v-model="pipeLayout" aria-label="Pitch pipe layout">

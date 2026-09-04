@@ -53,6 +53,7 @@ describe('preferences store', () => {
       aHz: 432,
       detuneCents: -32,
       showOctave: false,
+      sound: 'mellow',
     })
     prefs.setPitchPipeDetuneCents(-7, { clearConcertA: true })
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
@@ -61,6 +62,7 @@ describe('preferences store', () => {
       aHz: null,
       detuneCents: -7,
       showOctave: false,
+      sound: 'mellow',
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()
@@ -69,8 +71,13 @@ describe('preferences store', () => {
     expect(again.pitchPipeAHz).toBeNull()
     expect(again.pitchPipeDetuneCents).toBe(-7)
     expect(again.pitchPipeShowOctave).toBe(false)
+    expect(again.pitchPipeSound).toBe('mellow')
     again.setPitchPipeShowOctave(true)
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showOctave).toBe(true)
+    again.setPitchPipeSound('bright')
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).sound).toBe('bright')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().pitchPipeSound).toBe('bright')
   })
 
   it('migrates legacy fineCents-on-top-of-A pitch pipe prefs', () => {
@@ -124,6 +131,15 @@ describe('preferences store', () => {
     expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('0')
     setActivePinia(createPinia())
     expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
+  })
+
+  it('defaults tag roulette off and persists toggle', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.tagRouletteEnabled).toBe(false)
+    prefs.setTagRouletteEnabled(true)
+    expect(localStorage.getItem('singtags.labs.tagRoulette.enabled.v1')).toBe('1')
+    setActivePinia(createPinia())
+    expect(usePreferencesStore().tagRouletteEnabled).toBe(true)
   })
 
   it('defaults local library off', () => {

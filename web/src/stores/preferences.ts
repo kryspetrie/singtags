@@ -13,6 +13,11 @@ import {
   type PitchPipeLayout,
   type PitchPipeRange,
 } from '../audio/pitchPlayer'
+import {
+  clearActivePitchPipeVoice,
+  isPitchPipeSoundId,
+  type PitchPipeSoundId,
+} from '../audio/pitchPipeVoice'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { normalizeCustomParts } from '../lib/audioParts'
 import {
@@ -37,6 +42,8 @@ export type PitchPipePrefs = {
   detuneCents: number
   /** When true, note labels include octave (E4); default off shows letter only (E). */
   showOctave: boolean
+  /** Built-in pitch sound (Mellow default, Bright alternate). */
+  sound: PitchPipeSoundId
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -51,6 +58,8 @@ const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
 const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
+/** Labs: Tag Roulette discovery dealer. Default off. */
+const TAG_ROULETTE_ENABLED_KEY = 'singtags.labs.tagRoulette.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
@@ -72,9 +81,16 @@ try {
   /* ignore */
 }
 
-/** Default pitch-pipe settings (E3–E4 grid at A440). */
+/** Default pitch-pipe settings (E3–E4 grid at A440, mellow sound). */
 export function defaultPitchPipePrefs(): PitchPipePrefs {
-  return { range: 'e3-e4', layout: 'grid', aHz: 440, detuneCents: 0, showOctave: false }
+  return {
+    range: 'e3-e4',
+    layout: 'grid',
+    aHz: 440,
+    detuneCents: 0,
+    showOctave: false,
+    sound: 'mellow',
+  }
 }
 
 /** Clamp detune slider to ±50 cents (integer). */
@@ -110,6 +126,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   if (!range || !layout) return null
 
   const showOctave = o.showOctave === true
+  const sound: PitchPipeSoundId = isPitchPipeSoundId(o.sound) ? o.sound : 'mellow'
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -120,7 +137,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
         : typeof o.aHz === 'number' && A_HZ_SET.has(o.aHz)
           ? (o.aHz as PitchPipeAHz)
           : matchConcertA(detuneCents)
-    return { range, layout, aHz, detuneCents, showOctave }
+    return { range, layout, aHz, detuneCents, showOctave, sound }
   }
 
   // Legacy format: aHz required + fineCents on top of that A.
@@ -134,6 +151,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     aHz: matchConcertA(detuneCents),
     detuneCents,
     showOctave,
+    sound,
   }
 }
 
@@ -179,6 +197,7 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     aHz: 440,
     detuneCents: 0,
     showOctave: false,
+    sound: 'mellow',
   }
 }
 
@@ -302,6 +321,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipeAHz = ref<PitchPipeAHz | null>(initialPipe.aHz)
   const pitchPipeDetuneCents = ref(initialPipe.detuneCents)
   const pitchPipeShowOctave = ref(initialPipe.showOctave)
+  const pitchPipeSound = ref<PitchPipeSoundId>(initialPipe.sound)
   /**
    * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
    * (and any other app pitches that consult this preference).
@@ -337,6 +357,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Existing on-device data is kept; the UI and routes stay hidden while off.
    */
   const localLibraryEnabled = ref(loadBool(LOCAL_LIBRARY_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Tag Roulette is available from More → Tag Roulette.
+   */
+  const tagRouletteEnabled = ref(loadBool(TAG_ROULETTE_ENABLED_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -358,6 +382,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       aHz: pitchPipeAHz.value,
       detuneCents: clampDetuneCents(pitchPipeDetuneCents.value),
       showOctave: pitchPipeShowOctave.value,
+      sound: pitchPipeSound.value,
     })
   }
 
@@ -386,7 +411,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
-    [pitchPipeRange, pitchPipeLayout, pitchPipeAHz, pitchPipeDetuneCents, pitchPipeShowOctave],
+    [
+      pitchPipeRange,
+      pitchPipeLayout,
+      pitchPipeAHz,
+      pitchPipeDetuneCents,
+      pitchPipeShowOctave,
+      pitchPipeSound,
+    ],
     () => persistPitchPipe(),
     { flush: 'sync' },
   )
@@ -444,6 +476,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(LOCAL_LIBRARY_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRouletteEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROULETTE_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -601,6 +645,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowOctave.value = on
   }
 
+  /**
+   * Built-in pitch sound (Mellow / Bright). Persists in pitch-pipe prefs and
+   * clears any lab custom voice override so the selected built-in applies.
+   */
+  function setPitchPipeSound(sound: PitchPipeSoundId): void {
+    if (!isPitchPipeSoundId(sound)) return
+    pitchPipeSound.value = sound
+    clearActivePitchPipeVoice()
+  }
+
   /** Set concert-A preset highlight (may be null when detune is custom). */
   function setPitchPipeAHz(hz: PitchPipeAHz | null): void {
     pitchPipeAHz.value = hz
@@ -626,6 +680,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeAHz.value = p.aHz
     pitchPipeDetuneCents.value = p.detuneCents
     pitchPipeShowOctave.value = p.showOctave
+    pitchPipeSound.value = p.sound
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -651,6 +706,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Labs: enable/disable Local Library UI and routes. */
   function setLocalLibraryEnabled(on: boolean): void {
     localLibraryEnabled.value = on
+  }
+
+  /** Labs: enable/disable Tag Roulette. */
+  function setTagRouletteEnabled(on: boolean): void {
+    tagRouletteEnabled.value = on
   }
 
   /** Include fullscreen=1 on shared tag links. */
@@ -691,6 +751,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sheetFsPageMode,
     opticalTransferEnabled,
     localLibraryEnabled,
+    tagRouletteEnabled,
     opticalTransferFrameBytes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
@@ -701,6 +762,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeAHz,
     pitchPipeDetuneCents,
     pitchPipeShowOctave,
+    pitchPipeSound,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
@@ -708,6 +770,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSingMode,
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
+    setTagRouletteEnabled,
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,
@@ -722,6 +785,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPitchPipeRange,
     setPitchPipeLayout,
     setPitchPipeShowOctave,
+    setPitchPipeSound,
     setPitchPipeAHz,
     setPitchPipeDetuneCents,
     setPitchPipeConcertA,
