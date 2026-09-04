@@ -93,4 +93,31 @@ describe('AppMoreMenu', () => {
     expect(w.emitted('close')).toBeTruthy()
     w.unmount()
   })
+
+  it('shows Tag Roulette in More when Labs flag is on', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().setTagRouletteEnabled(true)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/labs/roulette', name: 'labs-roulette', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('Tag Roulette')
+    expect(document.body.querySelector('a[href="/labs/roulette"]')).toBeTruthy()
+    w.unmount()
+  })
 })

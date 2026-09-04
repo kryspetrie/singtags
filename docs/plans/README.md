@@ -5,7 +5,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | Plan | Status |
 | --- | --- |
 | [vibe-search.md](vibe-search.md) | Planned — Workers AI |
-| [tag-roulette.md](tag-roulette.md) | Proposed |
+| [tag-roulette.md](tag-roulette.md) | Proposed — product |
+| [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |
 | [virtual-piano.md](virtual-piano.md) | Proposed (pitch pipe + sound lab already ship) |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |

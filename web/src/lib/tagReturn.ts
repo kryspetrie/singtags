@@ -87,6 +87,8 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
       return 'Transfer'
     case 'pitch-pipe':
       return 'Pitch Pipe'
+    case 'labs-roulette':
+      return 'Tag Roulette'
     default:
       if (route.path === '/' || route.path === '') return 'Browse'
       if (route.path.startsWith('/favorites')) return 'Favorites'
@@ -96,6 +98,7 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
       if (route.path.startsWith('/tx') || route.path.startsWith('/rx')) return 'Transfer'
       if (route.path.startsWith('/optical-transfer')) return 'Transfer'
       if (route.path.startsWith('/pitch-pipe')) return 'Pitch Pipe'
+      if (route.path.startsWith('/labs/roulette')) return 'Tag Roulette'
       return 'Browse'
   }
 }

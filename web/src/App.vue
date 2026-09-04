@@ -83,6 +83,11 @@ const moreNavActive = computed(
     route.name === 'settings' ||
     route.name === 'tx' ||
     route.name === 'rx' ||
+    route.name === 'labs' ||
+    route.name === 'labs-roulette' ||
+    route.name === 'labs-pitch-pipe-sound' ||
+    route.name === 'library' ||
+    route.name === 'library-doc' ||
     (route.name === 'queue' && !desktopNav.value),
 )
 

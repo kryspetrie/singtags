@@ -64,6 +64,12 @@ export const router = createRouter({
       component: () => import('../views/PitchPipeSoundLabView.vue'),
     },
     {
+      path: '/labs/roulette',
+      name: 'labs-roulette',
+      component: () => import('../views/RouletteView.vue'),
+      meta: { requiresTagRoulette: true },
+    },
+    {
       path: '/library',
       name: 'library',
       component: () => import('../views/LocalLibraryView.vue'),
@@ -159,6 +165,16 @@ router.beforeEach((to, from) => {
     try {
       const prefs = usePreferencesStore()
       if (!prefs.localLibraryEnabled) {
+        return { name: 'labs' }
+      }
+    } catch {
+      /* Pinia not ready (rare in tests) — allow navigation */
+    }
+  }
+  if (to.meta.requiresTagRoulette) {
+    try {
+      const prefs = usePreferencesStore()
+      if (!prefs.tagRouletteEnabled) {
         return { name: 'labs' }
       }
     } catch {

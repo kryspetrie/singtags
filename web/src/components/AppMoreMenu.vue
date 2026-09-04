@@ -134,6 +134,16 @@ function toggleOfflineMode(): void {
         <span class="menu-desc">Charts, images, and tracks on this device, with pitch and transfer</span>
       </RouterLink>
 
+      <RouterLink
+        v-if="prefs.tagRouletteEnabled"
+        class="menu-item"
+        to="/labs/roulette"
+        @click="onNavClick"
+      >
+        <span class="menu-label">Tag Roulette</span>
+        <span class="menu-desc">Deal random tag batches with custom distribution modes</span>
+      </RouterLink>
+
       <RouterLink v-if="prefs.opticalTransferEnabled" class="menu-item" to="/tx" @click="onNavClick">
         <span class="menu-label">Optical transfer</span>
         <span class="menu-desc">Send or receive files via animated QR codes</span>

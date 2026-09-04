@@ -1,282 +1,421 @@
 # Tag Roulette — feature implementation plan
 
-> **Status:** proposed (not implemented)  
+> **Status:** proposed / implementing behind Labs ([impl plan](tag-roulette-impl.md))  
+> **Updated:** 2026-09-04  
 > **Created:** 2026-08-27  
-> **Goal:** A dedicated page that draws **n** tag suggestions from the catalog using configurable pools, optional popularity weighting, and short-term “don’t show again” memory across spins.  
-> **Related:** Catalog (`stores/catalog.ts`, `TagSummary`), Browse filters (`search/engine.ts`, `FilterSheet`), Recent opens (`stores/recent.ts` — **not** the same as roulette avoid-list).
+> **Goal:** A dedicated **Tag Roulette** surface (SingTags **Labs**, opt-in) where users build reusable **modes** (mixture of catalog pools + score curves), **deal a batch** of tags, then optionally run a **slot-style reel** to pick one from that batch — with sung/greyed state, reset that clears greys, and optional auto-open to fullscreen sheet.  
+> **Visual:** Reel / decorative color accents use **theme tokens** only (`--accent` and mixes), not a fixed rainbow.  
+> **Related:** Catalog (`stores/catalog.ts`, `TagSummary`), Browse filters (`search/engine.ts`, collection facets), Recent opens (`stores/recent.ts` — **orthogonal** to roulette sung/avoid state).
 
 ---
 
 ## Product sketch
 
-**Tag Roulette** is a “deal me some tags” surface for rehearsal variety: hit **Spin**, get a short list of suggestions, open any of them, spin again.
+Tag Roulette has **three layers**:
+
+1. **Modes** — named, persisted recipes (mixture slices + batch size + order).
+2. **Deal** — run the active mode → a **batch** of up to **10** tags (default 10).
+3. **Pick** — “Select 1 randomly” runs a **~5s reel/spinner** over the **current batch**, lands on one unused tag, leaves the rest of the batch visible.
 
 ```
-┌──────────────────────────────────────────────┐
-│  Tag Roulette                         [⚙]    │  ← settings disclosure (default closed)
-├──────────────────────────────────────────────┤
-│  [ Spin ]     Showing 3 of ~7.1k             │
-├──────────────────────────────────────────────┤
-│  • Title A — Arranger — ★4.2 — Classic #12   │
-│  • Title B — …                               │
-│  • Title C — …                               │
-└──────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Tag Roulette                    Mode: [ Rehearsal mix ▾ ] │
+│                                  [ Edit mode ] [ + New ]   │
+├────────────────────────────────────────────────────────────┤
+│  [ Deal batch ]     10 tags · Random order                 │
+│  [ Select 1 randomly ]   [ Reset batch ]                   │
+│  ☐ Open automatically (fullscreen sheet)                   │
+├────────────────────────────────────────────────────────────┤
+│  ★ Reel (during / after pick)                              │
+│     ┌─────────────────┐                                    │
+│     │   Title …       │  ← scrolling titles (slot style)   │
+│     │ ▶ Winner title  │  ← ticker / focus window           │
+│     │   Title …       │  ~5s ease-out                      │
+│     └─────────────────┘                                    │
+│     [ Open ]  (or auto-open if pref on)                    │
+├────────────────────────────────────────────────────────────┤
+│  Batch                                                     │
+│  ○ Title A — …                          [open]             │
+│  ● Title B — …  (sung · greyed)         [open]             │
+│  ◐ Title C — …  (picked)                [open]             │
+│  …                                                         │
+└────────────────────────────────────────────────────────────┘
 ```
 
-Each result row links to `/tag/:id` (same as Browse). Optional secondary actions later: star, add to queue — **not required for v1**.
+Opening a tag marks it **sung** (greyed, still clickable). Reel landings are tracked separately so the next pick won’t land on the same batch member until **Reset**.
 
 ---
 
-## Product requirements
+## Core concepts
 
-1. **Draw size `n`** — user picks **1 / 3 / 10 / 20** tags per spin (default **3**).
-2. **Pool / criteria**
-   - **Full library** (default) — all catalog tags with enough identity to open (id present).
-   - **Limit to collection** — one or more catalog `collection` values (e.g. `classic`), multi-select like Browse chips when useful.
-   - **Limit by arranger** (v1.1 or v1 if cheap) — e.g. Paul Olguin via existing arranger facet; same weighted draw over the filtered set.
-3. **Weighting modes** (mutually exclusive primary mode, or “none” + optional toggles — see below)
-   - **Uniform** — every eligible tag equal probability.
-   - **Weight by rating** — higher `rating` → higher draw chance.
-   - **Weight by downloads** — higher `downloads` → higher draw chance.
-4. **Avoid recent roulette picks**
-   - Remember tag ids from the last **10 spins** (not 10 tags — **10 presses** of Spin).
-   - Across those spins, avoid re-drawing ids already returned (when the pool is large enough).
-   - If the user does **not** press Spin for **1 day**, clear the avoid-list (fresh start).
-5. **Offline** — works entirely from the in-memory / cached catalog (no network). If catalog empty, show the same “load catalog” empty state as Browse.
-6. **Persist settings** — layout of controls + weighting + `n` + collection filter in preferences (`localStorage`), same pattern as pitch pipe (`singtags.*` keys). Avoid-list is separate session-ish state (see Storage).
+### Mode
 
-### Non-goals (v1)
+A **mode** is a saved configuration the user builds and reuses:
 
-- ML / embedding “similar tags” (see vibe search docs separately).
-- Guaranteeing uniqueness forever or across devices.
-- Replacing Browse search or Recent page.
-- Server-side random API.
-
----
-
-## Data model (existing)
-
-From `TagSummary` (catalog index):
-
-| Field | Use in roulette |
+| Field | Meaning |
 | --- | --- |
-| `id` | Result identity + avoid-list |
-| `title`, `arranger`, `key` | Result row display |
-| `rating` | Weighting (nullable → treat as low / neutral) |
-| `downloads` | Weighting (nullable → 0) |
-| `collection` | Pool filter |
-| `classic` | Display only (optional badge); not a pool unless we add “Classic booklet only” later |
-| `type` | Optional future filter |
+| `id`, `label` | Stable id + display name |
+| `slices[]` | Weighted mixture of pools (see below); weights **normalize to 100%** |
+| `batchSize` | Tags per Deal: **1–10** (UI presets 1 / 3 / 5 / 10; default **10**) |
+| `batchOrder` | `random` (shuffle after draw) \| `bySlice` (keep slice groups) \| `byScore` (sort by active score desc) — default **random** |
 
-Facet lists already exist on the catalog store (`collections`, `arrangers`) for filter UIs.
+Users can keep several modes (e.g. “Warm-up classics”, “Downloads deep cut”, “Rehearsal mix”). Active mode id persists.
 
-**Important:** Roulette “avoid recent” is **not** `useRecentStore` (tag *opens*). It is a dedicated **spin history** so opening a suggested tag does not by itself burn avoid slots — only **Spin** does.
+### Slice (mixture component)
+
+Each slice answers: *from which tags, scored how, with what popularity curve, for what share of the batch?*
+
+| Field | Values |
+| --- | --- |
+| `weightPct` | Relative share of the batch (UI shows %; stored as weight, **normalized** so Σ = 100) |
+| `pool` | Which tags are eligible (see Pools) |
+| `score` | What number drives the curve: `uniform` \| `rating` \| `downloads` \| `year` |
+| `curve` | Shape applied to that score: `equal` \| `reverseJ` \| `leftSkew` \| `bell` (see Curves) |
+
+**Illustrative mode** (weights must sum to 100 in the editor — normalize on save if slightly off):
+
+| Weight | Pool | Curve | Score |
+| --- | --- | --- | --- |
+| 50% | Classic | Equal | — (uniform) |
+| 20% | 100 Days | Reverse-J | Downloads |
+| 10% | Easy Tags | Left skew | Rating |
+| 20% | Other (non–Classic / 100 / Easy) | Bell | Year |
+
+*(Earlier draft listed 50+20+10+30 = 110%; editor always normalizes. Prefer explicit “Other = remainder” or enforce Σ = 100.)*
+
+### Deal vs Pick vs Reset
+
+| Action | Effect |
+| --- | --- |
+| **Deal batch** | Draw a new batch from the active mode. Clears `wheelUsedIds` and `sungIds`. |
+| **Select 1 randomly** | Animate reel (~5s) over **current** batch; land on a tag **not yet picked** this batch. Does **not** redraw the batch. |
+| **Reset batch** | Clears **both** `wheelUsedIds` and `sungIds` (greys go away; every tag is pickable again). Does **not** redraw tags — same titles stay until the next Deal. |
+
+### Sung
+
+- When the user **opens** a batch tag (row Open, or post-pick Open / auto-open), mark that id **sung**.
+- Sung rows are **greyed / dimmed** with a “Sung” affordance, but **remain clickable**.
+- Sung is **batch-scoped** and persisted with the session.
+- Sung does **not** block the reel (only **picked** / `wheelUsedIds` does). Optional later: “Prefer unsung on pick”.
+
+### Open after pick
+
+- Default: **stay on Roulette**; show the landed title + primary **Open** button (and highlight the batch row).
+- Preference (persisted in `singtags.roulette.v1`): **Open automatically** → after the reel stops, navigate to `/tag/:id?fullscreen=1` (fullscreen sheet). Opening still marks **sung**.
+- Manual Open from the CTA or row uses the same fullscreen query when that pref is on; when off, open the normal tag page (or respect global Sing mode if already on — follow existing app link behavior).
 
 ---
 
-## Weighting math
+## Pools
 
-Goal: with weighting on, higher-rated / more-downloaded tags appear **more often**, without making the top ~50 tags the *only* outcomes.
+Built on catalog `collection` (+ reserved “Other”):
 
-### Recommended approach: power-law / exponential-style weights
+| Pool id | Filter |
+| --- | --- |
+| `classic` | `collection === 'classic'` (and aliases already normalized in catalog) |
+| `days100` | `collection === '100'` (100 Tags / 100 Days) |
+| `easytags` | `collection === 'easytags'` |
+| `other` | Not in {classic, 100, easytags} |
+| `all` | Entire catalog |
+| `custom` | Explicit multi-select of collection ids and/or arrangers (v1.1 if needed) |
 
-For each eligible tag \(i\) with score \(s_i \ge 0\):
+Reuse existing collection labels/badges from `lib/collections.ts` in the mode editor.
 
-\[
-w_i = (s_i + \varepsilon)^{\alpha}
-\]
+Eligible tags need a valid `id` and enough identity to open (same as Browse).
 
-Then sample without replacement using weighted random draws (sequential: pick one, remove, renormalize — or exponential-race / Efraimidis–Spirakis for without-replacement).
+### Short pools (what happens when a slice can’t fill its share)
 
-| Mode | Score \(s_i\) | Notes |
+Example: mode wants **batch 10**, with **50% Easy Tags** → quota asks for **5** Easy Tags, but that collection only has **3** tags in the catalog (or 3 left after uniqueness).
+
+**v1 policy (locked):** always try to return a full batch of `n` when the **whole catalog** allows it.
+
+1. Draw as many as possible from the slice’s pool (with its curve).
+2. **Spill** unmet slots to the remaining slices (proportional to their weights), still enforcing batch-wide uniqueness.
+3. If still short, fill from `all` (excluding already chosen), uniform.
+4. Show a quiet status once: e.g. “Easy Tags only had 3 — filled the rest from other pools.”
+
+Never leave the user with a mysteriously tiny batch unless the entire eligible catalog has fewer than `n` tags.
+
+---
+
+## Curves & score (with graphics)
+
+Each non-`equal` curve needs a **small SVG/icon graphic** in the mode editor so users see the shape without reading math.
+
+### Score \(s_i\)
+
+| Score mode | \(s_i\) | Missing data |
 | --- | --- | --- |
-| Uniform | \(1\) | Ignore \(\alpha\) |
-| Rating | `rating` (e.g. 0–5) | Missing rating → \(\varepsilon\) only or a floor like `2.5` — **decide in Phase 0** |
-| Downloads | `log1p(downloads)` | Raw download counts are heavy-tailed; **log** before power keeps the curve usable |
+| `uniform` | ignored | Curve forced to `equal` |
+| `rating` | rating 0–5 | Floor **2.5** (unrated ≈ mid) |
+| `downloads` | `log1p(downloads)` | 0 → rare but drawable |
+| `year` | numeric year | Missing year → mid of observed year range in that pool |
 
-**Exponent \(\alpha\)** (tunable in settings, advanced):
+Normalize \(s_i\) to \(u_i \in [0,1]\) within the **slice’s eligible pool** (min–max; if flat, treat as uniform).
 
-| \(\alpha\) | Feel |
-| --- | --- |
-| `0` | Uniform (even if “weight by X” UI is on — avoid) |
-| `1` | Mild preference |
-| `1.5`–`2` | **Default recommendation** — clear bias to popular tags, long tail still reachable |
-| `3+` | Very “hits radio” — may feel repetitive; expose only as Advanced |
+### Curve → weight
 
-Call the curve **“popularity curve”** in UI copy, not “exponential decay” (decay usually means time; here we mean a **convex lift** of high scores). Document in code as `weight = (score + eps) ** alpha`.
+| Curve | UI name | Feel | Weight idea |
+| --- | --- | --- | --- |
+| `equal` | Equal | Flat | \(w_i = 1\) |
+| `reverseJ` | Reverse J | Favor **high** score (hits / recent years if year) | \(w_i = (u_i + \varepsilon)^{\alpha}\) with \(\alpha \approx 1.5\)–`2` |
+| `leftSkew` | Left skew | Favor **low** score (deeper cuts / older years) | \(w_i = (1 - u_i + \varepsilon)^{\alpha}\) |
+| `bell` | Bell | Favor **middle** of the score range | \(w_i = \exp\!\big(-(u_i - 0.5)^2 / (2\sigma^2)\big)\), \(\sigma \approx 0.2\) |
 
-### Missing data policy (lock in Phase 0)
+Advanced (optional): expose \(\alpha\) / \(\sigma\) per slice; v1 can hardcode good defaults and only show the four named shapes + graphics.
 
-- **Downloads null/0:** \(s = 0\) → weight \(\varepsilon^{\alpha}\) (still drawable, rare).
-- **Rating null:** prefer floor **2.5** (mid) *or* treat as 0 — mid avoids punishing unrated classics unfairly; pick one and unit-test.
-
-### Combined weighting (optional v1.1)
-
-`weight by rating` **or** `weight by downloads` as a single select for v1. Later: blend  
-\(s = a\cdot \mathrm{norm}(rating) + b\cdot \mathrm{norm}(\log downloads)\).
+Sampling: **weighted without replacement** within each slice (Efraimidis–Spirakis or sequential renormalize). Inject `rng` for tests.
 
 ---
 
-## Avoid-list semantics
+## Mixture draw algorithm (Deal)
 
-### State
+Goal: approximate slice weights in a batch of size \(n \le 10\).
+
+1. Normalize slice weights to proportions \(p_k\), \(\sum p_k = 1\).
+2. **Quota:** \(q_k = \mathrm{round}(p_k \cdot n)\) with largest-remainder method so \(\sum q_k = n\).
+3. For each slice \(k\) with \(q_k > 0\):
+   - Build eligible set = `pool(k)` minus tags already chosen in this Deal (global uniqueness in the batch).
+   - If too small, take all remaining; spill unmet quota to later slices / final fill from `all` excluding chosen (document in UI: “Pool short — filled from other tags”).
+   - Draw \(q_k\) tags with that slice’s curve/score.
+4. Apply `batchOrder` (shuffle if `random`).
+5. Replace `currentBatch` in the roulette store; clear `wheelUsedIds` and `sungIds` for the new batch.
+6. Persist batch + mode id.
+
+**Monte Carlo check:** over many Deals, empirical slice membership ≈ configured %.
+
+---
+
+## Pick animation (“Select 1 randomly”)
+
+### Decision: slot-style **reel**, not a pie wheel
+
+| Reference | Style | Fit for SingTags |
+| --- | --- | --- |
+| [Hack Club spinning wheel](https://hackclub-w.lachlanjc.com/spinning_wheel/) | Classic **pie** + side arrow; CSS `transition` ~**5s**; fixed **8** clip-path wedges; center SPIN | Best “roulette game” look of the three, and timing matches us — but labels live **inside wedges**. Long tag titles clip; segment count is hardcoded, not dynamic 1–10 |
+| [CodeTap CSS roulette](https://codetap.org/project/roulette-wheel-with-css) | Same family: pie + pointer + JS rotation | Same title / segment scaling problems |
+| [CodePen spin randomizer](https://codepen.io/TheNature/pen/GRJvWPj) | Rotating plate; **rewrites** the few visible labels while spinning | Closest to scalable labeling; still pie geometry with only ~4 readable slots |
+
+**v1 choice: vertical (or horizontal) slot/reel** — keep the *feel* of those demos (5s ease-out, ticker/focus, suspense) without pie wedges:
+
+- Fixed viewport shows ~3 rows (above / focus / below) with a highlight on the center.
+- During the ~5s ease-out, cycle titles from the **eligible** batch set (and optional decoy repeats for motion).
+- Recycle a small pool of DOM nodes: when a row scrolls out of view, assign the next title — **O(1) DOM**, readable at any batch size.
+- Winner is chosen **before** the animation; the reel is choreographed to land on that title (fair + testable).
+- `prefers-reduced-motion`: skip long spin; short fade + announce winner.
+
+**Why not ship the Hack Club pie first?** Nicest pure roulette look, but SingTags items are **song titles**, not short tokens like “Joker”. A pie that can’t show the title fails the product job. Pie stays a possible **later skin** (e.g. Classic #12 only) if we want spectacle.
+
+### Eligibility
+
+From `currentBatch`, candidates = tags **not** in `wheelUsedIds`.  
+If none left → disable button; copy: “All tags in this batch were picked — Reset to spin again.”
+
+### Timing & landing
+
+| Constraint | Spec |
+| --- | --- |
+| Duration | **5 seconds** total (±200ms) — same ballpark as the Hack Club workshop |
+| Motion | Accelerate then ease-out; center lock on winner |
+| After land | Highlight batch row; show **Open** CTA; if `openAutomatically`, route to `/tag/:id?fullscreen=1` |
+| Sound | Optional soft tick — **v1.1** |
+
+### Reset
+
+- Clears `wheelUsedIds` **and** `sungIds` (greys clear).
+- Same batch items remain until Deal.
+
+---
+
+## Persistence (`localStorage`)
+
+| Key | Contents |
+| --- | --- |
+| `singtags.roulette.v1` | Modes library, `activeModeId`, `openAutomatically`, UI chrome |
+| `singtags.rouletteSession.v1` | Current batch, `wheelUsedIds`, `sungIds`, `dealtAt` |
+
+### Prefs shape (sketch)
 
 ```ts
-type RouletteAvoidState = {
-  /** Tag ids returned by recent spins, oldest → newest or newest-first — pick one and stick. */
-  spinBatches: number[][]  // length ≤ 10; each batch is the n ids from one Spin
-  /** ISO time of last Spin press */
-  lastSpinAt: string
+type RouletteCurve = 'equal' | 'reverseJ' | 'leftSkew' | 'bell'
+type RouletteScore = 'uniform' | 'rating' | 'downloads' | 'year'
+type RoulettePoolId = 'classic' | 'days100' | 'easytags' | 'other' | 'all'
+
+type RouletteSlice = {
+  weightPct: number
+  pool: RoulettePoolId
+  score: RouletteScore
+  curve: RouletteCurve
+}
+
+type RouletteMode = {
+  id: string
+  label: string
+  slices: RouletteSlice[]
+  batchSize: number        // 1..10
+  batchOrder: 'random' | 'bySlice' | 'byScore'
+}
+
+type RoulettePrefs = {
+  schema: 'singtags.roulette.v1'
+  activeModeId: string
+  modes: RouletteMode[]
+  /** After reel lands, open tag fullscreen sheet automatically. */
+  openAutomatically: boolean  // default false
 }
 ```
 
-### Rules on Spin
+### Session shape
 
-1. If `now - lastSpinAt > 1 day` → clear `spinBatches`.
-2. Build eligible pool = filter(catalog) minus `flatten(spinBatches)`.
-3. If pool size `< n`:
-   - **v1 policy:** clear oldest spins until `pool.length >= n`, or if still short, allow draws from full filtered set (ignore avoid). Prefer shrinking avoid-list first so small collections (e.g. tiny custom collection) still work.
-4. Draw `n` distinct ids (weighted or uniform).
-5. Append batch to `spinBatches`; trim to last **10** batches.
-6. Set `lastSpinAt = now`.
+```ts
+type RouletteBatchItem = {
+  id: number
+  /** Snapshot fields for row display if catalog reloads */
+  title: string
+  arranger?: string | null
+  collection?: string | null
+  classic?: string | number | null
+  rating?: number | null
+}
 
-### “10 presses”
+type RouletteSession = {
+  schema: 'singtags.rouletteSession.v1'
+  modeId: string
+  items: RouletteBatchItem[]
+  wheelUsedIds: number[]
+  sungIds: number[]
+  dealtAt: string  // ISO
+}
+```
 
-User wording: *avoid tags from the past 10 presses of the random button*.  
-→ Avoid-list capacity = **10 spin batches**, not 10 tags. With `n=20`, up to 200 ids could be excluded — acceptable; for tiny pools the fallback in step 3 matters.
+Ship **1–2 seed modes** (e.g. “Full library · equal” and the rehearsal mix example) so first visit isn’t an empty editor.
 
-### Persistence
-
-- Persist avoid state in `localStorage` (`singtags.rouletteAvoid.v1`) so refresh doesn’t reset mid-rehearsal.
-- 1-day idle still clears on next Spin (lazy expiry), not a background timer.
+Optional later: include prefs (not session) in offline cache zip — nice-to-have.
 
 ---
 
-## Settings (persist)
+## UX details
 
-| Setting | Values | Default |
-| --- | --- | --- |
-| Count `n` | 1, 3, 10, 20 | 3 |
-| Pool | Full library \| Collection(s)… | Full |
-| Weighting | Off (uniform) \| Rating \| Downloads | Off |
-| Curve strength \(\alpha\) | e.g. 1.0 / 1.5 / 2.0 (Advanced) | 1.5 |
-| Avoid recent spins | on/off | on |
+### Mode editor
 
-UI: collapsible **Settings** disclosure (default closed), summary line like Pitch Pipe (`3 · Full library · Uniform`).
+- List modes; set active; duplicate / rename / delete (block delete of last mode).
+- Per mode: batch size, order, slice list.
+- Per slice: weight slider/%, pool select, score select (disabled when curve = equal), curve select **with graphic**.
+- Live summary: `50% Classic · equal · 20% 100 Days · reverse-J / downloads · … · batch 10 · random`.
+- Validate: ≥1 slice; weights &gt; 0; normalize on blur/save.
 
-Persist blob: `singtags.roulette.v1` JSON (same approach as pitch pipe prefs). Optionally include in offline cache zip later — **nice-to-have**, not blocking.
+### Main page
+
+- Mode switcher (select) + Edit / New.
+- Primary **Deal batch**; secondary **Select 1 randomly**; tertiary **Reset**.
+- Toggle: **Open automatically (fullscreen sheet)** — persisted.
+- Batch rows: title, arranger, collection badge, rating; sung grey; picked marker; Open control.
+- Empty: “Deal a batch to get started.”
+- Catalog empty: same load/empty state as Browse.
+- Short-pool spill: one-line status under the deal controls when fill had to borrow from other pools.
+
+### Nav
+
+- Route: `/labs/roulette` (Labs-gated; default off).
+- Entry: **Labs → Tag Roulette** only for v1 (no top nav / bottom tab until graduation).
+- See [tag-roulette-impl.md](tag-roulette-impl.md) for phased delivery.
+
+### Accessibility
+
+- Deal / Select / Reset are buttons with clear names.
+- Reel: `aria-live` announces the landed title; reduced-motion path required.
+- Mode editor: native controls + graphics with text labels (not color-only).
 
 ---
 
 ## Architecture
 
 ```
-RouletteView.vue
-  ├─ settings disclosure (n, pool, weight, avoid)
-  ├─ Spin button + status (“Avoiding 24 tags from last 8 spins”)
-  └─ result list → RouterLink /tag/:id
+RouletteView.vue              # deal / reel / batch list
+RouletteModeEditor.vue        # slices + curve graphics
+components/RouletteReel.vue   # 5s slot-style spinner (recycled rows)
 
-lib/rouletteDraw.ts          # pure: filter + weight + sample without replacement
-stores/roulette.ts           # avoid-list + lastSpinAt; prefs may live in preferences store
+lib/rouletteDraw.ts           # pools, curves, mixture quotas, spill fill, weighted sample
+lib/rouletteCurves.ts         # weight(u, curve) + graphic metadata
+stores/roulette.ts            # prefs + session; sung / wheelUsed / openAutomatically
 ```
 
 ### Core API (pure, unit-tested)
 
 ```ts
-function rouletteEligible(
-  tags: TagSummary[],
-  opts: { collections?: string[]; arrangers?: string[] },
-): TagSummary[]
+function sliceEligible(tags: TagSummary[], pool: RoulettePoolId): TagSummary[]
 
-function tagWeight(
+function tagUnitScore(
   tag: TagSummary,
-  mode: 'uniform' | 'rating' | 'downloads',
-  alpha: number,
-): number
+  score: RouletteScore,
+  poolStats: { min: number; max: number },
+): number  // 0..1
 
-function drawWeightedUnique(
+function curveWeight(u: number, curve: RouletteCurve): number
+
+function allocateQuotas(weights: number[], n: number): number[]
+
+function dealFromMode(
   tags: TagSummary[],
-  n: number,
-  weightOf: (t: TagSummary) => number,
+  mode: RouletteMode,
   rng?: () => number,
 ): TagSummary[]
+
+function pickWheelWinner(
+  batchIds: number[],
+  wheelUsedIds: number[],
+  rng?: () => number,
+): number | null
 ```
 
-Inject `rng` for deterministic tests.
-
-### Catalog dependency
-
-- `useCatalogStore().tags` must be loaded (reuse Browse’s load / hydrate path on mount).
-- Offline: snapshot catalog is enough; no media required to *suggest* (opening a tag may still need cache — same as Browse).
-
----
-
-## UX details
-
-- Primary CTA: large **Spin** (or **Deal** — pick one label and stick; recommend **Spin**).
-- After spin: list replaces previous results (no infinite scroll of history on the page). Optional “previous spin” is out of scope.
-- Empty pool: “No tags match these filters.”
-- Collection picker: multi-select from `catalog.collections`; empty selection = full library.
-- Accessibility: Spin is a button; results are links; settings in `<details>`.
-
-### Nav
-
-- Add **Roulette** route `/roulette`.
-- Top nav + consider bottom tab carefully (tab bar already crowded). Options:
-  - **A:** Top nav only (Browse / Recent / … / Roulette)
-  - **B:** Under Browse as a header action (“Feeling lucky”)
-  - **C:** Bottom tab replacing something — **avoid unless user insists**
-
-Recommend **A** for v1.
+Catalog: ensure loaded on mount (Browse hydrate path). Offline catalog is enough to Deal; opening a tag may still need media cache (same as Browse).
 
 ---
 
 ## Phased delivery
 
-### Phase 0 — Spec lock (short)
+### Phase 0 — Spec lock
 
-- Confirm missing-rating policy (floor 2.5 vs 0).
-- Confirm avoid = 10 **spins** (batches) vs 10 **tags**.
-- Confirm nav placement (top-only vs Browse entry point).
-- Confirm whether arranger filter ships in v1 or v1.1.
+- Missing-rating floor **2.5** — locked.
+- **Reset** clears sung + picked — locked.
+- Stay on page + Open; optional **open automatically** fullscreen — locked.
+- Short pools: spill to fill `n` + status line — locked.
+- Confirm seed mode list and default active mode.
+- Confirm nav = top link only.
+- Confirm copy: **Deal batch** vs **Draw** (pick keeps “Select 1 randomly”).
 
-### Phase 1 — Core draw + page shell
+### Phase 1 — Deal + batch shell
 
-**Deliver**
+- `/roulette` + nav.
+- Single built-in mode: full library, equal, `n=10`, random order.
+- Deal → list; open → sung grey; Reset clears sung + picked; session persist.
+- `rouletteDraw` uniform + tests.
 
-- `/roulette` + nav link.
-- Uniform draw over full catalog; `n` ∈ {1,3,10,20}.
-- Results list with title / arranger / rating.
-- Pure functions + tests for sampling without replacement.
+**Exit:** Deal returns distinct tags; sung survives remount; Reset clears greys.
 
-**Exit:** Spin returns `n` distinct tags; `npm test` covers draw helpers.
+### Phase 2 — Modes + mixture + curves
 
-### Phase 2 — Filters + weighting
+- Mode library + editor + persistence `singtags.roulette.v1`.
+- Pools: classic / days100 / easytags / other / all.
+- Curves + graphics; scores rating / downloads / year.
+- Quota mixture + short-pool spill + Monte Carlo tests.
 
-**Deliver**
+**Exit:** Example rehearsal mix Deal roughly matches weights; spill status appears when a pool is short.
 
-- Collection multi-filter.
-- Weight modes: uniform / rating / downloads with \(\alpha\) default 1.5.
-- Settings disclosure + persisted prefs.
+### Phase 3 — Reel pick
 
-**Exit:** With downloads weighting, high-download tags appear more often in a Monte Carlo unit test (e.g. 5k draws, top decile mass significantly above uniform).
+- `RouletteReel.vue`: 5s slot-style spin, recycled labels, ticker, reduced-motion.
+- Select 1 randomly; `wheelUsedIds`; disable when exhausted.
+- Open CTA + `openAutomatically` → `?fullscreen=1`.
+- Reset clears picked + sung.
 
-### Phase 3 — Avoid recent spins
-
-**Deliver**
-
-- Avoid store: 10 batches, 1-day lazy expiry, pool exhaustion fallback.
-- Status copy when avoid is active.
-- Toggle to disable avoid.
-
-**Exit:** Spinning 10 times with `n=3` never repeats an id while pool allows; after mocking `lastSpinAt` − 25h, repeats become possible.
+**Exit:** Cannot re-land same id until Reset; animation ≤5.2s; a11y live region; auto-open pref works.
 
 ### Phase 4 — Polish
 
-- Arranger filter (if deferred).
-- Classic badge on rows; star from row (optional).
-- Include roulette prefs in offline cache zip (optional).
-- Manual QA offline + large catalog performance (draw should be &lt; ~50ms on 7k tags).
+- Seed modes; empty/short-pool messaging polish.
+- Optional: prefer unsung on pick; arranger custom pool; zip prefs; tick sound; pie-wheel skin.
+- Perf: Deal &lt; ~50ms on ~7k tags.
 
 ---
 
@@ -284,53 +423,64 @@ Recommend **A** for v1.
 
 | Layer | Cases |
 | --- | --- |
-| Unit | Uniform uniqueness; weighted bias Monte Carlo; log1p downloads; null rating policy; avoid expiry; shrink avoid when pool small |
-| Component | Spin updates list; settings persist across remount |
-| Manual | Phone; offline catalog; collection-only pool of size &lt; n |
+| Unit | Quotas sum to n; uniqueness in batch; reverse-J favors high downloads; left-skew favors low; bell mid-year; wheel excludes used; normalize weights |
+| Component | Deal replaces batch; sung grey on open; Reset clears greys + re-enables pick; auto-open pref; mode switch persists |
+| Manual | Phone; reduced motion; offline catalog; tiny Easy Tags pool with large weight (spill notice) |
 
 ---
 
 ## Performance
 
-- Precompute weights array once per spin (O(N)); sampling O(N·n) is fine for N≈7k, n≤20.
-- Do not copy full catalog unnecessarily; filter into a working array per spin.
-- Avoid Vue reactivity on the 7k-element weight buffer — keep draw in plain TS.
+- Precompute scores/weights per slice per Deal (O(N)); n≤10.
+- Keep draw math in plain TS (no reactive 7k arrays).
+- Reel uses a fixed handful of recycled row nodes (not one DOM node per catalog tag).
 
 ---
 
-## Open questions
+## Non-goals (v1)
 
-1. Missing **rating**: floor **2.5** or treat as **0**?
-2. Nav: **top link only** vs entry from Browse?
-3. Arranger filter in **v1** or **v1.1**?
-4. Should Spin also exclude tags in the user’s **Recent opens** list (optional extra checkbox)?
-5. Copy: **Spin** vs **Deal** vs **Shuffle**?
+- ML / vibe similarity.
+- Server-side random API.
+- Replacing Browse or Recent.
+- Cross-device mode sync (localStorage only).
+- Infinite historical spin log UI.
+- Pie-wheel as the only picker (reel is primary).
+- Guaranteeing lifetime uniqueness across Deals (only uniqueness **within** a batch + picked-until-Reset).
 
 ---
 
-## Implementation checklist (copy into PR)
+## Open questions (remaining)
+
+1. Seed modes: only “Full library · equal”, or also ship the rehearsal mix example?
+2. Copy: **Deal batch** vs **Draw** vs **Spin batch**?
+3. When `openAutomatically` is off, should row Open still honor global **Sing mode** fullscreen? (Likely **yes** — don’t special-case Roulette against existing Sing behavior.)
+
+---
+
+## Implementation checklist
 
 **Phase 1**
 
-- [ ] `lib/rouletteDraw.ts` + tests
+- [ ] `lib/rouletteDraw.ts` (+ curve helpers) + tests
+- [ ] `stores/roulette.ts` session + sung + reset clears both
 - [ ] `RouletteView.vue` + route + nav
-- [ ] Catalog ensure-loaded on mount
-- [ ] `n` selector 1/3/10/20
+- [ ] Deal / open / sung grey / Reset
 
 **Phase 2**
 
-- [ ] Collection filter
-- [ ] Weight modes + \(\alpha\)
-- [ ] Prefs persistence `singtags.roulette.v1`
+- [ ] Mode model + `singtags.roulette.v1` (+ `openAutomatically`)
+- [ ] `RouletteModeEditor.vue` + curve graphics
+- [ ] Mixture quotas + short-pool spill
 
 **Phase 3**
 
-- [ ] Avoid-list store (10 spins, 1-day expiry)
-- [ ] Exhaustion fallback + UI status
+- [ ] `RouletteReel.vue` (5s slot reel, recycled labels)
+- [ ] picked ids + Open CTA + auto fullscreen
+- [ ] reduced-motion + aria-live
 
 **Phase 4**
 
-- [ ] Arranger filter / polish / optional zip prefs
+- [ ] Seed modes / polish / optional extras
 
 ---
 
@@ -338,7 +488,21 @@ Recommend **A** for v1.
 
 | Feature | Relationship |
 | --- | --- |
-| Browse | Shares catalog + collection facets; roulette does not replace search |
-| Recent | Opens history — orthogonal; do not reuse for avoid-list |
-| Practice set | Ordered starred set — different intent (deliberate vs discovery) |
-| Pitch Pipe / Piano | Unrelated audio tools |
+| Browse | Shared catalog + collection facets; roulette does not replace search |
+| Recent | Open history — do **not** reuse for picked or sung |
+| Favorites / practice sets | Deliberate lists — different intent from discovery Deal |
+| Sing mode | Auto-open uses `?fullscreen=1`; manual open should respect Sing mode like other list → tag navigations |
+| Pitch Pipe | Unrelated |
+
+---
+
+## Migration from prior plan draft
+
+The earlier plan (single pool, global avoid of last 10 **Deal presses**, n up to 20) is **superseded** by:
+
+- **Modes + mixture slices** instead of one global pool/weight.
+- **Batch ≤10** for a manageable list (reel animation itself is not capped by pie wedges).
+- **Slot-style reel** as the interactive “pick one” layer (pie wheel optional later).
+- **Sung** (opened) vs **picked** (reel-landed) vs **Reset** (clears both), instead of a rolling 10-spin avoid-list across Deals.
+
+Cross-Deal “don’t show tags from the last few Deals” can return later as an optional mode flag; not required for v1.

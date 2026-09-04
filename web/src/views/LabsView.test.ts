@@ -54,6 +54,20 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('defaults tag roulette off and toggles on', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().tagRouletteEnabled).toBe(false)
+    expect(w.get('input[aria-label="Tag Roulette"]').element).toHaveProperty('checked', false)
+    await w.get('input[aria-label="Tag Roulette"]').setValue(true)
+    expect(usePreferencesStore().tagRouletteEnabled).toBe(true)
+    expect(w.text()).toContain('More → Tag Roulette')
+    expect(w.text()).not.toContain('Open Tag Roulette')
+    w.unmount()
+  })
+
   it('links to the pitch pipe sound lab', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

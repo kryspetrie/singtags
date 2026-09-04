@@ -55,7 +55,8 @@ Contributing / pipeline: [../CONTRIBUTING.md](../CONTRIBUTING.md), [publish.md](
 | Doc | Topic |
 | --- | --- |
 | [plans/vibe-search.md](plans/vibe-search.md) | Search by vibe (Workers AI) |
-| [plans/tag-roulette.md](plans/tag-roulette.md) | Tag roulette discovery |
+| [plans/tag-roulette.md](plans/tag-roulette.md) | Tag roulette product (Labs) |
+| [plans/tag-roulette-impl.md](plans/tag-roulette-impl.md) | Tag roulette Labs phased impl |
 | [plans/virtual-piano.md](plans/virtual-piano.md) | Virtual piano (beyond pitch pipe) |
 | [plans/local-library-transfer.md](plans/local-library-transfer.md) | Phase C: curated S3 local docs (deferred) |
 

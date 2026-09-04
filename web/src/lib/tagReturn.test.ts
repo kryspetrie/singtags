@@ -46,6 +46,8 @@ describe('tagReturn', () => {
 
   it('labels list routes for the back button', () => {
     expect(labelForListRoute({ name: 'home', path: '/' })).toBe('Browse')
+    expect(labelForListRoute({ name: 'labs-roulette', path: '/labs/roulette' })).toBe('Tag Roulette')
+    expect(labelForListRoute({ name: null, path: '/labs/roulette' })).toBe('Tag Roulette')
     expect(labelForListRoute({ name: 'favorites', path: '/favorites' })).toBe('Favorites')
     expect(labelForListRoute({ name: 'recent', path: '/recent' })).toBe('Recent')
     expect(labelForListRoute({ name: null, path: '/favorites' })).toBe('Favorites')
