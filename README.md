@@ -59,6 +59,9 @@ Rebuild indexes when the catalog changed, then:
 ```bash
 ./deploy/publish.sh library   # media
 ./deploy/publish.sh website   # SPA + indexes (does not run build_indexes)
+
+# Or weekly (sync + indexes + both publishes → same bucket):
+./deploy/weekly_prod.sh
 ```
 
-See [docs/publish.md](docs/publish.md). Canonical host: **https://www.singtags.com**.
+See [docs/publish.md](docs/publish.md) and [sync/docs/WEEKLY_PROD_SYNC.md](sync/docs/WEEKLY_PROD_SYNC.md). Canonical host: **https://www.singtags.com**.

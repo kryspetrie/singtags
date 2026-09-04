@@ -1,6 +1,6 @@
 # Deploy
 
-Independent S3 pushes for **SingTags production** (public bucket + Cloudflare). This is not the optional weekly mirror Lambda bucket — see [`../sync/docs/WEEKLY_LAMBDA_SYNC.md`](../sync/docs/WEEKLY_LAMBDA_SYNC.md).
+Independent S3 pushes for **SingTags production** (one public bucket + Cloudflare). Do not deploy `sync/infra/`’s separate mirror bucket for www — see [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md).
 
 **SSOT runbook:** [../docs/publish.md](../docs/publish.md) (pipeline, when to rebuild indexes). First-time hosting: [../docs/setup.md](../docs/setup.md).
 
@@ -18,8 +18,11 @@ python3 build/build_offline_manifest.py
 | `./deploy/website_s3.sh` | SPA + indexes + slim `/tags/{id}/metadata.json` — **never** `library/` |
 | `./deploy/library_s3.sh` | `library/` → `s3://$S3_BUCKET/$S3_LIBRARY_PREFIX/` |
 | `./deploy/publish.sh website\|library\|all` | Dispatcher |
+| `./deploy/weekly_prod.sh` | Weekly: sync → indexes → library + website (same bucket) |
 
 Website sync uploads **hashed `/assets` first**, then `index.html`.
+
+Weekly single-bucket flow: [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md).
 
 ```bash
 S3_BUCKET=my-bucket ./deploy/website_s3.sh

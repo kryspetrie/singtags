@@ -1,43 +1,21 @@
-# `infra/scripts/` — AWS deploy helpers (mirror Lambda)
+# `infra/scripts/` — AWS deploy helpers (parked)
 
-**Live sync runtime** is the Lambda image built from [`mirror/`](../../mirror/) (`lambda_sync.py`, `sync.py`, …). These shell scripts only **build, publish, and apply infra**. Terraform lives in [`infra/`](../) (parent of this folder).
+**Not used for SingTags production.** Weekly refresh is the workstation script [`../../../deploy/weekly_prod.sh`](../../../deploy/weekly_prod.sh) against **one** public bucket — [`docs/WEEKLY_PROD_SYNC.md`](../../docs/WEEKLY_PROD_SYNC.md).
 
-Full walkthrough: [`docs/WEEKLY_LAMBDA_SYNC.md`](../../docs/WEEKLY_LAMBDA_SYNC.md).
+These scripts build/publish the **old** Terraform stack (separate private mirror bucket + Lambda). See [`docs/WEEKLY_LAMBDA_SYNC.md`](../../docs/WEEKLY_LAMBDA_SYNC.md).
 
-**SingTags website/media publish** uses [`../../../deploy/`](../../../deploy/) — see [`../../../docs/publish.md`](../../../docs/publish.md).
-
-## Scripts
+## Scripts (sketch only)
 
 | Script | Purpose |
 | --- | --- |
 | `_common.sh` | Shared env (sourced; not run directly) |
-| `deploy.sh` | First-time or full deploy (bootstrap → build → apply → publish) |
-| `infra_apply.sh` | Terraform apply (`--bootstrap` = ECR/S3/CF without Lambda) |
-| `lambda_build_push.sh` | `docker build` + ECR push (bakes Whisper `small.en`) |
-| `lambda_publish.sh` | Build/push + `update-function-code` + version + `live` alias |
-| `sync_site.sh` | Sync `library/_state` (and optional media) to the **mirror** Terraform bucket |
-
-## Typical flow
+| `deploy.sh` | Full Terraform + image path |
+| `infra_apply.sh` | Terraform apply |
+| `lambda_build_push.sh` | `docker build` + ECR push |
+| `lambda_publish.sh` | Build/push + update Lambda |
+| `sync_site.sh` | Sync `_state` to the Terraform mirror bucket |
 
 ```bash
-cd sync
-export AWS_PROFILE=your-profile
-cp infra/terraform.tfvars.example infra/terraform.tfvars
-
-./infra/scripts/deploy.sh -y          # full path
-# or piecemeal:
-./infra/scripts/infra_apply.sh --bootstrap -y
-./infra/scripts/lambda_build_push.sh
-./infra/scripts/infra_apply.sh -y
-./infra/scripts/lambda_publish.sh
-
-./infra/scripts/sync_site.sh          # push state/catalog to the mirror bucket
-```
-
-Code-only update after infra exists:
-
-```bash
-./infra/scripts/deploy.sh --publish-only
-# or
-./infra/scripts/lambda_publish.sh
+# Prefer instead:
+./deploy/weekly_prod.sh
 ```

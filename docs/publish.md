@@ -73,14 +73,15 @@ python lyrics/review_queue_gui.py   # continues queue in library/_state/
 
 ---
 
-## Two S3 systems (do not conflate)
+## S3: one production bucket
 
-| System | Bucket / path | Purpose | How you publish |
-| --- | --- | --- | --- |
-| **SingTags production** | Public S3 (e.g. `singtags-prod`) + Cloudflare | Live SPA + media at www.singtags.com | `deploy/website_s3.sh`, `deploy/library_s3.sh` |
-| **Mirror Lambda (optional)** | Terraform bucket from `sync/infra/` | Weekly frontier / OCR / ASR **state** | `sync/infra/scripts/` — see [`../sync/docs/WEEKLY_LAMBDA_SYNC.md`](../sync/docs/WEEKLY_LAMBDA_SYNC.md) |
+| System | Purpose |
+| --- | --- |
+| **SingTags production** (`singtags-prod` + Cloudflare) | Only bucket that matters for www — SPA at site root, media under `library/` |
 
-Weekly Lambda does **not** replace `./deploy/publish.sh library` for production media today. A future job *could* push to the same library prefix; until then, treat them as separate.
+**Weekly refresh** (mirror → indexes → publish to that same bucket): [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md) and [`../deploy/weekly_prod.sh`](../deploy/weekly_prod.sh).
+
+The Terraform “mirror” bucket under `sync/infra/` is **parked** — not part of SingTags ops ([WEEKLY_LAMBDA_SYNC.md](../sync/docs/WEEKLY_LAMBDA_SYNC.md)).
 
 ---
 
@@ -92,6 +93,7 @@ Copy `deploy/.env.deploy.example` → `.env.deploy` if you use one. Or export va
 ./deploy/publish.sh website   # SPA + whatever indexes/tags are in web/dist
 ./deploy/publish.sh library   # library/ → s3://bucket/library/
 ./deploy/publish.sh all
+./deploy/weekly_prod.sh       # weekly: sync → indexes → library + website
 
 DRY_RUN=1 S3_BUCKET=your-bucket ./deploy/library_s3.sh
 SKIP_BUILD=1 ./deploy/publish.sh website   # reuse existing web/dist

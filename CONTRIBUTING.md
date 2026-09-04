@@ -16,9 +16,9 @@ SingTags is a static Vue SPA plus a Python mirror of [barbershoptags.com](https:
 
 1. Populate **`library/`** with [`sync/`](sync/README.md) (origin care: **one** bulk `api.php` metadata export — never scrape per-tag HTML).
 2. Rebuild SPA artifacts: `python3 build/build_indexes.py` then `python3 build/build_offline_manifest.py`.
-3. Publish: `./deploy/publish.sh library` and/or `website`.
+3. Publish: `./deploy/publish.sh library` and/or `website` — or weekly `./deploy/weekly_prod.sh` (sync + indexes + both).
 
-**Website deploy does not rebuild indexes.** Full rules: [docs/publish.md](docs/publish.md).
+**Website deploy does not rebuild indexes.** Full rules: [docs/publish.md](docs/publish.md). Weekly single-bucket: [sync/docs/WEEKLY_PROD_SYNC.md](sync/docs/WEEKLY_PROD_SYNC.md).
 
 ## Local app
 
@@ -32,7 +32,7 @@ npm test                         # from web/
 
 - Delete `library/_state/` (lyric review queue and sync cursors live there)
 - Hit barbershoptags.com with thousands of per-tag HTML page requests
-- Confuse **SingTags prod S3** (`deploy/`) with the optional **weekly mirror Lambda** bucket (`sync/infra/`)
+- Deploy `sync/infra/`’s second mirror bucket for SingTags — use one prod bucket ([WEEKLY_PROD_SYNC](sync/docs/WEEKLY_PROD_SYNC.md))
 
 ## Docs map
 

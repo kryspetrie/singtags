@@ -168,18 +168,18 @@ python sheets/crop_library_pdfs.py
 
 Design: [`docs/AUDIO_STORAGE_AND_CACHE.md`](docs/AUDIO_STORAGE_AND_CACHE.md) (client ADR: [`../docs/decisions/audio-storage-cache.md`](../docs/decisions/audio-storage-cache.md)).
 
-### AWS (optional weekly Lambda)
+### AWS / weekly production refresh
+
+**Preferred:** one bucket (`singtags-prod`). On the machine that holds `library/`:
 
 ```bash
-export AWS_PROFILE=your-profile
-cp infra/terraform.tfvars.example infra/terraform.tfvars
-./infra/scripts/deploy.sh -y
-./infra/scripts/lambda_publish.sh
+# from website repo root
+./deploy/weekly_prod.sh
 ```
 
-Details: [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md), [`infra/scripts/README.md`](infra/scripts/README.md).
+Docs: [`docs/WEEKLY_PROD_SYNC.md`](docs/WEEKLY_PROD_SYNC.md).
 
-SingTags production media/SPA use [`../deploy/`](../deploy/) (public S3 + Cloudflare). That is a **different bucket** from the optional Terraform mirror state bucket used by weekly Lambda — see [`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md).
+`sync/infra/` Lambda + separate mirror bucket is **parked** ([`docs/WEEKLY_LAMBDA_SYNC.md`](docs/WEEKLY_LAMBDA_SYNC.md)) — do not deploy it for SingTags prod.
 
 ---
 
