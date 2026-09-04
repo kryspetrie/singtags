@@ -7,18 +7,18 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import RouletteModeEditor from '../components/RouletteModeEditor.vue'
 import RoulettePickModal from '../components/RoulettePickModal.vue'
+import TagListRowContent from '../components/TagListRowContent.vue'
 import {
   ROULETTE_BATCH_SIZES,
   summarizeMode,
   type RouletteBatchSize,
   type RoulettePoolContext,
 } from '../lib/rouletteDraw'
-import { collectionNumberBadge } from '../lib/collections'
-import { visibleAltTitle } from '../lib/tagDisplay'
+import type { TagSummary } from '../types/tag'
 import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
-import { useRouletteStore } from '../stores/roulette'
+import { useRouletteStore, type RouletteBatchItem } from '../stores/roulette'
 import { useUserCollectionsStore } from '../stores/userCollections'
 
 const catalog = useCatalogStore()
@@ -112,16 +112,29 @@ function onOpen(id: number): void {
   void router.push(tagOpenTo(id))
 }
 
-function badge(item: { collection: string | null; classic: string | number | null }): string | null {
-  return collectionNumberBadge(item.collection, item.classic)?.short ?? null
-}
+const tagsById = computed(() => {
+  const map = new Map<number, TagSummary>()
+  for (const t of catalog.tags) map.set(t.id, t)
+  return map
+})
 
-function subtitle(item: { title: string; altTitle: string | null }): string | null {
-  return visibleAltTitle(item.altTitle, item.title)
-}
-
-function lyricsLine(id: number): string | null {
-  return catalog.lyricsSnippet(id)
+function rowTag(item: RouletteBatchItem): TagSummary {
+  return (
+    tagsById.value.get(item.id) ?? {
+      id: item.id,
+      title: item.title,
+      altTitle: item.altTitle,
+      arranger: item.arranger,
+      key: null,
+      rating: item.rating,
+      type: null,
+      collection: item.collection,
+      classic: item.classic,
+      hasSheet: false,
+      audioParts: [],
+      sheet: null,
+    }
+  )
 }
 </script>
 
@@ -271,22 +284,15 @@ function lyricsLine(id: number): string | null {
           :to="tagOpenTo(item.id)"
           @click="roulette.markSung(item.id)"
         >
-          <span class="row-title">{{ item.title }}</span>
-          <span v-if="subtitle(item)" class="row-alt">{{ subtitle(item) }}</span>
-          <span class="row-meta">
-            <template v-if="item.arranger">{{ item.arranger }}</template>
-            <template v-if="badge(item)">
-              <span v-if="item.arranger"> · </span>{{ badge(item) }}
+          <TagListRowContent
+            :tag="rowTag(item)"
+            :lyrics-snippet="catalog.lyricsSnippet(item.id)"
+          >
+            <template #extra-meta>
+              <span v-if="roulette.isSung(item.id)" class="pill">Sung</span>
+              <span v-else-if="roulette.isWheelUsed(item.id)" class="pill accent">Picked</span>
             </template>
-            <template v-if="item.rating != null">
-              <span v-if="item.arranger || badge(item)"> · </span>★{{ item.rating.toFixed(1) }}
-            </template>
-            <span v-if="roulette.isSung(item.id)" class="pill">Sung</span>
-            <span v-else-if="roulette.isWheelUsed(item.id)" class="pill accent">Picked</span>
-          </span>
-          <span v-if="lyricsLine(item.id)" class="row-lyrics" title="Lyrics">{{
-            lyricsLine(item.id)
-          }}</span>
+          </TagListRowContent>
         </RouterLink>
       </li>
     </ul>
@@ -484,55 +490,26 @@ function lyricsLine(id: number): string | null {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .row-link {
-  display: grid;
-  gap: 0.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   min-width: 0;
-  padding: 0.65rem 0.75rem;
+  padding: 0.55rem 0.75rem;
   text-decoration: none;
   color: inherit;
-  min-height: var(--touch);
+  min-height: 56px;
+  justify-content: center;
 }
 .row-link:hover {
   background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--accent-hover);
 }
 .row-link:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-.row-title {
-  font-weight: 650;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.row-alt {
-  font-size: 0.86rem;
-  font-style: italic;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.row-meta {
-  font-size: 0.8rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.row-lyrics {
-  font-size: 0.78rem;
-  color: color-mix(in srgb, var(--muted) 85%, var(--accent));
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 .pill {
   display: inline-block;
-  margin-left: 0.35rem;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
   font-size: 0.72rem;
