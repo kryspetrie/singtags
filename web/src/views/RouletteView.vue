@@ -4,7 +4,7 @@
  * Reel pick is Phase 3 — see docs/plans/tag-roulette-impl.md.
  */
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import RouletteModeEditor from '../components/RouletteModeEditor.vue'
 import RoulettePickModal from '../components/RoulettePickModal.vue'
 import {
@@ -259,7 +259,11 @@ function lyricsLine(id: number): string | null {
         class="row"
         :class="{ sung: roulette.isSung(item.id), picked: roulette.isWheelUsed(item.id) }"
       >
-        <div class="row-copy">
+        <RouterLink
+          class="row-link"
+          :to="tagOpenTo(item.id)"
+          @click="roulette.markSung(item.id)"
+        >
           <span class="row-title">{{ item.title }}</span>
           <span v-if="subtitle(item)" class="row-alt">{{ subtitle(item) }}</span>
           <span class="row-meta">
@@ -276,8 +280,7 @@ function lyricsLine(id: number): string | null {
           <span v-if="lyricsLine(item.id)" class="row-lyrics" title="Lyrics">{{
             lyricsLine(item.id)
           }}</span>
-        </div>
-        <button type="button" class="btn btn-ghost open" @click="onOpen(item.id)">Open</button>
+        </RouterLink>
       </li>
     </ul>
 
@@ -458,14 +461,12 @@ function lyricsLine(id: number): string | null {
   gap: 0.45rem;
 }
 .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.65rem 0.75rem;
+  display: block;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+  overflow: hidden;
 }
 .row.sung {
   opacity: 0.55;
@@ -475,10 +476,21 @@ function lyricsLine(id: number): string | null {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   box-shadow: inset 3px 0 0 var(--accent);
 }
-.row-copy {
+.row-link {
   display: grid;
   gap: 0.15rem;
   min-width: 0;
+  padding: 0.65rem 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  min-height: var(--touch);
+}
+.row-link:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.row-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 .row-title {
   font-weight: 650;
@@ -529,8 +541,5 @@ function lyricsLine(id: number): string | null {
 }
 .btn-primary.pick {
   background: color-mix(in srgb, var(--accent) 88%, var(--surface));
-}
-.open {
-  flex-shrink: 0;
 }
 </style>
