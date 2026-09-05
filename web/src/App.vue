@@ -3,7 +3,7 @@
  * Root shell: primary navigation, offline ribbon, PWA install/update toasts,
  * global snackbar, and routed main content.
  */
-import { onMounted, onUnmounted, computed, ref, shallowRef, watch } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useFavoritesStore } from './stores/favorites'
@@ -25,6 +25,15 @@ import {
   dismissReconnectMediaPrompt,
 } from './composables/useReconnectCaches'
 import { useOfflineBanner } from './composables/useOfflineBanner'
+import {
+  startPwaInstallListeners,
+  stopPwaInstallListeners,
+  usePwaInstall,
+} from './composables/usePwaInstall'
+import {
+  armDeferredPwaUpdate,
+  restoreScrollAfterPwaReload,
+} from './lib/deferredPwaUpdate'
 import AboutDialog from './components/AboutDialog.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
@@ -84,11 +93,10 @@ const moreNavActive = computed(
     route.name === 'tx' ||
     route.name === 'rx' ||
     route.name === 'labs' ||
-    route.name === 'labs-roulette' ||
     route.name === 'labs-pitch-pipe-sound' ||
     route.name === 'library' ||
     route.name === 'library-doc' ||
-    (route.name === 'queue' && !desktopNav.value),
+    route.name === 'queue',
 )
 
 function openMore(): void {
@@ -111,60 +119,20 @@ function onBrowseNavClick(e: Event): void {
   goTagBack(router, route)
 }
 
-const { needRefresh, updateServiceWorker } = useRegisterSW({
+// Waiting SW applies silently when the session is idle (not playing / fullscreen).
+let updateServiceWorker: (reloadPage?: boolean) => Promise<void> = async () => {}
+;({ updateServiceWorker } = useRegisterSW({
   immediate: true,
-})
+  onNeedRefresh() {
+    armDeferredPwaUpdate((reload) => updateServiceWorker(reload))
+  },
+}))
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
-const INSTALL_DISMISSED_KEY = 'singtags.installPrompt.dismissed'
-const INSTALL_DONE_KEY = 'singtags.pwaInstalled'
-
-const installEvent = shallowRef<BeforeInstallPromptEvent | null>(null)
-const showInstall = ref(false)
-
-function isStandaloneDisplay(): boolean {
-  if (typeof window === 'undefined') return false
-  if (window.matchMedia('(display-mode: standalone)').matches) return true
-  if (window.matchMedia('(display-mode: fullscreen)').matches) return true
-  if (window.matchMedia('(display-mode: minimal-ui)').matches) return true
-  const nav = window.navigator as Navigator & { standalone?: boolean }
-  return nav.standalone === true
-}
-
-function shouldOfferInstall(): boolean {
-  if (isStandaloneDisplay()) return false
-  try {
-    if (localStorage.getItem(INSTALL_DONE_KEY) === '1') return false
-    if (localStorage.getItem(INSTALL_DISMISSED_KEY) === '1') return false
-  } catch {
-    /* ignore */
-  }
-  return true
-}
-
-function markInstallDone(): void {
-  try {
-    localStorage.setItem(INSTALL_DONE_KEY, '1')
-  } catch {
-    /* ignore */
-  }
-  showInstall.value = false
-  installEvent.value = null
-}
-
-function onBeforeInstall(e: Event): void {
-  e.preventDefault()
-  installEvent.value = e as BeforeInstallPromptEvent
-  if (shouldOfferInstall()) showInstall.value = true
-}
-
-function onAppInstalled(): void {
-  markInstallDone()
-}
+const {
+  showInstallToast: showInstall,
+  promptInstall,
+  dismissInstallToast,
+} = usePwaInstall()
 
 const topEl = ref<HTMLElement | null>(null)
 let headerResizeObserver: ResizeObserver | null = null
@@ -190,9 +158,8 @@ function blurTextFieldOnOutsidePointer(e: PointerEvent): void {
 onMounted(() => {
   void favorites.ensureLoaded()
   void offlineLib.loadManifests()
-  if (isStandaloneDisplay()) markInstallDone()
-  window.addEventListener('beforeinstallprompt', onBeforeInstall)
-  window.addEventListener('appinstalled', onAppInstalled)
+  startPwaInstallListeners()
+  restoreScrollAfterPwaReload()
   document.addEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   publishHeaderHeight()
   if (typeof ResizeObserver !== 'undefined' && topEl.value) {
@@ -207,8 +174,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('beforeinstallprompt', onBeforeInstall)
-  window.removeEventListener('appinstalled', onAppInstalled)
+  stopPwaInstallListeners()
   document.removeEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   headerResizeObserver?.disconnect()
   headerResizeObserver = null
@@ -216,56 +182,12 @@ onUnmounted(() => {
   desktopNavMq = null
 })
 
-function dismissUpdate(): void {
-  needRefresh.value = false
-}
-
-/**
- * Activate the waiting service worker, then always reload.
- * vite-plugin-pwa's updateServiceWorker(true) sometimes resolves without navigating
- * (especially when `controlling` fires with `isUpdate === false` on the same tab that
- * first registered the SW) — leaving the toast stuck under sticky hover/focus.
- */
-async function applyUpdate(ev?: Event): Promise<void> {
-  if (ev?.currentTarget instanceof HTMLElement) ev.currentTarget.blur()
-  needRefresh.value = false
-
-  let reloaded = false
-  const reloadOnce = () => {
-    if (reloaded) return
-    reloaded = true
-    window.location.reload()
-  }
-  const fallback = window.setTimeout(reloadOnce, 900)
-  try {
-    await updateServiceWorker(true)
-  } catch {
-    /* ignore — hard reload below */
-  }
-  window.clearTimeout(fallback)
-  reloadOnce()
-}
-
 async function installApp(): Promise<void> {
-  const ev = installEvent.value
-  if (!ev) return
-  await ev.prompt()
-  const choice = await ev.userChoice
-  if (choice.outcome === 'accepted') {
-    markInstallDone()
-    return
-  }
-  showInstall.value = false
-  installEvent.value = null
+  await promptInstall()
 }
 
 function dismissInstall(): void {
-  try {
-    localStorage.setItem(INSTALL_DISMISSED_KEY, '1')
-  } catch {
-    /* ignore */
-  }
-  showInstall.value = false
+  dismissInstallToast()
 }
 
 /** User hid the pack download progress snack; download keeps running. */
@@ -433,10 +355,11 @@ async function acceptReconnectPrompt(): Promise<void> {
         <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
         <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
         <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
-        <RouterLink class="btn btn-ghost topnav-downloads" to="/queue">
-          Downloads
-          <span v-if="queue.count" class="n">{{ queue.count }}</span>
-        </RouterLink>
+        <RouterLink
+          v-if="prefs.tagRouletteEnabled"
+          class="btn btn-ghost"
+          to="/labs/roulette"
+        >Roulette</RouterLink>
         <button
           type="button"
           class="btn btn-ghost more-btn"
@@ -448,6 +371,7 @@ async function acceptReconnectPrompt(): Promise<void> {
           @click="openMore"
         >
           <span class="more-icon" aria-hidden="true">☰</span>
+          <span v-if="queue.count" class="n">{{ queue.count }}</span>
         </button>
       </nav>
     </header>
@@ -481,7 +405,11 @@ async function acceptReconnectPrompt(): Promise<void> {
     <main id="main">
       <RouterView />
     </main>
-    <nav class="bottom" aria-label="Mobile">
+    <nav
+      class="bottom"
+      :class="{ 'bottom-with-roulette': prefs.tagRouletteEnabled }"
+      aria-label="Mobile"
+    >
       <RouterLink to="/" class="tab" @click="onBrowseNavClick">
         <span class="ico" aria-hidden="true">⌕</span>
         Browse
@@ -498,6 +426,10 @@ async function acceptReconnectPrompt(): Promise<void> {
         <span class="ico" aria-hidden="true">♪</span>
         Pitch Pipe
       </RouterLink>
+      <RouterLink v-if="prefs.tagRouletteEnabled" to="/labs/roulette" class="tab">
+        <span class="ico" aria-hidden="true">◎</span>
+        Roulette
+      </RouterLink>
       <button
         type="button"
         class="tab more-tab"
@@ -512,13 +444,8 @@ async function acceptReconnectPrompt(): Promise<void> {
         <span v-if="queue.count" class="n tab-n">{{ queue.count }}</span>
       </button>
     </nav>
-    <div v-if="needRefresh" class="toast" role="status">
-      <span>Update available</span>
-      <button type="button" class="btn btn-primary" @click="applyUpdate($event)">Reload</button>
-      <button type="button" class="btn btn-ghost" @click="dismissUpdate">Later</button>
-    </div>
     <div
-      v-else-if="reconnectMediaPromptVisible && reconnectMediaPlan && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      v-if="reconnectMediaPromptVisible && reconnectMediaPlan && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
     >
@@ -594,7 +521,6 @@ async function acceptReconnectPrompt(): Promise<void> {
       class="toast toast-wide toast-progress"
       :class="{
         'toast-snack-raised':
-          needRefresh ||
           reconnectMediaPromptVisible ||
           offlineLib.showPackSyncPrompt ||
           offlineLib.showSheetsPrompt ||
@@ -681,7 +607,6 @@ async function acceptReconnectPrompt(): Promise<void> {
         {
           'toast-has-title': snackbar.title,
           'toast-snack-raised':
-            needRefresh ||
             reconnectMediaPromptVisible ||
             offlineLib.showPackSyncPrompt ||
             offlineLib.showSheetsPrompt ||
@@ -1007,6 +932,10 @@ async function acceptReconnectPrompt(): Promise<void> {
   color: var(--accent);
 }
 .more-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   padding: 0.35rem 0.55rem;
 }
 .more-icon {
@@ -1055,6 +984,12 @@ main {
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(10px);
+}
+.bottom-with-roulette {
+  grid-template-columns: repeat(6, 1fr);
+}
+.bottom-with-roulette .tab {
+  font-size: 0.62rem;
 }
 .tab {
   position: relative;

@@ -358,7 +358,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const localLibraryEnabled = ref(loadBool(LOCAL_LIBRARY_ENABLED_KEY, false))
   /**
-   * Labs: when true, Tag Roulette is available from More → Tag Roulette.
+   * Labs: when true, Tag Roulette is available from the main nav → Roulette.
    */
   const tagRouletteEnabled = ref(loadBool(TAG_ROULETTE_ENABLED_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */

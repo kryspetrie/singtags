@@ -47,7 +47,7 @@ export function buildTagDetailRows(d: TagDetail): TagDetailRow[] {
   if (d.rating != null) {
     let rating = `★ ${d.rating.toFixed(2)}`
     if (d.rating_count != null) rating += ` (${d.rating_count})`
-    rows.push({ label: 'Rating', value: rating })
+    rows.push({ label: 'Community rating', value: rating })
   }
   if (d.download_count != null) rows.push({ label: 'Downloads', value: String(d.download_count) })
 

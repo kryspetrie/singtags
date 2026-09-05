@@ -1,15 +1,17 @@
 <script setup lang="ts">
 /**
- * First-visit browse welcome: optional background download of sheets and lo-fi audio packs.
+ * First-visit browse welcome: install PWA tip + optional background pack downloads.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOnline } from '../composables/useOnline'
+import { usePwaInstall } from '../composables/usePwaInstall'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 import OfflineOpticalTransferPrompt from './OfflineOpticalTransferPrompt.vue'
 import { usePreferencesStore } from '../stores/preferences'
+import { useSnackbarStore } from '../stores/snackbar'
 
 const props = defineProps<{
   /** First-run splash visibility. */
@@ -24,7 +26,9 @@ const emit = defineEmits<{
 
 const offlineLib = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
+const snackbar = useSnackbarStore()
 const { offline } = useOnline()
+const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
 
 const sheetsReady = computed(
   () => offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0,
@@ -67,6 +71,26 @@ const continueLabel = computed(() => {
   return 'Continue'
 })
 
+const installBusy = ref(false)
+
+async function onInstall(): Promise<void> {
+  if (installBusy.value) return
+  installBusy.value = true
+  try {
+    const outcome = await promptInstall()
+    if (outcome === 'unavailable') {
+      snackbar.show(fallbackMessage(), {
+        title: 'Install SingTags',
+        tone: 'ok',
+        ms: 6000,
+        placement: 'center',
+      })
+    }
+  } finally {
+    installBusy.value = false
+  }
+}
+
 function onContinue(): void {
   emit('continue', {
     cacheSheets: cacheSheetsNow.value && !sheetsReady.value && !offline.value,
@@ -99,6 +123,27 @@ function onContinue(): void {
             >
             tag library, refreshed <strong>weekly</strong> from the official site. Search and sing
             here; for ratings, comments, and the newest uploads, use barbershoptags.com.
+          </p>
+
+          <div v-if="showInstallEntry" class="install-card">
+            <p class="install-title">Install the app first</p>
+            <p class="install-copy">
+              Add SingTags to your home screen
+              <strong>before</strong> downloading offline caches. On some phones, a large download
+              started in the browser may not follow you into the installed app.
+            </p>
+            <button
+              type="button"
+              class="btn btn-accent"
+              :disabled="installBusy"
+              :aria-busy="installBusy"
+              @click="onInstall"
+            >
+              {{ canPrompt ? 'Install SingTags' : 'How to install' }}
+            </button>
+          </div>
+          <p v-else class="install-done muted-note" role="status">
+            Running as the installed app — offline caches stay with SingTags.
           </p>
 
           <label
@@ -232,6 +277,55 @@ function onContinue(): void {
 }
 .body p {
   margin: 0;
+}
+.install-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+.install-title {
+  margin: 0;
+  font-weight: 750;
+  font-size: 1rem;
+  color: var(--accent-hover);
+}
+.install-copy {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+.btn-accent {
+  justify-self: start;
+  margin-top: 0.15rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.55rem 0.95rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.btn-accent:hover {
+  background: var(--accent-hover);
+}
+.btn-accent:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.btn-accent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.install-done {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent-hover);
 }
 .toggle-row {
   display: grid;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   allocateQuotas,
+  buildRouletteSpinStrip,
   curveWeight,
   dealFromMode,
   drawUniformUnique,
@@ -14,6 +15,7 @@ import {
   rouletteEligibleTags,
   seedRouletteModes,
   sliceEligible,
+  visibleRouletteReelRows,
   weightsForSlice,
   type RouletteMode,
 } from './rouletteDraw'
@@ -224,6 +226,52 @@ describe('rouletteDraw', () => {
   it('pickWheelWinner skips used ids', () => {
     expect(pickWheelWinner([1, 2, 3], [1, 2, 3])).toBeNull()
     expect(pickWheelWinner([1, 2, 3], [1, 2], () => 0)).toBe(3)
+  })
+
+  it('visibleRouletteReelRows stays odd and ≤ pool size', () => {
+    expect(visibleRouletteReelRows(1)).toBe(1)
+    expect(visibleRouletteReelRows(2)).toBe(1)
+    expect(visibleRouletteReelRows(3)).toBe(3)
+    expect(visibleRouletteReelRows(4)).toBe(3)
+    expect(visibleRouletteReelRows(5)).toBe(5)
+    expect(visibleRouletteReelRows(10)).toBe(5)
+  })
+
+  it('buildRouletteSpinStrip landing window has no duplicate titles', () => {
+    const pool = [
+      { id: 1, title: 'Alpha' },
+      { id: 2, title: 'Bravo' },
+      { id: 3, title: 'Charlie' },
+      { id: 4, title: 'Delta' },
+      { id: 5, title: 'Echo' },
+    ]
+    for (const winnerId of [1, 3, 5]) {
+      const visible = visibleRouletteReelRows(pool.length)
+      const center = Math.floor(visible / 2)
+      const { labels, finalIndex } = buildRouletteSpinStrip(pool, winnerId, visible, center)
+      expect(labels[finalIndex]).toBe(pool.find((p) => p.id === winnerId)!.title)
+      const window = labels.slice(finalIndex - center, finalIndex - center + visible)
+      expect(window).toHaveLength(visible)
+      expect(new Set(window).size).toBe(visible)
+    }
+  })
+
+  it('buildRouletteSpinStrip keeps every visible window unique', () => {
+    const pool = [
+      { id: 1, title: 'A' },
+      { id: 2, title: 'B' },
+      { id: 3, title: 'C' },
+      { id: 4, title: 'D' },
+      { id: 5, title: 'E' },
+    ]
+    const visible = 5
+    const center = 2
+    const { labels, finalIndex } = buildRouletteSpinStrip(pool, 1, visible, center)
+    expect(finalIndex).toBeGreaterThanOrEqual(center)
+    for (let i = 0; i <= labels.length - visible; i++) {
+      const window = labels.slice(i, i + visible)
+      expect(new Set(window).size).toBe(visible)
+    }
   })
 })
 

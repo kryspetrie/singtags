@@ -4,7 +4,9 @@
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
+import { useSnackbarStore } from '../stores/snackbar'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 
@@ -18,6 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
+const snackbar = useSnackbarStore()
+const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
 
 /** `about` main panel, or nested `details` (offline / install) with back. */
 type Panel = 'about' | 'details'
@@ -67,6 +71,19 @@ function close(): void {
   panel.value = 'about'
   emit('close')
 }
+
+async function onInstall(): Promise<void> {
+  const outcome = await promptInstall()
+  if (outcome === 'unavailable') {
+    snackbar.show(fallbackMessage(), {
+      title: 'Install SingTags',
+      tone: 'ok',
+      ms: 6000,
+      placement: 'center',
+    })
+  }
+  close()
+}
 </script>
 
 <template>
@@ -93,8 +110,8 @@ function close(): void {
               <a href="https://www.barbershoptags.com/" target="_blank" rel="noopener noreferrer"
                 >barbershoptags.com</a
               >
-              tag library. Catalog data syncs <strong>weekly</strong> from barbershoptags.com as the
-              source of truth. Outside that sync, SingTags does
+              tag library. Catalog data syncs <strong>weekly</strong> (Coming Soon…) from
+              barbershoptags.com as the source of truth. Outside that sync, SingTags does
               <strong>not</strong> call barbershoptags.com — download counts and ratings here are
               read-only snapshots.
             </p>
@@ -118,6 +135,14 @@ function close(): void {
 
           <footer class="actions">
             <button type="button" class="btn btn-primary" @click="close">Close</button>
+            <button
+              v-if="showInstallEntry"
+              type="button"
+              class="btn"
+              @click="onInstall"
+            >
+              {{ canPrompt ? 'Install' : 'How to install' }}
+            </button>
             <a class="btn" href="mailto:info@singtags.com">Email Krys</a>
           </footer>
         </template>
@@ -209,6 +234,14 @@ function close(): void {
 
           <footer class="actions">
             <button type="button" class="btn btn-primary" @click="close">Close</button>
+            <button
+              v-if="showInstallEntry"
+              type="button"
+              class="btn"
+              @click="onInstall"
+            >
+              {{ canPrompt ? 'Install' : 'How to install' }}
+            </button>
             <RouterLink class="btn btn-ghost" to="/settings" @click="close">
               Offline settings
             </RouterLink>

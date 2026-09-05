@@ -23,12 +23,23 @@ import {
 /** Sort modes exposed in the browse UI (classic booklet order removed — obscure). */
 export type BrowseSortMode =
   | 'rating'
+  | 'myRating'
   | 'title'
   | 'year'
   | 'downloads'
   | 'id'
   | 'collection'
 
+/** Optional inputs for sorts that need client-only data (My Rating). */
+export type BrowseSortOptions = {
+  /** User's My Rating stars for a tag id, or null if unrated. */
+  myStars?: (tagId: number) => number | null
+}
+
+function myStarsFor(tagId: number, opts?: BrowseSortOptions): number {
+  const n = opts?.myStars?.(tagId)
+  return typeof n === 'number' && n >= 1 && n <= 5 ? n : 0
+}
 /** Last token of a personal name, ignoring trailing Jr/Sr/III. */
 export function arrangerLastName(name: string | null | undefined): string {
   if (!name?.trim()) return ''
@@ -146,7 +157,11 @@ export function tagIdLoupeTickStep(widthPx: number): 25 | 50 | 100 {
 
 
 /** Section key for a tag under the current browse sort mode. */
-export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
+export function sectionKeyFor(
+  tag: TagSummary,
+  mode: BrowseSortMode,
+  opts?: BrowseSortOptions,
+): string {
   switch (mode) {
     case 'title':
       return titleSortLetter(tag.title)
@@ -157,6 +172,10 @@ export function sectionKeyFor(tag: TagSummary, mode: BrowseSortMode): string {
     case 'collection': {
       const info = collectionInfo(tag.collection)
       return info?.label ?? 'Other'
+    }
+    case 'myRating': {
+      const stars = myStarsFor(tag.id, opts)
+      return stars > 0 ? `${stars}★` : 'Unrated'
     }
     case 'rating':
     case 'downloads':
@@ -236,7 +255,7 @@ export type UserCollectionBrowse = {
 
 /** Modes that show an A–Z / collection jump rail (chip buttons). */
 export function hasJumpRail(mode: BrowseSortMode): boolean {
-  return mode === 'title' || mode === 'collection'
+  return mode === 'title' || mode === 'collection' || mode === 'myRating'
 }
 
 /** Modes that show the density scrub rail (dock magnification). */
@@ -246,7 +265,7 @@ export function hasScrubRail(mode: BrowseSortMode): boolean {
 
 /** Modes that insert section headers while walking the sorted list. */
 export function hasSectionHeaders(mode: BrowseSortMode): boolean {
-  return mode === 'title' || mode === 'year' || mode === 'collection'
+  return mode === 'title' || mode === 'year' || mode === 'collection' || mode === 'myRating'
 }
 
 /** Sort tags for browse (optionally reversed); stable tie-breakers per mode. */
@@ -254,6 +273,7 @@ export function sortBrowseTags(
   tags: TagSummary[],
   mode: BrowseSortMode,
   reverse = false,
+  opts?: BrowseSortOptions,
 ): TagSummary[] {
   const copy = [...tags]
   const cmpStr = (a: string | null | undefined, b: string | null | undefined) =>
@@ -265,6 +285,14 @@ export function sortBrowseTags(
       break
     case 'rating':
       sorted = copy.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || cmpStr(a.title, b.title))
+      break
+    case 'myRating':
+      sorted = copy.sort(
+        (a, b) =>
+          myStarsFor(b.id, opts) - myStarsFor(a.id, opts) ||
+          cmpStr(a.title, b.title) ||
+          a.id - b.id,
+      )
       break
     case 'downloads':
       sorted = copy.sort(
@@ -404,8 +432,12 @@ export function buildBrowseRows(
     activeUserCollectionFilters?: string[]
     /** One collection chip/section filter — flat tag list, no section headers. */
     singleCollectionFilter?: string
+    myStars?: BrowseSortOptions['myStars']
   },
 ): { rows: BrowseRow[]; jumpKeys: string[] } {
+  const sortOpts: BrowseSortOptions | undefined = options?.myStars
+    ? { myStars: options.myStars }
+    : undefined
   if (mode === 'collection' && options?.singleCollectionFilter) {
     return {
       rows: sorted.slice(0, limit).map((tag, index) => ({ type: 'tag' as const, tag, index })),
@@ -425,7 +457,7 @@ export function buildBrowseRows(
   const jumpKeys: string[] = []
   const seen = new Set<string>()
   for (const t of sorted) {
-    const k = sectionKeyFor(t, mode)
+    const k = sectionKeyFor(t, mode, sortOpts)
     if (!seen.has(k)) {
       seen.add(k)
       jumpKeys.push(k)
@@ -443,7 +475,7 @@ export function buildBrowseRows(
   for (let index = 0; index < sorted.length; index++) {
     if (shown >= limit) break
     const tag = sorted[index]!
-    const key = sectionKeyFor(tag, mode)
+    const key = sectionKeyFor(tag, mode, sortOpts)
     if (key !== last) {
       rows.push({ type: 'section', key, label: sectionLabel(key, mode) })
       last = key
@@ -456,8 +488,13 @@ export function buildBrowseRows(
 
 /** Index of first tag in `sorted` belonging to section key. */
 /** Jump-rail index of the first tag in `sorted` with the given section key. */
-export function indexOfSection(sorted: TagSummary[], mode: BrowseSortMode, key: string): number {
-  return sorted.findIndex((t) => sectionKeyFor(t, mode) === key)
+export function indexOfSection(
+  sorted: TagSummary[],
+  mode: BrowseSortMode,
+  key: string,
+  opts?: BrowseSortOptions,
+): number {
+  return sorted.findIndex((t) => sectionKeyFor(t, mode, opts) === key)
 }
 
 /** Parse bare `123` as a tag id when the whole query is just digits. */

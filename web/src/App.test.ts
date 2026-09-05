@@ -11,10 +11,13 @@ import { useFavoritesStore } from './stores/favorites'
 import { useQueueStore } from './stores/queue'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
 import { useCatalogStore } from './stores/catalog'
+import { usePreferencesStore } from './stores/preferences'
+import { resetPwaInstallStateForTests } from './composables/usePwaInstall'
 
 describe('App shell', () => {
   beforeEach(() => {
     localStorage.clear()
+    resetPwaInstallStateForTests()
     setActivePinia(createPinia())
   })
 
@@ -23,6 +26,7 @@ describe('App shell', () => {
     setActivePinia(pinia)
     const favorites = useFavoritesStore()
     vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
     favorites.$patch({ records: [{ tagId: 1 } as never], loaded: true })
     useQueueStore().add({ tagId: 1, title: 'T', part: 'lead', path: 'x' })
 
@@ -36,6 +40,9 @@ describe('App shell', () => {
         { path: '/pitch-pipe', component: { template: '<div />' } },
         { path: '/queue', name: 'queue', component: { template: '<div />' } },
         { path: '/settings', name: 'settings', component: { template: '<div />' } },
+        { path: '/tx', name: 'tx', component: { template: '<div />' } },
+        { path: '/rx', name: 'rx', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
       ],
     })
     await router.push('/')
@@ -52,9 +59,34 @@ describe('App shell', () => {
     w.unmount()
   })
 
+  it('promotes Roulette into primary nav when Labs flag is on', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
+    usePreferencesStore().setTagRouletteEnabled(true)
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/labs/roulette', name: 'labs-roulette', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+
+    expect(w.find('.topnav a[href="/labs/roulette"]').exists()).toBe(true)
+    expect(w.find('.bottom a[href="/labs/roulette"]').exists()).toBe(true)
+    expect(w.find('.bottom-with-roulette').exists()).toBe(true)
+    w.unmount()
+  })
+
   it('shows install toast on beforeinstallprompt', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
     vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
     vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
     vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
@@ -85,6 +117,7 @@ describe('App shell', () => {
   it('hides install toast when appinstalled fires after Chrome title-bar install', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
     vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
     vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
     vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
@@ -114,8 +147,10 @@ describe('App shell', () => {
 
   it('does not show install toast after prior install', async () => {
     localStorage.setItem('singtags.pwaInstalled', '1')
+    resetPwaInstallStateForTests()
     const pinia = createPinia()
     setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
     vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
     vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
     vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
@@ -179,6 +214,10 @@ describe('App shell', () => {
       routes: [
         { path: '/', component: { template: '<div />' } },
         { path: '/settings', component: { template: '<div />' } },
+        { path: '/tx', name: 'tx', component: { template: '<div />' } },
+        { path: '/rx', name: 'rx', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
       ],
     })
     await router.push('/')
@@ -239,7 +278,14 @@ describe('App shell', () => {
 
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/', component: { template: '<div />' } }],
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/tx', name: 'tx', component: { template: '<div />' } },
+        { path: '/rx', name: 'rx', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
+        { path: '/settings', name: 'settings', component: { template: '<div />' } },
+      ],
     })
     await router.push('/')
     const w = mount(App, { global: { plugins: [pinia, router] } })

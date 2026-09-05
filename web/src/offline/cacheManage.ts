@@ -241,6 +241,7 @@ export async function clearAllOfflineData(): Promise<void> {
   try {
     localStorage.removeItem('singtags.userCollections.v1')
     localStorage.removeItem('singtags.practiceOrder.v1')
+    localStorage.removeItem('singtags.myRatings.v1')
   } catch {
     /* ignore */
   }

@@ -30,6 +30,7 @@ import { shouldResetPlayheadOnPartSwitch } from '../lib/partSwitchPlayhead'
 import type { AudioTransform } from '../types/audio'
 import { mediaUrl } from '../lib/mediaUrl'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
+import { setSessionBusy } from '../lib/sessionActivity'
 import { usePreferencesStore, type PartSide } from '../stores/preferences'
 import WaveformView from './WaveformView.vue'
 
@@ -247,6 +248,14 @@ const paused = computed(() => {
   void tick.value
   return player.paused
 })
+
+watch(
+  paused,
+  (p) => {
+    setSessionBusy('tag-audio', !p)
+  },
+  { immediate: true },
+)
 
 const balanceLabel = computed(() => {
   const b = balance.value
@@ -549,6 +558,8 @@ onUnmounted(() => {
   window.removeEventListener('popstate', onPopState)
   setScrollLock(false)
   setShellInert(false)
+  setSessionBusy('tracks-fullscreen', false)
+  setSessionBusy('tag-audio', false)
   loadAbort?.abort()
   revokeMixUrl()
   player.setEndedListener(null)
@@ -607,6 +618,7 @@ onMounted(() => {
 
 async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
   fullscreen.value = on
+  setSessionBusy('tracks-fullscreen', on)
   if (on) {
     setShellInert(true)
     if (!opts?.fromPopState) overlayHistory.push()

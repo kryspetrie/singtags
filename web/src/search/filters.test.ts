@@ -43,6 +43,7 @@ describe('filter URL round-trip', () => {
       fullText: true,
       hasAudio: true,
       cached: 'both' as const,
+      rated: true as const,
       yearMin: 2000,
       yearMax: 2010,
       arrangers: ['A'],
@@ -52,16 +53,18 @@ describe('filter URL round-trip', () => {
     expect(route.ymin).toBe('2000')
     expect(route.ymax).toBe('2010')
     expect(route.cache).toBe('both')
+    expect(route.rated).toBe('1')
     expect(route.key).toBeUndefined()
     const back = filtersFromRouteQuery(route as Record<string, unknown>)
     expect(back.fullText).toBe(true)
     expect(back.hasAudio).toBe(true)
     expect(back.cached).toBe('both')
+    expect(back.rated).toBe(true)
     expect(back.yearMin).toBe(2000)
     expect(back.yearMax).toBe(2010)
     expect(back.arrangers).toEqual(['A'])
     // fullText is not counted as a chip filter
-    expect(activeFilterCount(f)).toBe(4)
+    expect(activeFilterCount(f)).toBe(5)
   })
 
   it('ignores invalid cached route filters', () => {

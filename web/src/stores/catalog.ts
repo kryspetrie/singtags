@@ -44,6 +44,7 @@ import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
 import { useOfflineLibraryStore } from './offlineLibrary'
 import { useOfflineModeStore } from './offlineMode'
 import { useUserCollectionsStore } from './userCollections'
+import { useRatingsStore } from './ratings'
 import {
   filterTagsByCollectionOptions,
   isUserCollectionFilterId,
@@ -63,7 +64,7 @@ export const SEARCH_DEBOUNCE_MS = 320
 export const RESULTS_PAGE_SIZE = 480
 
 /** Sort modes that only make sense on a narrowed result set. */
-const SCOPED_SORTS = new Set<SortMode>(['rating', 'downloads'])
+const SCOPED_SORTS = new Set<SortMode>(['rating', 'downloads', 'myRating'])
 
 /** Default when browsing the full catalog (or after leaving a scoped sort). */
 export const DEFAULT_BROWSE_SORT: SortMode = 'collection'
@@ -319,11 +320,30 @@ export const useCatalogStore = defineStore('catalog', () => {
     cacheReadyByTag.value = map
   }
 
+  function browseSortOpts() {
+    const ratings = useRatingsStore()
+    void ratings.revision
+    return {
+      myStars: (tagId: number) => ratings.starsFor(tagId),
+    }
+  }
+
   function filterByCachedReadiness(list: TagSummary[]): TagSummary[] {
     if (filters.value.cached == null) return list
     return list.filter((tag) =>
       matchesOfflineBrowseFilters(cacheReadyByTag.value.get(tag.id), filters.value),
     )
+  }
+
+  function filterByMyRating(list: TagSummary[]): TagSummary[] {
+    if (filters.value.rated !== true) return list
+    const ratings = useRatingsStore()
+    void ratings.revision
+    return list.filter((tag) => ratings.has(tag.id))
+  }
+
+  function applyClientFilters(list: TagSummary[]): TagSummary[] {
+    return filterByMyRating(filterByCachedReadiness(list))
   }
 
   /** Full filtered/sorted result set (virtualizer uses entire list). */
@@ -334,38 +354,43 @@ export const useCatalogStore = defineStore('catalog', () => {
     void lyricsLoaded.value
     void lyricsById.value.size
     void lyricsEpoch.value
+    // Re-run when My Ratings change (Rated chip).
+    void useRatingsStore().revision
+    const sortOpts = browseSortOpts()
     // `n123` → site Tag # only (exact; never prefix / fall through to FTS)
     const tagNum = parseTagNumberQuery(debouncedQuery.value)
     if (tagNum != null) {
       const hit = tags.value.find((t) => t.id === tagNum)
-      return filterByCachedReadiness(hit ? [hit] : [])
+      return applyClientFilters(hit ? [hit] : [])
     }
     // `c99` / `classic:99` → Classic booklet number only (exact)
     const classicNum = parseClassicNumberQuery(debouncedQuery.value)
     if (classicNum != null) {
-      return filterByCachedReadiness(sortBrowseTags(
+      return applyClientFilters(sortBrowseTags(
         tags.value.filter(
           (t) => isClassicCollection(t.collection) && Number(t.classic) === classicNum,
         ),
         sortMode.value,
         sortReverse.value,
+        sortOpts,
       ))
     }
     // `p12` / `100days:12` → 100 Days booklet number (exact)
     const daysNum = parse100DaysNumberQuery(debouncedQuery.value)
     if (daysNum != null) {
-      return filterByCachedReadiness(sortBrowseTags(
+      return applyClientFilters(sortBrowseTags(
         tags.value.filter(
           (t) => is100DaysCollection(t.collection) && Number(t.classic) === daysNum,
         ),
         sortMode.value,
         sortReverse.value,
+        sortOpts,
       ))
     }
     // Bare `3558` → exact Tag # and/or Classic booklet # only (not 100 Days)
     const bareNum = parseExactTagIdQuery(debouncedQuery.value)
     if (bareNum != null) {
-      return filterByCachedReadiness(sortBrowseTags(
+      return applyClientFilters(sortBrowseTags(
         tags.value.filter(
           (t) =>
             t.id === bareNum ||
@@ -373,6 +398,7 @@ export const useCatalogStore = defineStore('catalog', () => {
         ),
         sortMode.value,
         sortReverse.value,
+        sortOpts,
       ))
     }
     const userCols = useUserCollectionsStore()
@@ -384,11 +410,11 @@ export const useCatalogStore = defineStore('catalog', () => {
       engineFilters = { ...engineFilters, hasSheet: null, hasAudio: null }
     }
     const q = buildSearchQuery(debouncedQuery.value, engineFilters)
-    let found = sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value)
+    let found = sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value, sortOpts)
     if (hasUserCol) {
       found = filterTagsByCollectionOptions(found, colFilters, userCols.collections)
     }
-    return filterByCachedReadiness(found)
+    return applyClientFilters(found)
   })
 
   /** Alias of `allResults` (legacy name for paged browse). */
@@ -415,6 +441,7 @@ export const useCatalogStore = defineStore('catalog', () => {
           ? activeUserCollectionFilters
           : undefined,
       singleCollectionFilter,
+      ...browseSortOpts(),
     })
   })
   /** Count of active filter chips (excludes free-text, handled separately). */
@@ -489,7 +516,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       }
       return -1
     }
-    return indexOfSection(allResults.value, sortMode.value, sectionKey)
+    return indexOfSection(allResults.value, sortMode.value, sectionKey, browseSortOpts())
   }
 
   /** Tag index for scrub/jump (list is fully available to the virtualizer). */
@@ -515,6 +542,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
     const allowed: SortMode[] = [
       'rating',
+      'myRating',
       'title',
       'year',
       'downloads',

@@ -377,6 +377,7 @@ function onResultKey(e: KeyboardEvent, id: number): void {
 
 const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'rating', label: 'Rating' },
+  { id: 'myRating', label: 'My Rating' },
   { id: 'title', label: 'Title' },
   { id: 'year', label: 'Year' },
   { id: 'downloads', label: 'Downloads' },
@@ -384,8 +385,8 @@ const sorts: Array<{ id: SortMode; label: string }> = [
   { id: 'collection', label: 'Collection' },
 ]
 
-/** Rating/Downloads only when the catalog is narrowed by search or filters. */
-const scopedSortIds = new Set<SortMode>(['rating', 'downloads'])
+/** Rating / Downloads / My Rating only when the catalog is narrowed by search or filters. */
+const scopedSortIds = new Set<SortMode>(['rating', 'downloads', 'myRating'])
 
 const hasSearchOrFilter = computed(
   () => catalog.queryText.trim().length > 0 || catalog.filterCount > 0,
@@ -440,7 +441,8 @@ function rowOpenTip(tag: TagSummary): string {
 
 function sortOptionTip(id: SortMode): string {
   const tips: Record<SortMode, string> = {
-    rating: 'Group and order by highest rating first',
+    rating: 'Group and order by highest community rating first',
+    myRating: 'Group by your My Rating (5★ → 1★), then title',
     title: 'Group and order alphabetically by title',
     year: 'Group and order by newest year first',
     downloads: 'Group and order by most downloads first',

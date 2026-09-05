@@ -26,6 +26,7 @@ import SheetViewer from '../components/SheetViewer.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import PitchControls from '../components/PitchControls.vue'
 import TagDownloads from '../components/TagDownloads.vue'
+import TagMyRating from '../components/TagMyRating.vue'
 import TagPageTitle from '../components/TagPageTitle.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
@@ -661,6 +662,7 @@ async function onRetryLoad(): Promise<void> {
         </span>
       </nav>
       <div class="toprow-end">
+        <TagMyRating :tag-id="detail.tag_id" />
         <button
           type="button"
           class="fav"

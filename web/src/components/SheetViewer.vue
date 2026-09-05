@@ -33,6 +33,7 @@ import {
 import { KEY_SHIFT_LABEL_SIZE_SAMPLE } from '../audio/pitchPlayer'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
+import { setSessionBusy } from '../lib/sessionActivity'
 import { usePreferencesStore, type SheetFsPageMode } from '../stores/preferences'
 
 export type SheetDisplayMode = 'images' | 'pdf'
@@ -941,6 +942,7 @@ function detachFsViewportListeners(): void {
 
 async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
   fullscreen.value = on
+  setSessionBusy('sheet-fullscreen', on)
   pointers.clear()
   dragging = false
   pinchStartDist = 0
@@ -1446,6 +1448,7 @@ onUnmounted(() => {
   sheetEl.value?.removeEventListener('wheel', onWheel)
   setScrollLock(false)
   setShellInert(false)
+  setSessionBusy('sheet-fullscreen', false)
   void releaseWakeLock('sheet')
   loadAbort?.abort()
   clearUpgradeLayer(true)

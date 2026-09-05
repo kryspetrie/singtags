@@ -4,6 +4,7 @@
  */
 import { RouterLink } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
+import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
 import { useQueueStore } from '../stores/queue'
@@ -21,12 +22,26 @@ const prefs = usePreferencesStore()
 const offlineMode = useOfflineModeStore()
 const queue = useQueueStore()
 const snackbar = useSnackbarStore()
+const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
 
 function close(): void {
   emit('close')
 }
 
 function onNavClick(): void {
+  close()
+}
+
+async function onInstallApp(): Promise<void> {
+  const outcome = await promptInstall()
+  if (outcome === 'unavailable') {
+    snackbar.show(fallbackMessage(), {
+      title: 'Install SingTags',
+      tone: 'ok',
+      ms: 6000,
+      placement: 'center',
+    })
+  }
   close()
 }
 
@@ -73,6 +88,20 @@ function toggleOfflineMode(): void {
 <template>
   <FilterSheet :open="open" title="More" elevated hide-title fit-content @close="close">
     <nav class="menu" aria-label="More">
+      <button
+        v-if="showInstallEntry"
+        type="button"
+        class="menu-item menu-item-install"
+        @click="onInstallApp"
+      >
+        <span class="menu-label">Install App</span>
+        <span class="menu-desc">{{
+          canPrompt
+            ? 'Add SingTags to your home screen'
+            : 'Add SingTags from your browser menu'
+        }}</span>
+      </button>
+
       <label
         class="setting-row setting-sing"
         :class="{ on: prefs.singMode }"
@@ -135,16 +164,11 @@ function toggleOfflineMode(): void {
       </RouterLink>
 
       <RouterLink
-        v-if="prefs.tagRouletteEnabled"
+        v-if="prefs.opticalTransferEnabled"
         class="menu-item"
-        to="/labs/roulette"
+        to="/tx"
         @click="onNavClick"
       >
-        <span class="menu-label">Tag Roulette</span>
-        <span class="menu-desc">Deal random tag batches with custom distribution modes</span>
-      </RouterLink>
-
-      <RouterLink v-if="prefs.opticalTransferEnabled" class="menu-item" to="/tx" @click="onNavClick">
         <span class="menu-label">Optical transfer</span>
         <span class="menu-desc">Send or receive files via animated QR codes</span>
       </RouterLink>
@@ -172,7 +196,7 @@ function toggleOfflineMode(): void {
   display: grid;
   gap: 0.45rem;
 }
-/* Mobile: links first, toggles at bottom (Sing then Offline). */
+/* Mobile: links first, toggles at bottom (Sing then Offline). Install stays on top. */
 .menu-item {
   order: 1;
   display: grid;
@@ -184,6 +208,26 @@ function toggleOfflineMode(): void {
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+.menu-item-install {
+  order: 0;
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 88%, var(--surface));
+  color: #fff;
+}
+.menu-item-install .menu-label {
+  color: #fff;
+  font-weight: 750;
+}
+.menu-item-install .menu-desc {
+  color: color-mix(in srgb, #fff 82%, var(--accent));
+}
+.menu-item-install:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 .setting-sing {
   order: 2;
@@ -290,7 +334,10 @@ function toggleOfflineMode(): void {
   outline-offset: 2px;
 }
 @media (min-width: 768px) {
-  /* Desktop: Sing mode → Offline mode at top, then links. */
+  /* Desktop: Install → Sing → Offline → links. */
+  .menu-item-install {
+    order: 0;
+  }
   .setting-sing {
     order: 1;
   }
@@ -299,9 +346,6 @@ function toggleOfflineMode(): void {
   }
   .menu-item {
     order: 3;
-  }
-  .menu-item-downloads {
-    display: none;
   }
 }
 </style>

@@ -291,3 +291,26 @@ describe('custom collection browse sections', () => {
     expect(filtered.rows.filter((r) => r.type === 'tag' && r.tag.id === 1)).toHaveLength(3)
   })
 })
+
+describe('sortBrowseTags myRating', () => {
+  it('orders by my stars then title, and sections by star', () => {
+    const tags = [
+      tag({ id: 1, title: 'B' }),
+      tag({ id: 2, title: 'A' }),
+      tag({ id: 3, title: 'C' }),
+    ]
+    const myStars = (id: number) => (id === 1 ? 5 : id === 2 ? 3 : null)
+    const sorted = sortBrowseTags(tags, 'myRating', false, { myStars })
+    expect(sorted.map((t) => t.id)).toEqual([1, 2, 3])
+    expect(sectionKeyFor(sorted[0]!, 'myRating', { myStars })).toBe('5★')
+    expect(sectionKeyFor(sorted[1]!, 'myRating', { myStars })).toBe('3★')
+    expect(sectionKeyFor(sorted[2]!, 'myRating', { myStars })).toBe('Unrated')
+    const { rows, jumpKeys } = buildBrowseRows(sorted, 'myRating', 10, { myStars })
+    expect(jumpKeys).toEqual(['5★', '3★', 'Unrated'])
+    expect(rows.filter((r) => r.type === 'section').map((r) => (r as { key: string }).key)).toEqual([
+      '5★',
+      '3★',
+      'Unrated',
+    ])
+  })
+})

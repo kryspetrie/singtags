@@ -433,6 +433,64 @@ export function pickWheelWinner(
 }
 
 /**
+ * Odd row count ≤5 so the ticker centers; never larger than the pool (avoids
+ * duplicate titles in the visible reel window).
+ */
+export function visibleRouletteReelRows(poolSize: number): number {
+  if (poolSize <= 1) return 1
+  const capped = Math.min(5, poolSize)
+  return capped % 2 === 1 ? capped : capped - 1
+}
+
+export type RouletteStripItem = { id: number; title: string }
+
+/**
+ * Build a long spin strip by repeating the eligible pool in order.
+ * Because each cycle is unique ids and `visible ≤ poolSize`, every contiguous
+ * window of `visible` rows stays duplicate-free — including the landing frame
+ * (unlike appending the winner after a full cycle, which could repeat it).
+ */
+export function buildRouletteSpinStrip(
+  pool: readonly RouletteStripItem[],
+  winnerId: number,
+  visible: number,
+  center: number,
+): { labels: string[]; finalIndex: number } {
+  if (!pool.length) {
+    return { labels: [`Tag #${winnerId}`], finalIndex: 0 }
+  }
+  const labelFor = (id: number) =>
+    pool.find((it) => it.id === id)?.title ?? `Tag #${id}`
+  const order = pool.map((it) => it.id)
+  if (!order.includes(winnerId)) order.push(winnerId)
+
+  const afterNeed = Math.max(0, visible - center - 1)
+  const trailingPad = center + 2
+  const cycles = Math.max(4, Math.ceil(24 / Math.max(1, order.length)))
+  const ids: number[] = []
+  for (let c = 0; c < cycles; c++) ids.push(...order)
+
+  const pickFinalIndex = (): number => {
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (ids[i] !== winnerId) continue
+      if (i >= center && ids.length - 1 - i >= afterNeed) return i
+    }
+    return -1
+  }
+
+  let finalIndex = pickFinalIndex()
+  while (finalIndex < 0) {
+    ids.push(...order)
+    finalIndex = pickFinalIndex()
+  }
+  while (ids.length - 1 - finalIndex < Math.max(afterNeed, trailingPad)) {
+    ids.push(...order)
+  }
+
+  return { labels: ids.map(labelFor), finalIndex }
+}
+
+/**
  * Deal a batch from a mode: mixture quotas, curve weights, spill to fill n.
  * Pass `ctx` when slices use Favorites or Favorites groups.
  */

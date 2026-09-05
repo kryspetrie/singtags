@@ -82,6 +82,17 @@ describe('SearchChips', () => {
     w.unmount()
   })
 
+  it('toggles Rated filter on and off', async () => {
+    const w = mount(SearchChips, { props: base, attachTo: document.body })
+    await openFilters(w)
+    await chip(w, 'Rated').trigger('click')
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ rated: true })
+    await w.setProps({ filters: { ...EMPTY_FILTERS, rated: true } })
+    await chip(w, 'Rated').trigger('click')
+    expect(w.emitted('patch')?.at(-1)?.[0]).toEqual({ rated: null })
+    w.unmount()
+  })
+
   it('sets year range from selects', async () => {
     const w = mount(SearchChips, { props: base, attachTo: document.body })
     await openFilters(w)

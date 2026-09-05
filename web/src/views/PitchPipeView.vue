@@ -24,6 +24,7 @@ import {
   type PitchPipeSoundId,
 } from '../audio/pitchPipeVoice'
 import { usePreferencesStore } from '../stores/preferences'
+import { setSessionBusy } from '../lib/sessionActivity'
 
 const prefs = usePreferencesStore()
 const player = new PitchPlayer(getActivePitchPipeVoice())
@@ -115,6 +116,7 @@ const whiteKeyPct = computed(() => {
 
 onUnmounted(() => {
   window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+  setSessionBusy('pitch-pipe', false)
   player.dispose()
 })
 
@@ -138,12 +140,14 @@ watch(pipeRange, () => {
 
 async function down(note: string): Promise<void> {
   current.value = note
+  setSessionBusy('pitch-pipe', true)
   await player.start(note, detune.value)
 }
 
 function up(): void {
   current.value = null
   player.stop(true)
+  setSessionBusy('pitch-pipe', false)
 }
 
 function onNoteKey(e: KeyboardEvent, note: string): void {

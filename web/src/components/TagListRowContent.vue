@@ -8,6 +8,7 @@ import { bookletBadgeForTag } from '../search/browse'
 import { normalizeYear } from '../lib/year'
 import { cacheReadyLabel, formatDownloads, visibleAltTitle } from '../lib/tagDisplay'
 import { useCatalogStore } from '../stores/catalog'
+import { useRatingsStore } from '../stores/ratings'
 
 const props = defineProps<{
   tag: TagSummary
@@ -15,10 +16,15 @@ const props = defineProps<{
 }>()
 
 const catalog = useCatalogStore()
+const ratings = useRatingsStore()
 
 const altTitle = computed(() => visibleAltTitle(props.tag.altTitle, props.tag.title))
 const bookletBadge = computed(() => bookletBadgeForTag(props.tag))
 const cacheLabel = computed(() => cacheReadyLabel(props.tag.id, catalog.cacheReadyByTag))
+const myRating = computed(() => {
+  void ratings.revision
+  return ratings.starsFor(props.tag.id)
+})
 </script>
 
 <template>
@@ -31,7 +37,13 @@ const cacheLabel = computed(() => cacheReadyLabel(props.tag.id, catalog.cacheRea
         :class="'booklet-' + bookletBadge.kind"
         :title="bookletBadge.label"
       >{{ bookletBadge.short }}</span>
-      {{ tag.title || `Tag ${tag.id}` }}
+      <span class="title-text">{{ tag.title || `Tag ${tag.id}` }}</span>
+      <span
+        v-if="myRating != null"
+        class="my-rating-meta"
+        :title="`My rating: ${myRating} of 5`"
+        :aria-label="`My rating: ${myRating} of 5`"
+      >{{ '★'.repeat(myRating) }}</span>
     </span>
     <span v-if="altTitle" class="alt-title">{{ altTitle }}</span>
   </span>
@@ -121,6 +133,13 @@ const cacheLabel = computed(() => cacheReadyLabel(props.tag.id, catalog.cacheRea
 }
 .title-line {
   min-width: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+.title-text {
+  min-width: 0;
 }
 .tag-num {
   display: inline-block;
@@ -171,6 +190,19 @@ const cacheLabel = computed(() => cacheReadyLabel(props.tag.id, catalog.cacheRea
 }
 .dl-count {
   font-variant-numeric: tabular-nums;
+}
+.my-rating-meta {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 0.88rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
 .badge {
   color: var(--danger);

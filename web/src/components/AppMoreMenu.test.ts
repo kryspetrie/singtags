@@ -6,6 +6,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import AppMoreMenu from './AppMoreMenu.vue'
+import { resetPwaInstallStateForTests } from '../composables/usePwaInstall'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -13,6 +14,7 @@ import { useSnackbarStore } from '../stores/snackbar'
 describe('AppMoreMenu', () => {
   beforeEach(() => {
     localStorage.clear()
+    resetPwaInstallStateForTests()
     document.body.innerHTML = ''
   })
 
@@ -94,7 +96,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('shows Tag Roulette in More when Labs flag is on', async () => {
+  it('does not list Tag Roulette in More when Labs flag is on', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     usePreferencesStore().setTagRouletteEnabled(true)
@@ -116,8 +118,84 @@ describe('AppMoreMenu', () => {
     await new Promise((r) => setTimeout(r, 80))
     await flushPromises()
 
-    expect(document.body.textContent).toContain('Tag Roulette')
-    expect(document.body.querySelector('a[href="/labs/roulette"]')).toBeTruthy()
+    expect(document.body.textContent).not.toContain('Tag Roulette')
+    expect(document.body.querySelector('a[href="/labs/roulette"]')).toBeNull()
+    w.unmount()
+  })
+
+  it('shows prominent Install App when PWA is not installed', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    const installBtn = document.body.querySelector('.menu-item-install') as HTMLButtonElement
+    expect(installBtn).toBeTruthy()
+    expect(installBtn.textContent).toMatch(/Install App/)
+    w.unmount()
+  })
+
+  it('hides Install App after PWA is marked installed', async () => {
+    localStorage.setItem('singtags.pwaInstalled', '1')
+    resetPwaInstallStateForTests()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.querySelector('.menu-item-install')).toBeNull()
+    w.unmount()
+  })
+
+  it('shows Downloads in More on desktop and mobile', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    const link = document.body.querySelector('a[href="/queue"]') as HTMLAnchorElement
+    expect(link).toBeTruthy()
+    expect(link.textContent).toMatch(/Downloads/)
+    expect(getComputedStyle(link).display).not.toBe('none')
     w.unmount()
   })
 })

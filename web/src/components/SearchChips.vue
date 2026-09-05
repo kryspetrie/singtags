@@ -148,6 +148,7 @@ function filtersActive(f: CatalogFilters): boolean {
     f.hasSheet === true ||
     f.hasAudio === true ||
     f.cached != null ||
+    f.rated === true ||
     f.types.length > 0 ||
     f.collections.length > 0 ||
     f.titleLetters.length > 0
@@ -197,6 +198,9 @@ function toggleSheet(): void {
 }
 function toggleAudio(): void {
   emit('patch', { hasAudio: props.filters.hasAudio === true ? null : true })
+}
+function toggleRated(): void {
+  emit('patch', { rated: props.filters.rated === true ? null : true })
 }
 function setCached(raw: string): void {
   emit('patch', { cached: (raw || null) as CachedFilter })
@@ -269,6 +273,16 @@ function removeArranger(a: string): void {
         @click="toggleAudio"
       >
         Has audio
+      </button>
+      <button
+        type="button"
+        class="chip"
+        :class="{ on: filters.rated === true }"
+        :aria-pressed="filters.rated === true"
+        title="Only show tags you have rated on this device"
+        @click="toggleRated"
+      >
+        Rated
       </button>
       <button
         type="button"

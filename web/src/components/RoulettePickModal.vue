@@ -4,7 +4,11 @@
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import FilterSheet from './FilterSheet.vue'
-import { pickWheelWinner } from '../lib/rouletteDraw'
+import {
+  buildRouletteSpinStrip,
+  pickWheelWinner,
+  visibleRouletteReelRows,
+} from '../lib/rouletteDraw'
 import type { RouletteBatchItem } from '../stores/roulette'
 
 const props = defineProps<{
@@ -48,13 +52,6 @@ const reducedMotion = computed(() => {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 })
 
-/** Odd row count ≤5 so the ticker centers; shrinks with small pools to avoid repeats. */
-function visibleReelRows(poolSize: number): number {
-  if (poolSize <= 1) return 1
-  const capped = Math.min(5, poolSize)
-  return capped % 2 === 1 ? capped : capped - 1
-}
-
 function clearSpinTimer(): void {
   if (spinTimer != null) {
     clearTimeout(spinTimer)
@@ -68,30 +65,6 @@ function clearSpinTimer(): void {
 
 function labelFor(id: number): string {
   return props.items.find((it) => it.id === id)?.title ?? `Tag #${id}`
-}
-
-function buildStrip(
-  winnerId: number,
-  visible: number,
-  center: number,
-): { labels: string[]; finalIndex: number } {
-  const pool = eligible.value.length ? eligible.value : props.items
-  const decoys = pool.map((it) => it.title)
-  if (!decoys.length) decoys.push(labelFor(winnerId))
-  const labels: string[] = []
-  const cycles = Math.max(4, Math.ceil(24 / Math.max(1, decoys.length)))
-  for (let c = 0; c < cycles; c++) {
-    for (const t of decoys) labels.push(t)
-  }
-  // Pad so winner lands in center after scroll
-  while (labels.length < visible + 4) labels.push(...decoys)
-  const finalIndex = labels.length
-  labels.push(labelFor(winnerId))
-  // Trailing buffer below center
-  for (let i = 0; i < center + 2; i++) {
-    labels.push(decoys[i % decoys.length]!)
-  }
-  return { labels, finalIndex }
 }
 
 function finishLand(winnerId: number): void {
@@ -117,7 +90,8 @@ async function startSpin(): Promise<void> {
     return
   }
 
-  const poolLen = eligible.value.length || props.items.length
+  const pool = eligible.value.length ? eligible.value : props.items
+  const poolLen = pool.length
   // Single remaining tag: no reel — land immediately.
   if (poolLen <= 1) {
     visibleRows.value = 1
@@ -127,11 +101,11 @@ async function startSpin(): Promise<void> {
     return
   }
 
-  const visible = visibleReelRows(poolLen)
+  const visible = visibleRouletteReelRows(poolLen)
   const center = Math.floor(visible / 2)
   visibleRows.value = visible
 
-  const { labels, finalIndex } = buildStrip(winnerId, visible, center)
+  const { labels, finalIndex } = buildRouletteSpinStrip(pool, winnerId, visible, center)
   stripLabels.value = labels
   stripOffset.value = 0
   spinning.value = true

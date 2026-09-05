@@ -13,6 +13,8 @@ export interface CatalogFilters {
   hasSheet: boolean | null
   hasAudio: boolean | null
   cached: CachedFilter
+  /** When true, only tags the user has given a My Rating. */
+  rated: boolean | null
   /** Inclusive calendar year lower bound. */
   yearMin: number | null
   /** Inclusive calendar year upper bound. */
@@ -30,6 +32,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
   hasSheet: null,
   hasAudio: null,
   cached: null,
+  rated: null,
   yearMin: null,
   yearMax: null,
   arrangers: [],
@@ -44,6 +47,7 @@ export function activeFilterCount(f: CatalogFilters): number {
   if (f.hasSheet === true) n++
   if (f.hasAudio === true) n++
   if (f.cached != null) n++
+  if (f.rated === true) n++
   if (f.yearMin != null || f.yearMax != null) n++
   n += f.arrangers.length + f.types.length + f.collections.length + f.titleLetters.length
   return n
@@ -83,6 +87,7 @@ export function filtersToRouteQuery(f: CatalogFilters): Record<string, string | 
     sheet: f.hasSheet === true ? '1' : f.hasSheet === false ? '0' : undefined,
     audio: f.hasAudio === true ? '1' : f.hasAudio === false ? '0' : undefined,
     cache: f.cached ?? undefined,
+    rated: f.rated === true ? '1' : undefined,
     ymin: f.yearMin != null ? String(f.yearMin) : undefined,
     ymax: f.yearMax != null ? String(f.yearMax) : undefined,
     arr: f.arrangers.length ? f.arrangers.join('|') : undefined,
@@ -105,6 +110,7 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
   const sheet = str('sheet')
   const audio = str('audio')
   const cache = str('cache')
+  const rated = str('rated')
   const cached: CachedFilter = ['any', 'sheets', 'audio', 'both', 'none'].includes(cache)
     ? (cache as Exclude<CachedFilter, null>)
     : null
@@ -113,6 +119,7 @@ export function filtersFromRouteQuery(query: Record<string, unknown>): Partial<C
     hasSheet: sheet === '1' ? true : sheet === '0' ? false : null,
     hasAudio: audio === '1' ? true : audio === '0' ? false : null,
     cached,
+    rated: rated === '1' || rated === 'true' ? true : null,
     yearMin: parseYearParam(str('ymin')),
     yearMax: parseYearParam(str('ymax')),
     arrangers: split('arr'),

@@ -62,7 +62,8 @@ const snackbar = useSnackbarStore()
 const route = useRoute()
 
 function rowTag(tagId: number, summary: TagSummary): TagSummary {
-  return catalog.getById(tagId) ?? summary
+  const t = catalog.getById(tagId) ?? summary
+  return t.id === tagId ? t : { ...t, id: tagId }
 }
 const router = useRouter()
 const { offline } = useOnline()

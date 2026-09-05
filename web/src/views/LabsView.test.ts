@@ -63,7 +63,7 @@ describe('LabsView', () => {
     expect(w.get('input[aria-label="Tag Roulette"]').element).toHaveProperty('checked', false)
     await w.get('input[aria-label="Tag Roulette"]').setValue(true)
     expect(usePreferencesStore().tagRouletteEnabled).toBe(true)
-    expect(w.text()).toContain('More → Tag Roulette')
+    expect(w.text()).toContain('main nav → Roulette')
     expect(w.text()).not.toContain('Open Tag Roulette')
     w.unmount()
   })

@@ -44,8 +44,8 @@ function toggleTagRoulette(): void {
   prefs.setTagRouletteEnabled(next)
   snackbar.show(
     next
-      ? 'Open Tag Roulette from More to deal random tag batches'
-      : 'Tag Roulette is hidden from More',
+      ? 'Tag Roulette is in the main nav — deal random tag batches anytime'
+      : 'Tag Roulette is hidden from the main nav',
     {
       title: next ? 'Tag Roulette On' : 'Tag Roulette Off',
       tone: 'ok',
@@ -77,8 +77,8 @@ function toggleTagRoulette(): void {
     <section class="card" aria-labelledby="tag-roulette-h">
       <h2 id="tag-roulette-h" class="card-title">Tag Roulette</h2>
       <p class="card-desc">
-        Deal random tag batches for rehearsal variety with custom pools and score curves. When on,
-        open it from the More menu.
+        Deal random tag batches for rehearsal variety with custom pools and score curves. When on, it
+        appears in the main nav.
       </p>
 
       <label
@@ -91,8 +91,8 @@ function toggleTagRoulette(): void {
           <span class="setting-desc">
             {{
               prefs.tagRouletteEnabled
-                ? 'Feature available — open from More → Tag Roulette'
-                : 'Hidden — More link and /labs/roulette are off'
+                ? 'Feature available — open from the main nav → Roulette'
+                : 'Hidden — main nav link and /labs/roulette are off'
             }}
           </span>
         </span>
