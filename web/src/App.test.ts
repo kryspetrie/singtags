@@ -145,8 +145,39 @@ describe('App shell', () => {
     w.unmount()
   })
 
-  it('does not show install toast after prior install', async () => {
+  it('re-offers install toast when browser fires beforeinstallprompt after a stale installed flag', async () => {
     localStorage.setItem('singtags.pwaInstalled', '1')
+    resetPwaInstallStateForTests()
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().dismissBrowseWelcome()
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
+    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
+    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    const w = mount(App, { global: { plugins: [pinia, router] } })
+    await flushPromises()
+    const ev = new Event('beforeinstallprompt')
+    Object.assign(ev, {
+      prompt: vi.fn(async () => {}),
+      userChoice: Promise.resolve({ outcome: 'dismissed' }),
+      preventDefault: () => {},
+    })
+    window.dispatchEvent(ev)
+    await flushPromises()
+    // Uninstall leaves pwaInstalled behind; a fresh beforeinstallprompt means install is offered again.
+    expect(localStorage.getItem('singtags.pwaInstalled')).toBeNull()
+    expect(w.text()).toMatch(/Install SingTags/)
+    w.unmount()
+  })
+
+  it('does not show install toast after user dismissed it', async () => {
+    localStorage.setItem('singtags.installPrompt.dismissed', '1')
     resetPwaInstallStateForTests()
     const pinia = createPinia()
     setActivePinia(pinia)

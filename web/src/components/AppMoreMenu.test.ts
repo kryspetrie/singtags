@@ -147,7 +147,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('hides Install App after PWA is marked installed', async () => {
+  it('still shows Install App after a stale pwaInstalled flag (e.g. uninstall)', async () => {
     localStorage.setItem('singtags.pwaInstalled', '1')
     resetPwaInstallStateForTests()
     const pinia = createPinia()
@@ -167,7 +167,9 @@ describe('AppMoreMenu', () => {
     await new Promise((r) => setTimeout(r, 80))
     await flushPromises()
 
-    expect(document.body.querySelector('.menu-item-install')).toBeNull()
+    const installBtn = document.body.querySelector('.menu-item-install') as HTMLButtonElement
+    expect(installBtn).toBeTruthy()
+    expect(installBtn.textContent).toMatch(/Install App/)
     w.unmount()
   })
 

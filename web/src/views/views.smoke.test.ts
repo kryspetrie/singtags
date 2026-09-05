@@ -806,6 +806,11 @@ describe('view smoke tests', () => {
     expect(document.body.textContent).toMatch(/Welcome to SingTags/)
     expect(document.body.textContent).toMatch(/mirror/i)
     expect(document.body.textContent).toMatch(/barbershoptags\.com/)
+    expect(document.body.textContent).toMatch(/Install App/)
+    const installBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Install App$/.test((b.textContent || '').trim()),
+    )
+    expect(installBtn).toBeTruthy()
     const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
       /Continue/.test(b.textContent || ''),
     )

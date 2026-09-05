@@ -28,7 +28,7 @@ const offlineLib = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const { offline } = useOnline()
-const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
+const { showInstallEntry, promptInstall, fallbackMessage } = usePwaInstall()
 
 const sheetsReady = computed(
   () => offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0,
@@ -126,7 +126,7 @@ function onContinue(): void {
           </p>
 
           <div v-if="showInstallEntry" class="install-card">
-            <p class="install-title">Install the app first</p>
+            <p class="install-title">Install App on this device</p>
             <p class="install-copy">
               Add SingTags to your home screen
               <strong>before</strong> downloading offline caches. On some phones, a large download
@@ -134,12 +134,12 @@ function onContinue(): void {
             </p>
             <button
               type="button"
-              class="btn btn-accent"
+              class="btn-install-app"
               :disabled="installBusy"
               :aria-busy="installBusy"
               @click="onInstall"
             >
-              {{ canPrompt ? 'Install SingTags' : 'How to install' }}
+              Install App
             </button>
           </div>
           <p v-else class="install-done muted-note" role="status">
@@ -298,26 +298,30 @@ function onContinue(): void {
   line-height: 1.4;
   color: var(--text);
 }
-.btn-accent {
-  justify-self: start;
-  margin-top: 0.15rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+.btn-install-app {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent-hover) 40%, var(--accent));
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-weight: 700;
-  padding: 0.55rem 0.95rem;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  padding: 0.7rem 1rem;
   border-radius: 10px;
   cursor: pointer;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 55%, transparent);
 }
-.btn-accent:hover {
+.btn-install-app:hover {
   background: var(--accent-hover);
 }
-.btn-accent:disabled {
+.btn-install-app:disabled {
   opacity: 0.65;
   cursor: wait;
 }
-.btn-accent:focus-visible {
+.btn-install-app:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

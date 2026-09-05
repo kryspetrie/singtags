@@ -97,7 +97,7 @@ function toggleOfflineMode(): void {
         <span class="menu-label">Install App</span>
         <span class="menu-desc">{{
           canPrompt
-            ? 'Add SingTags to your home screen'
+            ? 'Add SingTags to your home screen on this device'
             : 'Add SingTags from your browser menu'
         }}</span>
       </button>
@@ -214,16 +214,18 @@ function toggleOfflineMode(): void {
 }
 .menu-item-install {
   order: 0;
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  background: color-mix(in srgb, var(--accent) 88%, var(--surface));
+  border-color: var(--accent-hover);
+  background: var(--accent);
   color: #fff;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 50%, transparent);
 }
 .menu-item-install .menu-label {
   color: #fff;
-  font-weight: 750;
+  font-weight: 800;
+  font-size: 1rem;
 }
 .menu-item-install .menu-desc {
-  color: color-mix(in srgb, #fff 82%, var(--accent));
+  color: color-mix(in srgb, #fff 88%, var(--accent));
 }
 .menu-item-install:hover {
   border-color: var(--accent-hover);

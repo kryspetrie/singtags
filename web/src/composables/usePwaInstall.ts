@@ -58,6 +58,16 @@ syncInstalledFromEnvironment()
 function onBeforeInstall(e: Event): void {
   e.preventDefault()
   installEvent.value = e as BeforeInstallPromptEvent
+  // Browser is offering install again (e.g. after uninstall) — drop a stale done flag
+  // so More / welcome / About keep showing Install App.
+  if (installedFlag.value || readInstalledFlag()) {
+    installedFlag.value = false
+    try {
+      localStorage.removeItem(PWA_INSTALL_DONE_KEY)
+    } catch {
+      /* ignore */
+    }
+  }
   if (shouldOfferInstallToast()) showInstallToast.value = true
 }
 
@@ -163,8 +173,12 @@ export function usePwaInstall() {
   const isInstalled = computed(
     () => installedFlag.value || isStandaloneDisplay() || readInstalledFlag(),
   )
-  /** Show More-menu Install row when not already running as / marked installed. */
-  const showInstallEntry = computed(() => !isInstalled.value)
+  /**
+   * Manual Install App entry (welcome / More / About).
+   * Hide only while running as the installed app — do not hide solely because
+   * localStorage still has a done flag (uninstall leaves that behind).
+   */
+  const showInstallEntry = computed(() => !isStandaloneDisplay())
 
   return {
     installEvent: readonly(installEvent),

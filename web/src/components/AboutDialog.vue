@@ -21,7 +21,7 @@ const emit = defineEmits<{
 
 const offlineLib = useOfflineLibraryStore()
 const snackbar = useSnackbarStore()
-const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
+const { showInstallEntry, promptInstall, fallbackMessage } = usePwaInstall()
 
 /** `about` main panel, or nested `details` (offline / install) with back. */
 type Panel = 'about' | 'details'
@@ -138,10 +138,10 @@ async function onInstall(): Promise<void> {
             <button
               v-if="showInstallEntry"
               type="button"
-              class="btn"
+              class="btn btn-install"
               @click="onInstall"
             >
-              {{ canPrompt ? 'Install' : 'How to install' }}
+              Install App
             </button>
             <a class="btn" href="mailto:info@singtags.com">Email Krys</a>
           </footer>
@@ -237,10 +237,10 @@ async function onInstall(): Promise<void> {
             <button
               v-if="showInstallEntry"
               type="button"
-              class="btn"
+              class="btn btn-install"
               @click="onInstall"
             >
-              {{ canPrompt ? 'Install' : 'How to install' }}
+              Install App
             </button>
             <RouterLink class="btn btn-ghost" to="/settings" @click="close">
               Offline settings
@@ -353,5 +353,14 @@ async function onInstall(): Promise<void> {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+.btn-install {
+  border: 1px solid var(--accent-hover);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 750;
+}
+.btn-install:hover {
+  background: var(--accent-hover);
 }
 </style>
