@@ -38,7 +38,7 @@ describe('QueueView', () => {
     const q = useQueueStore()
     const wrap = mount(QueueView, { global: { plugins: [pinia] } })
     expect(wrap.findComponent(EmptyState).exists()).toBe(true)
-    expect(wrap.text()).toContain('Nothing to export yet')
+    expect(wrap.text()).toContain('Nothing to download yet')
 
     q.add({ tagId: 1, title: 'T', part: 'lead', path: 'media/1/lead.m4a' })
     await wrap.vm.$nextTick()

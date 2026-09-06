@@ -1,4 +1,11 @@
 <script setup lang="ts">
+/**
+ * Floating multiselect toolbar for catalog tag lists (Browse / Recent / Favorites).
+ */
+import { ref } from 'vue'
+import QueueDownloadModeDialog from './QueueDownloadModeDialog.vue'
+import type { QueueDownloadMode } from '../lib/queueSelectedTags'
+
 const props = withDefaults(
   defineProps<{
     count: number
@@ -14,9 +21,16 @@ const props = withDefaults(
 const emit = defineEmits<{
   favorite: []
   collection: []
-  zip: []
+  zip: [mode: QueueDownloadMode]
   clear: []
 }>()
+
+const modeOpen = ref(false)
+
+function onChooseMode(mode: QueueDownloadMode): void {
+  modeOpen.value = false
+  emit('zip', mode)
+}
 </script>
 
 <template>
@@ -51,11 +65,11 @@ const emit = defineEmits<{
       <button
         type="button"
         class="btn"
-        aria-label="Queue export"
-        title="Add selected tags' sheets and tracks to the export queue"
-        @click="emit('zip')"
+        aria-label="Queue downloads"
+        title="Add selected tags' sheets and/or tracks to the download queue"
+        @click="modeOpen = true"
       >
-        <span class="label-long">Queue Export</span>
+        <span class="label-long">Queue Downloads</span>
         <span class="label-short">+Queue</span>
       </button>
       <slot />
@@ -69,6 +83,13 @@ const emit = defineEmits<{
       </button>
     </div>
   </Teleport>
+
+  <QueueDownloadModeDialog
+    :open="modeOpen && count > 0"
+    :count="count"
+    @close="modeOpen = false"
+    @choose="onChooseMode"
+  />
 </template>
 
 <style>

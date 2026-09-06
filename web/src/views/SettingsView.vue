@@ -419,11 +419,12 @@ function cancelCullUpgrades(): void {
           </h2>
           <p class="hint">
             Go offline to use cached sheets and tracks only — saves data and avoids downloads on
-            slow or metered connections. Zip exports for sharing files live under Export.
+            slow or metered connections. Zip exports for sharing files live under Downloads &amp;
+            Exports.
           </p>
         </div>
         <div class="connection-actions">
-          <RouterLink class="btn btn-ghost" to="/queue">Export</RouterLink>
+          <RouterLink class="btn btn-ghost" to="/queue">Downloads &amp; Exports</RouterLink>
           <button
             type="button"
             class="btn connection-btn"

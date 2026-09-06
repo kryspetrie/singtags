@@ -177,7 +177,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('shows Export in More on desktop and mobile', async () => {
+  it('shows Downloads & Exports in More on desktop and mobile', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createRouter({
@@ -200,7 +200,7 @@ describe('AppMoreMenu', () => {
 
     const link = document.body.querySelector('a[href="/queue"]') as HTMLAnchorElement
     expect(link).toBeTruthy()
-    expect(link.textContent).toMatch(/Export/)
+    expect(link.textContent).toMatch(/Downloads & Exports/)
     expect(getComputedStyle(link).display).not.toBe('none')
     w.unmount()
   })

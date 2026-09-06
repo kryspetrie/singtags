@@ -79,7 +79,7 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
     case 'recent':
       return 'Recent'
     case 'queue':
-      return 'Export'
+      return 'Downloads'
     case 'settings':
       return 'Offline'
     case 'tx':
@@ -94,7 +94,7 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
       if (route.path === '/' || route.path === '') return 'Browse'
       if (route.path.startsWith('/favorites')) return 'Favorites'
       if (route.path.startsWith('/recent')) return 'Recent'
-      if (route.path.startsWith('/queue')) return 'Export'
+      if (route.path.startsWith('/queue')) return 'Downloads'
       if (route.path.startsWith('/settings')) return 'Offline'
       if (route.path.startsWith('/tx') || route.path.startsWith('/rx')) return 'Transfer'
       if (route.path.startsWith('/optical-transfer')) return 'Transfer'

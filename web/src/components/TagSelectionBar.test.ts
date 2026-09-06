@@ -33,4 +33,15 @@ describe('TagSelectionBar', () => {
     })
     expect(document.body.querySelector('button[aria-label="Optical transfer"]')).toBeFalsy()
   })
+
+  it('labels the queue action Queue Downloads', () => {
+    document.body.innerHTML = ''
+    mount(TagSelectionBar, {
+      props: { count: 2, toolbarLabel: 'Selected tags' },
+    })
+    const bar = document.body.querySelector('.selection-bar')
+    const btn = bar?.querySelector('button[aria-label="Queue downloads"]')
+    expect(btn).toBeTruthy()
+    expect(btn?.textContent).toMatch(/Queue Downloads/)
+  })
 })

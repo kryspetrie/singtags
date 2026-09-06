@@ -10,10 +10,7 @@ import { useCatalogStore, DEFAULT_BROWSE_SORT, type SortMode } from '../stores/c
 import { useQueueStore } from '../stores/queue'
 import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
-import type { PartId, TagDetail, TagSummary } from '../types/tag'
-import { catalogOriginalPaths } from '../lib/audioTiers'
-import { downloadableSheetAssets } from '../lib/sheetAssets'
-import { partTrackLabel } from '../lib/parts'
+import type { TagDetail, TagSummary } from '../types/tag'
 import EmptyState from '../components/EmptyState.vue'
 import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
@@ -28,6 +25,7 @@ import { tagDetailUrl } from '../lib/mediaUrl'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { sheetsPack } from '../offline/libraryPack'
 import { getStarred } from '../offline/favoritesDb'
+import { queueSelectedTags, type QueueDownloadMode } from '../lib/queueSelectedTags'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -294,54 +292,15 @@ async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
   return starred?.detail ?? null
 }
 
-async function addSelectedToQueue(): Promise<void> {
-  let ok = 0
-  let skipped = 0
-  for (const id of catalog.selectedIds) {
-    const d = await loadTagDetailForQueue(id)
-    if (!d) {
-      skipped++
-      continue
-    }
-    const title = d.title || `Tag ${d.tag_id}`
-    const sheetItems = downloadableSheetAssets(d).map((s) => ({
-      kind: 'sheet' as const,
-      tagId: d.tag_id,
-      title,
-      part: s.id,
-      path: s.path,
-      label: s.label,
-    }))
-    const originals = catalogOriginalPaths(d)
-    const parts = Object.keys(originals) as PartId[]
-    const prefer = parts.filter((p) => p !== 'mix')
-    const use = prefer.length ? prefer : parts
-    const audioItems = use.map((part) => ({
-      kind: 'audio' as const,
-      tagId: d.tag_id,
-      title,
-      part,
-      path: originals[part]!,
-      label: partTrackLabel(part),
-    }))
-    if (!sheetItems.length && !audioItems.length) {
-      skipped++
-      continue
-    }
-    queue.addMany([...sheetItems, ...audioItems])
-    ok++
-  }
-  const msg =
-    skipped > 0
-      ? offline.value
-        ? `Queued files from ${ok} tag(s); ${skipped} skipped (not cached on device).`
-        : `Queued files from ${ok} tag(s); skipped ${skipped}.`
-      : ok
-        ? `Queued sheets and tracks from ${ok} tag(s).`
-        : offline.value
-          ? 'No cached tag details — open tags online once, or reconnect.'
-          : 'No files queued.'
-  snackbar.show(msg, { tone: ok ? 'ok' : 'info' })
+async function addSelectedToQueue(mode: QueueDownloadMode): Promise<void> {
+  const result = await queueSelectedTags({
+    ids: catalog.selectedIds,
+    mode,
+    offline: offline.value,
+    loadDetail: loadTagDetailForQueue,
+    addMany: (items) => queue.addMany(items),
+  })
+  snackbar.show(result.message, { tone: result.ok ? 'ok' : 'info' })
 }
 
 const collectionPickerOpen = ref(false)

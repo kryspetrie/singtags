@@ -34,10 +34,16 @@ function onFormatChange(fmt: UserDownloadFormat): void {
 </script>
 
 <template>
-  <section aria-label="Export">
+  <section aria-label="Downloads and exports">
     <p class="muted intro">
-      Export a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
+      Build a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
       {{ queue.count }} in list.
+    </p>
+    <p class="hint how-to">
+      Add files from Browse, Recent, or Favorites with multiselect →
+      <strong>Queue Downloads</strong>, from a tag page’s
+      <strong>Download</strong> section, or from a My Library song’s
+      <strong>Export</strong> actions.
     </p>
 
     <div class="prefs">
@@ -123,8 +129,8 @@ function onFormatChange(fmt: UserDownloadFormat): void {
     </ul>
     <EmptyState
       v-else
-      title="Nothing to export yet"
-      message="Select tags on Browse or add sheets and tracks from a tag page."
+      title="Nothing to download yet"
+      message="Select tags on Browse, Recent, or Favorites and tap Queue Downloads — or add files from a tag’s Download section."
     />
   </section>
 </template>
@@ -132,6 +138,12 @@ function onFormatChange(fmt: UserDownloadFormat): void {
 <style scoped>
 .muted {
   color: var(--muted);
+}
+.intro {
+  margin: 0 0 0.5rem;
+}
+.how-to {
+  margin-top: 0;
 }
 .tiny {
   font-size: 0.85rem;
@@ -143,6 +155,11 @@ function onFormatChange(fmt: UserDownloadFormat): void {
   font-size: 0.85rem;
   color: var(--muted);
   margin: 0 0 0.75rem;
+  line-height: 1.45;
+}
+.hint strong {
+  color: var(--text);
+  font-weight: 650;
 }
 .prefs {
   display: flex;

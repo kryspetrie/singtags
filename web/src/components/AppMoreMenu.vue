@@ -198,12 +198,12 @@ function bumpScale(delta: number): void {
 
       <RouterLink class="menu-item menu-item-downloads" to="/queue" @click="onNavClick">
         <span class="menu-row">
-          <span class="menu-label">Export</span>
+          <span class="menu-label">Downloads &amp; Exports</span>
           <span v-if="queue.count" class="badge" :aria-label="`${queue.count} in queue`">{{
             queue.count
           }}</span>
         </span>
-        <span class="menu-desc">Sheet and track export queue</span>
+        <span class="menu-desc">Download queue for sheets and learning tracks</span>
       </RouterLink>
 
       <button
