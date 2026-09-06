@@ -105,9 +105,11 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     const cur = byId(id) ?? (await getLocalPlaylist(id))
     if (!cur) return
     const pl = normalizeLocalPlaylist(cur)
+    const nextLayout: LocalPlaylist['cardLayout'] =
+      cardLayout === 'compact' ? 'compact' : 'comfortable'
     const next = {
       ...pl,
-      cardLayout: cardLayout === 'compact' ? 'compact' : 'comfortable',
+      cardLayout: nextLayout,
       updatedAt: new Date().toISOString(),
     }
     await putLocalPlaylist(next)

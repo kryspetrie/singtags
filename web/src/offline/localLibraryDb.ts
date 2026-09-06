@@ -102,6 +102,7 @@ function migrateDocsToEntries(tx: IDBTransaction): void {
         title: doc.title,
         arranger: doc.arranger,
         notes: doc.notes,
+        lyricsHint: '',
         key: doc.key,
         detuneCents: doc.detuneCents,
         createdAt: doc.createdAt,

@@ -364,6 +364,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     title?: string
     arranger?: string
     notes?: string
+    lyricsHint?: string
     key?: string | null
     detuneCents?: number
     role?: LocalAssetRole

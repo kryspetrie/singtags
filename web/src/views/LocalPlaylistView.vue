@@ -126,7 +126,7 @@ const {
 })
 
 function setEditing(on: boolean): void {
-  const q: Record<string, string | string[] | undefined> = { ...route.query }
+  const q: Record<string, string | string[] | undefined> = { ...(route.query as Record<string, string | string[] | undefined>) }
   if (on) {
     q.edit = '1'
     delete q.focus
@@ -145,7 +145,7 @@ async function scrollToFocus(): Promise<void> {
     block: 'center',
     behavior: 'smooth',
   })
-  const q: Record<string, string | string[] | undefined> = { ...route.query }
+  const q: Record<string, string | string[] | undefined> = { ...(route.query as Record<string, string | string[] | undefined>) }
   delete q.focus
   void router.replace({ path: route.path, query: q })
 }

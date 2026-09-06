@@ -91,6 +91,7 @@ const trackPartIds = ref<string[]>([])
 const trackPartByAssetId = ref<Record<string, string>>({})
 const tagPlayerRef = ref<{
   togglePlay: () => Promise<void>
+  play: () => Promise<void>
   stopPlayback: () => Promise<void>
   seek: (t: number) => void
   selectPart: (p: string) => void

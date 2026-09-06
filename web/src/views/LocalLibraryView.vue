@@ -9,6 +9,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import LocalLibraryCombineStaging from '../components/LocalLibraryCombineStaging.vue'
 import LocalImportModal from '../components/LocalImportModal.vue'
+import type { LocalImportMode } from '../components/LocalImportModal.vue'
 import LocalLibraryMergeStaging from '../components/LocalLibraryMergeStaging.vue'
 import LocalEntryTransferSheet from '../components/LocalEntryTransferSheet.vue'
 import LocalGroupPickerSheet from '../components/LocalGroupPickerSheet.vue'
@@ -429,11 +430,11 @@ function openImportModal(): void {
 }
 
 async function onImportPick(payload: {
-  mode: 'combined' | 'separate'
+  mode: LocalImportMode
   files: File[]
 }): Promise<void> {
   importModalOpen.value = false
-  if (!payload.files.length) return
+  if (payload.mode === 'empty' || !payload.files.length) return
   warnIfLargeFiles(payload.files)
   if (payload.mode === 'combined') {
     combineFiles.value = payload.files
