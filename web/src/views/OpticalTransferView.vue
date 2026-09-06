@@ -835,7 +835,7 @@ async function loadLocalDocsFromQuery(): Promise<boolean> {
     queue.value = queued
     refreshSendPreview()
     if (!queued.length) {
-      collectionPrepareError.value = 'No Local Library songs found for this transfer.'
+      collectionPrepareError.value = 'No My Library songs found for this transfer.'
       return true
     }
     const missNote = missing ? ` · ${missing} missing` : ''
@@ -1015,7 +1015,7 @@ onUnmounted(() => {
     <header class="page-head">
       <h1 class="page-title">Optical transfer</h1>
       <p class="intro">
-        Send or receive files and Local Library songs with animated QR codes — works fully offline.
+        Send or receive files and My Library songs with animated QR codes — works fully offline.
         On a fresh device, use <strong>Receive</strong> to scan from another phone. Collections
         split into independent batches so partial receive stays safe. Limit
         {{ MAX_FILE_LABEL }} per transfer.
@@ -1221,7 +1221,7 @@ onUnmounted(() => {
       <div class="receive-intro-card">
         <h2 class="section-title">Receive to this device</h2>
         <p class="hint">
-          Point the camera at another phone’s transfer QR stream. Local Library songs and files
+          Point the camera at another phone’s transfer QR stream. My Library songs and files
           import here — SingTags collection sheets can land in Favorites. No network or prior cache
           required.
         </p>
@@ -1339,7 +1339,7 @@ onUnmounted(() => {
                 · {{ item.collectionBatch.tagIds.length }} tags
               </span>
               <span v-if="item.localDocTitle" class="collection-badge">
-                Local Library · {{ item.localDocTitle }}
+                My Library · {{ item.localDocTitle }}
               </span>
               <span v-if="item.saved" class="saved-badge">Saved</span>
               <span v-if="item.collectionImported || item.localDocImported" class="saved-badge">Imported</span>
@@ -1364,7 +1364,7 @@ onUnmounted(() => {
                 :disabled="item.localDocImported"
                 @click="importLocalDoc(item)"
               >
-                Import to Local Library
+                Import to My Library
               </button>
               <button
                 v-else-if="item.singtagsTagId != null"

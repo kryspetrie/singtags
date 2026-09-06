@@ -421,7 +421,7 @@ async function destroy(): Promise<void> {
       <EmptyState
         v-if="!rows.length"
         title="Empty set list"
-        message="Add songs from your Local Library for a concert set."
+        message="Add songs from your My Library for a concert set."
       >
         <button v-if="editing" type="button" class="btn btn-primary" @click="pickerOpen = true">
           Add songs

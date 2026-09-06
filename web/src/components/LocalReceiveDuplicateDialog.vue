@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Soft-duplicate gate when receiving a Local Library transfer.
+ * Soft-duplicate gate when receiving a My Library transfer.
  */
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useLocalReceiveUiStore } from '../stores/localReceiveUi'
@@ -28,7 +28,7 @@ async function run(choice: 'open' | 'keep' | 'replace'): Promise<void> {
 <template>
   <ConfirmDialog
     :open="!!receiveUi.duplicatePrompt"
-    title="Already in Local Library?"
+    title="Already in My Library?"
     :message="
       receiveUi.duplicatePrompt
         ? `“${receiveUi.duplicatePrompt.incomingTitle}” looks like “${receiveUi.duplicatePrompt.existingTitle}” (same title and size).`

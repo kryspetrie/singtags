@@ -177,7 +177,7 @@ function bumpScale(delta: number): void {
         to="/library"
         @click="onNavClick"
       >
-        <span class="menu-label">Local Library</span>
+        <span class="menu-label">My Library</span>
         <span class="menu-desc">Charts, images, and tracks on this device, with pitch and transfer</span>
       </RouterLink>
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Local Library list — Favorites-like index of on-device songs.
+ * My Library list — Favorites-like index of on-device songs.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -241,9 +241,9 @@ const pendingBulkDeleteTitle = computed(() => {
   const ids = [...selectedIds.value]
   if (ids.length === 1) {
     const entry = library.entries.find((d) => d.id === ids[0])
-    return entry ? `Delete “${entry.title}” from Local Library?` : 'Delete song from Local Library?'
+    return entry ? `Delete “${entry.title}” from My Library?` : 'Delete song from My Library?'
   }
-  return `Delete ${ids.length} songs from Local Library?`
+  return `Delete ${ids.length} songs from My Library?`
 })
 
 const pendingDeleteGroupTitle = computed(() => {
@@ -770,7 +770,7 @@ function groupsForEntry(entryId: string) {
   <section
     class="library"
     :class="{ 'has-selection': selectedIds.size > 0 }"
-    aria-label="Local Library"
+    aria-label="My Library"
   >
     <input
       ref="separateInput"
@@ -793,7 +793,7 @@ function groupsForEntry(entryId: string) {
       class="visually-hidden"
       type="file"
       accept=".zip,application/zip"
-      aria-label="Restore Local Library backup"
+      aria-label="Restore My Library backup"
       @change="onRestoreSelected"
     />
 
@@ -861,7 +861,7 @@ function groupsForEntry(entryId: string) {
     <p v-if="backupMessage" class="backup-status" role="status">{{ backupMessage }}</p>
     <p v-if="libraryBytes != null || deviceStorage" class="storage-meter" aria-live="polite">
       <template v-if="libraryBytes != null">
-        Local Library ≈ {{ formatBytes(libraryBytes) }}
+        My Library ≈ {{ formatBytes(libraryBytes) }}
       </template>
       <template v-if="libraryBytes != null && deviceStorage"> · </template>
       <template v-if="deviceStorage">
@@ -904,7 +904,7 @@ function groupsForEntry(entryId: string) {
             autocorrect="off"
             spellcheck="false"
             placeholder="Search titles, arrangers, notes, lyrics…"
-            aria-label="Search local library"
+            aria-label="Search my library"
           />
           <div class="search-infield">
             <button
@@ -1132,7 +1132,7 @@ function groupsForEntry(entryId: string) {
         v-if="selectedIds.size > 0 && libraryTab === 'songs'"
         class="selection-bar"
         role="toolbar"
-        aria-label="Local Library selection"
+        aria-label="My Library selection"
       >
         <span class="sel-count">{{ selectedIds.size }} selected</span>
         <button type="button" class="btn" @click="groupPickerOpen = true">
@@ -1328,7 +1328,7 @@ function groupsForEntry(entryId: string) {
     />
     <ConfirmDialog
       :open="pendingBulkDelete"
-      title="Delete from Local Library?"
+      title="Delete from My Library?"
       :message="pendingBulkDeleteTitle"
       confirm-label="Delete"
       @close="pendingBulkDelete = false"

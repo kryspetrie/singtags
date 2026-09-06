@@ -713,7 +713,7 @@ function cancelCullUpgrades(): void {
         <div class="pdf-raster-cache">
           <h3 class="subhead">High-res PDF sheet cache</h3>
           <p class="hint">
-            Local Library (and catalog) PDFs are rendered to WebP for sharp fullscreen viewing. Cached
+            My Library (and catalog) PDFs are rendered to WebP for sharp fullscreen viewing. Cached
             rasters reuse that work next time. Oldest entries are removed first when over the limit.
           </p>
           <label class="field">
@@ -821,7 +821,7 @@ function cancelCullUpgrades(): void {
         </div>
         <p v-if="confirmClear" class="hint warn-inline" role="alert">
           Removes downloaded sheets, audio pack, favorited tags, custom collections, and cached
-          catalog metadata on this device. Export queue, recent tags, settings, and Local Library
+          catalog metadata on this device. Export queue, recent tags, settings, and My Library
           songs are kept.
         </p>
       </section>
@@ -831,7 +831,7 @@ function cancelCullUpgrades(): void {
         <p class="hint">
           Save SingTags settings, favorites, collections, favorites custom order, recent tags, and
           export queue. Optionally include the offline media cache (sheets/audio packs and
-          favorited media) — that zip is much larger. Local Library songs are stored separately and
+          favorited media) — that zip is much larger. My Library songs are stored separately and
           are not included in this backup.
         </p>
         <label class="check">

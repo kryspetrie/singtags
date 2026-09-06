@@ -1,5 +1,5 @@
 /**
- * Shared Local Library optical-receive helpers (import, soft-dupe, post-import UX).
+ * Shared My Library optical-receive helpers (import, soft-dupe, post-import UX).
  */
 import type { Router } from 'vue-router'
 import type { OpticalFile } from '../../vendor/decimen/shared/protocol'
@@ -195,14 +195,14 @@ export function notifyLocalLibraryImport(
   }
 
   if (hasGroups) {
-    snackbar.show(`${verb} “${entry.title}” to Local Library`, {
+    snackbar.show(`${verb} “${entry.title}” to My Library`, {
       tone: 'ok',
       ms: 10_000,
       action: { label: 'Open', onClick: open },
       secondaryAction: { label: 'Add to group', onClick: addToGroup },
     })
   } else {
-    snackbar.show(`${verb} “${entry.title}” to Local Library`, {
+    snackbar.show(`${verb} “${entry.title}” to My Library`, {
       tone: 'ok',
       ms: 8000,
       action: { label: 'Open', onClick: open },

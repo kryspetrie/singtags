@@ -24,13 +24,13 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('shows local library off by default', async () => {
+  it('shows my library off by default', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
     expect(usePreferencesStore().localLibraryEnabled).toBe(false)
-    expect(w.get('input[aria-label="Local Library"]').element).toHaveProperty('checked', false)
+    expect(w.get('input[aria-label="My Library"]').element).toHaveProperty('checked', false)
     w.unmount()
   })
 
@@ -44,12 +44,12 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('toggles local library', async () => {
+  it('toggles my library', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    await w.get('input[aria-label="Local Library"]').setValue(true)
+    await w.get('input[aria-label="My Library"]').setValue(true)
     expect(usePreferencesStore().localLibraryEnabled).toBe(true)
     w.unmount()
   })

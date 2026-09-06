@@ -1,5 +1,5 @@
 /**
- * Zip backup / restore for Local Library (entries, assets, blobs, groups, playlists).
+ * Zip backup / restore for My Library (entries, assets, blobs, groups, playlists).
  */
 import { unzipSync } from 'fflate'
 import { buildZip, downloadBlob } from '../download/zip'
@@ -74,7 +74,7 @@ export async function estimateLocalLibraryBytes(): Promise<number> {
 }
 
 /**
- * Build and download a Local Library backup zip.
+ * Build and download a My Library backup zip.
  */
 export async function exportLocalLibraryZip(
   onProgress?: (p: LocalLibraryBackupProgress) => void,
@@ -136,7 +136,7 @@ export type LocalLibraryRestoreResult = {
 }
 
 /**
- * Restore a Local Library backup zip (merge by id — overwrites matching ids).
+ * Restore a My Library backup zip (merge by id — overwrites matching ids).
  */
 export async function importLocalLibraryZip(
   file: File | ArrayBuffer | Uint8Array,
@@ -154,17 +154,17 @@ export async function importLocalLibraryZip(
   try {
     tree = unzipSync(bytes) as Record<string, Uint8Array>
   } catch {
-    throw new Error('Could not read zip — is this a Local Library backup?')
+    throw new Error('Could not read zip — is this a My Library backup?')
   }
 
   const manifestBytes = tree['manifest.json']
-  if (!manifestBytes) throw new Error('Not a Local Library backup (missing manifest.json)')
+  if (!manifestBytes) throw new Error('Not a My Library backup (missing manifest.json)')
   const manifest = decJson<Partial<LocalLibraryBackupManifest>>(manifestBytes)
   if (manifest.kind !== LOCAL_LIBRARY_BACKUP_KIND) {
-    throw new Error('Not a SingTags Local Library backup')
+    throw new Error('Not a SingTags My Library backup')
   }
   if (manifest.version !== LOCAL_LIBRARY_BACKUP_VERSION) {
-    throw new Error(`Unsupported Local Library backup version (${String(manifest.version)})`)
+    throw new Error(`Unsupported My Library backup version (${String(manifest.version)})`)
   }
 
   const entries = tree['entries.json'] ? decJson<LocalEntry[]>(tree['entries.json']) : []

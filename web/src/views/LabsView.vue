@@ -29,10 +29,10 @@ function toggleLocalLibrary(): void {
   prefs.setLocalLibraryEnabled(next)
   snackbar.show(
     next
-      ? 'Open Local Library from More to manage charts, images, and tracks on this device'
-      : 'Local Library is hidden — songs already on this device are kept',
+      ? 'Open My Library from More to manage charts, images, and tracks on this device'
+      : 'My Library is hidden — songs already on this device are kept',
     {
-      title: next ? 'Local Library On' : 'Local Library Off',
+      title: next ? 'My Library On' : 'My Library Off',
       tone: 'ok',
       ms: 3000,
     },
@@ -61,7 +61,7 @@ function toggleLocalLibrary(): void {
     </section>
 
     <section class="card" aria-labelledby="local-library-h">
-      <h2 id="local-library-h" class="card-title">Local Library</h2>
+      <h2 id="local-library-h" class="card-title">My Library</h2>
       <p class="card-desc">
         Keep your own charts, images, and learning tracks on this device — with pitch, transfer, and
         a Tag-like player. Separate from the published SingTags catalog.
@@ -70,14 +70,14 @@ function toggleLocalLibrary(): void {
       <label
         class="setting-row"
         :class="{ on: prefs.localLibraryEnabled }"
-        title="Enable Local Library"
+        title="Enable My Library"
       >
         <span class="setting-copy">
-          <span class="setting-title">Local Library</span>
+          <span class="setting-title">My Library</span>
           <span class="setting-desc">
             {{
               prefs.localLibraryEnabled
-                ? 'Feature available — open from More → Local Library'
+                ? 'Feature available — open from More → My Library'
                 : 'Hidden — More link and /library routes are off'
             }}
           </span>
@@ -88,7 +88,7 @@ function toggleLocalLibrary(): void {
           role="switch"
           :checked="prefs.localLibraryEnabled"
           :aria-checked="prefs.localLibraryEnabled"
-          aria-label="Local Library"
+          aria-label="My Library"
           @change="toggleLocalLibrary"
         />
       </label>
@@ -99,7 +99,7 @@ function toggleLocalLibrary(): void {
       <p class="card-desc">
         Animated (rolling) QR streams for ad-hoc file send/receive via More → Optical transfer and
         the Browse camera. Does not affect normal share QR codes. Catalog tag list buttons were
-        removed; see Local Library plans for curated local docs.
+        removed — use My Library for curated songs you keep on this device.
       </p>
 
       <label

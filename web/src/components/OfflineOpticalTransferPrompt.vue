@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Prominent offline entry point: receive Local Library / ad-hoc files optically.
+ * Prominent offline entry point: receive My Library / ad-hoc files optically.
  */
 import { RouterLink } from 'vue-router'
 import TransferButtonLabel from './TransferButtonLabel.vue'
@@ -20,8 +20,8 @@ defineProps<{
     <p class="prompt-desc">
       {{
         compact
-          ? 'Scan animated QR codes from another device — Local Library songs and files save on this phone.'
-          : 'Send or receive Local Library songs and files via animated QR codes. Nothing requires a catalog download or network.'
+          ? 'Scan animated QR codes from another device — My Library songs and files save on this phone.'
+          : 'Send or receive My Library songs and files via animated QR codes. Nothing requires a catalog download or network.'
       }}
     </p>
     <RouterLink

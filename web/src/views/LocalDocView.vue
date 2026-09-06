@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Local Library entry: Tag-like view (default) + Edit mode (?edit=1).
+ * My Library entry: Tag-like view (default) + Edit mode (?edit=1).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -715,8 +715,8 @@ async function exportAllAsZip(): Promise<void> {
 </script>
 
 <template>
-  <EmptyState v-if="loadError" title="Local Library" :message="loadError" tone="danger">
-    <RouterLink class="btn" to="/library">Back to Local Library</RouterLink>
+  <EmptyState v-if="loadError" title="My Library" :message="loadError" tone="danger">
+    <RouterLink class="btn" to="/library">Back to My Library</RouterLink>
   </EmptyState>
 
   <section v-else-if="entry" class="tag" aria-label="Local song">

@@ -807,7 +807,7 @@ async function confirmImport(): Promise<void> {
         userCollections.allTagIds().length
           ? 'Your collections still list tags, but favorites storage was empty. Re-adding them from the catalog — refresh if this stays empty (catalog may still be loading).'
           : offline
-            ? 'Favorite tags from Browse, receive Local Library songs optically, or import a backup.'
+            ? 'Favorite tags from Browse, receive My Library songs optically, or import a backup.'
             : 'Favorite from Browse or a tag page to save for quick recall and offline use.'
       "
     >

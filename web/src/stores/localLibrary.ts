@@ -1,5 +1,5 @@
 /**
- * Pinia store for Local Library entries + assets (parallel tag library).
+ * Pinia store for My Library entries + assets (parallel tag library).
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -159,7 +159,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('ll-quota-warned', '1')
         const { useSnackbarStore } = await import('./snackbar')
         useSnackbarStore().show(
-          'This device is low on storage space. Large Local Library imports may fail.',
+          'This device is low on storage space. Large My Library imports may fail.',
           { tone: 'info', ms: 6000 },
         )
       }
@@ -311,7 +311,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
   ): Promise<LocalEntry> {
     const mime = guessLocalMime(file)
     if (!isLocalLibraryMime(mime, file.name)) {
-      throw new Error('Local Library accepts PDF, image, and audio files only.')
+      throw new Error('My Library accepts PDF, image, and audio files only.')
     }
     const buf = await file.arrayBuffer()
     const now = new Date().toISOString()
@@ -371,7 +371,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     partId?: string | null
   }): Promise<LocalEntry> {
     if (!isLocalLibraryMime(opts.mime, opts.filename)) {
-      throw new Error('Local Library accepts PDF, image, and audio files only.')
+      throw new Error('My Library accepts PDF, image, and audio files only.')
     }
     const now = new Date().toISOString()
     const entryId = newLocalId('le')

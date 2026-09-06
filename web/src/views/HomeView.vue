@@ -1428,7 +1428,7 @@ watch(
       :title="offline ? 'Offline — nothing cached yet' : 'Catalog failed to load'"
       :message="
         offline
-          ? 'Connect once to download the full catalog, or receive Local Library songs and files from another device with optical transfer.'
+          ? 'Connect once to download the full catalog, or receive My Library songs and files from another device with optical transfer.'
           : catalog.error
       "
       tone="danger"
