@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Tag Roulette (Labs): modes with distribution slices, deal batch, sung/reset.
+ * Tag Roulette: modes with distribution slices, deal batch, sung/reset.
  * Reel pick is Phase 3 — see docs/plans/tag-roulette-impl.md.
  */
 import { computed, onMounted, ref } from 'vue'

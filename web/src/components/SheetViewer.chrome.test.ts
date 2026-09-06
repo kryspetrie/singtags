@@ -87,7 +87,8 @@ describe('SheetViewer sing chrome', () => {
     expect(w.find('.chrome.compact').exists()).toBe(true)
     expect(w.find('button.pitch-fab').exists()).toBe(true)
     expect(w.find('.chrome-shift').exists()).toBe(true)
-    expect(w.find('.chrome-shift').text()).not.toMatch(/Reset/)
+    expect(w.find('button.shift-toggle').exists()).toBe(true)
+    expect(w.find('.chrome-shift-pop').isVisible()).toBe(false)
     expect(w.find('button.play-menu').exists()).toBe(false)
     expect(w.find('button.share').exists()).toBe(false)
     expect(w.find('button.tag-page').exists()).toBe(false)
@@ -97,8 +98,26 @@ describe('SheetViewer sing chrome', () => {
     w.unmount()
   })
 
+  it('hides Pitch ± when payKeyEnabled is false (no key on entry)', async () => {
+    const w = await mountFs({ payKeyEnabled: false, keyLabel: '' })
+    expect(w.find('button.pitch-fab').exists()).toBe(false)
+    expect(w.find('.chrome-shift').exists()).toBe(false)
+    // Mix play chrome can still appear when singControls is on.
+    expect(w.find('button.more').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('omits Play when there is no ready Mix (not greyed out)', async () => {
+    const w = await mountFs({ exitOriginLabel: 'Favorites' })
+    await w.get('button.more').trigger('click')
+    await flushPromises()
+    expect(w.find('button.play-menu').exists()).toBe(false)
+    expect(w.find('button.share').exists()).toBe(true)
+    w.unmount()
+  })
+
   it('hides Play and playback chrome when singControls is off (no tracks)', async () => {
-    const w = await mountFs({ singControls: false })
+    const w = await mountFs({ singControls: false, exitOriginLabel: 'Favorites' })
     expect(w.find('button.pitch-fab').exists()).toBe(true)
     expect(w.find('button.play-menu').exists()).toBe(false)
     expect(w.find('.chrome-play').exists()).toBe(false)
@@ -114,7 +133,7 @@ describe('SheetViewer sing chrome', () => {
   })
 
   it('more expands menu inline when space allows; ⋮ stays highlighted and ✕ stays put', async () => {
-    const w = await mountFs({ shift: 1 })
+    const w = await mountFs({ shift: 1, exitOriginLabel: 'Favorites', playReady: true })
     expect(w.find('.chrome-shift').exists()).toBe(true)
     expect(w.find('.chrome-more').exists()).toBe(false)
     expect(w.find('button.more').exists()).toBe(true)
@@ -166,16 +185,25 @@ describe('SheetViewer sing chrome', () => {
     w.unmount()
   })
 
-  it('Tag exits fullscreen without exit-origin; Escape matches ✕ (exit-origin)', async () => {
+  it('hides Tag Page when ✕ already stays on the tag; Escape does not exit-origin', async () => {
     const w = await mountFs({ exitOriginLabel: 'tag page' })
     await w.get('button.more').trigger('click')
     await flushPromises()
-    await w.get('button.tag-page').trigger('click')
+    expect(w.find('button.tag-page').exists()).toBe(false)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
     expect(w.emitted('exit-origin')).toBeFalsy()
+    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
+    w.unmount()
+  })
 
-    await enterInlineFullscreen(w)
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+  it('shows Tag Page when ✕ would return to a list; click exits fullscreen only', async () => {
+    const w = await mountFs({ exitOriginLabel: 'Favorites' })
+    await w.get('button.more').trigger('click')
+    await flushPromises()
+    expect(w.get('button.tag-page').text()).toBe('Tag Page')
+    await w.get('button.tag-page').trigger('click')
     await flushPromises()
     expect(w.emitted('exit-origin')).toBeFalsy()
     expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([false])
@@ -212,11 +240,9 @@ describe('SheetViewer sing chrome', () => {
   })
 
   it('acquires sheet wake lock on fullscreen enter and releases on exit', async () => {
-    const w = await mountFs()
+    const w = await mountFs({ exitOriginLabel: 'tag page' })
     expect(wakeLockHoldersForTests()).toContain('sheet')
-    await w.get('button.more').trigger('click')
-    await flushPromises()
-    await w.get('button.tag-page').trigger('click')
+    await w.get('button.exit').trigger('click')
     await flushPromises()
     expect(wakeLockHoldersForTests()).not.toContain('sheet')
     w.unmount()
@@ -226,10 +252,11 @@ describe('SheetViewer sing chrome', () => {
     const w = await mountFs({}, ['sheets/1/p1.webp', 'sheets/1/p2.webp'])
     // Pager stays visible in compact chrome (not buried under More).
     const pages = w.get('.chrome-pages')
-    expect(pages.text()).toContain('1/2')
+    expect(pages.get('.page-ind').text()).toBe('1/2')
+    expect(pages.find('.page-mode').exists()).toBe(false)
     await pages.get('[aria-label="Next page"]').trigger('click')
     await flushPromises()
-    expect(pages.text()).toContain('2/2')
+    expect(pages.get('.page-ind').text()).toBe('2/2')
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled()
     w.unmount()
   })
@@ -313,7 +340,10 @@ describe('SheetViewer sing chrome', () => {
       setPageMode: (m: 'paging' | 'scroll') => Promise<void>
     }
     expect(vm.pageMode()).toBe('paging')
-    expect(w.get('.chrome-pages .page-mode').text()).toBe('Paging')
+    expect(w.find('.chrome-pages .page-mode').exists()).toBe(false)
+    await w.get('button.more').trigger('click')
+    await flushPromises()
+    expect(w.get('.chrome-more .page-mode').text()).toBe('Paging')
     expect(w.find('.fs-scroll').exists()).toBe(false)
 
     await vm.setPageMode('scroll')
@@ -330,6 +360,9 @@ describe('SheetViewer sing chrome', () => {
     expect((again.vm as { pageMode: () => string }).pageMode()).toBe('scroll')
     expect((again.vm as { fitMode: () => string }).fitMode()).toBe('width')
     expect(again.find('.fs-scroll').exists()).toBe(true)
+    await again.get('button.more').trigger('click')
+    await flushPromises()
+    expect(again.get('.chrome-more .page-mode').text()).toBe('Scroll')
     again.unmount()
   })
 
@@ -337,9 +370,16 @@ describe('SheetViewer sing chrome', () => {
     const w = await mountFs({ keyLabel: 'Bb +12 (Bb Major)', shift: 2 })
     const fab = w.get('button.pitch-fab')
     expect(fab.find('.pitch-label-sizer').exists()).toBe(true)
+    expect(fab.find('.pitch-icon').exists()).toBe(true)
     expect(fab.find('.pitch-label').text()).toBe('Bb +12 (Bb Major)')
     expect(fab.find('.pitch-label').attributes('style') || '').not.toMatch(/ellipsis/)
-    expect(w.find('.chrome-shift').text()).toMatch(/[−+\-]/)
+    expect(w.find('button.shift-toggle').text()).toBe('±')
+    await w.get('button.shift-toggle').trigger('click')
+    await flushPromises()
+    expect(w.find('.chrome-shift-pop').isVisible()).toBe(true)
+    expect(w.find('.chrome-shift-pop .shift-key-label').text()).toBe('Bb +12 (Bb Major)')
+    expect(w.find('.chrome-shift-pop .shift-key-sizer').exists()).toBe(true)
+    expect(w.find('.chrome-shift-pop .shift-key-btns').text()).toMatch(/[−+\-]/)
     expect(w.find('.chrome-shift').text()).not.toMatch(/Reset/i)
     w.unmount()
   })

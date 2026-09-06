@@ -32,7 +32,11 @@ describe('roulette store', () => {
 
   it('loads seed modes and deals from active mode', () => {
     const store = useRouletteStore()
-    expect(store.modes.map((m) => m.id)).toEqual(['full-library-rating', 'classic-equal'])
+    expect(store.modes.map((m) => m.id)).toEqual([
+      'full-library-rating',
+      'classic-equal',
+      'collections-heavy',
+    ])
     store.setActiveModeId('full-library-rating')
     expect(store.activeMode.slices[0]!.curve).toBe('leftSkew')
     const catalog = [

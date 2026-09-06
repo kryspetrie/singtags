@@ -5,6 +5,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
+import { LIBRARY_MEDIA_NAV_DENY } from './src/lib/pwaNavigateFallback.js'
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url))
 const libraryDir = path.resolve(rootDir, '..', 'library')
@@ -32,6 +33,11 @@ const LIBRARY_MIME: Record<string, string> = {
   '.gif': 'image/gif',
   '.pdf': 'application/pdf',
   '.json': 'application/json',
+}
+
+function navigateFallbackUrl(): string {
+  const b = viteBase()
+  return b === '/' ? '/index.html' : `${b}index.html`
 }
 
 /**
@@ -166,9 +172,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallback: '/index.html',
-        // Never serve the SPA shell for media/library URLs (would poison offline audio cache).
-        navigateFallbackDenylist: [/^\/library\//, /^\/api\//],
+        navigateFallback: navigateFallbackUrl(),
+        // Media files under /library/… only — not SPA routes /library/:id (see LIBRARY_MEDIA_NAV_DENY).
+        navigateFallbackDenylist: [LIBRARY_MEDIA_NAV_DENY, /^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,wasm}'],
         // ogg-opus-decoder ships an optional ~4 MiB ML enhancement we never load.
         globIgnores: ['**/opus-ml*.js'],
@@ -203,7 +209,12 @@ export default defineConfig({
         ],
       },
       devOptions: {
-        enabled: false,
+        // Needed so localhost can fire `beforeinstallprompt` and test Install App.
+        enabled: true,
+        type: 'module',
+        // Plugin default allowlist is only `/` — deep-link Ctrl-R in a localhost PWA then
+        // never gets the SPA shell (same trap as the old /library/ denylist).
+        navigateFallbackAllowlist: [/^\/.*$/],
       },
     }),
   ],

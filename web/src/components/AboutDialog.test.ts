@@ -8,7 +8,6 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import AboutDialog from './AboutDialog.vue'
 import { resetPwaInstallStateForTests } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
-import { useSnackbarStore } from '../stores/snackbar'
 
 describe('AboutDialog', () => {
   beforeEach(() => {
@@ -66,7 +65,7 @@ describe('AboutDialog', () => {
     w.unmount()
   })
 
-  it('shows how-to snackbar when install prompt is unavailable', async () => {
+  it('shows how-to dialog when install prompt is unavailable', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     vi.spyOn(useOfflineLibraryStore(), 'refreshEstimate').mockResolvedValue()
@@ -91,9 +90,8 @@ describe('AboutDialog', () => {
     installBtn!.click()
     await flushPromises()
 
-    const snackbar = useSnackbarStore()
-    expect(snackbar.title).toBe('Install SingTags')
-    expect(w.emitted('close')).toBeTruthy()
+    expect(document.body.textContent).toMatch(/Got it/)
+    expect(w.emitted('close')).toBeFalsy()
     w.unmount()
   })
 })

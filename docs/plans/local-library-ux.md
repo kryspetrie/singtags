@@ -171,3 +171,18 @@ Cheap alignment with the rest of the app; stop when diminishing returns.
 
 1. Should explicit `notes:foo` bypass the Search notes switch? **Recommendation: yes** (power-user escape hatch).
 2. Persist Search notes across visits? **Recommendation: no for v1** (match Browse lyrics: session UI state only unless Browse already persists — keep parity).
+
+---
+
+## Follow-on (Local Library redesign)
+
+Shipped / in progress beyond this UX plan:
+
+1. Filename → part heuristics + track `partId` for TagPlayer tabs
+2. Single **Import** modal + review staging
+3. Browse-shaped search options, row badges, Sing-mode open, scroll restore
+4. **Playlists** (ordered concert sets, fullscreen default, prev/next)
+5. Zip **backup/restore** + storage meter
+
+**Labs graduation:** Keep Local Library behind Labs until Phases 1–4 feel solid in real rehearsals, then promote (More menu permanent; optional bottom nav). Do not confuse with Settings **Offline packs**.
+

@@ -17,6 +17,12 @@ export type SheetPdfFile = {
   id: string
   label: string
   path: string
+  /**
+   * Stable cache identity for PDF→WebP rasters.
+   * Prefer this over `path` when `path` is a transient `blob:` URL
+   * (Local Library assets). Catalog PDFs can omit this and key on URL.
+   */
+  cacheKey?: string
 }
 
 export type SheetAssets = {

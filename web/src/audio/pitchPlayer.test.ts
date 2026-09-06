@@ -2,7 +2,9 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi } from 'vitest'
-import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, KEY_SHIFT_LABEL_SIZE_SAMPLE } from './pitchPlayer'
+import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipeFullKeyboardNotes,
+  normalizePitchPipeGridScale,
+  pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, KEY_SHIFT_LABEL_SIZE_SAMPLE } from './pitchPlayer'
 
 describe('pitchPlayer helpers', () => {
   it('maps keys to tonic notes in E3–E4', () => {
@@ -120,6 +122,16 @@ describe('pitchPlayer helpers', () => {
     expect(slots.whites.at(-1)).toBe('F4')
     expect(slots.blacks.some((b) => b.note === 'F#3' && b.after === 'F3')).toBe(true)
     expect(slots.blacks.some((b) => b.note === 'C#4' && b.after === 'C4')).toBe(true)
+  })
+
+  it('provides a 66-key full piano and snaps grid scale', () => {
+    const notes = pitchPipeFullKeyboardNotes()
+    expect(notes).toHaveLength(66)
+    expect(notes[0]).toBe('C2')
+    expect(notes.at(-1)).toBe('F7')
+    expect(normalizePitchPipeGridScale(93)).toBe(95)
+    expect(normalizePitchPipeGridScale(50)).toBe(70)
+    expect(normalizePitchPipeGridScale(200)).toBe(130)
   })
 })
 

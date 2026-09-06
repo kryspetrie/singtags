@@ -1,5 +1,5 @@
 /**
- * Tag Roulette session + modes prefs (Labs).
+ * Tag Roulette session + modes prefs.
  */
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -10,7 +10,6 @@ import {
   isRouletteBuiltinModeId,
   normalizeRouletteBatchSize,
   parseRouletteMode,
-  renormSlicesTo100,
   seedRouletteModes,
   slugifyModeLabel,
   type RouletteBatchOrder,
@@ -277,27 +276,25 @@ export const useRouletteStore = defineStore('roulette', () => {
       slices: patch.slices ? patch.slices.map((s) => ({ ...s })) : cur.slices.map((s) => ({ ...s })),
     }
     if (builtin) {
-      // Built-ins: only curve + score + batch size may change; pool/label stay locked.
+      // Built-ins: only curve + score + batch size may change; pools/weights/label stay locked.
       const seed = seedRouletteModes().find((m) => m.id === cur.id)!
-      const score = next.slices[0]?.score ?? seed.slices[0]!.score
-      const curve = next.slices[0]?.curve ?? seed.slices[0]!.curve
       next.label = seed.label
       next.batchSize =
         patch.batchSize != null
           ? normalizeRouletteBatchSize(patch.batchSize)
           : normalizeRouletteBatchSize(cur.batchSize)
       next.batchOrder = seed.batchOrder
-      next.slices = [
-        {
-          weightPct: 100,
-          pool: seed.slices[0]!.pool,
-          score,
-          curve,
-        },
-      ]
+      next.slices = seed.slices.map((seedSlice, i) => {
+        const incoming = next.slices[i]
+        return {
+          ...seedSlice,
+          score: incoming?.score ?? seedSlice.score,
+          curve: incoming?.curve ?? seedSlice.curve,
+        }
+      })
     } else {
       if (patch.batchSize != null) next.batchSize = normalizeRouletteBatchSize(patch.batchSize)
-      if (patch.slices) next.slices = renormSlicesTo100(next.slices)
+      if (patch.slices) next.slices = next.slices.map((s) => ({ ...s }))
     }
     const copy = modes.value.map(cloneMode)
     copy[idx] = next
@@ -316,21 +313,17 @@ export const useRouletteStore = defineStore('roulette', () => {
   function setSlices(slices: RouletteSlice[]): void {
     if (isBuiltinActive.value) {
       const seed = seedRouletteModes().find((m) => m.id === activeModeId.value)
-      const incoming = slices[0]
-      if (!seed || !incoming) return
+      if (!seed) return
       updateActiveMode({
-        slices: [
-          {
-            weightPct: 100,
-            pool: seed.slices[0]!.pool,
-            score: incoming.score,
-            curve: incoming.curve,
-          },
-        ],
+        slices: seed.slices.map((seedSlice, i) => ({
+          ...seedSlice,
+          score: slices[i]?.score ?? seedSlice.score,
+          curve: slices[i]?.curve ?? seedSlice.curve,
+        })),
       })
       return
     }
-    updateActiveMode({ slices: renormSlicesTo100(slices) })
+    updateActiveMode({ slices })
   }
 
   function renameActiveMode(label: string): void {

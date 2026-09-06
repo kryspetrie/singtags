@@ -17,7 +17,6 @@ import { partTrackLabel } from '../lib/parts'
 import EmptyState from '../components/EmptyState.vue'
 import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
-import FilterSheet from '../components/FilterSheet.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
 import OfflineOpticalTransferPrompt from '../components/OfflineOpticalTransferPrompt.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
@@ -90,6 +89,10 @@ const welcomeOpen = ref(false)
 const qrScannerOpen = ref(false)
 
 function closeWelcome(): void {
+  // Welcome owns the first-run download ask — suppress the sheets/sync toasts so they
+  // never stack under (or flash after) this splash.
+  void offlineLib.dismissSheetsPrompt()
+  void offlineLib.dismissPackSyncPrompt()
   prefs.dismissBrowseWelcome()
   welcomeOpen.value = false
   // First-run dismiss: keep search/filters in view under the dialog.
@@ -104,12 +107,14 @@ function scrollToSearchTop(): void {
 }
 
 async function onWelcomeContinue(opts: { cacheSheets: boolean; cacheAudio: boolean }): Promise<void> {
+  // Dismiss duplicate prompts before flipping browseWelcomeDismissed (which would reveal them).
+  await offlineLib.dismissSheetsPrompt()
+  void offlineLib.dismissPackSyncPrompt()
   closeWelcome()
   if (opts.cacheSheets || opts.cacheAudio) {
     if (!offlineLib.loaded) await offlineLib.loadManifests()
   }
   if (opts.cacheSheets) {
-    await offlineLib.dismissSheetsPrompt()
     void offlineLib.startPack('sheets')
   }
   if (opts.cacheAudio) {
@@ -133,11 +138,18 @@ function onLyricsChange(e: Event): void {
   catalog.patchFilters({ fullText: on })
 }
 
-function openSearchTips(): void {
-  if (window.matchMedia('(hover: none)').matches) tipsOpen.value = true
+function toggleSearchTips(): void {
+  tipsOpen.value = !tipsOpen.value
 }
 
 function closeSearchTips(): void {
+  tipsOpen.value = false
+}
+
+function onTipsOutsidePointerDown(e: PointerEvent): void {
+  if (!tipsOpen.value) return
+  const t = e.target
+  if (t instanceof Element && t.closest('.tips-wrap')) return
   tipsOpen.value = false
 }
 
@@ -977,7 +989,7 @@ function jumpSectionTip(key: string): string {
 }
 function jumpKeyLabel(key: string): string {
   if (catalog.sortMode === 'collection') {
-    return collectionJumpLabel(key, userCollections.collections)
+    return collectionJumpLabel(key, userCollections.collections, { compact: isNarrow.value })
   }
   const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
   return row?.type === 'section' ? row.label : key
@@ -1199,6 +1211,7 @@ onMounted(async () => {
   narrowMq = window.matchMedia(NARROW_SELECT_MQ)
   syncNarrowSelect()
   narrowMq.addEventListener('change', syncNarrowSelect)
+  document.addEventListener('pointerdown', onTipsOutsidePointerDown, true)
 })
 
 onUnmounted(() => {
@@ -1208,6 +1221,7 @@ onUnmounted(() => {
   narrowMq = null
   clearLongPressTimer()
   window.removeEventListener('scroll', onBrowseScroll)
+  document.removeEventListener('pointerdown', onTipsOutsidePointerDown, true)
   if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
 })
 
@@ -1262,7 +1276,7 @@ watch(
             spellcheck="false"
             placeholder="Search titles, arrangers, or n123…"
             aria-label="Search tags"
-            title="Search titles and arrangers. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
+            title="Search titles and arrangers. Quotes for a phrase, -word to exclude. Enter n123 for Tag #123, c45 for Classic #45, p12 for 100 Days #12."
             @keydown="onSearchKeydown"
           />
           <div class="search-infield">
@@ -1288,21 +1302,34 @@ watch(
                 <circle cx="12" cy="13" r="3.25" />
               </svg>
             </button>
-            <div class="tips-wrap">
+            <div
+              class="tips-wrap"
+              :class="{ open: tipsOpen }"
+              @mouseleave="closeSearchTips"
+            >
               <button
                 type="button"
                 class="icon-btn tips-btn"
                 aria-label="Search tips"
-                aria-describedby="search-tips-popover"
-                title="Search tips — n123, c45, quotes, exclusions"
-                @click="openSearchTips"
+                :aria-expanded="tipsOpen"
+                aria-controls="search-tips-popover"
+                title="Search tips — quotes, excludes, n123, c45"
+                @click.stop="toggleSearchTips"
               >
                 i
               </button>
-              <div id="search-tips-popover" class="tips-popover" role="tooltip">
+              <div
+                id="search-tips-popover"
+                class="tips-overlay"
+                role="tooltip"
+              >
                 <p>
-                  Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
-                  <code>-word</code>; quotes for an exact phrase.
+                  Use <code>"exact phrase"</code> in quotes, and <code>-word</code> to exclude.
+                  Multiple words are AND.
+                </p>
+                <p>
+                  Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45;
+                  <code>p12</code> 100 Days #12.
                 </p>
               </div>
             </div>
@@ -1374,12 +1401,6 @@ watch(
         </div>
       </div>
     </div>
-    <FilterSheet :open="tipsOpen" title="Search tips" @close="closeSearchTips">
-      <p class="search-hint">
-        Enter on <code>n123</code> opens Tag #123; <code>c45</code> Classic #45; <code>p12</code> 100 Days #12. Exclude with
-        <code>-word</code>; quotes for an exact phrase.
-      </p>
-    </FilterSheet>
     <TagQrScanner
       :open="qrScannerOpen"
       @close="qrScannerOpen = false"
@@ -1821,7 +1842,7 @@ watch(
   min-width: 0;
   width: 100%;
   min-height: 48px;
-  padding: 0.75rem 6.5rem 0.75rem 0.95rem;
+  padding: 0.75rem 7.25rem 0.75rem 0.95rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -2019,57 +2040,49 @@ watch(
 }
 .tips-wrap {
   position: relative;
-  /* Above sticky jump/scrub rails (z-index: 4) so the [i] popover isn’t covered. */
   z-index: 5;
 }
-.tips-popover {
+.tips-overlay {
   display: none;
   position: absolute;
   right: 0;
   top: calc(100% + 0.35rem);
-  z-index: 12;
-  width: min(18rem, 70vw);
+  z-index: 20;
+  width: min(20rem, calc(100vw - 1.5rem));
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--muted);
   pointer-events: none;
 }
-.tips-popover p {
+.tips-overlay p {
   margin: 0;
 }
-.tips-popover code {
+.tips-overlay p + p {
+  margin-top: 0.45rem;
+}
+.tips-overlay code {
   font-size: 0.85em;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
 }
+.tips-wrap.open .tips-overlay {
+  display: block;
+}
 @media (hover: hover) {
-  .tips-wrap:hover .tips-popover,
-  .tips-wrap:focus-within .tips-popover {
+  .tips-wrap:hover .tips-overlay,
+  .tips-wrap:focus-within .tips-overlay {
     display: block;
   }
 }
 .search-options {
   display: none;
-}
-.search-hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-.search-hint code {
-  font-size: 0.85em;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.05rem 0.3rem;
 }
 .clear-q {
   display: none;

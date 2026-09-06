@@ -59,31 +59,30 @@ describe('App shell', () => {
     w.unmount()
   })
 
-  it('promotes Roulette into primary nav when Labs flag is on', async () => {
+  it('shows Roulette in primary nav by default', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
     vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
-    usePreferencesStore().setTagRouletteEnabled(true)
 
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/', component: { template: '<div />' } },
-        { path: '/labs/roulette', name: 'labs-roulette', component: { template: '<div />' } },
+        { path: '/roulette', name: 'roulette', component: { template: '<div />' } },
       ],
     })
     await router.push('/')
     const w = mount(App, { global: { plugins: [pinia, router] } })
     await flushPromises()
 
-    expect(w.find('.topnav a[href="/labs/roulette"]').exists()).toBe(true)
-    expect(w.find('.bottom a[href="/labs/roulette"]').exists()).toBe(true)
+    expect(w.find('.topnav a[href="/roulette"]').exists()).toBe(true)
+    expect(w.find('.bottom a[href="/roulette"]').exists()).toBe(true)
     expect(w.find('.bottom-with-roulette').exists()).toBe(true)
     w.unmount()
   })
 
-  it('shows install toast on beforeinstallprompt', async () => {
+  it('captures beforeinstallprompt without showing an install toast', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     usePreferencesStore().dismissBrowseWelcome()
@@ -107,45 +106,12 @@ describe('App shell', () => {
     })
     window.dispatchEvent(ev)
     await flushPromises()
-    expect(w.text()).toMatch(/Install SingTags/)
-    await w.findAll('button').find((b) => b.text() === 'Not now')!.trigger('click')
+    // Install is offered via welcome / More / About — not an auto toast.
     expect(w.text()).not.toMatch(/Install SingTags/)
-    expect(localStorage.getItem('singtags.installPrompt.dismissed')).toBe('1')
     w.unmount()
   })
 
-  it('hides install toast when appinstalled fires after Chrome title-bar install', async () => {
-    const pinia = createPinia()
-    setActivePinia(pinia)
-    usePreferencesStore().dismissBrowseWelcome()
-    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
-    vi.spyOn(useCatalogStore(), 'hydrateFromIndexedDb').mockResolvedValue(false)
-    vi.spyOn(useCatalogStore(), 'load').mockResolvedValue()
-    vi.spyOn(useOfflineLibraryStore(), 'loadManifests').mockResolvedValue()
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [{ path: '/', component: { template: '<div />' } }],
-    })
-    await router.push('/')
-    const w = mount(App, { global: { plugins: [pinia, router] } })
-    await flushPromises()
-    const ev = new Event('beforeinstallprompt')
-    Object.assign(ev, {
-      prompt: vi.fn(async () => {}),
-      userChoice: Promise.resolve({ outcome: 'accepted' }),
-      preventDefault: () => {},
-    })
-    window.dispatchEvent(ev)
-    await flushPromises()
-    expect(w.text()).toMatch(/Install SingTags/)
-    window.dispatchEvent(new Event('appinstalled'))
-    await flushPromises()
-    expect(w.text()).not.toMatch(/Install SingTags/)
-    expect(localStorage.getItem('singtags.pwaInstalled')).toBe('1')
-    w.unmount()
-  })
-
-  it('re-offers install toast when browser fires beforeinstallprompt after a stale installed flag', async () => {
+  it('clears stale pwaInstalled when browser re-offers beforeinstallprompt', async () => {
     localStorage.setItem('singtags.pwaInstalled', '1')
     resetPwaInstallStateForTests()
     const pinia = createPinia()
@@ -170,15 +136,12 @@ describe('App shell', () => {
     })
     window.dispatchEvent(ev)
     await flushPromises()
-    // Uninstall leaves pwaInstalled behind; a fresh beforeinstallprompt means install is offered again.
     expect(localStorage.getItem('singtags.pwaInstalled')).toBeNull()
-    expect(w.text()).toMatch(/Install SingTags/)
+    expect(w.text()).not.toMatch(/Install SingTags/)
     w.unmount()
   })
 
-  it('does not show install toast after user dismissed it', async () => {
-    localStorage.setItem('singtags.installPrompt.dismissed', '1')
-    resetPwaInstallStateForTests()
+  it('marks installed when appinstalled fires after Chrome title-bar install', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     usePreferencesStore().dismissBrowseWelcome()
@@ -193,15 +156,9 @@ describe('App shell', () => {
     await router.push('/')
     const w = mount(App, { global: { plugins: [pinia, router] } })
     await flushPromises()
-    const ev = new Event('beforeinstallprompt')
-    Object.assign(ev, {
-      prompt: vi.fn(async () => {}),
-      userChoice: Promise.resolve({ outcome: 'dismissed' }),
-      preventDefault: () => {},
-    })
-    window.dispatchEvent(ev)
+    window.dispatchEvent(new Event('appinstalled'))
     await flushPromises()
-    expect(w.text()).not.toMatch(/Install SingTags/)
+    expect(localStorage.getItem('singtags.pwaInstalled')).toBe('1')
     w.unmount()
   })
 

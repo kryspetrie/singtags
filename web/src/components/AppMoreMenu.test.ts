@@ -96,15 +96,14 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('does not list Tag Roulette in More when Labs flag is on', async () => {
+  it('does not list Tag Roulette in More (primary nav only)', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    usePreferencesStore().setTagRouletteEnabled(true)
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
         { path: '/', component: { template: '<div />' } },
-        { path: '/labs/roulette', name: 'labs-roulette', component: { template: '<div />' } },
+        { path: '/roulette', name: 'roulette', component: { template: '<div />' } },
       ],
     })
     await router.push('/')
@@ -119,6 +118,7 @@ describe('AppMoreMenu', () => {
     await flushPromises()
 
     expect(document.body.textContent).not.toContain('Tag Roulette')
+    expect(document.body.querySelector('a[href="/roulette"]')).toBeNull()
     expect(document.body.querySelector('a[href="/labs/roulette"]')).toBeNull()
     w.unmount()
   })
@@ -144,6 +144,10 @@ describe('AppMoreMenu', () => {
     const installBtn = document.body.querySelector('.menu-item-install') as HTMLButtonElement
     expect(installBtn).toBeTruthy()
     expect(installBtn.textContent).toMatch(/Install App/)
+    expect(document.body.textContent).toMatch(/Display size/)
+    expect(document.body.textContent).toMatch(/%/)
+    const menu = document.body.querySelector('nav.menu') as HTMLElement
+    expect(menu?.lastElementChild).toBe(installBtn)
     w.unmount()
   })
 
@@ -173,7 +177,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('shows Downloads in More on desktop and mobile', async () => {
+  it('shows Export in More on desktop and mobile', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createRouter({
@@ -196,7 +200,7 @@ describe('AppMoreMenu', () => {
 
     const link = document.body.querySelector('a[href="/queue"]') as HTMLAnchorElement
     expect(link).toBeTruthy()
-    expect(link.textContent).toMatch(/Downloads/)
+    expect(link.textContent).toMatch(/Export/)
     expect(getComputedStyle(link).display).not.toBe('none')
     w.unmount()
   })

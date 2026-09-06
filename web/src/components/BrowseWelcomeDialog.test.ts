@@ -7,8 +7,6 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import BrowseWelcomeDialog from './BrowseWelcomeDialog.vue'
 import { resetPwaInstallStateForTests } from '../composables/usePwaInstall'
-import { useOfflineLibraryStore } from '../stores/offlineLibrary'
-import { useSnackbarStore } from '../stores/snackbar'
 
 describe('BrowseWelcomeDialog', () => {
   beforeEach(() => {
@@ -81,7 +79,7 @@ describe('BrowseWelcomeDialog', () => {
     w.unmount()
   })
 
-  it('shows how-to snackbar when install prompt is unavailable', async () => {
+  it('shows how-to dialog when install prompt is unavailable', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createRouter({
@@ -103,7 +101,41 @@ describe('BrowseWelcomeDialog', () => {
     await installBtn!.click()
     await flushPromises()
 
-    expect(useSnackbarStore().title).toBe('Install SingTags')
+    expect(document.body.textContent).toMatch(/Install SingTags/)
+    expect(document.body.textContent).toMatch(/Got it/)
+    w.unmount()
+  })
+
+  it('shows Continue and Skip, offline note, and no Offline settings link', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(BrowseWelcomeDialog, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [createPinia(), router] },
+    })
+    await flushPromises()
+
+    expect(document.body.textContent).toMatch(
+      /Once sheets and tracks are cached, this site and app can be used entirely offline/,
+    )
+    expect(document.body.textContent).not.toMatch(/Offline settings/)
+
+    const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Continue$/.test((b.textContent || '').trim()),
+    )
+    const skipBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Skip$/.test((b.textContent || '').trim()),
+    )
+    expect(continueBtn).toBeTruthy()
+    expect(skipBtn).toBeTruthy()
+
+    await skipBtn!.click()
+    expect(w.emitted('close')).toBeTruthy()
     w.unmount()
   })
 })

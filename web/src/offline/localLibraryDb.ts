@@ -8,17 +8,19 @@ import type {
   LocalEntry,
   LocalGroup,
   LocalLibraryPrefs,
+  LocalPlaylist,
 } from '../types/localLibrary'
-import { normalizeLocalGroup } from '../types/localLibrary'
+import { normalizeLocalEntry, normalizeLocalGroup, normalizeLocalPlaylist } from '../types/localLibrary'
 import { idbReq } from './offlineIndexedDb'
 
 export const LOCAL_LIBRARY_DB_NAME = 'singtags-local-library'
-export const LOCAL_LIBRARY_DB_VERSION = 4
+export const LOCAL_LIBRARY_DB_VERSION = 5
 export const LOCAL_ENTRIES_STORE = 'entries'
 export const LOCAL_ASSETS_STORE = 'assets'
 export const LOCAL_BLOBS_STORE = 'blobs'
 export const LOCAL_GROUPS_STORE = 'groups'
 export const LOCAL_META_STORE = 'meta'
+export const LOCAL_PLAYLISTS_STORE = 'playlists'
 /** Legacy v1 store — removed after migration. */
 export const LOCAL_DOCS_STORE = 'docs'
 
@@ -64,6 +66,9 @@ export function openLocalLibraryDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(LOCAL_META_STORE)) {
         db.createObjectStore(LOCAL_META_STORE, { keyPath: 'id' })
       }
+      if (!db.objectStoreNames.contains(LOCAL_PLAYLISTS_STORE)) {
+        db.createObjectStore(LOCAL_PLAYLISTS_STORE, { keyPath: 'id' })
+      }
 
       if (oldVersion < 2 && db.objectStoreNames.contains(LOCAL_DOCS_STORE)) {
         migrateDocsToEntries(tx)
@@ -74,6 +79,9 @@ export function openLocalLibraryDb(): Promise<IDBDatabase> {
       // Drop legacy store only after a prior version already migrated it (avoid racing async copy).
       if (oldVersion >= 2 && oldVersion < 4 && db.objectStoreNames.contains(LOCAL_DOCS_STORE)) {
         db.deleteObjectStore(LOCAL_DOCS_STORE)
+      }
+      if (oldVersion < 5 && !db.objectStoreNames.contains(LOCAL_PLAYLISTS_STORE)) {
+        db.createObjectStore(LOCAL_PLAYLISTS_STORE, { keyPath: 'id' })
       }
     }
   })
@@ -216,7 +224,7 @@ export async function listLocalEntries(): Promise<LocalEntry[]> {
   try {
     const tx = db.transaction(LOCAL_ENTRIES_STORE, 'readonly')
     const rows = await idbReq(tx.objectStore(LOCAL_ENTRIES_STORE).getAll())
-    return (rows as LocalEntry[]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    return (rows as LocalEntry[]).map(normalizeLocalEntry).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   } finally {
     db.close()
   }
@@ -227,7 +235,7 @@ export async function getLocalEntry(id: string): Promise<LocalEntry | null> {
   try {
     const tx = db.transaction(LOCAL_ENTRIES_STORE, 'readonly')
     const row = await idbReq(tx.objectStore(LOCAL_ENTRIES_STORE).get(id))
-    return (row as LocalEntry | undefined) ?? null
+    return row ? normalizeLocalEntry(row as LocalEntry) : null
   } finally {
     db.close()
   }
@@ -436,6 +444,71 @@ export async function putLocalEntryBundle(
       tx.oncomplete = () => resolve()
       tx.onerror = () => reject(tx.error ?? new Error('putLocalEntryBundle failed'))
     })
+  } finally {
+    db.close()
+  }
+}
+
+
+export async function listLocalPlaylists(): Promise<LocalPlaylist[]> {
+  const db = await openLocalLibraryDb()
+  try {
+    const tx = db.transaction(LOCAL_PLAYLISTS_STORE, 'readonly')
+    const rows = await idbReq(tx.objectStore(LOCAL_PLAYLISTS_STORE).getAll())
+    return (rows as LocalPlaylist[])
+      .map(normalizeLocalPlaylist)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  } finally {
+    db.close()
+  }
+}
+
+export async function getLocalPlaylist(id: string): Promise<LocalPlaylist | null> {
+  const db = await openLocalLibraryDb()
+  try {
+    const tx = db.transaction(LOCAL_PLAYLISTS_STORE, 'readonly')
+    const row = await idbReq(tx.objectStore(LOCAL_PLAYLISTS_STORE).get(id))
+    return row ? normalizeLocalPlaylist(row as LocalPlaylist) : null
+  } finally {
+    db.close()
+  }
+}
+
+export async function putLocalPlaylist(playlist: LocalPlaylist): Promise<void> {
+  const plain = JSON.parse(JSON.stringify(playlist)) as LocalPlaylist
+  const db = await openLocalLibraryDb()
+  try {
+    const tx = db.transaction(LOCAL_PLAYLISTS_STORE, 'readwrite')
+    tx.objectStore(LOCAL_PLAYLISTS_STORE).put(plain)
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('putLocalPlaylist failed'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function deleteLocalPlaylist(id: string): Promise<void> {
+  const db = await openLocalLibraryDb()
+  try {
+    const tx = db.transaction(LOCAL_PLAYLISTS_STORE, 'readwrite')
+    tx.objectStore(LOCAL_PLAYLISTS_STORE).delete(id)
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error ?? new Error('deleteLocalPlaylist failed'))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+export async function listAllLocalBlobs(): Promise<LocalAssetBlob[]> {
+  const db = await openLocalLibraryDb()
+  try {
+    const tx = db.transaction(LOCAL_BLOBS_STORE, 'readonly')
+    const rows = await idbReq(tx.objectStore(LOCAL_BLOBS_STORE).getAll())
+    return (rows as LocalAssetBlob[]) || []
   } finally {
     db.close()
   }

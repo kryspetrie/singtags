@@ -54,17 +54,13 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('defaults tag roulette off and toggles on', async () => {
+  it('does not expose a Tag Roulette Labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    expect(usePreferencesStore().tagRouletteEnabled).toBe(false)
-    expect(w.get('input[aria-label="Tag Roulette"]').element).toHaveProperty('checked', false)
-    await w.get('input[aria-label="Tag Roulette"]').setValue(true)
-    expect(usePreferencesStore().tagRouletteEnabled).toBe(true)
-    expect(w.text()).toContain('main nav → Roulette')
-    expect(w.text()).not.toContain('Open Tag Roulette')
+    expect(w.find('input[aria-label="Tag Roulette"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('Tag Roulette')
     w.unmount()
   })
 

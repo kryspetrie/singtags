@@ -6,9 +6,9 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
-import { useSnackbarStore } from '../stores/snackbar'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
+import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 
 const props = defineProps<{
   /** Dialog visibility. */
@@ -20,8 +20,8 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
-const snackbar = useSnackbarStore()
-const { showInstallEntry, promptInstall, fallbackMessage } = usePwaInstall()
+const { showInstallEntry, promptInstall } = usePwaInstall()
+const howToOpen = ref(false)
 
 /** `about` main panel, or nested `details` (offline / install) with back. */
 type Panel = 'about' | 'details'
@@ -75,12 +75,8 @@ function close(): void {
 async function onInstall(): Promise<void> {
   const outcome = await promptInstall()
   if (outcome === 'unavailable') {
-    snackbar.show(fallbackMessage(), {
-      title: 'Install SingTags',
-      tone: 'ok',
-      ms: 6000,
-      placement: 'center',
-    })
+    howToOpen.value = true
+    return
   }
   close()
 }
@@ -249,6 +245,7 @@ async function onInstall(): Promise<void> {
         </template>
       </div>
     </div>
+    <PwaInstallHowToDialog :open="howToOpen" @close="howToOpen = false" />
   </Teleport>
 </template>
 

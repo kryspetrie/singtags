@@ -20,7 +20,16 @@ import {
   loadAppStateBackupFile,
   restoreOfflineCacheBytes,
 } from '../lib/appStateBackup'
-import { isPersistentStorageAvailable } from '../offline/storageEstimate'
+import {
+  formatBytes,
+  isPersistentStorageAvailable,
+} from '../offline/storageEstimate'
+import {
+  clearPdfRasterCache,
+  MAX_PDF_RASTER_CACHE_MAX_MB,
+  MIN_PDF_RASTER_CACHE_MAX_MB,
+  pdfRasterCacheBytes,
+} from '../offline/pdfRasterCache'
 
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
@@ -34,8 +43,35 @@ const appBackupFileInput = ref<HTMLInputElement | null>(null)
 const includeCacheInAppBackup = ref(false)
 const appBackupBusy = ref(false)
 const appBackupMessage = ref<string | null>(null)
+const pdfRasterBytes = ref<number | null>(null)
+const pdfRasterClearBusy = ref(false)
 const userCollections = useUserCollectionsStore()
 const practice = usePracticeStore()
+
+async function refreshPdfRasterMeter(): Promise<void> {
+  try {
+    pdfRasterBytes.value = await pdfRasterCacheBytes()
+  } catch {
+    pdfRasterBytes.value = null
+  }
+}
+
+function onPdfRasterMaxMbInput(event: Event): void {
+  const raw = Number((event.target as HTMLInputElement).value)
+  prefs.setPdfRasterCacheMaxMb(raw)
+  void refreshPdfRasterMeter()
+}
+
+async function onClearPdfRasterCache(): Promise<void> {
+  if (pdfRasterClearBusy.value) return
+  pdfRasterClearBusy.value = true
+  try {
+    await clearPdfRasterCache()
+    await refreshPdfRasterMeter()
+  } finally {
+    pdfRasterClearBusy.value = false
+  }
+}
 
 /** Show the protect button only when the API exists and persistence is not already granted. */
 const canRequestPersistentStorage = computed(
@@ -44,6 +80,7 @@ const canRequestPersistentStorage = computed(
 
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
+  void refreshPdfRasterMeter()
   // Always refresh manifests when online so new remote tags can be detected.
   if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
   else await offlineLib.refreshEstimate()
@@ -337,6 +374,42 @@ function cancelCullUpgrades(): void {
 
 <template>
   <section class="settings" aria-label="Offline settings">
+    <section class="connection-card display-card" aria-labelledby="display-h">
+      <div class="connection-row">
+        <div class="connection-copy">
+          <h2 id="display-h">Display size</h2>
+          <p class="hint">
+            Scale the whole app (like browser zoom). Handy in the installed app where browser zoom
+            is hard to reach. Adjust from 70%–130% in 5% steps (default 100%).
+          </p>
+        </div>
+        <div class="scale-controls" role="group" aria-label="Display size">
+          <button
+            type="button"
+            class="btn btn-ghost scale-btn"
+            :disabled="prefs.uiScalePercent <= 70"
+            aria-label="Decrease display size"
+            @click="prefs.nudgeUiScale(-5)"
+          >
+            −
+          </button>
+          <span class="scale-value" aria-live="polite">{{ prefs.uiScalePercent }}%</span>
+          <button
+            type="button"
+            class="btn btn-ghost scale-btn"
+            :disabled="prefs.uiScalePercent >= 130"
+            aria-label="Increase display size"
+            @click="prefs.nudgeUiScale(5)"
+          >
+            +
+          </button>
+          <button type="button" class="btn btn-ghost" @click="prefs.resetUiScale()">
+            Reset
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section class="connection-card" aria-labelledby="connection-h">
       <div class="connection-row">
         <div class="connection-copy">
@@ -346,11 +419,11 @@ function cancelCullUpgrades(): void {
           </h2>
           <p class="hint">
             Go offline to use cached sheets and tracks only — saves data and avoids downloads on
-            slow or metered connections. Zip downloads for sharing files live under Downloads.
+            slow or metered connections. Zip exports for sharing files live under Export.
           </p>
         </div>
         <div class="connection-actions">
-          <RouterLink class="btn btn-ghost" to="/queue">Downloads</RouterLink>
+          <RouterLink class="btn btn-ghost" to="/queue">Export</RouterLink>
           <button
             type="button"
             class="btn connection-btn"
@@ -636,6 +709,43 @@ function cancelCullUpgrades(): void {
           Frees space from 300&nbsp;dpi sheet rasters and warmed playback/original tracks. Keeps the
           WebP sheets pack and ultra/lo-fi learning-track pack so you do not need a full cache dump.
         </p>
+
+        <div class="pdf-raster-cache">
+          <h3 class="subhead">High-res PDF sheet cache</h3>
+          <p class="hint">
+            Local Library (and catalog) PDFs are rendered to WebP for sharp fullscreen viewing. Cached
+            rasters reuse that work next time. Oldest entries are removed first when over the limit.
+          </p>
+          <label class="field">
+            Max PDF cache (MB)
+            <input
+              class="num"
+              type="number"
+              inputmode="numeric"
+              :min="MIN_PDF_RASTER_CACHE_MAX_MB"
+              :max="MAX_PDF_RASTER_CACHE_MAX_MB"
+              step="32"
+              :value="prefs.pdfRasterCacheMaxMb"
+              aria-describedby="pdf-raster-cache-hint"
+              @change="onPdfRasterMaxMbInput"
+            />
+          </label>
+          <p id="pdf-raster-cache-hint" class="hint">
+            In use:
+            {{ pdfRasterBytes == null ? '…' : formatBytes(pdfRasterBytes) }}
+            · 0 disables saving to disk (session memory only)
+          </p>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn btn-ghost"
+              :disabled="pdfRasterClearBusy || !pdfRasterBytes"
+              @click="onClearPdfRasterCache"
+            >
+              {{ pdfRasterClearBusy ? 'Clearing…' : 'Clear PDF cache' }}
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="card" aria-labelledby="cache-tools-h">
@@ -711,7 +821,7 @@ function cancelCullUpgrades(): void {
         </div>
         <p v-if="confirmClear" class="hint warn-inline" role="alert">
           Removes downloaded sheets, audio pack, favorited tags, custom collections, and cached
-          catalog metadata on this device. Download queue, recent tags, settings, and Local Library
+          catalog metadata on this device. Export queue, recent tags, settings, and Local Library
           songs are kept.
         </p>
       </section>
@@ -720,7 +830,7 @@ function cancelCullUpgrades(): void {
         <h2 id="app-backup-h">App state backup</h2>
         <p class="hint">
           Save SingTags settings, favorites, collections, favorites custom order, recent tags, and
-          download queue. Optionally include the offline media cache (sheets/audio packs and
+          export queue. Optionally include the offline media cache (sheets/audio packs and
           favorited media) — that zip is much larger. Local Library songs are stored separately and
           are not included in this backup.
         </p>
@@ -811,6 +921,29 @@ function cancelCullUpgrades(): void {
 }
 .connection-btn {
   flex-shrink: 0;
+}
+.scale-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  align-self: center;
+}
+.scale-btn {
+  min-width: 2.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  padding-left: 0.55rem;
+  padding-right: 0.55rem;
+}
+.scale-value {
+  min-width: 3.25rem;
+  text-align: center;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
 }
 .connection-on {
   margin: 0 0 1rem;
@@ -974,5 +1107,35 @@ function cancelCullUpgrades(): void {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+.pdf-raster-cache {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.45rem;
+}
+.pdf-raster-cache .subhead {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.pdf-raster-cache .field {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  max-width: 16rem;
+}
+.pdf-raster-cache .num {
+  min-height: 44px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
 }
 </style>

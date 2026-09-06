@@ -23,6 +23,11 @@ import {
   putLocalLibraryPrefs,
 } from '../offline/localLibraryDb'
 import {
+  defaultTrackLabel,
+  guessPartIdFromFilename,
+  inferPartIdForAsset,
+} from '../lib/localAssetHeuristics'
+import {
   entryAssetSummary,
   guessAssetRoles,
   guessLocalMime,
@@ -37,6 +42,14 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
   const groups = ref<LocalGroup[]>([])
   const entryOrder = ref<string[]>([])
   const loaded = ref(false)
+
+  function withInferredPartId(asset: LocalAsset): LocalAsset {
+    if (asset.role !== 'track') return { ...asset, partId: asset.partId ?? null }
+    if (asset.partId) return asset
+    const inferred = inferPartIdForAsset(asset)
+    return { ...asset, partId: inferred }
+  }
+
   const loading = ref(false)
   const error = ref<string | null>(null)
   const activeGroupId = ref<string | null>(null)
@@ -95,8 +108,14 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       ])
       entries.value = e
       const map: Record<string, LocalAsset[]> = {}
+      const toPersist: LocalAsset[] = []
       for (const asset of a) {
-        ;(map[asset.entryId] ??= []).push(asset)
+        const next = withInferredPartId(asset)
+        if (asset.role === 'track' && !asset.partId && next.partId) toPersist.push(next)
+        ;(map[asset.entryId] ??= []).push(next)
+      }
+      for (const asset of toPersist) {
+        void putLocalAsset(asset)
       }
       for (const id of Object.keys(map)) {
         map[id]!.sort((x, y) => x.sortIndex - y.sortIndex || x.createdAt.localeCompare(y.createdAt))
@@ -155,7 +174,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
   }
 
   async function reloadAssets(entryId: string): Promise<LocalAsset[]> {
-    const list = await listAssetsForEntry(entryId)
+    const list = (await listAssetsForEntry(entryId)).map(withInferredPartId)
     assetsByEntry.value = { ...assetsByEntry.value, [entryId]: list }
     return list
   }
@@ -223,6 +242,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title?: string
       roles?: LocalAssetRole[]
       labels?: string[]
+      partIds?: Array<string | null | undefined>
     },
   ): Promise<LocalEntry> {
     if (!files.length) throw new Error('No files to import.')
@@ -242,6 +262,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title,
       arranger: '',
       notes: '',
+      lyricsHint: '',
       key: null,
       detuneCents: 0,
       createdAt: now,
@@ -255,11 +276,20 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       const mime = mimeChecks[i]!.mime
       const buf = await file.arrayBuffer()
       const assetId = newLocalId('la')
+      const role = roles[i] ?? 'other'
+      const partId =
+        opts?.partIds?.[i] ??
+        (role === 'track' ? guessPartIdFromFilename(file.name) : null)
+      const label =
+        (opts?.labels?.[i]?.trim() ||
+          (role === 'track' ? defaultTrackLabel(file.name, partId) : titleFromFilename(file.name))
+        ).trim() || file.name
       assets.push({
         id: assetId,
         entryId,
-        role: roles[i] ?? 'other',
-        label: (opts?.labels?.[i]?.trim() || titleFromFilename(file.name)).trim() || file.name,
+        role,
+        label,
+        partId: role === 'track' ? partId : null,
         mime,
         filename: file.name,
         byteLength: buf.byteLength,
@@ -296,17 +326,23 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title: (opts?.title?.trim() || titleFromFilename(file.name)).trim() || 'Untitled',
       arranger: '',
       notes: '',
+      lyricsHint: '',
       key: null,
       detuneCents: 0,
       createdAt: now,
       updatedAt: now,
       groupIds: opts?.groupId ? [opts.groupId] : [],
     }
+    const partId = role === 'track' ? guessPartIdFromFilename(file.name) : null
     const asset: LocalAsset = {
       id: assetId,
       entryId,
       role,
-      label: titleFromFilename(file.name) || file.name,
+      label:
+        role === 'track'
+          ? defaultTrackLabel(file.name, partId)
+          : titleFromFilename(file.name) || file.name,
+      partId,
       mime,
       filename: file.name,
       byteLength: buf.byteLength,
@@ -331,6 +367,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     key?: string | null
     detuneCents?: number
     role?: LocalAssetRole
+    partId?: string | null
   }): Promise<LocalEntry> {
     if (!isLocalLibraryMime(opts.mime, opts.filename)) {
       throw new Error('Local Library accepts PDF, image, and audio files only.')
@@ -347,6 +384,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title: (opts.title?.trim() || titleFromFilename(opts.filename)).trim() || 'Untitled',
       arranger: opts.arranger?.trim() ?? '',
       notes: opts.notes?.trim() ?? '',
+      lyricsHint: opts.lyricsHint?.trim() ?? '',
       key: opts.key?.trim() || null,
       detuneCents:
         opts.detuneCents != null && Number.isFinite(opts.detuneCents)
@@ -356,11 +394,17 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       updatedAt: now,
       groupIds: [],
     }
+    const partId =
+      opts.partId ?? (role === 'track' ? guessPartIdFromFilename(opts.filename) : null)
     const asset: LocalAsset = {
       id: assetId,
       entryId,
       role,
-      label: titleFromFilename(opts.filename) || opts.filename,
+      label:
+        role === 'track'
+          ? defaultTrackLabel(opts.filename, partId)
+          : titleFromFilename(opts.filename) || opts.filename,
+      partId,
       mime: opts.mime,
       filename: opts.filename,
       byteLength: opts.data.byteLength,
@@ -381,6 +425,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     assets: Array<{
       role: LocalAssetRole
       label: string
+      partId?: string | null
       mime: string
       filename: string
       data: ArrayBuffer
@@ -394,6 +439,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title: opts.entry.title.trim() || 'Untitled',
       arranger: opts.entry.arranger.trim(),
       notes: opts.entry.notes.trim(),
+      lyricsHint: (opts.entry.lyricsHint ?? '').trim(),
       key: opts.entry.key?.trim() || null,
       detuneCents: opts.entry.detuneCents ?? 0,
       createdAt: now,
@@ -404,11 +450,15 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     const blobs: { id: string; mime: string; data: ArrayBuffer }[] = []
     opts.assets.forEach((a, i) => {
       const assetId = newLocalId('la')
+      const partId =
+        a.partId ??
+        (a.role === 'track' ? guessPartIdFromFilename(a.filename) : null)
       assets.push({
         id: assetId,
         entryId,
         role: a.role,
         label: a.label.trim() || titleFromFilename(a.filename),
+        partId: a.role === 'track' ? partId : null,
         mime: a.mime,
         filename: a.filename,
         byteLength: a.data.byteLength,
@@ -424,9 +474,44 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     return entry
   }
 
+  /**
+   * Metadata-only song (no sheet/audio). Useful for set lists that still need
+   * title, key/pitch, and lyric cues without imported media.
+   */
+  async function createEmptyEntry(opts?: {
+    title?: string
+    arranger?: string
+    notes?: string
+    lyricsHint?: string
+    key?: string | null
+    detuneCents?: number
+    groupId?: string
+  }): Promise<LocalEntry> {
+    const now = new Date().toISOString()
+    const entry: LocalEntry = {
+      id: newLocalId('le'),
+      title: (opts?.title?.trim() || 'Untitled').trim() || 'Untitled',
+      arranger: opts?.arranger?.trim() ?? '',
+      notes: opts?.notes?.trim() ?? '',
+      lyricsHint: opts?.lyricsHint?.trim() ?? '',
+      key: opts?.key?.trim() || null,
+      detuneCents:
+        opts?.detuneCents != null && Number.isFinite(opts.detuneCents)
+          ? Math.max(-50, Math.min(50, Math.round(opts.detuneCents)))
+          : 0,
+      createdAt: now,
+      updatedAt: now,
+      groupIds: opts?.groupId ? [opts.groupId] : [],
+    }
+    await putLocalEntry(entry)
+    await trackNewEntry(entry)
+    assetsByEntry.value = { ...assetsByEntry.value, [entry.id]: [] }
+    return entry
+  }
+
   async function updateMeta(
     id: string,
-    patch: Partial<Pick<LocalEntry, 'title' | 'arranger' | 'notes' | 'key' | 'detuneCents' | 'groupIds'>>,
+    patch: Partial<Pick<LocalEntry, 'title' | 'arranger' | 'notes' | 'lyricsHint' | 'key' | 'detuneCents' | 'groupIds'>>,
   ): Promise<LocalEntry | null> {
     const existing = entries.value.find((e) => e.id === id) ?? (await getLocalEntry(id))
     if (!existing) return null
@@ -436,6 +521,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title: (patch.title ?? existing.title).trim() || existing.title,
       arranger: (patch.arranger ?? existing.arranger).trim(),
       notes: (patch.notes ?? existing.notes).trim(),
+      lyricsHint: (patch.lyricsHint ?? existing.lyricsHint ?? '').trim(),
       key: patch.key !== undefined ? patch.key?.trim() || null : existing.key,
       detuneCents:
         patch.detuneCents !== undefined && Number.isFinite(patch.detuneCents)
@@ -451,7 +537,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
 
   async function updateAssetMeta(
     assetId: string,
-    patch: Partial<Pick<LocalAsset, 'role' | 'label' | 'sortIndex'>>,
+    patch: Partial<Pick<LocalAsset, 'role' | 'label' | 'partId' | 'sortIndex'>>,
   ): Promise<LocalAsset | null> {
     const all = Object.values(assetsByEntry.value).flat()
     const existing = all.find((a) => a.id === assetId)
@@ -489,11 +575,17 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       }
       const buf = await file.arrayBuffer()
       const assetId = newLocalId('la')
+      const role = roles?.[i] ?? guessed[i] ?? 'other'
+      const partId = role === 'track' ? guessPartIdFromFilename(file.name) : null
       const asset: LocalAsset = {
         id: assetId,
         entryId,
-        role: roles?.[i] ?? guessed[i] ?? 'other',
-        label: titleFromFilename(file.name) || file.name,
+        role,
+        label:
+          role === 'track'
+            ? defaultTrackLabel(file.name, partId)
+            : titleFromFilename(file.name) || file.name,
+        partId,
         mime,
         filename: file.name,
         byteLength: buf.byteLength,
@@ -599,6 +691,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
       title: opts.entry.title.trim() || existing.title,
       arranger: opts.entry.arranger.trim(),
       notes: opts.entry.notes.trim(),
+      lyricsHint: (opts.entry.lyricsHint ?? '').trim(),
       key: opts.entry.key?.trim() || null,
       detuneCents: opts.entry.detuneCents ?? existing.detuneCents,
       createdAt: existing.createdAt,
@@ -857,6 +950,7 @@ export const useLocalLibraryStore = defineStore('localLibrary', () => {
     importFilesCombined,
     importFromBytes,
     importEntryBundle,
+    createEmptyEntry,
     updateMeta,
     updateAssetMeta,
     addFilesToEntry,

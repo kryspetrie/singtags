@@ -3,11 +3,12 @@
  * Local Library list — Favorites-like index of on-device songs.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import FilterSheet from '../components/FilterSheet.vue'
 import LocalLibraryCombineStaging from '../components/LocalLibraryCombineStaging.vue'
+import LocalImportModal from '../components/LocalImportModal.vue'
 import LocalLibraryMergeStaging from '../components/LocalLibraryMergeStaging.vue'
 import LocalEntryTransferSheet from '../components/LocalEntryTransferSheet.vue'
 import LocalGroupPickerSheet from '../components/LocalGroupPickerSheet.vue'
@@ -16,6 +17,7 @@ import { navigateToLocalEntry } from '../lib/localDocOpen'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useLocalLibraryStore } from '../stores/localLibrary'
+import { useLocalPlaylistsStore } from '../stores/localPlaylists'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import {
@@ -28,8 +30,16 @@ import {
   LOCAL_ENTRY_WARN_BYTES,
   formatLocalSizeWarn,
 } from '../lib/localDocReceive'
+import {
+  estimateLocalLibraryBytes,
+  exportLocalLibraryZip,
+  importLocalLibraryZip,
+} from '../lib/localLibraryBackup'
+import { formatBytes, getStorageEstimate } from '../offline/storageEstimate'
 
 const library = useLocalLibraryStore()
+const playlists = useLocalPlaylistsStore()
+const route = useRoute()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const router = useRouter()
@@ -38,6 +48,7 @@ const separateInput = ref<HTMLInputElement | null>(null)
 const combineInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
 const combineFiles = ref<File[]>([])
+const importModalOpen = ref(false)
 const groupName = ref('')
 const groupBusy = ref(false)
 const manageGroupsOpen = ref(false)
@@ -46,16 +57,92 @@ const renameGroupId = ref<string | null>(null)
 const renameGroupName = ref('')
 const moreMenuOpen = ref(false)
 const moreMenuRef = ref<HTMLElement | null>(null)
-const pendingDeleteId = ref<string | null>(null)
+const pendingBulkDelete = ref(false)
 const pendingDeleteGroupId = ref<string | null>(null)
 const selectedIds = ref<Set<string>>(new Set())
 const selectMode = ref(false)
 const transferEntryId = ref<string | null>(null)
 const searchQuery = ref('')
-const searchNotes = ref(false)
+const searchOptionsOpen = ref(false)
 const mergeEntryIds = ref<string[] | null>(null)
 const mergeBusy = ref(false)
 const pendingMultiTransferIds = ref<string[] | null>(null)
+
+const backupBusy = ref(false)
+const backupMessage = ref<string | null>(null)
+const restoreInput = ref<HTMLInputElement | null>(null)
+const libraryBytes = ref<number | null>(null)
+const deviceStorage = ref<{ usage: number; quota: number } | null>(null)
+
+async function refreshStorageMeter(): Promise<void> {
+  try {
+    libraryBytes.value = await estimateLocalLibraryBytes()
+  } catch {
+    libraryBytes.value = null
+  }
+  try {
+    const est = await getStorageEstimate()
+    deviceStorage.value =
+      est && est.quota > 0 ? { usage: est.usage, quota: est.quota } : null
+  } catch {
+    deviceStorage.value = null
+  }
+}
+
+async function onBackupExport(): Promise<void> {
+  moreMenuOpen.value = false
+  if (backupBusy.value) return
+  backupBusy.value = true
+  backupMessage.value = 'Building backup…'
+  try {
+    const result = await exportLocalLibraryZip((p) => {
+      backupMessage.value = p.label
+    })
+    snackbar.show(
+      `Backup downloaded (${formatBytes(result.bytes)}).`,
+      { tone: 'ok', ms: 3500 },
+    )
+    backupMessage.value = null
+    await refreshStorageMeter()
+  } catch (e) {
+    backupMessage.value = null
+    snackbar.show(e instanceof Error ? e.message : 'Backup failed.', { tone: 'error' })
+  } finally {
+    backupBusy.value = false
+  }
+}
+
+function openRestorePicker(): void {
+  moreMenuOpen.value = false
+  restoreInput.value?.click()
+}
+
+async function onRestoreSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || backupBusy.value) return
+  backupBusy.value = true
+  backupMessage.value = 'Restoring backup…'
+  try {
+    const result = await importLocalLibraryZip(file, (p) => {
+      backupMessage.value = p.label
+    })
+    await Promise.all([library.refresh(), playlists.refresh()])
+    await refreshStorageMeter()
+    snackbar.show(
+      `Restored ${result.entries} song${result.entries === 1 ? '' : 's'}, ${result.playlists} set list${result.playlists === 1 ? '' : 's'}.`,
+      { tone: 'ok', ms: 4000 },
+    )
+    backupMessage.value = null
+  } catch (e) {
+    backupMessage.value = null
+    snackbar.show(e instanceof Error ? e.message : 'Restore failed.', { tone: 'error' })
+  } finally {
+    backupBusy.value = false
+  }
+}
+
 
 const canReorder = computed(() => !searchQuery.value.trim())
 
@@ -146,14 +233,16 @@ const orderedEntries = computed(() => {
   const list = library.filteredEntries
   const q = searchQuery.value
   if (!q.trim()) return list
-  return list.filter((e) => matchLocalLibraryQuery(e, q, { includeNotes: searchNotes.value }))
+  return list.filter((e) => matchLocalLibraryQuery(e, q))
 })
 
-const pendingDeleteTitle = computed(() => {
-  const entry = pendingDeleteId.value
-    ? library.entries.find((d) => d.id === pendingDeleteId.value)
-    : null
-  return entry ? `Delete “${entry.title}”?` : 'Delete song?'
+const pendingBulkDeleteTitle = computed(() => {
+  const ids = [...selectedIds.value]
+  if (ids.length === 1) {
+    const entry = library.entries.find((d) => d.id === ids[0])
+    return entry ? `Delete “${entry.title}” from Local Library?` : 'Delete song from Local Library?'
+  }
+  return `Delete ${ids.length} songs from Local Library?`
 })
 
 const pendingDeleteGroupTitle = computed(() => {
@@ -200,8 +289,24 @@ function onDocPointerDown(e: PointerEvent): void {
   moreMenuOpen.value = false
 }
 
+function restoreLibraryScroll(): void {
+  try {
+    const raw = sessionStorage.getItem('singtags.library.scrollY')
+    if (raw == null) return
+    sessionStorage.removeItem('singtags.library.scrollY')
+    const y = Number(raw)
+    if (!Number.isFinite(y)) return
+    requestAnimationFrame(() => window.scrollTo(0, y))
+  } catch {
+    /* ignore */
+  }
+}
+
 onMounted(() => {
-  void library.ensureLoaded()
+  restoreLibraryScroll()
+  void Promise.all([library.ensureLoaded(), playlists.ensureLoaded()]).then(() =>
+    refreshStorageMeter(),
+  )
   narrowMq = window.matchMedia(NARROW_SELECT_MQ)
   syncNarrowSelect()
   narrowMq.addEventListener('change', syncNarrowSelect)
@@ -214,15 +319,143 @@ onUnmounted(() => {
   clearLongPressTimer()
 })
 
-function openSeparatePicker(): void {
-  moreMenuOpen.value = false
-  separateInput.value?.click()
+
+
+function entryHasSheet(entryId: string): boolean {
+  return library.assetsFor(entryId).some(
+    (a) => a.role === 'sheet' || a.role === 'alternateSheet' || a.role === 'image',
+  )
 }
 
-function openCombinePicker(): void {
-  moreMenuOpen.value = false
-  combineInput.value?.click()
+function localEntryLocation(entryId: string) {
+  const fullscreen = prefs.singMode && entryHasSheet(entryId)
+  return {
+    path: `/library/${entryId}`,
+    query: fullscreen ? { fullscreen: '1' } : {},
+  }
 }
+
+function onOpenEntry(entryId: string, event: Event): void {
+  if (dragActive.value || suppressRowClick) {
+    event.preventDefault()
+    return
+  }
+  // Sing mode wants fullscreen — cue-only songs open the page instead; explain why.
+  if (prefs.singMode && !entryHasSheet(entryId)) {
+    snackbar.show('No sheet music available.', { tone: 'info' })
+  }
+  try {
+    sessionStorage.setItem('singtags.library.scrollY', String(window.scrollY))
+  } catch {
+    /* ignore */
+  }
+}
+
+function badgeFor(entryId: string): { sheet: boolean; tracks: number; empty: boolean } {
+  const assets = library.assetsFor(entryId)
+  return {
+    sheet: assets.some((a) => a.role === 'sheet' || a.role === 'alternateSheet'),
+    tracks: assets.filter((a) => a.role === 'track').length,
+    empty: assets.length === 0,
+  }
+}
+
+/** Browse-style lyrics cue for list rows (trimmed, ellipsized). */
+function lyricsHintSnippet(raw: string | undefined | null, max = 90): string {
+  const t = (raw ?? '').trim().replace(/\s+/g, ' ')
+  if (!t) return ''
+  return t.length > max ? `${t.slice(0, Math.max(1, max - 1))}…` : t
+}
+
+
+const libraryTab = computed<'songs' | 'playlists'>(() =>
+  route.query.tab === 'playlists' ? 'playlists' : 'songs',
+)
+
+function setLibraryTab(tab: 'songs' | 'playlists'): void {
+  void router.replace({
+    path: '/library',
+    query: {
+      ...route.query,
+      ...(tab === 'playlists' ? { tab: 'playlists' } : { tab: undefined }),
+    },
+  })
+}
+
+const newPlaylistName = ref('')
+
+async function createPlaylist(): Promise<void> {
+  const name = newPlaylistName.value.trim() || 'Set List'
+  const pl = await playlists.createPlaylist(name)
+  newPlaylistName.value = ''
+  await router.push({ path: `/library/playlists/${pl.id}`, query: { edit: '1' } })
+}
+
+async function addSelectionToPlaylist(): Promise<void> {
+  if (!selectedIds.value.size) return
+  const name = prompt('New set list name', 'Concert set')
+  if (name == null) return
+  const pl = await playlists.createPlaylist(name.trim() || 'Concert set')
+  await playlists.addEntries(pl.id, [...selectedIds.value])
+  clearSelection()
+  await router.push(`/library/playlists/${pl.id}`)
+}
+
+async function onCreateEmptySong(): Promise<void> {
+  importModalOpen.value = false
+  if (importBusy.value) return
+  importBusy.value = true
+  try {
+    const entry = await library.createEmptyEntry({
+      groupId: library.activeGroupId ?? undefined,
+    })
+    await navigateToLocalEntry(router, entry.id, { edit: true })
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Could not create empty song.', {
+      tone: 'error',
+    })
+  } finally {
+    importBusy.value = false
+  }
+}
+
+function openImportModal(): void {
+  // Keep legacy file inputs mounted for tests / fallback.
+  void separateInput.value
+  void combineInput.value
+
+  moreMenuOpen.value = false
+  importModalOpen.value = true
+}
+
+async function onImportPick(payload: {
+  mode: 'combined' | 'separate'
+  files: File[]
+}): Promise<void> {
+  importModalOpen.value = false
+  if (!payload.files.length) return
+  warnIfLargeFiles(payload.files)
+  if (payload.mode === 'combined') {
+    combineFiles.value = payload.files
+    return
+  }
+  // separate
+  if (importBusy.value) return
+  importBusy.value = true
+  try {
+    const created = await library.importFilesSeparate(payload.files, {
+      groupId: library.activeGroupId ?? undefined,
+    })
+    if (!created.length) return
+    const ids = created.map((e) => e.id)
+    await navigateToLocalEntry(router, ids[0]!, { edit: true, importQueue: ids })
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Could not import files.', { tone: 'error' })
+  } finally {
+    importBusy.value = false
+  }
+}
+
 
 async function onSeparateSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
@@ -258,6 +491,7 @@ async function onCombineConfirm(payload: {
   files: File[]
   roles: LocalAssetRole[]
   labels: string[]
+  partIds?: Array<string | null>
   title: string
 }): Promise<void> {
   if (importBusy.value) return
@@ -268,6 +502,7 @@ async function onCombineConfirm(payload: {
       title: payload.title,
       roles: payload.roles,
       labels: payload.labels,
+      partIds: payload.partIds,
     })
     combineFiles.value = []
     await navigateToLocalEntry(router, entry.id, { edit: true })
@@ -304,7 +539,7 @@ function onRowPointerDown(e: PointerEvent, id: string): void {
   if (!isNarrow.value || showRowSelect.value) return
   if (e.button !== 0) return
   const t = e.target as HTMLElement | null
-  if (t?.closest('.sel-btn, .row-remove, .row-tx, .drag-handle')) return
+  if (t?.closest('.sel-btn, .drag-handle')) return
   clearLongPressTimer()
   longPressX = e.clientX
   longPressY = e.clientY
@@ -420,18 +655,13 @@ async function onCreateGroup(): Promise<void> {
   }
 }
 
-async function confirmDelete(): Promise<void> {
-  const id = pendingDeleteId.value
-  pendingDeleteId.value = null
-  if (!id) return
-  await library.removeEntry(id)
-  if (selectedIds.value.has(id)) {
-    const next = new Set(selectedIds.value)
-    next.delete(id)
-    selectedIds.value = next
-    if (!next.size) selectMode.value = false
-  }
-  snackbar.show('Removed from Local Library', { tone: 'ok', ms: 2500 })
+async function confirmBulkDelete(): Promise<void> {
+  pendingBulkDelete.value = false
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  for (const id of ids) await library.removeEntry(id)
+  clearSelection()
+  snackbar.show(`Removed ${ids.length} song${ids.length === 1 ? '' : 's'}`, { tone: 'ok', ms: 2500 })
 }
 
 async function confirmDeleteGroup(): Promise<void> {
@@ -442,12 +672,9 @@ async function confirmDeleteGroup(): Promise<void> {
   snackbar.show('Group deleted', { tone: 'ok', ms: 2500 })
 }
 
-async function deleteSelected(): Promise<void> {
-  const ids = [...selectedIds.value]
-  if (!ids.length) return
-  for (const id of ids) await library.removeEntry(id)
-  clearSelection()
-  snackbar.show(`Removed ${ids.length} song${ids.length === 1 ? '' : 's'}`, { tone: 'ok', ms: 2500 })
+function deleteSelected(): void {
+  if (!selectedIds.value.size) return
+  pendingBulkDelete.value = true
 }
 
 async function removeSelectedFromActiveGroup(): Promise<void> {
@@ -560,18 +787,23 @@ function groupsForEntry(entryId: string) {
       multiple
       @change="onCombineSelected"
     />
+    <input
+      ref="restoreInput"
+      class="visually-hidden"
+      type="file"
+      accept=".zip,application/zip"
+      aria-label="Restore Local Library backup"
+      @change="onRestoreSelected"
+    />
 
     <div class="actions">
       <button
         type="button"
         class="btn btn-primary"
-        :disabled="importBusy"
-        @click="openSeparatePicker"
+        :disabled="importBusy || backupBusy"
+        @click="openImportModal"
       >
-        Import files
-      </button>
-      <button type="button" class="btn" :disabled="importBusy" @click="openCombinePicker">
-        Import as one song
+        Add Song
       </button>
       <button type="button" class="btn" @click="manageGroupsOpen = true">Manage groups</button>
       <div ref="moreMenuRef" class="more-menu-wrap">
@@ -599,23 +831,68 @@ function groupsForEntry(entryId: string) {
             type="button"
             class="more-menu-item"
             role="menuitem"
-            @click="openSeparatePicker"
+            @click="openImportModal"
           >
-            Import files
+            Add Song
           </button>
           <button
             type="button"
             class="more-menu-item"
             role="menuitem"
-            @click="openCombinePicker"
+            :disabled="backupBusy"
+            @click="onBackupExport"
           >
-            Import as one song
+            Backup library…
+          </button>
+          <button
+            type="button"
+            class="more-menu-item"
+            role="menuitem"
+            :disabled="backupBusy"
+            @click="openRestorePicker"
+          >
+            Restore backup…
           </button>
         </div>
       </div>
     </div>
 
-    <div class="search-toolbar">
+    <p v-if="backupMessage" class="backup-status" role="status">{{ backupMessage }}</p>
+    <p v-if="libraryBytes != null || deviceStorage" class="storage-meter" aria-live="polite">
+      <template v-if="libraryBytes != null">
+        Local Library ≈ {{ formatBytes(libraryBytes) }}
+      </template>
+      <template v-if="libraryBytes != null && deviceStorage"> · </template>
+      <template v-if="deviceStorage">
+        Device {{ formatBytes(deviceStorage.usage) }} / {{ formatBytes(deviceStorage.quota) }}
+      </template>
+    </p>
+
+
+    <div class="library-tabs" role="tablist" aria-label="Library sections">
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ on: libraryTab === 'songs' }"
+        :aria-selected="libraryTab === 'songs'"
+        @click="setLibraryTab('songs')"
+      >
+        Songs
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ on: libraryTab === 'playlists' }"
+        :aria-selected="libraryTab === 'playlists'"
+        @click="setLibraryTab('playlists')"
+      >
+        Set Lists
+      </button>
+    </div>
+
+    <div v-show="libraryTab === 'songs'" class="search-toolbar">
       <div class="searchrow">
         <div class="search-field">
           <input
@@ -625,7 +902,7 @@ function groupsForEntry(entryId: string) {
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
-            placeholder="Search titles, arrangers, keys…"
+            placeholder="Search titles, arrangers, notes, lyrics…"
             aria-label="Search local library"
           />
           <div class="search-infield">
@@ -641,16 +918,30 @@ function groupsForEntry(entryId: string) {
             </button>
           </div>
         </div>
+        <button
+          type="button"
+          class="options-btn"
+          :aria-expanded="searchOptionsOpen"
+          aria-controls="library-options"
+          :title="searchOptionsOpen ? 'Hide search options' : 'Show search options'"
+          @click="searchOptionsOpen = !searchOptionsOpen"
+        >
+          ⋮
+        </button>
       </div>
-      <label class="search-notes" title="Also match text in song notes">
-        <input v-model="searchNotes" type="checkbox" />
-        Search notes
-      </label>
+      <div v-if="searchOptionsOpen" id="library-options" class="search-options">
+        <p class="opt-hint tip">
+          Searches title, arranger, notes, and lyric hints. Tip: multiple words (AND),
+          <code>-word</code> to exclude, or
+          <code>title:</code> / <code>arranger:</code> / <code>notes:</code> /
+          <code>lyrics:</code> / <code>key:</code>.
+        </p>
+      </div>
     </div>
 
     <p v-if="library.error" class="err" role="alert">{{ library.error }}</p>
 
-    <div class="collection-bar" role="toolbar" aria-label="Groups">
+    <div v-show="libraryTab === 'songs'" class="collection-bar" role="toolbar" aria-label="Groups">
       <button
         type="button"
         class="chip"
@@ -709,19 +1000,20 @@ function groupsForEntry(entryId: string) {
 
     <div
       v-if="library.loaded && library.entries.length"
-      class="results-meta"
+      v-show="libraryTab === 'songs'" class="results-meta"
       aria-live="polite"
     >
       <div class="text-muted count">{{ resultsCountLabel }}</div>
     </div>
 
+    <template v-if="libraryTab === 'songs'">
     <p v-if="!library.loaded" class="text-muted" role="status">Loading library…</p>
     <EmptyState
       v-else-if="!library.entries.length"
       title="No songs yet"
-      message="Import a PDF, sheet image, or audio track to start your local library."
+      message="Add a PDF, sheet image, or audio track — or create an empty song for pitch and lyric cues only."
     >
-      <button type="button" class="btn btn-primary" @click="openSeparatePicker">Import files</button>
+      <button type="button" class="btn btn-primary" @click="openImportModal">Add Song</button>
     </EmptyState>
     <EmptyState
       v-else-if="!orderedEntries.length && searchQuery.trim()"
@@ -732,7 +1024,8 @@ function groupsForEntry(entryId: string) {
       v-else-if="!orderedEntries.length && activeGroup"
       title="Nothing in this group"
       message="Select songs with the checkboxes, then use Add to group — or import while this group is selected."
-    />    <ol
+    />
+    <ol
       v-else-if="orderedEntries.length"
       class="list"
       :class="listDraggingClass"
@@ -779,15 +1072,36 @@ function groupsForEntry(entryId: string) {
         <div class="row-main">
           <RouterLink
             class="row-link"
-            :to="`/library/${entry.id}`"
-            @click="(dragActive || suppressRowClick) && $event.preventDefault()"
+            :to="localEntryLocation(entry.id)"
+            @click="onOpenEntry(entry.id, $event)"
           >
             <span class="row-title">{{ entry.title }}</span>
             <span class="row-meta">
-              <template v-if="entry.arranger">{{ entry.arranger }} · </template>
-              {{ library.summaryFor(entry.id) }}
-              <template v-if="entry.key"> · {{ entry.key }}</template>
+              <span v-if="entry.key" title="Key">{{ entry.key }}</span>
+              <span v-if="entry.arranger" :title="`Arranger: ${entry.arranger}`">{{
+                entry.arranger
+              }}</span>
+              <span v-if="badgeFor(entry.id).sheet" class="badge" title="Has sheet music">Sheet</span>
+              <span
+                v-if="badgeFor(entry.id).tracks"
+                class="badge"
+                :title="`${badgeFor(entry.id).tracks} learning track${badgeFor(entry.id).tracks === 1 ? '' : 's'}`"
+              >
+                {{ badgeFor(entry.id).tracks }} track{{
+                  badgeFor(entry.id).tracks === 1 ? '' : 's'
+                }}
+              </span>
+              <span
+                v-if="badgeFor(entry.id).empty"
+                class="badge"
+                title="No sheet or audio — pitch and lyric cues only"
+              >Cue</span>
             </span>
+            <span
+              v-if="lyricsHintSnippet(entry.lyricsHint)"
+              class="row-lyrics"
+              title="Lyrics hint"
+            >{{ lyricsHintSnippet(entry.lyricsHint) }}</span>
           </RouterLink>
           <div
             v-if="groupsForEntry(entry.id).length"
@@ -808,33 +1122,13 @@ function groupsForEntry(entryId: string) {
             </button>
           </div>
         </div>
-        <div class="row-actions">
-          <button
-            v-if="prefs.opticalTransferEnabled"
-            type="button"
-            class="row-tx"
-            :aria-label="`Transfer ${entry.title} optically`"
-            title="Optical transfer"
-            @click.stop="transferEntries([entry.id])"
-          >
-            ↗
-          </button>
-          <button
-            type="button"
-            class="row-remove"
-            :aria-label="`Delete ${entry.title}`"
-            title="Delete"
-            @click.stop="pendingDeleteId = entry.id"
-          >
-            ×
-          </button>
-        </div>
       </li>
     </ol>
+    </template>
 
     <Teleport to="body">
       <div
-        v-if="selectedIds.size > 0"
+        v-if="selectedIds.size > 0 && libraryTab === 'songs'"
         class="selection-bar"
         role="toolbar"
         aria-label="Local Library selection"
@@ -843,6 +1137,10 @@ function groupsForEntry(entryId: string) {
         <button type="button" class="btn" @click="groupPickerOpen = true">
           <span class="label-long">Add to group</span>
           <span class="label-short">Group</span>
+        </button>
+        <button type="button" class="btn" @click="addSelectionToPlaylist">
+          <span class="label-long">Add to set list</span>
+          <span class="label-short">Set List</span>
         </button>
         <button
           v-if="selectedIds.size >= 2"
@@ -963,10 +1261,51 @@ function groupsForEntry(entryId: string) {
       </form>
     </FilterSheet>
 
+
+    <div v-show="libraryTab === 'playlists'" class="playlists-panel">
+      <form class="new-playlist" @submit.prevent="createPlaylist">
+        <input
+          v-model="newPlaylistName"
+          type="text"
+          maxlength="80"
+          placeholder="New set list…"
+          aria-label="New set list name"
+        />
+        <button type="submit" class="btn btn-primary">Create</button>
+      </form>
+      <EmptyState
+        v-if="playlists.loaded && !playlists.sorted.length"
+        title="No set lists yet"
+        message="Create a concert set list, then add songs from the Songs tab."
+      />
+      <ul v-else class="playlist-list" aria-label="Set lists">
+        <li v-for="pl in playlists.sorted" :key="pl.id">
+          <RouterLink class="playlist-link" :to="`/library/playlists/${pl.id}`">
+            <span class="playlist-title">{{ pl.name }}</span>
+            <span class="playlist-meta"
+              >{{ pl.items.length }} song{{ pl.items.length === 1 ? '' : 's'
+              }}<template v-if="pl.sungItemIds?.length">
+                · {{ pl.sungItemIds.length }} sung</template
+              ></span
+            >
+          </RouterLink>
+        </li>
+      </ul>
+    </div>
+
+    <LocalImportModal
+      :open="importModalOpen"
+      :optical-enabled="prefs.opticalTransferEnabled"
+      @close="importModalOpen = false"
+      @pick="onImportPick"
+      @empty="onCreateEmptySong"
+    />
+
     <LocalLibraryCombineStaging
       v-if="combineFiles.length"
       :files="combineFiles"
       :busy="importBusy"
+      heading="Review import"
       @confirm="onCombineConfirm"
       @cancel="combineFiles = []"
     />
@@ -987,12 +1326,12 @@ function groupsForEntry(entryId: string) {
       @confirm="onListTransferConfirm"
     />
     <ConfirmDialog
-      :open="!!pendingDeleteId"
+      :open="pendingBulkDelete"
       title="Delete from Local Library?"
-      :message="pendingDeleteTitle"
+      :message="pendingBulkDeleteTitle"
       confirm-label="Delete"
-      @close="pendingDeleteId = null"
-      @confirm="confirmDelete"
+      @close="pendingBulkDelete = false"
+      @confirm="confirmBulkDelete"
     />
     <ConfirmDialog
       :open="!!pendingDeleteGroupId"
@@ -1336,20 +1675,6 @@ function groupsForEntry(entryId: string) {
   background: color-mix(in srgb, var(--border) 45%, transparent);
   color: var(--text);
 }
-.search-notes {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
-}
-.search-notes input {
-  width: 1.05rem;
-  height: 1.05rem;
-}
 .sel-btn {
   position: relative;
   z-index: 1;
@@ -1402,8 +1727,41 @@ function groupsForEntry(entryId: string) {
   overflow-wrap: anywhere;
 }
 .row-meta {
-  font-size: 0.82rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  font-size: 0.92rem;
   color: var(--muted);
+}
+.row-meta .badge {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.row-lyrics {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.row-remove:hover {
+  color: var(--danger, #b42318);
 }
 .row-cols {
   display: flex;
@@ -1433,40 +1791,6 @@ function groupsForEntry(entryId: string) {
 .col-chip.on {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-}
-.row-actions {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.15rem;
-  flex-shrink: 0;
-}
-.row-tx,
-.row-remove {
-  z-index: 1;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  align-self: center;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.row-remove {
-  font-size: 1.5rem;
-}
-.row-tx:hover {
-  color: var(--accent);
-}
-.row-remove:hover {
-  color: var(--danger, #b42318);
 }
 .err {
   margin: 0 0 0.75rem;
@@ -1555,6 +1879,136 @@ function groupsForEntry(entryId: string) {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+.options-btn {
+  min-width: var(--touch, 44px);
+  min-height: var(--touch, 44px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.search-options {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg) 55%, var(--surface));
+}
+.opt-hint {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.opt-hint.tip {
+  margin: 0;
+}
+.opt-hint code {
+  font-size: 0.75rem;
+}
+.row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.25rem;
+}
+.badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.library-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 0.15rem;
+}
+.library-tabs .tab {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.library-tabs .tab.on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.playlists-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.25rem 0 1rem;
+}
+.new-playlist {
+  display: flex;
+  gap: 0.45rem;
+}
+.new-playlist input {
+  flex: 1;
+  min-height: var(--touch, 44px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  font: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.playlist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.playlist-link {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 10px);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  min-height: 56px;
+  align-content: center;
+}
+.playlist-link:hover {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--accent-hover, var(--accent));
+}
+.playlist-title {
+  font-weight: 700;
+}
+.playlist-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.backup-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.storage-meter {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 </style>
 

@@ -64,15 +64,22 @@ export const router = createRouter({
       component: () => import('../views/PitchPipeSoundLabView.vue'),
     },
     {
-      path: '/labs/roulette',
-      name: 'labs-roulette',
+      path: '/roulette',
+      name: 'roulette',
       component: () => import('../views/RouletteView.vue'),
-      meta: { requiresTagRoulette: true },
     },
+    { path: '/labs/roulette', redirect: '/roulette' },
     {
       path: '/library',
       name: 'library',
       component: () => import('../views/LocalLibraryView.vue'),
+      meta: { requiresLocalLibrary: true },
+    },
+    {
+      path: '/library/playlists/:id',
+      name: 'library-playlist',
+      component: () => import('../views/LocalPlaylistView.vue'),
+      props: true,
       meta: { requiresLocalLibrary: true },
     },
     {
@@ -106,6 +113,11 @@ export const router = createRouter({
         }
       },
     },
+    /**
+     * Unknown paths (stale PWA links, typos, removed routes).
+     * Send users to Browse — installed PWAs often have no browser Back.
+     */
+    { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
   ],
   scrollBehavior(to, from, saved) {
     const tagReturnY = peekTagReturnScrollY()
@@ -159,9 +171,6 @@ router.beforeEach((to, from) => {
     }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
       prefs.setLocalLibraryEnabled(true)
-    }
-    if (to.meta.requiresTagRoulette && !prefs.tagRouletteEnabled) {
-      prefs.setTagRouletteEnabled(true)
     }
   } catch {
     /* Pinia not ready (rare in tests) — allow navigation */

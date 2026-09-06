@@ -3,15 +3,14 @@
  * First-visit browse welcome: install PWA tip + optional background pack downloads.
  */
 import { computed, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOnline } from '../composables/useOnline'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 import OfflineOpticalTransferPrompt from './OfflineOpticalTransferPrompt.vue'
+import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 import { usePreferencesStore } from '../stores/preferences'
-import { useSnackbarStore } from '../stores/snackbar'
 
 const props = defineProps<{
   /** First-run splash visibility. */
@@ -26,9 +25,9 @@ const emit = defineEmits<{
 
 const offlineLib = useOfflineLibraryStore()
 const prefs = usePreferencesStore()
-const snackbar = useSnackbarStore()
 const { offline } = useOnline()
-const { showInstallEntry, promptInstall, fallbackMessage } = usePwaInstall()
+const { showInstallEntry, promptInstall } = usePwaInstall()
+const howToOpen = ref(false)
 
 const sheetsReady = computed(
   () => offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0,
@@ -43,7 +42,7 @@ const SHEETS_SIZE_CAP = 100 * 1024 * 1024
 const sheetsSizeLabel = computed(() => {
   const bytes = offlineLib.sheetsTotalBytes
   if (bytes > 0 && bytes < SHEETS_SIZE_CAP) return formatBytes(bytes)
-  return 'under 100 MB'
+  return '<100 MB'
 })
 
 const audioSizeLabel = OFFLINE_LOFI_AUDIO_BALLPARK_LABEL
@@ -62,15 +61,6 @@ watch(
   },
 )
 
-const continueLabel = computed(() => {
-  const sheet = cacheSheetsNow.value && !sheetsReady.value && !offline.value
-  const audio = cacheAudioNow.value && !audioReady.value && !offline.value
-  if (sheet && audio) return 'Continue & download sheets + audio'
-  if (sheet) return 'Continue & download sheets'
-  if (audio) return 'Continue & download lo-fi audio'
-  return 'Continue'
-})
-
 const installBusy = ref(false)
 
 async function onInstall(): Promise<void> {
@@ -78,14 +68,7 @@ async function onInstall(): Promise<void> {
   installBusy.value = true
   try {
     const outcome = await promptInstall()
-    if (outcome === 'unavailable') {
-      snackbar.show(fallbackMessage(), {
-        title: 'Install SingTags',
-        tone: 'ok',
-        ms: 6000,
-        placement: 'center',
-      })
-    }
+    if (outcome === 'unavailable') howToOpen.value = true
   } finally {
     installBusy.value = false
   }
@@ -113,44 +96,35 @@ function onContinue(): void {
         <header class="head">
           <p class="eyebrow">Mirror site</p>
           <h2 id="browse-welcome-title">Welcome to SingTags</h2>
+          <p class="lede">
+            Weekly mirror of
+            <a href="https://www.barbershoptags.com/" target="_blank" rel="noopener noreferrer"
+              >barbershoptags.com</a
+            >. Search &amp; sing here; ratings &amp; newest uploads stay on the official site.
+          </p>
         </header>
 
         <div class="body">
-          <p>
-            SingTags is a <strong>mirror</strong> of the
-            <a href="https://www.barbershoptags.com/" target="_blank" rel="noopener noreferrer"
-              >barbershoptags.com</a
-            >
-            tag library, refreshed <strong>weekly</strong> from the official site. Search and sing
-            here; for ratings, comments, and the newest uploads, use barbershoptags.com.
-          </p>
-
           <div v-if="showInstallEntry" class="install-card">
-            <p class="install-title">Install App on this device</p>
-            <p class="install-copy">
-              Add SingTags to your home screen
-              <strong>before</strong> downloading offline caches. On some phones, a large download
-              started in the browser may not follow you into the installed app.
-            </p>
-            <button
-              type="button"
-              class="btn-install-app"
-              :disabled="installBusy"
-              :aria-busy="installBusy"
-              @click="onInstall"
-            >
-              Install App
-            </button>
+            <div class="install-row">
+              <div class="install-text">
+                <p class="install-title">Install App on this device</p>
+                <p class="install-hint">Install before downloading offline caches.</p>
+              </div>
+              <button
+                type="button"
+                class="btn-install-app"
+                :disabled="installBusy"
+                :aria-busy="installBusy"
+                @click="onInstall"
+              >
+                Install App
+              </button>
+            </div>
           </div>
-          <p v-else class="install-done muted-note" role="status">
-            Running as the installed app — offline caches stay with SingTags.
-          </p>
+          <p v-else class="install-done muted-note" role="status">Installed — caches stay here.</p>
 
-          <label
-            v-if="!sheetsReady"
-            class="toggle-row"
-            :class="{ disabled: offline }"
-          >
+          <label v-if="!sheetsReady" class="toggle-row" :class="{ disabled: offline }">
             <input
               v-model="cacheSheetsNow"
               type="checkbox"
@@ -159,21 +133,13 @@ function onContinue(): void {
             />
             <span class="toggle-ui" aria-hidden="true" />
             <span class="toggle-copy">
-              <span class="toggle-title">Download sheet music cache now</span>
-              <span class="toggle-meta">
-                Entire library · {{ sheetsSizeLabel }} (&lt; 100 MB) · runs in the background
-              </span>
+              <span class="toggle-title">Sheet music cache</span>
+              <span class="toggle-meta">Full library · {{ sheetsSizeLabel }} · background</span>
             </span>
           </label>
-          <p v-else class="muted-note">
-            Songbook sheets are already cached on this device. Manage offline media in Settings anytime.
-          </p>
+          <p v-else class="muted-note">Sheets already cached.</p>
 
-          <label
-            v-if="!audioReady"
-            class="toggle-row"
-            :class="{ disabled: offline }"
-          >
+          <label v-if="!audioReady" class="toggle-row" :class="{ disabled: offline }">
             <input
               v-model="cacheAudioNow"
               type="checkbox"
@@ -182,41 +148,30 @@ function onContinue(): void {
             />
             <span class="toggle-ui" aria-hidden="true" />
             <span class="toggle-copy">
-              <span class="toggle-title">Download lo-fi learning tracks now</span>
-              <span class="toggle-meta">
-                Entire library · {{ audioSizeLabel }} · 16k mono solos (mix reconstructed in-app) ·
-                runs in the background
-              </span>
+              <span class="toggle-title">Lo-fi learning tracks</span>
+              <span class="toggle-meta">{{ audioSizeLabel }} · 16k mono · background</span>
             </span>
           </label>
-          <p v-else-if="!sheetsReady" class="muted-note">
-            Lo-fi learning tracks are already cached. Star tags while browsing for compact 64 kbps
-            Mix audio on those songs, or manage packs in Offline settings.
-          </p>
-
-          <p v-if="!audioReady && !sheetsReady" class="muted-note">
-            You can also star tags as you browse to cache compact offline Mix audio for just those
-            songs.
-          </p>
+          <p v-else-if="!sheetsReady" class="muted-note">Lo-fi tracks already cached.</p>
 
           <p v-if="offline" class="warn" role="status">
-            You are offline — connect to download media packs, or receive Local Library songs and
-            files from another device below.
+            Offline — connect to download, or receive files below.
+          </p>
+
+          <p class="offline-note">
+            Once sheets and tracks are cached, this site and app can be used entirely offline.
           </p>
 
           <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
         </div>
 
         <footer class="actions">
-          <button type="button" class="btn btn-primary" @click="onContinue">
-            {{ continueLabel }}
-          </button>
-          <RouterLink v-if="!offline" class="btn btn-ghost" to="/settings" @click="emit('close')">
-            Offline settings
-          </RouterLink>
+          <button type="button" class="btn btn-primary" @click="onContinue">Continue</button>
+          <button type="button" class="btn btn-ghost" @click="emit('close')">Skip</button>
         </footer>
       </div>
     </div>
+    <PwaInstallHowToDialog :open="howToOpen" @close="howToOpen = false" />
   </Teleport>
 </template>
 
@@ -228,8 +183,8 @@ function onContinue(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
-  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  padding: 0.65rem;
+  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
 }
 .backdrop {
   position: absolute;
@@ -239,24 +194,25 @@ function onContinue(): void {
 }
 .panel {
   position: relative;
-  width: min(100%, 30rem);
-  max-height: min(88vh, 40rem);
+  width: min(100%, 26rem);
+  max-height: min(92vh, 36rem);
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.15rem 1.2rem 1rem;
+  padding: 0.85rem 0.9rem 0.75rem;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
   display: grid;
-  gap: 0.85rem;
+  gap: 0.55rem;
+  align-content: start;
 }
 .head {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 .eyebrow {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -265,54 +221,71 @@ function onContinue(): void {
 .head h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  line-height: 1.2;
+  font-size: 1.2rem;
+  line-height: 1.15;
+}
+.lede {
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+.lede a {
+  color: var(--accent);
+  font-weight: 600;
 }
 .body {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.45rem;
   color: var(--text);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 .body p {
   margin: 0;
 }
 .install-card {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.85rem 0.9rem;
-  border-radius: var(--radius);
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+.install-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.install-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
 }
 .install-title {
   margin: 0;
   font-weight: 750;
-  font-size: 1rem;
+  font-size: 0.92rem;
   color: var(--accent-hover);
 }
-.install-copy {
+.install-hint {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--muted);
 }
 .btn-install-app {
-  display: block;
-  width: 100%;
-  margin-top: 0.25rem;
+  flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--accent-hover) 40%, var(--accent));
   background: var(--accent);
   color: #fff;
   font: inherit;
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 750;
-  letter-spacing: 0.01em;
-  padding: 0.7rem 1rem;
-  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 55%, transparent);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--accent-hover) 55%, transparent);
 }
 .btn-install-app:hover {
   background: var(--accent-hover);
@@ -327,19 +300,19 @@ function onContinue(): void {
 }
 .install-done {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--accent-hover);
 }
 .toggle-row {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: start;
-  padding: 0.85rem 0.9rem;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.55rem 0.65rem;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  border-radius: var(--radius);
+  border-radius: 8px;
   cursor: pointer;
   user-select: none;
 }
@@ -355,9 +328,8 @@ function onContinue(): void {
   pointer-events: none;
 }
 .toggle-ui {
-  width: 2.6rem;
-  height: 1.45rem;
-  margin-top: 0.15rem;
+  width: 2.35rem;
+  height: 1.3rem;
   border-radius: 999px;
   background: var(--border);
   position: relative;
@@ -367,10 +339,10 @@ function onContinue(): void {
 .toggle-ui::after {
   content: '';
   position: absolute;
-  top: 0.15rem;
-  left: 0.15rem;
-  width: 1.15rem;
-  height: 1.15rem;
+  top: 0.12rem;
+  left: 0.12rem;
+  width: 1.05rem;
+  height: 1.05rem;
   border-radius: 50%;
   background: var(--surface);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
@@ -380,7 +352,7 @@ function onContinue(): void {
   background: var(--accent);
 }
 .toggle-input:checked + .toggle-ui::after {
-  transform: translateX(1.15rem);
+  transform: translateX(1.05rem);
 }
 .toggle-input:focus-visible + .toggle-ui {
   outline: 2px solid var(--accent);
@@ -388,38 +360,47 @@ function onContinue(): void {
 }
 .toggle-copy {
   display: grid;
-  gap: 0.2rem;
+  gap: 0.05rem;
   min-width: 0;
 }
 .toggle-title {
   font-weight: 700;
-  font-size: 0.98rem;
-  line-height: 1.3;
+  font-size: 0.9rem;
+  line-height: 1.25;
 }
 .toggle-meta {
   color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.35;
+  font-size: 0.75rem;
+  line-height: 1.3;
 }
 .muted-note {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
-.body a {
-  color: var(--accent);
-  font-weight: 600;
+.offline-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 .warn {
   color: var(--danger);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  padding-top: 0.15rem;
+  align-items: stretch;
+  gap: 0.4rem;
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, var(--surface) 70%, transparent);
+  padding-top: 0.35rem;
 }
 .actions .btn-primary {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+}
+.actions .btn-ghost {
+  flex: 0 0 auto;
 }
 </style>

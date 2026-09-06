@@ -638,7 +638,7 @@ export function parseRouletteMode(raw: unknown): RouletteMode | null {
   }
 }
 
-/** Normalize weights to sum 100 for display/save. */
+/** Normalize weights to sum 100 (proportional). Prefer {@link resolveSliceWeightPcts} for editor save. */
 export function renormSlicesTo100(slices: RouletteSlice[]): RouletteSlice[] {
   const sum = slices.reduce((a, s) => a + Math.max(0, s.weightPct), 0)
   if (sum <= 0) {
@@ -654,6 +654,75 @@ export function renormSlicesTo100(slices: RouletteSlice[]): RouletteSlice[] {
   const drift = 100 - floors.reduce((a, b) => a + b, 0)
   if (floors.length) floors[0] = Math.round((floors[0]! + drift) * 10) / 10
   return scaled.map((s, i) => ({ ...s, weightPct: floors[i]! }))
+}
+
+/**
+ * Parse a Weight % draft field. Empty / whitespace → `null` (auto-fill leftover).
+ * Non-finite or negative → `null`.
+ */
+export function parseWeightPctDraft(raw: string): number | null {
+  const t = raw.trim()
+  if (!t) return null
+  const n = Number(t)
+  if (!Number.isFinite(n) || n < 0) return null
+  return n
+}
+
+export type ResolveSliceWeightsResult =
+  | { ok: true; weights: number[] }
+  | { ok: false; error: 'over_100' }
+
+/**
+ * Resolve weight drafts for save: blanks share the remaining % equally (integers;
+ * leftover points go to the first blanks). Explicit weights are kept as entered.
+ * Fails when the sum of explicit (non-blank) weights is over 100.
+ */
+export function resolveSliceWeightPcts(
+  drafts: readonly (number | null)[],
+): ResolveSliceWeightsResult {
+  const n = drafts.length
+  if (n === 0) return { ok: true, weights: [] }
+
+  const explicit = drafts.map((w) => (w == null || !Number.isFinite(w) ? null : Math.max(0, w)))
+  const filledSum = explicit.reduce<number>((sum, w) => sum + (w ?? 0), 0)
+  if (filledSum > 100 + 1e-9) return { ok: false, error: 'over_100' }
+
+  const blankIdx: number[] = []
+  for (let i = 0; i < n; i++) {
+    if (explicit[i] == null) blankIdx.push(i)
+  }
+
+  const out = explicit.map((w) => (w == null ? 0 : Math.round(w * 10) / 10))
+  if (blankIdx.length === 0) return { ok: true, weights: out }
+
+  const remaining = Math.max(0, 100 - filledSum)
+  // Whole percentages; distribute remainder points one at a time.
+  const totalPts = Math.round(remaining)
+  const base = Math.floor(totalPts / blankIdx.length)
+  let rem = totalPts - base * blankIdx.length
+  for (let k = 0; k < blankIdx.length; k++) {
+    const extra = rem > 0 ? 1 : 0
+    if (rem > 0) rem--
+    out[blankIdx[k]!] = base + extra
+  }
+  return { ok: true, weights: out }
+}
+
+/** Apply {@link resolveSliceWeightPcts} onto slice copies. */
+export function resolveSliceWeights(
+  slices: readonly RouletteSlice[],
+  drafts: readonly (number | null)[],
+): { ok: true; slices: RouletteSlice[] } | { ok: false; error: 'over_100' } {
+  const resolved = resolveSliceWeightPcts(drafts)
+  if (!resolved.ok) return resolved
+  const weights = resolved.weights
+  return {
+    ok: true,
+    slices: slices.map((s, i) => ({
+      ...s,
+      weightPct: weights[i] ?? 0,
+    })),
+  }
 }
 
 export function seedRouletteModes(): RouletteMode[] {
@@ -672,14 +741,42 @@ export function seedRouletteModes(): RouletteMode[] {
       batchOrder: 'random',
       slices: [{ weightPct: 100, pool: 'classic', score: 'uniform', curve: 'equal' }],
     },
+    {
+      id: 'collections-heavy',
+      label: 'Collections heavy',
+      batchSize: 10,
+      batchOrder: 'random',
+      slices: [
+        { weightPct: 50, pool: 'classic', score: 'uniform', curve: 'equal' },
+        { weightPct: 15, pool: 'days100', score: 'uniform', curve: 'equal' },
+        { weightPct: 15, pool: 'easytags', score: 'uniform', curve: 'equal' },
+        { weightPct: 20, pool: 'all', score: 'rating', curve: 'leftSkew' },
+      ],
+    },
   ]
 }
 
 /** Built-in modes that cannot be deleted; only curve + score are editable. */
-export const ROULETTE_BUILTIN_MODE_IDS = ['full-library-rating', 'classic-equal'] as const
+export const ROULETTE_BUILTIN_MODE_IDS = [
+  'full-library-rating',
+  'classic-equal',
+  'collections-heavy',
+] as const
 
 export function isRouletteBuiltinModeId(id: string): boolean {
   return (ROULETTE_BUILTIN_MODE_IDS as readonly string[]).includes(id)
+}
+
+/** Merge saved curve/score onto a seed slice; pools and weights stay locked from the seed. */
+function mergeBuiltinSlice(
+  seedSlice: RouletteSlice,
+  existing: RouletteSlice | undefined,
+): RouletteSlice {
+  return {
+    ...seedSlice,
+    score: existing?.score ?? seedSlice.score,
+    curve: existing?.curve ?? seedSlice.curve,
+  }
 }
 
 /** Keep built-ins present and structurally locked; preserve curve/score/batch size. */
@@ -690,18 +787,12 @@ export function ensureBuiltinRouletteModes(modes: readonly RouletteMode[]): Roul
   for (const seed of seeds) {
     const existing = byId.get(seed.id)
     if (existing) {
-      const slice = existing.slices[0] ?? seed.slices[0]!
       out.push({
         ...seed,
         batchSize: normalizeRouletteBatchSize(existing.batchSize),
-        slices: [
-          {
-            weightPct: 100,
-            pool: seed.slices[0]!.pool,
-            score: slice.score,
-            curve: slice.curve,
-          },
-        ],
+        slices: seed.slices.map((seedSlice, i) =>
+          mergeBuiltinSlice(seedSlice, existing.slices[i]),
+        ),
       })
       byId.delete(seed.id)
     } else {

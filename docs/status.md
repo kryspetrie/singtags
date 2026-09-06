@@ -41,12 +41,12 @@ Contributing / pipeline: [../CONTRIBUTING.md](../CONTRIBUTING.md), [publish.md](
 
 ### Local & transfer
 
-- Local Library (on-device Entry+Assets, Labs flag)
+- Local Library (on-device Entry+Assets, part heuristics, Import review, playlists, zip backup/restore; Labs flag — graduation after field soak)
 - Optical (Decimen) transfer for local/ad-hoc files; catalog list buttons demoted
 
 ### Platform
 
-- PWA install + “Update available” reload that always hard-refreshes
+- PWA install CTAs (welcome / More / About) + silent deferred update when idle
 - Website deploy uploads **hashed `/assets` before `index.html`**
 - Practice mode disabled (`PRACTICE_MODE_ENABLED`); custom favorites order remains
 

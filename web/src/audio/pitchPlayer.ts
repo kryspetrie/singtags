@@ -467,6 +467,36 @@ function chromaticNotesBetween(from: string, to: string): string[] {
   return out
 }
 
+/** Full vertical piano span: C2–F7 = 66 chromatic keys. */
+export const PITCH_PIPE_FULL_KEYBOARD_LOW = 'C2'
+export const PITCH_PIPE_FULL_KEYBOARD_HIGH = 'F7'
+export const PITCH_PIPE_FULL_KEYBOARD_NOTES: readonly string[] = chromaticNotesBetween(
+  PITCH_PIPE_FULL_KEYBOARD_LOW,
+  PITCH_PIPE_FULL_KEYBOARD_HIGH,
+)
+
+/** Copy of the 66-key full piano note list (low → high). */
+export function pitchPipeFullKeyboardNotes(): string[] {
+  return [...PITCH_PIPE_FULL_KEYBOARD_NOTES]
+}
+
+/** Grid key size percent (Settings −/+). */
+export const PITCH_PIPE_GRID_SCALE_MIN = 70
+export const PITCH_PIPE_GRID_SCALE_MAX = 130
+export const PITCH_PIPE_GRID_SCALE_STEP = 5
+export const PITCH_PIPE_GRID_SCALE_DEFAULT = 100
+
+/** Snap/clamp grid size to the 70–130% ladder (5% steps). */
+export function normalizePitchPipeGridScale(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return PITCH_PIPE_GRID_SCALE_DEFAULT
+  const stepped = Math.round(n / PITCH_PIPE_GRID_SCALE_STEP) * PITCH_PIPE_GRID_SCALE_STEP
+  return Math.min(
+    PITCH_PIPE_GRID_SCALE_MAX,
+    Math.max(PITCH_PIPE_GRID_SCALE_MIN, stepped),
+  )
+}
+
 /** Pitch-pipe page note sets (chromatic, inclusive). */
 export type PitchPipeRange = 'e3-e4' | 'f3-f4' | 'c3-c4' | 'c4-c5'
 

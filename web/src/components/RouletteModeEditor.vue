@@ -1,15 +1,18 @@
 <script setup lang="ts">
 /**
  * Edit the active Tag Roulette mode: slices (pool / curve / score / weight), batch size, order.
+ * Weight % drafts may be blank; Apply fills leftovers equally and rejects totals over 100%.
  * Curve glyphs use theme accent tokens only.
  */
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   ROULETTE_CURVE_OPTIONS,
   ROULETTE_ORDER_OPTIONS,
   ROULETTE_SCORE_OPTIONS,
   buildRoulettePoolOptions,
+  parseWeightPctDraft,
   poolLabel,
+  resolveSliceWeights,
   rouletteCurveEffect,
   summarizeMode,
   type RouletteBatchOrder,
@@ -18,13 +21,18 @@ import {
   type RouletteSlice,
 } from '../lib/rouletteDraw'
 import { useRouletteStore } from '../stores/roulette'
+import { useSnackbarStore } from '../stores/snackbar'
 import { useUserCollectionsStore } from '../stores/userCollections'
 
 const roulette = useRouletteStore()
+const snackbar = useSnackbarStore()
 const userCollections = useUserCollectionsStore()
 
 const mode = computed(() => roulette.activeMode)
 const isBuiltin = computed(() => roulette.isBuiltinActive)
+
+/** Local Weight % fields; empty string = auto-share remaining %. */
+const weightDrafts = ref<string[]>([])
 
 const favoriteGroups = computed(() =>
   userCollections.collections.map((c) => ({
@@ -47,19 +55,56 @@ const poolOptions = computed(() => {
 
 const summary = computed(() => summarizeMode(mode.value, favoriteGroups.value))
 
-const weightSum = computed(() =>
-  mode.value.slices.reduce((a, s) => a + Math.max(0, s.weightPct), 0),
+const weightPreview = computed(() => {
+  const drafts = weightDrafts.value.map(parseWeightPctDraft)
+  const filledSum = drafts.reduce<number>((sum, w) => sum + (w ?? 0), 0)
+  const blankCount = drafts.filter((w) => w == null).length
+  return {
+    filledSum,
+    blankCount,
+    remaining: 100 - filledSum,
+    over: filledSum > 100 + 1e-9,
+  }
+})
+
+function syncWeightDrafts(opts?: { blankAll?: boolean }): void {
+  const slices = mode.value.slices
+  if (opts?.blankAll) {
+    weightDrafts.value = slices.map(() => '')
+    return
+  }
+  weightDrafts.value = slices.map((s) => {
+    // Treat 0 as blank so newly added slices start empty.
+    if (!s.weightPct) return ''
+    return String(Math.round(s.weightPct))
+  })
+}
+
+watch(
+  () => mode.value.id,
+  () => {
+    if (isBuiltin.value) {
+      weightDrafts.value = []
+      return
+    }
+    // Fresh "New mode" starts blank so leftovers fill on Apply.
+    const blankAll =
+      mode.value.label === 'New mode' &&
+      mode.value.slices.length === 1 &&
+      mode.value.slices[0]?.weightPct === 100
+    syncWeightDrafts({ blankAll })
+  },
+  { immediate: true },
 )
 
 function patchSlice(i: number, patch: Partial<RouletteSlice>): void {
   if (isBuiltin.value) {
-    // Built-ins: only curve / score.
+    // Built-ins: only curve / score (pools & weights stay locked).
     const allowed: Partial<RouletteSlice> = {}
     if (patch.curve != null) allowed.curve = patch.curve
     if (patch.score != null) allowed.score = patch.score
     if (!Object.keys(allowed).length) return
     patch = allowed
-    i = 0
   }
   const slices = mode.value.slices.map((s) => ({ ...s }))
   const cur = slices[i]
@@ -78,14 +123,37 @@ function addSlice(): void {
   if (mode.value.slices.length >= 8) return
   roulette.setSlices([
     ...mode.value.slices.map((s) => ({ ...s })),
-    { weightPct: 10, pool: 'all', score: 'uniform', curve: 'equal' },
+    { weightPct: 0, pool: 'all', score: 'uniform', curve: 'equal' },
   ])
+  weightDrafts.value = [...weightDrafts.value, '']
 }
 
 function removeSlice(i: number): void {
   if (isBuiltin.value) return
   if (mode.value.slices.length <= 1) return
   roulette.setSlices(mode.value.slices.filter((_, j) => j !== i).map((s) => ({ ...s })))
+  weightDrafts.value = weightDrafts.value.filter((_, j) => j !== i)
+}
+
+function onWeightInput(i: number, e: Event): void {
+  const next = [...weightDrafts.value]
+  next[i] = (e.target as HTMLInputElement).value
+  weightDrafts.value = next
+}
+
+function applyWeights(): void {
+  if (isBuiltin.value) return
+  const drafts = weightDrafts.value.map(parseWeightPctDraft)
+  const result = resolveSliceWeights(mode.value.slices, drafts)
+  if (!result.ok) {
+    snackbar.show(
+      'Explicit Weight % values add up to more than 100%. Lower a number or leave a field blank to auto-fill the rest.',
+      { title: 'Weights over 100%', tone: 'error', ms: 6000 },
+    )
+    return
+  }
+  roulette.setSlices(result.slices)
+  weightDrafts.value = result.slices.map((s) => String(Math.round(s.weightPct)))
 }
 
 function onLabelBlur(e: Event): void {
@@ -141,30 +209,34 @@ function onOrder(e: Event): void {
         Add slice
       </button>
     </div>
-    <p v-if="!isBuiltin" class="hint">
-      Weights are shares of each deal (normalized to 100%). Curves shape which tags are favored
-      inside that pool.
-      <span v-if="Math.abs(weightSum - 100) > 0.5"> Current sum {{ weightSum.toFixed(0) }}% — saved as 100%.</span>
+        <p v-if="!isBuiltin" class="hint">
+      Leave Weight % blank to share the leftover equally. Enter fixed shares where you want them,
+      then Apply. Curves shape which tags are favored inside each pool.
+      <span v-if="weightPreview.over" class="warn"> Entered {{ weightPreview.filledSum.toFixed(0) }}% — over 100%.</span>
+      <span v-else-if="weightPreview.blankCount"> Entered {{ weightPreview.filledSum.toFixed(0) }}% · {{ weightPreview.blankCount }} blank → {{ Math.max(0, weightPreview.remaining).toFixed(0) }}% split.</span>
+      <span v-else-if="Math.abs(weightPreview.filledSum - 100) > 0.5"> Entered {{ weightPreview.filledSum.toFixed(0) }}% (under 100% stays as relative shares).</span>
     </p>
 
-    <ul class="slices">
+
+    
+    <div v-if="!isBuiltin" class="weights-actions">
+      <button type="button" class="btn" @click="applyWeights">Apply weights</button>
+    </div>
+
+<ul class="slices">
       <li v-for="(slice, i) in mode.slices" :key="i" class="slice">
         <div v-if="!isBuiltin" class="slice-top">
           <label class="field weight">
             <span class="lbl">Weight %</span>
             <input
-              type="number"
+              type="text"
               class="input"
-              min="0"
-              max="100"
-              step="1"
-              :value="Math.round(slice.weightPct)"
+              inputmode="decimal"
+              placeholder="auto"
+              :value="weightDrafts[i] ?? ''"
               :aria-label="`Slice ${i + 1} weight`"
-              @change="
-                patchSlice(i, {
-                  weightPct: Number(($event.target as HTMLInputElement).value) || 0,
-                })
-              "
+              @input="onWeightInput(i, $event)"
+              @keydown.enter.prevent="applyWeights"
             />
           </label>
           <label class="field grow">
@@ -445,5 +517,15 @@ select {
   .curve-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+.warn {
+  color: var(--danger, #b00020);
+  font-weight: 650;
+}
+.weights-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
 }
 </style>

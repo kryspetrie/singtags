@@ -8,6 +8,7 @@ import { ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,
   aHzToCents,
+  normalizePitchPipeGridScale,
   normalizePitchPipeRange,
   type PitchPipeAHz,
   type PitchPipeLayout,
@@ -18,6 +19,14 @@ import {
   isPitchPipeSoundId,
   type PitchPipeSoundId,
 } from '../audio/pitchPipeVoice'
+import {
+  UI_SCALE_DEFAULT,
+  UI_SCALE_STEP,
+  applyUiScale,
+  normalizeUiScalePercent,
+  resolveInitialUiScale,
+  writeStoredUiScale,
+} from '../lib/uiScale'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { normalizeCustomParts } from '../lib/audioParts'
 import {
@@ -26,6 +35,11 @@ import {
   normalizeOpticalFrameBytes,
   normalizeOpticalTxFps,
 } from '../lib/decimen/sendSettings'
+import {
+  DEFAULT_PDF_RASTER_CACHE_MAX_MB,
+  normalizePdfRasterCacheMaxMb,
+  PDF_RASTER_CACHE_MAX_MB_KEY,
+} from '../offline/pdfRasterCache'
 
 export type PartSide = 'left' | 'right'
 
@@ -44,6 +58,10 @@ export type PitchPipePrefs = {
   showOctave: boolean
   /** Built-in pitch sound (Mellow default, Bright alternate). */
   sound: PitchPipeSoundId
+  /** Grid layout key size (70–130%, step 5). */
+  gridScale: number
+  /** Piano layout: scrollable 66-key keyboard (C2–F7). */
+  showFullKeyboard: boolean
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -58,8 +76,6 @@ const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
 const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
-/** Labs: Tag Roulette discovery dealer. Default off. */
-const TAG_ROULETTE_ENABLED_KEY = 'singtags.labs.tagRoulette.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
@@ -90,6 +106,8 @@ export function defaultPitchPipePrefs(): PitchPipePrefs {
     detuneCents: 0,
     showOctave: false,
     sound: 'mellow',
+    gridScale: 100,
+    showFullKeyboard: false,
   }
 }
 
@@ -127,6 +145,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
 
   const showOctave = o.showOctave === true
   const sound: PitchPipeSoundId = isPitchPipeSoundId(o.sound) ? o.sound : 'mellow'
+  const gridScale = normalizePitchPipeGridScale(o.gridScale)
+  const showFullKeyboard = o.showFullKeyboard === true
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -137,7 +157,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
         : typeof o.aHz === 'number' && A_HZ_SET.has(o.aHz)
           ? (o.aHz as PitchPipeAHz)
           : matchConcertA(detuneCents)
-    return { range, layout, aHz, detuneCents, showOctave, sound }
+    return { range, layout, aHz, detuneCents, showOctave, sound, gridScale, showFullKeyboard }
   }
 
   // Legacy format: aHz required + fineCents on top of that A.
@@ -152,6 +172,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     detuneCents,
     showOctave,
     sound,
+    gridScale,
+    showFullKeyboard,
   }
 }
 
@@ -198,6 +220,8 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     detuneCents: 0,
     showOctave: false,
     sound: 'mellow',
+    gridScale: 100,
+    showFullKeyboard: false,
   }
 }
 
@@ -322,6 +346,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipeDetuneCents = ref(initialPipe.detuneCents)
   const pitchPipeShowOctave = ref(initialPipe.showOctave)
   const pitchPipeSound = ref<PitchPipeSoundId>(initialPipe.sound)
+  const pitchPipeGridScale = ref(initialPipe.gridScale)
+  const pitchPipeShowFullKeyboard = ref(initialPipe.showFullKeyboard)
+  /** App-wide Display size (70–130%, step 5). */
+  const uiScalePercent = ref(resolveInitialUiScale())
   /**
    * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
    * (and any other app pitches that consult this preference).
@@ -357,10 +385,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Existing on-device data is kept; the UI and routes stay hidden while off.
    */
   const localLibraryEnabled = ref(loadBool(LOCAL_LIBRARY_ENABLED_KEY, false))
-  /**
-   * Labs: when true, Tag Roulette is available from the main nav → Roulette.
-   */
-  const tagRouletteEnabled = ref(loadBool(TAG_ROULETTE_ENABLED_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -373,6 +397,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const opticalTransferDisplayScale = ref(
     Math.min(6, Math.max(1, loadNumber(OPTICAL_DISPLAY_SCALE_KEY, 2))),
   )
+  /**
+   * Max durable PDF→WebP raster cache size (MB). FIFO eviction by insert time.
+   * 0 disables IndexedDB writes (session memory may still help briefly).
+   */
+  const pdfRasterCacheMaxMb = ref(
+    normalizePdfRasterCacheMaxMb(
+      loadNumber(PDF_RASTER_CACHE_MAX_MB_KEY, DEFAULT_PDF_RASTER_CACHE_MAX_MB),
+    ),
+  )
 
   /** Write current pitch-pipe refs to localStorage. Side effect: `savePitchPipePrefs`. */
   function persistPitchPipe(): void {
@@ -383,6 +416,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       detuneCents: clampDetuneCents(pitchPipeDetuneCents.value),
       showOctave: pitchPipeShowOctave.value,
       sound: pitchPipeSound.value,
+      gridScale: pitchPipeGridScale.value,
+      showFullKeyboard: pitchPipeShowFullKeyboard.value,
     })
   }
 
@@ -411,6 +446,20 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
+    uiScalePercent,
+    (v) => {
+      const next = normalizeUiScalePercent(v)
+      if (next !== v) {
+        uiScalePercent.value = next
+        return
+      }
+      writeStoredUiScale(next)
+      applyUiScale(next)
+    },
+    { flush: 'sync', immediate: true },
+  )
+
+  watch(
     [
       pitchPipeRange,
       pitchPipeLayout,
@@ -418,6 +467,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       pitchPipeDetuneCents,
       pitchPipeShowOctave,
       pitchPipeSound,
+      pitchPipeGridScale,
+      pitchPipeShowFullKeyboard,
     ],
     () => persistPitchPipe(),
     { flush: 'sync' },
@@ -484,18 +535,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
-    tagRouletteEnabled,
-    (v) => {
-      try {
-        localStorage.setItem(TAG_ROULETTE_ENABLED_KEY, v ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-    },
-    { flush: 'sync' },
-  )
-
-  watch(
     shareFullscreen,
     (v) => {
       try {
@@ -536,6 +575,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(OPTICAL_FRAME_BYTES_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    pdfRasterCacheMaxMb,
+    (v) => {
+      try {
+        localStorage.setItem(PDF_RASTER_CACHE_MAX_MB_KEY, String(normalizePdfRasterCacheMaxMb(v)))
       } catch {
         /* ignore */
       }
@@ -645,6 +696,38 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowOctave.value = on
   }
 
+  /** Set grid layout key size (70–130%, step 5). Side effect: localStorage. */
+  function setPitchPipeGridScale(percent: number): void {
+    pitchPipeGridScale.value = normalizePitchPipeGridScale(percent)
+  }
+
+  /** Nudge grid key size by ±5% (or a multiple of the step). */
+  function nudgePitchPipeGridScale(delta: number): void {
+    const steps = Math.round(delta / 5) || Math.sign(delta)
+    setPitchPipeGridScale(pitchPipeGridScale.value + steps * 5)
+  }
+
+  /** Piano: show scrollable 66-key keyboard. Side effect: localStorage. */
+  function setPitchPipeShowFullKeyboard(on: boolean): void {
+    pitchPipeShowFullKeyboard.value = on
+  }
+
+  /** Set absolute UI scale percent (snapped to 5% steps, clamped 70–130). */
+  function setUiScalePercent(percent: number): void {
+    uiScalePercent.value = normalizeUiScalePercent(percent)
+  }
+
+  /** Nudge UI scale by ±5% (or a multiple of the step). */
+  function nudgeUiScale(delta: number): void {
+    const steps = Math.round(delta / UI_SCALE_STEP) || Math.sign(delta)
+    setUiScalePercent(uiScalePercent.value + steps * UI_SCALE_STEP)
+  }
+
+  /** Restore Display size to 100%. */
+  function resetUiScale(): void {
+    setUiScalePercent(UI_SCALE_DEFAULT)
+  }
+
   /**
    * Built-in pitch sound (Mellow / Bright). Persists in pitch-pipe prefs and
    * clears any lab custom voice override so the selected built-in applies.
@@ -681,6 +764,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeDetuneCents.value = p.detuneCents
     pitchPipeShowOctave.value = p.showOctave
     pitchPipeSound.value = p.sound
+    pitchPipeGridScale.value = p.gridScale
+    pitchPipeShowFullKeyboard.value = p.showFullKeyboard
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -706,11 +791,6 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Labs: enable/disable Local Library UI and routes. */
   function setLocalLibraryEnabled(on: boolean): void {
     localLibraryEnabled.value = on
-  }
-
-  /** Labs: enable/disable Tag Roulette. */
-  function setTagRouletteEnabled(on: boolean): void {
-    tagRouletteEnabled.value = on
   }
 
   /** Include fullscreen=1 on shared tag links. */
@@ -740,6 +820,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferDisplayScale.value = Math.min(6, Math.max(1, Math.round(scale * 4) / 4))
   }
 
+  function setPdfRasterCacheMaxMb(mb: number): void {
+    pdfRasterCacheMaxMb.value = normalizePdfRasterCacheMaxMb(mb)
+    void import('../offline/pdfRasterCache').then((m) => m.enforcePdfRasterCacheBudget())
+  }
+
   return {
     partSoloInFile,
     partMixPan,
@@ -751,10 +836,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sheetFsPageMode,
     opticalTransferEnabled,
     localLibraryEnabled,
-    tagRouletteEnabled,
     opticalTransferFrameBytes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
+    pdfRasterCacheMaxMb,
     libraryAudioPartsMode,
     libraryAudioParts,
     pitchPipeRange,
@@ -763,6 +848,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeDetuneCents,
     pitchPipeShowOctave,
     pitchPipeSound,
+    pitchPipeGridScale,
+    pitchPipeShowFullKeyboard,
+    uiScalePercent,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
@@ -770,13 +858,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSingMode,
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
-    setTagRouletteEnabled,
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,
     setOpticalTransferFrameBytes,
     setOpticalTransferTxFps,
     setOpticalTransferDisplayScale,
+    setPdfRasterCacheMaxMb,
     globalPitchDetuneCents,
     getPartSoloInFile,
     setPartSoloInFile,
@@ -785,6 +873,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPitchPipeRange,
     setPitchPipeLayout,
     setPitchPipeShowOctave,
+    setPitchPipeGridScale,
+    nudgePitchPipeGridScale,
+    setPitchPipeShowFullKeyboard,
+    setUiScalePercent,
+    nudgeUiScale,
+    resetUiScale,
     setPitchPipeSound,
     setPitchPipeAHz,
     setPitchPipeDetuneCents,

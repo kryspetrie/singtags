@@ -239,6 +239,13 @@ const {
   toSummary,
 } = useTagDetail(idRef)
 
+/** Hard 404s — PWA often has no Back; bounce to Browse instead of a dead end. */
+watch(error, (msg) => {
+  if (msg && /Missing tag \(\d+\)/.test(msg)) {
+    void router.replace({ name: 'home' })
+  }
+})
+
 const hasSheetContent = computed(
   () => !!(sheetAssets.value.imageSets.length || sheetAssets.value.pdfs.length),
 )
@@ -425,6 +432,7 @@ const starred = computed(() => favorites.ids.has(Number(props.id)))
 const hasAudio = computed(
   () => availableAudioParts.value.length > 0 || Object.keys(audioParts.value).length > 0,
 )
+const hasMixPart = computed(() => 'mix' in audioParts.value)
 /** True until at least one playable URL is resolved (tabs already known from metadata). */
 const audioPending = computed(
   () => hasAudio.value && Object.keys(audioParts.value).length === 0 && loading.value,
@@ -572,7 +580,7 @@ function addItemsToQueue(items: QueueTrack[]): void {
       `${tracks} track${tracks === 1 ? '' : 's'}${fmt ? ` as ${downloadFormatLabel(fmt)}` : ''}`,
     )
   }
-  queueMsg.value = `Added ${bits.join(' and ')} to downloads.`
+  queueMsg.value = `Added ${bits.join(' and ')} to export queue.`
 }
 
 
@@ -807,7 +815,7 @@ async function onRetryLoad(): Promise<void> {
           :sing-controls="hasAudio"
           :auto-enter-fullscreen="openSheetFullscreen"
           :playing="mixPlaying"
-          :play-ready="mixPlayReady && hasAudio"
+          :play-ready="mixPlayReady && hasMixPart"
           :current-time="mixCurrentTime"
           :duration="mixDuration"
           :baking="mixBaking"

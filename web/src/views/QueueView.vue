@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Multi-tag download queue: format/zip layout prefs, build zip, and clear list.
+ * Multi-tag export queue: format/zip layout prefs, build zip, and clear list.
  */
 import { computed } from 'vue'
 import { useQueueStore } from '../stores/queue'
@@ -34,9 +34,9 @@ function onFormatChange(fmt: UserDownloadFormat): void {
 </script>
 
 <template>
-  <section aria-label="Downloads">
+  <section aria-label="Export">
     <p class="muted intro">
-      Build a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
+      Export a zip of sheet music and learning tracks across tags. Max {{ queue.max }} files.
       {{ queue.count }} in list.
     </p>
 
@@ -45,7 +45,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
         Audio as
         <select
           :value="queue.format"
-          aria-label="Download audio as"
+          aria-label="Export audio as"
           @change="onFormatChange(($event.target as HTMLSelectElement).value as UserDownloadFormat)"
         >
           <option v-for="f in DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
@@ -84,7 +84,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
         "
         @click="queue.downloadZip()"
       >
-        {{ queue.busy ? `Zipping ${queue.progress.done}/${queue.progress.total}…` : 'Download zip' }}
+        {{ queue.busy ? `Zipping ${queue.progress.done}/${queue.progress.total}…` : 'Export as zip' }}
       </button>
       <button
         v-if="queue.busy"
@@ -123,7 +123,7 @@ function onFormatChange(fmt: UserDownloadFormat): void {
     </ul>
     <EmptyState
       v-else
-      title="Nothing to download yet"
+      title="Nothing to export yet"
       message="Select tags on Browse or add sheets and tracks from a tag page."
     />
   </section>

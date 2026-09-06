@@ -15,6 +15,7 @@ import { useCatalogStore } from '../stores/catalog'
 import { useFavoritesStore } from '../stores/favorites'
 import { usePracticeStore } from '../stores/practice'
 import { usePreferencesStore } from '../stores/preferences'
+import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useRecentStore } from '../stores/recent'
 import { useUserCollectionsStore } from '../stores/userCollections'
 
@@ -793,6 +794,10 @@ describe('view smoke tests', () => {
       catalog.$patch({ loaded: true, loading: false, tags: [] })
     })
     vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
+    const offlineLib = useOfflineLibraryStore()
+    offlineLib.showSheetsPrompt = true
+    const dismissSheets = vi.spyOn(offlineLib, 'dismissSheetsPrompt').mockResolvedValue()
+    const dismissSync = vi.spyOn(offlineLib, 'dismissPackSyncPrompt').mockResolvedValue()
 
     const router = makeRouter([{ path: '/', component: HomeView }])
     await router.push('/')
@@ -816,7 +821,11 @@ describe('view smoke tests', () => {
     )
     expect(continueBtn).toBeTruthy()
     await continueBtn!.click()
+    await flushPromises()
     expect(usePreferencesStore().browseWelcomeDismissed).toBe(true)
+    // Closing welcome must clear the sheets toast so it does not stack with the splash.
+    expect(dismissSheets).toHaveBeenCalled()
+    expect(dismissSync).toHaveBeenCalled()
     w.unmount()
     document.body.innerHTML = ''
   })

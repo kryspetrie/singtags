@@ -38,23 +38,23 @@ describe('QueueView', () => {
     const q = useQueueStore()
     const wrap = mount(QueueView, { global: { plugins: [pinia] } })
     expect(wrap.findComponent(EmptyState).exists()).toBe(true)
-    expect(wrap.text()).toContain('Nothing to download yet')
+    expect(wrap.text()).toContain('Nothing to export yet')
 
     q.add({ tagId: 1, title: 'T', part: 'lead', path: 'media/1/lead.m4a' })
     await wrap.vm.$nextTick()
     expect(wrap.text()).toContain('#1 T — lead')
   })
 
-  it('disables Download zip when queue is empty', () => {
+  it('disables Export as zip when queue is empty', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const w = mount(QueueView, { global: { plugins: [pinia] } })
-    const btn = w.findAll('button').find((b) => b.text() === 'Download zip')
+    const btn = w.findAll('button').find((b) => b.text() === 'Export as zip')
     expect(btn?.attributes('disabled')).toBeDefined()
     expect(btn?.attributes('title')).toMatch(/Add files/i)
   })
 
-  it('disables Download zip when offline even with tracks', async () => {
+  it('disables Export as zip when offline even with tracks', async () => {
     offline.value = true
     const pinia = createPinia()
     setActivePinia(pinia)
@@ -62,12 +62,12 @@ describe('QueueView', () => {
     q.add({ tagId: 1, title: 'T', part: 'lead', path: 'a' })
     const w = mount(QueueView, { global: { plugins: [pinia] } })
     await flushPromises()
-    const btn = w.findAll('button').find((b) => b.text() === 'Download zip')
+    const btn = w.findAll('button').find((b) => b.text() === 'Export as zip')
     expect(btn?.attributes('disabled')).toBeDefined()
     expect(btn?.attributes('title')).toMatch(/network/i)
   })
 
-  it('removes tracks, changes format, and downloads zip', async () => {
+  it('removes tracks, changes format, and exports zip', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const q = useQueueStore()
@@ -82,7 +82,7 @@ describe('QueueView', () => {
       label: 'PDF',
     })
     const w = mount(QueueView, { global: { plugins: [pinia] } })
-    await w.get('[aria-label="Download audio as"]').setValue('mp3')
+    await w.get('[aria-label="Export audio as"]').setValue('mp3')
     expect(q.format).toBe('mp3')
     expect(q.tracks.filter((t) => t.kind !== 'sheet').every((t) => t.format === 'mp3')).toBe(true)
     expect(q.tracks.find((t) => t.kind === 'sheet')?.format).toBeUndefined()
@@ -90,7 +90,7 @@ describe('QueueView', () => {
     await w.findAll('button').find((b) => b.text() === 'Remove')!.trigger('click')
     expect(q.count).toBe(2)
 
-    await w.findAll('button').find((b) => b.text() === 'Download zip')!.trigger('click')
+    await w.findAll('button').find((b) => b.text() === 'Export as zip')!.trigger('click')
     await flushPromises()
     expect(q.busy).toBe(false)
     expect(q.progress.done).toBe(2)

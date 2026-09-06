@@ -82,6 +82,11 @@ const props = withDefaults(
     duration?: number
     /** Label for ✕ when it returns to the list that opened this tag (“Browse”, …). */
     exitOriginLabel?: string
+    /**
+     * ⋮ menu label for leaving fullscreen to the hosting page
+     * (“Tag Page” on catalog tags, “Song Page” in Local Library).
+     */
+    detailsPageLabel?: string
     /** Mix pitch/speed bake in flight — show on play control. */
     baking?: boolean
     /** Fullscreen Share button label (e.g. “Copied” after a successful share). */
@@ -103,6 +108,7 @@ const props = withDefaults(
     currentTime: 0,
     duration: 0,
     exitOriginLabel: '',
+    detailsPageLabel: 'Tag Page',
     baking: false,
     shareLabel: 'Share',
   },
@@ -125,15 +131,39 @@ const emit = defineEmits<{
 
 const prefs = usePreferencesStore()
 const fullscreen = ref(false)
-/** Collapse Play / Share / Tag / Fit; page pager + Pitch ± + more + exit stay. Default on in fullscreen. */
+
+/**
+ * True when ✕ only leaves fullscreen onto the hosting details page
+ * (catalog tag or library entry) — no Tag Page / Song Page menu needed.
+ */
+function exitStaysOnDetailsPage(label: string): boolean {
+  const n = label.trim().toLowerCase()
+  return !n || n === 'tag page' || n === 'lib page'
+}
+
+/** ⋮ → Tag Page / Song Page only when ✕ would return to a list instead. */
+const showDetailsPageButton = computed(
+  () => !exitStaysOnDetailsPage(props.exitOriginLabel || ''),
+)
+
+/** Show Play only when a Mix can actually run (hide instead of greyed-out). */
+const showPlayControl = computed(
+  () => !!(props.singControls && (props.playReady || props.playing || props.baking)),
+)
+
+/** Collapse Play / Share / Tag / Fit / Paging; pager + Pitch ± + more + exit stay. Default on in fullscreen. */
 const chromeCompact = ref(true)
 /** Mix play/scrub panel popped open from compact Play (hides ⋮ while open). */
 const playbackOpen = ref(false)
+/** Compact ± control: expand to − / + for repeated key shifts. */
+const shiftOpen = ref(false)
 /**
  * When expanded, keep ⋮ menu controls on the top row if they fit; otherwise
  * move the whole menu group to a second row (⋮ / ✕ stay put).
  */
 const moreInline = ref(true)
+/** Narrow / multipage: pitch fab shows ♪ only; key appears in the ± popover. */
+const pitchCompact = ref(false)
 /** Narrow widths: keep pitch + ⋮/✕ on row 1, playback controls on row 2. */
 const playbackBelow = ref(false)
 const chromeElRef = ref<HTMLElement | null>(null)
@@ -466,6 +496,16 @@ function imagePreviewUrls(): string[] {
   return canUsePrefetch ? prefetch! : raw
 }
 
+
+function pdfRasterIdentity(pdf: SheetPdfFile, pdfUrl: string): string {
+  const stable = pdf.cacheKey?.trim()
+  return stable || pdfUrl
+}
+
+function cacheKeyForPdf(pdf: SheetPdfFile, pdfUrl: string): string {
+  return pdfRasterCacheKey(pdfRasterIdentity(pdf, pdfUrl), { crop: props.cropToContent })
+}
+
 async function rebuildDisplay(): Promise<void> {
   loadAbort?.abort()
   clearUpgradeLayer(true)
@@ -478,7 +518,7 @@ async function rebuildDisplay(): Promise<void> {
     const pdf = activePdf.value
     if (!pdf) return
     const pdfUrl = src(pdf.path, props.baseUrl)
-    const cacheKey = pdfRasterCacheKey(pdfUrl, { crop: props.cropToContent })
+    const cacheKey = cacheKeyForPdf(pdf, pdfUrl)
 
     // Session cache: high-res immediately (still fade if WebP is already up).
     const memHit = pdfRasterMemoryHit(cacheKey)
@@ -568,9 +608,7 @@ async function rebuildDisplay(): Promise<void> {
   if (shouldAutoUpgradePdf()) {
     const pdf = activePdf.value
     if (pdf) {
-      const cacheKey = pdfRasterCacheKey(src(pdf.path, props.baseUrl), {
-        crop: props.cropToContent,
-      })
+      const cacheKey = cacheKeyForPdf(pdf, src(pdf.path, props.baseUrl))
       const memHit = pdfRasterMemoryHit(cacheKey)
       if (memHit) {
         await applyOwnedPages(memHit, {
@@ -649,7 +687,7 @@ async function upgradeToHqPdfRaster(signal: AbortSignal, seq: number): Promise<b
   const pdf = activePdf.value
   if (!pdf) return false
   const pdfUrl = src(pdf.path, props.baseUrl)
-  const cacheKey = pdfRasterCacheKey(pdfUrl, { crop: props.cropToContent })
+  const cacheKey = cacheKeyForPdf(pdf, pdfUrl)
 
   const memHit = pdfRasterMemoryHit(cacheKey)
   if (memHit) {
@@ -949,6 +987,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
   if (on) {
     chromeCompact.value = true
     playbackOpen.value = false
+    shiftOpen.value = false
     moreInline.value = true
     playbackBelow.value = false
     suppressAutoEnter.value = false
@@ -967,6 +1006,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
     detachChromeLayoutObserver()
     moreInline.value = true
     playbackBelow.value = false
+    shiftOpen.value = false
     detachFsViewportListeners()
     if (autoPdfForFullscreen && hasImages.value) {
       autoPdfForFullscreen = false
@@ -995,6 +1035,7 @@ function toggleChromeCompact(): void {
     return
   }
   chromeCompact.value = !chromeCompact.value
+  shiftOpen.value = false
   void nextTick(() => {
     measureChromeLayout()
     commitZoomPan(zoomPan.value)
@@ -1006,6 +1047,7 @@ function onPlayClick(): void {
   if (!playbackOpen.value) {
     playbackOpen.value = true
     chromeCompact.value = true
+    shiftOpen.value = false
   }
   emit('play-toggle')
   void nextTick(() => {
@@ -1024,6 +1066,18 @@ function closePlaybackPanel(): void {
   })
 }
 
+function toggleShiftOpen(): void {
+  shiftOpen.value = !shiftOpen.value
+}
+
+function onShiftOutsidePointerDown(e: PointerEvent): void {
+  if (!shiftOpen.value) return
+  const t = e.target
+  if (!(t instanceof Element)) return
+  if (t.closest('.chrome-shift')) return
+  shiftOpen.value = false
+}
+
 function flexContentWidth(el: HTMLElement | null, gap: number): number {
   if (!el) return 0
   const kids = [...el.children] as HTMLElement[]
@@ -1036,11 +1090,16 @@ function measureChromeLayout(): void {
   if (!chrome || !fullscreen.value) {
     moreInline.value = true
     playbackBelow.value = false
+    pitchCompact.value = false
     return
   }
 
   const width = chrome.clientWidth
   if (width <= 0) return
+
+  // Multipage pager eats trailing space — collapse pitch label sooner.
+  const multipage = displayPages.value.length > 1
+  pitchCompact.value = width < (multipage ? 820 : 560)
 
   const pitch = chrome.querySelector('.chrome-pitch-cluster') as HTMLElement | null
   const trailing = chrome.querySelector('.chrome-trailing') as HTMLElement | null
@@ -1088,7 +1147,7 @@ async function exitToOrigin(): Promise<void> {
   // "return to Browse/Recent/Favorites" *before* the parent can arm scroll restore, so the
   // list lands at the wrong Y. Discard the sentinel in-place; parent then goTagBack().
   overlayHistory.discard()
-  const leaveToList = props.exitOriginLabel !== 'tag page'
+  const leaveToList = !exitStaysOnDetailsPage(props.exitOriginLabel || '')
   // Navigate first in Sing mode so goTagBack arms scroll before any ?fullscreen= clear.
   if (leaveToList) emit('exit-origin')
   await setFullscreen(false, { fromPopState: true })
@@ -1412,7 +1471,10 @@ watch(displayPages, (pages, prev) => {
   } else {
     pageIndex.value = Math.min(pageIndex.value, Math.max(0, pages.length - 1))
   }
-  if (fullscreen.value) void enterFullscreenLayout()
+  if (fullscreen.value) {
+    void enterFullscreenLayout()
+    void nextTick(() => measureChromeLayout())
+  }
 })
 
 watch(
@@ -1439,10 +1501,12 @@ watch(sheetEl, (el, prev) => {
 onMounted(() => {
   window.addEventListener('keydown', onKey)
   window.addEventListener('popstate', onPopState)
+  document.addEventListener('pointerdown', onShiftOutsidePointerDown, true)
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('popstate', onPopState)
+  document.removeEventListener('pointerdown', onShiftOutsidePointerDown, true)
   detachFsViewportListeners()
   detachChromeLayoutObserver()
   sheetEl.value?.removeEventListener('wheel', onWheel)
@@ -1535,12 +1599,13 @@ defineExpose({
           'chrome-expanded': !chromeCompact && !playbackOpen,
           'more-below': !chromeCompact && !playbackOpen && !moreInline,
           'play-below': playbackOpen && playbackBelow,
+          'pitch-compact': pitchCompact,
         }"
         role="toolbar"
         aria-label="Sheet controls"
       >
         <div
-          v-if="(payKeyEnabled && displayPages.length) || singControls"
+          v-if="payKeyEnabled && ((displayPages.length > 0) || singControls)"
           class="chrome-pitch-cluster"
         >
           <button
@@ -1556,13 +1621,61 @@ defineExpose({
             @keydown="onPayKey"
             @keyup="onPayKey"
           >
+            <span class="pitch-icon" aria-hidden="true">♪</span>
             <span class="pitch-label-sizer" aria-hidden="true">{{ KEY_SHIFT_LABEL_SIZE_SAMPLE }}</span>
             <span class="pitch-label">{{ keyLabel || 'Pitch' }}</span>
           </button>
 
-          <div v-if="singControls" class="chrome-shift" role="group" aria-label="Key shift">
-            <button type="button" class="chrome-btn" :disabled="baking" aria-label="Lower pitch one semitone" @click="emit('shift-delta', -1)">−</button>
-            <button type="button" class="chrome-btn" :disabled="baking" aria-label="Raise pitch one semitone" @click="emit('shift-delta', 1)">+</button>
+          <div
+            v-if="singControls && payKeyEnabled"
+            class="chrome-shift"
+            :class="{ open: shiftOpen }"
+          >
+            <button
+              type="button"
+              class="chrome-btn shift-toggle"
+              :class="{ 'is-expanded': shiftOpen }"
+              :aria-expanded="shiftOpen"
+              aria-controls="chrome-shift-pop"
+              aria-label="Adjust pitch"
+              title="Adjust pitch ±"
+              :disabled="baking"
+              @click="toggleShiftOpen"
+            >
+              ±
+            </button>
+            <div
+              v-show="shiftOpen"
+              id="chrome-shift-pop"
+              class="chrome-shift-pop"
+              role="group"
+              aria-label="Key shift"
+            >
+              <div class="shift-key" :title="keyLabel || 'Pitch'">
+                <span class="shift-key-sizer" aria-hidden="true">{{ KEY_SHIFT_LABEL_SIZE_SAMPLE }}</span>
+                <span class="shift-key-label">{{ keyLabel || 'Pitch' }}</span>
+              </div>
+              <div class="shift-key-btns">
+                <button
+                  type="button"
+                  class="chrome-btn"
+                  :disabled="baking"
+                  aria-label="Lower pitch one semitone"
+                  @click="emit('shift-delta', -1)"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  class="chrome-btn"
+                  :disabled="baking"
+                  aria-label="Raise pitch one semitone"
+                  @click="emit('shift-delta', 1)"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1613,7 +1726,7 @@ defineExpose({
             aria-label="More sheet controls"
           >
             <button
-              v-if="singControls"
+              v-if="showPlayControl"
               type="button"
               class="chrome-btn play-menu"
               :disabled="!playReady || baking"
@@ -1636,13 +1749,14 @@ defineExpose({
             </button>
 
             <button
+              v-if="showDetailsPageButton"
               type="button"
               class="chrome-btn tag-page"
-              aria-label="Open tag page — tracks, downloads, and details. Sing mode stays on."
-              title="Tag page (Sing mode stays on)"
+              :aria-label="`${detailsPageLabel} — tracks and details. Sing mode stays on.`"
+              :title="`${detailsPageLabel} (Sing mode stays on)`"
               @click="setFullscreen(false)"
             >
-              Tag Page
+              {{ detailsPageLabel }}
             </button>
 
             <button
@@ -1655,6 +1769,18 @@ defineExpose({
             >
               {{ fitButtonLabel }}
             </button>
+
+            <button
+              v-if="displayPages.length > 1"
+              type="button"
+              class="chrome-btn page-mode"
+              :aria-label="pageModeButtonTitle"
+              :title="pageModeButtonTitle"
+              :aria-pressed="prefs.sheetFsPageMode === 'scroll'"
+              @click="cyclePageMode"
+            >
+              {{ pageModeButtonLabel }}
+            </button>
           </div>
         </div>
 
@@ -1665,16 +1791,7 @@ defineExpose({
             role="group"
             aria-label="Sheet pages"
           >
-            <button
-              type="button"
-              class="chrome-btn page-mode"
-              :aria-label="pageModeButtonTitle"
-              :title="pageModeButtonTitle"
-              :aria-pressed="prefs.sheetFsPageMode === 'scroll'"
-              @click="cyclePageMode"
-            >
-              {{ pageModeButtonLabel }}
-            </button>
+            <span class="page-ind">{{ pageIndex + 1 }}/{{ displayPages.length }}</span>
             <button
               type="button"
               class="chrome-btn"
@@ -1684,7 +1801,6 @@ defineExpose({
             >
               ‹
             </button>
-            <span class="page-ind">{{ pageIndex + 1 }}/{{ displayPages.length }}</span>
             <button
               type="button"
               class="chrome-btn"
@@ -1965,7 +2081,8 @@ defineExpose({
   outline-offset: 2px;
 }
 .chrome-btn.share.ok,
-.chrome-btn.more.is-expanded {
+.chrome-btn.more.is-expanded,
+.chrome-btn.shift-toggle.is-expanded {
   border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.28));
   color: #fff;
   background: color-mix(in srgb, var(--accent) 35%, rgba(20, 20, 20, 0.38));
@@ -1999,6 +2116,13 @@ defineExpose({
   padding: 0 0.55rem;
   flex-shrink: 0;
 }
+.pitch-icon {
+  display: none;
+  grid-area: 1 / 1;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1;
+}
 .chrome-pitch-cluster {
   display: inline-flex;
   align-items: center;
@@ -2010,12 +2134,111 @@ defineExpose({
   pointer-events: auto;
 }
 .chrome-shift {
+  position: relative;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.chrome-btn.shift-toggle {
+  width: 44px;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.chrome-shift-pop {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 2;
+  display: grid;
+  justify-items: stretch;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(20, 20, 20, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+.shift-key {
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+  width: max-content;
+  max-width: min(100%, calc(100vw - 2rem));
+  min-height: 1.35rem;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.2;
+  padding: 0.15rem 0.35rem 0.05rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.shift-key-sizer,
+.shift-key-label {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  text-align: center;
+}
+.shift-key-sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.shift-key-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.shift-key-btns {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+/* Compact pitch: ♪ icon only; full key shows in the ± popover. */
+.chrome.pitch-compact .chrome-btn.pitch-fab {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.chrome.pitch-compact .pitch-icon {
+  display: block;
+}
+.chrome.pitch-compact .pitch-label,
+.chrome.pitch-compact .pitch-label-sizer {
+  display: none !important;
+}
+.chrome.pitch-compact .chrome-shift-pop {
+  left: 0;
+  right: auto;
+  max-width: calc(100vw - 1.25rem);
+}
+@media (max-width: 820px) {
+  .chrome-btn.pitch-fab {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+  .chrome-btn.pitch-fab .pitch-icon {
+    display: block;
+  }
+  .chrome-btn.pitch-fab .pitch-label,
+  .chrome-btn.pitch-fab .pitch-label-sizer {
+    display: none !important;
+  }
+  .chrome-shift-pop {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 1.25rem);
+  }
 }
 .chrome-btn.fit {
   min-width: 5.75rem;
 }
-.chrome-shift,
 .chrome-pages {
   display: inline-flex;
   align-items: center;
@@ -2028,6 +2251,7 @@ defineExpose({
   min-width: 2.75rem;
   text-align: center;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
 }
 .chrome-scrub {
   display: inline-flex;
@@ -2059,6 +2283,10 @@ defineExpose({
   .sheet.fullscreen.sing-chrome .chrome {
     top: auto;
     bottom: calc(0.4rem + env(safe-area-inset-bottom));
+  }
+  .sheet.fullscreen.sing-chrome .chrome-shift-pop {
+    top: auto;
+    bottom: calc(100% + 0.35rem);
   }
 }
 .page {

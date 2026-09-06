@@ -26,7 +26,7 @@ const props = defineProps<{
   offline?: boolean
   /** When set, direct file/zip download is disabled (e.g. cache-only tag detail). */
   downloadBlockedReason?: string | null
-  /** When set, “Add to downloads” (queue) is disabled with this reason. */
+  /** When set, “Add to export queue” is disabled with this reason. */
   queueBlockedReason?: string | null
   queueMessage?: string | null
 }>()
@@ -238,7 +238,7 @@ async function downloadSelectedZip(): Promise<void> {
     </summary>
     <div class="body">
       <p v-if="assets.length" class="picker-hint">
-        Tap files to select them for download or the queue.
+        Tap files to select them for download or the export queue.
       </p>
       <p v-else class="muted">No downloadable files on this tag.</p>
 
@@ -316,14 +316,14 @@ async function downloadSelectedZip(): Promise<void> {
       </div>
 
       <div v-if="assets.length" class="queue-actions">
-        <p class="queue-lbl">Download queue</p>
+        <p class="queue-lbl">Export queue</p>
         <div class="actions queue-btns">
           <button
             type="button"
             class="go secondary"
             :disabled="!!busyMode || !!queueBlockedReason || !queueSelectionCount"
             :title="
-              queueBlockedReason || 'Add the checked files to the downloads queue (works offline)'
+              queueBlockedReason || 'Add the checked files to the export queue (works offline)'
             "
             @click="addSelectedToQueue"
           >
@@ -334,7 +334,7 @@ async function downloadSelectedZip(): Promise<void> {
             class="go secondary"
             :disabled="!!busyMode || !!queueBlockedReason || !queueAllCount"
             :title="
-              queueBlockedReason || 'Add every file on this tag to the downloads queue (works offline)'
+              queueBlockedReason || 'Add every file on this tag to the export queue (works offline)'
             "
             @click="addAllToQueue"
           >

@@ -19,9 +19,13 @@ import './styles/tokens.css'
 import './styles/controls.css'
 import './styles/utilities.css'
 import { ensureFetchPatchInstalled } from './lib/manualOfflineFetch'
+import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
+
+// Apply persisted / viewport-default UI scale before first paint (avoids a zoom jump).
+applyUiScale(resolveInitialUiScale())
 
 // Register FontAwesome icons
 library.add(faHeartSolid, faHeartRegular)

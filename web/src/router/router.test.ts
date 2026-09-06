@@ -32,19 +32,29 @@ describe('router', () => {
         'rx',
         'labs',
         'labs-pitch-pipe-sound',
-        'labs-roulette',
+        'roulette',
         'library',
         'library-doc',
       ]),
     )
   })
 
-  it('auto-enables Tag Roulette when opening a shared Labs roulette URL', async () => {
-    const prefs = usePreferencesStore()
-    expect(prefs.tagRouletteEnabled).toBe(false)
+  it('redirects unknown paths to Browse', async () => {
+    await router.push('/this-route-does-not-exist')
+    expect(router.currentRoute.value.name).toBe('home')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it('redirects nested unknown paths to Browse', async () => {
+    await router.push('/library/missing/extra/segments')
+    expect(router.currentRoute.value.name).toBe('home')
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it('redirects /labs/roulette to /roulette', async () => {
     await router.push('/labs/roulette')
-    expect(router.currentRoute.value.name).toBe('labs-roulette')
-    expect(prefs.tagRouletteEnabled).toBe(true)
+    expect(router.currentRoute.value.name).toBe('roulette')
+    expect(router.currentRoute.value.path).toBe('/roulette')
   })
 
   it('auto-enables Local Library when opening /library', async () => {

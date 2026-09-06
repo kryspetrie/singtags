@@ -3,29 +3,34 @@
  */
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { hasPdfRasterCached,
+import {
   clearPdfRasterCache,
+  hasPdfRasterCached,
   loadPdfRasterObjectUrls,
-  MAX_PDF_RASTER_ENTRIES,
+  pdfRasterCacheBytes,
   pdfRasterCacheKey,
   pdfRasterMemoryHit,
   pdfRasterMemorySizeForTests,
   putPdfRasterBlobs,
+  setPdfRasterCacheMaxMbForTests,
   wipePdfRasterMemoryForTests,
 } from './pdfRasterCache'
 
 describe('pdfRasterCache', () => {
   beforeEach(async () => {
+    setPdfRasterCacheMaxMbForTests(256)
     await clearPdfRasterCache()
   })
 
-  it('keys by url, dpi, and crop', () => {
+  it('keys by identity, dpi, and crop', () => {
     const a = pdfRasterCacheKey('https://x/a.pdf', { crop: true })
     const b = pdfRasterCacheKey('https://x/a.pdf', { crop: false })
     const c = pdfRasterCacheKey('https://x/a.pdf', { dpi: 150, crop: true })
+    const local = pdfRasterCacheKey('local-asset:abc', { crop: true })
     expect(a).not.toBe(b)
     expect(a).not.toBe(c)
     expect(a).toContain('dpi=300')
+    expect(local).toContain('local-asset:abc')
   })
 
   it('serves memory hits as object URLs', async () => {
@@ -55,21 +60,30 @@ describe('pdfRasterCache', () => {
     for (const u of urls!) URL.revokeObjectURL(u)
   })
 
-  it('evicts LRU entries beyond the cap', async () => {
-    for (let i = 0; i < MAX_PDF_RASTER_ENTRIES + 3; i++) {
-      const key = pdfRasterCacheKey(`https://x/${i}.pdf`, { crop: true })
-      await putPdfRasterBlobs(key, [new Blob([`p${i}`], { type: 'image/webp' })])
-    }
-    expect(pdfRasterMemorySizeForTests()).toBeLessThanOrEqual(MAX_PDF_RASTER_ENTRIES)
+  it('evicts oldest insertions first when over the byte budget (FIFO)', async () => {
+    // ~1 KiB budget; each blob is ~900 bytes so the third insert should drop the first.
+    setPdfRasterCacheMaxMbForTests(null)
+    // Override via tiny budget: use MB=0 would disable IDB; instead put small max via
+    // reading bytes — we approximate with many large blobs against a 1MB cap.
+    setPdfRasterCacheMaxMbForTests(1)
 
-    const oldest = pdfRasterCacheKey('https://x/0.pdf', { crop: true })
-    expect(pdfRasterMemoryHit(oldest)).toBeNull()
-    const newest = pdfRasterCacheKey(`https://x/${MAX_PDF_RASTER_ENTRIES + 2}.pdf`, {
-      crop: true,
-    })
-    const hit = pdfRasterMemoryHit(newest)
-    expect(hit).not.toBeNull()
-    for (const u of hit!) URL.revokeObjectURL(u)
+    const mk = (i: number, size: number) =>
+      putPdfRasterBlobs(pdfRasterCacheKey(`https://x/${i}.pdf`, { crop: true }), [
+        new Blob([new Uint8Array(size)], { type: 'image/webp' }),
+      ])
+
+    await mk(0, 400_000)
+    await mk(1, 400_000)
+    await mk(2, 400_000)
+
+    expect(await hasPdfRasterCached(pdfRasterCacheKey('https://x/0.pdf', { crop: true }))).toBe(
+      false,
+    )
+    expect(await hasPdfRasterCached(pdfRasterCacheKey('https://x/2.pdf', { crop: true }))).toBe(
+      true,
+    )
+    const used = await pdfRasterCacheBytes()
+    expect(used).toBeLessThanOrEqual(1 * 1024 * 1024)
   })
 
   it('reports hasPdfRasterCached from memory and IDB', async () => {
@@ -80,5 +94,4 @@ describe('pdfRasterCache', () => {
     wipePdfRasterMemoryForTests()
     expect(await hasPdfRasterCached(key)).toBe(true)
   })
-
 })

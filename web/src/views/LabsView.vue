@@ -39,20 +39,6 @@ function toggleLocalLibrary(): void {
   )
 }
 
-function toggleTagRoulette(): void {
-  const next = !prefs.tagRouletteEnabled
-  prefs.setTagRouletteEnabled(next)
-  snackbar.show(
-    next
-      ? 'Tag Roulette is in the main nav — deal random tag batches anytime'
-      : 'Tag Roulette is hidden from the main nav',
-    {
-      title: next ? 'Tag Roulette On' : 'Tag Roulette Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
-}
 </script>
 
 <template>
@@ -72,40 +58,6 @@ function toggleTagRoulette(): void {
         this device, and set your personal default. Share a favorite with Krys via email.
       </p>
       <RouterLink class="btn" to="/labs/pitch-pipe-sound">Open sound lab</RouterLink>
-    </section>
-
-    <section class="card" aria-labelledby="tag-roulette-h">
-      <h2 id="tag-roulette-h" class="card-title">Tag Roulette</h2>
-      <p class="card-desc">
-        Deal random tag batches for rehearsal variety with custom pools and score curves. When on, it
-        appears in the main nav.
-      </p>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.tagRouletteEnabled }"
-        title="Enable Tag Roulette"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Tag Roulette</span>
-          <span class="setting-desc">
-            {{
-              prefs.tagRouletteEnabled
-                ? 'Feature available — open from the main nav → Roulette'
-                : 'Hidden — main nav link and /labs/roulette are off'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.tagRouletteEnabled"
-          :aria-checked="prefs.tagRouletteEnabled"
-          aria-label="Tag Roulette"
-          @change="toggleTagRoulette"
-        />
-      </label>
     </section>
 
     <section class="card" aria-labelledby="local-library-h">

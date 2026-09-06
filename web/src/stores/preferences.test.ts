@@ -54,6 +54,8 @@ describe('preferences store', () => {
       detuneCents: -32,
       showOctave: false,
       sound: 'mellow',
+      gridScale: 100,
+      showFullKeyboard: false,
     })
     prefs.setPitchPipeDetuneCents(-7, { clearConcertA: true })
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
@@ -63,6 +65,8 @@ describe('preferences store', () => {
       detuneCents: -7,
       showOctave: false,
       sound: 'mellow',
+      gridScale: 100,
+      showFullKeyboard: false,
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()
@@ -72,12 +76,20 @@ describe('preferences store', () => {
     expect(again.pitchPipeDetuneCents).toBe(-7)
     expect(again.pitchPipeShowOctave).toBe(false)
     expect(again.pitchPipeSound).toBe('mellow')
+    expect(again.pitchPipeGridScale).toBe(100)
+    expect(again.pitchPipeShowFullKeyboard).toBe(false)
     again.setPitchPipeShowOctave(true)
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showOctave).toBe(true)
     again.setPitchPipeSound('bright')
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).sound).toBe('bright')
+    again.nudgePitchPipeGridScale(-10)
+    expect(again.pitchPipeGridScale).toBe(90)
+    again.setPitchPipeShowFullKeyboard(true)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showFullKeyboard).toBe(true)
     setActivePinia(createPinia())
     expect(usePreferencesStore().pitchPipeSound).toBe('bright')
+    expect(usePreferencesStore().pitchPipeGridScale).toBe(90)
+    expect(usePreferencesStore().pitchPipeShowFullKeyboard).toBe(true)
   })
 
   it('migrates legacy fineCents-on-top-of-A pitch pipe prefs', () => {
@@ -124,6 +136,21 @@ describe('preferences store', () => {
     expect(usePreferencesStore().singMode).toBe(true)
   })
 
+  it('persists UI scale and nudges in 5% steps', () => {
+    const prefs = usePreferencesStore()
+    prefs.setUiScalePercent(100)
+    expect(localStorage.getItem('singtags.uiScale.v1')).toBe('100')
+    expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('1')
+    prefs.nudgeUiScale(-5)
+    expect(prefs.uiScalePercent).toBe(95)
+    prefs.nudgeUiScale(5)
+    expect(prefs.uiScalePercent).toBe(100)
+    prefs.setUiScalePercent(200)
+    expect(prefs.uiScalePercent).toBe(130)
+    prefs.setUiScalePercent(50)
+    expect(prefs.uiScalePercent).toBe(70)
+  })
+
   it('defaults optical transfer on', () => {
     const prefs = usePreferencesStore()
     expect(prefs.opticalTransferEnabled).toBe(true)
@@ -131,15 +158,6 @@ describe('preferences store', () => {
     expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('0')
     setActivePinia(createPinia())
     expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
-  })
-
-  it('defaults tag roulette off and persists toggle', () => {
-    const prefs = usePreferencesStore()
-    expect(prefs.tagRouletteEnabled).toBe(false)
-    prefs.setTagRouletteEnabled(true)
-    expect(localStorage.getItem('singtags.labs.tagRoulette.enabled.v1')).toBe('1')
-    setActivePinia(createPinia())
-    expect(usePreferencesStore().tagRouletteEnabled).toBe(true)
   })
 
   it('defaults local library off', () => {

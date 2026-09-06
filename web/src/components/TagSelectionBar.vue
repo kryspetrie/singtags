@@ -51,11 +51,11 @@ const emit = defineEmits<{
       <button
         type="button"
         class="btn"
-        aria-label="Queue download"
-        title="Add selected tags' sheets and tracks to the download queue"
+        aria-label="Queue export"
+        title="Add selected tags' sheets and tracks to the export queue"
         @click="emit('zip')"
       >
-        <span class="label-long">Queue Download</span>
+        <span class="label-long">Queue Export</span>
         <span class="label-short">+Queue</span>
       </button>
       <slot />

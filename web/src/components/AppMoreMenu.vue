@@ -4,11 +4,13 @@
  */
 import { RouterLink } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
+import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
 import { useQueueStore } from '../stores/queue'
 import { useSnackbarStore } from '../stores/snackbar'
+import { ref } from 'vue'
 
 defineProps<{
   open: boolean
@@ -22,7 +24,8 @@ const prefs = usePreferencesStore()
 const offlineMode = useOfflineModeStore()
 const queue = useQueueStore()
 const snackbar = useSnackbarStore()
-const { showInstallEntry, canPrompt, promptInstall, fallbackMessage } = usePwaInstall()
+const { showInstallEntry, canPrompt, promptInstall } = usePwaInstall()
+const howToOpen = ref(false)
 
 function close(): void {
   emit('close')
@@ -35,12 +38,9 @@ function onNavClick(): void {
 async function onInstallApp(): Promise<void> {
   const outcome = await promptInstall()
   if (outcome === 'unavailable') {
-    snackbar.show(fallbackMessage(), {
-      title: 'Install SingTags',
-      tone: 'ok',
-      ms: 6000,
-      placement: 'center',
-    })
+    howToOpen.value = true
+    close()
+    return
   }
   close()
 }
@@ -83,25 +83,15 @@ function toggleOfflineMode(): void {
     },
   )
 }
+
+function bumpScale(delta: number): void {
+  prefs.nudgeUiScale(delta)
+}
 </script>
 
 <template>
   <FilterSheet :open="open" title="More" elevated hide-title fit-content @close="close">
     <nav class="menu" aria-label="More">
-      <button
-        v-if="showInstallEntry"
-        type="button"
-        class="menu-item menu-item-install"
-        @click="onInstallApp"
-      >
-        <span class="menu-label">Install App</span>
-        <span class="menu-desc">{{
-          canPrompt
-            ? 'Add SingTags to your home screen on this device'
-            : 'Add SingTags from your browser menu'
-        }}</span>
-      </button>
-
       <label
         class="setting-row setting-sing"
         :class="{ on: prefs.singMode }"
@@ -148,6 +138,34 @@ function toggleOfflineMode(): void {
         />
       </label>
 
+      <div class="setting-row setting-scale" role="group" aria-label="Display size">
+        <span class="setting-copy">
+          <span class="setting-title">Display size</span>
+          <span class="setting-desc">Scale the whole app 70%–130%</span>
+        </span>
+        <div class="scale-stepper">
+          <button
+            type="button"
+            class="scale-nudge"
+            :disabled="prefs.uiScalePercent <= 70"
+            aria-label="Decrease display size"
+            @click="bumpScale(-5)"
+          >
+            −
+          </button>
+          <span class="scale-pct" aria-live="polite">{{ prefs.uiScalePercent }}%</span>
+          <button
+            type="button"
+            class="scale-nudge"
+            :disabled="prefs.uiScalePercent >= 130"
+            aria-label="Increase display size"
+            @click="bumpScale(5)"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
       <RouterLink class="menu-item" to="/settings" @click="onNavClick">
         <span class="menu-label">Offline settings</span>
         <span class="menu-desc">Cache, downloads, and offline mode</span>
@@ -180,15 +198,30 @@ function toggleOfflineMode(): void {
 
       <RouterLink class="menu-item menu-item-downloads" to="/queue" @click="onNavClick">
         <span class="menu-row">
-          <span class="menu-label">Downloads</span>
+          <span class="menu-label">Export</span>
           <span v-if="queue.count" class="badge" :aria-label="`${queue.count} in queue`">{{
             queue.count
           }}</span>
         </span>
-        <span class="menu-desc">Sheet and track download queue</span>
+        <span class="menu-desc">Sheet and track export queue</span>
       </RouterLink>
+
+      <button
+        v-if="showInstallEntry"
+        type="button"
+        class="menu-item menu-item-install"
+        @click="onInstallApp"
+      >
+        <span class="menu-label">Install App</span>
+        <span class="menu-desc">{{
+          canPrompt
+            ? 'Tap to install SingTags on this device'
+            : 'Add SingTags from your browser menu'
+        }}</span>
+      </button>
     </nav>
   </FilterSheet>
+  <PwaInstallHowToDialog :open="howToOpen" @close="howToOpen = false" />
 </template>
 
 <style scoped>
@@ -196,7 +229,7 @@ function toggleOfflineMode(): void {
   display: grid;
   gap: 0.45rem;
 }
-/* Mobile: links first, toggles at bottom (Sing then Offline). Install stays on top. */
+/* Mobile: links first, toggles + scale at bottom, Install App last. */
 .menu-item {
   order: 1;
   display: grid;
@@ -213,7 +246,8 @@ function toggleOfflineMode(): void {
   width: 100%;
 }
 .menu-item-install {
-  order: 0;
+  order: 5;
+  margin-top: 0.15rem;
   border-color: var(--accent-hover);
   background: var(--accent);
   color: #fff;
@@ -236,6 +270,10 @@ function toggleOfflineMode(): void {
 }
 .setting-offline {
   order: 3;
+}
+.setting-scale {
+  order: 4;
+  cursor: default;
 }
 .menu-item:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
@@ -335,19 +373,57 @@ function toggleOfflineMode(): void {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.scale-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: 0 0 auto;
+}
+.scale-nudge {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.scale-nudge:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.scale-nudge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.scale-pct {
+  min-width: 3rem;
+  text-align: center;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92rem;
+}
 @media (min-width: 768px) {
-  /* Desktop: Install → Sing → Offline → links. */
-  .menu-item-install {
+  /* Desktop: Sing → Offline → Display size → links → Install App (bottom). */
+  .setting-sing {
     order: 0;
   }
-  .setting-sing {
+  .setting-offline {
     order: 1;
   }
-  .setting-offline {
+  .setting-scale {
     order: 2;
   }
   .menu-item {
     order: 3;
+  }
+  .menu-item-install {
+    order: 4;
   }
 }
 </style>

@@ -2,13 +2,14 @@
 /**
  * Local Library entry: Tag-like view (default) + Edit mode (?edit=1).
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import SheetViewer from '../components/SheetViewer.vue'
 import PitchControls from '../components/PitchControls.vue'
 import TagPlayer from '../components/TagPlayer.vue'
 import LocalEntryTransferSheet from '../components/LocalEntryTransferSheet.vue'
+import LocalAssetPreview from '../components/LocalAssetPreview.vue'
 import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import {
   isLocalEntryEditQuery,
@@ -27,13 +28,17 @@ import {
   getActivePitchPipeVoice,
   PITCH_PIPE_VOICE_CHANGE_EVENT,
 } from '../audio/pitchPipeVoice'
+import { uniqueTrackPartKey } from '../lib/localAssetHeuristics'
+import { PRIMARY_PARTS, partLabel } from '../lib/parts'
 import { useLocalLibraryStore } from '../stores/localLibrary'
+import { useLocalPlaylistsStore } from '../stores/localPlaylists'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import type { LocalAsset, LocalEntry } from '../types/localLibrary'
 import {
   LOCAL_ASSET_ROLES,
   LOCAL_LIBRARY_KEY_OPTIONS,
+  groupLocalAssetsByRole,
   isLocalAudioMime,
   isLocalImageMime,
   isLocalPdfMime,
@@ -43,10 +48,17 @@ import {
 import type { SheetImageSet, SheetPdfFile } from '../lib/sheetAssets'
 import { formatBytes } from '../offline/storageEstimate'
 import { formatLocalSizeWarn } from '../lib/localDocReceive'
+import { buildZip, downloadBlob } from '../download/zip'
 
 const props = defineProps<{ id: string }>()
 
 const library = useLocalLibraryStore()
+const playlists = useLocalPlaylistsStore()
+
+const PART_CHOICES: { value: string; label: string }[] = [
+  { value: '', label: 'Auto / custom' },
+  ...PRIMARY_PARTS.map((p) => ({ value: p, label: partLabel(p) })),
+]
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const router = useRouter()
@@ -62,9 +74,11 @@ const tracksFullscreenActive = ref(false)
 const draftTitle = ref('')
 const draftArranger = ref('')
 const draftNotes = ref('')
+const draftLyricsHint = ref('')
 const draftKey = ref('')
 const draftDetune = ref(0)
 const saveBusy = ref(false)
+const filesEditing = ref(false)
 
 const keyShift = ref(0)
 const pitch = new PitchPlayer(getActivePitchPipeVoice())
@@ -73,12 +87,73 @@ const imageSets = ref<SheetImageSet[]>([])
 const pdfs = ref<SheetPdfFile[]>([])
 const trackParts = ref<Record<string, string>>({})
 const trackPartIds = ref<string[]>([])
+/** assetId → TagPlayer part key (for Files → player). */
+const trackPartByAssetId = ref<Record<string, string>>({})
+const tagPlayerRef = ref<{
+  togglePlay: () => Promise<void>
+  stopPlayback: () => Promise<void>
+  seek: (t: number) => void
+  selectPart: (p: string) => void
+  isPaused: () => boolean
+  getCurrentTime: () => number
+  getDuration: () => number
+  isPlayReady: () => boolean
+  isBaking: () => boolean
+} | null>(null)
+const playerTick = ref(0)
+let playerTickTimer: ReturnType<typeof setInterval> | null = null
+function startPlayerTick(): void {
+  if (playerTickTimer) return
+  playerTickTimer = setInterval(() => {
+    playerTick.value++
+  }, 250)
+}
+function stopPlayerTick(): void {
+  if (!playerTickTimer) return
+  clearInterval(playerTickTimer)
+  playerTickTimer = null
+}
+/** Force-open Tracks when playing a file from the Files list. */
+const tracksOpen = ref(true)
 
 const editing = computed(() => isLocalEntryEditQuery(route.query))
-const openSheetFullscreen = computed(() => isLocalEntryFullscreenQuery(route.query))
+
+watch(editing, (on) => {
+  if (!on) filesEditing.value = false
+})
+const openSheetFullscreen = computed(
+  () => isLocalEntryFullscreenQuery(route.query) && hasSheet.value,
+)
 const importQueue = computed(() => parseImportQueue(route.query))
 
+/**
+ * Whether this entry was opened already intending fullscreen (deep link / open-immediately).
+ * Do not flip this when the user later toggles fullscreen from the song page — that would
+ * incorrectly show “Song Page” even though ✕ already returns here.
+ */
+const arrivedViaFullscreenLink = ref(isLocalEntryFullscreenQuery(route.query))
+watch(
+  () => [props.id, route.query.playlist, route.query.pitem] as const,
+  () => {
+    arrivedViaFullscreenLink.value = isLocalEntryFullscreenQuery(route.query)
+  },
+)
+
+/**
+ * ✕ destination while sheet is fullscreen.
+ * Immediate / set-list fullscreen → back to Library or the set list (offer Song Page in ⋮).
+ * Opened from the entry page itself → stay here (`lib page`; no Song Page menu item).
+ */
+const sheetExitOriginLabel = computed(() => {
+  if (inPlaylistContext.value) return activePlaylist.value?.name || 'Set List'
+  if (arrivedViaFullscreenLink.value) return 'Library'
+  return 'lib page'
+})
+
 const assets = computed(() => library.assetsFor(props.id))
+
+/** Files list: grouped by role, A→Z within each group. */
+const assetGroups = computed(() => groupLocalAssetsByRole(assets.value))
 
 const keyOptions = computed(() => {
   const current = draftKey.value.trim()
@@ -99,18 +174,167 @@ const canPayKey = computed(() => {
 })
 
 const hasSheet = computed(() => imageSets.value.length > 0 || pdfs.value.length > 0)
+
 const hasAudio = computed(() => trackPartIds.value.length > 0)
+
+const hasMixTrack = computed(() => trackPartIds.value.includes('mix'))
+const mixPlaying = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.isPaused === 'function' ? !p.isPaused() : false
+})
+const mixCurrentTime = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.getCurrentTime === 'function' ? p.getCurrentTime() : 0
+})
+const mixDuration = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.getDuration === 'function' ? p.getDuration() : 0
+})
+const mixPlayReady = computed(() => {
+  void playerTick.value
+  if (!hasMixTrack.value) return false
+  const p = tagPlayerRef.value
+  return p && typeof p.isPlayReady === 'function' ? p.isPlayReady() : false
+})
+const mixBaking = computed(() => {
+  void playerTick.value
+  const p = tagPlayerRef.value
+  return p && typeof p.isBaking === 'function' ? p.isBaking() : false
+})
+
+async function onSheetPlayToggle(): Promise<void> {
+  const p = tagPlayerRef.value
+  if (!p || !hasMixTrack.value) return
+  try {
+    p.selectPart('mix')
+  } catch {
+    /* ignore */
+  }
+  await p.togglePlay()
+  playerTick.value++
+  startPlayerTick()
+}
+
+function onSheetSeek(t: number): void {
+  tagPlayerRef.value?.seek(t)
+  playerTick.value++
+}
+
+async function onSheetPlayStop(): Promise<void> {
+  const p = tagPlayerRef.value
+  if (!p) return
+  await p.stopPlayback()
+  playerTick.value++
+}
+
+
+
+const playlistId = computed(() =>
+  typeof route.query.playlist === 'string' && route.query.playlist.trim()
+    ? route.query.playlist.trim()
+    : null,
+)
+const playlistItemId = computed(() =>
+  typeof route.query.pitem === 'string' && route.query.pitem.trim()
+    ? route.query.pitem.trim()
+    : null,
+)
+const activePlaylist = computed(() =>
+  playlistId.value ? playlists.byId(playlistId.value) : undefined,
+)
+const playlistItems = computed(() => activePlaylist.value?.items ?? [])
+const playlistIndex = computed(() => {
+  if (!playlistItemId.value) return -1
+  return playlistItems.value.findIndex((i) => i.id === playlistItemId.value)
+})
+const playlistPositionLabel = computed(() => {
+  if (!activePlaylist.value || playlistIndex.value < 0) return null
+  return `${playlistIndex.value + 1} / ${playlistItems.value.length}`
+})
+const inPlaylistContext = computed(() => !!activePlaylist.value && playlistIndex.value >= 0)
 
 const neighborIds = computed(() => library.filteredEntries.map((e) => e.id))
 const neighborIndex = computed(() => neighborIds.value.indexOf(props.id))
-const prevId = computed(() =>
-  neighborIndex.value > 0 ? neighborIds.value[neighborIndex.value - 1] : null,
-)
-const nextId = computed(() =>
-  neighborIndex.value >= 0 && neighborIndex.value < neighborIds.value.length - 1
-    ? neighborIds.value[neighborIndex.value + 1]
-    : null,
-)
+const prevNeighbor = computed(() => {
+  if (inPlaylistContext.value) {
+    const idx = playlistIndex.value
+    if (idx <= 0) return null
+    const item = playlistItems.value[idx - 1]
+    return item ? { entryId: item.entryId, itemId: item.id } : null
+  }
+  if (neighborIndex.value > 0) {
+    const entryId = neighborIds.value[neighborIndex.value - 1]
+    return entryId ? { entryId, itemId: null as string | null } : null
+  }
+  return null
+})
+const nextNeighbor = computed(() => {
+  if (inPlaylistContext.value) {
+    const idx = playlistIndex.value
+    if (idx < 0 || idx >= playlistItems.value.length - 1) return null
+    const item = playlistItems.value[idx + 1]
+    return item ? { entryId: item.entryId, itemId: item.id } : null
+  }
+  if (neighborIndex.value >= 0 && neighborIndex.value < neighborIds.value.length - 1) {
+    const entryId = neighborIds.value[neighborIndex.value + 1]
+    return entryId ? { entryId, itemId: null as string | null } : null
+  }
+  return null
+})
+
+function setListBackTarget(focusItemId?: string | null): string {
+  if (!playlistId.value) return '/library'
+  const focus = focusItemId?.trim()
+  if (focus) return `/library/playlists/${playlistId.value}?focus=${encodeURIComponent(focus)}`
+  return `/library/playlists/${playlistId.value}`
+}
+
+async function markCurrentSetItemSung(): Promise<void> {
+  if (!playlistId.value || !playlistItemId.value) return
+  await playlists.markItemSung(playlistId.value, playlistItemId.value)
+}
+
+function entryHasSheet(entryId: string): boolean {
+  return library.assetsFor(entryId).some(
+    (a) => a.role === 'sheet' || a.role === 'alternateSheet' || a.role === 'image',
+  )
+}
+
+async function goNeighbor(target: { entryId: string; itemId: string | null } | null): Promise<void> {
+  if (!target) return
+  if (inPlaylistContext.value) await markCurrentSetItemSung()
+  const wantFs =
+    openSheetFullscreen.value ||
+    (inPlaylistContext.value && (activePlaylist.value?.openFullscreen || prefs.singMode))
+  const keepFs = wantFs && entryHasSheet(target.entryId)
+  if (wantFs && !keepFs) {
+    snackbar.show('No sheet music available.', { tone: 'info' })
+  }
+  const itemShift = target.itemId
+    ? clampPitchSemitones(
+        activePlaylist.value?.items.find((i) => i.id === target.itemId)?.keyShift ?? 0,
+      )
+    : 0
+  void router.push({
+    path: `/library/${target.entryId}`,
+    query: {
+      ...(keepFs ? { fullscreen: '1' } : {}),
+      ...(playlistId.value && target.itemId
+        ? { playlist: playlistId.value, pitem: target.itemId }
+        : {}),
+      ...(itemShift ? { shift: String(itemShift) } : {}),
+    },
+  })
+}
+
+async function exitToLibraryOrigin(): Promise<void> {
+  const focusId = playlistItemId.value
+  if (inPlaylistContext.value) await markCurrentSetItemSung()
+  void router.push(setListBackTarget(focusId))
+}
 
 const queuePosition = computed(() => {
   const q = importQueue.value
@@ -127,6 +351,7 @@ function revokeOwned(): void {
   pdfs.value = []
   trackParts.value = {}
   trackPartIds.value = []
+  trackPartByAssetId.value = {}
 }
 
 async function buildMedia(list: LocalAsset[]): Promise<void> {
@@ -135,6 +360,8 @@ async function buildMedia(list: LocalAsset[]): Promise<void> {
   const pdfList: SheetPdfFile[] = []
   const tracks: Record<string, string> = {}
   const trackIds: string[] = []
+  const partByAsset: Record<string, string> = {}
+  const usedPartKeys = new Set<string>()
   const urls: string[] = []
 
   for (const asset of list) {
@@ -145,9 +372,14 @@ async function buildMedia(list: LocalAsset[]): Promise<void> {
     urls.push(url)
 
     if (asset.role === 'track' || isLocalAudioMime(asset.mime, asset.filename)) {
-      const partId = `local_${asset.id}`
+      const partId = uniqueTrackPartKey(
+        asset.partId,
+        asset.label || asset.filename,
+        usedPartKeys,
+      )
       tracks[partId] = url
       trackIds.push(partId)
+      partByAsset[asset.id] = partId
       continue
     }
     if (
@@ -157,7 +389,12 @@ async function buildMedia(list: LocalAsset[]): Promise<void> {
       asset.filename.toLowerCase().endsWith('.pdf')
     ) {
       if (isLocalPdfMime(asset.mime) || asset.filename.toLowerCase().endsWith('.pdf')) {
-        pdfList.push({ id: asset.id, label: asset.label || asset.filename, path: url })
+        pdfList.push({
+          id: asset.id,
+          label: asset.label || asset.filename,
+          path: url,
+          cacheKey: `local-asset:${asset.id}`,
+        })
       } else if (isLocalImageMime(asset.mime, asset.filename)) {
         imgs.push({ id: asset.id, label: asset.label || asset.filename, paths: [url] })
       }
@@ -173,33 +410,48 @@ async function buildMedia(list: LocalAsset[]): Promise<void> {
   pdfs.value = pdfList
   trackParts.value = tracks
   trackPartIds.value = trackIds
+  trackPartByAssetId.value = partByAsset
 }
 
 async function loadEntry(): Promise<void> {
   loadError.value = null
-  await library.ensureLoaded()
+  await Promise.all([library.ensureLoaded(), playlists.ensureLoaded()])
   const meta =
     library.entries.find((e) => e.id === props.id) ?? (await library.getLocalEntry(props.id))
   if (!meta) {
     entry.value = null
-    loadError.value = 'Song not found.'
     revokeOwned()
+    // PWA has no reliable Back — send missing/stale song URLs to Browse.
+    await router.replace({ name: 'home' })
     return
   }
   entry.value = meta
   draftTitle.value = meta.title
   draftArranger.value = meta.arranger
   draftNotes.value = meta.notes
+  draftLyricsHint.value = meta.lyricsHint ?? ''
   draftKey.value = meta.key ?? ''
   draftDetune.value = meta.detuneCents ?? 0
-  keyShift.value = 0
+  keyShift.value = readShiftFromQuery()
   const list = await library.reloadAssets(meta.id)
   await buildMedia(list)
+  // Cue-only / no sheet: drop a fullscreen deep-link and explain (Sing mode / set list / shared URL).
+  if (isLocalEntryFullscreenQuery(route.query) && !(imageSets.value.length || pdfs.value.length)) {
+    await patchLocalEntryQuery(router, { fullscreen: null })
+    snackbar.show('No sheet music available.', { tone: 'info' })
+  }
 }
 
 onMounted(() => {
   void loadEntry()
 })
+
+watch(
+  () => route.query.shift,
+  () => {
+    keyShift.value = readShiftFromQuery()
+  },
+)
 
 watch(
   () => props.id,
@@ -209,6 +461,7 @@ watch(
 )
 
 onUnmounted(() => {
+  stopPlayerTick()
   window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   revokeOwned()
   pitch.stop()
@@ -231,6 +484,7 @@ async function saveMeta(): Promise<boolean> {
       title: draftTitle.value,
       arranger: draftArranger.value,
       notes: draftNotes.value,
+      lyricsHint: draftLyricsHint.value,
       key: draftKey.value || null,
       detuneCents: draftDetune.value,
     })
@@ -314,6 +568,14 @@ const mixDetuneCents = computed(
   () => prefs.globalPitchDetuneCents() + (entry.value?.detuneCents ?? 0),
 )
 
+
+function readShiftFromQuery(): number {
+  const raw = route.query.shift
+  if (typeof raw !== 'string' || raw === '') return 0
+  const n = Number(raw)
+  return Number.isFinite(n) ? clampPitchSemitones(n) : 0
+}
+
 async function payKeyDown(): Promise<void> {
   const note = tonicNote()
   if (!note) return
@@ -345,6 +607,12 @@ async function onAssetRoleChange(asset: LocalAsset, role: string): Promise<void>
   await buildMedia(library.assetsFor(props.id))
 }
 
+async function onAssetPartChange(asset: LocalAsset, partId: string): Promise<void> {
+  const next = partId.trim() || null
+  await library.updateAssetMeta(asset.id, { partId: next })
+  await buildMedia(library.assetsFor(props.id))
+}
+
 async function onRemoveAsset(assetId: string): Promise<void> {
   await library.removeAsset(assetId)
   await buildMedia(library.assetsFor(props.id))
@@ -364,11 +632,85 @@ async function onAddFiles(event: Event): Promise<void> {
   }
 }
 
-function trackLabel(partId: string): string {
-  const assetId = partId.replace(/^local_/, '')
-  const asset = assets.value.find((a) => a.id === assetId)
-  return asset?.label || asset?.filename || partId
+
+function blobForAsset(asset: LocalAsset): () => Promise<Blob | null> {
+  return async () => {
+    const rec = await library.getLocalAssetBlob(asset.id)
+    if (!rec) return null
+    return new Blob([rec.data], { type: rec.mime || asset.mime })
+  }
 }
+
+/** Non-primary voice parts play in TagPlayer instead of a local HTMLAudioElement. */
+function usesExternalAudioPlayer(asset: LocalAsset): boolean {
+  const partKey = trackPartByAssetId.value[asset.id]
+  if (!partKey) return false
+  return !(PRIMARY_PARTS as readonly string[]).includes(partKey)
+}
+
+async function playAssetInTagPlayer(asset: LocalAsset): Promise<void> {
+  const partKey = trackPartByAssetId.value[asset.id]
+  const player = tagPlayerRef.value
+  if (!partKey || !player) return
+  tracksOpen.value = true
+  player.selectPart(partKey)
+  await nextTick()
+  await player.play()
+  document.getElementById('local-tracks')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+const exportBusy = ref<string | null>(null)
+
+async function exportAsset(asset: LocalAsset): Promise<void> {
+  if (exportBusy.value) return
+  exportBusy.value = asset.id
+  try {
+    const rec = await library.getLocalAssetBlob(asset.id)
+    if (!rec) {
+      snackbar.show('File not found in library storage.', { tone: 'error' })
+      return
+    }
+    const name = asset.filename || asset.label || 'file'
+    downloadBlob(new Uint8Array(rec.data), name, rec.mime || asset.mime || 'application/octet-stream')
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Export failed.', { tone: 'error' })
+  } finally {
+    exportBusy.value = null
+  }
+}
+
+async function exportAllAsZip(): Promise<void> {
+  if (!entry.value || !assets.value.length || exportBusy.value) return
+  exportBusy.value = 'all'
+  try {
+    const files: Array<{ name: string; data: Uint8Array }> = []
+    const used = new Set<string>()
+    for (const asset of assets.value) {
+      const rec = await library.getLocalAssetBlob(asset.id)
+      if (!rec) continue
+      let name = asset.filename || asset.label || asset.id
+      if (used.has(name)) {
+        const dot = name.lastIndexOf('.')
+        const stem = dot > 0 ? name.slice(0, dot) : name
+        const ext = dot > 0 ? name.slice(dot) : ''
+        name = `${stem}-${asset.id.slice(0, 6)}${ext}`
+      }
+      used.add(name)
+      files.push({ name, data: new Uint8Array(rec.data) })
+    }
+    if (!files.length) {
+      snackbar.show('No files to export.', { tone: 'error' })
+      return
+    }
+    const base = (entry.value.title || 'song').replace(/[^\w.\-]+/g, '_').slice(0, 40) || 'song'
+    downloadBlob(buildZip(files), `${base}.zip`, 'application/zip')
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Export failed.', { tone: 'error' })
+  } finally {
+    exportBusy.value = null
+  }
+}
+
 </script>
 
 <template>
@@ -378,21 +720,28 @@ function trackLabel(partId: string): string {
 
   <section v-else-if="entry" class="tag" aria-label="Local song">
     <div class="top-row">
-      <button type="button" class="btn btn-ghost" @click="router.push('/library')">← Library</button>
-      <div v-if="prevId || nextId" class="pager">
+      <button type="button" class="btn btn-ghost" @click="exitToLibraryOrigin">
+        ← {{ inPlaylistContext ? (activePlaylist?.name || 'Set List') : 'Library' }}
+      </button>
+      <div v-if="playlistPositionLabel" class="playlist-pos" aria-live="polite">
+        {{ playlistPositionLabel }}
+      </div>
+      <div v-if="prevNeighbor || nextNeighbor" class="pager" :class="{ concert: inPlaylistContext }">
         <button
           type="button"
           class="btn btn-ghost"
-          :disabled="!prevId"
-          @click="prevId && router.push(`/library/${prevId}`)"
+          :disabled="!prevNeighbor"
+          aria-label="Previous song"
+          @click="goNeighbor(prevNeighbor)"
         >
           ←
         </button>
         <button
           type="button"
           class="btn btn-ghost"
-          :disabled="!nextId"
-          @click="nextId && router.push(`/library/${nextId}`)"
+          :disabled="!nextNeighbor"
+          aria-label="Next song"
+          @click="goNeighbor(nextNeighbor)"
         >
           →
         </button>
@@ -480,53 +829,65 @@ function trackLabel(partId: string): string {
           :shift="keyShift"
           :sing-controls="hasAudio"
           :auto-enter-fullscreen="openSheetFullscreen"
-          exit-origin-label="Library"
+          :playing="mixPlaying"
+          :play-ready="mixPlayReady"
+          :current-time="mixCurrentTime"
+          :duration="mixDuration"
+          :baking="mixBaking"
+          :exit-origin-label="sheetExitOriginLabel"
+          details-page-label="Song Page"
           @pay-down="payKeyDown"
           @pay-up="payKeyUp"
           @shift-delta="keyShift = clampPitchSemitones(keyShift + $event)"
           @shift-reset="keyShift = 0"
           @fullscreen-change="onSheetFullscreenChange"
-          @exit-origin="router.push('/library')"
+          @play-toggle="onSheetPlayToggle"
+          @play-stop="onSheetPlayStop"
+          @seek="onSheetSeek"
+          @exit-origin="exitToLibraryOrigin"
         />
-        <p v-else class="tip">No sheet music on this song yet.</p>
+        <div v-else class="cue-only" role="status">
+          <p class="tip">
+            Cue-only song — no sheet on this device. Use key and lyric hint below for set lists.
+            Add files anytime in Edit.
+          </p>
+        </div>
       </div>
     </details>
 
-    <details class="section" :open="hasAudio">
+    <details id="local-tracks" class="section" :open="tracksOpen && hasAudio">
       <summary class="section-summary sheet-section-head">
         <span class="sheet-section-title">Tracks</span>
       </summary>
       <div class="section-body">
         <TagPlayer
           v-if="hasAudio"
+          ref="tagPlayerRef"
           :parts="trackParts"
           :available-parts="trackPartIds"
           :pitch-semitones="keyShift"
           :detune-cents="mixDetuneCents"
           :song-key="entry.key || undefined"
           :pay-key-enabled="canPayKey"
-          exit-origin-label="Library"
+          :exit-origin-label="inPlaylistContext ? (activePlaylist?.name || 'Set List') : 'Library'"
           @update:pitch-semitones="keyShift = $event"
           @pay-down="payKeyDown"
           @pay-up="payKeyUp"
           @fullscreen-change="onTracksFullscreenChange"
-          @exit-origin="router.push('/library')"
+          @exit-origin="exitToLibraryOrigin"
         />
         <p v-else class="tip">No learning tracks yet — add audio in Edit.</p>
-        <ul v-if="hasAudio" class="track-labels">
-          <li v-for="pid in trackPartIds" :key="pid">{{ trackLabel(pid) }}</li>
-        </ul>
       </div>
     </details>
 
-    <details class="section" :open="editing">
+    <details class="section">
       <summary class="section-summary">Details</summary>
       <div v-if="!editing" class="section-body">
         <dl class="meta-dl">
           <div><dt>Title</dt><dd>{{ entry.title }}</dd></div>
           <div v-if="entry.arranger"><dt>Arranger</dt><dd>{{ entry.arranger }}</dd></div>
           <div v-if="entry.key"><dt>Key</dt><dd>{{ entry.key }}</dd></div>
-          <div v-if="entry.detuneCents"><dt>Detune</dt><dd>{{ entry.detuneCents }}¢</dd></div>
+          <div v-if="entry.lyricsHint"><dt>Lyrics hint</dt><dd>{{ entry.lyricsHint }}</dd></div>
           <div v-if="entry.notes"><dt>Notes</dt><dd>{{ entry.notes }}</dd></div>
           <div>
             <dt>Files</dt>
@@ -553,14 +914,12 @@ function trackLabel(partId: string): string {
             </select>
           </label>
           <label>
-            Detune (cents)
+            Lyrics hint
             <input
-              v-model.number="draftDetune"
-              type="number"
-              min="-50"
-              max="50"
-              step="1"
-              inputmode="numeric"
+              v-model="draftLyricsHint"
+              type="text"
+              maxlength="120"
+              placeholder="Short cue for set list cards"
             />
           </label>
           <label class="notes">
@@ -568,30 +927,6 @@ function trackLabel(partId: string): string {
             <textarea v-model="draftNotes" rows="3" maxlength="2000" />
           </label>
         </div>
-
-        <h3 class="assets-h">Files</h3>
-        <ul class="asset-list">
-          <li v-for="asset in assets" :key="asset.id" class="asset-row">
-            <span class="asset-name">{{ asset.label || asset.filename }}</span>
-            <span class="asset-meta">{{ formatBytes(asset.byteLength) }}</span>
-            <select
-              :value="asset.role"
-              aria-label="Role"
-              @change="onAssetRoleChange(asset, ($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="r in LOCAL_ASSET_ROLES" :key="r" :value="r">
-                {{ localAssetRoleLabel(r) }}
-              </option>
-            </select>
-            <button type="button" class="btn btn-ghost danger" @click="onRemoveAsset(asset.id)">
-              Remove
-            </button>
-          </li>
-        </ul>
-        <label class="add-files btn">
-          Add files
-          <input class="visually-hidden" type="file" multiple @change="onAddFiles" />
-        </label>
 
         <div class="edit-actions">
           <template v-if="queuePosition">
@@ -609,6 +944,102 @@ function trackLabel(partId: string): string {
             </button>
           </template>
         </div>
+      </div>
+    </details>
+
+    <details class="section">
+      <summary class="section-summary">
+        <span>Files</span>
+        <span class="section-meta">{{ library.summaryFor(entry.id) }}</span>
+      </summary>
+      <div class="section-body files-body">
+        <div class="files-toolbar">
+          <button
+            v-if="assets.length > 1"
+            type="button"
+            class="btn btn-ghost"
+            :disabled="!!exportBusy"
+            @click="exportAllAsZip"
+          >
+            {{ exportBusy === 'all' ? 'Exporting…' : 'Export as zip' }}
+          </button>
+          <button
+            v-if="!filesEditing"
+            type="button"
+            class="btn btn-ghost"
+            @click="filesEditing = true"
+          >
+            Edit
+          </button>
+          <button
+            v-else
+            type="button"
+            class="btn btn-ghost"
+            @click="filesEditing = false"
+          >
+            Done editing
+          </button>
+        </div>
+
+        <template v-if="assetGroups.length">
+          <div v-for="group in assetGroups" :key="group.role" class="asset-group">
+            <h3 class="asset-group-title">{{ group.label }}</h3>
+            <ul class="asset-list">
+              <li v-for="asset in group.assets" :key="asset.id" class="asset-row">
+                <div class="asset-main">
+                  <span class="asset-name">{{ asset.label || asset.filename }}</span>
+                  <span class="asset-meta">{{ formatBytes(asset.byteLength) }}</span>
+                  <LocalAssetPreview
+                    :mime="asset.mime"
+                    :filename="asset.filename"
+                    :get-blob="blobForAsset(asset)"
+                    :external-audio="usesExternalAudioPlayer(asset)"
+                    @play-external="playAssetInTagPlayer(asset)"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-ghost"
+                    :disabled="!!exportBusy"
+                    :aria-label="`Export ${asset.filename || asset.label}`"
+                    @click="exportAsset(asset)"
+                  >
+                    {{ exportBusy === asset.id ? '…' : 'Export' }}
+                  </button>
+                </div>
+                <template v-if="filesEditing">
+                  <select
+                    :value="asset.role"
+                    aria-label="Role"
+                    @change="onAssetRoleChange(asset, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option v-for="r in LOCAL_ASSET_ROLES" :key="r" :value="r">
+                      {{ localAssetRoleLabel(r) }}
+                    </option>
+                  </select>
+                  <select
+                    v-if="asset.role === 'track'"
+                    :value="asset.partId ?? ''"
+                    aria-label="Part"
+                    @change="onAssetPartChange(asset, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option v-for="p in PART_CHOICES" :key="p.value || 'auto'" :value="p.value">
+                      {{ p.label }}
+                    </option>
+                  </select>
+                  <button type="button" class="btn btn-ghost danger" @click="onRemoveAsset(asset.id)">
+                    Remove
+                  </button>
+                </template>
+              </li>
+            </ul>
+          </div>
+        </template>
+        <p v-else class="tip">No files yet.</p>
+
+        <label v-if="filesEditing" class="add-files btn">
+          Add files
+          <input class="visually-hidden" type="file" multiple @change="onAddFiles" />
+        </label>
       </div>
     </details>
   </section>
@@ -643,6 +1074,18 @@ function trackLabel(partId: string): string {
   gap: 0.35rem;
   flex-wrap: nowrap;
   min-width: 0;
+}
+.pager.concert .btn {
+  min-width: 3.25rem;
+  min-height: 3rem;
+  font-size: 1.35rem;
+}
+.playlist-pos {
+  flex: 1;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--muted);
 }
 .pager .btn {
   min-height: 44px;
@@ -874,6 +1317,21 @@ function trackLabel(partId: string): string {
   display: grid;
   gap: 0.45rem;
 }
+.asset-group {
+  display: grid;
+  gap: 0.35rem;
+}
+.asset-group + .asset-group {
+  margin-top: 0.85rem;
+}
+.asset-group-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .asset-row {
   display: flex;
   flex-wrap: wrap;
@@ -896,12 +1354,6 @@ function trackLabel(partId: string): string {
   flex-wrap: wrap;
   gap: 0.45rem;
   margin-top: 0.85rem;
-}
-.track-labels {
-  margin: 0.5rem 0 0;
-  padding-left: 1.1rem;
-  color: var(--muted);
-  font-size: 0.85rem;
 }
 .loading {
   text-align: center;
@@ -947,5 +1399,37 @@ function trackLabel(partId: string): string {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.section-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.section-meta {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.files-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+.asset-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.files-body .tip {
+  margin: 0.25rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 </style>

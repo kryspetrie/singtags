@@ -28,7 +28,6 @@ import { useOfflineBanner } from './composables/useOfflineBanner'
 import {
   startPwaInstallListeners,
   stopPwaInstallListeners,
-  usePwaInstall,
 } from './composables/usePwaInstall'
 import {
   armDeferredPwaUpdate,
@@ -128,12 +127,6 @@ let updateServiceWorker: (reloadPage?: boolean) => Promise<void> = async () => {
   },
 }))
 
-const {
-  showInstallToast: showInstall,
-  promptInstall,
-  dismissInstallToast,
-} = usePwaInstall()
-
 const topEl = ref<HTMLElement | null>(null)
 let headerResizeObserver: ResizeObserver | null = null
 
@@ -181,14 +174,6 @@ onUnmounted(() => {
   desktopNavMq?.removeEventListener('change', onDesktopNavMq)
   desktopNavMq = null
 })
-
-async function installApp(): Promise<void> {
-  await promptInstall()
-}
-
-function dismissInstall(): void {
-  dismissInstallToast()
-}
 
 /** User hid the pack download progress snack; download keeps running. */
 const packProgressSnackHidden = ref(false)
@@ -355,11 +340,7 @@ async function acceptReconnectPrompt(): Promise<void> {
         <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
         <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
         <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
-        <RouterLink
-          v-if="prefs.tagRouletteEnabled"
-          class="btn btn-ghost"
-          to="/labs/roulette"
-        >Roulette</RouterLink>
+        <RouterLink class="btn btn-ghost" to="/roulette">Roulette</RouterLink>
         <button
           type="button"
           class="btn btn-ghost more-btn"
@@ -406,8 +387,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterView />
     </main>
     <nav
-      class="bottom"
-      :class="{ 'bottom-with-roulette': prefs.tagRouletteEnabled }"
+      class="bottom bottom-with-roulette"
       aria-label="Mobile"
     >
       <RouterLink to="/" class="tab" @click="onBrowseNavClick">
@@ -426,7 +406,7 @@ async function acceptReconnectPrompt(): Promise<void> {
         <span class="ico" aria-hidden="true">♪</span>
         Pitch Pipe
       </RouterLink>
-      <RouterLink v-if="prefs.tagRouletteEnabled" to="/labs/roulette" class="tab">
+      <RouterLink to="/roulette" class="tab">
         <span class="ico" aria-hidden="true">◎</span>
         Roulette
       </RouterLink>
@@ -445,7 +425,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       </button>
     </nav>
     <div
-      v-if="reconnectMediaPromptVisible && reconnectMediaPlan && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      v-if="reconnectMediaPromptVisible && reconnectMediaPlan && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
     >
@@ -467,7 +447,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       </button>
     </div>
     <div
-      v-else-if="offlineLib.showPackSyncPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      v-else-if="offlineLib.showPackSyncPrompt && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
     >
@@ -492,7 +472,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       </button>
     </div>
     <div
-      v-else-if="offlineLib.showSheetsPrompt && !showInstall && !offlineMode.offline && prefs.browseWelcomeDismissed"
+      v-else-if="offlineLib.showSheetsPrompt && !offlineMode.offline && prefs.browseWelcomeDismissed"
       class="toast toast-wide"
       role="status"
     >
@@ -511,11 +491,6 @@ async function acceptReconnectPrompt(): Promise<void> {
         Not now
       </button>
     </div>
-    <div v-else-if="showInstall && prefs.browseWelcomeDismissed" class="toast" role="status">
-      <span>Install SingTags</span>
-      <button type="button" class="btn btn-primary" @click="installApp">Install</button>
-      <button type="button" class="btn btn-ghost" @click="dismissInstall">Not now</button>
-    </div>
     <div
       v-if="showPackProgressSnack"
       class="toast toast-wide toast-progress"
@@ -523,8 +498,7 @@ async function acceptReconnectPrompt(): Promise<void> {
         'toast-snack-raised':
           reconnectMediaPromptVisible ||
           offlineLib.showPackSyncPrompt ||
-          offlineLib.showSheetsPrompt ||
-          showInstall,
+          offlineLib.showSheetsPrompt,
       }"
       role="status"
       aria-live="polite"
@@ -610,7 +584,6 @@ async function acceptReconnectPrompt(): Promise<void> {
             reconnectMediaPromptVisible ||
             offlineLib.showPackSyncPrompt ||
             offlineLib.showSheetsPrompt ||
-            showInstall ||
             showPackProgressSnack,
         },
       ]"

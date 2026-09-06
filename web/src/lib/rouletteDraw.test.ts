@@ -11,6 +11,8 @@ import {
   parseRouletteSlice,
   pickWheelWinner,
   renormSlicesTo100,
+  parseWeightPctDraft,
+  resolveSliceWeightPcts,
   rouletteCurveEffect,
   rouletteEligibleTags,
   seedRouletteModes,
@@ -202,10 +204,45 @@ describe('rouletteDraw', () => {
     expect(sum).toBeCloseTo(100, 0)
   })
 
-  it('ships seed modes: full library rating + classic equal', () => {
+  it('resolveSliceWeightPcts fills blanks with remaining % equally', () => {
+    expect(resolveSliceWeightPcts([40, null, null])).toEqual({
+      ok: true,
+      weights: [40, 30, 30],
+    })
+    expect(resolveSliceWeightPcts([null, null, null])).toEqual({
+      ok: true,
+      weights: [34, 33, 33],
+    })
+    expect(resolveSliceWeightPcts([50, 50, null])).toEqual({
+      ok: true,
+      weights: [50, 50, 0],
+    })
+    expect(resolveSliceWeightPcts([25, 25])).toEqual({
+      ok: true,
+      weights: [25, 25],
+    })
+  })
+
+  it('resolveSliceWeightPcts rejects explicit sum over 100', () => {
+    expect(resolveSliceWeightPcts([60, 50, null])).toEqual({ ok: false, error: 'over_100' })
+    expect(resolveSliceWeightPcts([101])).toEqual({ ok: false, error: 'over_100' })
+  })
+
+  it('parseWeightPctDraft treats empty as auto', () => {
+    expect(parseWeightPctDraft('')).toBeNull()
+    expect(parseWeightPctDraft('  ')).toBeNull()
+    expect(parseWeightPctDraft('40')).toBe(40)
+    expect(parseWeightPctDraft('-1')).toBeNull()
+  })
+
+  it('ships seed modes including Collections heavy', () => {
     const seeds = seedRouletteModes()
-    expect(seeds.map((m) => m.id)).toEqual(['full-library-rating', 'classic-equal'])
-    expect(seeds.map((m) => m.label)).toEqual(['All tags', 'Classic tags'])
+    expect(seeds.map((m) => m.id)).toEqual([
+      'full-library-rating',
+      'classic-equal',
+      'collections-heavy',
+    ])
+    expect(seeds.map((m) => m.label)).toEqual(['All tags', 'Classic tags', 'Collections heavy'])
     expect(seeds[0]!.slices[0]).toMatchObject({
       pool: 'all',
       score: 'rating',
@@ -216,6 +253,12 @@ describe('rouletteDraw', () => {
       score: 'uniform',
       curve: 'equal',
     })
+    expect(seeds[2]!.slices).toEqual([
+      { weightPct: 50, pool: 'classic', score: 'uniform', curve: 'equal' },
+      { weightPct: 15, pool: 'days100', score: 'uniform', curve: 'equal' },
+      { weightPct: 15, pool: 'easytags', score: 'uniform', curve: 'equal' },
+      { weightPct: 20, pool: 'all', score: 'rating', curve: 'leftSkew' },
+    ])
   })
 
   it('normalizes batch sizes', () => {

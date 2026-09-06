@@ -90,6 +90,23 @@ describe('localLibrary store', () => {
     expect(blob?.data.byteLength).toBe(3)
   })
 
+  it('creates metadata-only empty songs with no assets', async () => {
+    const store = useLocalLibraryStore()
+    const entry = await store.createEmptyEntry({
+      title: 'Pitch cue only',
+      arranger: 'Traditional',
+      key: 'Bb',
+      lyricsHint: 'Heart of my heart',
+    })
+    expect(entry.title).toBe('Pitch cue only')
+    expect(entry.key).toBe('Bb')
+    expect(entry.lyricsHint).toBe('Heart of my heart')
+    expect(store.assetsFor(entry.id)).toEqual([])
+    expect(store.summaryFor(entry.id)).toBe('Empty')
+    expect(store.entries.some((e) => e.id === entry.id)).toBe(true)
+    expect(store.entryOrder[0]).toBe(entry.id)
+  })
+
   it('imports combined files as one entry with roles', async () => {
     const store = useLocalLibraryStore()
     const files = [
@@ -254,6 +271,7 @@ describe('local library search helpers', () => {
     title: 'Goodbye My Coney Island Baby',
     arranger: 'Lou Perry',
     notes: 'Contest set opener',
+    lyricsHint: 'Goodbye my Coney',
     key: 'Bb',
     detuneCents: 0,
     createdAt: '',
@@ -261,12 +279,15 @@ describe('local library search helpers', () => {
     groupIds: [],
   }
 
-  it('matches title, arranger, and key; notes only when opted in', () => {
+  it('matches title, arranger, notes, lyrics hints, and key', () => {
     expect(matchLocalLibraryQuery(sample, 'coney')).toBe(true)
     expect(matchLocalLibraryQuery(sample, 'perry')).toBe(true)
     expect(matchLocalLibraryQuery(sample, 'bb')).toBe(true)
-    expect(matchLocalLibraryQuery(sample, 'contest')).toBe(false)
-    expect(matchLocalLibraryQuery(sample, 'contest', { includeNotes: true })).toBe(true)
+    expect(matchLocalLibraryQuery(sample, 'contest')).toBe(true)
+    expect(matchLocalLibraryQuery(sample, 'goodbye my')).toBe(true)
+    expect(matchLocalLibraryQuery(sample, 'lyrics:coney')).toBe(true)
+    expect(matchLocalLibraryQuery(sample, 'notes:opener')).toBe(true)
+    expect(matchLocalLibraryQuery(sample, 'notes:missing')).toBe(false)
     expect(matchLocalLibraryQuery(sample, '')).toBe(true)
   })
 

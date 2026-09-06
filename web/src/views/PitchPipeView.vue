@@ -2,14 +2,17 @@
 /**
  * Chromatic pitch pipe page: concert-A tuning, note range/layout prefs, hold-to-play keys.
  */
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,
   PITCH_PIPE_GRID_COLS,
+  PITCH_PIPE_GRID_SCALE_MAX,
+  PITCH_PIPE_GRID_SCALE_MIN,
   PITCH_PIPE_LAYOUT_OPTIONS,
   PITCH_PIPE_RANGE_OPTIONS,
   pitchPipeAriaLabel,
   pitchPipeDisplay,
+  pitchPipeFullKeyboardNotes,
   pitchPipeNotes,
   pitchPipePianoSlots,
   PitchPlayer,
@@ -37,6 +40,7 @@ const detune = computed({
 })
 const current = ref<string | null>(null)
 const keysRef = ref<HTMLElement | null>(null)
+const pianoScrollRef = ref<HTMLElement | null>(null)
 
 const concertASelectValue = computed(() => (aHz.value == null ? 'custom' : String(aHz.value)))
 
@@ -77,12 +81,30 @@ const showOctave = computed({
   set: (v: boolean) => prefs.setPitchPipeShowOctave(v),
 })
 
+const gridScale = computed(() => prefs.pitchPipeGridScale)
+
+const showFullKeyboard = computed({
+  get: () => prefs.pitchPipeShowFullKeyboard,
+  set: (v: boolean) => prefs.setPitchPipeShowFullKeyboard(v),
+})
+
 /** Octave digit for labels when the setting is on; empty when off. */
 function octaveLabel(octave: string): string {
   return showOctave.value ? octave : ''
 }
 
-const noteList = computed(() => pitchPipeNotes(pipeRange.value))
+/** Notes in the selected Settings range (always the practice window). */
+const rangeNotes = computed(() => pitchPipeNotes(pipeRange.value))
+const rangeNoteSet = computed(() => new Set(rangeNotes.value))
+
+/**
+ * Keys shown on screen: selected range, or the full 66-key piano when that toggle is on.
+ */
+const noteList = computed(() =>
+  pipeLayout.value === 'piano' && showFullKeyboard.value
+    ? pitchPipeFullKeyboardNotes()
+    : rangeNotes.value,
+)
 
 /** High → low for on-screen order (highest pitches at the top). */
 const visualNotes = computed(() => [...noteList.value].reverse())
@@ -94,6 +116,7 @@ const noteRows = computed(() =>
       note,
       display,
       aria: pitchPipeAriaLabel(note),
+      inRange: rangeNoteSet.value.has(note),
     }
   }),
 )
@@ -112,6 +135,24 @@ const visualWhites = computed(() => [...pianoSlots.value.whites].reverse())
 const whiteKeyPct = computed(() => {
   const n = visualWhites.value.length
   return n > 0 ? 100 / n : 100
+})
+
+/** Scroll the full keyboard so the selected note range sits near the middle of the viewport. */
+function scrollPianoToRange(): void {
+  void nextTick(() => {
+    const scroller = pianoScrollRef.value
+    if (!scroller || !showFullKeyboard.value || pipeLayout.value !== 'piano') return
+    const mid = rangeNotes.value[Math.floor(rangeNotes.value.length / 2)]
+    if (!mid) return
+    const target = scroller.querySelector<HTMLElement>(
+      `button.note[data-note="${CSS.escape(mid)}"]`,
+    )
+    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
+  })
+}
+
+onMounted(() => {
+  scrollPianoToRange()
 })
 
 onUnmounted(() => {
@@ -136,6 +177,11 @@ watch(pipeRange, () => {
   if (current.value && !noteList.value.includes(current.value)) {
     up()
   }
+  scrollPianoToRange()
+})
+
+watch([showFullKeyboard, pipeLayout], () => {
+  scrollPianoToRange()
 })
 
 async function down(note: string): Promise<void> {
@@ -174,7 +220,8 @@ function focusNeighbor(e: KeyboardEvent, note: string): void {
   e.preventDefault()
   const target = order[next]
   if (!target) return
-  const btn = keysRef.value?.querySelector<HTMLButtonElement>(
+  const root = pianoScrollRef.value ?? keysRef.value
+  const btn = root?.querySelector<HTMLButtonElement>(
     `button.note[data-note="${CSS.escape(target)}"]`,
   )
   btn?.focus()
@@ -235,6 +282,53 @@ function blackTopPct(after: string): number {
             role="switch"
             :aria-checked="showOctave"
             aria-label="Show octave number"
+          />
+        </label>
+
+        <div
+          v-if="pipeLayout === 'grid'"
+          class="scale-controls"
+          role="group"
+          aria-label="Grid size"
+        >
+          <span class="lbl">Grid size</span>
+          <button
+            type="button"
+            class="btn btn-ghost scale-btn"
+            :disabled="gridScale <= PITCH_PIPE_GRID_SCALE_MIN"
+            aria-label="Decrease grid size"
+            @click="prefs.nudgePitchPipeGridScale(-5)"
+          >
+            −
+          </button>
+          <span class="scale-value" aria-live="polite">{{ gridScale }}%</span>
+          <button
+            type="button"
+            class="btn btn-ghost scale-btn"
+            :disabled="gridScale >= PITCH_PIPE_GRID_SCALE_MAX"
+            aria-label="Increase grid size"
+            @click="prefs.nudgePitchPipeGridScale(5)"
+          >
+            +
+          </button>
+        </div>
+
+        <label
+          v-if="pipeLayout === 'piano'"
+          class="setting-row full-keyboard-toggle"
+          :class="{ on: showFullKeyboard }"
+          title="Show a scrollable 66-key piano (C2–F7), focused on your note range"
+        >
+          <span class="setting-copy">
+            <span class="setting-title">Show full keyboard</span>
+          </span>
+          <input
+            v-model="showFullKeyboard"
+            type="checkbox"
+            class="setting-switch"
+            role="switch"
+            :aria-checked="showFullKeyboard"
+            aria-label="Show full keyboard"
           />
         </label>
 
@@ -301,62 +395,74 @@ function blackTopPct(after: string): number {
     <div class="stage">
       <div
         v-if="pipeLayout === 'piano'"
-        ref="keysRef"
-        class="piano"
-        role="group"
-        :aria-label="`Pitch pipe piano (${pipeRange})`"
-        :style="{ '--white-count': visualWhites.length }"
+        ref="pianoScrollRef"
+        class="piano-shell"
+        :class="{ 'piano-shell-scroll': showFullKeyboard }"
       >
-        <div class="piano-whites">
-          <button
-            v-for="note in visualWhites"
-            :key="note"
-            type="button"
-            class="note natural"
-            :data-note="note"
-            :class="{ active: current === note }"
-            :aria-pressed="current === note"
-            :aria-label="byNote.get(note)?.aria"
-            @pointerdown.prevent="down(note)"
-            @pointerup.prevent="up"
-            @pointerleave.prevent="up"
-            @pointercancel.prevent="up"
-            @keydown="onNoteKey($event, note); focusNeighbor($event, note)"
-            @keyup="onNoteKey($event, note)"
-          >
-            <span class="note-single"
-              >{{ byNote.get(note)?.display.sharp }}{{ octaveLabel(byNote.get(note)?.display.octave ?? '') }}</span
+        <div
+          ref="keysRef"
+          class="piano"
+          role="group"
+          :aria-label="`Pitch pipe piano (${pipeRange})`"
+          :style="{ '--white-count': visualWhites.length }"
+        >
+          <div class="piano-whites">
+            <button
+              v-for="note in visualWhites"
+              :key="note"
+              type="button"
+              class="note natural"
+              :data-note="note"
+              :class="{
+                active: current === note,
+                'out-of-range': showFullKeyboard && !byNote.get(note)?.inRange,
+              }"
+              :aria-pressed="current === note"
+              :aria-label="byNote.get(note)?.aria"
+              @pointerdown.prevent="down(note)"
+              @pointerup.prevent="up"
+              @pointerleave.prevent="up"
+              @pointercancel.prevent="up"
+              @keydown="onNoteKey($event, note); focusNeighbor($event, note)"
+              @keyup="onNoteKey($event, note)"
             >
-          </button>
-        </div>
-        <div class="piano-blacks">
-          <button
-            v-for="b in pianoSlots.blacks"
-            :key="b.note"
-            type="button"
-            class="note black"
-            :data-note="b.note"
-            :class="{ active: current === b.note }"
-            :style="{ top: `${blackTopPct(b.after)}%` }"
-            :aria-pressed="current === b.note"
-            :aria-label="byNote.get(b.note)?.aria"
-            @pointerdown.prevent="down(b.note)"
-            @pointerup.prevent="up"
-            @pointerleave.prevent="up"
-            @pointercancel.prevent="up"
-            @keydown="onNoteKey($event, b.note); focusNeighbor($event, b.note)"
-            @keyup="onNoteKey($event, b.note)"
-          >
-            <span class="note-dual">
-              <span class="note-sharp"
-                >{{ byNote.get(b.note)?.display.sharp }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
+              <span class="note-single"
+                >{{ byNote.get(note)?.display.sharp }}{{ octaveLabel(byNote.get(note)?.display.octave ?? '') }}</span
               >
-              <span class="note-sep" aria-hidden="true">/</span>
-              <span class="note-flat"
-                >{{ byNote.get(b.note)?.display.flat }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
-              >
-            </span>
-          </button>
+            </button>
+          </div>
+          <div class="piano-blacks">
+            <button
+              v-for="b in pianoSlots.blacks"
+              :key="b.note"
+              type="button"
+              class="note black"
+              :data-note="b.note"
+              :class="{
+                active: current === b.note,
+                'out-of-range': showFullKeyboard && !byNote.get(b.note)?.inRange,
+              }"
+              :style="{ top: `${blackTopPct(b.after)}%` }"
+              :aria-pressed="current === b.note"
+              :aria-label="byNote.get(b.note)?.aria"
+              @pointerdown.prevent="down(b.note)"
+              @pointerup.prevent="up"
+              @pointerleave.prevent="up"
+              @pointercancel.prevent="up"
+              @keydown="onNoteKey($event, b.note); focusNeighbor($event, b.note)"
+              @keyup="onNoteKey($event, b.note)"
+            >
+              <span class="note-dual">
+                <span class="note-sharp"
+                  >{{ byNote.get(b.note)?.display.sharp }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
+                >
+                <span class="note-sep" aria-hidden="true">/</span>
+                <span class="note-flat"
+                  >{{ byNote.get(b.note)?.display.flat }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
+                >
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -365,6 +471,7 @@ function blackTopPct(after: string): number {
         ref="keysRef"
         class="keys"
         :class="pipeLayout === 'list' ? 'keys-list' : 'keys-grid'"
+        :style="pipeLayout === 'grid' ? { '--grid-scale': gridScale / 100 } : undefined"
         role="group"
         :aria-label="`Pitch pipe notes (${pipeRange})`"
       >
@@ -717,4 +824,56 @@ function blackTopPct(after: string): number {
     min-height: max(2.1rem, calc(3.75rem * 0.5));
   }
 }
+
+.scale-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 100%;
+}
+.scale-controls .lbl { font-weight: 600; margin-right: 0.15rem; }
+.scale-btn {
+  min-width: 2.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.scale-value {
+  min-width: 3.25rem;
+  text-align: center;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.keys-grid { --grid-scale: 1; gap: calc(0.55rem * var(--grid-scale)); }
+.keys-grid .note {
+  min-height: calc(5.25rem * var(--grid-scale));
+  padding: calc(0.65rem * var(--grid-scale)) calc(0.35rem * var(--grid-scale));
+}
+.keys-grid .note-single {
+  font-size: clamp(calc(1.35rem * var(--grid-scale)), calc(4vw * var(--grid-scale)), calc(1.75rem * var(--grid-scale)));
+}
+.keys-grid .note-dual {
+  font-size: clamp(calc(1.2rem * var(--grid-scale)), calc(3.6vw * var(--grid-scale)), calc(1.55rem * var(--grid-scale)));
+}
+.piano-shell { width: 100%; max-width: 28rem; }
+.piano-shell-scroll {
+  max-height: min(70vh, 36rem);
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+.piano-shell-scroll .piano { max-width: none; border: 0; border-radius: 0; }
+.piano-shell-scroll .piano-whites .note { min-height: 2.75rem; height: 2.75rem; }
+.piano-shell-scroll .piano-blacks .note {
+  height: max(1.55rem, calc(2.75rem * 0.6));
+  min-height: max(1.55rem, calc(2.75rem * 0.5));
+}
+.note.out-of-range { opacity: 0.48; }
+.note.out-of-range.active { opacity: 1; }
+@media (min-width: 720px) {
+  .keys-grid .note { min-height: calc(5.75rem * var(--grid-scale)); }
+}
+
 </style>

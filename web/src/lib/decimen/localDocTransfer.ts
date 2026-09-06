@@ -30,6 +30,7 @@ export type LocalDocTransferPackage = {
 export type LocalEntryTransferAsset = {
   role: LocalAssetRole
   label: string
+  partId?: string | null
   mime: string
   filename: string
   /** Base64 of asset bytes (JSON-friendly inside deflated payload). */
@@ -194,6 +195,7 @@ export async function packLocalEntryFile(
     return {
       role: a.role,
       label: a.label,
+      partId: a.partId ?? null,
       mime: a.mime,
       filename: a.filename,
       dataB64: bytesToB64(bytes),
@@ -247,6 +249,7 @@ export async function decodeLocalDocContainer(container: Uint8Array): Promise<Lo
 export function entryAssetsFromTransfer(meta: LocalEntryTransferMeta): Array<{
   role: LocalAssetRole
   label: string
+  partId?: string | null
   mime: string
   filename: string
   data: ArrayBuffer
@@ -257,6 +260,7 @@ export function entryAssetsFromTransfer(meta: LocalEntryTransferMeta): Array<{
     return {
       role: a.role,
       label: a.label,
+      partId: a.partId ?? null,
       mime: a.mime,
       filename: a.filename,
       data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,

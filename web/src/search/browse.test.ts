@@ -246,6 +246,12 @@ describe('custom collection browse sections', () => {
     expect(collectionJumpLabel('Classic', [])).toBe('Classic')
   })
 
+  it('collectionJumpLabel shortens 100 Days only when compact', () => {
+    expect(collectionJumpLabel('100 Days: 100 Tags', [])).toBe('100 Days: 100 Tags')
+    expect(collectionJumpLabel('100 Days: 100 Tags', [], { compact: true })).toBe('100 Tags')
+    expect(collectionJumpLabel('Classic', [], { compact: true })).toBe('Classic')
+  })
+
   it('uses a flat list when one collection filter is active', () => {
     const tags = [
       tag({ id: 1, title: 'A', collection: 'classic', classic: 1 }),

@@ -882,6 +882,12 @@ async function togglePlay(): Promise<void> {
   tick.value++
 }
 
+/** Start playback if paused (no-op when already playing). */
+async function play(): Promise<void> {
+  if (!player.paused) return
+  await togglePlay()
+}
+
 function onSeek(t: number): void {
   let next = t
   if (hasPlayRegion()) {
@@ -918,6 +924,7 @@ const mixBaking = computed(() => {
 
 defineExpose({
   togglePlay,
+  play,
   stopPlayback,
   seek: (t: number) => onSeek(t),
   selectPart,
@@ -943,14 +950,6 @@ defineExpose({
       :aria-modal="fullscreen ? true : undefined"
     >
       <header v-if="fullscreen" class="player-chrome">
-        <PitchControls
-          v-model="pitch"
-          class="player-chrome-pitch"
-          :pitch-label="pitchLabel"
-          :pay-key-enabled="payKeyEnabled"
-          @pay-down="emit('pay-down')"
-          @pay-up="emit('pay-up')"
-        />
         <button
           type="button"
           class="player-chrome-exit"
@@ -964,6 +963,14 @@ defineExpose({
         >
           ✕
         </button>
+        <PitchControls
+          v-model="pitch"
+          class="player-chrome-pitch"
+          :pitch-label="pitchLabel"
+          :pay-key-enabled="payKeyEnabled"
+          @pay-down="emit('pay-down')"
+          @pay-up="emit('pay-up')"
+        />
       </header>
 
       <div class="player-body">
@@ -1366,7 +1373,7 @@ defineExpose({
   position: relative;
   min-height: 18.5rem;
 }
-/* Keep voice-part tabs on one row; compress width, keep readable type. */
+/* Keep voice-part tabs on one row; size from labels so “Custom” fits (not Cust…). */
 .parts.ctrl-tabs {
   display: flex;
   flex-wrap: nowrap;
@@ -1374,11 +1381,14 @@ defineExpose({
   gap: 0.1rem;
 }
 .parts .ctrl-tab.part-btn {
-  flex: 1 1 0;
+  /* Grow from content width so Mix/Bari stay narrower than Custom. */
+  flex: 1 1 auto;
   min-width: 0;
   max-width: none;
-  padding: 0.4rem 0.25rem;
+  padding: 0.4rem 0.1rem;
   font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: clip;
 }
 @media (min-width: 720px) {
   .parts.ctrl-tabs {
@@ -1389,6 +1399,8 @@ defineExpose({
   .parts .ctrl-tab.part-btn {
     flex: 1 1 0;
     min-width: 0;
+    padding: 0.4rem 0.25rem;
+    text-overflow: ellipsis;
   }
 }
 
@@ -1757,6 +1769,7 @@ defineExpose({
 }
 .player-chrome {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 1rem;
   flex-shrink: 0;
@@ -1764,23 +1777,10 @@ defineExpose({
   margin: 0;
   border-bottom: 1px solid var(--border);
 }
-.player-chrome-pitch {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.player.fullscreen .player-chrome-pitch :deep(.pay) {
-  gap: 0.65rem;
-}
-.player.fullscreen .player-chrome-pitch :deep(.paybtn) {
-  padding: 0.65rem 1rem;
-}
-.player.fullscreen .player-chrome-pitch :deep(.pay > button:not(.paybtn)) {
-  padding: 0.55rem 0.8rem;
-  min-height: 50px;
-}
 .player-chrome-exit {
   box-sizing: border-box;
   flex: 0 0 auto;
+  order: 2;
   width: 48px;
   height: 48px;
   padding: 0;
@@ -1792,6 +1792,48 @@ defineExpose({
   line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
+}
+.player-chrome-pitch {
+  flex: 1 1 auto;
+  order: 1;
+  min-width: 0;
+}
+.player.fullscreen .player-chrome-pitch :deep(.pay) {
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+}
+.player.fullscreen .player-chrome-pitch :deep(.paybtn) {
+  padding: 0.55rem 0.7rem;
+}
+.player.fullscreen .player-chrome-pitch :deep(.pay > button:not(.paybtn)) {
+  padding: 0.45rem 0.55rem;
+  min-height: 48px;
+}
+/* Narrow fullscreen: ✕ alone on top; Pitch/−/+/Reset on the row below. */
+@media (max-width: 640px) {
+  .player.fullscreen .player-chrome {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+  .player.fullscreen .player-chrome-exit {
+    order: 0;
+    align-self: flex-end;
+  }
+  .player.fullscreen .player-chrome-pitch {
+    order: 1;
+    width: 100%;
+  }
+  .player.fullscreen .player-chrome-pitch :deep(.pay) {
+    gap: 0.3rem;
+  }
+  .player.fullscreen .player-chrome-pitch :deep(.paybtn) {
+    padding: 0.4rem 0.5rem;
+  }
+  .player.fullscreen .player-chrome-pitch :deep(.pay > button:not(.paybtn)) {
+    padding: 0.35rem 0.45rem;
+    min-width: 40px;
+  }
 }
 .player-chrome-exit:focus-visible {
   outline: 2px solid var(--accent);

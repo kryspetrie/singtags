@@ -197,6 +197,7 @@ export function sectionLabel(key: string, mode: BrowseSortMode): string {
 export function collectionJumpLabel(
   key: string,
   userCollections: UserCollectionBrowse[],
+  opts?: { compact?: boolean },
 ): string {
   if (isUserCollectionFilterId(key)) {
     const uid = parseUserCollectionFilterId(key)
@@ -206,7 +207,10 @@ export function collectionJumpLabel(
     }
     return key
   }
-  return sectionLabel(key, 'collection')
+  const label = sectionLabel(key, 'collection')
+  // Narrow jump pills: shorten the long 100 Days series name only here (row headers stay full).
+  if (opts?.compact && label === '100 Days: 100 Tags') return '100 Tags'
+  return label
 }
 
 /** Inclusive year bounds for a browse year-section key, or null if unknown. */

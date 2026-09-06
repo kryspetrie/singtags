@@ -1,8 +1,9 @@
 /**
- * Shared PWA install state for the welcome dialog, More menu, and App toast.
+ * Shared PWA install state for welcome, More menu, and About.
  *
- * Captures `beforeinstallprompt`, tracks standalone / installed, and exposes
- * {@link promptPwaInstall} for custom UI (welcome + More).
+ * Captures `beforeinstallprompt` without calling preventDefault (so Chrome’s
+ * address-bar / menu install UI stay available), tracks standalone / installed,
+ * and exposes {@link promptPwaInstall} for custom Install App buttons.
  */
 
 import { computed, readonly, ref, shallowRef } from 'vue'
@@ -56,7 +57,8 @@ function syncInstalledFromEnvironment(): void {
 syncInstalledFromEnvironment()
 
 function onBeforeInstall(e: Event): void {
-  e.preventDefault()
+  // Do not preventDefault — leave Chrome’s address-bar / menu install UI alone.
+  // Still capture the event so our Install App buttons can call prompt() when available.
   installEvent.value = e as BeforeInstallPromptEvent
   // Browser is offering install again (e.g. after uninstall) — drop a stale done flag
   // so More / welcome / About keep showing Install App.
@@ -68,7 +70,7 @@ function onBeforeInstall(e: Event): void {
       /* ignore */
     }
   }
-  if (shouldOfferInstallToast()) showInstallToast.value = true
+  // No automatic toast — welcome, More, and About own the Install App CTA.
 }
 
 function onAppInstalled(): void {
@@ -87,7 +89,7 @@ export function resetPwaInstallStateForTests(): void {
   listening = false
 }
 
-/** Register window listeners once (call from App onMounted). */
+/** Register window listeners once (call from App onMounted, or eagerly below). */
 export function startPwaInstallListeners(): void {
   if (typeof window === 'undefined') return
   installedFlag.value = isStandaloneDisplay() || readInstalledFlag()
@@ -104,6 +106,11 @@ export function stopPwaInstallListeners(): void {
   listening = false
   window.removeEventListener('beforeinstallprompt', onBeforeInstall)
   window.removeEventListener('appinstalled', onAppInstalled)
+}
+
+// Capture beforeinstallprompt as early as possible — it often fires before Vue mounts.
+if (typeof window !== 'undefined') {
+  startPwaInstallListeners()
 }
 
 export function shouldOfferInstallToast(): boolean {

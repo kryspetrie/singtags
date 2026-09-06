@@ -13,6 +13,8 @@
   --header-h: 3.5rem; /* fallback; App overwrites with measured sticky header height */
   --bottom-nav-h: 3.75rem;
   --touch: 44px;
+  /* Display size (user): 1 = 100%. Set by applyUiScale() as html zoom. */
+  --ui-scale: 1;
 }
 
 *,

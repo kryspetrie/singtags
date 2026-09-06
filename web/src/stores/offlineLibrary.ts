@@ -8,6 +8,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
+import { usePreferencesStore } from './preferences'
 import { audioPack, sheetsPack, type PackKind } from '../offline/libraryPack'
 import {
   DownloadQueue,
@@ -334,7 +335,10 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     }
 
     if (!sp?.dismissedPrompt && sheetsManifest.value && sheetsStatus.value !== 'done') {
-      showSheetsPrompt.value = true
+      // First-run download UX is BrowseWelcomeDialog — don't also arm the sheets toast.
+      if (usePreferencesStore().browseWelcomeDismissed) {
+        showSheetsPrompt.value = true
+      }
     }
   }
 

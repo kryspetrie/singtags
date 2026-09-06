@@ -68,7 +68,7 @@ Set these when invoking the website deploy scripts (see [`../docs/publish.md`](.
 | --- | --- |
 | `/` | Browse + search |
 | `/tag/:id` | Tag (sheets, tracks, Sing mode, share) |
-| `/favorites`, `/recent`, `/queue` | Lists |
+| `/favorites`, `/recent`, `/queue` | Favorites, Recent, Export queue |
 | `/pitch-pipe` | Chromatic pitch pipe / pay-the-key |
 | `/settings` | Prefs, offline packs, backup |
 | `/labs` | Feature flags / experimental entry |
@@ -106,7 +106,7 @@ Boundaries match [`../docs/architecture.md`](../docs/architecture.md): keep DSP 
 - **Pitch pipe** — E3–E4 (and layouts); optional custom voice from Labs
 - **Offline** — favorites + songbook/audio packs; 64 kbps Opus online (WASM decode when needed)
 - **Local Library + optical transfer** — on-device charts; QR transfer under Labs flags
-- **PWA** — installable shell; “Update available” hard-reloads after SW activate
+- **PWA** — installable shell; waiting service workers apply silently when the session is idle (not playing / not fullscreen)
 
 Practice mode is compiled off (`PRACTICE_MODE_ENABLED` in `src/lib/practiceMode.ts`).
 

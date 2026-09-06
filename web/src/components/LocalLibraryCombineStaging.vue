@@ -3,6 +3,13 @@
  * Staging step for “Import as one song”: assign roles before creating the entry.
  */
 import { computed, ref, watch } from 'vue'
+import LocalAssetPreview from './LocalAssetPreview.vue'
+import {
+  defaultTrackLabel,
+  guessPartIdFromFilename,
+  guessSongTitleFromFilenames,
+} from '../lib/localAssetHeuristics'
+import { PRIMARY_PARTS, partLabel } from '../lib/parts'
 import {
   LOCAL_ASSET_ROLES,
   guessAssetRoles,
@@ -15,14 +22,28 @@ import {
 const props = defineProps<{
   files: File[]
   busy?: boolean
+  heading?: string
 }>()
 
 const emit = defineEmits<{
-  confirm: [payload: { files: File[]; roles: LocalAssetRole[]; labels: string[]; title: string }]
+  confirm: [
+    payload: {
+      files: File[]
+      roles: LocalAssetRole[]
+      labels: string[]
+      partIds: Array<string | null>
+      title: string
+    },
+  ]
   cancel: []
 }>()
 
-type Row = { file: File; role: LocalAssetRole; label: string }
+type Row = { file: File; role: LocalAssetRole; label: string; partId: string }
+
+const PART_CHOICES = [
+  { value: '', label: 'Auto / custom' },
+  ...PRIMARY_PARTS.map((id) => ({ value: id, label: partLabel(id) })),
+]
 
 const rows = ref<Row[]>([])
 const title = ref('')
@@ -33,12 +54,20 @@ watch(
   () => props.files,
   (files) => {
     const roles = guessAssetRoles(files.map((f) => ({ mime: guessLocalMime(f), filename: f.name })))
-    rows.value = files.map((file, i) => ({
-      file,
-      role: roles[i] ?? 'other',
-      label: titleFromFilename(file.name),
-    }))
-    title.value = titleFromFilename(files[0]?.name ?? '') || 'Untitled'
+    rows.value = files.map((file, i) => {
+      const role = roles[i] ?? 'other'
+      const partId = role === 'track' ? guessPartIdFromFilename(file.name) ?? '' : ''
+      return {
+        file,
+        role,
+        partId,
+        label:
+          role === 'track'
+            ? defaultTrackLabel(file.name, partId || null)
+            : titleFromFilename(file.name),
+      }
+    })
+    title.value = guessSongTitleFromFilenames(files.map((f) => f.name)) || 'Untitled'
   },
   { immediate: true },
 )
@@ -58,8 +87,13 @@ function onConfirm(): void {
     files: rows.value.map((r) => r.file),
     roles: rows.value.map((r) => r.role),
     labels: rows.value.map((r) => r.label),
+    partIds: rows.value.map((r) => (r.role === 'track' ? r.partId.trim() || null : null)),
     title: title.value.trim(),
   })
+}
+
+function blobForRow(row: Row): () => Promise<Blob | null> {
+  return async () => row.file
 }
 </script>
 
@@ -67,8 +101,8 @@ function onConfirm(): void {
   <div class="stage" role="dialog" aria-modal="true" aria-labelledby="combine-title">
     <div class="panel">
       <header class="head">
-        <h2 id="combine-title" class="title">Import as one song</h2>
-        <p class="desc">Assign how each file appears on the song page (sheet, tracks, …).</p>
+        <h2 id="combine-title" class="title">{{ heading || 'Review import' }}</h2>
+        <p class="desc">Confirm roles and voice parts before saving. Blank part = auto from filename.</p>
       </header>
 
       <label class="field">
@@ -78,7 +112,14 @@ function onConfirm(): void {
 
       <ul class="rows" aria-label="Files to combine">
         <li v-for="(row, i) in rows" :key="`${row.file.name}-${i}`" class="row">
-          <div class="file-name">{{ row.file.name }}</div>
+          <div class="file-head">
+            <div class="file-name">{{ row.file.name }}</div>
+            <LocalAssetPreview
+              :mime="guessLocalMime(row.file)"
+              :filename="row.file.name"
+              :get-blob="blobForRow(row)"
+            />
+          </div>
           <label class="mini">
             Label
             <input v-model="row.label" type="text" maxlength="120" />
@@ -88,6 +129,14 @@ function onConfirm(): void {
             <select v-model="row.role">
               <option v-for="r in LOCAL_ASSET_ROLES" :key="r" :value="r">
                 {{ localAssetRoleLabel(r) }}
+              </option>
+            </select>
+          </label>
+          <label v-if="row.role === 'track'" class="mini">
+            Part
+            <select v-model="row.partId">
+              <option v-for="p in PART_CHOICES" :key="p.value || 'auto'" :value="p.value">
+                {{ p.label }}
               </option>
             </select>
           </label>
@@ -117,7 +166,7 @@ function onConfirm(): void {
           :disabled="busy || !canConfirm"
           @click="onConfirm"
         >
-          {{ busy ? 'Importing…' : 'Create song' }}
+          {{ busy ? 'Saving…' : 'Save song' }}
         </button>
       </div>
     </div>
@@ -195,7 +244,15 @@ function onConfirm(): void {
   border: 1px solid var(--border);
   border-radius: 10px;
 }
+.file-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  justify-content: space-between;
+}
 .file-name {
+  flex: 1 1 10rem;
   font-size: 0.82rem;
   color: var(--muted);
   overflow-wrap: anywhere;
