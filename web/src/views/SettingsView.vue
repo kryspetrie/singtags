@@ -374,42 +374,6 @@ function cancelCullUpgrades(): void {
 
 <template>
   <section class="settings" aria-label="Offline settings">
-    <section class="connection-card display-card" aria-labelledby="display-h">
-      <div class="connection-row">
-        <div class="connection-copy">
-          <h2 id="display-h">Display size</h2>
-          <p class="hint">
-            Scale the whole app (like browser zoom). Handy in the installed app where browser zoom
-            is hard to reach. Adjust from 70%–130% in 5% steps (default 100%).
-          </p>
-        </div>
-        <div class="scale-controls" role="group" aria-label="Display size">
-          <button
-            type="button"
-            class="btn btn-ghost scale-btn"
-            :disabled="prefs.uiScalePercent <= 70"
-            aria-label="Decrease display size"
-            @click="prefs.nudgeUiScale(-5)"
-          >
-            −
-          </button>
-          <span class="scale-value" aria-live="polite">{{ prefs.uiScalePercent }}%</span>
-          <button
-            type="button"
-            class="btn btn-ghost scale-btn"
-            :disabled="prefs.uiScalePercent >= 130"
-            aria-label="Increase display size"
-            @click="prefs.nudgeUiScale(5)"
-          >
-            +
-          </button>
-          <button type="button" class="btn btn-ghost" @click="prefs.resetUiScale()">
-            Reset
-          </button>
-        </div>
-      </div>
-    </section>
-
     <section class="connection-card" aria-labelledby="connection-h">
       <div class="connection-row">
         <div class="connection-copy">
@@ -922,29 +886,6 @@ function cancelCullUpgrades(): void {
 }
 .connection-btn {
   flex-shrink: 0;
-}
-.scale-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
-  align-self: center;
-}
-.scale-btn {
-  min-width: 2.5rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  line-height: 1;
-  padding-left: 0.55rem;
-  padding-right: 0.55rem;
-}
-.scale-value {
-  min-width: 3.25rem;
-  text-align: center;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-  font-size: 1rem;
 }
 .connection-on {
   margin: 0 0 1rem;
