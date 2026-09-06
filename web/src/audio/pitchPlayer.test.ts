@@ -131,7 +131,8 @@ describe('pitchPlayer helpers', () => {
     expect(notes.at(-1)).toBe('F7')
     expect(normalizePitchPipeGridScale(93)).toBe(95)
     expect(normalizePitchPipeGridScale(50)).toBe(70)
-    expect(normalizePitchPipeGridScale(200)).toBe(130)
+    expect(normalizePitchPipeGridScale(300)).toBe(250)
+    expect(normalizePitchPipeGridScale(247)).toBe(245)
   })
 })
 

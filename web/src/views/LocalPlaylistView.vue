@@ -42,7 +42,10 @@ const durationBusy = new Set<string>()
 const pitch = new PitchPlayer(getActivePitchPipeVoice())
 
 const playlist = computed(() => playlists.byId(props.id))
-const editing = computed(() => route.query.edit === '1' || route.query.edit === 'true')
+const isDraft = computed(() => playlists.isDraft(props.id))
+const editing = computed(
+  () => isDraft.value || route.query.edit === '1' || route.query.edit === 'true',
+)
 const sungCount = computed(() => playlist.value?.sungItemIds.length ?? 0)
 const cardLayout = computed(() =>
   playlist.value?.cardLayout === 'compact' ? 'compact' : 'comfortable',
@@ -126,7 +129,10 @@ const {
 })
 
 function setEditing(on: boolean): void {
-  const q: Record<string, string | string[] | undefined> = { ...(route.query as Record<string, string | string[] | undefined>) }
+  if (isDraft.value) return
+  const q: Record<string, string | string[] | undefined> = {
+    ...(route.query as Record<string, string | string[] | undefined>),
+  }
   if (on) {
     q.edit = '1'
     delete q.focus
@@ -135,6 +141,25 @@ function setEditing(on: boolean): void {
     customizingPitch.value = false
   }
   void router.replace({ path: route.path, query: q })
+}
+
+async function finishEditing(): Promise<void> {
+  if (isDraft.value) {
+    const saved = await playlists.commitDraft()
+    if (!saved) {
+      void router.replace({ path: '/library', query: { tab: 'playlists' } })
+      return
+    }
+    customizingPitch.value = false
+    await router.replace({ path: `/library/playlists/${saved.id}` })
+    return
+  }
+  setEditing(false)
+}
+
+function cancelDraft(): void {
+  playlists.discardDraft()
+  void router.replace({ path: '/library', query: { tab: 'playlists' } })
 }
 
 async function scrollToFocus(): Promise<void> {
@@ -180,7 +205,7 @@ function hydrateDurations(): void {
 async function hydrate(): Promise<void> {
   await Promise.all([library.ensureLoaded(), playlists.ensureLoaded()])
   if (!playlist.value) {
-    await router.replace({ name: 'home' })
+    await router.replace({ path: '/library', query: { tab: 'playlists' } })
     return
   }
   renameDraft.value = playlist.value.name
@@ -201,6 +226,7 @@ onUnmounted(() => {
   window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   pitch.stop()
   pitch.dispose()
+  if (playlists.isDraft(props.id)) playlists.discardDraft()
 })
 
 watch(() => props.id, () => {
@@ -310,6 +336,10 @@ async function confirmAdd(): Promise<void> {
 
 async function destroy(): Promise<void> {
   if (!playlist.value) return
+  if (isDraft.value) {
+    cancelDraft()
+    return
+  }
   if (!confirm(`Delete set list “${playlist.value.name}”? Songs stay in your library.`)) return
   const id = playlist.value.id
   await playlists.deletePlaylist(id)
@@ -320,7 +350,19 @@ async function destroy(): Promise<void> {
 <template>
   <section class="setlist" aria-label="Set list">
     <div class="top">
-      <RouterLink class="btn btn-ghost back" :to="{ path: '/library', query: { tab: 'playlists' } }">
+      <button
+        v-if="isDraft"
+        type="button"
+        class="btn btn-ghost back"
+        @click="cancelDraft"
+      >
+        Cancel
+      </button>
+      <RouterLink
+        v-else
+        class="btn btn-ghost back"
+        :to="{ path: '/library', query: { tab: 'playlists' } }"
+      >
         ← Set Lists
       </RouterLink>
       <div class="actions">
@@ -334,7 +376,9 @@ async function destroy(): Promise<void> {
           Reset
         </button>
         <button v-if="!editing" type="button" class="btn" @click="setEditing(true)">Edit</button>
-        <button v-else type="button" class="btn btn-primary" @click="setEditing(false)">Done</button>
+        <button v-else type="button" class="btn btn-primary" @click="finishEditing">
+          {{ isDraft ? 'Save' : 'Done' }}
+        </button>
       </div>
     </div>
 
@@ -355,7 +399,14 @@ async function destroy(): Promise<void> {
       <div v-if="editing" class="edit-panel">
         <div class="edit-bar">
           <button type="button" class="btn btn-primary" @click="pickerOpen = true">Add songs</button>
-          <button type="button" class="btn btn-ghost danger" @click="destroy">Delete set list</button>
+          <button
+            v-if="!isDraft"
+            type="button"
+            class="btn btn-ghost danger"
+            @click="destroy"
+          >
+            Delete set list
+          </button>
         </div>
         <fieldset class="edit-fieldset">
           <legend>Card layout</legend>

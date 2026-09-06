@@ -58,7 +58,7 @@ export type PitchPipePrefs = {
   showOctave: boolean
   /** Built-in pitch sound (Mellow default, Bright alternate). */
   sound: PitchPipeSoundId
-  /** Grid layout key size (70–130%, step 5). */
+  /** Grid layout key size (70–250%, step 5). */
   gridScale: number
   /** Piano layout: scrollable 66-key keyboard (C2–F7). */
   showFullKeyboard: boolean
@@ -696,7 +696,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowOctave.value = on
   }
 
-  /** Set grid layout key size (70–130%, step 5). Side effect: localStorage. */
+  /** Set grid layout key size (70–250%, step 5). Side effect: localStorage. */
   function setPitchPipeGridScale(percent: number): void {
     pitchPipeGridScale.value = normalizePitchPipeGridScale(percent)
   }

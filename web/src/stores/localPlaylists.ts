@@ -30,6 +30,8 @@ function blankPlaylist(name: string): LocalPlaylist {
 
 export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
   const playlists = ref<LocalPlaylist[]>([])
+  /** In-memory set list not yet written to IndexedDB (Cancel discards). */
+  const draft = ref<LocalPlaylist | null>(null)
   const loaded = ref(false)
   const loading = ref(false)
 
@@ -54,7 +56,42 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
   }
 
   function byId(id: string): LocalPlaylist | undefined {
+    if (draft.value?.id === id) return draft.value
     return playlists.value.find((p) => p.id === id)
+  }
+
+  function isDraft(id: string): boolean {
+    return draft.value?.id === id
+  }
+
+  async function writePlaylist(next: LocalPlaylist): Promise<void> {
+    if (draft.value?.id === next.id) {
+      draft.value = next
+      return
+    }
+    await putLocalPlaylist(next)
+    playlists.value = playlists.value.map((p) => (p.id === next.id ? next : p))
+  }
+
+  /** Start an unsaved set list; persists only after commitDraft(). */
+  function beginDraft(name = 'Set List'): LocalPlaylist {
+    const playlist = blankPlaylist(name)
+    draft.value = playlist
+    return playlist
+  }
+
+  async function commitDraft(): Promise<LocalPlaylist | null> {
+    const pl = draft.value
+    if (!pl) return null
+    const next = { ...pl, updatedAt: new Date().toISOString() }
+    await putLocalPlaylist(next)
+    playlists.value = [...playlists.value, next]
+    draft.value = null
+    return next
+  }
+
+  function discardDraft(): void {
+    draft.value = null
   }
 
   async function createPlaylist(name: string): Promise<LocalPlaylist> {
@@ -68,34 +105,28 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
   async function renamePlaylist(id: string, name: string): Promise<void> {
     const cur = byId(id) ?? (await getLocalPlaylist(id))
     if (!cur) return
-    const next = {
+    await writePlaylist({
       ...cur,
       name: name.trim() || cur.name,
       updatedAt: new Date().toISOString(),
-    }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    })
   }
 
   async function setOpenFullscreen(id: string, on: boolean): Promise<void> {
     const cur = byId(id) ?? (await getLocalPlaylist(id))
     if (!cur) return
-    const next = { ...cur, openFullscreen: on, updatedAt: new Date().toISOString() }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    await writePlaylist({ ...cur, openFullscreen: on, updatedAt: new Date().toISOString() })
   }
 
   async function setShowPitchButtons(id: string, on: boolean): Promise<void> {
     const cur = byId(id) ?? (await getLocalPlaylist(id))
     if (!cur) return
     const pl = normalizeLocalPlaylist(cur)
-    const next = {
+    await writePlaylist({
       ...pl,
       showPitchButtons: on,
       updatedAt: new Date().toISOString(),
-    }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    })
   }
 
   async function setCardLayout(
@@ -107,16 +138,18 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     const pl = normalizeLocalPlaylist(cur)
     const nextLayout: LocalPlaylist['cardLayout'] =
       cardLayout === 'compact' ? 'compact' : 'comfortable'
-    const next = {
+    await writePlaylist({
       ...pl,
       cardLayout: nextLayout,
       updatedAt: new Date().toISOString(),
-    }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    })
   }
 
   async function deletePlaylist(id: string): Promise<void> {
+    if (draft.value?.id === id) {
+      draft.value = null
+      return
+    }
     await deleteLocalPlaylist(id)
     playlists.value = playlists.value.filter((p) => p.id !== id)
   }
@@ -126,14 +159,12 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     if (!cur) return
     const pl = normalizeLocalPlaylist(cur)
     const keep = new Set(items.map((i) => i.id))
-    const next = {
+    await writePlaylist({
       ...pl,
       items: items.map((it) => ({ ...it })),
       sungItemIds: pl.sungItemIds.filter((sid) => keep.has(sid)),
       updatedAt: new Date().toISOString(),
-    }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    })
   }
 
   async function addEntries(id: string, entryIds: string[]): Promise<void> {
@@ -177,13 +208,11 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     if (!cur) return
     const pl = normalizeLocalPlaylist(cur)
     if (pl.sungItemIds.includes(itemId)) return
-    const next = {
+    await writePlaylist({
       ...pl,
       sungItemIds: [...pl.sungItemIds, itemId],
       updatedAt: new Date().toISOString(),
-    }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    })
   }
 
   async function clearSung(id: string): Promise<void> {
@@ -191,11 +220,8 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     if (!cur) return
     const pl = normalizeLocalPlaylist(cur)
     if (!pl.sungItemIds.length) return
-    const next = { ...pl, sungItemIds: [], updatedAt: new Date().toISOString() }
-    await putLocalPlaylist(next)
-    playlists.value = playlists.value.map((p) => (p.id === id ? next : p))
+    await writePlaylist({ ...pl, sungItemIds: [], updatedAt: new Date().toISOString() })
   }
-
 
   async function setItemKeyShift(id: string, itemId: string, keyShift: number): Promise<void> {
     const cur = byId(id) ?? (await getLocalPlaylist(id))
@@ -217,12 +243,17 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
 
   return {
     playlists,
+    draft,
     sorted,
     loaded,
     loading,
     ensureLoaded,
     refresh,
     byId,
+    isDraft,
+    beginDraft,
+    commitDraft,
+    discardDraft,
     createPlaylist,
     renamePlaylist,
     setOpenFullscreen,

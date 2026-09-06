@@ -482,7 +482,7 @@ export function pitchPipeFullKeyboardNotes(): string[] {
 
 /** Grid key size percent (Settings −/+). */
 export const PITCH_PIPE_GRID_SCALE_MIN = 70
-export const PITCH_PIPE_GRID_SCALE_MAX = 130
+export const PITCH_PIPE_GRID_SCALE_MAX = 250
 export const PITCH_PIPE_GRID_SCALE_STEP = 5
 export const PITCH_PIPE_GRID_SCALE_DEFAULT = 100
 

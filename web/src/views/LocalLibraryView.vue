@@ -62,6 +62,9 @@ const pendingBulkDelete = ref(false)
 const pendingDeleteGroupId = ref<string | null>(null)
 const selectedIds = ref<Set<string>>(new Set())
 const selectMode = ref(false)
+const selectedPlaylistIds = ref<Set<string>>(new Set())
+const playlistSelectMode = ref(false)
+const pendingPlaylistDelete = ref(false)
 const transferEntryId = ref<string | null>(null)
 const searchQuery = ref('')
 const searchOptionsOpen = ref(false)
@@ -246,6 +249,21 @@ const pendingBulkDeleteTitle = computed(() => {
   return `Delete ${ids.length} songs from My Library?`
 })
 
+const pendingPlaylistDeleteTitle = computed(() => {
+  const ids = [...selectedPlaylistIds.value]
+  if (ids.length === 1) {
+    const pl = playlists.byId(ids[0]!)
+    return pl
+      ? `Delete set list “${pl.name}”? Songs stay in your library.`
+      : 'Delete set list? Songs stay in your library.'
+  }
+  return `Delete ${ids.length} set lists? Songs stay in your library.`
+})
+
+const showPlaylistRowSelect = computed(
+  () => playlistSelectMode.value || selectedPlaylistIds.value.size > 0 || !isNarrow.value,
+)
+
 const pendingDeleteGroupTitle = computed(() => {
   const g = pendingDeleteGroupId.value
     ? library.groups.find((x) => x.id === pendingDeleteGroupId.value)
@@ -374,6 +392,8 @@ const libraryTab = computed<'songs' | 'playlists'>(() =>
 )
 
 function setLibraryTab(tab: 'songs' | 'playlists'): void {
+  clearSelection()
+  clearPlaylistSelection()
   void router.replace({
     path: '/library',
     query: {
@@ -383,23 +403,74 @@ function setLibraryTab(tab: 'songs' | 'playlists'): void {
   })
 }
 
-const newPlaylistName = ref('')
-
 async function createPlaylist(): Promise<void> {
-  const name = newPlaylistName.value.trim() || 'Set List'
-  const pl = await playlists.createPlaylist(name)
-  newPlaylistName.value = ''
-  await router.push({ path: `/library/playlists/${pl.id}`, query: { edit: '1' } })
+  playlists.discardDraft()
+  const pl = playlists.beginDraft('Set List')
+  await router.push({ path: `/library/playlists/${pl.id}` })
 }
 
 async function addSelectionToPlaylist(): Promise<void> {
   if (!selectedIds.value.size) return
-  const name = prompt('New set list name', 'Concert set')
-  if (name == null) return
-  const pl = await playlists.createPlaylist(name.trim() || 'Concert set')
+  const pl = await playlists.createPlaylist('Set List')
   await playlists.addEntries(pl.id, [...selectedIds.value])
   clearSelection()
   await router.push(`/library/playlists/${pl.id}`)
+}
+
+function togglePlaylistSelect(id: string): void {
+  const next = new Set(selectedPlaylistIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedPlaylistIds.value = next
+  playlistSelectMode.value = next.size > 0
+}
+
+function clearPlaylistSelection(): void {
+  selectedPlaylistIds.value = new Set()
+  playlistSelectMode.value = false
+}
+
+function onPlaylistRowPointerDown(e: PointerEvent, id: string): void {
+  if (!isNarrow.value || showPlaylistRowSelect.value) return
+  if (e.button !== 0) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest('.sel-btn')) return
+  clearLongPressTimer()
+  longPressX = e.clientX
+  longPressY = e.clientY
+  longPressId = id
+  longPressTimer = setTimeout(() => {
+    longPressTimer = null
+    const playlistId = longPressId
+    longPressId = null
+    if (playlistId == null) return
+    playlistSelectMode.value = true
+    if (!selectedPlaylistIds.value.has(playlistId)) togglePlaylistSelect(playlistId)
+    suppressRowClick = true
+    try {
+      navigator.vibrate?.(10)
+    } catch {
+      /* ignore */
+    }
+  }, LONG_PRESS_MS)
+}
+
+function deleteSelectedPlaylists(): void {
+  if (!selectedPlaylistIds.value.size) return
+  pendingPlaylistDelete.value = true
+}
+
+async function confirmDeletePlaylists(): Promise<void> {
+  pendingPlaylistDelete.value = false
+  const ids = [...selectedPlaylistIds.value]
+  for (const id of ids) {
+    await playlists.deletePlaylist(id)
+  }
+  clearPlaylistSelection()
+  snackbar.show(
+    ids.length === 1 ? 'Set list deleted.' : `${ids.length} set lists deleted.`,
+    { tone: 'ok' },
+  )
 }
 
 async function onCreateEmptySong(): Promise<void> {
@@ -769,7 +840,7 @@ function groupsForEntry(entryId: string) {
 <template>
   <section
     class="library"
-    :class="{ 'has-selection': selectedIds.size > 0 }"
+    :class="{ 'has-selection': selectedIds.size > 0 || selectedPlaylistIds.size > 0 }"
     aria-label="My Library"
   >
     <input
@@ -797,16 +868,44 @@ function groupsForEntry(entryId: string) {
       @change="onRestoreSelected"
     />
 
-    <div class="actions">
+    <div class="library-tabs" role="tablist" aria-label="Library sections">
       <button
         type="button"
-        class="btn btn-primary"
-        :disabled="importBusy || backupBusy"
-        @click="openImportModal"
+        role="tab"
+        class="tab"
+        :class="{ on: libraryTab === 'songs' }"
+        :aria-selected="libraryTab === 'songs'"
+        @click="setLibraryTab('songs')"
       >
-        Add Song
+        Songs
       </button>
-      <button type="button" class="btn" @click="manageGroupsOpen = true">Manage groups</button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ on: libraryTab === 'playlists' }"
+        :aria-selected="libraryTab === 'playlists'"
+        @click="setLibraryTab('playlists')"
+      >
+        Set Lists
+      </button>
+    </div>
+
+    <div class="actions">
+      <template v-if="libraryTab === 'songs'">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="importBusy || backupBusy"
+          @click="openImportModal"
+        >
+          Add Song
+        </button>
+        <button type="button" class="btn" @click="manageGroupsOpen = true">Manage groups</button>
+      </template>
+      <template v-else>
+        <button type="button" class="btn btn-primary" @click="createPlaylist">New Set List</button>
+      </template>
       <div ref="moreMenuRef" class="more-menu-wrap">
         <button
           type="button"
@@ -832,14 +931,6 @@ function groupsForEntry(entryId: string) {
             type="button"
             class="more-menu-item"
             role="menuitem"
-            @click="openImportModal"
-          >
-            Add Song
-          </button>
-          <button
-            type="button"
-            class="more-menu-item"
-            role="menuitem"
             :disabled="backupBusy"
             @click="onBackupExport"
           >
@@ -859,7 +950,11 @@ function groupsForEntry(entryId: string) {
     </div>
 
     <p v-if="backupMessage" class="backup-status" role="status">{{ backupMessage }}</p>
-    <p v-if="libraryBytes != null || deviceStorage" class="storage-meter" aria-live="polite">
+    <p
+      v-if="libraryTab === 'songs' && (libraryBytes != null || deviceStorage)"
+      class="storage-meter"
+      aria-live="polite"
+    >
       <template v-if="libraryBytes != null">
         My Library ≈ {{ formatBytes(libraryBytes) }}
       </template>
@@ -868,30 +963,6 @@ function groupsForEntry(entryId: string) {
         Device {{ formatBytes(deviceStorage.usage) }} / {{ formatBytes(deviceStorage.quota) }}
       </template>
     </p>
-
-
-    <div class="library-tabs" role="tablist" aria-label="Library sections">
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        :class="{ on: libraryTab === 'songs' }"
-        :aria-selected="libraryTab === 'songs'"
-        @click="setLibraryTab('songs')"
-      >
-        Songs
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="tab"
-        :class="{ on: libraryTab === 'playlists' }"
-        :aria-selected="libraryTab === 'playlists'"
-        @click="setLibraryTab('playlists')"
-      >
-        Set Lists
-      </button>
-    </div>
 
     <div v-show="libraryTab === 'songs'" class="search-toolbar">
       <div class="searchrow">
@@ -1263,24 +1334,57 @@ function groupsForEntry(entryId: string) {
     </FilterSheet>
 
 
+    <Teleport to="body">
+      <div
+        v-if="selectedPlaylistIds.size > 0 && libraryTab === 'playlists'"
+        class="selection-bar"
+        role="toolbar"
+        aria-label="Set list selection"
+      >
+        <span class="sel-count">{{ selectedPlaylistIds.size }} selected</span>
+        <button type="button" class="btn btn-danger" @click="deleteSelectedPlaylists">
+          Delete
+        </button>
+        <button type="button" class="btn btn-ghost" @click="clearPlaylistSelection">Clear</button>
+      </div>
+    </Teleport>
+
     <div v-show="libraryTab === 'playlists'" class="playlists-panel">
-      <form class="new-playlist" @submit.prevent="createPlaylist">
-        <input
-          v-model="newPlaylistName"
-          type="text"
-          maxlength="80"
-          placeholder="New set list…"
-          aria-label="New set list name"
-        />
-        <button type="submit" class="btn btn-primary">Create</button>
-      </form>
       <EmptyState
         v-if="playlists.loaded && !playlists.sorted.length"
         title="No set lists yet"
-        message="Create a concert set list, then add songs from the Songs tab."
-      />
-      <ul v-else class="playlist-list" aria-label="Set lists">
-        <li v-for="pl in playlists.sorted" :key="pl.id">
+        message="Create a concert set list, then add songs from your library."
+      >
+        <button type="button" class="btn btn-primary" @click="createPlaylist">New Set List</button>
+      </EmptyState>
+      <ul
+        v-else-if="playlists.sorted.length"
+        class="playlist-list"
+        :class="{ 'show-select': showPlaylistRowSelect }"
+        aria-label="Set lists"
+      >
+        <li
+          v-for="pl in playlists.sorted"
+          :key="pl.id"
+          class="playlist-row"
+          :class="{ 'show-select': showPlaylistRowSelect }"
+          @pointerdown="onPlaylistRowPointerDown($event, pl.id)"
+          @pointermove="onRowPointerMove"
+          @pointerup="onRowPointerEnd"
+          @pointercancel="onRowPointerEnd"
+          @click.capture="onRowClickCapture"
+        >
+          <button
+            v-if="showPlaylistRowSelect"
+            type="button"
+            class="sel-btn"
+            :class="{ on: selectedPlaylistIds.has(pl.id) }"
+            :aria-pressed="selectedPlaylistIds.has(pl.id)"
+            :aria-label="`Select ${pl.name}`"
+            @click.stop="togglePlaylistSelect(pl.id)"
+          >
+            {{ selectedPlaylistIds.has(pl.id) ? '✓' : '' }}
+          </button>
           <RouterLink class="playlist-link" :to="`/library/playlists/${pl.id}`">
             <span class="playlist-title">{{ pl.name }}</span>
             <span class="playlist-meta"
@@ -1292,6 +1396,7 @@ function groupsForEntry(entryId: string) {
           </RouterLink>
         </li>
       </ul>
+      <p v-else class="text-muted" role="status">Loading set lists…</p>
     </div>
 
     <LocalImportModal
@@ -1333,6 +1438,14 @@ function groupsForEntry(entryId: string) {
       confirm-label="Delete"
       @close="pendingBulkDelete = false"
       @confirm="confirmBulkDelete"
+    />
+    <ConfirmDialog
+      :open="pendingPlaylistDelete"
+      title="Delete set lists?"
+      :message="pendingPlaylistDeleteTitle"
+      confirm-label="Delete"
+      @close="pendingPlaylistDelete = false"
+      @confirm="confirmDeletePlaylists"
     />
     <ConfirmDialog
       :open="!!pendingDeleteGroupId"
@@ -1934,6 +2047,7 @@ function groupsForEntry(entryId: string) {
   display: flex;
   gap: 0.35rem;
   padding: 0 0.15rem;
+  margin-bottom: 0.85rem;
 }
 .library-tabs .tab {
   flex: 1;
@@ -1956,26 +2070,21 @@ function groupsForEntry(entryId: string) {
   gap: 0.75rem;
   padding: 0.25rem 0 1rem;
 }
-.new-playlist {
-  display: flex;
-  gap: 0.45rem;
-}
-.new-playlist input {
-  flex: 1;
-  min-height: var(--touch, 44px);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.35rem 0.55rem;
-  font: inherit;
-  background: var(--surface);
-  color: var(--text);
-}
 .playlist-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.45rem;
+}
+.playlist-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.playlist-row.show-select {
+  grid-template-columns: 2.5rem 1fr;
 }
 .playlist-link {
   display: grid;
