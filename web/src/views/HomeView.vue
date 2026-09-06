@@ -1778,6 +1778,9 @@ watch(
   font-size: 0.9rem;
 }
 .search-toolbar {
+  position: relative;
+  /* Above sticky jump/scrub rails (z-index 4) so the search tips popover paints over them. */
+  z-index: 6;
   display: grid;
   gap: 0.4rem;
   margin-bottom: 0.35rem;
