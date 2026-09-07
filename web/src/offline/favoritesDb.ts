@@ -31,6 +31,8 @@ export interface StarOptions {
   metadataOnly?: boolean
   /** Skip fetching sheet blobs (e.g. when tier-2 pack already has them). */
   skipSheets?: boolean
+  /** Skip fetching audio blobs (e.g. sheets-only download for this tag). */
+  skipAudio?: boolean
   /** How to store audio on device. Default: standard (stereo AAC). */
   audioQuality?: AudioEncodeQuality
   onProgress?: (p: StarProgress) => void
@@ -226,7 +228,13 @@ export async function starTag(
   detail: TagDetail | null,
   options: StarOptions = {},
 ): Promise<StarredTagRecord> {
-  const { metadataOnly = false, skipSheets = false, audioQuality = 'standard', onProgress } = options
+  const {
+    metadataOnly = false,
+    skipSheets = false,
+    skipAudio = false,
+    audioQuality = 'standard',
+    onProgress,
+  } = options
   const record: StarredTagRecord = {
     tagId: summary.id,
     starredAt: new Date().toISOString(),
@@ -238,12 +246,14 @@ export async function starTag(
 
   if (detail && !metadataOnly) {
     const sheetPaths = skipSheets ? [] : sheetDisplayPages(detail)
-    const audioEntries = listAudioParts(detail)
-      .map((part) => {
-        const path = storageAudioPath(detail, part, audioQuality)
-        return path ? ([part, path] as [PartId, string]) : null
-      })
-      .filter((e): e is [PartId, string] => e != null)
+    const audioEntries = skipAudio
+      ? []
+      : listAudioParts(detail)
+          .map((part) => {
+            const path = storageAudioPath(detail, part, audioQuality)
+            return path ? ([part, path] as [PartId, string]) : null
+          })
+          .filter((e): e is [PartId, string] => e != null)
     const total = sheetPaths.length + audioEntries.length
     let done = 0
     report(onProgress, 'Caching media…', done, Math.max(total, 1))
@@ -319,6 +329,8 @@ export async function starTag(
  * Re-fetch sheet/audio blobs for an existing favorite (online refresh).
  *
  * Preserves the original {@link StarredTagRecord.starredAt} timestamp.
+ * When {@link StarOptions.skipSheets} / {@link StarOptions.skipAudio} is set,
+ * keeps the prior blobs for that kind so selective downloads don’t wipe them.
  */
 export async function refreshStarMedia(
   existing: StarredTagRecord,
@@ -329,10 +341,26 @@ export async function refreshStarMedia(
     ...options,
     metadataOnly: false,
   })
-  return {
+  const sheetBlobs = options.skipSheets ? existing.sheetBlobs : rec.sheetBlobs
+  const audioBlobs = options.skipAudio ? existing.audioBlobs : rec.audioBlobs
+  const hasSheets = (sheetBlobs?.length ?? 0) > 0
+  const hasAudio = !!(audioBlobs && Object.keys(audioBlobs).length > 0)
+  const merged: StarredTagRecord = {
     ...rec,
     starredAt: existing.starredAt,
+    sheetBlobs,
+    audioBlobs,
+    offlineMedia: !!(
+      hasSheets ||
+      hasAudio ||
+      (options.skipSheets && (detail.sheet_pages?.length ?? 0) > 0)
+    ),
   }
+  if (merged.offlineMedia && !merged.mediaCacheKey) {
+    merged.mediaCacheKey = mediaCacheKey(detail)
+  }
+  await putStarred(merged)
+  return cloneStarredRecord(merged)
 }
 
 /**

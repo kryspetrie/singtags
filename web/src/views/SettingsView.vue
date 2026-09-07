@@ -8,6 +8,7 @@ import { RouterLink } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { useFavoritesStore } from '../stores/favorites'
+import { useCatalogStore } from '../stores/catalog'
 import { usePreferencesStore } from '../stores/preferences'
 import { useOnline } from '../composables/useOnline'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
@@ -34,6 +35,7 @@ import {
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
 const favorites = useFavoritesStore()
+const catalog = useCatalogStore()
 const prefs = usePreferencesStore()
 const { offline } = useOnline()
 const confirmClear = ref(false)
@@ -344,6 +346,7 @@ function onClearCacheClick(): void {
 async function clearAllCache(): Promise<void> {
   await offlineLib.clearAllOfflineData()
   await favorites.refresh()
+  catalog.setCacheReadyIndex(new Map())
   userCollections.replaceAll([])
   practice.importSnapshot({ order: [], autoAdvance: practice.autoAdvance })
   confirmClear.value = false

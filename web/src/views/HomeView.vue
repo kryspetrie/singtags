@@ -474,16 +474,67 @@ const jumpTopLabel = computed(() => {
   return 'Jump to first section'
 })
 
+/** Tooltip mentions hold-to-search when a short click still has a stepwise target. */
+const jumpTopTitle = computed(() => {
+  if (jumpTopDisabled.value) return jumpTopLabel.value
+  if (atBrowseChromeTop.value) return jumpTopLabel.value
+  return `${jumpTopLabel.value} · hold for search`
+})
+
+const JUMP_TOP_HOLD_MS = 450
+let jumpTopHoldTimer: ReturnType<typeof setTimeout> | null = null
+/** Suppress the click that follows a completed hold. */
+let jumpTopHoldFired = false
+
+function clearJumpTopHoldTimer(): void {
+  if (jumpTopHoldTimer != null) {
+    clearTimeout(jumpTopHoldTimer)
+    jumpTopHoldTimer = null
+  }
+}
+
+/** Hold ↑ → document top (search/filters), skipping the first-group step. */
+function onJumpTopHold(): void {
+  if (jumpTopDisabled.value) return
+  scrollToSearchTop()
+}
+
+function onJumpTopPointerDown(e: PointerEvent): void {
+  if (jumpTopDisabled.value || e.button !== 0) return
+  jumpTopHoldFired = false
+  clearJumpTopHoldTimer()
+  const target = e.currentTarget
+  if (target instanceof Element) {
+    try {
+      target.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore — capture optional */
+    }
+  }
+  jumpTopHoldTimer = setTimeout(() => {
+    jumpTopHoldTimer = null
+    jumpTopHoldFired = true
+    onJumpTopHold()
+  }, JUMP_TOP_HOLD_MS)
+}
+
+function onJumpTopPointerEnd(): void {
+  clearJumpTopHoldTimer()
+}
+
 /**
  * ↑: from deep list → first group under chrome; from first group → search; at search → no-op.
+ * Press-and-hold always goes to search ({@link onJumpTopHold}).
  */
 function onJumpTopClick(): void {
+  if (jumpTopHoldFired) {
+    jumpTopHoldFired = false
+    return
+  }
   windowScrollY.value = window.scrollY
   if (jumpTopDisabled.value) return
   if (atBrowseChromeTop.value) {
-    scrubScrollIndex.value = 0
-    window.scrollTo({ top: 0, behavior: 'auto' })
-    windowScrollY.value = 0
+    scrollToSearchTop()
     return
   }
   scrollBrowseTop()
@@ -1179,6 +1230,7 @@ onUnmounted(() => {
   narrowMq?.removeEventListener('change', syncNarrowSelect)
   narrowMq = null
   clearLongPressTimer()
+  clearJumpTopHoldTimer()
   window.removeEventListener('scroll', onBrowseScroll)
   document.removeEventListener('pointerdown', onTipsOutsidePointerDown, true)
   if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
@@ -1453,8 +1505,11 @@ watch(
           type="button"
           class="jump jump-top"
           :disabled="jumpTopDisabled"
-          :title="jumpTopLabel"
-          :aria-label="jumpTopLabel"
+          :title="jumpTopTitle"
+          :aria-label="jumpTopTitle"
+          @pointerdown="onJumpTopPointerDown"
+          @pointerup="onJumpTopPointerEnd"
+          @pointercancel="onJumpTopPointerEnd"
           @click="onJumpTopClick"
         >
           ↑
@@ -1549,7 +1604,7 @@ watch(
           :reverse-axis="scrubReverseAxis"
           :axis-blend="scrubAxisBlend"
           :aria-label="scrubAriaLabel"
-          :jump-top-label="jumpTopLabel"
+          :jump-top-label="jumpTopTitle"
           :jump-top-disabled="jumpTopDisabled"
           :dense-loupe-ticks="catalog.sortMode === 'id'"
           :value-at-index="scrubValueAtIndex"
@@ -1557,6 +1612,7 @@ watch(
           @scrub="onScrub"
           @scrub-end="onScrubEnd"
           @jump-top="onJumpTopClick"
+          @jump-top-hold="onJumpTopHold"
         />
       </div>
 

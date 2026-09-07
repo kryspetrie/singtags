@@ -10,47 +10,22 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote
 
-
 SITE_ROOT = Path(__file__).resolve().parents[1]
+_BUILD_ROOT = Path(__file__).resolve().parent
+if str(_BUILD_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BUILD_ROOT))
 
-
-# Offline pack only ships decodable audio (legacy learning stems are often `.bin` MPEG).
-AUDIO_EXTENSIONS = {".opus", ".ogg", ".m4a", ".mp3", ".mp4", ".aac", ".wav", ".webm", ".bin"}
-MIN_AUDIO_BYTES = 256
+from audio_playable import is_web_playable_library_rel  # noqa: E402
 
 
 def is_offline_audio_path(library: Path, rel: str) -> bool:
-    """True when path exists, is large enough, and looks like audio (ext or MPEG/Ogg magic)."""
-    if not rel:
-        return False
-    path = library / unquote(rel)
-    try:
-        size = path.stat().st_size if path.is_file() else 0
-    except OSError:
-        return False
-    if size < MIN_AUDIO_BYTES:
-        return False
-    suffix = path.suffix.lower()
-    if suffix not in AUDIO_EXTENSIONS:
-        return False
-    if suffix != ".bin":
-        return True
-    try:
-        head = path.read_bytes()[:16]
-    except OSError:
-        return False
-    # MPEG ADTS / ID3 / Ogg / ftyp
-    if head.startswith(b"OggS") or head.startswith(b"ID3"):
-        return True
-    if len(head) >= 2 and head[0] == 0xFF and (head[1] & 0xE0) == 0xE0:
-        return True
-    if len(head) >= 8 and head[4:8] == b"ftyp":
-        return True
-    return False
+    """True when path exists, is large enough, and looks like browser-playable audio."""
+    return is_web_playable_library_rel(library, rel)
 
 
 

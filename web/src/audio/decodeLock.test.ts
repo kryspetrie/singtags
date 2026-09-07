@@ -19,6 +19,17 @@ describe('decodeLock', () => {
     expect(formatAudioDecodeError(err)).toMatch(/decode audio/i)
   })
 
+  it('keeps specific MIDI / WMA guard messages', () => {
+    expect(formatAudioDecodeError(new Error('This mix is a MIDI file, not browser-playable'))).toMatch(
+      /MIDI/i,
+    )
+    expect(
+      formatAudioDecodeError(
+        new Error('This mix is a WMA/ASF file that can’t play in the browser.'),
+      ),
+    ).toMatch(/WMA\/ASF/i)
+  })
+
   it('serializes concurrent decodes', async () => {
     let inflight = 0
     let maxInflight = 0

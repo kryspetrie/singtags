@@ -88,6 +88,25 @@ describe('manualOfflineFetch', () => {
     expect(native).not.toHaveBeenCalled()
   })
 
+  it('withOfflineNetworkAllow fetches media while Offline mode stays on', async () => {
+    const mediaUrl = 'http://localhost/library/Some%20Tag/lead.m4a'
+    vi.stubGlobal('caches', {
+      open: vi.fn(async () => ({ match: vi.fn(async () => null) })),
+      keys: vi.fn(async () => []),
+    })
+    ensureFetchPatchInstalled()
+    setManualOfflineFetch(true)
+    expect(isManualOfflineFetchBlocked()).toBe(true)
+    await expect(fetch(mediaUrl)).rejects.toThrow(/not cached/)
+
+    const { withOfflineNetworkAllow } = await import('./manualOfflineFetch')
+    const res = await withOfflineNetworkAllow(() => fetch(mediaUrl))
+    // Network may 404 in tests; the important part is Offline mode did not gate it.
+    expect(res).toBeTruthy()
+    expect(isManualOfflineFetchBlocked()).toBe(true)
+    await expect(fetch(mediaUrl)).rejects.toThrow(/not cached/)
+  })
+
   it('fetchCached prefers cache when the browser is offline', async () => {
     const url = 'http://localhost/tags/1/metadata.json'
     const body = '{"tag_id":1}'

@@ -1,7 +1,9 @@
 /** Shared channel / balance helpers (kept separate to avoid circular imports). */
 
 export const BALANCE_MAX_BOOST = 2
-export const CHANNEL_NORM_MAX = 4
+/** Cap boost when peak-normalizing quiet files (~32 dB). */
+export const CHANNEL_NORM_MAX = 40
+/** Peak target after normalize (just under 0 dBFS). */
 export const OUTPUT_HEADROOM = 0.99
 
 /** Compute L/R gain nodes for the stereo balance slider (−1…+1). */

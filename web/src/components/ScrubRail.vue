@@ -80,7 +80,52 @@ const emit = defineEmits<{
   scrubEnd: []
   /** ↑ control — parent owns two-step scroll (first group → search). */
   jumpTop: []
+  /** ↑ press-and-hold — parent scrolls to document/search top. */
+  jumpTopHold: []
 }>()
+
+const JUMP_TOP_HOLD_MS = 450
+let jumpTopHoldTimer: ReturnType<typeof setTimeout> | null = null
+let jumpTopHoldFired = false
+
+function clearJumpTopHoldTimer(): void {
+  if (jumpTopHoldTimer != null) {
+    clearTimeout(jumpTopHoldTimer)
+    jumpTopHoldTimer = null
+  }
+}
+
+function onJumpTopPointerDown(e: PointerEvent): void {
+  if (props.jumpTopDisabled || e.button !== 0) return
+  jumpTopHoldFired = false
+  clearJumpTopHoldTimer()
+  const target = e.currentTarget
+  if (target instanceof Element) {
+    try {
+      target.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore — capture optional */
+    }
+  }
+  jumpTopHoldTimer = setTimeout(() => {
+    jumpTopHoldTimer = null
+    jumpTopHoldFired = true
+    emit('jumpTopHold')
+  }, JUMP_TOP_HOLD_MS)
+}
+
+function onJumpTopPointerEnd(): void {
+  clearJumpTopHoldTimer()
+}
+
+function onJumpTopClick(): void {
+  if (jumpTopHoldFired) {
+    jumpTopHoldFired = false
+    return
+  }
+  if (props.jumpTopDisabled) return
+  emit('jumpTop')
+}
 
 const trackEl = ref<HTMLElement | null>(null)
 /** Committed content-axis position — drives the idle cursor and aria value. */
@@ -367,11 +412,6 @@ function onPointerUp(e: PointerEvent): void {
   if (!hovering.value) preview.value = committed.value
 }
 
-function onJumpTopClick(): void {
-  if (props.jumpTopDisabled) return
-  emit('jumpTop')
-}
-
 function onKeyDown(e: KeyboardEvent): void {
   if (props.length <= 0) return
   const step = Math.max(1 / Math.max(1, props.length - 1), 1 / 40)
@@ -406,6 +446,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearJumpTopHoldTimer()
   if (scrubRaf) cancelAnimationFrame(scrubRaf)
   scrubRaf = 0
   pendingScrubT = null
@@ -433,6 +474,9 @@ onBeforeUnmount(() => {
       :disabled="jumpTopDisabled"
       :title="jumpTopLabel"
       :aria-label="jumpTopLabel"
+      @pointerdown="onJumpTopPointerDown"
+      @pointerup="onJumpTopPointerEnd"
+      @pointercancel="onJumpTopPointerEnd"
       @click="onJumpTopClick"
     >
       ↑

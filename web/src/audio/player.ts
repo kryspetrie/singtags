@@ -186,25 +186,18 @@ export class TagAudioPlayer {
     return this.solo
   }
 
-  private shouldAutoNormalizeChannels(): boolean {
-    // Learning-track hard L/R (or mono hard-pan) is intentional — don't boost the
-    // quieter side up to the solo side; that flattens the stereo image.
-    if (this.monoPanSide) return false
-    if (this.channelCount < 2) return false
-    if (this.peakL < 1e-4 || this.peakR < 1e-4) return false
-    const ratio = Math.max(this.peakL, this.peakR) / Math.min(this.peakL, this.peakR)
-    return ratio > 1.08
-  }
-
   private recomputeNormGains(): void {
-    if (!this.shouldAutoNormalizeChannels()) {
+    // Linked peak normalize to ~0 dBFS. Same gain on L and R preserves intentional
+    // hard-pan / stereo image (never boost the quiet side alone).
+    const peak = Math.max(this.peakL, this.peakR)
+    if (peak < 1e-4) {
       this.normL = 1
       this.normR = 1
       return
     }
-    const target = Math.min(OUTPUT_HEADROOM, Math.max(this.peakL, this.peakR))
-    this.normL = Math.min(CHANNEL_NORM_MAX, target / this.peakL)
-    this.normR = Math.min(CHANNEL_NORM_MAX, target / this.peakR)
+    const g = Math.min(CHANNEL_NORM_MAX, OUTPUT_HEADROOM / peak)
+    this.normL = g
+    this.normR = g
   }
 
   private balanceGains(): { l: number; r: number } {

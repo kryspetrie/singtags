@@ -9,6 +9,10 @@ describe('audioBytes', () => {
   it('sniffs common containers', () => {
     expect(sniffAudioMagic(new Uint8Array([0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0]))).toBe('ogg')
     expect(sniffAudioMagic(new Uint8Array([0x49, 0x44, 0x33, 0, 0, 0, 0, 0]))).toBe('mpeg')
+    expect(sniffAudioMagic(new TextEncoder().encode('MThdxxxx'))).toBe('midi')
+    expect(
+      sniffAudioMagic(new Uint8Array([0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11])),
+    ).toBe('asf')
     expect(sniffAudioMagic(new TextEncoder().encode('XXXX'))).toBe('unknown')
   })
 
@@ -26,5 +30,12 @@ describe('audioBytes', () => {
     )
     expect(() => assertDecodableAudioBytes(new TextEncoder().encode('{"a":1}'))).toThrow(/JSON/)
     expect(() => assertDecodableAudioBytes(new Uint8Array(0))).toThrow(/empty/)
+  })
+
+  it('assertDecodableAudioBytes rejects MIDI and ASF/WMA', () => {
+    expect(() => assertDecodableAudioBytes(new TextEncoder().encode('MThd\0\0\0\0'))).toThrow(/MIDI/)
+    expect(() =>
+      assertDecodableAudioBytes(new Uint8Array([0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11])),
+    ).toThrow(/WMA\/ASF/)
   })
 })

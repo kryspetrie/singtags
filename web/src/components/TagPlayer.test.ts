@@ -493,6 +493,55 @@ describe('TagPlayer', () => {
     w.unmount()
   })
 
+  it('keeps loop chrome painted while a tag-like parts swap reloads', async () => {
+    mockState.duration = 60
+    mockState.currentTime = 0
+    mockState.paused = true
+
+    let finishLoad!: () => void
+    const loadBlocked = new Promise<void>((r) => {
+      finishLoad = r
+    })
+    mockState.load.mockImplementationOnce(async () => {
+      await loadBlocked
+      mockState.duration = 48
+    })
+
+    const w = mount(TagPlayer, {
+      props: {
+        tagId: 1,
+        parts: { lead: 'blob:tag1-lead' },
+        availableParts: ['lead'],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+    mockState.load.mockClear()
+
+    await w.setProps({
+      tagId: 2,
+      parts: { lead: 'blob:tag2-lead' },
+      availableParts: ['lead'],
+    })
+    // Let the reload start, but do not finish decode yet.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const wave = w.getComponent({ name: 'WaveformView' })
+    expect(wave.props('duration')).toBeGreaterThan(0)
+    expect(wave.props('markA')).toBe(0)
+    expect(wave.props('markB')).toBeGreaterThan(0)
+    expect(wave.props('currentTime')).toBe(0)
+    expect(wave.props('interactive')).toBe(false)
+
+    finishLoad()
+    await flushPromises()
+    expect(wave.props('duration')).toBe(48)
+    expect(wave.props('markB')).toBe(48)
+    expect(wave.props('interactive')).toBe(true)
+    w.unmount()
+  })
+
   it('resets playhead when switching to a part whose duration differs by >0.5s', async () => {
     mockState.effectivelyMono = false
     mockState.channels = 2

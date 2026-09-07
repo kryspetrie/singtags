@@ -110,11 +110,10 @@ function onPayKey(e: KeyboardEvent): void {
   font-weight: 600;
   min-height: 52px;
   min-width: 0;
-  width: max-content;
   max-width: 100%;
   text-align: left;
-  /* Hug label width so − / + / Reset stay on the same row on narrow screens. */
-  flex: 0 1 auto;
+  /* Fill remaining row space beside − / + / Reset. */
+  flex: 1 1 8rem;
 }
 .paybtn:disabled {
   opacity: 0.5;
@@ -133,12 +132,17 @@ function onPayKey(e: KeyboardEvent): void {
   gap: 0.05rem;
   font-size: clamp(0.95rem, 3.6vw, 1.15rem);
   line-height: 1.15;
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.pay-label-main {
+  overflow-wrap: anywhere;
 }
 .pay-label-alt {
   font-size: 0.88em;
   font-weight: 600;
   opacity: 0.92;
+  overflow-wrap: anywhere;
 }
 .pay > button:not(.paybtn) {
   border: 1px solid var(--border);

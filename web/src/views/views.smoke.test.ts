@@ -94,6 +94,8 @@ vi.mock('../composables/useTagDetail', async () => {
         preparedSheet: ref({ pages: ['sheets/3/p1.webp'], owned: [] }),
         loading: ref(false),
         sheetPreparing: ref(false),
+        audioWarming: ref(false),
+        hasPackAudio: ref(false),
         mediaSource: ref('network'),
         load: vi.fn(async () => {}),
         toSummary: () => ({

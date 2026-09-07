@@ -30,6 +30,21 @@ export function isAudioDecodeFailure(err: unknown): boolean {
 
 /** User-facing copy when a decode fails after native + WASM attempts. */
 export function formatAudioDecodeError(err: unknown): string {
+  if (err instanceof Error) {
+    const msg = err.message
+    // Pre-decode guards already carry actionable copy — don't replace with the
+    // contention/favorites wording.
+    if (
+      /MIDI file/i.test(msg) ||
+      /WMA\/ASF/i.test(msg) ||
+      /\(received HTML/i.test(msg) ||
+      /\(received JSON/i.test(msg) ||
+      /\(empty response\)/i.test(msg) ||
+      /\(received a non-audio/i.test(msg)
+    ) {
+      return msg.replace(/^Unable to decode audio data\s*\(?/i, '').replace(/\)$/, '').trim() || msg
+    }
+  }
   if (isAudioDecodeFailure(err)) {
     return 'Couldn’t decode audio. Wait a moment and try again — if a favorite is caching, let it finish first.'
   }

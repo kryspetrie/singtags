@@ -11,6 +11,8 @@ export const OFFLINE_CACHE_NAMES = [
 ] as const
 
 let blocked = false
+/** Nested depth for intentional downloads while Offline mode stays on. */
+let allowNetworkDepth = 0
 let nativeFetch: typeof fetch | null = null
 
 /** Resolve a fetch URL string from RequestInfo (for the offline fetch patch). */
@@ -21,6 +23,26 @@ function resolveRequestUrl(input: RequestInfo | URL): string {
   }
   if (input instanceof URL) return input.href
   return input.url
+}
+
+/** True when an intentional download may use the network despite Offline mode. */
+function networkAllowActive(): boolean {
+  return allowNetworkDepth > 0
+}
+
+/**
+ * Run `fn` with network fetches allowed even while Offline mode is on.
+ * Does not flip Offline mode off — use for per-tag sheet/track loads.
+ * Still respects a true browser-offline connection (no network).
+ */
+export async function withOfflineNetworkAllow<T>(fn: () => Promise<T>): Promise<T> {
+  ensureFetchPatchInstalled()
+  allowNetworkDepth++
+  try {
+    return await fn()
+  } finally {
+    allowNetworkDepth--
+  }
 }
 
 /** Learning tracks and sheet pixels must come from packs — never the open network while offline. */
@@ -130,9 +152,27 @@ export async function fetchCached(
 
   const browserOffline =
     typeof navigator !== 'undefined' && navigator.onLine === false
+
+  // Intentional per-tag download while Offline mode stays on.
+  if (networkAllowActive() && !browserOffline) {
+    try {
+      const res = await nativeFetch(input, init)
+      if (res.ok) return res
+    } catch {
+      /* fall through to cache */
+    }
+    const cachedAllow = await matchOfflineCache(url)
+    if (cachedAllow) return cachedAllow
+    throw new TypeError('This file is not cached on your device yet')
+  }
+
   if (blocked || browserOffline) {
     const cached = await matchOfflineCache(url)
     if (cached) return cached
+    // Manual Offline still allows shell + tag metadata JSON (not media).
+    if (blocked && !browserOffline && allowServiceWorkerFetch(url)) {
+      return nativeFetch(input, init)
+    }
     throw new TypeError('This file is not cached on your device yet')
   }
 
@@ -157,15 +197,22 @@ export function ensureFetchPatchInstalled(): void {
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> => {
-    if (blocked) {
-      const url = resolveRequestUrl(input)
-      // Blob/data URLs are in-memory — never block (e.g. pack playback).
-      if (url.startsWith('blob:') || url.startsWith('data:')) {
-        return nativeFetch!(input, init)
-      }
+    const url = resolveRequestUrl(input)
+    // Blob/data URLs are in-memory — never block (e.g. pack playback).
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+      return nativeFetch!(input, init)
+    }
+    const browserOffline =
+      typeof navigator !== 'undefined' && navigator.onLine === false
+
+    if (networkAllowActive() && !browserOffline) {
+      return nativeFetch!(input, init)
+    }
+
+    if (blocked || browserOffline) {
       const cached = await matchOfflineCache(url)
       if (cached) return cached
-      if (allowServiceWorkerFetch(url)) {
+      if (blocked && !browserOffline && allowServiceWorkerFetch(url)) {
         return nativeFetch!(input, init)
       }
       throw new TypeError('Offline mode — this file is not cached on your device yet')

@@ -29,12 +29,13 @@ export function syntheticPeaks(count: number, seed: string): number[] {
   return out
 }
 
-/** Downsample an AudioBuffer to peak magnitudes 0–1. */
+/** Downsample an AudioBuffer to peak magnitudes 0–1 (peak-normalized for display). */
 export function peaksFromAudioBuffer(buffer: AudioBuffer, bars: number): number[] {
   const ch0 = buffer.getChannelData(0)
   const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null
   const block = Math.max(1, Math.floor(ch0.length / bars))
   const out: number[] = []
+  let maxPeak = 0
   for (let i = 0; i < bars; i++) {
     const start = i * block
     const end = Math.min(ch0.length, start + block)
@@ -44,7 +45,13 @@ export function peaksFromAudioBuffer(buffer: AudioBuffer, bars: number): number[
       const b = ch1 ? Math.abs(ch1[j]!) : 0
       peak = Math.max(peak, a, b)
     }
-    out.push(Math.min(1, peak * 1.15))
+    out.push(peak)
+    if (peak > maxPeak) maxPeak = peak
+  }
+  // Match playback peak-normalize: quiet and loud files fill the same visual range.
+  if (maxPeak > 1e-6) {
+    const scale = 1 / maxPeak
+    for (let i = 0; i < out.length; i++) out[i] = Math.min(1, out[i]! * scale)
   }
   return out
 }

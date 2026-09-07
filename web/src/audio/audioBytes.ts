@@ -1,11 +1,23 @@
 /**
  * Cheap magic-byte checks before decodeAudioData.
  * Chromium logs native "Unable to decode audio data" even when the promise is
- * caught — so skip decode when the payload is clearly not audio (HTML/JSON/empty).
+ * caught — so skip decode when the payload is clearly not audio (HTML/JSON/empty)
+ * or a known non-Web-Audio container (MIDI / WMA-ASF).
  */
 
 /** Detected container/format from the first bytes of a payload. */
-export type AudioMagicKind = 'ogg' | 'mpeg' | 'mp4' | 'wav' | 'aac-adts' | 'unknown'
+export type AudioMagicKind =
+  | 'ogg'
+  | 'mpeg'
+  | 'mp4'
+  | 'wav'
+  | 'aac-adts'
+  | 'midi'
+  | 'asf'
+  | 'unknown'
+
+/** ASF / WMA GUID header (`30 26 B2 75 8E 66 CF 11 …`). */
+const ASF_HEADER = [0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11] as const
 
 /** Inspect magic bytes to guess audio container before calling `decodeAudioData`. */
 export function sniffAudioMagic(data: ArrayBuffer | Uint8Array): AudioMagicKind {
@@ -16,12 +28,14 @@ export function sniffAudioMagic(data: ArrayBuffer | Uint8Array): AudioMagicKind 
     c = bytes[2]!,
     d = bytes[3]!
   if (a === 0x4f && b === 0x67 && c === 0x67 && d === 0x53) return 'ogg' // OggS
+  if (a === 0x4d && b === 0x54 && c === 0x68 && d === 0x64) return 'midi' // MThd
   if (a === 0x49 && b === 0x44 && c === 0x33) return 'mpeg' // ID3
   if (a === 0xff && (b & 0xe0) === 0xe0) return 'aac-adts' // MPEG ADTS / MP3 frame
   if (a === 0x52 && b === 0x49 && c === 0x46 && d === 0x46) return 'wav' // RIFF
   if (bytes.byteLength >= 8) {
     const box = String.fromCharCode(bytes[4]!, bytes[5]!, bytes[6]!, bytes[7]!)
     if (box === 'ftyp') return 'mp4'
+    if (ASF_HEADER.every((v, i) => bytes[i] === v)) return 'asf'
   }
   return 'unknown'
 }
@@ -67,6 +81,18 @@ export function assertDecodableAudioBytes(data: ArrayBuffer | Uint8Array): void 
       throw new Error('Unable to decode audio data (received JSON instead of an audio file)')
     }
     throw new Error('Unable to decode audio data (received a non-audio document)')
+  }
+  const magic = sniffAudioMagic(data)
+  if (magic === 'midi') {
+    // Avoid the generic “Unable to decode…” prefix so UI copy stays specific.
+    throw new Error(
+      'This mix is a MIDI file, not browser-playable learning audio. Open the sheet instead.',
+    )
+  }
+  if (magic === 'asf') {
+    throw new Error(
+      'This mix is a WMA/ASF file that can’t play in the browser. No learning-track audio is available for this tag.',
+    )
   }
   // Known containers are fine; unknown binary may still be valid (rare codecs) —
   // let decodeAudioData decide. We only gate obvious text/document payloads.

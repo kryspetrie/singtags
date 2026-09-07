@@ -49,6 +49,8 @@ const SPEED_OPTIONS = [
 
 const props = withDefaults(
   defineProps<{
+    /** Catalog tag id — when this changes, reload without preserving playhead/loop. */
+    tagId?: number
     parts: Record<string, string>
     /** All learning parts from tag metadata (tabs before lazy resolve). */
     availableParts?: string[]
@@ -66,6 +68,11 @@ const props = withDefaults(
     songKey?: string
     /** Parent is still fetching tag media (show empty waveform + loading). */
     pending?: boolean
+    /**
+     * Show part tabs from catalog metadata but block playback interaction
+     * (e.g. offline without cached audio).
+     */
+    mediaLocked?: boolean
     /** Tag-level stereo layout from mirror analysis. */
     audioLayoutSummary?: AudioLayoutSummary | null
     /** Per-part layouts keyed by part id. */
@@ -76,10 +83,12 @@ const props = withDefaults(
     payKeyEnabled?: boolean
   }>(),
   {
+    tagId: undefined,
     pitchSemitones: undefined,
     detuneCents: 0,
     songKey: undefined,
     pending: false,
+    mediaLocked: false,
     availableParts: undefined,
     resolvePart: undefined,
     audioLayoutSummary: undefined,
@@ -131,6 +140,8 @@ let mixObjectUrl: string | null = null
 let loadGate: Promise<void> | null = null
 /** When true, the next part change resumes at the prior playhead. */
 let preserveNextPartLoad = false
+/** Last tag whose audio finished loading — used to avoid preserving across tag flips. */
+let loadedTagId: number | undefined = props.tagId
 
 function urlFor(p: string): string | null {
   const path = props.parts[p]
@@ -201,10 +212,14 @@ const customMode = computed(() => part.value === CUSTOM_PART)
 const combineMode = computed(() => customMode.value && selectedCombineParts.value.length >= 2)
 
 /** Transport / adjust / waveform active (Custom with nothing checked stays inert). */
-const playbackReady = computed(() => !customMode.value || selectedCombineParts.value.length > 0)
+const playbackReady = computed(
+  () => !props.mediaLocked && (!customMode.value || selectedCombineParts.value.length > 0),
+)
 
 /** Hide the part strip when there’s nothing to choose (e.g. mix-only). */
-const showPartPicker = computed(() => partTabs.value.length > 1)
+const showPartPicker = computed(
+  () => partTabs.value.length > 1 || (props.mediaLocked && partTabs.value.length > 0),
+)
 
 /** Solo channel for combine: metadata wins when known. */
 function resolveSoloInFile(p: string): PartSide {
@@ -248,6 +263,45 @@ const paused = computed(() => {
   void tick.value
   return player.paused
 })
+
+/**
+ * While audio reloads (part switch or tag→tag), `player.duration` briefly drops to 0
+ * and the waveform would hide the playhead + loop brackets. Hold chrome geometry
+ * until the new buffer is ready so only the bars morph.
+ *
+ * Fresh loads (!preserve) hold *default* positions (playhead at 0, A–B full span).
+ * Those map to the same pixels for any duration, so tag flips don’t look like a
+ * chrome reload when both tags start at defaults.
+ */
+type WaveChromeHold = {
+  duration: number
+  currentTime: number
+  markA: number
+  markB: number
+}
+const waveChromeHold = ref<WaveChromeHold | null>(null)
+
+function beginWaveChromeHold(snapshot: WaveChromeHold): void {
+  if (snapshot.duration <= 0) return
+  waveChromeHold.value = snapshot
+}
+
+function endWaveChromeHold(seq: number): void {
+  if (seq === loadSeq) waveChromeHold.value = null
+}
+
+const waveCurrentTime = computed(() =>
+  waveChromeHold.value ? waveChromeHold.value.currentTime : currentTime.value,
+)
+const waveDuration = computed(() =>
+  waveChromeHold.value ? waveChromeHold.value.duration : duration.value,
+)
+const waveMarkA = computed(() =>
+  waveChromeHold.value ? waveChromeHold.value.markA : markA.value,
+)
+const waveMarkB = computed(() =>
+  waveChromeHold.value ? waveChromeHold.value.markB : markB.value,
+)
 
 watch(
   paused,
@@ -333,6 +387,15 @@ function setMixPan(p: string, side: PartSide): void {
 }
 
 async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void> {
+  if (props.mediaLocked) {
+    loadAbort?.abort()
+    loadSeq++
+    waveLoading.value = false
+    peaks.value = []
+    err.value = null
+    waveChromeHold.value = null
+    return
+  }
   const run = (async () => {
     const seq = ++loadSeq
     loadAbort?.abort()
@@ -341,12 +404,37 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
     const prevMix = mixObjectUrl
     mixObjectUrl = null
 
-    const preserve = opts?.preservePlayback === true
+    const tagChanged =
+      props.tagId != null && loadedTagId != null && props.tagId !== loadedTagId
+    const preserve = opts?.preservePlayback === true && !tagChanged
+    if (tagChanged) {
+      preserveNextPartLoad = false
+      loop.value = false
+    }
     const resumeAt = preserve ? player.currentTime : 0
     const wasPlaying = preserve && !player.paused
     const prevDuration = player.duration
     const prevMarkA = markA.value
     const prevMarkB = markB.value
+
+    if (prevDuration > 0) {
+      if (preserve) {
+        beginWaveChromeHold({
+          duration: prevDuration,
+          currentTime: resumeAt,
+          markA: prevMarkA,
+          markB: prevMarkB > 0 ? prevMarkB : prevDuration,
+        })
+      } else {
+        // Defaults: same pixel layout for any duration (0 → left, end → right).
+        beginWaveChromeHold({
+          duration: prevDuration,
+          currentTime: 0,
+          markA: 0,
+          markB: prevDuration,
+        })
+      }
+    }
 
     if (!preserve) {
       markA.value = 0
@@ -356,22 +444,21 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
     if (!preserve) await player.seek(0)
     err.value = null
 
-    // Blank waveform until real peaks are ready — synthetic placeholders then
-    // swapping to decoded peaks was causing a visible flicker on every load.
-    peaks.value = []
+    // Keep prior peaks painted so WaveformView can morph into the next track.
+    // Clearing here forced a cold “thin line” reveal on every part switch.
     waveLoading.value = true
     tick.value++
 
-    let eagerUrl: string | null = null
-    if (!customMode.value) {
-      eagerUrl = (await ensurePartUrl(part.value)) ?? null
-    } else if (selectedCombineParts.value.length === 1) {
-      eagerUrl = (await ensurePartUrl(selectedCombineParts.value[0]!)) ?? null
-    }
-    if (signal.aborted || seq !== loadSeq) return
-    tick.value++
-
     try {
+      let eagerUrl: string | null = null
+      if (!customMode.value) {
+        eagerUrl = (await ensurePartUrl(part.value)) ?? null
+      } else if (selectedCombineParts.value.length === 1) {
+        eagerUrl = (await ensurePartUrl(selectedCombineParts.value[0]!)) ?? null
+      }
+      if (signal.aborted || seq !== loadSeq) return
+      tick.value++
+
       let url: string | null = eagerUrl
 
       if (customMode.value) {
@@ -432,6 +519,7 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
       } else if (!url) {
         err.value = available.value.length ? 'No audio track available for this part.' : null
         player.clearSource()
+        peaks.value = []
         if (prevMix) URL.revokeObjectURL(prevMix)
         finishWaveIfCurrent(seq)
         return
@@ -482,6 +570,8 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
       if (!preserve) syncLoopMarks(player.duration)
       if (wasPlaying) await player.play()
 
+      loadedTagId = props.tagId
+
       // Prefer peaks from the buffer the player just decoded — skip a second fetch/decode.
       const decoded = player.getOriginalBuffer?.() ?? null
       if (decoded) {
@@ -502,6 +592,7 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
         peaks.value = syntheticPeaks(280, fallbackUrl)
       }
     } finally {
+      endWaveChromeHold(seq)
       finishWaveIfCurrent(seq)
     }
   })()
@@ -568,14 +659,30 @@ onUnmounted(() => {
 })
 
 watch(part, (p) => {
-  if (!p) return
+  if (!p || props.mediaLocked) return
   const preserve = preserveNextPartLoad
   preserveNextPartLoad = false
   void loadCurrent({ preservePlayback: preserve })
 })
 
+watch(
+  () => props.mediaLocked,
+  (locked) => {
+    if (locked) {
+      loadAbort?.abort()
+      loadSeq++
+      waveLoading.value = false
+      peaks.value = []
+      err.value = null
+      player.pause()
+      return
+    }
+    if (part.value) void loadCurrent()
+  },
+)
+
 function selectPart(p: string): void {
-  if (part.value === p) return
+  if (props.mediaLocked || part.value === p) return
   // Channel Solo Left/Right fans one ear to both speakers — reset so learning-track
   // hard L/R imaging is audible when switching Mix ↔ Lead/Tenor/…
   if (solo.value !== 'stereo') solo.value = 'stereo'
@@ -673,7 +780,15 @@ watch(customMode, (on) => {
 watch(
   () => props.availableParts,
   (parts) => {
-    if (parts == null || !parts.length) return
+    if (parts == null || !parts.length) {
+      loadAbort?.abort()
+      loadSeq++
+      waveLoading.value = false
+      peaks.value = []
+      part.value = ''
+      err.value = null
+      return
+    }
     if (part.value === CUSTOM_PART) {
       if (!showCustomTab.value) {
         part.value = preferredDefaultPart(parts) ?? parts[0]!
@@ -730,8 +845,11 @@ watch(
     const sameKeySet =
       prevKeys.length === nextKeys.length && prevKeys.every((k) => nextKeys.includes(k))
     // Same part keys but URL changed (cache upgrade / online reconnect) — reload.
+    // Tag flips often share part keys; those must not preserve playhead/loop.
     if (sameKeySet && part.value && part.value !== CUSTOM_PART && props.parts[part.value]) {
-      void loadCurrent({ preservePlayback: true })
+      const tagChanged =
+        props.tagId != null && loadedTagId != null && props.tagId !== loadedTagId
+      void loadCurrent({ preservePlayback: !tagChanged })
       return
     }
     // Lazy resolvePart adds keys as each part is first played. Reloading here
@@ -986,8 +1104,10 @@ defineExpose({
         type="button"
         role="tab"
         class="ctrl-tab part-btn"
-        :class="{ active: part === p }"
+        :class="{ active: part === p, locked: mediaLocked }"
         :aria-selected="part === p"
+        :aria-disabled="mediaLocked || undefined"
+        :disabled="mediaLocked"
         @click="selectPart(p)"
       >
         {{ p === CUSTOM_PART ? 'Custom' : partLabel(p) }}
@@ -1084,15 +1204,19 @@ defineExpose({
 
     <p v-if="err" class="error" role="alert">{{ err }}</p>
 
-    <div v-if="available.length || waveBusy" class="ctrl-panel player-panel">
+    <div
+      v-if="available.length || waveBusy"
+      class="ctrl-panel player-panel"
+      :class="{ 'is-media-locked': mediaLocked }"
+    >
       <div class="wave-wrap">
         <WaveformView
           :peaks="peaks"
-          :current-time="currentTime"
-          :duration="duration"
-          :mark-a="markA"
-          :mark-b="markB"
-          :interactive="playbackReady"
+          :current-time="waveCurrentTime"
+          :duration="waveDuration"
+          :mark-a="waveMarkA"
+          :mark-b="waveMarkB"
+          :interactive="playbackReady && !waveChromeHold"
           @seek="onSeek"
           @update:mark-a="onMarkA"
           @update:mark-b="onMarkB"
@@ -1372,6 +1496,17 @@ defineExpose({
   /* Wave (104) + transport + A–B hint + adjust row — avoid Downloads sliding up. */
   position: relative;
   min-height: 18.5rem;
+}
+.player-panel.is-media-locked {
+  opacity: 0.45;
+  filter: grayscale(0.35);
+  pointer-events: none;
+  user-select: none;
+}
+.parts .ctrl-tab.part-btn.locked,
+.parts .ctrl-tab.part-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 /* Keep voice-part tabs on one row; size from labels so “Custom” fits (not Cust…). */
 .parts.ctrl-tabs {
@@ -1900,8 +2035,30 @@ defineExpose({
   padding: 1.15rem 0.1rem 0.15rem;
   margin-top: 0.25rem;
 }
+/*
+ * Fullscreen has Loop / Solo / Balance only (Pitch lives in chrome).
+ * Do not reuse the Advanced 4-column (Loop|Pitch|Solo|Balance) grid — it
+ * squishes these three before wrapping. Keep Loop+Solo paired on one row
+ * until the viewport can fit all three with comfortable minimums.
+ */
 .player.fullscreen .playback-adjust .adjust-row {
-  gap: 1.1rem;
+  display: grid;
+  gap: 1.1rem 1.15rem;
+  align-items: end;
+  /* Loop | Solo on one row at every mobile width; Balance full-width below. */
+  grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+}
+.player.fullscreen .loop-field {
+  grid-column: 1;
+  width: auto;
+  min-width: 5.5rem;
+}
+.player.fullscreen .solo-field {
+  grid-column: 2;
+  min-width: 0;
+}
+.player.fullscreen .balance-field {
+  grid-column: 1 / -1;
 }
 .player.fullscreen .playback-adjust .ctrl-segment {
   padding: 0.35rem;
@@ -1912,6 +2069,21 @@ defineExpose({
 }
 .player.fullscreen .loop-field .ctrl-toggle {
   padding: 0.5rem 1rem;
+  min-width: 4.25rem;
+}
+/* Three-up only when Solo + Balance can keep comfortable minimums. */
+@media (min-width: 900px) {
+  .player.fullscreen .playback-adjust .adjust-row {
+    grid-template-columns:
+      minmax(5.75rem, 7rem)
+      minmax(16rem, 1.2fr)
+      minmax(14rem, 1.4fr);
+  }
+  .player.fullscreen .loop-field,
+  .player.fullscreen .solo-field,
+  .player.fullscreen .balance-field {
+    grid-column: auto;
+  }
 }
 @media (orientation: landscape) and (max-height: 520px) {
   .player.fullscreen {

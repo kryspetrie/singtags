@@ -69,11 +69,36 @@ function prefersReducedMotion(): boolean {
   return typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** 0–1 fade/blur for peak bars only; brackets + playhead stay sharp. */
+/**
+ * Waveform bar entrance animation.
+ * - `blur-fade` — prior tryout: bars fade in while unblurring (kept for A/B).
+ * - `grow` — cold load: medium (~45% height) center line expands to peaks (slight blur);
+ *   part switches morph previous bar heights into the next track with no blur.
+ */
+type BarRevealMode = 'blur-fade' | 'grow'
+/** Flip to `'blur-fade'` to restore the previous entrance animation. */
+const BAR_REVEAL_MODE: BarRevealMode = 'grow'
+
+/** 0–1 progress for the active bar reveal (both modes). */
 const barReveal = ref(1)
 let revealRaf = 0
 let revealStartedAt = 0
-const BAR_REVEAL_MS = 380
+const BAR_REVEAL_MS_BLUR_FADE = 380
+const BAR_REVEAL_MS_GROW = 500
+/** Relative amp for the shared “medium” starting height (cold grow). */
+const GROW_BASE_AMP = 0.45
+/** Slight soft focus at reveal start; clears as bars settle. */
+const GROW_BLUR_PX = 3.25
+
+/**
+ * When switching parts, morph from these peaks into `props.peaks`.
+ * `null` = cold start from {@link GROW_BASE_AMP}.
+ */
+let morphFromPeaks: number[] | null = null
+
+function barRevealDurationMs(): number {
+  return BAR_REVEAL_MODE === 'grow' ? BAR_REVEAL_MS_GROW : BAR_REVEAL_MS_BLUR_FADE
+}
 
 function cancelBarReveal(): void {
   if (revealRaf) {
@@ -82,21 +107,64 @@ function cancelBarReveal(): void {
   }
 }
 
-function startBarReveal(): void {
+/** Sample a peak array onto the same bar index grid used for drawing. */
+function peakAmpAt(peaks: number[], barIndex: number, barCount: number): number {
+  if (!peaks.length) return GROW_BASE_AMP
+  const step = peaks.length / barCount
+  const idx = Math.min(peaks.length - 1, Math.floor(barIndex * step))
+  return peaks[idx] ?? GROW_BASE_AMP
+}
+
+/**
+ * Snapshot of the bars currently on screen (handles mid-morph part switches).
+ * @param towardPeaks - Waveform we were animating toward (previous `props.peaks`).
+ */
+function snapshotVisibleAmps(towardPeaks: number[]): number[] {
+  const n = Math.max(
+    64,
+    morphFromPeaks?.length ?? 0,
+    towardPeaks.length,
+  )
+  const out = new Array<number>(n)
+  const reveal = Math.max(0, Math.min(1, barReveal.value))
+  for (let i = 0; i < n; i++) {
+    const to = peakAmpAt(towardPeaks, i, n)
+    if (morphFromPeaks && reveal < 1) {
+      const from = peakAmpAt(morphFromPeaks, i, n)
+      out[i] = from + (to - from) * reveal
+    } else {
+      out[i] = to
+    }
+  }
+  return out
+}
+
+/**
+ * @param fromPeaks - Prior waveform to morph from; omit/empty for cold baseline grow.
+ */
+function startBarReveal(fromPeaks?: number[] | null): void {
   cancelBarReveal()
+  morphFromPeaks = fromPeaks?.length ? fromPeaks.slice() : null
   if (prefersReducedMotion()) {
     barReveal.value = 1
+    morphFromPeaks = null
     draw()
     return
   }
   barReveal.value = 0
   revealStartedAt = performance.now()
+  const duration = barRevealDurationMs()
   const step = (now: number) => {
-    const t = Math.min(1, (now - revealStartedAt) / BAR_REVEAL_MS)
+    const t = Math.min(1, (now - revealStartedAt) / duration)
+    // Ease-out quad — settles quickly into the final shape.
     barReveal.value = 1 - (1 - t) * (1 - t)
     draw()
-    if (t < 1) revealRaf = requestAnimationFrame(step)
-    else revealRaf = 0
+    if (t < 1) {
+      revealRaf = requestAnimationFrame(step)
+    } else {
+      revealRaf = 0
+      morphFromPeaks = null
+    }
   }
   revealRaf = requestAnimationFrame(step)
 }
@@ -162,12 +230,26 @@ function draw(): void {
   const xLoopA = props.duration > 0 ? xAt(lay, props.markA) : gutterPad
   const xLoopB = props.duration > 0 ? xAt(lay, props.markB) : w - gutterPad
   const reveal = Math.max(0, Math.min(1, barReveal.value))
+  const growMode = BAR_REVEAL_MODE === 'grow'
+  // blur-fade: invisible at 0. grow: still paint the thin starter line at 0.
+  const showBars = peaks.length > 0 && (growMode || reveal > 0)
 
-  if (peaks.length && reveal > 0) {
+  if (showBars) {
     ctx.save()
-    ctx.globalAlpha = reveal
-    const blurPx = (1 - reveal) * 8
-    if (blurPx > 0.15) ctx.filter = `blur(${blurPx.toFixed(2)}px)`
+    if (growMode) {
+      // Grow / morph: full opacity. Blur only on cold baseline grow — part switches
+      // are a sharp height morph with no soft-focus.
+      ctx.globalAlpha = 1
+      if (!morphFromPeaks) {
+        const blurPx = (1 - reveal) * GROW_BLUR_PX
+        if (blurPx > 0.12) ctx.filter = `blur(${blurPx.toFixed(2)}px)`
+      }
+    } else {
+      // blur-fade (prior): fade + stronger blur → sharp.
+      ctx.globalAlpha = reveal
+      const blurPx = (1 - reveal) * 8
+      if (blurPx > 0.15) ctx.filter = `blur(${blurPx.toFixed(2)}px)`
+    }
 
     if (hasRegion) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.42)'
@@ -175,13 +257,20 @@ function draw(): void {
     }
 
     const barCount = barCountFor(peaks.length, trackInner)
-    const step = peaks.length / barCount
     const barW = trackInner / barCount
+    const baseBh = Math.max(2, GROW_BASE_AMP * h * 0.78)
 
     for (let i = 0; i < barCount; i++) {
-      const idx = Math.min(peaks.length - 1, Math.floor(i * step))
-      const amp = peaks[idx] ?? 0.2
-      const bh = Math.max(2, amp * h * 0.78)
+      const toAmp = peakAmpAt(peaks, i, barCount)
+      const targetBh = Math.max(2, toAmp * h * 0.78)
+      let bh = targetBh
+      if (growMode) {
+        const fromAmp = morphFromPeaks ? peakAmpAt(morphFromPeaks, i, barCount) : GROW_BASE_AMP
+        const fromBh = morphFromPeaks
+          ? Math.max(2, fromAmp * h * 0.78)
+          : baseBh
+        bh = fromBh + (targetBh - fromBh) * reveal
+      }
       const x = gutterPad + i * barW
       const y = (h - bh) / 2
       const mid = (i + 0.5) / barCount
@@ -409,12 +498,18 @@ watch(
   (peaks, prev) => {
     if (!peaks.length) {
       cancelBarReveal()
+      morphFromPeaks = null
       barReveal.value = 0
       draw()
       return
     }
-    if (!prev?.length) startBarReveal()
-    else draw()
+    if (prev?.length) {
+      // Part / mix switch — morph whatever is on screen into the new waveform.
+      startBarReveal(snapshotVisibleAmps(prev))
+    } else {
+      // Cold load — grow from the medium baseline.
+      startBarReveal(null)
+    }
   },
 )
 

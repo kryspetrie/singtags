@@ -27,7 +27,6 @@ import { probeTagAudioAvailability, resolveAudioPart, resolvePathUrl, clearLearn
 import { sheetsPack } from '../offline/libraryPack'
 import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineModeStore } from '../stores/offlineMode'
-import { useCatalogStore } from '../stores/catalog'
 import { useObjectUrls } from './useObjectUrls'
 
 /**
@@ -57,6 +56,8 @@ export function useTagDetail(id: Ref<string> | string) {
    * when the catalog summary hydrates before tag detail has been fetched. */
   const loading = ref(true)
   const sheetPreparing = ref(false)
+  /** True while post-load default-part warm is in flight (online/offline). */
+  const audioWarming = ref(false)
 
   /** Favorites IndexedDB record for this tag, when loaded (legacy `StarredTagRecord` type). */
   let starredRecord: StarredTagRecord | undefined
@@ -106,7 +107,7 @@ export function useTagDetail(id: Ref<string> | string) {
           if (detail.value !== d) return
           availableAudioParts.value = parts
           hasPackAudio.value = packHit
-          void warmDefaultAudio(d, starredRecord, true)
+          void warmDefaultAudio(d, starredRecord, true, loadSeq)
         })()
       }
     },
@@ -144,6 +145,7 @@ export function useTagDetail(id: Ref<string> | string) {
     d: TagDetail,
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
+    signal?: AbortSignal,
   ): Promise<{ pages: string[] | null; sources: Set<'star' | 'pack' | 'network'> }> {
     const sources = new Set<'star' | 'pack' | 'network'>()
     const sheetPaths = sheetDisplayPages(d)
@@ -151,6 +153,10 @@ export function useTagDetail(id: Ref<string> | string) {
     if (cached?.sheetBlobs?.length && sheetPaths.length) {
       const pages: string[] = []
       for (let i = 0; i < sheetPaths.length; i++) {
+        if (signal?.aborted) {
+          for (const u of pages) URL.revokeObjectURL(u)
+          return { pages: null, sources }
+        }
         const path = sheetPaths[i]!
         const byPath = cached.sheetBlobs.find((b) => b.path === path)
         const entry = byPath ?? cached.sheetBlobs[i]
@@ -170,6 +176,10 @@ export function useTagDetail(id: Ref<string> | string) {
       const pages: string[] = []
       let allBlob = true
       for (const path of sheetPaths) {
+        if (signal?.aborted) {
+          for (const u of pages) URL.revokeObjectURL(u)
+          return { pages: null, sources }
+        }
         const resolved = await resolvePathUrl(path, {
           starred: cached ?? null,
           offlineOnly,
@@ -188,6 +198,10 @@ export function useTagDetail(id: Ref<string> | string) {
     if (cached?.sheetBlobs?.length) {
       const pages: string[] = []
       for (const b of cached.sheetBlobs) {
+        if (signal?.aborted) {
+          for (const u of pages) URL.revokeObjectURL(u)
+          return { pages: null, sources }
+        }
         const url = blobUrlFromCached(b)
         if (url) pages.push(url)
       }
@@ -272,7 +286,9 @@ export function useTagDetail(id: Ref<string> | string) {
     preferred: string,
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
+    seq: number,
   ): Promise<'star' | 'pack' | 'network' | 'reconstruct' | null> {
+    if (seq !== loadSeq || detail.value?.tag_id !== d.tag_id) return null
     const existing = audioParts.value[preferred]
     const forceOfflineRebuild =
       offlineOnly && needsOfflineVoiceRebuild(d, preferred, existing ?? '')
@@ -287,6 +303,7 @@ export function useTagDetail(id: Ref<string> | string) {
         starred: cached ?? null,
         offlineOnly,
       })
+      if (seq !== loadSeq || detail.value?.tag_id !== d.tag_id) return null
       if (!resolved) return null
       if (resolved.kind === 'blob') {
         audioParts.value = { ...audioParts.value, [preferred]: track(resolved.url) }
@@ -352,10 +369,15 @@ export function useTagDetail(id: Ref<string> | string) {
     d: TagDetail,
     cached: StarredTagRecord | undefined,
     offlineOnly: boolean,
+    seq: number,
   ): Promise<void> {
+    if (seq !== loadSeq || detail.value?.tag_id !== d.tag_id) return
+    // Tags with no catalog/starred audio must not inherit a prior tag's tabs.
+    if (!listAudioParts(d).length && !cached?.audioBlobs) return
     const preferred = preferredDefaultPart(availableAudioParts.value)
     if (!preferred) return
-    const src = await warmPreferredPart(d, preferred, cached, offlineOnly)
+    const src = await warmPreferredPart(d, preferred, cached, offlineOnly, seq)
+    if (seq !== loadSeq || detail.value?.tag_id !== d.tag_id) return
     if (!src) return
     const sources = new Set<string>([mediaSource.value === 'mixed' ? 'star' : mediaSource.value])
     if (src === 'reconstruct') sources.add('pack')
@@ -377,6 +399,14 @@ export function useTagDetail(id: Ref<string> | string) {
     if (!d) return null
 
     const offlineOnly = useOfflineModeStore().offline
+    const partKeys = new Set(listAudioParts(d).map((p) => p.toLowerCase()))
+    const starredKeys = new Set(
+      Object.keys(starredRecord?.audioBlobs ?? {}).map((p) => p.toLowerCase()),
+    )
+    if (!partKeys.has(part.toLowerCase()) && !starredKeys.has(part.toLowerCase())) {
+      return null
+    }
+
     const existing = audioParts.value[part]
     if (existing) {
       if (isBlobPlaybackUrl(existing)) {
@@ -514,10 +544,21 @@ export function useTagDetail(id: Ref<string> | string) {
       return null
     }
 
-    // Offline: never wait on a network timeout before showing cached sheets.
+    // Offline: prefer local blobs/packs. When Offline *mode* is on but the
+    // browser still has a network, allow tag metadata JSON so the normal tag
+    // page can render with Load Sheet / Load Tracks placeholders.
     if (offline) {
       const local = await fromLocal()
       if (local) return local
+      if (!offlineMode.browserOffline) {
+        try {
+          const res = await fetchCached(tagDetailUrl(wantedId), { signal })
+          if (signal.aborted) return null
+          if (res.ok) return (await res.json()) as TagDetail
+        } catch {
+          /* stay on unavailable */
+        }
+      }
       if (signal.aborted) return null
       error.value = 'This tag isn’t cached on this device yet.'
       return null
@@ -558,7 +599,9 @@ export function useTagDetail(id: Ref<string> | string) {
         return a.imageSets.length > 0 || a.pdfs.length > 0
       })()
 
-    loading.value = true
+    // Soft prev/next keeps the prior tag painted — do not flip into a loading
+    // shell that would unmount the pager. Same-tag reload / cold start still load.
+    loading.value = sameTag || !prevDetail
     error.value = null
     fromCache.value = false
     // Reserve empty-slot height only when nothing is on screen yet. Cross-tag
@@ -570,20 +613,10 @@ export function useTagDetail(id: Ref<string> | string) {
       if (!useOfflineModeStore().offline) {
         dropResolvedAudioForOnlineUpgrade()
       }
-    } else if (prevDetail) {
-      // Soft-clear resolved URLs only. Keep part tabs (or seed from catalog summary)
-      // so the Tracks shell does not collapse while the next detail loads.
-      audioParts.value = {}
-      hasLowerQualityAudio.value = false
-      hasPackAudio.value = false
-      mediaSource.value = 'network'
-      clearLearningStereoCache(prevDetail.tag_id)
-      starredRecord = undefined
-      const nextSummaryParts = useCatalogStore().getById(Number(wantedId))?.audioParts
-      if (nextSummaryParts?.length) {
-        availableAudioParts.value = sortPartIds(nextSummaryParts)
-      }
     }
+    // Soft cross-tag nav: leave detail / sheets / audio alone until this load
+    // commits (or is aborted). Clearing them mid-flight empties Tracks/Sheets
+    // while the user is still mashing prev/next.
 
     const numericId = Number(wantedId)
     let cached: StarredTagRecord | undefined
@@ -597,6 +630,9 @@ export function useTagDetail(id: Ref<string> | string) {
       if (seq !== loadSeq || idStr() !== wantedId) return
       if (!d) {
         sheetPreparing.value = false
+        // Aborted / superseded loads return null — keep prior detail so prev/next
+        // chrome stays mounted while the user clicks ahead.
+        if (signal.aborted || seq !== loadSeq) return
         if (!sameTag && prevDetail) {
           detail.value = null
           clearMedia(prevDetail.tag_id)
@@ -610,8 +646,25 @@ export function useTagDetail(id: Ref<string> | string) {
       const hasSheet = assets.imageSets.length > 0 || assets.pdfs.length > 0
 
       // Resolve sheet blobs before swapping UI so the first paint is final WebP
-      // (blob or network) — not network → blob → crop.
-      const { pages: nextBlobPages } = await collectSheetBlobPages(d, cached ?? undefined, offlineOnly)
+      // (blob or network) — not network → blob → crop. Check abort between paths
+      // so rapid prev/next does not pile up IDB/network work on the main thread.
+      const { pages: nextBlobPages } = await collectSheetBlobPages(
+        d,
+        cached ?? undefined,
+        offlineOnly,
+        signal,
+      )
+      if (seq !== loadSeq || idStr() !== wantedId || signal.aborted) {
+        if (nextBlobPages) for (const u of nextBlobPages) URL.revokeObjectURL(u)
+        return
+      }
+
+      // Probe + seed before paint so Tracks does not flash empty on commit.
+      starredRecord = cached
+      const { parts: probed, hasPackAudio: packHit } = await probeTagAudioAvailability(d, {
+        starred: cached ?? null,
+        offlineOnly,
+      })
       if (seq !== loadSeq || idStr() !== wantedId) {
         if (nextBlobPages) for (const u of nextBlobPages) URL.revokeObjectURL(u)
         return
@@ -619,32 +672,44 @@ export function useTagDetail(id: Ref<string> | string) {
 
       const staleUrls = take()
       const stalePrepared = preparedSheet.value
-      preparedSheet.value = null
+      if (prevDetail && !sameTag) {
+        clearLearningStereoCache(prevDetail.tag_id)
+      }
 
-      detail.value = d
-      // Part tabs are known from metadata immediately — do not wait on pack/network probe.
-      availableAudioParts.value = sortPartIds(listAudioParts(d))
-      cachedSheetPages.value = nextBlobPages?.map((u) => track(u)) ?? null
-      if (cachedSheetPages.value?.length) {
-        preparedSheet.value = { pages: [...cachedSheetPages.value], owned: [] }
+      const trackedPages = nextBlobPages?.map((u) => track(u)) ?? null
+      let nextPrepared: PreparedSheet | null
+      if (trackedPages?.length) {
+        nextPrepared = { pages: [...trackedPages], owned: [] }
       } else if (!hasSheet) {
-        preparedSheet.value = { pages: [], owned: [] }
+        nextPrepared = { pages: [], owned: [] }
       } else {
         // Let SheetViewer paint catalog WebP paths and upgrade to PDF itself.
-        // Catalog pages are published pre-cropped — no client crop pass here.
-        preparedSheet.value = null
+        nextPrepared = null
       }
+
+      // Single commit: title/sheets/tracks swap together — skipped tags never paint.
+      // Replace audio in the same turn as detail so TagPlayer never mounts with a
+      // previous tag’s URLs (that caused 404s on sheet-only tags like #214).
+      const audioSources = seedStarredAudio(cached, d, offlineOnly)
+      const nextAvailable = sortPartIds([
+        ...new Set([...probed, ...Object.keys(audioParts.value), ...listAudioParts(d)]),
+      ])
+      detail.value = d
+      cachedSheetPages.value = trackedPages
+      preparedSheet.value = nextPrepared
+      hasPackAudio.value = packHit
+      availableAudioParts.value = nextAvailable
+      const sources = new Set<'star' | 'pack' | 'network'>([...audioSources])
+      if (trackedPages?.length) sources.add(cached?.sheetBlobs?.length ? 'star' : 'pack')
+      if (packHit) sources.add('pack')
+      if (sources.size === 0) mediaSource.value = 'network'
+      else if (sources.size === 1) mediaSource.value = [...sources][0]!
+      else mediaSource.value = 'mixed'
       sheetPreparing.value = false
 
       await nextTick()
       revokePreparedSheet(stalePrepared)
       for (const u of staleUrls) URL.revokeObjectURL(u)
-
-      // Seed tabs / pack flags after sheets are visible.
-      await resolveSheetsAndAudio(d, cached ?? undefined, offlineOnly, {
-        sheetsAlreadyResolved: true,
-      })
-      if (seq !== loadSeq) return
     } finally {
       if (seq === loadSeq) {
         loading.value = false
@@ -657,9 +722,16 @@ export function useTagDetail(id: Ref<string> | string) {
       const warmDetail = detail.value
       const warmCached = cached ?? undefined
       const warmOffline = useOfflineModeStore().offline
-      void warmDefaultAudio(warmDetail, warmCached, warmOffline).catch(() => {
-        /* warm is best-effort */
-      })
+      audioWarming.value = true
+      void warmDefaultAudio(warmDetail, warmCached, warmOffline, seq)
+        .catch(() => {
+          /* warm is best-effort */
+        })
+        .finally(() => {
+          if (seq === loadSeq) audioWarming.value = false
+        })
+    } else if (seq === loadSeq) {
+      audioWarming.value = false
     }
   }
 
@@ -709,6 +781,7 @@ export function useTagDetail(id: Ref<string> | string) {
     preparedSheet,
     loading,
     sheetPreparing,
+    audioWarming,
     mediaSource,
     load,
     resolvePart,

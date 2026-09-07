@@ -38,6 +38,7 @@ import { barbershopTagsTagUrl } from '../lib/barbershopTags'
 import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
+import { useOfflineModeStore } from '../stores/offlineMode'
 import TagShareSheet from '../components/TagShareSheet.vue'
 
 const props = defineProps<{
@@ -53,6 +54,7 @@ const prefs = usePreferencesStore()
 const route = useRoute()
 const router = useRouter()
 const { offline } = useOnline()
+const offlineMode = useOfflineModeStore()
 const tagPlayerRef = ref<{
   togglePlay: () => Promise<void>
   stopPlayback: () => Promise<void>
@@ -234,6 +236,7 @@ const {
   preparedSheet,
   loading,
   sheetPreparing,
+  audioWarming,
   load,
   resolvePart,
   toSummary,
@@ -245,10 +248,6 @@ watch(error, (msg) => {
     void router.replace({ name: 'home' })
   }
 })
-
-const hasSheetContent = computed(
-  () => !!(sheetAssets.value.imageSets.length || sheetAssets.value.pdfs.length),
-)
 
 const keyShift = ref(0)
 const pitch = new PitchPlayer(getActivePitchPipeVoice())
@@ -367,15 +366,18 @@ if (typeof window !== 'undefined') {
 
 watch(
   () => props.id,
-  async () => {
+  (id) => {
     sheetFullscreenActive.value = false
     tracksFullscreenActive.value = false
     keyShift.value = readShiftFromRoute()
     practiceDone.value = false
-    await load()
-    if (recent.consumeBrowseNavigation(Number(props.id))) {
-      recent.recordOpen(Number(props.id))
-    }
+    // Do not await load — rapid prev/next must keep routing even while sheets resolve.
+    void load().then(() => {
+      if (String(props.id) !== String(id)) return
+      if (recent.consumeBrowseNavigation(Number(props.id))) {
+        recent.recordOpen(Number(props.id))
+      }
+    })
   },
 )
 
@@ -427,8 +429,21 @@ watch(offline, (now, prev) => {
 })
 
 const summary = computed(() => catalog.getById(Number(props.id)) ?? toSummary())
-/** Whether this tag is in the user's favorites list. */
-const starred = computed(() => favorites.ids.has(Number(props.id)))
+/**
+ * Content on screen follows the last committed detail while route id races ahead
+ * during rapid prev/next — pager still tracks the route.
+ */
+const paintedTagId = computed(() => detail.value?.tag_id ?? Number(props.id))
+const softNavigating = computed(
+  () => !!detail.value && detail.value.tag_id !== Number(props.id),
+)
+const paintedSummary = computed(
+  () =>
+    catalog.getById(paintedTagId.value) ??
+    (detail.value?.tag_id === paintedTagId.value ? toSummary() : null),
+)
+/** Favorites chrome for the painted tag (stable while soft-nav catches up). */
+const starred = computed(() => favorites.ids.has(paintedTagId.value))
 const hasAudio = computed(
   () => availableAudioParts.value.length > 0 || Object.keys(audioParts.value).length > 0,
 )
@@ -437,12 +452,52 @@ const hasMixPart = computed(() => 'mix' in audioParts.value)
 const audioPending = computed(
   () => hasAudio.value && Object.keys(audioParts.value).length === 0 && loading.value,
 )
-const hasOfflinePlayback = computed(
-  () =>
-    Object.keys(audioParts.value).length > 0 ||
-    hasPackAudio.value ||
-    (offline.value && availableAudioParts.value.length > 0),
+/** True when learning-track bytes are actually available to play. */
+const hasResolvedAudio = computed(
+  () => Object.keys(audioParts.value).length > 0 || hasPackAudio.value,
 )
+
+/** Catalog/detail says this tag has sheet music. */
+const expectsSheet = computed(() => {
+  if (sheetAssets.value.imageSets.length || sheetAssets.value.pdfs.length) return true
+  const d = detail.value
+  return !!(d && (d.sheet || (d.sheet_pages?.length ?? 0) > 0))
+})
+/** Offline-ready sheet pixels (blob pages), not remote catalog paths. */
+const sheetsHaveCachedBytes = computed(() => !!preparedSheet.value?.pages?.length)
+const showSheetViewer = computed(() => {
+  if (!(sheetAssets.value.imageSets.length || sheetAssets.value.pdfs.length)) return false
+  // Offline: never hand SheetViewer remote paths that fetch blocking will reject.
+  if (offline.value && !sheetsHaveCachedBytes.value) return false
+  return true
+})
+const showOfflineSheetCta = computed(
+  () =>
+    offline.value &&
+    expectsSheet.value &&
+    !sheetsHaveCachedBytes.value &&
+    !sheetPreparing.value &&
+    !loading.value,
+)
+const showOfflinePlayerLock = computed(
+  () => offline.value && hasAudio.value && !hasResolvedAudio.value && !loading.value,
+)
+/** Spotty online: metadata knows tracks exist but warm/resolve left nothing playable. */
+const showMediaReload = computed(
+  () =>
+    !offline.value &&
+    !loading.value &&
+    !sheetPreparing.value &&
+    !audioWarming.value &&
+    !!detail.value &&
+    availableAudioParts.value.length > 0 &&
+    !hasResolvedAudio.value,
+)
+const tagMediaProgress = computed(() => favorites.tagProgress[Number(props.id)] ?? null)
+const mediaDownloadBusy = computed(
+  () => favorites.busy || favorites.isTagCaching(Number(props.id)),
+)
+const mediaNotice = ref<string | null>(null)
 const nav = computed(() =>
   inPractice.value
     ? practice.neighbors(Number(props.id))
@@ -473,13 +528,37 @@ const queueBlockedReason = computed(() => {
 
 const detailMetaRows = computed(() => (detail.value ? buildTagDetailRows(detail.value) : []))
 
-const pageTitle = computed(() => detail.value?.title ?? summary.value?.title ?? null)
-const pageTitleDisplay = computed(() => pageTitle.value || `Tag ${props.id}`)
-const pageAltTitle = computed(() =>
-  visibleAltTitle(detail.value?.alt_title ?? summary.value?.altTitle, pageTitle.value),
+const pageTitle = computed(() => {
+  const routeId = Number(props.id)
+  // Soft-nav: keep the painted tag's title until the destination commits.
+  if (detail.value && detail.value.tag_id !== routeId) {
+    return detail.value.title ?? null
+  }
+  if (summary.value?.id === routeId && summary.value.title) return summary.value.title
+  if (detail.value?.tag_id === routeId) return detail.value.title ?? null
+  return null
+})
+const pageTitleDisplay = computed(
+  () => pageTitle.value || `Tag ${softNavigating.value ? paintedTagId.value : props.id}`,
 )
+const pageAltTitle = computed(() => {
+  const routeId = Number(props.id)
+  if (detail.value && detail.value.tag_id !== routeId) {
+    return visibleAltTitle(detail.value.alt_title, pageTitle.value)
+  }
+  const alt =
+    summary.value?.id === routeId
+      ? summary.value.altTitle
+      : detail.value?.tag_id === routeId
+        ? detail.value.alt_title
+        : (summary.value?.altTitle ?? detail.value?.alt_title)
+  return visibleAltTitle(alt, pageTitle.value)
+})
+/** Rating / fav chrome follow painted content; pager uses route id via `nav`. */
+const chromeTagId = computed(() => paintedTagId.value)
+const showResultPager = computed(() => nav.value.total > 1 && nav.value.index >= 0)
 const barbershopPageUrl = computed(() =>
-  barbershopTagsTagUrl(Number(props.id), pageTitle.value),
+  barbershopTagsTagUrl(paintedTagId.value, pageTitle.value),
 )
 
 const shareOpen = ref(false)
@@ -585,8 +664,77 @@ function addItemsToQueue(items: QueueTrack[]): void {
 
 
 function onToggleStar(): void {
-  if (!summary.value) return
-  void favorites.toggle(summary.value, detail.value, { metadataOnly: false })
+  const painted = paintedSummary.value ?? summary.value
+  if (!painted) return
+  void favorites.toggle(painted, detail.value, { metadataOnly: false })
+}
+
+const tagMediaNotice = ref<string | null>(null)
+const tagMediaLoadBusy = ref(false)
+
+/** True when the device has no network (Load Sheet/Tracks cannot run). */
+const noNetwork = computed(() => offlineMode.browserOffline)
+
+const tagMediaBusy = computed(
+  () => tagMediaLoadBusy.value || mediaDownloadBusy.value || loading.value,
+)
+
+/**
+ * Download this tag’s sheet and/or lo-fi tracks into the offline packs.
+ * Does not favorite the tag. Stays in Offline mode.
+ */
+async function onLoadTagMedia(kind: 'sheets' | 'audio' | 'all'): Promise<void> {
+  tagMediaNotice.value = null
+  mediaNotice.value = null
+  if (noNetwork.value) {
+    const msg = 'Connect to a network to load this tag’s media.'
+    tagMediaNotice.value = msg
+    mediaNotice.value = msg
+    return
+  }
+  let d = detail.value
+  if (!d) {
+    const msg = 'Tag details aren’t loaded yet.'
+    tagMediaNotice.value = msg
+    mediaNotice.value = msg
+    return
+  }
+  const sheets = kind === 'sheets' || kind === 'all'
+  const audio = kind === 'audio' || kind === 'all'
+  tagMediaLoadBusy.value = true
+  tagMediaNotice.value =
+    kind === 'sheets'
+      ? 'Loading sheet…'
+      : kind === 'audio'
+        ? 'Loading tracks…'
+        : 'Loading sheet and tracks…'
+  mediaNotice.value = tagMediaNotice.value
+  try {
+    const { cacheTagMediaToPacks } = await import('../offline/cacheTagMedia')
+    await cacheTagMediaToPacks(d, {
+      sheets,
+      audio,
+      onProgress: (p) => {
+        tagMediaNotice.value = p.label
+        mediaNotice.value = p.label
+      },
+    })
+    await load()
+    tagMediaNotice.value = null
+    mediaNotice.value = null
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    tagMediaNotice.value = msg
+    mediaNotice.value = msg
+  } finally {
+    tagMediaLoadBusy.value = false
+  }
+}
+
+function onReloadMedia(): void {
+  mediaNotice.value = null
+  tagMediaNotice.value = null
+  void load()
 }
 
 /** When catalog media sync/paths change, quietly refresh favorited offline blobs. */
@@ -604,6 +752,17 @@ watch(
   { flush: 'post' },
 )
 
+/** After background favorite media finishes, reload this tag so sheets/tracks appear. */
+watch(
+  () => favorites.isTagCaching(Number(props.id)),
+  (caching, wasCaching) => {
+    if (wasCaching && !caching) {
+      mediaNotice.value = null
+      void load()
+    }
+  },
+)
+
 
 
 async function onCacheUpgraded(): Promise<void> {
@@ -616,15 +775,10 @@ async function onRetryLoad(): Promise<void> {
 </script>
 
 <template>
-  <p
+  <section
     v-if="(loading && !detail) || (catalog.loading && !detail && !summary)"
-    class="tag-loading"
-    role="status"
-    aria-live="polite"
+    class="tag"
   >
-    Loading…
-  </p>
-  <section v-else-if="detail" class="tag">
     <div class="toprow">
       <div class="toprow-start">
         <button
@@ -635,7 +789,7 @@ async function onRetryLoad(): Promise<void> {
         >{{ backLabel }}</button>
       </div>
       <nav
-        v-if="nav.total > 1 && nav.index >= 0"
+        v-if="showResultPager"
         class="pager toprow-center"
         aria-label="Result navigation"
       >
@@ -670,7 +824,75 @@ async function onRetryLoad(): Promise<void> {
         </span>
       </nav>
       <div class="toprow-end">
-        <TagMyRating :tag-id="detail.tag_id" />
+        <TagMyRating :tag-id="chromeTagId" />
+        <button
+          type="button"
+          class="fav"
+          :aria-pressed="starred"
+          :title="starred ? 'Unfavorite — remove from saved tags' : 'Favorite — save for offline use'"
+          :disabled="!summary"
+          @click="onToggleStar"
+        >
+          <span class="fav-text" :class="{ 'is-hidden': !starred }">
+            <font-awesome-icon :icon="['fas', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorited</span>
+          </span>
+          <span class="fav-text" :class="{ 'is-hidden': starred }">
+            <font-awesome-icon :icon="['far', 'heart']" class="heart-icon" aria-hidden="true" />
+            <span>Favorite</span>
+          </span>
+        </button>
+      </div>
+    </div>
+    <p class="tag-loading" role="status" aria-live="polite">Loading…</p>
+  </section>
+  <section v-else-if="detail" class="tag">
+    <div class="toprow">
+      <div class="toprow-start">
+        <button
+          type="button"
+          class="btn page-back"
+          :title="backLabel"
+          @click="goBack"
+        >{{ backLabel }}</button>
+      </div>
+      <nav
+        v-if="showResultPager"
+        class="pager toprow-center"
+        aria-label="Result navigation"
+      >
+        <RouterLink
+          v-if="nav.prev != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.prev)"
+          title="Previous tag in this list"
+        >
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No previous tag">
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </span>
+        <span class="pos" :title="`${nav.index + 1} of ${nav.total} in current list`">{{ nav.index + 1 }} / {{ nav.total }}</span>
+        <RouterLink
+          v-if="nav.next != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.next)"
+          title="Next tag in this list"
+        >
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No next tag">
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </span>
+      </nav>
+      <div class="toprow-end">
+        <TagMyRating :tag-id="chromeTagId" />
         <button
           type="button"
           class="fav"
@@ -716,41 +938,48 @@ async function onRetryLoad(): Promise<void> {
         @share="openShare()"
       />
       <p class="id-line">
-        <span class="tag-num">Tag #{{ detail.tag_id }}</span>
+        <span class="tag-num">Tag #{{ chromeTagId }}</span>
         <span
-          v-if="bookletBadgeForTag(detail)"
+          v-if="paintedSummary && bookletBadgeForTag(paintedSummary)"
           class="classic-num"
-          :class="'booklet-' + bookletBadgeForTag(detail)!.kind"
-          >{{ bookletBadgeForTag(detail)!.short }}</span
+          :class="'booklet-' + bookletBadgeForTag(paintedSummary)!.kind"
+          >{{ bookletBadgeForTag(paintedSummary)!.short }}</span
         >
-        <span v-if="detail.arranger" class="arranger">{{ detail.arranger }}</span>
+        <span v-if="paintedSummary?.arranger || detail.arranger" class="arranger">{{
+          paintedSummary?.arranger || detail.arranger
+        }}</span>
       </p>
     </header>
     <p
-      v-if="offline && detail && hasAudio && !hasOfflinePlayback && !starred"
+      v-if="mediaNotice"
       class="warn"
       role="status"
     >
-      Learning tracks for this tag aren’t cached yet. Favorite this tag while online, or open Offline
-      settings to download the audio library.
+      {{ mediaNotice }}
     </p>
     <p
-      v-else-if="offline && detail && hasAudio && !hasOfflinePlayback && starred"
+      v-else-if="showMediaReload"
       class="warn"
       role="status"
     >
-      No audio cached for this favorited tag. We’ll retry caching when you’re back online, or open
-      Offline settings.
+      Some media didn’t finish loading (spotty connection).
+      <button type="button" class="btn btn-ghost" :disabled="loading" @click="onReloadMedia">
+        Reload media
+      </button>
     </p>
-    <p
-      v-if="offline && detail && hasAudio && !hasOfflinePlayback"
-      class="warn-actions"
+    <div
+      v-if="favorites.progress || tagMediaProgress"
+      class="progress"
+      role="status"
+      aria-live="polite"
     >
-      <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
-    </p>
-    <div v-if="favorites.progress" class="progress" role="status" aria-live="polite">
-      <div class="bar" :style="{ width: `${Math.round(favorites.progress.ratio * 100)}%` }" />
-      <span>{{ favorites.progress.label }}</span>
+      <div
+        class="bar"
+        :style="{
+          width: `${Math.round((favorites.progress ?? tagMediaProgress)!.ratio * 100)}%`,
+        }"
+      />
+      <span>{{ (favorites.progress ?? tagMediaProgress)!.label }}</span>
     </div>
 
     <section class="section pitch-section" aria-labelledby="pitch-heading">
@@ -773,7 +1002,7 @@ async function onRetryLoad(): Promise<void> {
         <span class="sheet-section-title">Sheet music</span>
         <span class="sheet-section-fs-slot">
           <button
-            v-if="hasSheetContent && !sheetFullscreenActive && !tracksFullscreenActive"
+            v-if="showSheetViewer && !sheetFullscreenActive && !tracksFullscreenActive"
             type="button"
             class="sheet-section-fs"
             aria-label="Fullscreen sheet"
@@ -791,7 +1020,10 @@ async function onRetryLoad(): Promise<void> {
       </summary>
       <div
         class="section-body sheet-slot"
-        :class="{ 'is-pending': sheetPreparing && (sheetAssets.imageSets.length || sheetAssets.pdfs.length || !detail) }"
+        :class="{
+          'is-pending': sheetPreparing && (sheetAssets.imageSets.length || sheetAssets.pdfs.length || !detail),
+          'is-offline-cta': showOfflineSheetCta,
+        }"
       >
         <p
           v-if="sheetPreparing && !(sheetAssets.imageSets.length || sheetAssets.pdfs.length)"
@@ -802,7 +1034,7 @@ async function onRetryLoad(): Promise<void> {
           Preparing sheet…
         </p>
         <SheetViewer
-          v-if="sheetAssets.imageSets.length || sheetAssets.pdfs.length"
+          v-else-if="showSheetViewer"
           ref="sheetViewerRef"
           :image-sets="sheetAssets.imageSets"
           :pdfs="sheetAssets.pdfs"
@@ -832,6 +1064,19 @@ async function onRetryLoad(): Promise<void> {
           @share="onFullscreenShare"
           @exit-origin="onFullscreenExitOrigin"
         />
+        <div v-else-if="showOfflineSheetCta" class="sheet-load-placeholder" role="status">
+          <p class="sheet-load-placeholder-copy">Sheet isn’t on this device.</p>
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="tagMediaBusy || noNetwork"
+            title="Download this tag’s sheet at cache quality"
+            @click="onLoadTagMedia('sheets')"
+          >
+            {{ tagMediaBusy ? 'Loading…' : 'Load Sheet' }}
+          </button>
+          <p v-if="noNetwork" class="sheet-load-placeholder-hint">No network — reconnect to load.</p>
+        </div>
         <p
           v-else-if="!sheetPreparing && openSheetFullscreen"
           class="text-muted tip"
@@ -864,37 +1109,55 @@ async function onRetryLoad(): Promise<void> {
           </button>
         </span>
       </summary>
-      <div class="section-body tracks-slot" :class="{ 'has-player': hasAudio }">
-        <TagPlayer
-          v-if="hasAudio"
-          ref="tagPlayerRef"
-          :key="id"
-          :parts="audioParts"
-          :available-parts="availableAudioParts"
-          :resolve-part="resolvePart"
-          :pending="audioPending"
-          :title="detail.title || undefined"
-          :pitch-semitones="keyShift"
-          :detune-cents="mixDetuneCents"
-          :song-key="keyDisplay || undefined"
-          :audio-layout-summary="detail.audio_layout_summary"
-          :audio-layouts="detail.audio_layouts"
-          :exit-origin-label="exitOriginLabel"
-          :pay-key-enabled="canPayKey"
-          @transform="playerTransform = $event"
-          @update:pitch-semitones="keyShift = $event"
-          @ended="onTrackEnded"
-          @fullscreen-change="onTracksFullscreenChange"
-          @exit-origin="onFullscreenExitOrigin"
-          @pay-down="payKeyDown"
-          @pay-up="payKeyUp"
-        />
+      <div
+        class="section-body tracks-slot"
+        :class="{ 'has-player': hasAudio, 'has-media-lock': showOfflinePlayerLock }"
+      >
+        <div v-if="hasAudio" class="tracks-media">
+          <TagPlayer
+            ref="tagPlayerRef"
+            :tag-id="detail.tag_id"
+            :parts="audioParts"
+            :available-parts="availableAudioParts"
+            :resolve-part="resolvePart"
+            :pending="audioPending"
+            :media-locked="showOfflinePlayerLock"
+            :title="detail.title || undefined"
+            :pitch-semitones="keyShift"
+            :detune-cents="mixDetuneCents"
+            :song-key="keyDisplay || undefined"
+            :audio-layout-summary="detail.audio_layout_summary"
+            :audio-layouts="detail.audio_layouts"
+            :exit-origin-label="exitOriginLabel"
+            :pay-key-enabled="canPayKey"
+            @transform="playerTransform = $event"
+            @update:pitch-semitones="keyShift = $event"
+            @ended="onTrackEnded"
+            @fullscreen-change="onTracksFullscreenChange"
+            @exit-origin="onFullscreenExitOrigin"
+            @pay-down="payKeyDown"
+            @pay-up="payKeyUp"
+          />
+          <div v-if="showOfflinePlayerLock" class="media-lock-overlay" role="status">
+            <p class="offline-media-cta-copy">Tracks aren’t on this device.</p>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="tagMediaBusy || noNetwork"
+              title="Download this tag’s lo-fi learning tracks"
+              @click="onLoadTagMedia('audio')"
+            >
+              {{ tagMediaBusy ? 'Loading…' : 'Load Tracks' }}
+            </button>
+            <p v-if="noNetwork" class="sheet-load-placeholder-hint">No network — reconnect to load.</p>
+          </div>
+        </div>
         <EmptyState
           v-else-if="!loading && !hasAudio"
           title="No audio available"
           :message="
             offline
-              ? 'This tag has no learning tracks in the catalog, or none are cached on this device.'
+              ? 'This tag has no learning tracks in the catalog, or none are listed in the index.'
               : 'This tag has no learning tracks cached or on the server.'
           "
         />
@@ -942,7 +1205,7 @@ async function onRetryLoad(): Promise<void> {
         >{{ backLabel }}</button>
       </div>
       <nav
-        v-if="nav.total > 1 && nav.index >= 0"
+        v-if="showResultPager"
         class="pager toprow-center"
         aria-label="Result navigation"
       >
@@ -977,6 +1240,7 @@ async function onRetryLoad(): Promise<void> {
         </span>
       </nav>
       <div class="toprow-end">
+        <TagMyRating :tag-id="chromeTagId" />
         <button
           type="button"
           class="fav"
@@ -1054,42 +1318,123 @@ async function onRetryLoad(): Promise<void> {
     </section>
 
     <EmptyState
-      :title="offline ? 'Sheets and audio not on this device' : 'Could not load full tag'"
+      :title="offline ? 'Not available offline' : 'Could not load full tag'"
       :message="
         offline
-          ? 'Catalog info is shown from memory. Connect to the network to load sheets and tracks — or download the songbook / favorite this tag while online.'
+          ? offlineMode.browserOffline
+            ? 'This tag’s details aren’t on the device, and there’s no network to fetch them.'
+            : 'Couldn’t load this tag’s details. Check your connection and try again.'
           : error || 'Retry when you have a connection, or open Offline settings to cache the library.'
       "
       tone="danger"
     >
       <div class="partial-actions">
-        <button type="button" class="btn" :disabled="loading" @click="onRetryLoad">
+        <button type="button" class="btn" :disabled="loading || noNetwork" @click="onRetryLoad">
           {{ loading ? 'Retrying…' : 'Retry' }}
         </button>
-        <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
+        <RouterLink v-if="!offline" class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
       </div>
-      <p v-if="offline" class="hint-auto">Will retry automatically when you’re back online.</p>
+      <p v-if="tagMediaNotice" class="hint-auto" role="status">{{ tagMediaNotice }}</p>
     </EmptyState>
   </section>
-  <EmptyState
+  <section
     v-else-if="offline && !catalog.loading && !summary && !loading"
-    title="You're offline"
-    message="This tag isn’t in the local catalog cache. Open Browse if the catalog loaded, or reconnect once to refresh indexes."
-    tone="danger"
+    class="tag"
   >
-    <RouterLink class="btn" to="/">Back to browse</RouterLink>
-  </EmptyState>
-  <EmptyState
-    v-else-if="error"
-    title="Could not load tag"
-    :message="error"
-    tone="danger"
-  >
-    <div class="partial-actions">
-      <button type="button" class="btn" :disabled="loading" @click="onRetryLoad">Retry</button>
-      <RouterLink class="btn" to="/">Back to browse</RouterLink>
+    <div class="toprow">
+      <div class="toprow-start">
+        <button type="button" class="btn page-back" :title="backLabel" @click="goBack">{{ backLabel }}</button>
+      </div>
+      <nav v-if="showResultPager" class="pager toprow-center" aria-label="Result navigation">
+        <RouterLink
+          v-if="nav.prev != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.prev)"
+          title="Previous tag in this list"
+        >
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No previous tag">
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </span>
+        <span class="pos" :title="`${nav.index + 1} of ${nav.total} in current list`">{{ nav.index + 1 }} / {{ nav.total }}</span>
+        <RouterLink
+          v-if="nav.next != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.next)"
+          title="Next tag in this list"
+        >
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No next tag">
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </span>
+      </nav>
+      <div class="toprow-end" />
     </div>
-  </EmptyState>
+    <EmptyState
+      title="You're offline"
+      message="This tag isn’t in the local catalog cache. Open Browse if the catalog loaded, or reconnect once to refresh indexes."
+      tone="danger"
+    >
+      <RouterLink class="btn" to="/">Back to browse</RouterLink>
+    </EmptyState>
+  </section>
+  <section v-else-if="error" class="tag">
+    <div class="toprow">
+      <div class="toprow-start">
+        <button type="button" class="btn page-back" :title="backLabel" @click="goBack">{{ backLabel }}</button>
+      </div>
+      <nav v-if="showResultPager" class="pager toprow-center" aria-label="Result navigation">
+        <RouterLink
+          v-if="nav.prev != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.prev)"
+          title="Previous tag in this list"
+        >
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No previous tag">
+          <span class="pager-full">← Prev</span>
+          <span class="pager-short" aria-hidden="true">←</span>
+        </span>
+        <span class="pos" :title="`${nav.index + 1} of ${nav.total} in current list`">{{ nav.index + 1 }} / {{ nav.total }}</span>
+        <RouterLink
+          v-if="nav.next != null"
+          class="btn"
+          replace
+          :to="tagLink(nav.next)"
+          title="Next tag in this list"
+        >
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </RouterLink>
+        <span v-else class="btn disabled" aria-disabled="true" title="No next tag">
+          <span class="pager-full">Next →</span>
+          <span class="pager-short" aria-hidden="true">→</span>
+        </span>
+      </nav>
+      <div class="toprow-end" />
+    </div>
+    <EmptyState
+      title="Could not load tag"
+      :message="error"
+      tone="danger"
+    >
+      <div class="partial-actions">
+        <button type="button" class="btn" :disabled="loading" @click="onRetryLoad">Retry</button>
+        <RouterLink class="btn" to="/">Back to browse</RouterLink>
+      </div>
+    </EmptyState>
+  </section>
 
   <TagShareSheet
     :open="shareOpen"
@@ -1493,6 +1838,82 @@ async function onRetryLoad(): Promise<void> {
 /* Hold Tracks height only when the player is present (not EmptyState). */
 .tracks-slot.has-player {
   min-height: 22.5rem;
+}
+.tracks-media {
+  position: relative;
+  min-width: 0;
+}
+.media-lock-overlay {
+  position: absolute;
+  inset: 3.25rem 0 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(1px);
+  border-radius: var(--radius);
+}
+.offline-media-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: min(40vh, 22rem);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+.offline-media-cta-copy {
+  margin: 0;
+  color: var(--muted);
+  max-width: 22rem;
+  line-height: 1.4;
+}
+/* ~65% of median sheet preview (~800×460) — compact empty frame for Load Sheet. */
+.sheet-load-placeholder {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0.35rem auto 0;
+  aspect-ratio: 800 / 300;
+  min-height: 9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--surface) 92%, var(--muted)) 0%,
+      color-mix(in srgb, var(--bg) 88%, var(--surface)) 100%
+    );
+}
+.sheet-load-placeholder-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.sheet-load-placeholder-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.sheet-slot.is-offline-cta {
+  min-height: 0;
 }
 /* Hold space while sheet decodes so Tracks do not jump up on online reload. */
 .sheet-slot.is-pending {

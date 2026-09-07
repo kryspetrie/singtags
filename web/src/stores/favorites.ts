@@ -24,7 +24,7 @@ import {
 } from '../offline/favoritesDb'
 import { isFavoriteMediaStale } from '../lib/mediaCacheKey'
 import { tagDetailUrl } from '../lib/mediaUrl'
-import { fetchCached } from '../lib/manualOfflineFetch'
+import { fetchCached, withOfflineNetworkAllow } from '../lib/manualOfflineFetch'
 import { sheetOfflinePaths, summarySheetPages } from '../lib/sheetPaths'
 import { packHasAnySheets } from '../offline/resolveMedia'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
@@ -421,36 +421,81 @@ export const useFavoritesStore = defineStore('favorites', () => {
     }
   }
 
-  async function updateOfflineMedia(tagId: number, detail: TagDetail | null): Promise<void> {
+  /**
+   * Download cache-quality media for an **already favorited** tag into favorite blobs.
+   * Does not create a favorite — Load Sheet/Tracks use pack caching instead.
+   */
+  async function cacheTagOfflineMedia(
+    summary: TagSummary,
+    detail: TagDetail | null,
+    opts: { sheets?: boolean; audio?: boolean } = {},
+  ): Promise<void> {
+    const wantSheets = opts.sheets !== false
+    const wantAudio = opts.audio !== false
+    if (!wantSheets && !wantAudio) return
+
     busy.value = true
     error.value = null
     lastNotice.value = null
     progress.value = null
+    const tagId = summary.id
+    const gen = nextTagGen(tagId)
+    try {
+      await withOfflineNetworkAllow(async () => {
+        await ensureLoaded()
+        const existing = await getStarred(tagId)
+        if (!existing) {
+          throw new Error('Tag is not favorited')
+        }
+        let d = detail ?? existing.detail
+        if (!d) {
+          const res = await fetchCached(tagDetailUrl(tagId))
+          if (!res.ok) throw new Error(`Could not load tag detail (${res.status})`)
+          d = (await res.json()) as TagDetail
+        }
+        if (!isTagJobCurrent(tagId, gen)) return
+
+        let skipSheets = !wantSheets
+        if (wantSheets) {
+          skipSheets = await packHasAnySheets(sheetOfflinePaths(d)).catch(() => false)
+        }
+        const skipAudio = !wantAudio
+        const rec = await refreshStarMedia(existing, d, {
+          skipSheets,
+          skipAudio,
+          audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
+          onProgress: (p) => {
+            if (!isTagJobCurrent(tagId, gen)) return
+            progress.value = p
+            setTagProgress(tagId, p)
+          },
+        })
+        if (!isTagJobCurrent(tagId, gen)) return
+        applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
+        lastNotice.value = noticeFromFavoriteRecord(rec, summary, d, { skipSheets })
+      })
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : String(e)
+      throw e
+    } finally {
+      if (isTagJobCurrent(tagId, gen)) setTagProgress(tagId, null)
+      busy.value = false
+      progress.value = null
+    }
+  }
+
+  async function updateOfflineMedia(
+    tagId: number,
+    detail: TagDetail | null,
+    opts: { sheets?: boolean; audio?: boolean } = {},
+  ): Promise<void> {
     try {
       await ensureLoaded()
       const existing = await getStarred(tagId)
       if (!existing) throw new Error('Tag is not favorited')
-      let d = detail ?? existing.detail
-      if (!d) {
-        const res = await fetchCached(tagDetailUrl(tagId))
-        if (!res.ok) throw new Error(`Could not load tag detail (${res.status})`)
-        d = (await res.json()) as TagDetail
-      }
-      const skipSheets = await packHasAnySheets(sheetOfflinePaths(d)).catch(() => false)
-      const rec = await refreshStarMedia(existing, d, {
-        skipSheets,
-        audioQuality: DEVICE_AUDIO_STORAGE_QUALITY,
-        onProgress: (p) => {
-          progress.value = p
-        },
-      })
-      applyRecords([rec, ...records.value.filter((r) => r.tagId !== tagId)])
-      lastNotice.value = noticeFromFavoriteRecord(rec, existing.summary, d, { skipSheets })
+      await cacheTagOfflineMedia(existing.summary, detail ?? existing.detail, opts)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      busy.value = false
-      progress.value = null
     }
   }
 
@@ -550,6 +595,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     ensureAudioForStarred,
     ensureAudioForAllStarred,
     updateOfflineMedia,
+    cacheTagOfflineMedia,
     refreshOfflineMediaIfStale,
     unstar,
     clearCollectionPicker,

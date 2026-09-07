@@ -17,11 +17,15 @@ from urllib.parse import quote
 
 SITE_ROOT = Path(__file__).resolve().parents[1]
 _SYNC_ROOT = SITE_ROOT / "sync"
-if str(_SYNC_ROOT) not in sys.path:
-    sys.path.insert(0, str(_SYNC_ROOT))
+_BUILD_ROOT = Path(__file__).resolve().parent
+for _p in (_SYNC_ROOT, _BUILD_ROOT):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from lib.complete import has_usable_media  # noqa: E402
 from lib.names import normalize_arranger  # noqa: E402
+
+from audio_playable import is_web_playable_audio_file  # noqa: E402
 
 # Bidirectional lyric expansions (pre-fold forms → meaning variants).
 BASE_EXPANSIONS: dict[str, list[str]] = {
@@ -177,29 +181,55 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
                     break
         if not fname:
             continue
-        orig_path = lib_url(folder.name, fname)
-        audio[part] = orig_path
-        tiers: dict[str, str] = {"original": orig_path}
+        local = folder / fname
+        # MIDI / WMA saved as Mix.bin (and similar) are not Web Audio–playable.
+        # Keep a part only when the original or a derived tier is browser-safe.
         playback = find_tier_file(folder, fname, part, "playback")
-        if playback:
+        orig_ok = is_web_playable_audio_file(local)
+        playback_ok = bool(playback) and is_web_playable_audio_file(folder / playback)
+        if not orig_ok and not playback_ok:
+            continue
+        orig_path = lib_url(folder.name, fname)
+        if orig_ok:
+            audio[part] = orig_path
+        elif playback:
+            audio[part] = lib_url(folder.name, playback)
+        else:
+            continue
+        tiers: dict[str, str] = {}
+        if orig_ok:
+            tiers["original"] = orig_path
+        if playback_ok and playback:
             tiers["playback"] = lib_url(folder.name, playback)
         if part == "mix":
             ultra_mix = find_tier_file(folder, fname, "ultra mix") or find_tier_file(
                 folder, fname, part, "ultra"
             )
-            if ultra_mix:
+            if ultra_mix and is_web_playable_audio_file(folder / ultra_mix):
                 tiers["ultra_mix"] = lib_url(folder.name, ultra_mix)
         else:
             # Library uses "Lead - Solo.opus" (not lead.solo.opus / *ultra*).
             solo = find_tier_file(folder, fname, part, "solo")
-            if solo:
+            if solo and is_web_playable_audio_file(folder / solo):
                 tiers["ultra_solo"] = lib_url(folder.name, solo)
             downmix = find_tier_file(folder, fname, part, "downmix")
-            if downmix:
+            if downmix and is_web_playable_audio_file(folder / downmix):
                 tiers["ultra_downmix"] = lib_url(folder.name, downmix)
             ultra = find_tier_file(folder, fname, part, "ultra")
-            if ultra and ultra != solo and ultra != downmix:
+            if (
+                ultra
+                and ultra != solo
+                and ultra != downmix
+                and is_web_playable_audio_file(folder / ultra)
+            ):
                 tiers["ultra_stereo"] = lib_url(folder.name, ultra)
+        if not tiers:
+            # Should be unreachable given orig_ok / playback_ok, but stay safe.
+            audio.pop(part, None)
+            continue
+        if part not in audio:
+            # Prefer any remaining tier path for the flat audio map.
+            audio[part] = next(iter(tiers.values()))
         audio_tiers[part] = tiers
 
     sheet_name = part_filename(parts, "sheet")
