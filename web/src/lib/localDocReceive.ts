@@ -166,14 +166,27 @@ export function formatLocalSizeWarn(bytes: number): string | null {
   return `About ${mb} MB — may be slow or fail over optical transfer.`
 }
 
+/**
+ * Soft size warning text for an entry’s total bytes (no toast).
+ * Callers decide whether to surface via snackbar.
+ */
+export function sizeWarnForLocalBytes(byteTotal: number): string | null {
+  return formatLocalSizeWarn(byteTotal)
+}
+
+/**
+ * @deprecated Prefer {@link sizeWarnForLocalBytes} + caller-owned snackbar.
+ * Kept as a thin alias that still toasts for any stray callers.
+ */
 export function maybeWarnLocalEntrySize(byteTotal: number): void {
-  const msg = formatLocalSizeWarn(byteTotal)
+  const msg = sizeWarnForLocalBytes(byteTotal)
   if (!msg) return
   useSnackbarStore().show(msg, { tone: 'info', ms: 5000 })
 }
 
 /**
  * After a successful import/replace: snackbar Open + Add to group (when groups exist).
+ * UI concern — stays here as a thin helper until callers own toast composition.
  */
 export function notifyLocalLibraryImport(
   router: Router,

@@ -9,7 +9,7 @@
  * Optional {@link DownloadQueueOptions.inflight} shares a global network-fetch cap across packs.
  */
 
-import { isNonAudioPayload } from '../audio/audioBytes'
+import { isNonAudioPayload, sniffAudioMagic } from '../audio/audioBytes'
 import type { OfflinePackStore } from './libraryPack'
 import { InflightLimiter } from './downloadConcurrency'
 
@@ -34,16 +34,30 @@ export function isEmptyMediaBody(buf: ArrayBuffer): boolean {
 /**
  * True when a cached/fetched body is safe to keep as media.
  *
- * Rejects HTML/JSON/XML bodies and payloads flagged by {@link isNonAudioPayload}.
+ * Rejects HTML/JSON/XML *bodies* and known non-Web-Audio containers (MIDI/ASF).
+ * Trusts audio magic bytes over a wrong Content-Type (S3/CDN sometimes labels
+ * Opus as `text/html` or `application/octet-stream` after an SPA miss).
  * Do not use for sheet-pack `metadata.json` — see {@link isCatalogJsonPath}.
  */
 export function isPlausibleMediaBody(buf: ArrayBuffer, contentType = ''): boolean {
+  if (isEmptyMediaBody(buf) || bodyLooksLikeHtml(buf)) return false
+  if (isNonAudioPayload(buf)) return false
+  const magic = sniffAudioMagic(buf)
+  if (magic === 'midi' || magic === 'asf') return false
+  // Clear audio containers win even when Content-Type is wrong/missing.
+  if (
+    magic === 'ogg' ||
+    magic === 'mpeg' ||
+    magic === 'mp4' ||
+    magic === 'wav' ||
+    magic === 'aac-adts'
+  ) {
+    return true
+  }
+  // Unknown magic (e.g. WebP sheets): deny document Content-Types only.
   if (/text\/html|application\/json|text\/plain|application\/xml|text\/xml/i.test(contentType)) {
     return false
   }
-  if (isEmptyMediaBody(buf) || bodyLooksLikeHtml(buf)) return false
-  // Also reject JSON/XML SPA/API bodies even when Content-Type is wrong/missing.
-  if (isNonAudioPayload(buf)) return false
   return true
 }
 

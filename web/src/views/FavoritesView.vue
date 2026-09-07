@@ -43,11 +43,7 @@ import { useQueueStore } from '../stores/queue'
 import { useSnackbarStore } from '../stores/snackbar'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { queueSelectedTags, type QueueDownloadMode } from '../lib/queueSelectedTags'
-import { tagDetailUrl } from '../lib/mediaUrl'
-import { fetchCached } from '../lib/manualOfflineFetch'
-import { sheetsPack } from '../offline/libraryPack'
-import { getStarred } from '../offline/favoritesDb'
-import type { TagDetail } from '../types/tag'
+import { loadTagDetailCached } from '../lib/loadTagDetailCached'
 
 const favorites = useFavoritesStore()
 const catalog = useCatalogStore()
@@ -259,24 +255,11 @@ function onRowClickCapture(e: MouseEvent): void {
   suppressRowClick = false
 }
 
-/** Tag metadata for queueing — in-memory favorite, cache, pack, or IndexedDB detail. */
-async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
+/** Prefer in-memory favorite detail, then the shared cache/pack/IDB ladder. */
+async function loadTagDetailForQueue(id: number) {
   const rec = favorites.records.find((r) => r.tagId === id)
   if (rec?.detail) return rec.detail
-  try {
-    const res = await fetchCached(tagDetailUrl(id))
-    if (res.ok) return (await res.json()) as TagDetail
-  } catch {
-    /* try pack / favorites record */
-  }
-  try {
-    const packed = await sheetsPack.get(tagDetailUrl(id))
-    if (packed) return (await packed.json()) as TagDetail
-  } catch {
-    /* try favorites IndexedDB */
-  }
-  const starred = await getStarred(id)
-  return starred?.detail ?? null
+  return loadTagDetailCached(id)
 }
 
 async function addSelectedToQueue(mode: QueueDownloadMode): Promise<void> {

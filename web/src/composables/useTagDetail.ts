@@ -651,8 +651,15 @@ export function useTagDetail(id: Ref<string> | string) {
       // Replace audio in the same turn as detail so TagPlayer never mounts with a
       // previous tag’s URLs (that caused 404s on sheet-only tags like #214).
       const audioSources = seedStarredAudio(cached, d, offlineOnly)
+      // Offline: only parts that probe as playable (pack/star). Do not merge raw
+      // catalog keys — that showed Lead/Tenor tabs with no resolvable offline bytes.
+      // Online: include catalog parts so tabs appear before network warm finishes.
       const nextAvailable = sortPartIds([
-        ...new Set([...probed, ...Object.keys(audioParts.value), ...listAudioParts(d)]),
+        ...new Set([
+          ...probed,
+          ...Object.keys(audioParts.value),
+          ...(offlineOnly ? [] : listAudioParts(d)),
+        ]),
       ])
       detail.value = d
       cachedSheetPages.value = trackedPages

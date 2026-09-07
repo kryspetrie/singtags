@@ -39,11 +39,20 @@ describe('DownloadQueue', () => {
       await import('./downloadQueue')
     const html = new TextEncoder().encode('<!DOCTYPE html><html><body>x</body></html>').buffer
     const json = new TextEncoder().encode('{"ok":true,"n":1}').buffer
-    const ok = new Uint8Array(96).fill(0xff).buffer
+    // Unknown magic (not ADTS/Ogg/…) — Content-Type still matters.
+    const unknown = new Uint8Array(96).fill(0x00).buffer
+    const ogg = new Uint8Array(96)
+    ogg[0] = 0x4f
+    ogg[1] = 0x67
+    ogg[2] = 0x67
+    ogg[3] = 0x53
     expect(isPlausibleMediaBody(html)).toBe(false)
     expect(isPlausibleMediaBody(json)).toBe(false)
-    expect(isPlausibleMediaBody(ok, 'application/json')).toBe(false)
-    expect(isPlausibleMediaBody(ok, 'image/webp')).toBe(true)
+    expect(isPlausibleMediaBody(unknown, 'application/json')).toBe(false)
+    expect(isPlausibleMediaBody(unknown, 'image/webp')).toBe(true)
+    // Valid Opus/Ogg must win over a wrong SPA Content-Type.
+    expect(isPlausibleMediaBody(ogg.buffer, 'text/html')).toBe(true)
+    expect(isPlausibleMediaBody(ogg.buffer, 'application/json')).toBe(true)
 
     expect(isCatalogJsonPath('/tags/1/metadata.json')).toBe(true)
     expect(isCatalogJsonPath('tags/1/metadata.json')).toBe(true)

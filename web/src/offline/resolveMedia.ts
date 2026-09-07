@@ -32,9 +32,14 @@ import {
   buildUltraMixObjectUrl,
   monoSoloToHardPanObjectUrl,
 } from '../audio/partLeftReconstruct'
+import { isNonAudioPayload, sniffAudioMagic } from '../audio/audioBytes'
 import { blobUrlFromCached, getStarred, type StarredTagRecord } from './favoritesDb'
 import { audioPack, sheetsPack } from './libraryPack'
-import { isPlausibleMediaBody } from './downloadQueue'
+import {
+  bodyLooksLikeHtml,
+  isEmptyMediaBody,
+  isPlausibleMediaBody,
+} from './downloadQueue'
 
 /** Result of resolving a sheet path or audio part to a playable URL. */
 export type ResolvedMedia =
@@ -97,12 +102,21 @@ async function packBlobFromResponse(
   res: Response,
 ): Promise<string | null> {
   const buf = await res.arrayBuffer()
-  const mime = res.headers.get('Content-Type') || 'application/octet-stream'
-  // Drop SPA HTML that was cached when missing /library files returned index.html.
+  let mime = res.headers.get('Content-Type') || 'application/octet-stream'
+  // Drop SPA HTML / empty poison that was cached when missing /library files
+  // returned index.html — but never wipe valid Opus/M4A over a wrong Content-Type
+  // (that used to delete Lead while Mix reconstruct still succeeded from siblings).
   if (!isPlausibleMediaBody(buf, mime)) {
-    await pack.delete(key)
+    if (isEmptyMediaBody(buf) || bodyLooksLikeHtml(buf) || isNonAudioPayload(buf)) {
+      await pack.delete(key)
+    }
     return null
   }
+  const magic = sniffAudioMagic(buf)
+  if (magic === 'ogg') mime = 'audio/ogg'
+  else if (magic === 'mp4') mime = 'audio/mp4'
+  else if (magic === 'mpeg' || magic === 'aac-adts') mime = 'audio/mpeg'
+  else if (magic === 'wav') mime = 'audio/wav'
   return URL.createObjectURL(new Blob([buf], { type: mime }))
 }
 

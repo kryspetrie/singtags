@@ -19,11 +19,8 @@ import { useOnline } from '../composables/useOnline'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
 import { queueSelectedTags, type QueueDownloadMode } from '../lib/queueSelectedTags'
-import { tagDetailUrl } from '../lib/mediaUrl'
-import { fetchCached } from '../lib/manualOfflineFetch'
-import { sheetsPack } from '../offline/libraryPack'
-import { getStarred } from '../offline/favoritesDb'
-import type { TagDetail, TagSummary } from '../types/tag'
+import { loadTagDetailCached } from '../lib/loadTagDetailCached'
+import type { TagSummary } from '../types/tag'
 
 const catalog = useCatalogStore()
 const favorites = useFavoritesStore()
@@ -160,30 +157,12 @@ function onRowClickCapture(e: MouseEvent): void {
   suppressRowClick = false
 }
 
-/** Tag metadata for queueing — Cache API, sheets pack, or favorites detail. */
-async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
-  try {
-    const res = await fetchCached(tagDetailUrl(id))
-    if (res.ok) return (await res.json()) as TagDetail
-  } catch {
-    /* try pack / favorites record */
-  }
-  try {
-    const packed = await sheetsPack.get(tagDetailUrl(id))
-    if (packed) return (await packed.json()) as TagDetail
-  } catch {
-    /* try favorites IndexedDB */
-  }
-  const starred = await getStarred(id)
-  return starred?.detail ?? null
-}
-
 async function addSelectedToQueue(mode: QueueDownloadMode): Promise<void> {
   const result = await queueSelectedTags({
     ids: selectedIds.value,
     mode,
     offline: offline.value,
-    loadDetail: loadTagDetailForQueue,
+    loadDetail: loadTagDetailCached,
     addMany: (items) => queue.addMany(items),
   })
   snackbar.show(result.message, { tone: result.ok ? 'ok' : 'info' })

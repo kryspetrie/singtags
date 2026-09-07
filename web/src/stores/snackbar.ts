@@ -13,9 +13,32 @@ export type SnackbarAction = {
   onClick: () => void
 }
 
+type ShowOpts = {
+  tone?: SnackbarTone
+  /** Optional headline above `msg` (centered mode toasts). */
+  title?: string
+  /** Mobile-friendly centered card (e.g. Sing mode from the More menu). */
+  placement?: SnackbarPlacement
+  /** Auto-dismiss delay; 0 = stay until dismissed. Default 10s for errors, 5s otherwise. */
+  ms?: number
+  onDismiss?: () => void
+  action?: SnackbarAction
+  secondaryAction?: SnackbarAction
+}
+
+type QueuedToast = {
+  msg: string
+  opts?: ShowOpts
+}
+
 /**
  * App-wide snackbar (toast) for transient messages — completed actions (ok/info)
  * and errors that should not sit permanently in page body copy.
+ *
+ * Policy (single visible toast, no stack UI):
+ * - New `error` always replaces the current toast immediately.
+ * - While an `error` is showing, non-error toasts enqueue (cap 3) and play after dismiss.
+ * - Non-error while showing non-error still replaces immediately (same as before).
  */
 export const useSnackbarStore = defineStore('snackbar', () => {
   const message = ref<string | null>(null)
@@ -32,56 +55,21 @@ export const useSnackbarStore = defineStore('snackbar', () => {
   let onDismissCb: (() => void) | null = null
   let actionCb: (() => void) | null = null
   let secondaryActionCb: (() => void) | null = null
+  /** Non-error toasts waiting while an error is visible (FIFO, cap 3). */
+  const pending: QueuedToast[] = []
+  const PENDING_CAP = 3
+  /** Suppress dequeue while applying a queued toast (avoid re-entrant queue). */
+  let applyingQueued = false
 
-  /** Hide the snackbar, clear the auto-dismiss timer, and run any `onDismiss` callback. */
-  function dismiss(): void {
+  function clearTimer(): void {
     if (timer) {
       clearTimeout(timer)
       timer = null
     }
-    message.value = null
-    title.value = null
-    placement.value = 'default'
-    actionLabel.value = null
-    secondaryActionLabel.value = null
-    actionCb = null
-    secondaryActionCb = null
-    autoDismissMs.value = 0
-    const cb = onDismissCb
-    onDismissCb = null
-    cb?.()
   }
 
-  /**
-   * Show a transient message. Replaces any visible snackbar and resets its timer.
-   *
-   * @param msg - Body text (second line when `title` is set).
-   * @param opts.title - Optional headline (e.g. centered mode toasts).
-   * @param opts.tone - Visual style (`info`, `ok`, `error`). Default `info`.
-   * @param opts.ms - Auto-dismiss delay; `0` stays until dismissed. Default 10s errors, 5s otherwise (8s with action).
-   * @param opts.onDismiss - Called once when the snackbar is dismissed (manual or timeout).
-   * @param opts.action - Optional primary button; cleared when dismissed.
-   * @param opts.secondaryAction - Optional second button (e.g. Add to group).
-   */
-  function show(
-    msg: string,
-    opts?: {
-      tone?: SnackbarTone
-      /** Optional headline above `msg` (centered mode toasts). */
-      title?: string
-      /** Mobile-friendly centered card (e.g. Sing mode from the More menu). */
-      placement?: SnackbarPlacement
-      /** Auto-dismiss delay; 0 = stay until dismissed. Default 10s for errors, 5s otherwise. */
-      ms?: number
-      onDismiss?: () => void
-      action?: SnackbarAction
-      secondaryAction?: SnackbarAction
-    },
-  ): void {
-    if (timer) {
-      clearTimeout(timer)
-      timer = null
-    }
+  function applyShow(msg: string, opts?: ShowOpts): void {
+    clearTimer()
     const nextTone = opts?.tone ?? 'info'
     message.value = msg
     title.value = opts?.title ?? null
@@ -101,6 +89,70 @@ export const useSnackbarStore = defineStore('snackbar', () => {
     if (ms > 0) {
       timer = setTimeout(() => dismiss(), ms)
     }
+  }
+
+  function enqueueNonError(msg: string, opts?: ShowOpts): void {
+    if (pending.length >= PENDING_CAP) pending.shift()
+    pending.push({ msg, opts })
+  }
+
+  function dequeueNext(): void {
+    const next = pending.shift()
+    if (!next) return
+    applyingQueued = true
+    try {
+      applyShow(next.msg, next.opts)
+    } finally {
+      applyingQueued = false
+    }
+  }
+
+  /** Hide the snackbar, clear the auto-dismiss timer, and run any `onDismiss` callback. */
+  function dismiss(): void {
+    clearTimer()
+    message.value = null
+    title.value = null
+    placement.value = 'default'
+    actionLabel.value = null
+    secondaryActionLabel.value = null
+    actionCb = null
+    secondaryActionCb = null
+    autoDismissMs.value = 0
+    const cb = onDismissCb
+    onDismissCb = null
+    cb?.()
+    dequeueNext()
+  }
+
+  /**
+   * Show a transient message.
+   *
+   * @param msg - Body text (second line when `title` is set).
+   * @param opts.title - Optional headline (e.g. centered mode toasts).
+   * @param opts.tone - Visual style (`info`, `ok`, `error`). Default `info`.
+   * @param opts.ms - Auto-dismiss delay; `0` stays until dismissed. Default 10s errors, 5s otherwise (8s with action).
+   * @param opts.onDismiss - Called once when the snackbar is dismissed (manual or timeout).
+   * @param opts.action - Optional primary button; cleared when dismissed.
+   * @param opts.secondaryAction - Optional second button (e.g. Add to group).
+   */
+  function show(msg: string, opts?: ShowOpts): void {
+    const nextTone = opts?.tone ?? 'info'
+    const showing = message.value != null
+
+    if (nextTone === 'error') {
+      // Errors always win the visible slot; drop queued non-errors so the
+      // failure is not followed by a stale success from before the error.
+      pending.length = 0
+      applyShow(msg, opts)
+      return
+    }
+
+    if (!applyingQueued && showing && tone.value === 'error') {
+      enqueueNonError(msg, opts)
+      return
+    }
+
+    applyShow(msg, opts)
   }
 
   /** Run the optional action callback, then dismiss (action may open another UI). */

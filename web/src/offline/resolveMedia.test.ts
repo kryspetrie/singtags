@@ -706,4 +706,62 @@ describe('resolveAudioPart', () => {
     expect(listSpy).not.toHaveBeenCalled()
     listSpy.mockRestore()
   })
+
+  it('keeps pack Opus when Content-Type is wrong (does not delete on Mix reconstruct)', async () => {
+    const { audioPack } = await import('./libraryPack')
+    const { resolveAudioPart, clearLearningStereoCache } = await import('./resolveMedia')
+    clearLearningStereoCache()
+    const detail: TagDetail = {
+      ...sampleDetail,
+      audio: {
+        lead: 'media/31/lead.m4a',
+        tenor: 'media/31/tenor.m4a',
+        bari: 'media/31/bari.m4a',
+        mix: 'media/31/mix.m4a',
+      },
+      audio_layout_summary: { parts: 'part_left', ultra_low: 'mono_solos' },
+      audio_tiers: {
+        lead: {
+          original: 'media/31/lead.m4a',
+          ultra_solo: 'media/31/lead.solo.opus',
+        },
+        tenor: {
+          original: 'media/31/tenor.m4a',
+          ultra_solo: 'media/31/tenor.solo.opus',
+        },
+        bari: {
+          original: 'media/31/bari.m4a',
+          ultra_solo: 'media/31/bari.solo.opus',
+        },
+        mix: { original: 'media/31/mix.m4a' },
+      },
+    }
+    const oggBody = (fill: number) => {
+      const bytes = new Uint8Array(96).fill(fill)
+      bytes[0] = 0x4f
+      bytes[1] = 0x67
+      bytes[2] = 0x67
+      bytes[3] = 0x53
+      return bytes
+    }
+    // Simulate CDN/SPA Content-Type poison on otherwise-valid Opus stems.
+    for (const part of ['lead', 'tenor', 'bari'] as const) {
+      await audioPack.put(
+        mediaUrl(`media/31/${part}.solo.opus`),
+        new Response(oggBody(part === 'lead' ? 1 : 2), {
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      )
+    }
+
+    const mix = await resolveAudioPart(detail, 'mix', { offlineOnly: true })
+    expect(mix?.kind).toBe('blob')
+    if (mix?.kind === 'blob') URL.revokeObjectURL(mix.url)
+
+    // Lead must still be in the pack after Mix reconstruct (old bug deleted it).
+    expect(await audioPack.has(mediaUrl('media/31/lead.solo.opus'))).toBe(true)
+    const lead = await resolveAudioPart(detail, 'lead', { offlineOnly: true })
+    expect(lead?.kind).toBe('blob')
+    if (lead?.kind === 'blob') URL.revokeObjectURL(lead.url)
+  })
 })

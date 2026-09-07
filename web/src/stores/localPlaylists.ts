@@ -94,6 +94,10 @@ export const useLocalPlaylistsStore = defineStore('localPlaylists', () => {
     draft.value = null
   }
 
+  /**
+   * Persist a new set list immediately (used when adding a song selection to a
+   * brand-new list). Contrast with {@link beginDraft} / Cancel flow for “New Set List”.
+   */
   async function createPlaylist(name: string): Promise<LocalPlaylist> {
     await ensureLoaded()
     const playlist = blankPlaylist(name)

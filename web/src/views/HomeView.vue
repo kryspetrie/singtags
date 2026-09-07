@@ -10,7 +10,7 @@ import { useCatalogStore, DEFAULT_BROWSE_SORT, type SortMode } from '../stores/c
 import { useQueueStore } from '../stores/queue'
 import { useFavoritesStore } from '../stores/favorites'
 import { useRecentStore } from '../stores/recent'
-import type { TagDetail, TagSummary } from '../types/tag'
+import type { TagSummary } from '../types/tag'
 import EmptyState from '../components/EmptyState.vue'
 import ScrubRail from '../components/ScrubRail.vue'
 import SearchChips from '../components/SearchChips.vue'
@@ -21,11 +21,8 @@ import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import TagListRowContent from '../components/TagListRowContent.vue'
 import TagSelectionBar from '../components/TagSelectionBar.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
-import { tagDetailUrl } from '../lib/mediaUrl'
-import { fetchCached } from '../lib/manualOfflineFetch'
-import { sheetsPack } from '../offline/libraryPack'
-import { getStarred } from '../offline/favoritesDb'
 import { queueSelectedTags, type QueueDownloadMode } from '../lib/queueSelectedTags'
+import { loadTagDetailCached } from '../lib/loadTagDetailCached'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -274,30 +271,12 @@ async function onEnsureLyrics(): Promise<void> {
   }
 }
 
-/** Tag metadata for queueing — Cache API, sheets pack, or favorites detail (`getStarred`, works offline). */
-async function loadTagDetailForQueue(id: number): Promise<TagDetail | null> {
-  try {
-    const res = await fetchCached(tagDetailUrl(id))
-    if (res.ok) return (await res.json()) as TagDetail
-  } catch {
-    /* try pack / favorites record */
-  }
-  try {
-    const packed = await sheetsPack.get(tagDetailUrl(id))
-    if (packed) return (await packed.json()) as TagDetail
-  } catch {
-    /* try favorites IndexedDB (`getStarred`) */
-  }
-  const starred = await getStarred(id)
-  return starred?.detail ?? null
-}
-
 async function addSelectedToQueue(mode: QueueDownloadMode): Promise<void> {
   const result = await queueSelectedTags({
     ids: catalog.selectedIds,
     mode,
     offline: offline.value,
-    loadDetail: loadTagDetailForQueue,
+    loadDetail: loadTagDetailCached,
     addMany: (items) => queue.addMany(items),
   })
   snackbar.show(result.message, { tone: result.ok ? 'ok' : 'info' })

@@ -4,7 +4,7 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 
 | Plan | Status |
 | --- | --- |
-| [code-quality-hardening.md](code-quality-hardening.md) | Planned — phased extraction, tests, chrome/share, offline confidence |
+| [code-quality-hardening.md](code-quality-hardening.md) | In progress — Phases A–B shipped; Phase C next |
 | [vibe-search.md](vibe-search.md) | Planned — Workers AI |
 | [tag-roulette.md](tag-roulette.md) | Proposed — product |
 | [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |

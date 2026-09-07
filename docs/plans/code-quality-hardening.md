@@ -1,7 +1,8 @@
 # Code quality hardening — phased maintenance plan
 
-> **Status:** Planned (open backlog)  
+> **Status:** In progress — Phases A–B done; Phase C next  
 > **Created:** 2026-09-06  
+> **Updated:** 2026-09-06 — shipped A1–A2 and B1–B2  
 > **Source:** Adversarial review of SingTags `web/` (god views/stores, duplicated queue/detail loaders, thin draft/offline tests, teleported chrome sprawl).  
 > **Related:** [local-library-hardening.md](local-library-hardening.md), [product-honesty.md](product-honesty.md), [local-library-transfer.md](local-library-transfer.md)
 
@@ -80,7 +81,43 @@ flowchart TD
 | C–D | Error visibility + import trust |
 | E–F | Shared chrome + offline persistence confidence |
 | G–H | Scale lists / shrink god views once foundations exist |
-| I | Hardening polish that benefits from earlier extractionsuction |
+| I | Hardening polish that benefits from earlier extraction |
+
+---
+
+## Progress log
+
+### Phase A — done (2026-09-06)
+
+| Task | Shipped |
+| --- | --- |
+| A1 | `web/src/lib/loadTagDetailCached.ts` + tests; Home/Recent use it directly; Favorites keeps a thin in-memory-first wrapper; `loadTagForTransfer` uses `{ includeTransferred: true }` |
+| A2 | `queueSelectedTags.test.ts` covers ok / skip / empty / offline wording |
+
+**Post-task review (A):** Correctness — ladder order locked by unit tests; Favorites still prefers store detail before IDB. UI — no chrome change. Tests — green. Maintainability — three duplicated ladder bodies removed; one thin Favorites wrapper remains (intentional hot path).
+
+**Adversarial retrospective (A):**
+1. Claimed one canonical loader — shipped; Favorites is a one-line memory prefer, not a fourth ladder.
+2. No new circular imports (`loadTagDetailCached` → fetch/pack/IDB only).
+3. Tests mock each step; did not catch Favorites memory prefer (manual/code review).
+4. Promote A3? No — transfer paths unified. Proceed to B.
+5. Confidence: **high**.
+
+### Phase B — done (2026-09-06)
+
+| Task | Shipped |
+| --- | --- |
+| B1 | `stores/localPlaylists.test.ts` — draft lifecycle (memory-only mutate, discard, replace, delete, commit) |
+| B2 | `views/LocalPlaylistView.test.ts` — Cancel / Save / unmount discard; `createPlaylist` documented as immediate-persist fork |
+
+**Post-task review (B):** Correctness — Cancel never puts IDB; Save commits then clears draft. UI — Cancel label only for drafts. Tests — green. Maintainability — intentional `createPlaylist` vs `beginDraft` fork documented on the store.
+
+**Adversarial retrospective (B):**
+1. Two drafts impossible — second `beginDraft` replaces.
+2. `addSelectionToPlaylist` still uses `createPlaylist` (persists immediately) — documented.
+3. View Save needed `vi.waitFor` for IDB settle — store unit tests were enough for the state machine.
+4. No B3 race — unmount discard and Save commit coexist as designed.
+5. Confidence: **high**.
 
 ---
 
@@ -90,8 +127,8 @@ Use these so implementers do not re-discover the map:
 
 | Concern | Primary files |
 | --- | --- |
-| Triplicated queue detail load | `views/HomeView.vue` `loadTagDetailForQueue` (~278+), `views/RecentView.vue` (~164+), `views/FavoritesView.vue` (~263+) |
-| Richer transfer ladder (includes transferred IDB) | `lib/decimen/loadTagForTransfer.ts` `loadTagDetail` (private, ~78+) — **prefer unifying with a shared public helper** |
+| Triplicated queue detail load | **Shipped A1:** `lib/loadTagDetailCached.ts`; Favorites thin memory prefer only |
+| Richer transfer ladder (includes transferred IDB) | **Shipped A1:** `loadTagForTransfer` / `anyHighResTransferAvailable` use `loadTagDetailCached(..., { includeTransferred: true })` |
 | Queue modes already shared | `lib/queueSelectedTags.ts`, `components/QueueDownloadModeDialog.vue`, `components/TagSelectionBar.vue` |
 | Draft playlists | `stores/localPlaylists.ts` (`beginDraft` / `commitDraft` / `discardDraft`), `views/LocalPlaylistView.vue`, `views/LocalLibraryView.vue` `createPlaylist` |
 | Single-slot snackbar | `stores/snackbar.ts` (`show` replaces prior); callers also in `lib/localDocReceive.ts`, `stores/localLibrary.ts`, `stores/favorites.ts` |

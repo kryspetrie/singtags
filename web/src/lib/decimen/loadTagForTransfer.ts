@@ -3,9 +3,7 @@
  */
 import type { TagDetail, TagSummary } from '../../types/tag'
 import { isPdfPath } from '../sheetPath'
-import { tagDetailUrl } from '../mediaUrl'
-import { fetchCached } from '../manualOfflineFetch'
-import { sheetsPack } from '../../offline/libraryPack'
+import { loadTagDetailCached } from '../loadTagDetailCached'
 import { getStarred } from '../../offline/favoritesDb'
 import { getTransferredTag } from '../../offline/transferredDb'
 import { resolvePathUrl } from '../../offline/resolveMedia'
@@ -46,7 +44,7 @@ export async function anyHighResTransferAvailable(
     if (highResTransferAvailableFromSummary(summaries?.get(tagId))) return true
   }
   for (const tagId of ids) {
-    const detail = await loadTagDetail(tagId)
+    const detail = await loadTagDetailCached(tagId, { includeTransferred: true })
     if (detail && highResTransferAvailable(detail)) return true
   }
   return false
@@ -73,25 +71,6 @@ export function sheetTransferMetaFromTag(
     width: encoded.width,
     height: encoded.height,
   }
-}
-
-async function loadTagDetail(tagId: number): Promise<TagDetail | null> {
-  try {
-    const res = await fetchCached(tagDetailUrl(tagId))
-    if (res.ok) return (await res.json()) as TagDetail
-  } catch {
-    /* fall through */
-  }
-  try {
-    const packed = await sheetsPack.get(tagDetailUrl(tagId))
-    if (packed) return (await packed.json()) as TagDetail
-  } catch {
-    /* fall through */
-  }
-  const starred = await getStarred(tagId)
-  if (starred?.detail) return starred.detail
-  const transferred = await getTransferredTag(tagId)
-  return transferred?.detail ?? null
 }
 
 async function blobFromUrl(url: string): Promise<Blob | null> {
@@ -168,7 +147,7 @@ export async function loadTagForTransfer(
     quality?: TransferSheetQuality
   },
 ): Promise<{ meta: SheetTransferMeta; imageBytes: Uint8Array } | null> {
-  const detail = await loadTagDetail(tagId)
+  const detail = await loadTagDetailCached(tagId, { includeTransferred: true })
   if (!detail) return null
 
   const quality = opts?.quality ?? 'standard'
