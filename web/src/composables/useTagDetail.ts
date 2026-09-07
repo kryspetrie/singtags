@@ -324,46 +324,6 @@ export function useTagDetail(id: Ref<string> | string) {
     }
   }
 
-  /**
-   * Resolve sheet blobs + seed audio tabs. Does **not** warm/decode the default
-   * audio part — that can take seconds (especially offline mono_downmix / mono_solos
-   * reconstruct) and must not block sheet paint when 800px WebPs are already cached.
-   */
-  async function resolveSheetsAndAudio(
-    d: TagDetail,
-    cached: StarredTagRecord | undefined,
-    offlineOnly: boolean,
-    opts?: { sheetsAlreadyResolved?: boolean },
-  ): Promise<void> {
-    starredRecord = cached
-    const sheetSources = opts?.sheetsAlreadyResolved
-      ? new Set<'star' | 'pack' | 'network'>(
-          cachedSheetPages.value?.length
-            ? [cached?.sheetBlobs?.length ? 'star' : 'pack']
-            : [],
-        )
-      : await resolveSheets(d, cached, offlineOnly)
-
-    const { parts: probed, hasPackAudio: packHit } = await probeTagAudioAvailability(d, {
-      starred: cached ?? null,
-      offlineOnly,
-    })
-    const audioSources = seedStarredAudio(cached, d, offlineOnly)
-
-    // Publish tabs immediately so a slow/hung Mix reconstruct cannot leave "No audio".
-    availableAudioParts.value = sortPartIds([
-      ...new Set([...probed, ...Object.keys(audioParts.value)]),
-    ])
-    hasPackAudio.value = packHit
-
-    const sources = new Set([...sheetSources, ...audioSources])
-    if (hasPackAudio.value) sources.add('pack')
-
-    if (sources.size === 0) mediaSource.value = 'network'
-    else if (sources.size === 1) mediaSource.value = [...sources][0]!
-    else mediaSource.value = 'mixed'
-  }
-
   /** Warm the default learning track after sheets are on screen. */
   async function warmDefaultAudio(
     d: TagDetail,
