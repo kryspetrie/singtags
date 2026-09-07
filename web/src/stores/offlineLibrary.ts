@@ -418,10 +418,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       audioProgress.value = null
       sheetsCachedCount.value = 0
       audioCachedCount.value = 0
+      sheetsCachedBytes.value = 0
+      audioCachedBytes.value = 0
       catalogCachedAt.value = null
       showSheetsPrompt.value = false
       cacheMessage.value = 'Offline cache cleared.'
       await refreshEstimate()
+      await refreshCacheReady().catch(() => undefined)
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
     } finally {
@@ -777,20 +780,25 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   async function clearPack(kind: PackKind): Promise<void> {
     if (kind === 'sheets') {
       sheetsQueue?.pause()
+      sheetsQueue = null
       await sheetsPack.clear()
       await clearPackProgress('sheets')
       sheetsStatus.value = 'idle'
       sheetsProgress.value = null
       sheetsCachedCount.value = 0
+      sheetsCachedBytes.value = 0
     } else {
       audioQueue?.pause()
+      audioQueue = null
       await audioPack.clear()
       await clearPackProgress('audio')
       audioStatus.value = 'idle'
       audioProgress.value = null
       audioCachedCount.value = 0
+      audioCachedBytes.value = 0
     }
     await refreshEstimate()
+    await refreshCacheReady().catch(() => undefined)
   }
 
   /** Dismiss first-run sheets download prompt. Side effect: pack progress IDB. */

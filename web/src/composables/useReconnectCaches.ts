@@ -1,9 +1,12 @@
 /**
- * Offer to resume incomplete offline caches when connectivity returns.
+ * Offer to resume incomplete offline caches when *browser* connectivity returns.
  *
- * Watches the offline flag and, on reconnect, shows a dismissable prompt to:
+ * Manual Offline mode is intentional data-saving — leaving it must not look like
+ * “you’re back online” after a network drop. Watches `browserOffline` only.
+ *
+ * On real reconnect, shows a dismissable prompt to:
  * - download missing audio for favorited tags (IndexedDB `starred` records)
- * - resume paused sheet / audio pack downloads
+ * - resume pack downloads that were actually paused / quota-stopped
  *
  * Call {@link useReconnectCaches} once from the app root. The prompt UI reads
  * {@link reconnectMediaPromptVisible} / {@link reconnectMediaPlan} and calls
@@ -11,11 +14,10 @@
  */
 
 import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useFavoritesStore } from '../stores/favorites'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
-import { packIncomplete } from '../lib/packSync'
-import { useOnline } from './useOnline'
 
 /** What a reconnect prompt would download / resume if accepted. */
 export type ReconnectMediaPlan = {
@@ -34,6 +36,11 @@ export const reconnectMediaPlan = ref<ReconnectMediaPlan | null>(null)
 export const reconnectMediaBusy = ref(false)
 
 let scanning = false
+
+/** True when a pack was mid-download (paused) or stopped for storage. */
+function isResumablePackStatus(status: string): boolean {
+  return status === 'paused' || status === 'quota'
+}
 
 /** Human-readable toast body for a reconnect plan. */
 export function reconnectMediaPromptMessage(plan: ReconnectMediaPlan): string {
@@ -95,19 +102,19 @@ export async function acceptReconnectMediaPrompt(): Promise<void> {
 /**
  * Register a reconnect watcher. Call once from the app root (e.g. `App.vue`).
  *
- * On offline → online, scans for missing favorite audio and paused packs; if
- * anything is pending, shows {@link reconnectMediaPromptVisible} instead of
- * starting downloads automatically.
+ * On browser offline → online only, scans for missing favorite audio and paused
+ * packs; if anything is pending, shows {@link reconnectMediaPromptVisible}
+ * instead of starting downloads automatically. Leaving Manual Offline does not
+ * trigger this.
  */
 export function useReconnectCaches(): void {
   const favorites = useFavoritesStore()
   const offlineLib = useOfflineLibraryStore()
-  const offlineMode = useOfflineModeStore()
-  const { offline } = useOnline()
+  const { browserOffline } = storeToRefs(useOfflineModeStore())
 
-  watch(offline, async (now, prev) => {
+  watch(browserOffline, async (now, prev) => {
+    // Only real connectivity restore — not turning Manual Offline off.
     if (prev !== true || now !== false || scanning) return
-    if (offlineMode.browserOffline) return
     scanning = true
     try {
       await favorites.ensureLoaded()
@@ -118,14 +125,9 @@ export function useReconnectCaches(): void {
         !favorites.busy &&
         !favorites.backgroundActive &&
         favorites.records.some((r) => !r.audioBlobs || Object.keys(r.audioBlobs).length === 0)
-      const resumeSheets =
-        offlineLib.sheetsStatus === 'paused' ||
-        offlineLib.sheetsStatus === 'quota' ||
-        packIncomplete(offlineLib.sheetsCachedCount, offlineLib.sheetsExpectedCount)
-      const resumeAudio =
-        offlineLib.audioStatus === 'paused' ||
-        offlineLib.audioStatus === 'quota' ||
-        packIncomplete(offlineLib.audioCachedCount, offlineLib.audioExpectedCount)
+      // Incomplete packs alone are not “paused downloads” (per-tag Load Tracks, etc.).
+      const resumeSheets = isResumablePackStatus(offlineLib.sheetsStatus)
+      const resumeAudio = isResumablePackStatus(offlineLib.audioStatus)
       if (!favoritesAudio && !resumeSheets && !resumeAudio) return
 
       reconnectMediaPlan.value = { favoritesAudio, resumeSheets, resumeAudio }

@@ -190,6 +190,133 @@ describe('useReconnectCaches', () => {
     w.unmount()
   })
 
+  it('does not prompt when leaving Manual Offline mode', async () => {
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      get: () => true,
+    })
+    setActivePinia(createPinia())
+    const offlineMode = useOfflineModeStore()
+    offlineMode.init()
+    offlineMode.setManualOffline(true)
+
+    const favorites = useFavoritesStore()
+    const offlineLib = useOfflineLibraryStore()
+    favorites.records = [
+      {
+        tagId: 1,
+        starredAt: '2026-01-01T00:00:00.000Z',
+        summary: {
+          id: 1,
+          title: 'A',
+          arranger: null,
+          key: null,
+          rating: null,
+          type: null,
+          collection: null,
+          hasSheet: true,
+          audioParts: ['lead'],
+          sheet: null,
+        },
+        detail: null,
+        offlineMedia: false,
+        quotaWarning: null,
+      },
+    ]
+    favorites.loaded = true
+    offlineLib.loaded = true
+    offlineLib.sheetsManifest = {
+      version: 1,
+      kind: 'sheets',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
+    offlineLib.audioManifest = {
+      version: 1,
+      kind: 'audio',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
+    offlineLib.sheetsStatus = 'idle'
+    offlineLib.audioStatus = 'idle'
+    offlineLib.sheetsCachedCount = 10
+    offlineLib.audioCachedCount = 96
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+
+    const Comp = defineComponent({
+      setup() {
+        useReconnectCaches()
+        return useOnline()
+      },
+      template: '<span>{{ offline }}</span>',
+    })
+    const w = mount(Comp, { global: { plugins: [getActivePinia()!] } })
+    await nextTick()
+    expect(w.text()).toBe('true')
+
+    offlineMode.setManualOffline(false)
+    await flushPromises()
+    await nextTick()
+    expect(reconnectMediaPromptVisible.value).toBe(false)
+    expect(reconnectMediaPlan.value).toBeNull()
+    w.unmount()
+  })
+
+  it('does not treat incomplete idle packs as paused downloads on reconnect', async () => {
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      get: () => false,
+    })
+    setActivePinia(createPinia())
+    useOfflineModeStore().init()
+    const favorites = useFavoritesStore()
+    const offlineLib = useOfflineLibraryStore()
+    favorites.records = []
+    favorites.loaded = true
+    offlineLib.loaded = true
+    offlineLib.sheetsManifest = {
+      version: 1,
+      kind: 'sheets',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
+    offlineLib.audioManifest = {
+      version: 1,
+      kind: 'audio',
+      builtAt: '2026-01-01T00:00:00.000Z',
+      totalBytes: 1,
+      entries: [],
+    }
+    offlineLib.sheetsStatus = 'idle'
+    offlineLib.audioStatus = 'idle'
+    offlineLib.sheetsCachedCount = 10
+    offlineLib.audioCachedCount = 96
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+
+    const Comp = defineComponent({
+      setup() {
+        useReconnectCaches()
+        return useOnline()
+      },
+      template: '<span>{{ offline }}</span>',
+    })
+    const w = mount(Comp, { global: { plugins: [getActivePinia()!] } })
+    await nextTick()
+
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      get: () => true,
+    })
+    window.dispatchEvent(new Event('online'))
+    await flushPromises()
+    await nextTick()
+    expect(reconnectMediaPromptVisible.value).toBe(false)
+    w.unmount()
+  })
+
   it('dismissReconnectMediaPrompt hides without downloading', async () => {
     reconnectMediaPlan.value = {
       favoritesAudio: true,
@@ -610,6 +737,34 @@ describe('useTagDetail', () => {
     expect(api.detail.value?.tag_id).toBe(7)
     expect(api.availableAudioParts.value).toContain('lead')
     expect(api.audioParts.value.lead).toBe('blob:star-lead')
+    w.unmount()
+  })
+
+  it('offline with catalog audio but no cached bytes keeps part tabs for Load Tracks', async () => {
+    localStorage.setItem('singtags.manualOffline', '1')
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(detail), { status: 200 })),
+    )
+    const { api, w, pinia } = mountApi('7')
+    setActivePinia(pinia)
+    const offlineMode = useOfflineModeStore()
+    offlineMode.init()
+    expect(offlineMode.offline).toBe(true)
+    expect(offlineMode.browserOffline).toBe(false)
+
+    const favorites = useFavoritesStore()
+    vi.spyOn(favorites, 'ensureLoaded').mockResolvedValue()
+    vi.spyOn(favorites, 'get').mockResolvedValue(undefined)
+
+    await api.load()
+    await flushPromises()
+    expect(api.detail.value?.tag_id).toBe(7)
+    // Tabs come from catalog metadata even though nothing is playable yet.
+    expect(api.availableAudioParts.value).toEqual(['lead'])
+    expect(api.audioParts.value).toEqual({})
+    expect(api.hasPackAudio.value).toBe(false)
     w.unmount()
   })
 })

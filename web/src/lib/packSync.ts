@@ -27,6 +27,9 @@ export function packIncomplete(cachedCount: number, expectedCount: number): bool
  * Normalize IDB pack status after reload / kill.
  * Orphaned `running` or `error`, and false `done` with missing files, become `paused`
  * so Settings can offer Resume and reconnect can continue.
+ *
+ * Partial cache without a mid-download record stays `idle` (e.g. per-tag Load Tracks /
+ * Load Sheet) — that is not a paused library pack download.
  */
 export function normalizePackStatus(
   saved: string | undefined,
@@ -37,7 +40,6 @@ export function normalizePackStatus(
   if (saved === 'running' || saved === 'error') return 'paused'
   if (saved === 'done' && incomplete) return 'paused'
   if (saved === 'paused' || saved === 'quota' || saved === 'done') return saved
-  if (incomplete && cachedCount > 0) return 'paused'
   return 'idle'
 }
 

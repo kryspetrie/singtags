@@ -65,7 +65,9 @@ describe('packSync', () => {
     expect(normalizePackStatus('done', 100, 100)).toBe('done')
     expect(normalizePackStatus('paused', 10, 100)).toBe('paused')
     expect(normalizePackStatus('quota', 10, 100)).toBe('quota')
-    expect(normalizePackStatus(undefined, 10, 100)).toBe('paused')
+    // Partial files without a mid-download record (e.g. Load Tracks) stay idle.
+    expect(normalizePackStatus(undefined, 10, 100)).toBe('idle')
+    expect(normalizePackStatus('idle', 10, 100)).toBe('idle')
     expect(normalizePackStatus(undefined, 0, 100)).toBe('idle')
     expect(normalizePackStatus('idle', 0, 0)).toBe('idle')
   })

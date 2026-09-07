@@ -62,6 +62,16 @@ async function openCache(name: string): Promise<Cache | null> {
   return pending
 }
 
+/** Drop a memoized Cache handle so the next open is a fresh `caches.open`. */
+function invalidateOpenCacheMemo(name: string): void {
+  openCacheMemo.delete(name)
+}
+
+/** Test helper — wipe memo between cases that stub `caches`. */
+export function resetOpenCacheMemoForTests(): void {
+  openCacheMemo.clear()
+}
+
 function opfsSupported(): boolean {
   return typeof navigator !== 'undefined' && !!navigator.storage?.getDirectory
 }
@@ -348,22 +358,35 @@ export function createPackStore(kind: PackKind): OfflinePackStore {
     },
     async clear(): Promise<void> {
       invalidatePathnameIndex()
-      if (cacheApiAvailable()) await caches.delete(cacheName)
+      // Drop the memo *before* deleting — otherwise later count/listUrls keep using a
+      // zombie Cache handle and Clear appears to leave files on device.
+      invalidateOpenCacheMemo(cacheName)
+      if (cacheApiAvailable()) {
+        try {
+          const cache = await caches.open(cacheName)
+          const keys = await cache.keys()
+          await Promise.all(keys.map((req) => cache.delete(req)))
+        } catch {
+          /* ignore — still try caches.delete below */
+        }
+        await caches.delete(cacheName)
+        invalidateOpenCacheMemo(cacheName)
+      }
       memoryMap(cacheName).clear()
       try {
         if (opfsSupported()) {
           const root = await navigator.storage.getDirectory()
           await root.removeEntry(`singtags-pack-${kind}`, { recursive: true })
-          opfsDir = null
         }
       } catch {
-        opfsDir = undefined
+        /* missing or locked — listUrls/count will still report leftovers if any */
       }
+      // Allow ensureOpfs() to open/create again on the next put.
+      opfsDir = undefined
     },
     async count(): Promise<number> {
-      const cache = await openCache(cacheName)
-      const cacheCount = cache ? (await cache.keys()).length : 0
-      return Math.max(cacheCount, memoryMap(cacheName).size)
+      // Same universe as totalBytes/listUrls (Cache + memory + OPFS).
+      return (await this.listUrls()).length
     },
     async totalBytes(): Promise<number> {
       const urls = await this.listUrls()

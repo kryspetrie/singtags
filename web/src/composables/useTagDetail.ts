@@ -105,7 +105,12 @@ export function useTagDetail(id: Ref<string> | string) {
             offlineOnly: true,
           })
           if (detail.value !== d) return
-          availableAudioParts.value = parts
+          availableAudioParts.value = mergeAvailableAudioParts(
+            d,
+            parts,
+            Object.keys(audioParts.value),
+            true,
+          )
           hasPackAudio.value = packHit
           void warmDefaultAudio(d, starredRecord, true, loadSeq)
         })()
@@ -135,6 +140,26 @@ export function useTagDetail(id: Ref<string> | string) {
     mediaSource.value = 'network'
     starredRecord = undefined
     clearPreparedSheet()
+  }
+
+  /**
+   * Tab labels for TagPlayer.
+   * Offline with nothing playable yet: keep catalog parts so Load Tracks can show
+   * the player shell. Once any part is playable, stick to probed/seeded parts so
+   * empty Lead/Tenor tabs do not sit beside a working Mix.
+   */
+  function mergeAvailableAudioParts(
+    d: TagDetail,
+    probed: string[],
+    seededKeys: string[],
+    offlineOnly: boolean,
+  ): string[] {
+    const catalog = listAudioParts(d)
+    const playable = probed.length > 0 || seededKeys.length > 0
+    const includeCatalog = !offlineOnly || !playable
+    return sortPartIds([
+      ...new Set([...probed, ...seededKeys, ...(includeCatalog ? catalog : [])]),
+    ])
   }
 
   /**
@@ -651,16 +676,12 @@ export function useTagDetail(id: Ref<string> | string) {
       // Replace audio in the same turn as detail so TagPlayer never mounts with a
       // previous tag’s URLs (that caused 404s on sheet-only tags like #214).
       const audioSources = seedStarredAudio(cached, d, offlineOnly)
-      // Offline: only parts that probe as playable (pack/star). Do not merge raw
-      // catalog keys — that showed Lead/Tenor tabs with no resolvable offline bytes.
-      // Online: include catalog parts so tabs appear before network warm finishes.
-      const nextAvailable = sortPartIds([
-        ...new Set([
-          ...probed,
-          ...Object.keys(audioParts.value),
-          ...(offlineOnly ? [] : listAudioParts(d)),
-        ]),
-      ])
+      const nextAvailable = mergeAvailableAudioParts(
+        d,
+        probed,
+        Object.keys(audioParts.value),
+        offlineOnly,
+      )
       detail.value = d
       cachedSheetPages.value = trackedPages
       preparedSheet.value = nextPrepared
