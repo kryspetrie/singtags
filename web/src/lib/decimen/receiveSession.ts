@@ -13,12 +13,15 @@ import {
   type OpticalFile,
 } from '../../../vendor/decimen/shared/protocol'
 import { estimateTransferProgress } from '../../../vendor/decimen/shared/progress'
+import { estimateReceiveBytes, formatReceiveProgressLabel } from './receiveProgress'
 
 export type DecimenReceiveProgress = {
   solved: number
   total: number
   percent: number
   frames: number
+  bytesReceived: number
+  totalBytes: number
   label: string
 }
 
@@ -98,12 +101,24 @@ export class DecimenReceiveSession {
       this.decoder.solvedCount,
     )
     const percent = Math.round(estimate.fraction * 1000) / 10
+    const { bytesReceived, totalBytes } = estimateReceiveBytes(
+      this.decoder.totalLen,
+      estimate.fraction,
+    )
     this.callbacks.onProgress?.({
       solved: this.decoder.solvedCount,
       total: this.decoder.k,
       percent,
       frames: this.decoder.framesNew,
-      label: `${this.decoder.solvedCount} / ${this.decoder.k} blocks · ${percent}%`,
+      bytesReceived,
+      totalBytes,
+      label: formatReceiveProgressLabel({
+        solved: this.decoder.solvedCount,
+        totalBlocks: this.decoder.k,
+        bytesReceived,
+        totalBytes,
+        percent,
+      }),
     })
   }
 

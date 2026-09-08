@@ -172,11 +172,22 @@ type DirectoryPickerWindow = Window & {
   showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
 }
 
+/**
+ * Phones (especially Android/Samsung) expose `showDirectoryPicker`, but the system
+ * “Use this folder” sheet often blocks Downloads/Documents/root with
+ * “Can't use this folder / To protect your privacy…”. Prefer normal downloads there.
+ */
+export function prefersOpticalDownloadSave(
+  ua = typeof navigator !== 'undefined' ? navigator.userAgent : '',
+): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(ua)
+}
+
 /** Save files to a picked folder when supported, otherwise download each file. */
 export async function saveOpticalFiles(files: OpticalFile[]): Promise<'directory' | 'download'> {
   if (!files.length) return 'download'
   const picker = (window as DirectoryPickerWindow).showDirectoryPicker
-  if (picker) {
+  if (picker && !prefersOpticalDownloadSave()) {
     try {
       const dir = await picker.call(window)
       for (const file of files) {

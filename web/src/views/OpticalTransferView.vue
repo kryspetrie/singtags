@@ -7,6 +7,7 @@ import { useRoute, useRouter, type RouteLocationNormalizedLoaded } from 'vue-rou
 import EmptyState from '../components/EmptyState.vue'
 import OpticalReceiveInvite from '../components/OpticalReceiveInvite.vue'
 import OpticalReceiveInviteOverlay from '../components/OpticalReceiveInviteOverlay.vue'
+import OpticalReceivedPreview from '../components/OpticalReceivedPreview.vue'
 import OpticalTransferStreamOverlay from '../components/OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from '../components/OpticalTransferQualityToggle.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
@@ -16,8 +17,13 @@ import { DecimenReceiveCapture } from '../lib/decimen/receiveCapture'
 import {
   estimateOpticalTransferPreview,
   prepareOpticalTransfer,
+  prefersOpticalDownloadSave,
   saveOpticalFiles,
 } from '../lib/decimen/opticalTransfer'
+import {
+  canOpenOpticalAfterTransfer,
+  opticalPreviewKind,
+} from '../lib/decimen/opticalReceivePreview'
 import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
@@ -139,6 +145,20 @@ const receiveError = ref<string | null>(null)
 const received = ref<ReceivedItem[]>([])
 const selectedReceivedIds = ref<Set<string>>(new Set())
 const saveBusy = ref(false)
+/** Phones: Save uses Downloads instead of the Android folder-permission sheet. */
+const saveUsesDownload = prefersOpticalDownloadSave()
+const saveAllLabel = computed(() => (saveUsesDownload ? 'Download all' : 'Save all…'))
+const saveSelectedLabel = computed(() =>
+  saveUsesDownload ? 'Download selected' : 'Save selected…',
+)
+const saveOneLabel = computed(() => (saveUsesDownload ? 'Download' : 'Save…'))
+const saveAfterLabel = computed(() =>
+  saveUsesDownload ? 'Download after transfer' : 'Save after transfer',
+)
+/** Session intents — Open defaults on; Save off. */
+const saveAfterTransfer = ref(false)
+const openAfterTransfer = ref(true)
+const previewFile = ref<OpticalFile | null>(null)
 /** Receive preview: fill stage height (default) vs show whole frame. */
 const cameraFit = ref<'height' | 'all'>('height')
 
@@ -499,7 +519,7 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
   let singtagsTagId: number | null = null
   let collectionBatch: CollectionBatchManifest | null = null
   let localDocTitle: string | null = null
-  let openNow = false
+  let packageOpenNow = false
   if (isSingtagsCollectionFile(file)) {
     try {
       const batch = unpackSingtagsCollectionFile(file)
@@ -512,11 +532,11 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
       if (isLocalEntryTransferFile(file)) {
         const pkg = unpackLocalEntryFile(file)
         localDocTitle = pkg.meta.title || 'Local song'
-        openNow = !!pkg.meta.openNow
+        packageOpenNow = !!pkg.meta.openNow
       } else {
         const pkg = unpackLocalDocFile(file)
         localDocTitle = pkg.meta.title || pkg.meta.filename
-        openNow = !!pkg.meta.openNow
+        packageOpenNow = !!pkg.meta.openNow
       }
     } catch {
       localDocTitle = null
@@ -551,12 +571,58 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
     ? ` · batch ${collectionBatch.batchIndex + 1}/${collectionBatch.batchCount}`
     : ''
   receiveStatus.value = `Received ${file.name}${batchNote} · ${formatBytes(file.bytes.length)}`
+
+  if (saveAfterTransfer.value) {
+    await saveReceivedItems([item], 'save file')
+  }
+
+  const wantOpen =
+    (openAfterTransfer.value || packageOpenNow) && canOpenOpticalAfterTransfer(file)
+
   if (localDocTitle != null) {
-    await importLocalDoc(item, { openNow })
+    await importLocalDoc(item, { openNow: wantOpen || packageOpenNow })
     return
   }
-  const importHint = singtagsTagId != null ? ' — import when ready, then open the tag' : ' — save or import when ready'
+
+  if (wantOpen && singtagsTagId != null) {
+    await importSingtagsSheet(item, { openNow: true })
+    return
+  }
+
+  if (wantOpen && opticalPreviewKind(file)) {
+    previewFile.value = file
+    return
+  }
+
+  const importHint =
+    singtagsTagId != null
+      ? ' — import when ready, then open the tag'
+      : opticalPreviewKind(file)
+        ? ' — open or save when ready'
+        : ' — save or import when ready'
   snackbar.show(`Received “${file.name}”${importHint}`, { tone: 'ok' })
+}
+
+function receivedItemCanOpen(item: ReceivedItem): boolean {
+  return canOpenOpticalAfterTransfer(item.file)
+}
+
+async function openReceivedItem(item: ReceivedItem): Promise<void> {
+  if (opticalPreviewKind(item.file)) {
+    previewFile.value = item.file
+    return
+  }
+  if (item.singtagsTagId != null) {
+    await importSingtagsSheet(item, { openNow: true })
+    return
+  }
+  if (item.localDocTitle != null) {
+    await importLocalDoc(item, { openNow: true })
+  }
+}
+
+function closeReceivedPreview(): void {
+  previewFile.value = null
 }
 
 function toggleReceivedSelected(id: string): void {
@@ -628,12 +694,19 @@ function importedTagOpenLabel(): string {
   return prefs.singMode ? 'Open fullscreen' : 'Open tag'
 }
 
-async function importSingtagsSheet(item: ReceivedItem): Promise<void> {
+async function importSingtagsSheet(
+  item: ReceivedItem,
+  opts?: { openNow?: boolean },
+): Promise<void> {
   if (item.singtagsTagId == null) return
   try {
     const pkg = unpackSingtagsSheetFile(item.file)
     await putTransferredTag(pkg.meta, pkg.imageBytes)
     const title = pkg.meta.title || `Tag ${pkg.meta.id}`
+    if (opts?.openNow) {
+      openImportedTag(pkg.meta.id)
+      return
+    }
     snackbar.show(`Imported “${title}”`, {
       tone: 'ok',
       ms: 8000,
@@ -1242,6 +1315,21 @@ onUnmounted(() => {
       <p v-if="receiveError" class="err" role="alert">{{ receiveError }}</p>
       <p v-else class="status" role="status">{{ receiveStatus }}</p>
 
+      <div class="receive-intents" role="group" aria-label="After transfer">
+        <label class="receive-intent">
+          <input v-model="saveAfterTransfer" type="checkbox" />
+          <span>{{ saveAfterLabel }}</span>
+        </label>
+        <label class="receive-intent">
+          <input v-model="openAfterTransfer" type="checkbox" />
+          <span>Open after transfer</span>
+        </label>
+        <p class="hint receive-intent-hint">
+          Open applies to a single image, PDF, audio clip, sheet, or My Library song — not zips or
+          collection batches. Save/download still runs for every file when enabled.
+        </p>
+      </div>
+
       <div class="send-actions">
         <button
           type="button"
@@ -1279,7 +1367,7 @@ onUnmounted(() => {
             :disabled="saveBusy || !received.length"
             @click="saveAllReceived"
           >
-            Save all…
+            {{ saveAllLabel }}
           </button>
           <button
             type="button"
@@ -1287,7 +1375,7 @@ onUnmounted(() => {
             :disabled="saveBusy || !selectedReceived.length"
             @click="saveSelectedReceived"
           >
-            Save selected…
+            {{ saveSelectedLabel }}
           </button>
         </div>
 
@@ -1345,8 +1433,16 @@ onUnmounted(() => {
               <span v-if="item.collectionImported || item.localDocImported" class="saved-badge">Imported</span>
             </div>
             <div class="row-actions">
+              <button
+                v-if="receivedItemCanOpen(item)"
+                type="button"
+                class="btn btn-ghost"
+                @click="openReceivedItem(item)"
+              >
+                Open
+              </button>
               <button type="button" class="btn btn-ghost" :disabled="saveBusy" @click="saveOneReceived(item)">
-                Save…
+                {{ saveOneLabel }}
               </button>
               <button
                 v-if="item.collectionBatch"
@@ -1382,6 +1478,12 @@ onUnmounted(() => {
         </ul>
       </div>
     </div>
+
+    <OpticalReceivedPreview
+      v-if="previewFile"
+      :file="previewFile"
+      @close="closeReceivedPreview"
+    />
   </section>
 </template>
 
@@ -1575,6 +1677,30 @@ onUnmounted(() => {
 }
 .received-toolbar {
   justify-content: space-between;
+}
+.receive-intents {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
+}
+.receive-intent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.receive-intent input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.receive-intent-hint {
+  font-size: 0.8rem;
+  font-weight: 400;
 }
 .select-all {
   display: inline-flex;
