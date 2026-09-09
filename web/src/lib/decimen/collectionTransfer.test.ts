@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
-import { unpackFile } from '../../../vendor/decimen/shared/protocol'
+import { unpackOpticalFile } from './opticalWirePack'
 import type { SheetTransferMeta } from '../sheetQrTransfer'
 import {
   isSingtagsCollectionFile,
@@ -48,7 +48,7 @@ describe('collectionTransfer', () => {
     }
     const packed = await packSingtagsCollectionBatch(batch)
     expect(packed.filename).toBe(singtagsCollectionFilename(manifest))
-    const optical = await unpackFile(packed.container)
+    const optical = await unpackOpticalFile(packed.container)
     expect(isSingtagsCollectionFile(optical)).toBe(true)
     const restored = unpackSingtagsCollectionFile(optical)
     expect(restored.manifest).toEqual(manifest)

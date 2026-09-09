@@ -3,8 +3,9 @@
  * v1: single-file local-doc. v2: entry + multiple assets.
  */
 import { deflateSync, inflateSync } from 'fflate'
-import { packFile, unpackFile, type OpticalFile } from '../../../vendor/decimen/shared/protocol'
+import type { OpticalFile } from '../../../vendor/decimen/shared/protocol'
 import type { LocalAsset, LocalAssetRole, LocalEntry } from '../../types/localLibrary'
+import { packOpticalFile, unpackOpticalFile } from './opticalWirePack'
 
 export const LOCAL_DOC_TRANSFER_MIME = 'application/vnd.singtags.local-doc'
 export const LOCAL_ENTRY_TRANSFER_MIME = 'application/vnd.singtags.local-entry'
@@ -179,7 +180,7 @@ export async function packLocalDocFile(
   const meta = localDocTransferMetaFromLegacy(fields, opts)
   const payload = packLocalDocPayload({ meta, bytes })
   const filename = `singtags-local-${fields.id}.doc`
-  const packed = await packFile(filename, LOCAL_DOC_TRANSFER_MIME, payload)
+  const packed = await packOpticalFile(filename, LOCAL_DOC_TRANSFER_MIME, payload)
   return { filename, container: packed.container }
 }
 
@@ -214,7 +215,7 @@ export async function packLocalEntryFile(
   }
   const payload = packLocalEntryPayload({ meta })
   const filename = `singtags-local-${entry.id}.entry`
-  const packed = await packFile(filename, LOCAL_ENTRY_TRANSFER_MIME, payload)
+  const packed = await packOpticalFile(filename, LOCAL_ENTRY_TRANSFER_MIME, payload)
   return { filename, container: packed.container }
 }
 
@@ -242,7 +243,7 @@ export function unpackLocalEntryFile(file: OpticalFile): LocalEntryTransferPacka
 }
 
 export async function decodeLocalDocContainer(container: Uint8Array): Promise<LocalDocTransferPackage> {
-  const file = await unpackFile(container)
+  const file = await unpackOpticalFile(container)
   return unpackLocalDocPayload(file.bytes)
 }
 

@@ -27,6 +27,7 @@
     "@tanstack/vue-virtual": "^3.13.36",
     "fflate": "^0.8.3",
     "jsqr": "^1.4.0",
+    "lzma-wasm": "^1.0.7",
     "mediabunny": "^1.55.2",
     "ogg-opus-decoder": "^1.7.5",
     "pdfjs-dist": "^4.10.38",

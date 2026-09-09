@@ -43,16 +43,31 @@ export interface QrGridRaster {
   pixels: Uint32Array<ArrayBuffer>;
 }
 
-/** Grid shape for a code count: as square as possible, taller before wider —
- *  the sender is typically a portrait phone screen, and a stack uses that
- *  height where a row would shrink every code to fit the narrow edge.
- *  The count must fill the rectangle exactly — 1 (1×1), 2 (1×2), 4 (2×2),
- *  6 (2×3), 9 (3×3)… — a part-empty grid would silently waste the channel. */
-export function gridDims(count: number): { cols: number; rows: number } {
+/** Optional viewport hint so non-square grids follow screen orientation. */
+export type GridDimsOpts = {
+  /** Prefer wider-than-tall when true (overrides width/height when set). */
+  landscape?: boolean
+  /** Used when `landscape` is omitted: width > height → landscape. */
+  width?: number
+  height?: number
+}
+
+/** Grid shape for a code count: as square as possible.
+ *  Default (portrait / unknown): taller before wider — 2 → 1×2, 6 → 2×3.
+ *  Landscape: swap non-square shapes — 2 → 2×1, 6 → 3×2.
+ *  The count must fill the rectangle exactly — 1, 2, 4, 6, 9… */
+export function gridDims(count: number, opts?: GridDimsOpts): { cols: number; rows: number } {
   const cols = Math.floor(Math.sqrt(count));
   const rows = Math.ceil(count / Math.max(1, cols));
   if (count < 1 || cols * rows !== count) {
     throw new Error(`grid needs a count that fills its rows (1, 2, 4, 6, 9…), got ${count}`);
+  }
+  let landscape = opts?.landscape;
+  if (landscape == null && opts?.width != null && opts?.height != null) {
+    landscape = opts.width > opts.height;
+  }
+  if (landscape && cols !== rows) {
+    return { cols: rows, rows: cols };
   }
   return { cols, rows };
 }

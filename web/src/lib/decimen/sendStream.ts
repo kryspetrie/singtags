@@ -1,8 +1,8 @@
 /**
  * Animated Decimen QR send stream for a packed file container.
  */
-import { fitQrDisplaySize } from '../../../vendor/decimen/shared/display'
 import { LTEncoder } from '../../../vendor/decimen/shared/fountain'
+import { fitOpticalStageBox, fitSourceToStage, measureOpticalStageBox } from './opticalDisplay'
 import {
   blockLength,
   fitsInOneStream,
@@ -24,6 +24,7 @@ import {
   estimateSendTransferProgress,
   type DecimenSendStreamProgress,
 } from './sendProgress'
+import { normalizeOpticalDisplayScale } from './sendSettings'
 
 const LOOKAHEAD = 3
 const DEFAULT_TX_FPS = 24
@@ -74,12 +75,12 @@ export class DecimenSendStream {
   constructor(canvas: HTMLCanvasElement, opts: DecimenSendStreamOptions = {}) {
     this.canvas = canvas
     this.opts = opts
-    this.displayScale = opts.displayScale ?? 1
+    this.displayScale = normalizeOpticalDisplayScale(opts.displayScale ?? 1)
   }
 
   /** Stage zoom for fullscreen sharing — re-layouts the canvas immediately. */
   setDisplayScale(scale: number): void {
-    this.displayScale = Math.min(6, Math.max(1, Math.round(scale * 4) / 4))
+    this.displayScale = normalizeOpticalDisplayScale(scale)
     if (this.relayoutDisplayFn) this.relayoutDisplayFn()
     else this.sizeCanvasFn?.()
   }
@@ -97,11 +98,13 @@ export class DecimenSendStream {
     this.resizeCleanup = null
     this.sizeCanvasFn = null
     this.relayoutDisplayFn = null
+    this.canvas.classList.remove('is-ready')
   }
 
   /** Begin animated frame transmission after a {@link DecimenSendStreamStartOptions.holdAfterPreview} start. */
-  resumeTransmission(): void {
+  resumeTransmission(): Promise<void> {
     this.resumeTransmissionFn?.()
+    return Promise.resolve()
   }
 
   /** Start streaming QR frames for a packed Decimen file container. */
@@ -122,7 +125,16 @@ export class DecimenSendStream {
     const gridCodes = this.opts.gridCodes ?? DEFAULT_GRID_CODES
     const displayPx = this.opts.displayPx ?? 320
     const fullscreen = this.opts.fullscreen ?? false
-    const { cols: gridCols, rows: gridRows } = gridDims(gridCodes)
+    let gridCols = 1
+    let gridRows = 1
+    {
+      const shape = gridDims(gridCodes, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+      gridCols = shape.cols
+      gridRows = shape.rows
+    }
 
     if (!fitsInOneStream(container.length, frameBytes)) {
       const suggestion = smallestSufficientFrameSize(container.length, [
@@ -162,29 +174,51 @@ export class DecimenSendStream {
     let nextSeq = 0
     let generatorFailed = false
 
-    const applyDisplayLayout = () => {
-      if (version === undefined || modules === 0) return
-      const dpr = window.devicePixelRatio || 1
-      const cell = modules + 2 * MARGIN
-      const totalW = cell * gridCols
-      const totalH = cell * gridRows
+    const stageBox = () => {
       const containerWidth = fullscreen
         ? window.innerWidth
         : (this.canvas.parentElement?.getBoundingClientRect().width ?? window.innerWidth)
-      const budget = fitQrDisplaySize(
-        window.innerWidth,
-        window.innerHeight,
+      const stage = fullscreen ? measureOpticalStageBox(this.canvas) : {}
+      return fitOpticalStageBox({
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
         containerWidth,
-        displayPx * this.displayScale,
-        0,
-      )
-      scale = Math.max(1, Math.floor(Math.min((budget * dpr) / totalW, (budget * dpr) / totalH)))
-      this.canvas.width = totalW * scale
-      this.canvas.height = totalH * scale
-      const cssNativeW = (totalW * scale) / dpr
-      const cssNativeH = (totalH * scale) / dpr
-      this.canvas.style.width = `${cssNativeW}px`
-      this.canvas.style.height = `${cssNativeH}px`
+        displayScale: this.displayScale,
+        fullscreen,
+        displayPx,
+        ...stage,
+      })
+    }
+
+    const resolveGridShape = () => {
+      const stage = fullscreen ? measureOpticalStageBox(this.canvas) : {}
+      const width = stage.stageWidth ?? window.innerWidth
+      const height = stage.stageHeight ?? window.innerHeight
+      return gridDims(gridCodes, { width, height })
+    }
+
+    const applyDisplayLayout = () => {
+      if (version === undefined || modules === 0) return
+      const shape = resolveGridShape()
+      gridCols = shape.cols
+      gridRows = shape.rows
+      const cell = modules + 2 * MARGIN
+      const totalW = cell * gridCols
+      const totalH = cell * gridRows
+      const budget = stageBox()
+      const fit = fitSourceToStage({
+        sourceWidth: totalW,
+        sourceHeight: totalH,
+        budgetWidth: budget.width,
+        budgetHeight: budget.height,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        integerUpscale: true,
+      })
+      scale = fit.canvasWidth / totalW
+      this.canvas.width = fit.canvasWidth
+      this.canvas.height = fit.canvasHeight
+      this.canvas.style.width = `${fit.cssWidth}px`
+      this.canvas.style.height = `${fit.cssHeight}px`
       this.canvas.style.imageRendering = 'pixelated'
       const ctx = this.canvas.getContext('2d')!
       ctx.imageSmoothingEnabled = false
@@ -192,30 +226,30 @@ export class DecimenSendStream {
     }
 
     const sizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1
+      const shape = resolveGridShape()
+      gridCols = shape.cols
+      gridRows = shape.rows
       const cell = modules + 2 * MARGIN
       const totalW = cell * gridCols
       const totalH = cell * gridRows
-      const containerWidth = fullscreen
-        ? window.innerWidth
-        : (this.canvas.parentElement?.getBoundingClientRect().width ?? window.innerWidth)
-      const budget = fitQrDisplaySize(
-        window.innerWidth,
-        window.innerHeight,
-        containerWidth,
-        displayPx * this.displayScale,
-        fullscreen ? 0 : 0,
-      )
-      scale = Math.max(1, Math.floor(Math.min((budget * dpr) / totalW, (budget * dpr) / totalH)))
+      const budget = stageBox()
+      const fit = fitSourceToStage({
+        sourceWidth: totalW,
+        sourceHeight: totalH,
+        budgetWidth: budget.width,
+        budgetHeight: budget.height,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        integerUpscale: true,
+      })
+      scale = fit.canvasWidth / totalW
       staging.width = totalW
       staging.height = totalH
-      this.canvas.width = totalW * scale
-      this.canvas.height = totalH * scale
-      const cssNativeW = (totalW * scale) / dpr
-      const cssNativeH = (totalH * scale) / dpr
-      this.canvas.style.width = `${cssNativeW}px`
-      this.canvas.style.height = `${cssNativeH}px`
+      this.canvas.width = fit.canvasWidth
+      this.canvas.height = fit.canvasHeight
+      this.canvas.style.width = `${fit.cssWidth}px`
+      this.canvas.style.height = `${fit.cssHeight}px`
       this.canvas.style.imageRendering = 'pixelated'
+      this.canvas.classList.add('is-ready')
       const stagingCtx = staging.getContext('2d')!
       cells.forEach((img, i) => {
         if (img) stagingCtx.putImageData(img, (i % gridCols) * cell, Math.floor(i / gridCols) * cell)
@@ -331,8 +365,9 @@ export class DecimenSendStream {
 
     if (startOpts?.holdAfterPreview) {
       try {
-        const preview = makeCell()
-        drawCell(preview, 0)
+        for (let i = 0; i < gridCodes; i++) {
+          drawCell(makeCell(), i)
+        }
       } catch (e) {
         generatorFailed = true
         hooks?.onError?.(e instanceof Error ? e.message : 'Could not generate QR stream.')
@@ -346,10 +381,21 @@ export class DecimenSendStream {
       streamStartTs = performance.now()
       this.raf = requestAnimationFrame(tick)
     }
+    // Overlay panel size may not be final on the first paint — remeasure once.
+    requestAnimationFrame(() => {
+      if (gen === this.generation) sizeCanvas()
+    })
     const onResize = () => sizeCanvas()
     window.addEventListener('resize', onResize)
+    const panel = this.canvas.closest('.optical-stream-panel')
+    let resizeObserver: ResizeObserver | null = null
+    if (panel && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => sizeCanvas())
+      resizeObserver.observe(panel)
+    }
     this.resizeCleanup = () => {
       window.removeEventListener('resize', onResize)
+      resizeObserver?.disconnect()
       this.sizeCanvasFn = null
       this.relayoutDisplayFn = null
     }

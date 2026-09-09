@@ -12,7 +12,7 @@ import {
   prefersOpticalDownloadSave,
   saveOpticalFiles,
 } from './opticalTransfer'
-import { unpackFile } from '../../../vendor/decimen/shared/protocol'
+import { unpackOpticalFile } from './opticalWirePack'
 import * as zip from '../../download/zip'
 
 describe('opticalTransfer', () => {
@@ -35,7 +35,7 @@ describe('opticalTransfer', () => {
     const prepared = await prepareOpticalTransfer([file])
     expect(prepared.fileCount).toBe(1)
     expect(prepared.sendName).toBe('note.txt')
-    const optical = await unpackFile(prepared.container)
+    const optical = await unpackOpticalFile(prepared.container)
     expect(optical.name).toBe('note.txt')
     expect(Array.from(optical.bytes)).toEqual([9, 8, 7])
   })
@@ -47,7 +47,7 @@ describe('opticalTransfer', () => {
     ])
     expect(prepared.fileCount).toBe(2)
     expect(prepared.sendType).toBe('application/zip')
-    const optical = await unpackFile(prepared.container)
+    const optical = await unpackOpticalFile(prepared.container)
     expect(optical.type).toBe('application/zip')
     const inner = unzipSync(optical.bytes) as Record<string, Uint8Array>
     expect(Object.keys(inner).sort()).toEqual(['one.bin', 'two.bin'])

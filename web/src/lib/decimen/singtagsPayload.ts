@@ -1,7 +1,8 @@
 /**
  * SingTags sheet + metadata packaged as a Decimen file container.
  */
-import { packFile, unpackFile, type OpticalFile } from '../../../vendor/decimen/shared/protocol'
+import { packOpticalFile, unpackOpticalFile } from './opticalWirePack'
+import type { OpticalFile } from '../../../vendor/decimen/shared/protocol'
 import { packSheetTransfer, unpackSheetTransfer, type SheetTransferMeta } from '../sheetQrTransfer'
 
 const SINGTAGS_SHEET_MIME = 'application/vnd.singtags.sheet-transfer'
@@ -17,7 +18,7 @@ export async function packSingtagsSheetFile(
 ): Promise<{ filename: string; container: Uint8Array }> {
   const payload = packSheetTransfer({ meta, imageBytes })
   const filename = singtagsSheetFilename(meta.id)
-  const packed = await packFile(filename, SINGTAGS_SHEET_MIME, payload)
+  const packed = await packOpticalFile(filename, SINGTAGS_SHEET_MIME, payload)
   return { filename, container: packed.container }
 }
 
@@ -41,7 +42,7 @@ export function isSingtagsSheetFile(file: OpticalFile): boolean {
 export async function unpackSingtagsSheetContainer(
   container: Uint8Array,
 ): Promise<{ meta: SheetTransferMeta; imageBytes: Uint8Array }> {
-  const file = await unpackFile(container)
+  const file = await unpackOpticalFile(container)
   if (!isSingtagsSheetFile(file)) {
     throw new Error('Received file is not a SingTags sheet transfer.')
   }

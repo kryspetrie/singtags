@@ -3,8 +3,9 @@
  * Each batch is one verified Decimen file — partial receive keeps earlier batches intact.
  */
 import { deflateSync, inflateSync } from 'fflate'
-import { packFile, type OpticalFile } from '../../../vendor/decimen/shared/protocol'
+import type { OpticalFile } from '../../../vendor/decimen/shared/protocol'
 import type { SheetTransferMeta, SheetTransferPackage } from '../sheetQrTransfer'
+import { packOpticalFile } from './opticalWirePack'
 
 export const SINGTAGS_COLLECTION_MIME = 'application/vnd.singtags.collection-transfer'
 
@@ -91,7 +92,7 @@ export async function packSingtagsCollectionBatch(
   }
   const payload = packRaw(batch)
   const filename = singtagsCollectionFilename(batch.manifest)
-  const packed = await packFile(filename, SINGTAGS_COLLECTION_MIME, payload)
+  const packed = await packOpticalFile(filename, SINGTAGS_COLLECTION_MIME, payload)
   return { filename, container: packed.container }
 }
 

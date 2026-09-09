@@ -2,39 +2,36 @@
 /**
  * Fullscreen animated QR stream for optical transfer — stage sharing with zoom.
  */
-import { computed, onUnmounted, watch } from 'vue'
+import { onUnmounted, watch } from 'vue'
 import { formatBytes } from '../offline/storageEstimate'
 import type { DecimenSendStreamProgress } from '../lib/decimen/sendProgress'
+import type { OpticalSendCountdownTick } from '../lib/decimen/sendCountdown'
 
-const DISPLAY_SCALE_MIN = 1
-const DISPLAY_SCALE_MAX = 6
-/** One tap on +/- jumps a full step. */
-const DISPLAY_SCALE_STEP = 1
-const DISPLAY_SCALE_SLIDER_STEP = 0.25
+/** Fill factor: 1 = max stage size; − shrinks from there. */
+const DISPLAY_SCALE_MIN = 0.4
+const DISPLAY_SCALE_MAX = 1
+const DISPLAY_SCALE_STEP = 0.15
 
 const props = defineProps<{
   open: boolean
   status?: string
   progress?: DecimenSendStreamProgress | null
-  countdown?: number | null
+  countdown?: OpticalSendCountdownTick | null
   displayScale: number
+  /** Offer “Easier scan” while streaming when a lower density/grid is available. */
+  canEaseScan?: boolean
+  easeScanBusy?: boolean
 }>()
 
 const emit = defineEmits<{
   stop: []
   'update:displayScale': [scale: number]
+  'ease-scan': []
+  'toggle-countdown-pause': []
 }>()
 
-const scaleLabel = computed(() => `${props.displayScale.toFixed(1)}×`)
-
-const progressBytesLine = computed(() => {
-  const p = props.progress
-  if (!p) return ''
-  return `~${formatBytes(p.bytesEstimate)} / ${formatBytes(p.totalBytes)}`
-})
-
 function clampScale(scale: number): number {
-  return Math.min(DISPLAY_SCALE_MAX, Math.max(DISPLAY_SCALE_MIN, Math.round(scale * 4) / 4))
+  return Math.min(DISPLAY_SCALE_MAX, Math.max(DISPLAY_SCALE_MIN, Math.round(scale * 20) / 20))
 }
 
 function setScale(scale: number): void {
@@ -45,11 +42,22 @@ function bumpScale(delta: number): void {
   setScale(props.displayScale + delta)
 }
 
+function onCountdownStageClick(e: MouseEvent): void {
+  if (props.countdown == null) return
+  e.preventDefault()
+  emit('toggle-countdown-pause')
+}
+
 function onStreamKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     e.preventDefault()
     e.stopPropagation()
     emit('stop')
+    return
+  }
+  if (props.countdown != null && (e.key === ' ' || e.key === 'Enter')) {
+    e.preventDefault()
+    emit('toggle-countdown-pause')
     return
   }
   if (e.key === '+' || e.key === '=') {
@@ -95,23 +103,6 @@ onUnmounted(() => {
           >
             −
           </button>
-          <label class="zoom-slider-wrap">
-            <span class="visually-hidden">QR size</span>
-            <input
-              class="zoom-slider"
-              type="range"
-              :min="DISPLAY_SCALE_MIN"
-              :max="DISPLAY_SCALE_MAX"
-              :step="DISPLAY_SCALE_SLIDER_STEP"
-              :value="displayScale"
-              aria-valuemin="DISPLAY_SCALE_MIN"
-              aria-valuemax="DISPLAY_SCALE_MAX"
-              :aria-valuenow="displayScale"
-              aria-label="QR size"
-              @input="setScale(Number(($event.target as HTMLInputElement).value))"
-            />
-          </label>
-          <span class="zoom-label" aria-hidden="true">{{ scaleLabel }}</span>
           <button
             type="button"
             class="chrome-btn"
@@ -123,45 +114,93 @@ onUnmounted(() => {
             +
           </button>
         </div>
+        <button
+          v-if="canEaseScan"
+          type="button"
+          class="chrome-btn ease-btn"
+          :disabled="easeScanBusy || countdown != null"
+          aria-label="Retry with easier-to-scan QR codes"
+          title="Receiver struggling? Restart with larger QR modules"
+          @click="emit('ease-scan')"
+        >
+          Easier scan
+        </button>
         <button type="button" class="chrome-btn stop-btn" @click="emit('stop')">Stop</button>
       </div>
 
       <div class="optical-stream-panel">
-        <div class="qr-stage">
+        <div
+          class="qr-stage"
+          :class="{ 'countdown-active': countdown != null }"
+          @click="onCountdownStageClick"
+        >
           <slot />
           <div
             v-if="countdown != null"
             class="countdown-overlay"
             role="status"
             aria-live="assertive"
-            :aria-label="`Starting in ${countdown}`"
+            :aria-label="
+              countdown === 'paused' ? 'Countdown paused. Tap to restart.' : `Starting in ${countdown}`
+            "
           >
-            <span class="countdown-num" :key="countdown">{{ countdown }}</span>
+            <span
+              v-if="countdown === 'paused'"
+              class="countdown-pause"
+              aria-hidden="true"
+            >
+              <svg viewBox="0 0 64 64" width="1em" height="1em" focusable="false">
+                <rect x="14" y="10" width="12" height="44" rx="3" fill="currentColor" />
+                <rect x="38" y="10" width="12" height="44" rx="3" fill="currentColor" />
+              </svg>
+            </span>
+            <span v-else class="countdown-num" :key="countdown">{{ countdown }}</span>
           </div>
         </div>
       </div>
 
-      <div v-if="progress && countdown == null" class="send-progress" role="status" aria-live="polite">
+      <div class="optical-stream-footer">
         <div
-          class="send-progress-bar"
-          role="progressbar"
-          :aria-valuenow="progress.percent"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          :aria-valuetext="progressBytesLine"
+          v-if="progress && countdown == null"
+          class="send-progress"
+          role="status"
+          aria-live="polite"
         >
-          <div class="send-progress-fill" :style="{ width: `${progress.percent}%` }" />
+          <div
+            class="send-progress-bar"
+            role="progressbar"
+            :aria-valuenow="progress.percent"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuetext="`~${formatBytes(progress.bytesEstimate)} / ${formatBytes(progress.totalBytes)}`"
+          >
+            <div class="send-progress-fill" :style="{ width: `${progress.percent}%` }" />
+          </div>
+          <p class="send-progress-meta">
+            <span class="send-progress-bytes"
+              >~{{ formatBytes(progress.bytesEstimate) }} /
+              {{ formatBytes(progress.totalBytes) }}</span
+            >
+            <span v-if="progress.likelyComplete" class="send-progress-ok">Probably enough</span>
+            <span v-else-if="progress.phase === 'collecting'" class="send-progress-hint"
+              >Collecting…</span
+            >
+            <span v-else class="send-progress-hint">Redundancy…</span>
+            <span v-if="status" class="send-progress-status">{{ status }}</span>
+          </p>
         </div>
-        <p class="send-progress-meta">
-          <span class="send-progress-bytes">{{ progressBytesLine }}</span>
-          <span v-if="progress.likelyComplete" class="send-progress-ok">Probably enough — hold steady a moment longer</span>
-          <span v-else-if="progress.phase === 'collecting'" class="send-progress-hint">Collecting frames…</span>
-          <span v-else class="send-progress-hint">Sending redundancy…</span>
+
+        <p
+          v-else-if="status && countdown == null"
+          class="optical-stream-status"
+          role="status"
+        >
+          {{ status }}
+        </p>
+        <p v-else-if="countdown != null" class="optical-stream-status" role="status">
+          {{ countdown === 'paused' ? 'Paused — tap to restart' : 'Get phones ready…' }}
         </p>
       </div>
-
-      <p v-if="status && countdown == null" class="optical-stream-status" role="status">{{ status }}</p>
-      <p v-else-if="countdown != null" class="optical-stream-status" role="status">Get phones ready…</p>
     </div>
   </Teleport>
 </template>
@@ -172,8 +211,8 @@ onUnmounted(() => {
   inset: 0;
   z-index: 140;
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 0.65rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
   padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
     max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
   background: #0a0a0a;
@@ -234,58 +273,38 @@ onUnmounted(() => {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.chrome-btn.ease-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .chrome-btn.stop-btn {
   flex-shrink: 0;
   min-width: 4.5rem;
-}
-.zoom-slider-wrap {
-  flex: 1 1 8rem;
-  min-width: 5.5rem;
-  max-width: 16rem;
-  display: flex;
-  align-items: center;
-  margin: 0;
-}
-.zoom-slider {
-  width: 100%;
-  margin: 0;
-  accent-color: #fff;
-  cursor: pointer;
-  touch-action: pan-x;
-}
-.zoom-label {
-  flex-shrink: 0;
-  min-width: 2.75rem;
-  font-size: 0.92rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.92);
-}
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 .optical-stream-panel {
   display: grid;
   place-items: center;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   pointer-events: none;
 }
 .qr-stage {
   position: relative;
-  display: inline-grid;
+  display: grid;
   place-items: center;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.qr-stage.countdown-active {
+  cursor: pointer;
+  pointer-events: auto;
 }
 .countdown-overlay {
   position: absolute;
@@ -312,6 +331,17 @@ onUnmounted(() => {
     -0.04em -0.04em 0 #000;
   animation: countdown-pop 0.45s ease-out;
 }
+.countdown-pause {
+  display: grid;
+  place-items: center;
+  font-size: min(28vw, 28vh, 10rem);
+  color: #fff;
+  filter: drop-shadow(0 0 0.25em #000) drop-shadow(0.04em 0.04em 0 #000);
+  animation: countdown-pop 0.45s ease-out;
+}
+.countdown-pause svg {
+  display: block;
+}
 @keyframes countdown-pop {
   from {
     opacity: 0.5;
@@ -324,28 +354,54 @@ onUnmounted(() => {
 }
 .optical-stream-panel :deep(.qr-canvas) {
   display: block;
-  max-width: min(96vw, 96vh);
-  max-height: min(96vw, 96vh);
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
   border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+  opacity: 0;
+}
+.optical-stream-panel :deep(.qr-canvas.is-ready) {
+  opacity: 1;
   background: #fff;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
+}
+/* Fixed one-line footer so progress text never resizes the QR stage. */
+.optical-stream-footer {
+  display: grid;
+  align-content: center;
+  justify-items: stretch;
+  min-height: 2.75rem;
+  height: 2.75rem;
 }
 .optical-stream-status {
   margin: 0;
   text-align: center;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .send-progress {
-  display: grid;
-  gap: 0.4rem;
-  width: min(100%, 28rem);
-  margin: 0 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 .send-progress-bar {
-  height: 0.45rem;
+  flex: 1 1 5rem;
+  min-width: 3.5rem;
+  max-width: 12rem;
+  height: 0.4rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
@@ -359,23 +415,37 @@ onUnmounted(() => {
 .send-progress-meta {
   margin: 0;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.35rem 0.65rem;
-  font-size: 0.88rem;
-  line-height: 1.35;
-  text-align: center;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.84rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .send-progress-bytes {
+  flex: 0 0 auto;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.95);
 }
 .send-progress-ok {
+  flex: 0 0 auto;
   color: #9be49b;
   font-weight: 650;
 }
 .send-progress-hint {
+  flex: 0 0 auto;
   color: rgba(255, 255, 255, 0.68);
+}
+.send-progress-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 500;
 }
 </style>

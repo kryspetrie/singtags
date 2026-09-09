@@ -31,10 +31,17 @@ import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import { normalizeCustomParts } from '../lib/audioParts'
 import {
   DEFAULT_OPTICAL_FRAME_BYTES,
+  DEFAULT_OPTICAL_GRID_CODES,
   DEFAULT_OPTICAL_TX_FPS,
+  normalizeOpticalDisplayScale,
   normalizeOpticalFrameBytes,
+  normalizeOpticalGridCodes,
   normalizeOpticalTxFps,
 } from '../lib/decimen/sendSettings'
+import {
+  normalizeOpticalTransferPreset,
+  type OpticalTransferPreset,
+} from '../lib/decimen/opticalTransferPresets'
 import {
   DEFAULT_PDF_RASTER_CACHE_MAX_MB,
   normalizePdfRasterCacheMaxMb,
@@ -77,8 +84,11 @@ const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
 const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
+const OPTICAL_GRID_CODES_KEY = 'singtags.opticalTransfer.gridCodes.v1'
+const OPTICAL_AUTO_DENSITY_KEY = 'singtags.opticalTransfer.autoDensity.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
+const OPTICAL_PRESET_KEY = 'singtags.opticalTransfer.preset.v1'
 const LIBRARY_PARTS_MODE_KEY = 'singtags.libraryAudioPartsMode.v1'
 const LIBRARY_PARTS_KEY = 'singtags.libraryAudioParts.v1'
 const PITCH_PIPE_PREFS_KEY = 'singtags.pitchPipe.v1'
@@ -275,6 +285,15 @@ function loadNumber(key: string, fallback: number): number {
   }
 }
 
+function loadString(key: string, fallback: string): string {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw == null || raw === '' ? fallback : raw
+  } catch {
+    return fallback
+  }
+}
+
 /** Normalize / load fullscreen sheet page mode from localStorage. */
 export function normalizeSheetFsPageMode(raw: unknown): SheetFsPageMode {
   return raw === 'scroll' ? 'scroll' : 'paging'
@@ -389,13 +408,31 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
   )
+  /** When true, pick lowest density/FPS/grid that still aims for the preset airtime. */
+  const opticalTransferAutoDensity = ref(loadBool(OPTICAL_AUTO_DENSITY_KEY, true))
+  /** Experimental multi-stream grid code count (1, 2, 4, 6, 9). */
+  const opticalTransferGridCodes = ref(
+    normalizeOpticalGridCodes(loadNumber(OPTICAL_GRID_CODES_KEY, DEFAULT_OPTICAL_GRID_CODES)),
+  )
   /** Animated frames per second while sending an optical transfer. */
   const opticalTransferTxFps = ref(
     normalizeOpticalTxFps(loadNumber(OPTICAL_TX_FPS_KEY, DEFAULT_OPTICAL_TX_FPS)),
   )
-  /** Stage zoom multiplier for the fullscreen optical transfer QR. */
+  /** Stage fill factor for fullscreen optical QR (1 = max stage, 0.4 = smallest). */
   const opticalTransferDisplayScale = ref(
-    Math.min(6, Math.max(1, loadNumber(OPTICAL_DISPLAY_SCALE_KEY, 2))),
+    normalizeOpticalDisplayScale(loadNumber(OPTICAL_DISPLAY_SCALE_KEY, 1)),
+  )
+  /** Reliable / Balanced / Fast — user-facing send tuning. */
+  const opticalTransferPreset = ref<OpticalTransferPreset>(
+    normalizeOpticalTransferPreset(
+      (() => {
+        try {
+          return localStorage.getItem(OPTICAL_PRESET_KEY)
+        } catch {
+          return null
+        }
+      })(),
+    ),
   )
   /**
    * Max durable PDF→WebP raster cache size (MB). FIFO eviction by insert time.
@@ -575,6 +612,42 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(OPTICAL_FRAME_BYTES_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferAutoDensity,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_AUTO_DENSITY_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferPreset,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_PRESET_KEY, v)
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    opticalTransferGridCodes,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_GRID_CODES_KEY, String(v))
       } catch {
         /* ignore */
       }
@@ -810,6 +883,20 @@ export const usePreferencesStore = defineStore('preferences', () => {
 
   function setOpticalTransferFrameBytes(value: number): void {
     opticalTransferFrameBytes.value = normalizeOpticalFrameBytes(value)
+    opticalTransferAutoDensity.value = false
+  }
+
+  function setOpticalTransferAutoDensity(on: boolean): void {
+    opticalTransferAutoDensity.value = on
+  }
+
+  function setOpticalTransferPreset(preset: OpticalTransferPreset): void {
+    opticalTransferPreset.value = normalizeOpticalTransferPreset(preset)
+    opticalTransferAutoDensity.value = true
+  }
+
+  function setOpticalTransferGridCodes(value: number): void {
+    opticalTransferGridCodes.value = normalizeOpticalGridCodes(value)
   }
 
   function setOpticalTransferTxFps(value: number): void {
@@ -817,7 +904,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   function setOpticalTransferDisplayScale(scale: number): void {
-    opticalTransferDisplayScale.value = Math.min(6, Math.max(1, Math.round(scale * 4) / 4))
+    opticalTransferDisplayScale.value = normalizeOpticalDisplayScale(scale)
   }
 
   function setPdfRasterCacheMaxMb(mb: number): void {
@@ -837,6 +924,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferEnabled,
     localLibraryEnabled,
     opticalTransferFrameBytes,
+    opticalTransferAutoDensity,
+    opticalTransferPreset,
+    opticalTransferGridCodes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
     pdfRasterCacheMaxMb,
@@ -862,6 +952,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setShareBarbershopTags,
     setSheetFsPageMode,
     setOpticalTransferFrameBytes,
+    setOpticalTransferAutoDensity,
+    setOpticalTransferPreset,
+    setOpticalTransferGridCodes,
     setOpticalTransferTxFps,
     setOpticalTransferDisplayScale,
     setPdfRasterCacheMaxMb,

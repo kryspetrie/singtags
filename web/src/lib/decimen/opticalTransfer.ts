@@ -5,7 +5,6 @@ import { buildZip, downloadBlob } from '../../download/zip'
 import {
   MAX_FILE_BYTES,
   MAX_FILE_LABEL,
-  packFile,
   type OpticalFile,
 } from '../../../vendor/decimen/shared/protocol'
 import { sourceBlockCount } from '../../../vendor/decimen/shared/frame-capacity'
@@ -14,6 +13,7 @@ import {
   DEFAULT_OPTICAL_FRAME_BYTES,
   DEFAULT_OPTICAL_TX_FPS,
 } from './sendSettings'
+import { packOpticalFile } from './opticalWirePack'
 
 export { DEFAULT_OPTICAL_FRAME_BYTES as OPTICAL_SEND_FRAME_BYTES }
 export { DEFAULT_OPTICAL_TX_FPS as OPTICAL_SEND_TX_FPS }
@@ -111,7 +111,7 @@ export async function prepareOpticalTransfer(files: File[]): Promise<PreparedOpt
     throw new Error(`Total size exceeds ${MAX_FILE_LABEL}. Remove some files or send fewer at once.`)
   }
 
-  const packed = await packFile(sendName, sendType, payload)
+  const packed = await packOpticalFile(sendName, sendType, payload)
   return {
     container: packed.container,
     sendName,
@@ -127,7 +127,7 @@ export type PreparedSendPreview = PreparedOpticalTransfer & {
 
 /** Rough send-time preview from file sizes — no packing or hashing. */
 export function estimateOpticalTransferPreview(
-  files: File[],
+  files: Array<Pick<File, 'name' | 'size'>>,
   frameBytes = DEFAULT_OPTICAL_FRAME_BYTES,
   txFps = DEFAULT_OPTICAL_TX_FPS,
 ): OpticalSendEstimate & {

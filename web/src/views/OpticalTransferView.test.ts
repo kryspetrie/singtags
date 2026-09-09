@@ -117,20 +117,19 @@ describe('OpticalTransferView', () => {
     w.unmount()
   })
 
-  it('shows transfer settings in a collapsible section with dropdowns', async () => {
+  it('shows scan mode next to queue actions', async () => {
     const w = await mountView()
     await flushPromises()
 
-    const settings = document.body.querySelector('details.send-settings')
-    expect(settings).toBeTruthy()
-    expect(settings!.hasAttribute('open')).toBe(false)
-    expect(w.text()).toMatch(/Transfer settings/)
-    expect(document.body.querySelector('select[aria-label="QR code density"]')).toBeTruthy()
-    expect(document.body.querySelector('select[aria-label="Transfer frame rate"]')).toBeTruthy()
-    expect(document.body.querySelector('input.zoom-slider')).toBeTruthy()
-    expect(w.text()).toMatch(/Standard/)
-    expect(w.text()).toMatch(/Medium/)
-    expect(w.text()).toMatch(/24 fps/)
+    expect(document.body.querySelector('details.send-settings')).toBeNull()
+    expect(document.body.querySelector('.queue-actions select[aria-label="Transfer scan mode"]')).toBeTruthy()
+    expect(document.body.querySelector('select[aria-label="Transfer density"]')).toBeNull()
+    expect(document.body.querySelector('select[aria-label="Transfer frame rate"]')).toBeNull()
+    expect(document.body.querySelector('button[aria-label="Make QR smaller"]')).toBeTruthy()
+    expect(document.body.querySelector('button[aria-label="Make QR larger"]')).toBeTruthy()
+    expect(w.text()).toMatch(/Balanced/)
+    expect(w.text()).toMatch(/Reliable/)
+    expect(w.text()).toMatch(/Fast/)
     w.unmount()
   })
 

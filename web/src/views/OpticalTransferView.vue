@@ -11,8 +11,13 @@ import OpticalReceivedPreview from '../components/OpticalReceivedPreview.vue'
 import OpticalTransferStreamOverlay from '../components/OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from '../components/OpticalTransferQualityToggle.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
+import {
+  formatOpticalPlanSummary,
+  planOpticalTransfer,
+  type OpticalTransferPlan,
+} from '../lib/decimen/opticalTransferPlan'
 import type { DecimenSendStreamProgress } from '../lib/decimen/sendProgress'
-import { createOpticalSendCountdownSignal, runOpticalSendCountdown } from '../lib/decimen/sendCountdown'
+import { createOpticalSendCountdownSignal, runOpticalSendCountdown, type OpticalSendCountdownTick } from '../lib/decimen/sendCountdown'
 import { DecimenReceiveCapture } from '../lib/decimen/receiveCapture'
 import {
   estimateOpticalTransferPreview,
@@ -24,6 +29,16 @@ import {
   canOpenOpticalAfterTransfer,
   opticalPreviewKind,
 } from '../lib/decimen/opticalReceivePreview'
+import {
+  DEFAULT_OPTICAL_AUDIO_FORMAT,
+  estimateOpticalAudioPayloadBytes,
+  isOpticalAudioFile,
+  OpticalAudioPrepareQueue,
+  OPTICAL_AUDIO_FORMAT_OPTIONS,
+  probeFileAudioDurationSeconds,
+  type OpticalAudioFormat,
+  type PreparedOpticalAudio,
+} from '../lib/decimen/opticalAudioFormat'
 import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
@@ -57,15 +72,25 @@ import { MAX_FILE_LABEL } from '../../vendor/decimen/shared/protocol'
 import type { OpticalFile } from '../../vendor/decimen/shared/protocol'
 import {
   OPTICAL_FRAME_BYTES_LABELS,
-  OPTICAL_FRAME_BYTES_OPTIONS,
-  OPTICAL_TX_FPS_LABELS,
-  OPTICAL_TX_FPS_OPTIONS,
   formatOpticalThroughput,
   opticalPayloadFits,
   suggestOpticalFrameBytes,
   type OpticalFrameBytes,
+  type OpticalGridCodes,
   type OpticalTxFps,
 } from '../lib/decimen/sendSettings'
+import {
+  estimateOpticalStageCss,
+} from '../lib/decimen/opticalDensityResolve'
+import {
+  canEaseOpticalSend,
+  nextEasierOpticalSendParams,
+} from '../lib/decimen/opticalSendEase'
+import {
+  OPTICAL_TRANSFER_PRESET_DEFS,
+  OPTICAL_TRANSFER_PRESET_OPTIONS,
+  type OpticalTransferPreset,
+} from '../lib/decimen/opticalTransferPresets'
 import { useCatalogStore } from '../stores/catalog'
 import { parseTagIdList } from '../lib/favoritesShare'
 import { useFavoritesStore } from '../stores/favorites'
@@ -130,15 +155,26 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const queue = ref<QueuedFile[]>([])
 let nextQueueId = 0
 
+const audioFormat = ref<OpticalAudioFormat>(DEFAULT_OPTICAL_AUDIO_FORMAT)
+const audioPrepareQueue = new OpticalAudioPrepareQueue()
+const preparedAudioById = ref<Map<number, PreparedOpticalAudio>>(new Map())
+/** Metadata duration for reencode size estimates (before prepare finishes). */
+const audioDurationById = ref<Map<number, number>>(new Map())
+
 const sendBusy = ref(false)
 const sendError = ref<string | null>(null)
 const sendStatus = ref('')
 const sendProgress = ref<DecimenSendStreamProgress | null>(null)
-const sendCountdown = ref<number | null>(null)
+const sendCountdown = ref<OpticalSendCountdownTick | null>(null)
 const streaming = ref(false)
 
-const frameBytesOptions = OPTICAL_FRAME_BYTES_OPTIONS
-const txFpsOptions = OPTICAL_TX_FPS_OPTIONS
+const selectedPresetDef = computed(
+  () => OPTICAL_TRANSFER_PRESET_DEFS[prefs.opticalTransferPreset as OpticalTransferPreset],
+)
+
+function onTransferPresetChange(raw: string): void {
+  prefs.setOpticalTransferPreset(raw as OpticalTransferPreset)
+}
 
 const receiveStatus = ref('')
 const receiveError = ref<string | null>(null)
@@ -200,19 +236,55 @@ const sendStreamStartDisabled = computed(
 )
 
 const sendStreamStartLabel = computed(() => {
-  if (sendCountdown.value != null) return `Starting in ${sendCountdown.value}…`
+  if (sendCountdown.value != null && sendCountdown.value !== 'paused') {
+    return `Starting in ${sendCountdown.value}…`
+  }
+  if (sendCountdown.value === 'paused') return 'Countdown paused'
   if (streaming.value) return 'Streaming…'
   if (sendBusy.value) return 'Preparing…'
-  return 'Start QR transfer'
+  return 'Start transfer'
 })
 
 let sendStream: DecimenSendStream | null = null
 let countdownSignal: ReturnType<typeof createOpticalSendCountdownSignal> | null = null
+/** Packed container for the active fullscreen send (survives density restarts). */
+let activeSendPayload: {
+  container: Uint8Array
+  sendName: string
+  frameBytes: number
+  gridCodes: OpticalGridCodes
+  txFps: OpticalTxFps
+} | null = null
+/** Reactive mirror for ease-scan availability (payload bytes stay in activeSendPayload). */
+const activeSendMeta = ref<{
+  frameBytes: number
+  gridCodes: OpticalGridCodes
+  containerBytes: number
+} | null>(null)
+const easeScanBusy = ref(false)
 let cameraStream: MediaStream | null = null
 let decimenCapture: DecimenReceiveCapture | null = null
 let receiveActive = false
 
+const canEaseScan = computed(() => {
+  if (!streaming.value || !activeSendMeta.value || sendCountdown.value != null) return false
+  const stage = estimateOpticalStageCss({
+    viewportWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+    viewportHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
+  })
+  return canEaseOpticalSend({
+    frameBytes: activeSendMeta.value.frameBytes,
+    gridCodes: activeSendMeta.value.gridCodes,
+    containerBytes: activeSendMeta.value.containerBytes,
+    stageWidthCss: stage.width,
+    stageHeightCss: stage.height,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+  })
+})
+
 const queuedFiles = computed(() => queue.value.map((entry) => entry.file))
+
+const queueHasAudio = computed(() => queue.value.some((entry) => isOpticalAudioFile(entry.file)))
 
 function isCollectionBundleFile(file: File): boolean {
   return /^singtags-collection-.+-(\d+)-of-(\d+)\.bundle$/i.test(file.name)
@@ -225,6 +297,95 @@ const sendFiles = computed(() => {
   if (allCollection && files.length > 1) return [files[0]!]
   return files
 })
+
+function fileFromPreparedBytes(name: string, type: string, bytes: Uint8Array): File {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return new File([copy.buffer], name, { type })
+}
+
+/** Size stub for transfer preview without allocating a full buffer. */
+function fileWithEstimatedSize(name: string, type: string, size: number): Pick<File, 'name' | 'size' | 'type'> {
+  return { name, type, size: Math.max(0, Math.round(size)) }
+}
+
+/** Files for size estimate — prepared bytes when ready, else reencode estimate. */
+const estimateFiles = computed(() => {
+  return sendFiles.value.map((file) => {
+    const entry = queue.value.find((e) => e.file === file)
+    if (!entry || !isOpticalAudioFile(file)) return file
+    const prepared = preparedAudioById.value.get(entry.id)
+    if (prepared) {
+      return fileWithEstimatedSize(prepared.name, prepared.type, prepared.bytes.byteLength)
+    }
+    const estimated = estimateOpticalAudioPayloadBytes({
+      byteLength: file.size,
+      format: audioFormat.value,
+      durationSec: audioDurationById.value.get(entry.id) ?? null,
+    })
+    return fileWithEstimatedSize(file.name, file.type, estimated)
+  })
+})
+
+/** True while any audio still uses a bitrate estimate (not actual prepared bytes). */
+const audioSizeEstimateProvisional = computed(() => {
+  if (audioFormat.value === 'original') return false
+  return sendFiles.value.some((file) => {
+    const entry = queue.value.find((e) => e.file === file)
+    return !!entry && isOpticalAudioFile(file) && !preparedAudioById.value.has(entry.id)
+  })
+})
+
+async function resolveSendFiles(): Promise<File[]> {
+  const out: File[] = []
+  for (const file of sendFiles.value) {
+    const entry = queue.value.find((e) => e.file === file)
+    if (entry && isOpticalAudioFile(file)) {
+      const prepared = await audioPrepareQueue.ensure(
+        String(entry.id),
+        file,
+        audioFormat.value,
+      )
+      out.push(fileFromPreparedBytes(prepared.name, prepared.type, prepared.bytes))
+    } else {
+      out.push(file)
+    }
+  }
+  return out
+}
+
+function kickAudioDurationProbe(): void {
+  for (const entry of queue.value) {
+    if (!isOpticalAudioFile(entry.file)) continue
+    if (audioDurationById.value.has(entry.id)) continue
+    void probeFileAudioDurationSeconds(entry.file).then((sec) => {
+      if (sec == null) return
+      if (!queue.value.some((e) => e.id === entry.id)) return
+      const next = new Map(audioDurationById.value)
+      next.set(entry.id, sec)
+      audioDurationById.value = next
+      refreshSendPreview()
+    })
+  }
+}
+
+function kickAudioPrepare(): void {
+  const format = audioFormat.value
+  for (const entry of queue.value) {
+    if (!isOpticalAudioFile(entry.file)) continue
+    void audioPrepareQueue
+      .prepare(String(entry.id), entry.file, format)
+      .then((prepared) => {
+        const next = new Map(preparedAudioById.value)
+        next.set(entry.id, prepared)
+        preparedAudioById.value = next
+        refreshSendPreview()
+      })
+      .catch((e) => {
+        if (e instanceof DOMException && e.name === 'AbortError') return
+      })
+  }
+}
 
 const multipleCollectionBatchesQueued = computed(() => {
   const files = queuedFiles.value
@@ -246,21 +407,43 @@ const queueSummary = computed(() => {
 const transferStatsLine = computed(() => {
   if (!sendPreview.value) return sendPreviewBusy.value ? 'Calculating transfer size…' : ''
   const p = sendPreview.value
-  return `Transfer size ${formatBytes(p.containerBytes)} · about ${p.etaLabel} at ${prefs.opticalTransferTxFps} fps`
+  const plan = plannedTransfer.value
+  const approx = audioSizeEstimateProvisional.value ? '~' : ''
+  if (plan) {
+    const eta =
+      plan.etaSeconds < 10 ? plan.etaSeconds.toFixed(1) : String(Math.round(plan.etaSeconds))
+    return `Transfer size ${approx}${formatBytes(p.containerBytes)} · ~${eta}s planned (${formatOpticalPlanSummary(plan)})`
+  }
+  return `Transfer size ${approx}${formatBytes(p.containerBytes)} · about ${p.etaLabel}`
 })
 
-const selectedDensityHint = computed(
-  () => OPTICAL_FRAME_BYTES_LABELS[prefs.opticalTransferFrameBytes as OpticalFrameBytes]?.hint ?? '',
-)
+const plannedTransfer = computed((): OpticalTransferPlan | null => {
+  if (!sendPreview.value) return null
+  return planOpticalTransfer({
+    containerBytes: sendPreview.value.containerBytes,
+    preset: prefs.opticalTransferPreset,
+    viewportWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+    viewportHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : undefined,
+  })
+})
+
+const selectedDensityHint = computed(() => selectedPresetDef.value?.hint ?? '')
 
 const densityTooLow = computed(() => {
-  if (!sendPreview.value) return false
-  return !opticalPayloadFits(sendPreview.value.containerBytes, prefs.opticalTransferFrameBytes)
+  if (!sendPreview.value || !plannedTransfer.value) return false
+  return !opticalPayloadFits(sendPreview.value.containerBytes, plannedTransfer.value.frameBytes)
 })
 
 const suggestedDensity = computed(() => {
   if (!sendPreview.value) return undefined
   return suggestOpticalFrameBytes(sendPreview.value.containerBytes)
+})
+
+const suggestedDensityLabel = computed(() => {
+  const suggestion = suggestedDensity.value
+  if (suggestion == null) return ''
+  return OPTICAL_FRAME_BYTES_LABELS[suggestion as OpticalFrameBytes]?.label ?? String(suggestion)
 })
 
 const selectedReceived = computed(() =>
@@ -285,7 +468,7 @@ function refreshSendPreview(): void {
   sendPreviewError.value = null
   try {
     const preview = estimateOpticalTransferPreview(
-      sendFiles.value,
+      estimateFiles.value,
       prefs.opticalTransferFrameBytes,
       prefs.opticalTransferTxFps,
     )
@@ -315,6 +498,8 @@ function onFilesPicked(event: Event): void {
   const added = picked.map((file) => ({ id: nextQueueId++, file }))
   queue.value = [...queue.value, ...added]
   sendError.value = null
+  kickAudioDurationProbe()
+  kickAudioPrepare()
   refreshSendPreview()
   snackbar.show(
     added.length === 1
@@ -325,26 +510,43 @@ function onFilesPicked(event: Event): void {
 }
 
 function removeQueued(id: number): void {
+  audioPrepareQueue.cancelItem(String(id))
+  const next = new Map(preparedAudioById.value)
+  next.delete(id)
+  preparedAudioById.value = next
+  const durations = new Map(audioDurationById.value)
+  durations.delete(id)
+  audioDurationById.value = durations
   queue.value = queue.value.filter((entry) => entry.id !== id)
   if (!queue.value.length) stopSendStream()
   refreshSendPreview()
 }
 
 function clearQueue(): void {
+  audioPrepareQueue.clear()
+  preparedAudioById.value = new Map()
+  audioDurationById.value = new Map()
   queue.value = []
   stopSendStream()
   refreshSendPreview()
 }
 
-function stopSendStream(): void {
+function haltSendTransmission(): void {
   countdownSignal?.cancel()
   countdownSignal = null
   sendCountdown.value = null
   sendStream?.stop()
   sendStream = null
+  sendProgress.value = null
+}
+
+function stopSendStream(): void {
+  haltSendTransmission()
+  activeSendPayload = null
+  activeSendMeta.value = null
+  easeScanBusy.value = false
   streaming.value = false
   sendStatus.value = ''
-  sendProgress.value = null
 }
 
 function onDisplayScale(scale: number): void {
@@ -365,87 +567,186 @@ async function startFromReceiveInviteOverlay(): Promise<void> {
   if (streaming.value || sendBusy.value) receiveInviteOverlayOpen.value = false
 }
 
+/** Start (or restart) QR fountain for an already-packed container. */
+async function beginOpticalSendTransmission(opts: {
+  container: Uint8Array
+  sendName: string
+  frameBytes: number
+  gridCodes: OpticalGridCodes
+  txFps: OpticalTxFps
+  /** Mid-stream density ease: skip countdown and stream immediately. */
+  immediate?: boolean
+}): Promise<void> {
+  const canvas = canvasRef.value
+  if (!canvas) throw new Error('Could not start transfer display.')
+
+  const { container, sendName, frameBytes, gridCodes, txFps, immediate } = opts
+  if (!opticalPayloadFits(container.length, frameBytes)) {
+    const suggestion = suggestOpticalFrameBytes(container.length)
+    throw new Error(
+      suggestion
+        ? `Transfer is too large for the current QR density. Try the Fast preset or split into smaller transfers.`
+        : 'Transfer is too large for the selected QR density.',
+    )
+  }
+
+  activeSendPayload = { container, sendName, frameBytes, gridCodes, txFps }
+  activeSendMeta.value = {
+    frameBytes,
+    gridCodes,
+    containerBytes: container.length,
+  }
+  const common = {
+    txFps,
+    frameBytes,
+    gridCodes,
+    displayScale: prefs.opticalTransferDisplayScale,
+    fullscreen: true as const,
+  }
+  sendStream = new DecimenSendStream(canvas, { ...common, displayPx: 200 })
+  let lastK = 0
+  let lastQrVersion: number | undefined
+  let lastTxFps: OpticalTxFps = txFps
+  const rateLabel = () => formatOpticalThroughput(frameBytes, lastTxFps, gridCodes)
+  const gridNote = gridCodes > 1 ? ` · ${gridCodes}-grid` : ''
+
+  await sendStream.start(
+    container,
+    {
+      onStatus: (s) => {
+        lastK = s.k
+        lastQrVersion = 'qrVersion' in s ? s.qrVersion : undefined
+        lastTxFps = s.txFps as OpticalTxFps
+        if (sendCountdown.value != null) return
+        sendStatus.value = `Streaming · QR${gridNote} · K=${s.k} · QR v${lastQrVersion ?? '?'} · ${rateLabel()}`
+      },
+      onProgress: (p) => {
+        sendProgress.value = p
+      },
+      onError: (message) => {
+        sendError.value = message
+        stopSendStream()
+      },
+    },
+    { holdAfterPreview: !immediate },
+  )
+
+  if (immediate) {
+    await sendStream.resumeTransmission()
+    sendStatus.value =
+      lastK > 0
+        ? `Streaming · QR${gridNote} · K=${lastK} · QR v${lastQrVersion ?? '?'} · ${rateLabel()}`
+        : `Streaming ${sendName} · ${formatBytes(container.length)}`
+    return
+  }
+
+  countdownSignal = createOpticalSendCountdownSignal()
+  const ready = await runOpticalSendCountdown((value) => {
+    sendCountdown.value = value
+    sendStatus.value =
+      value === 'paused'
+        ? 'Paused — tap to restart countdown'
+        : gridCodes > 1
+          ? 'Get phones ready… Hold steady so the whole grid is visible.'
+          : 'Get phones ready…'
+  }, countdownSignal)
+  countdownSignal = null
+  sendCountdown.value = null
+  if (!ready) {
+    stopSendStream()
+    return
+  }
+  await sendStream.resumeTransmission()
+  sendStatus.value =
+    lastK > 0
+      ? `Streaming · QR${gridNote} · K=${lastK} · QR v${lastQrVersion ?? '?'} · ${rateLabel()}`
+      : `Streaming ${sendName} · ${formatBytes(container.length)}`
+}
+
+function toggleSendCountdownPause(): void {
+  if (sendCountdown.value == null || !countdownSignal) return
+  countdownSignal.togglePause()
+}
+
+async function easeOpticalScan(): Promise<void> {
+  if (!activeSendPayload || easeScanBusy.value || sendCountdown.value != null) return
+  const stage = estimateOpticalStageCss({
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  })
+  const next = nextEasierOpticalSendParams({
+    frameBytes: activeSendPayload.frameBytes,
+    gridCodes: activeSendPayload.gridCodes,
+    containerBytes: activeSendPayload.container.length,
+    stageWidthCss: stage.width,
+    stageHeightCss: stage.height,
+    devicePixelRatio: window.devicePixelRatio || 1,
+  })
+  if (!next) return
+
+  easeScanBusy.value = true
+  sendError.value = null
+  const payload = activeSendPayload
+  const densityLabel = OPTICAL_FRAME_BYTES_LABELS[next.frameBytes]?.label ?? String(next.frameBytes)
+  sendStatus.value =
+    next.gridCodes !== payload.gridCodes
+      ? `Retrying with easier scan (${densityLabel} · ${next.gridCodes}-grid)…`
+      : `Retrying with easier scan (${densityLabel})…`
+  // Fountain identity includes blockLen — new density = new session; reset progress.
+  haltSendTransmission()
+  streaming.value = true
+  try {
+    await nextTick()
+    await beginOpticalSendTransmission({
+      container: payload.container,
+      sendName: payload.sendName,
+      frameBytes: next.frameBytes,
+      gridCodes: next.gridCodes,
+      txFps: payload.txFps,
+      immediate: true,
+    })
+  } catch (e) {
+    sendError.value = e instanceof Error ? e.message : 'Could not restart with easier QR.'
+    stopSendStream()
+  } finally {
+    easeScanBusy.value = false
+  }
+}
+
 async function startSendStream(): Promise<void> {
   if (!queue.value.length) {
     sendError.value = 'Add at least one file to the queue.'
     return
   }
-  if (densityTooLow.value) {
-    const suggestion = suggestedDensity.value
-    sendError.value = suggestion
-      ? `Transfer is too large for the current QR density. Switch to ${OPTICAL_FRAME_BYTES_LABELS[suggestion].label} (${formatOpticalThroughput(suggestion, prefs.opticalTransferTxFps)}) or remove files.`
-      : 'Transfer is too large for the selected QR density.'
-    return
-  }
   stopSendStream()
   sendBusy.value = true
   sendError.value = null
-  sendStatus.value = 'Preparing…'
-  streaming.value = true
-  await nextTick()
-  const canvas = canvasRef.value
-  if (!canvas) {
-    sendError.value = 'Could not start QR display.'
-    streaming.value = false
-    sendBusy.value = false
-    return
-  }
+  sendStatus.value = queueHasAudio.value ? 'Preparing audio…' : 'Preparing…'
   try {
-    const prepared = await prepareOpticalTransfer(sendFiles.value)
-    if (!opticalPayloadFits(prepared.container.length, prefs.opticalTransferFrameBytes)) {
-      const suggestion = suggestOpticalFrameBytes(prepared.container.length)
-      sendError.value = suggestion
-        ? `Transfer is too large for the current QR density. Switch to ${OPTICAL_FRAME_BYTES_LABELS[suggestion].label} (${formatOpticalThroughput(suggestion, prefs.opticalTransferTxFps)}) or remove files.`
-        : 'Transfer is too large for the selected QR density.'
-      stopSendStream()
-      return
-    }
-    sendStream = new DecimenSendStream(canvas, {
-      txFps: prefs.opticalTransferTxFps,
-      frameBytes: prefs.opticalTransferFrameBytes,
-      displayPx: 200,
-      displayScale: prefs.opticalTransferDisplayScale,
-      fullscreen: true,
+    const files = await resolveSendFiles()
+    const prepared = await prepareOpticalTransfer(files)
+    const plan = planOpticalTransfer({
+      containerBytes: prepared.container.length,
+      preset: prefs.opticalTransferPreset,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1,
     })
-    let lastK = 0
-    let lastQrVersion: number | undefined
-    let lastTxFps: OpticalTxFps = prefs.opticalTransferTxFps as OpticalTxFps
-    await sendStream.start(
-      prepared.container,
-      {
-        onStatus: (s) => {
-          lastK = s.k
-          lastQrVersion = s.qrVersion
-          lastTxFps = s.txFps as OpticalTxFps
-          if (sendCountdown.value != null) return
-          sendStatus.value = `Streaming · K=${s.k} · QR v${s.qrVersion ?? '?'} · ${formatOpticalThroughput(prefs.opticalTransferFrameBytes, s.txFps)}`
-        },
-        onProgress: (p) => {
-          sendProgress.value = p
-        },
-        onError: (message) => {
-          sendError.value = message
-          stopSendStream()
-        },
-      },
-      { holdAfterPreview: true },
-    )
-    countdownSignal = createOpticalSendCountdownSignal()
-    const ready = await runOpticalSendCountdown((value) => {
-      sendCountdown.value = value
-      sendStatus.value = 'Get phones ready…'
-    }, countdownSignal)
-    countdownSignal = null
-    sendCountdown.value = null
-    if (!ready) {
-      stopSendStream()
+    // Open fullscreen only once packing is done — avoids an empty white QR box.
+    streaming.value = true
+    await nextTick()
+    if (!canvasRef.value) {
+      sendError.value = 'Could not start transfer display.'
+      streaming.value = false
       return
     }
-    sendStream.resumeTransmission()
-    sendStatus.value =
-      lastK > 0
-        ? `Streaming · K=${lastK} · QR v${lastQrVersion ?? '?'} · ${formatOpticalThroughput(prefs.opticalTransferFrameBytes, lastTxFps)}`
-        : `Streaming ${prepared.sendName} · ${formatBytes(prepared.container.length)} · ~${sendPreview.value?.etaLabel ?? '…'}`
+    await beginOpticalSendTransmission({
+      container: prepared.container,
+      sendName: prepared.sendName,
+      frameBytes: plan.frameBytes,
+      gridCodes: plan.gridCodes,
+      txFps: plan.txFps,
+    })
   } catch (e) {
     sendError.value = e instanceof Error ? e.message : 'Could not start transfer.'
     stopSendStream()
@@ -1031,12 +1332,20 @@ watch(tab, async (next) => {
 watch(
   () => queue.value.map((entry) => `${entry.id}:${entry.file.name}:${entry.file.size}`).join('|'),
   () => {
+    kickAudioDurationProbe()
+    kickAudioPrepare()
     refreshSendPreview()
   },
 )
 
+watch(audioFormat, () => {
+  preparedAudioById.value = new Map()
+  kickAudioPrepare()
+  refreshSendPreview()
+})
+
 watch(
-  () => [prefs.opticalTransferFrameBytes, prefs.opticalTransferTxFps] as const,
+  () => prefs.opticalTransferPreset,
   () => {
     refreshSendPreview()
   },
@@ -1134,8 +1443,8 @@ onUnmounted(() => {
           <p v-if="densityTooLow" class="err" role="alert">
             {{
               suggestedDensity
-                ? `Too large for current density — try ${OPTICAL_FRAME_BYTES_LABELS[suggestedDensity].label}.`
-                : 'Too large for the selected QR density.'
+                ? `Too large for current density — try ${suggestedDensityLabel}.`
+                : 'Too large for the selected density.'
             }}
           </p>
           <OpticalTransferQualityToggle
@@ -1144,6 +1453,23 @@ onUnmounted(() => {
             :available="highResAvailable"
             :disabled="collectionPrepareBusy || sendBusy || streaming"
           />
+          <label v-if="queueHasAudio" class="audio-format-field">
+            <span class="audio-format-label">Audio format</span>
+            <select
+              v-model="audioFormat"
+              class="audio-format-select"
+              :disabled="sendBusy || streaming"
+              aria-label="Audio format for transfer"
+            >
+              <option
+                v-for="option in OPTICAL_AUDIO_FORMAT_OPTIONS"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
         </div>
 
         <ul v-if="queue.length" class="queue-list">
@@ -1193,55 +1519,34 @@ onUnmounted(() => {
           >
             Clear queue
           </button>
+          <label v-if="!streaming" class="scan-mode-field">
+            <span class="scan-mode-label">Scan mode</span>
+            <select
+              class="scan-mode-select"
+              :value="prefs.opticalTransferPreset"
+              :disabled="sendBusy"
+              aria-label="Transfer scan mode"
+              @change="onTransferPresetChange(($event.target as HTMLSelectElement).value)"
+            >
+              <option
+                v-for="option in OPTICAL_TRANSFER_PRESET_OPTIONS"
+                :key="option.id"
+                :value="option.id"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
         </div>
-
-        <details v-if="!streaming" class="send-settings">
-          <summary>Transfer settings</summary>
-          <div class="settings-body">
-            <p class="settings-hint">
-              Higher QR density sends more data per second (fewer frames, harder to scan).
-            </p>
-            <div class="settings-row">
-              <label class="setting-field">
-                <span class="setting-label">QR density</span>
-                <select
-                  class="setting-select"
-                  :value="prefs.opticalTransferFrameBytes"
-                  :disabled="sendBusy"
-                  aria-label="QR code density"
-                  @change="
-                    prefs.setOpticalTransferFrameBytes(
-                      Number(($event.target as HTMLSelectElement).value),
-                    )
-                  "
-                >
-                  <option v-for="option in frameBytesOptions" :key="option" :value="option">
-                    {{ OPTICAL_FRAME_BYTES_LABELS[option].label }} ({{
-                      formatOpticalThroughput(option, prefs.opticalTransferTxFps)
-                    }})
-                  </option>
-                </select>
-              </label>
-              <label class="setting-field">
-                <span class="setting-label">Frame rate</span>
-                <select
-                  class="setting-select"
-                  :value="prefs.opticalTransferTxFps"
-                  :disabled="sendBusy"
-                  aria-label="Transfer frame rate"
-                  @change="
-                    prefs.setOpticalTransferTxFps(Number(($event.target as HTMLSelectElement).value))
-                  "
-                >
-                  <option v-for="fps in txFpsOptions" :key="fps" :value="fps">
-                    {{ OPTICAL_TX_FPS_LABELS[fps as OpticalTxFps].label }} ({{ fps }} fps)
-                  </option>
-                </select>
-              </label>
-            </div>
-            <p v-if="selectedDensityHint" class="settings-note">{{ selectedDensityHint }}</p>
-          </div>
-        </details>
+        <p v-if="!streaming && selectedDensityHint" class="scan-mode-hint">{{ selectedDensityHint }}</p>
+        <p v-if="!streaming && plannedTransfer" class="scan-mode-hint">
+          Planned: {{ formatOpticalPlanSummary(plannedTransfer)
+          }}{{
+            plannedTransfer.exceedsTarget
+              ? ' (longer than this mode’s target — using the fastest readable settings)'
+              : ''
+          }}
+        </p>
       </div>
 
       <OpticalReceiveInvite />
@@ -1283,7 +1588,11 @@ onUnmounted(() => {
         :progress="sendProgress"
         :countdown="sendCountdown"
         :display-scale="prefs.opticalTransferDisplayScale"
+        :can-ease-scan="canEaseScan"
+        :ease-scan-busy="easeScanBusy"
         @update:display-scale="onDisplayScale"
+        @ease-scan="easeOpticalScan"
+        @toggle-countdown-pause="toggleSendCountdownPause"
         @stop="stopSendStream"
       >
         <canvas ref="canvasRef" class="qr-canvas" aria-label="Animated file transfer QR code" />
@@ -1577,6 +1886,26 @@ onUnmounted(() => {
   display: grid;
   gap: 0.2rem;
 }
+.audio-format-field {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  max-width: 18rem;
+}
+.audio-format-label {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.audio-format-select {
+  min-height: 44px;
+  padding: 0.4rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+}
 .queue-list {
   list-style: none;
   margin: 0;
@@ -1724,58 +2053,20 @@ onUnmounted(() => {
   cursor: not-allowed;
   pointer-events: none;
 }
-.send-settings {
-  margin: 0;
-  padding-top: 0.15rem;
-  border-top: 1px solid var(--border);
+.scan-mode-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+  min-width: 0;
 }
-.send-settings > summary {
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--muted);
-  padding: 0.55rem 0;
-  list-style: none;
-}
-.send-settings > summary::-webkit-details-marker {
-  display: none;
-}
-.send-settings > summary::before {
-  content: '▸';
-  display: inline-block;
-  width: 1rem;
-  margin-right: 0.15rem;
-  transition: transform 0.15s ease;
-}
-.send-settings[open] > summary::before {
-  transform: rotate(90deg);
-}
-.settings-body {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0.15rem 0 0.35rem;
-}
-.settings-row {
-  display: grid;
-  gap: 0.65rem;
-}
-@media (min-width: 720px) {
-  .settings-row {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-}
-.setting-field {
-  display: grid;
-  gap: 0.3rem;
-  margin: 0;
-}
-.setting-label {
+.scan-mode-label {
   font-size: 0.88rem;
   font-weight: 650;
   color: var(--text);
+  white-space: nowrap;
 }
-.setting-select {
+.scan-mode-select {
   font: inherit;
   min-height: 44px;
   padding: 0.45rem 0.65rem;
@@ -1783,16 +2074,26 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  max-width: 11rem;
 }
-.setting-select:disabled {
+.scan-mode-select:disabled {
   opacity: 0.55;
 }
-.settings-hint,
-.settings-note {
+.scan-mode-hint {
   margin: 0;
   font-size: 0.82rem;
   color: var(--muted);
   line-height: 1.4;
+}
+@media (max-width: 520px) {
+  .scan-mode-field {
+    margin-left: 0;
+    width: 100%;
+  }
+  .scan-mode-select {
+    flex: 1 1 auto;
+    max-width: none;
+  }
 }
 .visually-hidden {
   position: absolute;

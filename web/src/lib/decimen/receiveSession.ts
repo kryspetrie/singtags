@@ -8,12 +8,12 @@ import {
   frameVerdictMessage,
   parseFrame,
   streamIdentity,
-  unpackFile,
   verifyFile,
   type OpticalFile,
 } from '../../../vendor/decimen/shared/protocol'
 import { estimateTransferProgress } from '../../../vendor/decimen/shared/progress'
 import { estimateReceiveBytes, formatReceiveProgressLabel } from './receiveProgress'
+import { unpackOpticalFile } from './opticalWirePack'
 
 export type DecimenReceiveProgress = {
   solved: number
@@ -129,7 +129,7 @@ export class DecimenReceiveSession {
       return
     }
     try {
-      const file = await unpackFile(container)
+      const file = await unpackOpticalFile(container)
       const ok = await verifyFile(file)
       if (!ok) {
         this.reset()
