@@ -42,7 +42,7 @@ self.addEventListener('fetch', (event) => {
         }
 
         const base = url.pathname.replace(/\/import-share\/?$/, '/') || '/'
-        const redirectTo = new URL(`${base}rx?share-target=1`, url.origin)
+        const redirectTo = new URL(`${base}share?share-target=1`, url.origin)
         return Response.redirect(redirectTo.href, 303)
       } catch (err) {
         const message = err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Share import failed'

@@ -104,7 +104,7 @@ onMounted(() => {
       const q = { ...route.query }
       delete q['share-target']
       delete q.shareTarget
-      await router.replace({ name: 'rx', query: q })
+      await router.replace({ path: '/share', query: q })
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Could not read shared files.'
     } finally {
@@ -124,7 +124,7 @@ onMounted(() => {
       <InfoTips label="OS Share how-to" title="How to share via device">
         <p><strong>Send</strong></p>
         <ol>
-          <li>Queue files on Send → Share.</li>
+          <li>Queue files on the Send tab.</li>
           <li>Tap <strong>Share via device…</strong> and pick Quick Share, AirDrop, Nearby Share, or Files.</li>
           <li>If the share sheet is unavailable, SingTags downloads the pack so you can share that file yourself.</li>
         </ol>
@@ -136,7 +136,7 @@ onMounted(() => {
         <p><strong>Receive on iPhone</strong></p>
         <ul>
           <li>AirDrop into Files (or save the shared pack).</li>
-          <li>Open Receive → Share and tap <strong>Import shared file…</strong>.</li>
+          <li>Open the Receive tab and tap <strong>Import shared file…</strong>.</li>
         </ul>
         <p>
           Cross-platform Quick Share QR cloud paths are OS/device-limited and need internet — they are

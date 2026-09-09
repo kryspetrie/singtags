@@ -182,17 +182,33 @@ function bumpScale(delta: number): void {
       </RouterLink>
 
       <RouterLink
-        v-if="
-          prefs.opticalTransferEnabled ||
-          prefs.webrtcTransferEnabled ||
-          prefs.osShareTransferEnabled
-        "
+        v-if="prefs.opticalTransferEnabled"
         class="menu-item"
         to="/tx"
         @click="onNavClick"
       >
         <span class="menu-label">Optical transfer</span>
-        <span class="menu-desc">Send or receive files via QR, wireless, or device share</span>
+        <span class="menu-desc">Send or receive files via animated QR codes</span>
+      </RouterLink>
+
+      <RouterLink
+        v-if="prefs.webrtcTransferEnabled"
+        class="menu-item"
+        to="/wireless"
+        @click="onNavClick"
+      >
+        <span class="menu-label">Wireless transfer</span>
+        <span class="menu-desc">Labs — same Wi‑Fi / hotspot file link (QR pairing)</span>
+      </RouterLink>
+
+      <RouterLink
+        v-if="prefs.osShareTransferEnabled"
+        class="menu-item"
+        to="/share"
+        @click="onNavClick"
+      >
+        <span class="menu-label">OS Share</span>
+        <span class="menu-desc">Labs — Quick Share / AirDrop via the system share sheet</span>
       </RouterLink>
 
       <RouterLink class="menu-item" to="/labs" @click="onNavClick">

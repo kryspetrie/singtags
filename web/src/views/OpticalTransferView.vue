@@ -11,8 +11,6 @@ import OpticalReceivedPreview from '../components/OpticalReceivedPreview.vue'
 import OpticalReceiveStreamOverlay from '../components/OpticalReceiveStreamOverlay.vue'
 import OpticalTransferStreamOverlay from '../components/OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from '../components/OpticalTransferQualityToggle.vue'
-import WebrtcTransferPanel from '../components/WebrtcTransferPanel.vue'
-import OsShareTransferPanel from '../components/OsShareTransferPanel.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
 import {
   formatOpticalPlanSummary,
@@ -122,11 +120,8 @@ import {
   decodeLocalTransferAssetQuery,
   defaultOpticalTransferAssets,
 } from '../types/localLibrary'
-import { isShareTargetQuery } from '../lib/osShareTransfer'
 
 type Tab = 'send' | 'receive'
-type TransferChannel = 'optical' | 'wireless' | 'share'
-
 function tabFromRoute(route: RouteLocationNormalizedLoaded): Tab {
   return isOpticalReceiveRoute(route) ? 'receive' : 'send'
 }
@@ -189,51 +184,8 @@ const userCollections = useUserCollectionsStore()
 const { offline } = useOnline()
 
 const tab = ref<Tab>(tabFromRoute(route))
-const channel = ref<TransferChannel>('optical')
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const videoRef = ref<HTMLVideoElement | null>(null)
-
-const showChannelTabs = computed(
-  () => prefs.webrtcTransferEnabled || prefs.osShareTransferEnabled,
-)
-
-function selectChannel(next: TransferChannel): void {
-  if (next === 'wireless' && !prefs.webrtcTransferEnabled) return
-  if (next === 'share' && !prefs.osShareTransferEnabled) return
-  if (next === 'optical' && !prefs.opticalTransferEnabled && showChannelTabs.value) {
-    // Allow optical tab only when optical Labs flag is on; otherwise stay on wireless/share.
-    if (prefs.webrtcTransferEnabled || prefs.osShareTransferEnabled) return
-  }
-  channel.value = next
-  if (next !== 'optical') {
-    stopSendStream()
-    stopLiveReceive()
-  }
-}
-
-function syncChannelFromPrefs(): void {
-  if (channel.value === 'wireless' && !prefs.webrtcTransferEnabled) {
-    channel.value = prefs.opticalTransferEnabled
-      ? 'optical'
-      : prefs.osShareTransferEnabled
-        ? 'share'
-        : 'optical'
-  }
-  if (channel.value === 'share' && !prefs.osShareTransferEnabled) {
-    channel.value = prefs.opticalTransferEnabled
-      ? 'optical'
-      : prefs.webrtcTransferEnabled
-        ? 'wireless'
-        : 'optical'
-  }
-  if (
-    channel.value === 'optical' &&
-    !prefs.opticalTransferEnabled &&
-    (prefs.webrtcTransferEnabled || prefs.osShareTransferEnabled)
-  ) {
-    channel.value = prefs.webrtcTransferEnabled ? 'wireless' : 'share'
-  }
-}
 
 const queue = ref<QueuedFile[]>([])
 let nextQueueId = 0
@@ -1568,26 +1520,11 @@ onMounted(() => {
   if (offline.value && tabFromRoute(route) !== 'receive') {
     selectTab('receive')
   }
-  if (isShareTargetQuery(route.query)) {
-    prefs.setOsShareTransferEnabled(true)
-    channel.value = 'share'
-    selectTab('receive')
-  } else {
-    syncChannelFromPrefs()
-  }
   void loadCollectionFromQuery()
-  if (shouldAutoStartReceive(route) && channel.value === 'optical') {
+  if (shouldAutoStartReceive(route)) {
     void beginLiveReceive()
   }
 })
-
-watch(
-  () =>
-    [prefs.opticalTransferEnabled, prefs.webrtcTransferEnabled, prefs.osShareTransferEnabled] as const,
-  () => {
-    syncChannelFromPrefs()
-  },
-)
 
 watch(
   () => [route.name, route.path, route.query.mode, route.query.fullscreen] as const,
@@ -1595,7 +1532,7 @@ watch(
     const next = tabFromRoute(route)
     tab.value = next
     if (next === 'receive' && shouldAutoStartReceive(route) && !receiveLive.value) {
-      if (channel.value === 'optical') void beginLiveReceive()
+      void beginLiveReceive()
     }
   },
 )
@@ -1611,16 +1548,9 @@ onUnmounted(() => {
     <header class="page-head">
       <h1 class="page-title">Optical transfer</h1>
       <p class="intro">
-        Send or receive files and My Library songs
-        {{
-          channel === 'optical'
-            ? 'with animated QR codes — works fully offline.'
-            : channel === 'wireless'
-              ? 'over Wi‑Fi / hotspot wireless (Labs).'
-              : 'via the device share sheet (Labs).'
-        }}
-        On a fresh device, use <strong>Receive</strong> to scan or import from another phone.
-        Collections split into independent batches so partial receive stays safe. Limit
+        Send or receive files and My Library songs with animated QR codes — works fully offline.
+        On a fresh device, use <strong>Receive</strong> to scan from another phone. Collections
+        split into independent batches so partial receive stays safe. Limit
         {{ MAX_FILE_LABEL }} per transfer.
       </p>
     </header>
@@ -1648,61 +1578,20 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div
-      v-if="showChannelTabs"
-      class="tabs channel-tabs"
-      role="tablist"
-      aria-label="Transfer channel"
-    >
-      <button
-        v-if="prefs.opticalTransferEnabled"
-        type="button"
-        class="tab"
-        role="tab"
-        :aria-selected="channel === 'optical'"
-        :class="{ active: channel === 'optical' }"
-        @click="selectChannel('optical')"
-      >
-        Optical
-      </button>
-      <button
-        v-if="prefs.webrtcTransferEnabled"
-        type="button"
-        class="tab"
-        role="tab"
-        :aria-selected="channel === 'wireless'"
-        :class="{ active: channel === 'wireless' }"
-        @click="selectChannel('wireless')"
-      >
-        Wireless
-      </button>
-      <button
-        v-if="prefs.osShareTransferEnabled"
-        type="button"
-        class="tab"
-        role="tab"
-        :aria-selected="channel === 'share'"
-        :class="{ active: channel === 'share' }"
-        @click="selectChannel('share')"
-      >
-        Share
-      </button>
-    </div>
-
     <div v-show="tab === 'send'" class="panel" role="tabpanel" aria-label="Send files">
       <div class="queue-card">
         <div class="queue-head">
           <h2 class="section-title">Transfer queue</h2>
           <p v-if="queueSummary" class="queue-summary">{{ queueSummary }}</p>
-          <p v-if="channel === 'optical' && transferStatsLine" class="queue-summary transfer-stats">{{ transferStatsLine }}</p>
-          <p v-if="channel === 'optical' && sendPreviewError" class="err" role="alert">{{ sendPreviewError }}</p>
+          <p v-if="transferStatsLine" class="queue-summary transfer-stats">{{ transferStatsLine }}</p>
+          <p v-if="sendPreviewError" class="err" role="alert">{{ sendPreviewError }}</p>
           <p v-if="collectionPrepareBusy" class="status">{{ collectionPrepareStatus }}</p>
           <p v-if="collectionPrepareError" class="err" role="alert">{{ collectionPrepareError }}</p>
           <p v-if="multipleCollectionBatchesQueued" class="hint">
             Multiple collection batches queued — stream the first batch, remove it, then stream the
             next. Each batch is verified independently on receive.
           </p>
-          <p v-if="channel === 'optical' && densityTooLow" class="err" role="alert">
+          <p v-if="densityTooLow" class="err" role="alert">
             {{
               suggestedDensity
                 ? `Too large for current density — try ${suggestedDensityLabel}.`
@@ -1710,12 +1599,12 @@ onUnmounted(() => {
             }}
           </p>
           <OpticalTransferQualityToggle
-            v-if="channel === 'optical' && showSendQualityToggle"
+            v-if="showSendQualityToggle"
             v-model="useHighRes"
             :available="highResAvailable"
             :disabled="collectionPrepareBusy || sendBusy || streaming"
           />
-          <label v-if="channel === 'optical' && queueHasAudio" class="audio-format-field">
+          <label v-if="queueHasAudio" class="audio-format-field">
             <span class="audio-format-label">Audio format</span>
             <select
               v-model="audioFormat"
@@ -1754,7 +1643,7 @@ onUnmounted(() => {
         <EmptyState
           v-else
           title="No files queued yet"
-          message="Add one or more files, then start the transfer when you're ready."
+          message="Add one or more files, then start the QR stream when you're ready."
         />
 
         <div class="queue-actions">
@@ -1781,7 +1670,7 @@ onUnmounted(() => {
           >
             Clear queue
           </button>
-          <label v-if="channel === 'optical' && !streaming" class="scan-mode-field">
+          <label v-if="!streaming" class="scan-mode-field">
             <span class="scan-mode-label">Scan mode</span>
             <select
               class="scan-mode-select"
@@ -1801,15 +1690,15 @@ onUnmounted(() => {
           </label>
         </div>
         <p
-          v-if="channel === 'optical' && !streaming && prefs.opticalTransferPreset === 'auto' && autoResolvedPresetLabel"
+          v-if="!streaming && prefs.opticalTransferPreset === 'auto' && autoResolvedPresetLabel"
           class="scan-mode-hint scan-mode-auto"
           role="status"
         >
           Auto chose <strong>{{ autoResolvedPresetLabel }}</strong> for this queue.
           {{ autoResolvedDowngradeHint }}
         </p>
-        <p v-else-if="channel === 'optical' && !streaming && selectedDensityHint" class="scan-mode-hint">{{ selectedDensityHint }}</p>
-        <p v-if="channel === 'optical' && !streaming && plannedTransfer" class="scan-mode-hint">
+        <p v-else-if="!streaming && selectedDensityHint" class="scan-mode-hint">{{ selectedDensityHint }}</p>
+        <p v-if="!streaming && plannedTransfer" class="scan-mode-hint">
           Planned: {{ formatOpticalPlanSummary(plannedTransfer)
           }}{{
             plannedTransfer.exceedsTarget
@@ -1819,141 +1708,109 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <template v-if="channel === 'optical'">
-        <OpticalReceiveInvite />
+      <OpticalReceiveInvite />
 
-        <div class="send-actions">
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="sendStreamStartDisabled"
-            @click="startSendStream"
-          >
-            {{ sendStreamStartLabel }}
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :disabled="sendBusy || streaming || sendCountdown != null"
-            @click="openReceiveInviteOverlay"
-          >
-            Receive link QR
-          </button>
-        </div>
-
-        <p v-if="sendBusy && !streaming" class="status" role="status">Preparing transfer…</p>
-        <p v-else-if="sendError && !streaming" class="err" role="alert">{{ sendError }}</p>
-
-        <OpticalReceiveInviteOverlay
-          :open="receiveInviteOverlayOpen"
-          :url="receiveInviteHref"
-          :start-disabled="sendStreamStartDisabled"
-          :start-label="sendStreamStartLabel"
-          @close="closeReceiveInviteOverlay"
-          @start="startFromReceiveInviteOverlay"
-        />
-
-        <OpticalTransferStreamOverlay
-          :open="streaming"
-          :status="sendError || sendStatus"
-          :progress="sendProgress"
-          :countdown="sendCountdown"
-          :display-scale="prefs.opticalTransferDisplayScale"
-          :can-ease-scan="canEaseScan"
-          :ease-scan-busy="easeScanBusy"
-          @update:display-scale="onDisplayScale"
-          @ease-scan="easeOpticalScan"
-          @toggle-countdown-pause="toggleSendCountdownPause"
-          @stop="stopSendStream"
+      <div class="send-actions">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="sendStreamStartDisabled"
+          @click="startSendStream"
         >
-          <canvas ref="canvasRef" class="qr-canvas" aria-label="Animated file transfer QR code" />
-        </OpticalTransferStreamOverlay>
-      </template>
+          {{ sendStreamStartLabel }}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          :disabled="sendBusy || streaming || sendCountdown != null"
+          @click="openReceiveInviteOverlay"
+        >
+          Receive link QR
+        </button>
+      </div>
 
-      <WebrtcTransferPanel
-        v-else-if="channel === 'wireless'"
-        tab="send"
-        :files="queuedFiles"
-        :disabled="sendBusy || streaming || collectionPrepareBusy"
-        @received="onReceivedFile"
+      <p v-if="sendBusy && !streaming" class="status" role="status">Preparing transfer…</p>
+      <p v-else-if="sendError && !streaming" class="err" role="alert">{{ sendError }}</p>
+
+      <OpticalReceiveInviteOverlay
+        :open="receiveInviteOverlayOpen"
+        :url="receiveInviteHref"
+        :start-disabled="sendStreamStartDisabled"
+        :start-label="sendStreamStartLabel"
+        @close="closeReceiveInviteOverlay"
+        @start="startFromReceiveInviteOverlay"
       />
-      <OsShareTransferPanel
-        v-else-if="channel === 'share'"
-        tab="send"
-        :files="queuedFiles"
-        :disabled="sendBusy || streaming || collectionPrepareBusy"
-        @received="onReceivedFile"
-      />
+
+      <OpticalTransferStreamOverlay
+        :open="streaming"
+        :status="sendError || sendStatus"
+        :progress="sendProgress"
+        :countdown="sendCountdown"
+        :display-scale="prefs.opticalTransferDisplayScale"
+        :can-ease-scan="canEaseScan"
+        :ease-scan-busy="easeScanBusy"
+        @update:display-scale="onDisplayScale"
+        @ease-scan="easeOpticalScan"
+        @toggle-countdown-pause="toggleSendCountdownPause"
+        @stop="stopSendStream"
+      >
+        <canvas ref="canvasRef" class="qr-canvas" aria-label="Animated file transfer QR code" />
+      </OpticalTransferStreamOverlay>
     </div>
 
     <div v-show="tab === 'receive'" class="panel receive-panel" role="tabpanel" aria-label="Receive files">
-      <template v-if="channel === 'optical'">
-        <div class="receive-intro-card">
-          <h2 class="section-title">Receive to this device</h2>
-          <p class="hint">
-            Point the camera at another phone’s transfer QR stream. My Library songs and files
-            import here — SingTags collection sheets can land in Favorites. No network or prior cache
-            required.
-          </p>
-        </div>
-
-        <div class="send-actions">
-          <button
-            type="button"
-            class="btn btn-primary"
-            :disabled="receiveLive"
-            @click="beginLiveReceive"
-          >
-            Start receiving
-          </button>
-        </div>
-        <p class="hint receive-idle-hint">
-          After-transfer toggles (save/download and open) appear while the camera is open —
-          both start on. Received files stay listed here until you remove them.
+      <div class="receive-intro-card">
+        <h2 class="section-title">Receive to this device</h2>
+        <p class="hint">
+          Point the camera at another phone’s transfer QR stream. My Library songs and files
+          import here — SingTags collection sheets can land in Favorites. No network or prior cache
+          required.
         </p>
+      </div>
 
-        <p v-if="!receiveLive && receiveError" class="err" role="alert">{{ receiveError }}</p>
-        <p v-else-if="!receiveLive && receiveStatus" class="status" role="status">{{ receiveStatus }}</p>
-
-        <OpticalReceiveStreamOverlay
-          :open="receiveLive"
-          :status="receiveStatus"
-          :error="receiveError"
-          :save-after="saveAfterTransfer"
-          :open-after="openAfterTransfer"
-          :save-after-label="saveAfterLabel"
-          :camera-fit="cameraFit"
-          :cameras="cameraDevices"
-          :device-id="cameraDeviceId"
-          @stop="stopLiveReceive"
-          @update:save-after="saveAfterTransfer = $event"
-          @update:open-after="openAfterTransfer = $event"
-          @update:camera-fit="cameraFit = $event"
-          @update:device-id="onCameraDeviceChange"
+      <div class="send-actions">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="receiveLive"
+          @click="beginLiveReceive"
         >
-          <video
-            ref="videoRef"
-            class="camera-video"
-            :class="cameraFit === 'height' ? 'fit-height' : 'fit-all'"
-            playsinline
-            muted
-            autoplay
-          />
-        </OpticalReceiveStreamOverlay>
-      </template>
+          Start receiving
+        </button>
+      </div>
+      <p class="hint receive-idle-hint">
+        After-transfer toggles (save/download and open) appear while the camera is open —
+        both start on. Received files stay listed here until you remove them.
+      </p>
 
-      <WebrtcTransferPanel
-        v-else-if="channel === 'wireless'"
-        tab="receive"
-        :files="[]"
-        @received="onReceivedFile"
-      />
-      <OsShareTransferPanel
-        v-else-if="channel === 'share'"
-        tab="receive"
-        :files="[]"
-        @received="onReceivedFile"
-      />
+      <p v-if="!receiveLive && receiveError" class="err" role="alert">{{ receiveError }}</p>
+      <p v-else-if="!receiveLive && receiveStatus" class="status" role="status">{{ receiveStatus }}</p>
+
+      <OpticalReceiveStreamOverlay
+        :open="receiveLive"
+        :status="receiveStatus"
+        :error="receiveError"
+        :save-after="saveAfterTransfer"
+        :open-after="openAfterTransfer"
+        :save-after-label="saveAfterLabel"
+        :camera-fit="cameraFit"
+        :cameras="cameraDevices"
+        :device-id="cameraDeviceId"
+        @stop="stopLiveReceive"
+        @update:save-after="saveAfterTransfer = $event"
+        @update:open-after="openAfterTransfer = $event"
+        @update:camera-fit="cameraFit = $event"
+        @update:device-id="onCameraDeviceChange"
+      >
+        <video
+          ref="videoRef"
+          class="camera-video"
+          :class="cameraFit === 'height' ? 'fit-height' : 'fit-all'"
+          playsinline
+          muted
+          autoplay
+        />
+      </OpticalReceiveStreamOverlay>
 
       <div v-if="received.length" class="received">
         <div class="received-head">
@@ -2149,9 +2006,6 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
-}
-.channel-tabs {
-  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
 }
 .tab {
   min-height: 44px;

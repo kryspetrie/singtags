@@ -40,7 +40,7 @@ Extend [preferences.ts](web/src/stores/preferences.ts) / [LabsView.vue](web/src/
 - `singtags.labs.driveLinkTransfer.enabled.v1` (default off)
 - Later: `singtags.labs.driveSync.enabled.v1`, `singtags.labs.driveCache.enabled.v1`
 
-Optical Transfer UI ([OpticalTransferView.vue](web/src/views/OpticalTransferView.vue)): when a Labs flag is on, add a **mode switch** (Optical | Wireless | Share | Drive link) rather than three separate pages—reuse queue/pack pipeline.
+Optical Transfer UI stays on its own `/tx`/`/rx` pages. Wireless and OS Share are **separate Labs pages** (`/wireless`, `/share`) until a later unified transfer surface.
 
 ### Pack pipeline (reuse)
 

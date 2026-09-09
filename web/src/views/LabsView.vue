@@ -45,7 +45,7 @@ function toggleWebrtcTransfer(): void {
   prefs.setWebrtcTransferEnabled(next)
   snackbar.show(
     next
-      ? 'Wireless mode appears under More → Optical transfer (same Wi‑Fi or hotspot)'
+      ? 'Open Wireless transfer from More (same Wi‑Fi or hotspot)'
       : 'Wireless WebRTC transfer is hidden',
     {
       title: next ? 'Wireless Transfer On' : 'Wireless Transfer Off',
@@ -60,7 +60,7 @@ function toggleOsShareTransfer(): void {
   prefs.setOsShareTransferEnabled(next)
   snackbar.show(
     next
-      ? 'Share via device appears under More → Optical transfer (Quick Share / AirDrop handoff)'
+      ? 'Open OS Share from More (Quick Share / AirDrop handoff)'
       : 'OS Share handoff is hidden',
     {
       title: next ? 'OS Share On' : 'OS Share Off',
@@ -165,14 +165,14 @@ function toggleOsShareTransfer(): void {
         <h2 id="webrtc-h" class="card-title">Wireless transfer (WebRTC)</h2>
         <InfoTips label="Wireless transfer details" title="Wireless transfer details">
           <p>
-            After enabling, open <strong>More → Optical transfer → Wireless</strong>. Both phones need
-            SingTags and the <strong>same Wi‑Fi or a personal hotspot</strong> (hotspot is often
-            easiest). Cellular-only pairs usually fail.
+            After enabling, open <strong>More → Wireless transfer</strong>. Both phones need SingTags
+            and the <strong>same Wi‑Fi or a personal hotspot</strong> (hotspot is often easiest).
+            Cellular-only pairs usually fail.
           </p>
           <p>
             Flow: sender creates an offer QR → receiver scans it → receiver shows an answer QR →
             sender scans that → file transfers. Stay on both screens until done. If it stalls, use
-            Optical.
+            Optical transfer.
           </p>
         </InfoTips>
       </div>
@@ -191,8 +191,8 @@ function toggleOsShareTransfer(): void {
           <span class="setting-desc">
             {{
               prefs.webrtcTransferEnabled
-                ? 'Feature available — Optical transfer → Wireless'
-                : 'Hidden — mode switch stays off'
+                ? 'Feature available — open from More → Wireless transfer'
+                : 'Hidden — More link stays off'
             }}
           </span>
         </span>
@@ -206,6 +206,13 @@ function toggleOsShareTransfer(): void {
           @change="toggleWebrtcTransfer"
         />
       </label>
+      <RouterLink
+        v-if="prefs.webrtcTransferEnabled"
+        class="btn"
+        to="/wireless"
+      >
+        Open wireless transfer
+      </RouterLink>
     </section>
 
     <section class="card" aria-labelledby="os-share-h">
@@ -214,12 +221,12 @@ function toggleOsShareTransfer(): void {
         <InfoTips label="OS Share details" title="OS Share details">
           <p>
             Not a Quick Share API — SingTags opens the <strong>system share sheet</strong>. Enable,
-            then use <strong>More → Optical transfer → Share</strong>.
+            then use <strong>More → OS Share</strong>.
           </p>
           <p>
             <strong>Android receive:</strong> install the PWA so SingTags can appear as a share
             target, or Import the saved file. <strong>iPhone receive:</strong> AirDrop into Files,
-            then Import on the Share receive tab.
+            then Import on the receive tab.
           </p>
         </InfoTips>
       </div>
@@ -239,8 +246,8 @@ function toggleOsShareTransfer(): void {
           <span class="setting-desc">
             {{
               prefs.osShareTransferEnabled
-                ? 'Feature available — Optical transfer → Share'
-                : 'Hidden — mode switch stays off'
+                ? 'Feature available — open from More → OS Share'
+                : 'Hidden — More link stays off'
             }}
           </span>
         </span>
@@ -254,6 +261,13 @@ function toggleOsShareTransfer(): void {
           @change="toggleOsShareTransfer"
         />
       </label>
+      <RouterLink
+        v-if="prefs.osShareTransferEnabled"
+        class="btn"
+        to="/share"
+      >
+        Open OS Share
+      </RouterLink>
     </section>
   </section>
 </template>

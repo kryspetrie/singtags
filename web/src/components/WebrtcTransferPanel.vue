@@ -227,18 +227,18 @@ async function beginScan(): Promise<void> {
         </ul>
         <p><strong>Send</strong></p>
         <ol>
-          <li>Queue files on Send → Wireless.</li>
+          <li>Queue files on the Send tab.</li>
           <li>Tap <strong>Create offer QR</strong> and keep this screen open.</li>
-          <li>On the other phone: Receive → Wireless → <strong>Scan offer QR</strong>.</li>
+          <li>On the other phone: open Wireless transfer → Receive → <strong>Scan offer QR</strong>.</li>
           <li>That phone shows an <strong>answer QR</strong> — scan it here with <strong>Scan answer QR</strong>.</li>
           <li>Keep both screens open until sending finishes.</li>
         </ol>
         <p><strong>Receive</strong></p>
         <ol>
-          <li>Open Receive → Wireless and scan the sender’s offer QR (or paste the code).</li>
+          <li>Open the Receive tab and scan the sender’s offer QR (or paste the code).</li>
           <li>Show your answer QR to the sender and wait for the file.</li>
         </ol>
-        <p>If pairing stalls, cancel and use Optical.</p>
+        <p>If pairing stalls, cancel and use Optical transfer.</p>
       </InfoTips>
     </div>
 

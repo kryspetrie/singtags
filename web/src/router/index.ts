@@ -102,6 +102,18 @@ export const router = createRouter({
       meta: { requiresOpticalTransfer: true },
     },
     {
+      path: '/wireless',
+      name: 'wireless-transfer',
+      component: () => import('../views/WirelessTransferView.vue'),
+      meta: { requiresWebrtcTransfer: true },
+    },
+    {
+      path: '/share',
+      name: 'os-share-transfer',
+      component: () => import('../views/OsShareTransferView.vue'),
+      meta: { requiresOsShareTransfer: true },
+    },
+    {
       path: '/optical-transfer',
       redirect: (to) => {
         const q = { ...to.query }
@@ -166,13 +178,14 @@ router.beforeEach((to, from) => {
   // Deep links to gated Labs features turn the flag on so shared URLs work.
   try {
     const prefs = usePreferencesStore()
-    if (
-      to.meta.requiresOpticalTransfer &&
-      !prefs.opticalTransferEnabled &&
-      !prefs.webrtcTransferEnabled &&
-      !prefs.osShareTransferEnabled
-    ) {
+    if (to.meta.requiresOpticalTransfer && !prefs.opticalTransferEnabled) {
       prefs.setOpticalTransferEnabled(true)
+    }
+    if (to.meta.requiresWebrtcTransfer && !prefs.webrtcTransferEnabled) {
+      prefs.setWebrtcTransferEnabled(true)
+    }
+    if (to.meta.requiresOsShareTransfer && !prefs.osShareTransferEnabled) {
+      prefs.setOsShareTransferEnabled(true)
     }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
       prefs.setLocalLibraryEnabled(true)
