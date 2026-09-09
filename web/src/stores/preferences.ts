@@ -379,12 +379,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** When false, browse shows the one-time welcome / offline prompt. */
   const browseWelcomeDismissed = ref(loadBool(BROWSE_WELCOME_KEY, false))
   /**
-   * When true, Browse/Recent/Favorites open tags into sheet fullscreen (`?fullscreen=1`).
+   * When true, Browse/Recent/Favorites open tags into sheet fullscreen (`?fullscreen`).
    * When false, list taps open the normal tag page (default).
    */
   const singMode = ref(loadBool(SING_MODE_KEY, false))
   /**
-   * When true, Copy/Share tag links include `fullscreen=1` so recipients open the sheet fullscreen.
+   * When true, Copy/Share tag links include `?fullscreen` so recipients open the sheet fullscreen.
    */
   const shareFullscreen = ref(loadBool(SHARE_FULLSCREEN_KEY, false))
   /**
@@ -874,7 +874,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     localLibraryEnabled.value = on
   }
 
-  /** Include fullscreen=1 on shared tag links. */
+  /** Include `?fullscreen` on shared tag links. */
   function setShareFullscreen(on: boolean): void {
     shareFullscreen.value = on
   }

@@ -29,6 +29,8 @@ describe('OpticalReceiveInvite', () => {
     await flushPromises()
     const input = w.get('#optical-receive-url')
     expect((input.element as HTMLInputElement).value).toContain('/rx')
+    expect((input.element as HTMLInputElement).value).toMatch(/[?&]fullscreen(?:&|$)/)
+    expect((input.element as HTMLInputElement).value).not.toMatch(/fullscreen=/)
     expect((input.element as HTMLInputElement).value).not.toContain('mode=receive')
     expect(w.find('.inline-qr').exists()).toBe(false)
     await w.get('button.copy-btn').trigger('click')

@@ -21,14 +21,14 @@ describe('OpticalReceiveInviteOverlay', () => {
       attachTo: document.body,
       props: {
         open: true,
-        url: 'https://example.test/rx',
+        url: 'https://example.test/rx?fullscreen',
       },
     })
     await flushPromises()
     expect(document.body.querySelector('.receive-qr')).toBeTruthy()
     expect(document.body.textContent).toMatch(/Start QR transfer/)
     expect(document.body.querySelector('.receive-url-footer')?.textContent).toBe(
-      'https://example.test/rx',
+      'https://example.test/rx?fullscreen',
     )
     document.body.innerHTML = ''
   })
@@ -38,7 +38,7 @@ describe('OpticalReceiveInviteOverlay', () => {
       attachTo: document.body,
       props: {
         open: true,
-        url: 'https://example.test/rx',
+        url: 'https://example.test/rx?fullscreen',
       },
     })
     await flushPromises()

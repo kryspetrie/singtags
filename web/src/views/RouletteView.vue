@@ -20,6 +20,7 @@ import { useFavoritesStore } from '../stores/favorites'
 import { usePreferencesStore } from '../stores/preferences'
 import { useRouletteStore, type RouletteBatchItem } from '../stores/roulette'
 import { useUserCollectionsStore } from '../stores/userCollections'
+import { tagOpenLocation } from '../lib/tagOpen'
 
 const catalog = useCatalogStore()
 const prefs = usePreferencesStore()
@@ -100,10 +101,10 @@ function onPicked(id: number): void {
   roulette.markWheelUsed(id)
 }
 
-function tagOpenTo(id: number): { path: string; query?: Record<string, string> } {
-  const query: Record<string, string> = {}
-  if (prefs.singMode || roulette.openAutomatically) query.fullscreen = '1'
-  return { path: `/tag/${id}`, query: Object.keys(query).length ? query : undefined }
+function tagOpenTo(id: number) {
+  return tagOpenLocation(id, {
+    fullscreen: prefs.singMode || roulette.openAutomatically,
+  })
 }
 
 function onOpen(id: number): void {

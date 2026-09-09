@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isLocalEntryEditQuery,
+  isLocalEntryFullscreenQuery,
   parseImportQueue,
   localEntryEditQuery,
 } from './localDocOpen'
@@ -17,5 +18,12 @@ describe('localDocOpen', () => {
       edit: '1',
       importQueue: 'x,y',
     })
+  })
+
+  it('writes bare ?fullscreen and still reads legacy =1', () => {
+    expect(localEntryEditQuery({ fullscreen: true })).toEqual({ fullscreen: null })
+    expect(isLocalEntryFullscreenQuery({ fullscreen: null })).toBe(true)
+    expect(isLocalEntryFullscreenQuery({ fullscreen: '1' })).toBe(true)
+    expect(isLocalEntryFullscreenQuery({})).toBe(false)
   })
 })

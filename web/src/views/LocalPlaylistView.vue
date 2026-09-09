@@ -24,6 +24,7 @@ import { useLocalPlaylistsStore } from '../stores/localPlaylists'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { localLibraryKeyLabel } from '../types/localLibrary'
+import { fullscreenQuery } from '../lib/fullscreenQuery'
 
 const props = defineProps<{ id: string }>()
 const route = useRoute()
@@ -298,7 +299,7 @@ function openSong(entryId: string, itemId: string): void {
   void router.push({
     path: `/library/${entryId}`,
     query: {
-      ...(fullscreen ? { fullscreen: '1' } : {}),
+      ...fullscreenQuery(fullscreen),
       playlist: pl.id,
       pitem: itemId,
       ...(shift ? { shift: String(shift) } : {}),

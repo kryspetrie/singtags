@@ -72,7 +72,7 @@ describe('TagShareSheet', () => {
     const w = mount(TagShareSheet, {
       props: {
         open: true,
-        url: 'https://example.com/tag/2?fullscreen=1',
+        url: 'https://example.com/tag/2?fullscreen',
         barbershopUrl: 'https://www.barbershoptags.com/tag-2-Song',
       },
       attachTo: document.body,

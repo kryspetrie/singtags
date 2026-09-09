@@ -18,6 +18,7 @@ import {
   parseImportQueue,
   patchLocalEntryQuery,
 } from '../lib/localDocOpen'
+import { FULLSCREEN_QUERY_FLAG, fullscreenQuery } from '../lib/fullscreenQuery'
 import {
   PitchPlayer,
   formatKeyShiftLabel,
@@ -322,7 +323,7 @@ async function goNeighbor(target: { entryId: string; itemId: string | null } | n
   void router.push({
     path: `/library/${target.entryId}`,
     query: {
-      ...(keepFs ? { fullscreen: '1' } : {}),
+      ...fullscreenQuery(keepFs),
       ...(playlistId.value && target.itemId
         ? { playlist: playlistId.value, pitem: target.itemId }
         : {}),
@@ -438,7 +439,7 @@ async function loadEntry(): Promise<void> {
   await buildMedia(list)
   // Cue-only / no sheet: drop a fullscreen deep-link and explain (Sing mode / set list / shared URL).
   if (isLocalEntryFullscreenQuery(route.query) && !(imageSets.value.length || pdfs.value.length)) {
-    await patchLocalEntryQuery(router, { fullscreen: null })
+    await patchLocalEntryQuery(router, { fullscreen: undefined })
     snackbar.show('No sheet music available.', { tone: 'info' })
   }
 }
@@ -508,7 +509,7 @@ async function enterEdit(): Promise<void> {
 }
 
 async function exitEdit(): Promise<void> {
-  await patchLocalEntryQuery(router, { edit: null, importQueue: null })
+  await patchLocalEntryQuery(router, { edit: undefined, importQueue: undefined })
 }
 
 async function doneEdit(): Promise<void> {
@@ -595,7 +596,9 @@ function enterSheetFullscreen(): void {
 async function onSheetFullscreenChange(active: boolean): Promise<void> {
   sheetFullscreenActive.value = active
   if (active) tracksFullscreenActive.value = false
-  await patchLocalEntryQuery(router, { fullscreen: active ? '1' : null })
+  await patchLocalEntryQuery(router, {
+    fullscreen: active ? FULLSCREEN_QUERY_FLAG : undefined,
+  })
 }
 
 function onTracksFullscreenChange(active: boolean): void {

@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import {
   OPTICAL_RX_PATH,
   OPTICAL_TX_PATH,
+  isOpticalReceiveFullscreenQuery,
   isOpticalReceiveRoute,
   navigateToOpticalTransfer,
   opticalReceiveAbsoluteHref,
@@ -13,7 +14,7 @@ import {
 } from './opticalTransferNav'
 
 describe('opticalTransferNav', () => {
-  it('builds an absolute receive URL at /rx', async () => {
+  it('builds an absolute receive URL at /rx?fullscreen', async () => {
     const router = createRouter({
       history: createMemoryHistory('/'),
       routes: [
@@ -24,6 +25,8 @@ describe('opticalTransferNav', () => {
     await router.push('/')
     const href = opticalReceiveAbsoluteHref(router)
     expect(href).toContain('/rx')
+    expect(href).toMatch(/[?&]fullscreen(?:&|$)/)
+    expect(href).not.toMatch(/fullscreen=/)
     expect(href).not.toContain('mode=receive')
     expect(opticalReceiveRoute.name).toBe('rx')
   })
@@ -38,6 +41,15 @@ describe('opticalTransferNav', () => {
     expect(
       isOpticalReceiveRoute({ name: 'tx', path: '/tx', query: {} }),
     ).toBe(false)
+  })
+
+  it('detects fullscreen receive deep links', () => {
+    expect(isOpticalReceiveFullscreenQuery({ fullscreen: '1' })).toBe(true)
+    expect(isOpticalReceiveFullscreenQuery({ fullscreen: 'true' })).toBe(true)
+    expect(isOpticalReceiveFullscreenQuery({ fullscreen: null })).toBe(true)
+    expect(isOpticalReceiveFullscreenQuery({ fullscreen: '' })).toBe(true)
+    expect(isOpticalReceiveFullscreenQuery({})).toBe(false)
+    expect(isOpticalReceiveFullscreenQuery({ fullscreen: '0' })).toBe(false)
   })
 
   it('navigates local library docs onto /tx with openNow', async () => {

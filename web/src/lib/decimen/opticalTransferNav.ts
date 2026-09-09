@@ -1,6 +1,7 @@
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import type { Router } from 'vue-router'
 import { encodeLocalTransferAssetQuery } from '../../types/localLibrary'
+import { FULLSCREEN_QUERY_FLAG, hasFullscreenQuery } from '../fullscreenQuery'
 
 export const OPTICAL_TX_PATH = '/tx'
 export const OPTICAL_RX_PATH = '/rx'
@@ -55,6 +56,11 @@ export const opticalReceiveRoute = {
   name: 'rx' as const,
 }
 
+/** Query that opens the receive camera overlay immediately (invite / deep link). */
+export const OPTICAL_RECEIVE_FULLSCREEN_QUERY = {
+  fullscreen: FULLSCREEN_QUERY_FLAG,
+} as const
+
 /** True when the route should open the Receive tab. */
 export function isOpticalReceiveRoute(route: Pick<RouteLocationNormalizedLoaded, 'name' | 'path' | 'query'>): boolean {
   if (route.name === 'rx') return true
@@ -62,9 +68,22 @@ export function isOpticalReceiveRoute(route: Pick<RouteLocationNormalizedLoaded,
   return route.query.mode === 'receive'
 }
 
-/** Absolute URL to open optical transfer in receive mode (for sharing with the receiver). */
+/**
+ * True when `/rx` should auto-enter the fullscreen camera overlay.
+ * Canonical form is bare `?fullscreen`; legacy `=1` / `true` still work.
+ */
+export function isOpticalReceiveFullscreenQuery(
+  query: RouteLocationNormalizedLoaded['query'] | Record<string, unknown>,
+): boolean {
+  return hasFullscreenQuery(query)
+}
+
+/** Absolute URL for the send-page invite: `/rx?fullscreen` opens the camera overlay. */
 export function opticalReceiveAbsoluteHref(router: Router): string {
-  const resolved = router.resolve({ path: OPTICAL_RX_PATH })
+  const resolved = router.resolve({
+    path: OPTICAL_RX_PATH,
+    query: { ...OPTICAL_RECEIVE_FULLSCREEN_QUERY },
+  })
   if (typeof window !== 'undefined') {
     return new URL(resolved.href, window.location.origin).href
   }

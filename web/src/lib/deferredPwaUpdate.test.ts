@@ -75,7 +75,7 @@ describe('deferredPwaUpdate', () => {
     setSessionBusy('x', false)
     const prev = window.location.search
     // happy-dom: mutate search via history
-    window.history.replaceState({}, '', '/tag/1?fullscreen=1')
+    window.history.replaceState({}, '', '/tag/1?fullscreen')
     expect(canApplyPwaUpdateNow()).toBe(false)
     window.history.replaceState({}, '', prev || '/')
     expect(canApplyPwaUpdateNow()).toBe(true)

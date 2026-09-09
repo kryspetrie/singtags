@@ -6,6 +6,8 @@
  * it without writing pitch-pipe / global-detune preferences.
  */
 
+import { FULLSCREEN_QUERY_FLAG } from './fullscreenQuery'
+
 export type ShareOrCopyResult = 'shared' | 'copied' | 'cancelled' | 'failed'
 
 /** Clamp shared / session fine detune to ±50 cents (integer). */
@@ -38,17 +40,17 @@ export function buildTagSharePath(
     /** Absolute fine detune in cents (session-only for recipients). */
     detuneCents?: number
     practice?: boolean
-    /** When true, recipient opens into sheet fullscreen (`fullscreen=1`). */
+    /** When true, recipient opens into sheet fullscreen (`?fullscreen`). */
     fullscreen?: boolean
   },
-): { path: string; query: Record<string, string> } {
-  const query: Record<string, string> = {}
+): { path: string; query: Record<string, string | null> } {
+  const query: Record<string, string | null> = {}
   const shift = opts?.shift ?? 0
   if (shift) query.shift = String(shift)
   const detune = clampShareDetuneCents(opts?.detuneCents ?? 0)
   if (detune) query.detune = String(detune)
   if (opts?.practice) query.set = 'practice'
-  if (opts?.fullscreen) query.fullscreen = '1'
+  if (opts?.fullscreen) query.fullscreen = FULLSCREEN_QUERY_FLAG
   return { path: `/tag/${tagId}`, query }
 }
 

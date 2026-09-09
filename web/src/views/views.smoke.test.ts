@@ -173,7 +173,7 @@ describe('view smoke tests', () => {
     w.unmount()
   })
 
-  it('FavoritesView Sing mode tags favorite links with fullscreen=1', async () => {
+  it('FavoritesView Sing mode tags favorite links with ?fullscreen', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const favorites = useFavoritesStore()
@@ -228,7 +228,7 @@ describe('view smoke tests', () => {
     await flushPromises()
     expect(prefs.singMode).toBe(true)
     const tos = w.findAll('.fav-link-stub').map((a) => JSON.parse(a.attributes('data-to') || '{}'))
-    expect(tos.some((t) => t.path === '/tag/9' && t.query?.fullscreen === '1')).toBe(true)
+    expect(tos.some((t) => t.path === '/tag/9' && t.query?.fullscreen === null)).toBe(true)
     w.unmount()
   })
 

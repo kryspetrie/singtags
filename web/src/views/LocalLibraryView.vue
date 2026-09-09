@@ -15,6 +15,7 @@ import LocalEntryTransferSheet from '../components/LocalEntryTransferSheet.vue'
 import LocalGroupPickerSheet from '../components/LocalGroupPickerSheet.vue'
 import { navigateToOpticalTransfer } from '../lib/decimen/opticalTransferNav'
 import { navigateToLocalEntry } from '../lib/localDocOpen'
+import { fullscreenQuery } from '../lib/fullscreenQuery'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useLocalLibraryStore } from '../stores/localLibrary'
@@ -350,7 +351,7 @@ function localEntryLocation(entryId: string) {
   const fullscreen = prefs.singMode && entryHasSheet(entryId)
   return {
     path: `/library/${entryId}`,
-    query: fullscreen ? { fullscreen: '1' } : {},
+    query: fullscreenQuery(fullscreen),
   }
 }
 

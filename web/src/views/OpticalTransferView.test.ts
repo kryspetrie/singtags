@@ -110,6 +110,8 @@ describe('OpticalTransferView', () => {
     expect(w.text()).toMatch(/Sending to someone without SingTags/)
     const input = document.body.querySelector('#optical-receive-url') as HTMLInputElement | null
     expect(input?.value).toContain('/rx')
+    expect(input?.value).toMatch(/[?&]fullscreen(?:&|$)/)
+    expect(input?.value).not.toMatch(/fullscreen=/)
     expect(input?.value).not.toContain('mode=receive')
     expect(w.text()).toMatch(/Receive link/)
     expect(document.body.querySelector('button.copy-btn[aria-label="Copy receive link"]')).toBeTruthy()
@@ -136,7 +138,7 @@ describe('OpticalTransferView', () => {
     w.unmount()
   })
 
-  it('opens receive tab on /rx', async () => {
+  it('opens receive tab on /rx without starting the live overlay', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
@@ -156,17 +158,34 @@ describe('OpticalTransferView', () => {
     expect(receiveTab?.textContent).toMatch(/Receive/)
     expect(w.text()).toMatch(/Receive to this device/)
     expect(w.text()).toMatch(/Start receiving/)
+    const overlay = document.body.querySelector('.optical-receive') as HTMLElement | null
+    expect(overlay).toBeTruthy()
+    expect(getComputedStyle(overlay!).display).toBe('none')
     w.unmount()
   })
 
-  it('shows Start receiving on the receive tab without opening the live overlay on /tx', async () => {
-    const w = await mountView()
+  it('switches URL to /rx when Receive is selected without opening the live overlay', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: OPTICAL_TX_PATH, name: 'tx', component: OpticalTransferView },
+        { path: OPTICAL_RX_PATH, name: 'rx', component: OpticalTransferView },
+      ],
+    })
+    await router.push(OPTICAL_TX_PATH)
+    await router.isReady()
+    const w = mount(OpticalTransferView, {
+      attachTo: document.body,
+      global: { plugins: [router] },
+    })
     await flushPromises()
     const tabs = [...document.body.querySelectorAll('[role="tab"]')]
     const receive = tabs.find((el) => el.textContent?.includes('Receive'))
     expect(receive).toBeTruthy()
     ;(receive as HTMLElement).click()
     await flushPromises()
+    expect(router.currentRoute.value.path).toBe(OPTICAL_RX_PATH)
+    expect(router.currentRoute.value.query.fullscreen).toBeUndefined()
     expect(w.text()).toMatch(/Start receiving/)
     const overlay = document.body.querySelector('.optical-receive') as HTMLElement | null
     expect(overlay).toBeTruthy()
@@ -174,6 +193,35 @@ describe('OpticalTransferView', () => {
     w.unmount()
   })
 
+  it('auto-starts live receive on /rx?fullscreen', async () => {
+    const getUserMedia = vi.fn(async () => {
+      throw new Error('no camera in tests')
+    })
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      mediaDevices: { getUserMedia, enumerateDevices: vi.fn(async () => []) },
+    })
+
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: OPTICAL_TX_PATH, name: 'tx', component: OpticalTransferView },
+        { path: OPTICAL_RX_PATH, name: 'rx', component: OpticalTransferView },
+      ],
+    })
+    await router.push({ path: OPTICAL_RX_PATH, query: { fullscreen: null } })
+    await router.isReady()
+    const w = mount(OpticalTransferView, {
+      attachTo: document.body,
+      global: { plugins: [router] },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(getUserMedia).toHaveBeenCalled()
+    expect(w.text()).toMatch(/Camera unavailable/)
+    w.unmount()
+  })
   it('prepares collection transfer from route tags without hanging', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)

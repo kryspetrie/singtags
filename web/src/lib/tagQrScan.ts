@@ -2,9 +2,11 @@
  * Parse a scanned QR payload into an in-app tag navigation target.
  */
 
+import { FULLSCREEN_QUERY_FLAG } from './fullscreenQuery'
+
 export type TagQrLocation = {
   path: string
-  query: Record<string, string>
+  query: Record<string, string | null>
 }
 
 const TAG_PATH_RE = /\/tag\/(\d+)\/?$/i
@@ -37,9 +39,15 @@ export function parseTagQrPayload(
   if (!match) return null
   const id = match[1]!
 
-  const query: Record<string, string> = {}
+  const query: Record<string, string | null> = {}
   for (const key of ['shift', 'detune', 'set', 'fullscreen', 'sheet', 'sing'] as const) {
+    if (!url.searchParams.has(key)) continue
     const value = url.searchParams.get(key)
+    if (key === 'fullscreen') {
+      // Bare `?fullscreen` → get() is ''; store null so Vue Router keeps the flag form.
+      query[key] = value === '' || value == null ? FULLSCREEN_QUERY_FLAG : value
+      continue
+    }
     if (value != null && value !== '') query[key] = value
   }
 

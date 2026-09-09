@@ -86,22 +86,24 @@ const fitLabel = () => (props.cameraFit === 'height' ? 'Fit all' : 'Fit height')
       </div>
 
       <div class="receive-intents" role="group" aria-label="After transfer">
-        <label class="intent">
-          <input
-            type="checkbox"
-            :checked="saveAfter"
-            @change="emit('update:saveAfter', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>{{ saveAfterLabel }}</span>
-        </label>
-        <label class="intent">
-          <input
-            type="checkbox"
-            :checked="openAfter"
-            @change="emit('update:openAfter', ($event.target as HTMLInputElement).checked)"
-          />
-          <span>Open after transfer</span>
-        </label>
+        <button
+          type="button"
+          class="intent-toggle"
+          :class="{ on: saveAfter }"
+          :aria-pressed="saveAfter"
+          @click="emit('update:saveAfter', !saveAfter)"
+        >
+          {{ saveAfterLabel }}
+        </button>
+        <button
+          type="button"
+          class="intent-toggle"
+          :class="{ on: openAfter }"
+          :aria-pressed="openAfter"
+          @click="emit('update:openAfter', !openAfter)"
+        >
+          Open after transfer
+        </button>
       </div>
 
       <div class="receive-panel">
@@ -182,19 +184,41 @@ const fitLabel = () => (props.cameraFit === 'height' ? 'Fit all' : 'Fit height')
 .receive-intents {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem 1rem;
+  gap: 0.5rem;
   padding: 0.15rem 0.1rem;
 }
-.intent {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.88rem;
-  font-weight: 600;
+.intent-toggle {
+  /* Mobile-first: large touch target, clear pressed state */
+  min-height: 44px;
+  min-width: 7.5rem;
+  flex: 1 1 auto;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
-.intent input {
-  width: 1rem;
-  height: 1rem;
+.intent-toggle.on {
+  background: color-mix(in srgb, #6ec6ff 32%, rgba(255, 255, 255, 0.1));
+  border-color: #6ec6ff;
+  color: #eaf6ff;
+  box-shadow: inset 0 0 0 1px rgba(110, 198, 255, 0.35);
+}
+.intent-toggle:focus-visible {
+  outline: 2px solid #6ec6ff;
+  outline-offset: 2px;
+}
+.intent-toggle:active {
+  transform: scale(0.98);
 }
 .receive-panel {
   min-height: 0;
@@ -231,7 +255,12 @@ const fitLabel = () => (props.cameraFit === 'height' ? 'Fit all' : 'Fit height')
     padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
   }
   .receive-intents {
-    gap: 0.45rem 0.85rem;
+    gap: 0.4rem;
+  }
+  .intent-toggle {
+    min-height: 40px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.84rem;
   }
   .receive-footer {
     min-height: 1.8rem;

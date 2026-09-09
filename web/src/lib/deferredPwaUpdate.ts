@@ -7,6 +7,7 @@ import {
   isSessionBusy,
   onSessionBusyChange,
 } from './sessionActivity'
+import { searchParamsHaveFullscreen } from './fullscreenQuery'
 
 export const PWA_RELOAD_SCROLL_KEY = 'singtags.pwaReload.scroll.v1'
 
@@ -29,14 +30,10 @@ function currentPath(): string {
   return `${location.pathname}${location.search}${location.hash}`
 }
 
-/** Soft fullscreen via `?fullscreen=1` counts as busy even if chrome is soft. */
+/** Soft fullscreen via `?fullscreen` counts as busy even if chrome is soft. */
 export function routeLooksFullscreen(): boolean {
   if (typeof location === 'undefined') return false
-  try {
-    return new URLSearchParams(location.search).get('fullscreen') === '1'
-  } catch {
-    return false
-  }
+  return searchParamsHaveFullscreen(location.search)
 }
 
 export function canApplyPwaUpdateNow(): boolean {

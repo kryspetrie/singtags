@@ -6,10 +6,10 @@ describe('tagOpen', () => {
     expect(tagOpenLocation(31)).toEqual({ path: '/tag/31', query: {} })
   })
 
-  it('adds fullscreen=1 for sing mode', () => {
+  it('adds bare ?fullscreen for sing mode', () => {
     expect(tagOpenLocation(31, { fullscreen: true, shift: 2 })).toEqual({
       path: '/tag/31',
-      query: { fullscreen: '1', shift: '2' },
+      query: { fullscreen: null, shift: '2' },
     })
   })
 
@@ -21,6 +21,8 @@ describe('tagOpen', () => {
   })
 
   it('detects fullscreen query and legacy aliases', () => {
+    expect(isTagFullscreenQuery({ fullscreen: null })).toBe(true)
+    expect(isTagFullscreenQuery({ fullscreen: '' })).toBe(true)
     expect(isTagFullscreenQuery({ fullscreen: '1' })).toBe(true)
     expect(isTagFullscreenQuery({ fullscreen: 'true' })).toBe(true)
     expect(isTagFullscreenQuery({ sheet: '1' })).toBe(true)

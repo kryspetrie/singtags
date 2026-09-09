@@ -19,7 +19,7 @@ describe('buildTagSharePath', () => {
     })
     expect(buildTagSharePath(31, { fullscreen: true })).toEqual({
       path: '/tag/31',
-      query: { fullscreen: '1' },
+      query: { fullscreen: null },
     })
   })
 

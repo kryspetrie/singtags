@@ -140,7 +140,7 @@ async function onSheetPlayStop(): Promise<void> {
   playerTick.value++
 }
 
-/** Keep `?fullscreen=1` in sync so the address bar / copyable URL matches sheet state. */
+/** Keep `?fullscreen` in sync so the address bar / copyable URL matches sheet state. */
 function onSheetFullscreenChange(on: boolean): void {
   sheetFullscreenActive.value = on
   if (leavingToList) return
@@ -150,7 +150,7 @@ function onSheetFullscreenChange(on: boolean): void {
   if (on) {
     if (isTagFullscreenQuery(route.query)) return
     patchTagQuery((q) => {
-      q.fullscreen = '1'
+      q.fullscreen = null
       delete q.sheet
       delete q.sing
     })
@@ -187,7 +187,7 @@ function enterTracksFullscreen(): void {
 
 /** Coalesce concurrent shift / fullscreen query writes. */
 let queryPatchTimer: ReturnType<typeof setTimeout> | null = null
-let queryPatchPending: ((q: Record<string, string | string[] | undefined>) => void)[] = []
+let queryPatchPending: ((q: Record<string, string | string[] | null | undefined>) => void)[] = []
 /** Sing ✕ is leaving for the list — ignore fullscreen query clears that race goTagBack. */
 let leavingToList = false
 
@@ -199,7 +199,7 @@ function cancelTagQueryPatches(): void {
   queryPatchPending = []
 }
 
-function patchTagQuery(mutator: (q: Record<string, string | string[] | undefined>) => void): void {
+function patchTagQuery(mutator: (q: Record<string, string | string[] | null | undefined>) => void): void {
   if (leavingToList) return
   queryPatchPending.push(mutator)
   if (queryPatchTimer) return
@@ -209,7 +209,7 @@ function patchTagQuery(mutator: (q: Record<string, string | string[] | undefined
       queryPatchPending = []
       return
     }
-    const q = { ...route.query } as Record<string, string | string[] | undefined>
+    const q = { ...route.query } as Record<string, string | string[] | null | undefined>
     const batch = queryPatchPending
     queryPatchPending = []
     for (const m of batch) m(q)

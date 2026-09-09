@@ -46,7 +46,11 @@ import {
   opticalVideoConstraints,
   type OpticalCameraDevice,
 } from '../lib/decimen/opticalCamera'
-import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
+import {
+  isOpticalReceiveFullscreenQuery,
+  isOpticalReceiveRoute,
+  opticalReceiveAbsoluteHref,
+} from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
   isLocalDocTransferFile,
@@ -121,6 +125,28 @@ type Tab = 'send' | 'receive'
 
 function tabFromRoute(route: RouteLocationNormalizedLoaded): Tab {
   return isOpticalReceiveRoute(route) ? 'receive' : 'send'
+}
+
+/** Switch Send/Receive and keep the URL slug (/tx ↔ /rx) in sync. */
+function selectTab(next: Tab): void {
+  if (tab.value !== next) tab.value = next
+  const targetName = next === 'receive' ? 'rx' : 'tx'
+  const query = { ...route.query }
+  if ('mode' in query) delete query.mode
+  // Tab clicks land on the idle receive page — not the invite deep-link overlay.
+  if ('fullscreen' in query) delete query.fullscreen
+  if (
+    route.name === targetName &&
+    !('mode' in route.query) &&
+    !('fullscreen' in route.query)
+  ) {
+    return
+  }
+  void router.replace({ name: targetName, query })
+}
+
+function shouldAutoStartReceive(r: RouteLocationNormalizedLoaded = route): boolean {
+  return isOpticalReceiveRoute(r) && isOpticalReceiveFullscreenQuery(r.query)
 }
 
 type QueuedFile = {
@@ -247,8 +273,8 @@ const saveOneLabel = computed(() => (saveUsesDownload ? 'Download' : 'Save…'))
 const saveAfterLabel = computed(() =>
   saveUsesDownload ? 'Download after transfer' : 'Save after transfer',
 )
-/** Session intents — Open defaults on; Save off. */
-const saveAfterTransfer = ref(false)
+/** Session intents — both on by default (save/download + open after receive). */
+const saveAfterTransfer = ref(true)
 const openAfterTransfer = ref(true)
 const previewFile = ref<OpticalFile | null>(null)
 /** Receive preview: fill stage height (default) vs show whole frame. */
@@ -1493,20 +1519,20 @@ watch(useHighRes, () => {
 
 onMounted(() => {
   if (offline.value && tabFromRoute(route) !== 'receive') {
-    tab.value = 'receive'
+    selectTab('receive')
   }
   void loadCollectionFromQuery()
-  if (isOpticalReceiveRoute(route)) {
+  if (shouldAutoStartReceive(route)) {
     void beginLiveReceive()
   }
 })
 
 watch(
-  () => [route.name, route.path, route.query.mode] as const,
+  () => [route.name, route.path, route.query.mode, route.query.fullscreen] as const,
   () => {
     const next = tabFromRoute(route)
     tab.value = next
-    if (next === 'receive' && isOpticalReceiveRoute(route) && !receiveLive.value) {
+    if (next === 'receive' && shouldAutoStartReceive(route) && !receiveLive.value) {
       void beginLiveReceive()
     }
   },
@@ -1537,7 +1563,7 @@ onUnmounted(() => {
         role="tab"
         :aria-selected="tab === 'send'"
         :class="{ active: tab === 'send' }"
-        @click="tab = 'send'"
+        @click="selectTab('send')"
       >
         Send
       </button>
@@ -1547,7 +1573,7 @@ onUnmounted(() => {
         role="tab"
         :aria-selected="tab === 'receive'"
         :class="{ active: tab === 'receive' }"
-        @click="tab = 'receive'"
+        @click="selectTab('receive')"
       >
         Receive
       </button>
@@ -1754,8 +1780,8 @@ onUnmounted(() => {
         </button>
       </div>
       <p class="hint receive-idle-hint">
-        Open-after and save/download options appear while the camera is open. Received files stay
-        listed here until you remove them.
+        After-transfer toggles (save/download and open) appear while the camera is open —
+        both start on. Received files stay listed here until you remove them.
       </p>
 
       <p v-if="!receiveLive && receiveError" class="err" role="alert">{{ receiveError }}</p>
@@ -1797,14 +1823,16 @@ onUnmounted(() => {
         </div>
 
         <div class="received-toolbar">
-          <label class="select-all">
-            <input
-              type="checkbox"
-              :checked="allReceivedSelected"
-              @change="toggleAllReceivedSelected"
-            />
-            <span>Select all</span>
-          </label>
+          <button
+            type="button"
+            class="toggle-btn select-all-toggle"
+            :class="{ on: allReceivedSelected }"
+            :aria-pressed="allReceivedSelected"
+            :disabled="!received.length"
+            @click="toggleAllReceivedSelected"
+          >
+            {{ allReceivedSelected ? 'Deselect all' : 'Select all' }}
+          </button>
           <button
             type="button"
             class="btn btn-primary"
@@ -1854,13 +1882,18 @@ onUnmounted(() => {
 
         <ul class="queue-list received-list">
           <li v-for="item in received" :key="item.id">
-            <label class="received-select">
-              <input
-                type="checkbox"
-                :checked="selectedReceivedIds.has(item.id)"
-                @change="toggleReceivedSelected(item.id)"
-              />
-            </label>
+            <button
+              type="button"
+              class="received-select-toggle"
+              :class="{ on: selectedReceivedIds.has(item.id) }"
+              :aria-pressed="selectedReceivedIds.has(item.id)"
+              :aria-label="`Select ${item.file.name}`"
+              @click="toggleReceivedSelected(item.id)"
+            >
+              <span class="received-select-mark" aria-hidden="true">
+                {{ selectedReceivedIds.has(item.id) ? '✓' : '' }}
+              </span>
+            </button>
             <div class="queue-meta">
               <span class="file-name">{{ item.file.name }}</span>
               <span class="file-size">{{ formatBytes(item.file.bytes.length) }}</span>
@@ -2145,46 +2178,61 @@ onUnmounted(() => {
 .received-toolbar {
   justify-content: space-between;
 }
-.receive-intents {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.65rem 0.75rem;
+.select-all-toggle {
+  min-height: 44px;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.select-all-toggle.on {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
+.select-all-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.received-select-toggle {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-top: 0;
+  display: inline-grid;
+  place-items: center;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--text) 3%, var(--surface));
-}
-.receive-intent {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.92rem;
-  font-weight: 600;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
-.receive-intent input {
-  width: 1.1rem;
-  height: 1.1rem;
+.received-select-toggle.on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
+  color: var(--accent-hover);
 }
-.receive-intent-hint {
-  font-size: 0.8rem;
-  font-weight: 400;
+.received-select-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
-.select-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-.received-select {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  padding-top: 0.15rem;
-}
-.received-select input {
-  width: 1rem;
-  height: 1rem;
+.received-select-mark {
+  display: inline-block;
+  min-width: 1ch;
+  text-align: center;
 }
 .file-add.disabled {
   opacity: 0.5;

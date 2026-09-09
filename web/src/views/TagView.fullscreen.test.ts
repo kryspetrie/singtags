@@ -147,6 +147,7 @@ vi.mock('../composables/useTagDetail', async () => {
         preparedSheet: ref({ pages: ['sheets/3/p1.webp'], owned: [] }),
         loading: ref(false),
         sheetPreparing: ref(false),
+        audioWarming: ref(false),
         mediaSource: ref('network'),
         load: vi.fn(async () => {}),
         toSummary: () => ({
@@ -173,7 +174,7 @@ describe('TagView fullscreen / sing entry', () => {
     setActivePinia(createPinia())
   })
 
-  async function mountTag(query: Record<string, string> = {}) {
+  async function mountTag(query: Record<string, string | null> = {}) {
     const pinia = createPinia()
     setActivePinia(pinia)
     const catalog = useCatalogStore()
@@ -220,8 +221,8 @@ describe('TagView fullscreen / sing entry', () => {
     return { w, router, pinia }
   }
 
-  it('passes autoEnterFullscreen when ?fullscreen=1', async () => {
-    const { w } = await mountTag({ fullscreen: '1' })
+  it('passes autoEnterFullscreen when ?fullscreen', async () => {
+    const { w } = await mountTag({ fullscreen: null })
     expect(w.get('[data-testid="auto-fs"]').text()).toBe('1')
     w.unmount()
   })
@@ -232,7 +233,7 @@ describe('TagView fullscreen / sing entry', () => {
     w.unmount()
   })
 
-  it('writes fullscreen=1 when sheet enters fullscreen', async () => {
+  it('writes bare ?fullscreen when sheet enters fullscreen', async () => {
     const { w, router } = await mountTag({})
     const replace = vi.spyOn(router, 'replace')
     await w.get('[data-testid="fs-on"]').trigger('click')
@@ -241,12 +242,12 @@ describe('TagView fullscreen / sing entry', () => {
     await flushPromises()
     expect(replace).toHaveBeenCalled()
     const arg = replace.mock.calls.at(-1)?.[0] as { path?: string; query?: Record<string, unknown> }
-    expect(arg.query?.fullscreen).toBe('1')
+    expect(arg.query?.fullscreen).toBeNull()
     w.unmount()
   })
 
   it('clears fullscreen (and legacy sheet/sing) query when sheet exits fullscreen', async () => {
-    const { w, router } = await mountTag({ fullscreen: '1', sheet: '1', sing: '1' })
+    const { w, router } = await mountTag({ fullscreen: null, sheet: '1', sing: '1' })
     const replace = vi.spyOn(router, 'replace')
     await w.get('[data-testid="fs-off"]').trigger('click')
     await flushPromises()
@@ -268,7 +269,7 @@ describe('TagView fullscreen / sing entry', () => {
       scrollY: 640,
       tagId: 7,
     })
-    const { w, router, pinia } = await mountTag({ fullscreen: '1' })
+    const { w, router, pinia } = await mountTag({ fullscreen: null })
     usePreferencesStore(pinia).setSingMode(true)
     await flushPromises()
     expect(w.get('[data-testid="exit-label"]').text()).toBe('Browse')
@@ -289,7 +290,7 @@ describe('TagView fullscreen / sing entry', () => {
       scrollY: 220,
       tagId: 7,
     })
-    const { w, router, pinia } = await mountTag({ fullscreen: '1' })
+    const { w, router, pinia } = await mountTag({ fullscreen: null })
     usePreferencesStore(pinia).setSingMode(true)
     await flushPromises()
     const push = vi.spyOn(router, 'push')
@@ -307,7 +308,7 @@ describe('TagView fullscreen / sing entry', () => {
       label: 'Favorites',
       scrollY: 0,
     })
-    const { w, router } = await mountTag({ fullscreen: '1' })
+    const { w, router } = await mountTag({ fullscreen: null })
     expect(w.get('[data-testid="exit-label"]').text()).toBe('tag page')
     const push = vi.spyOn(router, 'push')
     const back = vi.spyOn(router, 'back')
@@ -320,7 +321,7 @@ describe('TagView fullscreen / sing entry', () => {
 
   it('✕ on a direct fullscreen link stays on the tag page', async () => {
     clearTagReturnOrigin()
-    const { w, router } = await mountTag({ fullscreen: '1' })
+    const { w, router } = await mountTag({ fullscreen: null })
     expect(w.get('[data-testid="exit-label"]').text()).toBe('tag page')
     const push = vi.spyOn(router, 'push')
     const back = vi.spyOn(router, 'back')
@@ -333,7 +334,7 @@ describe('TagView fullscreen / sing entry', () => {
 
   it('passes Browse exit label when no origin was captured', async () => {
     clearTagReturnOrigin()
-    const { w } = await mountTag({ fullscreen: '1' })
+    const { w } = await mountTag({ fullscreen: null })
     expect(w.get('[data-testid="exit-label"]').text()).toBe('tag page')
     w.unmount()
   })

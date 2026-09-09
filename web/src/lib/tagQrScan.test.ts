@@ -8,14 +8,25 @@ describe('parseTagQrPayload', () => {
   it('parses absolute tag URLs and preserves session query', () => {
     expect(
       parseTagQrPayload(
-        'https://example.com/tag/31?fullscreen=1&shift=2&detune=-32&set=practice',
+        'https://example.com/tag/31?fullscreen&shift=2&detune=-32&set=practice',
         {
           baseOrigin: 'https://app.test',
         },
       ),
     ).toEqual({
       path: '/tag/31',
-      query: { fullscreen: '1', shift: '2', detune: '-32', set: 'practice' },
+      query: { fullscreen: null, shift: '2', detune: '-32', set: 'practice' },
+    })
+  })
+
+  it('accepts legacy fullscreen=1 in scanned URLs', () => {
+    expect(
+      parseTagQrPayload('https://example.com/tag/31?fullscreen=1', {
+        baseOrigin: 'https://app.test',
+      }),
+    ).toEqual({
+      path: '/tag/31',
+      query: { fullscreen: '1' },
     })
   })
 

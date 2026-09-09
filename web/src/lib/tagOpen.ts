@@ -2,10 +2,13 @@
  * Tag deep-link helpers: normal tag page vs sing-mode fullscreen entry.
  */
 
+import { FULLSCREEN_QUERY_FLAG, hasFullscreenQuery } from './fullscreenQuery'
+
 /** True when the route asks to open the sheet fullscreen (sing entry). */
-export function isTagFullscreenQuery(query: Record<string, unknown> | { fullscreen?: unknown; sheet?: unknown; sing?: unknown }): boolean {
-  const fs = query.fullscreen
-  if (fs === '1' || fs === 'true' || fs === true) return true
+export function isTagFullscreenQuery(
+  query: Record<string, unknown> | { fullscreen?: unknown; sheet?: unknown; sing?: unknown },
+): boolean {
+  if (hasFullscreenQuery(query)) return true
   // Legacy aliases from early sing-entry experiments.
   if (query.sheet === '1' || query.sing === '1') return true
   return false
@@ -21,9 +24,9 @@ export function tagOpenLocation(
     detuneCents?: number
     practice?: boolean
   },
-): { path: string; query: Record<string, string> } {
-  const query: Record<string, string> = {}
-  if (opts?.fullscreen) query.fullscreen = '1'
+): { path: string; query: Record<string, string | null> } {
+  const query: Record<string, string | null> = {}
+  if (opts?.fullscreen) query.fullscreen = FULLSCREEN_QUERY_FLAG
   const shift = opts?.shift ?? 0
   if (shift) query.shift = String(shift)
   const detune = opts?.detuneCents ?? 0
