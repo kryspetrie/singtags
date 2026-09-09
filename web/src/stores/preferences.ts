@@ -39,6 +39,7 @@ import {
   normalizeOpticalTxFps,
 } from '../lib/decimen/sendSettings'
 import {
+  DEFAULT_OPTICAL_TRANSFER_PRESET,
   normalizeOpticalTransferPreset,
   type OpticalTransferPreset,
 } from '../lib/decimen/opticalTransferPresets'
@@ -424,15 +425,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
   /** Reliable / Balanced / Fast — user-facing send tuning. */
   const opticalTransferPreset = ref<OpticalTransferPreset>(
-    normalizeOpticalTransferPreset(
-      (() => {
-        try {
-          return localStorage.getItem(OPTICAL_PRESET_KEY)
-        } catch {
-          return null
-        }
-      })(),
-    ),
+    normalizeOpticalTransferPreset(loadString(OPTICAL_PRESET_KEY, DEFAULT_OPTICAL_TRANSFER_PRESET)),
   )
   /**
    * Max durable PDF→WebP raster cache size (MB). FIFO eviction by insert time.
