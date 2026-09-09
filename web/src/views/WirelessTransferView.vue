@@ -306,9 +306,10 @@ async function startAnswerFromOffer(payload: string): Promise<void> {
     overlayStatus.value = 'Show this answer QR to the sender'
     receivePhase.value = 'receiving'
     const file = await answerSession.receive(onProgress)
+    const copy = Uint8Array.from(file.bytes)
     onReceived(
       await opticalFileFromBrowserFile(
-        new File([file.bytes], file.name, { type: file.type || 'application/octet-stream' }),
+        new File([copy], file.name, { type: file.type || 'application/octet-stream' }),
       ),
     )
   } catch (e) {
