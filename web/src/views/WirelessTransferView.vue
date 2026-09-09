@@ -19,7 +19,7 @@ import {
   WIRELESS_TX_PATH,
   wirelessReceiveAbsoluteHref,
 } from '../lib/labsTransferNav'
-import { buildTransferBundle } from '../lib/transferBundle'
+import { buildTransferBundle, opticalFileFromBrowserFile } from '../lib/transferBundle'
 import {
   createWebrtcAnswerSession,
   createWebrtcOfferSession,
@@ -306,7 +306,11 @@ async function startAnswerFromOffer(payload: string): Promise<void> {
     overlayStatus.value = 'Show this answer QR to the sender'
     receivePhase.value = 'receiving'
     const file = await answerSession.receive(onProgress)
-    onReceived({ name: file.name, type: file.type, bytes: file.bytes })
+    onReceived(
+      await opticalFileFromBrowserFile(
+        new File([file.bytes], file.name, { type: file.type || 'application/octet-stream' }),
+      ),
+    )
   } catch (e) {
     overlayError.value =
       e instanceof Error

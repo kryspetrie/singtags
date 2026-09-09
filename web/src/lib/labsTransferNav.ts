@@ -2,7 +2,7 @@
  * Shared navigation helpers for Labs transfer pages (Wireless / OS Share).
  * Mirrors optical `/tx` ↔ `/rx` + `?fullscreen` so these can fold into one surface later.
  */
-import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
+import type { LocationQueryRaw, RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { FULLSCREEN_QUERY_FLAG, hasFullscreenQuery } from './fullscreenQuery'
 
 export const WIRELESS_TX_PATH = '/wireless'
@@ -36,7 +36,7 @@ export function isOsShareReceiveRoute(
   return route.query.mode === 'receive'
 }
 
-function absoluteHref(router: Router, path: string, query: Record<string, unknown>): string {
+function absoluteHref(router: Router, path: string, query: LocationQueryRaw): string {
   const resolved = router.resolve({ path, query })
   if (typeof window !== 'undefined') {
     return new URL(resolved.href, window.location.origin).href
