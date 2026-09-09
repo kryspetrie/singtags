@@ -54,6 +54,20 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('toggles wireless and OS share labs flags', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().webrtcTransferEnabled).toBe(false)
+    expect(usePreferencesStore().osShareTransferEnabled).toBe(false)
+    await w.get('input[aria-label="Wireless Transfer"]').setValue(true)
+    await w.get('input[aria-label="OS Share Handoff"]').setValue(true)
+    expect(usePreferencesStore().webrtcTransferEnabled).toBe(true)
+    expect(usePreferencesStore().osShareTransferEnabled).toBe(true)
+    w.unmount()
+  })
+
   it('does not expose a Tag Roulette Labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

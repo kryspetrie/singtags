@@ -84,6 +84,10 @@ const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
 const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
+/** Labs: WebRTC DataChannel transfer (Wi‑Fi / hotspot). Default off. */
+const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
+/** Labs: OS Share handoff (Quick Share / AirDrop via share sheet). Default off. */
+const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_GRID_CODES_KEY = 'singtags.opticalTransfer.gridCodes.v1'
 const OPTICAL_AUTO_DENSITY_KEY = 'singtags.opticalTransfer.autoDensity.v1'
@@ -406,6 +410,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Existing on-device data is kept; the UI and routes stay hidden while off.
    */
   const localLibraryEnabled = ref(loadBool(LOCAL_LIBRARY_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Wireless (WebRTC) transfer mode is available on Optical transfer.
+   * Same Wi‑Fi / personal hotspot; no SingTags servers.
+   */
+  const webrtcTransferEnabled = ref(loadBool(WEBRTC_TRANSFER_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Share via device (OS share sheet / share_target import) is available.
+   */
+  const osShareTransferEnabled = ref(loadBool(OS_SHARE_TRANSFER_ENABLED_KEY, false))
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -560,6 +573,30 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(LOCAL_LIBRARY_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    webrtcTransferEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(WEBRTC_TRANSFER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    osShareTransferEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(OS_SHARE_TRANSFER_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -874,6 +911,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     localLibraryEnabled.value = on
   }
 
+  /** Labs: enable/disable WebRTC wireless transfer mode. */
+  function setWebrtcTransferEnabled(on: boolean): void {
+    webrtcTransferEnabled.value = on
+  }
+
+  /** Labs: enable/disable OS Share handoff mode. */
+  function setOsShareTransferEnabled(on: boolean): void {
+    osShareTransferEnabled.value = on
+  }
+
   /** Include `?fullscreen` on shared tag links. */
   function setShareFullscreen(on: boolean): void {
     shareFullscreen.value = on
@@ -935,6 +982,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sheetFsPageMode,
     opticalTransferEnabled,
     localLibraryEnabled,
+    webrtcTransferEnabled,
+    osShareTransferEnabled,
     opticalTransferFrameBytes,
     opticalTransferAutoDensity,
     opticalTransferPreset,
@@ -961,6 +1010,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSingMode,
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
+    setWebrtcTransferEnabled,
+    setOsShareTransferEnabled,
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,

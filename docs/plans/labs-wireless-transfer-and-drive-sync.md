@@ -1,6 +1,6 @@
 # Labs wireless transfers + Google Drive sync
 
-> **Status:** In progress — WebRTC + OS Share handoff shipping; Drive Link / Drive sync deferred to follow-up.
+> **Status:** In progress — WebRTC + OS Share handoff implemented in app; Drive Link / Drive sync deferred to follow-up.
 > **Created:** 2026-09-09
 > **Goal:** Labs wireless transfers (WebRTC, OS Share) plus later Google Drive Link/sync.
 

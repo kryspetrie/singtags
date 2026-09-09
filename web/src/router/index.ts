@@ -166,7 +166,12 @@ router.beforeEach((to, from) => {
   // Deep links to gated Labs features turn the flag on so shared URLs work.
   try {
     const prefs = usePreferencesStore()
-    if (to.meta.requiresOpticalTransfer && !prefs.opticalTransferEnabled) {
+    if (
+      to.meta.requiresOpticalTransfer &&
+      !prefs.opticalTransferEnabled &&
+      !prefs.webrtcTransferEnabled &&
+      !prefs.osShareTransferEnabled
+    ) {
       prefs.setOpticalTransferEnabled(true)
     }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {

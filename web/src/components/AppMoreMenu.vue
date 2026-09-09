@@ -182,13 +182,17 @@ function bumpScale(delta: number): void {
       </RouterLink>
 
       <RouterLink
-        v-if="prefs.opticalTransferEnabled"
+        v-if="
+          prefs.opticalTransferEnabled ||
+          prefs.webrtcTransferEnabled ||
+          prefs.osShareTransferEnabled
+        "
         class="menu-item"
         to="/tx"
         @click="onNavClick"
       >
         <span class="menu-label">Optical transfer</span>
-        <span class="menu-desc">Send or receive files via animated QR codes</span>
+        <span class="menu-desc">Send or receive files via QR, wireless, or device share</span>
       </RouterLink>
 
       <RouterLink class="menu-item" to="/labs" @click="onNavClick">
