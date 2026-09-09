@@ -14,6 +14,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |
 | [sheet-qr-transfer.md](sheet-qr-transfer.md) | Catalog buttons demoted; Decimen for ad-hoc/receive |
 | [optical-transfer-bandwidth.md](optical-transfer-bandwidth.md) | In progress — XZ wire + audio format dropdown; multi-stream QR (JAB dropped) |
+| [labs-wireless-transfer-and-drive-sync.md](labs-wireless-transfer-and-drive-sync.md) | In progress — WebRTC + OS Share; Drive Link/sync deferred |
+| [offline-optical-bootstrap-feasibility.md](offline-optical-bootstrap-feasibility.md) | Research only — stock-camera cold bootstrap not feasible |
 | [sing-session-ux.md](sing-session-ux.md) | Implemented (phased UX shipped) |
 | [sing-session-hardening.md](sing-session-hardening.md) | Implemented (practice off; bake UX; edge fixes) |
 | [local-library-hardening.md](local-library-hardening.md) | Implemented |
