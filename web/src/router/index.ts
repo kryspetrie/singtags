@@ -108,8 +108,20 @@ export const router = createRouter({
       meta: { requiresWebrtcTransfer: true },
     },
     {
+      path: '/wireless/rx',
+      name: 'wireless-rx',
+      component: () => import('../views/WirelessTransferView.vue'),
+      meta: { requiresWebrtcTransfer: true },
+    },
+    {
       path: '/share',
       name: 'os-share-transfer',
+      component: () => import('../views/OsShareTransferView.vue'),
+      meta: { requiresOsShareTransfer: true },
+    },
+    {
+      path: '/share/rx',
+      name: 'os-share-rx',
       component: () => import('../views/OsShareTransferView.vue'),
       meta: { requiresOsShareTransfer: true },
     },
