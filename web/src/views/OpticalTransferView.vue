@@ -8,12 +8,14 @@ import EmptyState from '../components/EmptyState.vue'
 import OpticalReceiveInvite from '../components/OpticalReceiveInvite.vue'
 import OpticalReceiveInviteOverlay from '../components/OpticalReceiveInviteOverlay.vue'
 import OpticalReceivedPreview from '../components/OpticalReceivedPreview.vue'
+import OpticalReceiveStreamOverlay from '../components/OpticalReceiveStreamOverlay.vue'
 import OpticalTransferStreamOverlay from '../components/OpticalTransferStreamOverlay.vue'
 import OpticalTransferQualityToggle from '../components/OpticalTransferQualityToggle.vue'
 import { DecimenSendStream } from '../lib/decimen/sendStream'
 import {
   formatOpticalPlanSummary,
   planOpticalTransfer,
+  resolveOpticalTransferPreset,
   type OpticalTransferPlan,
 } from '../lib/decimen/opticalTransferPlan'
 import type { DecimenSendStreamProgress } from '../lib/decimen/sendProgress'
@@ -39,6 +41,11 @@ import {
   type OpticalAudioFormat,
   type PreparedOpticalAudio,
 } from '../lib/decimen/opticalAudioFormat'
+import {
+  listVideoInputDevices,
+  opticalVideoConstraints,
+  type OpticalCameraDevice,
+} from '../lib/decimen/opticalCamera'
 import { isOpticalReceiveRoute, opticalReceiveAbsoluteHref } from '../lib/decimen/opticalTransferNav'
 import { isSingtagsSheetFile, unpackSingtagsSheetFile } from '../lib/decimen/singtagsPayload'
 import {
@@ -87,8 +94,11 @@ import {
   nextEasierOpticalSendParams,
 } from '../lib/decimen/opticalSendEase'
 import {
+  OPTICAL_TRANSFER_CONCRETE_PRESETS,
   OPTICAL_TRANSFER_PRESET_DEFS,
   OPTICAL_TRANSFER_PRESET_OPTIONS,
+  normalizeOpticalTransferConcretePreset,
+  type OpticalTransferConcretePreset,
   type OpticalTransferPreset,
 } from '../lib/decimen/opticalTransferPresets'
 import { useCatalogStore } from '../stores/catalog'
@@ -168,9 +178,53 @@ const sendProgress = ref<DecimenSendStreamProgress | null>(null)
 const sendCountdown = ref<OpticalSendCountdownTick | null>(null)
 const streaming = ref(false)
 
-const selectedPresetDef = computed(
-  () => OPTICAL_TRANSFER_PRESET_DEFS[prefs.opticalTransferPreset as OpticalTransferPreset],
-)
+/** Resolved concrete mode (Auto re-evaluates from queue size). */
+const resolvedTransferPreset = computed(() => {
+  const preferred = prefs.opticalTransferPreset as OpticalTransferPreset
+  if (!sendPreview.value) {
+    return preferred === 'auto'
+      ? 'balanced'
+      : normalizeOpticalTransferConcretePreset(preferred)
+  }
+  return resolveOpticalTransferPreset({
+    containerBytes: sendPreview.value.containerBytes,
+    preferred,
+    viewportWidth: typeof window !== 'undefined' ? window.innerWidth : undefined,
+    viewportHeight: typeof window !== 'undefined' ? window.innerHeight : undefined,
+    devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : undefined,
+  })
+})
+
+const selectedPresetDef = computed(() => {
+  const mode = prefs.opticalTransferPreset as OpticalTransferPreset
+  if (mode === 'auto') {
+    return { hint: OPTICAL_TRANSFER_PRESET_OPTIONS[0]!.hint }
+  }
+  return OPTICAL_TRANSFER_PRESET_DEFS[normalizeOpticalTransferConcretePreset(mode)]
+})
+
+/** Next more-reliable concrete mode below Auto’s current pick (for downgrade guidance). */
+function nextLowerConcretePreset(
+  preset: OpticalTransferConcretePreset,
+): OpticalTransferConcretePreset | null {
+  const idx = OPTICAL_TRANSFER_CONCRETE_PRESETS.indexOf(preset)
+  if (idx <= 0) return null
+  return OPTICAL_TRANSFER_CONCRETE_PRESETS[idx - 1]!
+}
+
+const autoResolvedPresetLabel = computed(() => {
+  if (prefs.opticalTransferPreset !== 'auto' || !sendPreview.value) return ''
+  return OPTICAL_TRANSFER_PRESET_DEFS[resolvedTransferPreset.value].label
+})
+
+const autoResolvedDowngradeHint = computed(() => {
+  if (prefs.opticalTransferPreset !== 'auto' || !sendPreview.value) return ''
+  const lower = nextLowerConcretePreset(resolvedTransferPreset.value)
+  if (!lower) {
+    return 'If cameras struggle, try Easier scan while sending.'
+  }
+  return `If cameras struggle, switch Scan mode to ${OPTICAL_TRANSFER_PRESET_DEFS[lower].label}.`
+})
 
 function onTransferPresetChange(raw: string): void {
   prefs.setOpticalTransferPreset(raw as OpticalTransferPreset)
@@ -178,6 +232,8 @@ function onTransferPresetChange(raw: string): void {
 
 const receiveStatus = ref('')
 const receiveError = ref<string | null>(null)
+const receiveLive = ref(false)
+const cameraDevices = ref<OpticalCameraDevice[]>([])
 const received = ref<ReceivedItem[]>([])
 const selectedReceivedIds = ref<Set<string>>(new Set())
 const saveBusy = ref(false)
@@ -198,18 +254,10 @@ const previewFile = ref<OpticalFile | null>(null)
 /** Receive preview: fill stage height (default) vs show whole frame. */
 const cameraFit = ref<'height' | 'all'>('height')
 
-const cameraFitToggleLabel = computed(() =>
-  cameraFit.value === 'height' ? 'Fit all' : 'Fit height',
-)
-const cameraFitToggleTitle = computed(() =>
-  cameraFit.value === 'height'
-    ? 'Show the whole camera frame (letterbox)'
-    : 'Fill the preview height (crop sides)',
-)
-
-function toggleCameraFit(): void {
-  cameraFit.value = cameraFit.value === 'height' ? 'all' : 'height'
-}
+const cameraDeviceId = computed({
+  get: () => prefs.opticalTransferCameraDeviceId,
+  set: (id: string) => prefs.setOpticalTransferCameraDeviceId(id),
+})
 
 const sendPreview = ref<SendPreview | null>(null)
 const sendPreviewBusy = ref(false)
@@ -396,13 +444,40 @@ const collectionSessionList = computed(() => [...collectionSessions.value.values
 
 const queueBytes = computed(() => queue.value.reduce((sum, entry) => sum + entry.file.size, 0))
 
+/** Transfer-oriented byte total (reencoded audio when applicable). */
+const queueTransferBytes = computed(() =>
+  estimateFiles.value.reduce((sum, file) => sum + file.size, 0),
+)
+
 const queueSummary = computed(() => {
   if (!queue.value.length) return ''
   const n = queue.value.length
-  const size = formatBytes(queueBytes.value)
+  const usesReencode =
+    audioFormat.value !== 'original' && queue.value.some((e) => isOpticalAudioFile(e.file))
+  const size = formatBytes(usesReencode ? queueTransferBytes.value : queueBytes.value)
+  const approx = usesReencode && audioSizeEstimateProvisional.value ? '~' : ''
+  const sizeLabel = usesReencode ? `${approx}${size} transfer` : size
   const archive = n > 1 ? ' · will zip before transfer' : ''
-  return `${n} file${n === 1 ? '' : 's'} · ${size} selected${archive}`
+  return `${n} file${n === 1 ? '' : 's'} · ${sizeLabel} selected${archive}`
 })
+
+function queueEntrySizeLabel(entry: QueuedFile): string {
+  const file = entry.file
+  if (!isOpticalAudioFile(file) || audioFormat.value === 'original') {
+    return formatBytes(file.size)
+  }
+  const prepared = preparedAudioById.value.get(entry.id)
+  const sendBytes = prepared
+    ? prepared.bytes.byteLength
+    : estimateOpticalAudioPayloadBytes({
+        byteLength: file.size,
+        format: audioFormat.value,
+        durationSec: audioDurationById.value.get(entry.id) ?? null,
+      })
+  if (sendBytes === file.size) return formatBytes(file.size)
+  const approx = prepared ? '' : '~'
+  return `${formatBytes(file.size)} → ${approx}${formatBytes(sendBytes)}`
+}
 
 const transferStatsLine = computed(() => {
   if (!sendPreview.value) return sendPreviewBusy.value ? 'Calculating transfer size…' : ''
@@ -585,7 +660,7 @@ async function beginOpticalSendTransmission(opts: {
     const suggestion = suggestOpticalFrameBytes(container.length)
     throw new Error(
       suggestion
-        ? `Transfer is too large for the current QR density. Try the Fast preset or split into smaller transfers.`
+        ? `Transfer is too large for the current QR density. Try Fastest or split into smaller transfers.`
         : 'Transfer is too large for the selected QR density.',
     )
   }
@@ -767,29 +842,71 @@ function stopReceiveCamera(): void {
   if (video) video.srcObject = null
 }
 
+async function refreshCameraDevices(): Promise<void> {
+  cameraDevices.value = await listVideoInputDevices()
+  const preferred = cameraDeviceId.value
+  if (preferred && !cameraDevices.value.some((d) => d.deviceId === preferred)) {
+    // Stale id — keep for now; getUserMedia may fall back.
+  }
+}
+
+async function beginLiveReceive(): Promise<void> {
+  if (receiveLive.value) {
+    await startReceiveCamera()
+    return
+  }
+  receiveLive.value = true
+  await nextTick()
+  await startReceiveCamera()
+}
+
+function stopLiveReceive(): void {
+  stopReceiveCamera()
+  receiveLive.value = false
+}
+
+async function onCameraDeviceChange(deviceId: string): Promise<void> {
+  cameraDeviceId.value = deviceId
+  if (receiveLive.value) await startReceiveCamera()
+}
+
 async function startReceiveCamera(): Promise<void> {
   stopReceiveCamera()
   receiveError.value = null
   receiveStatus.value = 'Starting camera…'
   receiveActive = true
+  const preferred = cameraDeviceId.value.trim()
   try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
-    })
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: opticalVideoConstraints(preferred || null),
+      })
+    } catch (firstErr) {
+      if (!preferred) throw firstErr
+      // Preferred device unavailable — fall back to default rear camera.
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: opticalVideoConstraints(null),
+      })
+    }
   } catch {
     receiveError.value = 'Camera unavailable. Allow camera access to receive files.'
     receiveStatus.value = ''
+    receiveLive.value = false
     return
+  }
+  await refreshCameraDevices()
+  const track = cameraStream.getVideoTracks()[0]
+  const activeId = track?.getSettings?.().deviceId
+  if (activeId && !cameraDeviceId.value) {
+    cameraDeviceId.value = activeId
   }
   await nextTick()
   const video = videoRef.value
   if (!video || !receiveActive) {
     stopReceiveCamera()
+    receiveLive.value = false
     return
   }
   try {
@@ -798,6 +915,7 @@ async function startReceiveCamera(): Promise<void> {
   } catch {
     receiveError.value = 'Could not start the camera preview.'
     stopReceiveCamera()
+    receiveLive.value = false
     return
   }
   receiveStatus.value = 'Point at an animated transfer QR code'
@@ -872,6 +990,9 @@ async function onReceivedFile(file: OpticalFile): Promise<void> {
     ? ` · batch ${collectionBatch.batchIndex + 1}/${collectionBatch.batchCount}`
     : ''
   receiveStatus.value = `Received ${file.name}${batchNote} · ${formatBytes(file.bytes.length)}`
+
+  // Drop out of fullscreen receive so the received-files list is visible.
+  stopLiveReceive()
 
   if (saveAfterTransfer.value) {
     await saveReceivedItems([item], 'save file')
@@ -1321,12 +1442,10 @@ async function prepareAndQueueCollection(collectionName: string, tagIds: number[
   }
 }
 
-watch(tab, async (next) => {
-  if (next === 'receive') {
-    await startReceiveCamera()
-    return
+watch(tab, (next) => {
+  if (next !== 'receive') {
+    stopLiveReceive()
   }
-  stopReceiveCamera()
 })
 
 watch(
@@ -1377,18 +1496,25 @@ onMounted(() => {
     tab.value = 'receive'
   }
   void loadCollectionFromQuery()
+  if (isOpticalReceiveRoute(route)) {
+    void beginLiveReceive()
+  }
 })
 
 watch(
   () => [route.name, route.path, route.query.mode] as const,
   () => {
-    tab.value = tabFromRoute(route)
+    const next = tabFromRoute(route)
+    tab.value = next
+    if (next === 'receive' && isOpticalReceiveRoute(route) && !receiveLive.value) {
+      void beginLiveReceive()
+    }
   },
 )
 
 onUnmounted(() => {
   stopSendStream()
-  stopReceiveCamera()
+  stopLiveReceive()
 })
 </script>
 
@@ -1476,7 +1602,7 @@ onUnmounted(() => {
           <li v-for="entry in queue" :key="entry.id">
             <div class="queue-meta">
               <span class="file-name">{{ entry.batchLabel ?? entry.file.name }}</span>
-              <span class="file-size">{{ formatBytes(entry.file.size) }}</span>
+              <span class="file-size">{{ queueEntrySizeLabel(entry) }}</span>
             </div>
             <button
               type="button"
@@ -1538,12 +1664,20 @@ onUnmounted(() => {
             </select>
           </label>
         </div>
-        <p v-if="!streaming && selectedDensityHint" class="scan-mode-hint">{{ selectedDensityHint }}</p>
+        <p
+          v-if="!streaming && prefs.opticalTransferPreset === 'auto' && autoResolvedPresetLabel"
+          class="scan-mode-hint scan-mode-auto"
+          role="status"
+        >
+          Auto chose <strong>{{ autoResolvedPresetLabel }}</strong> for this queue.
+          {{ autoResolvedDowngradeHint }}
+        </p>
+        <p v-else-if="!streaming && selectedDensityHint" class="scan-mode-hint">{{ selectedDensityHint }}</p>
         <p v-if="!streaming && plannedTransfer" class="scan-mode-hint">
           Planned: {{ formatOpticalPlanSummary(plannedTransfer)
           }}{{
             plannedTransfer.exceedsTarget
-              ? ' (longer than this mode’s target — using the fastest readable settings)'
+              ? ' (longer than this mode’s ~3–4s target — already at this mode’s max rate)'
               : ''
           }}
         </p>
@@ -1609,7 +1743,40 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <div class="camera-stage">
+      <div class="send-actions">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="receiveLive"
+          @click="beginLiveReceive"
+        >
+          Start receiving
+        </button>
+      </div>
+      <p class="hint receive-idle-hint">
+        Open-after and save/download options appear while the camera is open. Received files stay
+        listed here until you remove them.
+      </p>
+
+      <p v-if="!receiveLive && receiveError" class="err" role="alert">{{ receiveError }}</p>
+      <p v-else-if="!receiveLive && receiveStatus" class="status" role="status">{{ receiveStatus }}</p>
+
+      <OpticalReceiveStreamOverlay
+        :open="receiveLive"
+        :status="receiveStatus"
+        :error="receiveError"
+        :save-after="saveAfterTransfer"
+        :open-after="openAfterTransfer"
+        :save-after-label="saveAfterLabel"
+        :camera-fit="cameraFit"
+        :cameras="cameraDevices"
+        :device-id="cameraDeviceId"
+        @stop="stopLiveReceive"
+        @update:save-after="saveAfterTransfer = $event"
+        @update:open-after="openAfterTransfer = $event"
+        @update:camera-fit="cameraFit = $event"
+        @update:device-id="onCameraDeviceChange"
+      >
         <video
           ref="videoRef"
           class="camera-video"
@@ -1618,39 +1785,7 @@ onUnmounted(() => {
           muted
           autoplay
         />
-        <div class="camera-frame" aria-hidden="true" />
-      </div>
-
-      <p v-if="receiveError" class="err" role="alert">{{ receiveError }}</p>
-      <p v-else class="status" role="status">{{ receiveStatus }}</p>
-
-      <div class="receive-intents" role="group" aria-label="After transfer">
-        <label class="receive-intent">
-          <input v-model="saveAfterTransfer" type="checkbox" />
-          <span>{{ saveAfterLabel }}</span>
-        </label>
-        <label class="receive-intent">
-          <input v-model="openAfterTransfer" type="checkbox" />
-          <span>Open after transfer</span>
-        </label>
-        <p class="hint receive-intent-hint">
-          Open applies to a single image, PDF, audio clip, sheet, or My Library song — not zips or
-          collection batches. Save/download still runs for every file when enabled.
-        </p>
-      </div>
-
-      <div class="send-actions">
-        <button
-          type="button"
-          class="btn"
-          :title="cameraFitToggleTitle"
-          :aria-label="cameraFitToggleTitle"
-          @click="toggleCameraFit"
-        >
-          {{ cameraFitToggleLabel }}
-        </button>
-        <button type="button" class="btn" @click="startReceiveCamera">Restart camera</button>
-      </div>
+      </OpticalReceiveStreamOverlay>
 
       <div v-if="received.length" class="received">
         <div class="received-head">
@@ -1874,6 +2009,9 @@ onUnmounted(() => {
   margin: 0;
   font-size: 1rem;
 }
+.receive-idle-hint {
+  margin: 0;
+}
 .queue-card {
   display: grid;
   gap: 0.75rem;
@@ -2085,6 +2223,12 @@ onUnmounted(() => {
   color: var(--muted);
   line-height: 1.4;
 }
+.scan-mode-auto {
+  color: var(--text);
+}
+.scan-mode-auto strong {
+  font-weight: 700;
+}
 @media (max-width: 520px) {
   .scan-mode-field {
     margin-left: 0;
@@ -2105,17 +2249,6 @@ onUnmounted(() => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-.camera-stage {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  border-radius: var(--radius, 12px);
-  background: #111;
-  aspect-ratio: 4 / 3;
-  min-height: min(52vh, 28rem);
-  max-height: min(72vh, 42rem);
-  container-type: size;
 }
 .camera-video {
   display: block;
@@ -2138,20 +2271,6 @@ onUnmounted(() => {
   object-fit: contain;
   object-position: center center;
 }
-.camera-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  aspect-ratio: 1 / 1;
-  width: min(72%, 88%);
-  width: min(72cqmin, 88%);
-  height: auto;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  border-radius: 12px;
-  pointer-events: none;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.18);
-}
 .received {
   display: grid;
   gap: 0.55rem;
@@ -2159,10 +2278,6 @@ onUnmounted(() => {
 @media (min-width: 720px) {
   .optical {
     gap: 1.15rem;
-  }
-  .camera-stage {
-    min-height: min(48vh, 32rem);
-    max-height: min(68vh, 36rem);
   }
 }
 </style>

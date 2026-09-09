@@ -127,9 +127,12 @@ describe('OpticalTransferView', () => {
     expect(document.body.querySelector('select[aria-label="Transfer frame rate"]')).toBeNull()
     expect(document.body.querySelector('button[aria-label="Make QR smaller"]')).toBeTruthy()
     expect(document.body.querySelector('button[aria-label="Make QR larger"]')).toBeTruthy()
+    expect(w.text()).toMatch(/Auto/)
+    expect(w.text()).toMatch(/Ultra/)
     expect(w.text()).toMatch(/Balanced/)
     expect(w.text()).toMatch(/Reliable/)
     expect(w.text()).toMatch(/Fast/)
+    expect(w.text()).toMatch(/Fastest/)
     w.unmount()
   })
 
@@ -152,6 +155,22 @@ describe('OpticalTransferView', () => {
     const receiveTab = document.body.querySelector('[role="tab"][aria-selected="true"]')
     expect(receiveTab?.textContent).toMatch(/Receive/)
     expect(w.text()).toMatch(/Receive to this device/)
+    expect(w.text()).toMatch(/Start receiving/)
+    w.unmount()
+  })
+
+  it('shows Start receiving on the receive tab without opening the live overlay on /tx', async () => {
+    const w = await mountView()
+    await flushPromises()
+    const tabs = [...document.body.querySelectorAll('[role="tab"]')]
+    const receive = tabs.find((el) => el.textContent?.includes('Receive'))
+    expect(receive).toBeTruthy()
+    ;(receive as HTMLElement).click()
+    await flushPromises()
+    expect(w.text()).toMatch(/Start receiving/)
+    const overlay = document.body.querySelector('.optical-receive') as HTMLElement | null
+    expect(overlay).toBeTruthy()
+    expect(getComputedStyle(overlay!).display).toBe('none')
     w.unmount()
   })
 

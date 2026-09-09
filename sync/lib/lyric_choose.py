@@ -1127,6 +1127,52 @@ def pending_review_ids() -> set[int]:
     return out
 
 
+# Catalog series sort ranks (lower = earlier). Matches web/src/lib/collections.ts.
+_COLLECTION_SORT_RANK = {
+    "classic": 0,
+    "100": 1,
+    "easytags": 2,
+}
+
+
+def _normalize_collection_id(raw: Any) -> str | None:
+    if raw is None:
+        return None
+    s = str(raw).strip().lower()
+    return s or None
+
+
+def _collection_booklet_number(classic: Any) -> float:
+    if classic is None or classic == "":
+        return float("inf")
+    try:
+        n = float(classic)
+    except (TypeError, ValueError):
+        return float("inf")
+    return n if n == n else float("inf")  # NaN → inf
+
+
+def collection_sort_key(
+    *,
+    collection: Any = None,
+    classic: Any = None,
+    tag_id: Any = None,
+) -> tuple[int, float, int]:
+    """Sort key: catalog collections first, then booklet #, then tag id.
+
+    Tags with no collection rank last (90). Known series: classic → 100 → easytags.
+    """
+    cid = _normalize_collection_id(collection)
+    if not cid:
+        rank = 90
+    elif cid in _COLLECTION_SORT_RANK:
+        rank = _COLLECTION_SORT_RANK[cid]
+    else:
+        rank = 50 + (ord(cid[0]) if cid else 0)
+    tid = tag_id if isinstance(tag_id, int) else 0
+    return (rank, _collection_booklet_number(classic), tid)
+
+
 def suggestion_row(folder: Path, meta: dict) -> Optional[dict[str, Any]]:
     tag_id = meta.get("tag_id")
     if not isinstance(tag_id, int):
@@ -1149,6 +1195,8 @@ def suggestion_row(folder: Path, meta: dict) -> Optional[dict[str, Any]]:
         "metadata_path": str(folder / "metadata.json"),
         "title": meta.get("title") or folder.name,
         "arranger": meta.get("arranger") or "",
+        "collection": meta.get("collection") or None,
+        "classic": meta.get("classic"),
         "current_lyrics": _clean(meta.get("lyrics")) or None,
         "current_source": meta.get("lyrics_source"),
         "suggested_lyrics": text or None,
@@ -1163,7 +1211,71 @@ def suggestion_row(folder: Path, meta: dict) -> Optional[dict[str, Any]]:
     }
 
 
-def load_suggestions(path: Path | None = None) -> list[dict]:
+def _row_collection_sort_key(row: dict) -> tuple[int, float, int]:
+    return collection_sort_key(
+        collection=row.get("collection"),
+        classic=row.get("classic"),
+        tag_id=row.get("tag_id"),
+    )
+
+
+def enrich_rows_with_collection(
+    rows: list[dict],
+    folders: dict[int, Path] | None,
+) -> list[dict]:
+    """Copy collection/classic from tag metadata onto rows that lack them."""
+    if not folders:
+        return rows
+    from .state import load_metadata
+
+    out: list[dict] = []
+    for row in rows:
+        tid = row.get("tag_id")
+        if not isinstance(tid, int) or tid not in folders:
+            out.append(row)
+            continue
+        if row.get("collection") is not None and "classic" in row:
+            out.append(row)
+            continue
+        folder = folders[tid]
+        meta = load_metadata(folder) if (folder / "metadata.json").exists() else {}
+        enriched = dict(row)
+        if enriched.get("collection") is None and meta.get("collection"):
+            enriched["collection"] = meta.get("collection")
+        if "classic" not in enriched and meta.get("classic") is not None:
+            enriched["classic"] = meta.get("classic")
+        out.append(enriched)
+    return out
+
+
+def suggestion_file_tag_ids(path: Path | None = None) -> list[int]:
+    """Tag ids in on-disk file order (no enrich / re-sort)."""
+    path = path or suggestions_path()
+    ids: list[int] = []
+    if not path.is_file():
+        return ids
+    with path.open("r", encoding="utf-8") as fh:
+        import json
+
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            tid = row.get("tag_id")
+            if isinstance(tid, int):
+                ids.append(tid)
+    return ids
+
+
+def load_suggestions(
+    path: Path | None = None,
+    *,
+    folders: dict[int, Path] | None = None,
+) -> list[dict]:
     path = path or suggestions_path()
     rows: list[dict] = []
     if not path.is_file():
@@ -1181,7 +1293,8 @@ def load_suggestions(path: Path | None = None) -> list[dict]:
                 continue
             if isinstance(row.get("tag_id"), int):
                 rows.append(row)
-    rows.sort(key=lambda r: r["tag_id"])
+    rows = enrich_rows_with_collection(rows, folders)
+    rows.sort(key=_row_collection_sort_key)
     return rows
 
 
@@ -1192,7 +1305,7 @@ def save_suggestions(rows: list[dict], path: Path | None = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as fh:
-        for row in sorted(rows, key=lambda r: r.get("tag_id") or 0):
+        for row in sorted(rows, key=_row_collection_sort_key):
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     tmp.replace(path)
     return path
@@ -1214,6 +1327,93 @@ def save_review_queue(data: dict) -> None:
     save_json(review_queue_path(), data)
 
 
+def _meta_for_queue_item(
+    item: dict,
+    folders: dict[int, Path] | None,
+    meta_cache: dict[int, dict],
+) -> dict:
+    tid = item.get("tag_id")
+    if not isinstance(tid, int):
+        return {}
+    if tid in meta_cache:
+        return meta_cache[tid]
+    meta: dict = {}
+    if folders and tid in folders:
+        from .state import load_metadata
+
+        folder = folders[tid]
+        if (folder / "metadata.json").exists():
+            meta = load_metadata(folder) or {}
+    meta_cache[tid] = meta
+    return meta
+
+
+def prioritize_items_collections_first(
+    items: list[dict],
+    *,
+    folders: dict[int, Path] | None = None,
+) -> list[dict]:
+    """Stable-ish order: catalog-collection tags first, then everything else.
+
+    Within collections: classic → 100 → easytags → other, then booklet #, then tag id.
+    Non-collection pending items keep their relative order after the collection block.
+    Done items stay after all pending (so the pending-only GUI walk stays collections-first).
+    """
+    meta_cache: dict[int, dict] = {}
+
+    def enrich(it: dict) -> dict:
+        meta = _meta_for_queue_item(it, folders, meta_cache)
+        out = dict(it)
+        if out.get("collection") is None and meta.get("collection"):
+            out["collection"] = meta.get("collection")
+        if out.get("classic") is None and meta.get("classic") is not None:
+            out["classic"] = meta.get("classic")
+        return out
+
+    enriched = [enrich(it) for it in items]
+    pending = [it for it in enriched if it.get("status") != "done"]
+    done = [it for it in enriched if it.get("status") == "done"]
+
+    coll: list[dict] = []
+    rest: list[dict] = []
+    for it in pending:
+        if _normalize_collection_id(it.get("collection")):
+            coll.append(it)
+        else:
+            rest.append(it)
+    coll.sort(key=_row_collection_sort_key)
+    return coll + rest + done
+
+
+def reorder_review_queue_collections_first(
+    folders: dict[int, Path] | None = None,
+    *,
+    reset_cursor: bool = True,
+) -> dict:
+    """Rewrite the review queue so collection tags are processed first.
+
+    When ``reset_cursor`` is true, the cursor resets to 0 only if pending order
+    actually changed (so a mid-collection session keeps its place on reopen).
+    """
+    data = load_review_queue()
+    items = list(data.get("items") or [])
+    before = [
+        it.get("tag_id")
+        for it in items
+        if it.get("status") != "done" and isinstance(it.get("tag_id"), int)
+    ]
+    data["items"] = prioritize_items_collections_first(items, folders=folders)
+    after = [
+        it.get("tag_id")
+        for it in data["items"]
+        if it.get("status") != "done" and isinstance(it.get("tag_id"), int)
+    ]
+    if reset_cursor and before != after:
+        data["cursor"] = 0
+    save_review_queue(data)
+    return data
+
+
 def append_review_item(row: dict, *, reason: str = "disputed") -> None:
     data = load_review_queue()
     tid = row.get("tag_id")
@@ -1225,6 +1425,8 @@ def append_review_item(row: dict, *, reason: str = "disputed") -> None:
         "metadata_path": row.get("metadata_path"),
         "title": row.get("title"),
         "arranger": row.get("arranger"),
+        "collection": row.get("collection"),
+        "classic": row.get("classic"),
         "suggested_lyrics": row.get("suggested_lyrics"),
         "suggested_source": row.get("suggested_source"),
         "reason": reason,

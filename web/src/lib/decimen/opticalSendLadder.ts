@@ -9,7 +9,7 @@ import {
 import {
   OPTICAL_FRAME_BYTES_OPTIONS,
   opticalPayloadFits,
-  opticalThroughputKibPerSec,
+  estimateOpticalEtaSeconds,
   normalizeOpticalFrameBytes,
   normalizeOpticalGridCodes,
   type OpticalFrameBytes,
@@ -24,8 +24,8 @@ import {
 } from './opticalDensityResolve'
 import {
   OPTICAL_TRANSFER_PRESET_DEFS,
-  normalizeOpticalTransferPreset,
-  type OpticalTransferPreset,
+  normalizeOpticalTransferConcretePreset,
+  type OpticalTransferConcretePreset,
 } from './opticalTransferPresets'
 
 export type OpticalSendLadderStep = {
@@ -155,26 +155,29 @@ export function listOpticalSendLadder(opts: {
 }
 
 /**
- * Pick the send start for a preset.
- * maxDensity: densest legal on preferGrid (Fast may promote to grid 4 when faster + px≥4).
- * minDensity: Light on preferGrid (or 1 if 2 illegal).
+ * Pick the send start for a preset: lowest density (largest modules) that still
+ * finishes within the preset’s targetSeconds, within its density/fps/grid caps.
+ * If nothing meets the target, pick the fastest legal combo under those caps.
  */
 export function pickOpticalSendStart(opts: {
-  preset: OpticalTransferPreset
+  preset: OpticalTransferConcretePreset
   containerBytes: number
   stageWidthCss?: number
   stageHeightCss?: number
   viewportWidth?: number
   viewportHeight?: number
   devicePixelRatio?: number
+  /** Override preset targetSeconds (tests / callers). */
+  targetSeconds?: number
 }): OpticalSendStart {
-  const preset = normalizeOpticalTransferPreset(opts.preset)
+  const preset = normalizeOpticalTransferConcretePreset(opts.preset)
   const def = OPTICAL_TRANSFER_PRESET_DEFS[preset]
   const stage = resolveStage(opts)
   const dpr = opts.devicePixelRatio ?? 1
   const txFps = def.maxTxFps
+  const targetSeconds = opts.targetSeconds ?? def.targetSeconds
 
-  const baseCaps = {
+  const candidates = listOpticalSendLadder({
     preferGrid: def.preferGrid,
     maxGrid: def.maxGrid,
     maxFrameBytes: def.maxFrameBytes,
@@ -182,74 +185,69 @@ export function pickOpticalSendStart(opts: {
     stageWidthCss: stage.width,
     stageHeightCss: stage.height,
     devicePixelRatio: dpr,
-  }
-
-  if (def.startStrategy === 'minDensity') {
-    const ladder = listOpticalSendLadder({
-      ...baseCaps,
-      // Prefer Light: list densest-first then take Lightest on prefer grid, else any Light.
-      maxFrameBytes: 1000,
-    })
-    const onPrefer =
-      ladder.find((s) => s.gridCodes === def.preferGrid && s.frameBytes === 1000) ??
-      ladder.find((s) => s.frameBytes === 1000) ??
-      ladder.at(-1)
-    if (onPrefer) return { ...onPrefer, txFps }
-    return {
-      frameBytes: 1000,
-      gridCodes: 1,
-      moduleDevicePx: opticalModuleDevicePx({
-        frameBytes: 1000,
-        gridCodes: 1,
-        stageWidthCss: stage.width,
-        stageHeightCss: stage.height,
-        devicePixelRatio: dpr,
-      }),
-      txFps,
-    }
-  }
-
-  // maxDensity: densest on preferGrid first.
-  const preferLadder = listOpticalSendLadder({
-    ...baseCaps,
-    maxGrid: def.preferGrid,
-    preferGrid: def.preferGrid,
   })
-  let best = preferLadder[0]
 
-  // Fast: allow grid 4 only if faster than prefer×max and modules stay ≥4px.
-  if (def.maxGrid >= 4 && def.preferGrid < 4) {
-    const g4Ladder = listOpticalSendLadder({
-      ...baseCaps,
-      preferGrid: 4,
-      maxGrid: 4,
-    })
-    const g4Best = g4Ladder[0]
-    if (best && g4Best && g4Best.moduleDevicePx >= 4) {
-      const preferKib = opticalThroughputKibPerSec(best.frameBytes, txFps, best.gridCodes)
-      const g4Kib = opticalThroughputKibPerSec(g4Best.frameBytes, txFps, g4Best.gridCodes)
-      if (g4Kib > preferKib) best = g4Best
-    } else if (!best && g4Best) {
-      best = g4Best
+  // Prefer lower density, then larger modules, then fewer simultaneous codes,
+  // then preferGrid when module px ties.
+  const ranked = [...candidates].sort((a, b) => {
+    if (a.frameBytes !== b.frameBytes) return a.frameBytes - b.frameBytes
+    if (Math.abs(a.moduleDevicePx - b.moduleDevicePx) > 1e-6) {
+      return b.moduleDevicePx - a.moduleDevicePx
+    }
+    if (a.gridCodes !== b.gridCodes) return a.gridCodes - b.gridCodes
+    const aPrefer = a.gridCodes === def.preferGrid ? 0 : 1
+    const bPrefer = b.gridCodes === def.preferGrid ? 0 : 1
+    return aPrefer - bPrefer
+  })
+
+  // Prefer-grid first (e.g. 2-up); only consider denser grids (4-up) if needed for ETA.
+  const preferFirst = [
+    ...ranked.filter((s) => s.gridCodes <= def.preferGrid),
+    ...ranked.filter(
+      (s) => s.gridCodes > def.preferGrid && s.moduleDevicePx >= 4,
+    ),
+  ]
+
+  for (const step of preferFirst) {
+    const eta = estimateOpticalEtaSeconds(
+      opts.containerBytes,
+      step.frameBytes,
+      txFps,
+      step.gridCodes,
+    )
+    if (eta <= targetSeconds) return { ...step, txFps }
+  }
+
+  // Nothing meets the window — escalate to highest throughput under the caps.
+  // Allow overflow grids (4-up) only when they keep modules ≥4 device px.
+  let best: OpticalSendLadderStep | undefined
+  let bestKib = -1
+  for (const step of candidates) {
+    if (step.gridCodes > def.preferGrid && step.moduleDevicePx < 4) continue
+    const kib = (step.frameBytes * txFps * step.gridCodes) / 1024
+    if (kib > bestKib + 1e-9) {
+      best = step
+      bestKib = kib
+    } else if (Math.abs(kib - bestKib) <= 1e-9 && best) {
+      // Prefer larger modules on a throughput tie.
+      if (step.moduleDevicePx > best.moduleDevicePx) best = step
     }
   }
 
-  if (!best) {
-    // Last resort: Light × 1 even if slightly under floor.
-    return {
+  if (best) return { ...best, txFps }
+
+  return {
+    frameBytes: 1000,
+    gridCodes: 1,
+    moduleDevicePx: opticalModuleDevicePx({
       frameBytes: 1000,
       gridCodes: 1,
-      moduleDevicePx: opticalModuleDevicePx({
-        frameBytes: 1000,
-        gridCodes: 1,
-        stageWidthCss: stage.width,
-        stageHeightCss: stage.height,
-        devicePixelRatio: dpr,
-      }),
-      txFps,
-    }
+      stageWidthCss: stage.width,
+      stageHeightCss: stage.height,
+      devicePixelRatio: dpr,
+    }),
+    txFps,
   }
-  return { ...best, txFps }
 }
 
 /**

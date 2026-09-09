@@ -147,7 +147,7 @@ python3 build/build_offline_manifest.py
 Website deploy does **not** rebuild indexes.
 ### Lyric review (resume flagged queue)
 
-Progress is in `../library/_state/lyric_review_queue.json` (not in `lyrics/`). Continue with:
+Progress is in `../library/_state/lyric_review_queue.json` (not in `lyrics/`). Catalog collection tags are queued first. Continue with:
 
 ```bash
 python lyrics/review_queue_gui.py

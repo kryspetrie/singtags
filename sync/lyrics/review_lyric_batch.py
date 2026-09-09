@@ -26,6 +26,7 @@ from lib.config import ROOT_DOWNLOAD_DIR
 from lib.lyric_choose import (
     append_review_item,
     collect_candidates,
+    enrich_rows_with_collection,
     flatten_lyrics,
     is_confident_guess,
     load_batch_cursor,
@@ -34,12 +35,15 @@ from lib.lyric_choose import (
     lyrics_quality_issues,
     pending_review_ids,
     pick_best,
+    prioritize_items_collections_first,
+    reorder_review_queue_collections_first,
     review_queue_path,
     save_batch_cursor,
     save_review_queue,
     save_suggestions,
     sentence_case_lyrics,
     suggestion_row,
+    suggestion_file_tag_ids,
     suggestions_path,
     SUMMARY_NAME,
     finalize_lyrics,
@@ -100,17 +104,24 @@ def analyze(root: Path) -> tuple[list[dict], dict]:
         stats[f"pick:{src.split(':')[0]}"] += 1
         rows.append(row)
 
-    path = save_suggestions(rows)
     for row in empty:
         append_review_item(row, reason="no_usable_lyrics")
     for row, reason in auto_review:
         append_review_item(row, reason=reason)
 
+    # Collection tags (classic / 100 / easytags / …) first in both queues.
+    folders = index_folders_by_id(root)
+    rows = enrich_rows_with_collection(rows, folders)
+    path = save_suggestions(rows)
+    reorder_review_queue_collections_first(folders, reset_cursor=True)
+
     # Suggestion list changed — restart paging at the top.
     save_batch_cursor({"next_index": 0, "accepted": 0, "disputed": 0, "pages": 0})
 
+    coll_suggestions = sum(1 for r in rows if r.get("collection"))
     summary = {
         "suggestions": len(rows),
+        "collection_suggestions": coll_suggestions,
         "queued_empty_for_review": len(empty),
         "queued_auto_review": len(auto_review),
         "stats": dict(stats),
@@ -294,14 +305,26 @@ def run_review(root: Path, *, dry_run: bool, reset: bool) -> int:
         print("review_lyric_batch.py needs an interactive terminal (TTY).", file=sys.stderr)
         return 2
 
-    data = load_review_queue()
-    items = [it for it in (data.get("items") or []) if it.get("status") != "done"]
+    index = index_folders_by_id(root)
+    data = reorder_review_queue_collections_first(index, reset_cursor=True)
+    items = [
+        it
+        for it in prioritize_items_collections_first(
+            list(data.get("items") or []), folders=index
+        )
+        if it.get("status") != "done"
+    ]
     if not items:
         print("Review queue is empty.")
         return 0
 
+    coll_n = sum(1 for it in items if it.get("collection"))
+    print(
+        f"Review queue: {len(items)} pending "
+        f"({coll_n} catalog collection tags first)."
+    )
+
     start = 0 if reset else int(data.get("cursor") or 0)
-    index = index_folders_by_id(root)
     resolved = 0
     i = start
     while i < len(items):
@@ -313,7 +336,14 @@ def run_review(root: Path, *, dry_run: bool, reset: bool) -> int:
         folder = index.get(tid) if isinstance(tid, int) else None
         print()
         print("=" * 72)
-        print(f"Review {i + 1}/{len(items)}  #{tid}  {item.get('title')}")
+        coll = item.get("collection")
+        coll_label = f"  [{coll}" + (f" #{item.get('classic')}" if item.get("classic") not in (None, "") else "") + "]" if coll else ""
+        phase = (
+            f"collection {i + 1}/{coll_n}"
+            if coll and coll_n
+            else f"{i + 1}/{len(items)}"
+        )
+        print(f"Review {phase}  #{tid}{coll_label}  {item.get('title')}")
         print(f"arranger={item.get('arranger') or '—'}  reason={item.get('reason')}")
         if folder:
             print(f"folder={folder.name}")
@@ -374,7 +404,17 @@ def run_review(root: Path, *, dry_run: bool, reset: bool) -> int:
         item["status"] = "done"
         item["resolved_from"] = chosen_from
         items[i] = item
-        data["items"] = items
+        data = load_review_queue()
+        by_id = {
+            it.get("tag_id"): it
+            for it in (data.get("items") or [])
+            if isinstance(it.get("tag_id"), int)
+        }
+        if tid in by_id:
+            by_id[tid].update(item)
+        data["items"] = prioritize_items_collections_first(
+            list(data.get("items") or items), folders=index
+        )
         data["cursor"] = i + 1
         data["resolved"] = int(data.get("resolved") or 0) + 1
         save_review_queue(data)
@@ -419,7 +459,28 @@ def main() -> int:
     )
     parser.add_argument("--reset-cursor", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--collections-first",
+        action="store_true",
+        help="Reorder review queue + suggestions so catalog collection tags come first (also default on review/analyze)",
+    )
     args = parser.parse_args()
+
+    if args.collections_first and not args.review and not args.analyze:
+        folders = index_folders_by_id(args.root)
+        data = reorder_review_queue_collections_first(folders, reset_cursor=True)
+        data["cursor"] = 0
+        save_review_queue(data)
+        pending = [it for it in (data.get("items") or []) if it.get("status") != "done"]
+        coll_n = sum(1 for it in pending if it.get("collection"))
+        rows = load_suggestions(folders=folders)
+        save_suggestions(rows)
+        save_batch_cursor({"next_index": 0, "accepted": 0, "disputed": 0, "pages": 0})
+        print(
+            f"Reordered review queue: {coll_n} collection tags first "
+            f"({len(pending)} pending). Suggestions re-sorted; cursors reset to 0."
+        )
+        return 0
 
     if args.review:
         if args.gui:
@@ -431,23 +492,44 @@ def main() -> int:
         return run_review(args.root, dry_run=args.dry_run, reset=args.reset_cursor)
 
     if args.from_cache and not args.analyze:
-        rows = load_suggestions()
+        folders = index_folders_by_id(args.root)
+        # Capture pre-sort file order so we can reset next_index if collections-first
+        # reordering would make a resumed numeric cursor skip/repeat the wrong tags.
+        before_ids = suggestion_file_tag_ids()
+        rows = load_suggestions(folders=folders)
         if not rows:
             print("No cached suggestions — analyzing…")
             rows, summary = analyze(args.root)
             print(
                 f"Wrote {summary['suggestions']} suggestions → {summary['path']}\n"
+                f"Collection suggestions first: {summary.get('collection_suggestions', 0)}\n"
                 f"Empty/no-guess queued for review: {summary['queued_empty_for_review']}\n"
                 f"Auto-queued (nonsense/incomplete/OCR): {summary.get('queued_auto_review', 0)}\n"
                 f"stats={summary['stats']}"
             )
         else:
-            print(f"Loaded {len(rows)} cached suggestions from {suggestions_path()}")
+            after_ids = [
+                r["tag_id"] for r in rows if isinstance(r.get("tag_id"), int)
+            ]
+            save_suggestions(rows)
+            reordered = before_ids != after_ids
+            if reordered:
+                save_batch_cursor(
+                    {"next_index": 0, "accepted": 0, "disputed": 0, "pages": 0}
+                )
+            msg = (
+                f"Loaded {len(rows)} cached suggestions from {suggestions_path()} "
+                f"({sum(1 for r in rows if r.get('collection'))} collection tags first)"
+            )
+            if reordered:
+                msg += "; order changed — batch cursor reset to 0"
+            print(msg)
     else:
         print("Analyzing lyric sources…")
         rows, summary = analyze(args.root)
         print(
             f"Wrote {summary['suggestions']} suggestions → {summary['path']}\n"
+            f"Collection suggestions first: {summary.get('collection_suggestions', 0)}\n"
             f"Empty/no-guess queued for review: {summary['queued_empty_for_review']}\n"
             f"Auto-queued (nonsense/incomplete/OCR): {summary.get('queued_auto_review', 0)}\n"
             f"stats={summary['stats']}"

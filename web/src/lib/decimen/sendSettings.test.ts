@@ -29,7 +29,8 @@ describe('sendSettings', () => {
   })
 
   it('normalizes multi-stream grid counts to tileable values', () => {
-    expect(normalizeOpticalGridCodes(DEFAULT_OPTICAL_GRID_CODES)).toBe(1)
+    expect(normalizeOpticalGridCodes(DEFAULT_OPTICAL_GRID_CODES)).toBe(DEFAULT_OPTICAL_GRID_CODES)
+    expect(normalizeOpticalGridCodes(1)).toBe(1)
     expect(normalizeOpticalGridCodes(4)).toBe(4)
     expect(normalizeOpticalGridCodes(3)).toBe(DEFAULT_OPTICAL_GRID_CODES)
   })

@@ -3,7 +3,7 @@
  * In-app preview for a received optical file (image / PDF / audio).
  * Always in-app — never relies on OS open / new-tab.
  */
-import { onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { renderPdfToPageUrls } from '../lib/pdfRender'
 import {
   opticalFileBlob,
@@ -27,19 +27,64 @@ const objectUrl = ref<string | null>(null)
 const pageUrls = ref<string[]>([])
 const audioEl = ref<HTMLAudioElement | null>(null)
 const playing = ref(false)
+const currentTime = ref(0)
+const duration = ref(0)
+const volume = ref(1)
+const muted = ref(false)
+const seeking = ref(false)
+
+const volumeBeforeMute = ref(1)
+
+const progressPercent = computed(() => {
+  const d = duration.value
+  if (!(d > 0)) return 0
+  return Math.min(100, Math.max(0, (currentTime.value / d) * 100))
+})
+
+function formatClock(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const s = Math.floor(sec)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${r.toString().padStart(2, '0')}`
+}
+
+function onAudioTimeUpdate(): void {
+  if (seeking.value) return
+  const a = audioEl.value
+  if (!a) return
+  currentTime.value = a.currentTime
+}
+
+function onAudioMeta(): void {
+  const a = audioEl.value
+  if (!a) return
+  duration.value = Number.isFinite(a.duration) ? a.duration : 0
+}
+
+function onAudioEnded(): void {
+  playing.value = false
+  currentTime.value = duration.value > 0 ? duration.value : 0
+}
 
 function revokeAll(): void {
+  const a = audioEl.value
+  if (a) {
+    a.removeEventListener('timeupdate', onAudioTimeUpdate)
+    a.removeEventListener('loadedmetadata', onAudioMeta)
+    a.removeEventListener('ended', onAudioEnded)
+    a.pause()
+    audioEl.value = null
+  }
   if (objectUrl.value) {
     URL.revokeObjectURL(objectUrl.value)
     objectUrl.value = null
   }
   for (const u of pageUrls.value) URL.revokeObjectURL(u)
   pageUrls.value = []
-  if (audioEl.value) {
-    audioEl.value.pause()
-    audioEl.value = null
-  }
   playing.value = false
+  currentTime.value = 0
+  duration.value = 0
 }
 
 async function load(): Promise<void> {
@@ -66,9 +111,11 @@ async function load(): Promise<void> {
     objectUrl.value = URL.createObjectURL(blob)
     if (kind.value === 'audio' && objectUrl.value) {
       const a = new Audio(objectUrl.value)
-      a.addEventListener('ended', () => {
-        playing.value = false
-      })
+      a.volume = volume.value
+      a.muted = muted.value
+      a.addEventListener('timeupdate', onAudioTimeUpdate)
+      a.addEventListener('loadedmetadata', onAudioMeta)
+      a.addEventListener('ended', onAudioEnded)
       audioEl.value = a
       try {
         await a.play()
@@ -98,6 +145,54 @@ async function toggleAudio(): Promise<void> {
     playing.value = true
   } catch {
     error.value = 'Playback blocked'
+  }
+}
+
+function onSeekInput(event: Event): void {
+  const a = audioEl.value
+  const input = event.target as HTMLInputElement
+  const d = duration.value
+  if (!a || !(d > 0)) return
+  seeking.value = true
+  const next = (Number(input.value) / 100) * d
+  currentTime.value = next
+}
+
+function onSeekCommit(event: Event): void {
+  const a = audioEl.value
+  const input = event.target as HTMLInputElement
+  const d = duration.value
+  seeking.value = false
+  if (!a || !(d > 0)) return
+  a.currentTime = (Number(input.value) / 100) * d
+  currentTime.value = a.currentTime
+}
+
+function onVolumeInput(event: Event): void {
+  const a = audioEl.value
+  const input = event.target as HTMLInputElement
+  const next = Math.min(1, Math.max(0, Number(input.value) / 100))
+  volume.value = next
+  muted.value = next === 0
+  if (next > 0) volumeBeforeMute.value = next
+  if (a) {
+    a.volume = next
+    a.muted = muted.value
+  }
+}
+
+function toggleMute(): void {
+  const a = audioEl.value
+  if (muted.value || volume.value === 0) {
+    muted.value = false
+    volume.value = volumeBeforeMute.value > 0 ? volumeBeforeMute.value : 1
+  } else {
+    volumeBeforeMute.value = volume.value > 0 ? volume.value : 1
+    muted.value = true
+  }
+  if (a) {
+    a.muted = muted.value
+    a.volume = volume.value
   }
 }
 
@@ -154,10 +249,53 @@ onUnmounted(() => {
             />
           </div>
           <div v-else-if="kind === 'audio'" class="preview-audio">
-            <button type="button" class="btn btn-primary" @click="toggleAudio">
-              {{ playing ? 'Pause' : 'Play' }}
-            </button>
             <p class="hint">{{ file.name }}</p>
+            <div class="audio-player" role="group" aria-label="Audio playback">
+              <button
+                type="button"
+                class="btn btn-primary play-btn"
+                :aria-label="playing ? 'Pause' : 'Play'"
+                @click="toggleAudio"
+              >
+                {{ playing ? 'Pause' : 'Play' }}
+              </button>
+              <div class="seek-row">
+                <span class="clock" aria-hidden="true">{{ formatClock(currentTime) }}</span>
+                <input
+                  class="seek"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  :value="progressPercent"
+                  :aria-valuetext="`${formatClock(currentTime)} of ${formatClock(duration)}`"
+                  aria-label="Seek"
+                  @input="onSeekInput"
+                  @change="onSeekCommit"
+                />
+                <span class="clock" aria-hidden="true">{{ formatClock(duration) }}</span>
+              </div>
+              <div class="volume-row">
+                <button
+                  type="button"
+                  class="btn btn-ghost mute-btn"
+                  :aria-label="muted || volume === 0 ? 'Unmute' : 'Mute'"
+                  @click="toggleMute"
+                >
+                  {{ muted || volume === 0 ? 'Unmute' : 'Mute' }}
+                </button>
+                <input
+                  class="volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  :value="muted ? 0 : Math.round(volume * 100)"
+                  aria-label="Volume"
+                  @input="onVolumeInput"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -237,9 +375,41 @@ onUnmounted(() => {
 }
 .preview-audio {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
   place-items: center;
-  padding: 2rem 1rem;
+  padding: 1.5rem 1rem 2rem;
+}
+.audio-player {
+  width: min(28rem, 100%);
+  display: grid;
+  gap: 0.75rem;
+}
+.play-btn {
+  justify-self: center;
+  min-width: 6.5rem;
+}
+.seek-row,
+.volume-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.clock {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  min-width: 2.4rem;
+}
+.seek,
+.volume {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent, #1a5fb4);
+}
+.mute-btn {
+  min-height: 40px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.85rem;
 }
 .hint {
   margin: 0;

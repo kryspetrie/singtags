@@ -1,9 +1,13 @@
 /**
- * Choose optical send density / FPS / grid from the active preset’s ladder start.
+ * Choose optical send density / FPS / grid from the active preset.
  *
- * Balanced/Fast: densest screen-legal combo on prefer-grid (2-up), not ETA-minimized density.
- * Reliable: Light on prefer-grid.
- * Never pick a density/grid the screen cannot physically resolve (hard pixel floor).
+ * All concrete presets aim for ~3–4s using the *lowest* density that still
+ * finishes in that window, capped by each preset’s max density / fps / grid
+ * (Ultra → Reliable → Balanced → Fast → Fastest).
+ *
+ * Scan mode **Auto** picks the most reliable concrete preset that can still
+ * meet that window for the current transfer size.
+ * Never pick a density/grid the screen cannot physically resolve.
  */
 import {
   DEFAULT_OPTICAL_GRID_CODES,
@@ -21,8 +25,12 @@ import {
 } from './opticalDensityResolve'
 import {
   DEFAULT_OPTICAL_TRANSFER_PRESET,
+  normalizeOpticalTransferConcretePreset,
   normalizeOpticalTransferPreset,
+  OPTICAL_PRESET_TARGET_SECONDS,
+  OPTICAL_TRANSFER_CONCRETE_PRESETS,
   OPTICAL_TRANSFER_PRESET_DEFS,
+  type OpticalTransferConcretePreset,
   type OpticalTransferPreset,
 } from './opticalTransferPresets'
 import { pickOpticalSendStart } from './opticalSendLadder'
@@ -37,12 +45,15 @@ export type OpticalTransferPlan = {
   autoDensity: boolean
   /** True when ETA exceeds the preset’s targetSeconds (start combo unchanged). */
   exceedsTarget: boolean
-  preset: OpticalTransferPreset
+  /** Concrete mode used for the plan (Auto is resolved first). */
+  preset: OpticalTransferConcretePreset
+  /** Scan mode the user selected (may be Auto). */
+  scanMode: OpticalTransferPreset
 }
 
 export type PlanOpticalTransferInput = {
   containerBytes: number
-  /** User-facing preset (preferred). */
+  /** User-facing scan mode (Auto or a concrete preset). */
   preset?: OpticalTransferPreset
   /** @deprecated Prefer {@link preset}. When true (default), run Auto planner. */
   autoDensity?: boolean
@@ -107,9 +118,73 @@ export function filterGridLadderForScreen(
   return allowed.length ? allowed : [1]
 }
 
+function etaForConcretePreset(
+  preset: OpticalTransferConcretePreset,
+  containerBytes: number,
+  stage: { width: number; height: number },
+  devicePixelRatio?: number,
+): number {
+  const start = pickOpticalSendStart({
+    preset,
+    containerBytes,
+    stageWidthCss: stage.width,
+    stageHeightCss: stage.height,
+    devicePixelRatio,
+  })
+  return estimateOpticalEtaSeconds(
+    containerBytes,
+    start.frameBytes,
+    start.txFps,
+    start.gridCodes,
+  )
+}
+
+/**
+ * Resolve Auto (or pass through a concrete mode) from transfer size.
+ * Auto = most reliable concrete preset whose plan still aims for ~3–4s;
+ * if none can, Fastest.
+ */
+export function resolveOpticalTransferPreset(input: {
+  containerBytes: number
+  preferred?: OpticalTransferPreset
+  viewportWidth?: number
+  viewportHeight?: number
+  devicePixelRatio?: number
+  stageWidthCss?: number
+  stageHeightCss?: number
+}): OpticalTransferConcretePreset {
+  const preferred = normalizeOpticalTransferPreset(
+    input.preferred ?? DEFAULT_OPTICAL_TRANSFER_PRESET,
+  )
+  if (preferred !== 'auto') return normalizeOpticalTransferConcretePreset(preferred)
+  if (!(input.containerBytes > 0)) return 'balanced'
+
+  const stage =
+    input.stageWidthCss != null && input.stageHeightCss != null
+      ? { width: input.stageWidthCss, height: input.stageHeightCss }
+      : estimateOpticalStageCss({
+          viewportWidth: input.viewportWidth,
+          viewportHeight: input.viewportHeight,
+        })
+  const budget = OPTICAL_PRESET_TARGET_SECONDS
+
+  for (const preset of OPTICAL_TRANSFER_CONCRETE_PRESETS) {
+    const eta = etaForConcretePreset(preset, input.containerBytes, stage, input.devicePixelRatio)
+    if (eta <= budget) return preset
+  }
+  return 'fastest'
+}
+
 /** Build a send plan for a packed wire container. */
 export function planOpticalTransfer(input: PlanOpticalTransferInput): OpticalTransferPlan {
-  const preset = normalizeOpticalTransferPreset(input.preset ?? DEFAULT_OPTICAL_TRANSFER_PRESET)
+  const scanMode = normalizeOpticalTransferPreset(input.preset ?? DEFAULT_OPTICAL_TRANSFER_PRESET)
+  const preset = resolveOpticalTransferPreset({
+    containerBytes: input.containerBytes,
+    preferred: scanMode,
+    viewportWidth: input.viewportWidth,
+    viewportHeight: input.viewportHeight,
+    devicePixelRatio: input.devicePixelRatio,
+  })
   const def = OPTICAL_TRANSFER_PRESET_DEFS[preset]
   const targetSeconds = input.targetSeconds ?? def.targetSeconds
   const autoDensity = input.autoDensity !== false
@@ -143,6 +218,7 @@ export function planOpticalTransfer(input: PlanOpticalTransferInput): OpticalTra
       autoDensity: false,
       exceedsTarget: etaSeconds > targetSeconds,
       preset,
+      scanMode,
     }
   }
 
@@ -168,6 +244,7 @@ export function planOpticalTransfer(input: PlanOpticalTransferInput): OpticalTra
     autoDensity: true,
     exceedsTarget: etaSeconds > targetSeconds,
     preset,
+    scanMode,
   }
 }
 

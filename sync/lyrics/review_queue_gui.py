@@ -29,6 +29,8 @@ from lib.lyric_choose import (
     flatten_lyrics,
     load_review_queue,
     pick_best,
+    prioritize_items_collections_first,
+    reorder_review_queue_collections_first,
     save_review_queue,
     sentence_case_lyrics,
     finalize_lyrics,
@@ -79,8 +81,14 @@ class ReviewApp:
         self.root_dir = root_dir
         self.dry_run = dry_run
         self.folders = index_folders_by_id(root_dir)
-        data = load_review_queue()
-        self.items = [it for it in (data.get("items") or []) if it.get("status") != "done"]
+        # Catalog collections (classic / 100 / easytags / …) first, then the rest.
+        data = reorder_review_queue_collections_first(
+            self.folders, reset_cursor=True
+        )
+        ordered = prioritize_items_collections_first(
+            list(data.get("items") or []), folders=self.folders
+        )
+        self.items = [it for it in ordered if it.get("status") != "done"]
         self.cursor = 0 if reset else int(data.get("cursor") or 0)
         if self.cursor < 0 or self.cursor >= len(self.items):
             self.cursor = 0
@@ -93,6 +101,9 @@ class ReviewApp:
         self._current_meta: dict = {}
         self._guess = ""
         self._guess_source = ""
+        self._collection_pending = sum(
+            1 for it in self.items if it.get("collection")
+        )
 
         self.win = tk.Tk()
         self.win.title("Tag lyric review")
@@ -247,7 +258,10 @@ class ReviewApp:
             tid = item.get("tag_id")
             if tid in by_id:
                 by_id[tid].update(item)
-        data["items"] = data.get("items") or self.items
+        # Keep collections-first order for pending items across sessions.
+        data["items"] = prioritize_items_collections_first(
+            list(data.get("items") or self.items), folders=self.folders
+        )
         data["cursor"] = self.cursor
         if resolved_delta:
             data["resolved"] = int(data.get("resolved") or 0) + resolved_delta
@@ -300,9 +314,25 @@ class ReviewApp:
         title = item.get("title") or meta.get("title") or folder.name
         arranger = item.get("arranger") or meta.get("arranger") or "—"
         reason = item.get("reason") or "review"
+        collection = item.get("collection") or meta.get("collection")
+        classic = item.get("classic") if "classic" in item else meta.get("classic")
+        if collection:
+            coll_bit = f"{collection}"
+            if classic not in (None, ""):
+                coll_bit += f" #{classic}"
+            coll_bit = f"collection:{coll_bit}    ·    "
+        else:
+            coll_bit = ""
+        phase = (
+            f"collections {min(n, self._collection_pending)}/{self._collection_pending}"
+            if collection and self._collection_pending
+            else f"all tags {n}/{total}"
+        )
         self.win.title(f"#{item.get('tag_id')}  {title}")
-        self.header.config(text=f"{n} / {total}    #{item.get('tag_id')}    {title}")
-        self.subhead.config(text=f"{arranger}    ·    {reason}")
+        self.header.config(
+            text=f"{phase}    #{item.get('tag_id')}    {title}"
+        )
+        self.subhead.config(text=f"{coll_bit}{arranger}    ·    {reason}")
         self.text.delete("1.0", "end")
         if guess:
             self.text.insert("1.0", guess)

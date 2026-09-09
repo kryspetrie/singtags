@@ -32,8 +32,8 @@ export function normalizeOpticalDisplayScale(value: number): number {
  * Aim transfers at this airtime window: pick the *lowest* density that still
  * finishes by {@link TARGET_OPTICAL_TRANSFER_SECONDS_MAX}.
  */
-export const TARGET_OPTICAL_TRANSFER_SECONDS_MIN = 1
-export const TARGET_OPTICAL_TRANSFER_SECONDS_MAX = 3
+export const TARGET_OPTICAL_TRANSFER_SECONDS_MIN = 3
+export const TARGET_OPTICAL_TRANSFER_SECONDS_MAX = 4
 
 /** Bytes of payload packed into each animated QR frame. Higher = denser modules. */
 export const OPTICAL_FRAME_BYTES_OPTIONS = [1000, 1465, 1850, 2331, 2953] as const

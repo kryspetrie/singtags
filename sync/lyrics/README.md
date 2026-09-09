@@ -42,10 +42,15 @@ python lyrics/review_lyric_batch.py --analyze
 python lyrics/review_lyric_batch.py
 python lyrics/review_lyric_batch.py --from-cache
 
-# 3) GUI for flagged tags (progress resumes from queue cursor)
+# 3) GUI for flagged tags (catalog collection tags first; progress resumes from queue cursor)
 python lyrics/review_queue_gui.py
 # or: python lyrics/review_lyric_batch.py --review --gui
+
+# Optional: reorder existing queue/suggestions so collections are first (resets cursors)
+python lyrics/review_lyric_batch.py --collections-first
 ```
+
+**Order:** Tags in catalog collections (`classic` → `100` → `easytags` → other) are reviewed and batch-paged before non-collection tags. Booklet number then tag id break ties.
 
 **GUI keys:** Enter save · Esc skip · Ctrl+Q quit · Page Up/Down pan sheet · Ctrl+A select lyrics
 

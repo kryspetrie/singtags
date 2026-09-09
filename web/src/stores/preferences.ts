@@ -90,6 +90,7 @@ const OPTICAL_AUTO_DENSITY_KEY = 'singtags.opticalTransfer.autoDensity.v1'
 const OPTICAL_TX_FPS_KEY = 'singtags.opticalTransfer.txFps.v1'
 const OPTICAL_DISPLAY_SCALE_KEY = 'singtags.opticalTransfer.displayScale.v1'
 const OPTICAL_PRESET_KEY = 'singtags.opticalTransfer.preset.v1'
+const OPTICAL_CAMERA_DEVICE_KEY = 'singtags.opticalTransfer.cameraDeviceId.v1'
 const LIBRARY_PARTS_MODE_KEY = 'singtags.libraryAudioPartsMode.v1'
 const LIBRARY_PARTS_KEY = 'singtags.libraryAudioParts.v1'
 const PITCH_PIPE_PREFS_KEY = 'singtags.pitchPipe.v1'
@@ -423,10 +424,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const opticalTransferDisplayScale = ref(
     normalizeOpticalDisplayScale(loadNumber(OPTICAL_DISPLAY_SCALE_KEY, 1)),
   )
-  /** Reliable / Balanced / Fast — user-facing send tuning. */
+  /** Auto / Ultra / Reliable / Balanced / Fast / Fastest — user-facing send tuning. */
   const opticalTransferPreset = ref<OpticalTransferPreset>(
     normalizeOpticalTransferPreset(loadString(OPTICAL_PRESET_KEY, DEFAULT_OPTICAL_TRANSFER_PRESET)),
   )
+  /** Preferred MediaDeviceInfo.deviceId for optical receive camera (empty = default). */
+  const opticalTransferCameraDeviceId = ref(loadString(OPTICAL_CAMERA_DEVICE_KEY, ''))
   /**
    * Max durable PDF→WebP raster cache size (MB). FIFO eviction by insert time.
    * 0 disables IndexedDB writes (session memory may still help briefly).
@@ -685,6 +688,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
 
   watch(
+    opticalTransferCameraDeviceId,
+    (v) => {
+      try {
+        localStorage.setItem(OPTICAL_CAMERA_DEVICE_KEY, v)
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
     partSoloInFile,
     (v) => {
       try {
@@ -900,6 +915,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferDisplayScale.value = normalizeOpticalDisplayScale(scale)
   }
 
+  function setOpticalTransferCameraDeviceId(deviceId: string): void {
+    opticalTransferCameraDeviceId.value = deviceId.trim()
+  }
+
   function setPdfRasterCacheMaxMb(mb: number): void {
     pdfRasterCacheMaxMb.value = normalizePdfRasterCacheMaxMb(mb)
     void import('../offline/pdfRasterCache').then((m) => m.enforcePdfRasterCacheBudget())
@@ -922,6 +941,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferGridCodes,
     opticalTransferTxFps,
     opticalTransferDisplayScale,
+    opticalTransferCameraDeviceId,
     pdfRasterCacheMaxMb,
     libraryAudioPartsMode,
     libraryAudioParts,
@@ -950,6 +970,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOpticalTransferGridCodes,
     setOpticalTransferTxFps,
     setOpticalTransferDisplayScale,
+    setOpticalTransferCameraDeviceId,
     setPdfRasterCacheMaxMb,
     globalPitchDetuneCents,
     getPartSoloInFile,

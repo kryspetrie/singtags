@@ -8,6 +8,10 @@ import {
 } from './opticalSendEase'
 import { pickOpticalSendStart } from './opticalSendLadder'
 import { autoGridLadder, planOpticalTransfer } from './opticalTransferPlan'
+import {
+  OPTICAL_PRESET_TARGET_SECONDS,
+  opticalTransferPresetMaxKibPerSec,
+} from './opticalTransferPresets'
 
 const phoneStage = {
   stageWidthCss: 390 * 0.995,
@@ -25,59 +29,187 @@ describe('autoGridLadder', () => {
   })
 })
 
+describe('preset throughput steps', () => {
+  it('spaces max KiB/s in roughly equal steps through Fast, then Fastest jumps for top speed', () => {
+    const ultra = opticalTransferPresetMaxKibPerSec('ultra')
+    const reliable = opticalTransferPresetMaxKibPerSec('reliable')
+    const balanced = opticalTransferPresetMaxKibPerSec('balanced')
+    const fast = opticalTransferPresetMaxKibPerSec('fast')
+    const fastest = opticalTransferPresetMaxKibPerSec('fastest')
+    expect(ultra).toBeCloseTo(29.3, 0)
+    expect(reliable).toBeCloseTo(54.2, 0)
+    expect(balanced).toBeCloseTo(86.7, 0)
+    expect(fast).toBeCloseTo(109.3, 0)
+    expect(fastest).toBeCloseTo(172.9, 0)
+
+    const steps = [reliable - ultra, balanced - reliable, fast - balanced]
+    for (const step of steps) {
+      expect(step).toBeGreaterThan(15)
+      expect(step).toBeLessThan(40)
+    }
+    expect(reliable / ultra).toBeLessThan(2.2)
+    expect(balanced / reliable).toBeLessThan(2.2)
+    expect(fast / balanced).toBeLessThan(1.6)
+    expect(fastest).toBeGreaterThan(fast)
+  })
+})
+
 describe('pickOpticalSendStart / planOpticalTransfer', () => {
-  it('Balanced starts densest legal on 2-up at 24 fps', () => {
+  it('Balanced picks lowest density that still meets the ~3.5s target', () => {
     const start = pickOpticalSendStart({
       preset: 'balanced',
-      containerBytes: 50_000,
+      containerBytes: 210_000,
       ...phoneStage,
     })
-    expect(start.gridCodes).toBe(2)
-    expect(start.frameBytes).toBe(2953)
     expect(start.txFps).toBe(24)
+    expect(start.gridCodes).toBeLessThanOrEqual(2)
+    expect(start.frameBytes).toBeLessThanOrEqual(1850)
+    expect(start.frameBytes).toBeGreaterThan(1000)
 
     const plan = planOpticalTransfer({
-      containerBytes: 50_000,
+      containerBytes: 210_000,
       preset: 'balanced',
       viewportWidth: 390,
       viewportHeight: 844,
       devicePixelRatio: 2,
     })
-    expect(plan.gridCodes).toBe(2)
-    expect(plan.frameBytes).toBe(2953)
-    expect(plan.txFps).toBe(24)
+    expect(plan.preset).toBe('balanced')
+    expect(plan.etaSeconds).toBeLessThanOrEqual(OPTICAL_PRESET_TARGET_SECONDS + 0.05)
+    expect(plan.frameBytes).toBe(start.frameBytes)
   })
 
-  it('Reliable stays on Light', () => {
+  it('Balanced stays on Light for small payloads', () => {
     const plan = planOpticalTransfer({
-      containerBytes: 80_000,
-      preset: 'reliable',
+      containerBytes: 20_000,
+      preset: 'balanced',
       viewportWidth: 390,
       viewportHeight: 844,
       devicePixelRatio: 2,
     })
     expect(plan.frameBytes).toBe(1000)
-    expect(plan.gridCodes).toBeLessThanOrEqual(2)
-    expect(plan.txFps).toBe(15)
+    expect(plan.etaSeconds).toBeLessThanOrEqual(OPTICAL_PRESET_TARGET_SECONDS)
   })
 
-  it('Fast uses 30 fps and densest 2-up when 4-up is not worth it', () => {
+  it('Ultra stays on Light × 1', () => {
     const plan = planOpticalTransfer({
-      containerBytes: 200_000,
+      containerBytes: 80_000,
+      preset: 'ultra',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(plan.preset).toBe('ultra')
+    expect(plan.frameBytes).toBe(1000)
+    expect(plan.gridCodes).toBe(1)
+    expect(plan.txFps).toBe(30)
+  })
+
+  it('Reliable escalates only up to its density/fps caps', () => {
+    const plan = planOpticalTransfer({
+      containerBytes: 210_000,
+      preset: 'reliable',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(plan.frameBytes).toBeLessThanOrEqual(1850)
+    expect(plan.txFps).toBe(15)
+    expect(plan.gridCodes).toBeLessThanOrEqual(2)
+  })
+
+  it('Fastest uses Max×2 @ 30 fps and only then 4-up when needed', () => {
+    const small = planOpticalTransfer({
+      containerBytes: 50_000,
+      preset: 'fastest',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(small.txFps).toBe(30)
+    expect(small.gridCodes).toBeLessThanOrEqual(2)
+
+    const large = planOpticalTransfer({
+      containerBytes: 2_000_000,
+      preset: 'fastest',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(large.txFps).toBe(30)
+    expect(large.frameBytes).toBeLessThanOrEqual(2953)
+    // Prefer-grid throughput first; 4-up only as overflow when Max×2 cannot hit ETA.
+    expect([2, 4]).toContain(large.gridCodes)
+  })
+
+  it('Fast may use denser codes than Balanced for the same payload', () => {
+    const balanced = planOpticalTransfer({
+      containerBytes: 400_000,
+      preset: 'balanced',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    const fast = planOpticalTransfer({
+      containerBytes: 400_000,
       preset: 'fast',
       viewportWidth: 390,
       viewportHeight: 844,
       devicePixelRatio: 2,
     })
+    expect(fast.txFps).toBe(24)
+    const balKib = (balanced.frameBytes * balanced.txFps * balanced.gridCodes) / 1024
+    const fastKib = (fast.frameBytes * fast.txFps * fast.gridCodes) / 1024
+    expect(fastKib).toBeGreaterThanOrEqual(balKib)
+  })
+
+  it('Auto picks Ultra for small files', () => {
+    const plan = planOpticalTransfer({
+      containerBytes: 20_000,
+      preset: 'auto',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(plan.scanMode).toBe('auto')
+    expect(plan.preset).toBe('ultra')
+    expect(plan.frameBytes).toBe(1000)
+    expect(plan.gridCodes).toBe(1)
     expect(plan.txFps).toBe(30)
-    expect(plan.gridCodes).toBe(2)
-    expect(plan.frameBytes).toBe(2953)
+    expect(plan.etaSeconds).toBeLessThanOrEqual(OPTICAL_PRESET_TARGET_SECONDS)
+  })
+
+  it('Auto escalates past Ultra when Ultra cannot hit the ~3–4s window', () => {
+    const plan = planOpticalTransfer({
+      containerBytes: 210_000,
+      preset: 'auto',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(plan.scanMode).toBe('auto')
+    expect(plan.preset).not.toBe('ultra')
+    expect(plan.etaSeconds).toBeLessThanOrEqual(OPTICAL_PRESET_TARGET_SECONDS + 0.05)
+  })
+
+  it('keeps preferred Fast for a small file when not Auto', () => {
+    const plan = planOpticalTransfer({
+      containerBytes: 20_000,
+      preset: 'fast',
+      viewportWidth: 390,
+      viewportHeight: 844,
+      devicePixelRatio: 2,
+    })
+    expect(plan.scanMode).toBe('fast')
+    expect(plan.preset).toBe('fast')
+    // Small file: Fast still picks Light (least dense that hits target).
+    expect(plan.frameBytes).toBe(1000)
   })
 
   it('honors manual density when the screen can resolve it', () => {
     const plan = planOpticalTransfer({
       containerBytes: 12_000,
       autoDensity: false,
+      preset: 'balanced',
       qrFrameBytes: 2953,
       txFps: 15,
       gridCodes: 1,
