@@ -20,7 +20,7 @@ import { mediaUrl, tagDetailUrl } from '../lib/mediaUrl'
 import { resolveSheetAssets } from '../lib/sheetAssets'
 import { sheetDisplayPages } from '../lib/sheetPaths'
 import { revokePreparedSheet, type PreparedSheet } from '../lib/prepareSheet'
-import { getStarred, blobUrlFromCached, type StarredTagRecord } from '../offline/favoritesDb'
+import { getStarred, blobUrlFromCached, putStarred, type StarredTagRecord } from '../offline/favoritesDb'
 import { getTransferredTag } from '../offline/transferredDb'
 import { fetchCached } from '../lib/manualOfflineFetch'
 import { probeTagAudioAvailability, resolveAudioPart, resolvePathUrl, clearLearningStereoCache, hasCachedLearningStereo } from '../offline/resolveMedia'
@@ -549,8 +549,8 @@ export function useTagDetail(id: Ref<string> | string) {
       return null
     }
 
-    // Online: prefer pack/favorite metadata when present so WebP can paint without
-    // waiting on a network round-trip (prev/next through a cached library).
+    // Online: prefer pack/favorite metadata for instant paint (sheets/prev-next),
+    // then callers revalidate from the network so lyric edits are not sticky.
     const local = await fromLocal()
     if (local) return local
 
@@ -565,6 +565,79 @@ export function useTagDetail(id: Ref<string> | string) {
           ? e.message
           : String(e)
       return null
+    }
+  }
+
+  /**
+   * When online paint used pack/favorite metadata, refresh lyrics (and related
+   * fields) from the network without blocking the first sheet paint.
+   */
+  async function revalidateDetailFromNetwork(
+    wantedId: string,
+    signal: AbortSignal,
+    seq: number,
+  ): Promise<void> {
+    if (useOfflineModeStore().offline) return
+    try {
+      const res = await fetchCached(tagDetailUrl(wantedId), { signal })
+      if (!res.ok || signal.aborted || seq !== loadSeq || idStr() !== wantedId) return
+      const fresh = (await res.json()) as TagDetail
+      if (signal.aborted || seq !== loadSeq || idStr() !== wantedId) return
+      if (String(fresh.tag_id) !== wantedId) return
+      const cur = detail.value
+      if (!cur || String(cur.tag_id) !== wantedId) return
+
+      const nextLyrics = fresh.lyrics ?? null
+      const curLyrics = cur.lyrics ?? null
+      const freshExtra = fresh as TagDetail & {
+        lyrics_source?: string | null
+        lyrics_finalized?: boolean | null
+      }
+      const curExtra = cur as TagDetail & {
+        lyrics_source?: string | null
+        lyrics_finalized?: boolean | null
+      }
+      if (
+        nextLyrics === curLyrics &&
+        (freshExtra.lyrics_source ?? null) === (curExtra.lyrics_source ?? null) &&
+        (freshExtra.lyrics_finalized ?? null) === (curExtra.lyrics_finalized ?? null)
+      ) {
+        return
+      }
+
+      detail.value = {
+        ...cur,
+        lyrics: nextLyrics,
+        ...(freshExtra.lyrics_source !== undefined
+          ? { lyrics_source: freshExtra.lyrics_source }
+          : {}),
+        ...(freshExtra.lyrics_finalized !== undefined
+          ? { lyrics_finalized: freshExtra.lyrics_finalized }
+          : {}),
+      } as TagDetail
+      fromCache.value = false
+
+      // Keep starred snapshot in sync so the next visit does not resurrect old lyrics.
+      if (starredRecord?.detail && String(starredRecord.tagId) === wantedId) {
+        starredRecord = {
+          ...starredRecord,
+          detail: {
+            ...starredRecord.detail,
+            lyrics: nextLyrics,
+            ...(freshExtra.lyrics_source !== undefined
+              ? { lyrics_source: freshExtra.lyrics_source }
+              : {}),
+            ...(freshExtra.lyrics_finalized !== undefined
+              ? { lyrics_finalized: freshExtra.lyrics_finalized }
+              : {}),
+          } as TagDetail,
+        }
+        void putStarred(starredRecord).catch(() => {
+          /* best-effort */
+        })
+      }
+    } catch {
+      /* keep painted local detail */
     }
   }
 
@@ -694,6 +767,11 @@ export function useTagDetail(id: Ref<string> | string) {
       else if (sources.size === 1) mediaSource.value = [...sources][0]!
       else mediaSource.value = 'mixed'
       sheetPreparing.value = false
+
+      // Pack/favorite paint first; refresh lyrics from network while online.
+      if (fromCache.value && !offlineOnly) {
+        void revalidateDetailFromNetwork(wantedId, signal, seq)
+      }
 
       await nextTick()
       revokePreparedSheet(stalePrepared)

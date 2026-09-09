@@ -83,6 +83,8 @@ export const useCatalogStore = defineStore('catalog', () => {
   const lyricsEpoch = ref(0)
   /** In-flight lyrics prefetch so callers can await the same load. */
   let lyricsPrefetch: Promise<void> | null = null
+  /** True after a successful online lyrics.json.gz fetch this session. */
+  let lyricsRevalidatedOnline = false
   const filters = ref<CatalogFilters>({ ...EMPTY_FILTERS })
   /** Live free-text input. */
   const queryText = ref('')
@@ -174,8 +176,10 @@ export const useCatalogStore = defineStore('catalog', () => {
    */
   async function load(opts?: { refresh?: boolean }): Promise<void> {
     if (loading.value) return
+    if (opts?.refresh) lyricsRevalidatedOnline = false
     if (loaded.value && !opts?.refresh) {
-      if (!lyricsLoaded.value && !lyricsLoading.value) void prefetchLyrics()
+      // Revalidate lyrics once per online session even if IDB already hydrated them.
+      if (!lyricsLoading.value) void prefetchLyrics()
       return
     }
     loading.value = true
@@ -269,25 +273,30 @@ export const useCatalogStore = defineStore('catalog', () => {
 
   /**
    * Background-fetch lyrics index when online.
-   * Side effects: network, IndexedDB lyrics snapshot on success.
+   * Uses IndexedDB for instant paint, then revalidates from the network so
+   * published lyric edits show up without clearing site data.
    */
   async function prefetchLyrics(): Promise<void> {
-    if (lyricsLoaded.value) return
     if (lyricsPrefetch) return lyricsPrefetch
+    if (lyricsLoaded.value && lyricsRevalidatedOnline) return
     lyricsPrefetch = (async () => {
       lyricsLoading.value = true
       try {
+        const offlineMode = useOfflineModeStore()
         const cached = await loadLyricsSnapshotAsync()
-        if (cached?.length) {
+        if (cached?.length && !lyricsLoaded.value) {
           applyLyricsDocs(cached)
-          return
         }
+        if (offlineMode.offline) return
+
         const idx = await fetchGzipJsonCached<LyricsIndex>(indexesUrl('lyrics.json.gz'))
         const docs = idx.docs ?? []
+        if (!docs.length) return
         applyLyricsDocs(docs)
         saveLyricsSnapshot(docs)
+        lyricsRevalidatedOnline = true
       } catch {
-        /* optional */
+        /* optional — keep IDB lyrics if network fails */
       } finally {
         lyricsLoading.value = false
         lyricsPrefetch = null
@@ -310,9 +319,9 @@ export const useCatalogStore = defineStore('catalog', () => {
     return `${oneLine.slice(0, maxLen - 1).trimEnd()}…`
   }
 
-  /** Ensure lyrics index is loaded (no-op when already present). */
+  /** Ensure lyrics index is loaded (revalidates from network when online). */
   async function ensureLyrics(): Promise<void> {
-    if (!lyricsLoaded.value) await prefetchLyrics()
+    await prefetchLyrics()
   }
 
   /** Replace the bulk-built per-tag offline readiness index. */

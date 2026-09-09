@@ -426,6 +426,39 @@ describe('catalog store', () => {
     expect(catalog.lyricsLoaded).toBe(true)
     expect(catalog.lyricsSnippet(5)).toMatch(/Hello lyrics/)
   })
+
+  it('revalidates lyrics from the network when online after IDB hydrate', async () => {
+    await clearIndexSnapshotsIdb()
+    await putLyricsSnapshotIdb([{ id: 26, lyrics: 'stale idb lyrics' }])
+
+    const { useOfflineModeStore } = await import('./offlineMode')
+    const offline = useOfflineModeStore()
+    offline.setManualOffline(false)
+    // Force browser-online for this unit test (jsdom/happy-dom can disagree).
+    offline.browserOffline = false
+
+    const fetchSpy = vi.fn(async (url: string) => {
+      if (String(url).includes('lyrics.json.gz')) {
+        return new Response(
+          JSON.stringify({
+            version: 1,
+            docs: [{ id: 26, lyrics: 'Please dont give my daddy no more wine' }],
+          }),
+          { status: 200 },
+        )
+      }
+      return new Response(null, { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const catalog = useCatalogStore()
+    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(catalog.lyricsSnippet(26)).toMatch(/stale idb/)
+    expect(offline.offline).toBe(false)
+    await catalog.prefetchLyrics()
+    expect(fetchSpy).toHaveBeenCalled()
+    expect(catalog.lyricsSnippet(26)).toMatch(/no more wine/)
+  })
 })
 
 describe('download helpers', () => {

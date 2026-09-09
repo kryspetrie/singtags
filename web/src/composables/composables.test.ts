@@ -441,12 +441,14 @@ describe('useTagDetail', () => {
   })
 
   it('prefers pack metadata online so sheets are not blocked on network fetch', async () => {
-    const fetchSpy = vi.fn(async () => new Response(JSON.stringify(detail), { status: 200 }))
+    const fresh: TagDetail = { ...detail, lyrics: 'fresh network lyrics' }
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify(fresh), { status: 200 }))
     vi.stubGlobal('fetch', fetchSpy)
     const { sheetsPack } = await import('../offline/libraryPack')
     const { tagDetailUrl } = await import('../lib/mediaUrl')
     const packed: TagDetail = {
       ...detail,
+      lyrics: 'stale packed lyrics',
       sheet_pages: ['sheets/7/pages/page-01.webp'],
       sheet: 'sheets/7/sheet.pdf',
     }
@@ -459,14 +461,16 @@ describe('useTagDetail', () => {
 
     const { api, w } = mountApi('7')
     await api.load()
-    await flushPromises()
-    expect(api.detail.value?.tag_id).toBe(7)
-    expect(api.fromCache.value).toBe(true)
+    // Sheets come from pack paths immediately (not blocked on network).
     expect(api.sheetPreparing.value).toBe(false)
     expect(api.sheetAssets.value.imageSets[0]?.paths).toEqual(['sheets/7/pages/page-01.webp'])
+    await flushPromises()
+    // Online revalidation replaces stale pack lyrics.
     expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes('/tags/7/metadata.json'))).toBe(
-      false,
+      true,
     )
+    expect(api.detail.value?.lyrics).toBe('fresh network lyrics')
+    expect(api.fromCache.value).toBe(false)
     w.unmount()
   })
 
