@@ -31,6 +31,6 @@ describe('webrtc SDP QR codec', () => {
   })
 
   it('rejects unrelated QR text', () => {
-    expect(() => decodeSdpFromQr('https://www.singtags.com/rx')).toThrow(/pairing code/i)
+    expect(() => decodeSdpFromQr('https://www.singtags.com/rx')).toThrow(/pairing text/i)
   })
 })

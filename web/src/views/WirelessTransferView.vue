@@ -23,6 +23,8 @@ import { buildTransferBundle, opticalFileFromBrowserFile } from '../lib/transfer
 import {
   createWebrtcAnswerSession,
   createWebrtcOfferSession,
+  encodeSdpForQr,
+  WEBRTC_SDP_PREFIX,
   type WebrtcAnswerSession,
   type WebrtcOfferSession,
   type WebrtcTransferProgress,
@@ -36,6 +38,8 @@ type QueuedFile = { id: number; file: File }
 type ReceivedItem = { id: string; file: OpticalFile; saved: boolean }
 type SendPhase = 'offer' | 'scan-answer' | 'sending'
 type ReceivePhase = 'scan-offer' | 'answer' | 'receiving'
+/** How the two phones exchange the pairing payload (QR vs copy-paste). */
+type PairingPath = 'scan' | 'paste'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,9 +86,17 @@ const sendLive = ref(false)
 const receiveLive = ref(false)
 const sendPhase = ref<SendPhase>('offer')
 const receivePhase = ref<ReceivePhase>('scan-offer')
+const pairingPath = ref<PairingPath>('scan')
 const overlayStatus = ref('')
 const overlayError = ref<string | null>(null)
 const qrDataUrl = ref<string | null>(null)
+/** Encoded pairing text for the local side — used in the copy-paste path. */
+const localPairingCode = ref('')
+/** User-facing pairing text (no protocol prefix). */
+const localPairingDisplay = computed(() => {
+  const code = localPairingCode.value
+  return code.startsWith(WEBRTC_SDP_PREFIX) ? code.slice(WEBRTC_SDP_PREFIX.length) : code
+})
 const pastePayload = ref('')
 const sendVideoRef = ref<HTMLVideoElement | null>(null)
 const receiveVideoRef = ref<HTMLVideoElement | null>(null)
@@ -99,8 +111,74 @@ const sendStartDisabled = computed(
 )
 const sendStartLabel = computed(() => (sendLive.value ? 'Transferring…' : 'Start transfer'))
 
+const pathSwitchLabel = computed(() =>
+  pairingPath.value === 'scan' ? 'Switch to copy-paste' : 'Switch to scan',
+)
+
+const showSendCamera = computed(
+  () => sendLive.value && pairingPath.value === 'scan' && sendPhase.value === 'scan-answer',
+)
+const showSendQr = computed(
+  () =>
+    sendLive.value &&
+    pairingPath.value === 'scan' &&
+    sendPhase.value !== 'scan-answer' &&
+    !!qrDataUrl.value,
+)
+const showSendPaste = computed(
+  () => sendLive.value && pairingPath.value === 'paste' && sendPhase.value !== 'sending',
+)
+
+const showReceiveCamera = computed(
+  () => receiveLive.value && pairingPath.value === 'scan' && receivePhase.value === 'scan-offer',
+)
+const showReceiveQr = computed(
+  () =>
+    receiveLive.value &&
+    pairingPath.value === 'scan' &&
+    receivePhase.value !== 'scan-offer' &&
+    !!qrDataUrl.value,
+)
+const showReceivePaste = computed(
+  () => receiveLive.value && pairingPath.value === 'paste',
+)
+
+const canPastePeerCode = computed(() => {
+  if (sendLive.value) return sendPhase.value === 'offer' || sendPhase.value === 'scan-answer'
+  if (receiveLive.value) return receivePhase.value === 'scan-offer'
+  return false
+})
+
+const pastePeerLabel = computed(() =>
+  sendLive.value ? 'Paste the text they send back' : 'Paste the text they send',
+)
+
+const pasteApplyLabel = computed(() => 'Continue')
+
 function onProgress(p: WebrtcTransferProgress): void {
   overlayStatus.value = p.label
+}
+
+function refreshOfferStatus(): void {
+  if (pairingPath.value === 'paste') {
+    overlayStatus.value = 'Copy the text below, then paste what they send back'
+  } else {
+    overlayStatus.value = 'Show this QR, then scan theirs'
+  }
+}
+
+function refreshReceiveScanStatus(): void {
+  overlayStatus.value =
+    pairingPath.value === 'paste'
+      ? 'Paste the text from the sender'
+      : 'Scan the sender’s QR'
+}
+
+function refreshAnswerStatus(): void {
+  overlayStatus.value =
+    pairingPath.value === 'paste'
+      ? 'Copy this text for the sender — waiting for the file…'
+      : 'Show this QR to the sender — waiting for the file…'
 }
 
 function stopScanCamera(): void {
@@ -130,7 +208,9 @@ function stopSendLive(): void {
   closeSessions()
   sendLive.value = false
   sendPhase.value = 'offer'
+  pairingPath.value = 'scan'
   qrDataUrl.value = null
+  localPairingCode.value = ''
   pastePayload.value = ''
   overlayStatus.value = ''
   overlayError.value = null
@@ -141,7 +221,9 @@ function stopReceiveLive(): void {
   closeSessions()
   receiveLive.value = false
   receivePhase.value = 'scan-offer'
+  pairingPath.value = 'scan'
   qrDataUrl.value = null
+  localPairingCode.value = ''
   pastePayload.value = ''
   overlayStatus.value = ''
   overlayError.value = null
@@ -211,8 +293,9 @@ async function startSendTransfer(): Promise<void> {
   stopSendLive()
   sendLive.value = true
   sendPhase.value = 'offer'
+  pairingPath.value = 'scan'
   overlayError.value = null
-  overlayStatus.value = 'Creating wireless offer…'
+  overlayStatus.value = 'Setting up…'
   try {
     const bundle = await buildTransferBundle(queuedFiles.value)
     offerSession = (await createWebrtcOfferSession(onProgress)) as WebrtcOfferSession & {
@@ -220,7 +303,8 @@ async function startSendTransfer(): Promise<void> {
     }
     offerSession._file = bundle.file
     qrDataUrl.value = offerSession.offerQrDataUrl
-    overlayStatus.value = 'Show this offer QR to the receiver, then scan their answer'
+    localPairingCode.value = encodeSdpForQr(offerSession.offerSdp)
+    refreshOfferStatus()
   } catch (e) {
     overlayError.value = e instanceof Error ? e.message : 'Could not start wireless send.'
     sendLive.value = false
@@ -230,12 +314,13 @@ async function startSendTransfer(): Promise<void> {
 
 async function beginScanAnswer(): Promise<void> {
   if (!offerSession?._file) {
-    overlayError.value = 'Create an offer first.'
+    overlayError.value = 'Start the transfer first.'
     return
   }
   overlayError.value = null
+  pairingPath.value = 'scan'
   sendPhase.value = 'scan-answer'
-  overlayStatus.value = 'Scan the receiver’s answer QR'
+  overlayStatus.value = 'Scan their QR'
   await startScanLoop('send', async (text) => {
     await applyAnswerPayload(text)
   })
@@ -244,7 +329,7 @@ async function beginScanAnswer(): Promise<void> {
 async function applyAnswerPayload(payload: string): Promise<void> {
   const session = offerSession
   if (!session?._file) {
-    overlayError.value = 'Create an offer first.'
+    overlayError.value = 'Start the transfer first.'
     return
   }
   stopScanCamera()
@@ -264,6 +349,8 @@ async function applyAnswerPayload(payload: string): Promise<void> {
     if (session.offerQrDataUrl) {
       qrDataUrl.value = session.offerQrDataUrl
     }
+    localPairingCode.value = encodeSdpForQr(session.offerSdp)
+    refreshOfferStatus()
   }
 }
 
@@ -273,8 +360,9 @@ async function beginLiveReceive(): Promise<void> {
   stopReceiveLive()
   receiveLive.value = true
   receivePhase.value = 'scan-offer'
+  pairingPath.value = 'scan'
   overlayError.value = null
-  overlayStatus.value = 'Scan the sender’s offer QR'
+  refreshReceiveScanStatus()
   await nextTick()
   await startScanLoop('receive', async (text) => {
     await startAnswerFromOffer(text)
@@ -288,8 +376,10 @@ async function rescanOffer(): Promise<void> {
   }
   receivePhase.value = 'scan-offer'
   qrDataUrl.value = null
+  localPairingCode.value = ''
   overlayError.value = null
-  overlayStatus.value = 'Scan the sender’s offer QR'
+  pairingPath.value = 'scan'
+  refreshReceiveScanStatus()
   await startScanLoop('receive', async (text) => {
     await startAnswerFromOffer(text)
   })
@@ -298,12 +388,13 @@ async function rescanOffer(): Promise<void> {
 async function startAnswerFromOffer(payload: string): Promise<void> {
   stopScanCamera()
   overlayError.value = null
-  overlayStatus.value = 'Creating answer…'
+  overlayStatus.value = 'Connecting…'
   try {
     answerSession = await createWebrtcAnswerSession(payload, onProgress)
     qrDataUrl.value = answerSession.answerQrDataUrl
+    localPairingCode.value = encodeSdpForQr(answerSession.answerSdp)
     receivePhase.value = 'answer'
-    overlayStatus.value = 'Show this answer QR to the sender'
+    refreshAnswerStatus()
     receivePhase.value = 'receiving'
     const file = await answerSession.receive(onProgress)
     const copy = Uint8Array.from(file.bytes)
@@ -319,6 +410,13 @@ async function startAnswerFromOffer(payload: string): Promise<void> {
         : 'Wireless receive failed.'
     receivePhase.value = 'scan-offer'
     qrDataUrl.value = null
+    localPairingCode.value = ''
+    refreshReceiveScanStatus()
+    if (pairingPath.value === 'scan') {
+      await startScanLoop('receive', async (text) => {
+        await startAnswerFromOffer(text)
+      })
+    }
   }
 }
 
@@ -333,7 +431,14 @@ async function startScanLoop(
       video: opticalVideoConstraints(),
     })
   } catch {
-    overlayError.value = 'Camera unavailable — paste the pairing code instead.'
+    overlayError.value = 'Camera unavailable — switched to copy-paste.'
+    pairingPath.value = 'paste'
+    if (target === 'send') {
+      sendPhase.value = 'offer'
+      refreshOfferStatus()
+    } else {
+      refreshReceiveScanStatus()
+    }
     return
   }
   await nextTick()
@@ -343,8 +448,15 @@ async function startScanLoop(
   try {
     await video.play()
   } catch {
-    overlayError.value = 'Could not start camera preview.'
+    overlayError.value = 'Could not start camera — switched to copy-paste.'
+    pairingPath.value = 'paste'
     stopScanCamera()
+    if (target === 'send') {
+      sendPhase.value = 'offer'
+      refreshOfferStatus()
+    } else {
+      refreshReceiveScanStatus()
+    }
     return
   }
   scanTimer = window.setInterval(() => {
@@ -359,11 +471,71 @@ async function startScanLoop(
   }, 400)
 }
 
+async function setPairingPath(next: PairingPath): Promise<void> {
+  if (pairingPath.value === next) return
+  pairingPath.value = next
+  overlayError.value = null
+
+  if (next === 'paste') {
+    stopScanCamera()
+    if (sendLive.value && sendPhase.value === 'scan-answer') {
+      sendPhase.value = 'offer'
+      if (offerSession?.offerQrDataUrl) qrDataUrl.value = offerSession.offerQrDataUrl
+    }
+    if (sendLive.value && sendPhase.value === 'offer') refreshOfferStatus()
+    else if (receiveLive.value && receivePhase.value === 'scan-offer') refreshReceiveScanStatus()
+    else if (receiveLive.value) refreshAnswerStatus()
+    return
+  }
+
+  // Switch to scan
+  if (sendLive.value && sendPhase.value === 'offer' && qrDataUrl.value) {
+    refreshOfferStatus()
+    return
+  }
+  if (sendLive.value && (sendPhase.value === 'offer' || sendPhase.value === 'scan-answer')) {
+    await beginScanAnswer()
+    return
+  }
+  if (receiveLive.value && receivePhase.value === 'scan-offer') {
+    refreshReceiveScanStatus()
+    await startScanLoop('receive', async (text) => {
+      await startAnswerFromOffer(text)
+    })
+    return
+  }
+  if (receiveLive.value && qrDataUrl.value) {
+    refreshAnswerStatus()
+  }
+}
+
+function togglePairingPath(): void {
+  void setPairingPath(pairingPath.value === 'scan' ? 'paste' : 'scan')
+}
+
 async function onPasteSubmit(): Promise<void> {
-  const payload = pastePayload.value.trim()
+  const payload = normalizePastedPairingText(pastePayload.value)
   if (!payload) return
   if (sendLive.value) await applyAnswerPayload(payload)
   else if (receiveLive.value) await startAnswerFromOffer(payload)
+}
+
+function normalizePastedPairingText(raw: string): string {
+  const text = raw.trim()
+  if (!text) return ''
+  if (text.startsWith(WEBRTC_SDP_PREFIX) || text.startsWith('v=0')) return text
+  return `${WEBRTC_SDP_PREFIX}${text}`
+}
+
+async function copyLocalPairingCode(): Promise<void> {
+  const code = localPairingDisplay.value.trim()
+  if (!code) return
+  try {
+    await navigator.clipboard.writeText(code)
+    snackbar.show('Copied', { tone: 'ok', ms: 2200 })
+  } catch {
+    snackbar.show('Could not copy — select the text manually', { tone: 'error' })
+  }
 }
 
 function openReceiveInviteOverlay(): void {
@@ -454,8 +626,8 @@ onUnmounted(() => {
                 <li>Cellular-only usually fails — use Optical instead.</li>
               </ul>
               <p>
-                Sender starts transfer (offer QR) → receiver scans in fullscreen → sender scans the
-                answer QR → file moves. Keep both screens open until done.
+                Sender starts transfer → both phones pair with QR (or switch to copy-paste) → file
+                moves over the local link. Keep both screens open until done.
               </p>
             </InfoTips>
           </div>
@@ -508,7 +680,7 @@ onUnmounted(() => {
       <LabsReceiveInvite
         :url="receiveInviteHref"
         title="Sending to someone without Wireless receive open?"
-        description="Share this link. It opens Wireless receive in fullscreen so they can scan your offer QR."
+        description="Share this link. It opens Wireless receive in fullscreen so they can scan your QR."
       />
 
       <div class="send-actions">
@@ -604,44 +776,69 @@ onUnmounted(() => {
     >
       <template #chrome>
         <button
-          v-if="sendPhase === 'offer' && qrDataUrl"
+          v-if="sendPhase !== 'sending'"
+          type="button"
+          class="chrome-btn"
+          @click="togglePairingPath"
+        >
+          {{ pathSwitchLabel }}
+        </button>
+        <button
+          v-if="showSendQr"
           type="button"
           class="chrome-btn"
           @click="beginScanAnswer"
         >
-          Scan answer QR
+          Scan their QR
         </button>
       </template>
-      <div class="stage-inner">
+      <div class="stage-inner" :class="{ media: showSendCamera || showSendQr }">
         <img
-          v-if="sendPhase !== 'scan-answer' && qrDataUrl"
-          :src="qrDataUrl"
-          alt="Wireless offer QR"
+          v-if="showSendQr"
+          :src="qrDataUrl!"
+          alt="QR code to share"
           class="qr-img"
         />
         <video
-          v-show="sendPhase === 'scan-answer'"
+          v-show="showSendCamera"
           ref="sendVideoRef"
           class="scan-video"
           playsinline
           muted
           autoplay
         />
+        <div v-if="showSendPaste" class="paste-stage">
+          <div v-if="localPairingCode" class="code-block">
+            <p class="paste-label">Text to send them</p>
+            <textarea
+              class="paste-input code-display"
+              rows="4"
+              readonly
+              :value="localPairingDisplay"
+            />
+            <button type="button" class="chrome-btn" @click="copyLocalPairingCode">
+              Copy text
+            </button>
+          </div>
+          <label v-if="canPastePeerCode" class="paste-field">
+            <span class="paste-label">{{ pastePeerLabel }}</span>
+            <textarea
+              v-model="pastePayload"
+              class="paste-input"
+              rows="4"
+              placeholder="Paste the text they shared…"
+            />
+            <button
+              type="button"
+              class="chrome-btn"
+              :disabled="!pastePayload.trim()"
+              @click="onPasteSubmit"
+            >
+              {{ pasteApplyLabel }}
+            </button>
+          </label>
+        </div>
       </div>
-      <template #footer>
-        <label class="paste-field">
-          <span class="paste-label">Or paste pairing code</span>
-          <textarea v-model="pastePayload" class="paste-input" rows="2" placeholder="STW1:…" />
-          <button
-            type="button"
-            class="chrome-btn"
-            :disabled="!pastePayload.trim()"
-            @click="onPasteSubmit"
-          >
-            Apply answer
-          </button>
-        </label>
-      </template>
     </LabsTransferOverlay>
 
     <LabsTransferOverlay
@@ -652,8 +849,11 @@ onUnmounted(() => {
       @stop="stopReceiveLive"
     >
       <template #chrome>
+        <button type="button" class="chrome-btn" @click="togglePairingPath">
+          {{ pathSwitchLabel }}
+        </button>
         <button
-          v-if="receivePhase === 'scan-offer'"
+          v-if="showReceiveCamera"
           type="button"
           class="chrome-btn"
           @click="rescanOffer"
@@ -661,9 +861,9 @@ onUnmounted(() => {
           Rescan
         </button>
       </template>
-      <div class="stage-inner">
+      <div class="stage-inner" :class="{ media: showReceiveCamera || showReceiveQr }">
         <video
-          v-show="receivePhase === 'scan-offer'"
+          v-show="showReceiveCamera"
           ref="receiveVideoRef"
           class="scan-video"
           playsinline
@@ -671,26 +871,43 @@ onUnmounted(() => {
           autoplay
         />
         <img
-          v-if="receivePhase !== 'scan-offer' && qrDataUrl"
-          :src="qrDataUrl"
-          alt="Wireless answer QR"
+          v-if="showReceiveQr"
+          :src="qrDataUrl!"
+          alt="QR code to show the sender"
           class="qr-img"
         />
+        <div v-if="showReceivePaste" class="paste-stage">
+          <label v-if="canPastePeerCode" class="paste-field">
+            <span class="paste-label">{{ pastePeerLabel }}</span>
+            <textarea
+              v-model="pastePayload"
+              class="paste-input"
+              rows="4"
+              placeholder="Paste the text they shared…"
+            />
+            <button
+              type="button"
+              class="chrome-btn"
+              :disabled="!pastePayload.trim()"
+              @click="onPasteSubmit"
+            >
+              {{ pasteApplyLabel }}
+            </button>
+          </label>
+          <div v-else-if="localPairingCode" class="code-block">
+            <p class="paste-label">Text to send them</p>
+            <textarea
+              class="paste-input code-display"
+              rows="4"
+              readonly
+              :value="localPairingDisplay"
+            />
+            <button type="button" class="chrome-btn" @click="copyLocalPairingCode">
+              Copy text
+            </button>
+          </div>
+        </div>
       </div>
-      <template #footer>
-        <label v-if="receivePhase === 'scan-offer'" class="paste-field">
-          <span class="paste-label">Or paste offer code</span>
-          <textarea v-model="pastePayload" class="paste-input" rows="2" placeholder="STW1:…" />
-          <button
-            type="button"
-            class="chrome-btn"
-            :disabled="!pastePayload.trim()"
-            @click="onPasteSubmit"
-          >
-            Use offer
-          </button>
-        </label>
-      </template>
     </LabsTransferOverlay>
   </section>
 </template>
@@ -839,42 +1056,66 @@ onUnmounted(() => {
 .stage-inner {
   display: grid;
   place-items: center;
-  width: min(100%, 28rem);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   gap: 0.75rem;
 }
+.stage-inner.media {
+  align-self: stretch;
+  justify-self: stretch;
+}
 .qr-img {
-  width: min(280px, 100%);
+  width: min(100%, 92vmin);
+  max-height: 100%;
   height: auto;
+  object-fit: contain;
   background: #fff;
-  border-radius: 0.5rem;
-  padding: 0.5rem;
+  border-radius: 12px;
+  padding: 0.85rem;
+  box-sizing: border-box;
 }
 .scan-video {
   width: 100%;
-  max-height: min(60vh, 420px);
+  height: 100%;
+  min-height: 0;
   object-fit: cover;
-  border-radius: 0.5rem;
+  border-radius: 12px;
   background: #111;
 }
+.paste-stage {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 28rem);
+  padding: 0.25rem;
+}
+.code-block,
 .paste-field {
   display: grid;
-  gap: 0.35rem;
-  width: min(100%, 28rem);
+  gap: 0.4rem;
 }
 .paste-label {
-  font-size: 0.85rem;
+  margin: 0;
+  font-size: 0.88rem;
   font-weight: 650;
-  opacity: 0.9;
+  opacity: 0.92;
 }
 .paste-input {
   width: 100%;
   font: inherit;
-  padding: 0.5rem;
-  border-radius: 0.4rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  padding: 0.55rem;
+  border-radius: 0.45rem;
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   resize: vertical;
+  box-sizing: border-box;
+}
+.code-display {
+  word-break: break-all;
+  opacity: 0.95;
 }
 .chrome-btn {
   min-height: 40px;

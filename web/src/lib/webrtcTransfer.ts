@@ -63,14 +63,14 @@ export function decodeSdpFromQr(payload: string): string {
   const text = payload.trim()
   if (!text.startsWith(WEBRTC_SDP_PREFIX)) {
     if (text.startsWith('v=0')) return text
-    throw new Error('Not a SingTags wireless pairing code.')
+    throw new Error('That doesn’t look like wireless pairing text.')
   }
   const b64 = text.slice(WEBRTC_SDP_PREFIX.length)
   const inflated = inflateSync(bytesFromB64(b64))
   return new TextDecoder().decode(inflated)
 }
 
-export async function sdpQrDataUrl(sdp: string, size = 360): Promise<string> {
+export async function sdpQrDataUrl(sdp: string, size = 720): Promise<string> {
   return qrDataUrl(encodeSdpForQr(sdp), size)
 }
 
@@ -257,7 +257,7 @@ export async function createWebrtcOfferSession(
   if (typeof RTCPeerConnection === 'undefined') {
     throw new Error('WebRTC is not available in this browser.')
   }
-  onProgress?.({ phase: 'pairing', label: 'Creating wireless offer…' })
+  onProgress?.({ phase: 'pairing', label: 'Setting up…' })
   const pc = createPeerConnection()
   const channel = pc.createDataChannel('singtags-transfer', { ordered: true })
   channel.binaryType = 'arraybuffer'
@@ -268,10 +268,10 @@ export async function createWebrtcOfferSession(
   const offerSdp = pc.localDescription?.sdp
   if (!offerSdp) {
     pc.close()
-    throw new Error('Could not build wireless offer.')
+    throw new Error('Could not start wireless pairing.')
   }
   const offerQrDataUrl = await sdpQrDataUrl(offerSdp)
-  onProgress?.({ phase: 'pairing', label: 'Show this QR to the receiver' })
+  onProgress?.({ phase: 'pairing', label: 'Show this QR to the other phone' })
 
   return {
     pc,
@@ -315,7 +315,7 @@ export async function createWebrtcAnswerSession(
   if (typeof RTCPeerConnection === 'undefined') {
     throw new Error('WebRTC is not available in this browser.')
   }
-  onProgress?.({ phase: 'pairing', label: 'Creating wireless answer…' })
+  onProgress?.({ phase: 'pairing', label: 'Connecting…' })
   const offerSdp = decodeSdpFromQr(offerPayload)
   const pc = createPeerConnection()
 
@@ -334,10 +334,10 @@ export async function createWebrtcAnswerSession(
   const answerSdp = pc.localDescription?.sdp
   if (!answerSdp) {
     pc.close()
-    throw new Error('Could not build wireless answer.')
+    throw new Error('Could not finish wireless pairing.')
   }
   const answerQrDataUrl = await sdpQrDataUrl(answerSdp)
-  onProgress?.({ phase: 'pairing', label: 'Show this answer QR to the sender' })
+  onProgress?.({ phase: 'pairing', label: 'Show this QR to the sender' })
 
   return {
     pc,

@@ -139,8 +139,8 @@ onUnmounted(() => {
 .labs-stage {
   min-height: 0;
   display: grid;
-  place-items: center;
-  overflow: auto;
+  place-items: stretch;
+  overflow: hidden;
 }
 .labs-footer {
   display: grid;
