@@ -597,6 +597,10 @@ export function useTagDetail(id: Ref<string> | string) {
         lyrics_source?: string | null
         lyrics_finalized?: boolean | null
       }
+      // Network confirm succeeds — pack/favorite paint is no longer "cache-only".
+      // Clear even when lyrics are unchanged so download UX is not stuck disabled.
+      fromCache.value = false
+
       if (
         nextLyrics === curLyrics &&
         (freshExtra.lyrics_source ?? null) === (curExtra.lyrics_source ?? null) &&
@@ -615,7 +619,6 @@ export function useTagDetail(id: Ref<string> | string) {
           ? { lyrics_finalized: freshExtra.lyrics_finalized }
           : {}),
       } as TagDetail
-      fromCache.value = false
 
       // Keep starred snapshot in sync so the next visit does not resurrect old lyrics.
       if (starredRecord?.detail && String(starredRecord.tagId) === wantedId) {

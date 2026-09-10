@@ -474,6 +474,29 @@ describe('useTagDetail', () => {
     w.unmount()
   })
 
+  it('clears fromCache after online revalidation even when lyrics match', async () => {
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify(detail), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const { sheetsPack } = await import('../offline/libraryPack')
+    const { tagDetailUrl } = await import('../lib/mediaUrl')
+    await sheetsPack.put(
+      tagDetailUrl('7'),
+      new Response(JSON.stringify(detail), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    const { api, w } = mountApi('7')
+    await api.load()
+    expect(api.fromCache.value).toBe(true)
+    await flushPromises()
+    expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes('/tags/7/metadata.json'))).toBe(
+      true,
+    )
+    expect(api.fromCache.value).toBe(false)
+    w.unmount()
+  })
+
   it('exposes pdf separately and does not treat it as an image page', async () => {
     const pdfDetail: TagDetail = {
       ...detail,

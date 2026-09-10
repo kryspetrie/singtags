@@ -228,7 +228,6 @@ const idRef = toRef(props, 'id')
 const {
   detail,
   error,
-  fromCache,
   audioParts,
   availableAudioParts,
   hasPackAudio,
@@ -511,12 +510,6 @@ const canPayKey = computed(() => !!tonicNote())
 const partialUnavailable = computed(
   () => !loading.value && !detail.value && !!summary.value,
 )
-const downloadBlockedReason = computed(() =>
-  !offline.value && fromCache.value
-    ? 'Download needs network paths — open this tag online once.'
-    : null,
-)
-
 const queueBlockedReason = computed(() => {
   const d = detail.value
   if (!d) return 'Tag details unavailable.'
@@ -1167,7 +1160,6 @@ async function onRetryLoad(): Promise<void> {
     <TagDownloads
       :detail="detail"
       :offline="offline"
-      :download-blocked-reason="downloadBlockedReason"
       :queue-blocked-reason="queueBlockedReason"
       :queue-message="queueMsg"
       @add-to-queue="addItemsToQueue"
