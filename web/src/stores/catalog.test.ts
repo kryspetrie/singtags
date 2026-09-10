@@ -427,6 +427,18 @@ describe('catalog store', () => {
     expect(catalog.lyricsSnippet(5)).toMatch(/Hello lyrics/)
   })
 
+  it('returns full collapsed lyrics for card snippets (CSS clamps visually)', async () => {
+    await clearIndexSnapshotsIdb()
+    const lyrics =
+      "I love to sing'em I love to ring'em I love those barbershop, barbershop chords give me those barbershop chords!"
+    expect(lyrics.length).toBeGreaterThan(110)
+    await putLyricsSnapshotIdb([{ id: 2, lyrics }])
+    const catalog = useCatalogStore()
+    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(catalog.lyricsSnippet(2)).toBe(lyrics)
+    expect(catalog.lyricsSnippet(2)).not.toMatch(/…|\.\.\./)
+  })
+
   it('revalidates lyrics from the network when online after IDB hydrate', async () => {
     await clearIndexSnapshotsIdb()
     await putLyricsSnapshotIdb([{ id: 26, lyrics: 'stale idb lyrics' }])

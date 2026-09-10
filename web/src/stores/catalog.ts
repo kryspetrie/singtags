@@ -306,17 +306,16 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   /**
-   * One-line lyrics preview for browse rows.
+   * Lyrics preview for browse rows (whitespace collapsed to one line).
+   * Visual truncation is left to CSS line-clamp so wide cards can show more.
    *
    * @param id - Tag id.
-   * @param maxLen - Max characters before ellipsis.
    */
-  function lyricsSnippet(id: number, maxLen = 110): string | null {
+  function lyricsSnippet(id: number): string | null {
     const raw = lyricsById.value.get(id)
     if (!raw) return null
     const oneLine = raw.replace(/\s+/g, ' ').trim()
-    if (oneLine.length <= maxLen) return oneLine
-    return `${oneLine.slice(0, maxLen - 1).trimEnd()}…`
+    return oneLine || null
   }
 
   /** Ensure lyrics index is loaded (revalidates from network when online). */
