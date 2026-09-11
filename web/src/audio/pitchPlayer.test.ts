@@ -4,6 +4,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipeFullKeyboardNotes,
   normalizePitchPipeGridScale,
+  normalizeSheetPianoKeyScale,
+  sheetPianoWhiteKeyPx,
+  pitchPipeCOctaveNotes,
+  pitchPipePcKeyNoteMap,
+  pitchPipePcKeyOctave,
+  pitchPipePcKeyWindowNotes,
   pitchPipePianoSlots, toPitchGlyph, PITCH_PIPE_NOTES, PAY_KEY_MIN_NOTE, PAY_KEY_MAX_NOTE, PitchPlayer, transposeKeyLabel, clampPitchSemitones, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, KEY_SHIFT_LABEL_SIZE_SAMPLE } from './pitchPlayer'
 
 describe('pitchPlayer helpers', () => {
@@ -124,6 +130,39 @@ describe('pitchPlayer helpers', () => {
     expect(slots.blacks.some((b) => b.note === 'C#4' && b.after === 'C4')).toBe(true)
   })
 
+  it('maps computer keys to a piano layout (E R / Y U I / [ ] over whites)', () => {
+    const win = pitchPipePcKeyWindowNotes(4)
+    expect(win[0]).toBe('B3')
+    expect(win.at(-1)).toBe('E5')
+    expect(win).toContain('F#4')
+    expect(win).toContain('C#5')
+    expect(win).toContain('D#5')
+    expect(pitchPipeCOctaveNotes(4)).toHaveLength(13)
+    expect(pitchPipeCOctaveNotes(4).at(-1)).toBe('C5')
+    expect(pitchPipePcKeyOctave(['E3', 'F3', 'F#3'])).toBe(3)
+    expect(pitchPipePcKeyOctave(pitchPipeNotes('c4-c5'))).toBe(4)
+    const map = pitchPipePcKeyNoteMap(win)
+    expect(map.get('KeyA')).toBe('B3')
+    expect(map.get('KeyS')).toBe('C4')
+    expect(map.get('KeyE')).toBe('C#4')
+    expect(map.get('KeyD')).toBe('D4')
+    expect(map.get('KeyR')).toBe('D#4')
+    expect(map.get('KeyF')).toBe('E4')
+    expect(map.get('KeyG')).toBe('F4')
+    expect(map.get('KeyY')).toBe('F#4')
+    expect(map.get('KeyH')).toBe('G4')
+    expect(map.get('KeyU')).toBe('G#4')
+    expect(map.get('KeyJ')).toBe('A4')
+    expect(map.get('KeyI')).toBe('A#4')
+    expect(map.get('KeyK')).toBe('B4')
+    expect(map.get('KeyL')).toBe('C5')
+    expect(map.get('BracketLeft')).toBe('C#5')
+    expect(map.get('Semicolon')).toBe('D5')
+    expect(map.get('BracketRight')).toBe('D#5')
+    expect(map.get('Quote')).toBe('E5')
+    expect(map.has('KeyO')).toBe(false)
+  })
+
   it('provides a 66-key full piano and snaps grid scale', () => {
     const notes = pitchPipeFullKeyboardNotes()
     expect(notes).toHaveLength(66)
@@ -133,6 +172,13 @@ describe('pitchPlayer helpers', () => {
     expect(normalizePitchPipeGridScale(50)).toBe(70)
     expect(normalizePitchPipeGridScale(300)).toBe(250)
     expect(normalizePitchPipeGridScale(247)).toBe(245)
+    expect(normalizeSheetPianoKeyScale(93)).toBe(100)
+    expect(normalizeSheetPianoKeyScale(50)).toBe(50)
+    expect(normalizeSheetPianoKeyScale(20)).toBe(25)
+    expect(normalizeSheetPianoKeyScale(400)).toBe(300)
+    expect(sheetPianoWhiteKeyPx(100)).toBe(51)
+    expect(sheetPianoWhiteKeyPx(125)).toBe(63.8)
+    expect(sheetPianoWhiteKeyPx(25)).toBe(12.8)
   })
 })
 

@@ -1,0 +1,11 @@
+Acoustic piano samples
+======================
+
+Derived from Leethring / Liam Lee “piano-sound-samples” (MIT License):
+https://github.com/Leethring/piano-sound-samples
+
+Files here are re-encoded as Ogg Opus (mono, ~48 kbps) for SingTags.
+Original MuseScore exports © contributors; keep this NOTICE with redistributions.
+
+Re-encode:
+  ./web/scripts/encode-piano-samples.sh

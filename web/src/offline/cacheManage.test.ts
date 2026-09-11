@@ -226,6 +226,11 @@ describe('cacheManage', () => {
       aHz: null,
       detuneCents: -44,
       showOctave: false,
+      sound: 'mellow',
+      gridScale: 100,
+      showFullKeyboard: false,
+      pianoDefaultOctave: 4,
+      pianoEngine: 'synth',
     })
   })
 

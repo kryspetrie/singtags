@@ -30,11 +30,12 @@ import {
   type SheetFitMode,
   type SheetZoomPan,
 } from '../lib/sheetZoomPan'
-import { KEY_SHIFT_LABEL_SIZE_SAMPLE } from '../audio/pitchPlayer'
+import { KEY_SHIFT_LABEL_SIZE_SAMPLE, pitchPipeNotes } from '../audio/pitchPlayer'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
 import { setSessionBusy } from '../lib/sessionActivity'
 import { usePreferencesStore, type SheetFsPageMode } from '../stores/preferences'
+import SheetPianoDock from './SheetPianoDock.vue'
 
 export type SheetDisplayMode = 'images' | 'pdf'
 
@@ -131,6 +132,29 @@ const emit = defineEmits<{
 
 const prefs = usePreferencesStore()
 const fullscreen = ref(false)
+/** Bottom piano dock in fullscreen — squishes the sheet viewport. */
+const pianoOpen = ref(false)
+
+const pianoCenterNote = computed(() => {
+  const notes = pitchPipeNotes(prefs.pitchPipeRange)
+  return notes[Math.floor(notes.length / 2)] ?? 'C4'
+})
+
+function togglePianoDock(): void {
+  if (!fullscreen.value) return
+  pianoOpen.value = !pianoOpen.value
+  void nextTick(() => onFsViewportChange())
+}
+
+function onPianoDockResize(): void {
+  onFsViewportChange()
+}
+
+function closePianoDock(): void {
+  if (!pianoOpen.value) return
+  pianoOpen.value = false
+  void nextTick(() => onFsViewportChange())
+}
 
 /**
  * True when ✕ only leaves fullscreen onto the hosting details page
@@ -191,6 +215,8 @@ let fadeTimer: ReturnType<typeof setTimeout> | null = null
 let autoPdfForFullscreen = false
 
 const sheetEl = ref<HTMLElement | null>(null)
+/** Sheet page area above the piano dock (excludes dock height when open). */
+const viewportEl = ref<HTMLElement | null>(null)
 const stageEl = ref<HTMLElement | null>(null)
 const zoomPan = ref<SheetZoomPan>(identitySheetZoomPan())
 const fitMode = ref<SheetFitMode>('width')
@@ -753,7 +779,7 @@ function measureViewportAndContent(): {
   viewport: { width: number; height: number }
   content: { width: number; height: number }
 } | null {
-  const sheet = sheetEl.value
+  const sheet = viewportEl.value ?? sheetEl.value
   const stage = stageEl.value
   if (!sheet || !stage) return null
   const vr = sheet.getBoundingClientRect()
@@ -787,7 +813,7 @@ function measureViewportAndContent(): {
 
 /** Reserve space for top/bottom overlay chrome so the sheet isn't covered on load. */
 function measureChromeInsets(): { top: number; bottom: number } {
-  const sheet = sheetEl.value
+  const sheet = viewportEl.value ?? sheetEl.value
   if (!sheet) return { top: 0, bottom: 0 }
   const overlay = sheet.querySelector('.chrome') as HTMLElement | null
   if (!overlay) return { top: 0, bottom: 0 }
@@ -1003,6 +1029,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
     if (!opts?.fromPopState) overlayHistory.push()
     void nextTick(() => attachChromeLayoutObserver())
   } else {
+    pianoOpen.value = false
     detachChromeLayoutObserver()
     moreInline.value = true
     playbackBelow.value = false
@@ -1204,7 +1231,7 @@ function panToPage(index: number): void {
 function syncPageIndexFromPan(): void {
   if (!fsScrollMode.value) return
   const stage = stageEl.value
-  const sheet = sheetEl.value
+  const sheet = viewportEl.value ?? sheetEl.value
   if (!stage || !sheet) return
   const pages = [...stage.querySelectorAll('.page')] as HTMLElement[]
   if (pages.length <= 1) return
@@ -1295,7 +1322,7 @@ function onPayKey(e: KeyboardEvent): void {
 }
 
 function viewportPoint(clientX: number, clientY: number): { x: number; y: number } {
-  const el = sheetEl.value
+  const el = viewportEl.value ?? sheetEl.value
   if (!el) return { x: clientX, y: clientY }
   const r = el.getBoundingClientRect()
   return { x: clientX - r.left, y: clientY - r.top }
@@ -1318,7 +1345,8 @@ function pointerMidpoint(): { x: number; y: number } {
 }
 
 function isChromeTarget(t: EventTarget | null): boolean {
-  return !!(t as HTMLElement | null)?.closest?.('.chrome')
+  const el = t as HTMLElement | null
+  return !!(el?.closest?.('.chrome') || el?.closest?.('.sheet-piano-dock'))
 }
 
 function onWheel(e: WheelEvent): void {
@@ -1545,6 +1573,7 @@ defineExpose({
         'is-awaiting': loading && !displayPages.length,
         'sing-chrome': fullscreen && singControls,
         'fs-scroll': fsScrollMode,
+        'has-piano': fullscreen && pianoOpen,
       }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
@@ -1556,6 +1585,7 @@ defineExpose({
       @pointercancel="onPointerUp"
       @dblclick="onDoubleClick"
     >
+      <div ref="viewportEl" class="sheet-viewport">
       <p v-if="loading && !displayPages.length" class="status" role="status">
         Preparing sheet…
       </p>
@@ -1605,7 +1635,7 @@ defineExpose({
         aria-label="Sheet controls"
       >
         <div
-          v-if="payKeyEnabled && ((displayPages.length > 0) || singControls)"
+          v-if="fullscreen"
           class="chrome-pitch-cluster"
         >
           <button
@@ -1749,6 +1779,18 @@ defineExpose({
             </button>
 
             <button
+              type="button"
+              class="chrome-btn piano-toggle"
+              :class="{ 'is-on': pianoOpen }"
+              :aria-pressed="pianoOpen"
+              :aria-label="pianoOpen ? 'Hide piano' : 'Show piano'"
+              :title="pianoOpen ? 'Hide piano' : 'Show piano'"
+              @click="togglePianoDock"
+            >
+              Piano
+            </button>
+
+            <button
               v-if="showDetailsPageButton"
               type="button"
               class="chrome-btn tag-page"
@@ -1839,6 +1881,14 @@ defineExpose({
           </button>
         </div>
       </div>
+      </div>
+
+      <SheetPianoDock
+        v-if="fullscreen && pianoOpen"
+        :center-note="pianoCenterNote"
+        @close="closePianoDock"
+        @resize="onPianoDockResize"
+      />
     </div>
 
     <div v-if="showPickers" class="pickers">
@@ -1963,6 +2013,25 @@ defineExpose({
   /* Pan/zoom is transform-based; never show a native scrollbar. */
   scrollbar-width: none;
 }
+.sheet.fullscreen.has-piano {
+  display: flex;
+  flex-direction: column;
+}
+.sheet-viewport {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.sheet.fullscreen .sheet-viewport {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overflow: clip;
+}
+.sheet.fullscreen.has-piano .sheet-viewport {
+  height: auto;
+}
 .sheet.fullscreen::-webkit-scrollbar {
   display: none;
   width: 0;
@@ -2006,6 +2075,17 @@ defineExpose({
 }
 .chrome-pitch-cluster {
   grid-area: pitch;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+}
+.chrome-pitch-cluster > * {
+  pointer-events: auto;
+}
+.piano-toggle.is-on {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 75%, #000);
+  border-color: color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
 }
 .chrome-mid {
   grid-area: mid;
@@ -2280,11 +2360,11 @@ defineExpose({
   border: 0;
 }
 @media (orientation: landscape) and (max-height: 560px) {
-  .sheet.fullscreen.sing-chrome .chrome {
+  .sheet.fullscreen.sing-chrome:not(.has-piano) .chrome {
     top: auto;
     bottom: calc(0.4rem + env(safe-area-inset-bottom));
   }
-  .sheet.fullscreen.sing-chrome .chrome-shift-pop {
+  .sheet.fullscreen.sing-chrome:not(.has-piano) .chrome-shift-pop {
     top: auto;
     bottom: calc(100% + 0.35rem);
   }

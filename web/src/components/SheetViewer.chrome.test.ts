@@ -289,7 +289,7 @@ describe('SheetViewer sing chrome', () => {
       applyFitMode: (m: 'width' | 'all') => void
       zoomPanState: () => { scale: number }
     }
-    const sheet = w.get('.sheet').element as HTMLElement
+    const sheet = w.get('.sheet-viewport').element as HTMLElement
     const stage = w.get('.stage').element as HTMLElement
     vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue({
       width: 400,

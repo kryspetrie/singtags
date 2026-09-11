@@ -480,6 +480,31 @@ export function pitchPipeFullKeyboardNotes(): string[] {
   return [...PITCH_PIPE_FULL_KEYBOARD_NOTES]
 }
 
+/** Fullscreen sheet piano dock: white-key width percent (higher = fewer keys visible). */
+export const SHEET_PIANO_SCALE_MIN = 25
+export const SHEET_PIANO_SCALE_MAX = 300
+export const SHEET_PIANO_SCALE_STEP = 25
+export const SHEET_PIANO_SCALE_DEFAULT = 100
+
+/**
+ * White-key width in CSS px at 100% scale. Constant across viewports so wider
+ * screens (and landscape) simply show more keys at the same finger-friendly size.
+ */
+export const SHEET_PIANO_WHITE_KEY_PX_AT_100 = 51
+
+/** Effective white-key width for a scale percent. */
+export function sheetPianoWhiteKeyPx(scalePercent: number): number {
+  const scale = normalizeSheetPianoKeyScale(scalePercent) / 100
+  return Math.round(SHEET_PIANO_WHITE_KEY_PX_AT_100 * scale * 10) / 10
+}
+
+export function normalizeSheetPianoKeyScale(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return SHEET_PIANO_SCALE_DEFAULT
+  const stepped = Math.round(n / SHEET_PIANO_SCALE_STEP) * SHEET_PIANO_SCALE_STEP
+  return Math.min(SHEET_PIANO_SCALE_MAX, Math.max(SHEET_PIANO_SCALE_MIN, stepped))
+}
+
 /** Grid key size percent (Settings −/+). */
 export const PITCH_PIPE_GRID_SCALE_MIN = 70
 export const PITCH_PIPE_GRID_SCALE_MAX = 250
@@ -506,6 +531,35 @@ export const PITCH_PIPE_RANGE_OPTIONS: Array<{ value: PitchPipeRange; label: str
   { value: 'c3-c4', label: 'C3 – C4' },
   { value: 'c4-c5', label: 'C4 – C5' },
 ]
+
+/**
+ * Horizontal piano default C–C window (full keyboard is C2–F7).
+ * Value is the lower C octave number.
+ */
+export type PitchPipePianoDefaultOctave = 2 | 3 | 4 | 5 | 6
+
+export const PITCH_PIPE_PIANO_DEFAULT_OCTAVE_OPTIONS: Array<{
+  value: PitchPipePianoDefaultOctave
+  label: string
+}> = [
+  { value: 2, label: 'C2 – C3' },
+  { value: 3, label: 'C3 – C4' },
+  { value: 4, label: 'C4 – C5' },
+  { value: 5, label: 'C5 – C6' },
+  { value: 6, label: 'C6 – C7' },
+]
+
+export const PITCH_PIPE_PIANO_DEFAULT_OCTAVE_DEFAULT: PitchPipePianoDefaultOctave = 4
+
+export function isPitchPipePianoDefaultOctave(v: unknown): v is PitchPipePianoDefaultOctave {
+  return v === 2 || v === 3 || v === 4 || v === 5 || v === 6
+}
+
+export function normalizePitchPipePianoDefaultOctave(raw: unknown): PitchPipePianoDefaultOctave {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (isPitchPipePianoDefaultOctave(n)) return n
+  return PITCH_PIPE_PIANO_DEFAULT_OCTAVE_DEFAULT
+}
 
 /** Chromatic notes for the pitch-pipe grid, low → high. */
 export const PITCH_PIPE_NOTES: Record<PitchPipeRange, readonly string[]> = {
@@ -550,13 +604,176 @@ const FLAT_TO_SHARP: Record<string, string> = {
 }
 
 /** Pitch-pipe button arrangements. */
-export type PitchPipeLayout = 'grid' | 'list' | 'piano'
+export type PitchPipeLayout = 'grid' | 'list' | 'piano' | 'piano-h'
 
 export const PITCH_PIPE_LAYOUT_OPTIONS: Array<{ value: PitchPipeLayout; label: string }> = [
   { value: 'grid', label: 'Grid' },
   { value: 'list', label: 'Wide list' },
   { value: 'piano', label: 'Vertical piano' },
+  { value: 'piano-h', label: 'Horizontal piano' },
 ]
+
+export function isPitchPipePianoLayout(layout: PitchPipeLayout): boolean {
+  return layout === 'piano' || layout === 'piano-h'
+}
+
+export function isPitchPipeLayout(v: unknown): v is PitchPipeLayout {
+  return v === 'grid' || v === 'list' || v === 'piano' || v === 'piano-h'
+}
+
+/**
+ * Computer-keyboard layout (piano-shaped):
+ * ```
+ *     E R   Y U I   [ ]
+ * A S D F G H J K L ; '
+ * ```
+ * Bottom row = white keys (`A` = B below active C). Top row = black keys
+ * sitting between those whites (`[` `]` = C♯ / E♭ above the next C).
+ */
+export const PITCH_PIPE_PC_WHITE_CODES = [
+  'KeyA', // B
+  'KeyS', // C
+  'KeyD', // D
+  'KeyF', // E
+  'KeyG', // F
+  'KeyH', // G
+  'KeyJ', // A
+  'KeyK', // B
+  'KeyL', // C
+  'Semicolon', // D
+  'Quote', // E
+] as const
+
+/** Black keys between whites (including high C♯ / E♭ on `[` `]`). */
+export const PITCH_PIPE_PC_BLACK_CODES = [
+  'KeyE', // C#
+  'KeyR', // D#
+  'KeyY', // F#
+  'KeyU', // G#
+  'KeyI', // A#
+  'BracketLeft', // C# (above next C)
+  'BracketRight', // D# / Eb
+] as const
+
+/** All PC codes that play piano notes (whites then blacks). */
+export const PITCH_PIPE_PC_KEY_CODES = [
+  ...PITCH_PIPE_PC_WHITE_CODES,
+  ...PITCH_PIPE_PC_BLACK_CODES,
+] as const
+
+/** Semitone offsets from Co for each white key (A = B₋₁ … ' = E₊₁). */
+const PC_WHITE_SEMITONES = [-1, 0, 2, 4, 5, 7, 9, 11, 12, 14, 16] as const
+
+/** Black key → white-key index it sits after (C♯ after S/C, high C♯ after L, etc.). */
+const PC_BLACK_AFTER_WHITE_INDEX = [1, 2, 4, 5, 6, 8, 9] as const
+
+/** C-to-C (13 notes) for the given octave, e.g. 4 → C4…C5. */
+export function pitchPipeCOctaveNotes(octave: number): string[] {
+  const o = Math.trunc(octave)
+  return chromaticNotesBetween(`C${o}`, `C${o + 1}`)
+}
+
+/**
+ * Notes covered by the PC piano window for one octave:
+ * B below C through E above the next C (`A` … `'`) — naturals + in-between sharps.
+ */
+export function pitchPipePcKeyWindowNotes(octave: number): string[] {
+  const map = pitchPipePcKeyNoteMapFromOctave(octave)
+  const notes = [...map.values()]
+  notes.sort((a, b) => noteNameToMidi(a) - noteNameToMidi(b))
+  return notes
+}
+
+/** Piano-shaped PC map with `S` = C{octave}. */
+export function pitchPipePcKeyNoteMapFromOctave(octave: number): Map<string, string> {
+  const map = new Map<string, string>()
+  const o = Math.trunc(octave)
+  for (let i = 0; i < PITCH_PIPE_PC_WHITE_CODES.length; i++) {
+    const code = PITCH_PIPE_PC_WHITE_CODES[i]!
+    const note = pitchPipeNoteSemitoneShift(`C${o}`, PC_WHITE_SEMITONES[i]!)
+    if (note) map.set(code, note)
+  }
+  for (let i = 0; i < PITCH_PIPE_PC_BLACK_CODES.length; i++) {
+    const code = PITCH_PIPE_PC_BLACK_CODES[i]!
+    const afterIdx = PC_BLACK_AFTER_WHITE_INDEX[i]!
+    const whiteNote = map.get(PITCH_PIPE_PC_WHITE_CODES[afterIdx]!)
+    const sharp = whiteNote ? pitchPipeNoteSemitoneShift(whiteNote, 1) : null
+    if (sharp) map.set(code, sharp)
+  }
+  return map
+}
+
+/** Shift a note by a whole number of semitones (equal temperament spelling). */
+export function pitchPipeNoteSemitoneShift(note: string, semitones: number): string | null {
+  try {
+    const midi = noteNameToMidi(note) + Math.trunc(semitones)
+    if (midi < 0 || midi > 127) return null
+    const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const
+    const oct = Math.floor(midi / 12) - 1
+    return `${names[((midi % 12) + 12) % 12]!}${oct}`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Map PC keys onto `windowNotes`. Prefer piano geometry when the window is a
+ * C-based octave (B… / C…); otherwise assign naturals to white keys in order
+ * and place sharps on the black keys between them.
+ */
+export function pitchPipePcKeyNoteMap(windowNotes: readonly string[]): Map<string, string> {
+  if (windowNotes.length === 0) return new Map()
+  const first = windowNotes[0]!
+  const second = windowNotes[1]
+  if (/^B\d+$/i.test(first) && second && /^C\d+$/i.test(second)) {
+    return pitchPipePcKeyNoteMapFromOctave(Number(second.slice(1)))
+  }
+  if (/^C\d+$/i.test(first)) {
+    return pitchPipePcKeyNoteMapFromOctave(Number(first.slice(1)))
+  }
+  return pitchPipePcKeyNoteMapFromNotes(windowNotes)
+}
+
+/** Geometry map for an arbitrary note list (naturals → whites, sharps → blacks). */
+export function pitchPipePcKeyNoteMapFromNotes(notes: readonly string[]): Map<string, string> {
+  const map = new Map<string, string>()
+  const set = new Set(notes)
+  const whites = notes.filter((n) => {
+    try {
+      return !pitchPipeDisplay(n).isBlack
+    } catch {
+      return true
+    }
+  })
+  for (let i = 0; i < Math.min(whites.length, PITCH_PIPE_PC_WHITE_CODES.length); i++) {
+    map.set(PITCH_PIPE_PC_WHITE_CODES[i]!, whites[i]!)
+  }
+  for (let i = 0; i < PITCH_PIPE_PC_BLACK_CODES.length; i++) {
+    const afterIdx = PC_BLACK_AFTER_WHITE_INDEX[i]!
+    const left = map.get(PITCH_PIPE_PC_WHITE_CODES[afterIdx]!)
+    if (!left) continue
+    const sharp = pitchPipeNoteSemitoneShift(left, 1)
+    if (sharp && set.has(sharp)) map.set(PITCH_PIPE_PC_BLACK_CODES[i]!, sharp)
+  }
+  return map
+}
+
+/**
+ * Choose which C octave the PC keys should cover for a visible / selected note list.
+ * Uses the lowest C in the list when present; otherwise the octave of the lowest note.
+ */
+export function pitchPipePcKeyOctave(notes: readonly string[]): number {
+  if (notes.length === 0) return 4
+  for (const n of notes) {
+    if (/^C\d+$/i.test(n)) return Number(n.slice(1))
+  }
+  try {
+    const midi = noteNameToMidi(notes[0]!)
+    return Math.floor(midi / 12) - 1
+  } catch {
+    return 4
+  }
+}
 
 /** Display pitch token with ♯ / ♭ (e.g. C# → C♯, Db → D♭). */
 export function toPitchGlyph(token: string): string {

@@ -9,9 +9,13 @@ import {
   PITCH_PIPE_A_TUNINGS,
   aHzToCents,
   normalizePitchPipeGridScale,
+  normalizePitchPipePianoDefaultOctave,
   normalizePitchPipeRange,
+  normalizeSheetPianoKeyScale,
+  isPitchPipeLayout,
   type PitchPipeAHz,
   type PitchPipeLayout,
+  type PitchPipePianoDefaultOctave,
   type PitchPipeRange,
 } from '../audio/pitchPlayer'
 import {
@@ -19,6 +23,10 @@ import {
   isPitchPipeSoundId,
   type PitchPipeSoundId,
 } from '../audio/pitchPipeVoice'
+import {
+  isPianoSoundEngineId,
+  type PianoSoundEngineId,
+} from '../audio/pianoSamples'
 import {
   UI_SCALE_DEFAULT,
   UI_SCALE_STEP,
@@ -70,6 +78,13 @@ export type PitchPipePrefs = {
   gridScale: number
   /** Piano layout: scrollable 66-key keyboard (C2–F7). */
   showFullKeyboard: boolean
+  /** Horizontal piano: which C–C octave to open on (2 = C2–C3 … 6 = C6–C7). */
+  pianoDefaultOctave: PitchPipePianoDefaultOctave
+  /**
+   * Piano layouts + sheet dock: synth (default pitch-pipe voice) or acoustic samples.
+   * Grid/list always use synth.
+   */
+  pianoEngine: PianoSoundEngineId
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -80,6 +95,8 @@ const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
 const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
 /** Fullscreen multi-page: one-page pager vs continuous vertical scroll. */
 const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
+/** Fullscreen sheet piano dock: white-key width percent. */
+const SHEET_PIANO_KEY_SCALE_KEY = 'singtags.sheetPianoKeyScale.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
@@ -124,6 +141,8 @@ export function defaultPitchPipePrefs(): PitchPipePrefs {
     sound: 'mellow',
     gridScale: 100,
     showFullKeyboard: false,
+    pianoDefaultOctave: 4,
+    pianoEngine: 'synth',
   }
 }
 
@@ -156,13 +175,17 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const range = normalizePitchPipeRange(o.range)
-  const layout = o.layout === 'grid' || o.layout === 'list' || o.layout === 'piano' ? o.layout : null
+  const layout = isPitchPipeLayout(o.layout) ? o.layout : null
   if (!range || !layout) return null
 
   const showOctave = o.showOctave === true
   const sound: PitchPipeSoundId = isPitchPipeSoundId(o.sound) ? o.sound : 'mellow'
   const gridScale = normalizePitchPipeGridScale(o.gridScale)
   const showFullKeyboard = o.showFullKeyboard === true
+  const pianoDefaultOctave = normalizePitchPipePianoDefaultOctave(o.pianoDefaultOctave)
+  const pianoEngine: PianoSoundEngineId = isPianoSoundEngineId(o.pianoEngine)
+    ? o.pianoEngine
+    : 'synth'
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -173,7 +196,18 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
         : typeof o.aHz === 'number' && A_HZ_SET.has(o.aHz)
           ? (o.aHz as PitchPipeAHz)
           : matchConcertA(detuneCents)
-    return { range, layout, aHz, detuneCents, showOctave, sound, gridScale, showFullKeyboard }
+    return {
+      range,
+      layout,
+      aHz,
+      detuneCents,
+      showOctave,
+      sound,
+      gridScale,
+      showFullKeyboard,
+      pianoDefaultOctave,
+      pianoEngine,
+    }
   }
 
   // Legacy format: aHz required + fineCents on top of that A.
@@ -190,6 +224,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     sound,
     gridScale,
     showFullKeyboard,
+    pianoDefaultOctave,
+    pianoEngine,
   }
 }
 
@@ -208,7 +244,7 @@ function loadLegacyPitchPipeRange(): PitchPipeRange {
 function loadLegacyPitchPipeLayout(): PitchPipeLayout {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_LAYOUT_KEY)
-    if (raw === 'grid' || raw === 'list' || raw === 'piano') return raw
+    if (isPitchPipeLayout(raw)) return raw
   } catch {
     /* ignore */
   }
@@ -238,6 +274,8 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     sound: 'mellow',
     gridScale: 100,
     showFullKeyboard: false,
+    pianoDefaultOctave: 4,
+    pianoEngine: 'synth',
   }
 }
 
@@ -313,6 +351,14 @@ function loadSheetFsPageMode(): SheetFsPageMode {
   }
 }
 
+function loadSheetPianoKeyScale(): number {
+  try {
+    return normalizeSheetPianoKeyScale(localStorage.getItem(SHEET_PIANO_KEY_SCALE_KEY))
+  } catch {
+    return normalizeSheetPianoKeyScale(null)
+  }
+}
+
 /** Read a string array from localStorage JSON; normalizes custom audio part names. */
 function loadStringArray(key: string, fallback: string[]): string[] {
   try {
@@ -373,6 +419,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipeSound = ref<PitchPipeSoundId>(initialPipe.sound)
   const pitchPipeGridScale = ref(initialPipe.gridScale)
   const pitchPipeShowFullKeyboard = ref(initialPipe.showFullKeyboard)
+  const pitchPipePianoDefaultOctave = ref<PitchPipePianoDefaultOctave>(
+    initialPipe.pianoDefaultOctave,
+  )
+  const pitchPipePianoEngine = ref<PianoSoundEngineId>(initialPipe.pianoEngine)
   /** App-wide Display size (70–130%, step 5). */
   const uiScalePercent = ref(resolveInitialUiScale())
   /**
@@ -400,6 +450,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Sticky across Local Library / tag sheet opens.
    */
   const sheetFsPageMode = ref<SheetFsPageMode>(loadSheetFsPageMode())
+  /** Fullscreen sheet piano: key width percent (more/fewer keys visible). */
+  const sheetPianoKeyScale = ref(loadSheetPianoKeyScale())
   /**
    * Labs: when true, animated QR optical transfer (send/receive pages, Browse camera receive) is available.
    * Static QR share codes are unrelated and stay available either way.
@@ -464,6 +516,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       sound: pitchPipeSound.value,
       gridScale: pitchPipeGridScale.value,
       showFullKeyboard: pitchPipeShowFullKeyboard.value,
+      pianoDefaultOctave: pitchPipePianoDefaultOctave.value,
+      pianoEngine: pitchPipePianoEngine.value,
     })
   }
 
@@ -515,6 +569,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       pitchPipeSound,
       pitchPipeGridScale,
       pitchPipeShowFullKeyboard,
+      pitchPipePianoDefaultOctave,
+      pitchPipePianoEngine,
     ],
     () => persistPitchPipe(),
     { flush: 'sync' },
@@ -633,6 +689,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SHEET_FS_PAGE_MODE_KEY, v)
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    sheetPianoKeyScale,
+    (v) => {
+      try {
+        localStorage.setItem(SHEET_PIANO_KEY_SCALE_KEY, String(v))
       } catch {
         /* ignore */
       }
@@ -804,7 +872,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeRange.value = range
   }
 
-  /** Set pitch-pipe layout (grid, list, piano). Side effect: localStorage. */
+  /** Set pitch-pipe layout (grid, list, piano, piano-h). Side effect: localStorage. */
   function setPitchPipeLayout(layout: PitchPipeLayout): void {
     pitchPipeLayout.value = layout
   }
@@ -828,6 +896,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Piano: show scrollable 66-key keyboard. Side effect: localStorage. */
   function setPitchPipeShowFullKeyboard(on: boolean): void {
     pitchPipeShowFullKeyboard.value = on
+  }
+
+  /** Horizontal piano: which C–C octave to open on. Side effect: localStorage. */
+  function setPitchPipePianoDefaultOctave(octave: unknown): void {
+    pitchPipePianoDefaultOctave.value = normalizePitchPipePianoDefaultOctave(octave)
+  }
+
+  /** Piano layouts / sheet dock: synth vs acoustic samples. Side effect: localStorage. */
+  function setPitchPipePianoEngine(engine: PianoSoundEngineId): void {
+    if (!isPianoSoundEngineId(engine)) return
+    pitchPipePianoEngine.value = engine
   }
 
   /** Set absolute UI scale percent (snapped to 5% steps, clamped 70–130). */
@@ -884,6 +963,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeSound.value = p.sound
     pitchPipeGridScale.value = p.gridScale
     pitchPipeShowFullKeyboard.value = p.showFullKeyboard
+    pitchPipePianoDefaultOctave.value = p.pianoDefaultOctave
+    pitchPipePianoEngine.value = p.pianoEngine
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -936,6 +1017,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     sheetFsPageMode.value = normalizeSheetFsPageMode(mode)
   }
 
+  /** Fullscreen sheet piano key width percent (persisted). */
+  function setSheetPianoKeyScale(percent: number): void {
+    sheetPianoKeyScale.value = normalizeSheetPianoKeyScale(percent)
+  }
+
+  /** Nudge sheet piano key width by a percent delta (snapped via normalize). */
+  function nudgeSheetPianoKeyScale(delta: number): void {
+    setSheetPianoKeyScale(sheetPianoKeyScale.value + delta)
+  }
+
   function setOpticalTransferFrameBytes(value: number): void {
     opticalTransferFrameBytes.value = normalizeOpticalFrameBytes(value)
     opticalTransferAutoDensity.value = false
@@ -980,6 +1071,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareFullscreen,
     shareBarbershopTags,
     sheetFsPageMode,
+    sheetPianoKeyScale,
     opticalTransferEnabled,
     localLibraryEnabled,
     webrtcTransferEnabled,
@@ -1002,6 +1094,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeSound,
     pitchPipeGridScale,
     pitchPipeShowFullKeyboard,
+    pitchPipePianoDefaultOctave,
+    pitchPipePianoEngine,
     uiScalePercent,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
@@ -1015,6 +1109,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,
+    setSheetPianoKeyScale,
+    nudgeSheetPianoKeyScale,
     setOpticalTransferFrameBytes,
     setOpticalTransferAutoDensity,
     setOpticalTransferPreset,
@@ -1034,6 +1130,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPitchPipeGridScale,
     nudgePitchPipeGridScale,
     setPitchPipeShowFullKeyboard,
+    setPitchPipePianoDefaultOctave,
+    setPitchPipePianoEngine,
     setUiScalePercent,
     nudgeUiScale,
     resetUiScale,
