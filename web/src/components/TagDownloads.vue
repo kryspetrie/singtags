@@ -2,6 +2,7 @@
 /**
  * Per-tag download panel: pick sheets/audio assets, queue zip jobs, or download directly.
  * Can upgrade favorite audio quality via `upgradeStarredAudioPart` when originals are selected.
+ * When a Custom mix (≥2 parts) is configured in prefs, that mix is offered for download.
  */
 import { computed, ref, watch } from 'vue'
 import type { PartId, TagDetail } from '../types/tag'
@@ -19,6 +20,13 @@ import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { downloadBlob, fetchBytes, sampleUrl, buildZip, type QueueTrack } from '../download/zip'
 import { downloadFilename, prepareDownloadBytes } from '../download/transform'
 import { useFavoritesStore } from '../stores/favorites'
+import { usePreferencesStore } from '../stores/preferences'
+import { soloSideForPart, supportsCustomSoloMix } from '../lib/audioLayout'
+import { mixPanPosition } from '../audio/multiPartMix'
+import { buildCustomMixObjectUrl } from '../audio/customMixBuild'
+
+const CUSTOM_DOWNLOAD_ID = 'audio-custom'
+const CUSTOM_PART = 'custom'
 
 const props = defineProps<{
   /** Full tag detail for asset listing and queue/download actions. */
@@ -37,11 +45,42 @@ const emit = defineEmits<{
 }>()
 
 const favorites = useFavoritesStore()
+const prefs = usePreferencesStore()
 const err = ref<string | null>(null)
 const msg = ref<string | null>(null)
 const audioFormat = ref<UserDownloadFormat>('mp3')
 
-type Asset = { id: string; label: string; kind: 'sheet' | 'audio' | 'page'; path: string; part?: PartId }
+type Asset = {
+  id: string
+  label: string
+  kind: 'sheet' | 'audio' | 'page' | 'custom'
+  path: string
+  part?: PartId
+}
+
+const combineParts = computed(() =>
+  sortPartIds(playableAudioParts(props.detail, 'online')).filter((p) => p !== 'mix'),
+)
+
+const ultraStemCombine = computed(() => {
+  const ultra = props.detail.audio_layout_summary?.ultra_low
+  return ultra === 'mono_solos' || ultra === 'mono_downmix'
+})
+
+/** Custom mix is downloadable when prefs select ≥2 parts that exist on this tag. */
+const customMixConfigured = computed(() => {
+  if (!supportsCustomSoloMix(props.detail.audio_layout_summary)) return false
+  return prefs.selectedMixParts(combineParts.value).length >= 2
+})
+
+const customMixParts = computed(() => prefs.selectedMixParts(combineParts.value))
+
+function resolveSoloInFile(p: string) {
+  return (
+    soloSideForPart(p, props.detail.audio_layouts, props.detail.audio_layout_summary) ??
+    prefs.getPartSoloInFile(p)
+  )
+}
 
 const assets = computed(() => {
   const d = props.detail
@@ -65,6 +104,15 @@ const assets = computed(() => {
       part,
     })
   }
+  if (customMixConfigured.value) {
+    list.push({
+      id: CUSTOM_DOWNLOAD_ID,
+      label: 'Custom',
+      kind: 'custom',
+      path: '',
+      part: CUSTOM_PART,
+    })
+  }
   return list
 })
 
@@ -82,12 +130,14 @@ watch(
 
 const selectedCount = computed(() => selected.value.size)
 const audioSelected = computed(() =>
-  assets.value.some((a) => a.kind === 'audio' && selected.value.has(a.id)),
+  assets.value.some(
+    (a) => (a.kind === 'audio' || a.kind === 'custom') && selected.value.has(a.id),
+  ),
 )
 const queueSelectionCount = computed(
-  () => assets.value.filter((a) => selected.value.has(a.id)).length,
+  () => assets.value.filter((a) => a.kind !== 'custom' && selected.value.has(a.id)).length,
 )
-const queueAllCount = computed(() => assets.value.length)
+const queueAllCount = computed(() => assets.value.filter((a) => a.kind !== 'custom').length)
 const directDownloadDisabled = computed(
   () => !!props.offline || !!props.downloadBlockedReason,
 )
@@ -113,12 +163,45 @@ function mimeForAsset(a: Asset, name: string): string {
   return 'application/octet-stream'
 }
 
+async function buildCustomMixBytes(): Promise<Uint8Array> {
+  const d = props.detail
+  const inputs = []
+  for (const p of customMixParts.value) {
+    const path = originalAudioPath(d, p)
+    if (!path) throw new Error(`Missing audio for ${partTrackLabel(p)}`)
+    inputs.push({
+      part: p,
+      url: sampleUrl(path),
+      soloInFile: resolveSoloInFile(p),
+      pan: mixPanPosition(prefs.getPartMixPan(p)),
+    })
+  }
+  const mix = await buildCustomMixObjectUrl(inputs, { ultraStem: ultraStemCombine.value })
+  try {
+    return await fetchBytes(mix.url)
+  } finally {
+    URL.revokeObjectURL(mix.url)
+  }
+}
+
 async function preparePickedFiles(): Promise<Array<{ name: string; data: Uint8Array; mime: string }>> {
   const picks = assets.value.filter((a) => selected.value.has(a.id))
   if (!picks.length) throw new Error('Select at least one file to download.')
   const files: Array<{ name: string; data: Uint8Array; mime: string }> = []
   let cacheUpgraded = false
   for (const a of picks) {
+    if (a.kind === 'custom') {
+      const raw = await buildCustomMixBytes()
+      const data = await prepareDownloadBytes({
+        input: raw,
+        format: audioFormat.value,
+        transform: IDENTITY_TRANSFORM,
+        encodeQuality: encodeQualityForDownload(audioFormat.value),
+      })
+      const name = downloadFilename(CUSTOM_PART, audioFormat.value, IDENTITY_TRANSFORM)
+      files.push({ name, data, mime: mimeForAsset(a, name) })
+      continue
+    }
     if (a.kind === 'audio' && a.part) {
       const raw = await fetchBytes(sampleUrl(a.path))
       const data = await prepareDownloadBytes({
@@ -159,6 +242,7 @@ function queueItemsFor(ids: ReadonlySet<string> | 'all'): QueueTrack[] {
   const title = d.title || `Tag ${d.tag_id}`
   const items: QueueTrack[] = []
   for (const a of assets.value) {
+    if (a.kind === 'custom') continue
     if (ids !== 'all' && !ids.has(a.id)) continue
     if (a.kind === 'audio' && a.part) {
       items.push({
@@ -239,6 +323,9 @@ async function downloadSelectedZip(): Promise<void> {
     <div class="body">
       <p v-if="assets.length" class="picker-hint">
         Tap files to select them for download or the export queue.
+        <template v-if="customMixConfigured">
+          Custom is your configured multi-part mix (download only — not added to the export queue).
+        </template>
       </p>
       <p v-else class="muted">No downloadable files on this tag.</p>
 

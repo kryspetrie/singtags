@@ -499,8 +499,10 @@ export function sheetPianoWhiteKeyPx(scalePercent: number): number {
 }
 
 export function normalizeSheetPianoKeyScale(raw: unknown): number {
+  // localStorage miss → null; Number(null) === 0, which must not become MIN (25%).
+  if (raw == null || raw === '') return SHEET_PIANO_SCALE_DEFAULT
   const n = typeof raw === 'number' ? raw : Number(raw)
-  if (!Number.isFinite(n)) return SHEET_PIANO_SCALE_DEFAULT
+  if (!Number.isFinite(n) || n === 0) return SHEET_PIANO_SCALE_DEFAULT
   const stepped = Math.round(n / SHEET_PIANO_SCALE_STEP) * SHEET_PIANO_SCALE_STEP
   return Math.min(SHEET_PIANO_SCALE_MAX, Math.max(SHEET_PIANO_SCALE_MIN, stepped))
 }

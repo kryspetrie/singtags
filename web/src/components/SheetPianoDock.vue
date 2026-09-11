@@ -393,6 +393,10 @@ watch(
                 >{{ byNote.get(b.note)?.display.sharp
                 }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
               >
+              <span class="note-flat"
+                >{{ byNote.get(b.note)?.display.flat
+                }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
+              >
             </span>
           </button>
         </div>
@@ -557,6 +561,12 @@ watch(
   line-height: 1.05;
 }
 .note-dual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.05rem;
+  width: 100%;
   font-size: clamp(0.52rem, 1.4vw, 0.72rem);
   line-height: 1.05;
 }

@@ -14,19 +14,44 @@ describe('preferences store', () => {
   it('defaults part solo-in-file and mix pan to left and persists', () => {
     const prefs = usePreferencesStore()
     expect(prefs.getPartSoloInFile('lead')).toBe('left')
-    expect(prefs.getPartMixPan('bari')).toBe('left')
+    expect(prefs.getPartMixPan('bari')).toEqual({ mode: 'left', value: -1 })
     prefs.setPartSoloInFile('lead', 'right')
     prefs.setPartMixPan('bari', 'right')
     expect(JSON.parse(localStorage.getItem('singtags.partSoloInFile.v1')!)).toEqual({
       lead: 'right',
     })
-    expect(JSON.parse(localStorage.getItem('singtags.partMixPan.v1')!)).toEqual({
-      bari: 'right',
+    expect(JSON.parse(localStorage.getItem('singtags.partMixPan.v2')!)).toEqual({
+      bari: { mode: 'right', value: 1 },
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()
     expect(again.getPartSoloInFile('lead')).toBe('right')
-    expect(again.getPartMixPan('bari')).toBe('right')
+    expect(again.getPartMixPan('bari')).toEqual({ mode: 'right', value: 1 })
+  })
+
+  it('migrates v1 mix pan strings into v2 settings', () => {
+    localStorage.setItem('singtags.partMixPan.v1', JSON.stringify({ lead: 'right', bari: 'left' }))
+    const prefs = usePreferencesStore()
+    expect(prefs.getPartMixPan('lead')).toEqual({ mode: 'right', value: 1 })
+    expect(prefs.getPartMixPan('bari')).toEqual({ mode: 'left', value: -1 })
+    prefs.setPartMixPan('bass', { mode: 'custom', value: 0.25 })
+    expect(JSON.parse(localStorage.getItem('singtags.partMixPan.v2')!).bass).toEqual({
+      mode: 'custom',
+      value: 0.25,
+    })
+    expect(localStorage.getItem('singtags.partMixPan.v1')).toBeNull()
+  })
+
+  it('persists custom mix part selection', () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.getPartMixSelected('lead')).toBe(false)
+    prefs.setPartMixSelected('lead', true)
+    prefs.setPartMixSelected('bari', true)
+    expect(prefs.selectedMixParts(['tenor', 'lead', 'bari', 'bass'])).toEqual(['lead', 'bari'])
+    expect(JSON.parse(localStorage.getItem('singtags.partMixSelected.v1')!)).toEqual({
+      lead: true,
+      bari: true,
+    })
   })
 
   it('persists browse welcome dismissal', () => {

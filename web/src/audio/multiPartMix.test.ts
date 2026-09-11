@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildSoloMixObjectUrl,
   defaultMixPanForNextSelection,
+  mixPanPosition,
+  normalizeMixPanSetting,
   sideVoiceGain,
   soloInFileChannelIndex,
 } from './multiPartMix'
@@ -55,9 +57,19 @@ describe('mix helpers', () => {
   })
 
   it('defaults first selection hard left, later selections hard right', () => {
-    expect(defaultMixPanForNextSelection(0)).toBe('left')
-    expect(defaultMixPanForNextSelection(1)).toBe('right')
-    expect(defaultMixPanForNextSelection(2)).toBe('right')
+    expect(defaultMixPanForNextSelection(0)).toEqual({ mode: 'left', value: -1 })
+    expect(defaultMixPanForNextSelection(1)).toEqual({ mode: 'right', value: 1 })
+    expect(defaultMixPanForNextSelection(2).mode).toBe('right')
+  })
+
+  it('normalizes legacy string pans and custom objects', () => {
+    expect(normalizeMixPanSetting('left')).toEqual({ mode: 'left', value: -1 })
+    expect(normalizeMixPanSetting({ mode: 'custom', value: 0.5 })).toEqual({
+      mode: 'custom',
+      value: 0.5,
+    })
+    expect(mixPanPosition({ mode: 'custom', value: 0 })).toBe(0)
+    expect(mixPanPosition({ mode: 'left', value: 0 })).toBe(-1)
   })
 
   it('maps Part L/R to channel 0/1 (mono always 0)', () => {
@@ -74,7 +86,6 @@ describe('multiPartMix routing', () => {
   })
 
   it('extracts Part L (ch0) → Hard L and Part L (ch0) → Hard R', async () => {
-    // Distinct markers: left channel = 0.5, right channel = 0.1 (must not leak)
     const lead = stereoBuffer(new Float32Array([0.5, 0.5, 0.5]), new Float32Array([0.1, 0.1, 0.1]))
     const bari = stereoBuffer(new Float32Array([0.4, 0.4, 0.4]), new Float32Array([0.2, 0.2, 0.2]))
     const outL = new Float32Array(3)
@@ -82,13 +93,12 @@ describe('multiPartMix routing', () => {
     stubMixCtx([lead, bari], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/lead.m4a', soloInFile: 'left', pan: 'left' },
-      { url: '/bari.m4a', soloInFile: 'left', pan: 'right' },
+      { url: '/lead.m4a', soloInFile: 'left', pan: -1 },
+      { url: '/bari.m4a', soloInFile: 'left', pan: 1 },
     ])
 
     expect(outL[0]).toBeCloseTo(0.5)
     expect(outR[0]).toBeCloseTo(0.4)
-    // Source right channels must not appear
     expect(outL[0]).not.toBeCloseTo(0.1)
     expect(outR[0]).not.toBeCloseTo(0.2)
   })
@@ -101,8 +111,8 @@ describe('multiPartMix routing', () => {
     stubMixCtx([lead, bari], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/lead.m4a', soloInFile: 'right', pan: 'left' },
-      { url: '/bari.m4a', soloInFile: 'right', pan: 'right' },
+      { url: '/lead.m4a', soloInFile: 'right', pan: -1 },
+      { url: '/bari.m4a', soloInFile: 'right', pan: 1 },
     ])
 
     expect(outL[0]).toBeCloseTo(0.3)
@@ -117,15 +127,15 @@ describe('multiPartMix routing', () => {
     stubMixCtx([a, b], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/a.m4a', soloInFile: 'left', pan: 'right' },
-      { url: '/b.m4a', soloInFile: 'right', pan: 'left' },
+      { url: '/a.m4a', soloInFile: 'left', pan: 1 },
+      { url: '/b.m4a', soloInFile: 'right', pan: -1 },
     ])
 
-    expect(outL[0]).toBeCloseTo(0.7) // b Part R → Hard L
-    expect(outR[0]).toBeCloseTo(0.5) // a Part L → Hard R
+    expect(outL[0]).toBeCloseTo(0.7)
+    expect(outR[0]).toBeCloseTo(0.5)
   })
 
-  it('halves each voice when two parts pan to the same side', async () => {
+  it('peak-normalizes when multiple voices sum above headroom', async () => {
     const a = stereoBuffer(new Float32Array([0.6, 0.6, 0.6]), new Float32Array([0, 0, 0]))
     const b = stereoBuffer(new Float32Array([0.6, 0.6, 0.6]), new Float32Array([0, 0, 0]))
     const c = stereoBuffer(new Float32Array([0.6, 0.6, 0.6]), new Float32Array([0, 0, 0]))
@@ -134,18 +144,18 @@ describe('multiPartMix routing', () => {
     stubMixCtx([a, b, c], outL, outR)
 
     await buildSoloMixObjectUrl([
-      { url: '/a.m4a', soloInFile: 'left', pan: 'left' },
-      { url: '/b.m4a', soloInFile: 'left', pan: 'left' },
-      { url: '/c.m4a', soloInFile: 'left', pan: 'right' },
+      { url: '/a.m4a', soloInFile: 'left', pan: -1 },
+      { url: '/b.m4a', soloInFile: 'left', pan: -1 },
+      { url: '/c.m4a', soloInFile: 'left', pan: 1 },
     ])
 
-    expect(outL[0]).toBeCloseTo(0.6)
-    expect(outR[0]).toBeCloseTo(0.6)
+    expect(outL[0]).toBeCloseTo(0.99)
+    expect(outR[0]).toBeCloseTo(0.495)
   })
 
   it('requires at least two parts', async () => {
     await expect(
-      buildSoloMixObjectUrl([{ url: '/a', soloInFile: 'left', pan: 'left' }]),
+      buildSoloMixObjectUrl([{ url: '/a', soloInFile: 'left', pan: -1 }]),
     ).rejects.toThrow(/two parts/i)
   })
 })

@@ -36,6 +36,11 @@ import {
   writeStoredUiScale,
 } from '../lib/uiScale'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
+import {
+  normalizeMixPanSetting,
+  type MixPanMode,
+  type MixPanSetting,
+} from '../audio/multiPartMix'
 import { normalizeCustomParts } from '../lib/audioParts'
 import {
   DEFAULT_OPTICAL_FRAME_BYTES,
@@ -58,6 +63,7 @@ import {
 } from '../offline/pdfRasterCache'
 
 export type PartSide = 'left' | 'right'
+export type { MixPanSetting } from '../audio/multiPartMix'
 
 /** Fullscreen multi-page navigation: discrete pages vs continuous scroll stack. */
 export type SheetFsPageMode = 'paging' | 'scroll'
@@ -88,7 +94,11 @@ export type PitchPipePrefs = {
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
-const MIX_PAN_KEY = 'singtags.partMixPan.v1'
+const MIX_PAN_KEY = 'singtags.partMixPan.v2'
+/** @deprecated string left/right map — migrated into v2 MixPanSetting objects. */
+const MIX_PAN_KEY_V1 = 'singtags.partMixPan.v1'
+/** Which learning parts are checked in the Custom mix tab. */
+const MIX_SELECTED_KEY = 'singtags.partMixSelected.v1'
 const BROWSE_WELCOME_KEY = 'singtags.browseWelcomeDismissed.v1'
 const SING_MODE_KEY = 'singtags.singMode.v1'
 const SHARE_FULLSCREEN_KEY = 'singtags.shareFullscreen.v1'
@@ -96,7 +106,9 @@ const SHARE_BARBERSHOP_TAGS_KEY = 'singtags.shareBarbershopTags.v1'
 /** Fullscreen multi-page: one-page pager vs continuous vertical scroll. */
 const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 /** Fullscreen sheet piano dock: white-key width percent. */
-const SHEET_PIANO_KEY_SCALE_KEY = 'singtags.sheetPianoKeyScale.v1'
+const SHEET_PIANO_KEY_SCALE_KEY = 'singtags.sheetPianoKeyScale.v2'
+/** @deprecated superseded by v2 after null→0 normalize bug wrote 25% as default. */
+const SHEET_PIANO_KEY_SCALE_KEY_V1 = 'singtags.sheetPianoKeyScale.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
@@ -353,6 +365,8 @@ function loadSheetFsPageMode(): SheetFsPageMode {
 
 function loadSheetPianoKeyScale(): number {
   try {
+    // Drop poisoned v1 values (unset → Number(null)===0 → clamped to 25%).
+    localStorage.removeItem(SHEET_PIANO_KEY_SCALE_KEY_V1)
     return normalizeSheetPianoKeyScale(localStorage.getItem(SHEET_PIANO_KEY_SCALE_KEY))
   } catch {
     return normalizeSheetPianoKeyScale(null)
@@ -383,7 +397,7 @@ function loadPartsMode(): LibraryAudioPartsMode {
   return 'all'
 }
 
-/** Read per-part left/right map from localStorage (solo or mix pan). */
+/** Read per-part left/right map from localStorage (solo channel). */
 function loadSideMap(key: string): Record<string, PartSide> {
   try {
     const raw = localStorage.getItem(key)
@@ -399,13 +413,45 @@ function loadSideMap(key: string): Record<string, PartSide> {
   }
 }
 
+/** Read Custom-mix pan map (v2 objects, with v1 string migration). */
+function loadMixPanMap(): Record<string, MixPanSetting> {
+  try {
+    const raw = localStorage.getItem(MIX_PAN_KEY) ?? localStorage.getItem(MIX_PAN_KEY_V1)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const out: Record<string, MixPanSetting> = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      out[k] = normalizeMixPanSetting(v)
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function loadMixSelectedMap(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(MIX_SELECTED_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const out: Record<string, boolean> = {}
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'boolean') out[k] = v
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Shared UI preferences: multi-part mix pan/solo, pitch pipe, browse welcome, library parts.
  */
 export const usePreferencesStore = defineStore('preferences', () => {
   const initialPipe = loadPitchPipePrefs()
   const partSoloInFile = ref<Record<string, PartSide>>(loadSideMap(SOLO_IN_FILE_KEY))
-  const partMixPan = ref<Record<string, PartSide>>(loadSideMap(MIX_PAN_KEY))
+  const partMixPan = ref<Record<string, MixPanSetting>>(loadMixPanMap())
+  const partMixSelected = ref<Record<string, boolean>>(loadMixSelectedMap())
   /** Which learning-track parts to include in the full-library audio pack. */
   const libraryAudioPartsMode = ref<LibraryAudioPartsMode>(loadPartsMode())
   const libraryAudioParts = ref<string[]>(
@@ -821,6 +867,19 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(MIX_PAN_KEY, JSON.stringify(v))
+        localStorage.removeItem(MIX_PAN_KEY_V1)
+      } catch {
+        /* ignore */
+      }
+    },
+    { deep: true, flush: 'sync' },
+  )
+
+  watch(
+    partMixSelected,
+    (v) => {
+      try {
+        localStorage.setItem(MIX_SELECTED_KEY, JSON.stringify(v))
       } catch {
         /* ignore */
       }
@@ -857,14 +916,29 @@ export const usePreferencesStore = defineStore('preferences', () => {
     partSoloInFile.value = { ...partSoloInFile.value, [part]: side }
   }
 
-  /** Mix pan side for a part in multi-part playback (`left` default). */
-  function getPartMixPan(part: string): PartSide {
-    return partMixPan.value[part] ?? 'left'
+  /** Custom-mix pan for a part (`Hard L` default). */
+  function getPartMixPan(part: string): MixPanSetting {
+    return partMixPan.value[part] ?? { mode: 'left', value: -1 }
   }
 
-  /** Set mix pan side for a part. Side effect: localStorage. */
-  function setPartMixPan(part: string, side: PartSide): void {
-    partMixPan.value = { ...partMixPan.value, [part]: side }
+  /** Set Custom-mix pan for a part. Side effect: localStorage. */
+  function setPartMixPan(part: string, setting: MixPanSetting | MixPanMode | PartSide): void {
+    partMixPan.value = { ...partMixPan.value, [part]: normalizeMixPanSetting(setting) }
+  }
+
+  /** Whether a learning part is checked in the Custom mix tab. */
+  function getPartMixSelected(part: string): boolean {
+    return partMixSelected.value[part] === true
+  }
+
+  /** Set Custom-mix checkbox for a part. Side effect: localStorage. */
+  function setPartMixSelected(part: string, on: boolean): void {
+    partMixSelected.value = { ...partMixSelected.value, [part]: on }
+  }
+
+  /** Learning parts currently checked for Custom mix (stable order preserved by caller). */
+  function selectedMixParts(available: readonly string[]): string[] {
+    return available.filter((p) => partMixSelected.value[p] === true)
   }
 
   /** Set pitch-pipe note range. Side effect: localStorage via pitch-pipe watcher. */
@@ -1065,6 +1139,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   return {
     partSoloInFile,
     partMixPan,
+    partMixSelected,
     browseWelcomeDismissed,
     applyDetuneGlobally,
     singMode,
@@ -1124,6 +1199,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPartSoloInFile,
     getPartMixPan,
     setPartMixPan,
+    getPartMixSelected,
+    setPartMixSelected,
+    selectedMixParts,
     setPitchPipeRange,
     setPitchPipeLayout,
     setPitchPipeShowOctave,

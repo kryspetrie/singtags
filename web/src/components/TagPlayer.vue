@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
  * Full learning-track player UI: part tabs, waveform, pitch/speed, solo/balance,
- * A–B loop, and optional custom multi-part hard-pan mix.
+ * A–B loop, and optional custom multi-part pan mix.
  */
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { TagAudioPlayer, type SoloMode } from '../audio/player'
 import {
   formatKeyShiftLabel,
@@ -15,8 +15,13 @@ import {
 import PitchControls from './PitchControls.vue'
 import { loadWaveformPeaks, peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
 import { formatAudioDecodeError } from '../audio/decodeLock'
-import { buildSoloMixObjectUrl, defaultMixPanForNextSelection } from '../audio/multiPartMix'
-import { buildUltraMixObjectUrl } from '../audio/partLeftReconstruct'
+import {
+  clampMixPanValue,
+  defaultMixPanForNextSelection,
+  mixPanPosition,
+  type MixPanMode,
+} from '../audio/multiPartMix'
+import { buildCustomMixObjectUrl } from '../audio/customMixBuild'
 import {
   hasKnownSoloSide,
   soloSideForPart,
@@ -131,8 +136,8 @@ const tick = ref(0)
 const waveLoading = ref(false)
 const err = ref<string | null>(null)
 const peaks = ref<number[]>([])
-/** Which learning parts are included in the combine mix. */
-const combineSelected = reactive<Record<string, boolean>>({})
+/** Which learning parts are included in the combine mix (persisted prefs). */
+const combineSelected = computed(() => prefs.partMixSelected)
 let loadAbort: AbortController | null = null
 let loadSeq = 0
 let mixObjectUrl: string | null = null
@@ -185,7 +190,9 @@ const available = computed(() => partIdList.value)
 /** Learning parts eligible for combine (exclude full mix). */
 const combineParts = computed(() => available.value.filter((p) => p !== 'mix'))
 
-const selectedCombineParts = computed(() => combineParts.value.filter((p) => combineSelected[p]))
+const selectedCombineParts = computed(() =>
+  combineParts.value.filter((p) => prefs.getPartMixSelected(p)),
+)
 
 /** Custom tab: need ≥2 learning tracks and part-predominant (or unknown) layout. */
 const showCustomTab = computed(
@@ -197,10 +204,6 @@ const ultraStemCombine = computed(() => {
   const ultra = props.audioLayoutSummary?.ultra_low
   return ultra === 'mono_solos' || ultra === 'mono_downmix'
 })
-
-function hardPanPosition(side: PartSide): number {
-  return side === 'left' ? -1 : 1
-}
 
 const partTabs = computed(() =>
   showCustomTab.value ? [...available.value, CUSTOM_PART] : available.value,
@@ -335,11 +338,18 @@ const combineSignature = computed(() =>
   selectedCombineParts.value
     .map((p) => {
       const soloIn = resolveSoloInFile(p)
-      const pan = prefs.partMixPan[p] ?? 'left'
-      return `${p}:${soloIn}:${pan}:${urlFor(p) ?? ''}`
+      const pan = prefs.getPartMixPan(p)
+      return `${p}:${soloIn}:${pan.mode}:${pan.value}:${urlFor(p) ?? ''}`
     })
     .join('|'),
 )
+
+function mixPanLabel(p: string): string {
+  const pos = mixPanPosition(prefs.getPartMixPan(p))
+  if (Math.abs(pos) < 0.02) return 'Center'
+  if (pos < 0) return `L +${Math.round(-pos * 100)}%`
+  return `R +${Math.round(pos * 100)}%`
+}
 
 function revokeMixUrl(): void {
   if (mixObjectUrl) {
@@ -367,10 +377,10 @@ function finishWaveIfCurrent(seq: number): void {
 
 function setCombineSelected(p: string, on: boolean): void {
   if (on) {
-    const already = combineParts.value.filter((x) => x !== p && combineSelected[x]).length
+    const already = combineParts.value.filter((x) => x !== p && prefs.getPartMixSelected(x)).length
     prefs.setPartMixPan(p, defaultMixPanForNextSelection(already))
   }
-  combineSelected[p] = on
+  prefs.setPartMixSelected(p, on)
 }
 
 function onCombineCheck(p: string, e: Event): void {
@@ -382,8 +392,21 @@ function setSoloInFile(p: string, side: PartSide): void {
   prefs.setPartSoloInFile(p, side)
 }
 
-function setMixPan(p: string, side: PartSide): void {
-  prefs.setPartMixPan(p, side)
+function setMixPanMode(p: string, mode: MixPanMode): void {
+  if (mode === 'custom') {
+    const cur = prefs.getPartMixPan(p)
+    prefs.setPartMixPan(p, {
+      mode: 'custom',
+      value: cur.mode === 'custom' ? cur.value : mixPanPosition(cur),
+    })
+    return
+  }
+  prefs.setPartMixPan(p, mode)
+}
+
+function onMixPanSlider(p: string, e: Event): void {
+  const el = e.target as HTMLInputElement
+  prefs.setPartMixPan(p, { mode: 'custom', value: clampMixPanValue(Number(el.value)) })
 }
 
 async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void> {
@@ -476,43 +499,26 @@ async function loadCurrent(opts?: { preservePlayback?: boolean }): Promise<void>
           if (!url) throw new Error(`Missing audio for ${partLabel(selected[0]!)}`)
           if (prevMix) URL.revokeObjectURL(prevMix)
         } else {
-          if (ultraStemCombine.value) {
-            const stems: Array<{ part: string; url: string; pan: number }> = []
-            for (const p of selected) {
-              const u = await ensurePartUrl(p)
-              if (!u) throw new Error(`Missing audio for ${partLabel(p)}`)
-              stems.push({
-                part: p,
-                url: u,
-                pan: hardPanPosition(prefs.getPartMixPan(p)),
-              })
-            }
-            const mix = await buildUltraMixObjectUrl(stems)
-            if (signal.aborted || seq !== loadSeq) {
-              URL.revokeObjectURL(mix.url)
-              return
-            }
-            mixObjectUrl = mix.url
-            url = mix.url
-          } else {
-            const inputs = []
-            for (const p of selected) {
-              const u = await ensurePartUrl(p)
-              if (!u) throw new Error(`Missing audio for ${partLabel(p)}`)
-              inputs.push({
-                url: u,
-                soloInFile: resolveSoloInFile(p),
-                pan: prefs.getPartMixPan(p),
-              })
-            }
-            const mix = await buildSoloMixObjectUrl(inputs)
-            if (signal.aborted || seq !== loadSeq) {
-              URL.revokeObjectURL(mix.url)
-              return
-            }
-            mixObjectUrl = mix.url
-            url = mix.url
+          const inputs = []
+          for (const p of selected) {
+            const u = await ensurePartUrl(p)
+            if (!u) throw new Error(`Missing audio for ${partLabel(p)}`)
+            inputs.push({
+              part: p,
+              url: u,
+              soloInFile: resolveSoloInFile(p),
+              pan: mixPanPosition(prefs.getPartMixPan(p)),
+            })
           }
+          const mix = await buildCustomMixObjectUrl(inputs, {
+            ultraStem: ultraStemCombine.value,
+          })
+          if (signal.aborted || seq !== loadSeq) {
+            URL.revokeObjectURL(mix.url)
+            return
+          }
+          mixObjectUrl = mix.url
+          url = mix.url
           if (prevMix) URL.revokeObjectURL(prevMix)
           tick.value++
         }
@@ -1120,14 +1126,12 @@ defineExpose({
     <div v-if="customMode && showCustomTab" class="combine">
       <p class="combine-hint">
         <template v-if="soloSideKnown">
-          Check two or more learning tracks, then pan each voice hard left or hard right. Solo channels
-          are taken from the analyzed part-predominant side. Voices sharing a side are attenuated so
-          left and right stay roughly balanced.
+          Check two or more learning tracks, then pan each voice (Hard L, Hard R, or Custom slider).
+          Solo channels are taken from the analyzed part-predominant side.
         </template>
         <template v-else>
           Check two or more learning tracks. Set which file channel holds the solo, then pan each voice
-          hard left or hard right. Voices sharing a side are attenuated so left and right stay roughly
-          balanced.
+          (Hard L, Hard R, or Custom slider).
         </template>
       </p>
       <ul class="combine-list">
@@ -1175,21 +1179,43 @@ defineExpose({
               <div class="ctrl-segment ctrl-segment--compact mini-seg" role="group" :aria-label="`${partLabel(p)} pan`">
                 <button
                   type="button"
-                  :aria-pressed="prefs.getPartMixPan(p) === 'left'"
+                  :aria-pressed="prefs.getPartMixPan(p).mode === 'left'"
                   :disabled="!combineSelected[p]"
-                  @click="setMixPan(p, 'left')"
+                  @click="setMixPanMode(p, 'left')"
                 >
                   Hard L
                 </button>
                 <button
                   type="button"
-                  :aria-pressed="prefs.getPartMixPan(p) === 'right'"
+                  :aria-pressed="prefs.getPartMixPan(p).mode === 'right'"
                   :disabled="!combineSelected[p]"
-                  @click="setMixPan(p, 'right')"
+                  @click="setMixPanMode(p, 'right')"
                 >
                   Hard R
                 </button>
+                <button
+                  type="button"
+                  :aria-pressed="prefs.getPartMixPan(p).mode === 'custom'"
+                  :disabled="!combineSelected[p]"
+                  @click="setMixPanMode(p, 'custom')"
+                >
+                  Custom
+                </button>
               </div>
+            </div>
+            <div v-if="prefs.getPartMixPan(p).mode === 'custom'" class="mini-row pan-slider-row">
+              <span class="mini-lbl">{{ mixPanLabel(p) }}</span>
+              <input
+                class="pan-slider"
+                type="range"
+                min="-1"
+                max="1"
+                step="0.01"
+                :value="prefs.getPartMixPan(p).value"
+                :disabled="!combineSelected[p]"
+                :aria-label="`${partLabel(p)} custom pan`"
+                @input="onMixPanSlider(p, $event)"
+              />
             </div>
           </div>
         </li>
@@ -1721,6 +1747,18 @@ defineExpose({
   min-width: 0;
   width: 100%;
   display: flex;
+}
+.pan-slider-row {
+  align-items: center;
+}
+.pan-slider {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  accent-color: var(--accent);
+}
+.pan-slider:disabled {
+  opacity: 0.45;
 }
 .muted {
   opacity: 0.45;

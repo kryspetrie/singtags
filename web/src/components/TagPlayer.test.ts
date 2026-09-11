@@ -232,6 +232,39 @@ describe('TagPlayer', () => {
     expect(w.find('.transport .toggle-btn').exists()).toBe(false)
     expect(w.find('.transport select[aria-label="Playback speed"]').exists()).toBe(true)
     expect(buildMix).not.toHaveBeenCalled()
+    expect(w.findAll('button').some((b) => b.text() === 'Custom' && b.attributes('aria-pressed') != null)).toBe(
+      true,
+    )
+    w.unmount()
+  })
+
+  it('shows a pan slider when Custom pan mode is selected', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const prefs = (await import('../stores/preferences')).usePreferencesStore()
+    const w = mount(TagPlayer, {
+      props: { parts: { lead: 'media/1/lead.m4a', bari: 'media/1/bari.m4a' } },
+      global: { plugins: [pinia] },
+    })
+    await flushPromises()
+    await w.findAll('.part-btn').find((b) => b.text() === 'Custom')!.trigger('click')
+    await flushPromises()
+    const checks = w.findAll('.combine-check input')
+    await checks[0]!.setValue(true)
+    await flushPromises()
+    expect(w.find('.pan-slider').exists()).toBe(false)
+    const customPanBtns = w
+      .findAll('.mini-row button')
+      .filter((b) => b.text() === 'Custom')
+    expect(customPanBtns.length).toBeGreaterThan(0)
+    await customPanBtns[0]!.trigger('click')
+    await flushPromises()
+    expect(prefs.getPartMixPan('lead').mode).toBe('custom')
+    const slider = w.find('.pan-slider')
+    expect(slider.exists()).toBe(true)
+    await slider.setValue(0.35)
+    await flushPromises()
+    expect(prefs.getPartMixPan('lead')).toEqual({ mode: 'custom', value: 0.35 })
     w.unmount()
   })
 
@@ -286,8 +319,8 @@ describe('TagPlayer', () => {
     await checks[1]!.setValue(true)
     await flushPromises()
     expect(buildMix).toHaveBeenCalled()
-    const inputs = buildMix.mock.calls.at(-1)![0] as Array<{ pan: string; soloInFile: string }>
-    expect(inputs.map((i) => i.pan)).toEqual(['left', 'right'])
+    const inputs = buildMix.mock.calls.at(-1)![0] as Array<{ pan: number; soloInFile: string }>
+    expect(inputs.map((i) => i.pan)).toEqual([-1, 1])
     expect(inputs.every((i) => i.soloInFile === 'left')).toBe(true)
     expect(mockState.load).toHaveBeenCalledWith('blob:mix', 'stereo', expect.objectContaining({ signal: expect.any(AbortSignal) }))
     expect(w.find('select[aria-label="Playback speed"]').element).toHaveProperty('value', '1')
@@ -396,11 +429,14 @@ describe('TagPlayer', () => {
     await flushPromises()
     const checks = w.findAll('.combine-check input')
     await checks[0]!.setValue(true)
-    expect(prefs.getPartMixPan('lead')).toBe('left')
+    expect(prefs.getPartMixPan('lead')).toEqual({ mode: 'left', value: -1 })
     await checks[1]!.setValue(true)
-    expect(prefs.getPartMixPan('bari')).toBe('right')
+    expect(prefs.getPartMixPan('bari')).toEqual({ mode: 'right', value: 1 })
     await checks[2]!.setValue(true)
-    expect(prefs.getPartMixPan('bass')).toBe('right')
+    expect(prefs.getPartMixPan('bass')).toEqual({ mode: 'right', value: 1 })
+    expect(prefs.getPartMixSelected('lead')).toBe(true)
+    expect(prefs.getPartMixSelected('bari')).toBe(true)
+    expect(prefs.getPartMixSelected('bass')).toBe(true)
     w.unmount()
   })
 
