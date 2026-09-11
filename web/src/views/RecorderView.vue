@@ -10,15 +10,14 @@ import { usePreferencesStore } from '../stores/preferences'
 import {
   defaultRecorderSessionName,
   filterRecorderSessions,
-  parseSessionLabels,
-  RECORDER_BITRATE_PRESETS,
   type RecorderSessionSort,
 } from '../types/recorder'
-import { openRecorderStream, recorderMimeChoices } from '../audio/recorderCapture'
+import { openRecorderStream } from '../audio/recorderCapture'
 import { setPendingQuickRecordStream, clearPendingQuickRecordStream } from '../audio/pendingQuickRecord'
-import { exportSessionsZip, RECORDER_DOWNLOAD_FORMAT_OPTIONS } from '../download/recorderExport'
-import type { UserDownloadFormat } from '../types/audio'
+import { exportSessionsZip, RECORDER_DOWNLOAD_FORMAT_OPTIONS, type RecorderDownloadFormat } from '../download/recorderExport'
 import { getStorageEstimate } from '../offline/storageEstimate'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+import RecorderSettingsModal from '../components/RecorderSettingsModal.vue'
 
 const store = useRecorderStore()
 const prefs = usePreferencesStore()
@@ -33,14 +32,15 @@ const creating = ref(false)
 const quickStarting = ref(false)
 const err = ref<string | null>(null)
 const msg = ref<string | null>(null)
-const exportFormat = ref<UserDownloadFormat>('mp3')
+const exportFormat = ref<RecorderDownloadFormat>('original')
 const exporting = ref(false)
 const originUsage = ref<{ usage: number; quota: number } | null>(null)
+const deleteConfirmOpen = ref(false)
+const settingsOpen = ref(false)
 
-const quickLabelsText = ref(prefs.quickRecordPrefs.autoLabels.join(', '))
+const quickLabels = ref<string[]>([...prefs.quickRecordPrefs.autoLabels])
 const quickNotesText = ref(prefs.quickRecordPrefs.autoNotes)
 const captureDraft = ref({ ...prefs.recorderCapturePrefs })
-const mimeChoices = computed(() => recorderMimeChoices())
 
 const filtered = computed(() =>
   filterRecorderSessions(store.sessions, {
@@ -81,11 +81,11 @@ function toggle(id: string): void {
 
 function persistQuickSettings(): void {
   prefs.setQuickRecordPrefs({
-    autoLabels: parseSessionLabels(quickLabelsText.value),
+    autoLabels: [...quickLabels.value],
     autoNotes: quickNotesText.value,
   })
   prefs.setRecorderCapturePrefs(captureDraft.value)
-  quickLabelsText.value = prefs.quickRecordPrefs.autoLabels.join(', ')
+  quickLabels.value = [...prefs.quickRecordPrefs.autoLabels]
   quickNotesText.value = prefs.quickRecordPrefs.autoNotes
   captureDraft.value = { ...prefs.recorderCapturePrefs }
 }
@@ -150,9 +150,13 @@ async function quickRecord(): Promise<void> {
   }
 }
 
-async function deleteSelected(): Promise<void> {
+function requestDeleteSelected(): void {
   if (!selectedSessions.value.length) return
-  if (!confirm(`Delete ${selectedSessions.value.length} session(s)? This cannot be undone.`)) return
+  deleteConfirmOpen.value = true
+}
+
+async function confirmDeleteSelected(): Promise<void> {
+  deleteConfirmOpen.value = false
   for (const s of selectedSessions.value) {
     await store.removeSession(s.id)
   }
@@ -177,7 +181,7 @@ async function exportSelected(): Promise<void> {
 onMounted(async () => {
   await store.refresh()
   originUsage.value = await getStorageEstimate()
-  quickLabelsText.value = prefs.quickRecordPrefs.autoLabels.join(', ')
+  quickLabels.value = [...prefs.quickRecordPrefs.autoLabels]
   quickNotesText.value = prefs.quickRecordPrefs.autoNotes
   captureDraft.value = { ...prefs.recorderCapturePrefs }
 })
@@ -186,7 +190,12 @@ onMounted(async () => {
 <template>
   <section class="recorder" aria-label="Audio Recorder">
     <header class="head">
-      <h1>Audio Recorder</h1>
+      <div class="head-row">
+        <h1>Audio Recorder</h1>
+        <button type="button" class="btn settings" @click="settingsOpen = true">
+          Recording settings
+        </button>
+      </div>
       <p class="intro">
         Quick Record starts a session and the mic immediately. Or tap New to open a session first.
       </p>
@@ -212,78 +221,6 @@ onMounted(async () => {
         {{ creating ? 'Opening…' : 'New' }}
       </button>
     </div>
-
-    <details class="quick-settings card">
-      <summary>Quick Record settings</summary>
-      <div class="quick-body">
-        <p class="muted tip">
-          Applied when you tap Quick Record. Capture format is also the default for New sessions.
-        </p>
-        <label class="fmt">
-          Auto labels
-          <input
-            v-model="quickLabelsText"
-            maxlength="200"
-            placeholder="comma-separated, e.g. lead, warmup"
-            @change="persistQuickSettings"
-          />
-        </label>
-        <label class="fmt">
-          Auto notes
-          <textarea
-            v-model="quickNotesText"
-            rows="2"
-            maxlength="2000"
-            placeholder="Optional notes for every Quick Record session"
-            @change="persistQuickSettings"
-          />
-        </label>
-        <div class="capture-grid">
-          <label class="fmt">
-            Processing
-            <select v-model="captureDraft.processing" @change="persistQuickSettings">
-              <option value="music">Music (raw)</option>
-              <option value="voice">Voice call</option>
-            </select>
-          </label>
-          <label class="fmt">
-            Format
-            <select v-model="captureDraft.mimeType" @change="persistQuickSettings">
-              <option
-                v-for="m in mimeChoices"
-                :key="m.value"
-                :value="m.value"
-                :disabled="!m.supported"
-              >
-                {{ m.label }}{{ m.supported ? '' : ' (unsupported)' }}
-              </option>
-            </select>
-          </label>
-          <label class="fmt">
-            Bitrate
-            <select v-model.number="captureDraft.bitRate" @change="persistQuickSettings">
-              <option v-for="b in RECORDER_BITRATE_PRESETS" :key="b" :value="b">
-                {{ Math.round(b / 1000) }} kbps
-              </option>
-            </select>
-          </label>
-          <label class="fmt">
-            Channels
-            <select
-              :value="captureDraft.channels"
-              @change="
-                captureDraft.channels =
-                  Number(($event.target as HTMLSelectElement).value) === 2 ? 2 : 1;
-                persistQuickSettings()
-              "
-            >
-              <option :value="1">Mono</option>
-              <option :value="2">Stereo</option>
-            </select>
-          </label>
-        </div>
-      </div>
-    </details>
 
     <div class="search-row">
       <input
@@ -323,6 +260,10 @@ onMounted(async () => {
 
     <div v-if="selectedSessions.length" class="bulk card">
       <p>{{ selectedSessions.length }} selected</p>
+      <p class="muted tip">
+        Original keeps the capture container when there are no edits; otherwise Edit take settings are
+        baked in. MP3 and M4A always re-encode.
+      </p>
       <label class="fmt">
         Export as
         <select v-model="exportFormat">
@@ -335,7 +276,7 @@ onMounted(async () => {
         <button type="button" class="go" :disabled="exporting" @click="exportSelected">
           {{ exporting ? 'Exporting…' : 'Export zip' }}
         </button>
-        <button type="button" class="go danger" @click="deleteSelected">Delete</button>
+        <button type="button" class="go danger" @click="requestDeleteSelected">Delete</button>
       </div>
     </div>
 
@@ -354,7 +295,8 @@ onMounted(async () => {
           <span class="meta">
             {{ s.takeIds.length }} take{{ s.takeIds.length === 1 ? '' : 's' }}
             <template v-if="s.labels.length"> - {{ s.labels.join(', ') }}</template>
-            <template v-if="s.linkedTag"> - {{ s.linkedTag.title }}</template>
+            <template v-if="s.linkedTag"> · Tag: {{ s.linkedTag.title }}</template>
+            <template v-else-if="s.linkedLibrary"> · Library: {{ s.linkedLibrary.title }}</template>
           </span>
         </RouterLink>
       </li>
@@ -363,6 +305,24 @@ onMounted(async () => {
       No sessions match these filters.
     </p>
     <p v-else-if="store.loaded" class="empty muted">No sessions yet — tap Quick Record or New.</p>
+
+    <ConfirmDialog
+      :open="deleteConfirmOpen"
+      title="Delete sessions?"
+      :message="`Delete ${selectedSessions.length} session(s)? This cannot be undone.`"
+      confirm-label="Delete"
+      @close="deleteConfirmOpen = false"
+      @confirm="confirmDeleteSelected"
+    />
+    <RecorderSettingsModal
+      v-model="captureDraft"
+      v-model:quick-labels="quickLabels"
+      v-model:quick-notes="quickNotesText"
+      :open="settingsOpen"
+      show-quick-defaults
+      @change="persistQuickSettings"
+      @close="settingsOpen = false"
+    />
   </section>
 </template>
 
@@ -370,14 +330,32 @@ onMounted(async () => {
 .recorder {
   display: grid;
   gap: 1rem;
-  padding: 1rem 1rem 2rem;
-  max-width: 40rem;
-  margin: 0 auto;
+  padding: 0.15rem 0 2rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.head-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
 }
 .head h1 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.45rem;
+}
+.btn.settings {
+  min-height: 40px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
 }
 .intro,
 .storage,
@@ -414,25 +392,6 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-}
-.quick-settings > summary {
-  cursor: pointer;
-  font-weight: 700;
-  font-family: var(--font-display);
-}
-.quick-body {
-  display: grid;
-  gap: 0.75rem;
-  padding-top: 0.65rem;
-}
-.capture-grid {
-  display: grid;
-  gap: 0.65rem;
-}
-@media (min-width: 560px) {
-  .capture-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 .filters {
   grid-template-columns: 1fr;

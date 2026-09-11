@@ -7,19 +7,27 @@ import {
   DEFAULT_RECORDER_CAPTURE,
   normalizeRecorderCapture,
   type RecorderCapturePrefs,
+  type RecorderLinkedLibrary,
   type RecorderLinkedTag,
   type RecorderSession,
   type RecorderTake,
 } from '../types/recorder'
+import {
+  isIdentityTakeEdits,
+  normalizeRecorderTakeEdits,
+  type RecorderTakeEdits,
+} from '../audio/takeEdits'
 import {
   appendRecorderTake,
   clearAllRecorderCropBackups,
   deleteRecorderCropBackup,
   deleteRecorderSession,
   deleteRecorderTake,
+  ensureRecorderOriginal,
   getAnyRecorderCropBackup,
   getRecorderBlob,
   getRecorderSession,
+  hasRecorderOriginalDiff,
   listRecorderSessions,
   listTakesForSession,
   newRecorderSessionId,
@@ -72,6 +80,7 @@ export const useRecorderStore = defineStore('recorder', () => {
     labels?: string[]
     capture?: RecorderCapturePrefs
     linkedTag?: RecorderLinkedTag | null
+    linkedLibrary?: RecorderLinkedLibrary | null
   }): Promise<RecorderSession> {
     const now = new Date().toISOString()
     const session: RecorderSession = {
@@ -80,6 +89,7 @@ export const useRecorderStore = defineStore('recorder', () => {
       notes: opts.notes?.trim() ?? '',
       labels: opts.labels ?? [],
       linkedTag: opts.linkedTag ?? null,
+      linkedLibrary: opts.linkedLibrary ?? null,
       createdAt: now,
       updatedAt: now,
       takeIds: [],
@@ -99,7 +109,9 @@ export const useRecorderStore = defineStore('recorder', () => {
 
   async function updateSession(
     id: string,
-    patch: Partial<Pick<RecorderSession, 'name' | 'notes' | 'labels' | 'linkedTag' | 'capture'>>,
+    patch: Partial<
+      Pick<RecorderSession, 'name' | 'notes' | 'labels' | 'linkedTag' | 'linkedLibrary' | 'capture'>
+    >,
   ): Promise<RecorderSession | null> {
     const cur = await getRecorderSession(id)
     if (!cur) return null
@@ -145,17 +157,20 @@ export const useRecorderStore = defineStore('recorder', () => {
     const data = await opts.blob.arrayBuffer()
     const takeId = newRecorderTakeId()
     const takeIndex = session.takeIds.length + 1
+    const now = new Date().toISOString()
     const take: RecorderTake = {
       id: takeId,
       sessionId: opts.sessionId,
       label: opts.label?.trim() || `Take ${takeIndex}`,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      recordedAt: now,
       durationSec: opts.durationSec,
       mime: opts.mime,
       sampleRate: opts.sampleRate ?? null,
       channels: opts.channels,
       bitRate: opts.bitRate,
       byteLength: data.byteLength,
+      edits: null,
     }
     try {
       await appendRecorderTake(opts.sessionId, take, { id: takeId, mime: opts.mime, data })
@@ -181,6 +196,29 @@ export const useRecorderStore = defineStore('recorder', () => {
       await putRecorderSession({ ...session, updatedAt: new Date().toISOString() })
     }
     await refresh()
+  }
+
+  async function updateTakeEdits(
+    takeId: string,
+    edits: RecorderTakeEdits | null,
+  ): Promise<RecorderTake | null> {
+    const { getRecorderTake } = await import('../offline/recorderDb')
+    const take = await getRecorderTake(takeId)
+    if (!take) return null
+    const blob = await getRecorderBlob(takeId)
+    if (!blob) return null
+    const normalized = edits == null ? null : normalizeRecorderTakeEdits(edits)
+    const next: RecorderTake = {
+      ...take,
+      edits: isIdentityTakeEdits(normalized) ? null : normalized,
+    }
+    await putRecorderTake(next, blob)
+    const session = await getRecorderSession(take.sessionId)
+    if (session) {
+      await putRecorderSession({ ...session, updatedAt: new Date().toISOString() })
+    }
+    await refresh()
+    return next
   }
 
   async function removeTake(takeId: string): Promise<void> {
@@ -232,6 +270,8 @@ export const useRecorderStore = defineStore('recorder', () => {
       channels: opts.channels,
       byteLength: opts.data.byteLength,
       bitRate: null,
+      // Keep original capture timestamp through edits.
+      recordedAt: take.recordedAt || take.createdAt,
     }
     try {
       await putRecorderTake(next, { id: take.id, mime: opts.mime, data: opts.data })
@@ -265,6 +305,31 @@ export const useRecorderStore = defineStore('recorder', () => {
     })
   }
 
+  async function takeIsModified(takeId: string): Promise<boolean> {
+    const { getRecorderTake } = await import('../offline/recorderDb')
+    const take = await getRecorderTake(takeId)
+    if (!take) return false
+    await ensureRecorderOriginal(take)
+    return hasRecorderOriginalDiff(takeId)
+  }
+
+  async function restoreOriginalTake(takeId: string): Promise<RecorderTake | null> {
+    const { getRecorderTake } = await import('../offline/recorderDb')
+    const take = await getRecorderTake(takeId)
+    if (!take) return null
+    const orig = await ensureRecorderOriginal(take)
+    if (!orig) return null
+    return replaceTakeAudio({
+      takeId,
+      data: orig.data,
+      mime: orig.mime,
+      durationSec: orig.durationSec,
+      sampleRate: orig.sampleRate,
+      channels: orig.channels,
+      keepUndo: false,
+    })
+  }
+
   async function takeObjectUrl(takeId: string): Promise<string | null> {
     const blob = await getRecorderBlob(takeId)
     if (!blob) return null
@@ -275,6 +340,28 @@ export const useRecorderStore = defineStore('recorder', () => {
     const blob = await getRecorderBlob(takeId)
     if (!blob) return null
     return { mime: blob.mime, data: new Uint8Array(blob.data) }
+  }
+
+  /** Immutable first-capture bytes (seeds from current if missing). */
+  async function takeOriginalBytes(takeId: string): Promise<{
+    mime: string
+    data: Uint8Array
+    durationSec: number
+    sampleRate: number | null
+    channels: 1 | 2
+  } | null> {
+    const { getRecorderTake, ensureRecorderOriginal } = await import('../offline/recorderDb')
+    const take = await getRecorderTake(takeId)
+    if (!take) return null
+    const orig = await ensureRecorderOriginal(take)
+    if (!orig) return null
+    return {
+      mime: orig.mime,
+      data: new Uint8Array(orig.data),
+      durationSec: orig.durationSec,
+      sampleRate: orig.sampleRate,
+      channels: orig.channels,
+    }
   }
 
   return {
@@ -291,10 +378,14 @@ export const useRecorderStore = defineStore('recorder', () => {
     loadTakes,
     addTake,
     renameTake,
+    updateTakeEdits,
     removeTake,
     replaceTakeAudio,
     undoLastCrop,
+    takeIsModified,
+    restoreOriginalTake,
     takeObjectUrl,
     takeBytes,
+    takeOriginalBytes,
   }
 })

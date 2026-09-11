@@ -217,9 +217,13 @@ describe('TagPlayer', () => {
     expect(w.text()).not.toContain('Start here')
     expect(w.text()).not.toContain('Full track')
     expect(w.find('[aria-label="Play"]').attributes('disabled')).toBeDefined()
-    expect(w.find('.advanced-playback > summary').text()).toBe('Advanced')
+    expect(w.find('.transport .more-btn').exists()).toBe(true)
+    expect(w.find('#tag-playback-more').exists()).toBe(false)
+    await w.find('.transport .more-btn').trigger('click')
+    await flushPromises()
+    expect(w.find('#tag-playback-more').exists()).toBe(true)
     expect(
-      w.findAll('.advanced-playback .adjust-row > .adjust-field').map((n) => {
+      w.findAll('#tag-playback-more .adjust-row > .adjust-field').map((n) => {
         if (n.classes().includes('loop-field')) return 'loop'
         if (n.classes().includes('pitch-field')) return 'pitch'
         if (n.classes().includes('solo-field')) return 'solo'
@@ -295,6 +299,8 @@ describe('TagPlayer', () => {
       props: { parts: { lead: 'media/1/lead.m4a' } },
       global: { plugins: [createPinia()] },
     })
+    await flushPromises()
+    await w.find('.transport .more-btn').trigger('click')
     await flushPromises()
     await w.findAll('.seg button').find((b) => b.text().includes('Left'))!.trigger('click')
     await flushPromises()
@@ -452,6 +458,8 @@ describe('TagPlayer', () => {
       global: { plugins: [createPinia()] },
     })
     await flushPromises()
+    await w.find('.transport .more-btn').trigger('click')
+    await flushPromises()
     const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
     const rightBtn = w.findAll('button').find((b) => b.text() === 'Right')
     expect(leftBtn?.attributes('disabled')).toBeUndefined()
@@ -470,6 +478,8 @@ describe('TagPlayer', () => {
       },
       global: { plugins: [createPinia()] },
     })
+    await flushPromises()
+    await w.find('.transport .more-btn').trigger('click')
     await flushPromises()
     const leftBtn = w.findAll('button').find((b) => b.text() === 'Left')
     expect(leftBtn?.attributes('disabled')).toBeDefined()

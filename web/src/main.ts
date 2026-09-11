@@ -6,7 +6,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faHeart as faHeartSolid } from '@fortawesome/free-solid-svg-icons'
+import { faHeart as faHeartSolid, faPen } from '@fortawesome/free-solid-svg-icons'
 import { faHeart as faHeartRegular } from '@fortawesome/free-regular-svg-icons'
 import App from './App.vue'
 import { router } from './router'
@@ -28,7 +28,7 @@ import { useOfflineLibraryStore } from './stores/offlineLibrary'
 applyUiScale(resolveInitialUiScale())
 
 // Register FontAwesome icons
-library.add(faHeartSolid, faHeartRegular)
+library.add(faHeartSolid, faHeartRegular, faPen)
 
 ensureFetchPatchInstalled()
 

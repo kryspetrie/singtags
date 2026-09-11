@@ -1,18 +1,17 @@
 <script setup lang="ts">
 /**
- * Single-take player for Labs Audio Recorder: waveform, A–B loop, pitch/speed,
- * solo/balance, and crop-to-selection (destructive replace with one-step undo).
+ * Playback-mode take player: TagPlayer-style transport + ⋮ (loop/pitch/speed).
+ * Record Stop/Pause/Cancel live under the session live waveform while capturing.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { TagAudioPlayer, type SoloMode } from '../audio/player'
-import {
-  clampPitchSemitones,
-  formatKeyShiftLabel,
-  MIN_PITCH_SEMITONES,
-  MAX_PITCH_SEMITONES,
-} from '../audio/pitchPlayer'
+import { TagAudioPlayer } from '../audio/player'
+import { clampPitchSemitones, formatRelativePitchLabel, MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES } from '../audio/pitchPlayer'
 import { peaksFromAudioBuffer, syntheticPeaks } from '../audio/waveform'
-import { cropTakeBytesToWav } from '../audio/cropAudioBuffer'
+import {
+  bytesForTakeListen,
+  compoundPlaybackTransform,
+  normalizeRecorderTakeEdits,
+} from '../audio/takeEdits'
 import { clampMarkA, clampMarkB, minLoopGapSec } from '../lib/waveformLayout'
 import { useRecorderStore } from '../stores/recorder'
 import type { RecorderTake } from '../types/recorder'
@@ -30,10 +29,11 @@ const SPEED_OPTIONS = [
 
 const props = defineProps<{
   take: RecorderTake
+  recording?: boolean
 }>()
 
 const emit = defineEmits<{
-  cropped: [take: RecorderTake]
+  record: []
 }>()
 
 const recorder = useRecorderStore()
@@ -44,12 +44,10 @@ const waveLoading = ref(false)
 const err = ref<string | null>(null)
 const pitch = ref(0)
 const speed = ref(1)
-const solo = ref<SoloMode>('stereo')
-const balance = ref(0)
 const loop = ref(false)
+const moreOpen = ref(false)
 const markA = ref(0)
 const markB = ref(0)
-const cropping = ref(false)
 const objectUrl = ref<string | null>(null)
 let loadSeq = 0
 let regionTimer: ReturnType<typeof setInterval> | null = null
@@ -66,39 +64,19 @@ const duration = computed(() => {
   void tick.value
   return player.duration
 })
-const monoSolo = computed(() => {
-  void tick.value
-  return player.effectivelyMono
-})
-const mixBaking = computed(() => {
-  void tick.value
-  return player.baking
-})
-const bakeError = computed(() => {
-  void tick.value
-  return player.bakeError
-})
-const pitchLabel = computed(() => formatKeyShiftLabel(null, pitch.value))
-const balanceLabel = computed(() => {
-  const b = balance.value
-  if (Math.abs(b) < 0.02) return 'Center'
-  if (b < 0) return `L +${Math.round(-b * 100)}%`
-  return `R +${Math.round(b * 100)}%`
-})
+const playbackReady = computed(() => !waveLoading.value && duration.value > 0 && !props.recording)
 
-const canCrop = computed(() => {
-  const d = duration.value
-  if (d <= 0 || waveLoading.value || cropping.value) return false
-  const gap = markB.value - markA.value
-  const min = minLoopGapSec(d)
-  if (gap < min) return false
-  // Not already full duration (within 20ms).
-  return markA.value > 0.02 || markB.value < d - 0.02
-})
+const pitchLabel = computed(() => formatRelativePitchLabel(pitch.value))
 
-const canUndoCrop = computed(
-  () => recorder.cropUndo?.takeId === props.take.id,
-)
+const savedEditsHint = computed(() => {
+  const e = normalizeRecorderTakeEdits(props.take.edits)
+  const bits: string[] = []
+  if (e.pitchSemitones) bits.push(`${e.pitchSemitones > 0 ? '+' : ''}${e.pitchSemitones} st`)
+  if (Math.abs(e.speed - 1) > 1e-6) bits.push(`${Math.round(e.speed * 100)}%`)
+  if (e.normalize) bits.push('normalize')
+  if (e.compress) bits.push(`${e.compress.mode} compress`)
+  return bits.length ? `Saved edits: ${bits.join(' · ')}` : null
+})
 
 function fmt(t: number): string {
   if (!Number.isFinite(t) || t < 0) return '0:00'
@@ -158,36 +136,51 @@ function onSeek(t: number): void {
   tick.value++
 }
 
-async function loadTake(): Promise<void> {
-  const seq = ++loadSeq
-  waveLoading.value = true
-  err.value = null
+function effectiveTransform() {
+  return compoundPlaybackTransform(props.take.edits, pitch.value, speed.value)
+}
+
+async function applyEffectiveTransform(): Promise<void> {
+  const t = effectiveTransform()
+  await player.setTransform(t.pitchSemitones, t.speed)
+  tick.value++
+}
+
+async function loadTakeAudio(url: string, seq: number): Promise<void> {
   if (objectUrl.value) {
     URL.revokeObjectURL(objectUrl.value)
     objectUrl.value = null
   }
+  objectUrl.value = url
+  await player.load(url, 'stereo')
+  if (seq !== loadSeq) {
+    URL.revokeObjectURL(url)
+    if (objectUrl.value === url) objectUrl.value = null
+    return
+  }
+  await applyEffectiveTransform()
+  player.setLoop(false)
+  const d = player.duration
+  syncLoopMarks(d)
+  const buf = player.getOriginalBuffer?.() ?? null
+  peaks.value = buf ? peaksFromAudioBuffer(buf, 800) : syntheticPeaks(800, props.take.id)
+}
+
+async function loadTake(): Promise<void> {
+  const seq = ++loadSeq
+  waveLoading.value = true
+  err.value = null
   try {
-    const url = await recorder.takeObjectUrl(props.take.id)
-    if (!url) throw new Error('Missing take audio')
-    if (seq !== loadSeq) {
-      URL.revokeObjectURL(url)
-      return
-    }
-    objectUrl.value = url
-    await player.load(url, 'stereo')
-    if (seq !== loadSeq) {
-      URL.revokeObjectURL(url)
-      if (objectUrl.value === url) objectUrl.value = null
-      return
-    }
-    await player.setTransform(pitch.value, speed.value)
-    await player.setSolo(solo.value)
-    await player.setBalance(balance.value)
-    player.setLoop(false)
-    const d = player.duration
-    syncLoopMarks(d)
-    const buf = player.getOriginalBuffer?.() ?? null
-    peaks.value = buf ? peaksFromAudioBuffer(buf, 800) : syntheticPeaks(800, props.take.id)
+    const bytes = await recorder.takeBytes(props.take.id)
+    if (!bytes) throw new Error('Missing take audio')
+    if (seq !== loadSeq) return
+    const listen = await bytesForTakeListen(bytes.data, props.take.edits)
+    if (seq !== loadSeq) return
+    const mime = listen.mime || bytes.mime
+    const copy = new Uint8Array(listen.data.byteLength)
+    copy.set(listen.data)
+    const url = URL.createObjectURL(new Blob([copy], { type: mime || 'application/octet-stream' }))
+    await loadTakeAudio(url, seq)
   } catch (e) {
     if (seq !== loadSeq) return
     err.value = e instanceof Error ? e.message : String(e)
@@ -228,75 +221,18 @@ function bumpPitch(delta: number): void {
   pitch.value = clampPitchSemitones(pitch.value + delta)
 }
 
-async function cropToSelection(): Promise<void> {
-  if (!canCrop.value) return
-  if (
-    !confirm(
-      'Replace this take with the selected region?\n\nOne undo is saved on this device until you crop again or delete the take.',
-    )
-  ) {
-    return
-  }
-  cropping.value = true
-  err.value = null
-  try {
-    const bytes = await recorder.takeBytes(props.take.id)
-    if (!bytes) throw new Error('Missing take audio')
-    const cropped = await cropTakeBytesToWav(bytes.data, markA.value, markB.value)
-    const copy = new Uint8Array(cropped.bytes.byteLength)
-    copy.set(cropped.bytes)
-    const next = await recorder.replaceTakeAudio({
-      takeId: props.take.id,
-      data: copy.buffer,
-      mime: 'audio/wav',
-      durationSec: cropped.durationSec,
-      sampleRate: cropped.sampleRate,
-      channels: cropped.channels === 2 ? 2 : 1,
-      keepUndo: true,
-    })
-    if (next) emit('cropped', next)
-    await loadTake()
-  } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    cropping.value = false
-  }
-}
-
-async function undoCrop(): Promise<void> {
-  if (!canUndoCrop.value) return
-  cropping.value = true
-  err.value = null
-  try {
-    const next = await recorder.undoLastCrop()
-    if (next) emit('cropped', next)
-    await loadTake()
-  } catch (e) {
-    err.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    cropping.value = false
-  }
-}
-
 watch(
-  () => props.take.id,
+  () => [props.take.id, props.take.edits, props.take.byteLength] as const,
   () => {
     pitch.value = 0
     speed.value = 1
-    solo.value = 'stereo'
-    balance.value = 0
     loop.value = false
+    moreOpen.value = false
     void loadTake()
   },
 )
 
-watch(pitch, (v) => void player.setTransform(v, speed.value).then(() => tick.value++))
-watch(speed, (v) => void player.setTransform(pitch.value, v).then(() => tick.value++))
-watch(solo, (v) => {
-  void player.setSolo(v).then(() => tick.value++)
-  if (v !== 'stereo') balance.value = 0
-})
-watch(balance, (v) => void player.setBalance(v).then(() => tick.value++))
+watch([pitch, speed], () => void applyEffectiveTransform())
 
 onMounted(() => {
   player.setUpdateListener(() => {
@@ -331,7 +267,7 @@ onUnmounted(() => {
         :duration="duration"
         :mark-a="markA"
         :mark-b="markB"
-        :interactive="!waveLoading && duration > 0"
+        :interactive="playbackReady"
         @seek="onSeek"
         @update:mark-a="onMarkA"
         @update:mark-b="onMarkB"
@@ -339,104 +275,133 @@ onUnmounted(() => {
       <span v-if="waveLoading" class="visually-hidden" role="status">Loading waveform…</span>
     </div>
 
-    <div class="transport" :class="{ muted: waveLoading || duration <= 0 }">
+    <div class="ctrl-transport transport" :class="{ muted: !playbackReady }">
+      <button
+        v-if="!recording"
+        type="button"
+        class="ctrl-transport-btn rec"
+        aria-label="Record"
+        @click="emit('record')"
+      >
+        ● Rec
+      </button>
       <button
         type="button"
-        class="btn primary"
+        class="ctrl-transport-btn ctrl-transport-btn--primary"
         :aria-label="paused ? 'Play' : 'Pause'"
-        :disabled="waveLoading || duration <= 0"
+        :disabled="!playbackReady"
         @click="togglePlay"
       >
         {{ paused ? '▶' : '⏸' }}
       </button>
-      <button type="button" class="btn" aria-label="Stop" :disabled="waveLoading" @click="stopPlayback">
+      <button
+        type="button"
+        class="ctrl-transport-btn"
+        aria-label="Stop — pause and go to start"
+        title="Stop and go to start"
+        :disabled="!playbackReady"
+        @click="stopPlayback"
+      >
         ■
       </button>
-      <button type="button" class="btn" aria-label="Back 1 second" :disabled="waveLoading" @click="nudge(-1)">
+      <button
+        type="button"
+        class="ctrl-transport-btn"
+        aria-label="Back 1 second"
+        :disabled="!playbackReady"
+        @click="nudge(-1)"
+      >
         −1s
       </button>
-      <button type="button" class="btn" aria-label="Forward 1 second" :disabled="waveLoading" @click="nudge(1)">
+      <button
+        type="button"
+        class="ctrl-transport-btn"
+        aria-label="Forward 1 second"
+        :disabled="!playbackReady"
+        @click="nudge(1)"
+      >
         +1s
       </button>
-      <select v-model.number="speed" aria-label="Playback speed" :disabled="waveLoading || mixBaking">
-        <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-      </select>
+      <button
+        type="button"
+        class="ctrl-transport-btn more-btn"
+        aria-label="Loop, pitch, and speed"
+        title="Loop, pitch, and speed"
+        :aria-expanded="moreOpen"
+        aria-controls="recorder-playback-more"
+        :disabled="!playbackReady"
+        @click="moreOpen = !moreOpen"
+      >
+        ⋮
+      </button>
       <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
     </div>
 
-    <p class="hint">
-      Drag brackets to set the play region. Crop replaces this take with the selection (one undo kept on device).
-    </p>
-
-    <div class="crop-row">
-      <button type="button" class="btn" :disabled="!canCrop" @click="cropToSelection">
-        {{ cropping ? 'Cropping…' : 'Crop to selection' }}
-      </button>
-      <button type="button" class="btn secondary" :disabled="!canUndoCrop || cropping" @click="undoCrop">
-        Undo crop
-      </button>
-    </div>
-
-    <details class="advanced">
-      <summary>Advanced</summary>
-      <div class="adv-grid">
-        <div class="field">
-          <span class="lbl">Loop</span>
-          <button type="button" class="btn" :aria-pressed="loop" @click="loop = !loop">
+    <div
+      v-if="moreOpen"
+      id="recorder-playback-more"
+      class="playback-adjust"
+      :class="{ muted: !playbackReady }"
+      role="group"
+      aria-label="Loop, pitch, and speed"
+    >
+      <div class="adjust-row">
+        <div class="ctrl-field loop-field">
+          <span class="ctrl-field-label">Loop</span>
+          <button
+            type="button"
+            class="ctrl-toggle"
+            :aria-pressed="loop"
+            :disabled="!playbackReady"
+            @click="loop = !loop"
+          >
             {{ loop ? 'On' : 'Off' }}
           </button>
         </div>
-        <div class="field">
-          <span class="lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
-          <div class="row">
+        <div class="ctrl-field pitch-field" role="group" aria-label="Pitch">
+          <span class="ctrl-field-label">Pitch <strong>{{ pitchLabel }}</strong></span>
+          <div class="pitch-btns">
             <button
               type="button"
-              class="btn"
-              :disabled="pitch <= MIN_PITCH_SEMITONES || mixBaking"
+              aria-label="Lower pitch one semitone"
+              :disabled="!playbackReady || pitch <= MIN_PITCH_SEMITONES"
               @click="bumpPitch(-1)"
             >
               −
             </button>
             <button
               type="button"
-              class="btn"
-              :disabled="pitch >= MAX_PITCH_SEMITONES || mixBaking"
+              aria-label="Raise pitch one semitone"
+              :disabled="!playbackReady || pitch >= MAX_PITCH_SEMITONES"
               @click="bumpPitch(1)"
             >
               +
             </button>
-            <button type="button" class="btn" :disabled="!pitch || mixBaking" @click="pitch = 0">Reset</button>
-          </div>
-        </div>
-        <div class="field" role="group" aria-label="Channel solo">
-          <span class="lbl">Solo</span>
-          <div class="seg">
-            <button type="button" :aria-pressed="solo === 'stereo'" :disabled="monoSolo" @click="solo = 'stereo'">
-              Stereo
-            </button>
-            <button type="button" :aria-pressed="solo === 'left'" :disabled="monoSolo" @click="solo = 'left'">
-              Left
-            </button>
-            <button type="button" :aria-pressed="solo === 'right'" :disabled="monoSolo" @click="solo = 'right'">
-              Right
+            <button type="button" :disabled="!playbackReady || !pitch" @click="pitch = 0">
+              Reset
             </button>
           </div>
         </div>
-        <label class="field">
-          <span class="lbl">Balance <strong>{{ balanceLabel }}</strong></span>
-          <input
-            v-model.number="balance"
-            type="range"
-            min="-1"
-            max="1"
-            step="0.01"
-            :disabled="solo !== 'stereo'"
-            aria-label="Stereo balance"
-          />
-        </label>
+        <div class="ctrl-field speed-field">
+          <span class="ctrl-field-label">Speed</span>
+          <select
+            class="speed-select"
+            v-model.number="speed"
+            aria-label="Playback speed"
+            :disabled="!playbackReady"
+          >
+            <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
       </div>
-      <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
-    </details>
+    </div>
+
+    <p class="hint ab-hint">
+      Drag the side brackets to set the play region.
+      <span v-if="savedEditsHint"> {{ savedEditsHint }} — temporary pitch/speed here stack on top for listening only.</span>
+    </p>
   </div>
 </template>
 
@@ -447,25 +412,109 @@ onUnmounted(() => {
   min-width: 0;
 }
 .wave-wrap {
+  position: relative;
   min-width: 0;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--surface);
 }
-.transport {
+.transport.ctrl-transport {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: clamp(0.2rem, 0.9vw, 0.4rem);
+  width: 100%;
+  min-width: 0;
 }
-.transport.muted,
-.field:has(:disabled) {
-  opacity: 0.7;
+.transport .ctrl-transport-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  width: auto;
+  padding: clamp(0.28rem, 1.1vw, 0.4rem) clamp(0.1rem, 0.7vw, 0.35rem);
+  font-size: clamp(0.78rem, 2.35vw, 0.95rem);
 }
-.btn {
-  min-height: 40px;
-  padding: 0.35rem 0.7rem;
+.transport .ctrl-transport-btn--primary {
+  font-size: clamp(0.9rem, 2.8vw, 1.1rem);
+}
+.ctrl-transport-btn.rec {
+  background: color-mix(in srgb, #b42318 14%, var(--surface));
+  border-color: color-mix(in srgb, #b42318 40%, var(--border));
+  color: #b42318;
+}
+.ctrl-transport-btn.rec.stop {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+.transport .time {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  margin: 0;
+  margin-left: auto;
+  align-self: center;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: clamp(0.75rem, 2.15vw, 0.9rem);
+  white-space: nowrap;
+}
+.more-btn {
+  flex: 0 0 auto !important;
+  width: 2.75rem !important;
+  max-width: 2.75rem !important;
+  font-size: 1.35rem !important;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.more-btn[aria-expanded='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.hint.ab-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.playback-adjust {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0.55rem 0.15rem 0.15rem;
+  border-top: 1px solid var(--border);
+}
+.adjust-row {
+  display: grid;
+  gap: 0.65rem 1rem;
+  align-items: end;
+}
+@media (min-width: 520px) {
+  .adjust-row {
+    grid-template-columns: minmax(5rem, 0.45fr) minmax(0, 1fr) minmax(6rem, 0.55fr);
+  }
+}
+.loop-field .ctrl-toggle {
+  width: 100%;
+  min-height: 44px;
+}
+.ctrl-field-label strong {
+  color: var(--text);
+  margin-left: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.pitch-btns {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.pitch-btns button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.35rem 0.45rem;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -474,98 +523,50 @@ onUnmounted(() => {
   cursor: pointer;
   color: inherit;
 }
-.btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.btn.secondary {
-  background: var(--surface);
-}
-.btn:disabled {
-  opacity: 0.5;
+.pitch-btns button:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
-.time {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-.hint {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.4;
-}
-.crop-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.advanced > summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.35rem 0;
-}
-.adv-grid {
-  display: grid;
-  gap: 0.75rem;
-  padding-top: 0.5rem;
-}
-.field {
-  display: grid;
-  gap: 0.35rem;
-}
-.lbl {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-.row,
-.seg {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.seg button {
-  flex: 1 1 auto;
-  min-height: 40px;
-  border: 1px solid var(--border);
+.speed-select {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.35rem 0.5rem;
   border-radius: 8px;
+  border: 1px solid var(--border);
   background: var(--bg);
   font: inherit;
   font-weight: 600;
-  cursor: pointer;
+  font-size: 16px;
+  color: inherit;
 }
-.seg button[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+.speed-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.muted {
+  opacity: 0.55;
+  pointer-events: none;
 }
 .error {
   margin: 0;
   color: var(--danger);
 }
-.warn {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
 .visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-select {
-  font: inherit;
-  min-height: 40px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 0.25rem 0.5rem;
-}
-input[type='range'] {
-  width: 100%;
-  accent-color: var(--accent);
+@media (min-width: 720px) {
+  .transport .time {
+    min-width: 6.25rem;
+    margin-left: 0.25rem;
+  }
 }
 </style>

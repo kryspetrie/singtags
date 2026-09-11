@@ -10,9 +10,12 @@ describe('recorderExport', () => {
     vi.restoreAllMocks()
   })
 
-  it('lists honest MP3 / M4A options only', () => {
-    expect(RECORDER_DOWNLOAD_FORMAT_OPTIONS.map((o) => o.value)).toEqual(['mp3', 'm4a'])
-    expect(RECORDER_DOWNLOAD_FORMAT_OPTIONS.some((o) => /original/i.test(o.label))).toBe(false)
+  it('lists original plus re-encode options', () => {
+    expect(RECORDER_DOWNLOAD_FORMAT_OPTIONS.map((o) => o.value)).toEqual([
+      'original',
+      'mp3',
+      'm4a',
+    ])
   })
 
   it('always re-encodes (never catalog original passthrough)', async () => {

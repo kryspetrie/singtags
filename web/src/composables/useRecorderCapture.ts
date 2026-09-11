@@ -1,17 +1,20 @@
 /**
  * Session-page recording transport: MediaRecorder lifecycle, level meter, leave guards.
  */
-import { computed, onUnmounted, ref, type Ref } from 'vue'
+import { computed, onUnmounted, ref, shallowRef, type Ref } from 'vue'
 import type { RecorderCapturePrefs } from '../types/recorder'
 import {
   channelsFromStream,
-  createInputLevelMeter,
+  createLiveInputMeter,
   listAudioInputDevices,
   openRecorderStream,
   pickSupportedRecorderMime,
   startRecorderCapture,
   type ActiveRecording,
+  type LiveInputMeter,
 } from '../audio/recorderCapture'
+
+export type LeaveRecordingDecision = 'save' | 'discard' | 'stay'
 
 export type RecorderCaptureCallbacks = {
   capture: Ref<RecorderCapturePrefs>
@@ -25,21 +28,23 @@ export type RecorderCaptureCallbacks = {
   }) => Promise<void>
   onError: (message: string) => void
   onDevices: (devices: MediaDeviceInfo[]) => void
+  /** App modal: discard in-progress recording? */
+  requestCancelConfirm: () => Promise<boolean>
+  /** App modal: save / discard / stay while leaving. */
+  requestLeaveDecision: () => Promise<LeaveRecordingDecision>
 }
 
 export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   const recording = ref(false)
   const paused = ref(false)
   const elapsed = ref(0)
-  const inputLevel = ref(0)
+  const liveMeter = shallowRef<LiveInputMeter | null>(null)
   const starting = ref(false)
   /** Set true after intentional leave so unmount does not double-cancel. */
   const leaveHandled = ref(false)
 
   let active: ActiveRecording | null = null
   let elapsedTimer: ReturnType<typeof setInterval> | null = null
-  let levelMeter: ReturnType<typeof createInputLevelMeter> | null = null
-  let levelRaf = 0
 
   const canPause = computed(() => {
     if (!recording.value || !active) return false
@@ -57,24 +62,13 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   }
 
   function stopLevelMeter(): void {
-    if (levelRaf) {
-      cancelAnimationFrame(levelRaf)
-      levelRaf = 0
-    }
-    levelMeter?.dispose()
-    levelMeter = null
-    inputLevel.value = 0
+    liveMeter.value?.dispose()
+    liveMeter.value = null
   }
 
   function startLevelMeter(stream: MediaStream): void {
     stopLevelMeter()
-    levelMeter = createInputLevelMeter(stream)
-    const tick = () => {
-      if (!levelMeter) return
-      inputLevel.value = levelMeter.getLevel()
-      levelRaf = requestAnimationFrame(tick)
-    }
-    levelRaf = requestAnimationFrame(tick)
+    liveMeter.value = createLiveInputMeter(stream)
   }
 
   async function refreshDevices(): Promise<void> {
@@ -162,9 +156,9 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     }
   }
 
-  function onCancelClick(): void {
+  async function onCancelClick(): Promise<void> {
     if (!recording.value) return
-    if (!confirm('Discard this recording? It will not be saved.')) return
+    if (!(await cb.requestCancelConfirm())) return
     cancelRecording()
   }
 
@@ -179,16 +173,13 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
 
   async function confirmLeaveWhileRecording(): Promise<boolean> {
     if (!recording.value) return true
-    const stopAndSave = confirm(
-      'Recording in progress.\n\nOK = Stop and save, then leave.\nCancel = discard or stay.',
-    )
-    if (stopAndSave) {
+    const decision = await cb.requestLeaveDecision()
+    if (decision === 'save') {
       await stopRecording()
       leaveHandled.value = true
       return true
     }
-    const discard = confirm('Discard the in-progress recording and leave?')
-    if (discard) {
+    if (decision === 'discard') {
       cancelRecording()
       leaveHandled.value = true
       return true
@@ -206,7 +197,6 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     leaveHandled.value = true
   }
 
-  /** Call from view onUnmounted. */
   function dispose(): void {
     stopLevelMeter()
     if (!leaveHandled.value) cancelRecording()
@@ -220,7 +210,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     recording,
     paused,
     elapsed,
-    inputLevel,
+    liveMeter,
     canPause,
     leaveHandled,
     startRecording,

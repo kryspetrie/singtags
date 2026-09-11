@@ -6,7 +6,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { TagAudioPlayer, type SoloMode } from '../audio/player'
 import {
-  formatKeyShiftLabel,
+  formatRelativePitchLabel,
   clampPitchSemitones,
   clampPitchSemitonesFractional,
   MIN_PITCH_SEMITONES,
@@ -129,6 +129,7 @@ const speed = ref(DEFAULT_PLAYBACK_SPEED)
 /** -1 left … 0 center … +1 right */
 const balance = ref(0)
 const loop = ref(false)
+const moreOpen = ref(false)
 const markA = ref(0)
 const markB = ref(0)
 const tick = ref(0)
@@ -321,7 +322,7 @@ const balanceLabel = computed(() => {
   return `R +${Math.round(b * 100)}%`
 })
 
-const pitchLabel = computed(() => formatKeyShiftLabel(props.songKey, pitch.value))
+const pitchLabel = computed(() => formatRelativePitchLabel(pitch.value))
 
 const bakeError = computed(() => {
   void tick.value
@@ -731,6 +732,7 @@ onMounted(() => {
 
 async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Promise<void> {
   fullscreen.value = on
+  if (on) moreOpen.value = false
   setSessionBusy('tracks-fullscreen', on)
   if (on) {
     setShellInert(true)
@@ -1306,112 +1308,126 @@ defineExpose({
             {{ opt.label }}
           </option>
         </select>
+        <button
+          v-if="!fullscreen"
+          type="button"
+          class="ctrl-transport-btn more-btn"
+          aria-label="Loop, pitch, solo, and balance"
+          title="Loop, pitch, solo, and balance"
+          :aria-expanded="moreOpen"
+          aria-controls="tag-playback-more"
+          @click="moreOpen = !moreOpen"
+        >
+          ⋮
+        </button>
         <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
       </div>
       <p v-if="!fullscreen" class="hint ab-hint">
         Drag the side brackets to set the play region. Playback starts at the left bracket and stops at
-        the right; turn on Loop in Advanced to repeat that region.
+        the right.
       </p>
 
-      <!-- Normal tag page: keep Advanced collapsed; fullscreen keeps controls flat. -->
-      <div v-if="!fullscreen" class="advanced-bar">
-        <details class="advanced-playback" :class="{ muted: !playbackReady }">
-          <summary>Advanced</summary>
-          <div class="playback-adjust">
-            <div class="adjust-row">
-              <div class="ctrl-field adjust-field loop-field">
-                <span class="ctrl-field-label lbl">Loop</span>
-                <button
-                  type="button"
-                  class="ctrl-toggle toggle-btn"
-                  :aria-pressed="loop"
-                  :disabled="!playbackReady"
-                  @click="loop = !loop"
-                >
-                  {{ loop ? 'On' : 'Off' }}
-                </button>
-              </div>
-              <div class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
-                <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
-                <div class="pitch-btns">
-                  <button
-                    type="button"
-                    aria-label="Lower pitch one semitone"
-                    :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
-                    @click="bumpPitch(-1)"
-                  >
-                    −
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Raise pitch one semitone"
-                    :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
-                    @click="bumpPitch(1)"
-                  >
-                    +
-                  </button>
-                  <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">
-                    Reset
-                  </button>
-                </div>
-              </div>
-              <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
-                <span class="ctrl-field-label lbl">Solo</span>
-                <div class="ctrl-segment seg">
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'stereo'"
-                    :class="{ on: solo === 'stereo' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'stereo'"
-                  >
-                    Stereo
-                  </button>
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'left'"
-                    :class="{ on: solo === 'left' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'left'"
-                  >
-                    Left
-                  </button>
-                  <button
-                    type="button"
-                    :aria-pressed="solo === 'right'"
-                    :class="{ on: solo === 'right' }"
-                    :disabled="!playbackReady || monoSolo"
-                    :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
-                    @click="solo = 'right'"
-                  >
-                    Right
-                  </button>
-                </div>
-              </div>
-              <label class="ctrl-field adjust-field balance-field">
-                <span class="ctrl-field-label lbl">Balance <strong>{{ balanceLabel }}</strong></span>
-                <input
-                  v-model.number="balance"
-                  type="range"
-                  min="-1"
-                  max="1"
-                  step="0.01"
-                  :disabled="!playbackReady || solo !== 'stereo'"
-                  aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
-                />
-              </label>
-            </div>
-            <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
-            <p v-if="monoSolo" class="warn" role="status">
-              This track is mono (or the same on both sides) — channel solo is unavailable.
-            </p>
+      <!-- Normal tag page: ⋮ expands loop/pitch/solo/balance; fullscreen keeps controls flat. -->
+      <div
+        v-if="!fullscreen && moreOpen"
+        id="tag-playback-more"
+        class="playback-adjust"
+        :class="{ muted: !playbackReady }"
+        role="group"
+        aria-label="Loop, pitch, solo, and balance"
+      >
+        <div class="adjust-row">
+          <div class="ctrl-field adjust-field loop-field">
+            <span class="ctrl-field-label lbl">Loop</span>
+            <button
+              type="button"
+              class="ctrl-toggle toggle-btn"
+              :aria-pressed="loop"
+              :disabled="!playbackReady"
+              @click="loop = !loop"
+            >
+              {{ loop ? 'On' : 'Off' }}
+            </button>
           </div>
-        </details>
+          <div class="ctrl-field adjust-field pitch-field" role="group" aria-label="Pitch">
+            <span class="ctrl-field-label lbl">Pitch <strong>{{ pitchLabel }}</strong></span>
+            <div class="pitch-btns">
+              <button
+                type="button"
+                aria-label="Lower pitch one semitone"
+                :disabled="!playbackReady || mixBaking || pitch <= MIN_PITCH_SEMITONES"
+                @click="bumpPitch(-1)"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                aria-label="Raise pitch one semitone"
+                :disabled="!playbackReady || mixBaking || pitch >= MAX_PITCH_SEMITONES"
+                @click="bumpPitch(1)"
+              >
+                +
+              </button>
+              <button type="button" :disabled="!playbackReady || mixBaking || !pitch" @click="pitch = 0">
+                Reset
+              </button>
+            </div>
+          </div>
+          <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
+            <span class="ctrl-field-label lbl">Solo</span>
+            <div class="ctrl-segment seg">
+              <button
+                type="button"
+                :aria-pressed="solo === 'stereo'"
+                :class="{ on: solo === 'stereo' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'stereo'"
+              >
+                Stereo
+              </button>
+              <button
+                type="button"
+                :aria-pressed="solo === 'left'"
+                :class="{ on: solo === 'left' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'left'"
+              >
+                Left
+              </button>
+              <button
+                type="button"
+                :aria-pressed="solo === 'right'"
+                :class="{ on: solo === 'right' }"
+                :disabled="!playbackReady || monoSolo"
+                :title="monoSolo ? 'Track is mono — solo unavailable' : undefined"
+                @click="solo = 'right'"
+              >
+                Right
+              </button>
+            </div>
+          </div>
+          <label class="ctrl-field adjust-field balance-field">
+            <span class="ctrl-field-label lbl">Balance <strong>{{ balanceLabel }}</strong></span>
+            <input
+              v-model.number="balance"
+              type="range"
+              min="-1"
+              max="1"
+              step="0.01"
+              :disabled="!playbackReady || solo !== 'stereo'"
+              aria-label="Stereo balance — ducks one side, boosts the other when headroom allows"
+            />
+          </label>
+        </div>
+        <p v-if="bakeError" class="warn" role="alert">{{ bakeError }}</p>
+        <p v-if="monoSolo" class="warn" role="status">
+          This track is mono (or the same on both sides) — channel solo is unavailable.
+        </p>
       </div>
 
-      <div v-else class="playback-adjust" :class="{ muted: !playbackReady }">
+      <div v-else-if="fullscreen" class="playback-adjust" :class="{ muted: !playbackReady }">
         <div class="adjust-row">
           <div class="ctrl-field adjust-field loop-field">
             <span class="ctrl-field-label lbl">Loop</span>
@@ -1835,51 +1851,28 @@ defineExpose({
   font-size: 0.85rem;
   color: var(--muted);
 }
-.advanced-bar {
-  width: 100%;
-  min-width: 0;
+.more-btn {
+  flex: 0 0 auto !important;
+  width: 2.75rem !important;
+  max-width: 2.75rem !important;
+  font-size: 1.35rem !important;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
-.advanced-playback {
-  width: 100%;
-  margin: 0;
-  min-width: 0;
-}
-.advanced-playback > summary {
-  cursor: pointer;
-  user-select: none;
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--muted);
-  padding: 0.35rem 0;
-  list-style: none;
-}
-.advanced-playback > summary::-webkit-details-marker {
-  display: none;
-}
-.advanced-playback > summary::before {
-  content: '▸';
-  display: inline-block;
-  margin-right: 0.45rem;
-  transition: transform 0.15s ease;
-  font-size: 0.85em;
-}
-.advanced-playback[open] > summary::before {
-  transform: rotate(90deg);
-}
-.advanced-playback > summary:hover {
-  color: var(--accent-hover);
-}
-.advanced-playback[open] > summary {
-  margin-bottom: 0.65rem;
+.more-btn[aria-expanded='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .playback-adjust {
   width: 100%;
   min-width: 0;
   margin: 0;
+  padding: 0.55rem 0.15rem 0.15rem;
+  border-top: 1px solid var(--border);
 }
 
-/* Narrow+: Loop + Pitch share a row; Solo / Balance stay full-width below. */
-@media (min-width: 420px) {
+/* Loop + Pitch share a row only when there’s room; Solo / Balance stay full-width. */
+@media (min-width: 520px) {
   .adjust-row {
     grid-template-columns: minmax(5.5rem, 0.55fr) minmax(0, 1fr);
   }
@@ -1889,7 +1882,8 @@ defineExpose({
   }
 }
 
-@media (min-width: 720px) {
+/* Four-up only when Solo (Stereo/L/R) and Pitch (−/+/Reset) keep comfortable room. */
+@media (min-width: 960px) {
   .player {
     gap: 0.85rem;
   }
@@ -2075,7 +2069,7 @@ defineExpose({
 }
 /*
  * Fullscreen has Loop / Solo / Balance only (Pitch lives in chrome).
- * Do not reuse the Advanced 4-column (Loop|Pitch|Solo|Balance) grid — it
+ * Do not reuse the page ⋮ 4-column (Loop|Pitch|Solo|Balance) grid — it
  * squishes these three before wrapping. Keep Loop+Solo paired on one row
  * until the viewport can fit all three with comfortable minimums.
  */

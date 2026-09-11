@@ -245,6 +245,18 @@ export function formatKeyShiftLabel(key: string | null | undefined, shift: numbe
 }
 
 /**
+ * Relative pitch shift for recorder / keyless playback (no song key).
+ * Shown after a “Pitch” field label: "Original", "+1 semitone", "−2 semitones".
+ */
+export function formatRelativePitchLabel(shift: number): string {
+  const n = Math.round(shift)
+  if (!n) return 'Original'
+  const unit = Math.abs(n) === 1 ? 'semitone' : 'semitones'
+  const adj = n > 0 ? `+${n}` : String(n)
+  return `${adj} ${unit}`
+}
+
+/**
  * Widest label {@link formatKeyShiftLabel} produces for normal catalog keys (± one octave).
  * Used to size pitch controls so the chip doesn’t resize or ellipsize as the shift changes.
  */

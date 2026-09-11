@@ -103,6 +103,13 @@ export const router = createRouter({
       meta: { requiresAudioRecorder: true },
     },
     {
+      path: '/recorder/:id/take/:takeId/edit',
+      name: 'recorder-take-edit',
+      component: () => import('../views/RecorderTakeEditView.vue'),
+      props: true,
+      meta: { requiresAudioRecorder: true },
+    },
+    {
       path: '/tx',
       name: 'tx',
       component: () => import('../views/OpticalTransferView.vue'),

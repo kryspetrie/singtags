@@ -1,10 +1,20 @@
 /**
  * Labs Audio Recorder: sessions with multi-take blobs stored on-device.
  */
+import {
+  normalizeRecorderTakeEdits,
+  type RecorderTakeEdits,
+} from '../audio/takeEdits'
 
 /** Optional link from a recording session to a catalog SingTag. */
 export type RecorderLinkedTag = {
   tagId: number
+  title: string
+}
+
+/** Optional link from a recording session to a My Library song. */
+export type RecorderLinkedLibrary = {
+  entryId: string
   title: string
 }
 
@@ -72,6 +82,8 @@ export type RecorderSession = {
   /** User labels (“custom tags”), not catalog SingTags. */
   labels: string[]
   linkedTag: RecorderLinkedTag | null
+  /** Link to a My Library entry (mutually exclusive with linkedTag in the UI). */
+  linkedLibrary: RecorderLinkedLibrary | null
   createdAt: string
   updatedAt: string
   takeIds: string[]
@@ -96,13 +108,24 @@ export type RecorderTake = {
   id: string
   sessionId: string
   label: string
+  /** Row create time (ISO). */
   createdAt: string
+  /**
+   * Wall-clock time this take was captured (ISO).
+   * Set once at record time; preserved across crop / normalize / compress.
+   */
+  recordedAt: string
   durationSec: number
   mime: string
   sampleRate: number | null
   channels: RecorderChannels
   bitRate: number | null
   byteLength: number
+  /**
+   * Non-destructive edit recipe (pitch/speed/normalize/compress).
+   * Applied on playback and baked on export; crop changes the blob.
+   */
+  edits: RecorderTakeEdits | null
 }
 
 /** Binary payload for a take (same id as take). */
@@ -132,6 +155,18 @@ export function normalizeRecorderCapture(raw: unknown): RecorderCapturePrefs {
 export function normalizeRecorderSession(raw: RecorderSession): RecorderSession {
   const name = String(raw.name || '').trim() || 'Untitled session'
   const notes = typeof (raw as { notes?: unknown }).notes === 'string' ? (raw as { notes: string }).notes : ''
+  const libRaw = (raw as { linkedLibrary?: unknown }).linkedLibrary
+  let linkedLibrary: RecorderLinkedLibrary | null = null
+  if (libRaw && typeof libRaw === 'object') {
+    const o = libRaw as Record<string, unknown>
+    const entryId = typeof o.entryId === 'string' ? o.entryId.trim() : ''
+    if (entryId) {
+      linkedLibrary = {
+        entryId,
+        title: typeof o.title === 'string' && o.title.trim() ? o.title.trim() : 'Library song',
+      }
+    }
+  }
   return {
     id: String(raw.id),
     name,
@@ -148,6 +183,7 @@ export function normalizeRecorderSession(raw: RecorderSession): RecorderSession 
             title: String(raw.linkedTag.title || `Tag ${raw.linkedTag.tagId}`),
           }
         : null,
+    linkedLibrary,
     createdAt: String(raw.createdAt || new Date().toISOString()),
     updatedAt: String(raw.updatedAt || raw.createdAt || new Date().toISOString()),
     takeIds: Array.isArray(raw.takeIds) ? raw.takeIds.filter((id) => typeof id === 'string') : [],
@@ -156,11 +192,27 @@ export function normalizeRecorderSession(raw: RecorderSession): RecorderSession 
 }
 
 export function normalizeRecorderTake(raw: RecorderTake): RecorderTake {
+  const createdAt = String(raw.createdAt || new Date().toISOString())
+  const recordedAt = String(
+    (raw as { recordedAt?: unknown }).recordedAt || createdAt || new Date().toISOString(),
+  )
+  const editsRaw = (raw as { edits?: unknown }).edits
+  const edits =
+    editsRaw == null
+      ? null
+      : normalizeRecorderTakeEdits(editsRaw)
+  const identity =
+    edits &&
+    edits.pitchSemitones === 0 &&
+    edits.speed === 1 &&
+    !edits.normalize &&
+    !edits.compress
   return {
     id: String(raw.id),
     sessionId: String(raw.sessionId),
     label: String(raw.label || 'Take'),
-    createdAt: String(raw.createdAt || new Date().toISOString()),
+    createdAt,
+    recordedAt,
     durationSec: Number.isFinite(raw.durationSec) ? Math.max(0, raw.durationSec) : 0,
     mime: String(raw.mime || 'application/octet-stream'),
     sampleRate:
@@ -168,6 +220,7 @@ export function normalizeRecorderTake(raw: RecorderTake): RecorderTake {
     channels: raw.channels === 2 ? 2 : 1,
     bitRate: typeof raw.bitRate === 'number' && Number.isFinite(raw.bitRate) ? raw.bitRate : null,
     byteLength: Number.isFinite(raw.byteLength) ? Math.max(0, Math.trunc(raw.byteLength)) : 0,
+    edits: identity ? null : edits,
   }
 }
 
@@ -230,7 +283,7 @@ export function filterRecorderSessions(
 
   let out = sessions.filter((s) => {
     if (needle) {
-      const hay = `${s.name}\n${s.notes}\n${s.labels.join('\n')}`.toLowerCase()
+      const hay = `${s.name}\n${s.notes}\n${s.labels.join('\n')}\n${s.linkedTag?.title ?? ''}\n${s.linkedLibrary?.title ?? ''}`.toLowerCase()
       if (!hay.includes(needle)) return false
     }
     if (from || to) {

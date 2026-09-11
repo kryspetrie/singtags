@@ -25,6 +25,7 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
 import { localLibraryKeyLabel } from '../types/localLibrary'
 import { fullscreenQuery } from '../lib/fullscreenQuery'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const props = defineProps<{ id: string }>()
 const route = useRoute()
@@ -328,6 +329,8 @@ function togglePick(id: string): void {
   pickSelected.value = next
 }
 
+const deletePlaylistOpen = ref(false)
+
 async function confirmAdd(): Promise<void> {
   if (!playlist.value || !pickSelected.value.size) return
   await playlists.addEntries(playlist.value.id, [...pickSelected.value])
@@ -335,13 +338,18 @@ async function confirmAdd(): Promise<void> {
   pickerOpen.value = false
 }
 
-async function destroy(): Promise<void> {
+function requestDestroy(): void {
   if (!playlist.value) return
   if (isDraft.value) {
     cancelDraft()
     return
   }
-  if (!confirm(`Delete set list “${playlist.value.name}”? Songs stay in your library.`)) return
+  deletePlaylistOpen.value = true
+}
+
+async function confirmDestroy(): Promise<void> {
+  deletePlaylistOpen.value = false
+  if (!playlist.value) return
   const id = playlist.value.id
   await playlists.deletePlaylist(id)
   void router.push({ path: '/library', query: { tab: 'playlists' } })
@@ -404,7 +412,7 @@ async function destroy(): Promise<void> {
             v-if="!isDraft"
             type="button"
             class="btn btn-ghost danger"
-            @click="destroy"
+            @click="requestDestroy"
           >
             Delete set list
           </button>
@@ -656,6 +664,19 @@ async function destroy(): Promise<void> {
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      :open="deletePlaylistOpen"
+      title="Delete set list?"
+      :message="
+        playlist
+          ? `Delete set list “${playlist.name}”? Songs stay in your library.`
+          : 'Delete this set list? Songs stay in your library.'
+      "
+      confirm-label="Delete"
+      @close="deletePlaylistOpen = false"
+      @confirm="confirmDestroy"
+    />
   </section>
 </template>
 

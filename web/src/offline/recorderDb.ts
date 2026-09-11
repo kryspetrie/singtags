@@ -12,11 +12,19 @@ import {
 } from '../types/recorder'
 
 export const RECORDER_DB_NAME = 'singtags-recorder'
-export const RECORDER_DB_VERSION = 2
+export const RECORDER_DB_VERSION = 3
 export const RECORDER_SESSIONS_STORE = 'sessions'
 export const RECORDER_TAKES_STORE = 'takes'
 export const RECORDER_BLOBS_STORE = 'blobs'
+export const RECORDER_ORIGINALS_STORE = 'originals'
 export const RECORDER_CROP_BACKUPS_STORE = 'cropBackups'
+
+/** Immutable capture snapshot for a take (restore target). */
+export type RecorderOriginal = RecorderBlob & {
+  durationSec: number
+  sampleRate: number | null
+  channels: 1 | 2
+}
 
 /** Persisted one-step crop undo payload (same shape as store cropUndo). */
 export type RecorderCropBackup = {
@@ -58,6 +66,9 @@ export function openRecorderDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(RECORDER_BLOBS_STORE)) {
         db.createObjectStore(RECORDER_BLOBS_STORE, { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) {
+        db.createObjectStore(RECORDER_ORIGINALS_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) {
         db.createObjectStore(RECORDER_CROP_BACKUPS_STORE, { keyPath: 'takeId' })
@@ -112,13 +123,15 @@ export async function deleteRecorderSession(id: string): Promise<void> {
   const db = await openRecorderDb()
   try {
     const stores = [RECORDER_SESSIONS_STORE, RECORDER_TAKES_STORE, RECORDER_BLOBS_STORE]
-    if (db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) {
-      stores.push(RECORDER_CROP_BACKUPS_STORE)
-    }
+    if (db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) stores.push(RECORDER_ORIGINALS_STORE)
+    if (db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) stores.push(RECORDER_CROP_BACKUPS_STORE)
     const tx = db.transaction(stores, 'readwrite')
     const sessionStore = tx.objectStore(RECORDER_SESSIONS_STORE)
     const takesStore = tx.objectStore(RECORDER_TAKES_STORE)
     const blobsStore = tx.objectStore(RECORDER_BLOBS_STORE)
+    const originalsStore = db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)
+      ? tx.objectStore(RECORDER_ORIGINALS_STORE)
+      : null
     const backupStore = db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)
       ? tx.objectStore(RECORDER_CROP_BACKUPS_STORE)
       : null
@@ -127,14 +140,15 @@ export async function deleteRecorderSession(id: string): Promise<void> {
     for (const takeId of takeIds) {
       await idbReq(takesStore.delete(takeId))
       await idbReq(blobsStore.delete(takeId))
+      if (originalsStore) await idbReq(originalsStore.delete(takeId))
       if (backupStore) await idbReq(backupStore.delete(takeId))
     }
-    // Also clear any orphaned takes for this session.
     const bySession = takesStore.index('bySession')
     const orphans = (await idbReq(bySession.getAll(id))) as RecorderTake[]
     for (const t of orphans) {
       await idbReq(takesStore.delete(t.id))
       await idbReq(blobsStore.delete(t.id))
+      if (originalsStore) await idbReq(originalsStore.delete(t.id))
       if (backupStore) await idbReq(backupStore.delete(t.id))
     }
     await idbReq(sessionStore.delete(id))
@@ -208,10 +222,9 @@ export async function appendRecorderTake(
   if (take.sessionId !== sessionId) throw new Error('Take sessionId mismatch')
   const db = await openRecorderDb()
   try {
-    const tx = db.transaction(
-      [RECORDER_SESSIONS_STORE, RECORDER_TAKES_STORE, RECORDER_BLOBS_STORE],
-      'readwrite',
-    )
+    const stores = [RECORDER_SESSIONS_STORE, RECORDER_TAKES_STORE, RECORDER_BLOBS_STORE]
+    if (db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) stores.push(RECORDER_ORIGINALS_STORE)
+    const tx = db.transaction(stores, 'readwrite')
     const sessionStore = tx.objectStore(RECORDER_SESSIONS_STORE)
     const session = (await idbReq(sessionStore.get(sessionId))) as RecorderSession | undefined
     if (!session) throw new Error('Session not found')
@@ -220,14 +233,25 @@ export async function appendRecorderTake(
       takeIds: session.takeIds.includes(take.id) ? session.takeIds : [...session.takeIds, take.id],
       updatedAt: new Date().toISOString(),
     })
+    const payload = {
+      id: blob.id,
+      mime: blob.mime,
+      data: copyBlobData(blob.data),
+    } satisfies RecorderBlob
     await idbReq(tx.objectStore(RECORDER_TAKES_STORE).put(normalizeRecorderTake(take)))
-    await idbReq(
-      tx.objectStore(RECORDER_BLOBS_STORE).put({
-        id: blob.id,
-        mime: blob.mime,
-        data: copyBlobData(blob.data),
-      } satisfies RecorderBlob),
-    )
+    await idbReq(tx.objectStore(RECORDER_BLOBS_STORE).put(payload))
+    if (db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) {
+      await idbReq(
+        tx.objectStore(RECORDER_ORIGINALS_STORE).put({
+          id: blob.id,
+          mime: blob.mime,
+          data: copyBlobData(blob.data),
+          durationSec: take.durationSec,
+          sampleRate: take.sampleRate,
+          channels: take.channels,
+        } satisfies RecorderOriginal),
+      )
+    }
     await idbReq(sessionStore.put(next))
   } finally {
     db.close()
@@ -267,9 +291,8 @@ export async function deleteRecorderTake(takeId: string): Promise<void> {
   const db = await openRecorderDb()
   try {
     const stores = [RECORDER_SESSIONS_STORE, RECORDER_TAKES_STORE, RECORDER_BLOBS_STORE]
-    if (db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) {
-      stores.push(RECORDER_CROP_BACKUPS_STORE)
-    }
+    if (db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) stores.push(RECORDER_ORIGINALS_STORE)
+    if (db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) stores.push(RECORDER_CROP_BACKUPS_STORE)
     const tx = db.transaction(stores, 'readwrite')
     const take = (await idbReq(tx.objectStore(RECORDER_TAKES_STORE).get(takeId))) as
       | RecorderTake
@@ -289,12 +312,69 @@ export async function deleteRecorderTake(takeId: string): Promise<void> {
     }
     await idbReq(tx.objectStore(RECORDER_TAKES_STORE).delete(takeId))
     await idbReq(tx.objectStore(RECORDER_BLOBS_STORE).delete(takeId))
+    if (db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) {
+      await idbReq(tx.objectStore(RECORDER_ORIGINALS_STORE).delete(takeId))
+    }
     if (db.objectStoreNames.contains(RECORDER_CROP_BACKUPS_STORE)) {
       await idbReq(tx.objectStore(RECORDER_CROP_BACKUPS_STORE).delete(takeId))
     }
   } finally {
     db.close()
   }
+}
+
+export async function getRecorderOriginal(id: string): Promise<RecorderOriginal | null> {
+  const db = await openRecorderDb()
+  try {
+    if (!db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) return null
+    const tx = db.transaction(RECORDER_ORIGINALS_STORE, 'readonly')
+    const row = (await idbReq(tx.objectStore(RECORDER_ORIGINALS_STORE).get(id))) as
+      | RecorderOriginal
+      | undefined
+    if (!row) return null
+    return {
+      id: row.id,
+      mime: row.mime,
+      data: copyBlobData(row.data),
+      durationSec: Number.isFinite(row.durationSec) ? row.durationSec : 0,
+      sampleRate:
+        typeof row.sampleRate === 'number' && Number.isFinite(row.sampleRate) ? row.sampleRate : null,
+      channels: row.channels === 2 ? 2 : 1,
+    }
+  } finally {
+    db.close()
+  }
+}
+
+/** Ensure an original exists (seed from current blob for older takes). */
+export async function ensureRecorderOriginal(take: RecorderTake): Promise<RecorderOriginal | null> {
+  const existing = await getRecorderOriginal(take.id)
+  if (existing) return existing
+  const current = await getRecorderBlob(take.id)
+  if (!current) return null
+  const seeded: RecorderOriginal = {
+    id: take.id,
+    mime: current.mime,
+    data: copyBlobData(current.data),
+    durationSec: take.durationSec,
+    sampleRate: take.sampleRate,
+    channels: take.channels,
+  }
+  const db = await openRecorderDb()
+  try {
+    if (!db.objectStoreNames.contains(RECORDER_ORIGINALS_STORE)) return seeded
+    const tx = db.transaction(RECORDER_ORIGINALS_STORE, 'readwrite')
+    await idbReq(tx.objectStore(RECORDER_ORIGINALS_STORE).put(seeded))
+    return seeded
+  } finally {
+    db.close()
+  }
+}
+
+export async function hasRecorderOriginalDiff(takeId: string): Promise<boolean> {
+  const [orig, cur] = await Promise.all([getRecorderOriginal(takeId), getRecorderBlob(takeId)])
+  if (!orig || !cur) return false
+  return orig.mime !== cur.mime || orig.data.byteLength !== cur.data.byteLength
 }
 
 export async function putRecorderCropBackup(backup: RecorderCropBackup): Promise<void> {

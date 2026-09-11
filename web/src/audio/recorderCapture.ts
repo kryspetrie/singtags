@@ -228,65 +228,11 @@ export function channelsFromStream(stream: MediaStream): RecorderChannels {
   return settings?.channelCount === 2 ? 2 : 1
 }
 
-/** Simple peak level meter for a live mic stream (0–1). Call dispose() when done. */
-export function createInputLevelMeter(stream: MediaStream): {
-  /** Current peak (0–1), updated ~rAF. */
-  getLevel: () => number
-  dispose: () => void
-} {
-  let level = 0
-  let disposed = false
-  let raf = 0
-  let ctx: AudioContext | null = null
-  let source: MediaStreamAudioSourceNode | null = null
-  let analyser: AnalyserNode | null = null
-
-  try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!AC) return { getLevel: () => 0, dispose: () => undefined }
-    ctx = new AC()
-    source = ctx.createMediaStreamSource(stream)
-    analyser = ctx.createAnalyser()
-    analyser.fftSize = 256
-    analyser.smoothingTimeConstant = 0.6
-    source.connect(analyser)
-    const data = new Uint8Array(analyser.frequencyBinCount)
-    const tick = () => {
-      if (disposed || !analyser) return
-      analyser.getByteTimeDomainData(data)
-      let peak = 0
-      for (let i = 0; i < data.length; i++) {
-        const v = Math.abs(data[i]! - 128) / 128
-        if (v > peak) peak = v
-      }
-      level = peak
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-  } catch {
-    /* meter optional */
-  }
-
-  return {
-    getLevel: () => level,
-    dispose: () => {
-      disposed = true
-      if (raf) cancelAnimationFrame(raf)
-      try {
-        source?.disconnect()
-      } catch {
-        /* ignore */
-      }
-      try {
-        void ctx?.close()
-      } catch {
-        /* ignore */
-      }
-      source = null
-      analyser = null
-      ctx = null
-    },
-  }
-}
+export {
+  createInputLevelMeter,
+  createLiveInputMeter,
+  linearToDb,
+  dbToMeterRatio,
+  type LiveInputMeter,
+  type LiveMeterSnapshot,
+} from './liveMeter'

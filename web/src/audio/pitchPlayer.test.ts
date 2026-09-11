@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, vi } from 'vitest'
-import { CHROMATIC_NOTES, formatKeyShiftLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipeFullKeyboardNotes,
+import { CHROMATIC_NOTES, formatKeyShiftLabel, formatRelativePitchLabel, keyToTonicNote, noteToFrequency, aHzToCents, pitchPipeAriaLabel, pitchPipeDisplay, pitchPipeNotes, pitchPipeFullKeyboardNotes,
   normalizePitchPipeGridScale,
   normalizeSheetPianoKeyScale,
   sheetPianoWhiteKeyPx,
@@ -42,6 +42,14 @@ describe('pitchPlayer helpers', () => {
     expect(formatKeyShiftLabel('', 0)).toBe('(Use +/- to choose key)')
     expect(formatKeyShiftLabel(null, 2)).toBe('D Major')
     expect(formatKeyShiftLabel(null, -1)).toBe('B Major')
+  })
+
+  it('formats relative pitch shifts without a song key', () => {
+    expect(formatRelativePitchLabel(0)).toBe('Original')
+    expect(formatRelativePitchLabel(1)).toBe('+1 semitone')
+    expect(formatRelativePitchLabel(2)).toBe('+2 semitones')
+    expect(formatRelativePitchLabel(-1)).toBe('-1 semitone')
+    expect(formatRelativePitchLabel(-3)).toBe('-3 semitones')
   })
 
   it('KEY_SHIFT_LABEL_SIZE_SAMPLE is at least as wide as common pitch labels', () => {

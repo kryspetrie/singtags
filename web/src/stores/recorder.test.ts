@@ -93,4 +93,30 @@ describe('recorder store', () => {
     await store2.undoLastCrop()
     expect((await store2.takeBytes(take.id))?.data.length).toBe(4)
   })
+
+  it('keeps original capture for restore after edits', async () => {
+    const store = useRecorderStore()
+    const session = await store.createSession({ name: 'Original' })
+    const take = await store.addTake({
+      sessionId: session.id,
+      blob: new Blob([new Uint8Array([3, 3, 3])], { type: 'audio/webm' }),
+      mime: 'audio/webm',
+      durationSec: 1,
+      channels: 1,
+      bitRate: null,
+    })
+    await store.replaceTakeAudio({
+      takeId: take.id,
+      data: new Uint8Array([9, 9]).buffer,
+      mime: 'audio/wav',
+      durationSec: 0.5,
+      sampleRate: 48000,
+      channels: 1,
+      keepUndo: false,
+    })
+    expect(await store.takeIsModified(take.id)).toBe(true)
+    await store.restoreOriginalTake(take.id)
+    expect((await store.takeBytes(take.id))?.data.length).toBe(3)
+    expect(await store.takeIsModified(take.id)).toBe(false)
+  })
 })

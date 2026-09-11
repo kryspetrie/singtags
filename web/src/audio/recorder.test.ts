@@ -40,6 +40,7 @@ describe('recorder types', () => {
       notes: 'warmup',
       labels: ['x'],
       linkedTag: { tagId: 42, title: 'Hello' },
+      linkedLibrary: null,
       createdAt: '2020-01-01T00:00:00.000Z',
       updatedAt: '2020-01-01T00:00:00.000Z',
       takeIds: ['rt_1'],
@@ -48,6 +49,7 @@ describe('recorder types', () => {
     expect(s.name).toBe('Untitled session')
     expect(s.notes).toBe('warmup')
     expect(s.linkedTag).toEqual({ tagId: 42, title: 'Hello' })
+    expect(s.linkedLibrary).toBeNull()
   })
 
   it('filters by query, date range, and sort', () => {
@@ -58,6 +60,7 @@ describe('recorder types', () => {
         notes: 'slow tempo',
         labels: ['warmup'],
         linkedTag: null,
+        linkedLibrary: null,
         createdAt: '2026-09-10T15:00:00.000Z',
         updatedAt: '2026-09-10T15:00:00.000Z',
         takeIds: [],
@@ -69,6 +72,7 @@ describe('recorder types', () => {
         notes: '',
         labels: [],
         linkedTag: null,
+        linkedLibrary: null,
         createdAt: '2026-09-11T15:00:00.000Z',
         updatedAt: '2026-09-11T15:00:00.000Z',
         takeIds: [],

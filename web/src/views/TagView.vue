@@ -17,7 +17,7 @@ import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
 import type { QueueTrack } from '../download/zip'
-import { PitchPlayer, formatKeyShiftLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones } from '../audio/pitchPlayer'
+import { PitchPlayer, formatKeyShiftLabel, formatRelativePitchLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones } from '../audio/pitchPlayer'
 import {
   getActivePitchPipeVoice,
   PITCH_PIPE_VOICE_CHANGE_EVENT,
@@ -504,7 +504,9 @@ const nav = computed(() =>
 )
 const keyDisplay = computed(() => detail.value?.key || detail.value?.writ_key || summary.value?.key || null)
 
-const pitchLabel = computed(() => formatKeyShiftLabel(keyDisplay.value, keyShift.value))
+const pitchLabel = computed(() => formatRelativePitchLabel(keyShift.value))
+/** Musical key for sheet chrome (still shows transposed key names). */
+const sheetKeyLabel = computed(() => formatKeyShiftLabel(keyDisplay.value, keyShift.value))
 const canPayKey = computed(() => !!tonicNote())
 
 const partialUnavailable = computed(
@@ -1035,7 +1037,7 @@ async function onRetryLoad(): Promise<void> {
           :can-choose-format="!offline && sheetAssets.canChooseFormat"
           :prefetched-pages="preparedSheet?.pages ?? null"
           :pay-key-enabled="canPayKey"
-          :key-label="pitchLabel"
+          :key-label="sheetKeyLabel"
           :shift="keyShift"
           :sing-controls="hasAudio"
           :auto-enter-fullscreen="openSheetFullscreen"
