@@ -41,6 +41,14 @@ import {
   type MixPanMode,
   type MixPanSetting,
 } from '../audio/multiPartMix'
+import {
+  DEFAULT_RECORDER_CAPTURE,
+  DEFAULT_QUICK_RECORD,
+  normalizeRecorderCapture,
+  normalizeQuickRecordPrefs,
+  type QuickRecordPrefs,
+  type RecorderCapturePrefs,
+} from '../types/recorder'
 import { normalizeCustomParts } from '../lib/audioParts'
 import {
   DEFAULT_OPTICAL_FRAME_BYTES,
@@ -117,6 +125,9 @@ const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
 /** Labs: OS Share handoff (Quick Share / AirDrop via share sheet). Default off. */
 const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
+const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
+const RECORDER_CAPTURE_KEY = 'singtags.recorder.capture.v1'
+const QUICK_RECORD_KEY = 'singtags.recorder.quick.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
 const OPTICAL_GRID_CODES_KEY = 'singtags.opticalTransfer.gridCodes.v1'
 const OPTICAL_AUTO_DENSITY_KEY = 'singtags.opticalTransfer.autoDensity.v1'
@@ -517,6 +528,35 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Labs: when true, Share via device (OS share sheet / share_target import) is available.
    */
   const osShareTransferEnabled = ref(loadBool(OS_SHARE_TRANSFER_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Audio Recorder (More → Recorder, /recorder routes) is available.
+   * Recordings stay on-device in IndexedDB.
+   */
+  const audioRecorderEnabled = ref(loadBool(AUDIO_RECORDER_ENABLED_KEY, false))
+  /** Last-used MediaRecorder capture settings for Labs Audio Recorder. */
+  const recorderCapturePrefs = ref(
+    (() => {
+      try {
+        const raw = localStorage.getItem(RECORDER_CAPTURE_KEY)
+        if (!raw) return DEFAULT_RECORDER_CAPTURE
+        return normalizeRecorderCapture(JSON.parse(raw))
+      } catch {
+        return DEFAULT_RECORDER_CAPTURE
+      }
+    })(),
+  )
+  /** Quick Record auto-labels / notes (capture format lives in recorderCapturePrefs). */
+  const quickRecordPrefs = ref(
+    (() => {
+      try {
+        const raw = localStorage.getItem(QUICK_RECORD_KEY)
+        if (!raw) return DEFAULT_QUICK_RECORD
+        return normalizeQuickRecordPrefs(JSON.parse(raw))
+      } catch {
+        return DEFAULT_QUICK_RECORD
+      }
+    })(),
+  )
   /** Payload bytes per animated QR frame for optical transfer. */
   const opticalTransferFrameBytes = ref(
     normalizeOpticalFrameBytes(loadNumber(OPTICAL_FRAME_BYTES_KEY, DEFAULT_OPTICAL_FRAME_BYTES)),
@@ -704,6 +744,42 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
     },
     { flush: 'sync' },
+  )
+
+  watch(
+    audioRecorderEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(AUDIO_RECORDER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    recorderCapturePrefs,
+    (v) => {
+      try {
+        localStorage.setItem(RECORDER_CAPTURE_KEY, JSON.stringify(normalizeRecorderCapture(v)))
+      } catch {
+        /* ignore */
+      }
+    },
+    { deep: true, flush: 'sync' },
+  )
+
+  watch(
+    quickRecordPrefs,
+    (v) => {
+      try {
+        localStorage.setItem(QUICK_RECORD_KEY, JSON.stringify(normalizeQuickRecordPrefs(v)))
+      } catch {
+        /* ignore */
+      }
+    },
+    { deep: true, flush: 'sync' },
   )
 
   watch(
@@ -1076,6 +1152,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
     osShareTransferEnabled.value = on
   }
 
+  /** Labs: enable/disable Audio Recorder UI and routes. */
+  function setAudioRecorderEnabled(on: boolean): void {
+    audioRecorderEnabled.value = on
+  }
+
+  /** Persist Labs Audio Recorder capture settings. */
+  function setRecorderCapturePrefs(prefs: RecorderCapturePrefs): void {
+    recorderCapturePrefs.value = normalizeRecorderCapture(prefs)
+  }
+
+  /** Persist Quick Record auto-labels / notes. */
+  function setQuickRecordPrefs(prefs: QuickRecordPrefs): void {
+    quickRecordPrefs.value = normalizeQuickRecordPrefs(prefs)
+  }
+
   /** Include `?fullscreen` on shared tag links. */
   function setShareFullscreen(on: boolean): void {
     shareFullscreen.value = on
@@ -1151,6 +1242,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     localLibraryEnabled,
     webrtcTransferEnabled,
     osShareTransferEnabled,
+    audioRecorderEnabled,
+    recorderCapturePrefs,
+    quickRecordPrefs,
     opticalTransferFrameBytes,
     opticalTransferAutoDensity,
     opticalTransferPreset,
@@ -1181,6 +1275,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setLocalLibraryEnabled,
     setWebrtcTransferEnabled,
     setOsShareTransferEnabled,
+    setAudioRecorderEnabled,
+    setRecorderCapturePrefs,
+    setQuickRecordPrefs,
     setShareFullscreen,
     setShareBarbershopTags,
     setSheetFsPageMode,

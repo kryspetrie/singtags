@@ -204,4 +204,37 @@ describe('AppMoreMenu', () => {
     expect(getComputedStyle(link).display).not.toBe('none')
     w.unmount()
   })
+
+  it('shows Audio Recorder in More when the Labs flag is on', async () => {
+    localStorage.setItem('singtags.labs.audioRecorder.enabled.v1', '1')
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    expect(usePreferencesStore().audioRecorderEnabled).toBe(true)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/recorder', name: 'recorder', component: { template: '<div />' } },
+        { path: '/settings', name: 'settings', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
+        { path: '/tx', name: 'tx', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.textContent).toMatch(/Audio Recorder/)
+    const link = document.body.querySelector('a[href="/recorder"]') as HTMLAnchorElement
+    expect(link).toBeTruthy()
+    w.unmount()
+  })
 })

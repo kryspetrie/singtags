@@ -90,6 +90,19 @@ export const router = createRouter({
       meta: { requiresLocalLibrary: true },
     },
     {
+      path: '/recorder',
+      name: 'recorder',
+      component: () => import('../views/RecorderView.vue'),
+      meta: { requiresAudioRecorder: true },
+    },
+    {
+      path: '/recorder/:id',
+      name: 'recorder-session',
+      component: () => import('../views/RecorderSessionView.vue'),
+      props: true,
+      meta: { requiresAudioRecorder: true },
+    },
+    {
       path: '/tx',
       name: 'tx',
       component: () => import('../views/OpticalTransferView.vue'),
@@ -201,6 +214,9 @@ router.beforeEach((to, from) => {
     }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
       prefs.setLocalLibraryEnabled(true)
+    }
+    if (to.meta.requiresAudioRecorder && !prefs.audioRecorderEnabled) {
+      prefs.setAudioRecorderEnabled(true)
     }
   } catch {
     /* Pinia not ready (rare in tests) — allow navigation */

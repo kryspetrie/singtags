@@ -182,6 +182,16 @@ function bumpScale(delta: number): void {
       </RouterLink>
 
       <RouterLink
+        v-if="prefs.audioRecorderEnabled"
+        class="menu-item"
+        to="/recorder"
+        @click="onNavClick"
+      >
+        <span class="menu-label">Audio Recorder</span>
+        <span class="menu-desc">Multi-take practice sessions on this device</span>
+      </RouterLink>
+
+      <RouterLink
         v-if="prefs.opticalTransferEnabled"
         class="menu-item"
         to="/tx"

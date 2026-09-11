@@ -41,6 +41,9 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.pitchPipeActiveVoice.v1',
   'singtags.pitchPipeVoiceLab.library.v1',
   'singtags.audioEncodeQuality.v1',
+  'singtags.labs.audioRecorder.enabled.v1',
+  'singtags.recorder.capture.v1',
+  'singtags.recorder.quick.v1',
 ] as const
 
 /** On-disk / zip `app-state.json` schema (v1). */

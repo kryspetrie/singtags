@@ -70,6 +70,21 @@ function toggleOsShareTransfer(): void {
   )
 }
 
+function toggleAudioRecorder(): void {
+  const next = !prefs.audioRecorderEnabled
+  prefs.setAudioRecorderEnabled(next)
+  snackbar.show(
+    next
+      ? 'Open More → Audio Recorder to capture multi-take sessions on this device'
+      : 'Audio Recorder is hidden — recordings already on this device are kept',
+    {
+      title: next ? 'Audio Recorder On' : 'Audio Recorder Off',
+      tone: 'ok',
+      ms: 3000,
+    },
+  )
+}
+
 </script>
 
 <template>
@@ -123,6 +138,43 @@ function toggleOsShareTransfer(): void {
           @change="toggleLocalLibrary"
         />
       </label>
+    </section>
+
+    <section class="card" aria-labelledby="recorder-h">
+      <h2 id="recorder-h" class="card-title">Audio Recorder</h2>
+      <p class="card-desc">
+        Capture multi-take practice sessions on this device, link them to a SingTag, crop with loop
+        brackets, and export takes or sessions as files/zips.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.audioRecorderEnabled }"
+        title="Enable Audio Recorder"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Audio Recorder</span>
+          <span class="setting-desc">
+            {{
+              prefs.audioRecorderEnabled
+                ? 'On — open from More → Audio Recorder'
+                : 'Off — More link and /recorder routes stay hidden'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.audioRecorderEnabled"
+          :aria-checked="prefs.audioRecorderEnabled"
+          aria-label="Audio Recorder"
+          @change="toggleAudioRecorder"
+        />
+      </label>
+      <RouterLink v-if="prefs.audioRecorderEnabled" class="btn" to="/recorder">
+        Open Recorder
+      </RouterLink>
     </section>
 
     <section class="card" aria-labelledby="optical-h">
