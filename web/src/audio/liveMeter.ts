@@ -191,6 +191,19 @@ export function createLiveInputMeter(
         columnPeak = p
         columnClipped = clipped
       }
+    } else if (analyser && data) {
+      // Levels-only (monitor / pause): update VU peaks without scrolling the waveform.
+      analyser.getFloatTimeDomainData(data)
+      let p = 0
+      let sumSq = 0
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i]!
+        const a = Math.abs(v)
+        if (a > p) p = a
+        sumSq += v * v
+      }
+      peak = p
+      rms = Math.sqrt(sumSq / data.length)
     }
 
     const advanced = advancePeakHold({

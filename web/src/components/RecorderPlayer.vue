@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Playback-mode take player: TagPlayer-style transport + ⋮ (loop/pitch/speed).
- * Record Stop/Pause/Cancel live under the session live waveform while capturing.
+ * Capture lives in the session Record panel.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { TagAudioPlayer } from '../audio/player'
@@ -29,11 +29,12 @@ const SPEED_OPTIONS = [
 
 const props = defineProps<{
   take: RecorderTake
+  /** When true, mute transport (capture in progress). */
   recording?: boolean
 }>()
 
 const emit = defineEmits<{
-  record: []
+  'playing-change': [playing: boolean]
 }>()
 
 const recorder = useRecorderStore()
@@ -193,6 +194,10 @@ async function loadTake(): Promise<void> {
   }
 }
 
+function emitPlaying(): void {
+  emit('playing-change', !player.paused)
+}
+
 async function togglePlay(): Promise<void> {
   if (player.paused) {
     seekToRegionStartIfNeeded()
@@ -201,12 +206,14 @@ async function togglePlay(): Promise<void> {
     player.pause()
   }
   tick.value++
+  emitPlaying()
 }
 
 function stopPlayback(): void {
   player.pause()
   player.seek(regionActive() ? markA.value : 0)
   tick.value++
+  emitPlaying()
 }
 
 function nudge(delta: number): void {
@@ -232,6 +239,17 @@ watch(
   },
 )
 
+watch(
+  () => props.recording,
+  (on) => {
+    if (on && !player.paused) {
+      player.pause()
+      tick.value++
+      emitPlaying()
+    }
+  },
+)
+
 watch([pitch, speed], () => void applyEffectiveTransform())
 
 onMounted(() => {
@@ -242,9 +260,12 @@ onMounted(() => {
   player.setEndedListener(() => {
     if (loop.value && regionActive()) {
       player.seek(markA.value)
-      void player.play()
+      void player.play().then(() => emitPlaying())
+      tick.value++
+      return
     }
     tick.value++
+    emitPlaying()
   })
   regionTimer = setInterval(() => maybeEnforceRegionEnd(), 50)
   void loadTake()
@@ -252,6 +273,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (regionTimer) clearInterval(regionTimer)
+  emit('playing-change', false)
   player.dispose()
   if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
 })
@@ -276,15 +298,6 @@ onUnmounted(() => {
     </div>
 
     <div class="ctrl-transport transport" :class="{ muted: !playbackReady }">
-      <button
-        v-if="!recording"
-        type="button"
-        class="ctrl-transport-btn rec"
-        aria-label="Record"
-        @click="emit('record')"
-      >
-        ● Rec
-      </button>
       <button
         type="button"
         class="ctrl-transport-btn ctrl-transport-btn--primary"
@@ -437,16 +450,6 @@ onUnmounted(() => {
 }
 .transport .ctrl-transport-btn--primary {
   font-size: clamp(0.9rem, 2.8vw, 1.1rem);
-}
-.ctrl-transport-btn.rec {
-  background: color-mix(in srgb, #b42318 14%, var(--surface));
-  border-color: color-mix(in srgb, #b42318 40%, var(--border));
-  color: #b42318;
-}
-.ctrl-transport-btn.rec.stop {
-  background: #b42318;
-  border-color: #b42318;
-  color: #fff;
 }
 .transport .time {
   flex: 0 0 auto;

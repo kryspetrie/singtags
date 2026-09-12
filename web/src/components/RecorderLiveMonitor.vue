@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Live scrolling waveform + sticky VU while recording.
- * Fixed dBFS scale (0 at outer edge) so clipping and quiet takes stay visible.
+ * Live input monitor: VU always (when mic is open); scrolling waveform only while recording.
  */
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import {
@@ -14,6 +13,12 @@ import {
 const props = defineProps<{
   meter: LiveInputMeter | null
   paused?: boolean
+  /** True while MediaRecorder is capturing a take. */
+  recording?: boolean
+  /** Elapsed capture time label (e.g. 0:12) — shown on the recording badge. */
+  elapsedLabel?: string
+  /** Idle shell (no live stream). */
+  idle?: boolean
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -54,7 +59,6 @@ function draw(snap: LiveMeterSnapshot): void {
   ctx.fillStyle = surface
   ctx.fillRect(0, 0, w, h)
 
-  // Decibel guide lines (0 dBFS at outer edge of waveform).
   ctx.save()
   for (const db of DB_LINES) {
     const ratio = dbToMeterRatio(db)
@@ -78,7 +82,6 @@ function draw(snap: LiveMeterSnapshot): void {
   ctx.stroke()
   ctx.restore()
 
-  // Scrolling columns (oldest left → newest right).
   const cols = snap.columns
   const n = cols.length
   if (n > 0) {
@@ -96,7 +99,6 @@ function draw(snap: LiveMeterSnapshot): void {
     ctx.globalAlpha = 1
   }
 
-  // Labels
   ctx.fillStyle = muted
   ctx.font = `${11 * dpr}px ui-sans-serif, system-ui, sans-serif`
   ctx.textAlign = 'left'
@@ -107,9 +109,10 @@ function draw(snap: LiveMeterSnapshot): void {
 function loop(): void {
   raf = 0
   if (!props.meter) return
-  const snap = props.meter.tick(!!props.paused)
+  // Advance columns only while recording; still sample peaks for VU when monitoring.
+  const snap = props.meter.tick(!!props.paused || !props.recording)
   status.value = snap
-  draw(snap)
+  if (props.recording) draw(snap)
   raf = requestAnimationFrame(loop)
 }
 
@@ -125,7 +128,7 @@ function stop(): void {
 }
 
 watch(
-  () => [props.meter, props.paused] as const,
+  () => [props.meter, props.paused, props.recording] as const,
   () => {
     if (props.meter) start()
     else {
@@ -149,9 +152,33 @@ function fmtDb(db: number | undefined): string {
 </script>
 
 <template>
-  <div class="live-monitor" aria-label="Live recording levels">
+  <div
+    class="live-monitor"
+    :class="{
+      idle: idle || !meter,
+      recording: recording && !paused,
+      paused: recording && paused,
+      standby: !recording,
+    }"
+    :aria-label="recording ? (paused ? 'Recording paused' : 'Recording') : 'Not recording'"
+  >
+    <div class="rec-banner" role="status" aria-live="polite">
+      <span class="rec-banner-dot" aria-hidden="true" />
+      <strong>{{ recording ? (paused ? 'Paused' : 'Recording') : 'Not Recording' }}</strong>
+      <span class="rec-banner-time">{{ elapsedLabel || '0:00' }}</span>
+    </div>
+
     <div class="wave-wrap">
-      <canvas ref="canvasRef" class="wave" role="img" aria-label="Scrolling input waveform" />
+      <canvas
+        v-show="recording && meter"
+        ref="canvasRef"
+        class="wave"
+        role="img"
+        aria-label="Scrolling input waveform"
+      />
+      <div v-if="!recording" class="wave wave-idle" aria-hidden="true">
+        <span class="wave-idle-label">{{ meter ? 'Input levels' : 'Mic off' }}</span>
+      </div>
     </div>
     <div class="vu-col">
       <div
@@ -181,18 +208,28 @@ function fmtDb(db: number | undefined): string {
       </div>
       <div class="vu-readout">
         <div class="peak" :class="{ peaking: status?.peaking }">
-          Peak {{ fmtDb(status?.holdDb) }}
+          Peak {{ idle || !meter ? '—' : fmtDb(status?.holdDb) }}
           <span class="unit">dBFS</span>
         </div>
-        <div class="inst muted">Now {{ fmtDb(status?.peakDb) }}</div>
+        <div class="inst muted">Now {{ idle || !meter ? '—' : fmtDb(status?.peakDb) }}</div>
       </div>
     </div>
     <div v-if="$slots.default" class="below-wave">
       <slot />
     </div>
-    <p v-if="status?.peaking" class="warn clip-warn" role="status">Clipping / hitting 0 dBFS — back off the mic or input gain.</p>
-    <p v-else-if="status?.tooLow" class="warn low-warn" role="status">Level is low — move closer or raise gain so peaks near −12 to −6 dBFS.</p>
-    <p v-else class="hint muted">Aim for peaks around −12 to −6 dBFS; red bars mean clipping.</p>
+    <p v-if="status?.peaking && meter" class="warn clip-warn" role="status">
+      Clipping / hitting 0 dBFS — back off the mic or input gain.
+    </p>
+    <p v-else-if="status?.tooLow && meter" class="warn low-warn" role="status">
+      Level is low — move closer or raise gain so peaks near −12 to −6 dBFS.
+    </p>
+    <p v-else-if="recording" class="hint muted">
+      Aim for peaks around −12 to −6 dBFS; red bars mean clipping.
+    </p>
+    <p v-else-if="meter" class="hint muted">
+      Check levels, then tap Record when you’re ready to capture.
+    </p>
+    <p v-else class="hint muted">Open this panel to check mic levels, then tap Record.</p>
   </div>
 </template>
 
@@ -202,9 +239,77 @@ function fmtDb(db: number | undefined): string {
   gap: 0.55rem;
   grid-template-columns: 1fr auto;
   align-items: stretch;
+  outline: 2px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  outline-offset: 4px;
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: color-mix(in srgb, var(--muted) 8%, var(--surface));
+}
+.live-monitor.recording {
+  outline-color: color-mix(in srgb, #b42318 55%, transparent);
+  background: color-mix(in srgb, #b42318 6%, var(--surface));
+}
+.live-monitor.paused {
+  outline-color: color-mix(in srgb, #9a5b00 55%, transparent);
+  background: color-mix(in srgb, #9a5b00 7%, var(--surface));
+}
+.rec-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 72%, #3a3a3a);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.live-monitor.recording .rec-banner {
+  background: #b42318;
+}
+.live-monitor.paused .rec-banner {
+  background: #9a5b00;
+}
+.rec-banner-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0.85;
+}
+.live-monitor.recording .rec-banner-dot {
+  opacity: 1;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  animation: rec-pulse 1.1s ease-out infinite;
+}
+.live-monitor.paused .rec-banner-dot {
+  animation: none;
+  opacity: 0.85;
+}
+.rec-banner-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.95;
+}
+@keyframes rec-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 0.55rem rgba(255, 255, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
 }
 .wave-wrap {
   grid-column: 1;
+  position: relative;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -215,6 +320,21 @@ function fmtDb(db: number | undefined): string {
   display: block;
   width: 100%;
   height: 96px;
+}
+.wave-idle {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(to bottom, transparent 0%, transparent calc(50% - 0.5px), var(--border) calc(50% - 0.5px), var(--border) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    var(--surface);
+}
+.wave-idle-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
 }
 .vu-col {
   grid-column: 2;
@@ -317,12 +437,13 @@ function fmtDb(db: number | undefined): string {
     grid-template-columns: auto 1fr;
     justify-items: start;
     align-items: center;
+    width: 100%;
   }
   .vu {
     height: 72px;
   }
-  .wave {
-    height: 80px;
+  .vu-readout {
+    text-align: left;
   }
 }
 </style>

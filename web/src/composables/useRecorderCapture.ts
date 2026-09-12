@@ -1,5 +1,6 @@
 /**
  * Session-page recording transport: MediaRecorder lifecycle, level meter, leave guards.
+ * Also supports open-panel mic monitoring (VU) when not recording / not playing back.
  */
 import { computed, onUnmounted, ref, shallowRef, type Ref } from 'vue'
 import type { RecorderCapturePrefs } from '../types/recorder'
@@ -40,10 +41,13 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   const elapsed = ref(0)
   const liveMeter = shallowRef<LiveInputMeter | null>(null)
   const starting = ref(false)
+  const monitoring = ref(false)
   /** Set true after intentional leave so unmount does not double-cancel. */
   const leaveHandled = ref(false)
 
   let active: ActiveRecording | null = null
+  let monitorStream: MediaStream | null = null
+  let monitorGen = 0
   let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
   const canPause = computed(() => {
@@ -79,21 +83,69 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     }
   }
 
+  /** Live VU / scrolling wave without MediaRecorder (Record panel open). */
+  async function startMonitor(): Promise<void> {
+    if (recording.value || starting.value || monitorStream) return
+    const gen = ++monitorGen
+    try {
+      cb.onPersistCapture()
+      const stream = await openRecorderStream(cb.capture.value)
+      if (gen !== monitorGen || recording.value || starting.value) {
+        releaseStreamTracks(stream)
+        return
+      }
+      monitorStream = stream
+      monitoring.value = true
+      startLevelMeter(monitorStream)
+      void refreshDevices()
+    } catch (e) {
+      if (gen !== monitorGen) return
+      monitoring.value = false
+      stopLevelMeter()
+      const msg =
+        e instanceof Error
+          ? e.name === 'NotAllowedError'
+            ? 'Microphone permission denied'
+            : e.message
+          : String(e)
+      cb.onError(msg)
+    }
+  }
+
+  function stopMonitor(): void {
+    if (recording.value) return
+    monitorGen++
+    monitoring.value = false
+    stopLevelMeter()
+    if (monitorStream) {
+      releaseStreamTracks(monitorStream)
+      monitorStream = null
+    }
+  }
+
   async function startRecording(existingStream?: MediaStream | null): Promise<void> {
     if (recording.value || starting.value) return
     starting.value = true
+    monitorGen++
     let stream: MediaStream | null = existingStream ?? null
+    let reusedMonitor = false
     try {
       cb.onPersistCapture()
       const mime = pickSupportedRecorderMime(cb.capture.value.mimeType)
       cb.capture.value = { ...cb.capture.value, mimeType: mime }
+      if (!stream && monitorStream) {
+        stream = monitorStream
+        monitorStream = null
+        reusedMonitor = true
+        monitoring.value = false
+      }
       if (!stream) stream = await openRecorderStream(cb.capture.value)
       active = startRecorderCapture(stream, cb.capture.value)
       stream = null
       recording.value = true
       paused.value = false
       elapsed.value = 0
-      startLevelMeter(active.stream)
+      if (!reusedMonitor || !liveMeter.value) startLevelMeter(active.stream)
       void refreshDevices()
       elapsedTimer = setInterval(() => {
         if (active) elapsed.value = active.elapsedSec()
@@ -111,6 +163,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
       active = null
       recording.value = false
       paused.value = false
+      monitoring.value = false
       stopLevelMeter()
     } finally {
       starting.value = false
@@ -149,7 +202,12 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     active = null
     recording.value = false
     paused.value = false
+    monitoring.value = false
     stopLevelMeter()
+    if (monitorStream) {
+      releaseStreamTracks(monitorStream)
+      monitorStream = null
+    }
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -198,8 +256,16 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   }
 
   function dispose(): void {
-    stopLevelMeter()
+    monitorGen++
+    stopMonitor()
     if (!leaveHandled.value) cancelRecording()
+    else {
+      stopLevelMeter()
+      if (monitorStream) {
+        releaseStreamTracks(monitorStream)
+        monitorStream = null
+      }
+    }
   }
 
   onUnmounted(() => {
@@ -212,12 +278,15 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     elapsed,
     liveMeter,
     canPause,
+    monitoring,
     leaveHandled,
     startRecording,
     stopRecording,
     cancelRecording,
     onCancelClick,
     togglePause,
+    startMonitor,
+    stopMonitor,
     confirmLeaveWhileRecording,
     onBeforeUnload,
     markLeaveHandled,

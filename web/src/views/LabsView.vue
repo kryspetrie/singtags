@@ -172,9 +172,6 @@ function toggleAudioRecorder(): void {
           @change="toggleAudioRecorder"
         />
       </label>
-      <RouterLink v-if="prefs.audioRecorderEnabled" class="btn" to="/recorder">
-        Open Recorder
-      </RouterLink>
     </section>
 
     <section class="card" aria-labelledby="optical-h">

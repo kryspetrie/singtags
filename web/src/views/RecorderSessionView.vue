@@ -8,6 +8,7 @@ import { useRecorderStore } from '../stores/recorder'
 import { usePreferencesStore } from '../stores/preferences'
 import { useCatalogStore } from '../stores/catalog'
 import { useLocalLibraryStore } from '../stores/localLibrary'
+import { useSnackbarStore } from '../stores/snackbar'
 import type { RecorderCapturePrefs, RecorderSession, RecorderTake } from '../types/recorder'
 import { takePendingQuickRecordStream } from '../audio/pendingQuickRecord'
 import { useRecorderCapture, type LeaveRecordingDecision } from '../composables/useRecorderCapture'
@@ -30,6 +31,7 @@ const store = useRecorderStore()
 const prefs = usePreferencesStore()
 const catalog = useCatalogStore()
 const localLib = useLocalLibraryStore()
+const snackbar = useSnackbarStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -40,7 +42,6 @@ const currentSession = ref<RecorderSession | null>(null)
 const takes = ref<RecorderTake[]>([])
 const activeTakeId = ref<string | null>(null)
 const err = ref<string | null>(null)
-const msg = ref<string | null>(null)
 const capture = ref<RecorderCapturePrefs>({ ...prefs.recorderCapturePrefs })
 const devices = ref<MediaDeviceInfo[]>([])
 const pendingRenameId = ref<string | null>(null)
@@ -59,6 +60,9 @@ const libraryPickerOpen = ref(false)
 
 const deleteSessionOpen = ref(false)
 const deleteTakeId = ref<string | null>(null)
+const bulkDeleteOpen = ref(false)
+const bulkSelected = ref<Set<string>>(new Set())
+const bulkDeleting = ref(false)
 const cancelRecOpen = ref(false)
 const leaveOpen = ref(false)
 const emptySessionOpen = ref(false)
@@ -121,6 +125,8 @@ const {
   cancelRecording,
   onCancelClick,
   togglePause,
+  startMonitor,
+  stopMonitor,
   confirmLeaveWhileRecording,
   onBeforeUnload,
   markLeaveHandled,
@@ -147,8 +153,33 @@ const {
     })
     takes.value = await store.loadTakes(props.id)
     activeTakeId.value = take.id
-    msg.value = `Saved ${take.label}`
+    snackbar.show(`Saved ${take.label}`, { tone: 'ok', ms: 2500 })
   },
+})
+
+const recordOpen = ref(true)
+const takePlaying = ref(false)
+
+function onRecordPanelToggle(e: Event): void {
+  const el = e.target as HTMLDetailsElement
+  if (el !== e.currentTarget) return
+  recordOpen.value = el.open
+}
+
+function onTakePlayingChange(playing: boolean): void {
+  takePlaying.value = playing
+}
+
+function syncInputMonitor(): void {
+  if (recording.value) return
+  if (recordOpen.value && !takePlaying.value) void startMonitor()
+  else stopMonitor()
+}
+
+watch([recordOpen, recording, takePlaying], () => syncInputMonitor(), { immediate: true })
+
+watch(recording, (on, was) => {
+  if (was && !on) syncInputMonitor()
 })
 
 const activeTake = computed(() => takes.value.find((t) => t.id === activeTakeId.value) ?? null)
@@ -156,8 +187,11 @@ const pendingRenameTitle = computed(() => {
   const t = pendingRenameId.value ? takes.value.find((x) => x.id === pendingRenameId.value) : null
   return t ? `Rename “${t.label}”` : 'Rename take'
 })
-const showEmptyTransport = computed(() => !takes.value.length)
 const libraryEnabled = computed(() => prefs.localLibraryEnabled)
+
+function toggleTake(id: string): void {
+  activeTakeId.value = activeTakeId.value === id ? null : id
+}
 
 function fmtWhen(iso: string): string {
   const t = Date.parse(iso)
@@ -221,7 +255,7 @@ async function saveMeta(): Promise<void> {
       labels: [...sessionLabels.value],
     })
     await reload()
-    msg.value = 'Saved'
+    snackbar.show('Saved', { tone: 'ok', ms: 2200 })
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)
   }
@@ -312,13 +346,71 @@ async function confirmDeleteTake(): Promise<void> {
   }
 }
 
+const bulkDeleteCount = computed(() => bulkSelected.value.size)
+const bulkDeleteLabel = computed(() => {
+  const n = bulkDeleteCount.value
+  if (n <= 0) return 'Delete'
+  return n === 1 ? 'Delete 1 take' : `Delete ${n} takes`
+})
+
+function openBulkDelete(): void {
+  bulkSelected.value = new Set()
+  bulkDeleteOpen.value = true
+}
+
+function closeBulkDelete(): void {
+  bulkDeleteOpen.value = false
+  bulkSelected.value = new Set()
+}
+
+function toggleBulkTake(id: string): void {
+  const next = new Set(bulkSelected.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  bulkSelected.value = next
+}
+
+function selectAllBulkTakes(): void {
+  bulkSelected.value = new Set(takes.value.map((t) => t.id))
+}
+
+function clearBulkTakes(): void {
+  bulkSelected.value = new Set()
+}
+
+async function confirmBulkDelete(): Promise<void> {
+  const ids = [...bulkSelected.value]
+  if (!ids.length) {
+    snackbar.show('Select at least one take', { tone: 'info', ms: 2200 })
+    return
+  }
+  if (bulkDeleting.value) return
+  bulkDeleting.value = true
+  try {
+    for (const id of ids) {
+      await store.removeTake(id)
+    }
+    takes.value = await store.loadTakes(props.id)
+    if (activeTakeId.value && ids.includes(activeTakeId.value)) {
+      activeTakeId.value = takes.value[takes.value.length - 1]?.id ?? null
+    }
+    closeBulkDelete()
+    const n = ids.length
+    snackbar.show(n === 1 ? 'Deleted 1 take' : `Deleted ${n} takes`, { tone: 'ok', ms: 2500 })
+  } catch (e) {
+    err.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    bulkDeleting.value = false
+  }
+}
+
 async function exportActiveTake(): Promise<void> {
   if (!activeTake.value || !currentSession.value) return
   busyExport.value = true
   err.value = null
   try {
     await exportTakeFile(activeTake.value, currentSession.value.name, exportFormat.value)
-    msg.value = 'Downloaded take'
+    snackbar.show('Downloaded take', { tone: 'ok', ms: 2500 })
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -332,7 +424,7 @@ async function exportSession(): Promise<void> {
   err.value = null
   try {
     await exportSessionZip(currentSession.value, exportFormat.value)
-    msg.value = 'Downloaded session zip'
+    snackbar.show('Downloaded session zip', { tone: 'ok', ms: 2500 })
   } catch (e) {
     err.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -365,7 +457,7 @@ function linkTag(hit: { id: number; title?: string | null }): void {
       tagPickerOpen.value = false
       tagQuery.value = ''
       await reload()
-      msg.value = 'Linked to tag'
+      snackbar.show('Linked to tag', { tone: 'ok', ms: 2500 })
     })
 }
 
@@ -379,7 +471,7 @@ function linkLibrary(hit: { id: string; title: string }): void {
       libraryPickerOpen.value = false
       libraryQuery.value = ''
       await reload()
-      msg.value = 'Linked to My Library'
+      snackbar.show('Linked to My Library', { tone: 'ok', ms: 2500 })
     })
 }
 
@@ -425,7 +517,6 @@ onMounted(async () => {
     delete q.quick
     await router.replace({ path: route.path, query: q })
     err.value = null
-    msg.value = null
     const pending = takePendingQuickRecordStream()
     await startRecording(pending)
     // If Quick Record failed and session has no takes, offer cleanup.
@@ -561,110 +652,119 @@ onUnmounted(() => {
         </div>
       </details>
 
-      <div
-        v-if="showEmptyTransport || recording"
-        class="transport card"
-        role="group"
-        aria-label="Recording transport"
+      <details
+        class="section card record-panel"
+        :class="{ 'is-recording': recording, 'is-rec-paused': recording && paused }"
+        open
+        @toggle="onRecordPanelToggle"
       >
-        <template v-if="!recording">
-          <div class="transport-row">
-            <button
-              type="button"
-              class="go rec transport-rec"
-              aria-label="Record"
-              @click="startRecording()"
-            >
-              ● Record
-            </button>
-          </div>
-          <p v-if="!takes.length" class="hint muted">Ready — tap Record to capture a take.</p>
-        </template>
-        <template v-else>
-          <RecorderLiveMonitor v-if="liveMeter" :meter="liveMeter" :paused="paused">
-            <div class="rec-controls" role="group" aria-label="Recording">
-              <button type="button" class="ctrl-transport-btn rec stop" aria-label="Stop and save" @click="stopRecording">
-                ■ Stop
+        <summary class="section-summary">Record</summary>
+        <div class="section-body">
+          <RecorderLiveMonitor
+            :meter="liveMeter"
+            :paused="paused"
+            :recording="recording"
+            :elapsed-label="fmtElapsed(elapsed)"
+            :idle="!liveMeter"
+          >
+            <div class="rec-controls" role="group" :aria-label="recording ? 'Recording' : 'Start recording'">
+              <button
+                type="button"
+                class="ctrl-transport-btn rec"
+                :class="recording ? 'stop' : 'arm'"
+                :aria-label="recording ? 'Stop and save' : 'Record'"
+                @click="recording ? stopRecording() : startRecording()"
+              >
+                {{ recording ? '■ Stop' : '● Record' }}
               </button>
               <button
-                v-if="canPause"
                 type="button"
                 class="ctrl-transport-btn"
-                :aria-pressed="paused"
+                :aria-pressed="recording && paused"
+                :disabled="!recording || !canPause"
                 @click="togglePause"
               >
-                {{ paused ? 'Resume' : 'Pause' }}
+                {{ recording && paused ? 'Resume' : 'Pause' }}
               </button>
-              <button type="button" class="ctrl-transport-btn" @click="onCancelClick">Cancel</button>
-              <span class="rec-live" role="status">
-                {{ paused ? 'Paused ' : '' }}{{ fmtElapsed(elapsed) }}
+              <button
+                type="button"
+                class="ctrl-transport-btn"
+                :disabled="!recording"
+                @click="onCancelClick"
+              >
+                Cancel
+              </button>
+              <span class="rec-live" role="status" :class="{ muted: !recording }">
+                <template v-if="recording">{{ paused ? 'Paused ' : '' }}{{ fmtElapsed(elapsed) }}</template>
+                <template v-else>0:00</template>
               </span>
             </div>
           </RecorderLiveMonitor>
-          <div v-else class="rec-controls" role="group" aria-label="Recording">
-            <button type="button" class="ctrl-transport-btn rec stop" aria-label="Stop and save" @click="stopRecording">
-              ■ Stop
-            </button>
-            <button
-              v-if="canPause"
-              type="button"
-              class="ctrl-transport-btn"
-              :aria-pressed="paused"
-              @click="togglePause"
-            >
-              {{ paused ? 'Resume' : 'Pause' }}
-            </button>
-            <button type="button" class="ctrl-transport-btn" @click="onCancelClick">Cancel</button>
-            <span class="rec-live" role="status">
-              {{ paused ? 'Paused ' : '' }}{{ fmtElapsed(elapsed) }}
-            </span>
-          </div>
-        </template>
-      </div>
-
-      <details v-if="takes.length" class="section card" open>
-        <summary class="section-summary">Takes</summary>
-        <div class="section-body">
-          <ul class="take-list">
-            <li v-for="t in takes" :key="t.id" :class="{ on: t.id === activeTakeId }">
-              <button type="button" class="take-btn" @click="activeTakeId = t.id">
-                <span class="take-label">{{ t.label }}</span>
-                <span class="take-meta muted">
-                  <span>{{ fmtWhen(t.recordedAt || t.createdAt) }}</span>
-                  <span>{{ fmtElapsed(t.durationSec) }}</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                class="icon-btn tiny"
-                title="Rename"
-                aria-label="Rename take"
-                @click="openRenameTake(t)"
-              >
-                <font-awesome-icon :icon="['fas', 'pen']" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                class="btn tiny"
-                :disabled="recording"
-                @click="
-                  router.push({ name: 'recorder-take-edit', params: { id, takeId: t.id } })
-                "
-              >
-                Edit
-              </button>
-              <button type="button" class="btn tiny" @click="requestDeleteTake(t.id)">Delete</button>
-            </li>
-          </ul>
         </div>
       </details>
 
-      <RecorderPlayer
-        v-if="activeTake"
-        :take="activeTake"
-        :recording="recording"
-        @record="startRecording()"
-      />
+      <details class="section card" open>
+        <summary class="section-summary">Takes</summary>
+        <div class="section-body">
+          <p v-if="!takes.length" class="hint muted">No takes yet — use Record above to capture one.</p>
+          <template v-else>
+            <div class="takes-toolbar">
+              <button
+                type="button"
+                class="btn tiny"
+                :disabled="recording || takes.length < 1"
+                @click="openBulkDelete"
+              >
+                Delete multiple…
+              </button>
+            </div>
+            <ul class="take-list">
+              <li v-for="t in takes" :key="t.id" :class="{ on: t.id === activeTakeId }">
+                <details class="take-item" :open="t.id === activeTakeId">
+                  <summary class="take-summary" @click.prevent="toggleTake(t.id)">
+                    <span class="take-summary-main">
+                      <span class="take-label">{{ t.label }}</span>
+                      <span class="take-meta muted">
+                        <span>{{ fmtWhen(t.recordedAt || t.createdAt) }}</span>
+                        <span>{{ fmtElapsed(t.durationSec) }}</span>
+                      </span>
+                    </span>
+                    <span class="take-actions" @click.stop>
+                      <button
+                        type="button"
+                        class="icon-btn tiny"
+                        title="Rename"
+                        aria-label="Rename take"
+                        @click="openRenameTake(t)"
+                      >
+                        <font-awesome-icon :icon="['fas', 'pen']" aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        class="btn tiny"
+                        :disabled="recording"
+                        @click="
+                          router.push({ name: 'recorder-take-edit', params: { id, takeId: t.id } })
+                        "
+                      >
+                        Edit
+                      </button>
+                      <button type="button" class="btn tiny" @click="requestDeleteTake(t.id)">Delete</button>
+                    </span>
+                  </summary>
+                  <div v-if="t.id === activeTakeId && activeTake" class="take-player">
+                    <RecorderPlayer
+                      :take="activeTake"
+                      :recording="recording"
+                      @playing-change="onTakePlayingChange"
+                    />
+                  </div>
+                </details>
+              </li>
+            </ul>
+          </template>
+        </div>
+      </details>
 
       <details class="section card">
         <summary class="section-summary">Export</summary>
@@ -704,7 +804,6 @@ onUnmounted(() => {
     </template>
 
     <p v-if="err" class="error" role="alert">{{ err }}</p>
-    <p v-if="msg" class="ok" role="status">{{ msg }}</p>
 
     <ConfirmDialog
       :open="sessionRenameOpen"
@@ -766,6 +865,40 @@ onUnmounted(() => {
       @close="deleteTakeId = null"
       @confirm="confirmDeleteTake"
     />
+    <ConfirmDialog
+      :open="bulkDeleteOpen"
+      title="Delete takes"
+      message="Select the takes to remove. This cannot be undone."
+      :confirm-label="bulkDeleting ? 'Deleting…' : bulkDeleteLabel"
+      @close="closeBulkDelete"
+      @confirm="confirmBulkDelete"
+    >
+      <div class="bulk-delete">
+        <div class="bulk-delete-tools">
+          <button type="button" class="btn tiny" @click="selectAllBulkTakes">Select all</button>
+          <button type="button" class="btn tiny" :disabled="!bulkDeleteCount" @click="clearBulkTakes">
+            Clear
+          </button>
+          <span class="muted bulk-delete-count">{{ bulkDeleteCount }} selected</span>
+        </div>
+        <ul class="bulk-delete-list" role="group" aria-label="Takes to delete">
+          <li v-for="t in takes" :key="t.id">
+            <label class="bulk-delete-row">
+              <input
+                type="checkbox"
+                :checked="bulkSelected.has(t.id)"
+                :disabled="bulkDeleting"
+                @change="toggleBulkTake(t.id)"
+              />
+              <span class="bulk-delete-label">{{ t.label }}</span>
+              <span class="muted bulk-delete-meta">
+                {{ fmtWhen(t.recordedAt || t.createdAt) }} · {{ fmtElapsed(t.durationSec) }}
+              </span>
+            </label>
+          </li>
+        </ul>
+      </div>
+    </ConfirmDialog>
     <ConfirmDialog
       :open="cancelRecOpen"
       title="Discard recording?"
@@ -921,11 +1054,16 @@ onUnmounted(() => {
   gap: 0.65rem;
   padding-top: 0.35rem;
 }
-.transport-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
+.record-panel .section-body {
+  gap: 0.65rem;
+}
+.record-panel.is-recording {
+  border-color: color-mix(in srgb, #b42318 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #b42318 28%, transparent);
+}
+.record-panel.is-rec-paused {
+  border-color: color-mix(in srgb, #9a5b00 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, #9a5b00 28%, transparent);
 }
 .rec-controls {
   display: flex;
@@ -939,10 +1077,19 @@ onUnmounted(() => {
   flex: 1 1 0;
   min-width: 0;
 }
+.rec-controls .ctrl-transport-btn.rec.arm {
+  background: color-mix(in srgb, #b42318 14%, var(--surface));
+  border-color: color-mix(in srgb, #b42318 40%, var(--border));
+  color: #b42318;
+}
 .rec-controls .ctrl-transport-btn.rec.stop {
   background: #b42318;
   border-color: #b42318;
   color: #fff;
+}
+.rec-controls .ctrl-transport-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 .rec-controls .rec-live {
   flex: 0 0 auto;
@@ -957,10 +1104,9 @@ onUnmounted(() => {
   white-space: nowrap;
   color: var(--muted);
 }
-.transport-rec {
-  min-width: 8.5rem;
-  min-height: 52px;
-  font-size: 1.05rem;
+.rec-controls .rec-live.muted {
+  opacity: 0.55;
+  font-weight: 600;
 }
 .hint {
   margin: 0;
@@ -1087,33 +1233,119 @@ textarea {
   margin: 0;
   padding: 0;
   display: grid;
+  gap: 0.45rem;
+}
+.takes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.35rem;
 }
-.take-list li {
+.bulk-delete {
+  display: grid;
+  gap: 0.65rem;
+}
+.bulk-delete-tools {
   display: flex;
-  gap: 0.45rem;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.4rem;
+}
+.bulk-delete-count {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+.bulk-delete-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  max-height: min(50vh, 22rem);
+  overflow: auto;
+}
+.bulk-delete-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.55rem;
+  row-gap: 0.1rem;
+  align-items: center;
+  padding: 0.45rem 0.5rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  padding: 0.25rem 0.35rem;
+  background: var(--bg);
+  cursor: pointer;
+}
+.bulk-delete-row input {
+  grid-row: 1 / span 2;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+.bulk-delete-label {
+  font-weight: 700;
+  min-width: 0;
+}
+.bulk-delete-meta {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.take-list li {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  overflow: hidden;
 }
 .take-list li.on {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.take-btn {
-  flex: 1;
+.take-item {
+  margin: 0;
+  min-width: 0;
+}
+.take-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.take-summary::-webkit-details-marker {
+  display: none;
+}
+.take-summary::before {
+  content: '▸';
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.85em;
+  transition: transform 0.15s ease;
+}
+.take-item[open] > .take-summary::before {
+  transform: rotate(90deg);
+}
+.take-summary-main {
+  flex: 1 1 10rem;
   min-width: 0;
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 0.5rem;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  padding: 0.45rem;
-  color: inherit;
+}
+.take-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+.take-player {
+  padding: 0.15rem 0.55rem 0.65rem;
+  border-top: 1px solid var(--border);
 }
 .take-label {
   font-weight: 700;
@@ -1157,9 +1389,5 @@ textarea {
 .error {
   margin: 0;
   color: var(--danger);
-}
-.ok {
-  margin: 0;
-  color: var(--accent);
 }
 </style>
