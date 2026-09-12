@@ -79,6 +79,10 @@ function toggle(id: string): void {
   selected.value = next
 }
 
+function clearSelection(): void {
+  selected.value = new Set()
+}
+
 function persistQuickSettings(): void {
   prefs.setQuickRecordPrefs({
     autoLabels: [...quickLabels.value],
@@ -160,7 +164,7 @@ async function confirmDeleteSelected(): Promise<void> {
   for (const s of selectedSessions.value) {
     await store.removeSession(s.id)
   }
-  selected.value = new Set()
+  clearSelection()
 }
 
 async function exportSelected(): Promise<void> {
@@ -188,7 +192,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="recorder" aria-label="Audio Recorder">
+  <section
+    class="recorder"
+    :class="{ 'has-selection': selectedSessions.length > 0 }"
+    aria-label="Audio Recorder"
+  >
     <header class="head">
       <div class="head-row">
         <h1>Audio Recorder</h1>
@@ -258,37 +266,21 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div v-if="selectedSessions.length" class="bulk card">
-      <p>{{ selectedSessions.length }} selected</p>
-      <p class="muted tip">
-        Original keeps the capture container when there are no edits; otherwise Edit take settings are
-        baked in. MP3 and M4A always re-encode.
-      </p>
-      <label class="fmt">
-        Export as
-        <select v-model="exportFormat">
-          <option v-for="f in RECORDER_DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
-            {{ f.label }}
-          </option>
-        </select>
-      </label>
-      <div class="bulk-actions">
-        <button type="button" class="go" :disabled="exporting" @click="exportSelected">
-          {{ exporting ? 'Exporting…' : 'Export zip' }}
-        </button>
-        <button type="button" class="go danger" @click="requestDeleteSelected">Delete</button>
-      </div>
-    </div>
-
     <p v-if="err" class="error" role="alert">{{ err }}</p>
     <p v-if="msg" class="ok" role="status">{{ msg }}</p>
 
     <ul v-if="filtered.length" class="list">
       <li v-for="s in filtered" :key="s.id" class="row">
-        <label class="check">
-          <input type="checkbox" :checked="selected.has(s.id)" @change="toggle(s.id)" />
-          <span class="visually-hidden">Select {{ s.name }}</span>
-        </label>
+        <button
+          type="button"
+          class="sel-btn"
+          :class="{ on: selected.has(s.id) }"
+          :aria-pressed="selected.has(s.id)"
+          :aria-label="`Select ${s.name}`"
+          @click="toggle(s.id)"
+        >
+          {{ selected.has(s.id) ? '✓' : '' }}
+        </button>
         <RouterLink class="main" :to="`/recorder/${s.id}`">
           <span class="title">{{ s.name }}</span>
           <span v-if="s.notes.trim()" class="notes-preview">{{ s.notes.trim() }}</span>
@@ -305,6 +297,46 @@ onMounted(async () => {
       No sessions match these filters.
     </p>
     <p v-else-if="store.loaded" class="empty muted">No sessions yet — tap Quick Record or New.</p>
+
+    <Teleport to="body">
+      <div
+        v-if="selectedSessions.length"
+        class="selection-bar"
+        role="toolbar"
+        aria-label="Selected sessions"
+      >
+        <span class="sel-count">{{ selectedSessions.length }} selected</span>
+        <label class="sel-format">
+          <span class="visually-hidden">Export format</span>
+          <select v-model="exportFormat" aria-label="Export format">
+            <option v-for="f in RECORDER_DOWNLOAD_FORMAT_OPTIONS" :key="f.value" :value="f.value">
+              {{ f.label }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="btn"
+          :disabled="exporting"
+          @click="exportSelected"
+        >
+          <span class="label-long">{{ exporting ? 'Exporting…' : 'Export zip' }}</span>
+          <span class="label-short">{{ exporting ? '…' : 'Export' }}</span>
+        </button>
+        <button
+          type="button"
+          class="btn btn-remove-icon"
+          aria-label="Delete selected"
+          title="Delete selected"
+          @click="requestDeleteSelected"
+        >
+          ×
+        </button>
+        <button type="button" class="btn btn-ghost" title="Clear selection" @click="clearSelection">
+          Clear
+        </button>
+      </div>
+    </Teleport>
 
     <ConfirmDialog
       :open="deleteConfirmOpen"
@@ -334,6 +366,9 @@ onMounted(async () => {
   min-width: 0;
   max-width: 100%;
 }
+.recorder.has-selection {
+  padding-bottom: 5.5rem;
+}
 .head-row {
   display: flex;
   flex-wrap: wrap;
@@ -360,8 +395,7 @@ onMounted(async () => {
 .intro,
 .storage,
 .muted,
-.empty,
-.tip {
+.empty {
   margin: 0.35rem 0 0;
   color: var(--muted);
   font-size: 0.9rem;
@@ -413,8 +447,7 @@ onMounted(async () => {
   color: var(--muted);
 }
 .fmt select,
-.fmt input,
-.fmt textarea {
+.fmt input {
   font: inherit;
   font-size: 16px;
   min-height: 44px;
@@ -423,11 +456,6 @@ onMounted(async () => {
   padding: 0.45rem 0.65rem;
   background: var(--bg);
   color: inherit;
-}
-.fmt textarea {
-  min-height: 4rem;
-  resize: vertical;
-  line-height: 1.4;
 }
 .btn.clear {
   min-height: 40px;
@@ -460,16 +488,8 @@ onMounted(async () => {
   background: #b33;
   min-width: 9.5rem;
 }
-.go.danger {
-  background: var(--danger, #b33);
-}
 .go:disabled {
   opacity: 0.55;
-}
-.bulk-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 }
 .list {
   list-style: none;
@@ -480,22 +500,45 @@ onMounted(async () => {
 }
 .row {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.45rem;
   align-items: stretch;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
   min-width: 0;
+  padding-left: 0.45rem;
 }
-.check {
-  display: grid;
-  place-items: center;
-  padding: 0 0.35rem 0 0.65rem;
+.sel-btn {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sel-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
 }
 .main {
   flex: 1;
   min-width: 0;
-  padding: 0.7rem 0.85rem 0.7rem 0;
+  padding: 0.7rem 0.85rem 0.7rem 0.15rem;
   text-decoration: none;
   color: inherit;
   display: grid;
@@ -530,5 +573,110 @@ onMounted(async () => {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+</style>
+
+<style>
+/* Match TagSelectionBar / My Library chrome (teleported). */
+.selection-bar {
+  container-type: inline-size;
+  container-name: selection-bar;
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.6rem;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(10px);
+  bottom: calc(var(--bottom-nav-h, 3.75rem) + env(safe-area-inset-bottom));
+}
+.selection-bar .sel-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+  font-size: 0.88rem;
+}
+.selection-bar .btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  color: inherit;
+}
+.selection-bar .btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.selection-bar .label-short {
+  display: none;
+}
+.selection-bar .label-long {
+  display: inline;
+}
+.selection-bar .btn-ghost {
+  background: transparent;
+  border: none;
+}
+.selection-bar .btn-remove-icon {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--muted);
+}
+.selection-bar .btn-remove-icon:hover {
+  color: var(--danger);
+}
+.selection-bar .sel-format {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.selection-bar .sel-format select {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  min-height: 44px;
+  max-width: 9.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+}
+@container selection-bar (max-width: 34rem) {
+  .selection-bar .label-long {
+    display: none;
+  }
+  .selection-bar .label-short {
+    display: inline;
+  }
+}
+@media (min-width: 768px) {
+  .selection-bar {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(960px, calc(100% - 2rem));
+    bottom: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+  }
 }
 </style>

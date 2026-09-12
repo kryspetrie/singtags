@@ -566,7 +566,58 @@ onUnmounted(() => {
         </p>
       </header>
 
-      <details class="section card" open>
+      <details
+        class="section card record-panel"
+        :class="{ 'is-recording': recording, 'is-rec-paused': recording && paused }"
+        open
+        @toggle="onRecordPanelToggle"
+      >
+        <summary class="section-summary">Record</summary>
+        <div class="section-body">
+          <RecorderLiveMonitor
+            :meter="liveMeter"
+            :paused="paused"
+            :recording="recording"
+            :elapsed-label="fmtElapsed(elapsed)"
+            :idle="!liveMeter"
+          >
+            <div class="rec-controls" role="group" :aria-label="recording ? 'Recording' : 'Start recording'">
+              <button
+                type="button"
+                class="ctrl-transport-btn rec"
+                :class="recording ? 'stop' : 'arm'"
+                :aria-label="recording ? 'Stop and save' : 'Record'"
+                @click="recording ? stopRecording() : startRecording()"
+              >
+                {{ recording ? '■ Stop' : '● Record' }}
+              </button>
+              <button
+                type="button"
+                class="ctrl-transport-btn"
+                :aria-pressed="recording && paused"
+                :disabled="!recording || !canPause"
+                @click="togglePause"
+              >
+                {{ recording && paused ? 'Resume' : 'Pause' }}
+              </button>
+              <button
+                type="button"
+                class="ctrl-transport-btn"
+                :disabled="!recording"
+                @click="onCancelClick"
+              >
+                Cancel
+              </button>
+              <span class="rec-live" role="status" :class="{ muted: !recording }">
+                <template v-if="recording">{{ paused ? 'Paused ' : '' }}{{ fmtElapsed(elapsed) }}</template>
+                <template v-else>0:00</template>
+              </span>
+            </div>
+          </RecorderLiveMonitor>
+        </div>
+      </details>
+
+      <details class="section card">
         <summary class="section-summary">Session details</summary>
         <div class="section-body">
           <label>
@@ -652,67 +703,16 @@ onUnmounted(() => {
         </div>
       </details>
 
-      <details
-        class="section card record-panel"
-        :class="{ 'is-recording': recording, 'is-rec-paused': recording && paused }"
-        open
-        @toggle="onRecordPanelToggle"
-      >
-        <summary class="section-summary">Record</summary>
-        <div class="section-body">
-          <RecorderLiveMonitor
-            :meter="liveMeter"
-            :paused="paused"
-            :recording="recording"
-            :elapsed-label="fmtElapsed(elapsed)"
-            :idle="!liveMeter"
-          >
-            <div class="rec-controls" role="group" :aria-label="recording ? 'Recording' : 'Start recording'">
-              <button
-                type="button"
-                class="ctrl-transport-btn rec"
-                :class="recording ? 'stop' : 'arm'"
-                :aria-label="recording ? 'Stop and save' : 'Record'"
-                @click="recording ? stopRecording() : startRecording()"
-              >
-                {{ recording ? '■ Stop' : '● Record' }}
-              </button>
-              <button
-                type="button"
-                class="ctrl-transport-btn"
-                :aria-pressed="recording && paused"
-                :disabled="!recording || !canPause"
-                @click="togglePause"
-              >
-                {{ recording && paused ? 'Resume' : 'Pause' }}
-              </button>
-              <button
-                type="button"
-                class="ctrl-transport-btn"
-                :disabled="!recording"
-                @click="onCancelClick"
-              >
-                Cancel
-              </button>
-              <span class="rec-live" role="status" :class="{ muted: !recording }">
-                <template v-if="recording">{{ paused ? 'Paused ' : '' }}{{ fmtElapsed(elapsed) }}</template>
-                <template v-else>0:00</template>
-              </span>
-            </div>
-          </RecorderLiveMonitor>
-        </div>
-      </details>
-
       <details class="section card" open>
         <summary class="section-summary">Takes</summary>
         <div class="section-body">
           <p v-if="!takes.length" class="hint muted">No takes yet — use Record above to capture one.</p>
           <template v-else>
-            <div class="takes-toolbar">
+            <div v-if="takes.length > 1" class="takes-toolbar">
               <button
                 type="button"
                 class="btn tiny"
-                :disabled="recording || takes.length < 1"
+                :disabled="recording"
                 @click="openBulkDelete"
               >
                 Delete multiple…
@@ -958,6 +958,7 @@ onUnmounted(() => {
 }
 .session-title-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
@@ -988,6 +989,7 @@ onUnmounted(() => {
   font-weight: 700;
   line-height: 1.25;
   min-width: 0;
+  flex: 1 1 8rem;
   overflow-wrap: anywhere;
 }
 .icon-btn {

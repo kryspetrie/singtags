@@ -16,11 +16,14 @@ export function setScrollLock(on: boolean): void {
   if (typeof document === 'undefined') return
   const root = document.documentElement
   if (on) {
-    // overflow:hidden drops scrollbar-gutter; pad so the layout width stays put.
-    const gutter = Math.max(0, window.innerWidth - root.clientWidth)
+    // Measure before locking. With `scrollbar-gutter: stable`, the gutter is already
+    // reserved — padding for `innerWidth - clientWidth` would double-compensate and
+    // shove page content sideways when the modal opens.
+    const before = root.clientWidth
     root.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
-    if (gutter > 0) root.style.paddingRight = `${gutter}px`
+    const delta = Math.max(0, root.clientWidth - before)
+    if (delta > 0) root.style.paddingRight = `${delta}px`
   } else {
     root.style.overflow = ''
     document.body.style.overflow = ''
