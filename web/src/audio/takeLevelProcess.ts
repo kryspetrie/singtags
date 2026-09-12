@@ -238,7 +238,7 @@ export async function softCompressAudioBuffer(
 export async function normalizeTakeBytesToWav(
   input: ArrayBuffer | Uint8Array,
 ): Promise<TakeLevelProcessResult> {
-  assertDecodableAudioBytes(input instanceof ArrayBuffer ? input : input.buffer)
+  assertDecodableAudioBytes(input)
   const ctx = getSharedAudioContext()
   await resumeAudioContextBestEffort(ctx)
   const decoded = await decodeAudioBytes(input)
@@ -258,7 +258,7 @@ export async function compressTakeBytesToWav(
   input: ArrayBuffer | Uint8Array,
   opts?: { mode?: TakeCompressMode; intensity?: TakeCompressIntensity },
 ): Promise<TakeLevelProcessResult> {
-  assertDecodableAudioBytes(input instanceof ArrayBuffer ? input : input.buffer)
+  assertDecodableAudioBytes(input)
   const ctx = getSharedAudioContext()
   await resumeAudioContextBestEffort(ctx)
   const decoded = await decodeAudioBytes(input)

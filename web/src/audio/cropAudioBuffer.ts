@@ -45,7 +45,7 @@ export async function cropTakeBytesToWav(
   startSec: number,
   endSec: number,
 ): Promise<{ bytes: Uint8Array; durationSec: number; sampleRate: number; channels: number }> {
-  assertDecodableAudioBytes(input instanceof ArrayBuffer ? input : input.buffer)
+  assertDecodableAudioBytes(input)
   const ctx = getSharedAudioContext()
   await resumeAudioContextBestEffort(ctx)
   const decoded = await decodeAudioBytes(input)

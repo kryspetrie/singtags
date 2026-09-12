@@ -122,7 +122,7 @@ export function createLiveInputMeter(
   let ctx: AudioContext | null = null
   let source: MediaStreamAudioSourceNode | null = null
   let analyser: AnalyserNode | null = null
-  let data: Float32Array | null = null
+  let data: Float32Array<ArrayBuffer> | null = null
 
   try {
     const AC =
@@ -135,7 +135,7 @@ export function createLiveInputMeter(
       analyser.fftSize = 2048
       analyser.smoothingTimeConstant = 0
       source.connect(analyser)
-      data = new Float32Array(analyser.fftSize)
+      data = new Float32Array(analyser.fftSize) as Float32Array<ArrayBuffer>
     }
   } catch {
     /* meter optional */

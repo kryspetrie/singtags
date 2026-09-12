@@ -222,7 +222,9 @@ async function reloadPreview(): Promise<void> {
     if (seq !== loadSeq) return
     const mime = listen.mime || src.mime || 'application/octet-stream'
     if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
-    const url = URL.createObjectURL(new Blob([listen.data], { type: mime }))
+    const copy = new Uint8Array(listen.data.byteLength)
+    copy.set(listen.data)
+    const url = URL.createObjectURL(new Blob([copy], { type: mime }))
     objectUrl.value = url
     await player.load(url, 'stereo')
     if (seq !== loadSeq) return

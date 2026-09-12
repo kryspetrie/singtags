@@ -31,7 +31,6 @@ const emit = defineEmits<{
 }>()
 
 const draft = ref('')
-const rootRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 
 watch(
@@ -108,7 +107,6 @@ function focusInput(): void {
 
 <template>
   <div
-    ref="rootRef"
     class="pills-input"
     :class="{ disabled }"
     role="group"
