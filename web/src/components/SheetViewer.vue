@@ -914,8 +914,12 @@ function measureViewportAndContent(): {
   const sheet = viewportEl.value ?? sheetEl.value
   const stage = stageEl.value
   if (!sheet || !stage) return null
-  const vr = sheet.getBoundingClientRect()
-  if (vr.width <= 0 || vr.height <= 0) return null
+  // Layout CSS px (not getBoundingClientRect): under html { zoom }, GBR is
+  // visual while offsetWidth/transform math stay in layout space — mixing them
+  // under-scales the sheet and shifts it left.
+  const vw = sheet.clientWidth
+  const vh = sheet.clientHeight
+  if (vw <= 0 || vh <= 0) return null
 
   let width = stage.offsetWidth
   let height = stage.scrollHeight
@@ -938,8 +942,22 @@ function measureViewportAndContent(): {
 
   if (width <= 0 || height <= 0) return null
   return {
-    viewport: { width: vr.width, height: vr.height },
+    viewport: { width: vw, height: vh },
     content: { width, height },
+  }
+}
+
+/** Map visual (client) px → layout px for the sheet viewport under html zoom. */
+function layoutScaleFromViewport(el: HTMLElement): {
+  sx: number
+  sy: number
+  rect: DOMRect
+} {
+  const rect = el.getBoundingClientRect()
+  return {
+    sx: rect.width > 0 ? el.clientWidth / rect.width : 1,
+    sy: rect.height > 0 ? el.clientHeight / rect.height : 1,
+    rect,
   }
 }
 
@@ -951,14 +969,15 @@ function measureChromeInsets(): { top: number; bottom: number } {
   if (!overlay) return { top: 0, bottom: 0 }
   const sheetR = sheet.getBoundingClientRect()
   const or = overlay.getBoundingClientRect()
-  if (or.width <= 0 || or.height <= 0) return { top: 0, bottom: 0 }
+  if (or.width <= 0 || or.height <= 0 || sheetR.height <= 0) return { top: 0, bottom: 0 }
+  const toLayoutY = sheet.clientHeight / sheetR.height
   const gap = 8
   const mid = (or.top + or.bottom) / 2
   const sheetMid = (sheetR.top + sheetR.bottom) / 2
   if (mid <= sheetMid) {
-    return { top: Math.max(0, or.bottom - sheetR.top + gap), bottom: 0 }
+    return { top: Math.max(0, (or.bottom - sheetR.top + gap) * toLayoutY), bottom: 0 }
   }
-  return { top: 0, bottom: Math.max(0, sheetR.bottom - or.top + gap) }
+  return { top: 0, bottom: Math.max(0, (sheetR.bottom - or.top + gap) * toLayoutY) }
 }
 
 function rememberFsLayout(
@@ -1369,7 +1388,7 @@ function syncPageIndexFromPan(): void {
   if (pages.length <= 1) return
   const scale = zoomPan.value.scale
   if (scale <= 0) return
-  const viewMidContentY = (sheet.getBoundingClientRect().height / 2 - zoomPan.value.panY) / scale
+  const viewMidContentY = (sheet.clientHeight / 2 - zoomPan.value.panY) / scale
   let best = 0
   let bestDist = Infinity
   for (let i = 0; i < pages.length; i++) {
@@ -1456,8 +1475,8 @@ function onPayKey(e: KeyboardEvent): void {
 function viewportPoint(clientX: number, clientY: number): { x: number; y: number } {
   const el = viewportEl.value ?? sheetEl.value
   if (!el) return { x: clientX, y: clientY }
-  const r = el.getBoundingClientRect()
-  return { x: clientX - r.left, y: clientY - r.top }
+  const { sx, sy, rect } = layoutScaleFromViewport(el)
+  return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy }
 }
 
 function pointerDistance(): number {
@@ -1496,7 +1515,9 @@ function onWheel(e: WheelEvent): void {
     commitZoomPan(zoomSheetAt(zoomPan.value, x, y, zoomPan.value.scale * factor, min))
     return
   }
-  commitZoomPan(panSheet(zoomPan.value, -e.deltaX, -e.deltaY))
+  const el = viewportEl.value ?? sheetEl.value
+  const { sx, sy } = el ? layoutScaleFromViewport(el) : { sx: 1, sy: 1 }
+  commitZoomPan(panSheet(zoomPan.value, -e.deltaX * sx, -e.deltaY * sy))
   syncPageIndexFromPan()
 }
 
@@ -1542,8 +1563,10 @@ function onPointerMove(e: PointerEvent): void {
   }
 
   if (dragging && pointers.size === 1) {
-    const dx = e.clientX - lastDragX
-    const dy = e.clientY - lastDragY
+    const el = viewportEl.value ?? sheetEl.value
+    const { sx, sy } = el ? layoutScaleFromViewport(el) : { sx: 1, sy: 1 }
+    const dx = (e.clientX - lastDragX) * sx
+    const dy = (e.clientY - lastDragY) * sy
     lastDragX = e.clientX
     lastDragY = e.clientY
     gesturePanX += dx
@@ -2141,10 +2164,13 @@ defineExpose({
   position: fixed;
   inset: 0;
   z-index: 60;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
+  /* Fill the fixed containing block under html { zoom } (Display size).
+   * Do not use 100dvh — it undersizes when zoom < 1. Clear inherited
+   * max-height: 75vh / max-width: 100% from .sheet or the overlay is clamped. */
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
   border-radius: 0;
   border: 0;
   padding: 0;

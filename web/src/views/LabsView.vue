@@ -5,86 +5,28 @@
 import { RouterLink } from 'vue-router'
 import InfoTips from '../components/InfoTips.vue'
 import { usePreferencesStore } from '../stores/preferences'
-import { useSnackbarStore } from '../stores/snackbar'
 
 const prefs = usePreferencesStore()
-const snackbar = useSnackbarStore()
 
 function toggleOpticalTransfer(): void {
-  const next = !prefs.opticalTransferEnabled
-  prefs.setOpticalTransferEnabled(next)
-  snackbar.show(
-    next
-      ? 'Send and receive files with animated QR codes from More'
-      : 'Animated QR transfer is hidden — static share QR codes still work',
-    {
-      title: next ? 'Optical Transfer On' : 'Optical Transfer Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
+  prefs.setOpticalTransferEnabled(!prefs.opticalTransferEnabled)
 }
 
 function toggleLocalLibrary(): void {
-  const next = !prefs.localLibraryEnabled
-  prefs.setLocalLibraryEnabled(next)
-  snackbar.show(
-    next
-      ? 'Open My Library from More to manage charts, images, and tracks on this device'
-      : 'My Library is hidden — songs already on this device are kept',
-    {
-      title: next ? 'My Library On' : 'My Library Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
+  prefs.setLocalLibraryEnabled(!prefs.localLibraryEnabled)
 }
 
 function toggleWebrtcTransfer(): void {
-  const next = !prefs.webrtcTransferEnabled
-  prefs.setWebrtcTransferEnabled(next)
-  snackbar.show(
-    next
-      ? 'Open Wireless transfer from More (same Wi‑Fi or hotspot)'
-      : 'Wireless WebRTC transfer is hidden',
-    {
-      title: next ? 'Wireless Transfer On' : 'Wireless Transfer Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
+  prefs.setWebrtcTransferEnabled(!prefs.webrtcTransferEnabled)
 }
 
 function toggleOsShareTransfer(): void {
-  const next = !prefs.osShareTransferEnabled
-  prefs.setOsShareTransferEnabled(next)
-  snackbar.show(
-    next
-      ? 'Open OS Share from More (Quick Share / AirDrop handoff)'
-      : 'OS Share handoff is hidden',
-    {
-      title: next ? 'OS Share On' : 'OS Share Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
+  prefs.setOsShareTransferEnabled(!prefs.osShareTransferEnabled)
 }
 
 function toggleAudioRecorder(): void {
-  const next = !prefs.audioRecorderEnabled
-  prefs.setAudioRecorderEnabled(next)
-  snackbar.show(
-    next
-      ? 'Open More → Audio Recorder to capture multi-take sessions on this device'
-      : 'Audio Recorder is hidden — recordings already on this device are kept',
-    {
-      title: next ? 'Audio Recorder On' : 'Audio Recorder Off',
-      tone: 'ok',
-      ms: 3000,
-    },
-  )
+  prefs.setAudioRecorderEnabled(!prefs.audioRecorderEnabled)
 }
-
 </script>
 
 <template>

@@ -1923,8 +1923,11 @@ defineExpose({
   z-index: 60;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
-  max-height: 100dvh;
+  /* inset:0 fills under html zoom; clear inherited max-width from .player. */
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
   overflow: hidden;
   gap: 0;
   padding: max(1.25rem, env(safe-area-inset-top))

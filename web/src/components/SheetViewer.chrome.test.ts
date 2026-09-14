@@ -291,6 +291,8 @@ describe('SheetViewer sing chrome', () => {
     }
     const sheet = w.get('.sheet-viewport').element as HTMLElement
     const stage = w.get('.stage').element as HTMLElement
+    Object.defineProperty(sheet, 'clientWidth', { configurable: true, get: () => 400 })
+    Object.defineProperty(sheet, 'clientHeight', { configurable: true, get: () => 800 })
     vi.spyOn(sheet, 'getBoundingClientRect').mockReturnValue({
       width: 400,
       height: 800,
@@ -307,7 +309,14 @@ describe('SheetViewer sing chrome', () => {
     let contentH = 1200
     Object.defineProperty(stage, 'offsetWidth', { configurable: true, get: () => 400 })
     Object.defineProperty(stage, 'scrollHeight', { configurable: true, get: () => contentH })
-
+    // Paging fit reads the visible page box; keep it in sync with stage mocks.
+    for (const page of stage.querySelectorAll('.page')) {
+      Object.defineProperty(page, 'offsetWidth', { configurable: true, get: () => 400 })
+      Object.defineProperty(page, 'offsetHeight', {
+        configurable: true,
+        get: () => contentH,
+      })
+    }
     vm.applyFitMode('all')
     await flushPromises()
     const fitted = vm.zoomPanState().scale

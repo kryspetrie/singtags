@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
  * Compact “i” tips control matching Browse search tips (toggle + hover on desktop).
+ * Popover flips to end-align when there isn’t room to the right (mobile-safe).
  */
-import { onMounted, onUnmounted, ref, useId } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 
 withDefaults(
   defineProps<{
@@ -18,10 +19,26 @@ withDefaults(
 )
 
 const open = ref(false)
+const alignEnd = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
 const popoverId = useId()
 
-function toggle(): void {
+function updatePlacement(): void {
+  const el = rootEl.value
+  if (!el || typeof window === 'undefined') return
+  const rect = el.getBoundingClientRect()
+  const margin = 16
+  const maxW = Math.min(22 * 16, window.innerWidth - margin * 2)
+  const spaceRight = window.innerWidth - rect.left - margin
+  alignEnd.value = spaceRight < maxW
+}
+
+async function toggle(): Promise<void> {
   open.value = !open.value
+  if (open.value) {
+    await nextTick()
+    updatePlacement()
+  }
 }
 
 function close(): void {
@@ -35,16 +52,36 @@ function onDocPointerDown(ev: Event): void {
   open.value = false
 }
 
+function onViewportChange(): void {
+  if (open.value) updatePlacement()
+}
+
+watch(open, async (isOpen) => {
+  if (!isOpen) return
+  await nextTick()
+  updatePlacement()
+})
+
 onMounted(() => {
   document.addEventListener('pointerdown', onDocPointerDown)
+  window.addEventListener('resize', onViewportChange)
+  window.addEventListener('orientationchange', onViewportChange)
 })
 onUnmounted(() => {
   document.removeEventListener('pointerdown', onDocPointerDown)
+  window.removeEventListener('resize', onViewportChange)
+  window.removeEventListener('orientationchange', onViewportChange)
 })
 </script>
 
 <template>
-  <div class="info-tips" :class="{ open }" @mouseleave="close">
+  <div
+    ref="rootEl"
+    class="info-tips"
+    :class="{ open, 'align-end': alignEnd }"
+    @mouseleave="close"
+    @mouseenter="updatePlacement"
+  >
     <button
       type="button"
       class="info-tips-btn"
@@ -95,9 +132,11 @@ onUnmounted(() => {
   display: none;
   position: absolute;
   left: 0;
+  right: auto;
   top: calc(100% + 0.35rem);
   z-index: 20;
   width: min(22rem, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -110,6 +149,11 @@ onUnmounted(() => {
   font-style: normal;
   font-weight: 400;
   font-family: inherit;
+  box-sizing: border-box;
+}
+.info-tips.align-end .info-tips-overlay {
+  left: auto;
+  right: 0;
 }
 .info-tips.open .info-tips-overlay {
   display: block;
