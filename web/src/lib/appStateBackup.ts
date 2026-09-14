@@ -42,6 +42,8 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.pitchPipeVoiceLab.library.v1',
   'singtags.audioEncodeQuality.v1',
   'singtags.labs.audioRecorder.enabled.v1',
+  'singtags.labs.singTogether.enabled.v1',
+  'singtags.singTogether.repertoire.v1',
   'singtags.recorder.capture.v1',
   'singtags.recorder.quick.v1',
   'singtags.theme.v1',

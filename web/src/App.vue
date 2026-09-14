@@ -93,9 +93,13 @@ const moreNavActive = computed(
     route.name === 'rx' ||
     route.name === 'labs' ||
     route.name === 'labs-pitch-pipe-sound' ||
+    route.name === 'matcher' ||
     route.name === 'library' ||
     route.name === 'library-doc' ||
-    route.name === 'queue',
+    route.name === 'queue' ||
+    route.name === 'recorder' ||
+    route.name === 'recorder-session' ||
+    route.name === 'recorder-take-edit',
 )
 
 function openMore(): void {

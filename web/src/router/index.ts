@@ -64,6 +64,12 @@ export const router = createRouter({
       component: () => import('../views/PitchPipeSoundLabView.vue'),
     },
     {
+      path: '/matcher',
+      name: 'matcher',
+      component: () => import('../views/SingTogetherView.vue'),
+      meta: { requiresSingTogether: true },
+    },
+    {
       path: '/roulette',
       name: 'roulette',
       component: () => import('../views/RouletteView.vue'),
@@ -224,6 +230,9 @@ router.beforeEach((to, from) => {
     }
     if (to.meta.requiresAudioRecorder && !prefs.audioRecorderEnabled) {
       prefs.setAudioRecorderEnabled(true)
+    }
+    if (to.meta.requiresSingTogether && !prefs.singTogetherEnabled) {
+      prefs.setSingTogetherEnabled(true)
     }
   } catch {
     /* Pinia not ready (rare in tests) — allow navigation */

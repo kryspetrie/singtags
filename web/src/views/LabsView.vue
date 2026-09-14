@@ -27,6 +27,10 @@ function toggleOsShareTransfer(): void {
 function toggleAudioRecorder(): void {
   prefs.setAudioRecorderEnabled(!prefs.audioRecorderEnabled)
 }
+
+function toggleSingTogether(): void {
+  prefs.setSingTogetherEnabled(!prefs.singTogetherEnabled)
+}
 </script>
 
 <template>
@@ -114,6 +118,44 @@ function toggleAudioRecorder(): void {
           @change="toggleAudioRecorder"
         />
       </label>
+    </section>
+
+    <section class="card" aria-labelledby="sing-together-h">
+      <h2 id="sing-together-h" class="card-title">Sing Together</h2>
+      <p class="card-desc">
+        Build a freeform song repertoire (parts + confidence), show a packed QR on each phone, and
+        let a host scan everyone to list songs you can all sing — with part coverage and confidence
+        sorts. Not tied to the SingTags catalog.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.singTogetherEnabled }"
+        title="Enable Sing Together"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Sing Together</span>
+          <span class="setting-desc">
+            {{
+              prefs.singTogetherEnabled
+                ? 'On — open from this Labs page'
+                : 'Off — /matcher stays hidden'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.singTogetherEnabled"
+          :aria-checked="prefs.singTogetherEnabled"
+          aria-label="Sing Together"
+          @change="toggleSingTogether"
+        />
+      </label>
+      <RouterLink v-if="prefs.singTogetherEnabled" class="btn" to="/matcher">
+        Open Sing Together
+      </RouterLink>
     </section>
 
     <section class="card" aria-labelledby="optical-h">

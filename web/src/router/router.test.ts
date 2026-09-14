@@ -35,8 +35,18 @@ describe('router', () => {
         'roulette',
         'library',
         'library-doc',
+        'matcher',
+        'recorder',
       ]),
     )
+  })
+
+  it('auto-enables Sing Together when opening /matcher', async () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.singTogetherEnabled).toBe(false)
+    await router.push('/matcher')
+    expect(router.currentRoute.value.name).toBe('matcher')
+    expect(prefs.singTogetherEnabled).toBe(true)
   })
 
   it('redirects unknown paths to Browse', async () => {

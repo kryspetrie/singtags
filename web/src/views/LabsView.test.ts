@@ -68,6 +68,17 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('toggles sing together labs flag', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().singTogetherEnabled).toBe(false)
+    await w.get('input[aria-label="Sing Together"]').setValue(true)
+    expect(usePreferencesStore().singTogetherEnabled).toBe(true)
+    w.unmount()
+  })
+
   it('does not expose a Tag Roulette Labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

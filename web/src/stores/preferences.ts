@@ -147,6 +147,8 @@ const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
 /** Labs: OS Share handoff (Quick Share / AirDrop via share sheet). Default off. */
 const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
+/** Labs: Sing Together repertoire correlation via QR. Default off. */
+const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 const RECORDER_CAPTURE_KEY = 'singtags.recorder.capture.v1'
 const QUICK_RECORD_KEY = 'singtags.recorder.quick.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
@@ -562,6 +564,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Recordings stay on-device in IndexedDB.
    */
   const audioRecorderEnabled = ref(loadBool(AUDIO_RECORDER_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Sing Together (/matcher) is available from Labs.
+   * Repertoire + QR correlation stay on-device.
+   */
+  const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
   /** Last-used MediaRecorder capture settings for Labs Audio Recorder. */
   const recorderCapturePrefs = ref(
     (() => {
@@ -803,6 +810,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(AUDIO_RECORDER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    singTogetherEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(SING_TOGETHER_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -1246,6 +1265,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     audioRecorderEnabled.value = on
   }
 
+  /** Labs: enable/disable Sing Together repertoire correlation. */
+  function setSingTogetherEnabled(on: boolean): void {
+    singTogetherEnabled.value = on
+  }
+
   /** Persist Labs Audio Recorder capture settings. */
   function setRecorderCapturePrefs(prefs: RecorderCapturePrefs): void {
     recorderCapturePrefs.value = normalizeRecorderCapture(prefs)
@@ -1344,6 +1368,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     webrtcTransferEnabled,
     osShareTransferEnabled,
     audioRecorderEnabled,
+    singTogetherEnabled,
     recorderCapturePrefs,
     quickRecordPrefs,
     opticalTransferFrameBytes,
@@ -1379,6 +1404,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setWebrtcTransferEnabled,
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
+    setSingTogetherEnabled,
     setRecorderCapturePrefs,
     setQuickRecordPrefs,
     setShareFullscreen,
