@@ -60,6 +60,8 @@ const libraryPickerOpen = ref(false)
 
 const deleteSessionOpen = ref(false)
 const deleteTakeId = ref<string | null>(null)
+/** Skip blank-session abandon prompt when Delete already removed the session. */
+const leavingAfterDelete = ref(false)
 const bulkDeleteOpen = ref(false)
 const bulkSelected = ref<Set<string>>(new Set())
 const bulkDeleting = ref(false)
@@ -295,6 +297,7 @@ async function saveMeta(): Promise<void> {
 }
 
 onBeforeRouteLeave(async () => {
+  if (leavingAfterDelete.value) return true
   // Finish an open Stop prompt (prefer save so the take is not lost mid-navigation).
   if (stopDecisionResolve) resolveStopDecision('save')
   if (stopInFlight) await stopInFlight
@@ -381,6 +384,7 @@ function requestDeleteSession(): void {
 
 async function confirmDeleteSession(): Promise<void> {
   deleteSessionOpen.value = false
+  leavingAfterDelete.value = true
   markLeaveHandled()
   cancelRecording()
   await store.removeSession(props.id)
