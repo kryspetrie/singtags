@@ -19,6 +19,8 @@ const props = defineProps<{
   elapsedLabel?: string
   /** Idle shell (no live stream). */
   idle?: boolean
+  /** Pre-record countdown (3…1); overlays the waveform without shifting layout. */
+  countdownSec?: number | null
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -179,6 +181,15 @@ function fmtDb(db: number | undefined): string {
       <div v-if="!recording" class="wave wave-idle" aria-hidden="true">
         <span class="wave-idle-label">{{ meter ? 'Input levels' : 'Mic off' }}</span>
       </div>
+      <div
+        v-if="countdownSec != null"
+        class="wave-countdown"
+        role="status"
+        aria-live="assertive"
+      >
+        <span class="wave-countdown-num">{{ countdownSec }}</span>
+        <span class="wave-countdown-label">Recording starts…</span>
+      </div>
     </div>
     <div class="vu-col">
       <div
@@ -335,6 +346,30 @@ function fmtDb(db: number | undefined): string {
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
+}
+.wave-countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 0.1rem;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.wave-countdown-num {
+  font-size: 2.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--accent);
+}
+.wave-countdown-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 .vu-col {
   grid-column: 2;

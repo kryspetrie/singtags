@@ -435,6 +435,6 @@ onUnmounted(() => {
 .btn-primary {
   background: var(--accent, #1a5fb4);
   border-color: transparent;
-  color: #fff;
+  color: var(--on-accent);
 }
 </style>

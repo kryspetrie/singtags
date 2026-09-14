@@ -1993,7 +1993,7 @@ function groupsForEntry(entryId: string) {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .options-btn {

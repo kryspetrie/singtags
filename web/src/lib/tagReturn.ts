@@ -95,7 +95,7 @@ export function labelForListRoute(route: Pick<RouteLocationNormalized, 'name' | 
       if (route.path.startsWith('/favorites')) return 'Favorites'
       if (route.path.startsWith('/recent')) return 'Recent'
       if (route.path.startsWith('/queue')) return 'Downloads'
-      if (route.path.startsWith('/settings')) return 'Offline'
+      if (route.path.startsWith('/settings')) return 'Settings'
       if (route.path.startsWith('/tx') || route.path.startsWith('/rx')) return 'Transfer'
       if (route.path.startsWith('/optical-transfer')) return 'Transfer'
       if (route.path.startsWith('/pitch-pipe')) return 'Pitch Pipe'

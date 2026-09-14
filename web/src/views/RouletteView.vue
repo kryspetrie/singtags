@@ -54,6 +54,7 @@ function poolContext(): RoulettePoolContext {
   return {
     favoriteIds: favorites.ids,
     favoriteGroups: favoriteGroups.value,
+    cacheReadyByTag: catalog.cacheReadyByTag,
   }
 }
 
@@ -435,7 +436,7 @@ function rowTag(item: RouletteBatchItem): TagSummary {
 }
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 1px solid var(--accent);
   border-radius: 8px;
   min-height: var(--touch);

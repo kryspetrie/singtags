@@ -554,7 +554,7 @@ details[open] > .section-summary.head::before {
   border: 0;
   border-radius: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   padding: 0.6rem 1rem;

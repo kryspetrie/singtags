@@ -902,7 +902,7 @@ input[type='range'] {
   border-radius: 10px;
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 700;
   cursor: pointer;

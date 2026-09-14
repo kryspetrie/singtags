@@ -277,7 +277,7 @@ function onContinue(): void {
   flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--accent-hover) 40%, var(--accent));
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-size: 0.85rem;
   font-weight: 750;

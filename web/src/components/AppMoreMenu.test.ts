@@ -144,8 +144,8 @@ describe('AppMoreMenu', () => {
     const installBtn = document.body.querySelector('.menu-item-install') as HTMLButtonElement
     expect(installBtn).toBeTruthy()
     expect(installBtn.textContent).toMatch(/Install App/)
-    expect(document.body.textContent).toMatch(/Display size/)
-    expect(document.body.textContent).toMatch(/%/)
+    expect(document.body.textContent).toMatch(/Settings/)
+    expect(document.body.querySelector('[aria-label="Display size"]')).toBeNull()
     const menu = document.body.querySelector('nav.menu') as HTMLElement
     expect(menu?.lastElementChild).toBe(installBtn)
     w.unmount()

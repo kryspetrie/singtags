@@ -198,7 +198,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 12px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-size: 1rem;
   font-weight: 700;

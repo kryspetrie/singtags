@@ -562,7 +562,7 @@ onBeforeUnmount(() => {
   font-size: 1.35rem;
   font-weight: 800;
   line-height: 1;
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);
   align-self: center;
   cursor: pointer;

@@ -11,7 +11,7 @@ import { useLocalLibraryStore } from '../stores/localLibrary'
 import { useSnackbarStore } from '../stores/snackbar'
 import type { RecorderCapturePrefs, RecorderSession, RecorderTake } from '../types/recorder'
 import { takePendingQuickRecordStream } from '../audio/pendingQuickRecord'
-import { useRecorderCapture, type LeaveRecordingDecision } from '../composables/useRecorderCapture'
+import { useRecorderCapture, type LeaveRecordingDecision, type StopRecordingDecision } from '../composables/useRecorderCapture'
 import {
   exportSessionZip,
   exportTakeFile,
@@ -66,9 +66,15 @@ const bulkDeleting = ref(false)
 const cancelRecOpen = ref(false)
 const leaveOpen = ref(false)
 const emptySessionOpen = ref(false)
+const stopDecisionOpen = ref(false)
+/** Name (and empty meta) snapshot after first load — used to detect an untouched blank session. */
+const pristineName = ref('')
 let cancelRecResolve: ((ok: boolean) => void) | null = null
 let leaveResolve: ((d: LeaveRecordingDecision) => void) | null = null
 let emptySessionResolve: ((ok: boolean) => void) | null = null
+let stopDecisionResolve: ((d: StopRecordingDecision) => void) | null = null
+/** In-flight Stop handler (so leave can wait for save/rerecord prompt). */
+let stopInFlight: Promise<void> | null = null
 
 function persistCapture(): void {
   prefs.setRecorderCapturePrefs(capture.value)
@@ -114,12 +120,27 @@ function resolveEmptySession(ok: boolean): void {
   emptySessionResolve = null
 }
 
+function requestStopDecision(): Promise<StopRecordingDecision> {
+  stopDecisionOpen.value = true
+  return new Promise((resolve) => {
+    stopDecisionResolve = resolve
+  })
+}
+
+function resolveStopDecision(d: StopRecordingDecision): void {
+  stopDecisionOpen.value = false
+  stopDecisionResolve?.(d)
+  stopDecisionResolve = null
+}
+
 const {
   recording,
   paused,
   elapsed,
   liveMeter,
   canPause,
+  countdownSec,
+  starting,
   startRecording,
   stopRecording,
   cancelRecording,
@@ -142,6 +163,7 @@ const {
   },
   requestCancelConfirm,
   requestLeaveDecision,
+  requestStopDecision,
   onSavedTake: async ({ blob, mimeType, durationSec, channels, bitRate }) => {
     const take = await store.addTake({
       sessionId: props.id,
@@ -156,6 +178,17 @@ const {
     snackbar.show(`Saved ${take.label}`, { tone: 'ok', ms: 2500 })
   },
 })
+
+async function onStopClick(): Promise<void> {
+  if (!recording.value || stopInFlight) return
+  const p = stopRecording()
+  stopInFlight = p
+  try {
+    await p
+  } finally {
+    if (stopInFlight === p) stopInFlight = null
+  }
+}
 
 const recordOpen = ref(true)
 const takePlaying = ref(false)
@@ -261,7 +294,30 @@ async function saveMeta(): Promise<void> {
   }
 }
 
-onBeforeRouteLeave(async () => confirmLeaveWhileRecording())
+onBeforeRouteLeave(async () => {
+  // Finish an open Stop prompt (prefer save so the take is not lost mid-navigation).
+  if (stopDecisionResolve) resolveStopDecision('save')
+  if (stopInFlight) await stopInFlight
+  if (countdownSec.value != null) return false
+  if (!(await confirmLeaveWhileRecording())) return false
+  if (!isBlankSession()) return true
+  if (!(await requestEmptySessionCleanup())) return false
+  markLeaveHandled()
+  cancelRecording()
+  await store.removeSession(props.id)
+  return true
+})
+
+/** Untouched session: no takes, no notes/labels/links, name still the creation default. */
+function isBlankSession(): boolean {
+  if (takes.value.length > 0) return false
+  if (recording.value || starting.value || countdownSec.value != null) return false
+  if ((sessionNotes.value || '').trim()) return false
+  if (sessionLabels.value.length > 0) return false
+  if (currentSession.value?.linkedTag || currentSession.value?.linkedLibrary) return false
+  if (pristineName.value && sessionName.value !== pristineName.value) return false
+  return true
+}
 
 async function openRenameSession(): Promise<void> {
   pendingRenameId.value = null
@@ -501,7 +557,10 @@ function fmtElapsed(t: number): string {
 
 watch(
   () => props.id,
-  () => void reload(),
+  async () => {
+    await reload()
+    pristineName.value = sessionName.value
+  },
 )
 
 onMounted(async () => {
@@ -510,6 +569,7 @@ onMounted(async () => {
   if (prefs.localLibraryEnabled) void localLib.ensureLoaded()
   await refreshDevices()
   await reload()
+  pristineName.value = sessionName.value
   const quick = route.query.quick === '1' || route.query.quick === 'true'
   if (quick && currentSession.value) {
     // Drop the flag so refresh/back doesn't re-arm the mic.
@@ -520,7 +580,7 @@ onMounted(async () => {
     const pending = takePendingQuickRecordStream()
     await startRecording(pending)
     // If Quick Record failed and session has no takes, offer cleanup.
-    if (!recording.value && takes.value.length === 0) {
+    if (!recording.value && isBlankSession()) {
       if (await requestEmptySessionCleanup()) {
         markLeaveHandled()
         await store.removeSession(props.id)
@@ -568,7 +628,11 @@ onUnmounted(() => {
 
       <details
         class="section card record-panel"
-        :class="{ 'is-recording': recording, 'is-rec-paused': recording && paused }"
+        :class="{
+          'is-recording': recording,
+          'is-rec-paused': recording && paused,
+          'is-countdown': countdownSec != null,
+        }"
         open
         @toggle="onRecordPanelToggle"
       >
@@ -580,14 +644,16 @@ onUnmounted(() => {
             :recording="recording"
             :elapsed-label="fmtElapsed(elapsed)"
             :idle="!liveMeter"
+            :countdown-sec="countdownSec"
           >
             <div class="rec-controls" role="group" :aria-label="recording ? 'Recording' : 'Start recording'">
               <button
                 type="button"
                 class="ctrl-transport-btn rec"
                 :class="recording ? 'stop' : 'arm'"
-                :aria-label="recording ? 'Stop and save' : 'Record'"
-                @click="recording ? stopRecording() : startRecording()"
+                :disabled="countdownSec != null || starting"
+                :aria-label="recording ? 'Stop' : 'Record'"
+                @click="recording ? onStopClick() : startRecording()"
               >
                 {{ recording ? '■ Stop' : '● Record' }}
               </button>
@@ -595,7 +661,7 @@ onUnmounted(() => {
                 type="button"
                 class="ctrl-transport-btn"
                 :aria-pressed="recording && paused"
-                :disabled="!recording || !canPause"
+                :disabled="!recording || !canPause || countdownSec != null"
                 @click="togglePause"
               >
                 {{ recording && paused ? 'Resume' : 'Pause' }}
@@ -603,7 +669,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="ctrl-transport-btn"
-                :disabled="!recording"
+                :disabled="!recording || countdownSec != null"
                 @click="onCancelClick"
               >
                 Cancel
@@ -922,12 +988,34 @@ onUnmounted(() => {
     </ConfirmDialog>
     <ConfirmDialog
       :open="emptySessionOpen"
-      title="Remove empty session?"
-      message="Recording did not start. Remove this empty session?"
-      confirm-label="Remove"
+      title="Abandon blank session?"
+      message="This session has no recordings or edits. Abandoning deletes it from this device."
+      confirm-label="Abandon"
+      cancel-label="Keep session"
       @close="resolveEmptySession(false)"
       @confirm="resolveEmptySession(true)"
     />
+    <ConfirmDialog
+      :open="stopDecisionOpen"
+      title="Recording stopped"
+      message="Save this take, re-record after a short countdown, or abandon it."
+      wide
+      @close="resolveStopDecision('abandon')"
+    >
+      <template #actions>
+        <div class="stop-decision-actions">
+          <button type="button" class="btn btn-primary" @click="resolveStopDecision('save')">
+            Save recording
+          </button>
+          <button type="button" class="btn" @click="resolveStopDecision('rerecord')">
+            Re-record
+          </button>
+          <button type="button" class="btn btn-danger" @click="resolveStopDecision('abandon')">
+            Abandon
+          </button>
+        </div>
+      </template>
+    </ConfirmDialog>
     <RecorderSettingsModal
       v-model="capture"
       :open="settingsOpen"
@@ -1063,6 +1151,10 @@ onUnmounted(() => {
   border-color: color-mix(in srgb, #b42318 45%, var(--border));
   box-shadow: 0 0 0 1px color-mix(in srgb, #b42318 28%, transparent);
 }
+.record-panel.is-countdown {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
 .record-panel.is-rec-paused {
   border-color: color-mix(in srgb, #9a5b00 45%, var(--border));
   box-shadow: 0 0 0 1px color-mix(in srgb, #9a5b00 28%, transparent);
@@ -1138,6 +1230,48 @@ onUnmounted(() => {
   font-weight: 600;
   cursor: pointer;
 }
+.stop-decision-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  gap: 0.5rem;
+}
+.stop-decision-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stop-decision-actions .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.stop-decision-actions .btn-danger {
+  background: color-mix(in srgb, var(--danger, #9b2c2c) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger, #9b2c2c) 45%, var(--border));
+  color: var(--danger, #9b2c2c);
+}
+@media (max-width: 420px) {
+  .stop-decision-actions {
+    flex-wrap: wrap;
+  }
+  .stop-decision-actions .btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    white-space: normal;
+  }
+  .stop-decision-actions .btn:first-child {
+    flex: 1 1 100%;
+  }
+}
 .btn.danger {
   color: #b42318;
   border-color: color-mix(in srgb, #b42318 35%, var(--border));
@@ -1187,7 +1321,7 @@ textarea {
   border: 0;
   border-radius: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   padding: 0.5rem 1rem;

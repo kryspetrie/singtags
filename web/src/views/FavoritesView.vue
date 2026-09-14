@@ -1152,7 +1152,7 @@ async function confirmImport(): Promise<void> {
 .backup-actions .primary,
 .tag-id-actions .primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 .backup-actions .primary:disabled {

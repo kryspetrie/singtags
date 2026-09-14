@@ -319,27 +319,30 @@ function syncScrollPcOctave(): void {
   }
 }
 
-/** Anchor note for scrolling to the default octave (C of that window). */
-function rangeDefaultOctaveNote(): string | null {
-  if (isHorizontalPiano.value) return `C${pianoDefaultOctave.value}`
+/** Anchor note for scrolling: middle of the selected range (prefer a natural near mid). */
+function rangeCenterAnchorNote(): string | null {
   const notes = rangeNotes.value
   if (notes.length === 0) return null
-  const oct = pitchPipePcKeyOctave(notes)
-  return `C${oct}`
+  const midIdx = Math.floor((notes.length - 1) / 2)
+  for (const delta of [0, 1, -1, 2, -2]) {
+    const n = notes[midIdx + delta]
+    if (n && !/[#b]/i.test(n)) return n
+  }
+  return notes[midIdx] ?? null
 }
 
-/** Scroll the keyboard so the default octave sits in view. */
+/** Scroll the keyboard so the selected range sits centered in view. */
 function scrollPianoToRange(): void {
+  const anchor = rangeCenterAnchorNote()
+  if (anchor) scrollPianoToAnchor(anchor)
+}
+
+/** Scroll so a specific note is centered (e.g. default-octave C). */
+function scrollPianoToAnchor(anchor: string): void {
   void nextTick(() => {
     if (!isPianoLayout.value) return
     if (!showScrollableKeyboard.value) return
-    const anchor = rangeDefaultOctaveNote()
-    if (!anchor) return
-    if (isHorizontalPiano.value) {
-      scrollPcOctave.value = pianoDefaultOctave.value
-    } else {
-      scrollPcOctave.value = pitchPipePcKeyOctave(rangeNotes.value)
-    }
+    scrollPcOctave.value = pitchPipePcKeyOctave([anchor])
     if (isHorizontalPiano.value && pianoHScrollRef.value) {
       pianoHScrollRef.value.scrollToNote(anchor)
       syncScrollPcOctave()
@@ -402,11 +405,11 @@ watch(pipeRange, () => {
   for (const n of active) {
     if (!noteList.value.includes(n)) noteOff(n)
   }
-  if (!isHorizontalPiano.value) scrollPianoToRange()
+  scrollPianoToRange()
 })
 
 watch(pianoDefaultOctave, () => {
-  if (isHorizontalPiano.value) scrollPianoToRange()
+  if (isHorizontalPiano.value) scrollPianoToAnchor(`C${pianoDefaultOctave.value}`)
 })
 
 watch([showFullKeyboard, pipeLayout], () => {
@@ -558,7 +561,7 @@ function blackLeftPct(after: string): number {
           <select
             v-model="pianoDefaultOctave"
             aria-label="Default piano octave"
-            title="Which C–C octave the horizontal piano opens on (drag to change)"
+            title="Jump the horizontal piano so this C–C window is centered"
           >
             <option
               v-for="r in PITCH_PIPE_PIANO_DEFAULT_OCTAVE_OPTIONS"
@@ -1182,8 +1185,19 @@ function blackLeftPct(after: string): number {
   outline: 3px solid var(--accent);
   outline-offset: 1px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
+}
+/* Piano keys: keep the press fill inside the key (outline overflowed left). */
+.piano .note.active {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, var(--accent));
+}
+.piano-blacks .note.active {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent)),
+    0 2px 6px color-mix(in srgb, #000 22%, transparent);
 }
 
 .piano {
@@ -1382,7 +1396,7 @@ function blackLeftPct(after: string): number {
 }
 .note.out-of-range.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 @media (min-width: 720px) {

@@ -229,7 +229,7 @@ describe('App shell', () => {
     expect(progress.exists()).toBe(true)
     expect(progress.text()).toContain('Sheets 2/10')
     expect(progress.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('20')
-    expect(progress.find('a[href="/settings"]').exists()).toBe(true)
+    expect(progress.find('a[href="/settings?tab=offline"]').exists()).toBe(true)
 
     await progress.findAll('button').find((b) => b.text() === 'Dismiss')!.trigger('click')
     await flushPromises()

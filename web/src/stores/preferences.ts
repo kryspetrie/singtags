@@ -35,6 +35,20 @@ import {
   resolveInitialUiScale,
   writeStoredUiScale,
 } from '../lib/uiScale'
+import {
+  APP_THEME_DEFAULT,
+  applyAppTheme,
+  normalizeAppTheme,
+  resolveInitialAppTheme,
+  writeStoredAppTheme,
+  type AppTheme,
+} from '../lib/theme'
+import {
+  normalizeSheetErodeLevel,
+  resolveInitialSheetErodeLevel,
+  writeStoredSheetErodeLevel,
+  type SheetErodeLevel,
+} from '../lib/sheetErode'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
 import {
   normalizeMixPanSetting,
@@ -117,6 +131,8 @@ const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 const SHEET_PIANO_KEY_SCALE_KEY = 'singtags.sheetPianoKeyScale.v2'
 /** @deprecated superseded by v2 after null→0 normalize bug wrote 25% as default. */
 const SHEET_PIANO_KEY_SCALE_KEY_V1 = 'singtags.sheetPianoKeyScale.v1'
+/** Invert sheet page colors (night reading). */
+const SHEET_INVERT_KEY = 'singtags.sheetInvert.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
 const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
@@ -482,6 +498,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipePianoEngine = ref<PianoSoundEngineId>(initialPipe.pianoEngine)
   /** App-wide Display size (70–130%, step 5). */
   const uiScalePercent = ref(resolveInitialUiScale())
+  /** App color theme (light / dark / high-contrast). */
+  const appTheme = ref<AppTheme>(resolveInitialAppTheme())
   /**
    * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
    * (and any other app pitches that consult this preference).
@@ -509,6 +527,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const sheetFsPageMode = ref<SheetFsPageMode>(loadSheetFsPageMode())
   /** Fullscreen sheet piano: key width percent (more/fewer keys visible). */
   const sheetPianoKeyScale = ref(loadSheetPianoKeyScale())
+  /** When true, invert sheet page colors for night reading. */
+  const sheetInvert = ref(loadBool(SHEET_INVERT_KEY, false))
+  /** Sheet erode intensity (off / light / medium / strong). */
+  const sheetErode = ref<SheetErodeLevel>(resolveInitialSheetErodeLevel())
   /**
    * Labs: when true, animated QR optical transfer (send/receive pages, Browse camera receive) is available.
    * Static QR share codes are unrelated and stay available either way.
@@ -641,6 +663,20 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
       writeStoredUiScale(next)
       applyUiScale(next)
+    },
+    { flush: 'sync', immediate: true },
+  )
+
+  watch(
+    appTheme,
+    (v) => {
+      const next = normalizeAppTheme(v)
+      if (next !== v) {
+        appTheme.value = next
+        return
+      }
+      writeStoredAppTheme(next)
+      applyAppTheme(next)
     },
     { flush: 'sync', immediate: true },
   )
@@ -828,6 +864,31 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
     },
     { flush: 'sync' },
+  )
+
+  watch(
+    sheetInvert,
+    (v) => {
+      try {
+        localStorage.setItem(SHEET_INVERT_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    sheetErode,
+    (v) => {
+      const next = normalizeSheetErodeLevel(v)
+      if (next !== v) {
+        sheetErode.value = next
+        return
+      }
+      writeStoredSheetErodeLevel(next)
+    },
+    { flush: 'sync', immediate: true },
   )
 
   watch(
@@ -1075,6 +1136,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setUiScalePercent(UI_SCALE_DEFAULT)
   }
 
+  function setAppTheme(theme: AppTheme): void {
+    appTheme.value = normalizeAppTheme(theme)
+  }
+
+  function resetAppTheme(): void {
+    setAppTheme(APP_THEME_DEFAULT)
+  }
+
   /**
    * Built-in pitch sound (Mellow / Bright). Persists in pitch-pipe prefs and
    * clears any lab custom voice override so the selected built-in applies.
@@ -1192,6 +1261,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSheetPianoKeyScale(sheetPianoKeyScale.value + delta)
   }
 
+  /** Invert sheet music page colors (persisted). */
+  function setSheetInvert(on: boolean): void {
+    sheetInvert.value = on
+  }
+
+  /** Thicken sheet ink via morphological erode (persisted; applied before invert). */
+  function setSheetErode(level: SheetErodeLevel): void {
+    sheetErode.value = normalizeSheetErodeLevel(level)
+  }
+
   function setOpticalTransferFrameBytes(value: number): void {
     opticalTransferFrameBytes.value = normalizeOpticalFrameBytes(value)
     opticalTransferAutoDensity.value = false
@@ -1238,6 +1317,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareBarbershopTags,
     sheetFsPageMode,
     sheetPianoKeyScale,
+    sheetInvert,
+    sheetErode,
     opticalTransferEnabled,
     localLibraryEnabled,
     webrtcTransferEnabled,
@@ -1266,6 +1347,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipePianoDefaultOctave,
     pitchPipePianoEngine,
     uiScalePercent,
+    appTheme,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
@@ -1283,6 +1365,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSheetFsPageMode,
     setSheetPianoKeyScale,
     nudgeSheetPianoKeyScale,
+    setSheetInvert,
+    setSheetErode,
     setOpticalTransferFrameBytes,
     setOpticalTransferAutoDensity,
     setOpticalTransferPreset,
@@ -1310,6 +1394,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setUiScalePercent,
     nudgeUiScale,
     resetUiScale,
+    setAppTheme,
+    resetAppTheme,
     setPitchPipeSound,
     setPitchPipeAHz,
     setPitchPipeDetuneCents,

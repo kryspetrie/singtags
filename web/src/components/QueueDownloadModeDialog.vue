@@ -113,7 +113,7 @@ const emit = defineEmits<{
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-ghost {
   background: transparent;

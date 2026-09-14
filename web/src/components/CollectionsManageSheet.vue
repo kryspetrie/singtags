@@ -479,7 +479,7 @@ function confirmDeleteCollection(): void {
 .manage-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .manage-btn-primary:hover:not(:disabled) {
   border-color: var(--accent);

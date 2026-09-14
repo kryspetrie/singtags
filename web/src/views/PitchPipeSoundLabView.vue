@@ -584,7 +584,7 @@ function applyImport(): void {
 .note.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .sustain {
   display: flex;

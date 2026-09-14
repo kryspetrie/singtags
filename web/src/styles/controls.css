@@ -181,7 +181,7 @@
 .ctrl-transport-btn--primary {
   border: 0;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 1.1rem;
 }
 

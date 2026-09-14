@@ -280,7 +280,7 @@ function blobForRow(row: Row): () => Promise<Blob | null> {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-ghost {
   background: transparent;

@@ -17,6 +17,9 @@ import {
 
 export type LeaveRecordingDecision = 'save' | 'discard' | 'stay'
 
+/** After Stop: keep the take, discard and arm again, or discard. */
+export type StopRecordingDecision = 'save' | 'rerecord' | 'abandon'
+
 export type RecorderCaptureCallbacks = {
   capture: Ref<RecorderCapturePrefs>
   onPersistCapture: () => void
@@ -33,6 +36,8 @@ export type RecorderCaptureCallbacks = {
   requestCancelConfirm: () => Promise<boolean>
   /** App modal: save / discard / stay while leaving. */
   requestLeaveDecision: () => Promise<LeaveRecordingDecision>
+  /** App modal after Stop: save / re-record / abandon. */
+  requestStopDecision: () => Promise<StopRecordingDecision>
 }
 
 export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
@@ -42,6 +47,8 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   const liveMeter = shallowRef<LiveInputMeter | null>(null)
   const starting = ref(false)
   const monitoring = ref(false)
+  /** Pre-record countdown (3…1); null when idle. */
+  const countdownSec = ref<number | null>(null)
   /** Set true after intentional leave so unmount does not double-cancel. */
   const leaveHandled = ref(false)
 
@@ -124,7 +131,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
   }
 
   async function startRecording(existingStream?: MediaStream | null): Promise<void> {
-    if (recording.value || starting.value) return
+    if (recording.value || starting.value || countdownSec.value != null) return
     starting.value = true
     monitorGen++
     let stream: MediaStream | null = existingStream ?? null
@@ -170,7 +177,21 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     }
   }
 
-  async function stopRecording(): Promise<void> {
+  async function runPreRecordCountdown(seconds = 3): Promise<void> {
+    for (let n = seconds; n >= 1; n--) {
+      countdownSec.value = n
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 1000)
+      })
+    }
+    countdownSec.value = null
+  }
+
+  /**
+   * Stop capture. By default prompts Save / Re-record / Abandon.
+   * Pass `autoSave: true` to persist immediately (e.g. leave-while-recording).
+   */
+  async function stopRecording(opts?: { autoSave?: boolean }): Promise<void> {
     if (!active) return
     const rec = active
     active = null
@@ -185,6 +206,15 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
       const channels = channelsFromStream(rec.stream)
       const { blob, mimeType, durationSec } = await rec.stop()
       if (blob.size < 64) throw new Error('Recording was empty')
+      const decision: StopRecordingDecision = opts?.autoSave
+        ? 'save'
+        : await cb.requestStopDecision()
+      if (decision === 'abandon') return
+      if (decision === 'rerecord') {
+        await runPreRecordCountdown(3)
+        await startRecording()
+        return
+      }
       await cb.onSavedTake({
         blob,
         mimeType,
@@ -193,6 +223,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
         bitRate: cb.capture.value.bitRate,
       })
     } catch (e) {
+      countdownSec.value = null
       cb.onError(e instanceof Error ? e.message : String(e))
     }
   }
@@ -233,7 +264,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     if (!recording.value) return true
     const decision = await cb.requestLeaveDecision()
     if (decision === 'save') {
-      await stopRecording()
+      await stopRecording({ autoSave: true })
       leaveHandled.value = true
       return true
     }
@@ -257,6 +288,7 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
 
   function dispose(): void {
     monitorGen++
+    countdownSec.value = null
     stopMonitor()
     if (!leaveHandled.value) cancelRecording()
     else {
@@ -279,6 +311,8 @@ export function useRecorderCapture(cb: RecorderCaptureCallbacks) {
     liveMeter,
     canPause,
     monitoring,
+    countdownSec,
+    starting,
     leaveHandled,
     startRecording,
     stopRecording,

@@ -12,6 +12,17 @@ import {
   normalizeRecorderSession,
   parseSessionLabels,
 } from '../types/recorder'
+import {
+  clampDateRangePair,
+  clampDayKey,
+  daySpanInclusive,
+  dayToFraction,
+  formatDateRangeButtonLabel,
+  fractionToDay,
+  sessionDayBounds,
+  sessionDayHistogram,
+  shiftDayKey,
+} from '../lib/recorderDateRange'
 import { pickSupportedRecorderMime } from '../audio/recorderCapture'
 import { cropAudioBufferToWav } from '../audio/cropAudioBuffer'
 import { resetSharedAudioContextForTests } from './channelSolo'
@@ -96,6 +107,73 @@ describe('recorder types', () => {
     expect(
       normalizeQuickRecordPrefs({ autoLabels: [' lead ', '', 'warmup'], autoNotes: 'hi' }),
     ).toEqual({ autoLabels: ['lead', 'warmup'], autoNotes: 'hi' })
+  })
+})
+
+describe('recorderDateRange', () => {
+  function session(id: string, createdAt: string) {
+    return normalizeRecorderSession({
+      id,
+      name: id,
+      notes: '',
+      labels: [],
+      linkedTag: null,
+      linkedLibrary: null,
+      createdAt,
+      updatedAt: createdAt,
+      takeIds: [],
+      capture: DEFAULT_RECORDER_CAPTURE,
+    })
+  }
+
+  it('computes bounds and histogram', () => {
+    const sessions = [
+      session('a', '2026-09-10T15:00:00.000Z'),
+      session('b', '2026-09-11T15:00:00.000Z'),
+      session('c', '2026-09-10T18:00:00.000Z'),
+    ]
+    const bounds = sessionDayBounds(sessions)
+    expect(bounds).not.toBeNull()
+    expect(bounds!.min <= bounds!.max).toBe(true)
+    const hist = sessionDayHistogram(sessions)
+    expect(hist.reduce((n, m) => n + m.count, 0)).toBe(3)
+    expect(hist.every((m) => m.count >= 1)).toBe(true)
+  })
+
+  it('returns null bounds for empty list', () => {
+    expect(sessionDayBounds([])).toBeNull()
+    expect(sessionDayHistogram([])).toEqual([])
+  })
+
+  it('clamps day keys and range pairs', () => {
+    expect(clampDayKey('2026-09-05', '2026-09-01', '2026-09-10')).toBe('2026-09-05')
+    expect(clampDayKey('2026-08-01', '2026-09-01', '2026-09-10')).toBe('2026-09-01')
+    expect(clampDayKey('2026-10-01', '2026-09-01', '2026-09-10')).toBe('2026-09-10')
+    expect(clampDateRangePair('2026-09-12', '2026-09-10', 'from')).toEqual({
+      from: '2026-09-12',
+      to: '2026-09-12',
+    })
+    expect(clampDateRangePair('2026-09-12', '2026-09-10', 'to')).toEqual({
+      from: '2026-09-10',
+      to: '2026-09-10',
+    })
+  })
+
+  it('maps fractions and shifts days', () => {
+    expect(daySpanInclusive('2026-09-01', '2026-09-01')).toBe(1)
+    expect(daySpanInclusive('2026-09-01', '2026-09-03')).toBe(3)
+    expect(dayToFraction('2026-09-01', '2026-09-01', '2026-09-03')).toBe(0)
+    expect(dayToFraction('2026-09-03', '2026-09-01', '2026-09-03')).toBe(1)
+    expect(fractionToDay(0, '2026-09-01', '2026-09-03')).toBe('2026-09-01')
+    expect(fractionToDay(1, '2026-09-01', '2026-09-03')).toBe('2026-09-03')
+    expect(shiftDayKey('2026-09-01', 1)).toBe('2026-09-02')
+    expect(shiftDayKey('2026-09-01', -1)).toBe('2026-08-31')
+  })
+
+  it('formats Dates button labels', () => {
+    expect(formatDateRangeButtonLabel('', '')).toBe('Dates')
+    expect(formatDateRangeButtonLabel('2026-09-01', '2026-09-14')).toMatch(/^Dates: /)
+    expect(formatDateRangeButtonLabel('2026-09-01', '2026-09-01')).toMatch(/^Dates: /)
   })
 })
 

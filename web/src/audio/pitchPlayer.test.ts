@@ -138,7 +138,7 @@ describe('pitchPlayer helpers', () => {
     expect(slots.blacks.some((b) => b.note === 'C#4' && b.after === 'C4')).toBe(true)
   })
 
-  it('maps computer keys to a piano layout (E R / Y U I / [ ] over whites)', () => {
+  it('maps computer keys to a piano layout (E R / Y U I / P [ over whites)', () => {
     const win = pitchPipePcKeyWindowNotes(4)
     expect(win[0]).toBe('B3')
     expect(win.at(-1)).toBe('E5')
@@ -164,11 +164,12 @@ describe('pitchPlayer helpers', () => {
     expect(map.get('KeyI')).toBe('A#4')
     expect(map.get('KeyK')).toBe('B4')
     expect(map.get('KeyL')).toBe('C5')
-    expect(map.get('BracketLeft')).toBe('C#5')
+    expect(map.get('KeyP')).toBe('C#5')
     expect(map.get('Semicolon')).toBe('D5')
-    expect(map.get('BracketRight')).toBe('D#5')
+    expect(map.get('BracketLeft')).toBe('D#5')
     expect(map.get('Quote')).toBe('E5')
     expect(map.has('KeyO')).toBe(false)
+    expect(map.has('BracketRight')).toBe(false)
   })
 
   it('provides a 66-key full piano and snaps grid scale', () => {

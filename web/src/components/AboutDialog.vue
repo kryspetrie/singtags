@@ -238,7 +238,7 @@ async function onInstall(): Promise<void> {
             >
               Install App
             </button>
-            <RouterLink class="btn btn-ghost" to="/settings" @click="close">
+            <RouterLink class="btn btn-ghost" to="/settings?tab=offline" @click="close">
               Offline settings
             </RouterLink>
           </footer>
@@ -354,7 +354,7 @@ async function onInstall(): Promise<void> {
 .btn-install {
   border: 1px solid var(--accent-hover);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 750;
 }
 .btn-install:hover {

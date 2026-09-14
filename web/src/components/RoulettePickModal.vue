@@ -3,12 +3,18 @@
  * Modal reel: slot-style pick from the current batch.
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
+import QrEnlargeOverlay from './QrEnlargeOverlay.vue'
 import {
   buildRouletteSpinStrip,
   pickWheelWinner,
   visibleRouletteReelRows,
 } from '../lib/rouletteDraw'
+import { bookletBadgeForTag } from '../search/browse'
+import { buildTagSharePath } from '../lib/tagShare'
+import { useCatalogStore } from '../stores/catalog'
+import { usePreferencesStore } from '../stores/preferences'
 import type { RouletteBatchItem } from '../stores/roulette'
 
 const props = defineProps<{
@@ -25,6 +31,10 @@ const emit = defineEmits<{
   'update:openAutomatically': [value: boolean]
 }>()
 
+const catalog = useCatalogStore()
+const prefs = usePreferencesStore()
+const router = useRouter()
+
 const SPIN_MS = 3000
 const ROW_H = 52
 
@@ -34,6 +44,7 @@ const stripLabels = ref<string[]>([])
 const stripOffset = ref(0)
 const visibleRows = ref(5)
 const announce = ref('')
+const qrOpen = ref(false)
 let spinTimer: ReturnType<typeof setTimeout> | null = null
 let animFrame = 0
 
@@ -46,6 +57,48 @@ const centerRow = computed(() => Math.floor(visibleRows.value / 2))
 const landedItem = computed(() =>
   landedId.value == null ? null : props.items.find((it) => it.id === landedId.value) ?? null,
 )
+
+const landedTag = computed(() => {
+  if (landedId.value == null) return null
+  return catalog.tags.find((t) => t.id === landedId.value) ?? null
+})
+
+const landedBooklet = computed(() => {
+  const item = landedItem.value
+  if (!item) return null
+  return bookletBadgeForTag(landedTag.value ?? item)
+})
+
+const landedHasSheet = computed(() => landedTag.value?.hasSheet === true)
+
+const landedMetaLines = computed(() => {
+  const item = landedItem.value
+  if (!item) return [] as string[]
+  const tag = landedTag.value
+  const lines: string[] = [`Tag #${item.id}`]
+  if (landedBooklet.value) lines.push(landedBooklet.value.label)
+  const arranger = tag?.arranger ?? item.arranger
+  if (arranger) lines.push(arranger)
+  const key = tag?.key?.trim()
+  if (key) lines.push(`Key ${key}`)
+  const type = tag?.type?.trim()
+  if (type) lines.push(type)
+  return lines
+})
+
+/** Match Open: fullscreen when Sing mode or “Open automatically” is on. */
+const shareFullscreen = computed(
+  () => prefs.singMode || props.openAutomatically,
+)
+
+const tagShareUrl = computed(() => {
+  if (landedId.value == null || !landedHasSheet.value) return ''
+  if (typeof window === 'undefined') return ''
+  const { path, query } = buildTagSharePath(landedId.value, {
+    fullscreen: shareFullscreen.value,
+  })
+  return new URL(router.resolve({ path, query }).href, window.location.origin).href
+})
 
 const reducedMotion = computed(() => {
   if (typeof window === 'undefined' || !window.matchMedia) return false
@@ -81,6 +134,7 @@ async function startSpin(): Promise<void> {
   clearSpinTimer()
   landedId.value = null
   announce.value = ''
+  qrOpen.value = false
   const winnerId = pickWheelWinner(
     props.items.map((it) => it.id),
     props.wheelUsedIds,
@@ -149,6 +203,7 @@ watch(
       announce.value = ''
       stripLabels.value = []
       stripOffset.value = 0
+      qrOpen.value = false
     }
   },
 )
@@ -208,11 +263,16 @@ function spinAgain(): void {
         </div>
       </div>
 
-      <p v-if="spinning" class="status">Spinning…</p>
-      <p v-else-if="landedItem" class="status win">
-        <strong>{{ landedItem.title }}</strong>
-      </p>
-      <p v-else-if="announce" class="status">{{ announce }}</p>
+      <div class="status-slot" aria-live="polite">
+        <p v-if="spinning" class="status">Spinning…</p>
+        <div v-else-if="landedItem" class="status win">
+          <strong class="win-title">{{ landedItem.title }}</strong>
+          <ul v-if="landedMetaLines.length" class="meta">
+            <li v-for="line in landedMetaLines" :key="line">{{ line }}</li>
+          </ul>
+        </div>
+        <p v-else-if="announce" class="status">{{ announce }}</p>
+      </div>
 
       <div class="actions">
         <button
@@ -222,6 +282,14 @@ function spinAgain(): void {
           @click="onOpenTag"
         >
           Open
+        </button>
+        <button
+          v-if="landedId != null && landedHasSheet"
+          type="button"
+          class="btn"
+          @click="qrOpen = true"
+        >
+          Show QR
         </button>
         <button
           type="button"
@@ -250,6 +318,13 @@ function spinAgain(): void {
       </label>
     </div>
   </FilterSheet>
+
+  <QrEnlargeOverlay
+    :open="qrOpen && !!tagShareUrl"
+    :url="tagShareUrl"
+    :alt="shareFullscreen ? 'QR code for fullscreen tag' : 'QR code for tag page'"
+    @close="qrOpen = false"
+  />
 </template>
 
 <style scoped>
@@ -321,16 +396,41 @@ function spinAgain(): void {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.status-slot {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  /* Title + ~4 meta lines so landing doesn’t grow the sheet. */
+  min-height: 5.75rem;
+}
 .status {
   margin: 0;
   text-align: center;
   color: var(--muted);
   font-size: 0.92rem;
-  min-height: 1.4em;
 }
 .status.win {
   color: var(--text);
   font-size: 1.05rem;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  width: 100%;
+}
+.win-title {
+  font-size: 1.1rem;
+}
+.meta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  justify-content: center;
+  font-size: 0.86rem;
+  color: var(--muted);
+  font-weight: 600;
 }
 .actions {
   display: flex;
@@ -340,7 +440,7 @@ function spinAgain(): void {
 }
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 1px solid var(--accent);
   border-radius: 8px;
   min-height: var(--touch);

@@ -1381,7 +1381,7 @@ async function exportAllAsZip(): Promise<void> {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-ghost {
   background: transparent;

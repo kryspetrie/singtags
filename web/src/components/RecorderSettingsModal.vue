@@ -357,7 +357,7 @@ function onChannels(e: Event): void {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .muted {
   color: var(--muted);

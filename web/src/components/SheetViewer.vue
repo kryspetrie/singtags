@@ -35,6 +35,10 @@ import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
 import { setSessionBusy } from '../lib/sessionActivity'
 import { usePreferencesStore, type SheetFsPageMode } from '../stores/preferences'
+import {
+  processSheetImageUrl,
+  sheetErodeFilterParams,
+} from '../lib/sheetErode'
 import SheetPianoDock from './SheetPianoDock.vue'
 
 export type SheetDisplayMode = 'images' | 'pdf'
@@ -131,6 +135,126 @@ const emit = defineEmits<{
 }>()
 
 const prefs = usePreferencesStore()
+const sheetErodeParams = computed(() => sheetErodeFilterParams(prefs.sheetErode))
+/** True when invert and/or erode must be baked before draw. */
+const needsSheetFx = computed(
+  () => prefs.sheetInvert || sheetErodeParams.value != null,
+)
+/**
+ * Canvas-baked page URLs (erode and/or invert).
+ * When {@link needsSheetFx} is true, on-screen imgs use only these — never raw sheets.
+ */
+const erodedPages = ref<string[] | null>(null)
+const erodedUpgradePages = ref<string[] | null>(null)
+/** True while baking FX for a new page set (hide stage until ready). */
+const sheetFxPending = ref(false)
+const erodeOwnedUrls: string[] = []
+let erodeGen = 0
+
+function revokeErodeOwned(): void {
+  for (const u of erodeOwnedUrls) {
+    try {
+      URL.revokeObjectURL(u)
+    } catch {
+      /* ignore */
+    }
+  }
+  erodeOwnedUrls.length = 0
+}
+
+function pageSrc(i: number, fallback: string): string {
+  if (needsSheetFx.value) return erodedPages.value?.[i] ?? ''
+  return fallback
+}
+
+function upgradeSrc(i: number, fallback: string): string {
+  if (needsSheetFx.value) return erodedUpgradePages.value?.[i] ?? ''
+  return fallback
+}
+
+async function refreshSheetFx(): Promise<void> {
+  const my = ++erodeGen
+  const params = sheetErodeFilterParams(prefs.sheetErode)
+  const invert = prefs.sheetInvert
+  const bases = displayPages.value.slice()
+  const upgrades = upgradePages.value?.slice() ?? null
+  const needs = !!params || invert
+
+  if (!needs) {
+    if (my !== erodeGen) return
+    revokeErodeOwned()
+    erodedPages.value = null
+    erodedUpgradePages.value = null
+    sheetFxPending.value = false
+    return
+  }
+
+  if (!bases.length) {
+    if (my !== erodeGen) return
+    revokeErodeOwned()
+    erodedPages.value = null
+    erodedUpgradePages.value = null
+    sheetFxPending.value = false
+    return
+  }
+
+  // Don't paint raw sheets — wait for the bake (keep prior bake visible if any).
+  if (!erodedPages.value?.length) sheetFxPending.value = true
+
+  const created: string[] = []
+  const dropCreated = (): void => {
+    for (const u of created) {
+      try {
+        URL.revokeObjectURL(u)
+      } catch {
+        /* ignore */
+      }
+    }
+    created.length = 0
+  }
+  try {
+    const nextPages: string[] = []
+    for (const src of bases) {
+      if (my !== erodeGen) {
+        dropCreated()
+        return
+      }
+      const out = await processSheetImageUrl(src, { params, invert })
+      if (out !== src) created.push(out)
+      nextPages.push(out)
+    }
+    let nextUp: string[] | null = null
+    if (upgrades?.length) {
+      nextUp = []
+      for (const src of upgrades) {
+        if (my !== erodeGen) {
+          dropCreated()
+          return
+        }
+        const out = await processSheetImageUrl(src, { params, invert })
+        if (out !== src) created.push(out)
+        nextUp.push(out)
+      }
+    }
+    if (my !== erodeGen) {
+      dropCreated()
+      return
+    }
+    revokeErodeOwned()
+    erodeOwnedUrls.push(...created)
+    erodedPages.value = nextPages
+    erodedUpgradePages.value = nextUp
+    sheetFxPending.value = false
+  } catch {
+    dropCreated()
+    if (my !== erodeGen) return
+    // Fail open: show source rasters rather than a blank stage.
+    erodedPages.value = bases
+    erodedUpgradePages.value = upgrades
+    sheetFxPending.value = false
+  }
+}
+
 const fullscreen = ref(false)
 /** Bottom piano dock in fullscreen — squishes the sheet viewport. */
 const pianoOpen = ref(false)
@@ -209,6 +333,14 @@ let loadSeq = 0
 /** Incoming hi-res pages fading over {@link displayPages} (WebP → PDF raster). */
 const upgradePages = ref<string[] | null>(null)
 const upgradeOpaque = ref(false)
+
+watch(
+  [displayPages, upgradePages, () => prefs.sheetErode, () => prefs.sheetInvert],
+  () => {
+    void refreshSheetFx()
+  },
+  { flush: 'post' },
+)
 let fadeGen = 0
 let fadeTimer: ReturnType<typeof setTimeout> | null = null
 /** Auto-switched to PDF raster for fullscreen sharpness; revert on exit. */
@@ -1545,6 +1677,8 @@ onUnmounted(() => {
   loadAbort?.abort()
   clearUpgradeLayer(true)
   revokeOwned()
+  erodeGen++
+  revokeErodeOwned()
 })
 
 defineExpose({
@@ -1570,15 +1704,16 @@ defineExpose({
       :class="{
         fullscreen,
         zoomed: fullscreen && zoomPan.scale > 1.01,
-        'is-awaiting': loading && !displayPages.length,
+        'is-awaiting': (loading || sheetFxPending) && !displayPages.length,
         'sing-chrome': fullscreen && singControls,
         'fs-scroll': fsScrollMode,
         'has-piano': fullscreen && pianoOpen,
+        'sheet-paper-dark': prefs.sheetInvert,
       }"
       role="region"
       :aria-label="fullscreen ? 'Sheet music fullscreen' : 'Sheet music'"
       :aria-modal="fullscreen ? true : undefined"
-      :aria-busy="loading"
+      :aria-busy="loading || sheetFxPending"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -1586,12 +1721,21 @@ defineExpose({
       @dblclick="onDoubleClick"
     >
       <div ref="viewportEl" class="sheet-viewport">
-      <p v-if="loading && !displayPages.length" class="status" role="status">
+      <p
+        v-if="(loading || sheetFxPending) && (!displayPages.length || (needsSheetFx && !erodedPages?.length))"
+        class="status"
+        role="status"
+      >
         Preparing sheet…
       </p>
       <p v-else-if="loadError" class="status err" role="alert">{{ loadError }}</p>
 
-      <div ref="stageEl" class="stage" :style="stageStyle">
+      <div
+        v-show="!sheetFxPending || !!erodedPages?.length || !needsSheetFx"
+        ref="stageEl"
+        class="stage"
+        :style="stageStyle"
+      >
         <div
           v-for="(page, i) in displayPages"
           v-show="!fullscreen || fsScrollMode || i === pageIndex"
@@ -1599,18 +1743,19 @@ defineExpose({
           class="page"
         >
           <img
+            v-if="pageSrc(i, page)"
             class="page-base"
-            :src="page"
+            :src="pageSrc(i, page)"
             :alt="`Sheet page ${i + 1}`"
             loading="eager"
             decoding="async"
             draggable="false"
           />
           <img
-            v-if="upgradePages?.[i]"
+            v-if="upgradePages?.[i] && upgradeSrc(i, upgradePages[i]!)"
             class="page-upgrade"
             :class="{ 'is-in': upgradeOpaque }"
-            :src="upgradePages[i]"
+            :src="upgradeSrc(i, upgradePages[i]!)"
             alt=""
             aria-hidden="true"
             loading="eager"
@@ -2381,6 +2526,9 @@ defineExpose({
   display: block;
   background: #fff;
   margin: 0;
+}
+.sheet.sheet-paper-dark .page img {
+  background: #000;
 }
 .page-upgrade {
   position: absolute;

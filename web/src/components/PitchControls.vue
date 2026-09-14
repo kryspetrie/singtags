@@ -103,7 +103,7 @@ function onPayKey(e: KeyboardEvent): void {
   align-items: flex-start;
   gap: 0.1rem;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 0;
   border-radius: 12px;
   padding: 0.55rem 0.85rem;

@@ -20,6 +20,8 @@ import {
   visibleRouletteReelRows,
   weightsForSlice,
   type RouletteMode,
+  DEFAULT_ROULETTE_MODE_FILTERS,
+  filterTagsForRouletteMode,
 } from './rouletteDraw'
 import type { TagSummary } from '../types/tag'
 
@@ -34,13 +36,25 @@ function tag(
     key: null,
     rating: opts.rating ?? null,
     downloads: opts.downloads ?? null,
-    type: null,
+    type: opts.type ?? null,
     collection: opts.collection ?? null,
     classic: opts.classic ?? null,
     year: opts.year ?? null,
-    hasSheet: false,
-    audioParts: [],
+    hasSheet: opts.hasSheet ?? true,
+    audioParts: opts.audioParts ?? [],
     sheet: null,
+  }
+}
+
+function mode(
+  partial: Partial<RouletteMode> & Pick<RouletteMode, 'id' | 'label' | 'slices'>,
+): RouletteMode {
+  return {
+    batchSize: 10,
+    batchOrder: 'random',
+    ...DEFAULT_ROULETTE_MODE_FILTERS,
+    types: [],
+    ...partial,
   }
 }
 
@@ -80,18 +94,53 @@ describe('rouletteDraw', () => {
 
   it('dealFromMode can draw only from Favorites', () => {
     const catalog = [tag(1), tag(2), tag(3), tag(4), tag(5)]
-    const mode: RouletteMode = {
+    const m = mode({
       id: 'favs',
       label: 'Favs',
       batchSize: 3,
-      batchOrder: 'random',
       slices: [{ weightPct: 100, pool: 'favorites', score: 'uniform', curve: 'equal' }],
-    }
-    const result = dealFromMode(catalog, mode, () => 0.2, {
+    })
+    const result = dealFromMode(catalog, m, () => 0.2, {
       favoriteIds: new Set([2, 4, 5]),
     })
     expect(result.tags).toHaveLength(3)
     expect(result.tags.every((t) => [2, 4, 5].includes(t.id))).toBe(true)
+  })
+
+  it('filters by hasSheet / type before dealing', () => {
+    const catalog = [
+      tag(1, { hasSheet: true, type: 'song' }),
+      tag(2, { hasSheet: false, type: 'song' }),
+      tag(3, { hasSheet: true, type: 'polecat' }),
+    ]
+    expect(
+      filterTagsForRouletteMode(catalog, {
+        hasSheet: true,
+        hasAudio: false,
+        cachedOnDevice: false,
+        types: [],
+      }).map((t) => t.id),
+    ).toEqual([1, 3])
+    expect(
+      filterTagsForRouletteMode(catalog, {
+        hasSheet: true,
+        hasAudio: false,
+        cachedOnDevice: false,
+        types: ['song'],
+      }).map((t) => t.id),
+    ).toEqual([1])
+    const result = dealFromMode(
+      catalog,
+      mode({
+        id: 'sheets',
+        label: 'Sheets',
+        batchSize: 5,
+        hasSheet: true,
+        slices: [{ weightPct: 100, pool: 'all', score: 'uniform', curve: 'equal' }],
+      }),
+      () => 0.1,
+    )
+    expect(result.tags.every((t) => t.hasSheet)).toBe(true)
   })
 
   it('allocates quotas that sum to n', () => {
@@ -155,7 +204,7 @@ describe('rouletteDraw', () => {
         tag(400 + i, { collection: 'other', year: 1990 + i }),
       ),
     ]
-    const mode: RouletteMode = {
+    const m = mode({
       id: 'mix',
       label: 'Mix',
       batchSize: 10,
@@ -166,8 +215,8 @@ describe('rouletteDraw', () => {
         { weightPct: 10, pool: 'easytags', score: 'rating', curve: 'leftSkew' },
         { weightPct: 20, pool: 'other', score: 'year', curve: 'bell' },
       ],
-    }
-    const result = dealFromMode(catalog, mode, () => 0.3)
+    })
+    const result = dealFromMode(catalog, m, () => 0.3)
     expect(result.tags).toHaveLength(10)
     expect(new Set(result.tags.map((t) => t.id)).size).toBe(10)
     expect(result.sliceCounts.reduce((a, b) => a + b, 0)).toBeGreaterThan(0)
@@ -179,17 +228,16 @@ describe('rouletteDraw', () => {
       tag(2, { collection: 'easytags' }),
       ...Array.from({ length: 30 }, (_, i) => tag(100 + i, { collection: 'classic' })),
     ]
-    const mode: RouletteMode = {
+    const m = mode({
       id: 'short',
       label: 'Short easy',
       batchSize: 10,
-      batchOrder: 'random',
       slices: [
         { weightPct: 80, pool: 'easytags', score: 'uniform', curve: 'equal' },
         { weightPct: 20, pool: 'classic', score: 'uniform', curve: 'equal' },
       ],
-    }
-    const result = dealFromMode(catalog, mode, () => 0.2)
+    })
+    const result = dealFromMode(catalog, m, () => 0.2)
     expect(result.tags).toHaveLength(10)
     expect(result.status).toMatch(/short/i)
   })

@@ -9,6 +9,7 @@ import {
   ensureBuiltinRouletteModes,
   isRouletteBuiltinModeId,
   normalizeRouletteBatchSize,
+  normalizeRouletteModeFilters,
   parseRouletteMode,
   seedRouletteModes,
   slugifyModeLabel,
@@ -64,8 +65,11 @@ function snapshotTag(t: TagSummary): RouletteBatchItem {
 }
 
 function cloneMode(m: RouletteMode): RouletteMode {
+  const filters = normalizeRouletteModeFilters(m)
   return {
     ...m,
+    ...filters,
+    types: [...filters.types],
     slices: m.slices.map((s) => ({ ...s })),
   }
 }
@@ -276,7 +280,7 @@ export const useRouletteStore = defineStore('roulette', () => {
       slices: patch.slices ? patch.slices.map((s) => ({ ...s })) : cur.slices.map((s) => ({ ...s })),
     }
     if (builtin) {
-      // Built-ins: only curve + score + batch size may change; pools/weights/label stay locked.
+      // Built-ins: curve/score/batch size + media filters may change; pools/weights/label stay locked.
       const seed = seedRouletteModes().find((m) => m.id === cur.id)!
       next.label = seed.label
       next.batchSize =
@@ -284,6 +288,16 @@ export const useRouletteStore = defineStore('roulette', () => {
           ? normalizeRouletteBatchSize(patch.batchSize)
           : normalizeRouletteBatchSize(cur.batchSize)
       next.batchOrder = seed.batchOrder
+      const filters = normalizeRouletteModeFilters({
+        hasSheet: patch.hasSheet ?? cur.hasSheet,
+        hasAudio: patch.hasAudio ?? cur.hasAudio,
+        cachedOnDevice: patch.cachedOnDevice ?? cur.cachedOnDevice,
+        types: patch.types ?? cur.types,
+      })
+      next.hasSheet = filters.hasSheet
+      next.hasAudio = filters.hasAudio
+      next.cachedOnDevice = filters.cachedOnDevice
+      next.types = [...filters.types]
       next.slices = seed.slices.map((seedSlice, i) => {
         const incoming = next.slices[i]
         return {
@@ -295,6 +309,11 @@ export const useRouletteStore = defineStore('roulette', () => {
     } else {
       if (patch.batchSize != null) next.batchSize = normalizeRouletteBatchSize(patch.batchSize)
       if (patch.slices) next.slices = next.slices.map((s) => ({ ...s }))
+      const filters = normalizeRouletteModeFilters(next)
+      next.hasSheet = filters.hasSheet
+      next.hasAudio = filters.hasAudio
+      next.cachedOnDevice = filters.cachedOnDevice
+      next.types = [...filters.types]
     }
     const copy = modes.value.map(cloneMode)
     copy[idx] = next
@@ -339,6 +358,7 @@ export const useRouletteStore = defineStore('roulette', () => {
       label: 'New mode',
       batchSize: 10,
       batchOrder: 'random',
+      ...normalizeRouletteModeFilters(null),
       slices: [{ weightPct: 100, pool: 'all', score: 'uniform', curve: 'equal' }],
     }
   }

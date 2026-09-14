@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Secondary app menu: offline settings, downloads, sing mode toggle.
+ * Secondary app menu: settings, downloads, sing mode toggle.
  */
 import { RouterLink } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
@@ -83,10 +83,6 @@ function toggleOfflineMode(): void {
     },
   )
 }
-
-function bumpScale(delta: number): void {
-  prefs.nudgeUiScale(delta)
-}
 </script>
 
 <template>
@@ -138,37 +134,9 @@ function bumpScale(delta: number): void {
         />
       </label>
 
-      <div class="setting-row setting-scale" role="group" aria-label="Display size">
-        <span class="setting-copy">
-          <span class="setting-title">Display size</span>
-          <span class="setting-desc">Scale the whole app 70%–130%</span>
-        </span>
-        <div class="scale-stepper">
-          <button
-            type="button"
-            class="scale-nudge"
-            :disabled="prefs.uiScalePercent <= 70"
-            aria-label="Decrease display size"
-            @click="bumpScale(-5)"
-          >
-            −
-          </button>
-          <span class="scale-pct" aria-live="polite">{{ prefs.uiScalePercent }}%</span>
-          <button
-            type="button"
-            class="scale-nudge"
-            :disabled="prefs.uiScalePercent >= 130"
-            aria-label="Increase display size"
-            @click="bumpScale(5)"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
       <RouterLink class="menu-item" to="/settings" @click="onNavClick">
-        <span class="menu-label">Offline settings</span>
-        <span class="menu-desc">Cache, downloads, and offline mode</span>
+        <span class="menu-label">Settings</span>
+        <span class="menu-desc">Theme, scale, cache, and offline</span>
       </RouterLink>
 
       <RouterLink
@@ -280,16 +248,16 @@ function bumpScale(delta: number): void {
   margin-top: 0.15rem;
   border-color: var(--accent-hover);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   box-shadow: 0 2px 0 color-mix(in srgb, var(--accent-hover) 50%, transparent);
 }
 .menu-item-install .menu-label {
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 800;
   font-size: 1rem;
 }
 .menu-item-install .menu-desc {
-  color: color-mix(in srgb, #fff 88%, var(--accent));
+  color: color-mix(in srgb, var(--on-accent) 88%, var(--accent));
 }
 .menu-item-install:hover {
   border-color: var(--accent-hover);
@@ -332,7 +300,7 @@ function bumpScale(delta: number): void {
   padding: 0 0.35rem;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -403,57 +371,19 @@ function bumpScale(delta: number): void {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.scale-stepper {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  flex: 0 0 auto;
-}
-.scale-nudge {
-  width: 2.25rem;
-  height: 2.25rem;
-  margin: 0;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-}
-.scale-nudge:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.scale-nudge:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.scale-pct {
-  min-width: 3rem;
-  text-align: center;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.92rem;
-}
 @media (min-width: 768px) {
-  /* Desktop: Sing → Offline → Display size → links → Install App (bottom). */
+  /* Desktop: Sing → Offline → Settings → links → Install App (bottom). */
   .setting-sing {
     order: 0;
   }
   .setting-offline {
     order: 1;
   }
-  .setting-scale {
+  .menu-item {
     order: 2;
   }
-  .menu-item {
-    order: 3;
-  }
   .menu-item-install {
-    order: 4;
+    order: 3;
   }
 }
 </style>

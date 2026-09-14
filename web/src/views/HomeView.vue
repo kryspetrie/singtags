@@ -2332,7 +2332,7 @@ watch(
   font-size: 1.35rem;
   font-weight: 800;
   line-height: 1;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);

@@ -2,17 +2,25 @@
 /**
  * Modal confirm/cancel dialog teleported to `body` (destructive actions, unfavorite, clear cache).
  */
-defineProps<{
-  /** Modal visibility. */
-  open: boolean
-  title: string
-  message: string
-  /** Primary action label (destructive by default). */
-  confirmLabel?: string
-  cancelLabel?: string
-  /** Accent styling for the confirm button (default: danger). */
-  danger?: boolean
-}>()
+withDefaults(
+  defineProps<{
+    /** Modal visibility. */
+    open: boolean
+    title: string
+    message: string
+    /** Primary action label (destructive by default). */
+    confirmLabel?: string
+    cancelLabel?: string
+    /** Accent styling for the confirm button (default: danger). */
+    danger?: boolean
+    /** Wider panel for multi-button footers. */
+    wide?: boolean
+  }>(),
+  {
+    danger: true,
+    wide: false,
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -32,23 +40,25 @@ const emit = defineEmits<{
       @keydown.escape.prevent="emit('close')"
     >
       <button type="button" class="backdrop" aria-label="Cancel" @click="emit('close')" />
-      <div class="panel">
+      <div class="panel" :class="{ wide }">
         <h2 id="confirm-dialog-title" class="title">{{ title }}</h2>
         <p class="message">{{ message }}</p>
         <slot />
-        <div class="actions">
-          <button type="button" class="btn" @click="emit('close')">
-            {{ cancelLabel || 'Cancel' }}
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :class="danger === false ? 'btn-primary' : 'btn-danger'"
-            @click="emit('confirm')"
-          >
-            {{ confirmLabel || 'Confirm' }}
-          </button>
-        </div>
+        <slot name="actions">
+          <div class="actions">
+            <button type="button" class="btn" @click="emit('close')">
+              {{ cancelLabel || 'Cancel' }}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              :class="danger === false ? 'btn-primary' : 'btn-danger'"
+              @click="emit('confirm')"
+            >
+              {{ confirmLabel || 'Confirm' }}
+            </button>
+          </div>
+        </slot>
       </div>
     </div>
   </Teleport>
@@ -83,6 +93,9 @@ const emit = defineEmits<{
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+.panel.wide {
+  width: min(28rem, 100%);
 }
 .title {
   margin: 0;
@@ -120,7 +133,7 @@ const emit = defineEmits<{
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-danger {
   background: color-mix(in srgb, var(--danger, #9b2c2c) 12%, var(--surface));

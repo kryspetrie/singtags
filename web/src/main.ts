@@ -20,12 +20,14 @@ import './styles/controls.css'
 import './styles/utilities.css'
 import { ensureFetchPatchInstalled } from './lib/manualOfflineFetch'
 import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
+import { resolveInitialAppTheme, applyAppTheme } from './lib/theme'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
 
 // Apply persisted / viewport-default UI scale before first paint (avoids a zoom jump).
 applyUiScale(resolveInitialUiScale())
+applyAppTheme(resolveInitialAppTheme())
 
 // Register FontAwesome icons
 library.add(faHeartSolid, faHeartRegular, faPen)

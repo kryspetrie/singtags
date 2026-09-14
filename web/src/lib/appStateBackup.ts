@@ -44,6 +44,10 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.labs.audioRecorder.enabled.v1',
   'singtags.recorder.capture.v1',
   'singtags.recorder.quick.v1',
+  'singtags.theme.v1',
+  'singtags.uiScale.v1',
+  'singtags.sheetInvert.v1',
+  'singtags.sheetErode.v2',
 ] as const
 
 /** On-disk / zip `app-state.json` schema (v1). */

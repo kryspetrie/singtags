@@ -6,6 +6,7 @@
   --border: #e2ddd4;
   --accent: #0f6b5c;
   --accent-hover: #0c5549;
+  --on-accent: #ffffff;
   --danger: #9b2c2c;
   --radius: 10px;
   --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
@@ -15,6 +16,46 @@
   --touch: 44px;
   /* Display size (user): 1 = 100%. Set by applyUiScale() as html zoom. */
   --ui-scale: 1;
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --bg: #141618;
+  --surface: #1e2226;
+  --text: #f2f0eb;
+  --muted: #a8a59e;
+  --border: #343a40;
+  --accent: #2a8a76;
+  --accent-hover: #349e88;
+  --on-accent: #0a1210;
+  --danger: #f07178;
+  color-scheme: dark;
+}
+
+html[data-theme='hc-light'] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --text: #000000;
+  --muted: #222222;
+  --border: #000000;
+  --accent: #005a4a;
+  --accent-hover: #003d33;
+  --on-accent: #ffffff;
+  --danger: #8b0000;
+  color-scheme: light;
+}
+
+html[data-theme='hc-dark'] {
+  --bg: #000000;
+  --surface: #0a0a0a;
+  --text: #ffffff;
+  --muted: #e8e8e8;
+  --border: #ffffff;
+  --accent: #3aa890;
+  --accent-hover: #4abb9f;
+  --on-accent: #000000;
+  --danger: #ff6b6b;
+  color-scheme: dark;
 }
 
 *,

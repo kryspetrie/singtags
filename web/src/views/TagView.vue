@@ -1326,7 +1326,7 @@ async function onRetryLoad(): Promise<void> {
         <button type="button" class="btn" :disabled="loading || noNetwork" @click="onRetryLoad">
           {{ loading ? 'Retrying…' : 'Retry' }}
         </button>
-        <RouterLink v-if="!offline" class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
+        <RouterLink v-if="!offline" class="btn btn-ghost" to="/settings?tab=offline">Offline settings</RouterLink>
       </div>
       <p v-if="tagMediaNotice" class="hint-auto" role="status">{{ tagMediaNotice }}</p>
     </EmptyState>

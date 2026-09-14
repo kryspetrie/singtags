@@ -574,7 +574,7 @@ watch(
   outline: 2px solid var(--accent, #3b82f6);
   outline-offset: -1px;
   background: var(--accent, #3b82f6) !important;
-  color: #fff !important;
+  color: var(--on-accent) !important;
   border-color: var(--accent, #3b82f6);
 }
 /* Opaque muted fills — opacity would show accent through overlapping black keys. */
@@ -590,7 +590,7 @@ watch(
 }
 .note.out-of-range.active {
   background: var(--accent, #3b82f6) !important;
-  color: #fff !important;
+  color: var(--on-accent) !important;
   border-color: var(--accent, #3b82f6);
 }
 </style>

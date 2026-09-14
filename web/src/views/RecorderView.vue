@@ -12,12 +12,19 @@ import {
   filterRecorderSessions,
   type RecorderSessionSort,
 } from '../types/recorder'
+import {
+  clampDateRangePair,
+  formatDateRangeButtonLabel,
+  sessionDayBounds,
+  sessionDayHistogram,
+} from '../lib/recorderDateRange'
 import { openRecorderStream } from '../audio/recorderCapture'
 import { setPendingQuickRecordStream, clearPendingQuickRecordStream } from '../audio/pendingQuickRecord'
 import { exportSessionsZip, RECORDER_DOWNLOAD_FORMAT_OPTIONS, type RecorderDownloadFormat } from '../download/recorderExport'
 import { getStorageEstimate } from '../offline/storageEstimate'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import RecorderSettingsModal from '../components/RecorderSettingsModal.vue'
+import RecorderDateRangeScrub from '../components/RecorderDateRangeScrub.vue'
 
 const store = useRecorderStore()
 const prefs = usePreferencesStore()
@@ -27,6 +34,7 @@ const q = ref('')
 const sort = ref<RecorderSessionSort>('newest')
 const dateFrom = ref('')
 const dateTo = ref('')
+const datesOpen = ref(false)
 const selected = ref<Set<string>>(new Set())
 const creating = ref(false)
 const quickStarting = ref(false)
@@ -59,17 +67,53 @@ const hasActiveFilters = computed(
   () => !!q.value.trim() || !!dateFrom.value || !!dateTo.value || sort.value !== 'newest',
 )
 
-function fmtBytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
-}
+const hasDateFilter = computed(() => !!dateFrom.value || !!dateTo.value)
+
+const datesButtonLabel = computed(() =>
+  formatDateRangeButtonLabel(dateFrom.value, dateTo.value),
+)
+
+const dayBounds = computed(() => sessionDayBounds(store.sessions))
+const dayMarks = computed(() => sessionDayHistogram(store.sessions))
 
 function clearFilters(): void {
   q.value = ''
   dateFrom.value = ''
   dateTo.value = ''
   sort.value = 'newest'
+}
+
+function clearDates(): void {
+  dateFrom.value = ''
+  dateTo.value = ''
+}
+
+function onFromCalendar(e: Event): void {
+  const v = (e.target as HTMLInputElement).value
+  const next = clampDateRangePair(v, dateTo.value, 'from')
+  dateFrom.value = next.from
+  dateTo.value = next.to
+}
+
+function onToCalendar(e: Event): void {
+  const v = (e.target as HTMLInputElement).value
+  const next = clampDateRangePair(dateFrom.value, v, 'to')
+  dateFrom.value = next.from
+  dateTo.value = next.to
+}
+
+function onScrubFrom(day: string): void {
+  const next = clampDateRangePair(day, dateTo.value || dayBounds.value?.max || day, 'from')
+  dateFrom.value = next.from
+  if (!dateTo.value && dayBounds.value) dateTo.value = next.to || dayBounds.value.max
+  else dateTo.value = next.to
+}
+
+function onScrubTo(day: string): void {
+  const next = clampDateRangePair(dateFrom.value || dayBounds.value?.min || day, day, 'to')
+  if (!dateFrom.value && dayBounds.value) dateFrom.value = next.from || dayBounds.value.min
+  else dateFrom.value = next.from
+  dateTo.value = next.to
 }
 
 function toggle(id: string): void {
@@ -81,6 +125,12 @@ function toggle(id: string): void {
 
 function clearSelection(): void {
   selected.value = new Set()
+}
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function persistQuickSettings(): void {
@@ -230,40 +280,87 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="search-row">
-      <input
-        v-model="q"
-        type="search"
-        class="search"
-        placeholder="Search title, notes, or labels…"
-        aria-label="Search title, notes, or labels"
-      />
-    </div>
-
-    <div class="filters card">
-      <label class="fmt">
-        Sort
-        <select v-model="sort" aria-label="Sort by date">
+    <div class="filters">
+      <div class="filters-toolbar">
+        <input
+          v-model="q"
+          type="search"
+          class="search"
+          placeholder="Search title, notes, or labels…"
+          aria-label="Search title, notes, or labels"
+        />
+        <select v-model="sort" class="sort" aria-label="Sort by date">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
-      </label>
-      <label class="fmt">
-        From
-        <input v-model="dateFrom" type="date" aria-label="Filter from date" />
-      </label>
-      <label class="fmt">
-        To
-        <input v-model="dateTo" type="date" aria-label="Filter to date" />
-      </label>
-      <button
-        v-if="hasActiveFilters"
-        type="button"
-        class="btn clear"
-        @click="clearFilters"
+        <button
+          type="button"
+          class="btn dates-btn"
+          :class="{ active: hasDateFilter || datesOpen }"
+          :aria-expanded="datesOpen"
+          aria-controls="recorder-dates-panel"
+          @click="datesOpen = !datesOpen"
+        >
+          {{ datesButtonLabel }}
+        </button>
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          class="btn clear"
+          @click="clearFilters"
+        >
+          Clear filters
+        </button>
+      </div>
+
+      <div
+        v-if="datesOpen"
+        id="recorder-dates-panel"
+        class="dates-panel card"
+        role="region"
+        aria-label="Date range"
       >
-        Clear filters
-      </button>
+        <div class="dates-calendars">
+          <label class="fmt">
+            From
+            <input
+              type="date"
+              :value="dateFrom"
+              :min="dayBounds?.min"
+              :max="dayBounds?.max"
+              aria-label="Filter from date"
+              @input="onFromCalendar"
+            />
+          </label>
+          <label class="fmt">
+            To
+            <input
+              type="date"
+              :value="dateTo"
+              :min="dayBounds?.min"
+              :max="dayBounds?.max"
+              aria-label="Filter to date"
+              @input="onToCalendar"
+            />
+          </label>
+          <button
+            type="button"
+            class="btn clear dates-clear"
+            :disabled="!hasDateFilter"
+            @click="clearDates"
+          >
+            Clear dates
+          </button>
+        </div>
+        <RecorderDateRangeScrub
+          :bounds="dayBounds"
+          :marks="dayMarks"
+          :from="dateFrom"
+          :to="dateTo"
+          @update:from="onScrubFrom"
+          @update:to="onScrubTo"
+        />
+      </div>
     </div>
 
     <p v-if="err" class="error" role="alert">{{ err }}</p>
@@ -406,11 +503,21 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 0.55rem;
 }
-.search-row {
-  display: flex;
+.filters {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
 }
-.search {
-  flex: 1 1 12rem;
+.filters-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.filters-toolbar .search {
+  flex: 1 1 100%;
+  min-width: 0;
   min-height: 44px;
   font: inherit;
   font-size: 16px;
@@ -418,6 +525,48 @@ onMounted(async () => {
   border: 1px solid var(--border);
   padding: 0.45rem 0.65rem;
   background: var(--bg);
+}
+.filters-toolbar .sort {
+  flex: 1 1 8rem;
+  min-width: 0;
+  min-height: 44px;
+  font: inherit;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 0.45rem 0.65rem;
+  background: var(--bg);
+  color: inherit;
+}
+.dates-btn {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  white-space: nowrap;
+}
+.dates-btn.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+.filters-toolbar .clear {
+  flex: 0 0 auto;
+  align-self: center;
+}
+@media (min-width: 640px) {
+  .filters-toolbar .search {
+    flex: 1 1 14rem;
+  }
+  .filters-toolbar .sort {
+    flex: 0 1 10rem;
+  }
 }
 .card {
   display: grid;
@@ -427,27 +576,39 @@ onMounted(async () => {
   border-radius: var(--radius);
   background: var(--surface);
 }
-.filters {
-  grid-template-columns: 1fr;
+.dates-panel {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
 }
-@media (min-width: 560px) {
-  .filters {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: end;
+.dates-calendars {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1fr;
+  min-width: 0;
+  align-items: end;
+}
+@media (min-width: 420px) {
+  .dates-calendars {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
-  .filters .clear {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
+}
+.dates-clear {
+  justify-self: start;
 }
 .fmt {
   display: grid;
   gap: 0.35rem;
   font-size: 0.9rem;
   color: var(--muted);
+  min-width: 0;
 }
 .fmt select,
 .fmt input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   font: inherit;
   font-size: 16px;
   min-height: 44px;
@@ -473,7 +634,7 @@ onMounted(async () => {
   border: 0;
   border-radius: 10px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   padding: 0.5rem 1rem;

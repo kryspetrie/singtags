@@ -364,7 +364,7 @@ async function acceptReconnectPrompt(): Promise<void> {
           compact
         />
       </div>
-      <RouterLink class="btn btn-ghost" to="/settings">Offline settings</RouterLink>
+      <RouterLink class="btn btn-ghost" to="/settings?tab=offline">Offline settings</RouterLink>
     </div>
     <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
     <AppMoreMenu :open="moreOpen" @close="closeMore" />
@@ -439,7 +439,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       >
         {{ reconnectMediaBusy ? 'Downloading…' : reconnectMediaPromptActionLabel }}
       </button>
-      <RouterLink class="btn btn-ghost" to="/settings" @click="dismissReconnectMediaPrompt()">
+      <RouterLink class="btn btn-ghost" to="/settings?tab=offline" @click="dismissReconnectMediaPrompt()">
         Offline
       </RouterLink>
       <button type="button" class="btn btn-ghost" @click="dismissReconnectMediaPrompt()">
@@ -464,7 +464,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       >
         {{ offlineLib.packSyncBusy ? 'Syncing…' : 'Sync' }}
       </button>
-      <RouterLink class="btn btn-ghost" to="/settings" @click="offlineLib.dismissPackSyncPrompt()">
+      <RouterLink class="btn btn-ghost" to="/settings?tab=offline" @click="offlineLib.dismissPackSyncPrompt()">
         Settings
       </RouterLink>
       <button type="button" class="btn btn-ghost" @click="offlineLib.dismissPackSyncPrompt()">
@@ -484,7 +484,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <button type="button" class="btn btn-primary" @click="downloadSheetsFromPrompt">
         Download sheets
       </button>
-      <RouterLink class="btn btn-ghost" to="/settings" @click="offlineLib.dismissSheetsPrompt()">
+      <RouterLink class="btn btn-ghost" to="/settings?tab=offline" @click="offlineLib.dismissSheetsPrompt()">
         Settings
       </RouterLink>
       <button type="button" class="btn btn-ghost" @click="offlineLib.dismissSheetsPrompt()">
@@ -517,7 +517,7 @@ async function acceptReconnectPrompt(): Promise<void> {
           <div class="toast-progress-fill" :style="{ width: `${packProgressSnackPct}%` }" />
         </div>
       </div>
-      <RouterLink class="btn btn-ghost" to="/settings">Details</RouterLink>
+      <RouterLink class="btn btn-ghost" to="/settings?tab=offline">Details</RouterLink>
       <button type="button" class="btn btn-ghost" @click="dismissPackProgressSnack">Dismiss</button>
     </div>
     <Teleport to="body">
@@ -932,7 +932,7 @@ async function acceptReconnectPrompt(): Promise<void> {
   padding: 0 0.3rem;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 0.7rem;
   font-weight: 700;
 }

@@ -23,13 +23,16 @@ import {
 import { useRouletteStore } from '../stores/roulette'
 import { useSnackbarStore } from '../stores/snackbar'
 import { useUserCollectionsStore } from '../stores/userCollections'
+import { useCatalogStore } from '../stores/catalog'
 
 const roulette = useRouletteStore()
 const snackbar = useSnackbarStore()
 const userCollections = useUserCollectionsStore()
+const catalog = useCatalogStore()
 
 const mode = computed(() => roulette.activeMode)
 const isBuiltin = computed(() => roulette.isBuiltinActive)
+const typeOptions = computed(() => catalog.types)
 
 /** Local Weight % fields; empty string = auto-share remaining %. */
 const weightDrafts = ref<string[]>([])
@@ -165,6 +168,28 @@ function onOrder(e: Event): void {
   if (isBuiltin.value) return
   roulette.setBatchOrder((e.target as HTMLSelectElement).value as RouletteBatchOrder)
 }
+
+function toggleHasSheet(): void {
+  roulette.updateActiveMode({ hasSheet: !mode.value.hasSheet })
+}
+
+function toggleHasAudio(): void {
+  roulette.updateActiveMode({ hasAudio: !mode.value.hasAudio })
+}
+
+function toggleCachedOnDevice(): void {
+  roulette.updateActiveMode({ cachedOnDevice: !mode.value.cachedOnDevice })
+}
+
+function toggleType(type: string): void {
+  const cur = mode.value.types
+  const next = cur.includes(type) ? cur.filter((t) => t !== type) : [...cur, type]
+  roulette.updateActiveMode({ types: next })
+}
+
+function clearTypes(): void {
+  roulette.updateActiveMode({ types: [] })
+}
 </script>
 
 <template>
@@ -172,9 +197,68 @@ function onOrder(e: Event): void {
     <h2 id="mode-edit-h" class="editor-title">Mode settings</h2>
     <p class="summary">{{ summary }}</p>
     <p v-if="isBuiltin" class="hint">
-      Built-in mode — pool is fixed. You can change the curve and score only. Duplicate it to make a
+      Built-in mode — pool is fixed. You can change filters, curve, and score. Duplicate it to make a
       fully editable copy. Batch size is set above.
     </p>
+
+    <div class="filters" role="group" aria-label="Deal filters">
+      <p class="filters-title">Deal filters</p>
+      <div class="filter-chips">
+        <button
+          type="button"
+          class="chip"
+          :class="{ on: mode.hasSheet }"
+          :aria-pressed="mode.hasSheet"
+          @click="toggleHasSheet"
+        >
+          Has sheet
+        </button>
+        <button
+          type="button"
+          class="chip"
+          :class="{ on: mode.cachedOnDevice }"
+          :aria-pressed="mode.cachedOnDevice"
+          @click="toggleCachedOnDevice"
+        >
+          Cached on device
+        </button>
+        <button
+          type="button"
+          class="chip"
+          :class="{ on: mode.hasAudio }"
+          :aria-pressed="mode.hasAudio"
+          @click="toggleHasAudio"
+        >
+          Has audio
+        </button>
+      </div>
+      <div v-if="typeOptions.length" class="type-block">
+        <div class="type-head">
+          <span class="lbl">Type</span>
+          <button
+            v-if="mode.types.length"
+            type="button"
+            class="btn btn-ghost tiny"
+            @click="clearTypes"
+          >
+            All types
+          </button>
+        </div>
+        <div class="filter-chips">
+          <button
+            v-for="t in typeOptions"
+            :key="t"
+            type="button"
+            class="chip"
+            :class="{ on: mode.types.includes(t) }"
+            :aria-pressed="mode.types.includes(t)"
+            @click="toggleType(t)"
+          >
+            {{ t }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div v-if="!isBuiltin" class="row-fields">
       <label class="field grow">
@@ -527,5 +611,55 @@ select {
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+.filters {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.filters-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.chip {
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+}
+.chip.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+}
+.type-block {
+  display: grid;
+  gap: 0.35rem;
+}
+.type-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.btn.tiny {
+  min-height: 32px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
 }
 </style>

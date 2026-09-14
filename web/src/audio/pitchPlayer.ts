@@ -638,11 +638,12 @@ export function isPitchPipeLayout(v: unknown): v is PitchPipeLayout {
 /**
  * Computer-keyboard layout (piano-shaped):
  * ```
- *     E R   Y U I   [ ]
+ *     E R   Y U I   P [
  * A S D F G H J K L ; '
  * ```
  * Bottom row = white keys (`A` = B below active C). Top row = black keys
- * sitting between those whites (`[` `]` = C♯ / E♭ above the next C).
+ * sitting between those whites (`P` `[` = C♯ / D♯ above the next C).
+ * Chromatic B→E: `asedrfgyhujiklp;['`
  */
 export const PITCH_PIPE_PC_WHITE_CODES = [
   'KeyA', // B
@@ -658,15 +659,15 @@ export const PITCH_PIPE_PC_WHITE_CODES = [
   'Quote', // E
 ] as const
 
-/** Black keys between whites (including high C♯ / E♭ on `[` `]`). */
+/** Black keys between whites (including high C♯ / D♯ on `P` `[`). */
 export const PITCH_PIPE_PC_BLACK_CODES = [
   'KeyE', // C#
   'KeyR', // D#
   'KeyY', // F#
   'KeyU', // G#
   'KeyI', // A#
-  'BracketLeft', // C# (above next C)
-  'BracketRight', // D# / Eb
+  'KeyP', // C# (above next C)
+  'BracketLeft', // D# / Eb
 ] as const
 
 /** All PC codes that play piano notes (whites then blacks). */

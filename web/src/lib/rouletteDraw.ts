@@ -8,6 +8,10 @@ import {
   normalizeCollectionId,
 } from './collections'
 import type { TagSummary } from '../types/tag'
+import {
+  matchesOfflineBrowseFilters,
+  type TagCacheReady,
+} from './offlineReadiness'
 
 export type Rng = () => number
 
@@ -36,6 +40,8 @@ export type RouletteFavoriteGroup = {
 export type RoulettePoolContext = {
   favoriteIds?: ReadonlySet<number>
   favoriteGroups?: readonly RouletteFavoriteGroup[]
+  /** Device cache readiness (for “Cached on device” mode filter). */
+  cacheReadyByTag?: ReadonlyMap<number, TagCacheReady>
 }
 
 export type RouletteSlice = {
@@ -51,6 +57,68 @@ export type RouletteMode = {
   slices: RouletteSlice[]
   batchSize: RouletteBatchSize
   batchOrder: RouletteBatchOrder
+  /** Prefer tags with sheet music (default on). */
+  hasSheet: boolean
+  /** Prefer tags with learning audio (default off). */
+  hasAudio: boolean
+  /** Prefer tags with any files cached on this device (default off). */
+  cachedOnDevice: boolean
+  /** Restrict to these catalog types; empty = all. */
+  types: string[]
+}
+
+/** Default media/type filters for new and built-in modes. */
+export const DEFAULT_ROULETTE_MODE_FILTERS = {
+  hasSheet: true,
+  hasAudio: false,
+  cachedOnDevice: false,
+  types: [] as string[],
+} as const
+
+export function normalizeRouletteModeFilters(
+  raw: Partial<Pick<RouletteMode, 'hasSheet' | 'hasAudio' | 'cachedOnDevice' | 'types'>> | null | undefined,
+): Pick<RouletteMode, 'hasSheet' | 'hasAudio' | 'cachedOnDevice' | 'types'> {
+  const types = Array.isArray(raw?.types)
+    ? [
+        ...new Set(
+          raw!.types
+            .map((t) => (typeof t === 'string' ? t.trim() : ''))
+            .filter(Boolean),
+        ),
+      ]
+    : []
+  return {
+    hasSheet: raw?.hasSheet !== false,
+    hasAudio: raw?.hasAudio === true,
+    cachedOnDevice: raw?.cachedOnDevice === true,
+    types,
+  }
+}
+
+/** Apply mode media/type filters before pool mixture. */
+export function filterTagsForRouletteMode(
+  catalog: readonly TagSummary[],
+  mode: Pick<RouletteMode, 'hasSheet' | 'hasAudio' | 'cachedOnDevice' | 'types'>,
+  cacheReadyByTag?: ReadonlyMap<number, TagCacheReady>,
+): TagSummary[] {
+  const filters = normalizeRouletteModeFilters(mode)
+  const typeSet = filters.types.length ? new Set(filters.types.map((t) => t.toLowerCase())) : null
+  return catalog.filter((t) => {
+    if (typeSet) {
+      const ty = (t.type ?? '').trim().toLowerCase()
+      if (!ty || !typeSet.has(ty)) return false
+    }
+    if (filters.cachedOnDevice) {
+      return matchesOfflineBrowseFilters(cacheReadyByTag?.get(t.id), {
+        cached: 'any',
+        hasSheet: filters.hasSheet ? true : null,
+        hasAudio: filters.hasAudio ? true : null,
+      })
+    }
+    if (filters.hasSheet && !t.hasSheet) return false
+    if (filters.hasAudio && !(t.audioParts?.length > 0)) return false
+    return true
+  })
 }
 
 const CATALOG_POOL_IDS = ['all', 'classic', 'days100', 'easytags', 'other'] as const
@@ -500,6 +568,7 @@ export function dealFromMode(
   rng: Rng = defaultRng,
   ctx: RoulettePoolContext = {},
 ): DealFromModeResult {
+  const filtered = filterTagsForRouletteMode(catalog, mode, ctx.cacheReadyByTag)
   const n = normalizeRouletteBatchSize(mode.batchSize)
   const slices =
     mode.slices.length > 0
@@ -533,7 +602,7 @@ export function dealFromMode(
     const slice = slices[i]!
     const want = quotas[i] ?? 0
     if (want <= 0) continue
-    const pool = sliceEligible(catalog, slice.pool, ctx)
+    const pool = sliceEligible(filtered, slice.pool, ctx)
     const got = pickFrom(pool, slice.score, slice.curve, want)
     sliceCounts[i] = got.length
     if (got.length < want) {
@@ -550,7 +619,7 @@ export function dealFromMode(
   if (need > 0) {
     for (let i = 0; i < slices.length && need > 0; i++) {
       const slice = slices[i]!
-      const pool = sliceEligible(catalog, slice.pool, ctx)
+      const pool = sliceEligible(filtered, slice.pool, ctx)
       const got = pickFrom(pool, slice.score, slice.curve, need)
       for (const t of got) {
         chosen.push(t)
@@ -560,7 +629,7 @@ export function dealFromMode(
     }
   }
   if (need > 0) {
-    const fill = pickFrom(sliceEligible(catalog, 'all', ctx), 'uniform', 'equal', need)
+    const fill = pickFrom(sliceEligible(filtered, 'all', ctx), 'uniform', 'equal', need)
     for (const t of fill) {
       chosen.push(t)
       chosenIds.add(t.id)
@@ -583,7 +652,9 @@ export function dealFromMode(
   ordered = ordered.slice(0, n)
 
   let status: string | null = null
-  if (shortPools.length) {
+  if (!filtered.length) {
+    status = 'No tags match this mode’s filters — loosen Has sheet / Cached / Type and try again.'
+  } else if (shortPools.length) {
     status = `Some pools were short (${shortPools.join(', ')}) — filled from other pools.`
   } else if (ordered.length < n && ordered.length > 0) {
     status = `Only ${ordered.length} tags available in the catalog for this deal.`
@@ -629,12 +700,19 @@ export function parseRouletteMode(raw: unknown): RouletteMode | null {
       ? o.id.trim()
       : slugifyModeLabel(label)
   const batchOrder = isRouletteBatchOrder(o.batchOrder) ? o.batchOrder : 'random'
+  const filters = normalizeRouletteModeFilters({
+    hasSheet: typeof o.hasSheet === 'boolean' ? o.hasSheet : undefined,
+    hasAudio: typeof o.hasAudio === 'boolean' ? o.hasAudio : undefined,
+    cachedOnDevice: typeof o.cachedOnDevice === 'boolean' ? o.cachedOnDevice : undefined,
+    types: Array.isArray(o.types) ? (o.types as string[]) : undefined,
+  })
   return {
     id,
     label,
     slices,
     batchSize: normalizeRouletteBatchSize(o.batchSize),
     batchOrder,
+    ...filters,
   }
 }
 
@@ -726,12 +804,14 @@ export function resolveSliceWeights(
 }
 
 export function seedRouletteModes(): RouletteMode[] {
+  const filters = { ...DEFAULT_ROULETTE_MODE_FILTERS, types: [] as string[] }
   return [
     {
       id: 'full-library-rating',
       label: 'All tags',
       batchSize: 10,
       batchOrder: 'random',
+      ...filters,
       slices: [{ weightPct: 100, pool: 'all', score: 'rating', curve: 'leftSkew' }],
     },
     {
@@ -739,6 +819,7 @@ export function seedRouletteModes(): RouletteMode[] {
       label: 'Classic tags',
       batchSize: 10,
       batchOrder: 'random',
+      ...filters,
       slices: [{ weightPct: 100, pool: 'classic', score: 'uniform', curve: 'equal' }],
     },
     {
@@ -746,6 +827,7 @@ export function seedRouletteModes(): RouletteMode[] {
       label: 'Collections heavy',
       batchSize: 10,
       batchOrder: 'random',
+      ...filters,
       slices: [
         { weightPct: 50, pool: 'classic', score: 'uniform', curve: 'equal' },
         { weightPct: 15, pool: 'days100', score: 'uniform', curve: 'equal' },
@@ -779,7 +861,7 @@ function mergeBuiltinSlice(
   }
 }
 
-/** Keep built-ins present and structurally locked; preserve curve/score/batch size. */
+/** Keep built-ins present and structurally locked; preserve curve/score/batch size/filters. */
 export function ensureBuiltinRouletteModes(modes: readonly RouletteMode[]): RouletteMode[] {
   const seeds = seedRouletteModes()
   const byId = new Map(modes.map((m) => [m.id, m]))
@@ -790,6 +872,7 @@ export function ensureBuiltinRouletteModes(modes: readonly RouletteMode[]): Roul
       out.push({
         ...seed,
         batchSize: normalizeRouletteBatchSize(existing.batchSize),
+        ...normalizeRouletteModeFilters(existing),
         slices: seed.slices.map((seedSlice, i) =>
           mergeBuiltinSlice(seedSlice, existing.slices[i]),
         ),
@@ -798,6 +881,7 @@ export function ensureBuiltinRouletteModes(modes: readonly RouletteMode[]): Roul
     } else {
       out.push({
         ...seed,
+        types: [...seed.types],
         slices: seed.slices.map((s) => ({ ...s })),
       })
     }
@@ -806,6 +890,8 @@ export function ensureBuiltinRouletteModes(modes: readonly RouletteMode[]): Roul
     if (!isRouletteBuiltinModeId(m.id)) {
       out.push({
         ...m,
+        ...normalizeRouletteModeFilters(m),
+        types: [...normalizeRouletteModeFilters(m).types],
         slices: m.slices.map((s) => ({ ...s })),
       })
     }

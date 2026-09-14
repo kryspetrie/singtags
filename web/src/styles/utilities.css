@@ -39,11 +39,11 @@ a.btn:hover {
 }
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 a.btn-primary:hover {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }

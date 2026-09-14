@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * Offline settings: tier-2 pack downloads, favorites media, manual offline mode,
- * cache export/import, and app state backup/restore.
+ * Settings: display size, themes, offline cache / backups.
  */
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { useFavoritesStore } from '../stores/favorites'
@@ -31,6 +30,38 @@ import {
   MIN_PDF_RASTER_CACHE_MAX_MB,
   pdfRasterCacheBytes,
 } from '../offline/pdfRasterCache'
+import SheetErodePreview from '../components/SheetErodePreview.vue'
+import { APP_THEME_OPTIONS, type AppTheme } from '../lib/theme'
+import { SHEET_ERODE_OPTIONS, type SheetErodeLevel } from '../lib/sheetErode'
+
+const SETTINGS_TABS = ['general', 'appearance', 'offline'] as const
+type SettingsTab = (typeof SETTINGS_TABS)[number]
+
+function normalizeSettingsTab(raw: unknown): SettingsTab {
+  if (typeof raw === 'string' && (SETTINGS_TABS as readonly string[]).includes(raw)) {
+    return raw as SettingsTab
+  }
+  return 'general'
+}
+
+const route = useRoute()
+const router = useRouter()
+const activeTab = ref<SettingsTab>(normalizeSettingsTab(route.query.tab))
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    activeTab.value = normalizeSettingsTab(tab)
+  },
+)
+
+function setTab(tab: SettingsTab): void {
+  activeTab.value = tab
+  void router.replace({
+    path: '/settings',
+    query: tab === 'general' ? {} : { tab },
+  })
+}
 
 const offlineLib = useOfflineLibraryStore()
 const offlineMode = useOfflineModeStore()
@@ -49,6 +80,18 @@ const pdfRasterBytes = ref<number | null>(null)
 const pdfRasterClearBusy = ref(false)
 const userCollections = useUserCollectionsStore()
 const practice = usePracticeStore()
+
+function bumpScale(delta: number): void {
+  prefs.nudgeUiScale(delta)
+}
+
+function onThemeChange(theme: AppTheme): void {
+  prefs.setAppTheme(theme)
+}
+
+function onSheetErodeChange(level: SheetErodeLevel): void {
+  prefs.setSheetErode(level)
+}
 
 async function refreshPdfRasterMeter(): Promise<void> {
   try {
@@ -376,7 +419,159 @@ function cancelCullUpgrades(): void {
 </script>
 
 <template>
-  <section class="settings" aria-label="Offline settings">
+  <section class="settings" aria-label="Settings">
+    <h1 class="settings-title">Settings</h1>
+
+    <div class="ctrl-tabs settings-tabs" role="tablist" aria-label="Settings sections">
+      <button
+        type="button"
+        class="ctrl-tab"
+        role="tab"
+        :aria-selected="activeTab === 'general'"
+        @click="setTab('general')"
+      >
+        General
+      </button>
+      <button
+        type="button"
+        class="ctrl-tab"
+        role="tab"
+        :aria-selected="activeTab === 'appearance'"
+        @click="setTab('appearance')"
+      >
+        Appearance
+      </button>
+      <button
+        type="button"
+        class="ctrl-tab"
+        role="tab"
+        :aria-selected="activeTab === 'offline'"
+        @click="setTab('offline')"
+      >
+        Offline
+      </button>
+    </div>
+
+    <div v-show="activeTab === 'general'" role="tabpanel" aria-label="General">
+      <section class="card" aria-labelledby="display-h">
+        <h2 id="display-h">Display size</h2>
+        <p class="hint">Scale the whole app from 70% to 130%.</p>
+        <div class="scale-row" role="group" aria-label="Display size">
+          <button
+            type="button"
+            class="btn btn-ghost scale-nudge"
+            :disabled="prefs.uiScalePercent <= 70"
+            aria-label="Decrease display size"
+            @click="bumpScale(-5)"
+          >
+            −
+          </button>
+          <span class="scale-pct" aria-live="polite">{{ prefs.uiScalePercent }}%</span>
+          <button
+            type="button"
+            class="btn btn-ghost scale-nudge"
+            :disabled="prefs.uiScalePercent >= 130"
+            aria-label="Increase display size"
+            @click="bumpScale(5)"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            :disabled="prefs.uiScalePercent === 100"
+            @click="prefs.resetUiScale()"
+          >
+            Reset
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div v-show="activeTab === 'appearance'" role="tabpanel" aria-label="Appearance">
+      <section class="card" aria-labelledby="theme-h">
+        <h2 id="theme-h">Theme</h2>
+        <p class="hint">Choose a color theme for the app chrome. Sheet options below adjust chart readability.</p>
+        <div class="theme-list" role="radiogroup" aria-labelledby="theme-h">
+          <label
+            v-for="opt in APP_THEME_OPTIONS"
+            :key="opt.value"
+            class="theme-option"
+            :class="{ on: prefs.appTheme === opt.value }"
+          >
+            <input
+              type="radio"
+              name="app-theme"
+              class="theme-radio"
+              :value="opt.value"
+              :checked="prefs.appTheme === opt.value"
+              @change="onThemeChange(opt.value)"
+            />
+            <span class="theme-copy">
+              <span class="theme-label">{{ opt.label }}</span>
+              <span class="theme-hint">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="sheet-music-h">
+        <h2 id="sheet-music-h">Sheet music</h2>
+        <p class="hint">
+          Erode and invert are baked into the sheet image before it is drawn. Erode uses a
+          dark-favoring high-contrast curve (preview below).
+        </p>
+        <div
+          class="theme-list"
+          role="radiogroup"
+          aria-label="Sheet erode intensity"
+        >
+          <label
+            v-for="opt in SHEET_ERODE_OPTIONS"
+            :key="opt.value"
+            class="theme-option sheet-pref-toggle"
+            :class="{ on: prefs.sheetErode === opt.value }"
+          >
+            <input
+              type="radio"
+              name="sheet-erode"
+              class="theme-radio"
+              :value="opt.value"
+              :checked="prefs.sheetErode === opt.value"
+              @change="onSheetErodeChange(opt.value)"
+            />
+            <span class="theme-copy">
+              <span class="theme-label">Erode: {{ opt.label }}</span>
+              <span class="theme-hint">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+        <label
+          class="theme-option sheet-pref-toggle sheet-invert-row"
+          :class="{ on: prefs.sheetInvert }"
+        >
+          <input
+            type="checkbox"
+            class="theme-radio"
+            role="switch"
+            :checked="prefs.sheetInvert"
+            :aria-checked="prefs.sheetInvert"
+            aria-label="Invert sheet music"
+            @change="prefs.setSheetInvert(!prefs.sheetInvert)"
+          />
+          <span class="theme-copy">
+            <span class="theme-label">Invert sheet music</span>
+            <span class="theme-hint">
+              Flip chart colors for low-light reading (black paper, light ink). Independent of app
+              theme.
+            </span>
+          </span>
+        </label>
+        <SheetErodePreview :level="prefs.sheetErode" :invert="prefs.sheetInvert" />
+      </section>
+    </div>
+
+    <div v-show="activeTab === 'offline'" role="tabpanel" aria-label="Offline">
     <section class="connection-card" aria-labelledby="connection-h">
       <div class="connection-row">
         <div class="connection-copy">
@@ -836,6 +1031,7 @@ function cancelCullUpgrades(): void {
       </section>
 
     </details>
+    </div>
   </section>
 </template>
 
@@ -844,6 +1040,77 @@ function cancelCullUpgrades(): void {
   padding: 1rem 1rem 5rem;
   max-width: 40rem;
   margin: 0 auto;
+}
+.settings-title {
+  margin: 0 0 0.85rem;
+  font-size: 1.45rem;
+  font-family: var(--font-display);
+}
+.settings-tabs {
+  margin-bottom: 1rem;
+}
+.scale-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.scale-nudge {
+  min-width: 2.5rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.scale-pct {
+  min-width: 3.25rem;
+  text-align: center;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.theme-list {
+  display: grid;
+  gap: 0.5rem;
+}
+.theme-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.theme-option.on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.theme-radio {
+  margin-top: 0.2rem;
+  accent-color: var(--accent);
+}
+.theme-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.theme-label {
+  font-weight: 700;
+}
+.theme-hint {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.sheet-pref-toggle {
+  align-items: flex-start;
+}
+.sheet-pref-toggle .theme-radio {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.sheet-invert-row {
+  margin-top: 0.5rem;
 }
 .connection-card {
   margin-bottom: 1rem;
