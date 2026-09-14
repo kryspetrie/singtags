@@ -34,14 +34,15 @@ import SheetErodePreview from '../components/SheetErodePreview.vue'
 import { APP_THEME_OPTIONS, type AppTheme } from '../lib/theme'
 import { SHEET_ERODE_OPTIONS, type SheetErodeLevel } from '../lib/sheetErode'
 
-const SETTINGS_TABS = ['general', 'appearance', 'offline'] as const
+const SETTINGS_TABS = ['appearance', 'offline'] as const
 type SettingsTab = (typeof SETTINGS_TABS)[number]
 
 function normalizeSettingsTab(raw: unknown): SettingsTab {
   if (typeof raw === 'string' && (SETTINGS_TABS as readonly string[]).includes(raw)) {
     return raw as SettingsTab
   }
-  return 'general'
+  // Legacy ?tab=general → Appearance (Display size moved here).
+  return 'appearance'
 }
 
 const route = useRoute()
@@ -59,7 +60,7 @@ function setTab(tab: SettingsTab): void {
   activeTab.value = tab
   void router.replace({
     path: '/settings',
-    query: tab === 'general' ? {} : { tab },
+    query: tab === 'appearance' ? {} : { tab },
   })
 }
 
@@ -427,15 +428,6 @@ function cancelCullUpgrades(): void {
         type="button"
         class="ctrl-tab"
         role="tab"
-        :aria-selected="activeTab === 'general'"
-        @click="setTab('general')"
-      >
-        General
-      </button>
-      <button
-        type="button"
-        class="ctrl-tab"
-        role="tab"
         :aria-selected="activeTab === 'appearance'"
         @click="setTab('appearance')"
       >
@@ -452,7 +444,7 @@ function cancelCullUpgrades(): void {
       </button>
     </div>
 
-    <div v-show="activeTab === 'general'" role="tabpanel" aria-label="General">
+    <div v-show="activeTab === 'appearance'" role="tabpanel" aria-label="Appearance">
       <section class="card" aria-labelledby="display-h">
         <h2 id="display-h">Display size</h2>
         <p class="hint">Scale the whole app from 70% to 130%.</p>
@@ -486,9 +478,7 @@ function cancelCullUpgrades(): void {
           </button>
         </div>
       </section>
-    </div>
 
-    <div v-show="activeTab === 'appearance'" role="tabpanel" aria-label="Appearance">
       <section class="card" aria-labelledby="theme-h">
         <h2 id="theme-h">Theme</h2>
         <p class="hint">Choose a color theme for the app chrome. Sheet options below adjust chart readability.</p>
@@ -513,6 +503,28 @@ function cancelCullUpgrades(): void {
             </span>
           </label>
         </div>
+      </section>
+
+      <section class="card" aria-labelledby="embolden-h">
+        <h2 id="embolden-h">Text</h2>
+        <label class="theme-option sheet-pref-toggle" :class="{ on: prefs.emboldenText }">
+          <input
+            type="checkbox"
+            class="theme-radio"
+            role="switch"
+            :checked="prefs.emboldenText"
+            :aria-checked="prefs.emboldenText"
+            aria-labelledby="embolden-h"
+            @change="prefs.setEmboldenText(!prefs.emboldenText)"
+          />
+          <span class="theme-copy">
+            <span class="theme-label">Embolden text</span>
+            <span class="theme-hint">
+              Make app text slightly heavier for easier reading. Does not change sheet music ink
+              (use Erode below for charts).
+            </span>
+          </span>
+        </label>
       </section>
 
       <section class="card" aria-labelledby="sheet-music-h">

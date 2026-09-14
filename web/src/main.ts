@@ -12,7 +12,9 @@ import App from './App.vue'
 import { router } from './router'
 // Self-hosted (npm) — no Google Fonts CDN
 import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-500.css'
 import '@fontsource/ibm-plex-sans/latin-600.css'
+import '@fontsource/ibm-plex-sans/latin-700.css'
 import '@fontsource/ibm-plex-serif/latin-600.css'
 import '@fontsource/ibm-plex-serif/latin-700.css'
 import './styles/tokens.css'
@@ -21,6 +23,7 @@ import './styles/utilities.css'
 import { ensureFetchPatchInstalled } from './lib/manualOfflineFetch'
 import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
 import { resolveInitialAppTheme, applyAppTheme } from './lib/theme'
+import { resolveInitialEmbolden, applyEmbolden } from './lib/embolden'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
@@ -28,6 +31,7 @@ import { useOfflineLibraryStore } from './stores/offlineLibrary'
 // Apply persisted / viewport-default UI scale before first paint (avoids a zoom jump).
 applyUiScale(resolveInitialUiScale())
 applyAppTheme(resolveInitialAppTheme())
+applyEmbolden(resolveInitialEmbolden())
 
 // Register FontAwesome icons
 library.add(faHeartSolid, faHeartRegular, faPen)

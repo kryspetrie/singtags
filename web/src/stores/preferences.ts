@@ -44,6 +44,11 @@ import {
   type AppTheme,
 } from '../lib/theme'
 import {
+  applyEmbolden,
+  resolveInitialEmbolden,
+  writeStoredEmbolden,
+} from '../lib/embolden'
+import {
   normalizeSheetErodeLevel,
   resolveInitialSheetErodeLevel,
   writeStoredSheetErodeLevel,
@@ -500,6 +505,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const uiScalePercent = ref(resolveInitialUiScale())
   /** App color theme (light / dark / high-contrast). */
   const appTheme = ref<AppTheme>(resolveInitialAppTheme())
+  /** Slightly heavier text weight for low-vision reading. */
+  const emboldenText = ref(resolveInitialEmbolden())
   /**
    * When true, pitch-pipe concert A / fine detune also applies to tag pay-the-key
    * (and any other app pitches that consult this preference).
@@ -677,6 +684,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
       writeStoredAppTheme(next)
       applyAppTheme(next)
+    },
+    { flush: 'sync', immediate: true },
+  )
+
+  watch(
+    emboldenText,
+    (v) => {
+      writeStoredEmbolden(v)
+      applyEmbolden(v)
     },
     { flush: 'sync', immediate: true },
   )
@@ -1144,6 +1160,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setAppTheme(APP_THEME_DEFAULT)
   }
 
+  function setEmboldenText(on: boolean): void {
+    emboldenText.value = on
+  }
+
   /**
    * Built-in pitch sound (Mellow / Bright). Persists in pitch-pipe prefs and
    * clears any lab custom voice override so the selected built-in applies.
@@ -1348,6 +1368,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipePianoEngine,
     uiScalePercent,
     appTheme,
+    emboldenText,
     setLibraryAudioPartsMode,
     toggleLibraryAudioPart,
     dismissBrowseWelcome,
@@ -1396,6 +1417,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     resetUiScale,
     setAppTheme,
     resetAppTheme,
+    setEmboldenText,
     setPitchPipeSound,
     setPitchPipeAHz,
     setPitchPipeDetuneCents,

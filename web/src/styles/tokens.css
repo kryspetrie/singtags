@@ -93,6 +93,17 @@ body {
   caret-color: transparent;
 }
 
+/* Low-vision: slightly heavier type across the app (pref from Settings → Appearance). */
+html[data-embolden] body {
+  font-weight: 500;
+  /* Subtle stroke emboldens glyphs that already set font-weight: 600/700. */
+  -webkit-text-stroke: 0.22px currentColor;
+}
+html[data-embolden] :where(h1, h2, h3, h4, strong, b, th, summary, label, button, .btn) {
+  font-weight: 700;
+  -webkit-text-stroke: 0.18px currentColor;
+}
+
 input,
 textarea,
 select,

@@ -46,6 +46,7 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.recorder.quick.v1',
   'singtags.theme.v1',
   'singtags.uiScale.v1',
+  'singtags.embolden.v1',
   'singtags.sheetInvert.v1',
   'singtags.sheetErode.v2',
 ] as const
