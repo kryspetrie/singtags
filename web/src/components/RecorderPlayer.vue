@@ -305,7 +305,11 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="togglePlay"
       >
-        {{ paused ? '▶' : '⏸' }}
+        <font-awesome-icon
+          :icon="paused ? ['fas', 'play'] : ['fas', 'pause']"
+          class="transport-ico"
+          aria-hidden="true"
+        />
       </button>
       <button
         type="button"
@@ -315,7 +319,7 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="stopPlayback"
       >
-        ■
+        <font-awesome-icon :icon="['fas', 'stop']" class="transport-ico" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -345,7 +349,7 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="moreOpen = !moreOpen"
       >
-        ⋮
+        <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" class="transport-ico" aria-hidden="true" />
       </button>
       <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
     </div>
