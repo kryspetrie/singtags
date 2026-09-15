@@ -23,8 +23,13 @@ import {
   type RepertoireSong,
   type Voicing,
 } from '../lib/singTogether/types'
+import {
+  LOCAL_LIBRARY_KEY_OPTIONS,
+  localLibraryKeyLabel,
+} from '../types/localLibrary'
 import { decodeQrDetailedFromFile, decodeQrDetailedFromVideo } from '../lib/qrDecode'
 import SingTogetherCsvImportModal from '../components/SingTogetherCsvImportModal.vue'
+import ConfidenceStars from '../components/ConfidenceStars.vue'
 import { useSingTogetherStore } from '../stores/singTogether'
 import { useSnackbarStore } from '../stores/snackbar'
 
@@ -37,6 +42,51 @@ const mode = ref<Mode>('repertoire')
 const editingId = ref<string | null>(null)
 const draft = ref<RepertoireSong | null>(null)
 const csvImportOpen = ref(false)
+
+/** Key dropdown: shared Local Library list, plus any custom value already on the song. */
+const draftKeyOptions = computed(() => {
+  const current = draft.value?.key?.trim() ?? ''
+  if (current && !(LOCAL_LIBRARY_KEY_OPTIONS as readonly string[]).includes(current)) {
+    return [current, ...LOCAL_LIBRARY_KEY_OPTIONS]
+  }
+  return [...LOCAL_LIBRARY_KEY_OPTIONS]
+})
+
+/** Join present metadata bits with middots — skip empty arranger/voicing/key. */
+function formatSongMeta(
+  song: Pick<RepertoireSong, 'arranger' | 'voicing' | 'key'>,
+  extra: string[] = [],
+): string {
+  const bits: string[] = []
+  const arranger = song.arranger?.trim()
+  if (arranger) bits.push(arranger)
+  if (song.voicing) bits.push(song.voicing)
+  const key = song.key?.trim()
+  if (key) bits.push(key)
+  for (const e of extra) {
+    const t = e.trim()
+    if (t) bits.push(t)
+  }
+  return bits.join(' · ')
+}
+
+function formatSongParts(song: RepertoireSong): string {
+  const ids = Object.keys(song.parts)
+  if (!ids.length) return 'No parts marked'
+  return ids
+    .map((p) => {
+      const conf = song.parts[p] ?? 0
+      const label = partLabel(p)
+      return conf > 0 ? `${label} ${'★'.repeat(conf)}` : label
+    })
+    .join(' · ')
+}
+
+function onDraftKey(ev: Event): void {
+  if (!draft.value) return
+  const raw = (ev.target as HTMLSelectElement).value.trim()
+  draft.value = { ...draft.value, key: raw || undefined }
+}
 
 const qrSrc = ref('')
 const qrBusy = ref(false)
@@ -169,11 +219,30 @@ function toggleDraftPart(partId: string): void {
 
 function setDraftConf(partId: string, conf: number): void {
   if (!draft.value) return
-  if (!Object.prototype.hasOwnProperty.call(draft.value.parts, partId)) return
-  draft.value = {
-    ...draft.value,
-    parts: { ...draft.value.parts, [partId]: conf as Confidence },
+  const next = conf as Confidence
+  const parts = { ...draft.value.parts }
+  if (next <= 0) {
+    // Keep the part selected but unrated (0), if it was already known.
+    if (Object.prototype.hasOwnProperty.call(parts, partId)) parts[partId] = 0
+  } else {
+    parts[partId] = next
   }
+  draft.value = { ...draft.value, parts }
+}
+
+/** Bulk presets: off book = memorized (5★), on book = with music (3★). */
+function applyAllParts(mode: 'off-book' | 'on-book' | 'clear'): void {
+  if (!draft.value) return
+  if (mode === 'clear') {
+    draft.value = { ...draft.value, parts: {} }
+    return
+  }
+  const conf: Confidence = mode === 'off-book' ? 5 : 3
+  const parts: Record<string, Confidence> = {}
+  for (const pid of partsForVoicing(draft.value.voicing)) {
+    parts[pid] = conf
+  }
+  draft.value = { ...draft.value, parts }
 }
 
 function onCsvImport(text: string): void {
@@ -185,7 +254,7 @@ function onCsvImport(text: string): void {
         }`
       : `No songs imported${result.skipped ? ` (${result.skipped} skipped)` : ''}`,
     {
-      tone: result.added ? 'ok' : 'warn',
+      tone: result.added ? 'ok' : 'info',
       ms: 3500,
       title: 'CSV import',
     },
@@ -410,7 +479,11 @@ function fmtConf(n: number): string {
         </label>
         <label class="field">
           <span class="field-label">Key (optional)</span>
-          <input v-model="draft.key" type="text" maxlength="32" autocomplete="off" />
+          <select :value="draft.key ?? ''" @change="onDraftKey">
+            <option v-for="k in draftKeyOptions" :key="k || 'none'" :value="k">
+              {{ localLibraryKeyLabel(k) }}
+            </option>
+          </select>
         </label>
         <label class="field">
           <span class="field-label">Voicing (optional)</span>
@@ -421,6 +494,32 @@ function fmtConf(n: number): string {
         </label>
         <fieldset class="parts-fs">
           <legend>Parts you know</legend>
+          <p class="hint parts-hint">
+            Check each part you can sing. Stars are how confident you are (1–5, same scale as tag
+            ratings).
+          </p>
+          <div class="parts-bulk" role="group" aria-label="Set for all parts">
+            <span class="bulk-label">Set for all</span>
+            <div class="ctrl-segment parts-bulk-seg">
+              <button
+                type="button"
+                title="All parts, 5 stars — memorized / off book"
+                @click="applyAllParts('off-book')"
+              >
+                Off book
+              </button>
+              <button
+                type="button"
+                title="All parts, 3 stars — with music / on book"
+                @click="applyAllParts('on-book')"
+              >
+                On book
+              </button>
+              <button type="button" title="Clear all parts" @click="applyAllParts('clear')">
+                Clear
+              </button>
+            </div>
+          </div>
           <div
             v-for="pid in partsForVoicing(draft.voicing)"
             :key="pid"
@@ -432,22 +531,15 @@ function fmtConf(n: number): string {
                 :checked="Object.prototype.hasOwnProperty.call(draft.parts, pid)"
                 @change="toggleDraftPart(pid)"
               />
-              {{ partLabel(pid) }}
+              <span class="part-name">{{ partLabel(pid) }}</span>
             </label>
-            <select
+            <ConfidenceStars
               v-if="Object.prototype.hasOwnProperty.call(draft.parts, pid)"
-              class="conf-select"
-              :value="draft.parts[pid]"
-              aria-label="Confidence"
-              @change="setDraftConf(pid, Number(($event.target as HTMLSelectElement).value))"
-            >
-              <option :value="0">Not rated</option>
-              <option :value="1">1</option>
-              <option :value="2">2</option>
-              <option :value="3">3</option>
-              <option :value="4">4</option>
-              <option :value="5">5</option>
-            </select>
+              class="part-conf"
+              label="How confident?"
+              :model-value="draft.parts[pid] ?? 0"
+              @update:model-value="setDraftConf(pid, $event)"
+            />
           </div>
         </fieldset>
         <div class="st-row-actions">
@@ -463,18 +555,8 @@ function fmtConf(n: number): string {
           <li v-for="song in store.profile.songs" :key="song.id">
             <button type="button" class="song-item" @click="openEdit(song.id)">
               <span class="song-title">{{ song.title || '(untitled)' }}</span>
-              <span class="song-meta">
-                {{ song.arranger || '—' }}
-                · {{ song.voicing || 'voicing?' }}
-                <template v-if="song.key"> · {{ song.key }}</template>
-              </span>
-              <span class="song-parts">
-                {{
-                  Object.keys(song.parts)
-                    .map((p) => partLabel(p))
-                    .join(', ') || 'No parts'
-                }}
-              </span>
+              <span v-if="formatSongMeta(song)" class="song-meta">{{ formatSongMeta(song) }}</span>
+              <span class="song-parts">{{ formatSongParts(song) }}</span>
             </button>
           </li>
         </ul>
@@ -651,9 +733,13 @@ function fmtConf(n: number): string {
               <span v-else class="badge muted">Shared</span>
             </div>
             <div class="song-meta">
-              {{ song.arranger || '—' }} · {{ song.voicing }}
-              <template v-if="song.key"> · {{ song.key }}</template>
-              · confidence {{ fmtConf(song.groupConfidence) }}
+              {{
+                formatSongMeta(song, [
+                  song.groupConfidence != null
+                    ? `confidence ${fmtConf(song.groupConfidence)}`
+                    : '',
+                ])
+              }}
             </div>
             <div class="song-parts">{{ coverageSummary(song) }}</div>
           </li>
@@ -694,11 +780,12 @@ function fmtConf(n: number): string {
 
 <style scoped>
 .st {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 0.75rem 1rem 2.5rem;
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.15rem 0 2rem;
 }
 .st-head {
   display: grid;
@@ -746,8 +833,7 @@ function fmtConf(n: number): string {
   color: var(--muted);
 }
 .field input,
-.field select,
-.conf-select {
+.field select {
   font: inherit;
   padding: 0.45rem 0.55rem;
   border-radius: 6px;
@@ -758,8 +844,31 @@ function fmtConf(n: number): string {
 .parts-fs {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 0.5rem 0.65rem 0.65rem;
+  padding: 0.55rem 0.7rem 0.75rem;
   margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.parts-hint {
+  margin: 0;
+}
+.parts-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+.bulk-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.parts-bulk-seg {
+  flex: 1 1 auto;
+  min-width: min(100%, 16rem);
+}
+.parts-bulk-seg > button {
+  flex: 1 1 0;
 }
 .criteria-fs {
   border: 1px solid var(--border);
@@ -780,16 +889,42 @@ function fmtConf(n: number): string {
   font-size: 0.85rem;
 }
 .part-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.part-row:first-of-type {
+  border-top: 0;
+  padding-top: 0.15rem;
 }
 .part-check {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  font-weight: 600;
+}
+.part-check input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent);
+}
+.part-name {
+  font-size: 0.98rem;
+}
+.part-conf {
+  padding-left: 1.65rem;
+}
+@media (min-width: 520px) {
+  .part-row {
+    grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+  .part-conf {
+    padding-left: 0;
+  }
 }
 .song-list,
 .match-list {

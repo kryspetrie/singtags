@@ -1,7 +1,7 @@
 /**
  * Persist Sing Together repertoire in localStorage.
  */
-import { emptyProfile, type RepertoireProfile, type RepertoireSong, type Confidence } from './types'
+import { emptyProfile, type RepertoireProfile, type RepertoireSong, type Confidence, type Voicing } from './types'
 import { isVoicing, clampConfidence, newSongId } from './types'
 import { parseVoicing } from './normalize'
 
