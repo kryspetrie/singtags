@@ -1542,6 +1542,8 @@ defineExpose({
   /* Wave (104) + transport + A–B hint + adjust row — avoid Downloads sliding up. */
   position: relative;
   min-height: 18.5rem;
+  /* Keep the min-height spacer; don't stretch wave/transport when more is collapsed. */
+  align-content: start;
 }
 .player-panel.is-media-locked {
   opacity: 0.45;
@@ -1589,7 +1591,7 @@ defineExpose({
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: clamp(0.2rem, 0.9vw, 0.4rem);
   width: 100%;
   min-width: 0;
@@ -1624,7 +1626,8 @@ defineExpose({
   width: clamp(3.55rem, 11vw, 4.75rem);
   max-width: clamp(3.55rem, 11vw, 4.75rem);
   min-width: 3.4rem;
-  min-height: 44px;
+  min-height: 48px;
+  height: 48px;
   padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.15rem, 0.6vw, 0.35rem);
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -1859,9 +1862,11 @@ defineExpose({
   flex: 0 0 auto !important;
   width: 2.75rem !important;
   max-width: 2.75rem !important;
-  font-size: 1.35rem !important;
   line-height: 1;
-  letter-spacing: 0.02em;
+}
+.more-btn .transport-ico {
+  width: 1.15em;
+  height: 1.15em;
 }
 .more-btn[aria-expanded='true'] {
   border-color: var(--accent);

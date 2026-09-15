@@ -160,6 +160,7 @@
 
 .ctrl-transport-btn {
   min-height: 48px;
+  height: 48px;
   min-width: 0;
   width: 100%;
   padding: 0.4rem 0.35rem;
@@ -174,6 +175,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .ctrl-transport-btn .transport-ico {

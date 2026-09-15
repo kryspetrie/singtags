@@ -439,7 +439,7 @@ onUnmounted(() => {
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: clamp(0.2rem, 0.9vw, 0.4rem);
   width: 100%;
   min-width: 0;
@@ -471,9 +471,11 @@ onUnmounted(() => {
   flex: 0 0 auto !important;
   width: 2.75rem !important;
   max-width: 2.75rem !important;
-  font-size: 1.35rem !important;
   line-height: 1;
-  letter-spacing: 0.02em;
+}
+.more-btn .transport-ico {
+  width: 1.15em;
+  height: 1.15em;
 }
 .more-btn[aria-expanded='true'] {
   border-color: var(--accent);
