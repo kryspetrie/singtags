@@ -138,8 +138,8 @@ function toggleSingTogether(): void {
           <span class="setting-desc">
             {{
               prefs.singTogetherEnabled
-                ? 'On — open from this Labs page'
-                : 'Off — /matcher stays hidden'
+                ? 'On — open from More → Sing Together'
+                : 'Off — More link and /matcher stay hidden'
             }}
           </span>
         </span>

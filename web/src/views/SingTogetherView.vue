@@ -24,6 +24,7 @@ import {
   type Voicing,
 } from '../lib/singTogether/types'
 import { decodeQrDetailedFromFile, decodeQrDetailedFromVideo } from '../lib/qrDecode'
+import SingTogetherCsvImportModal from '../components/SingTogetherCsvImportModal.vue'
 import { useSingTogetherStore } from '../stores/singTogether'
 import { useSnackbarStore } from '../stores/snackbar'
 
@@ -35,7 +36,7 @@ const snackbar = useSnackbarStore()
 const mode = ref<Mode>('repertoire')
 const editingId = ref<string | null>(null)
 const draft = ref<RepertoireSong | null>(null)
-const csvInput = ref<HTMLInputElement | null>(null)
+const csvImportOpen = ref(false)
 
 const qrSrc = ref('')
 const qrBusy = ref(false)
@@ -175,26 +176,20 @@ function setDraftConf(partId: string, conf: number): void {
   }
 }
 
-function onCsvPick(ev: Event): void {
-  const input = ev.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
-  void file.text().then((text) => {
-    const result = store.importCsv(text)
-    snackbar.show(
-      result.added
-        ? `Imported ${result.added} song${result.added === 1 ? '' : 's'}${
-            result.skipped ? ` (${result.skipped} skipped)` : ''
-          }`
-        : `No songs imported${result.skipped ? ` (${result.skipped} skipped)` : ''}`,
-      {
-        tone: result.added ? 'ok' : 'warn',
-        ms: 3500,
-        title: 'CSV import',
-      },
-    )
-  })
+function onCsvImport(text: string): void {
+  const result = store.importCsv(text)
+  snackbar.show(
+    result.added
+      ? `Imported ${result.added} song${result.added === 1 ? '' : 's'}${
+          result.skipped ? ` (${result.skipped} skipped)` : ''
+        }`
+      : `No songs imported${result.skipped ? ` (${result.skipped} skipped)` : ''}`,
+    {
+      tone: result.added ? 'ok' : 'warn',
+      ms: 3500,
+      title: 'CSV import',
+    },
+  )
 }
 
 function clearAll(): void {
@@ -389,7 +384,9 @@ function fmtConf(n: number): string {
       <section class="card">
         <div class="st-row-actions">
           <button type="button" class="btn" @click="startAdd('TTBB')">Add song</button>
-          <button type="button" class="btn btn-ghost" @click="csvInput?.click()">Import CSV</button>
+          <button type="button" class="btn btn-ghost" @click="csvImportOpen = true">
+            Import CSV
+          </button>
           <button
             type="button"
             class="btn btn-ghost"
@@ -398,18 +395,7 @@ function fmtConf(n: number): string {
           >
             Clear
           </button>
-          <input
-            ref="csvInput"
-            type="file"
-            accept=".csv,text/csv,text/plain"
-            class="sr-only"
-            @change="onCsvPick"
-          />
         </div>
-        <p class="hint">
-          CSV columns: title, arranger, key, voicing, parts, confidence. Songs match across phones by
-          title + arranger + voicing (key is display-only).
-        </p>
       </section>
 
       <section v-if="draft" class="card" aria-labelledby="edit-song-h">
@@ -681,6 +667,12 @@ function fmtConf(n: number): string {
         </p>
       </section>
     </div>
+
+    <SingTogetherCsvImportModal
+      :open="csvImportOpen"
+      @close="csvImportOpen = false"
+      @pick="onCsvImport"
+    />
 
     <Teleport to="body">
       <div

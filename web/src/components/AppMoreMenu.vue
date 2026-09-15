@@ -160,6 +160,16 @@ function toggleOfflineMode(): void {
       </RouterLink>
 
       <RouterLink
+        v-if="prefs.singTogetherEnabled"
+        class="menu-item"
+        to="/matcher"
+        @click="onNavClick"
+      >
+        <span class="menu-label">Sing Together</span>
+        <span class="menu-desc">Share repertoire via QR — what can we all sing?</span>
+      </RouterLink>
+
+      <RouterLink
         v-if="prefs.opticalTransferEnabled"
         class="menu-item"
         to="/tx"

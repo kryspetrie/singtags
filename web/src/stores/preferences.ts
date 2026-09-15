@@ -565,7 +565,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const audioRecorderEnabled = ref(loadBool(AUDIO_RECORDER_ENABLED_KEY, false))
   /**
-   * Labs: when true, Sing Together (/matcher) is available from Labs.
+   * Labs: when true, Sing Together (More → Sing Together, /matcher) is available.
    * Repertoire + QR correlation stay on-device.
    */
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))

@@ -17,6 +17,36 @@ export type CsvImportResult = {
   errors: string[]
 }
 
+/** Canonical header order for repertoire CSV import / template download. */
+export const REPERTOIRE_CSV_COLUMNS = [
+  'title',
+  'arranger',
+  'key',
+  'voicing',
+  'parts',
+  'confidence',
+] as const
+
+/** Filename for {@link repertoireCsvTemplateText}. */
+export const REPERTOIRE_CSV_TEMPLATE_FILENAME = 'sing-together-repertoire-template.csv'
+
+/**
+ * Sample CSV with header + one filled TTBB song (Heart of My Heart).
+ * Arranger is quoted because it contains a comma. Confidence is per-part.
+ */
+export function repertoireCsvTemplateText(): string {
+  const header = REPERTOIRE_CSV_COLUMNS.join(',')
+  const row = [
+    'Heart of My Heart',
+    '"SPEBSQSA, Inc"',
+    '',
+    'TTBB',
+    'tenor;lead;bari;bass',
+    '"tenor:5;lead:5;bari:5;bass:5"',
+  ].join(',')
+  return `${header}\n${row}\n`
+}
+
 const PART_ALIASES: Record<string, string> = {
   t: 'tenor',
   tenor: 'tenor',

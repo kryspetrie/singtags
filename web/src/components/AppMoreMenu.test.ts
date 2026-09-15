@@ -237,4 +237,36 @@ describe('AppMoreMenu', () => {
     expect(link).toBeTruthy()
     w.unmount()
   })
+
+  it('shows Sing Together in More when the Labs flag is on', async () => {
+    localStorage.setItem('singtags.labs.singTogether.enabled.v1', '1')
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    expect(usePreferencesStore().singTogetherEnabled).toBe(true)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/matcher', name: 'matcher', component: { template: '<div />' } },
+        { path: '/settings', name: 'settings', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.textContent).toMatch(/Sing Together/)
+    const link = document.body.querySelector('a[href="/matcher"]') as HTMLAnchorElement
+    expect(link).toBeTruthy()
+    w.unmount()
+  })
 })
