@@ -493,7 +493,7 @@ export function pitchPipeFullKeyboardNotes(): string[] {
 }
 
 /** Fullscreen sheet piano dock: white-key width percent (higher = fewer keys visible). */
-export const SHEET_PIANO_SCALE_MIN = 25
+export const SHEET_PIANO_SCALE_MIN = 50
 export const SHEET_PIANO_SCALE_MAX = 300
 export const SHEET_PIANO_SCALE_STEP = 25
 export const SHEET_PIANO_SCALE_DEFAULT = 100
@@ -511,7 +511,7 @@ export function sheetPianoWhiteKeyPx(scalePercent: number): number {
 }
 
 export function normalizeSheetPianoKeyScale(raw: unknown): number {
-  // localStorage miss → null; Number(null) === 0, which must not become MIN (25%).
+  // localStorage miss → null; Number(null) === 0, which must not become MIN.
   if (raw == null || raw === '') return SHEET_PIANO_SCALE_DEFAULT
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n) || n === 0) return SHEET_PIANO_SCALE_DEFAULT

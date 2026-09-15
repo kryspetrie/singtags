@@ -690,7 +690,8 @@ watch(
   box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
 }
 .note-single {
-  font-size: clamp(0.35rem, calc(var(--white-w) * 0.3), 0.85rem);
+  /* Prefer stubby-dock size at 100%; shrink with key width below that. */
+  font-size: min(0.85rem, calc(var(--white-w) * 0.34));
   line-height: 1.05;
   max-width: 100%;
   overflow: hidden;
@@ -702,7 +703,7 @@ watch(
   justify-content: flex-start;
   gap: 0.02rem;
   width: 100%;
-  font-size: clamp(0.28rem, calc(var(--white-w) * 0.24), 0.72rem);
+  font-size: min(0.72rem, calc(var(--white-w) * 0.26));
   line-height: 1.05;
   max-width: 100%;
   overflow: hidden;

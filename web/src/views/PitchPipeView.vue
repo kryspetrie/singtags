@@ -1400,9 +1400,8 @@ function blackLeftPct(after: string): number {
   border-color: var(--border);
   justify-content: flex-end;
   align-items: flex-end;
-  /* Scale padding with key width so 25% zoom doesn’t crowd letters. */
-  padding: clamp(0.08rem, calc(var(--white-w) * 0.1), 0.55rem)
-    clamp(0.04rem, calc(var(--white-w) * 0.06), 0.35rem);
+  /* Keep 100% padding until keys shrink, then tighten to fit. */
+  padding: min(0.55rem, calc(var(--white-w) * 0.11)) min(0.35rem, calc(var(--white-w) * 0.07));
   writing-mode: horizontal-tb;
   overflow: hidden;
 }
@@ -1410,8 +1409,9 @@ function blackLeftPct(after: string): number {
   border-right: 0;
   border-bottom: 0;
 }
+/* Prefer the 100%-zoom letter size; shrink only when the key is narrower. */
 .piano-h .note-single {
-  font-size: clamp(0.38rem, calc(var(--white-w) * 0.34), 1.1rem);
+  font-size: min(1.35rem, calc(var(--white-w) * 0.42));
   line-height: 1.05;
   max-width: 100%;
   overflow: hidden;
@@ -1420,21 +1420,19 @@ function blackLeftPct(after: string): number {
 .piano-h .piano-blacks .note {
   top: 0;
   right: auto;
-  /* No rem floor — at 25% zoom rem mins made blacks wider than whites. */
+  /* Always proportional to white width — no rem floor (that blocked zoom-out). */
   width: calc(var(--white-w) * 0.62);
   height: 58%;
   min-height: 0;
   transform: translateX(-50%);
-  border-radius: 0 0 clamp(2px, calc(var(--white-w) * 0.14), 8px)
-    clamp(2px, calc(var(--white-w) * 0.14), 8px);
-  padding: clamp(0.04rem, calc(var(--white-w) * 0.05), 0.3rem)
-    clamp(0.02rem, calc(var(--white-w) * 0.03), 0.2rem);
+  border-radius: 0 0 min(8px, calc(var(--white-w) * 0.16)) min(8px, calc(var(--white-w) * 0.16));
+  padding: min(0.3rem, calc(var(--white-w) * 0.06)) min(0.2rem, calc(var(--white-w) * 0.04));
   align-items: flex-start;
   overflow: hidden;
 }
 .piano-h .piano-blacks .note-dual {
   flex-direction: column;
-  font-size: clamp(0.3rem, calc(var(--white-w) * 0.26), 0.85rem);
+  font-size: min(0.85rem, calc(var(--white-w) * 0.28));
   gap: 0.02rem;
   max-width: 100%;
   overflow: hidden;
@@ -1468,9 +1466,6 @@ function blackLeftPct(after: string): number {
 @media (min-width: 720px) {
   .keys-grid .note { min-height: calc(5.75rem * var(--grid-scale)); }
   .piano-h { height: 13rem; }
-  .piano-h .piano-blacks .note {
-    width: max(1.75rem, calc(var(--white-w) * 0.62));
-  }
 }
 
 </style>
