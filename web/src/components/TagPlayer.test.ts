@@ -6,6 +6,7 @@ import { ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import TagPlayer from './TagPlayer.vue'
+import WaveformView from './WaveformView.vue'
 
 const mockState = {
   paused: true,
@@ -226,15 +227,20 @@ describe('TagPlayer', () => {
       w.findAll('#tag-playback-more .adjust-row > .adjust-field').map((n) => {
         if (n.classes().includes('loop-field')) return 'loop'
         if (n.classes().includes('pitch-field')) return 'pitch'
+        if (n.classes().includes('speed-field')) return 'speed'
         if (n.classes().includes('solo-field')) return 'solo'
         if (n.classes().includes('balance-field')) return 'balance'
         return 'other'
       }),
-    ).toEqual(['loop', 'pitch', 'solo', 'balance'])
+    ).toEqual(['loop', 'pitch', 'speed', 'solo', 'balance'])
     expect(w.find('.playback-adjust button.toggle-btn').text()).toBe('Off')
     expect(w.find('.playback-adjust button.toggle-btn').attributes('disabled')).toBeDefined()
     expect(w.find('.transport .toggle-btn').exists()).toBe(false)
     expect(w.find('.transport select[aria-label="Playback speed"]').exists()).toBe(true)
+    expect(w.find('#tag-playback-more select[aria-label="Playback speed"]').exists()).toBe(true)
+    expect(w.find('[aria-label="Play"]').attributes('title')).toBe('Play')
+    expect(w.find('[aria-label="Back 3 seconds"]').attributes('title')).toBe('Back 3 seconds')
+    expect(w.find('[aria-label="Forward 3 seconds"]').attributes('title')).toBe('Forward 3 seconds')
     expect(buildMix).not.toHaveBeenCalled()
     expect(w.findAll('button').some((b) => b.text() === 'Custom' && b.attributes('aria-pressed') != null)).toBe(
       true,
@@ -624,7 +630,7 @@ describe('TagPlayer', () => {
     w.unmount()
   })
 
-  it('stop pauses and seeks to mark A; nudge uses ±1s', async () => {
+  it('stop pauses and seeks to mark A; nudge uses ±3s', async () => {
     mockState.paused = false
     mockState.currentTime = 20
     mockState.duration = 60
@@ -638,11 +644,11 @@ describe('TagPlayer', () => {
     await flushPromises()
 
     // Set A–B via waveform marks by calling stop after seeking marks — use exposed transport.
-    expect(w.text()).toContain('−1s')
-    expect(w.text()).toContain('+1s')
-    expect(w.text()).not.toContain('−5s')
+    expect(w.text()).toContain('−3s')
+    expect(w.text()).toContain('+3s')
+    expect(w.text()).not.toContain('−1s')
 
-    await w.get('[aria-label="Back 1 second"]').trigger('click')
+    await w.get('[aria-label="Back 3 seconds"]').trigger('click')
     expect(mockState.seek).toHaveBeenCalled()
 
     mockState.seek.mockClear()
@@ -653,6 +659,43 @@ describe('TagPlayer', () => {
     await flushPromises()
     expect(mockState.pause).toHaveBeenCalled()
     expect(mockState.seek).toHaveBeenCalledWith(0)
+    w.unmount()
+  })
+
+  it('pauses while scrubbing and resumes on scrub end when was playing', async () => {
+    const w = mount(TagPlayer, {
+      props: {
+        parts: { lead: 'media/1/lead.m4a' },
+        availableParts: ['lead'],
+      },
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    // Load may pause; start from a playing state before scrubbing.
+    mockState.paused = false
+    mockState.currentTime = 5
+    mockState.duration = 60
+    mockState.pause.mockClear()
+    mockState.play.mockClear()
+
+    const waveComp = w.findComponent(WaveformView)
+    expect(waveComp.exists()).toBe(true)
+    const waveProps = waveComp.vm.$.vnode.props as {
+      onScrubStart?: () => void
+      onScrubEnd?: () => void
+    }
+    expect(waveProps.onScrubStart).toBeTypeOf('function')
+    expect(waveProps.onScrubEnd).toBeTypeOf('function')
+
+    waveProps.onScrubStart!()
+    await flushPromises()
+    expect(mockState.pause).toHaveBeenCalled()
+    expect(mockState.play).not.toHaveBeenCalled()
+
+    waveProps.onScrubEnd!()
+    await flushPromises()
+    expect(mockState.play).toHaveBeenCalled()
     w.unmount()
   })
 

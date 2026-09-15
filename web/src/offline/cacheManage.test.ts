@@ -231,6 +231,8 @@ describe('cacheManage', () => {
       showFullKeyboard: false,
       pianoDefaultOctave: 4,
       pianoEngine: 'synth',
+      pianoLockPosition: false,
+      showPcKeyRange: true,
     })
   })
 

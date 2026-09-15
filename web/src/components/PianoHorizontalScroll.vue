@@ -2,8 +2,17 @@
 /**
  * Horizontal piano viewport: the keys themselves are the scroller —
  * drag to pan, short press to play (multitouch-friendly).
+ * When `lockPosition` is set, drag-to-pan is disabled (notes still play).
  */
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+
+const props = withDefaults(
+  defineProps<{
+    /** Freeze scrollLeft — ignore drag-to-pan (mobile “lock position”). */
+    lockPosition?: boolean
+  }>(),
+  { lockPosition: false },
+)
 
 const emit = defineEmits<{
   'note-on': [note: string]
@@ -43,6 +52,7 @@ function onStripPointerDown(e: PointerEvent): void {
 }
 
 function onStripPointerMove(e: PointerEvent): void {
+  if (props.lockPosition) return
   const st = pointers.get(e.pointerId)
   if (!st) return
   const dx = e.clientX - st.startX
@@ -115,6 +125,7 @@ defineExpose({
   <div
     ref="scrollRef"
     class="piano-h-scroller"
+    :class="{ locked: lockPosition }"
     @scroll.passive="onScroll"
     @pointerdown="onStripPointerDown"
     @pointermove="onStripPointerMove"
@@ -139,6 +150,14 @@ defineExpose({
 }
 .piano-h-scroller:active {
   cursor: grabbing;
+}
+.piano-h-scroller.locked {
+  overflow-x: hidden;
+  cursor: default;
+  touch-action: manipulation;
+}
+.piano-h-scroller.locked:active {
+  cursor: default;
 }
 .piano-h-scroller::-webkit-scrollbar {
   display: none;

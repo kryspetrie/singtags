@@ -83,6 +83,8 @@ describe('preferences store', () => {
       showFullKeyboard: false,
       pianoDefaultOctave: 4,
       pianoEngine: 'synth',
+      pianoLockPosition: false,
+      showPcKeyRange: true,
     })
     prefs.setPitchPipeDetuneCents(-7, { clearConcertA: true })
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
@@ -96,6 +98,8 @@ describe('preferences store', () => {
       showFullKeyboard: false,
       pianoDefaultOctave: 4,
       pianoEngine: 'synth',
+      pianoLockPosition: false,
+      showPcKeyRange: true,
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()
@@ -115,10 +119,16 @@ describe('preferences store', () => {
     expect(again.pitchPipeGridScale).toBe(90)
     again.setPitchPipeShowFullKeyboard(true)
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showFullKeyboard).toBe(true)
+    again.setPitchPipePianoLockPosition(true)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).pianoLockPosition).toBe(true)
+    again.setPitchPipeShowPcKeyRange(false)
+    expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!).showPcKeyRange).toBe(false)
     setActivePinia(createPinia())
     expect(usePreferencesStore().pitchPipeSound).toBe('bright')
     expect(usePreferencesStore().pitchPipeGridScale).toBe(90)
     expect(usePreferencesStore().pitchPipeShowFullKeyboard).toBe(true)
+    expect(usePreferencesStore().pitchPipePianoLockPosition).toBe(true)
+    expect(usePreferencesStore().pitchPipeShowPcKeyRange).toBe(false)
   })
 
   it('migrates legacy fineCents-on-top-of-A pitch pipe prefs', () => {

@@ -12,6 +12,7 @@ import {
   normalizePitchPipePianoDefaultOctave,
   normalizePitchPipeRange,
   normalizeSheetPianoKeyScale,
+  normalizeSheetPianoHeightPx,
   isPitchPipeLayout,
   type PitchPipeAHz,
   type PitchPipeLayout,
@@ -118,6 +119,13 @@ export type PitchPipePrefs = {
    * Grid/list always use synth.
    */
   pianoEngine: PianoSoundEngineId
+  /** Horizontal piano / sheet dock: freeze scroll position (no drag-to-pan). */
+  pianoLockPosition: boolean
+  /**
+   * When true, dim keys outside the computer-keyboard (A–' / S–L) window.
+   * Default on; turn off on mobile if the highlight is distracting.
+   */
+  showPcKeyRange: boolean
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -136,6 +144,8 @@ const SHEET_FS_PAGE_MODE_KEY = 'singtags.sheetFsPageMode.v1'
 const SHEET_PIANO_KEY_SCALE_KEY = 'singtags.sheetPianoKeyScale.v2'
 /** @deprecated superseded by v2 after null→0 normalize bug wrote 25% as default. */
 const SHEET_PIANO_KEY_SCALE_KEY_V1 = 'singtags.sheetPianoKeyScale.v1'
+/** Fullscreen sheet piano dock: key-strip height in px. */
+const SHEET_PIANO_HEIGHT_KEY = 'singtags.sheetPianoHeightPx.v1'
 /** Invert sheet page colors (night reading). */
 const SHEET_INVERT_KEY = 'singtags.sheetInvert.v1'
 /** Labs: animated QR file transfer (Decimen). Default on. */
@@ -187,6 +197,8 @@ export function defaultPitchPipePrefs(): PitchPipePrefs {
     showFullKeyboard: false,
     pianoDefaultOctave: 4,
     pianoEngine: 'synth',
+    pianoLockPosition: false,
+    showPcKeyRange: true,
   }
 }
 
@@ -230,6 +242,9 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   const pianoEngine: PianoSoundEngineId = isPianoSoundEngineId(o.pianoEngine)
     ? o.pianoEngine
     : 'synth'
+  const pianoLockPosition = o.pianoLockPosition === true
+  /** Missing key → true (legacy prefs keep highlighting). */
+  const showPcKeyRange = o.showPcKeyRange !== false
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -251,6 +266,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
       showFullKeyboard,
       pianoDefaultOctave,
       pianoEngine,
+      pianoLockPosition,
+      showPcKeyRange,
     }
   }
 
@@ -270,6 +287,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     showFullKeyboard,
     pianoDefaultOctave,
     pianoEngine,
+    pianoLockPosition,
+    showPcKeyRange,
   }
 }
 
@@ -320,6 +339,8 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     showFullKeyboard: false,
     pianoDefaultOctave: 4,
     pianoEngine: 'synth',
+    pianoLockPosition: false,
+    showPcKeyRange: true,
   }
 }
 
@@ -402,6 +423,14 @@ function loadSheetPianoKeyScale(): number {
     return normalizeSheetPianoKeyScale(localStorage.getItem(SHEET_PIANO_KEY_SCALE_KEY))
   } catch {
     return normalizeSheetPianoKeyScale(null)
+  }
+}
+
+function loadSheetPianoHeightPx(): number {
+  try {
+    return normalizeSheetPianoHeightPx(localStorage.getItem(SHEET_PIANO_HEIGHT_KEY))
+  } catch {
+    return normalizeSheetPianoHeightPx(null)
   }
 }
 
@@ -501,6 +530,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     initialPipe.pianoDefaultOctave,
   )
   const pitchPipePianoEngine = ref<PianoSoundEngineId>(initialPipe.pianoEngine)
+  const pitchPipePianoLockPosition = ref(initialPipe.pianoLockPosition)
+  const pitchPipeShowPcKeyRange = ref(initialPipe.showPcKeyRange)
   /** App-wide Display size (70–130%, step 5). */
   const uiScalePercent = ref(resolveInitialUiScale())
   /** App color theme (light / dark / high-contrast). */
@@ -534,6 +565,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const sheetFsPageMode = ref<SheetFsPageMode>(loadSheetFsPageMode())
   /** Fullscreen sheet piano: key width percent (more/fewer keys visible). */
   const sheetPianoKeyScale = ref(loadSheetPianoKeyScale())
+  const sheetPianoHeightPx = ref(loadSheetPianoHeightPx())
   /** When true, invert sheet page colors for night reading. */
   const sheetInvert = ref(loadBool(SHEET_INVERT_KEY, false))
   /** Sheet erode intensity (off / light / medium / strong). */
@@ -633,6 +665,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       showFullKeyboard: pitchPipeShowFullKeyboard.value,
       pianoDefaultOctave: pitchPipePianoDefaultOctave.value,
       pianoEngine: pitchPipePianoEngine.value,
+      pianoLockPosition: pitchPipePianoLockPosition.value,
+      showPcKeyRange: pitchPipeShowPcKeyRange.value,
     })
   }
 
@@ -709,6 +743,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       pitchPipeShowFullKeyboard,
       pitchPipePianoDefaultOctave,
       pitchPipePianoEngine,
+      pitchPipePianoLockPosition,
+      pitchPipeShowPcKeyRange,
     ],
     () => persistPitchPipe(),
     { flush: 'sync' },
@@ -875,6 +911,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SHEET_PIANO_KEY_SCALE_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    sheetPianoHeightPx,
+    (v) => {
+      try {
+        localStorage.setItem(SHEET_PIANO_HEIGHT_KEY, String(v))
       } catch {
         /* ignore */
       }
@@ -1136,6 +1184,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipePianoEngine.value = engine
   }
 
+  /** Horizontal piano / sheet dock: lock scroll position. Side effect: localStorage. */
+  function setPitchPipePianoLockPosition(on: boolean): void {
+    pitchPipePianoLockPosition.value = on
+  }
+
+  /** Dim keys outside the computer-keyboard window. Side effect: localStorage. */
+  function setPitchPipeShowPcKeyRange(on: boolean): void {
+    pitchPipeShowPcKeyRange.value = on
+  }
+
   /** Set absolute UI scale percent (snapped to 5% steps, clamped 70–130). */
   function setUiScalePercent(percent: number): void {
     uiScalePercent.value = normalizeUiScalePercent(percent)
@@ -1204,6 +1262,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowFullKeyboard.value = p.showFullKeyboard
     pitchPipePianoDefaultOctave.value = p.pianoDefaultOctave
     pitchPipePianoEngine.value = p.pianoEngine
+    pitchPipePianoLockPosition.value = p.pianoLockPosition
+    pitchPipeShowPcKeyRange.value = p.showPcKeyRange
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -1281,6 +1341,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSheetPianoKeyScale(sheetPianoKeyScale.value + delta)
   }
 
+  /** Fullscreen sheet piano key-strip height in px (persisted). */
+  function setSheetPianoHeightPx(px: number): void {
+    sheetPianoHeightPx.value = normalizeSheetPianoHeightPx(px)
+  }
+
   /** Invert sheet music page colors (persisted). */
   function setSheetInvert(on: boolean): void {
     sheetInvert.value = on
@@ -1337,6 +1402,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     shareBarbershopTags,
     sheetFsPageMode,
     sheetPianoKeyScale,
+    sheetPianoHeightPx,
     sheetInvert,
     sheetErode,
     opticalTransferEnabled,
@@ -1366,6 +1432,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowFullKeyboard,
     pitchPipePianoDefaultOctave,
     pitchPipePianoEngine,
+    pitchPipePianoLockPosition,
+    pitchPipeShowPcKeyRange,
     uiScalePercent,
     appTheme,
     emboldenText,
@@ -1386,6 +1454,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSheetFsPageMode,
     setSheetPianoKeyScale,
     nudgeSheetPianoKeyScale,
+    setSheetPianoHeightPx,
     setSheetInvert,
     setSheetErode,
     setOpticalTransferFrameBytes,
@@ -1412,6 +1481,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPitchPipeShowFullKeyboard,
     setPitchPipePianoDefaultOctave,
     setPitchPipePianoEngine,
+    setPitchPipePianoLockPosition,
+    setPitchPipeShowPcKeyRange,
     setUiScalePercent,
     nudgeUiScale,
     resetUiScale,

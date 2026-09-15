@@ -204,6 +204,24 @@ function onSeek(t: number): void {
   tick.value++
 }
 
+/** Resume play after waveform scrub only if we were playing when the gesture began. */
+let resumeAfterScrub = false
+
+function onScrubStart(): void {
+  if (player.paused) return
+  resumeAfterScrub = true
+  player.pause()
+  tick.value++
+}
+
+function onScrubEnd(): void {
+  if (!resumeAfterScrub) return
+  resumeAfterScrub = false
+  void player.play().then(() => {
+    tick.value++
+  })
+}
+
 async function sourceBytes(): Promise<{ data: Uint8Array; mime: string }> {
   if (draftBytes.value) return { data: draftBytes.value, mime: draftMime.value }
   const bytes = await store.takeBytes(props.takeId)
@@ -297,6 +315,7 @@ async function togglePlay(): Promise<void> {
 }
 
 function stopPlayback(): void {
+  resumeAfterScrub = false
   player.pause()
   player.seek(regionActive() ? markA.value : 0)
   tick.value++
@@ -489,6 +508,8 @@ onUnmounted(() => {
         :mark-b="markB"
         :interactive="playbackReady"
         @seek="onSeek"
+        @scrub-start="onScrubStart"
+        @scrub-end="onScrubEnd"
         @update:mark-a="onMarkA"
         @update:mark-b="onMarkB"
       />
@@ -522,20 +543,22 @@ onUnmounted(() => {
       <button
         type="button"
         class="ctrl-transport-btn"
-        aria-label="Back 1 second"
+        aria-label="Back 3 seconds"
+        title="Back 3 seconds"
         :disabled="!playbackReady"
-        @click="nudge(-1)"
+        @click="nudge(-3)"
       >
-        −1s
+        −3s
       </button>
       <button
         type="button"
         class="ctrl-transport-btn"
-        aria-label="Forward 1 second"
+        aria-label="Forward 3 seconds"
+        title="Forward 3 seconds"
         :disabled="!playbackReady"
-        @click="nudge(1)"
+        @click="nudge(3)"
       >
-        +1s
+        +3s
       </button>
       <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
     </div>

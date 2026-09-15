@@ -107,6 +107,29 @@ describe('SheetViewer sing chrome', () => {
     w.unmount()
   })
 
+  it('⋮ Hide pitch toggles pitch fab and ± off and on', async () => {
+    const w = await mountFs()
+    expect(w.find('button.pitch-fab').exists()).toBe(true)
+    expect(w.find('.chrome-shift').exists()).toBe(true)
+
+    await w.get('button.more').trigger('click')
+    await flushPromises()
+    const hideBtn = w.get('.chrome-more button.pitch-visibility')
+    expect(hideBtn.text()).toBe('Hide pitch')
+    await hideBtn.trigger('click')
+    await flushPromises()
+    expect(w.find('button.pitch-fab').exists()).toBe(false)
+    expect(w.find('.chrome-shift').exists()).toBe(false)
+    expect(w.get('.chrome-more button.pitch-visibility').text()).toBe('Show pitch')
+
+    await w.get('.chrome-more button.pitch-visibility').trigger('click')
+    await flushPromises()
+    expect(w.find('button.pitch-fab').exists()).toBe(true)
+    expect(w.find('.chrome-shift').exists()).toBe(true)
+    expect(w.get('.chrome-more button.pitch-visibility').text()).toBe('Hide pitch')
+    w.unmount()
+  })
+
   it('omits Play when there is no ready Mix (not greyed out)', async () => {
     const w = await mountFs({ exitOriginLabel: 'Favorites' })
     await w.get('button.more').trigger('click')
