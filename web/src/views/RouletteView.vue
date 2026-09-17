@@ -317,8 +317,7 @@ function rowTag(item: RouletteBatchItem): TagSummary {
   display: grid;
   gap: 0.85rem;
   width: 100%;
-  max-width: 42rem;
-  margin: 0 auto;
+  max-width: 100%;
   padding: 0.25rem 0 1.5rem;
 }
 .head {
