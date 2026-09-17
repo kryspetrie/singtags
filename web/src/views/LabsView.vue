@@ -153,9 +153,6 @@ function toggleSingTogether(): void {
           @change="toggleSingTogether"
         />
       </label>
-      <RouterLink v-if="prefs.singTogetherEnabled" class="btn" to="/matcher">
-        Open Sing Together
-      </RouterLink>
     </section>
 
     <section class="card" aria-labelledby="optical-h">
