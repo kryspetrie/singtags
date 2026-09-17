@@ -1829,9 +1829,9 @@ async function onRetryLoad(): Promise<void> {
   gap: 0.75rem;
   min-width: 0;
 }
-/* Hold Tracks height only when the player is present (not EmptyState). */
+/* Tracks grow with the player (⋮ panel expands in place — no reserved spacer). */
 .tracks-slot.has-player {
-  min-height: 22.5rem;
+  min-height: 0;
 }
 .tracks-media {
   position: relative;

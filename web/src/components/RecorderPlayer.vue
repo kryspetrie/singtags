@@ -137,6 +137,26 @@ function onSeek(t: number): void {
   tick.value++
 }
 
+/** Resume play after waveform scrub only if we were playing when the gesture began. */
+let resumeAfterScrub = false
+
+function onScrubStart(): void {
+  if (player.paused) return
+  resumeAfterScrub = true
+  player.pause()
+  tick.value++
+  emitPlaying()
+}
+
+function onScrubEnd(): void {
+  if (!resumeAfterScrub) return
+  resumeAfterScrub = false
+  void player.play().then(() => {
+    tick.value++
+    emitPlaying()
+  })
+}
+
 function effectiveTransform() {
   return compoundPlaybackTransform(props.take.edits, pitch.value, speed.value)
 }
@@ -210,6 +230,7 @@ async function togglePlay(): Promise<void> {
 }
 
 function stopPlayback(): void {
+  resumeAfterScrub = false
   player.pause()
   player.seek(regionActive() ? markA.value : 0)
   tick.value++
@@ -291,6 +312,8 @@ onUnmounted(() => {
         :mark-b="markB"
         :interactive="playbackReady"
         @seek="onSeek"
+        @scrub-start="onScrubStart"
+        @scrub-end="onScrubEnd"
         @update:mark-a="onMarkA"
         @update:mark-b="onMarkB"
       />
@@ -305,7 +328,11 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="togglePlay"
       >
-        {{ paused ? '▶' : '⏸' }}
+        <font-awesome-icon
+          :icon="paused ? ['fas', 'play'] : ['fas', 'pause']"
+          class="transport-ico"
+          aria-hidden="true"
+        />
       </button>
       <button
         type="button"
@@ -315,25 +342,27 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="stopPlayback"
       >
-        ■
+        <font-awesome-icon :icon="['fas', 'stop']" class="transport-ico" aria-hidden="true" />
       </button>
       <button
         type="button"
         class="ctrl-transport-btn"
-        aria-label="Back 1 second"
+        aria-label="Back 3 seconds"
+        title="Back 3 seconds"
         :disabled="!playbackReady"
-        @click="nudge(-1)"
+        @click="nudge(-3)"
       >
-        −1s
+        −3s
       </button>
       <button
         type="button"
         class="ctrl-transport-btn"
-        aria-label="Forward 1 second"
+        aria-label="Forward 3 seconds"
+        title="Forward 3 seconds"
         :disabled="!playbackReady"
-        @click="nudge(1)"
+        @click="nudge(3)"
       >
-        +1s
+        +3s
       </button>
       <button
         type="button"
@@ -345,7 +374,7 @@ onUnmounted(() => {
         :disabled="!playbackReady"
         @click="moreOpen = !moreOpen"
       >
-        ⋮
+        <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" class="transport-ico" aria-hidden="true" />
       </button>
       <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
     </div>
@@ -435,7 +464,7 @@ onUnmounted(() => {
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: clamp(0.2rem, 0.9vw, 0.4rem);
   width: 100%;
   min-width: 0;
@@ -467,9 +496,11 @@ onUnmounted(() => {
   flex: 0 0 auto !important;
   width: 2.75rem !important;
   max-width: 2.75rem !important;
-  font-size: 1.35rem !important;
   line-height: 1;
-  letter-spacing: 0.02em;
+}
+.more-btn .transport-ico {
+  width: 1.15em;
+  height: 1.15em;
 }
 .more-btn[aria-expanded='true'] {
   border-color: var(--accent);

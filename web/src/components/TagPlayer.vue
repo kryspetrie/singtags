@@ -1023,6 +1023,29 @@ function onSeek(t: number): void {
   tick.value++
 }
 
+/** Resume play after waveform scrub only if we were playing when the gesture began. */
+let resumeAfterScrub = false
+
+function onScrubStart(): void {
+  if (player.paused) return
+  resumeAfterScrub = true
+  player.pause()
+  tick.value++
+}
+
+function onScrubEnd(): void {
+  if (!resumeAfterScrub) return
+  resumeAfterScrub = false
+  void player
+    .play()
+    .then(() => {
+      tick.value++
+    })
+    .catch((e) => {
+      err.value = formatAudioDecodeError(e)
+    })
+}
+
 function nudge(delta: number): void {
   let next = player.currentTime + delta
   if (hasPlayRegion()) {
@@ -1036,6 +1059,7 @@ function nudge(delta: number): void {
 
 /** Pause and move playhead to region start (mark A) or track start — same whether playing or paused. */
 async function stopPlayback(): Promise<void> {
+  resumeAfterScrub = false
   player.pause()
   void releaseAudioWakeLock()
   const start = hasPlayRegion() ? markA.value : 0
@@ -1246,6 +1270,8 @@ defineExpose({
           :mark-b="waveMarkB"
           :interactive="playbackReady && !waveChromeHold"
           @seek="onSeek"
+          @scrub-start="onScrubStart"
+          @scrub-end="onScrubEnd"
           @update:mark-a="onMarkA"
           @update:mark-b="onMarkB"
         />
@@ -1265,10 +1291,15 @@ defineExpose({
           type="button"
           class="ctrl-transport-btn ctrl-transport-btn--primary transport-btn play"
           :aria-label="paused ? 'Play' : 'Pause'"
+          :title="paused ? 'Play' : 'Pause'"
           :disabled="!playbackReady"
           @click="togglePlay"
         >
-          {{ paused ? '▶' : '⏸' }}
+          <font-awesome-icon
+            :icon="paused ? ['fas', 'play'] : ['fas', 'pause']"
+            class="transport-ico"
+            aria-hidden="true"
+          />
         </button>
         <button
           type="button"
@@ -1278,30 +1309,33 @@ defineExpose({
           :disabled="!playbackReady"
           @click="stopPlayback"
         >
-          ■
+          <font-awesome-icon :icon="['fas', 'stop']" class="transport-ico" aria-hidden="true" />
         </button>
         <button
           type="button"
           class="ctrl-transport-btn transport-btn"
-          aria-label="Back 1 second"
+          aria-label="Back 3 seconds"
+          title="Back 3 seconds"
           :disabled="!playbackReady"
-          @click="nudge(-1)"
+          @click="nudge(-3)"
         >
-          −1s
+          −3s
         </button>
         <button
           type="button"
           class="ctrl-transport-btn transport-btn"
-          aria-label="Forward 1 second"
+          aria-label="Forward 3 seconds"
+          title="Forward 3 seconds"
           :disabled="!playbackReady"
-          @click="nudge(1)"
+          @click="nudge(3)"
         >
-          +1s
+          +3s
         </button>
         <select
           class="transport-speed"
           v-model.number="speed"
           aria-label="Playback speed"
+          title="Playback speed"
           :disabled="!playbackReady || mixBaking"
         >
           <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">
@@ -1312,13 +1346,13 @@ defineExpose({
           v-if="!fullscreen"
           type="button"
           class="ctrl-transport-btn more-btn"
-          aria-label="Loop, pitch, solo, and balance"
-          title="Loop, pitch, solo, and balance"
+          aria-label="Loop, pitch, speed, solo, and balance"
+          title="Loop, pitch, speed, solo, and balance"
           :aria-expanded="moreOpen"
           aria-controls="tag-playback-more"
           @click="moreOpen = !moreOpen"
         >
-          ⋮
+          <font-awesome-icon :icon="['fas', 'ellipsis-vertical']" class="transport-ico" aria-hidden="true" />
         </button>
         <span class="time">{{ fmt(currentTime) }} / {{ fmt(duration) }}</span>
       </div>
@@ -1327,14 +1361,14 @@ defineExpose({
         the right.
       </p>
 
-      <!-- Normal tag page: ⋮ expands loop/pitch/solo/balance; fullscreen keeps controls flat. -->
+      <!-- Normal tag page: ⋮ expands loop/pitch(/speed on mobile)/solo/balance; fullscreen keeps controls flat. -->
       <div
         v-if="!fullscreen && moreOpen"
         id="tag-playback-more"
         class="playback-adjust"
         :class="{ muted: !playbackReady }"
         role="group"
-        aria-label="Loop, pitch, solo, and balance"
+        aria-label="Loop, pitch, speed, solo, and balance"
       >
         <div class="adjust-row">
           <div class="ctrl-field adjust-field loop-field">
@@ -1372,6 +1406,20 @@ defineExpose({
                 Reset
               </button>
             </div>
+          </div>
+          <div class="ctrl-field adjust-field speed-field">
+            <span class="ctrl-field-label lbl">Speed</span>
+            <select
+              class="speed-select"
+              v-model.number="speed"
+              aria-label="Playback speed"
+              title="Playback speed"
+              :disabled="!playbackReady || mixBaking"
+            >
+              <option v-for="opt in SPEED_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
           </div>
           <div class="ctrl-field adjust-field solo-field" role="group" aria-label="Channel solo">
             <span class="ctrl-field-label lbl">Solo</span>
@@ -1505,8 +1553,6 @@ defineExpose({
 .player-host {
   min-width: 0;
   max-width: 100%;
-  /* Match TagView .tracks-slot — tabs + wave + transport + adjust without growing in. */
-  min-height: 22.5rem;
 }
 .player {
   display: grid;
@@ -1535,9 +1581,9 @@ defineExpose({
 }
 .player-panel {
   padding: 0.75rem;
-  /* Wave (104) + transport + A–B hint + adjust row — avoid Downloads sliding up. */
   position: relative;
-  min-height: 18.5rem;
+  /* Size to wave + transport (+ ⋮ panel when open) — no reserved spacer when collapsed. */
+  align-content: start;
 }
 .player-panel.is-media-locked {
   opacity: 0.45;
@@ -1581,11 +1627,11 @@ defineExpose({
   }
 }
 
-/* Transport: one row — Play/Stop/±1s/Speed/time. Scale gradually; clock keeps room. */
+/* Transport: one row — Play/Stop/±3s/Speed/time. Scale gradually; clock keeps room. */
 .transport.ctrl-transport {
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   gap: clamp(0.2rem, 0.9vw, 0.4rem);
   width: 100%;
   min-width: 0;
@@ -1614,25 +1660,48 @@ defineExpose({
   font-size: clamp(0.75rem, 2.15vw, 0.9rem);
   white-space: nowrap;
 }
-.transport-speed {
+.transport-speed,
+.speed-select {
   box-sizing: border-box;
-  flex: 0 1 auto;
-  width: clamp(3.55rem, 11vw, 4.75rem);
-  max-width: clamp(3.55rem, 11vw, 4.75rem);
-  min-width: 3.4rem;
-  min-height: 44px;
-  padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.15rem, 0.6vw, 0.35rem);
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg);
   font: inherit;
   font-weight: 600;
-  font-size: clamp(0.72rem, 2.15vw, 0.85rem);
   color: inherit;
 }
-.transport-speed:disabled {
+.transport-speed {
+  flex: 0 1 auto;
+  width: clamp(3.55rem, 11vw, 4.75rem);
+  max-width: clamp(3.55rem, 11vw, 4.75rem);
+  min-width: 3.4rem;
+  min-height: 48px;
+  height: 48px;
+  padding: clamp(0.22rem, 0.9vw, 0.3rem) clamp(0.15rem, 0.6vw, 0.35rem);
+  font-size: clamp(0.72rem, 2.15vw, 0.85rem);
+}
+.speed-select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.35rem 0.5rem;
+  font-size: 16px;
+}
+.transport-speed:disabled,
+.speed-select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+/* Mobile: speed lives in the ⋮ panel so the transport row stays Play/Stop/±3s/⋮/time. */
+.speed-field {
+  display: none;
+}
+@media (max-width: 719px) {
+  .player:not(.fullscreen) .transport-speed {
+    display: none;
+  }
+  .player:not(.fullscreen) .speed-field {
+    display: grid;
+  }
 }
 .loop-field .ctrl-toggle {
   width: 100%;
@@ -1855,9 +1924,11 @@ defineExpose({
   flex: 0 0 auto !important;
   width: 2.75rem !important;
   max-width: 2.75rem !important;
-  font-size: 1.35rem !important;
   line-height: 1;
-  letter-spacing: 0.02em;
+}
+.more-btn .transport-ico {
+  width: 1.15em;
+  height: 1.15em;
 }
 .more-btn[aria-expanded='true'] {
   border-color: var(--accent);
@@ -1871,18 +1942,20 @@ defineExpose({
   border-top: 1px solid var(--border);
 }
 
-/* Loop + Pitch share a row only when there’s room; Solo / Balance stay full-width. */
+/* Loop + Pitch share a row only when there’s room; Solo / Balance / Speed stay full-width. */
 @media (min-width: 520px) {
   .adjust-row {
     grid-template-columns: minmax(5.5rem, 0.55fr) minmax(0, 1fr);
   }
+  .speed-field,
   .solo-field,
   .balance-field {
     grid-column: 1 / -1;
   }
 }
 
-/* Four-up only when Solo (Stereo/L/R) and Pitch (−/+/Reset) keep comfortable room. */
+/* Four-up only when Solo (Stereo/L/R) and Pitch (−/+/Reset) keep comfortable room.
+ * Speed stays in the transport row at this width (hidden from ⋮ via max-width: 719px). */
 @media (min-width: 960px) {
   .player {
     gap: 0.85rem;
@@ -1903,7 +1976,8 @@ defineExpose({
   .solo-field,
   .balance-field,
   .loop-field,
-  .pitch-field {
+  .pitch-field,
+  .speed-field {
     grid-column: auto;
   }
   .pitch-btns button {

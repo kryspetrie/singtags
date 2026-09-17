@@ -493,7 +493,7 @@ export function pitchPipeFullKeyboardNotes(): string[] {
 }
 
 /** Fullscreen sheet piano dock: white-key width percent (higher = fewer keys visible). */
-export const SHEET_PIANO_SCALE_MIN = 25
+export const SHEET_PIANO_SCALE_MIN = 50
 export const SHEET_PIANO_SCALE_MAX = 300
 export const SHEET_PIANO_SCALE_STEP = 25
 export const SHEET_PIANO_SCALE_DEFAULT = 100
@@ -511,12 +511,49 @@ export function sheetPianoWhiteKeyPx(scalePercent: number): number {
 }
 
 export function normalizeSheetPianoKeyScale(raw: unknown): number {
-  // localStorage miss → null; Number(null) === 0, which must not become MIN (25%).
+  // localStorage miss → null; Number(null) === 0, which must not become MIN.
   if (raw == null || raw === '') return SHEET_PIANO_SCALE_DEFAULT
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n) || n === 0) return SHEET_PIANO_SCALE_DEFAULT
   const stepped = Math.round(n / SHEET_PIANO_SCALE_STEP) * SHEET_PIANO_SCALE_STEP
   return Math.min(SHEET_PIANO_SCALE_MAX, Math.max(SHEET_PIANO_SCALE_MIN, stepped))
+}
+
+/**
+ * Fullscreen sheet piano dock key-strip height (px).
+ * Default matches the prior fixed `5.85rem` stubby dock.
+ */
+export const SHEET_PIANO_HEIGHT_MIN_PX = 64
+export const SHEET_PIANO_HEIGHT_DEFAULT_PX = 94
+/** “Tall” snap target (~2× stubby) when toggling expand. */
+export const SHEET_PIANO_HEIGHT_TALL_PX = 176
+export const SHEET_PIANO_HEIGHT_MAX_PX = 320
+
+/** Clamp piano dock height; `0` / missing → default (same poison guard as key scale). */
+export function normalizeSheetPianoHeightPx(raw: unknown): number {
+  if (raw == null || raw === '') return SHEET_PIANO_HEIGHT_DEFAULT_PX
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n) || n === 0) return SHEET_PIANO_HEIGHT_DEFAULT_PX
+  return Math.min(
+    SHEET_PIANO_HEIGHT_MAX_PX,
+    Math.max(SHEET_PIANO_HEIGHT_MIN_PX, Math.round(n)),
+  )
+}
+
+/** Runtime max: never cover more than ~45% of the viewport. */
+export function sheetPianoHeightMaxPx(viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800): number {
+  const vhCap = Math.round(Math.max(viewportHeight, 320) * 0.45)
+  return Math.min(SHEET_PIANO_HEIGHT_MAX_PX, Math.max(SHEET_PIANO_HEIGHT_MIN_PX, vhCap))
+}
+
+/** Clamp with the current viewport’s soft max. */
+export function clampSheetPianoHeightPx(
+  px: number,
+  viewportHeight?: number,
+): number {
+  const max = sheetPianoHeightMaxPx(viewportHeight)
+  const n = normalizeSheetPianoHeightPx(px)
+  return Math.min(max, Math.max(SHEET_PIANO_HEIGHT_MIN_PX, n))
 }
 
 /** Grid key size percent (Settings −/+). */

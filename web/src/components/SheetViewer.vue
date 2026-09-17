@@ -305,6 +305,8 @@ const chromeCompact = ref(true)
 const playbackOpen = ref(false)
 /** Compact ± control: expand to − / + for repeated key shifts. */
 const shiftOpen = ref(false)
+/** Show pitch fab + ± cluster (⋮ → Hide pitch). Session-only. */
+const pitchChromeVisible = ref(true)
 /**
  * When expanded, keep ⋮ menu controls on the top row if they fit; otherwise
  * move the whole menu group to a second row (⋮ / ✕ stay put).
@@ -1185,6 +1187,7 @@ async function setFullscreen(on: boolean, opts?: { fromPopState?: boolean }): Pr
     moreInline.value = true
     playbackBelow.value = false
     shiftOpen.value = false
+    pitchChromeVisible.value = true
     detachFsViewportListeners()
     if (autoPdfForFullscreen && hasImages.value) {
       autoPdfForFullscreen = false
@@ -1214,6 +1217,15 @@ function toggleChromeCompact(): void {
   }
   chromeCompact.value = !chromeCompact.value
   shiftOpen.value = false
+  void nextTick(() => {
+    measureChromeLayout()
+    commitZoomPan(zoomPan.value)
+  })
+}
+
+function togglePitchChrome(): void {
+  pitchChromeVisible.value = !pitchChromeVisible.value
+  if (!pitchChromeVisible.value) shiftOpen.value = false
   void nextTick(() => {
     measureChromeLayout()
     commitZoomPan(zoomPan.value)
@@ -1826,7 +1838,7 @@ defineExpose({
         aria-label="Sheet controls"
       >
         <div
-          v-if="fullscreen"
+          v-if="fullscreen && pitchChromeVisible"
           class="chrome-pitch-cluster"
         >
           <button
@@ -1979,6 +1991,19 @@ defineExpose({
               @click="togglePianoDock"
             >
               Piano
+            </button>
+
+            <button
+              v-if="payKeyEnabled"
+              type="button"
+              class="chrome-btn pitch-visibility"
+              :class="{ 'is-on': !pitchChromeVisible }"
+              :aria-pressed="!pitchChromeVisible"
+              :aria-label="pitchChromeVisible ? 'Hide pitch controls' : 'Show pitch controls'"
+              :title="pitchChromeVisible ? 'Hide pitch & ±' : 'Show pitch & ±'"
+              @click="togglePitchChrome"
+            >
+              {{ pitchChromeVisible ? 'Hide pitch' : 'Show pitch' }}
             </button>
 
             <button
@@ -2284,7 +2309,8 @@ defineExpose({
 .chrome-pitch-cluster > * {
   pointer-events: auto;
 }
-.piano-toggle.is-on {
+.piano-toggle.is-on,
+.pitch-visibility.is-on {
   background: color-mix(in srgb, var(--accent, #3b82f6) 75%, #000);
   border-color: color-mix(in srgb, var(--accent, #3b82f6) 55%, transparent);
 }

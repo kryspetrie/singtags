@@ -183,7 +183,8 @@ describe('pitchPlayer helpers', () => {
     expect(normalizePitchPipeGridScale(247)).toBe(245)
     expect(normalizeSheetPianoKeyScale(93)).toBe(100)
     expect(normalizeSheetPianoKeyScale(50)).toBe(50)
-    expect(normalizeSheetPianoKeyScale(20)).toBe(25)
+    expect(normalizeSheetPianoKeyScale(20)).toBe(50)
+    expect(normalizeSheetPianoKeyScale(25)).toBe(50)
     expect(normalizeSheetPianoKeyScale(400)).toBe(300)
     expect(normalizeSheetPianoKeyScale(null)).toBe(100)
     expect(normalizeSheetPianoKeyScale(undefined)).toBe(100)
@@ -191,7 +192,24 @@ describe('pitchPlayer helpers', () => {
     expect(normalizeSheetPianoKeyScale(0)).toBe(100)
     expect(sheetPianoWhiteKeyPx(100)).toBe(51)
     expect(sheetPianoWhiteKeyPx(125)).toBe(63.8)
-    expect(sheetPianoWhiteKeyPx(25)).toBe(12.8)
+    expect(sheetPianoWhiteKeyPx(50)).toBe(25.5)
+  })
+
+  it('normalizes sheet piano dock height', async () => {
+    const {
+      normalizeSheetPianoHeightPx,
+      clampSheetPianoHeightPx,
+      SHEET_PIANO_HEIGHT_DEFAULT_PX,
+      SHEET_PIANO_HEIGHT_MIN_PX,
+      SHEET_PIANO_HEIGHT_MAX_PX,
+    } = await import('./pitchPlayer')
+    expect(normalizeSheetPianoHeightPx(null)).toBe(SHEET_PIANO_HEIGHT_DEFAULT_PX)
+    expect(normalizeSheetPianoHeightPx(0)).toBe(SHEET_PIANO_HEIGHT_DEFAULT_PX)
+    expect(normalizeSheetPianoHeightPx(40)).toBe(SHEET_PIANO_HEIGHT_MIN_PX)
+    expect(normalizeSheetPianoHeightPx(400)).toBe(SHEET_PIANO_HEIGHT_MAX_PX)
+    expect(normalizeSheetPianoHeightPx(120)).toBe(120)
+    expect(clampSheetPianoHeightPx(400, 400)).toBeLessThanOrEqual(SHEET_PIANO_HEIGHT_MAX_PX)
+    expect(clampSheetPianoHeightPx(400, 400)).toBe(180) // 45% of 400
   })
 })
 

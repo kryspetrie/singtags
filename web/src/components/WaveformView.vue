@@ -45,6 +45,10 @@ const emit = defineEmits<{
   seek: [number]
   'update:markA': [number]
   'update:markB': [number]
+  /** Playhead scrub gesture started (click-drag or playhead drag) — not loop brackets. */
+  scrubStart: []
+  /** Playhead scrub gesture ended (pointer up / cancel). */
+  scrubEnd: []
 }>()
 
 const CURSOR_HIT = 22
@@ -59,6 +63,20 @@ const drag = ref<DragKind>(null)
 const pending = ref<DragKind>(null)
 const downX = ref(0)
 const dragging = ref(false)
+/** True while the user is scrubbing the playhead (parents pause/resume audio). */
+let scrubActive = false
+
+function beginScrub(): void {
+  if (scrubActive) return
+  scrubActive = true
+  emit('scrubStart')
+}
+
+function endScrub(): void {
+  if (!scrubActive) return
+  scrubActive = false
+  emit('scrubEnd')
+}
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -420,6 +438,7 @@ function onPointerDown(e: PointerEvent): void {
   const hit = hitTest(e.clientX, lay)
 
   if (hit === 'seek') {
+    beginScrub()
     emit('seek', timeAt(lay, clientXLocal(e.clientX)))
     pending.value = 'cursor'
     drag.value = 'cursor'
@@ -437,8 +456,10 @@ function onPointerMove(e: PointerEvent): void {
   if (!lay) return
   if (!dragging.value && Math.abs(e.clientX - downX.value) > DRAG_SLOP) {
     dragging.value = true
-    if (pending.value === 'cursor') drag.value = 'cursor'
-    else if (pending.value && !drag.value) drag.value = pending.value
+    if (pending.value === 'cursor') {
+      drag.value = 'cursor'
+      beginScrub()
+    } else if (pending.value && !drag.value) drag.value = pending.value
   }
   if (!drag.value) return
   const x = clientXLocal(e.clientX)
@@ -468,6 +489,7 @@ function onPointerUp(): void {
   drag.value = null
   pending.value = null
   dragging.value = false
+  endScrub()
 }
 
 function onKey(e: KeyboardEvent): void {

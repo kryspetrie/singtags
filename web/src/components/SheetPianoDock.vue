@@ -14,9 +14,12 @@ import {
   pitchPipePcKeyOctave,
   pitchPipePcKeyWindowNotes,
   pitchPipePianoSlots,
+  SHEET_PIANO_HEIGHT_DEFAULT_PX,
+  SHEET_PIANO_HEIGHT_TALL_PX,
   SHEET_PIANO_SCALE_MAX,
   SHEET_PIANO_SCALE_MIN,
   SHEET_PIANO_SCALE_STEP,
+  clampSheetPianoHeightPx,
   sheetPianoWhiteKeyPx,
 } from '../audio/pitchPlayer'
 import { getActivePitchPipeVoice, PITCH_PIPE_VOICE_CHANGE_EVENT } from '../audio/pitchPipeVoice'
@@ -56,7 +59,15 @@ const showOctave = computed(() => prefs.pitchPipeShowOctave)
 const detune = computed(() => prefs.pitchPipeDetuneCents)
 const keyScale = computed(() => prefs.sheetPianoKeyScale)
 const whiteKeyPx = computed(() => sheetPianoWhiteKeyPx(keyScale.value))
+const pianoHeightPx = computed(() => prefs.sheetPianoHeightPx)
 const pianoEngine = computed(() => prefs.pitchPipePianoEngine)
+const pianoLockPosition = computed(() => prefs.pitchPipePianoLockPosition)
+const showPcKeyRange = computed(() => prefs.pitchPipeShowPcKeyRange)
+
+/** True when the dock is at (or above) the tall snap — toggle goes compact. */
+const pianoExpanded = computed(
+  () => pianoHeightPx.value >= (SHEET_PIANO_HEIGHT_DEFAULT_PX + SHEET_PIANO_HEIGHT_TALL_PX) / 2,
+)
 
 function syncSounding(): void {
   sounding.value = new Set(player.activeNotes())
@@ -162,6 +173,7 @@ const pcKeyMap = computed(() => pitchPipePcKeyNoteMap(pcKeyWindow.value))
 const pcKeyNoteSet = computed(() => new Set(pcKeyMap.value.values()))
 
 const pcHint = computed(() => {
+  if (!showPcKeyRange.value) return ''
   const low = pcKeyMap.value.get('KeyS')
   const high = pcKeyMap.value.get('KeyL')
   if (!low || !high) return ''
@@ -169,7 +181,7 @@ const pcHint = computed(() => {
 })
 
 function isOutOfPcWindow(note: string): boolean {
-  return !pcKeyNoteSet.value.has(note)
+  return showPcKeyRange.value && !pcKeyNoteSet.value.has(note)
 }
 
 function isTypingTarget(t: EventTarget | null): boolean {
@@ -231,8 +243,48 @@ function nudgeScale(delta: number): void {
   prefs.nudgeSheetPianoKeyScale(delta)
   void nextTick(() => {
     emit('resize')
+    if (pianoLockPosition.value) return
     centerOn(focusNote.value || props.centerNote || 'C4', false)
   })
+}
+
+function setPianoHeight(px: number): void {
+  prefs.setSheetPianoHeightPx(clampSheetPianoHeightPx(px))
+  void nextTick(() => emit('resize'))
+}
+
+function togglePianoHeight(): void {
+  setPianoHeight(
+    pianoExpanded.value ? SHEET_PIANO_HEIGHT_DEFAULT_PX : SHEET_PIANO_HEIGHT_TALL_PX,
+  )
+}
+
+/** Drag the top handle to resize key-strip height (drag up = taller). */
+let heightDrag: { pointerId: number; startY: number; startH: number } | null = null
+
+function onHeightHandleDown(e: PointerEvent): void {
+  if (e.button !== 0 && e.pointerType === 'mouse') return
+  e.preventDefault()
+  e.stopPropagation()
+  heightDrag = {
+    pointerId: e.pointerId,
+    startY: e.clientY,
+    startH: pianoHeightPx.value,
+  }
+  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+}
+
+function onHeightHandleMove(e: PointerEvent): void {
+  if (!heightDrag || e.pointerId !== heightDrag.pointerId) return
+  // Dock sits at the bottom — dragging the handle up increases height.
+  const next = heightDrag.startH + (heightDrag.startY - e.clientY)
+  prefs.setSheetPianoHeightPx(clampSheetPianoHeightPx(next))
+}
+
+function onHeightHandleUp(e: PointerEvent): void {
+  if (!heightDrag || e.pointerId !== heightDrag.pointerId) return
+  heightDrag = null
+  emit('resize')
 }
 
 function centerOn(note: string, smooth = false): void {
@@ -309,13 +361,33 @@ watch(
 </script>
 
 <template>
-  <div ref="shellRef" class="sheet-piano-dock" role="region" aria-label="Pitch piano">
+  <div
+    ref="shellRef"
+    class="sheet-piano-dock"
+    role="region"
+    aria-label="Pitch piano"
+    :style="{ '--piano-h': `${pianoHeightPx}px` }"
+  >
     <div class="dock-chrome">
       <div class="dock-title">
         <span class="dock-label">Piano</span>
-        <span v-if="pcHint" class="dock-hint">{{ pcHint }} · drag to pan</span>
+        <span v-if="pcHint" class="dock-hint"
+          >{{ pcHint }}<template v-if="!pianoLockPosition"> · drag to pan</template></span
+        >
         <span v-if="sampleStatus" class="dock-err">{{ sampleStatus }}</span>
       </div>
+      <button
+        type="button"
+        class="dock-height-handle"
+        aria-label="Drag to resize piano height"
+        title="Drag up to make the piano taller"
+        @pointerdown="onHeightHandleDown"
+        @pointermove="onHeightHandleMove"
+        @pointerup="onHeightHandleUp"
+        @pointercancel="onHeightHandleUp"
+      >
+        <span class="dock-height-grip" aria-hidden="true" />
+      </button>
       <div class="dock-scale" role="group" aria-label="Piano zoom">
         <button
           type="button"
@@ -341,6 +413,17 @@ watch(
       </div>
       <button
         type="button"
+        class="dock-btn dock-height-toggle"
+        :class="{ 'is-on': pianoExpanded }"
+        :aria-pressed="pianoExpanded"
+        :aria-label="pianoExpanded ? 'Compact piano height' : 'Expand piano height'"
+        :title="pianoExpanded ? 'Compact piano' : 'Expand piano'"
+        @click="togglePianoHeight"
+      >
+        {{ pianoExpanded ? '▾' : '▴' }}
+      </button>
+      <button
+        type="button"
         class="dock-btn dock-close"
         aria-label="Close piano"
         title="Close piano"
@@ -352,6 +435,7 @@ watch(
 
     <PianoHorizontalScroll
       ref="pianoHScrollRef"
+      :lock-position="pianoLockPosition"
       @note-on="noteOn"
       @note-off="noteOff"
       @scroll="syncScrollPcOctave"
@@ -428,13 +512,49 @@ watch(
   z-index: 70;
   user-select: none;
   -webkit-user-select: none;
+  --piano-h: 94px;
 }
 .dock-chrome {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.45rem;
   padding: 0 0.45rem;
   min-height: 1.75rem;
+}
+/* Same centered pill as before, but overlaid on the button row (no extra strip). */
+.dock-height-handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ns-resize;
+  touch-action: none;
+  color: inherit;
+}
+.dock-height-grip {
+  display: block;
+  width: 2.75rem;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #fff 38%, transparent);
+}
+.dock-height-handle:focus-visible {
+  outline: 2px solid var(--accent, #3b82f6);
+  outline-offset: -2px;
+}
+.dock-height-handle:active .dock-height-grip {
+  background: color-mix(in srgb, #fff 62%, transparent);
 }
 .dock-title {
   display: flex;
@@ -442,6 +562,8 @@ watch(
   gap: 0.45rem;
   min-width: 0;
   flex: 1 1 auto;
+  /* Leave the centered grip clear of label/hint text. */
+  padding-right: 3.75rem;
 }
 .dock-label {
   font-weight: 750;
@@ -465,6 +587,8 @@ watch(
   align-items: center;
   gap: 0.2rem;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
 }
 .dock-scale-val {
   min-width: 2.75rem;
@@ -493,7 +617,14 @@ watch(
   opacity: 0.35;
   cursor: not-allowed;
 }
+.dock-height-toggle.is-on {
+  border-color: color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff);
+  color: color-mix(in srgb, var(--accent, #3b82f6) 55%, #fff);
+}
+.dock-height-toggle,
 .dock-close {
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
 }
 .piano {
@@ -505,7 +636,9 @@ watch(
   background: color-mix(in srgb, #000 40%, #333);
 }
 .piano-stubby {
-  height: 5.85rem;
+  height: var(--piano-h, 94px);
+  min-height: 64px;
+  max-height: min(320px, 45vh);
 }
 .piano-whites {
   display: flex;
@@ -572,18 +705,23 @@ watch(
   box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
 }
 .note-single {
-  font-size: clamp(0.6rem, 1.7vw, 0.85rem);
+  /* Prefer stubby-dock size at 100%; shrink with key width below that. */
+  font-size: min(0.85rem, calc(var(--white-w) * 0.34));
   line-height: 1.05;
+  max-width: 100%;
+  overflow: hidden;
 }
 .note-dual {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.05rem;
+  gap: 0.02rem;
   width: 100%;
-  font-size: clamp(0.52rem, 1.4vw, 0.72rem);
+  font-size: min(0.72rem, calc(var(--white-w) * 0.26));
   line-height: 1.05;
+  max-width: 100%;
+  overflow: hidden;
 }
 .note.active {
   outline: none;

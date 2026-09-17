@@ -136,6 +136,16 @@ const showFullKeyboard = computed({
   set: (v: boolean) => prefs.setPitchPipeShowFullKeyboard(v),
 })
 
+const pianoLockPosition = computed({
+  get: () => prefs.pitchPipePianoLockPosition,
+  set: (v: boolean) => prefs.setPitchPipePianoLockPosition(v),
+})
+
+const showPcKeyRange = computed({
+  get: () => prefs.pitchPipeShowPcKeyRange,
+  set: (v: boolean) => prefs.setPitchPipeShowPcKeyRange(v),
+})
+
 const pianoEngine = computed({
   get: (): PianoSoundEngineId => prefs.pitchPipePianoEngine,
   set: (v: PianoSoundEngineId) => prefs.setPitchPipePianoEngine(v),
@@ -266,7 +276,7 @@ const pcKeyMap = computed(() => pitchPipePcKeyNoteMap(pcKeyWindow.value))
 const pcKeyNoteSet = computed(() => new Set(pcKeyMap.value.values()))
 
 function isOutOfPcWindow(note: string): boolean {
-  return showScrollableKeyboard.value && !pcKeyNoteSet.value.has(note)
+  return showPcKeyRange.value && showScrollableKeyboard.value && !pcKeyNoteSet.value.has(note)
 }
 
 function isTypingTarget(t: EventTarget | null): boolean {
@@ -362,6 +372,7 @@ function scrollPianoToAnchor(anchor: string): void {
 
 function nudgePianoKeyScale(delta: number): void {
   prefs.nudgeSheetPianoKeyScale(delta)
+  if (pianoLockPosition.value) return
   void nextTick(() => scrollPianoToRange())
 }
 
@@ -666,6 +677,44 @@ function blackLeftPct(after: string): number {
         </div>
 
         <label
+          v-if="isHorizontalPiano"
+          class="setting-row"
+          :class="{ on: pianoLockPosition }"
+          title="Freeze the piano scroll position — keys still play, but drag-to-pan is off"
+        >
+          <span class="setting-copy">
+            <span class="setting-title">Lock position</span>
+          </span>
+          <input
+            v-model="pianoLockPosition"
+            type="checkbox"
+            class="setting-switch"
+            role="switch"
+            :aria-checked="pianoLockPosition"
+            aria-label="Lock piano position"
+          />
+        </label>
+
+        <label
+          v-if="isPianoLayout"
+          class="setting-row"
+          :class="{ on: showPcKeyRange }"
+          title="Dim keys outside the computer-keyboard window (A–' / S–L). Turn off on mobile if the highlight is distracting."
+        >
+          <span class="setting-copy">
+            <span class="setting-title">Show desktop keyboard range</span>
+          </span>
+          <input
+            v-model="showPcKeyRange"
+            type="checkbox"
+            class="setting-switch"
+            role="switch"
+            :aria-checked="showPcKeyRange"
+            aria-label="Show desktop keyboard range"
+          />
+        </label>
+
+        <label
           v-if="isPianoLayout && !isHorizontalPiano"
           class="setting-row full-keyboard-toggle"
           :class="{ on: showFullKeyboard }"
@@ -819,6 +868,7 @@ function blackLeftPct(after: string): number {
       <div v-else-if="isHorizontalPiano" class="piano-shell piano-shell-h">
         <PianoHorizontalScroll
           ref="pianoHScrollRef"
+          :lock-position="pianoLockPosition"
           @note-on="noteOn"
           @note-off="noteOff"
           @scroll="syncScrollPcOctave"
@@ -886,9 +936,9 @@ function blackLeftPct(after: string): number {
         </PianoHorizontalScroll>
       </div>
 
-      <p v-if="isPianoLayout" class="pc-keys-hint" aria-live="polite">
+      <p v-if="isPianoLayout && showPcKeyRange" class="pc-keys-hint" aria-live="polite">
         On desktop, use your keyboard to play this polyphonic keyboard.
-        <template v-if="isHorizontalPiano"> Drag keys to change octave.</template>
+        <template v-if="isHorizontalPiano && !pianoLockPosition"> Drag keys to change octave.</template>
       </p>
 
       <div
@@ -1382,28 +1432,42 @@ function blackLeftPct(after: string): number {
   border-color: var(--border);
   justify-content: flex-end;
   align-items: flex-end;
-  padding: 0.55rem 0.35rem;
+  /* Keep 100% padding until keys shrink, then tighten to fit. */
+  padding: min(0.55rem, calc(var(--white-w) * 0.11)) min(0.35rem, calc(var(--white-w) * 0.07));
   writing-mode: horizontal-tb;
+  overflow: hidden;
 }
 .piano-h .piano-whites .note:last-child {
   border-right: 0;
   border-bottom: 0;
 }
+/* Prefer the 100%-zoom letter size; shrink only when the key is narrower. */
+.piano-h .note-single {
+  font-size: min(1.35rem, calc(var(--white-w) * 0.42));
+  line-height: 1.05;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+}
 .piano-h .piano-blacks .note {
   top: 0;
   right: auto;
-  width: max(1.55rem, calc(var(--white-w) * 0.62));
+  /* Always proportional to white width — no rem floor (that blocked zoom-out). */
+  width: calc(var(--white-w) * 0.62);
   height: 58%;
   min-height: 0;
   transform: translateX(-50%);
-  border-radius: 0 0 8px 8px;
-  padding: 0.3rem 0.2rem;
+  border-radius: 0 0 min(8px, calc(var(--white-w) * 0.16)) min(8px, calc(var(--white-w) * 0.16));
+  padding: min(0.3rem, calc(var(--white-w) * 0.06)) min(0.2rem, calc(var(--white-w) * 0.04));
   align-items: flex-start;
+  overflow: hidden;
 }
 .piano-h .piano-blacks .note-dual {
   flex-direction: column;
-  font-size: clamp(0.72rem, 1.8vw, 0.95rem);
-  gap: 0.05rem;
+  font-size: min(0.85rem, calc(var(--white-w) * 0.28));
+  gap: 0.02rem;
+  max-width: 100%;
+  overflow: hidden;
 }
 .piano-h .note-sep { display: none; }
 .pc-keys-hint {
@@ -1434,9 +1498,6 @@ function blackLeftPct(after: string): number {
 @media (min-width: 720px) {
   .keys-grid .note { min-height: calc(5.75rem * var(--grid-scale)); }
   .piano-h { height: 13rem; }
-  .piano-h .piano-blacks .note {
-    width: max(1.75rem, calc(var(--white-w) * 0.62));
-  }
 }
 
 </style>
