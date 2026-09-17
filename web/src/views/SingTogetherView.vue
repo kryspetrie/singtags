@@ -2785,11 +2785,6 @@ function fmtConf(n: number): string {
           Every song has parts marked — switch to All to see your repertoire.
         </p>
         <p v-else-if="store.profile.songs.length" class="hint">No songs in this collection.</p>
-        <p v-else class="hint empty-start">
-          <button type="button" class="linkish" @click="openQuickAdd">Add to Repertoire</button>,
-          or
-          <button type="button" class="linkish" @click="openPasteSongs">import from clipboard</button>.
-        </p>
       </div>
     </div>
 
@@ -3195,12 +3190,6 @@ function fmtConf(n: number): string {
   color: var(--muted);
   font-size: 0.92rem;
   line-height: 1.45;
-}
-.empty-start {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.5rem;
 }
 .linkish {
   border: 0;

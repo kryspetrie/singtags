@@ -56,9 +56,7 @@ describe('SingTogetherView usability phases', () => {
       'from Clipboard',
       'from CSV',
     ])
-
-    expect(w.text()).toMatch(/Add to Repertoire/i)
-    expect(w.text()).toMatch(/import from clipboard/i)
+    expect(w.find('.empty-start').exists()).toBe(false)
     w.unmount()
   })
 
