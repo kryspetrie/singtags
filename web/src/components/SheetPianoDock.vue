@@ -64,6 +64,10 @@ const pianoEngine = computed(() => prefs.pitchPipePianoEngine)
 const pianoLockPosition = computed(() => prefs.pitchPipePianoLockPosition)
 const showPcKeyRange = computed(() => prefs.pitchPipeShowPcKeyRange)
 
+function togglePianoLock(): void {
+  prefs.setPitchPipePianoLockPosition(!pianoLockPosition.value)
+}
+
 /** True when the dock is at (or above) the tall snap — toggle goes compact. */
 const pianoExpanded = computed(
   () => pianoHeightPx.value >= (SHEET_PIANO_HEIGHT_DEFAULT_PX + SHEET_PIANO_HEIGHT_TALL_PX) / 2,
@@ -101,6 +105,21 @@ const displayWhites = computed(() => pianoSlots.value.whites)
 const whiteKeyPct = computed(() => {
   const n = displayWhites.value.length
   return n > 0 ? 100 / n : 100
+})
+
+/** Which sides of each white key sit under a black key (for press-fill clip). */
+const whiteKeyCuts = computed(() => {
+  const whites = displayWhites.value
+  const afterSet = new Set(pianoSlots.value.blacks.map((b) => b.after))
+  const map = new Map<string, { left: boolean; right: boolean }>()
+  for (let i = 0; i < whites.length; i++) {
+    const note = whites[i]!
+    map.set(note, {
+      left: i > 0 && afterSet.has(whites[i - 1]!),
+      right: afterSet.has(note),
+    })
+  }
+  return map
 })
 
 function blackLeftPct(after: string): number {
@@ -369,6 +388,21 @@ watch(
     :style="{ '--piano-h': `${pianoHeightPx}px` }"
   >
     <div class="dock-chrome">
+      <button
+        type="button"
+        class="dock-btn dock-lock"
+        :class="{ 'is-on': pianoLockPosition }"
+        :aria-pressed="pianoLockPosition"
+        :aria-label="pianoLockPosition ? 'Unlock piano position' : 'Lock piano position'"
+        :title="
+          pianoLockPosition
+            ? 'Unlock — drag keys to change octave'
+            : 'Lock position — keep octave fixed'
+        "
+        @click="togglePianoLock"
+      >
+        {{ pianoLockPosition ? 'Locked' : 'Lock' }}
+      </button>
       <div class="dock-title">
         <span class="dock-label">Piano</span>
         <span v-if="pcHint" class="dock-hint"
@@ -457,6 +491,8 @@ watch(
             :class="{
               active: isSounding(note),
               'out-of-range': isOutOfPcWindow(note),
+              'cut-left': whiteKeyCuts.get(note)?.left,
+              'cut-right': whiteKeyCuts.get(note)?.right,
             }"
             :aria-pressed="isSounding(note)"
             :aria-label="byNote.get(note)?.aria"
@@ -621,6 +657,20 @@ watch(
   border-color: color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff);
   color: color-mix(in srgb, var(--accent, #3b82f6) 55%, #fff);
 }
+.dock-lock {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  min-width: 3.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.dock-lock.is-on {
+  border-color: color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff);
+  background: color-mix(in srgb, var(--accent, #3b82f6) 35%, #000);
+  color: color-mix(in srgb, var(--accent, #3b82f6) 40%, #fff);
+}
 .dock-height-toggle,
 .dock-close {
   position: relative;
@@ -630,7 +680,12 @@ watch(
 .piano {
   --white-count: 8;
   --white-w: 51px;
+  /* Black key geometry relative to one white key (must match .piano-blacks .note). */
+  --black-w-frac: 0.62;
+  --black-h-frac: 58%;
+  --black-half: 31%;
   position: relative;
+  isolation: isolate;
   width: max-content;
   border: 0;
   background: color-mix(in srgb, #000 40%, #333);
@@ -672,6 +727,39 @@ watch(
   position: relative;
   z-index: 0;
 }
+/* Notch white keys where black keys sit so press fill matches the visible key. */
+.piano-whites .note.cut-right:not(.cut-left) {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--black-half)) 0,
+    calc(100% - var(--black-half)) var(--black-h-frac),
+    100% var(--black-h-frac),
+    100% 100%,
+    0 100%
+  );
+}
+.piano-whites .note.cut-left:not(.cut-right) {
+  clip-path: polygon(
+    var(--black-half) 0,
+    100% 0,
+    100% 100%,
+    0 100%,
+    0 var(--black-h-frac),
+    var(--black-half) var(--black-h-frac)
+  );
+}
+.piano-whites .note.cut-left.cut-right {
+  clip-path: polygon(
+    var(--black-half) 0,
+    calc(100% - var(--black-half)) 0,
+    calc(100% - var(--black-half)) var(--black-h-frac),
+    100% var(--black-h-frac),
+    100% 100%,
+    0 100%,
+    0 var(--black-h-frac),
+    var(--black-half) var(--black-h-frac)
+  );
+}
 .piano-whites .note:last-child {
   border-right: 0;
 }
@@ -685,12 +773,13 @@ watch(
   pointer-events: auto;
   position: absolute;
   top: 0;
-  width: calc(var(--white-w) * 0.62);
-  height: 58%;
+  width: calc(var(--white-w) * var(--black-w-frac));
+  height: var(--black-h-frac);
   min-height: 0;
   transform: translateX(-50%);
   border-radius: 0 0 6px 6px;
   border: 1px solid #000;
+  /* Fully opaque — white-key accent must never wash through. */
   background: #1c1c1c;
   color: #f2f2f2;
   z-index: 2;
@@ -703,6 +792,7 @@ watch(
   align-items: flex-start;
   justify-content: center;
   box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+  overflow: hidden;
 }
 .note-single {
   /* Prefer stubby-dock size at 100%; shrink with key width below that. */
@@ -725,18 +815,22 @@ watch(
 }
 .note.active {
   outline: none;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 40%, var(--accent, #3b82f6));
-  background: var(--accent, #3b82f6) !important;
-  color: var(--on-accent) !important;
-  border-color: var(--accent, #3b82f6);
+  background: var(--accent, #0f6b5c) !important;
+  color: var(--on-accent, #fff) !important;
+  border-color: var(--accent, #0f6b5c);
 }
 .piano-whites .note.active {
+  /* Keep greens under the black layer; clip-path shapes the fill. */
   z-index: 0;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 40%, var(--accent, #0f6b5c));
 }
 .piano-blacks .note.active {
   z-index: 3;
+  background: var(--accent, #0f6b5c) !important;
+  border-color: color-mix(in srgb, #000 55%, var(--accent, #0f6b5c));
+  /* Inset ring follows border-radius; keep drop shadow neutral (not green). */
   box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent, #3b82f6)),
+    inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent, #0f6b5c)),
     0 1px 3px rgb(0 0 0 / 35%);
 }
 .note:focus,
@@ -744,11 +838,11 @@ watch(
   outline: none;
 }
 .note:focus-visible:not(.active) {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent, #0f6b5c) 70%, #fff);
 }
 .piano-blacks .note:focus-visible:not(.active) {
   box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff),
+    inset 0 0 0 2px color-mix(in srgb, var(--accent, #0f6b5c) 70%, #fff),
     0 1px 3px rgb(0 0 0 / 35%);
 }
 /* Opaque muted fills — opacity would show accent through overlapping black keys. */
@@ -763,8 +857,8 @@ watch(
   box-shadow: none;
 }
 .note.out-of-range.active {
-  background: var(--accent, #3b82f6) !important;
-  color: var(--on-accent) !important;
-  border-color: var(--accent, #3b82f6);
+  background: var(--accent, #0f6b5c) !important;
+  color: var(--on-accent, #fff) !important;
+  border-color: var(--accent, #0f6b5c);
 }
 </style>

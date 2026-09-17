@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
- * Horizontal piano viewport: the keys themselves are the scroller —
- * hold/multitouch to play (with glide), flick horizontally to pan octaves.
- * When `lockPosition` is set, drag-to-pan is disabled (notes still play).
+ * Horizontal piano viewport: the keys themselves are the scroller.
+ *
+ * Unlocked: press sounds a note; drag past a distance pans the keyboard and
+ * silences that note (even if the press started on a key).
+ * Locked: drag-to-pan is off; dragging across keys glissandos (each key sounds).
  */
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
@@ -22,10 +24,8 @@ const emit = defineEmits<{
 
 const scrollRef = ref<HTMLElement | null>(null)
 
-/** Ignore finger jitter below this while deciding hold vs pan. */
+/** Horizontal drag past this (and mostly horizontal) → pan when unlocked. */
 const PAN_THRESHOLD_PX = 28
-/** After this still-ish hold, this pointer only plays (never pans). */
-const PLAY_LOCK_MS = 100
 
 type StripPointer = {
   note: string | null
@@ -33,10 +33,6 @@ type StripPointer = {
   startY: number
   startScroll: number
   panActive: boolean
-  /** Committed to playing — glide between keys, never convert to pan. */
-  playLocked: boolean
-  downAt: number
-  lockTimer: number | null
 }
 const pointers = new Map<number, StripPointer>()
 
@@ -59,18 +55,17 @@ function noteAtClientPoint(clientX: number, clientY: number): string | null {
   return null
 }
 
-function clearLockTimer(st: StripPointer): void {
-  if (st.lockTimer != null) {
-    window.clearTimeout(st.lockTimer)
-    st.lockTimer = null
-  }
-}
-
 function setPointerNote(st: StripPointer, next: string | null): void {
   if (st.note === next) return
   if (st.note) emit('note-off', st.note)
   st.note = next
   if (next) emit('note-on', next)
+}
+
+function silencePointerNote(st: StripPointer): void {
+  if (!st.note) return
+  emit('note-off', st.note)
+  st.note = null
 }
 
 function onStripPointerDown(e: PointerEvent): void {
@@ -84,39 +79,26 @@ function onStripPointerDown(e: PointerEvent): void {
     startY: e.clientY,
     startScroll: scrollRef.value?.scrollLeft ?? 0,
     panActive: false,
-    playLocked: false,
-    downAt: performance.now(),
-    lockTimer: null,
   }
   pointers.set(e.pointerId, st)
   ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-  if (note) {
-    emit('note-on', note)
-    // Hold still → lock play so later jitter can't steal the note into a pan.
-    st.lockTimer = window.setTimeout(() => {
-      const cur = pointers.get(e.pointerId)
-      if (!cur || cur.panActive) return
-      cur.playLocked = true
-      cur.lockTimer = null
-    }, PLAY_LOCK_MS)
-  }
+  if (note) emit('note-on', note)
 }
 
 function onStripPointerMove(e: PointerEvent): void {
-  if (props.lockPosition) return
   const st = pointers.get(e.pointerId)
   if (!st) return
 
   if (st.panActive) {
     const scroller = scrollRef.value
     if (!scroller) return
-    const dx = e.clientX - st.startX
-    scroller.scrollLeft = st.startScroll - dx
+    scroller.scrollLeft = st.startScroll - (e.clientX - st.startX)
     emit('scroll')
     return
   }
 
-  if (st.playLocked) {
+  // Locked: glissando across keys; never pan.
+  if (props.lockPosition) {
     setPointerNote(st, noteAtClientPoint(e.clientX, e.clientY))
     return
   }
@@ -126,14 +108,10 @@ function onStripPointerMove(e: PointerEvent): void {
   const adx = Math.abs(dx)
   const ady = Math.abs(dy)
 
-  // Clear horizontal flick before lock → octave pan (cancel the brief note).
+  // Unlocked: enough horizontal drag → stop the note and pan the strip.
   if (adx >= PAN_THRESHOLD_PX && adx > ady * 1.35) {
-    clearLockTimer(st)
     st.panActive = true
-    if (st.note) {
-      emit('note-off', st.note)
-      st.note = null
-    }
+    silencePointerNote(st)
     const scroller = scrollRef.value
     if (!scroller) return
     scroller.scrollLeft = st.startScroll - dx
@@ -141,14 +119,13 @@ function onStripPointerMove(e: PointerEvent): void {
     return
   }
 
-  // Below pan threshold: stay on the original key (ignore jitter).
+  // Below pan threshold: keep the original pressed note (no glissando while unlocked).
 }
 
 function onStripPointerUp(e: PointerEvent): void {
   const st = pointers.get(e.pointerId)
   if (!st) return
   pointers.delete(e.pointerId)
-  clearLockTimer(st)
   try {
     ;(e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId)
   } catch {
@@ -185,7 +162,6 @@ onUnmounted(() => {
   ro?.disconnect()
   ro = null
   for (const st of pointers.values()) {
-    clearLockTimer(st)
     if (st.note) emit('note-off', st.note)
   }
   pointers.clear()
@@ -247,7 +223,7 @@ defineExpose({
 .piano-h-scroller.locked {
   overflow-x: hidden;
   cursor: default;
-  touch-action: manipulation;
+  touch-action: none;
 }
 .piano-h-scroller.locked:active {
   cursor: default;
