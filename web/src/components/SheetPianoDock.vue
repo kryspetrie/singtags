@@ -186,17 +186,18 @@ function syncPitchVoice(): void {
 
 const scrollPcOctave = ref(4)
 const focusNote = ref(props.centerNote || 'C4')
+/** Lowest–highest white keys currently in the dock viewport (e.g. `A2–C5`). */
+const visibleRangeHint = ref('')
 
 const pcKeyWindow = computed(() => pitchPipePcKeyWindowNotes(scrollPcOctave.value))
 const pcKeyMap = computed(() => pitchPipePcKeyNoteMap(pcKeyWindow.value))
 const pcKeyNoteSet = computed(() => new Set(pcKeyMap.value.values()))
 
-const pcHint = computed(() => {
-  if (!showPcKeyRange.value) return ''
-  const low = pcKeyMap.value.get('KeyS')
-  const high = pcKeyMap.value.get('KeyL')
-  if (!low || !high) return ''
-  return `${low}–${high}`
+const rangeHint = computed(() => {
+  const visible = visibleRangeHint.value
+  if (!visible) return ''
+  if (!pianoLockPosition.value) return `${visible} · drag to pan`
+  return visible
 })
 
 function isOutOfPcWindow(note: string): boolean {
@@ -239,16 +240,34 @@ function syncScrollPcOctave(): void {
   const scroller = pianoHScrollRef.value?.getScrollElement()
   if (!scroller) return
   const midX = scroller.scrollLeft + scroller.clientWidth / 2
+  const viewLeft = scroller.scrollLeft
+  const viewRight = viewLeft + scroller.clientWidth
   const whites = scroller.querySelectorAll<HTMLElement>('.piano-whites .note[data-note]')
   let bestNote: string | null = null
   let bestDist = Infinity
+  let firstVis: string | null = null
+  let lastVis: string | null = null
   for (const el of whites) {
-    const center = el.offsetLeft + el.offsetWidth / 2
+    const note = el.dataset.note ?? null
+    if (!note) continue
+    const elLeft = el.offsetLeft
+    const elRight = elLeft + el.offsetWidth
+    const center = elLeft + el.offsetWidth / 2
     const d = Math.abs(center - midX)
     if (d < bestDist) {
       bestDist = d
-      bestNote = el.dataset.note ?? null
+      bestNote = note
     }
+    // Count a key as on-screen once a sliver is visible.
+    if (elRight > viewLeft + 1 && elLeft < viewRight - 1) {
+      if (!firstVis) firstVis = note
+      lastVis = note
+    }
+  }
+  if (firstVis && lastVis) {
+    visibleRangeHint.value = firstVis === lastVis ? firstVis : `${firstVis}–${lastVis}`
+  } else {
+    visibleRangeHint.value = ''
   }
   if (!bestNote) return
   focusNote.value = bestNote
@@ -404,10 +423,7 @@ watch(
         {{ pianoLockPosition ? 'Locked' : 'Lock' }}
       </button>
       <div class="dock-title">
-        <span class="dock-label">Piano</span>
-        <span v-if="pcHint" class="dock-hint"
-          >{{ pcHint }}<template v-if="!pianoLockPosition"> · drag to pan</template></span
-        >
+        <span v-if="rangeHint" class="dock-hint">{{ rangeHint }}</span>
         <span v-if="sampleStatus" class="dock-err">{{ sampleStatus }}</span>
       </div>
       <button
@@ -601,14 +617,10 @@ watch(
   /* Leave the centered grip clear of label/hint text. */
   padding-right: 3.75rem;
 }
-.dock-label {
-  font-weight: 750;
-  font-size: 0.82rem;
-  color: #fff;
-}
 .dock-hint {
-  font-size: 0.72rem;
-  color: color-mix(in srgb, #fff 55%, transparent);
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: color-mix(in srgb, #fff 82%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
