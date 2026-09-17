@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_MATCH_CRITERIA,
+  DEFAULT_MATCH_SORT,
+  filterMatchedSongs,
+  matchCoverageLabel,
   matchRepertoires,
   songMatchScore,
   songsMatch,
   sortMatchedSongs,
+  type MatchedSong,
   type RosterPerson,
 } from './match'
 import {
@@ -20,6 +24,7 @@ function song(partial: Partial<RepertoireSong> & Pick<RepertoireSong, 'title'>):
   return {
     id: partial.id ?? `id-${partial.title}`,
     title: partial.title,
+    altTitles: partial.altTitles,
     arranger: partial.arranger ?? '',
     key: partial.key,
     voicing: partial.voicing,
@@ -30,7 +35,25 @@ function song(partial: Partial<RepertoireSong> & Pick<RepertoireSong, 'title'>):
 function person(id: string, songs: RepertoireSong[], name = id): RosterPerson {
   return {
     id,
-    profile: { displayName: name, songs, updatedAt: 1 },
+    profile: { displayName: name, songs, collections: [], updatedAt: 1 },
+  }
+}
+
+function stubMatch(partial: Partial<MatchedSong> & Pick<MatchedSong, 'matchKey' | 'title'>): MatchedSong {
+  return {
+    matchKey: partial.matchKey,
+    title: partial.title,
+    arranger: partial.arranger ?? '',
+    voicing: partial.voicing ?? 'TTBB',
+    coverable: partial.coverable ?? false,
+    partsCovered: partial.partsCovered ?? 0,
+    partsRequired: partial.partsRequired ?? 4,
+    coverage: partial.coverage ?? {},
+    singers: partial.singers ?? [],
+    groupConfidence: partial.groupConfidence ?? 0,
+    minPartConfidence: partial.minPartConfidence ?? 0,
+    peopleCount: partial.peopleCount ?? 2,
+    textMode: partial.textMode ?? 'exact',
   }
 }
 
@@ -76,6 +99,45 @@ describe('normalize / text modes', () => {
 
 describe('songMatchScore / criteria', () => {
   const base = DEFAULT_MATCH_CRITERIA
+
+  it('matches when peer uses an alternate title', () => {
+    expect(
+      songsMatch(
+        song({
+          title: 'From the First Hello to the Last Goodbye',
+          altTitles: ['First Hello'],
+        }),
+        song({ title: 'First Hello' }),
+        DEFAULT_MATCH_CRITERIA,
+        'exact',
+      ),
+    ).toBe(true)
+    expect(
+      songsMatch(
+        song({ title: 'Heart of My Heart' }),
+        song({
+          title: 'A Story of a Rose (Heart of My Heart)',
+          altTitles: ['Heart of My Heart'],
+        }),
+        DEFAULT_MATCH_CRITERIA,
+        'exact',
+      ),
+    ).toBe(true)
+  })
+
+  it('defaults to title-only criteria (optional fields off)', () => {
+    expect(DEFAULT_MATCH_CRITERIA.arranger).toBe(false)
+    expect(DEFAULT_MATCH_CRITERIA.voicing).toBe(false)
+    expect(DEFAULT_MATCH_CRITERIA.parts).toBe(false)
+    expect(
+      songsMatch(
+        song({ title: 'Hello', arranger: 'A', voicing: 'TTBB' }),
+        song({ title: 'Hello', arranger: 'B', voicing: 'SATB' }),
+        DEFAULT_MATCH_CRITERIA,
+        'exact',
+      ),
+    ).toBe(true)
+  })
 
   it('requires title always', () => {
     expect(
@@ -195,6 +257,8 @@ describe('matchRepertoires', () => {
     const matched = matchRepertoires([host, peer])
     expect(matched).toHaveLength(1)
     expect(matched[0]!.coverable).toBe(true)
+    expect(matched[0]!.partsCovered).toBe(4)
+    expect(matched[0]!.singers.map((s) => s.displayName).sort()).toEqual(['host', 'peer'])
     expect(matched[0]!.groupConfidence).toBeGreaterThan(0)
   })
 
@@ -206,6 +270,7 @@ describe('matchRepertoires', () => {
     const matched = matchRepertoires([a, b])
     expect(matched).toHaveLength(1)
     expect(matched[0]!.coverable).toBe(false)
+    expect(matched[0]!.partsCovered).toBe(2)
   })
 
   it('fuzzy matches The Charleston ≈ Charleston', () => {
@@ -215,7 +280,22 @@ describe('matchRepertoires', () => {
     expect(matchRepertoires([host, peer], { textMode: 'fuzzy' })).toHaveLength(1)
   })
 
-  it('uses host title as canonical display', () => {
+  it('matches repertoire rows via alternate titles', () => {
+    const host = person('h', [
+      song({
+        title: 'From the First Hello to the Last Goodbye',
+        altTitles: ['First Hello'],
+        arranger: 'A',
+      }),
+    ])
+    const peer = person('p', [song({ title: 'First Hello', arranger: 'B' })])
+    const matched = matchRepertoires([host, peer], { textMode: 'exact' })
+    expect(matched).toHaveLength(1)
+    expect(matched[0]!.title).toBe('From the First Hello to the Last Goodbye')
+    expect(matched[0]!.altTitles).toEqual(['First Hello'])
+  })
+
+  it('uses richest title as canonical display', () => {
     const host = person('h', [song({ title: 'Hello Mary Lou', arranger: 'C' })])
     const peer = person('p', [song({ title: 'Mary Lou', arranger: 'C' })])
     const matched = matchRepertoires([host, peer], {
@@ -225,12 +305,24 @@ describe('matchRepertoires', () => {
     expect(matched[0]!.title).toBe('Hello Mary Lou')
   })
 
-  it('requires every peer to match', () => {
-    const host = person('h', [song({ title: 'A', arranger: 'X' }), song({ title: 'B', arranger: 'Y' })])
-    const p1 = person('1', [song({ title: 'A', arranger: 'X' })])
-    const p2 = person('2', [song({ title: 'B', arranger: 'Y' })])
+  it('matches any singer combination (not every peer)', () => {
+    const host = person('h', [song({ title: 'A', arranger: 'X' }), song({ title: 'B', arranger: 'Y' })], 'Host')
+    const p1 = person('1', [song({ title: 'A', arranger: 'X' })], 'Alex')
+    const p2 = person('2', [song({ title: 'B', arranger: 'Y' })], 'Blair')
     const matched = matchRepertoires([host, p1, p2], { criteria: { voicing: false } })
-    expect(matched).toHaveLength(0)
+    expect(matched).toHaveLength(2)
+    const byTitle = Object.fromEntries(matched.map((m) => [m.title, m]))
+    expect(byTitle.A!.singers.map((s) => s.displayName).sort()).toEqual(['Alex', 'Host'])
+    expect(byTitle.B!.singers.map((s) => s.displayName).sort()).toEqual(['Blair', 'Host'])
+  })
+
+  it('includes songs known only by peers (host optional)', () => {
+    const host = person('h', [song({ title: 'OnlyMine' })], 'Host')
+    const p1 = person('1', [song({ title: 'PeerSong' })], 'Alex')
+    const p2 = person('2', [song({ title: 'PeerSong' })], 'Blair')
+    const matched = matchRepertoires([host, p1, p2], { criteria: { voicing: false } })
+    expect(matched.map((m) => m.title)).toEqual(['PeerSong'])
+    expect(matched[0]!.singers.map((s) => s.displayName).sort()).toEqual(['Alex', 'Blair'])
   })
 
   it('matches both host songs when all peers have both', () => {
@@ -245,36 +337,82 @@ describe('matchRepertoires', () => {
     expect(matchRepertoires([host, peer], { criteria: { voicing: false } })).toHaveLength(2)
   })
 
-  it('sorts coverable first', () => {
+  it('sorts by parts covered then people by default', () => {
+    expect(DEFAULT_MATCH_SORT).toBe('parts-people')
     const songs = sortMatchedSongs(
       [
-        {
+        stubMatch({
           matchKey: 'a',
           title: 'A',
-          arranger: '',
-          voicing: 'TTBB',
+          partsCovered: 2,
+          peopleCount: 4,
           coverable: false,
-          coverage: {},
-          groupConfidence: 5,
-          minPartConfidence: 0,
-          peopleCount: 2,
-          textMode: 'exact',
-        },
-        {
+        }),
+        stubMatch({
           matchKey: 'b',
           title: 'B',
-          arranger: '',
-          voicing: 'TTBB',
-          coverable: true,
-          coverage: {},
-          groupConfidence: 1,
-          minPartConfidence: 1,
+          partsCovered: 4,
           peopleCount: 2,
-          textMode: 'exact',
-        },
+          coverable: true,
+        }),
+        stubMatch({
+          matchKey: 'c',
+          title: 'C',
+          partsCovered: 3,
+          peopleCount: 3,
+          coverable: false,
+        }),
       ],
-      'coverable-confidence',
+      'parts-people',
     )
-    expect(songs[0]!.matchKey).toBe('b')
+    expect(songs.map((s) => s.matchKey)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('sorts by people then parts', () => {
+    const songs = sortMatchedSongs(
+      [
+        stubMatch({ matchKey: 'a', title: 'A', partsCovered: 4, peopleCount: 2 }),
+        stubMatch({ matchKey: 'b', title: 'B', partsCovered: 2, peopleCount: 4 }),
+      ],
+      'people-parts',
+    )
+    expect(songs.map((s) => s.matchKey)).toEqual(['b', 'a'])
+  })
+
+  it('filters by min parts covered without dropping the rest when 0', () => {
+    const songs = [
+      stubMatch({ matchKey: 'a', title: 'A', partsCovered: 1 }),
+      stubMatch({ matchKey: 'b', title: 'B', partsCovered: 3 }),
+      stubMatch({ matchKey: 'c', title: 'C', partsCovered: 4 }),
+    ]
+    expect(filterMatchedSongs(songs, 0)).toHaveLength(3)
+    expect(filterMatchedSongs(songs, 3).map((s) => s.matchKey)).toEqual(['b', 'c'])
+  })
+
+  it('labels coverage for complete and incomplete', () => {
+    expect(
+      matchCoverageLabel(
+        stubMatch({
+          matchKey: 'a',
+          title: 'A',
+          partsCovered: 4,
+          partsRequired: 4,
+          peopleCount: 2,
+          coverable: true,
+        }),
+      ),
+    ).toMatch(/4 parts covered/)
+    expect(
+      matchCoverageLabel(
+        stubMatch({
+          matchKey: 'b',
+          title: 'B',
+          partsCovered: 3,
+          partsRequired: 4,
+          peopleCount: 4,
+          coverable: false,
+        }),
+      ),
+    ).toBe('3 of 4 parts · 4 know')
   })
 })

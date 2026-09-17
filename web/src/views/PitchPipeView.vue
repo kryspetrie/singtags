@@ -67,6 +67,8 @@ const pianoHScrollRef = ref<{
 const sampleStatus = ref<string | null>(null)
 /** pointerId → note for multitouch on piano keys. */
 const pointerNotes = new Map<number, string>()
+/** Guards async noteOn completing after noteOff (touch pan / multitouch). */
+const wantSounding = new Set<string>()
 const heldPcCodes = new Set<string>()
 
 function syncSoundingFromPlayer(): void {
@@ -161,6 +163,7 @@ let player: PitchTonePlayer = createPitchTonePlayer(
 const rangeNotes = computed(() => pitchPipeNotes(pipeRange.value))
 
 function rebuildPlayer(): void {
+  wantSounding.clear()
   player.allNotesOff(false)
   pointerNotes.clear()
   heldPcCodes.clear()
@@ -381,6 +384,7 @@ onUnmounted(() => {
 function onWindowBlur(): void {
   heldPcCodes.clear()
   pointerNotes.clear()
+  wantSounding.clear()
   player.allNotesOff(true)
   syncSoundingFromPlayer()
 }
@@ -423,16 +427,21 @@ watch([activeEngine, isPianoLayout], () => {
 })
 
 async function noteOn(note: string): Promise<void> {
+  wantSounding.add(note)
   try {
     await player.noteOn(note, detune.value)
     sampleStatus.value = null
   } catch {
     sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
   }
+  if (!wantSounding.has(note)) {
+    player.noteOff(note, true)
+  }
   syncSoundingFromPlayer()
 }
 
 function noteOff(note: string): void {
+  wantSounding.delete(note)
   player.noteOff(note, true)
   syncSoundingFromPlayer()
 }
@@ -1194,9 +1203,27 @@ function blackLeftPct(after: string): number {
   outline-offset: 0;
   box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, var(--accent));
 }
+/* Global :focus-visible outline sits outside the key and lingered after release. */
+.piano .note:focus,
+.piano .note:focus-visible {
+  outline: none;
+}
+.piano .note:focus-visible:not(.active) {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, #fff);
+}
+.piano-whites .note.active {
+  /* Keep green under black keys — never promote whites above the black layer. */
+  z-index: 0;
+}
 .piano-blacks .note.active {
   box-shadow:
     inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent)),
+    0 2px 6px color-mix(in srgb, #000 22%, transparent);
+  z-index: 3;
+}
+.piano-blacks .note:focus-visible:not(.active) {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, #fff),
     0 2px 6px color-mix(in srgb, #000 22%, transparent);
 }
 
@@ -1216,6 +1243,8 @@ function blackLeftPct(after: string): number {
   flex-direction: column;
   border-radius: 14px;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
 }
 .piano-whites .note {
   min-height: 3.5rem;
@@ -1225,6 +1254,8 @@ function blackLeftPct(after: string): number {
   border-color: var(--border);
   justify-content: flex-start;
   padding-inline: 1rem;
+  position: relative;
+  z-index: 0;
 }
 .piano-whites .note:last-child {
   border-bottom: 0;
@@ -1233,6 +1264,7 @@ function blackLeftPct(after: string): number {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 2;
 }
 .piano-blacks .note {
   pointer-events: auto;

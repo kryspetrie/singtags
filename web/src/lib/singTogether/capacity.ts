@@ -1,6 +1,10 @@
 /**
  * QR byte-mode capacity (ISO/IEC 18004) for versions 1–40 at ECC L and M.
  * Used to pick the densest QR that still fits a Sing Together payload.
+ *
+ * These are usable *data* bytes in byte mode (mode indicator + character-count
+ * overhead already subtracted) — matching what `qrcode` accepts when `version`
+ * is locked. Do not use raw data-codeword counts here.
  */
 
 export type QrEcc = 'L' | 'M'
@@ -13,9 +17,9 @@ const BYTE_CAP_L: readonly number[] = [
 ]
 
 const BYTE_CAP_M: readonly number[] = [
-  0, 14, 26, 44, 64, 86, 108, 124, 154, 182, 216, 254, 290, 334, 365, 415, 453, 507, 563, 627,
-  669, 714, 782, 860, 914, 1000, 1062, 1128, 1193, 1267, 1373, 1455, 1541, 1631, 1725, 1812,
-  1914, 1992, 2102, 2216, 2331,
+  0, 14, 26, 42, 62, 84, 106, 122, 152, 180, 213, 251, 287, 331, 362, 412, 450, 504, 560, 624,
+  666, 711, 779, 857, 911, 997, 1059, 1125, 1190, 1264, 1370, 1452, 1538, 1628, 1722, 1809,
+  1911, 1989, 2099, 2213, 2331,
 ]
 
 export const QR_MAX_VERSION = 40

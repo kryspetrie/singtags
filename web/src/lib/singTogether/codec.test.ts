@@ -16,6 +16,7 @@ function sampleProfile(nSongs = 2): RepertoireProfile {
   return {
     displayName: 'Alex',
     updatedAt: 1,
+    collections: [],
     songs: Array.from({ length: nSongs }, (_, i) => ({
       id: `id-${i}`,
       title: `Song ${i}`,
@@ -69,6 +70,37 @@ describe('codec', () => {
     expect(dataUrl.startsWith('data:image/png')).toBe(true)
     expect(fit.version).toBeGreaterThanOrEqual(1)
   })
+
+  it('round-trips display names with spaces and special characters', () => {
+    const p: RepertoireProfile = {
+      displayName: 'José & Mary-Lou',
+      updatedAt: 1,
+      collections: [],
+      songs: [{ id: '1', title: 'Hello', arranger: '', parts: {} }],
+    }
+    const back = decodeProfileBytes(encodeProfileBytes(p))
+    expect(back.displayName).toBe('José & Mary-Lou')
+  })
+
+  it('round-trips alternate titles in STS1 body v2', () => {
+    const p: RepertoireProfile = {
+      displayName: 'Alex',
+      updatedAt: 1,
+      collections: [],
+      songs: [
+        {
+          id: '1',
+          title: 'From the First Hello to the Last Goodbye',
+          altTitles: ['First Hello'],
+          arranger: '',
+          parts: {},
+        },
+      ],
+    }
+    const back = decodeProfileBytes(encodeProfileBytes(p))
+    expect(back.songs[0]!.title).toBe('From the First Hello to the Last Goodbye')
+    expect(back.songs[0]!.altTitles).toEqual(['First Hello'])
+  })
 })
 
 describe('capacity table', () => {
@@ -82,6 +114,35 @@ describe('capacity table', () => {
     const fit = fitQrPayload(14)
     expect(fit?.ecc).toBe('M')
     expect(fit?.version).toBe(1)
+  })
+
+  it('uses byte-mode M capacities (not raw data codewords)', () => {
+    expect(byteCapacity(3, 'M')).toBe(42)
+    expect(byteCapacity(4, 'M')).toBe(62)
+    const fit = fitQrPayload(43)
+    expect(fit?.version).toBe(4)
+    expect(fit?.ecc).toBe('M')
+  })
+
+  it('encodeProfileQr accepts payloads at fitted M capacity', async () => {
+    // Build a profile whose compressed STS1 size sits near a former false M boundary.
+    const titles = Array.from({ length: 80 }, (_, i) => `Song Title Number ${i}`)
+    const profile = {
+      displayName: 'Mary Lou',
+      collections: [] as const,
+      songs: titles.map((title, i) => ({
+        id: `s${i}`,
+        title,
+        arranger: '',
+        parts: {},
+      })),
+      updatedAt: 1,
+    }
+    for (const name of ['', 'A', 'Alex', 'Mary Lou', 'José', 'A&B']) {
+      const { dataUrl, fit } = await encodeProfileQr({ ...profile, displayName: name }, 128)
+      expect(dataUrl.startsWith('data:image/')).toBe(true)
+      expect(fit.version).toBeGreaterThanOrEqual(1)
+    }
   })
 })
 
@@ -101,10 +162,12 @@ describe('csv', () => {
     expect(r.songs[1]!.parts.alto).toBe(2)
   })
 
-  it('skips rows without parts', () => {
+  it('imports title-only rows as stubs with empty parts', () => {
     const r = parseRepertoireCsv('title,arranger,voicing,parts\nOnlyTitle,A,TTBB,\n')
-    expect(r.songs).toHaveLength(0)
-    expect(r.skipped).toBe(1)
+    expect(r.songs).toHaveLength(1)
+    expect(r.skipped).toBe(0)
+    expect(r.songs[0]!.title).toBe('OnlyTitle')
+    expect(r.songs[0]!.parts).toEqual({})
   })
 
   it('allows blank voicing', () => {

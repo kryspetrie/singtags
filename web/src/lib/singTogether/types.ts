@@ -21,17 +21,92 @@ export type PartId =
 export interface RepertoireSong {
   id: string
   title: string
+  /** Optional short names / common nicknames used when matching. */
+  altTitles?: string[]
   arranger: string
   key?: string
   /** Omit / undefined = unspecified (wildcards when voicing criterion is on). */
   voicing?: Voicing
   /** partId → confidence; omit part = don't know it */
   parts: Record<string, Confidence>
+  /**
+   * When true, this row is a SingTags catalog tag (open/match tag pages).
+   * When false/omitted, treat as a My Library song.
+   */
+  isTag?: boolean
+  /**
+   * Device-local deep link to a SingTags catalog tag (not packed into QR).
+   * Mutually exclusive with `localEntryId` when set via the UI.
+   */
+  tagId?: number
+  /**
+   * Device-local deep link to a My Library entry (not packed into QR).
+   * Mutually exclusive with `tagId` when set via the UI.
+   * While the entry exists, title/arranger/key sync from My Library and are not editable here.
+   * If the entry is deleted, this is cleared (unlink) and fields become editable again.
+   */
+  localEntryId?: string
+}
+
+/** Normalize alternate titles: trim, drop empties/dupes (case-insensitive), cap count/length. */
+export function normalizeAltTitles(
+  raw: unknown,
+  opts?: { maxCount?: number; maxLen?: number },
+): string[] | undefined {
+  const maxCount = opts?.maxCount ?? 4
+  const maxLen = opts?.maxLen ?? 80
+  const list: string[] = []
+  if (typeof raw === 'string') {
+    list.push(...raw.split(/[;|]/).map((s) => s.trim()))
+  } else if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === 'string') list.push(...item.split(/[;|]/).map((s) => s.trim()))
+    }
+  }
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const t of list) {
+    if (!t) continue
+    const clipped = t.slice(0, maxLen)
+    const key = clipped.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(clipped)
+    if (out.length >= maxCount) break
+  }
+  return out.length ? out : undefined
+}
+
+/** Primary title plus alternate titles (trimmed, non-empty). */
+export function songTitleVariants(song: Pick<RepertoireSong, 'title' | 'altTitles'>): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const t of [song.title, ...(song.altTitles ?? [])]) {
+    const v = typeof t === 'string' ? t.trim() : ''
+    if (!v) continue
+    const key = v.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(v)
+  }
+  return out
+}
+
+export interface RepertoireCollection {
+  id: string
+  name: string
+  /** Song ids in display order within this collection. */
+  songIds: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface RepertoireProfile {
   displayName: string
+  /** All songs; array order is the custom “All” order. */
   songs: RepertoireSong[]
+  /** Device-local collections (not packed into QR). */
+  collections: RepertoireCollection[]
   updatedAt: number
 }
 
@@ -83,6 +158,13 @@ export function newSongId(): string {
   return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+export function newCollectionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export function emptyProfile(): RepertoireProfile {
-  return { displayName: '', songs: [], updatedAt: Date.now() }
+  return { displayName: '', songs: [], collections: [], updatedAt: Date.now() }
 }

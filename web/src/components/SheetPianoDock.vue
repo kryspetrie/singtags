@@ -102,7 +102,12 @@ function octaveLabel(octave: string): string {
   return showOctave.value ? octave : ''
 }
 
+/** Guards async noteOn completing after noteOff (touch pan / multitouch). */
+const wantSounding = new Set<string>()
+const heldPcCodes = new Set<string>()
+
 function rebuildPlayer(): void {
+  wantSounding.clear()
   player.allNotesOff(false)
   heldPcCodes.clear()
   const prev = player
@@ -118,16 +123,21 @@ function rebuildPlayer(): void {
 }
 
 async function noteOn(note: string): Promise<void> {
+  wantSounding.add(note)
   try {
     await player.noteOn(note, detune.value)
     sampleStatus.value = null
   } catch {
     sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
   }
+  if (!wantSounding.has(note)) {
+    player.noteOff(note, true)
+  }
   syncSounding()
 }
 
 function noteOff(note: string): void {
+  wantSounding.delete(note)
   player.noteOff(note, true)
   syncSounding()
 }
@@ -146,7 +156,6 @@ function syncPitchVoice(): void {
 
 const scrollPcOctave = ref(4)
 const focusNote = ref(props.centerNote || 'C4')
-const heldPcCodes = new Set<string>()
 
 const pcKeyWindow = computed(() => pitchPipePcKeyWindowNotes(scrollPcOctave.value))
 const pcKeyMap = computed(() => pitchPipePcKeyNoteMap(pcKeyWindow.value))
@@ -190,6 +199,7 @@ function onPcKeyUp(e: KeyboardEvent): void {
 
 function onWindowBlur(): void {
   heldPcCodes.clear()
+  wantSounding.clear()
   player.allNotesOff(true)
   syncSounding()
 }
@@ -502,6 +512,8 @@ watch(
   flex-direction: row;
   height: 100%;
   width: calc(var(--white-count) * var(--white-w));
+  position: relative;
+  z-index: 0;
 }
 .piano-whites .note {
   flex: 0 0 var(--white-w);
@@ -524,6 +536,8 @@ watch(
   text-align: center;
   color: #1a1a1a;
   background: color-mix(in srgb, #fff 92%, #ddd);
+  position: relative;
+  z-index: 0;
 }
 .piano-whites .note:last-child {
   border-right: 0;
@@ -532,6 +546,7 @@ watch(
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 2;
 }
 .piano-blacks .note {
   pointer-events: auto;
@@ -571,11 +586,32 @@ watch(
   line-height: 1.05;
 }
 .note.active {
-  outline: 2px solid var(--accent, #3b82f6);
-  outline-offset: -1px;
+  outline: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 40%, var(--accent, #3b82f6));
   background: var(--accent, #3b82f6) !important;
   color: var(--on-accent) !important;
   border-color: var(--accent, #3b82f6);
+}
+.piano-whites .note.active {
+  z-index: 0;
+}
+.piano-blacks .note.active {
+  z-index: 3;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent, #3b82f6)),
+    0 1px 3px rgb(0 0 0 / 35%);
+}
+.note:focus,
+.note:focus-visible {
+  outline: none;
+}
+.note:focus-visible:not(.active) {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff);
+}
+.piano-blacks .note:focus-visible:not(.active) {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent, #3b82f6) 70%, #fff),
+    0 1px 3px rgb(0 0 0 / 35%);
 }
 /* Opaque muted fills — opacity would show accent through overlapping black keys. */
 .piano-whites .note.out-of-range {

@@ -86,6 +86,10 @@ function onFile(ev: Event): void {
               <code>title</code> — required
             </li>
             <li>
+              <code>alt_titles</code> — optional nicknames / short names (semicolon-separated), also
+              <code>aka</code>
+            </li>
+            <li>
               <code>arranger</code> — optional; blank matches any arranger when hosting
             </li>
             <li>
@@ -96,14 +100,19 @@ function onFile(ev: Event): void {
               <code>TTBB</code>, <code>SSAA</code>, or <code>SATB</code>
             </li>
             <li>
-              <code>parts</code> — required; semicolon/comma list (e.g.
-              <code>tenor;lead;bari;bass</code>). You can also put confidence on each part here
-              (<code>tenor:5;lead:3</code>).
+              <code>parts</code> — optional; semicolon/comma list (e.g.
+              <code>tenor;lead;bari;bass</code>). Leave blank to import a title stub and fill parts
+              later. You can also put confidence on each part here (<code>tenor:5;lead:3</code>).
             </li>
             <li>
               <code>confidence</code> — preferred: per-part
               <code>tenor:5;lead:4;bari:3;bass:5</code> (1–5). A single number applies that rating
               to every part in <code>parts</code>.
+            </li>
+            <li>
+              <code>tag</code> — optional; mark catalog tag vs My Library song. Affirmative:
+              <code>X</code>, <code>true</code>, or <code>yes</code> (any case). Also
+              <code>is_tag</code>.
             </li>
           </ul>
           <p class="hint">

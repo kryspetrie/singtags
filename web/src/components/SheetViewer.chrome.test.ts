@@ -239,6 +239,29 @@ describe('SheetViewer sing chrome', () => {
     w.unmount()
   })
 
+  it('enters fullscreen when the inline sheet stage is clicked', async () => {
+    const w = mount(SheetViewer, {
+      props: {
+        pages: ['sheets/1/p1.webp'],
+        baseUrl: '/library/',
+        payKeyEnabled: true,
+        singControls: true,
+      },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 40))
+    await flushPromises()
+    expect(w.find('.sheet.fullscreen').exists()).toBe(false)
+    const stage = w.get('.stage.is-clickable')
+    expect(stage.attributes('aria-label')).toBe('Open sheet fullscreen')
+    await stage.trigger('click')
+    await flushPromises()
+    expect(w.emitted('fullscreen-change')?.at(-1)).toEqual([true])
+    expect(w.find('.sheet.fullscreen').exists()).toBe(true)
+    w.unmount()
+  })
+
   it('acquires sheet wake lock on fullscreen enter and releases on exit', async () => {
     const w = await mountFs({ exitOriginLabel: 'tag page' })
     expect(wakeLockHoldersForTests()).toContain('sheet')

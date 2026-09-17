@@ -8,6 +8,7 @@ import {
   clampConfidence,
   emptyProfile,
   newSongId,
+  normalizeAltTitles,
   partsForVoicing,
   type Confidence,
   type RepertoireProfile,
@@ -56,10 +57,10 @@ function readLenString(buf: Uint8Array, i: number): { s: string; next: number } 
   return { s: td.decode(buf.subarray(start, end)), next: end }
 }
 
-/** Pack profile body (before deflate). */
+/** Pack profile body (before deflate). Body format 2 adds optional alt titles. */
 export function packProfileBody(profile: RepertoireProfile): Uint8Array {
   const out: number[] = []
-  out.push(1) // format version inside body
+  out.push(2) // format version inside body
   pushLenString(out, profile.displayName.trim().slice(0, 64))
   const songs = profile.songs.slice(0, 500)
   writeU16(out, songs.length)
@@ -67,6 +68,9 @@ export function packProfileBody(profile: RepertoireProfile): Uint8Array {
     const voicing = song.voicing
     out.push(voicingByte(voicing))
     pushLenString(out, song.title.trim(), 120)
+    const alts = normalizeAltTitles(song.altTitles) ?? []
+    out.push(alts.length & 0xff)
+    for (const alt of alts) pushLenString(out, alt, 80)
     pushLenString(out, song.arranger.trim(), 80)
     pushLenString(out, (song.key ?? '').trim(), 32)
     const allowed = partsForVoicing(voicing)
@@ -89,7 +93,7 @@ export function unpackProfileBody(body: Uint8Array): RepertoireProfile {
   let i = 0
   if (body.length < 4) throw new Error('STS1 body too short')
   const fmt = body[i++]!
-  if (fmt !== 1) throw new Error(`Unsupported STS1 body version ${fmt}`)
+  if (fmt !== 1 && fmt !== 2) throw new Error(`Unsupported STS1 body version ${fmt}`)
   const name = readLenString(body, i)
   i = name.next
   const count = readU16(body, i)
@@ -100,6 +104,18 @@ export function unpackProfileBody(body: Uint8Array): RepertoireProfile {
     const voicing = voicingFromByte(body[i++]!)
     const title = readLenString(body, i)
     i = title.next
+    let altTitles: string[] | undefined
+    if (fmt >= 2) {
+      if (i >= body.length) throw new Error('STS1 truncated alt titles')
+      const altCount = body[i++]!
+      const alts: string[] = []
+      for (let a = 0; a < altCount; a++) {
+        const alt = readLenString(body, i)
+        i = alt.next
+        if (alt.s.trim()) alts.push(alt.s.trim())
+      }
+      altTitles = normalizeAltTitles(alts)
+    }
     const arranger = readLenString(body, i)
     i = arranger.next
     const key = readLenString(body, i)
@@ -116,6 +132,7 @@ export function unpackProfileBody(body: Uint8Array): RepertoireProfile {
     songs.push({
       id: newSongId(),
       title: title.s,
+      altTitles,
       arranger: arranger.s,
       key: key.s || undefined,
       voicing,
@@ -125,6 +142,7 @@ export function unpackProfileBody(body: Uint8Array): RepertoireProfile {
   return {
     displayName: name.s,
     songs,
+    collections: [],
     updatedAt: Date.now(),
   }
 }
@@ -204,13 +222,23 @@ export async function encodeProfileQr(
       `Repertoire is too large for one QR (${bytes.length} B; max ${QR_MAX_BYTES} B). Remove songs to continue.`,
     )
   }
-  const dataUrl = await QRCode.toDataURL([{ data: bytes, mode: 'byte' }], {
-    width: size,
-    margin: 1,
-    errorCorrectionLevel: fit.ecc,
-    version: fit.version,
-  })
-  return { bytes, fit, dataUrl }
+  try {
+    const dataUrl = await QRCode.toDataURL([{ data: bytes, mode: 'byte' }], {
+      width: size,
+      margin: 1,
+      errorCorrectionLevel: fit.ecc,
+      version: fit.version,
+    })
+    return { bytes, fit, dataUrl }
+  } catch {
+    // Safety net if capacity tables and the renderer disagree — let qrcode pick version.
+    const dataUrl = await QRCode.toDataURL([{ data: bytes, mode: 'byte' }], {
+      width: size,
+      margin: 1,
+      errorCorrectionLevel: fit.ecc,
+    })
+    return { bytes, fit, dataUrl }
+  }
 }
 
 export function capacityInfo(profile: RepertoireProfile): {

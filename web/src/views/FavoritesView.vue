@@ -639,8 +639,12 @@ async function confirmImport(): Promise<void> {
       </div>
     </div>
 
-    <div class="collection-bar" role="toolbar" aria-label="Favorite collections">
-      <button
+    <div
+      v-if="collectionChips.length"
+      class="collection-bar"
+      role="toolbar"
+      aria-label="Favorite collections"
+    >      <button
         type="button"
         class="chip"
         :class="{ on: !activeCollectionId }"
