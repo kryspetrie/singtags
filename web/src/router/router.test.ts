@@ -49,6 +49,13 @@ describe('router', () => {
     expect(prefs.singTogetherEnabled).toBe(true)
   })
 
+  it('redirects /queue to Settings when Downloads & Exports is hidden', async () => {
+    const prefs = usePreferencesStore()
+    prefs.setPrimaryNavHidden('queue', true)
+    await router.push('/queue')
+    expect(router.currentRoute.value.name).toBe('settings')
+  })
+
   it('redirects unknown paths to Browse', async () => {
     await router.push('/this-route-does-not-exist')
     expect(router.currentRoute.value.name).toBe('home')

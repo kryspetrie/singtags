@@ -1,16 +1,24 @@
 <script setup lang="ts">
 /**
  * Secondary app menu: settings, downloads, sing mode toggle.
+ * Destination links not pinned to the primary chrome appear here.
  */
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
 import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 import { usePwaInstall } from '../composables/usePwaInstall'
+import {
+  PRIMARY_NAV_ITEMS,
+  morePrimaryNavIds,
+  resolvePrimaryNavPinCount,
+  type PrimaryNavGates,
+} from '../lib/primaryNav'
+import { primaryNavFitCapacity } from '../lib/primaryNavFit'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
 import { useQueueStore } from '../stores/queue'
 import { useSnackbarStore } from '../stores/snackbar'
-import { ref } from 'vue'
 
 defineProps<{
   open: boolean
@@ -26,6 +34,30 @@ const queue = useQueueStore()
 const snackbar = useSnackbarStore()
 const { showInstallEntry, canPrompt, promptInstall } = usePwaInstall()
 const howToOpen = ref(false)
+
+const primaryNavGates = computed(
+  (): PrimaryNavGates => ({
+    localLibraryEnabled: prefs.localLibraryEnabled,
+    audioRecorderEnabled: prefs.audioRecorderEnabled,
+    singTogetherEnabled: prefs.singTogetherEnabled,
+    opticalTransferEnabled: prefs.opticalTransferEnabled,
+    webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    osShareTransferEnabled: prefs.osShareTransferEnabled,
+  }),
+)
+
+const moreNavItems = computed(() => {
+  const pinCount = resolvePrimaryNavPinCount(
+    prefs.preferredPrimaryNavPinCount,
+    primaryNavFitCapacity.value,
+  )
+  return morePrimaryNavIds(
+    prefs.primaryNavOrder,
+    primaryNavGates.value,
+    prefs.primaryNavHidden,
+    pinCount,
+  ).map((id) => PRIMARY_NAV_ITEMS[id])
+})
 
 function close(): void {
   emit('close')
@@ -134,84 +166,24 @@ function toggleOfflineMode(): void {
         />
       </label>
 
-      <RouterLink class="menu-item" to="/settings" @click="onNavClick">
-        <span class="menu-label">Settings</span>
-        <span class="menu-desc">Theme, scale, cache, and offline</span>
-      </RouterLink>
-
       <RouterLink
-        v-if="prefs.localLibraryEnabled"
+        v-for="item in moreNavItems"
+        :key="item.id"
         class="menu-item"
-        to="/library"
+        :class="{ 'menu-item-downloads': item.id === 'queue' }"
+        :to="item.path"
         @click="onNavClick"
       >
-        <span class="menu-label">My Library</span>
-        <span class="menu-desc">Charts, images, and tracks on this device, with pitch and transfer</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="prefs.audioRecorderEnabled"
-        class="menu-item"
-        to="/recorder"
-        @click="onNavClick"
-      >
-        <span class="menu-label">Audio Recorder</span>
-        <span class="menu-desc">Multi-take practice sessions on this device</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="prefs.singTogetherEnabled"
-        class="menu-item"
-        to="/matcher"
-        @click="onNavClick"
-      >
-        <span class="menu-label">Sing Together</span>
-        <span class="menu-desc">Share repertoire via QR — what can we all sing?</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="prefs.opticalTransferEnabled"
-        class="menu-item"
-        to="/tx"
-        @click="onNavClick"
-      >
-        <span class="menu-label">Optical transfer</span>
-        <span class="menu-desc">Send or receive files via animated QR codes</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="prefs.webrtcTransferEnabled"
-        class="menu-item"
-        to="/wireless"
-        @click="onNavClick"
-      >
-        <span class="menu-label">Wireless transfer</span>
-        <span class="menu-desc">Labs — same Wi‑Fi / hotspot file link (QR pairing)</span>
-      </RouterLink>
-
-      <RouterLink
-        v-if="prefs.osShareTransferEnabled"
-        class="menu-item"
-        to="/share"
-        @click="onNavClick"
-      >
-        <span class="menu-label">OS Share</span>
-        <span class="menu-desc">Labs — Quick Share / AirDrop via the system share sheet</span>
-      </RouterLink>
-
-      <RouterLink class="menu-item" to="/labs" @click="onNavClick">
-        <span class="menu-label">SingTags Labs</span>
-        <span class="menu-desc">Experimental features and feature flags</span>
-      </RouterLink>
-
-      <RouterLink class="menu-item menu-item-downloads" to="/queue" @click="onNavClick">
         <span class="menu-row">
-          <span class="menu-label">Downloads &amp; Exports</span>
-          <span v-if="queue.count" class="badge" :aria-label="`${queue.count} in queue`">{{
-            queue.count
-          }}</span>
+          <span class="menu-label">{{ item.label }}</span>
+          <span
+            v-if="item.id === 'queue' && queue.count"
+            class="badge"
+            :aria-label="`${queue.count} in queue`"
+            >{{ queue.count }}</span
+          >
         </span>
-        <span class="menu-desc">Download queue for sheets and learning tracks</span>
+        <span class="menu-desc">{{ item.desc }}</span>
       </RouterLink>
 
       <button
@@ -237,7 +209,7 @@ function toggleOfflineMode(): void {
   display: grid;
   gap: 0.45rem;
 }
-/* Mobile: links first, toggles + scale at bottom, Install App last. */
+/* Mobile: links first, toggles at bottom, Install App last. */
 .menu-item {
   order: 1;
   display: grid;
@@ -252,6 +224,7 @@ function toggleOfflineMode(): void {
   font: inherit;
   text-align: left;
   width: 100%;
+  box-sizing: border-box;
 }
 .menu-item-install {
   order: 5;
@@ -278,10 +251,6 @@ function toggleOfflineMode(): void {
 }
 .setting-offline {
   order: 3;
-}
-.setting-scale {
-  order: 4;
-  cursor: default;
 }
 .menu-item:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));

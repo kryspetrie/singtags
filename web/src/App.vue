@@ -3,7 +3,7 @@
  * Root shell: primary navigation, offline ribbon, PWA install/update toasts,
  * global snackbar, and routed main content.
  */
-import { onMounted, onUnmounted, computed, ref, watch } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch, nextTick } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useFavoritesStore } from './stores/favorites'
@@ -33,6 +33,18 @@ import {
   armDeferredPwaUpdate,
   restoreScrollAfterPwaReload,
 } from './lib/deferredPwaUpdate'
+import {
+  PRIMARY_NAV_ITEMS,
+  availablePrimaryNavOrder,
+  fitNavPinsToWidth,
+  maxBottomNavPins,
+  pinnedPrimaryNavIds,
+  primaryNavIdForRouteName,
+  resolvePrimaryNavPinCount,
+  type PrimaryNavGates,
+  type PrimaryNavId,
+} from './lib/primaryNav'
+import { setPrimaryNavFitCapacity } from './lib/primaryNavFit'
 import AboutDialog from './components/AboutDialog.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
@@ -76,31 +88,180 @@ const backLabel = computed(() => tagBackLabel(route))
 const aboutOpen = ref(false)
 const moreOpen = ref(false)
 
+const primaryNavGates = computed(
+  (): PrimaryNavGates => ({
+    localLibraryEnabled: prefs.localLibraryEnabled,
+    audioRecorderEnabled: prefs.audioRecorderEnabled,
+    singTogetherEnabled: prefs.singTogetherEnabled,
+    opticalTransferEnabled: prefs.opticalTransferEnabled,
+    webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    osShareTransferEnabled: prefs.osShareTransferEnabled,
+  }),
+)
+
+/** Preferred pins, clamped by what currently fits on the chrome. */
+const navFitCapacity = ref(prefs.preferredPrimaryNavPinCount)
+
+const effectivePinCount = computed(() =>
+  resolvePrimaryNavPinCount(prefs.preferredPrimaryNavPinCount, navFitCapacity.value),
+)
+
+const pinnedNavIds = computed(() =>
+  pinnedPrimaryNavIds(
+    prefs.primaryNavOrder,
+    primaryNavGates.value,
+    prefs.primaryNavHidden,
+    effectivePinCount.value,
+  ),
+)
+
+const pinnedNavItems = computed(() => pinnedNavIds.value.map((id) => PRIMARY_NAV_ITEMS[id]))
+
+/** Preferred pins (pre-fit) — used when estimating desktop capacity. */
+const preferredPinItems = computed(() => {
+  const preferred = prefs.preferredPrimaryNavPinCount
+  return availablePrimaryNavOrder(
+    prefs.primaryNavOrder,
+    primaryNavGates.value,
+    prefs.primaryNavHidden,
+  )
+    .slice(0, preferred)
+    .map((id) => PRIMARY_NAV_ITEMS[id])
+})
+
+const topnavRef = ref<HTMLElement | null>(null)
+const topnavMeasureRef = ref<HTMLElement | null>(null)
+const bottomNavRef = ref<HTMLElement | null>(null)
+let navFitMeasuring = false
+let navFitPending = false
+let navFitRaf = 0
+
+function doubleRaf(): Promise<void> {
+  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+}
+
+/** True when pin buttons + More need more px than the topnav flex slot provides. */
+function topnavOverflows(nav: HTMLElement): boolean {
+  const kids = [...nav.children] as HTMLElement[]
+  if (!kids.length) return false
+  const gap = parseFloat(getComputedStyle(nav).columnGap || getComputedStyle(nav).gap) || 0
+  let total = 0
+  for (let i = 0; i < kids.length; i++) {
+    if (i > 0) total += gap
+    total += kids[i]!.getBoundingClientRect().width
+  }
+  return total > nav.clientWidth + 1
+}
+
+/**
+ * Fit preferred pin buttons + More into the visible topnav width using the
+ * off-screen measure row (drop from the right).
+ */
+function fitDesktopPinsFromMeasure(avail: number): number {
+  const measure = topnavMeasureRef.value
+  if (!measure || avail <= 0) return 1
+  const kids = [...measure.children] as HTMLElement[]
+  if (kids.length < 2) return 1
+  const gap =
+    parseFloat(getComputedStyle(measure).columnGap || getComputedStyle(measure).gap) || 6.4
+  const moreW = kids[kids.length - 1]!.getBoundingClientRect().width
+  const pinWidths = kids.slice(0, -1).map((el) => el.getBoundingClientRect().width)
+  // If the probe failed to lay out, fall back to "unknown" so live measure can decide.
+  if (!(moreW > 0) || pinWidths.every((w) => !(w > 0))) return -1
+  return fitNavPinsToWidth(pinWidths, moreW, gap, avail)
+}
+
+/** Drop pins from the right until the visible topnav no longer overflows. */
+async function shrinkDesktopPinsUntilFits(): Promise<void> {
+  const nav = topnavRef.value
+  if (!nav) return
+  while (navFitCapacity.value > 1) {
+    await nextTick()
+    await doubleRaf()
+    if (!topnavOverflows(nav)) break
+    navFitCapacity.value -= 1
+  }
+}
+
+/** Raise pin count toward preferred while there is still spare width. */
+async function growDesktopPinsWhileFits(preferred: number): Promise<void> {
+  const nav = topnavRef.value
+  if (!nav) return
+  while (navFitCapacity.value < preferred) {
+    navFitCapacity.value += 1
+    await nextTick()
+    await doubleRaf()
+    if (topnavOverflows(nav)) {
+      navFitCapacity.value -= 1
+      await nextTick()
+      break
+    }
+  }
+}
+
+async function remeasurePrimaryNavFit(): Promise<void> {
+  if (navFitMeasuring) {
+    navFitPending = true
+    return
+  }
+  navFitMeasuring = true
+  try {
+    const preferred = prefs.preferredPrimaryNavPinCount
+    if (!desktopNav.value) {
+      const el = bottomNavRef.value
+      const width = el?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 0)
+      const fit = maxBottomNavPins(width)
+      navFitCapacity.value = Math.min(preferred, fit)
+      setPrimaryNavFitCapacity(navFitCapacity.value)
+      return
+    }
+
+    await nextTick()
+    await doubleRaf()
+    const avail = topnavRef.value?.clientWidth ?? 0
+    const measured = fitDesktopPinsFromMeasure(avail)
+    if (measured > 0) {
+      navFitCapacity.value = Math.min(preferred, measured)
+    }
+    // Always verify against the live topnav (and recover if the probe failed).
+    await shrinkDesktopPinsUntilFits()
+    await growDesktopPinsWhileFits(preferred)
+    setPrimaryNavFitCapacity(navFitCapacity.value)
+  } finally {
+    navFitMeasuring = false
+    if (navFitPending) {
+      navFitPending = false
+      schedulePrimaryNavFitMeasure()
+    }
+  }
+}
+
+function schedulePrimaryNavFitMeasure(): void {
+  if (typeof window === 'undefined') return
+  if (navFitRaf) cancelAnimationFrame(navFitRaf)
+  navFitRaf = requestAnimationFrame(() => {
+    navFitRaf = 0
+    void remeasurePrimaryNavFit()
+  })
+}
+
 const DESKTOP_NAV_MQ = '(min-width: 768px)'
 const desktopNav = ref(
   typeof window !== 'undefined' && window.matchMedia(DESKTOP_NAV_MQ).matches,
 )
 let desktopNavMq: MediaQueryList | null = null
+let navFitResizeObserver: ResizeObserver | null = null
 
 function onDesktopNavMq(ev: MediaQueryListEvent): void {
   desktopNav.value = ev.matches
+  schedulePrimaryNavFitMeasure()
 }
 
-const moreNavActive = computed(
-  () =>
-    route.name === 'settings' ||
-    route.name === 'tx' ||
-    route.name === 'rx' ||
-    route.name === 'labs' ||
-    route.name === 'labs-pitch-pipe-sound' ||
-    route.name === 'matcher' ||
-    route.name === 'library' ||
-    route.name === 'library-doc' ||
-    route.name === 'queue' ||
-    route.name === 'recorder' ||
-    route.name === 'recorder-session' ||
-    route.name === 'recorder-take-edit',
-)
+const moreNavActive = computed(() => {
+  const id = primaryNavIdForRouteName(route.name)
+  if (!id) return false
+  return !pinnedNavIds.value.includes(id)
+})
 
 function openMore(): void {
   moreOpen.value = true
@@ -108,6 +269,15 @@ function openMore(): void {
 
 function closeMore(): void {
   moreOpen.value = false
+}
+
+function isPinnedNavActive(id: PrimaryNavId): boolean {
+  if (id === 'browse') return route.name === 'home' || route.name === 'tag'
+  return primaryNavIdForRouteName(route.name) === id
+}
+
+function onPinnedNavClick(id: PrimaryNavId, e: Event): void {
+  if (id === 'browse') onBrowseNavClick(e)
 }
 
 /** Return to Browse/Favorites/… (not a previous tag from Prev/Next). */
@@ -159,25 +329,61 @@ onMounted(() => {
   restoreScrollAfterPwaReload()
   document.addEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   publishHeaderHeight()
-  if (typeof ResizeObserver !== 'undefined' && topEl.value) {
-    headerResizeObserver = new ResizeObserver(() => publishHeaderHeight())
-    headerResizeObserver.observe(topEl.value)
+  if (typeof ResizeObserver !== 'undefined') {
+    if (topEl.value) {
+      headerResizeObserver = new ResizeObserver(() => {
+        publishHeaderHeight()
+        schedulePrimaryNavFitMeasure()
+      })
+      headerResizeObserver.observe(topEl.value)
+    }
+    navFitResizeObserver = new ResizeObserver(() => schedulePrimaryNavFitMeasure())
+    if (bottomNavRef.value) navFitResizeObserver.observe(bottomNavRef.value)
+    if (topnavRef.value) navFitResizeObserver.observe(topnavRef.value)
   }
   if (typeof window.matchMedia === 'function') {
     desktopNavMq = window.matchMedia(DESKTOP_NAV_MQ)
     desktopNav.value = desktopNavMq.matches
     desktopNavMq.addEventListener('change', onDesktopNavMq)
   }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', schedulePrimaryNavFitMeasure)
+  }
+  schedulePrimaryNavFitMeasure()
 })
 
 onUnmounted(() => {
   stopPwaInstallListeners()
   document.removeEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
+  window.removeEventListener('resize', schedulePrimaryNavFitMeasure)
   headerResizeObserver?.disconnect()
   headerResizeObserver = null
+  navFitResizeObserver?.disconnect()
+  navFitResizeObserver = null
+  if (navFitRaf) cancelAnimationFrame(navFitRaf)
+  navFitRaf = 0
   desktopNavMq?.removeEventListener('change', onDesktopNavMq)
   desktopNavMq = null
 })
+
+watch(
+  () => [
+    prefs.preferredPrimaryNavPinCount,
+    prefs.primaryNavOrder.join(','),
+    prefs.primaryNavHidden.join(','),
+    primaryNavGates.value.localLibraryEnabled,
+    primaryNavGates.value.audioRecorderEnabled,
+    primaryNavGates.value.singTogetherEnabled,
+    primaryNavGates.value.opticalTransferEnabled,
+    primaryNavGates.value.webrtcTransferEnabled,
+    primaryNavGates.value.osShareTransferEnabled,
+    offlineMode.manualOffline,
+    queue.count,
+  ],
+  () => schedulePrimaryNavFitMeasure(),
+)
+
+const bottomNavCols = computed(() => pinnedNavItems.value.length + 1)
 
 /** User hid the pack download progress snack; download keeps running. */
 const packProgressSnackHidden = ref(false)
@@ -305,9 +511,8 @@ async function acceptReconnectPrompt(): Promise<void> {
           i
         </button>
       </div>
-      <div class="top-mid">
+      <div v-if="offlineMode.manualOffline" class="top-mid">
         <div
-          v-if="offlineMode.manualOffline"
           class="offline-ribbon"
           role="status"
         >
@@ -335,16 +540,15 @@ async function acceptReconnectPrompt(): Promise<void> {
           </button>
         </div>
       </div>
-      <nav class="topnav" aria-label="Primary">
+      <nav ref="topnavRef" class="topnav" aria-label="Primary">
         <RouterLink
+          v-for="item in pinnedNavItems"
+          :key="item.id"
           class="btn btn-ghost"
-          to="/"
-          @click="onBrowseNavClick"
-        >Browse</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/recent">Recent</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/favorites">Favorites</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/pitch-pipe">Pitch Pipe</RouterLink>
-        <RouterLink class="btn btn-ghost" to="/roulette">Roulette</RouterLink>
+          :class="{ 'router-link-active': isPinnedNavActive(item.id) }"
+          :to="item.path"
+          @click="onPinnedNavClick(item.id, $event)"
+        >{{ item.label }}</RouterLink>
         <button
           type="button"
           class="btn btn-ghost more-btn"
@@ -356,10 +560,26 @@ async function acceptReconnectPrompt(): Promise<void> {
           @click="openMore"
         >
           <span class="more-icon" aria-hidden="true">☰</span>
-          <span v-if="queue.count" class="n">{{ queue.count }}</span>
+          <span v-if="prefs.zipExportsEnabled && queue.count" class="n">{{ queue.count }}</span>
         </button>
       </nav>
     </header>
+    <!-- Off-screen: full preferred pin set + More for width-budget fitting (outside clipped header). -->
+    <nav
+      ref="topnavMeasureRef"
+      class="topnav-measure"
+      aria-hidden="true"
+    >
+      <span
+        v-for="item in preferredPinItems"
+        :key="`m-${item.id}`"
+        class="btn btn-ghost"
+      >{{ item.label }}</span>
+      <span class="btn btn-ghost more-btn">
+        <span class="more-icon" aria-hidden="true">☰</span>
+        <span v-if="prefs.zipExportsEnabled && queue.count" class="n">{{ queue.count }}</span>
+      </span>
+    </nav>
     <div v-if="!offlineMode.manualOffline && offlineBannerMessage" class="offline-banner" role="status">
       <div class="offline-banner-copy">
         <span>{{ offlineBannerMessage }}</span>
@@ -391,28 +611,28 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterView />
     </main>
     <nav
-      class="bottom bottom-with-roulette"
+      ref="bottomNavRef"
+      class="bottom"
+      :class="{ 'bottom-compact': pinnedNavItems.length >= 5 }"
+      :style="{ '--bottom-nav-cols': bottomNavCols }"
       aria-label="Mobile"
     >
-      <RouterLink to="/" class="tab" @click="onBrowseNavClick">
-        <span class="ico" aria-hidden="true">⌕</span>
-        Browse
-      </RouterLink>
-      <RouterLink to="/recent" class="tab">
-        <span class="ico" aria-hidden="true">◷</span>
-        Recent
-      </RouterLink>
-      <RouterLink to="/favorites" class="tab">
-        <font-awesome-icon :icon="['fas', 'heart']" class="ico" aria-hidden="true" />
-        Favorites
-      </RouterLink>
-      <RouterLink to="/pitch-pipe" class="tab">
-        <span class="ico" aria-hidden="true">♪</span>
-        Pitch Pipe
-      </RouterLink>
-      <RouterLink to="/roulette" class="tab">
-        <span class="ico" aria-hidden="true">◎</span>
-        Roulette
+      <RouterLink
+        v-for="item in pinnedNavItems"
+        :key="item.id"
+        :to="item.path"
+        class="tab"
+        :class="{ 'router-link-active': isPinnedNavActive(item.id) }"
+        @click="onPinnedNavClick(item.id, $event)"
+      >
+        <font-awesome-icon
+          v-if="item.faIcon"
+          :icon="item.faIcon"
+          class="ico"
+          aria-hidden="true"
+        />
+        <span v-else class="ico" aria-hidden="true">{{ item.icon }}</span>
+        {{ item.shortLabel }}
       </RouterLink>
       <button
         type="button"
@@ -425,7 +645,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       >
         <span class="ico" aria-hidden="true">☰</span>
         More
-        <span v-if="queue.count" class="n tab-n">{{ queue.count }}</span>
+        <span v-if="prefs.zipExportsEnabled && queue.count" class="n tab-n">{{ queue.count }}</span>
       </button>
     </nav>
     <div
@@ -659,7 +879,7 @@ async function acceptReconnectPrompt(): Promise<void> {
 .top {
   display: flex;
   flex-wrap: nowrap;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   padding: calc(0.65rem + env(safe-area-inset-top)) 0.75rem 0.65rem;
@@ -669,6 +889,7 @@ async function acceptReconnectPrompt(): Promise<void> {
   top: 0;
   z-index: 10;
   min-width: 0;
+  overflow: hidden;
 }
 .top-mid {
   flex: 1 1 auto;
@@ -887,17 +1108,44 @@ async function acceptReconnectPrompt(): Promise<void> {
 }
 .topnav {
   display: none;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   align-self: center;
   gap: 0.4rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
-.topnav .btn {
+/* Off-screen probe: same button metrics as .topnav, never clipped by header overflow. */
+.topnav-measure {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  overflow: visible;
+  pointer-events: none;
+  visibility: hidden;
+  z-index: -1;
+}
+.topnav .btn,
+.topnav-measure .btn {
   min-height: 40px;
   padding: 0.35rem 0.7rem;
   font-size: 0.9rem;
   font-weight: 600;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .topnav .btn.router-link-active {
   border-color: var(--accent);
@@ -955,17 +1203,14 @@ main {
   bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(var(--bottom-nav-cols, 6), minmax(0, 1fr));
   gap: 0;
   padding: 0.25rem 0.35rem calc(0.25rem + env(safe-area-inset-bottom));
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(10px);
 }
-.bottom-with-roulette {
-  grid-template-columns: repeat(6, 1fr);
-}
-.bottom-with-roulette .tab {
+.bottom-compact .tab {
   font-size: 0.62rem;
 }
 .tab {
@@ -976,6 +1221,7 @@ main {
   justify-content: center;
   gap: 0.1rem;
   min-height: 52px;
+  min-width: 0;
   color: var(--muted);
   text-decoration: none;
   font-size: 0.68rem;
@@ -1303,8 +1549,16 @@ main {
   .app {
     padding-bottom: 0;
   }
+  .top {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
   .topnav {
     display: flex;
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
   }
   .top-back {
     display: none !important;

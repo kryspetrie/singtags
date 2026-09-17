@@ -360,7 +360,7 @@ async function downloadSelectedZip(): Promise<void> {
 
       <p v-if="downloadBlockedReason" class="muted tip">{{ downloadBlockedReason }}</p>
 
-      <p v-if="offline" class="muted offline-hint" role="status">
+      <p v-if="offline && prefs.zipExportsEnabled" class="muted offline-hint" role="status">
         Offline — use Queue selected / Queue all; zip export runs when you’re back online.
       </p>
 
@@ -371,7 +371,11 @@ async function downloadSelectedZip(): Promise<void> {
           :disabled="!!busyMode || !selectedCount || directDownloadDisabled"
           :title="
             downloadBlockedReason ||
-              (offline ? 'Connect to download files — use Queue while offline' : undefined)
+              (offline
+                ? prefs.zipExportsEnabled
+                  ? 'Connect to download files — use Queue while offline'
+                  : 'Connect to download files'
+                : undefined)
           "
           @click="downloadSelected"
         >
@@ -390,7 +394,11 @@ async function downloadSelectedZip(): Promise<void> {
           :disabled="!!busyMode || directDownloadDisabled"
           :title="
             downloadBlockedReason ||
-              (offline ? 'Connect to download files — use Queue while offline' : undefined)
+              (offline
+                ? prefs.zipExportsEnabled
+                  ? 'Connect to download files — use Queue while offline'
+                  : 'Connect to download files'
+                : undefined)
           "
           @click="downloadSelectedZip"
         >
@@ -402,7 +410,7 @@ async function downloadSelectedZip(): Promise<void> {
         </button>
       </div>
 
-      <div v-if="assets.length" class="queue-actions">
+      <div v-if="assets.length && prefs.zipExportsEnabled" class="queue-actions">
         <p class="queue-lbl">Export queue</p>
         <div class="actions queue-btns">
           <button
@@ -430,8 +438,8 @@ async function downloadSelectedZip(): Promise<void> {
         </div>
       </div>
 
-      <p v-if="queueBlockedReason" class="muted tip">{{ queueBlockedReason }}</p>
-      <p v-if="queueMessage" class="ok" role="status">{{ queueMessage }}</p>
+      <p v-if="prefs.zipExportsEnabled && queueBlockedReason" class="muted tip">{{ queueBlockedReason }}</p>
+      <p v-if="prefs.zipExportsEnabled && queueMessage" class="ok" role="status">{{ queueMessage }}</p>
       <p v-if="msg" class="ok" role="status">{{ msg }}</p>
       <p v-if="err" class="error" role="alert">{{ err }}</p>
     </div>

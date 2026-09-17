@@ -96,7 +96,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('does not list Tag Roulette in More (primary nav only)', async () => {
+  it('does not list Tag Roulette in More when it is pinned to primary nav', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createRouter({
@@ -120,6 +120,44 @@ describe('AppMoreMenu', () => {
     expect(document.body.textContent).not.toContain('Tag Roulette')
     expect(document.body.querySelector('a[href="/roulette"]')).toBeNull()
     expect(document.body.querySelector('a[href="/labs/roulette"]')).toBeNull()
+    w.unmount()
+  })
+
+  it('lists Roulette in More after it is moved out of the primary pins', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    usePreferencesStore().setPrimaryNavOrder([
+      'browse',
+      'recent',
+      'favorites',
+      'pitch-pipe',
+      'settings',
+      'roulette',
+      'labs',
+      'queue',
+    ])
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/roulette', name: 'roulette', component: { template: '<div />' } },
+        { path: '/settings', name: 'settings', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.querySelector('a[href="/roulette"]')).toBeTruthy()
+    expect(document.body.textContent).toMatch(/Roulette/)
+    expect(document.body.querySelector('a[href="/settings"]')).toBeNull()
     w.unmount()
   })
 

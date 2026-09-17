@@ -33,9 +33,24 @@ import {
 import SheetErodePreview from '../components/SheetErodePreview.vue'
 import { APP_THEME_OPTIONS, type AppTheme } from '../lib/theme'
 import { SHEET_ERODE_OPTIONS, type SheetErodeLevel } from '../lib/sheetErode'
+import { useSortableListDrag } from '../composables/useSortableListDrag'
+import {
+  DEFAULT_PRIMARY_NAV_ORDER,
+  PRIMARY_NAV_ITEMS,
+  PRIMARY_NAV_PIN_COUNT,
+  PRIMARY_NAV_PIN_COUNT_MAX,
+  canHidePrimaryNav,
+  isPrimaryNavAvailable,
+  isPrimaryNavLab,
+  resolvePrimaryNavPinCount,
+  type PrimaryNavGates,
+  type PrimaryNavId,
+} from '../lib/primaryNav'
+import { primaryNavFitCapacity } from '../lib/primaryNavFit'
 
 const SETTINGS_TABS = ['appearance', 'offline'] as const
 type SettingsTab = (typeof SETTINGS_TABS)[number]
+const DEFAULT_NAV_ORDER_JOIN = DEFAULT_PRIMARY_NAV_ORDER.join()
 
 function normalizeSettingsTab(raw: unknown): SettingsTab {
   if (typeof raw === 'string' && (SETTINGS_TABS as readonly string[]).includes(raw)) {
@@ -70,6 +85,88 @@ const favorites = useFavoritesStore()
 const catalog = useCatalogStore()
 const prefs = usePreferencesStore()
 const { offline } = useOnline()
+
+const primaryNavGates = computed(
+  (): PrimaryNavGates => ({
+    localLibraryEnabled: prefs.localLibraryEnabled,
+    audioRecorderEnabled: prefs.audioRecorderEnabled,
+    singTogetherEnabled: prefs.singTogetherEnabled,
+    opticalTransferEnabled: prefs.opticalTransferEnabled,
+    webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    osShareTransferEnabled: prefs.osShareTransferEnabled,
+  }),
+)
+
+const navOrderRows = computed(() => {
+  const gates = primaryNavGates.value
+  const hidden = prefs.primaryNavHidden
+  const pinCount = resolvePrimaryNavPinCount(
+    prefs.preferredPrimaryNavPinCount,
+    primaryNavFitCapacity.value,
+  )
+  let availableIndex = 0
+  return prefs.primaryNavOrder.map((id, index) => {
+    const available = isPrimaryNavAvailable(id, gates, hidden)
+    const pinned = available && availableIndex < pinCount
+    if (available) availableIndex += 1
+    return {
+      id,
+      index,
+      item: PRIMARY_NAV_ITEMS[id],
+      available,
+      pinned,
+      lab: isPrimaryNavLab(id),
+      canHide: canHidePrimaryNav(id),
+      hideChecked: isPrimaryNavLab(id) ? !available : hidden.includes(id),
+    }
+  })
+})
+
+const showingPinCount = computed(() =>
+  resolvePrimaryNavPinCount(prefs.preferredPrimaryNavPinCount, primaryNavFitCapacity.value),
+)
+
+const { onHandlePointerDown, onDragEnter, rowDragClass, listDraggingClass } =
+  useSortableListDrag<PrimaryNavId>({
+    rowSelector: 'li.nav-order-row',
+    onReorder: (id, toIndex) => {
+      prefs.movePrimaryNav(id, toIndex)
+    },
+  })
+
+function onNavHideChange(id: PrimaryNavId, hide: boolean): void {
+  if (isPrimaryNavLab(id)) {
+    const on = !hide
+    switch (id) {
+      case 'library':
+        prefs.setLocalLibraryEnabled(on)
+        break
+      case 'recorder':
+        prefs.setAudioRecorderEnabled(on)
+        break
+      case 'matcher':
+        prefs.setSingTogetherEnabled(on)
+        break
+      case 'tx':
+        prefs.setOpticalTransferEnabled(on)
+        break
+      case 'wireless':
+        prefs.setWebrtcTransferEnabled(on)
+        break
+      case 'share':
+        prefs.setOsShareTransferEnabled(on)
+        break
+    }
+    return
+  }
+  prefs.setPrimaryNavHidden(id, hide)
+}
+
+function navSlotLabel(row: { available: boolean; pinned: boolean }): string {
+  if (!row.available) return 'Hidden'
+  return row.pinned ? 'In menu bar' : 'In More'
+}
+
 const confirmClear = ref(false)
 const confirmCullUpgrades = ref(false)
 const cacheFileInput = ref<HTMLInputElement | null>(null)
@@ -479,6 +576,143 @@ function cancelCullUpgrades(): void {
         </div>
       </section>
 
+      <section class="card" aria-labelledby="nav-h">
+        <h2 id="nav-h">Navigation</h2>
+        <p class="hint">
+          Drag to reorder. Checked pages appear in the menu bar or More; unchecked pages are hidden
+          (Labs features are turned off). The first {{ showingPinCount }} visible pages sit in the
+          top and bottom bars on this screen. Hiding Downloads &amp; Exports also disables Queue
+          Downloads / zip-export actions across the app.
+        </p>
+        <label
+          class="theme-option sheet-pref-toggle nav-override"
+          :class="{ on: prefs.primaryNavPinOverride }"
+        >
+          <input
+            type="checkbox"
+            class="theme-radio"
+            role="switch"
+            :checked="prefs.primaryNavPinOverride"
+            :aria-checked="prefs.primaryNavPinOverride"
+            aria-label="Override max menu size"
+            @change="prefs.setPrimaryNavPinOverride(!prefs.primaryNavPinOverride)"
+          />
+          <span class="theme-copy">
+            <span class="theme-label">Override max menu size</span>
+            <span class="theme-hint">
+              Default is {{ PRIMARY_NAV_PIN_COUNT }} buttons (+ More). Raise the preferred count to
+              pin more pages when there is room; extras still spill into More if the screen is too
+              narrow.
+            </span>
+          </span>
+        </label>
+        <div
+          v-if="prefs.primaryNavPinOverride"
+          class="scale-row nav-pin-count"
+          role="group"
+          aria-label="Preferred menu size"
+        >
+          <button
+            type="button"
+            class="btn btn-ghost scale-nudge"
+            :disabled="prefs.primaryNavPinCount <= 1"
+            aria-label="Decrease menu size"
+            @click="prefs.nudgePrimaryNavPinCount(-1)"
+          >
+            −
+          </button>
+          <span class="scale-pct" aria-live="polite">{{ prefs.primaryNavPinCount }}</span>
+          <button
+            type="button"
+            class="btn btn-ghost scale-nudge"
+            :disabled="prefs.primaryNavPinCount >= PRIMARY_NAV_PIN_COUNT_MAX"
+            aria-label="Increase menu size"
+            @click="prefs.nudgePrimaryNavPinCount(1)"
+          >
+            +
+          </button>
+          <span v-if="showingPinCount < prefs.primaryNavPinCount" class="nav-fit-note">
+            Showing {{ showingPinCount }} on this screen
+          </span>
+        </div>
+        <ol
+          class="nav-order-list"
+          :class="listDraggingClass"
+          aria-label="Navigation order"
+        >
+          <li
+            v-for="row in navOrderRows"
+            :key="row.id"
+            class="nav-order-row sortable-row"
+            :class="[
+              rowDragClass(row.id, row.index),
+              { pinned: row.pinned, hidden: !row.available },
+            ]"
+            :data-id="row.id"
+            :data-index="row.index"
+            @pointerenter="onDragEnter($event, row.index)"
+          >
+            <button
+              type="button"
+              class="drag-handle"
+              :aria-label="`Drag ${row.item.label} to reorder`"
+              aria-roledescription="sortable"
+              @pointerdown="onHandlePointerDown($event, row.id, row.index)"
+            >
+              ⠿
+            </button>
+            <button
+              v-if="row.canHide"
+              type="button"
+              class="sel-btn"
+              :class="{ on: !row.hideChecked }"
+              :aria-pressed="!row.hideChecked"
+              :aria-label="
+                row.lab
+                  ? row.hideChecked
+                    ? `Enable ${row.item.label} lab`
+                    : `Disable ${row.item.label} lab`
+                  : row.hideChecked
+                    ? `Show ${row.item.label} in navigation`
+                    : `Hide ${row.item.label} from navigation`
+              "
+              :title="
+                row.lab
+                  ? row.hideChecked
+                    ? 'Enable this Labs feature'
+                    : 'Disable this Labs feature'
+                  : row.hideChecked
+                    ? 'Show in menu bar / More'
+                    : 'Hide from menu bar and More'
+              "
+              @click="onNavHideChange(row.id, !row.hideChecked)"
+            >
+              {{ row.hideChecked ? '' : '✓' }}
+            </button>
+            <div class="nav-order-main">
+              <span class="nav-order-title">{{ row.item.label }}</span>
+              <span class="nav-order-desc">{{ row.item.desc }}</span>
+              <span class="nav-order-slot">{{ navSlotLabel(row) }}</span>
+            </div>
+          </li>
+        </ol>
+        <div class="nav-order-actions">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            :disabled="
+              prefs.primaryNavOrder.join() === DEFAULT_NAV_ORDER_JOIN &&
+              prefs.primaryNavHidden.length === 0 &&
+              !prefs.primaryNavPinOverride &&
+              prefs.primaryNavPinCount === PRIMARY_NAV_PIN_COUNT
+            "
+            @click="prefs.resetPrimaryNavOrder()"
+          >
+            Reset navigation
+          </button>
+        </div>
+      </section>
+
       <section class="card" aria-labelledby="theme-h">
         <h2 id="theme-h">Theme</h2>
         <p class="hint">Choose a color theme for the app chrome. Sheet options below adjust chart readability.</p>
@@ -593,12 +827,18 @@ function cancelCullUpgrades(): void {
           </h2>
           <p class="hint">
             Go offline to use cached sheets and tracks only — saves data and avoids downloads on
-            slow or metered connections. Zip exports for sharing files live under Downloads &amp;
-            Exports.
+            slow or metered connections.
+            <template v-if="prefs.zipExportsEnabled">
+              Zip exports for sharing files live under Downloads &amp; Exports.
+            </template>
           </p>
         </div>
         <div class="connection-actions">
-          <RouterLink class="btn btn-ghost" to="/queue">Downloads &amp; Exports</RouterLink>
+          <RouterLink
+            v-if="prefs.zipExportsEnabled"
+            class="btn btn-ghost"
+            to="/queue"
+          >Downloads &amp; Exports</RouterLink>
           <button
             type="button"
             class="btn connection-btn"
@@ -1077,6 +1317,138 @@ function cancelCullUpgrades(): void {
   text-align: center;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
+}
+.nav-order-list {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.nav-order-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  position: relative;
+}
+.nav-order-row.pinned {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.nav-order-row.hidden {
+  opacity: 0.72;
+}
+.nav-order-main {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+}
+.nav-order-title {
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+.nav-order-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.nav-order-slot {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sel-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sel-btn.on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
+}
+.nav-override {
+  margin-top: 0.75rem;
+}
+.nav-pin-count {
+  margin-top: 0.55rem;
+}
+.nav-fit-note {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.nav-order-actions {
+  margin-top: 0.65rem;
+}
+.sortable-row.dragging {
+  opacity: 0.72;
+}
+.sortable-row.dragging .drag-handle {
+  color: var(--accent);
+  cursor: grabbing;
+}
+.sortable-row.drop-before::before,
+.sortable-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0.45rem;
+  right: 0.45rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.sortable-row.drop-before::before {
+  top: -2px;
+}
+.sortable-row.drop-after::after {
+  bottom: -2px;
+}
+.drag-handle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}
+.drag-handle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.drag-handle:active {
+  cursor: grabbing;
 }
 .theme-list {
   display: grid;

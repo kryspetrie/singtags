@@ -5,6 +5,7 @@
 import { ref } from 'vue'
 import QueueDownloadModeDialog from './QueueDownloadModeDialog.vue'
 import type { QueueDownloadMode } from '../lib/queueSelectedTags'
+import { usePreferencesStore } from '../stores/preferences'
 
 const props = withDefaults(
   defineProps<{
@@ -25,6 +26,7 @@ const emit = defineEmits<{
   clear: []
 }>()
 
+const prefs = usePreferencesStore()
 const modeOpen = ref(false)
 
 function onChooseMode(mode: QueueDownloadMode): void {
@@ -63,6 +65,7 @@ function onChooseMode(mode: QueueDownloadMode): void {
         <span class="label-short">+Collection</span>
       </button>
       <button
+        v-if="prefs.zipExportsEnabled"
         type="button"
         class="btn"
         aria-label="Queue downloads"
@@ -85,7 +88,7 @@ function onChooseMode(mode: QueueDownloadMode): void {
   </Teleport>
 
   <QueueDownloadModeDialog
-    :open="modeOpen && count > 0"
+    :open="modeOpen && count > 0 && prefs.zipExportsEnabled"
     :count="count"
     @close="modeOpen = false"
     @choose="onChooseMode"

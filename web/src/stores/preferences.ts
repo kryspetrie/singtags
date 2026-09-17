@@ -4,7 +4,7 @@
  * also round-trips through offline cache zip snapshots.
  */
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,
   aHzToCents,
@@ -49,6 +49,18 @@ import {
   resolveInitialEmbolden,
   writeStoredEmbolden,
 } from '../lib/embolden'
+import {
+  DEFAULT_PRIMARY_NAV_ORDER,
+  moveAvailablePrimaryNavId,
+  movePrimaryNavId,
+  normalizePrimaryNavHidden,
+  normalizePrimaryNavOrder,
+  normalizePrimaryNavPinCount,
+  isZipExportQueueEnabled,
+  PRIMARY_NAV_PIN_COUNT,
+  type PrimaryNavGates,
+  type PrimaryNavId,
+} from '../lib/primaryNav'
 import {
   normalizeSheetErodeLevel,
   resolveInitialSheetErodeLevel,
@@ -159,6 +171,14 @@ const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
 const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
+/** Ordered primary-nav destinations; first N available become chrome pins. */
+const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
+/** Non-lab primary-nav pages hidden from chrome and More. */
+const PRIMARY_NAV_HIDDEN_KEY = 'singtags.primaryNav.hidden.v1'
+/** When true, use primaryNavPinCount instead of the default 5 slots. */
+const PRIMARY_NAV_PIN_OVERRIDE_KEY = 'singtags.primaryNav.pinOverride.v1'
+/** Preferred pin-slot count when override is on. */
+const PRIMARY_NAV_PIN_COUNT_KEY = 'singtags.primaryNav.pinCount.v1'
 const RECORDER_CAPTURE_KEY = 'singtags.recorder.capture.v1'
 const QUICK_RECORD_KEY = 'singtags.recorder.quick.v1'
 const OPTICAL_FRAME_BYTES_KEY = 'singtags.opticalTransfer.frameBytes.v1'
@@ -449,6 +469,34 @@ function loadStringArray(key: string, fallback: string[]): string[] {
   }
 }
 
+function loadPrimaryNavOrder(): PrimaryNavId[] {
+  try {
+    const raw = localStorage.getItem(PRIMARY_NAV_ORDER_KEY)
+    if (!raw) return [...DEFAULT_PRIMARY_NAV_ORDER]
+    return normalizePrimaryNavOrder(JSON.parse(raw) as unknown)
+  } catch {
+    return [...DEFAULT_PRIMARY_NAV_ORDER]
+  }
+}
+
+function loadPrimaryNavHidden(): PrimaryNavId[] {
+  try {
+    const raw = localStorage.getItem(PRIMARY_NAV_HIDDEN_KEY)
+    if (!raw) return []
+    return normalizePrimaryNavHidden(JSON.parse(raw) as unknown)
+  } catch {
+    return []
+  }
+}
+
+function loadPrimaryNavPinCount(): number {
+  try {
+    return normalizePrimaryNavPinCount(localStorage.getItem(PRIMARY_NAV_PIN_COUNT_KEY))
+  } catch {
+    return PRIMARY_NAV_PIN_COUNT
+  }
+}
+
 /** Read library audio parts mode from localStorage. */
 function loadPartsMode(): LibraryAudioPartsMode {
   try {
@@ -601,6 +649,25 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Repertoire + QR correlation stay on-device.
    */
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
+  /**
+   * Preference order for chrome pins + More destinations.
+   * The first five *available* ids (Labs gates) occupy top/bottom nav.
+   */
+  const primaryNavOrder = ref<PrimaryNavId[]>(loadPrimaryNavOrder())
+  /** Non-lab pages hidden from chrome / More (Labs “hide” uses feature flags). */
+  const primaryNavHidden = ref<PrimaryNavId[]>(loadPrimaryNavHidden())
+  /** When true, chrome may use more than the default 5 pin slots. */
+  const primaryNavPinOverride = ref(loadBool(PRIMARY_NAV_PIN_OVERRIDE_KEY, false))
+  /** Preferred pin count when override is enabled (still clamped by screen fit). */
+  const primaryNavPinCount = ref(loadPrimaryNavPinCount())
+  /** Preferred pin slots for chrome (override or default). */
+  const preferredPrimaryNavPinCount = computed(() =>
+    primaryNavPinOverride.value
+      ? normalizePrimaryNavPinCount(primaryNavPinCount.value)
+      : PRIMARY_NAV_PIN_COUNT,
+  )
+  /** False when Downloads & Exports is hidden — zip enqueue UIs stay off. */
+  const zipExportsEnabled = computed(() => isZipExportQueueEnabled(primaryNavHidden.value))
   /** Last-used MediaRecorder capture settings for Labs Audio Recorder. */
   const recorderCapturePrefs = ref(
     (() => {
@@ -858,6 +925,57 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SING_TOGETHER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    primaryNavOrder,
+    (v) => {
+      try {
+        localStorage.setItem(PRIMARY_NAV_ORDER_KEY, JSON.stringify(normalizePrimaryNavOrder(v)))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync', deep: true },
+  )
+
+  watch(
+    primaryNavHidden,
+    (v) => {
+      try {
+        localStorage.setItem(PRIMARY_NAV_HIDDEN_KEY, JSON.stringify(normalizePrimaryNavHidden(v)))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync', deep: true },
+  )
+
+  watch(
+    primaryNavPinOverride,
+    (v) => {
+      try {
+        localStorage.setItem(PRIMARY_NAV_PIN_OVERRIDE_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    primaryNavPinCount,
+    (v) => {
+      try {
+        localStorage.setItem(
+          PRIMARY_NAV_PIN_COUNT_KEY,
+          String(normalizePrimaryNavPinCount(v)),
+        )
       } catch {
         /* ignore */
       }
@@ -1330,6 +1448,65 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singTogetherEnabled.value = on
   }
 
+  /** Replace the primary-nav preference order (normalized). */
+  function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
+    primaryNavOrder.value = normalizePrimaryNavOrder(order)
+  }
+
+  /** Move one primary-nav destination within the preference order. */
+  function movePrimaryNav(id: PrimaryNavId, toIndex: number): void {
+    primaryNavOrder.value = movePrimaryNavId(primaryNavOrder.value, id, toIndex)
+  }
+
+  /** Move among currently available destinations (Settings reorder UI). */
+  function moveAvailablePrimaryNav(
+    id: PrimaryNavId,
+    toAvailableIndex: number,
+    gates: PrimaryNavGates,
+  ): void {
+    primaryNavOrder.value = moveAvailablePrimaryNavId(
+      primaryNavOrder.value,
+      id,
+      toAvailableIndex,
+      gates,
+      primaryNavHidden.value,
+    )
+  }
+
+  /** Hide or show a non-lab primary-nav page (Labs use feature flags instead). */
+  function setPrimaryNavHidden(id: PrimaryNavId, hide: boolean): void {
+    const next = new Set(normalizePrimaryNavHidden(primaryNavHidden.value))
+    if (hide) next.add(id)
+    else next.delete(id)
+    primaryNavHidden.value = normalizePrimaryNavHidden([...next])
+  }
+
+  /** Toggle overriding the default 5 pin slots. */
+  function setPrimaryNavPinOverride(on: boolean): void {
+    primaryNavPinOverride.value = on
+    if (on && primaryNavPinCount.value < PRIMARY_NAV_PIN_COUNT) {
+      primaryNavPinCount.value = PRIMARY_NAV_PIN_COUNT
+    }
+  }
+
+  /** Preferred pin-slot count when override is on. */
+  function setPrimaryNavPinCount(count: number): void {
+    primaryNavPinCount.value = normalizePrimaryNavPinCount(count)
+  }
+
+  /** Nudge preferred pin count when override is on. */
+  function nudgePrimaryNavPinCount(delta: number): void {
+    setPrimaryNavPinCount(primaryNavPinCount.value + delta)
+  }
+
+  /** Restore the default primary-nav order, clears hides, and resets pin override. */
+  function resetPrimaryNavOrder(): void {
+    primaryNavOrder.value = [...DEFAULT_PRIMARY_NAV_ORDER]
+    primaryNavHidden.value = []
+    primaryNavPinOverride.value = false
+    primaryNavPinCount.value = PRIMARY_NAV_PIN_COUNT
+  }
+
   /** Persist Labs Audio Recorder capture settings. */
   function setRecorderCapturePrefs(prefs: RecorderCapturePrefs): void {
     recorderCapturePrefs.value = normalizeRecorderCapture(prefs)
@@ -1435,6 +1612,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     osShareTransferEnabled,
     audioRecorderEnabled,
     singTogetherEnabled,
+    primaryNavOrder,
+    primaryNavHidden,
+    primaryNavPinOverride,
+    primaryNavPinCount,
+    preferredPrimaryNavPinCount,
+    zipExportsEnabled,
     recorderCapturePrefs,
     quickRecordPrefs,
     opticalTransferFrameBytes,
@@ -1473,6 +1656,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
+    setPrimaryNavOrder,
+    movePrimaryNav,
+    moveAvailablePrimaryNav,
+    setPrimaryNavHidden,
+    setPrimaryNavPinOverride,
+    setPrimaryNavPinCount,
+    nudgePrimaryNavPinCount,
+    resetPrimaryNavOrder,
     setRecorderCapturePrefs,
     setQuickRecordPrefs,
     setShareFullscreen,

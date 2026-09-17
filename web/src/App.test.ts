@@ -78,7 +78,8 @@ describe('App shell', () => {
 
     expect(w.find('.topnav a[href="/roulette"]').exists()).toBe(true)
     expect(w.find('.bottom a[href="/roulette"]').exists()).toBe(true)
-    expect(w.find('.bottom-with-roulette').exists()).toBe(true)
+    expect(w.find('.bottom').exists()).toBe(true)
+    expect(w.find('.bottom a[href="/roulette"]').exists()).toBe(true)
     w.unmount()
   })
 

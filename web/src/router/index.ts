@@ -47,6 +47,7 @@ export const router = createRouter({
       path: '/queue',
       name: 'queue',
       component: () => import('../views/QueueView.vue'),
+      meta: { requiresZipExports: true },
     },
     {
       path: '/settings',
@@ -233,6 +234,9 @@ router.beforeEach((to, from) => {
     }
     if (to.meta.requiresSingTogether && !prefs.singTogetherEnabled) {
       prefs.setSingTogetherEnabled(true)
+    }
+    if (to.meta.requiresZipExports && !prefs.zipExportsEnabled) {
+      return { name: 'settings' }
     }
   } catch {
     /* Pinia not ready (rare in tests) — allow navigation */

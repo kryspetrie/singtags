@@ -513,6 +513,9 @@ const partialUnavailable = computed(
   () => !loading.value && !detail.value && !!summary.value,
 )
 const queueBlockedReason = computed(() => {
+  if (!prefs.zipExportsEnabled) {
+    return 'Zip exports are turned off (Downloads & Exports is hidden in Settings → Navigation).'
+  }
   const d = detail.value
   if (!d) return 'Tag details unavailable.'
   const hasSheets = downloadableSheetAssets(d).length > 0
