@@ -9,7 +9,7 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-roulette.md](tag-roulette.md) | Proposed — product |
 | [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |
 | [virtual-piano.md](virtual-piano.md) | Proposed — poly piano: Sound Lab voice schema + Leethring samples |
-| [tag-roll.md](tag-roll.md) | Proposed — Labs piano-roll tag composer + My Library handoff |
+| [tag-roll.md](tag-roll.md) | In progress — Phase 1 on `piano-roll` branch |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |
