@@ -79,6 +79,17 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('toggles tag roll labs flag', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().tagRollEnabled).toBe(false)
+    await w.get('input[aria-label="Tag Roll"]').setValue(true)
+    expect(usePreferencesStore().tagRollEnabled).toBe(true)
+    w.unmount()
+  })
+
   it('does not expose a Tag Roulette Labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

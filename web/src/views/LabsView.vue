@@ -31,6 +31,10 @@ function toggleAudioRecorder(): void {
 function toggleSingTogether(): void {
   prefs.setSingTogetherEnabled(!prefs.singTogetherEnabled)
 }
+
+function toggleTagRoll(): void {
+  prefs.setTagRollEnabled(!prefs.tagRollEnabled)
+}
 </script>
 
 <template>
@@ -50,6 +54,45 @@ function toggleSingTogether(): void {
         this device, and set your personal default. Share a favorite with Krys via email.
       </p>
       <RouterLink class="btn" to="/labs/pitch-pipe-sound">Open sound lab</RouterLink>
+    </section>
+
+    <section class="card" aria-labelledby="tag-roll-h">
+      <h2 id="tag-roll-h" class="card-title">Tag Roll</h2>
+      <p class="card-desc">
+        Sketch original tags on a piano-roll grid — polyphonic parts, playback, lyrics, MIDI export,
+        and Save to My Library. Experimental Labs composer.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.tagRollEnabled }"
+        title="Enable Tag Roll"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Tag Roll</span>
+          <span class="setting-desc">
+            {{
+              prefs.tagRollEnabled
+                ? 'On — open projects below'
+                : 'Off — /labs/tag-roll stays hidden'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.tagRollEnabled"
+          :aria-checked="prefs.tagRollEnabled"
+          aria-label="Tag Roll"
+          @change="toggleTagRoll"
+        />
+      </label>
+      <RouterLink
+        v-if="prefs.tagRollEnabled"
+        class="btn"
+        to="/labs/tag-roll"
+      >Open Tag Roll</RouterLink>
     </section>
 
     <section class="card" aria-labelledby="local-library-h">

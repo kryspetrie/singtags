@@ -171,6 +171,8 @@ const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
 const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
+/** Labs: Tag Roll piano-roll composer. Default off. */
+const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
@@ -650,6 +652,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
   /**
+   * Labs: when true, Tag Roll (/labs/tag-roll) is available.
+   */
+  const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
+  /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
    */
@@ -925,6 +931,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SING_TOGETHER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -1448,6 +1466,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singTogetherEnabled.value = on
   }
 
+  /** Labs: enable/disable Tag Roll piano-roll composer. */
+  function setTagRollEnabled(on: boolean): void {
+    tagRollEnabled.value = on
+  }
+
   /** Replace the primary-nav preference order (normalized). */
   function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
     primaryNavOrder.value = normalizePrimaryNavOrder(order)
@@ -1612,6 +1635,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     osShareTransferEnabled,
     audioRecorderEnabled,
     singTogetherEnabled,
+    tagRollEnabled,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1656,6 +1680,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
+    setTagRollEnabled,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,
