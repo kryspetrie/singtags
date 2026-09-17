@@ -173,6 +173,8 @@ const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 /** Labs: Tag Roll piano-roll composer. Default off. */
 const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
+const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
+const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
@@ -655,6 +657,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Labs: when true, Tag Roll (/labs/tag-roll) is available.
    */
   const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
+  const tagRollCellW = ref(loadNumber(TAG_ROLL_CELL_W_KEY, 28))
+  const tagRollCellH = ref(loadNumber(TAG_ROLL_CELL_H_KEY, 14))
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -943,6 +947,30 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(TAG_ROLL_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollCellW,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_CELL_W_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollCellH,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_CELL_H_KEY, String(v))
       } catch {
         /* ignore */
       }
@@ -1471,6 +1499,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollEnabled.value = on
   }
 
+  /** Remember last Tag Roll cell size for new projects. */
+  function setTagRollCellSize(cellW: number, cellH: number): void {
+    tagRollCellW.value = cellW
+    tagRollCellH.value = cellH
+  }
+
   /** Replace the primary-nav preference order (normalized). */
   function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
     primaryNavOrder.value = normalizePrimaryNavOrder(order)
@@ -1636,6 +1670,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     audioRecorderEnabled,
     singTogetherEnabled,
     tagRollEnabled,
+    tagRollCellW,
+    tagRollCellH,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1681,6 +1717,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
     setTagRollEnabled,
+    setTagRollCellSize,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,

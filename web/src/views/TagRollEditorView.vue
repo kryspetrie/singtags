@@ -1,22 +1,72 @@
 <script setup lang="ts">
 /**
- * Tag Roll editor shell — Phase 1: grid, tote, pan, lock, cell size.
+ * Tag Roll editor — phases 2–7 wired: notes, transport, lyrics, export, harmonize.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
+import { midiToNote } from '../audio/pianoSamples'
+import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
+import TagRollLyricsInput from '../components/tagRoll/TagRollLyricsInput.vue'
+import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollTote from '../components/tagRoll/TagRollTote.vue'
+import TagRollToolbar from '../components/tagRoll/TagRollToolbar.vue'
 import TagRollViewport from '../components/tagRoll/TagRollViewport.vue'
+import { notesAtTick } from '../lib/tagRoll/notesAtTick'
+import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
+import { downloadTagRollMidi, type MidiExportMode } from '../lib/tagRoll/midiExport'
+import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
+import { useSnackbarStore } from '../stores/snackbar'
 import { useTagRollStore } from '../stores/tagRoll'
+import { snapTick } from '../lib/tagRoll/snap'
 
 const props = defineProps<{ id: string }>()
 
 const store = useTagRollStore()
+const snackbar = useSnackbarStore()
 const router = useRouter()
+
 const viewportRef = ref<InstanceType<typeof TagRollViewport> | null>(null)
-const stageH = ref(420)
+const stageH = ref(480)
+const titleDraft = ref('')
+const partsOpen = ref(false)
+const harmonizeOpen = ref(false)
+const ghostNotes = ref<
+  { midi: number; startTick: number; durationTicks: number; color: string }[]
+>([])
+const saveBusy = ref(false)
 
 const project = computed(() => store.current)
-const titleDraft = ref('')
+
+let player: PitchTonePlayer | null = null
+let scheduler: TagRollScheduler | null = null
+
+function ensurePlayer(): PitchTonePlayer {
+  const eng = project.value?.soundEngine ?? 'synth'
+  if (!player) {
+    player = createPitchTonePlayer(eng, { polyphony: true })
+  }
+  return player
+}
+
+function rebuildScheduler(): void {
+  scheduler?.dispose()
+  scheduler = null
+  if (!project.value) return
+  const p = ensurePlayer()
+  scheduler = createTagRollScheduler({
+    getNotes: () => store.current?.notes ?? [],
+    getBpm: () => store.current?.bpm ?? 120,
+    getLengthTicks: () => store.current?.lengthTicks ?? 0,
+    player: p,
+    onPlayhead: (tick) => {
+      if (store.current) store.setPlayheadTick(tick)
+    },
+    onEnded: () => {
+      store.transportPlaying = false
+    },
+  })
+}
 
 onMounted(async () => {
   const p = await store.openProject(props.id)
@@ -25,9 +75,14 @@ onMounted(async () => {
     return
   }
   titleDraft.value = p.title
+  rebuildScheduler()
 })
 
 onUnmounted(() => {
+  scheduler?.dispose()
+  player?.dispose()
+  scheduler = null
+  player = null
   void store.persistNow()
   store.clearCurrent()
 })
@@ -35,9 +90,23 @@ onUnmounted(() => {
 watch(
   () => props.id,
   async (id) => {
+    scheduler?.stop({ resetPlayhead: false })
+    store.transportPlaying = false
     const p = await store.openProject(id)
     if (!p) await router.replace({ name: 'tag-roll' })
-    else titleDraft.value = p.title
+    else {
+      titleDraft.value = p.title
+      rebuildScheduler()
+    }
+  },
+)
+
+watch(
+  () => project.value?.soundEngine,
+  () => {
+    player?.dispose()
+    player = null
+    rebuildScheduler()
   },
 )
 
@@ -49,79 +118,176 @@ function onTitleBlur(): void {
   }
 }
 
-function onScroll(x: number, y: number): void {
-  store.setScroll(x, y)
+function onPlay(): void {
+  store.setMode('view')
+  rebuildScheduler()
+  scheduler?.play(store.current?.view.playheadTick ?? 0)
+  store.transportPlaying = true
 }
 
-function onScrollY(y: number): void {
+function onPause(): void {
+  scheduler?.pause()
+  store.transportPlaying = false
+}
+
+function onStop(): void {
+  scheduler?.stop({ resetPlayhead: false })
+  store.transportPlaying = false
+}
+
+async function auditionTick(tick: number): Promise<void> {
+  const p = project.value
+  if (!p) return
+  const notes = notesAtTick(p.notes, tick)
+  if (ghostNotes.value.length) {
+    // include ghosts when harmonizing
+    for (const g of ghostNotes.value) {
+      notes.push({
+        id: `ghost-${g.midi}`,
+        partId: '',
+        midi: g.midi,
+        startTick: g.startTick,
+        durationTicks: g.durationTicks,
+      })
+    }
+  }
+  const tone = ensurePlayer()
+  tone.allNotesOff(false)
+  const names = [...new Set(notes.map((n) => midiToNote(n.midi)))]
+  await Promise.all(names.map((n) => tone.noteOn(n)))
+  window.setTimeout(() => {
+    for (const n of names) tone.noteOff(n, true)
+  }, 650)
+}
+
+function onHearStack(): void {
+  void auditionTick(project.value?.view.playheadTick ?? 0)
+}
+
+function onAuditionColumn(payload: { tick: number; movePlayhead: boolean }): void {
+  if (payload.movePlayhead) store.setPlayheadTick(payload.tick)
+  void auditionTick(payload.tick)
+}
+
+function onExportMidi(mode: MidiExportMode): void {
   if (!project.value) return
-  store.setScroll(project.value.view.scrollX, y)
+  downloadTagRollMidi(project.value, mode)
 }
 
-function onPlayhead(tick: number): void {
-  store.setPlayheadTick(tick)
+async function onSaveLibrary(): void {
+  if (!project.value || saveBusy.value) return
+  saveBusy.value = true
+  try {
+    const { entryId } = await saveTagRollToLibrary(project.value, {
+      mix: true,
+      perPart: true,
+      updateLinked: true,
+    })
+    store.setLocalEntryId(entryId)
+    snackbar.show('Saved to My Library', {
+      action: {
+        label: 'Open',
+        onClick: () => {
+          void router.push({ name: 'library-doc', params: { id: entryId } })
+        },
+      },
+    })
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Save to My Library failed', {
+      tone: 'error',
+    })
+  } finally {
+    saveBusy.value = false
+  }
+}
+
+function onAdd(payload: { midi: number; startTick: number }): void {
+  store.addNote({
+    midi: payload.midi,
+    startTick: snapTick(payload.startTick, project.value?.snapTicks ?? 120),
+  })
+  store.setMode('edit')
+}
+
+function onGhost(
+  ghosts: {
+    role?: string
+    midi: number
+    startTick: number
+    durationTicks: number
+    color: string
+  }[],
+): void {
+  ghostNotes.value = ghosts.map((g) => ({
+    midi: g.midi,
+    startTick: g.startTick,
+    durationTicks: g.durationTicks,
+    color: g.color,
+  }))
 }
 </script>
 
 <template>
   <section v-if="project" class="tr-ed" aria-label="Tag Roll editor">
-    <header class="chrome">
-      <div class="chrome-left">
-        <RouterLink class="back" to="/labs/tag-roll">← Projects</RouterLink>
-        <input
-          v-model="titleDraft"
-          class="title-input"
-          aria-label="Project title"
-          @blur="onTitleBlur"
-          @keydown.enter="($event.target as HTMLInputElement).blur()"
-        />
-      </div>
-      <div class="chrome-right" role="group" aria-label="Grid size">
-        <span class="lbl">Width</span>
-        <button type="button" class="btn sm" aria-label="Narrower cells" @click="store.nudgeCellW(-2)">
-          −
-        </button>
-        <button type="button" class="btn sm" aria-label="Wider cells" @click="store.nudgeCellW(2)">
-          +
-        </button>
-        <span class="lbl">Height</span>
-        <button type="button" class="btn sm" aria-label="Shorter cells" @click="store.nudgeCellH(-1)">
-          −
-        </button>
-        <button type="button" class="btn sm" aria-label="Taller cells" @click="store.nudgeCellH(1)">
-          +
-        </button>
-        <label class="lock">
-          <input
-            type="checkbox"
-            :checked="project.view.lockPiano"
-            @change="store.setLockPiano(($event.target as HTMLInputElement).checked)"
-          />
-          Lock piano
-        </label>
-      </div>
+    <header class="top">
+      <RouterLink class="back" to="/labs/tag-roll">← Projects</RouterLink>
+      <input
+        v-model="titleDraft"
+        class="title-input"
+        aria-label="Project title"
+        @blur="onTitleBlur"
+        @keydown.enter="($event.target as HTMLInputElement).blur()"
+      />
     </header>
 
+    <TagRollToolbar
+      @play="onPlay"
+      @pause="onPause"
+      @stop="onStop"
+      @hear-stack="onHearStack"
+      @export-midi="onExportMidi"
+      @save-library="onSaveLibrary"
+      @open-harmonize="harmonizeOpen = true"
+      @parts="partsOpen = true"
+    />
+
+    <TagRollLyricsInput />
+
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
+    <p v-if="saveBusy" class="hint">Saving to My Library…</p>
 
     <div class="stage" :style="{ height: `${stageH}px` }">
       <TagRollTote
         :project="project"
         :viewport-height="viewportRef?.cssH ?? stageH"
-        @scroll-y="onScrollY"
+        @scroll-y="(y) => store.setScroll(project.view.scrollX, y)"
       />
       <TagRollViewport
         ref="viewportRef"
         :project="project"
-        @scroll="onScroll"
-        @playhead="onPlayhead"
+        :selected-note-id="store.selectedNoteId"
+        :ghost-notes="ghostNotes"
+        @scroll="(x, y) => store.setScroll(x, y)"
+        @playhead="(t) => store.setPlayheadTick(t)"
+        @select="(id) => store.selectNote(id)"
+        @add="onAdd"
+        @move="(p) => store.updateNote(p.id, { midi: p.midi, startTick: p.startTick })"
+        @resize="(p) => store.updateNote(p.id, { durationTicks: p.durationTicks })"
+        @cell-size="(p) => store.setCellSize(p.cellW, p.cellH)"
+        @audition-column="onAuditionColumn"
       />
     </div>
 
-    <p class="hint">
-      Phase 1 shell — drag to pan, click to set the playhead, click tote keys to hear pitches. Note
-      editing comes next.
-    </p>
+    <TagRollPartsPanel :open="partsOpen" @close="partsOpen = false" />
+    <TagRollHarmonizePanel
+      :open="harmonizeOpen"
+      @close="
+        harmonizeOpen = false
+        ghostNotes = []
+      "
+      @preview-ghost="onGhost"
+      @clear-ghost="ghostNotes = []"
+    />
   </section>
   <p v-else class="loading">Loading…</p>
 </template>
@@ -129,34 +295,25 @@ function onPlayhead(tick: number): void {
 <style scoped>
 .tr-ed {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
   min-height: 0;
   padding-bottom: 1.5rem;
 }
-.chrome {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-}
-.chrome-left {
+.top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem;
-  min-width: 0;
 }
 .back {
   color: var(--accent);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9rem;
-  white-space: nowrap;
 }
 .title-input {
   min-width: 10rem;
-  max-width: min(20rem, 60vw);
+  max-width: min(22rem, 70vw);
   min-height: 40px;
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--border);
@@ -166,46 +323,6 @@ function onPlayhead(tick: number): void {
   font: inherit;
   font-weight: 650;
   font-size: 1.05rem;
-}
-.chrome-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-}
-.lbl {
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-left: 0.25rem;
-}
-.lock {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 550;
-  cursor: pointer;
-  user-select: none;
-}
-.btn {
-  min-height: 36px;
-  min-width: 36px;
-  padding: 0.25rem 0.55rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-.btn.sm {
-  min-height: 34px;
-  min-width: 34px;
 }
 .stage {
   display: flex;
