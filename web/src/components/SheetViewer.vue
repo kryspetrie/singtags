@@ -1632,6 +1632,13 @@ function onPointerUp(e: PointerEvent): void {
   }
 }
 
+/** Inline (non-fullscreen) sheet tap → same as the fullscreen control. */
+function onInlineStageActivate(): void {
+  if (fullscreen.value) return
+  if (!displayPages.value.length || loadError.value) return
+  void setFullscreen(true)
+}
+
 function onDoubleClick(e: MouseEvent): void {
   if (!fullscreen.value) return
   if (isChromeTarget(e.target)) return
@@ -1769,7 +1776,23 @@ defineExpose({
         v-show="!sheetFxPending || !!erodedPages?.length || !needsSheetFx"
         ref="stageEl"
         class="stage"
+        :class="{ 'is-clickable': !fullscreen && displayPages.length > 0 && !loadError }"
         :style="stageStyle"
+        :role="!fullscreen && displayPages.length > 0 && !loadError ? 'button' : undefined"
+        :tabindex="!fullscreen && displayPages.length > 0 && !loadError ? 0 : undefined"
+        :aria-label="
+          !fullscreen && displayPages.length > 0 && !loadError
+            ? 'Open sheet fullscreen'
+            : undefined
+        "
+        :title="
+          !fullscreen && displayPages.length > 0 && !loadError
+            ? 'Open fullscreen'
+            : undefined
+        "
+        @click="onInlineStageActivate"
+        @keydown.enter.prevent="onInlineStageActivate"
+        @keydown.space.prevent="onInlineStageActivate"
       >
         <div
           v-for="(page, i) in displayPages"
@@ -2237,6 +2260,13 @@ defineExpose({
   display: grid;
   gap: 0.75rem;
   min-width: 0;
+}
+.stage.is-clickable {
+  cursor: pointer;
+}
+.stage.is-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .sheet.fullscreen .stage {
   gap: 0;
