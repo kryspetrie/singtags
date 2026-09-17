@@ -53,6 +53,8 @@ Rewriting the piano feature around that schema avoids a second unrelated preset 
 
 **Nav (v1 recommendation):** Labs card + More menu when enabled (`singtags.labs.virtualPiano.enabled.v1`, default off). Graduate to primary nav next to Pitch Pipe after polish — same pattern as Tag Roulette / Local Library.
 
+**Related (separate):** [tag-roll.md](tag-roll.md) — piano-roll **sequencer** for composing tags (not this live keyboard).
+
 **Page chrome:**
 
 ```
