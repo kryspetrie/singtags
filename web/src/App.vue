@@ -135,68 +135,65 @@ const bottomNavRef = ref<HTMLElement | null>(null)
 let navFitMeasuring = false
 let navFitPending = false
 let navFitRaf = 0
-
-function doubleRaf(): Promise<void> {
-  return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
-}
-
-/** True when pin buttons + More need more px than the topnav flex slot provides. */
-function topnavOverflows(nav: HTMLElement): boolean {
-  const kids = [...nav.children] as HTMLElement[]
-  if (!kids.length) return false
-  const gap = parseFloat(getComputedStyle(nav).columnGap || getComputedStyle(nav).gap) || 0
-  let total = 0
-  for (let i = 0; i < kids.length; i++) {
-    if (i > 0) total += gap
-    total += kids[i]!.getBoundingClientRect().width
-  }
-  return total > nav.clientWidth + 1
-}
+/** Last desktop topnav slot width we fitted against (px). */
+let lastDesktopAvailPx = 0
+/** Force a full recompute on the next desktop measure (prefs/order changed). */
+let desktopFitReset = true
 
 /**
  * Fit preferred pin buttons + More into the visible topnav width using the
- * off-screen measure row (drop from the right).
+ * off-screen measure row (drop from the right). Returns -1 if the probe
+ * did not lay out usable widths.
  */
 function fitDesktopPinsFromMeasure(avail: number): number {
   const measure = topnavMeasureRef.value
-  if (!measure || avail <= 0) return 1
+  if (!measure || avail <= 0) return -1
   const kids = [...measure.children] as HTMLElement[]
-  if (kids.length < 2) return 1
+  if (kids.length < 2) return -1
   const gap =
     parseFloat(getComputedStyle(measure).columnGap || getComputedStyle(measure).gap) || 6.4
   const moreW = kids[kids.length - 1]!.getBoundingClientRect().width
   const pinWidths = kids.slice(0, -1).map((el) => el.getBoundingClientRect().width)
-  // If the probe failed to lay out, fall back to "unknown" so live measure can decide.
-  if (!(moreW > 0) || pinWidths.every((w) => !(w > 0))) return -1
+  if (!(moreW > 0) || pinWidths.some((w) => !(w > 0))) return -1
   return fitNavPinsToWidth(pinWidths, moreW, gap, avail)
 }
 
-/** Drop pins from the right until the visible topnav no longer overflows. */
-async function shrinkDesktopPinsUntilFits(): Promise<void> {
+/**
+ * Desktop fit: one probe read → one capacity write.
+ * Shrinking only drops pins; widening may add them back. Never trial-renders
+ * intermediate pin counts on the live topnav (that flickered on resize).
+ */
+function applyDesktopNavFit(preferred: number): void {
   const nav = topnavRef.value
-  if (!nav) return
-  while (navFitCapacity.value > 1) {
-    await nextTick()
-    await doubleRaf()
-    if (!topnavOverflows(nav)) break
-    navFitCapacity.value -= 1
-  }
-}
+  const avail = nav?.clientWidth ?? 0
+  const measured = fitDesktopPinsFromMeasure(avail)
 
-/** Raise pin count toward preferred while there is still spare width. */
-async function growDesktopPinsWhileFits(preferred: number): Promise<void> {
-  const nav = topnavRef.value
-  if (!nav) return
-  while (navFitCapacity.value < preferred) {
-    navFitCapacity.value += 1
-    await nextTick()
-    await doubleRaf()
-    if (topnavOverflows(nav)) {
-      navFitCapacity.value -= 1
-      await nextTick()
-      break
+  let next = navFitCapacity.value
+  if (measured > 0) {
+    if (desktopFitReset) {
+      next = Math.min(preferred, measured)
+    } else if (avail < lastDesktopAvailPx - 0.5) {
+      // Narrower: only remove pins (never re-add while shrinking).
+      next = Math.min(navFitCapacity.value, measured, preferred)
+    } else if (avail > lastDesktopAvailPx + 0.5) {
+      // Wider: allow pins back up to what the probe says fits.
+      next = Math.min(preferred, measured)
+    } else {
+      // Same slot width — still honor a tighter probe (font/badge changes).
+      next = Math.min(navFitCapacity.value, measured, preferred)
     }
+  } else if (nav && avail > 0 && avail < lastDesktopAvailPx - 0.5 && next > 1) {
+    // Probe failed while shrinking: drop one pin as a conservative step.
+    next -= 1
   }
+
+  next = Math.max(1, Math.min(preferred, next))
+  lastDesktopAvailPx = avail
+  desktopFitReset = false
+  if (next !== navFitCapacity.value) {
+    navFitCapacity.value = next
+  }
+  setPrimaryNavFitCapacity(navFitCapacity.value)
 }
 
 async function remeasurePrimaryNavFit(): Promise<void> {
@@ -211,22 +208,17 @@ async function remeasurePrimaryNavFit(): Promise<void> {
       const el = bottomNavRef.value
       const width = el?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 0)
       const fit = maxBottomNavPins(width)
-      navFitCapacity.value = Math.min(preferred, fit)
+      const next = Math.min(preferred, fit)
+      if (next !== navFitCapacity.value) navFitCapacity.value = next
       setPrimaryNavFitCapacity(navFitCapacity.value)
+      desktopFitReset = true
+      lastDesktopAvailPx = 0
       return
     }
 
+    // Let the off-screen probe reflect current labels/order, then fit once.
     await nextTick()
-    await doubleRaf()
-    const avail = topnavRef.value?.clientWidth ?? 0
-    const measured = fitDesktopPinsFromMeasure(avail)
-    if (measured > 0) {
-      navFitCapacity.value = Math.min(preferred, measured)
-    }
-    // Always verify against the live topnav (and recover if the probe failed).
-    await shrinkDesktopPinsUntilFits()
-    await growDesktopPinsWhileFits(preferred)
-    setPrimaryNavFitCapacity(navFitCapacity.value)
+    applyDesktopNavFit(preferred)
   } finally {
     navFitMeasuring = false
     if (navFitPending) {
@@ -338,8 +330,9 @@ onMounted(() => {
       headerResizeObserver.observe(topEl.value)
     }
     navFitResizeObserver = new ResizeObserver(() => schedulePrimaryNavFitMeasure())
+    // Bottom bar width only (mobile). Do not observe the live topnav — changing
+    // pin count would re-trigger fit and flicker. Desktop uses header RO + window resize.
     if (bottomNavRef.value) navFitResizeObserver.observe(bottomNavRef.value)
-    if (topnavRef.value) navFitResizeObserver.observe(topnavRef.value)
   }
   if (typeof window.matchMedia === 'function') {
     desktopNavMq = window.matchMedia(DESKTOP_NAV_MQ)
@@ -380,7 +373,10 @@ watch(
     offlineMode.manualOffline,
     queue.count,
   ],
-  () => schedulePrimaryNavFitMeasure(),
+  () => {
+    desktopFitReset = true
+    schedulePrimaryNavFitMeasure()
+  },
 )
 
 const bottomNavCols = computed(() => pinnedNavItems.value.length + 1)
