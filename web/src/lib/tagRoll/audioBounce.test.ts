@@ -1,26 +1,73 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAudioBuffer } from '../../audio/audioBufferFactory'
 import {
   buildMixBuffer,
   buildPartLeftBuffer,
+  bounceTagRollTracks,
   bounceTrackFilename,
   bufferToMono,
   firstContentMeasureTick,
+  monoToDualStereo,
   partSlug,
   planBounceSteps,
+  planPartBounceEvents,
+  safeTrackNamePart,
   TAG_ROLL_BOUNCE_MAX_SECONDS,
   ticksToSec,
   trimBufferFromTick,
 } from './audioBounce'
+import { planBlowPitch } from './blowPitch'
+import { stubOfflineAudioContext, wavStereoFrameCount } from './bounceWebAudioMock'
 import { createEmptyTagRollProject } from './normalize'
 import { exportTagRollMidi } from './midiExport'
 import { projectDurationSeconds, secondsAtTick } from './tempoMap'
 import { TAG_ROLL_PPQ } from './types'
 
+function projectWithLeadNote(opts?: {
+  blowPitchEnabled?: boolean
+  startTick?: number
+  bpm?: number
+}) {
+  const p = createEmptyTagRollProject({ title: 'Bounce Tag' })
+  p.blowPitchEnabled = !!opts?.blowPitchEnabled
+  p.bpm = opts?.bpm ?? 120
+  p.tempoMarkers = [{ id: 't0', tick: 0, bpm: p.bpm }]
+  p.lengthTicks = TAG_ROLL_PPQ * 8
+  const lead = p.parts.find((x) => x.name === 'Lead')!
+  const bass = p.parts.find((x) => x.name === 'Bass')!
+  p.notes = [
+    {
+      id: 'n1',
+      partId: lead.id,
+      midi: 60,
+      startTick: opts?.startTick ?? 0,
+      durationTicks: TAG_ROLL_PPQ,
+    },
+    {
+      id: 'n2',
+      partId: bass.id,
+      midi: 48,
+      startTick: opts?.startTick ?? 0,
+      durationTicks: TAG_ROLL_PPQ,
+    },
+  ]
+  return p
+}
+
 describe('audioBounce planning', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it('converts ticks to seconds at project BPM', () => {
     expect(ticksToSec(TAG_ROLL_PPQ, 120)).toBeCloseTo(0.5)
     expect(ticksToSec(TAG_ROLL_PPQ * 4, 60)).toBeCloseTo(4)
+  })
+
+  it('sanitizes track name fragments', () => {
+    expect(safeTrackNamePart('A/B:C*?')).toBe('ABC')
+    expect(safeTrackNamePart('   ')).toBe('track')
   })
 
   it('plans mix + part-left with hosted-style labels', () => {
@@ -149,6 +196,133 @@ describe('audioBounce planning', () => {
     // Hard L/R + 0.99 headroom when peak would clip
     expect(buf.getChannelData(0)[0]).toBeCloseTo(0.99)
     expect(buf.getChannelData(1)[0]).toBeCloseTo(0.495)
+  })
+
+  it('duplicates mono into dual stereo', () => {
+    const mono = new Float32Array([0.2, 0.4])
+    const buf = monoToDualStereo(mono, 22050)
+    expect(buf.numberOfChannels).toBe(2)
+    expect(buf.sampleRate).toBe(22050)
+    expect(buf.getChannelData(0)[1]).toBeCloseTo(0.4)
+    expect(buf.getChannelData(1)[1]).toBeCloseTo(0.4)
+  })
+
+  it('plans attack then glide for overlapping monophonic notes', () => {
+    const p = createEmptyTagRollProject()
+    p.bpm = 120
+    p.tempoMarkers = [{ id: 't0', tick: 0, bpm: 120 }]
+    const lead = p.parts[0]!
+    const notes = [
+      {
+        id: 'a',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ * 2,
+      },
+      {
+        id: 'b',
+        partId: lead.id,
+        midi: 64,
+        startTick: TAG_ROLL_PPQ,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    p.notes = notes
+    const events = planPartBounceEvents(notes, p)
+    expect(events[0]?.kind).toBe('attack')
+    expect(events.some((e) => e.kind === 'glide')).toBe(true)
+  })
+})
+
+describe('bounceTagRollTracks + blow pitch', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('prepends a blow-pitch measure to mix WAV when enabled', async () => {
+    stubOfflineAudioContext(0.15)
+    const off = projectWithLeadNote({ blowPitchEnabled: false })
+    const on = projectWithLeadNote({ blowPitchEnabled: true })
+    const plan = planBlowPitch(on)!
+    expect(plan.measureSec).toBeGreaterThan(1)
+
+    const [offTrack] = await bounceTagRollTracks(off, {
+      mix: true,
+      perPart: false,
+      format: 'wav',
+    })
+    const [onTrack] = await bounceTagRollTracks(on, {
+      mix: true,
+      perPart: false,
+      format: 'wav',
+    })
+    expect(offTrack?.filename).toBe('Bounce Tag - Mix.wav')
+    expect(onTrack?.filename).toBe('Bounce Tag - Mix.wav')
+
+    const offFrames = wavStereoFrameCount(offTrack!.bytes)
+    const onFrames = wavStereoFrameCount(onTrack!.bytes)
+    const expectedPitchFrames = Math.ceil(plan.measureSec * 44100)
+    expect(onFrames - offFrames).toBe(expectedPitchFrames)
+  })
+
+  it('prepends blow pitch to every part-left and mix track', async () => {
+    stubOfflineAudioContext(0.2)
+    const p = projectWithLeadNote({ blowPitchEnabled: true, startTick: TAG_ROLL_PPQ * 4 })
+    const plan = planBlowPitch(p)!
+    const tracks = await bounceTagRollTracks(p, {
+      mix: false,
+      perPart: false,
+      partLeft: true,
+      format: 'wav',
+    })
+    expect(tracks.map((t) => t.label)).toEqual(['Mix', 'Lead', 'Bass'])
+    const pitchFrames = Math.ceil(plan.measureSec * 44100)
+    for (const t of tracks) {
+      const frames = wavStereoFrameCount(t.bytes)
+      expect(frames).toBeGreaterThan(pitchFrames)
+    }
+    const without = projectWithLeadNote({
+      blowPitchEnabled: false,
+      startTick: TAG_ROLL_PPQ * 4,
+    })
+    const [mixOff] = await bounceTagRollTracks(without, {
+      mix: true,
+      perPart: false,
+      format: 'wav',
+    })
+    const mixOn = tracks.find((t) => t.label === 'Mix')!
+    expect(wavStereoFrameCount(mixOn.bytes) - wavStereoFrameCount(mixOff!.bytes)).toBe(
+      pitchFrames,
+    )
+  })
+
+  it('skips blow pitch render when disabled', async () => {
+    stubOfflineAudioContext(0.1)
+    const p = projectWithLeadNote({ blowPitchEnabled: false })
+    expect(planBlowPitch(p)).toBeNull()
+    const tracks = await bounceTagRollTracks(p, {
+      mix: true,
+      perPart: true,
+      format: 'wav',
+    })
+    expect(tracks.map((t) => t.label)).toEqual(['Mix', 'Lead Solo', 'Bass Solo'])
+    expect(tracks.every((t) => t.bytes.byteLength > 44)).toBe(true)
+  })
+
+  it('reports bounce progress including pitch when enabled', async () => {
+    stubOfflineAudioContext(0.1)
+    const p = projectWithLeadNote({ blowPitchEnabled: true })
+    const labels: string[] = []
+    await bounceTagRollTracks(p, {
+      mix: true,
+      perPart: false,
+      format: 'wav',
+      onProgress: (pr) => labels.push(pr.label),
+    })
+    expect(labels.some((l) => /pitch/i.test(l))).toBe(true)
+    expect(labels.at(-1)).toBe('Done')
   })
 })
 
