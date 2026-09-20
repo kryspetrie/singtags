@@ -346,8 +346,9 @@ export async function renderVexSheetScore(opts: {
     SHEET_RIGHT_PAD
   const totalHeight = systemHeight
 
+  if (!host.id) host.id = `vex-sheet-${Math.random().toString(36).slice(2, 10)}`
   const factory = new Factory({
-    renderer: { elementId: host, width: totalWidth, height: totalHeight },
+    renderer: { elementId: host.id, width: totalWidth, height: totalHeight },
   })
 
   const measures: VexScoreMeasureGeom[] = []

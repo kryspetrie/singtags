@@ -1,7 +1,7 @@
 /**
  * Continuous horizontal barbershop sheet layout (view-only).
  */
-import type { TagRollClefFamily, TagRollPart } from '../types'
+import type { TagRollClefFamily } from '../types'
 
 export type SheetStaffKind = 'upper' | 'lower' | 'solo'
 

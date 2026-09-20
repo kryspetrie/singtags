@@ -317,7 +317,7 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
 
 export function downloadTagRollMusicXml(project: TagRollProject): void {
   const bytes = exportTagRollMusicXml(project)
-  const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)], {
+  const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], {
     type: 'application/vnd.recordare.musicxml+xml',
   })
   const url = URL.createObjectURL(blob)

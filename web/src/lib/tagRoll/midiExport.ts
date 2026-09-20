@@ -217,7 +217,7 @@ export function exportTagRollMidi(
 
 export function downloadTagRollMidi(project: TagRollProject, mode: MidiExportMode): void {
   const bytes = exportTagRollMidi(project, mode)
-  const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)], {
+  const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], {
     type: 'audio/midi',
   })
   const url = URL.createObjectURL(blob)

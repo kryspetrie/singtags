@@ -99,12 +99,12 @@ function wrapMono(synth: PitchPlayer): PitchTonePlayer {
     noteOff: (note, fade) => {
       if (current === note) {
         current = null
-        synth.stop(fade)
+        synth.stop(fade !== false)
       }
     },
     allNotesOff: (fade) => {
       current = null
-      synth.stop(fade)
+      synth.stop(fade !== false)
     },
     activeNotes: () => (current ? [current] : []),
     isNoteActive: (note) => current === note,
@@ -114,7 +114,7 @@ function wrapMono(synth: PitchPlayer): PitchTonePlayer {
     },
     stop: (fade) => {
       current = null
-      synth.stop(fade)
+      synth.stop(fade !== false)
     },
     setVoice: (voice) => synth.setVoice(voice),
     restartIfPlaying: () => synth.restartIfPlaying(),
