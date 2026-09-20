@@ -1,5 +1,5 @@
 /**
- * Short URL-friendly Tag Studio project ids (nanoid).
+ * Short URL-friendly Tag Studio project ids (nanoid) + prefixed entity ids.
  * Local-only — length favors typability over global uniqueness.
  */
 import { customAlphabet } from 'nanoid'
@@ -14,6 +14,17 @@ const gen = customAlphabet(alphabet, TAG_ROLL_PROJECT_ID_LENGTH)
 
 export function newTagRollProjectId(): string {
   return gen()
+}
+
+/**
+ * Prefixed opaque id for notes / parts / tempo / expressions.
+ * Pure — no IndexedDB / offline imports (same shape as `newLocalId`).
+ */
+export function allocatePrefixedId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `${prefix}_${crypto.randomUUID()}`
+  }
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 const UUID_RE =

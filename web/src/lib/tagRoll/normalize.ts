@@ -1,12 +1,11 @@
 /**
  * Normalize / create Tag Roll projects.
  */
-import { newLocalId } from '../../offline/localLibraryDb'
 import { isPianoSoundEngineId } from '../../audio/pianoSamples'
 import { loadPitchPipeSoundId } from '../../audio/pitchPipeVoice'
 import { migratePartHotkey, normalizePartHotkey } from './partHotkeys'
 import { syncProjectMix } from './mix'
-import { newTagRollProjectId } from './ids'
+import { allocatePrefixedId, newTagRollProjectId } from './ids'
 import {
   TAG_ROLL_CELL_H_MAX,
   TAG_ROLL_CELL_H_MIN,
@@ -73,7 +72,7 @@ export function normalizeTagRollPart(raw: unknown, fallbackIndex = 0): TagRollPa
   const d = TAG_ROLL_DEFAULT_PARTS[fallbackIndex % TAG_ROLL_DEFAULT_PARTS.length]!
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const id =
-    typeof o.id === 'string' && o.id.trim() ? o.id.trim() : newLocalId('trp')
+    typeof o.id === 'string' && o.id.trim() ? o.id.trim() : allocatePrefixedId('trp')
   const name =
     typeof o.name === 'string' && o.name.trim() ? o.name.trim() : d.name
   const color =
@@ -137,7 +136,7 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
 
 export function createDefaultTagRollParts(): TagRollPart[] {
   return TAG_ROLL_DEFAULT_PARTS.map((p) => ({
-    id: newLocalId('trp'),
+    id: allocatePrefixedId('trp'),
     name: p.name,
     color: p.color,
     midiGroup: p.midiGroup,
@@ -214,7 +213,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
   if (!tempoMarkers.length) {
     tempoMarkers = createDefaultTempoMarkers(bpm)
   } else if (!tempoMarkers.some((m) => m.tick === 0)) {
-    tempoMarkers = [{ id: newLocalId('trt'), tick: 0, bpm }, ...tempoMarkers]
+    tempoMarkers = [{ id: allocatePrefixedId('trt'), tick: 0, bpm }, ...tempoMarkers]
   }
   tempoMarkers.sort((a, b) => a.tick - b.tick)
   const expressions = (Array.isArray(o.expressions) ? o.expressions : [])

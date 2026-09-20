@@ -1,7 +1,7 @@
 /**
  * Time signature, tempo map, and expression helpers for Tag Studio.
  */
-import { newLocalId } from '../../offline/localLibraryDb'
+import { allocatePrefixedId } from './ids'
 import {
   TAG_ROLL_DEFAULT_BPM,
   TAG_ROLL_DEFAULT_TIME_SIGNATURE,
@@ -24,7 +24,7 @@ export function beatTicks(ts: TagRollTimeSignature, ppq = TAG_ROLL_PPQ): number 
 }
 
 export function createDefaultTempoMarkers(bpm = TAG_ROLL_DEFAULT_BPM): TagRollTempoMarker[] {
-  return [{ id: newLocalId('trt'), tick: 0, bpm }]
+  return [{ id: allocatePrefixedId('trt'), tick: 0, bpm }]
 }
 
 export function normalizeTimeSignature(raw: unknown): TagRollTimeSignature {
@@ -42,7 +42,7 @@ export function normalizeTimeSignature(raw: unknown): TagRollTimeSignature {
 export function normalizeTempoMarker(raw: unknown): TagRollTempoMarker | null {
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   if (!o) return null
-  const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : newLocalId('trt')
+  const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : allocatePrefixedId('trt')
   const tick = Math.max(0, Math.round(Number(o.tick) || 0))
   const bpm = Math.max(20, Math.min(320, Math.round(Number(o.bpm) || TAG_ROLL_DEFAULT_BPM)))
   return { id, tick, bpm }
@@ -52,7 +52,7 @@ export function normalizeExpression(raw: unknown): TagRollExpression | null {
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
   if (!o) return null
   const kind = o.kind
-  const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : newLocalId('tre')
+  const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim() : allocatePrefixedId('tre')
   if (kind === 'fermata') {
     return {
       id,

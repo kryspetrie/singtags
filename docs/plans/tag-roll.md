@@ -3,7 +3,7 @@
 > **Status:** Phases 1–7 implemented on `piano-roll` branch; Phase 8 UX polish in progress  
 > **Updated:** 2026-09-18  
 > **Goal:** Labs-gated polyphonic piano-roll editor for sketching original tags: one shared pitch×time grid, colored custom parts, playback, lyrics-by-part, MIDI export, Save to My Library (sheet PNG + rendered tracks), and a barbershop lead→chord harmonizer.  
-> **Related:** [virtual-piano.md](virtual-piano.md) (live keyboard / engines — complementary, not a sequencer), My Library ([local-library-ux.md](local-library-ux.md)), Pitch Pipe Sound Lab, [MuseScore Barbershop Harmonizer](https://github.com/znarf94/MuseScore_Barbershop_Harmonizer) (Phase 7 reference), **[tag-studio-hardening.md](tag-studio-hardening.md)** (gap remediation: playback/export honesty, tests, extractions).
+> **Related:** [virtual-piano.md](virtual-piano.md) (live keyboard / engines — complementary, not a sequencer), My Library ([local-library-ux.md](local-library-ux.md)), Pitch Pipe Sound Lab, [MuseScore Barbershop Harmonizer](https://github.com/znarf94/MuseScore_Barbershop_Harmonizer) (Phase 7 reference), **[tag-studio-hardening.md](tag-studio-hardening.md)** (gap remediation: playback/export honesty, tests, extractions), **[tag-studio-ports-readiness.md](tag-studio-ports-readiness.md)** (ports/adapters readiness for arranging merge).
 
 ### Phase 8 — Compose UX + undo + shortcuts (in progress)
 

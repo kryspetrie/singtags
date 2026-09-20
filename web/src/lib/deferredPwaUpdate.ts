@@ -81,7 +81,10 @@ export function restoreScrollAfterPwaReload(): void {
   if (Date.now() - (snap.at || 0) > 90_000) return
 
   const y = Math.max(0, snap.scrollY)
-  const apply = () => window.scrollTo(0, y)
+  const apply = () => {
+    if (typeof window === 'undefined') return
+    window.scrollTo(0, y)
+  }
   apply()
   requestAnimationFrame(() => {
     apply()

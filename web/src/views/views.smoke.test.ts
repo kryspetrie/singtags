@@ -119,6 +119,15 @@ function makeRouter(routes: Parameters<typeof createRouter>[0]['routes']) {
   return createRouter({ history: createMemoryHistory(), routes })
 }
 
+/** Stub Font Awesome so heart icons resolve in smoke mounts without main.ts registration. */
+const fontAwesomeStub = {
+  FontAwesomeIcon: {
+    props: ['icon'],
+    template:
+      '<span class="fa-stub" :data-icon="Array.isArray(icon) ? icon.join(\':\') : String(icon)" />',
+  },
+}
+
 describe('view smoke tests', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -163,7 +172,7 @@ describe('view smoke tests', () => {
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
@@ -218,6 +227,7 @@ describe('view smoke tests', () => {
             props: ['to'],
             template: '<a class="fav-link-stub" :data-to="JSON.stringify(to)"><slot /></a>',
           },
+          ...fontAwesomeStub,
         },
       },
     })
@@ -289,7 +299,7 @@ describe('view smoke tests', () => {
     const w = mount(FavoritesView, {
       global: {
         plugins: [pinia, router],
-        stubs: { EmptyState: true, RouterLink: true },
+        stubs: { EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
@@ -388,6 +398,7 @@ describe('view smoke tests', () => {
             template:
               '<div v-if="open" data-testid="picker">{{ title }}:{{ tagIds.join(",") }}</div>',
           },
+          ...fontAwesomeStub,
         },
       },
     })
@@ -411,7 +422,7 @@ describe('view smoke tests', () => {
     const bar = document.body.querySelector('.selection-bar')
     expect(bar?.textContent).toMatch(/1 selected/)
     expect(bar?.querySelector('button[aria-label="Add to collection"]')).toBeTruthy()
-    expect(bar?.querySelector('button[aria-label="Queue download"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Queue downloads"]')).toBeTruthy()
     const addBtn = bar!.querySelector('button[aria-label="Add to collection"]') as HTMLButtonElement
     expect(addBtn).toBeTruthy()
     addBtn.click()
@@ -485,6 +496,7 @@ describe('view smoke tests', () => {
             template:
               '<div v-if="open" data-testid="picker">{{ title }}:{{ tagIds.join(",") }}</div>',
           },
+          ...fontAwesomeStub,
         },
       },
     })
@@ -499,7 +511,7 @@ describe('view smoke tests', () => {
     expect(bar?.querySelector('button[aria-label="Favorite selected tags"]')).toBeTruthy()
     expect(bar?.querySelector('button[aria-label="Add to collection"]')).toBeTruthy()
     expect(bar?.querySelector('button[aria-label="Optical transfer"]')).toBeFalsy()
-    expect(bar?.querySelector('button[aria-label="Queue download"]')).toBeTruthy()
+    expect(bar?.querySelector('button[aria-label="Queue downloads"]')).toBeTruthy()
     const addBtn = bar!.querySelector('button[aria-label="Add to collection"]') as HTMLButtonElement
     expect(addBtn).toBeTruthy()
     addBtn.click()
@@ -596,7 +608,7 @@ describe('view smoke tests', () => {
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
@@ -604,7 +616,7 @@ describe('view smoke tests', () => {
     await w.vm.$nextTick()
     const bar = document.body.querySelector('.selection-bar')
     expect(bar).toBeTruthy()
-    await (bar!.querySelector('button[aria-label="Queue download"]') as HTMLButtonElement).click()
+    await (bar!.querySelector('button[aria-label="Queue downloads"]') as HTMLButtonElement).click()
     await flushPromises()
     await (bar!.querySelector('button[aria-label="Favorite selected tags"]') as HTMLButtonElement).click()
     await flushPromises()
@@ -692,7 +704,7 @@ describe('view smoke tests', () => {
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ScrubRail: true },
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ScrubRail: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
@@ -775,16 +787,21 @@ describe('view smoke tests', () => {
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
     expect(catalog.results.length).toBeGreaterThan(0)
     const starBtn = w.find('button.row-fav')
-    expect(starBtn.text()).toBe('♡')
+    expect(starBtn.attributes('aria-pressed')).toBe('false')
+    expect(starBtn.attributes('aria-label')).toBe('Favorite')
+    expect(starBtn.find('.fa-stub').attributes('data-icon')).toBe('far:heart')
     await starBtn.trigger('click')
+    await flushPromises()
     await w.vm.$nextTick()
-    expect(starBtn.text()).toBe('♥')
+    expect(starBtn.attributes('aria-pressed')).toBe('true')
+    expect(starBtn.attributes('aria-label')).toBe('Unfavorite')
+    expect(starBtn.find('.fa-stub').attributes('data-icon')).toBe('fas:heart')
     w.unmount()
   })
 
@@ -806,7 +823,7 @@ describe('view smoke tests', () => {
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
-        stubs: { SearchChips: true, EmptyState: true, RouterLink: true },
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()
@@ -900,7 +917,7 @@ describe('view smoke tests', () => {
     await router.push('/favorites')
     const w = mount(FavoritesView, {
       attachTo: document.body,
-      global: { plugins: [pinia, router], stubs: { EmptyState: true, RouterLink: true } },
+      global: { plugins: [pinia, router], stubs: { EmptyState: true, RouterLink: true, ...fontAwesomeStub } },
     })
     await flushPromises()
     await w.get('button[aria-label="More favorites actions"]').trigger('click')
@@ -992,7 +1009,7 @@ describe('view smoke tests', () => {
       props: { id: '3' },
       global: {
         plugins: [pinia, router],
-        stubs: { EmptyState: true, RouterLink: true },
+        stubs: { EmptyState: true, RouterLink: true, ...fontAwesomeStub },
       },
     })
     await flushPromises()

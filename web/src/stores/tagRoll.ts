@@ -1,9 +1,11 @@
 /**
  * Tag Studio projects — list, open, create, save, note CRUD, undo/redo.
+ * Persistence / ids / harmony go through composition ports (façade over use-cases).
  */
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import { newLocalId } from '../offline/localLibraryDb'
+import { applyHarmony } from '../application/tagRoll/applyHarmony'
+import { getTagStudioServices } from '../composition/tagStudio'
 import {
   applyDocumentSnapshot,
   captureDocumentSnapshot,
@@ -16,7 +18,6 @@ import {
 } from '../lib/tagRoll/normalize'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { applyHarmonyToNotes } from '../lib/tagRoll/harmonizer/applyHarmony'
 import { syncProjectMix } from '../lib/tagRoll/mix'
 import {
   clipboardToNotesAt,
@@ -57,16 +58,12 @@ import {
   TAG_ROLL_SHEET_ZOOM_MIN,
 } from '../lib/tagRoll/types'
 import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects'
-import {
-  deleteTagRollProject,
-  getTagRollHistory,
-  getTagRollProject,
-  listTagRollProjects,
-  putTagRollHistory,
-  putTagRollProject,
-  type TagRollProjectSummary,
-} from '../offline/tagRollDb'
+import type { TagRollProjectSummary } from '../ports/TagRollRepository'
 import { usePreferencesStore } from './preferences'
+
+function svc() {
+  return getTagStudioServices()
+}
 
 export const useTagRollStore = defineStore('tagRoll', () => {
   const summaries = ref<TagRollProjectSummary[]>([])
@@ -132,7 +129,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (historyTimer) clearTimeout(historyTimer)
     historyTimer = setTimeout(() => {
       historyTimer = null
-      void putTagRollHistory({
+      void svc().repository.putHistory({
         projectId: p.id,
         undo: undoStack.value,
         redo: redoStack.value,
@@ -158,19 +155,19 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   async function refreshList(): Promise<void> {
     try {
-      let list = await listTagRollProjects()
+      let list = await svc().repository.list()
       if (!list.length) {
         const seeded = createTagRollDefaultProjects()
         for (const p of seeded) {
-          await putTagRollProject(p)
-          await putTagRollHistory({
+          await svc().repository.put(p)
+          await svc().repository.putHistory({
             projectId: p.id,
             undo: [],
             redo: [],
             updatedAt: p.updatedAt,
           })
         }
-        if (seeded.length) list = await listTagRollProjects()
+        if (seeded.length) list = await svc().repository.list()
       }
       summaries.value = list
       loaded.value = true
@@ -184,7 +181,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   async function openProject(id: string): Promise<TagRollProject | null> {
     busy.value = true
     try {
-      const p = await getTagRollProject(id)
+      const p = await svc().repository.get(id)
       current.value = p
       clearNoteSelection()
       selectedExpressionId.value = null
@@ -192,7 +189,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       undoStack.value = []
       redoStack.value = []
       if (p) {
-        const hist = await getTagRollHistory(p.id)
+        const hist = await svc().repository.getHistory(p.id)
         undoStack.value = hist.undo
         redoStack.value = hist.redo
       }
@@ -222,8 +219,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       p.view.cellW = cellW
       p.view.cellH = cellH
       p.view.scrollY = (TAG_ROLL_MIDI_MAX - 60) * cellH
-      await putTagRollProject(p)
-      await putTagRollHistory({
+      await svc().repository.put(p)
+      await svc().repository.putHistory({
         projectId: p.id,
         undo: [],
         redo: [],
@@ -254,8 +251,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         localEntryId: null,
       })
       if (!p) throw new Error('Invalid project')
-      await putTagRollProject(p)
-      await putTagRollHistory({
+      await svc().repository.put(p)
+      await svc().repository.putHistory({
         projectId: p.id,
         undo: [],
         redo: [],
@@ -289,7 +286,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p) return
     try {
       const next = { ...p, updatedAt: Date.now() }
-      await putTagRollProject(next)
+      await svc().repository.put(next)
       current.value = normalizeTagRollProject(next)
       await refreshList()
       error.value = null
@@ -507,7 +504,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (zeroIdx >= 0) {
       markers[zeroIdx] = { ...markers[zeroIdx]!, bpm: next }
     } else {
-      markers.unshift({ id: newLocalId('trt'), tick: 0, bpm: next })
+      markers.unshift({ id: svc().idGen.next('trt'), tick: 0, bpm: next })
     }
     current.value = {
       ...p,
@@ -538,7 +535,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const snapped = snapTick(tick, p.snapTicks)
     const nextBpm = Math.max(20, Math.min(320, Math.round(bpm)))
     const markers = p.tempoMarkers.filter((m) => m.tick !== snapped)
-    markers.push({ id: newLocalId('trt'), tick: snapped, bpm: nextBpm })
+    markers.push({ id: svc().idGen.next('trt'), tick: snapped, bpm: nextBpm })
     markers.sort((a, b) => a.tick - b.tick)
     current.value = {
       ...p,
@@ -743,7 +740,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     )
     const midi = Math.max(TAG_ROLL_MIDI_MIN, Math.min(TAG_ROLL_MIDI_MAX, Math.round(partial.midi)))
     const note: TagRollNote = {
-      id: newLocalId('trn'),
+      id: svc().idGen.next('trn'),
       partId,
       midi,
       startTick,
@@ -928,7 +925,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       partId: partIds.has(c.partId) ? c.partId : (active ?? c.partId),
     }))
     pushHistory()
-    const created = clipboardToNotesAt(mapped, p.view.playheadTick, () => newLocalId('trn'))
+    const created = clipboardToNotesAt(mapped, p.view.playheadTick, () => svc().idGen.next('trn'))
     let lengthTicks = p.lengthTicks
     const mTicks = measureTicks(p.timeSignature)
     for (const n of created) {
@@ -961,13 +958,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const melody = p.notes.find((n) => n.id === opts.melodyNoteId)
     if (!melody) return
     pushHistory()
-    const notes = applyHarmonyToNotes({
-      notes: p.notes,
-      parts: p.parts,
-      melody,
+    const result = applyHarmony({
+      project: p,
+      melodyNoteId: opts.melodyNoteId,
       pitches: opts.pitches,
+      idGen: svc().idGen,
     })
-    current.value = { ...p, notes, updatedAt: Date.now() }
+    if (!result.ok) return
+    current.value = { ...p, notes: result.notes, updatedAt: svc().clock.now() }
     scheduleSave()
   }
 
@@ -976,7 +974,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p) return
     pushHistory()
     const part: TagRollPart = {
-      id: newLocalId('trp'),
+      id: svc().idGen.next('trp'),
       name: name.trim() || 'Part',
       color,
       midiGroup: 'solo',
@@ -1115,7 +1113,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   async function removeProject(id: string): Promise<void> {
-    await deleteTagRollProject(id)
+    await svc().repository.remove(id)
     if (current.value?.id === id) current.value = null
     await refreshList()
   }

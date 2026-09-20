@@ -5,7 +5,7 @@
  * Existing notes on other parts are moved into that stack; notes spanning the
  * insert tick are broken (left stump truncated, new stack note inserted).
  */
-import { newLocalId } from '../../../offline/localLibraryDb'
+import type { IdGenerator } from '../../../ports/IdGenerator'
 import type { TagRollNote, TagRollPart } from '../types'
 
 export type HarmonyPitches = {
@@ -21,6 +21,7 @@ function applyHarmonyForPart(
   midi: number,
   insertTick: number,
   durationTicks: number,
+  idGen: IdGenerator,
 ): TagRollNote[] {
   const dur = Math.max(1, durationTicks)
   const endTick = insertTick + dur
@@ -54,7 +55,7 @@ function applyHarmonyForPart(
       }
       if (nEnd > endTick) {
         out.push({
-          id: newLocalId('trn'),
+          id: idGen.next('trn'),
           partId,
           midi: n.midi,
           startTick: endTick,
@@ -74,7 +75,7 @@ function applyHarmonyForPart(
       }
       if (nEnd > endTick) {
         out.push({
-          id: newLocalId('trn'),
+          id: idGen.next('trn'),
           partId,
           midi: n.midi,
           startTick: endTick,
@@ -84,7 +85,7 @@ function applyHarmonyForPart(
     } else if (nEnd > endTick) {
       // Extra notes in the window are absorbed; keep only a post-window remnant.
       out.push({
-        id: newLocalId('trn'),
+        id: idGen.next('trn'),
         partId,
         midi: n.midi,
         startTick: endTick,
@@ -97,7 +98,7 @@ function applyHarmonyForPart(
     out.push(moved)
   } else {
     out.push({
-      id: newLocalId('trn'),
+      id: idGen.next('trn'),
       partId,
       midi,
       startTick: insertTick,
@@ -121,8 +122,10 @@ export function applyHarmonyToNotes(opts: {
   pitches: HarmonyPitches
   /** Insert tick (defaults to melody start — the stack under the cursor). */
   cursorTick?: number
+  /** Required for new remnant / stack note ids (no offline imports). */
+  idGen: IdGenerator
 }): TagRollNote[] {
-  const { melody, pitches } = opts
+  const { melody, pitches, idGen } = opts
   const melodyPartId = melody.partId
   const insertTick = Math.max(0, opts.cursorTick ?? melody.startTick)
   const durationTicks = melody.durationTicks
@@ -166,7 +169,7 @@ export function applyHarmonyToNotes(opts: {
     const partNotes = opts.notes.filter((n) => n.partId === t.partId)
     notes = [
       ...notes,
-      ...applyHarmonyForPart(partNotes, t.partId, t.midi, insertTick, durationTicks),
+      ...applyHarmonyForPart(partNotes, t.partId, t.midi, insertTick, durationTicks, idGen),
     ]
   }
   return notes

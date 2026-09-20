@@ -146,7 +146,7 @@ export async function zipQueueTracks(
         format,
         transform,
         signal: opts.signal,
-        encodeQuality: encodeQualityForDownload(format),
+        encodeQuality: opts.encodeQuality ?? encodeQualityForDownload(format),
       })
     }
     const fileName = queueItemFileName(t, format, transform)

@@ -9,7 +9,11 @@ Static Vue 3 SPA. Catalog/search/media are published objects; the browser owns s
 | Layer | Responsibility | Must not |
 | --- | --- | --- |
 | `sync/` / `build/` / `deploy/` | Library mirror, SPA indexes, S3 publish | Scrape origin; touch Vue |
-| `web/src/stores/` | Catalog filters + queue state, URL sync | Decode audio; own DOM |
+| `web/src/ports/` | Tag Studio / Labs interfaces only | Implement I/O; import Vue |
+| `web/src/adapters/` | IDB, MIDI, MusicXML, bounce, library wiring | Own domain rules |
+| `web/src/application/` | Use-cases (Tag Studio first) | Vue; IndexedDB directly |
+| `web/src/composition/` | Wire adapters once (DI root) | UI |
+| `web/src/stores/` | Catalog filters + queue state, URL sync; Tag Studio = document/selection façade | Decode audio; own DOM; grow algorithms |
 | `web/src/search/` | Pure DSL + engine + chip filter merge | Fetch; Vue |
 | `web/src/composables/` | Online, object URLs, tag detail load | Pinia stores |
 | `web/src/audio/` | Web Audio player, pitch pipe voices, bake-first pitch/speed, Opus WASM decode | UI strings; Pinia |
@@ -17,6 +21,9 @@ Static Vue 3 SPA. Catalog/search/media are published objects; the browser owns s
 | `web/src/components/` | Presentational UI (chips, player, sheets) | Publish paths; S3 |
 | `web/src/views/` | Route composition | Heavy DSP |
 | `web/src/lib/mediaUrl` | Single media / tag detail base URL | — |
+| `web/src/lib/tagRoll/` | Pure Tag Studio domain helpers | Vue; Pinia; IndexedDB |
+
+Tag Studio / future Arranging Labs target the same onion as sibling arranging: **domain → application → ports → adapters**. Schemas stay separate (`singtags.tagRoll.project.v1` vs `arranging.arrangement.v1`); see [decisions/tag-studio-ports.md](decisions/tag-studio-ports.md).
 
 ## Performance practices in use
 

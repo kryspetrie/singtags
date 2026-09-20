@@ -13,6 +13,7 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-studio-hardening.md](tag-studio-hardening.md) | In progress — A–E done; F next |
 | [tag-studio-ux-polish.md](tag-studio-ux-polish.md) | In progress — A–F chrome + thin patterns on `piano-roll` |
 | [tag-studio-sheet-view.md](tag-studio-sheet-view.md) | In progress — View Roll/Sheet toggle; sheet via VexFlow/Bravura |
+| [tag-studio-ports-readiness.md](tag-studio-ports-readiness.md) | In progress — TS0–TS3 started; TS5/TS7/TS8 deferred |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |

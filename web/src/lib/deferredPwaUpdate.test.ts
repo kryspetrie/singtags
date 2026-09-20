@@ -81,7 +81,8 @@ describe('deferredPwaUpdate', () => {
     expect(canApplyPwaUpdateNow()).toBe(true)
   })
 
-  it('restores scroll for the same path', () => {
+  it('restores scroll for the same path', async () => {
+    vi.useFakeTimers()
     window.history.replaceState({}, '', '/?q=1')
     sessionStorage.setItem(
       PWA_RELOAD_SCROLL_KEY,
@@ -91,6 +92,7 @@ describe('deferredPwaUpdate', () => {
     restoreScrollAfterPwaReload()
     expect(scrollTo).toHaveBeenCalledWith(0, 320)
     expect(sessionStorage.getItem(PWA_RELOAD_SCROLL_KEY)).toBeNull()
+    await vi.runAllTimersAsync()
     scrollTo.mockRestore()
   })
 

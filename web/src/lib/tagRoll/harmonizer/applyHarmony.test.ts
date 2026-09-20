@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createSequentialIdGenerator } from '../../../adapters/system/systemServices'
 import { applyHarmonyToNotes } from './applyHarmony'
 import { TAG_ROLL_PPQ } from '../types'
 
@@ -10,6 +11,10 @@ const parts = [
 ]
 
 const pitches = { tenor: 67, bari: 57, bass: 48, lead: 60 }
+
+function idGen() {
+  return createSequentialIdGenerator(1)
+}
 
 describe('applyHarmonyToNotes', () => {
   it('moves an existing in-window note onto the melody stack (no duplicate)', () => {
@@ -32,6 +37,7 @@ describe('applyHarmonyToNotes', () => {
       parts,
       melody,
       pitches,
+      idGen: idGen(),
     })
     const bariNotes = next.filter((n) => n.partId === 'bari')
     expect(bariNotes).toHaveLength(1)
@@ -65,6 +71,7 @@ describe('applyHarmonyToNotes', () => {
       parts,
       melody,
       pitches,
+      idGen: idGen(),
     })
     expect(next.find((n) => n.id === 'b1')?.midi).toBe(57)
     expect(next.filter((n) => n.partId === 'bari')).toHaveLength(1)
@@ -90,6 +97,7 @@ describe('applyHarmonyToNotes', () => {
       parts,
       melody,
       pitches,
+      idGen: idGen(),
     })
     const bariNotes = next
       .filter((n) => n.partId === 'bari')
@@ -123,11 +131,13 @@ describe('applyHarmonyToNotes', () => {
       startTick: 0,
       durationTicks: TAG_ROLL_PPQ * 3,
     }
+    const gens = idGen()
     const next = applyHarmonyToNotes({
       notes: [melody, bari],
       parts,
       melody,
       pitches,
+      idGen: gens,
     })
     const bariNotes = next
       .filter((n) => n.partId === 'bari')
@@ -149,6 +159,7 @@ describe('applyHarmonyToNotes', () => {
       startTick: TAG_ROLL_PPQ * 2,
       durationTicks: TAG_ROLL_PPQ,
     })
+    expect(bariNotes[2]!.id).not.toBe('b1')
   })
 
   it('honors an explicit cursorTick for placement', () => {
@@ -165,6 +176,7 @@ describe('applyHarmonyToNotes', () => {
       melody,
       pitches,
       cursorTick: TAG_ROLL_PPQ / 2,
+      idGen: idGen(),
     })
     expect(next.find((n) => n.partId === 'bari')).toMatchObject({
       midi: 57,
@@ -186,7 +198,27 @@ describe('applyHarmonyToNotes', () => {
       parts,
       melody,
       pitches,
+      idGen: idGen(),
     })
     expect(next.find((n) => n.id === 'm1')).toEqual(melody)
+  })
+
+  it('uses injected idGen for brand-new stack notes', () => {
+    const melody = {
+      id: 'm1',
+      partId: 'lead',
+      midi: 60,
+      startTick: 0,
+      durationTicks: TAG_ROLL_PPQ,
+    }
+    const next = applyHarmonyToNotes({
+      notes: [melody],
+      parts,
+      melody,
+      pitches,
+      idGen: createSequentialIdGenerator(40),
+    })
+    const newIds = next.filter((n) => n.id.startsWith('trn_')).map((n) => n.id)
+    expect(newIds).toEqual(['trn_40', 'trn_41', 'trn_42'])
   })
 })
