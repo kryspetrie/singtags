@@ -132,6 +132,35 @@ export function getBuiltInPitchPipeVoice(sound: PitchPipeSoundId = 'mellow'): Pi
 }
 
 /**
+ * Resolve any pitch-pipe sound id: built-in mellow/bright, else a lab-library voice.
+ * Falls back to the preferred built-in when unknown.
+ */
+export function resolvePitchPipeVoiceById(id: string | null | undefined): PitchPipeVoiceConfig {
+  const key = typeof id === 'string' ? id.trim() : ''
+  if (isPitchPipeSoundId(key)) return getBuiltInPitchPipeVoice(key)
+  if (key) {
+    const lab = loadPitchPipeVoiceLibrary().find((v) => v.id === key)
+    if (lab) return clonePitchPipeVoice(lab)
+  }
+  return getBuiltInPitchPipeVoice(loadPitchPipeSoundId())
+}
+
+/** Select options: built-ins first, then lab-saved voices. */
+export function listPitchPipeSoundChoices(): Array<{ value: string; label: string }> {
+  const out: Array<{ value: string; label: string }> = PITCH_PIPE_SOUND_OPTIONS.map((o) => ({
+    value: o.value,
+    label: o.label,
+  }))
+  const seen = new Set(out.map((o) => o.value))
+  for (const v of loadPitchPipeVoiceLibrary()) {
+    if (seen.has(v.id)) continue
+    seen.add(v.id)
+    out.push({ value: v.id, label: `${v.label} (lab)` })
+  }
+  return out
+}
+
+/**
  * Preferred built-in sound from pitch-pipe prefs localStorage.
  * Does not consult a lab custom override.
  */

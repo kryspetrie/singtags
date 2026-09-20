@@ -14,6 +14,47 @@ import {
 describe('zip helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    // Mock AudioBuffer for encoding
+    const mockAudioBuffer = {
+      numberOfChannels: 1,
+      sampleRate: 44100,
+      length: 1024,
+      getChannelData: vi.fn(() => new Float32Array(1024)),
+    } as unknown as AudioBuffer
+    vi.stubGlobal('AudioBuffer', vi.fn(() => mockAudioBuffer))
+    // Mock AudioContext for audio decoding
+    vi.stubGlobal(
+      'AudioContext',
+      vi.fn(function AudioContext() {
+        return {
+          decodeAudioData: vi.fn(async () => mockAudioBuffer),
+          close: vi.fn(),
+        } as unknown as AudioContext
+      }),
+    )
+    // Mock OfflineAudioContext for encoding and decoding
+    vi.stubGlobal(
+      'OfflineAudioContext',
+      vi.fn(function OfflineAudioContext() {
+        return {
+          createOscillator: vi.fn(() => ({
+            type: 'sine',
+            frequency: { value: 440 },
+            connect: vi.fn(),
+            start: vi.fn(),
+            stop: vi.fn(),
+          })),
+          createGain: vi.fn(() => ({
+            gain: { setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() },
+            connect: vi.fn(),
+          })),
+          createDestination: vi.fn(),
+          destination: {},
+          decodeAudioData: vi.fn(async () => mockAudioBuffer),
+          startRendering: vi.fn(async () => mockAudioBuffer),
+        } as unknown as OfflineAudioContext
+      }),
+    )
   })
 
   it('sampleUrl and fetchBytes', async () => {

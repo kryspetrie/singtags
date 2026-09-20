@@ -6,7 +6,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faHeart as faHeartSolid, faPause, faPen, faPlay, faStop, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons'
+import { faHeart as faHeartSolid, faPause, faPen, faPlay, faStop, faEllipsisVertical, faBackwardStep, faForwardStep, faBackwardFast, faForwardFast, faRotateLeft, faHand, faArrowPointer } from '@fortawesome/free-solid-svg-icons'
 import { faHeart as faHeartRegular } from '@fortawesome/free-regular-svg-icons'
 import App from './App.vue'
 import { router } from './router'
@@ -34,7 +34,22 @@ applyAppTheme(resolveInitialAppTheme())
 applyEmbolden(resolveInitialEmbolden())
 
 // Register FontAwesome icons (hearts + media transport; avoid emoji glyphs that break on mobile)
-library.add(faHeartSolid, faHeartRegular, faPen, faPlay, faPause, faStop, faEllipsisVertical)
+library.add(
+  faHeartSolid,
+  faHeartRegular,
+  faPen,
+  faHand,
+  faArrowPointer,
+  faPlay,
+  faPause,
+  faStop,
+  faEllipsisVertical,
+  faBackwardStep,
+  faForwardStep,
+  faBackwardFast,
+  faForwardFast,
+  faRotateLeft,
+)
 
 ensureFetchPatchInstalled()
 

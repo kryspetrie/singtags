@@ -30,6 +30,7 @@ Accepted product/tech choices that should not be re-litigated without new eviden
 | [plans/vibe-search.md](plans/vibe-search.md) | Planned — Workers AI |
 | [plans/tag-roulette.md](plans/tag-roulette.md) | Proposed |
 | [plans/virtual-piano.md](plans/virtual-piano.md) | Proposed (pitch pipe + sound lab already ship) |
+| [plans/tag-roll.md](plans/tag-roll.md) | Proposed — Labs piano-roll tag composer |
 | [plans/non-recombinable-tracks.md](plans/non-recombinable-tracks.md) | Mostly implemented — residual spot-listen |
 | [plans/local-library-transfer.md](plans/local-library-transfer.md) | Optical shipped; Phase C deferred |
 

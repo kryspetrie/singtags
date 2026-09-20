@@ -7,21 +7,37 @@ import { getActivePitchPipeVoice, type PitchPipeVoiceConfig } from './pitchPipeV
 import type { PianoSoundEngineId } from './pianoSamples'
 import { SamplePianoPlayer } from './samplePianoPlayer'
 import { PolySynthPlayer } from './polySynthPlayer'
+import type { TagRollSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
+
+/** Optional per-voice mix for Tag Studio (same pitch on multiple parts). */
+export type PitchNoteMixOpts = {
+  /** Map key; defaults to note name. Use note id when parts share pitch. */
+  voiceKey?: string
+  /** Linear gain (1 = unity). */
+  gain?: number
+  /** Stereo pan −1…+1. */
+  pan?: number
+}
 
 export type PitchTonePlayer = {
   /** Start or retrigger a note (polyphonic — does not silence other notes). */
-  noteOn(note: string, detuneCents?: number): Promise<void>
-  /** Release one note. */
-  noteOff(note: string, fade?: boolean): void
-  /** Release every sounding note. */
-  allNotesOff(fade?: boolean): void
+  noteOn(note: string, detuneCents?: number, mix?: PitchNoteMixOpts): Promise<void>
+  /** Release one note (pass voiceKey when used at noteOn).
+   * `fade`: true → envelope decaySec; false → cut; number → custom release seconds. */
+  noteOff(noteOrKey: string, fade?: boolean | number): void
+  /** Release every sounding note (`fade` same as noteOff). */
+  allNotesOff(fade?: boolean | number): void
   activeNotes(): string[]
-  isNoteActive(note: string): boolean
+  isNoteActive(noteOrKey: string): boolean
   /** Monophonic convenience: allNotesOff then noteOn. */
   start(note: string, detuneCents?: number): Promise<void>
   /** Monophonic convenience: allNotesOff. */
-  stop(fade?: boolean): void
+  stop(fade?: boolean | number): void
   setVoice(voice: PitchPipeVoiceConfig): void
+  /** Tag Studio project envelope (attack + note-off decay). */
+  setEnvelope?(env: TagRollSoundEnvelope): void
+  /** Ease-in-out pitch glide without re-attack (synth / samples). */
+  glideTo?(voiceKey: string, targetNote: string, durationSec: number): void
   restartIfPlaying(): Promise<void>
   dispose(): void
   preloadForNote?(note: string): Promise<void>
@@ -31,7 +47,7 @@ export type PitchTonePlayer = {
 
 function wrapPolySynth(synth: PolySynthPlayer): PitchTonePlayer {
   return {
-    noteOn: (note, detune) => synth.noteOn(note, detune),
+    noteOn: (note, detune, mix) => synth.noteOn(note, detune, mix),
     noteOff: (note, fade) => synth.noteOff(note, fade),
     allNotesOff: (fade) => synth.allNotesOff(fade),
     activeNotes: () => synth.activeNotes(),
@@ -42,6 +58,8 @@ function wrapPolySynth(synth: PolySynthPlayer): PitchTonePlayer {
     },
     stop: (fade) => synth.allNotesOff(fade),
     setVoice: (voice) => synth.setVoice(voice),
+    setEnvelope: (env) => synth.setEnvelope(env),
+    glideTo: (key, note, dur) => synth.glideTo(key, note, dur),
     restartIfPlaying: () => synth.restartIfPlaying(),
     dispose: () => synth.dispose(),
   }
@@ -49,7 +67,7 @@ function wrapPolySynth(synth: PolySynthPlayer): PitchTonePlayer {
 
 function wrapSamples(sample: SamplePianoPlayer): PitchTonePlayer {
   return {
-    noteOn: (note, detune) => sample.noteOn(note, detune),
+    noteOn: (note, detune, mix) => sample.noteOn(note, detune, mix),
     noteOff: (note, fade) => sample.noteOff(note, fade),
     allNotesOff: (fade) => sample.allNotesOff(fade),
     activeNotes: () => sample.activeNotes(),
@@ -60,6 +78,8 @@ function wrapSamples(sample: SamplePianoPlayer): PitchTonePlayer {
     },
     stop: (fade) => sample.allNotesOff(fade),
     setVoice: () => undefined,
+    setEnvelope: (env) => sample.setEnvelope(env),
+    glideTo: (key, note, dur) => sample.glideTo(key, note, dur),
     restartIfPlaying: () => sample.restartIfPlaying(),
     dispose: () => sample.dispose(),
     preloadForNote: (note) => sample.preloadForNote(note),

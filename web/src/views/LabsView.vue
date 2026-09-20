@@ -31,6 +31,10 @@ function toggleAudioRecorder(): void {
 function toggleSingTogether(): void {
   prefs.setSingTogetherEnabled(!prefs.singTogetherEnabled)
 }
+
+function toggleTagStudio(): void {
+  prefs.setTagRollEnabled(!prefs.tagRollEnabled)
+}
 </script>
 
 <template>
@@ -50,6 +54,40 @@ function toggleSingTogether(): void {
         this device, and set your personal default. Share a favorite with Krys via email.
       </p>
       <RouterLink class="btn" to="/labs/pitch-pipe-sound">Open sound lab</RouterLink>
+    </section>
+
+    <section class="card" aria-labelledby="tag-studio-h">
+      <h2 id="tag-studio-h" class="card-title">Tag Studio</h2>
+      <p class="card-desc">
+        Sketch original tags on a piano-roll grid — polyphonic parts, playback, lyrics, MIDI export,
+        and Save to My Library. Experimental Labs composer.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.tagRollEnabled }"
+        title="Enable Tag Studio"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Tag Studio</span>
+          <span class="setting-desc">
+            {{
+              prefs.tagRollEnabled
+                ? 'Feature available — open from More → Tag Studio'
+                : 'Off — More link and /tag-studio stay hidden'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.tagRollEnabled"
+          :aria-checked="prefs.tagRollEnabled"
+          aria-label="Tag Studio"
+          @change="toggleTagStudio"
+        />
+      </label>
     </section>
 
     <section class="card" aria-labelledby="local-library-h">

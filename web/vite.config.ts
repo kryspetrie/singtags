@@ -121,6 +121,9 @@ function serveLibraryPlugin(): Plugin {
 export default defineConfig({
   base: viteBase(),
   server: {
+    // Bind IPv4 so http://127.0.0.1:5173 works (default localhost can be ::1-only).
+    host: '127.0.0.1',
+    port: 5173,
     fs: { allow: [rootDir, libraryDir] },
   },
   plugins: [

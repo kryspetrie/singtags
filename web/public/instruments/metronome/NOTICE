@@ -1,0 +1,13 @@
+Metronome click samples
+=======================
+
+WAV pairs used by Tag Studio’s metronome (downbeat vs other beats).
+
+Files are named `{id}-down.wav` / `{id}-up.wav`:
+
+- `3000` — 3000
+- `asrx` — ASRX
+- `sp1200` — SP-1200
+- `zoom-st` — Zoom ST
+
+Keep this NOTICE with redistributions.

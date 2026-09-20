@@ -9,6 +9,10 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-roulette.md](tag-roulette.md) | Proposed — product |
 | [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |
 | [virtual-piano.md](virtual-piano.md) | Proposed — poly piano: Sound Lab voice schema + Leethring samples |
+| [tag-roll.md](tag-roll.md) | In progress — Phase 8 on `piano-roll` branch |
+| [tag-studio-hardening.md](tag-studio-hardening.md) | In progress — A–E done; F next |
+| [tag-studio-ux-polish.md](tag-studio-ux-polish.md) | In progress — A–F chrome + thin patterns on `piano-roll` |
+| [tag-studio-sheet-view.md](tag-studio-sheet-view.md) | In progress — View Roll/Sheet toggle; sheet via VexFlow/Bravura |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |

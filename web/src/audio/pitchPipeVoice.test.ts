@@ -11,6 +11,7 @@ import {
   getActivePitchPipeVoice,
   getBuiltInPitchPipeVoice,
   hasCustomActivePitchPipeVoice,
+  listPitchPipeSoundChoices,
   loadPitchPipeSoundId,
   loadPitchPipeVoiceLibrary,
   parsePitchPipeVoice,
@@ -19,6 +20,7 @@ import {
   PITCH_PIPE_VOICE_LIBRARY_KEY,
   PITCH_PIPE_VOICE_SCHEMA,
   removePitchPipeVoiceFromLibrary,
+  resolvePitchPipeVoiceById,
   setActivePitchPipeVoice,
   slugifyPitchPipeVoiceLabel,
   upsertPitchPipeVoiceLibrary,
@@ -40,9 +42,17 @@ describe('pitchPipeVoice', () => {
     expect(parsed?.id).toBe('mellow')
   })
 
-  it('exposes bright built-in as square + sine', () => {
-    expect(BRIGHT_PITCH_PIPE_VOICE.partials.map((p) => p.type)).toEqual(['square', 'sine'])
-    expect(getBuiltInPitchPipeVoice('bright').id).toBe('bright')
+  it('resolves built-in and lab library voice ids', () => {
+    expect(resolvePitchPipeVoiceById('bright').id).toBe('bright')
+    expect(resolvePitchPipeVoiceById('nope').id).toBe('mellow')
+    upsertPitchPipeVoiceLibrary({
+      ...DEFAULT_PITCH_PIPE_VOICE,
+      id: 'lab-reed',
+      label: 'Lab reed',
+      partials: [{ type: 'triangle', gain: 0.5, semitones: 0, detuneCents: 0 }],
+    })
+    expect(resolvePitchPipeVoiceById('lab-reed').label).toBe('Lab reed')
+    expect(listPitchPipeSoundChoices().some((c) => c.value === 'lab-reed')).toBe(true)
   })
 
   it('reads preferred built-in sound from pitch-pipe prefs localStorage', () => {

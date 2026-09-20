@@ -32,6 +32,8 @@ describe('router', () => {
         'rx',
         'labs',
         'labs-pitch-pipe-sound',
+        'tag-studio',
+        'tag-studio-edit',
         'roulette',
         'library',
         'library-doc',
@@ -47,6 +49,14 @@ describe('router', () => {
     await router.push('/matcher')
     expect(router.currentRoute.value.name).toBe('matcher')
     expect(prefs.singTogetherEnabled).toBe(true)
+  })
+
+  it('auto-enables Tag Studio when opening /tag-studio', async () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.tagRollEnabled).toBe(false)
+    await router.push('/tag-studio')
+    expect(router.currentRoute.value.name).toBe('tag-studio')
+    expect(prefs.tagRollEnabled).toBe(true)
   })
 
   it('redirects /queue to Settings when Downloads & Exports is hidden', async () => {

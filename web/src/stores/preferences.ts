@@ -29,6 +29,11 @@ import {
   type PianoSoundEngineId,
 } from '../audio/pianoSamples'
 import {
+  DEFAULT_METRONOME_SOUND_ID,
+  isMetronomeSoundId,
+  type MetronomeSoundId,
+} from '../audio/metronomeSamples'
+import {
   UI_SCALE_DEFAULT,
   UI_SCALE_STEP,
   applyUiScale,
@@ -171,6 +176,11 @@ const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
 const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
+/** Labs: Tag Roll piano-roll composer. Default off. */
+const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
+const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
+const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
+const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
@@ -650,6 +660,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
   /**
+   * Labs: when true, Tag Studio (More → Tag Studio, /tag-studio) is available.
+   */
+  const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
+  const tagRollCellW = ref(loadNumber(TAG_ROLL_CELL_W_KEY, 28))
+  const tagRollCellH = ref(loadNumber(TAG_ROLL_CELL_H_KEY, 14))
+  const tagRollMetronomeSound = ref<MetronomeSoundId>(
+    (() => {
+      const raw = loadString(TAG_ROLL_METRONOME_SOUND_KEY, DEFAULT_METRONOME_SOUND_ID)
+      return isMetronomeSoundId(raw) ? raw : DEFAULT_METRONOME_SOUND_ID
+    })(),
+  )
+  /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
    */
@@ -925,6 +947,54 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(SING_TOGETHER_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollCellW,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_CELL_W_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollCellH,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_CELL_H_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollMetronomeSound,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_METRONOME_SOUND_KEY, v)
       } catch {
         /* ignore */
       }
@@ -1448,6 +1518,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singTogetherEnabled.value = on
   }
 
+  /** Labs: enable/disable Tag Roll piano-roll composer. */
+  function setTagRollEnabled(on: boolean): void {
+    tagRollEnabled.value = on
+  }
+
+  /** Remember last Tag Roll cell size for new projects. */
+  function setTagRollCellSize(cellW: number, cellH: number): void {
+    tagRollCellW.value = cellW
+    tagRollCellH.value = cellH
+  }
+
+  /** Tag Studio metronome click sample pair (persists across projects). */
+  function setTagRollMetronomeSound(id: string): void {
+    tagRollMetronomeSound.value = isMetronomeSoundId(id) ? id : DEFAULT_METRONOME_SOUND_ID
+  }
+
   /** Replace the primary-nav preference order (normalized). */
   function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
     primaryNavOrder.value = normalizePrimaryNavOrder(order)
@@ -1612,6 +1698,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     osShareTransferEnabled,
     audioRecorderEnabled,
     singTogetherEnabled,
+    tagRollEnabled,
+    tagRollCellW,
+    tagRollCellH,
+    tagRollMetronomeSound,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1656,6 +1746,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
+    setTagRollEnabled,
+    setTagRollCellSize,
+    setTagRollMetronomeSound,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,
