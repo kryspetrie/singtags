@@ -79,14 +79,16 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('toggles tag roll labs flag', async () => {
+  it('toggles tag studio labs flag', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
     expect(usePreferencesStore().tagRollEnabled).toBe(false)
-    await w.get('input[aria-label="Tag Roll"]').setValue(true)
+    await w.get('input[aria-label="Tag Studio"]').setValue(true)
     expect(usePreferencesStore().tagRollEnabled).toBe(true)
+    expect(w.text()).toMatch(/More → Tag Studio/)
+    expect(w.text()).not.toContain('Open Tag Studio')
     w.unmount()
   })
 

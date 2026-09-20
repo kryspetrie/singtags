@@ -1,8 +1,12 @@
 /**
  * Minimal SMF Type 1 MIDI export for Tag Roll.
+ * Emits tempo map (markers + rit/accel sticky ends) and expands fermatas into the timeline.
+ * Notes with fermatas sustain through written duration + hold; gap is silent before what follows.
  */
+import { expandNotesForMidi } from './fermataNoteSplit'
+import { fermataExecutionTick, performanceTick, sampleTempoEvents } from './tempoMap'
 import type { TagRollNote, TagRollPart, TagRollProject } from './types'
-import { TAG_ROLL_PPQ } from './types'
+import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
 
 export type MidiExportMode = 'one' | 'two' | 'all'
 
@@ -35,18 +39,59 @@ function encodeLyric(text: string): number[] {
   return [0xff, 0x05, bytes.length, ...bytes]
 }
 
+function encodeText(text: string): number[] {
+  const bytes = [...new TextEncoder().encode(text.slice(0, 64))]
+  return [0xff, 0x01, bytes.length, ...bytes]
+}
+
 type MidiEv = { tick: number; data: number[] }
 
+type MidiNoteLike = {
+  startTick: number
+  durationTicks: number
+  midi: number
+  partId: string
+  lyric?: string
+}
+
 function buildTrackEvents(
-  notes: TagRollNote[],
+  notes: MidiNoteLike[],
   channel: number,
   includeTempo: boolean,
-  bpm: number,
+  project: TagRollProject,
   trackName?: string,
 ): number[] {
   const events: MidiEv[] = []
   if (trackName) events.push({ tick: 0, data: encodeTrackName(trackName) })
-  if (includeTempo) events.push({ tick: 0, data: encodeTempo(bpm) })
+  if (includeTempo) {
+    const tempos = sampleTempoEvents(
+      project.tempoMarkers,
+      project.expressions,
+      project.bpm || TAG_ROLL_DEFAULT_BPM,
+    )
+    const seen = new Set<number>()
+    for (const m of tempos) {
+      const tick = performanceTick(m.tick, project.expressions, project.notes)
+      if (seen.has(tick)) continue
+      seen.add(tick)
+      events.push({ tick, data: encodeTempo(m.bpm) })
+    }
+    if (!tempos.length) {
+      events.push({
+        tick: 0,
+        data: encodeTempo(project.bpm || TAG_ROLL_DEFAULT_BPM),
+      })
+    }
+    for (const e of project.expressions) {
+      if (e.kind !== 'fermata') continue
+      const at = fermataExecutionTick(e.tick, project.notes)
+      const tick = performanceTick(at, project.expressions, project.notes)
+      events.push({
+        tick,
+        data: encodeText(`Fermata hold=${e.holdTicks} gap=${e.gapTicks}`),
+      })
+    }
+  }
 
   for (const n of notes) {
     const ch = channel & 0x0f
@@ -72,7 +117,7 @@ function buildTrackEvents(
     last = ev.tick
   }
   writeVarLen(0, bytes)
-  bytes.push(0xff, 0x2f, 0x00) // end of track
+  bytes.push(0xff, 0x2f, 0x00)
   return bytes
 }
 
@@ -93,9 +138,9 @@ function wrapTrack(data: number[]): number[] {
 
 function groupPartsForMode(
   parts: TagRollPart[],
-  notes: TagRollNote[],
+  notes: MidiNoteLike[],
   mode: MidiExportMode,
-): { name: string; notes: TagRollNote[] }[] {
+): { name: string; notes: MidiNoteLike[] }[] {
   if (mode === 'one') {
     return [{ name: 'Tag Roll', notes: [...notes] }]
   }
@@ -105,14 +150,13 @@ function groupPartsForMode(
       notes: notes.filter((n) => n.partId === p.id),
     }))
   }
-  // two tracks: upper / lower; solo by median pitch of that part's notes
   const allMidi = notes.map((n) => n.midi)
   const median =
     allMidi.length === 0
       ? 60
       : [...allMidi].sort((a, b) => a - b)[Math.floor(allMidi.length / 2)]!
-  const upper: TagRollNote[] = []
-  const lower: TagRollNote[] = []
+  const upper: MidiNoteLike[] = []
+  const lower: MidiNoteLike[] = []
   for (const n of notes) {
     const part = parts.find((p) => p.id === n.partId)
     let bucket: 'upper' | 'lower' = 'upper'
@@ -136,13 +180,12 @@ export function exportTagRollMidi(
   project: TagRollProject,
   mode: MidiExportMode,
 ): Uint8Array {
-  const tracks = groupPartsForMode(project.parts, project.notes, mode).filter(
+  const remappedNotes = expandNotesForMidi(project.notes, project.expressions)
+  const tracks = groupPartsForMode(project.parts, remappedNotes, mode).filter(
     (t) => t.notes.length > 0 || mode === 'one',
   )
   const trackChunks = tracks.map((t, i) =>
-    wrapTrack(
-      buildTrackEvents(t.notes, i % 16, i === 0, project.bpm, t.name),
-    ),
+    wrapTrack(buildTrackEvents(t.notes, i % 16, i === 0, project, t.name)),
   )
   const nTracks = trackChunks.length
   const header = [
@@ -155,7 +198,7 @@ export function exportTagRollMidi(
     0,
     6,
     0,
-    1, // format 1
+    1,
     (nTracks >> 8) & 0xff,
     nTracks & 0xff,
     (TAG_ROLL_PPQ >> 8) & 0xff,
@@ -174,11 +217,32 @@ export function exportTagRollMidi(
 
 export function downloadTagRollMidi(project: TagRollProject, mode: MidiExportMode): void {
   const bytes = exportTagRollMidi(project, mode)
-  const blob = new Blob([bytes], { type: 'audio/midi' })
+  const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)], {
+    type: 'audio/midi',
+  })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = `${project.title.replace(/[^\w\-]+/g, '_').slice(0, 40) || 'tag-roll'}.mid`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+/** @deprecated kept for any external callers — prefer expandNotesForMidi */
+export function remapNote(
+  n: TagRollNote,
+  expressions: TagRollProject['expressions'],
+): TagRollNote {
+  const slices = expandNotesForMidi([n], expressions)
+  if (slices.length === 1) {
+    const s = slices[0]!
+    return { ...n, startTick: s.startTick, durationTicks: s.durationTicks }
+  }
+  const startTick = performanceTick(n.startTick, expressions, [n])
+  const endTick = performanceTick(n.startTick + n.durationTicks, expressions, [n])
+  return {
+    ...n,
+    startTick,
+    durationTicks: Math.max(1, endTick - startTick),
+  }
 }

@@ -20,6 +20,7 @@ export const PRIMARY_NAV_IDS = [
   'library',
   'recorder',
   'matcher',
+  'tag-studio',
   'tx',
   'wireless',
   'share',
@@ -35,6 +36,7 @@ export type PrimaryNavGates = {
   localLibraryEnabled: boolean
   audioRecorderEnabled: boolean
   singTogetherEnabled: boolean
+  tagStudioEnabled: boolean
   opticalTransferEnabled: boolean
   webrtcTransferEnabled: boolean
   osShareTransferEnabled: boolean
@@ -45,6 +47,7 @@ export const PRIMARY_NAV_LAB_IDS = [
   'library',
   'recorder',
   'matcher',
+  'tag-studio',
   'tx',
   'wireless',
   'share',
@@ -158,6 +161,14 @@ export const PRIMARY_NAV_ITEMS: Record<PrimaryNavId, PrimaryNavItem> = {
     icon: '♫',
     desc: 'Share repertoire via QR — what can we all sing?',
   },
+  'tag-studio': {
+    id: 'tag-studio',
+    label: 'Tag Studio',
+    shortLabel: 'Studio',
+    path: '/tag-studio',
+    icon: '▥',
+    desc: 'Piano-roll composer for original tags',
+  },
   tx: {
     id: 'tx',
     label: 'Optical transfer',
@@ -211,6 +222,7 @@ export const DEFAULT_PRIMARY_NAV_ORDER: readonly PrimaryNavId[] = [
   'library',
   'recorder',
   'matcher',
+  'tag-studio',
   'tx',
   'wireless',
   'share',
@@ -249,6 +261,8 @@ export function isPrimaryNavAvailable(
       return gates.audioRecorderEnabled
     case 'matcher':
       return gates.singTogetherEnabled
+    case 'tag-studio':
+      return gates.tagStudioEnabled
     case 'tx':
       return gates.opticalTransferEnabled
     case 'wireless':
@@ -389,6 +403,9 @@ export function primaryNavIdForRouteName(name: unknown): PrimaryNavId | null {
       return 'recorder'
     case 'matcher':
       return 'matcher'
+    case 'tag-studio':
+    case 'tag-studio-edit':
+      return 'tag-studio'
     case 'tx':
     case 'rx':
       return 'tx'

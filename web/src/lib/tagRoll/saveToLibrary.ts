@@ -1,5 +1,5 @@
 /**
- * Save Tag Roll project into My Library (sheet PNG + WAV tracks).
+ * Save Tag Studio project into My Library (sheet PNG + WAV tracks).
  */
 import { useLocalLibraryStore } from '../../stores/localLibrary'
 import { usePreferencesStore } from '../../stores/preferences'
@@ -49,7 +49,7 @@ export async function saveTagRollToLibrary(
   if (!entryId) {
     const entry = await lib.createEmptyEntry({
       title: project.title,
-      notes: 'Created from Tag Roll',
+      notes: 'Created from Tag Studio',
       lyricsHint: lyricsHint.slice(0, 120),
     })
     entryId = entry.id
@@ -60,7 +60,12 @@ export async function saveTagRollToLibrary(
     })
     const assets = lib.assetsFor(entryId)
     for (const a of assets) {
-      if (a.filename.startsWith('tag-roll-')) {
+      if (
+        a.role === 'track' &&
+        (a.filename.startsWith('tag-roll-') ||
+          a.filename.startsWith(`${project.title} - `) ||
+          / - (Mix|Tenor|Lead|Bari|Bass|Solo)\b/i.test(a.filename))
+      ) {
         await lib.removeAsset(a.id)
       }
     }

@@ -1,25 +1,34 @@
 <script setup lang="ts">
 /**
- * Tag Roll project list (Labs).
+ * Tag Studio project list.
  */
 import { onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { tagRollTip } from '../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../stores/tagRoll'
+import { useSnackbarStore } from '../stores/snackbar'
 
 const store = useTagRollStore()
 const router = useRouter()
+const snackbar = useSnackbarStore()
 
 onMounted(() => {
   void store.refreshList()
 })
 
 async function onCreate(): Promise<void> {
-  const p = await store.createProject()
-  await router.push({ name: 'tag-roll-edit', params: { id: p.id } })
+  try {
+    const p = await store.createProject()
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to create project'
+    snackbar.show(msg, { title: 'Error', tone: 'error', ms: 4000 })
+    console.error('Failed to create project:', e)
+  }
 }
 
 async function onDelete(id: string, title: string): Promise<void> {
-  if (!confirm(`Delete “${title}”? This cannot be undone.`)) return
+  snackbar.show(`"${title}" deleted`, { title: 'Project deleted', tone: 'ok', ms: 2000 })
   await store.removeProject(id)
 }
 
@@ -36,27 +45,38 @@ function fmtDate(ms: number): string {
 </script>
 
 <template>
-  <section class="tr-list" aria-label="Tag Roll projects">
+  <section class="tr-list" aria-label="Tag Studio projects">
     <header class="head">
       <div class="head-text">
         <p class="crumb">
           <RouterLink to="/labs">Labs</RouterLink>
-          <span aria-hidden="true"> / </span>
-          Tag Roll
+          <span aria-hidden="true"> → </span>
+          Tag Studio
         </p>
-        <h1 class="title">Tag Roll</h1>
+        <h1 class="title">Tag Studio</h1>
         <p class="lead">
-          Sketch original tags on a piano-roll grid. Projects stay on this device.
+          Create and arrange custom tag arrangements on a piano-roll grid.
         </p>
       </div>
-      <button type="button" class="btn btn-primary" @click="onCreate">New project</button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        :title="tagRollTip('Create a new Tag Studio project')"
+        @click="onCreate"
+      >
+        New project
+      </button>
     </header>
 
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
 
     <ul v-if="store.summaries.length" class="list" role="list">
       <li v-for="s in store.summaries" :key="s.id" class="row">
-        <RouterLink class="row-main" :to="{ name: 'tag-roll-edit', params: { id: s.id } }">
+        <RouterLink
+          class="row-main"
+          :to="{ name: 'tag-studio-edit', params: { id: s.id } }"
+          :title="tagRollTip(`Open ${s.title}`)"
+        >
           <span class="row-title">{{ s.title }}</span>
           <span class="row-meta">
             {{ s.bpm }} BPM · {{ s.noteCount }} note{{ s.noteCount === 1 ? '' : 's' }} ·
@@ -67,6 +87,7 @@ function fmtDate(ms: number): string {
           type="button"
           class="btn ghost"
           :aria-label="`Delete ${s.title}`"
+          :title="tagRollTip(`Delete ${s.title}`)"
           @click="onDelete(s.id, s.title)"
         >
           Delete
@@ -149,34 +170,12 @@ function fmtDate(ms: number): string {
   font-weight: 650;
 }
 .row-meta {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--muted);
 }
 .empty {
   margin: 0;
   color: var(--muted);
-}
-.btn {
-  min-height: 40px;
-  padding: 0.4rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent, #fff);
-}
-.btn.ghost {
-  border-color: transparent;
-  background: transparent;
-  font-weight: 500;
-  color: var(--muted);
+  font-size: 0.95rem;
 }
 </style>

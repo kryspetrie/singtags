@@ -2,6 +2,12 @@
  * Barbershop chord vocabulary + voicing tables.
  * Inspired by znarf94/MuseScore_Barbershop_Harmonizer (reimplemented in TS).
  */
+import type { TagRollClefFamily, TagRollMidiGroup } from '../types'
+import {
+  concertToWrittenMidi,
+  writtenToConcertMidi,
+} from '../sheetScore/writtenPitch'
+
 export type ChordToneRole = 1 | 3 | 5 | 6 | 7 | 9
 
 export type BarbershopChordNature = {
@@ -116,8 +122,8 @@ export type VoicingPitches = {
 }
 
 /**
- * Place TTBB octaves: tenor above lead; bari below tenor (spread drops bari octave);
- * bass below bari/lead.
+ * Place TTBB octaves in a single pitch space (MuseScore's written-pitch space):
+ * tenor above lead; bari below tenor (spread drops bari octave); bass below bari/lead.
  */
 export function placeVoicing(opts: {
   chord: BarbershopChordNature
@@ -154,6 +160,44 @@ export function placeVoicing(opts: {
   while (bass < bari - 24) bass += 12
 
   return { bass, bari, lead, tenor }
+}
+
+/**
+ * Place a voicing and return concert MIDI for Tag Studio's piano roll.
+ *
+ * MuseScore's harmonizer anchors on written lead pitch (TTBB treble-8vb = concert+12).
+ * Anchoring on concert lead without that offset drops bari/bass an octave relative to
+ * the sheet / MuseScore register. Tenor stays in the lead's concert neighborhood.
+ */
+export function placeVoicingConcert(opts: {
+  chord: BarbershopChordNature
+  rootPc: number
+  /** Concert MIDI of the melody (anchor) note. */
+  leadMidi: number
+  voicing: string
+  spread?: boolean
+  clefFamily?: TagRollClefFamily
+  /** Staff of the melody part. Default upper (Lead/Tenor). */
+  melodyStaff?: TagRollMidiGroup
+}): VoicingPitches | null {
+  const clefFamily = opts.clefFamily ?? 'ttbb'
+  const melodyStaff = opts.melodyStaff ?? 'upper'
+
+  // Only TTBB upper (Lead/Tenor) uses an octave-transposing written pitch.
+  if (!(clefFamily === 'ttbb' && melodyStaff === 'upper')) {
+    return placeVoicing(opts)
+  }
+
+  const leadWritten = concertToWrittenMidi(opts.leadMidi, clefFamily, 'upper')
+  const placed = placeVoicing({ ...opts, leadMidi: leadWritten })
+  if (!placed) return null
+
+  return {
+    bass: writtenToConcertMidi(placed.bass, clefFamily, 'lower'),
+    bari: writtenToConcertMidi(placed.bari, clefFamily, 'lower'),
+    lead: writtenToConcertMidi(placed.lead, clefFamily, 'upper'),
+    tenor: writtenToConcertMidi(placed.tenor, clefFamily, 'upper'),
+  }
 }
 
 export function pcName(pc: number, flats: boolean): string {

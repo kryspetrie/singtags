@@ -3,27 +3,47 @@
  */
 import { newLocalId } from '../../offline/localLibraryDb'
 import { isPianoSoundEngineId } from '../../audio/pianoSamples'
+import { loadPitchPipeSoundId } from '../../audio/pitchPipeVoice'
+import { migratePartHotkey, normalizePartHotkey } from './partHotkeys'
+import { syncProjectMix } from './mix'
+import { newTagRollProjectId } from './ids'
 import {
   TAG_ROLL_CELL_H_MAX,
   TAG_ROLL_CELL_H_MIN,
   TAG_ROLL_CELL_W_MAX,
   TAG_ROLL_CELL_W_MIN,
   TAG_ROLL_DEFAULT_BPM,
+  TAG_ROLL_DEFAULT_CLEF_FAMILY,
   TAG_ROLL_DEFAULT_LENGTH_TICKS,
   TAG_ROLL_DEFAULT_PARTS,
   TAG_ROLL_DEFAULT_SNAP_TICKS,
+  TAG_ROLL_DEFAULT_SOUND_ENVELOPE,
+  TAG_ROLL_DEFAULT_TIME_SIGNATURE,
   TAG_ROLL_DEFAULT_VIEW,
   TAG_ROLL_MIDI_MAX,
   TAG_ROLL_MIDI_MIN,
   TAG_ROLL_PPQ,
   TAG_ROLL_SCHEMA,
+  TAG_ROLL_SHEET_ZOOM_MAX,
+  TAG_ROLL_SHEET_ZOOM_MIN,
+  type TagRollClefFamily,
   type TagRollEditorMode,
+  type TagRollExpression,
   type TagRollMidiGroup,
   type TagRollNote,
   type TagRollPart,
   type TagRollProject,
+  type TagRollScoreSurface,
+  type TagRollTempoMarker,
   type TagRollViewPrefs,
 } from './types'
+import { normalizeSoundEnvelope } from './soundEnvelope'
+import {
+  createDefaultTempoMarkers,
+  normalizeExpression,
+  normalizeTempoMarker,
+  normalizeTimeSignature,
+} from './tempoMap'
 
 function clamp(n: number, lo: number, hi: number): number {
   if (!Number.isFinite(n)) return lo
@@ -34,8 +54,19 @@ function isMidiGroup(v: unknown): v is TagRollMidiGroup {
   return v === 'upper' || v === 'lower' || v === 'solo'
 }
 
-function isEditorMode(v: unknown): v is TagRollEditorMode {
-  return v === 'view' || v === 'add' || v === 'edit' || v === 'lyrics'
+function normalizeEditorMode(v: unknown): TagRollEditorMode {
+  if (v === 'view' || v === 'compose' || v === 'lyrics') return v
+  // Legacy add/edit modes → unified compose.
+  if (v === 'add' || v === 'edit') return 'compose'
+  return 'compose'
+}
+
+export function normalizeClefFamily(v: unknown): TagRollClefFamily {
+  return v === 'ssaa' ? 'ssaa' : TAG_ROLL_DEFAULT_CLEF_FAMILY
+}
+
+export function normalizeScoreSurface(v: unknown): TagRollScoreSurface {
+  return v === 'sheet' ? 'sheet' : 'roll'
 }
 
 export function normalizeTagRollPart(raw: unknown, fallbackIndex = 0): TagRollPart {
@@ -48,7 +79,9 @@ export function normalizeTagRollPart(raw: unknown, fallbackIndex = 0): TagRollPa
   const color =
     typeof o.color === 'string' && o.color.trim() ? o.color.trim() : d.color
   const midiGroup = isMidiGroup(o.midiGroup) ? o.midiGroup : d.midiGroup
-  return { id, name, color, midiGroup }
+  const rawHotkey = typeof o.hotkey === 'string' ? o.hotkey.trim().toLowerCase() : undefined
+  const hotkey = normalizePartHotkey(migratePartHotkey(name, rawHotkey))
+  return { id, name, color, midiGroup, ...(hotkey ? { hotkey } : {}) }
 }
 
 export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
@@ -72,15 +105,33 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
     activeRaw && parts.some((p) => p.id === activeRaw)
       ? activeRaw
       : (parts[1]?.id ?? parts[0]?.id ?? null)
+  const melodyRaw = typeof o.melodyPartId === 'string' ? o.melodyPartId : null
+  const lead = parts.find((p) => p.name === 'Lead')
+  const melodyPartId =
+    melodyRaw && parts.some((p) => p.id === melodyRaw)
+      ? melodyRaw
+      : (lead?.id ?? activePartId)
   return {
     cellW: clamp(Math.round(Number(o.cellW) || TAG_ROLL_DEFAULT_VIEW.cellW), TAG_ROLL_CELL_W_MIN, TAG_ROLL_CELL_W_MAX),
     cellH: clamp(Math.round(Number(o.cellH) || TAG_ROLL_DEFAULT_VIEW.cellH), TAG_ROLL_CELL_H_MIN, TAG_ROLL_CELL_H_MAX),
     scrollX: Math.max(0, Number(o.scrollX) || 0),
     scrollY: Math.max(0, Number(o.scrollY) || 0),
     lockPiano: Boolean(o.lockPiano),
-    mode: isEditorMode(o.mode) ? o.mode : 'view',
+    mode: normalizeEditorMode(o.mode),
     activePartId,
+    melodyPartId,
     playheadTick: Math.max(0, Math.round(Number(o.playheadTick)) || 0),
+    focusActivePart: Boolean(o.focusActivePart),
+    scaleHighlight: o.scaleHighlight === undefined ? true : Boolean(o.scaleHighlight),
+    scoreSurface: normalizeScoreSurface(o.scoreSurface),
+    sheetZoom: clamp(
+      Math.round(Number(o.sheetZoom) || TAG_ROLL_DEFAULT_VIEW.sheetZoom),
+      TAG_ROLL_SHEET_ZOOM_MIN,
+      TAG_ROLL_SHEET_ZOOM_MAX,
+    ),
+    sheetShowLyrics: o.sheetShowLyrics === undefined ? true : Boolean(o.sheetShowLyrics),
+    sheetScrollX: Math.max(0, Number(o.sheetScrollX) || 0),
+    sheetScrollY: Math.max(0, Number(o.sheetScrollY) || 0),
   }
 }
 
@@ -90,6 +141,7 @@ export function createDefaultTagRollParts(): TagRollPart[] {
     name: p.name,
     color: p.color,
     midiGroup: p.midiGroup,
+    ...(p.hotkey ? { hotkey: p.hotkey } : {}),
   }))
 }
 
@@ -97,18 +149,28 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
   const now = Date.now()
   const parts = createDefaultTagRollParts()
   const lead = parts.find((p) => p.name === 'Lead') ?? parts[0]!
+  const bpm = TAG_ROLL_DEFAULT_BPM
   return {
     schema: TAG_ROLL_SCHEMA,
-    id: newLocalId('tr'),
+    id: newTagRollProjectId(),
     title: (opts?.title?.trim() || 'Untitled tag').trim() || 'Untitled tag',
-    bpm: TAG_ROLL_DEFAULT_BPM,
+    bpm,
     ppq: TAG_ROLL_PPQ,
     snapTicks: TAG_ROLL_DEFAULT_SNAP_TICKS,
     lengthTicks: TAG_ROLL_DEFAULT_LENGTH_TICKS,
+    timeSignature: { ...TAG_ROLL_DEFAULT_TIME_SIGNATURE },
+    tempoMarkers: createDefaultTempoMarkers(bpm),
+    expressions: [],
     soundEngine: 'synth',
+    pitchPipeSoundId: loadPitchPipeSoundId(),
+    blowPitchEnabled: false,
+    metronomeEnabled: false,
+    soundEnvelope: { ...TAG_ROLL_DEFAULT_SOUND_ENVELOPE },
     tonality: 0,
     preferFlats: false,
+    clefFamily: TAG_ROLL_DEFAULT_CLEF_FAMILY,
     parts,
+    mix: syncProjectMix(parts, null),
     notes: [],
     localEntryId: null,
     view: {
@@ -116,6 +178,7 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
       // Start scrolled so middle C is near the vertical center of a typical viewport later.
       scrollY: (TAG_ROLL_MIDI_MAX - 60) * TAG_ROLL_DEFAULT_VIEW.cellH,
       activePartId: lead.id,
+      melodyPartId: lead.id,
     },
     createdAt: now,
     updatedAt: now,
@@ -138,7 +201,25 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     .filter((n): n is TagRollNote => !!n && partIds.has(n.partId))
 
   const soundEngine = isPianoSoundEngineId(o.soundEngine) ? o.soundEngine : 'synth'
+  const pitchPipeSoundId =
+    typeof o.pitchPipeSoundId === 'string' && o.pitchPipeSoundId.trim()
+      ? o.pitchPipeSoundId.trim().slice(0, 64)
+      : 'mellow'
   const now = Date.now()
+  const bpm = clamp(Math.round(Number(o.bpm) || TAG_ROLL_DEFAULT_BPM), 20, 320)
+  const timeSignature = normalizeTimeSignature(o.timeSignature)
+  let tempoMarkers = (Array.isArray(o.tempoMarkers) ? o.tempoMarkers : [])
+    .map(normalizeTempoMarker)
+    .filter((m): m is TagRollTempoMarker => !!m)
+  if (!tempoMarkers.length) {
+    tempoMarkers = createDefaultTempoMarkers(bpm)
+  } else if (!tempoMarkers.some((m) => m.tick === 0)) {
+    tempoMarkers = [{ id: newLocalId('trt'), tick: 0, bpm }, ...tempoMarkers]
+  }
+  tempoMarkers.sort((a, b) => a.tick - b.tick)
+  const expressions = (Array.isArray(o.expressions) ? o.expressions : [])
+    .map(normalizeExpression)
+    .filter((e): e is TagRollExpression => !!e)
 
   return {
     schema: TAG_ROLL_SCHEMA,
@@ -147,17 +228,26 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
       typeof o.title === 'string' && o.title.trim()
         ? o.title.trim()
         : 'Untitled tag',
-    bpm: clamp(Math.round(Number(o.bpm) || TAG_ROLL_DEFAULT_BPM), 40, 240),
+    bpm: tempoMarkers.find((m) => m.tick === 0)?.bpm ?? bpm,
     ppq: TAG_ROLL_PPQ,
     snapTicks: Math.max(1, Math.round(Number(o.snapTicks) || TAG_ROLL_DEFAULT_SNAP_TICKS)),
     lengthTicks: Math.max(
       TAG_ROLL_PPQ * 4,
       Math.round(Number(o.lengthTicks) || TAG_ROLL_DEFAULT_LENGTH_TICKS),
     ),
+    timeSignature,
+    tempoMarkers,
+    expressions,
     soundEngine,
+    pitchPipeSoundId,
+    blowPitchEnabled: Boolean(o.blowPitchEnabled),
+    metronomeEnabled: Boolean(o.metronomeEnabled),
+    soundEnvelope: normalizeSoundEnvelope(o.soundEnvelope),
     tonality: clamp(Math.round(Number(o.tonality) || 0), 0, 11),
     preferFlats: Boolean(o.preferFlats),
+    clefFamily: normalizeClefFamily(o.clefFamily),
     parts,
+    mix: syncProjectMix(parts, Array.isArray(o.mix) ? (o.mix as never) : null),
     notes,
     localEntryId:
       typeof o.localEntryId === 'string' && o.localEntryId.trim()
@@ -180,7 +270,8 @@ export function ticksToPx(ticks: number, cellW: number, ppq = TAG_ROLL_PPQ): num
 
 export function pxToTicks(px: number, cellW: number, ppq = TAG_ROLL_PPQ): number {
   if (!(cellW > 0)) return 0
-  return Math.round((px / cellW) * ppq)
+  // Continuous ticks — callers snap with snapTick (floor-to-cell).
+  return (px / cellW) * ppq
 }
 
 /** Y offset from top of grid (MIDI_MAX at y=0). */
@@ -188,7 +279,8 @@ export function midiToY(midi: number, cellH: number, midiMax = TAG_ROLL_MIDI_MAX
   return (midiMax - midi) * cellH
 }
 
+/** Pitch for a grid Y: each row owns [midiToY(m), midiToY(m-1)). */
 export function yToMidi(y: number, cellH: number, midiMax = TAG_ROLL_MIDI_MAX): number {
   if (!(cellH > 0)) return midiMax
-  return clampTagRollMidi(Math.round(midiMax - y / cellH))
+  return clampTagRollMidi(midiMax - Math.floor(Math.max(0, y) / cellH))
 }

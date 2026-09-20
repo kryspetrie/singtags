@@ -91,6 +91,7 @@ const primaryNavGates = computed(
     localLibraryEnabled: prefs.localLibraryEnabled,
     audioRecorderEnabled: prefs.audioRecorderEnabled,
     singTogetherEnabled: prefs.singTogetherEnabled,
+    tagStudioEnabled: prefs.tagRollEnabled,
     opticalTransferEnabled: prefs.opticalTransferEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
     osShareTransferEnabled: prefs.osShareTransferEnabled,
@@ -146,6 +147,9 @@ function onNavHideChange(id: PrimaryNavId, hide: boolean): void {
         break
       case 'matcher':
         prefs.setSingTogetherEnabled(on)
+        break
+      case 'tag-studio':
+        prefs.setTagRollEnabled(on)
         break
       case 'tx':
         prefs.setOpticalTransferEnabled(on)

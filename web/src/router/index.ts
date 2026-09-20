@@ -65,14 +65,14 @@ export const router = createRouter({
       component: () => import('../views/PitchPipeSoundLabView.vue'),
     },
     {
-      path: '/labs/tag-roll',
-      name: 'tag-roll',
+      path: '/tag-studio',
+      name: 'tag-studio',
       component: () => import('../views/TagRollListView.vue'),
       meta: { requiresTagRoll: true },
     },
     {
-      path: '/labs/tag-roll/:id',
-      name: 'tag-roll-edit',
+      path: '/tag-studio/:id',
+      name: 'tag-studio-edit',
       component: () => import('../views/TagRollEditorView.vue'),
       props: true,
       meta: { requiresTagRoll: true },

@@ -307,4 +307,36 @@ describe('AppMoreMenu', () => {
     expect(link).toBeTruthy()
     w.unmount()
   })
+
+  it('shows Tag Studio in More when the Labs flag is on', async () => {
+    localStorage.setItem('singtags.labs.tagRoll.enabled.v1', '1')
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    expect(usePreferencesStore().tagRollEnabled).toBe(true)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/tag-studio', name: 'tag-studio', component: { template: '<div />' } },
+        { path: '/settings', name: 'settings', component: { template: '<div />' } },
+        { path: '/labs', name: 'labs', component: { template: '<div />' } },
+        { path: '/queue', name: 'queue', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(document.body.textContent).toMatch(/Tag Studio/)
+    const link = document.body.querySelector('a[href="/tag-studio"]') as HTMLAnchorElement
+    expect(link).toBeTruthy()
+    w.unmount()
+  })
 })

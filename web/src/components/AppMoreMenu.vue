@@ -40,6 +40,7 @@ const primaryNavGates = computed(
     localLibraryEnabled: prefs.localLibraryEnabled,
     audioRecorderEnabled: prefs.audioRecorderEnabled,
     singTogetherEnabled: prefs.singTogetherEnabled,
+    tagStudioEnabled: prefs.tagRollEnabled,
     opticalTransferEnabled: prefs.opticalTransferEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
     osShareTransferEnabled: prefs.osShareTransferEnabled,

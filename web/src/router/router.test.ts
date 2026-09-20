@@ -32,8 +32,8 @@ describe('router', () => {
         'rx',
         'labs',
         'labs-pitch-pipe-sound',
-        'tag-roll',
-        'tag-roll-edit',
+        'tag-studio',
+        'tag-studio-edit',
         'roulette',
         'library',
         'library-doc',
@@ -51,11 +51,11 @@ describe('router', () => {
     expect(prefs.singTogetherEnabled).toBe(true)
   })
 
-  it('auto-enables Tag Roll when opening /labs/tag-roll', async () => {
+  it('auto-enables Tag Studio when opening /tag-studio', async () => {
     const prefs = usePreferencesStore()
     expect(prefs.tagRollEnabled).toBe(false)
-    await router.push('/labs/tag-roll')
-    expect(router.currentRoute.value.name).toBe('tag-roll')
+    await router.push('/tag-studio')
+    expect(router.currentRoute.value.name).toBe('tag-studio')
     expect(prefs.tagRollEnabled).toBe(true)
   })
 

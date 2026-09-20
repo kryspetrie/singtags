@@ -61,6 +61,20 @@ watch(
   { immediate: true },
 )
 
+/** Clicking a note in the roll moves the lyric cursor onto that note. */
+watch(
+  () => store.selectedNoteId,
+  (id) => {
+    if (!visible.value || !id) return
+    const notes = partNotes.value
+    if (!notes.some((n) => n.id === id)) return
+    if (lyricCursorNoteId.value === id) return
+    lyricCursorNoteId.value = id
+    buffer.value = notes.find((n) => n.id === id)?.lyric ?? ''
+    queueMicrotask(() => inputRef.value?.focus())
+  },
+)
+
 watch(visible, (on) => {
   if (on) {
     queueMicrotask(() => inputRef.value?.focus())

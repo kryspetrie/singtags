@@ -4,11 +4,12 @@
 import { TAG_ROLL_PPQ } from './types'
 
 export const TAG_ROLL_DURATION_PRESETS = [
-  { id: 'whole', label: 'Whole', ticks: TAG_ROLL_PPQ * 4 },
-  { id: 'half', label: 'Half', ticks: TAG_ROLL_PPQ * 2 },
-  { id: 'quarter', label: 'Quarter', ticks: TAG_ROLL_PPQ },
-  { id: 'eighth', label: 'Eighth', ticks: TAG_ROLL_PPQ / 2 },
-  { id: 'sixteenth', label: 'Sixteenth', ticks: TAG_ROLL_PPQ / 4 },
+  { id: 'whole', label: 'Whole', short: '1', ticks: TAG_ROLL_PPQ * 4 },
+  { id: 'half', label: 'Half', short: '1/2', ticks: TAG_ROLL_PPQ * 2 },
+  { id: 'quarter', label: 'Quarter', short: '1/4', ticks: TAG_ROLL_PPQ },
+  { id: 'eighth', label: 'Eighth', short: '1/8', ticks: TAG_ROLL_PPQ / 2 },
+  { id: 'sixteenth', label: 'Sixteenth', short: '1/16', ticks: TAG_ROLL_PPQ / 4 },
+  { id: 'thirty-second', label: '32nd', short: '1/32', ticks: TAG_ROLL_PPQ / 8 },
 ] as const
 
 export type TagRollDurationId = (typeof TAG_ROLL_DURATION_PRESETS)[number]['id']
@@ -16,9 +17,11 @@ export type TagRollDurationId = (typeof TAG_ROLL_DURATION_PRESETS)[number]['id']
 /** Min cellW (px per beat) before duration resize handles are hittable. */
 export const TAG_ROLL_HANDLE_CELL_W = 24
 
+/** Snap tick down to the containing grid cell (not nearest). */
 export function snapTick(tick: number, snapTicks: number): number {
   const s = Math.max(1, Math.round(snapTicks))
-  return Math.max(0, Math.round(tick / s) * s)
+  if (!(tick > 0)) return 0
+  return Math.floor(tick / s + 1e-9) * s
 }
 
 export function durationTicksForId(id: string, ppq = TAG_ROLL_PPQ): number {
@@ -38,6 +41,30 @@ export function nearestDurationId(ticks: number): TagRollDurationId {
     }
   }
   return best
+}
+
+export function nearestDurationIndex(ticks: number): number {
+  const id = nearestDurationId(ticks)
+  return Math.max(
+    0,
+    TAG_ROLL_DURATION_PRESETS.findIndex((p) => p.id === id),
+  )
+}
+
+/** Step to the next longer (+1) or shorter (−1) preset length. */
+export function stepDurationTicks(ticks: number, dir: -1 | 1): number {
+  // Presets: index 0 = whole (longest) … last = 32nd (shortest).
+  const i = nearestDurationIndex(ticks)
+  const next = Math.max(0, Math.min(TAG_ROLL_DURATION_PRESETS.length - 1, i - dir))
+  return TAG_ROLL_DURATION_PRESETS[next]!.ticks
+}
+
+/**
+ * Dot a duration: add half of its value (half → dotted half = 3 beats).
+ */
+export function dottedDurationTicks(ticks: number): number {
+  const t = Math.max(1, Math.round(ticks))
+  return t + Math.max(1, Math.round(t / 2))
 }
 
 /** Extend lengthTicks so content fits with one empty measure of padding. */

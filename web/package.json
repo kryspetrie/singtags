@@ -29,10 +29,12 @@
     "jsqr": "^1.4.0",
     "lzma-wasm": "^1.0.7",
     "mediabunny": "^1.55.2",
+    "nanoid": "^3.3.19",
     "ogg-opus-decoder": "^1.7.5",
     "pdfjs-dist": "^4.10.38",
     "pinia": "^4.0.3",
     "qrcode": "^1.5.4",
+    "vexflow": "^5.0.0",
     "vue": "^3.5.40",
     "vue-router": "^4.6.4",
     "wasm-media-encoders": "^0.7.0"

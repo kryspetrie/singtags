@@ -21,6 +21,7 @@ const ALL_ON: PrimaryNavGates = {
   localLibraryEnabled: true,
   audioRecorderEnabled: true,
   singTogetherEnabled: true,
+  tagStudioEnabled: true,
   opticalTransferEnabled: true,
   webrtcTransferEnabled: true,
   osShareTransferEnabled: true,
@@ -30,6 +31,7 @@ const ALL_OFF: PrimaryNavGates = {
   localLibraryEnabled: false,
   audioRecorderEnabled: false,
   singTogetherEnabled: false,
+  tagStudioEnabled: false,
   opticalTransferEnabled: false,
   webrtcTransferEnabled: false,
   osShareTransferEnabled: false,
@@ -105,6 +107,8 @@ describe('primaryNav', () => {
     expect(primaryNavIdForRouteName('wireless-rx')).toBe('wireless')
     expect(primaryNavIdForRouteName('os-share-transfer')).toBe('share')
     expect(primaryNavIdForRouteName('labs-pitch-pipe-sound')).toBe('labs')
+    expect(primaryNavIdForRouteName('tag-studio')).toBe('tag-studio')
+    expect(primaryNavIdForRouteName('tag-studio-edit')).toBe('tag-studio')
     expect(primaryNavIdForRouteName('tag')).toBeNull()
   })
 

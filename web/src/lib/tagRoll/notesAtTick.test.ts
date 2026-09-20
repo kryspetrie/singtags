@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { notesAtTick, notesForPartSorted } from './notesAtTick'
+import { lastNoteEndTick, notesAtTick, notesForPartSorted, playbackEndTick, hearStackNotesAtTick } from './notesAtTick'
 import type { TagRollNote } from './types'
+import { TAG_ROLL_PPQ } from './types'
 
 const notes: TagRollNote[] = [
   { id: 'a', partId: 'lead', midi: 60, startTick: 0, durationTicks: 480 },
@@ -17,8 +18,28 @@ describe('notesAtTick', () => {
     expect(notesAtTick(notes, 900)).toEqual([])
   })
 
+  it('hear stack keeps only the rightmost note per part on portamento overlap', () => {
+    // a (0–480) and late (200–480) overlap at 300 on lead — hear only late.
+    const overlapping: TagRollNote[] = [
+      { id: 'early', partId: 'lead', midi: 60, startTick: 0, durationTicks: 480 },
+      { id: 'late', partId: 'lead', midi: 64, startTick: 200, durationTicks: 280 },
+      { id: 'bass', partId: 'bass', midi: 48, startTick: 0, durationTicks: 480 },
+    ]
+    expect(hearStackNotesAtTick(overlapping, 300).map((n) => n.id).sort()).toEqual([
+      'bass',
+      'late',
+    ])
+  })
+
   it('sorts part notes by start then midi', () => {
     const lead = notesForPartSorted(notes, 'lead')
     expect(lead.map((n) => n.id)).toEqual(['a', 'd', 'c'])
+  })
+
+  it('finds last note end and playback stop tick', () => {
+    expect(lastNoteEndTick(notes)).toBe(720)
+    expect(playbackEndTick(notes, TAG_ROLL_PPQ * 8)).toBe(720)
+    expect(playbackEndTick([], TAG_ROLL_PPQ * 8)).toBe(TAG_ROLL_PPQ * 8)
+    expect(playbackEndTick(notes, 100)).toBe(100)
   })
 })

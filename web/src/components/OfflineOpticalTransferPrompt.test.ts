@@ -18,7 +18,7 @@ describe('OfflineOpticalTransferPrompt', () => {
     })
     const link = w.get('a.prompt-action')
     expect(link.attributes('href')).toBe('/rx')
-    expect(link.attributes('aria-label')).toBe('Receive tags with optical transfer')
+    expect(link.attributes('aria-label')).toBe('Receive with optical transfer')
     expect(opticalReceiveRoute).toEqual({ name: 'rx' })
     w.unmount()
   })

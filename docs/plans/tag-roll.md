@@ -1,28 +1,41 @@
-# Tag Roll — piano-roll tag composer
+# Tag Studio — piano-roll tag composer
 
-> **Status:** Phases 1–7 implemented on `piano-roll` branch  
-> **Updated:** 2026-09-17  
+> **Status:** Phases 1–7 implemented on `piano-roll` branch; Phase 8 UX polish in progress  
+> **Updated:** 2026-09-18  
 > **Goal:** Labs-gated polyphonic piano-roll editor for sketching original tags: one shared pitch×time grid, colored custom parts, playback, lyrics-by-part, MIDI export, Save to My Library (sheet PNG + rendered tracks), and a barbershop lead→chord harmonizer.  
-> **Related:** [virtual-piano.md](virtual-piano.md) (live keyboard / engines — complementary, not a sequencer), My Library ([local-library-ux.md](local-library-ux.md)), Pitch Pipe Sound Lab, [MuseScore Barbershop Harmonizer](https://github.com/znarf94/MuseScore_Barbershop_Harmonizer) (Phase 7 reference).
+> **Related:** [virtual-piano.md](virtual-piano.md) (live keyboard / engines — complementary, not a sequencer), My Library ([local-library-ux.md](local-library-ux.md)), Pitch Pipe Sound Lab, [MuseScore Barbershop Harmonizer](https://github.com/znarf94/MuseScore_Barbershop_Harmonizer) (Phase 7 reference), **[tag-studio-hardening.md](tag-studio-hardening.md)** (gap remediation: playback/export honesty, tests, extractions).
 
-The live poly keyboard plan ([virtual-piano.md](virtual-piano.md)) remains separate: Tag Roll is a **sequencer/editor**; virtual piano is a **playable instrument**. They share pitch-tone engines.
+### Phase 8 — Compose UX + undo + shortcuts (in progress)
+
+- Combined **Compose** mode (add+edit): click note → edit; empty click deselects; next empty click adds.
+- Draggable playhead; note preview on place/drag; click-to-audition.
+- Axis-aligned spacing: **W** top-right, **H** bottom-left.
+- Harmonizer: any melody part; apply-on-select + Cancel; step Prev/Next.
+- Persistent undo/redo (IDB `history` store).
+- Keyboard shortcuts (toolbar **?**).
+- Mouse wheel zooms time axis; **Len** buttons; **Grid** snap; **Meter** (default 4/4) with measure/beat lines.
+- Default tempo **104** with tempo markers; expression lane for **fermata** (hold + off gap), **rit**, **accel** (bracket drag).
+
+> **Honesty note:** Expression-lane playback, bounce, and MIDI share tempo-map + fermata hold/gap/resume splitting ([tag-studio-hardening.md](tag-studio-hardening.md)). Bounce timbre is oscillators (not the live pitch engine). Manual ear A/B on `createTagStudioHonestyFixture()` is still useful.
+
+The live poly keyboard plan ([virtual-piano.md](virtual-piano.md)) remains separate: Tag Studio is a **sequencer/editor**; virtual piano is a **playable instrument**. They share pitch-tone engines.
 
 ---
 
 ## Product framing
 
-**Tag Roll** lets users sketch polyphonic tags on one shared piano-roll grid. Notes are colored by voice part (custom names/colors; N≥4 allowed and stackable). Playback uses the existing pitch-tone engines. Interchange is MIDI export and a My Library handoff (not catalog publish in v1).
+**Tag Studio** lets users sketch polyphonic tags on one shared piano-roll grid. Notes are colored by voice part (custom names/colors; N≥4 allowed and stackable). Playback uses the existing pitch-tone engines. Interchange is MIDI export and a My Library handoff (not catalog publish in v1).
 
 | Surface | Route | Gate |
 | --- | --- | --- |
 | Project list | `/labs/tag-roll` | `singtags.labs.tagRoll.enabled.v1` (default off) |
 | Editor | `/labs/tag-roll/:id` | same; router auto-enable like other labs |
 
-Labs card on `LabsView.vue`. Optional More/nav pin later via `primaryNav.ts`.
+Labs card on `LabsView.vue` (flag only). When enabled, open from **More → Tag Studio** (or a chrome pin) via `primaryNav.ts`.
 
-**Non-goals (v1):** staff notation, cloud sync, catalog upload as a published SingTags tag, velocity editing, external MIDI keyboard input, WebGL (Canvas 2D is enough; revisit only if note density proves too slow), MusicXML/PDF engraving.
+**Non-goals (v1):** staff engraving/PDF, cloud sync, catalog upload as a published SingTags tag, velocity editing, external MIDI keyboard input, WebGL (Canvas 2D is enough; revisit only if note density proves too slow).
 
-**In scope for library handoff:** convert a Tag Roll project into a **My Library** song (sheet image + rendered audio tracks).
+**In scope for library handoff:** convert a Tag Studio project into a **My Library** song (sheet image + rendered audio tracks).
 
 ```mermaid
 flowchart LR
@@ -213,7 +226,7 @@ Toolbar **Save to My Library** (alongside MIDI). Uses `localLibrary` APIs (`crea
 | Per-part audio | `track` | One WAV per part; `partId` = slug of part name |
 | Mix (default on) | `track` `partId: 'mix'` | All parts bounced together |
 
-Entry metadata: `title` from project; `lyricsHint` from early lyric syllables; `notes` may say “Created from Tag Roll”.
+Entry metadata: `title` from project; `lyricsHint` from early lyric syllables; `notes` may say “Created from Tag Studio”.
 
 **Update path:** if `project.localEntryId` still exists, replace prior Tag-Roll-generated assets (filename prefix `tag-roll-*`) and refresh meta; else create a new entry and store `localEntryId`.
 
@@ -234,6 +247,8 @@ Entry metadata: `title` from project; `lyricsHint` from early lyric syllables; `
 ```
 Export ▾
   MIDI — 1 track / 2 tracks / All tracks
+  MusicXML — partwise (.musicxml)
+  MP3 — mix / parts / part-left learning tracks
   Save to My Library…
     ☑ Mix track
     ☑ Per-part tracks
@@ -242,7 +257,7 @@ Export ▾
 
 On success: snackbar **Open in My Library** → `/library/:id`. Auto-enable `localLibraryEnabled` if needed (same deep-link pattern as other labs).
 
-**Handoff non-goals:** PDF/MusicXML; overwriting unrelated user assets on a linked song; service-worker background bounce.
+**Handoff non-goals:** PDF engraving; overwriting unrelated user assets on a linked song; service-worker background bounce.
 
 ---
 
@@ -311,7 +326,7 @@ Assist entering TTBB chords from a **lead** note using barbershop arranging role
 5. Pick a **voicing** filtered so the lead’s chord-tone role matches; choose **closed** (default) or **spread**.
 6. **Preview** the candidate chord, then **Apply** to create/update Tenor / Bari / Bass at the same `startTick` + `durationTicks` as the lead.
 
-Unlike the MuseScore plugin (which only retunes existing accompanying notes), Tag Roll **inserts** missing harmony notes when needed.
+Unlike the MuseScore plugin (which only retunes existing accompanying notes), Tag Studio **inserts** missing harmony notes when needed.
 
 #### Chord preview (before apply)
 
@@ -339,7 +354,7 @@ Separately, hear the vertical note stack **without** starting transport:
 
 Port chord/voicing tables to pure TypeScript under `web/src/lib/tagRoll/harmonizer/`:
 
-| Piece | Source in plugin | Tag Roll |
+| Piece | Source in plugin | Tag Studio |
 | --- | --- | --- |
 | Chord vocabulary + PC offsets | `chords_model` (major, 7, ø7, +, 9, 6, M7, m, m7, o7, o, add9, madd6) | `chords.ts` |
 | Voicing strings `bass\|bari\|lead\|tenor` (e.g. `"5317"`) | `*_voicings` ListModels | `voicings.ts` |

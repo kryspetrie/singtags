@@ -29,6 +29,11 @@ import {
   type PianoSoundEngineId,
 } from '../audio/pianoSamples'
 import {
+  DEFAULT_METRONOME_SOUND_ID,
+  isMetronomeSoundId,
+  type MetronomeSoundId,
+} from '../audio/metronomeSamples'
+import {
   UI_SCALE_DEFAULT,
   UI_SCALE_STEP,
   applyUiScale,
@@ -175,6 +180,7 @@ const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
 const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
 const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
+const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
@@ -654,11 +660,17 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
   /**
-   * Labs: when true, Tag Roll (/labs/tag-roll) is available.
+   * Labs: when true, Tag Studio (More → Tag Studio, /tag-studio) is available.
    */
   const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
   const tagRollCellW = ref(loadNumber(TAG_ROLL_CELL_W_KEY, 28))
   const tagRollCellH = ref(loadNumber(TAG_ROLL_CELL_H_KEY, 14))
+  const tagRollMetronomeSound = ref<MetronomeSoundId>(
+    (() => {
+      const raw = loadString(TAG_ROLL_METRONOME_SOUND_KEY, DEFAULT_METRONOME_SOUND_ID)
+      return isMetronomeSoundId(raw) ? raw : DEFAULT_METRONOME_SOUND_ID
+    })(),
+  )
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -971,6 +983,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(TAG_ROLL_CELL_H_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollMetronomeSound,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_METRONOME_SOUND_KEY, v)
       } catch {
         /* ignore */
       }
@@ -1505,6 +1529,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollCellH.value = cellH
   }
 
+  /** Tag Studio metronome click sample pair (persists across projects). */
+  function setTagRollMetronomeSound(id: string): void {
+    tagRollMetronomeSound.value = isMetronomeSoundId(id) ? id : DEFAULT_METRONOME_SOUND_ID
+  }
+
   /** Replace the primary-nav preference order (normalized). */
   function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
     primaryNavOrder.value = normalizePrimaryNavOrder(order)
@@ -1672,6 +1701,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollEnabled,
     tagRollCellW,
     tagRollCellH,
+    tagRollMetronomeSound,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1718,6 +1748,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setSingTogetherEnabled,
     setTagRollEnabled,
     setTagRollCellSize,
+    setTagRollMetronomeSound,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,

@@ -1,16 +1,19 @@
 <script setup lang="ts">
 /**
- * Lead-anchored barbershop chord entry.
+ * Melody-anchored barbershop chord entry.
+ * Clicking a chord/voicing applies immediately; Cancel undoes the last apply.
  * UX/algorithm inspired by znarf94/MuseScore_Barbershop_Harmonizer (reimplemented; not QML).
  */
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { midiToNote } from '../../audio/pianoSamples'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../../audio/pitchTone'
+import { resolvePitchPipeVoiceById } from '../../audio/pitchPipeVoice'
+import { useTagRollAudio } from '../../composables/useTagRollAudio'
 import {
   BARBERSHOP_CHORDS,
   chordContainsLead,
   leadRoleInChord,
-  placeVoicing,
+  placeVoicingConcert,
   pcName,
   ROOT_OFFSETS,
   VOICINGS_BY_CHORD,
@@ -19,6 +22,7 @@ import {
   type VoicingPitches,
 } from '../../lib/tagRoll/harmonizer/chords'
 import { notesAtTick } from '../../lib/tagRoll/notesAtTick'
+import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import type { TagRollNote } from '../../lib/tagRoll/types'
 import { useTagRollStore } from '../../stores/tagRoll'
 
@@ -38,6 +42,7 @@ const emit = defineEmits<{
   close: []
   previewGhost: [ghosts: TagRollGhostNote[]]
   clearGhost: []
+  stepMelody: [direction: -1 | 1]
 }>()
 
 const store = useTagRollStore()
@@ -45,23 +50,134 @@ const rootOffset = ref(0)
 const chordId = ref<string | null>(null)
 const voicing = ref<string | null>(null)
 const spread = ref(false)
+const appliedCount = ref(0)
 
-let player: PitchTonePlayer | null = null
+const panelRef = ref<HTMLElement | null>(null)
+const pos = ref({ x: 0, y: 0 })
+const positioned = ref(false)
+let drag:
+  | {
+      pointerId: number
+      startX: number
+      startY: number
+      origX: number
+      origY: number
+    }
+  | null = null
+
+const PANEL_W = 340
+const PANEL_MARGIN = 12
+
+function clampPos(x: number, y: number): { x: number; y: number } {
+  const el = panelRef.value
+  const w = el?.offsetWidth || PANEL_W
+  const h = el?.offsetHeight || 360
+  const maxX = Math.max(PANEL_MARGIN, window.innerWidth - w - PANEL_MARGIN)
+  const maxY = Math.max(PANEL_MARGIN, window.innerHeight - Math.min(h, window.innerHeight - PANEL_MARGIN * 2) - PANEL_MARGIN)
+  return {
+    x: Math.min(maxX, Math.max(PANEL_MARGIN, x)),
+    y: Math.min(maxY, Math.max(PANEL_MARGIN, y)),
+  }
+}
+
+/** Default: float against the right edge, below typical chrome. */
+function placeDefaultRight(): void {
+  const el = panelRef.value
+  const w = el?.offsetWidth || PANEL_W
+  pos.value = clampPos(window.innerWidth - w - PANEL_MARGIN, 72)
+  positioned.value = true
+}
+
+function onDragPointerDown(e: PointerEvent): void {
+  if (e.button !== 0) return
+  const t = e.target as HTMLElement | null
+  if (t?.closest('button, a, input, select, textarea, label')) return
+  drag = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    origX: pos.value.x,
+    origY: pos.value.y,
+  }
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  e.preventDefault()
+}
+
+function onDragPointerMove(e: PointerEvent): void {
+  if (!drag || e.pointerId !== drag.pointerId) return
+  pos.value = clampPos(
+    drag.origX + (e.clientX - drag.startX),
+    drag.origY + (e.clientY - drag.startY),
+  )
+}
+
+function onDragPointerUp(e: PointerEvent): void {
+  if (!drag || e.pointerId !== drag.pointerId) return
+  drag = null
+  try {
+    ;(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId)
+  } catch {
+    /* already released */
+  }
+}
+
+function onWinResize(): void {
+  if (!props.open || !positioned.value) return
+  pos.value = clampPos(pos.value.x, pos.value.y)
+}
+
+const shared = useTagRollAudio()
+let localPlayer: PitchTonePlayer | null = null
 let stabTimer: ReturnType<typeof setTimeout> | null = null
 
 const project = computed(() => store.current)
 
-const leadPart = computed(() => project.value?.parts.find((p) => p.name === 'Lead') ?? null)
-
-const leadNote = computed((): TagRollNote | null => {
+const melodyPartId = computed(() => {
   const p = project.value
-  const lead = leadPart.value
-  if (!p || !lead) return null
+  if (!p) return null
+  return (
+    p.view.melodyPartId ??
+    p.parts.find((x) => x.name === 'Lead')?.id ??
+    p.parts[0]?.id ??
+    null
+  )
+})
+
+const melodyPart = computed(
+  () => project.value?.parts.find((p) => p.id === melodyPartId.value) ?? null,
+)
+
+const melodyNotesSorted = computed((): TagRollNote[] => {
+  const p = project.value
+  const mid = melodyPartId.value
+  if (!p || !mid) return []
+  return p.notes
+    .filter((n) => n.partId === mid)
+    .slice()
+    .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
+})
+
+const melodyNote = computed((): TagRollNote | null => {
+  const p = project.value
+  const mid = melodyPartId.value
+  if (!p || !mid) return null
   const sel = store.selectedNote
-  if (sel && sel.partId === lead.id) return sel
-  const at = notesAtTick(p.notes, p.view.playheadTick).filter((n) => n.partId === lead.id)
-  if (!at.length) return null
-  return at.slice().sort((a, b) => a.midi - b.midi)[0] ?? null
+  if (sel && sel.partId === mid) return sel
+  const at = notesAtTick(p.notes, p.view.playheadTick).filter((n) => n.partId === mid)
+  if (at.length) return at.slice().sort((a, b) => a.midi - b.midi)[0] ?? null
+  // Nearest upcoming / previous melody note relative to playhead.
+  const sorted = melodyNotesSorted.value
+  if (!sorted.length) return null
+  const tick = p.view.playheadTick
+  const next = sorted.find((n) => n.startTick >= tick)
+  if (next) return next
+  return sorted[sorted.length - 1] ?? null
+})
+
+const melodyIndex = computed(() => {
+  const note = melodyNote.value
+  if (!note) return -1
+  return melodyNotesSorted.value.findIndex((n) => n.id === note.id)
 })
 
 const rootPc = computed(() => {
@@ -77,16 +193,16 @@ const selectedChord = computed(
 )
 
 const availableChords = computed(() => {
-  const lead = leadNote.value
-  if (!lead) return []
-  return BARBERSHOP_CHORDS.filter((c) => chordContainsLead(c, rootPc.value, lead.midi))
+  const mel = melodyNote.value
+  if (!mel) return []
+  return BARBERSHOP_CHORDS.filter((c) => chordContainsLead(c, rootPc.value, mel.midi))
 })
 
 const leadRole = computed(() => {
   const chord = selectedChord.value
-  const lead = leadNote.value
-  if (!chord || !lead) return null
-  return leadRoleInChord(chord, rootPc.value, lead.midi)
+  const mel = melodyNote.value
+  if (!chord || !mel) return null
+  return leadRoleInChord(chord, rootPc.value, mel.midi)
 })
 
 const availableVoicings = computed(() => {
@@ -97,21 +213,7 @@ const availableVoicings = computed(() => {
   return list.filter((v) => voicingFitsLead(v, role))
 })
 
-const placed = computed((): VoicingPitches | null => {
-  const chord = selectedChord.value
-  const lead = leadNote.value
-  const v = voicing.value
-  if (!chord || !lead || !v) return null
-  return placeVoicing({
-    chord,
-    rootPc: rootPc.value,
-    leadMidi: lead.midi,
-    voicing: v,
-    spread: spread.value,
-  })
-})
-
-function ghostsFromPlaced(pitches: VoicingPitches, lead: TagRollNote): TagRollGhostNote[] {
+function ghostsFromPlaced(pitches: VoicingPitches, mel: TagRollNote): TagRollGhostNote[] {
   const parts = project.value?.parts ?? []
   const colorFor = (name: string, fallback: string) =>
     parts.find((p) => p.name === name)?.color ?? fallback
@@ -119,59 +221,179 @@ function ghostsFromPlaced(pitches: VoicingPitches, lead: TagRollNote): TagRollGh
     {
       role: 'tenor',
       midi: pitches.tenor,
-      startTick: lead.startTick,
-      durationTicks: lead.durationTicks,
+      startTick: mel.startTick,
+      durationTicks: mel.durationTicks,
       color: colorFor('Tenor', '#c45c26'),
     },
     {
       role: 'bari',
       midi: pitches.bari,
-      startTick: lead.startTick,
-      durationTicks: lead.durationTicks,
+      startTick: mel.startTick,
+      durationTicks: mel.durationTicks,
       color: colorFor('Bari', '#2f7d4a'),
     },
     {
       role: 'bass',
       midi: pitches.bass,
-      startTick: lead.startTick,
-      durationTicks: lead.durationTicks,
+      startTick: mel.startTick,
+      durationTicks: mel.durationTicks,
       color: colorFor('Bass', '#5b3d8f'),
     },
   ]
 }
 
-function pushPreview(): void {
-  const lead = leadNote.value
-  const pitches = placed.value
-  if (!lead || !pitches) {
+function ensurePlayer(): PitchTonePlayer {
+  if (shared) return shared.ensurePlayer()
+  if (!localPlayer) {
+    const engine = project.value?.soundEngine ?? 'synth'
+    localPlayer = createPitchTonePlayer(engine, { polyphony: true })
+  }
+  if ((project.value?.soundEngine ?? 'synth') === 'synth') {
+    localPlayer.setVoice(resolvePitchPipeVoiceById(project.value?.pitchPipeSoundId))
+  }
+  return localPlayer
+}
+
+function stopStab(): void {
+  if (stabTimer) {
+    clearTimeout(stabTimer)
+    stabTimer = null
+  }
+  if (shared?.isTransportPlaying?.()) return
+  if (shared) shared.allNotesOff(true)
+  else localPlayer?.allNotesOff(true)
+}
+
+async function soundPitches(pitches: VoicingPitches): Promise<void> {
+  if (shared?.isTransportPlaying?.()) return
+  stopStab()
+  const p = ensurePlayer()
+  const notes = [pitches.bass, pitches.bari, pitches.lead, pitches.tenor].map((m) =>
+    midiToNote(m),
+  )
+  await Promise.all(notes.map((n) => p.noteOn(n)))
+  stabTimer = setTimeout(() => {
+    stabTimer = null
+    if (shared?.isTransportPlaying?.()) return
+    if (shared) shared.allNotesOff(true)
+    else p.allNotesOff(true)
+  }, 700)
+}
+
+function onCancel(): void {
+  if (appliedCount.value <= 0) return
+  store.cancelLastEdit()
+  appliedCount.value = Math.max(0, appliedCount.value - 1)
+  emit('clearGhost')
+  stopStab()
+}
+
+function onClose(): void {
+  stopStab()
+  emit('clearGhost')
+  appliedCount.value = 0
+  emit('close')
+}
+
+function selectRoot(offset: number): void {
+  rootOffset.value = offset
+  chordId.value = null
+  voicing.value = null
+}
+
+function selectChord(id: string): void {
+  const mel = melodyNote.value
+  if (!mel) return
+  chordId.value = id
+  const chord = BARBERSHOP_CHORDS.find((c) => c.id === id)
+  if (!chord) return
+  const role = leadRoleInChord(chord, rootPc.value, mel.midi)
+  const list = (VOICINGS_BY_CHORD[id] ?? []).filter((v) =>
+    role != null ? voicingFitsLead(v, role) : true,
+  )
+  voicing.value = list[0] ?? null
+  commitHarmony()
+}
+
+function selectVoicing(v: string): void {
+  voicing.value = v
+  commitHarmony()
+}
+
+function setSpread(on: boolean): void {
+  spread.value = on
+  if (voicing.value) commitHarmony()
+}
+
+function commitHarmony(): void {
+  const mel = melodyNote.value
+  const chord = selectedChord.value
+  const v = voicing.value
+  if (!mel || !chord || !v) {
     emit('clearGhost')
     return
   }
-  emit('previewGhost', ghostsFromPlaced(pitches, lead))
+  const pitches = placeVoicingConcert({
+    chord,
+    rootPc: rootPc.value,
+    leadMidi: mel.midi,
+    voicing: v,
+    spread: spread.value,
+    clefFamily: project.value?.clefFamily ?? 'ttbb',
+    melodyStaff: melodyPart.value?.midiGroup ?? 'upper',
+  })
+  if (!pitches) return
+  emit('previewGhost', ghostsFromPlaced(pitches, mel))
+  store.upsertHarmonyNotes({
+    melodyNoteId: mel.id,
+    pitches,
+  })
+  appliedCount.value += 1
+  emit('clearGhost')
+  void soundPitches(pitches)
+}
+
+function onMelodyPartChange(e: Event): void {
+  const id = (e.target as HTMLSelectElement).value
+  store.setMelodyPart(id)
+  chordId.value = null
+  voicing.value = null
+}
+
+function step(dir: -1 | 1): void {
+  const sorted = melodyNotesSorted.value
+  if (!sorted.length) return
+  const idx = melodyIndex.value
+  const nextIdx =
+    idx < 0
+      ? dir > 0
+        ? 0
+        : sorted.length - 1
+      : Math.max(0, Math.min(sorted.length - 1, idx + dir))
+  const note = sorted[nextIdx]!
+  store.selectNote(note.id)
+  store.setPlayheadTick(note.startTick)
+  chordId.value = null
+  voicing.value = null
+  emit('stepMelody', dir)
 }
 
 watch(
-  [placed, () => props.open],
-  () => {
-    if (!props.open) return
-    pushPreview()
-  },
-  { immediate: true },
-)
-
-watch(
   () => props.open,
-  (on) => {
+  async (on) => {
     if (!on) {
       emit('clearGhost')
       stopStab()
-    } else {
-      // Reset invalid selections when opening
-      if (chordId.value && !availableChords.value.some((c) => c.id === chordId.value)) {
-        chordId.value = null
-        voicing.value = null
-      }
+      appliedCount.value = 0
+      return
     }
+    if (chordId.value && !availableChords.value.some((c) => c.id === chordId.value)) {
+      chordId.value = null
+      voicing.value = null
+    }
+    await nextTick()
+    if (!positioned.value) placeDefaultRight()
+    else pos.value = clampPos(pos.value.x, pos.value.y)
   },
 )
 
@@ -188,201 +410,272 @@ watch(availableVoicings, (list) => {
   }
 })
 
-watch(rootOffset, () => {
-  chordId.value = null
-  voicing.value = null
+onMounted(() => {
+  window.addEventListener('resize', onWinResize)
+  if (props.open) void nextTick(() => placeDefaultRight())
 })
-
-function ensurePlayer(): PitchTonePlayer {
-  if (!player) {
-    const engine = project.value?.soundEngine ?? 'synth'
-    player = createPitchTonePlayer(engine, { polyphony: true })
-  }
-  return player
-}
-
-function stopStab(): void {
-  if (stabTimer) {
-    clearTimeout(stabTimer)
-    stabTimer = null
-  }
-  player?.allNotesOff(true)
-}
-
-async function onHear(): Promise<void> {
-  const pitches = placed.value
-  if (!pitches) return
-  stopStab()
-  const p = ensurePlayer()
-  const notes = [pitches.bass, pitches.bari, pitches.lead, pitches.tenor].map((m) =>
-    midiToNote(m),
-  )
-  await Promise.all(notes.map((n) => p.noteOn(n)))
-  stabTimer = setTimeout(() => {
-    stabTimer = null
-    p.allNotesOff(true)
-  }, 700)
-}
-
-function onApply(): void {
-  const lead = leadNote.value
-  const pitches = placed.value
-  if (!lead || !pitches) return
-  store.upsertHarmonyNotes({
-    leadNoteId: lead.id,
-    tenorMidi: pitches.tenor,
-    bariMidi: pitches.bari,
-    bassMidi: pitches.bass,
-  })
-  emit('clearGhost')
-}
-
-function onClose(): void {
-  stopStab()
-  emit('clearGhost')
-  emit('close')
-}
-
-function selectRoot(offset: number): void {
-  rootOffset.value = offset
-}
-
-function selectChord(id: string): void {
-  chordId.value = id
-  voicing.value = null
-}
-
-function selectVoicing(v: string): void {
-  voicing.value = v
-}
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onWinResize)
   stopStab()
-  player?.dispose()
-  player = null
+  localPlayer?.dispose()
+  localPlayer = null
 })
+
+defineExpose({ step, onCancel })
 </script>
 
 <template>
-  <div v-if="open" class="tr-hz" role="dialog" aria-label="Harmonize">
-    <header class="head">
-      <h2 class="title">Harmonize</h2>
-      <button type="button" class="btn ghost" aria-label="Close" @click="onClose">✕</button>
-    </header>
+  <Teleport to="body">
+    <div
+      v-if="open"
+      ref="panelRef"
+      class="tr-hz"
+      role="complementary"
+      aria-label="Harmonize"
+      aria-modal="false"
+      :style="{ left: `${pos.x}px`, top: `${pos.y}px` }"
+    >
+      <header
+        class="head"
+        title="Drag to move"
+        @pointerdown="onDragPointerDown"
+        @pointermove="onDragPointerMove"
+        @pointerup="onDragPointerUp"
+        @pointercancel="onDragPointerUp"
+      >
+        <h2 class="title">Harmonize</h2>
+        <button
+          type="button"
+          class="btn ghost"
+          :aria-label="tagRollTip('Close', 'Esc')"
+          :title="tagRollTip('Close', 'Esc')"
+          @click="onClose"
+        >
+          ✕
+        </button>
+      </header>
 
-    <p v-if="!leadNote" class="warn">
-      Select a Lead note or place the playhead on one.
-    </p>
-    <template v-else>
-      <p class="meta">
-        Lead {{ midiToNote(leadNote.midi) }} · root
-        {{ pcName(rootPc, preferFlats) }}
-      </p>
+      <label class="field" :title="tagRollTip('Melody part for harmonizer')">
+        <span class="lbl">Melody part</span>
+        <select
+          class="sel"
+          :value="melodyPartId ?? ''"
+          aria-label="Melody part for harmonizer"
+          @change="onMelodyPartChange"
+        >
+          <option v-for="part in project?.parts ?? []" :key="part.id" :value="part.id">
+            {{ part.name }}
+          </option>
+        </select>
+      </label>
 
-      <section class="block" aria-label="Root">
-        <h3 class="sec">Root</h3>
-        <div class="grid">
-          <button
-            v-for="r in ROOT_OFFSETS"
-            :key="`${r.offset}-${r.name}`"
-            type="button"
-            class="cell"
-            :class="{ on: rootOffset === r.offset }"
-            @click="selectRoot(r.offset)"
-          >
-            {{ r.name || pcName((project!.tonality + r.offset + 12) % 12, preferFlats) }}
-          </button>
-        </div>
-      </section>
-
-      <section class="block" aria-label="Chord">
-        <h3 class="sec">Chord</h3>
-        <div class="grid">
-          <button
-            v-for="c in availableChords"
-            :key="c.id"
-            type="button"
-            class="cell"
-            :class="{ on: chordId === c.id }"
-            :title="c.name"
-            @click="selectChord(c.id)"
-          >
-            {{ c.notation || 'maj' }}
-          </button>
-        </div>
-        <p v-if="!availableChords.length" class="empty">No chords contain this lead tone.</p>
-      </section>
-
-      <section class="block" aria-label="Voicing">
-        <h3 class="sec">Voicing</h3>
-        <div class="spread-row">
-          <button
-            type="button"
-            class="btn sm"
-            :class="{ on: !spread }"
-            @click="spread = false"
-          >
-            Closed
-          </button>
-          <button
-            type="button"
-            class="btn sm"
-            :class="{ on: spread }"
-            @click="spread = true"
-          >
-            Spread
-          </button>
-        </div>
-        <div class="grid">
-          <button
-            v-for="v in availableVoicings"
-            :key="v"
-            type="button"
-            class="cell mono"
-            :class="{ on: voicing === v }"
-            @click="selectVoicing(v)"
-          >
-            {{ v }}
-          </button>
-        </div>
-        <p v-if="chordId && !availableVoicings.length" class="empty">No voicings for this lead role.</p>
-      </section>
-
-      <div class="actions">
-        <button type="button" class="btn" :disabled="!placed" @click="onHear">Hear</button>
-        <button type="button" class="btn primary" :disabled="!placed" @click="onApply">
-          Apply
+      <div class="step-row" role="group" aria-label="Step melody notes">
+        <button
+          type="button"
+          class="btn sm"
+          :title="tipByShortcutId('harm-prev')"
+          @click="step(-1)"
+        >
+          ← Prev
+        </button>
+        <span class="step-meta">
+          <template v-if="melodyNote">
+            {{ melodyIndex + 1 }}/{{ melodyNotesSorted.length }} ·
+            {{ midiToNote(melodyNote.midi) }}
+          </template>
+          <template v-else>No {{ melodyPart?.name ?? 'melody' }} notes</template>
+        </span>
+        <button
+          type="button"
+          class="btn sm"
+          :title="tipByShortcutId('harm-next')"
+          @click="step(1)"
+        >
+          Next →
         </button>
       </div>
-    </template>
 
-    <p class="credit">
-      Chord / voicing tables inspired by the MuseScore Barbershop Harmonizer plugin (znarf94) —
-      reimplemented for Tag Roll.
-    </p>
-  </div>
+      <p v-if="!melodyNote" class="warn">
+        Add a {{ melodyPart?.name ?? 'melody' }} note or move the playhead onto one.
+      </p>
+      <template v-else>
+        <p class="meta">
+          {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }} · root
+          {{ pcName(rootPc, preferFlats) }}
+        </p>
+
+        <section class="block" aria-label="Root">
+          <h3 class="sec">Root</h3>
+          <div class="grid">
+            <button
+              v-for="r in ROOT_OFFSETS"
+              :key="`${r.offset}-${r.name}`"
+              type="button"
+              class="cell"
+              :class="{ on: rootOffset === r.offset }"
+              :title="
+                tagRollTip(
+                  `Root ${r.name || pcName((project!.tonality + r.offset + 12) % 12, preferFlats)}`,
+                )
+              "
+              @click="selectRoot(r.offset)"
+            >
+              {{ r.name || pcName((project!.tonality + r.offset + 12) % 12, preferFlats) }}
+            </button>
+          </div>
+        </section>
+
+        <section class="block" aria-label="Chord">
+          <h3 class="sec">Chord</h3>
+          <div class="grid">
+            <button
+              v-for="c in availableChords"
+              :key="c.id"
+              type="button"
+              class="cell"
+              :class="{ on: chordId === c.id }"
+              :title="tagRollTip(c.name)"
+              @click="selectChord(c.id)"
+            >
+              {{ c.notation || 'maj' }}
+            </button>
+          </div>
+          <p v-if="!availableChords.length" class="empty">No chords contain this melody tone.</p>
+        </section>
+
+        <section class="block" aria-label="Voicing">
+          <h3 class="sec">Voicing</h3>
+          <div class="spread-row">
+            <button
+              type="button"
+              class="btn sm"
+              :class="{ on: !spread }"
+              :title="tagRollTip('Closed voicing')"
+              @click="setSpread(false)"
+            >
+              Closed
+            </button>
+            <button
+              type="button"
+              class="btn sm"
+              :class="{ on: spread }"
+              :title="tagRollTip('Spread voicing')"
+              @click="setSpread(true)"
+            >
+              Spread
+            </button>
+          </div>
+          <div class="grid">
+            <button
+              v-for="v in availableVoicings"
+              :key="v"
+              type="button"
+              class="cell mono"
+              :class="{ on: voicing === v }"
+              :title="tagRollTip(`Voicing ${v}`)"
+              @click="selectVoicing(v)"
+            >
+              {{ v }}
+            </button>
+          </div>
+          <p v-if="chordId && !availableVoicings.length" class="empty">No voicings for this melody role.</p>
+        </section>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn"
+            :disabled="appliedCount <= 0"
+            :title="tipByShortcutId('harm-cancel')"
+            @click="onCancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </template>
+
+      <p class="credit">
+        Chord / voicing tables inspired by the MuseScore Barbershop Harmonizer plugin (znarf94) —
+        reimplemented for Tag Studio. Selecting a chord applies it immediately.
+      </p>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
 .tr-hz {
+  position: fixed;
+  z-index: 220;
   display: grid;
   gap: 0.55rem;
+  width: min(21.5rem, calc(100vw - 1.5rem));
+  max-height: min(72vh, calc(100dvh - 1.5rem));
+  overflow: auto;
   padding: 0.65rem 0.75rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
-  max-width: 28rem;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow:
+    0 12px 40px color-mix(in srgb, #000 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
+  /* Panel only — no backdrop; roll stays interactive underneath. */
+  pointer-events: auto;
 }
 .head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  margin: -0.15rem -0.15rem 0;
+  padding: 0.15rem;
+  border-radius: 8px;
+}
+.head:active {
+  cursor: grabbing;
 }
 .title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
+  pointer-events: none;
+}
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lbl {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.sel {
+  min-height: 34px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.step-meta {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
 }
 .meta,
 .warn,
@@ -469,11 +762,6 @@ onUnmounted(() => {
   border-color: transparent;
   background: transparent;
   color: var(--muted);
-}
-.btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent, #fff);
 }
 .credit {
   font-size: 0.72rem;
