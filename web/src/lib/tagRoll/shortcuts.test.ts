@@ -12,7 +12,7 @@ describe('tagRollTip', () => {
   })
 
   it('resolves catalog ids', () => {
-    expect(tipByShortcutId('hear-stack')).toBe('Hear stack at cursor (H)')
+    expect(tipByShortcutId('hear-stack')).toBe('Play stack at cursor (H)')
     expect(tipByShortcutId('play-pause', 'Pause')).toBe('Pause (Space)')
   })
 })

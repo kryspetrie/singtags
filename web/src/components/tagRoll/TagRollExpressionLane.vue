@@ -23,6 +23,7 @@ import {
   type TagRollProject,
   type TagRollTempoMarker,
 } from '../../lib/tagRoll/types'
+import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const LANE_H = 72
@@ -36,9 +37,28 @@ const props = defineProps<{
   project: TagRollProject
   /** View mode: show lane but block place/edit. */
   readOnly?: boolean
+  /** Left gutter (px) so the lane bg extends under the piano tote while the canvas stays aligned. */
+  leftGutterPx?: number
 }>()
 
+const leftGutterStyle = computed(() => {
+  const g = Math.max(0, props.leftGutterPx ?? 0)
+  return g > 0 ? { paddingLeft: `${g}px` } : undefined
+})
+
 const store = useTagRollStore()
+const prefs = usePreferencesStore()
+const collapsed = computed(() => prefs.tagRollExpressionLaneCollapsed)
+
+function toggleCollapsed(): void {
+  const next = !collapsed.value
+  prefs.setTagRollExpressionLaneCollapsed(next)
+  if (next) {
+    store.setExpressionTool(null)
+    store.selectExpression(null)
+  }
+}
+
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const wrapRef = ref<HTMLElement | null>(null)
 const cssW = ref(640)
@@ -647,9 +667,28 @@ watch(
 </script>
 
 <template>
-  <div class="expr-lane">
+  <div class="expr-lane" :class="{ collapsed }" :style="leftGutterStyle">
     <div class="tools" role="toolbar" aria-label="Expression tools">
+      <button
+        type="button"
+        class="collapse-btn"
+        :title="
+          collapsed
+            ? tagRollTip('Expand expression lane')
+            : tagRollTip('Collapse expression lane')
+        "
+        :aria-expanded="!collapsed"
+        :aria-label="collapsed ? 'Expand expression lane' : 'Collapse expression lane'"
+        @click="toggleCollapsed"
+      >
+        <font-awesome-icon
+          :icon="['fas', collapsed ? 'chevron-up' : 'chevron-down']"
+          class="collapse-ico"
+          aria-hidden="true"
+        />
+      </button>
       <span class="lbl">Lane</span>
+      <template v-if="!collapsed">
       <span v-if="readOnly" class="hint">View only</span>
       <template v-else>
       <button
@@ -774,8 +813,9 @@ watch(
         Start tempo
       </span>
       </template>
+      </template>
     </div>
-    <div ref="wrapRef" class="lane-wrap">
+    <div v-show="!collapsed" ref="wrapRef" class="lane-wrap">
       <canvas
         ref="canvasRef"
         class="lane-canvas"
@@ -796,12 +836,40 @@ watch(
   background: color-mix(in srgb, var(--surface) 94%, var(--bg, var(--surface)));
   padding-bottom: 0.2rem;
 }
+.expr-lane.collapsed {
+  gap: 0;
+  padding-bottom: 0;
+}
 .tools {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.5rem;
   padding: 0.45rem 0.55rem 0.15rem;
+}
+.expr-lane.collapsed .tools {
+  padding: 0.3rem 0.55rem;
+}
+.collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.collapse-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.collapse-ico {
+  width: 0.7rem;
+  height: 0.7rem;
 }
 .lbl {
   font-size: 0.78rem;

@@ -6,7 +6,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faHeart as faHeartSolid, faPause, faPen, faPlay, faStop, faEllipsisVertical, faBackwardStep, faForwardStep, faBackwardFast, faForwardFast, faRotateLeft, faHand, faArrowPointer } from '@fortawesome/free-solid-svg-icons'
+import { faHeart as faHeartSolid, faPause, faPen, faPlay, faStop, faEllipsisVertical, faBackwardStep, faForwardStep, faBackwardFast, faForwardFast, faRotateLeft, faHand, faArrowPointer, faChevronLeft, faChevronRight, faChevronDown, faChevronUp, faEye, faLayerGroup } from '@fortawesome/free-solid-svg-icons'
 import { faHeart as faHeartRegular } from '@fortawesome/free-regular-svg-icons'
 import App from './App.vue'
 import { router } from './router'
@@ -49,6 +49,12 @@ library.add(
   faBackwardFast,
   faForwardFast,
   faRotateLeft,
+  faChevronLeft,
+  faChevronRight,
+  faChevronDown,
+  faChevronUp,
+  faEye,
+  faLayerGroup,
 )
 
 ensureFetchPatchInstalled()

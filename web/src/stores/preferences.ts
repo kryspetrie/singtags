@@ -181,6 +181,11 @@ const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
 const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
 const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
 const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
+const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
+const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
+/** Default gain for Tag Studio metronome clicks (matches MetronomeClicker). */
+export const TAG_ROLL_METRONOME_VOLUME_DEFAULT = 0.85
+export const TAG_ROLL_METRONOME_VOLUME_MAX = 1.5
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
@@ -671,6 +676,15 @@ export const usePreferencesStore = defineStore('preferences', () => {
       return isMetronomeSoundId(raw) ? raw : DEFAULT_METRONOME_SOUND_ID
     })(),
   )
+  const tagRollMetronomeVolume = ref(
+    Math.min(
+      TAG_ROLL_METRONOME_VOLUME_MAX,
+      Math.max(0, loadNumber(TAG_ROLL_METRONOME_VOLUME_KEY, TAG_ROLL_METRONOME_VOLUME_DEFAULT)),
+    ),
+  )
+  const tagRollExpressionLaneCollapsed = ref(
+    loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, false),
+  )
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -995,6 +1009,30 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(TAG_ROLL_METRONOME_SOUND_KEY, v)
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollMetronomeVolume,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_METRONOME_VOLUME_KEY, String(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    tagRollExpressionLaneCollapsed,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -1534,6 +1572,20 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollMetronomeSound.value = isMetronomeSoundId(id) ? id : DEFAULT_METRONOME_SOUND_ID
   }
 
+  /** Tag Studio metronome click volume (0–1.5, persists across projects). */
+  function setTagRollMetronomeVolume(v: number): void {
+    if (!Number.isFinite(v)) return
+    tagRollMetronomeVolume.value = Math.min(
+      TAG_ROLL_METRONOME_VOLUME_MAX,
+      Math.max(0, v),
+    )
+  }
+
+  /** Collapse the Tag Studio expression lane chrome. */
+  function setTagRollExpressionLaneCollapsed(on: boolean): void {
+    tagRollExpressionLaneCollapsed.value = !!on
+  }
+
   /** Replace the primary-nav preference order (normalized). */
   function setPrimaryNavOrder(order: readonly PrimaryNavId[]): void {
     primaryNavOrder.value = normalizePrimaryNavOrder(order)
@@ -1702,6 +1754,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollCellW,
     tagRollCellH,
     tagRollMetronomeSound,
+    tagRollMetronomeVolume,
+    tagRollExpressionLaneCollapsed,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1749,6 +1803,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollEnabled,
     setTagRollCellSize,
     setTagRollMetronomeSound,
+    setTagRollMetronomeVolume,
+    setTagRollExpressionLaneCollapsed,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,

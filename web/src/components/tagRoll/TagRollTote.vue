@@ -132,8 +132,9 @@ function onWheel(e: WheelEvent): void {
 <style scoped>
 .tote {
   position: relative;
-  flex: 0 0 72px;
+  flex: 1 1 auto;
   width: 72px;
+  min-height: 0;
   overflow: hidden;
   border-right: 1px solid #b8b0a4;
   background: #2a2622;

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 /**
  * Per-part mute/solo, volume, and pan — floating / draggable like Harmonize.
+ * Metronome has its own volume row (persisted preference).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { syncProjectMix } from '../../lib/tagRoll/mix'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
+import {
+  TAG_ROLL_METRONOME_VOLUME_MAX,
+  usePreferencesStore,
+} from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const props = defineProps<{
@@ -16,6 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useTagRollStore()
+const prefs = usePreferencesStore()
 const project = computed(() => store.current)
 const rows = computed(() => {
   const p = project.value
@@ -141,6 +147,12 @@ function onPan(partId: string, e: Event): void {
   store.patchPartMix(partId, { pan: v }, { history: false })
 }
 
+function onMetronomeVolume(e: Event): void {
+  const v = Number((e.target as HTMLInputElement).value)
+  if (!Number.isFinite(v)) return
+  prefs.setTagRollMetronomeVolume(v)
+}
+
 function panLabel(pan: number): string {
   if (Math.abs(pan) < 0.05) return 'C'
   if (pan < 0) return `L${Math.round(Math.abs(pan) * 100)}`
@@ -191,7 +203,7 @@ function panLabel(pan: number): string {
 
       <p class="hint">
         Solo any combination of parts. Muted parts stay silent. Pan and volume apply to playback and
-        Hear stack.
+        Play stack.
       </p>
 
       <ul class="list" role="list">
@@ -243,6 +255,27 @@ function panLabel(pan: number): string {
               @input="onPan(part.id, $event)"
             />
             <span class="val">{{ panLabel(mix.pan) }}</span>
+          </label>
+        </li>
+
+        <li class="row metro-row">
+          <span class="swatch metro-swatch" aria-hidden="true" />
+          <span class="name">Metronome</span>
+          <label
+            class="slider vol metro-vol"
+            :title="tagRollTip('Metronome click volume')"
+          >
+            <span class="lbl">Vol</span>
+            <input
+              type="range"
+              min="0"
+              :max="TAG_ROLL_METRONOME_VOLUME_MAX"
+              step="0.01"
+              :value="prefs.tagRollMetronomeVolume"
+              aria-label="Metronome volume"
+              @input="onMetronomeVolume"
+            />
+            <span class="val">{{ Math.round(prefs.tagRollMetronomeVolume * 100) }}%</span>
           </label>
         </li>
       </ul>
@@ -322,11 +355,20 @@ function panLabel(pan: number): string {
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
+.metro-row {
+  grid-template-areas:
+    'swatch name name name'
+    'vol vol vol vol';
+  margin-top: 0.15rem;
+}
 .swatch {
   grid-area: swatch;
   width: 0.7rem;
   height: 1.4rem;
   border-radius: 3px;
+}
+.metro-swatch {
+  background: color-mix(in srgb, var(--muted) 55%, var(--accent));
 }
 .name {
   grid-area: name;

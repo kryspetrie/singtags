@@ -26,22 +26,29 @@ import {
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../../stores/tagRoll'
 
+const props = defineProps<{
+  harmonizeOpen?: boolean
+  partsOpen?: boolean
+}>()
+
 const emit = defineEmits<{
-  hearStack: []
   exportMidi: [mode: 'one' | 'two' | 'all']
   exportMusicXml: []
   exportAudio: [kind: 'mix' | 'parts' | 'partLeft']
   saveLibrary: []
   openHarmonize: []
-  showShortcuts: []
+  openParts: []
 }>()
 
 const store = useTagRollStore()
 const exportOpen = ref(false)
+const insertBarOpen = ref(false)
 
 const project = computed(() => store.current)
 const mode = computed(() => project.value?.view.mode ?? 'compose')
 const isView = computed(() => mode.value === 'view')
+const harmonizeOpen = computed(() => !!props.harmonizeOpen)
+const partsOpen = computed(() => !!props.partsOpen)
 const selectedNote = computed(() => store.selectedNote)
 
 const MODES: { id: TagRollEditorMode; label: string }[] = [
@@ -164,11 +171,19 @@ function modeTip(id: TagRollEditorMode, label: string): string {
   return tipByShortcutId('mode-lyrics', label)
 }
 
+function onInsertBar(where: 'before' | 'after'): void {
+  insertBarOpen.value = false
+  store.insertMeasure(where)
+}
+
 function onDocPointer(e: PointerEvent): void {
-  if (!exportOpen.value) return
   const el = e.target as HTMLElement | null
-  if (el?.closest?.('.export-wrap')) return
-  exportOpen.value = false
+  if (exportOpen.value && !el?.closest?.('.export-wrap')) {
+    exportOpen.value = false
+  }
+  if (insertBarOpen.value && !el?.closest?.('.insert-bar-wrap')) {
+    insertBarOpen.value = false
+  }
 }
 
 onMounted(() => {
@@ -226,6 +241,32 @@ onUnmounted(() => {
           @click="store.setPointerTool('pan')"
         >
           <font-awesome-icon :icon="['fas', 'hand']" class="tr-ico" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div
+        v-if="!isView"
+        class="modes segment"
+        role="group"
+        aria-label="Undo redo"
+      >
+        <button
+          type="button"
+          class="seg-btn"
+          :title="tipByShortcutId('undo')"
+          :disabled="!store.canUndo"
+          @click="store.undo()"
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          class="seg-btn"
+          :title="tipByShortcutId('redo')"
+          :disabled="!store.canRedo"
+          @click="store.redo()"
+        >
+          Redo
         </button>
       </div>
 
@@ -344,25 +385,6 @@ onUnmounted(() => {
         </label>
 
         <button
-          type="button"
-          class="btn sm"
-          :title="tipByShortcutId('undo')"
-          :disabled="!store.canUndo"
-          @click="store.undo()"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          class="btn sm"
-          :title="tipByShortcutId('redo')"
-          :disabled="!store.canRedo"
-          @click="store.redo()"
-        >
-          Redo
-        </button>
-
-        <button
           v-if="store.selectedNoteIds.length || store.selectedExpressionId"
           type="button"
           class="btn danger sm"
@@ -413,22 +435,27 @@ onUnmounted(() => {
       <div class="sep" aria-hidden="true" />
 
       <button
+        v-if="!isView"
         type="button"
         class="btn sm"
-        :title="tipByShortcutId('hear-stack', 'Hear stack')"
-        @click="emit('hearStack')"
+        :class="{ on: harmonizeOpen }"
+        :aria-expanded="harmonizeOpen"
+        :title="tipByShortcutId('harmonize', 'Harmonize')"
+        @click="emit('openHarmonize')"
       >
-        Hear stack
+        Harmonize
       </button>
 
       <button
         v-if="!isView"
         type="button"
         class="btn sm"
-        :title="tipByShortcutId('harmonize', 'Harmonize')"
-        @click="emit('openHarmonize')"
+        :class="{ on: partsOpen }"
+        :aria-expanded="partsOpen"
+        :title="tagRollTip('Edit parts')"
+        @click="emit('openParts')"
       >
-        Harmonize
+        Parts
       </button>
 
       <div v-if="!isView" class="bar-edit" role="group" aria-label="Measures">
@@ -449,22 +476,35 @@ onUnmounted(() => {
         >
           +1 bar
         </button>
-        <button
-          type="button"
-          class="btn sm"
-          :title="tagRollTip('Insert empty measure before the cursor bar')"
-          @click="store.insertMeasure('before')"
-        >
-          Insert before
-        </button>
-        <button
-          type="button"
-          class="btn sm"
-          :title="tagRollTip('Insert empty measure after the cursor bar')"
-          @click="store.insertMeasure('after')"
-        >
-          Insert after
-        </button>
+        <div class="insert-bar-wrap">
+          <button
+            type="button"
+            class="btn sm"
+            :title="tagRollTip('Insert an empty measure at the cursor')"
+            :aria-expanded="insertBarOpen"
+            @click="insertBarOpen = !insertBarOpen; exportOpen = false"
+          >
+            Insert bar ▾
+          </button>
+          <div v-if="insertBarOpen" class="menu insert-bar-menu" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Insert empty measure before the cursor bar')"
+              @click="onInsertBar('before')"
+            >
+              Before cursor
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Insert empty measure after the cursor bar')"
+              @click="onInsertBar('after')"
+            >
+              After cursor
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="export-wrap">
@@ -473,7 +513,7 @@ onUnmounted(() => {
           class="btn sm"
           :title="tagRollTip('Export MIDI, MusicXML, MP3, or save to My Library')"
           :aria-expanded="exportOpen"
-          @click="exportOpen = !exportOpen"
+          @click="exportOpen = !exportOpen; insertBarOpen = false"
         >
           Export ▾
         </button>
@@ -490,15 +530,6 @@ onUnmounted(() => {
           <button type="button" role="menuitem" @click="onSaveLibrary">Save to My Library</button>
         </div>
       </div>
-
-      <button
-        type="button"
-        class="btn sm ghost"
-        :title="tipByShortcutId('shortcuts', 'Keyboard shortcuts overview')"
-        @click="emit('showShortcuts')"
-      >
-        ?
-      </button>
     </div>
   </div>
 </template>
@@ -615,6 +646,10 @@ onUnmounted(() => {
   font-weight: 650;
   cursor: pointer;
 }
+.seg-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
 .seg-btn.on {
   background: var(--surface);
   color: var(--text);
@@ -653,6 +688,10 @@ onUnmounted(() => {
   position: relative;
   flex: 0 0 auto;
 }
+.insert-bar-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
 .menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -665,6 +704,11 @@ onUnmounted(() => {
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 8px 24px color-mix(in srgb, #000 12%, transparent);
+}
+.insert-bar-menu {
+  left: 0;
+  right: auto;
+  min-width: 10rem;
 }
 .export-menu-pop {
   min-width: 12rem;
@@ -703,8 +747,9 @@ onUnmounted(() => {
   font-size: 0.84rem;
 }
 .btn.on {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--accent);
 }
 .btn.ghost {
   background: transparent;

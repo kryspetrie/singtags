@@ -17,7 +17,7 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   { id: 'pause-enter', keys: 'Enter', label: 'Pause in place', group: 'transport' },
   { id: 'stop', keys: 'S', label: 'Stop — return to playback start', group: 'transport' },
   { id: 'return-zero', keys: 'Home', label: 'Go to beginning', group: 'transport' },
-  { id: 'hear-stack', keys: 'H', label: 'Hear stack at cursor', group: 'transport' },
+  { id: 'hear-stack', keys: 'H', label: 'Play stack at cursor', group: 'transport' },
   { id: 'playhead-left', keys: ',', label: 'Move playhead left (grid)', group: 'transport' },
   { id: 'playhead-right', keys: '.', label: 'Move playhead right (grid)', group: 'transport' },
   { id: 'cursor-left', keys: '←', label: 'Move playhead left (view / no selection)', group: 'transport' },

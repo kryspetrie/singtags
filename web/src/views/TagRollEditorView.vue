@@ -34,15 +34,19 @@ import { beatsCrossedSigned } from '../lib/tagRoll/metronomeBeats'
 import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
 import { TAG_ROLL_DURATION_PRESETS, dottedDurationTicks, stepDurationTicks } from '../lib/tagRoll/snap'
 import { findPartByHotkey } from '../lib/tagRoll/partHotkeys'
-import { isTypingTarget, matchModKey, tagRollTip } from '../lib/tagRoll/shortcuts'
+import { isTypingTarget, matchModKey, tagRollTip, tipByShortcutId } from '../lib/tagRoll/shortcuts'
 import {
   formatDurationBeats,
   formatMeasureBeat,
   nextMeasureTick,
   prevMeasureTick,
 } from '../lib/tagRoll/measureBeat'
-import { bpmAtTick } from '../lib/tagRoll/tempoMap'
-import { TAG_ROLL_MIDI_MAX, TAG_ROLL_MIDI_MIN, TAG_ROLL_PPQ } from '../lib/tagRoll/types'
+import {
+  TAG_ROLL_MIDI_MAX,
+  TAG_ROLL_MIDI_MIN,
+  TAG_ROLL_RULER_H,
+  TAG_ROLL_RULER_H_COMPOSE,
+} from '../lib/tagRoll/types'
 import {
   clampCellW,
   clampSheetZoom,
@@ -78,38 +82,29 @@ const ghostNotes = ref<
 const saveBusy = ref(false)
 const exportBusy = ref(false)
 const exportBusyLabel = ref('')
-const marqueeHint = ref(false)
 const pointerHud = ref<{ tick: number; midi: number } | null>(null)
 
 const project = computed(() => store.current)
+
+const showPianoTote = computed(
+  () => !!project.value && !(project.value.view.mode === 'view' && project.value.view.scoreSurface === 'sheet'),
+)
+
+const rulerH = computed(() => {
+  const p = project.value
+  if (!p) return TAG_ROLL_RULER_H_COMPOSE
+  return p.view.mode === 'compose' ? TAG_ROLL_RULER_H_COMPOSE : TAG_ROLL_RULER_H
+})
+
+/** Pitch-grid height only (viewport cssH includes the ruler strip). */
+const toteViewportH = computed(() => Math.max(0, stageViewportH.value - rulerH.value))
+
+const TOTE_W = 72
 
 const activePartName = computed(() => {
   const p = project.value
   if (!p) return '—'
   return p.parts.find((x) => x.id === p.view.activePartId)?.name ?? '—'
-})
-
-const snapLabel = computed(() => {
-  const ticks = project.value?.snapTicks ?? TAG_ROLL_PPQ / 4
-  if (ticks === TAG_ROLL_PPQ) return 'Quarter'
-  if (ticks === TAG_ROLL_PPQ / 2) return 'Eighth'
-  if (ticks === TAG_ROLL_PPQ / 4) return 'Sixteenth'
-  if (ticks === TAG_ROLL_PPQ / 8) return '32nd'
-  if (ticks === Math.round(TAG_ROLL_PPQ / 3)) return 'Eighth triplet'
-  return `${ticks}t`
-})
-
-const playheadLabel = computed(() => {
-  const p = project.value
-  if (!p) return '1:1'
-  return formatMeasureBeat(p.view.playheadTick, p.timeSignature, p.ppq)
-})
-
-const pointerHudLabel = computed(() => {
-  const p = project.value
-  const hud = pointerHud.value
-  if (!p || !hud) return null
-  return `${midiToNote(hud.midi)} · ${formatMeasureBeat(hud.tick, p.timeSignature, p.ppq)}`
 })
 
 const selectionSummary = computed(() => {
@@ -133,19 +128,13 @@ const selectionSummary = computed(() => {
   return { multi: true as const, count: notes.length }
 })
 
-const mediaStatusLine = computed(() => {
-  const p = project.value
-  const bits = [activePartName.value, `Grid ${snapLabel.value}`]
-  if (p) {
-    const live = Math.round(
-      bpmAtTick(p.view.playheadTick, p.tempoMarkers, p.expressions, p.bpm),
-    )
-    bits.push(`${live} BPM`)
-  }
-  if (store.selectedNoteIds.length) bits.push(`${store.selectedNoteIds.length} selected`)
-  if (pointerHudLabel.value) bits.push(pointerHudLabel.value)
-  if (marqueeHint.value) bits.push('Marquee')
-  return bits.join(' · ')
+/** Lower-right roll overlay: active part + current note. */
+const rollHudLabel = computed(() => {
+  const part = activePartName.value
+  if (pointerHud.value) return `${part} · ${midiToNote(pointerHud.value.midi)}`
+  const sel = selectionSummary.value
+  if (sel && !sel.multi) return `${part} · ${sel.pitch}`
+  return part
 })
 
 function onLyricInspect(e: Event): void {
@@ -203,6 +192,7 @@ function ensureBlowPitchPlayer(): PitchTonePlayer {
 function ensureMetronome(): MetronomeClicker {
   if (!metronome) metronome = new MetronomeClicker(prefs.tagRollMetronomeSound)
   metronome.setSoundId(prefs.tagRollMetronomeSound)
+  metronome.setGain(prefs.tagRollMetronomeVolume)
   metronome.setEnabled(!!project.value?.metronomeEnabled)
   return metronome
 }
@@ -681,6 +671,20 @@ function onHarmonizeClose(): void {
   ghostNotes.value = []
 }
 
+function toggleHarmonize(): void {
+  if (harmonizeOpen.value) onHarmonizeClose()
+  else harmonizeOpen.value = true
+}
+
+function toggleParts(): void {
+  if (partsOpen.value) {
+    partsOpen.value = false
+    return
+  }
+  partsOpen.value = true
+  mixerOpen.value = false
+}
+
 function nudgePlayhead(dir: -1 | 1): void {
   const p = project.value
   if (!p) return
@@ -985,7 +989,7 @@ function onKeyDown(e: KeyboardEvent): void {
   if (lower === 'm') {
     if (readOnly) return
     e.preventDefault()
-    harmonizeOpen.value = !harmonizeOpen.value
+    toggleHarmonize()
     return
   }
   if (key >= '1' && key <= '6') {
@@ -1015,16 +1019,25 @@ function onKeyDown(e: KeyboardEvent): void {
         @blur="onTitleBlur"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
       />
+      <button
+        type="button"
+        class="shortcuts-btn"
+        :title="tipByShortcutId('shortcuts', 'Keyboard shortcuts overview')"
+        @click="shortcutsOpen = true"
+      >
+        Keyboard Shortcuts
+      </button>
     </header>
 
     <TagRollToolbar
-      @hear-stack="onHearStack"
+      :harmonize-open="harmonizeOpen"
+      :parts-open="partsOpen"
       @export-midi="onExportMidi"
       @export-music-xml="onExportMusicXml"
       @export-audio="onExportAudio"
       @save-library="onSaveLibrary"
-      @open-harmonize="harmonizeOpen = true"
-      @show-shortcuts="shortcutsOpen = true"
+      @open-harmonize="toggleHarmonize"
+      @open-parts="toggleParts"
     />
 
     <TagRollLyricsInput />
@@ -1034,13 +1047,19 @@ function onKeyDown(e: KeyboardEvent): void {
     <p v-if="exportBusy" class="hint">{{ exportBusyLabel || 'Exporting…' }}</p>
 
     <div class="stage">
-      <div class="stage-inner">
-        <TagRollTote
-          v-if="project && !(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
-          :project="project"
-          :viewport-height="stageViewportH"
-          @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
-        />
+      <div class="stage-body">
+        <div v-if="showPianoTote" class="tote-col">
+          <div
+            class="ruler-gutter"
+            :style="{ height: `${rulerH}px` }"
+            aria-hidden="true"
+          />
+          <TagRollTote
+            :project="project"
+            :viewport-height="toteViewportH"
+            @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
+          />
+        </div>
         <div class="roll-col">
           <TagRollSheetViewport
             v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
@@ -1069,15 +1088,22 @@ function onKeyDown(e: KeyboardEvent): void {
             @audition-note="(m) => void auditionMidi(m)"
             @preview-pitch="(m) => void previewPitch(m)"
             @pointer-hud="(p) => (pointerHud = p)"
-            @marquee-active="(on) => (marqueeHint = on)"
           />
-          <TagRollExpressionLane
+          <div
             v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
-            :project="project"
-            :read-only="project.view.mode === 'view'"
-          />
+            class="roll-hud"
+            aria-live="polite"
+          >
+            {{ rollHudLabel }}
+          </div>
         </div>
       </div>
+      <TagRollExpressionLane
+        v-if="showPianoTote"
+        :project="project"
+        :read-only="project.view.mode === 'view'"
+        :left-gutter-px="TOTE_W"
+      />
     </div>
 
     <div v-if="selectionSummary && project.view.mode !== 'view'" class="inspect-row">
@@ -1102,16 +1128,15 @@ function onKeyDown(e: KeyboardEvent): void {
 
     <TagRollMediaBar
       :playing="store.transportPlaying"
-      :playhead-label="playheadLabel"
-      :status-line="mediaStatusLine"
+      :mixer-open="mixerOpen"
       @beginning="onReturnToZero"
       @prev-measure="onPrevMeasure"
       @next-measure="onNextMeasure"
       @return-origin="onReturnToOrigin"
       @play-pause="onPlayPause"
       @stop="onStop"
-      @mixer="mixerOpen = true; partsOpen = false"
-      @parts="partsOpen = true; mixerOpen = false"
+      @hear-stack="onHearStack"
+      @mixer="mixerOpen = !mixerOpen; if (mixerOpen) partsOpen = false"
       @nudge-time="onNudgeCellW"
       @nudge-pitch="(d) => store.nudgeCellH(d)"
     />
@@ -1175,6 +1200,24 @@ function onKeyDown(e: KeyboardEvent): void {
   font-weight: 650;
   font-size: 1.05rem;
 }
+.shortcuts-btn {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.shortcuts-btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
 .stage {
   position: relative;
   display: flex;
@@ -1185,6 +1228,24 @@ function onKeyDown(e: KeyboardEvent): void {
   border-radius: 12px;
   overflow: hidden;
   background: var(--surface);
+}
+.stage-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tote-col {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 72px;
+  width: 72px;
+  min-height: 0;
+}
+.ruler-gutter {
+  flex: 0 0 auto;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border-right: 1px solid #b8b0a4;
+  border-bottom: 1px solid var(--border);
 }
 .inspect-row {
   display: flex;
@@ -1212,12 +1273,8 @@ function onKeyDown(e: KeyboardEvent): void {
   font: inherit;
   font-size: 0.82rem;
 }
-.stage-inner {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-}
 .roll-col {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -1226,6 +1283,23 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 .roll-col :deep(.viewport) {
   flex: 1 1 auto;
+}
+.roll-hud {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.45rem;
+  z-index: 6;
+  pointer-events: none;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  box-shadow: 0 1px 4px color-mix(in srgb, #000 10%, transparent);
 }
 .err {
   margin: 0;

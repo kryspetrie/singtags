@@ -56,6 +56,7 @@ import {
   TAG_ROLL_SHEET_ZOOM_MAX,
   TAG_ROLL_SHEET_ZOOM_MIN,
 } from '../lib/tagRoll/types'
+import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects'
 import {
   deleteTagRollProject,
   getTagRollHistory,
@@ -157,7 +158,21 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   async function refreshList(): Promise<void> {
     try {
-      summaries.value = await listTagRollProjects()
+      let list = await listTagRollProjects()
+      if (!list.length) {
+        const seeded = createTagRollDefaultProjects()
+        for (const p of seeded) {
+          await putTagRollProject(p)
+          await putTagRollHistory({
+            projectId: p.id,
+            undo: [],
+            redo: [],
+            updatedAt: p.updatedAt,
+          })
+        }
+        if (seeded.length) list = await listTagRollProjects()
+      }
+      summaries.value = list
       loaded.value = true
       error.value = null
     } catch (e) {

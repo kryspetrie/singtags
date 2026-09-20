@@ -1,0 +1,265 @@
+{
+  "schema": "singtags.tagRoll.project.v1",
+  "id": "seed-lilly-marlene-v2",
+  "title": "Lilly Marlene (v2)",
+  "bpm": 80,
+  "ppq": 480,
+  "snapTicks": 240,
+  "lengthTicks": 9600,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "tempoMarkers": [
+    {
+      "id": "trt_b871b973-b1e6-4423-9c74-54ae0391d090",
+      "tick": 0,
+      "bpm": 80
+    },
+    {
+      "id": "trt-ramp-tre_e38efadd-9ea4-4c4f-9aa6-67154d03dc17",
+      "tick": 3600,
+      "bpm": 30
+    }
+  ],
+  "expressions": [
+    {
+      "id": "tre_e38efadd-9ea4-4c4f-9aa6-67154d03dc17",
+      "kind": "rit",
+      "startTick": 2880,
+      "endTick": 3600,
+      "startBpm": 80,
+      "endBpm": 30
+    },
+    {
+      "id": "tre_19f550bc-f983-4f49-bbae-8a49d0715a94",
+      "kind": "fermata",
+      "tick": 3840,
+      "holdTicks": 960,
+      "gapTicks": 240
+    }
+  ],
+  "soundEngine": "synth",
+  "pitchPipeSoundId": "mellow",
+  "blowPitchEnabled": false,
+  "metronomeEnabled": true,
+  "soundEnvelope": {
+    "attackSec": 0.05,
+    "decaySec": 0.05,
+    "phraseDecaySec": 0.6
+  },
+  "tonality": 0,
+  "preferFlats": false,
+  "clefFamily": "ttbb",
+  "parts": [
+    {
+      "id": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "name": "Tenor",
+      "color": "#c45c26",
+      "midiGroup": "upper"
+    },
+    {
+      "id": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+      "name": "Lead",
+      "color": "#1d6a9f",
+      "midiGroup": "upper"
+    },
+    {
+      "id": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "name": "Bari",
+      "color": "#2f7d4a",
+      "midiGroup": "lower"
+    },
+    {
+      "id": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "name": "Bass",
+      "color": "#5b3d8f",
+      "midiGroup": "lower"
+    },
+    {
+      "id": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
+      "name": "5th",
+      "color": "#6b7280",
+      "midiGroup": "solo"
+    }
+  ],
+  "mix": [
+    {
+      "partId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "volume": 0.82,
+      "pan": -0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+      "volume": 1,
+      "pan": -0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "volume": 0.82,
+      "pan": 0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "volume": 0.75,
+      "pan": 0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
+      "volume": 0.82,
+      "pan": 0,
+      "mute": false,
+      "solo": false
+    }
+  ],
+  "notes": [
+    {
+      "id": "trn_575ba932-6c6a-4d9a-b10f-b4abbc3e91e3",
+      "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+      "midi": 55,
+      "startTick": 1440,
+      "durationTicks": 720,
+      "lyric": "Mar"
+    },
+    {
+      "id": "trn_486ace08-a1bd-4637-a973-aeae03beb842",
+      "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+      "midi": 60,
+      "startTick": 1920,
+      "durationTicks": 1920,
+      "lyric": "lene"
+    },
+    {
+      "id": "trn_994f3756-bedc-46bc-b2ec-87fe0400a7b3",
+      "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+      "midi": 60,
+      "startTick": 3840,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_cd18c48b-5f77-4bfb-8e08-48880543c91d",
+      "partId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "midi": 65,
+      "startTick": 2880,
+      "durationTicks": 240,
+      "lyric": "Lil-"
+    },
+    {
+      "id": "trn_6da8299a-b3c3-4802-8579-2044a08ee0b2",
+      "partId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "midi": 64,
+      "startTick": 3120,
+      "durationTicks": 240,
+      "lyric": "ly"
+    },
+    {
+      "id": "trn_06840138-b1f9-423e-be97-9500a59bd048",
+      "partId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "midi": 62,
+      "startTick": 3360,
+      "durationTicks": 480,
+      "lyric": "Mar-"
+    },
+    {
+      "id": "trn_0f2c7f87-0276-466f-822a-7e926363240b",
+      "partId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
+      "midi": 64,
+      "startTick": 3840,
+      "durationTicks": 480,
+      "lyric": "lene"
+    },
+    {
+      "id": "trn_f34f82fe-e53d-4807-8f17-01007dec2804",
+      "partId": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "midi": 57,
+      "startTick": 2880,
+      "durationTicks": 240,
+      "lyric": "Li-"
+    },
+    {
+      "id": "trn_0171e1f9-f67b-4e4e-9ac3-e5e991d3240e",
+      "partId": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "midi": 57,
+      "startTick": 3120,
+      "durationTicks": 240,
+      "lyric": "ly"
+    },
+    {
+      "id": "trn_98c733ba-dd15-4e3c-9738-94d49191f62e",
+      "partId": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "midi": 56,
+      "startTick": 3360,
+      "durationTicks": 480,
+      "lyric": "Mar-"
+    },
+    {
+      "id": "trn_d0f5a816-1879-4ae5-9361-34457d37575b",
+      "partId": "trp_c100507d-169c-4f04-af18-6963095cc5ff",
+      "midi": 55,
+      "startTick": 3840,
+      "durationTicks": 480,
+      "lyric": "lene"
+    },
+    {
+      "id": "trn_01cfa050-f1e6-4339-ad7c-a80fe93e1444",
+      "partId": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "midi": 53,
+      "startTick": 2880,
+      "durationTicks": 240,
+      "lyric": "Li-"
+    },
+    {
+      "id": "trn_e448f7a3-e1cf-412c-b095-6ab9a2313ef0",
+      "partId": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "midi": 54,
+      "startTick": 3120,
+      "durationTicks": 240,
+      "lyric": "ly"
+    },
+    {
+      "id": "trn_0813e8cd-6c4a-4e6e-b65a-5a459d475295",
+      "partId": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "midi": 53,
+      "startTick": 3360,
+      "durationTicks": 480,
+      "lyric": "Mar-"
+    },
+    {
+      "id": "trn_8dac249c-7e69-4dbd-a0ef-d493ecb326a5",
+      "partId": "trp_3c013ac2-0c5a-4e03-b965-5d503e385693",
+      "midi": 48,
+      "startTick": 3840,
+      "durationTicks": 480,
+      "lyric": "lene"
+    }
+  ],
+  "localEntryId": null,
+  "view": {
+    "cellW": 140,
+    "cellH": 29,
+    "scrollX": 0,
+    "scrollY": 454.23695373535156,
+    "lockPiano": false,
+    "mode": "compose",
+    "activePartId": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
+    "melodyPartId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
+    "playheadTick": 0,
+    "focusActivePart": false,
+    "scaleHighlight": false,
+    "scoreSurface": "roll",
+    "sheetZoom": 79,
+    "sheetShowLyrics": true,
+    "sheetScrollX": 0,
+    "sheetScrollY": 0
+  },
+  "createdAt": 0,
+  "updatedAt": 0
+}
