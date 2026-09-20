@@ -29,6 +29,7 @@ import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/sc
 import { downloadTagRollMidi, type MidiExportMode } from '../lib/tagRoll/midiExport'
 import { downloadTagRollMusicXml } from '../lib/tagRoll/musicxmlExport'
 import { downloadTagRollAudio } from '../lib/tagRoll/audioExport'
+import { downloadTagRollProjectJson } from '../lib/tagRoll/projectJson'
 import { planBlowPitch, shouldBlowPitchOnPlay } from '../lib/tagRoll/blowPitch'
 import { beatsCrossedSigned } from '../lib/tagRoll/metronomeBeats'
 import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
@@ -571,6 +572,11 @@ function onExportMusicXml(): void {
   downloadTagRollMusicXml(project.value)
 }
 
+function onExportJson(): void {
+  if (!project.value) return
+  downloadTagRollProjectJson(project.value)
+}
+
 async function onExportAudio(kind: 'mix' | 'parts' | 'partLeft'): Promise<void> {
   if (!project.value || exportBusy.value) return
   exportBusy.value = true
@@ -1035,6 +1041,7 @@ function onKeyDown(e: KeyboardEvent): void {
       @export-midi="onExportMidi"
       @export-music-xml="onExportMusicXml"
       @export-audio="onExportAudio"
+      @export-json="onExportJson"
       @save-library="onSaveLibrary"
       @open-harmonize="toggleHarmonize"
       @open-parts="toggleParts"

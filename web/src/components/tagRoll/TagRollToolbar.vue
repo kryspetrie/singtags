@@ -35,6 +35,7 @@ const emit = defineEmits<{
   exportMidi: [mode: 'one' | 'two' | 'all']
   exportMusicXml: []
   exportAudio: [kind: 'mix' | 'parts' | 'partLeft']
+  exportJson: []
   saveLibrary: []
   openHarmonize: []
   openParts: []
@@ -149,6 +150,11 @@ function onExportMusicXml(): void {
 function onExportAudio(kind: 'mix' | 'parts' | 'partLeft'): void {
   exportOpen.value = false
   emit('exportAudio', kind)
+}
+
+function onExportJson(): void {
+  exportOpen.value = false
+  emit('exportJson')
 }
 
 function onSaveLibrary(): void {
@@ -522,6 +528,14 @@ onUnmounted(() => {
           <button type="button" role="menuitem" @click="onExport('two')">MIDI · 2 tracks</button>
           <button type="button" role="menuitem" @click="onExport('all')">MIDI · all parts</button>
           <button type="button" role="menuitem" @click="onExportMusicXml">MusicXML</button>
+          <button
+            type="button"
+            role="menuitem"
+            :title="tagRollTip('SingTags Tag Studio project JSON')"
+            @click="onExportJson"
+          >
+            SingTags JSON
+          </button>
           <button type="button" role="menuitem" @click="onExportAudio('mix')">MP3 · mix</button>
           <button type="button" role="menuitem" @click="onExportAudio('parts')">MP3 · parts</button>
           <button type="button" role="menuitem" @click="onExportAudio('partLeft')">

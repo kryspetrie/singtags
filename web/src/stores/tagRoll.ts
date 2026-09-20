@@ -243,6 +243,38 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
   }
 
+  /** Persist an imported SingTags JSON project (already normalized). */
+  async function importProject(project: TagRollProject): Promise<TagRollProject> {
+    try {
+      const now = Date.now()
+      const p = normalizeTagRollProject({
+        ...project,
+        updatedAt: now,
+        createdAt: project.createdAt || now,
+        localEntryId: null,
+      })
+      if (!p) throw new Error('Invalid project')
+      await putTagRollProject(p)
+      await putTagRollHistory({
+        projectId: p.id,
+        undo: [],
+        redo: [],
+        updatedAt: now,
+      })
+      current.value = p
+      clearNoteSelection()
+      selectedExpressionId.value = null
+      expressionTool.value = null
+      undoStack.value = []
+      redoStack.value = []
+      await refreshList()
+      return p
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Failed to import project'
+      throw e
+    }
+  }
+
   function scheduleSave(): void {
     if (!current.value) return
     if (saveTimer) clearTimeout(saveTimer)
@@ -1133,6 +1165,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     refreshList,
     openProject,
     createProject,
+    importProject,
     persistNow,
     patchProject,
     patchView,

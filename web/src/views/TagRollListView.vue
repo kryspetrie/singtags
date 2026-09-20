@@ -2,8 +2,9 @@
 /**
  * Tag Studio project list.
  */
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
 import { tagRollTip } from '../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../stores/tagRoll'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -11,6 +12,8 @@ import { useSnackbarStore } from '../stores/snackbar'
 const store = useTagRollStore()
 const router = useRouter()
 const snackbar = useSnackbarStore()
+const importInput = ref<HTMLInputElement | null>(null)
+const importBusy = ref(false)
 
 onMounted(() => {
   void store.refreshList()
@@ -24,6 +27,34 @@ async function onCreate(): Promise<void> {
     const msg = e instanceof Error ? e.message : 'Failed to create project'
     snackbar.show(msg, { title: 'Error', tone: 'error', ms: 4000 })
     console.error('Failed to create project:', e)
+  }
+}
+
+function onImportClick(): void {
+  importInput.value?.click()
+}
+
+async function onImportFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importBusy.value) return
+  importBusy.value = true
+  try {
+    const parsed = await readTagRollProjectJsonFile(file)
+    if (!parsed.ok) {
+      snackbar.show(parsed.error, { title: 'Import failed', tone: 'error', ms: 4000 })
+      return
+    }
+    const p = await store.importProject(parsed.project)
+    snackbar.show(`Imported “${p.title}”`, { title: 'Imported', tone: 'ok', ms: 2500 })
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to import project'
+    snackbar.show(msg, { title: 'Import failed', tone: 'error', ms: 4000 })
+    console.error('Failed to import project:', err)
+  } finally {
+    importBusy.value = false
   }
 }
 
@@ -58,14 +89,33 @@ function fmtDate(ms: number): string {
           Create and arrange custom tag arrangements on a piano-roll grid.
         </p>
       </div>
-      <button
-        type="button"
-        class="btn btn-primary"
-        :title="tagRollTip('Create a new Tag Studio project')"
-        @click="onCreate"
-      >
-        New project
-      </button>
+      <div class="head-actions">
+        <input
+          ref="importInput"
+          class="sr-only"
+          type="file"
+          accept="application/json,.json"
+          aria-label="Import SingTags JSON project"
+          @change="onImportFile"
+        />
+        <button
+          type="button"
+          class="btn"
+          :disabled="importBusy"
+          :title="tagRollTip('Import a SingTags Tag Studio JSON project')"
+          @click="onImportClick"
+        >
+          {{ importBusy ? 'Importing…' : 'Import JSON' }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :title="tagRollTip('Create a new Tag Studio project')"
+          @click="onCreate"
+        >
+          New project
+        </button>
+      </div>
     </header>
 
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
@@ -118,6 +168,12 @@ function fmtDate(ms: number): string {
   display: grid;
   gap: 0.25rem;
   min-width: 0;
+}
+.head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
 }
 .crumb {
   margin: 0;
@@ -177,5 +233,16 @@ function fmtDate(ms: number): string {
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
