@@ -1,7 +1,7 @@
 /**
  * Guided rail + review polish helpers for ArrangingCoachDock.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   focusTabForGuidedStep,
   resolveGuidedStepWithLints,

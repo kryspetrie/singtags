@@ -76,6 +76,8 @@ export type TagRollProject = {
   pitchPipeSoundId: string
   soundEnvelope: { attackMs: number; releaseMs: number }
   tonality: number
+  /** Major / minor mode for scale + sheet key signature. */
+  tonalityMode?: 'major' | 'minor'
   preferFlats: boolean
   parts: TagRollPart[]
   mix: TagRollPartMix[]

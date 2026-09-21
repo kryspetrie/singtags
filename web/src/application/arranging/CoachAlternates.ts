@@ -119,13 +119,13 @@ export function counterpartForMoment(
   if (!stack) return null
   const sug = suggestCounterpartForStack(project, stack.id)
   if (!sug) return null
-  const to = pcName(sug.toRootPc, preferFlats)
+  const to = pcName(sug.toRoot, preferFlats)
   const nat = sug.natureId === 'ninth' ? '9' : '7'
   return {
     stackId: stack.id,
     label: `${to}${nat} · ${sug.voicing}`,
     reason: sug.reason,
-    toRootPc: sug.toRootPc,
+    toRootPc: sug.toRoot,
     natureId: sug.natureId,
     voicing: sug.voicing,
   }

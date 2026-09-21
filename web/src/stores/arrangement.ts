@@ -38,6 +38,7 @@ import {
 } from '../domain/arranging/embellishments'
 import { tipsForProfile } from '../domain/arranging/orgTips'
 import { DEFAULT_LENGTH, DEFAULT_SNAP, snapTick } from '../domain/arranging/snap'
+import { getHistory, putHistory } from '../offline/arrangingDb'
 import {
   createEmptyArrangement,
   WIZARD_ORDER,

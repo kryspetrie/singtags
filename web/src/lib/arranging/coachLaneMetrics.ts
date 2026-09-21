@@ -90,7 +90,9 @@ export function buildCoachLaneMarkers(
     let severity: CoachLaneMarker['severity'] = null
     if (!stack) severity = 'empty'
     else {
-      for (const l of related) severity = worstSeverity(severity === 'empty' ? null : severity, l.severity)
+      let lintSev: ArrangementLint['severity'] | null = null
+      for (const l of related) lintSev = worstSeverity(lintSev, l.severity)
+      severity = lintSev
     }
 
     let harmonicity: number | null = null
