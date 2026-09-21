@@ -8,8 +8,9 @@ import { PIANO_SAMPLE_ENGINE_OPTIONS } from '../../audio/pianoSamples'
 import { listPitchPipeSoundChoices } from '../../audio/pitchPipeVoice'
 import {
   MAJOR_KEY_CHOICES,
-  majorKeyChoiceById,
-  majorKeyChoiceId,
+  MINOR_KEY_CHOICES,
+  keyChoiceById,
+  keyChoiceId,
 } from '../../lib/tagRoll/keySignature'
 import { displayHotkeyForPart } from '../../lib/tagRoll/partHotkeys'
 import {
@@ -148,8 +149,6 @@ const soundOpen = ref(false)
 const soundWrap = ref<HTMLElement | null>(null)
 const pitchSoundChoices = ref(listPitchPipeSoundChoices())
 
-const keyChoices = MAJOR_KEY_CHOICES
-
 function partTitle(part: { name: string; hotkey?: string }): string {
   const hk = displayHotkeyForPart(part as never)
   return tagRollTip(`Select ${part.name}`, hk)
@@ -218,8 +217,8 @@ function onMetronomeSound(e: Event): void {
 }
 
 function onKey(e: Event): void {
-  const choice = majorKeyChoiceById((e.target as HTMLSelectElement).value)
-  if (choice) store.setTonality(choice.tonality, choice.preferFlats)
+  const choice = keyChoiceById((e.target as HTMLSelectElement).value)
+  if (choice) store.setTonality(choice.tonality, choice.preferFlats, choice.mode)
 }
 
 function onAttack(e: Event): void {
@@ -474,14 +473,27 @@ onUnmounted(() => {
               <span class="lbl">Key</span>
               <select
                 class="sel"
-                :value="majorKeyChoiceId(project.tonality, project.preferFlats)"
+                :value="
+                  keyChoiceId(
+                    project.tonality,
+                    project.preferFlats,
+                    project.tonalityMode ?? 'major',
+                  )
+                "
                 :disabled="isView"
                 aria-label="Key"
                 @change="onKey"
               >
-                <option v-for="o in keyChoices" :key="o.id" :value="o.id">
-                  {{ o.id }}
-                </option>
+                <optgroup label="Major">
+                  <option v-for="o in MAJOR_KEY_CHOICES" :key="o.id" :value="o.id">
+                    {{ o.label }}
+                  </option>
+                </optgroup>
+                <optgroup label="Minor">
+                  <option v-for="o in MINOR_KEY_CHOICES" :key="o.id" :value="o.id">
+                    {{ o.label }}
+                  </option>
+                </optgroup>
               </select>
             </label>
             <label class="field wide" :title="tagRollTip('Note attack')">

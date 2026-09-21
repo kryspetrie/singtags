@@ -5,3 +5,11 @@ export type { MidiExporter, MidiExportMode, MidiExportOptions } from './MidiExpo
 export type { MusicXmlExporter } from './MusicXmlExporter'
 export type { AudioBounce, AudioBounceOpts } from './AudioBounce'
 export type { LibraryIngest, LibraryIngestInput, LibraryIngestTrack } from './LibraryIngest'
+
+export type { ArrangementRepository } from './ArrangementRepository'
+export type { AudioPreview, PreviewVoice, StackPreview } from './AudioPreview'
+export type { NotationRenderer } from './NotationRenderer'
+export type { RankingWeights } from './RankingWeights'
+export { DEFAULT_RANKING_WEIGHTS } from './RankingWeights'
+export type { ArrangementMidiExporter, ArrangementMidiExportOptions } from './ArrangementMidiExporter'
+export type { ArrangementMusicXmlExporter, ArrangementMusicXmlExportOptions } from './ArrangementMusicXmlExporter'

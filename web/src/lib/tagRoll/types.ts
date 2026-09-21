@@ -196,6 +196,8 @@ export type TagRollProject = {
   soundEnvelope: TagRollSoundEnvelope
   /** Pitch-class root (0=C … 11=B) — scale highlight + blow-pitch tonic. */
   tonality: number
+  /** Major vs minor feel for scale highlight / engraved key. Default major. */
+  tonalityMode: 'major' | 'minor'
   preferFlats: boolean
   /** Men’s (ttbb) or women’s (ssaa) barbershop clefs for sheet view. Default ttbb. */
   clefFamily: TagRollClefFamily

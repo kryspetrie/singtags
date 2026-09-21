@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.arranging/schemas/arrangement.v1.json",
+  "title": "BarbershopArrangementV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "title", "tonality", "ppq", "melody", "pillars", "stacks"],
+  "properties": {
+    "schema": { "const": "arranging.arrangement.v1" },
+    "title": { "type": "string" },
+    "tonality": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 11,
+      "description": "Concert pitch class of tonic (C=0)."
+    },
+    "tonalityMode": {
+      "type": "string",
+      "enum": ["major", "minor"],
+      "default": "major",
+      "description": "Major vs minor-feel for pillars, springboards, and Roman labels."
+    },
+    "preferFlats": { "type": "boolean", "default": true },
+    "bpm": { "type": "number", "exclusiveMinimum": 0 },
+    "ppq": { "type": "integer", "const": 480 },
+    "wizardStep": {
+      "type": "string",
+      "enum": [
+        "melody",
+        "step1_roots",
+        "step2_confirm",
+        "step3_pmn_pcf",
+        "step4_smn_pcf",
+        "step5_smn_scf",
+        "step6_alts",
+        "step7_variety",
+        "step8_voicing",
+        "step9_final",
+        "done"
+      ]
+    },
+    "melody": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/melodyEvent" }
+    },
+    "pillars": {
+      "type": "array",
+      "description": "Primary harmonic pillars (block-chord skeleton).",
+      "items": { "$ref": "#/$defs/pillar" }
+    },
+    "stacks": {
+      "type": "array",
+      "description": "Homophonic TTBB stacks (primary + passing).",
+      "items": { "$ref": "#/$defs/stack" }
+    },
+    "variations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/variation" }
+    }
+  },
+  "$defs": {
+    "melodyEvent": {
+      "type": "object",
+      "required": ["id", "midi", "startTick", "durationTicks"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "midi": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "startTick": { "type": "integer", "minimum": 0 },
+        "durationTicks": { "type": "integer", "exclusiveMinimum": 0 },
+        "lyric": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["pmn", "smn", "unknown"],
+          "default": "unknown"
+        }
+      }
+    },
+    "pillar": {
+      "type": "object",
+      "required": ["id", "rootPc", "startTick", "endTick"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "rootPc": { "type": "integer", "minimum": 0, "maximum": 11 },
+        "startTick": { "type": "integer", "minimum": 0 },
+        "endTick": { "type": "integer", "minimum": 0 },
+        "source": {
+          "type": "string",
+          "enum": ["ear", "sheet", "user", "inferred"]
+        },
+        "confirmed": { "type": "boolean", "default": false }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "required": [
+        "id",
+        "startTick",
+        "durationTicks",
+        "rootPc",
+        "natureId",
+        "voicing",
+        "layer"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "startTick": { "type": "integer", "minimum": 0 },
+        "durationTicks": { "type": "integer", "exclusiveMinimum": 0 },
+        "rootPc": { "type": "integer", "minimum": 0, "maximum": 11 },
+        "natureId": {
+          "type": "string",
+          "description": "Matches SingTags BARBERSHOP_CHORDS id."
+        },
+        "voicing": {
+          "type": "string",
+          "pattern": "^[135679]{4}$",
+          "description": "bass|bari|lead|tenor chord-tone roles."
+        },
+        "spread": { "type": "boolean", "default": false },
+        "layer": {
+          "type": "string",
+          "enum": ["primary", "passing", "embellishment"]
+        },
+        "scfGroup": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 6
+        },
+        "pillarId": { "type": ["string", "null"] },
+        "midi": {
+          "type": "object",
+          "required": ["tenor", "lead", "bari", "bass"],
+          "properties": {
+            "tenor": { "type": "integer" },
+            "lead": { "type": "integer" },
+            "bari": { "type": "integer" },
+            "bass": { "type": "integer" }
+          }
+        },
+        "ruleTags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "R1_p5",
+              "R1_retro",
+              "R2_chromatic",
+              "R3_tritone",
+              "R4_dim7",
+              "R5_m3up",
+              "springboard"
+            ]
+          }
+        }
+      }
+    },
+    "variation": {
+      "type": "object",
+      "required": ["id", "kind", "targetStackIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "swipe",
+            "tag",
+            "pyramid",
+            "echo",
+            "duet",
+            "pedal",
+            "other"
+          ]
+        },
+        "targetStackIds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

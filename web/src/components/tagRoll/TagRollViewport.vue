@@ -16,8 +16,19 @@ import {
   type TagRollProject,
 } from '../../lib/tagRoll/types'
 import { midiToY, pxToTicks, ticksToPx, yToMidi } from '../../lib/tagRoll/normalize'
+import {
+  hitChordCursorEdge,
+  rangeFromDragTicks,
+  resizeChordCursor,
+  type ChordCursorEdge,
+} from '../../lib/tagRoll/chordCursorHit'
 import { clampCellW, minCellWToFillRoll } from '../../lib/tagRoll/zoomFill'
 import { snapTick, TAG_ROLL_HANDLE_CELL_W } from '../../lib/tagRoll/snap'
+import {
+  hitNoteResizeEdge,
+  resizeNoteByEdge,
+  type NoteResizeEdge,
+} from '../../lib/tagRoll/noteResize'
 import { beatTicks, measureTicks } from '../../lib/tagRoll/tempoMap'
 import {
   applyAngleZoom,
@@ -30,7 +41,7 @@ import {
   normalizeScreenBox,
   noteIdsInMarquee,
 } from '../../lib/tagRoll/selection'
-import { midiInMajorScale } from '../../lib/tagRoll/scaleHighlight'
+import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
 import {
   easeInOutCosine,
@@ -51,10 +62,17 @@ type GhostNote = {
   color: string
 }
 
+type ChordCursorHighlight = {
+  startTick: number
+  endTick: number
+}
+
 const props = defineProps<{
   project: TagRollProject
   selectedNoteIds: string[]
   ghostNotes?: GhostNote[]
+  /** Vertical stack highlight for the chord currently under coach focus. */
+  chordCursor?: ChordCursorHighlight | null
 }>()
 
 const emit = defineEmits<{
@@ -66,7 +84,7 @@ const emit = defineEmits<{
   moveGroup: [
     updates: Array<{ id: string; midi: number; startTick: number }>,
   ]
-  resize: [payload: { id: string; durationTicks: number }]
+  resize: [payload: { id: string; startTick: number; durationTicks: number }]
   cellSize: [payload: { cellW: number; cellH: number }]
   auditionColumn: [payload: { tick: number; movePlayhead: boolean }]
   auditionNote: [midi: number]
@@ -74,6 +92,8 @@ const emit = defineEmits<{
   beginGesture: []
   pointerHud: [payload: { tick: number; midi: number } | null]
   marqueeActive: [active: boolean]
+  /** Ruler drag-select / edge resize; null clears (click-away). */
+  chordCursorChange: [range: { startTick: number; endTick: number } | null]
 }>()
 
 const store = useTagRollStore()
@@ -87,6 +107,11 @@ function onShiftKey(e: KeyboardEvent): void {
 
 function clearShiftHeld(): void {
   shiftHeld.value = false
+}
+
+function onPointerLeave(): void {
+  emit('pointerHud', null)
+  cursorEdgeHover.value = false
 }
 
 const selectedIdSet = computed(() => new Set(props.selectedNoteIds))
@@ -173,16 +198,17 @@ type Gesture =
   | {
       kind: 'resize'
       id: string
+      edge: NoteResizeEdge
       originDuration: number
       noteStartTick: number
       startClientX: number
       historyStarted: boolean
     }
   | {
-      kind: 'ruler'
+      kind: 'chord-range'
+      originTick: number
       startClientX: number
       startClientY: number
-      shiftKey: boolean
       moved: boolean
     }
   | {
@@ -203,6 +229,11 @@ type Gesture =
       moved: boolean
       additive: boolean
     }
+  | {
+      kind: 'chord-cursor'
+      edge: ChordCursorEdge
+      otherTick: number
+    }
 
 let gesture: Gesture | null = null
 let pinchActive = false
@@ -211,6 +242,7 @@ let pinchStartAngle = 0
 let pinchStartCells = { cellW: 28, cellH: 14 }
 let marqueePreview: { x: number; y: number; w: number; h: number } | null = null
 const marqueeUi = ref(false)
+const cursorEdgeHover = ref(false)
 
 function maxScrollX(): number {
   return Math.max(0, gridW.value - cssW.value)
@@ -286,11 +318,14 @@ function hitNote(lx: number, ly: number): TagRollNote | null {
   )
 }
 
-function hitResizeEdge(n: TagRollNote, lx: number, ly: number): boolean {
-  if (cellW.value < TAG_ROLL_HANDLE_CELL_W) return false
-  const r = noteRect(n)
-  if (ly < r.y || ly >= r.y + r.h) return false
-  return lx >= r.x + r.w - RESIZE_EDGE && lx < r.x + r.w
+function hitResizeEdge(n: TagRollNote, lx: number, ly: number): NoteResizeEdge | null {
+  return hitNoteResizeEdge(
+    lx,
+    ly,
+    noteRect(n),
+    RESIZE_EDGE,
+    cellW.value >= TAG_ROLL_HANDLE_CELL_W,
+  )
 }
 
 function playheadScreenX(): number {
@@ -451,7 +486,7 @@ function draw(): void {
       ctx.fillRect(0, y, cssW.value, ch)
       ctx.globalAlpha = 1
     }
-    if (!midiInMajorScale(m, props.project.tonality)) {
+    if (!midiInScale(m, props.project.tonality, props.project.tonalityMode ?? 'major')) {
       ctx.fillStyle = muted
       ctx.globalAlpha = 0.1
       ctx.fillRect(0, y, cssW.value, ch)
@@ -465,6 +500,37 @@ function draw(): void {
     ctx.lineTo(cssW.value, y + ch + 0.5)
     ctx.stroke()
     ctx.globalAlpha = 1
+  }
+
+  // Inspect range: full-height band from ruler drag-select (not coach nav).
+  const cursor = props.chordCursor
+  if (cursor && cursor.endTick > cursor.startTick) {
+    const x0 = -scrollX.value + ticksToPx(cursor.startTick, cellW.value)
+    const x1 = -scrollX.value + ticksToPx(cursor.endTick, cellW.value)
+    const x = Math.max(0, x0)
+    const w = Math.max(2, Math.min(cssW.value, x1) - x)
+    if (w > 0 && x < cssW.value) {
+      const bandTop = rulerH.value
+      const bandH = Math.max(0, cssH.value - bandTop)
+      ctx.fillStyle = accent
+      ctx.globalAlpha = 0.1
+      ctx.fillRect(x, bandTop, w, bandH)
+      ctx.globalAlpha = 0.45
+      ctx.strokeStyle = accent
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(x + 0.5, bandTop)
+      ctx.lineTo(x + 0.5, cssH.value)
+      ctx.moveTo(x + w - 0.5, bandTop)
+      ctx.lineTo(x + w - 0.5, cssH.value)
+      ctx.stroke()
+      ctx.globalAlpha = 0.7
+      ctx.fillStyle = accent
+      const hw = 2
+      ctx.fillRect(x - hw, bandTop, hw * 2, bandH)
+      ctx.fillRect(x + w - hw, bandTop, hw * 2, bandH)
+      ctx.globalAlpha = 1
+    }
   }
 
   // Harmonize preview ghosts (filled translucent).
@@ -569,6 +635,7 @@ function draw(): void {
       const r = noteRect(selectedNote)
       if (cw >= TAG_ROLL_HANDLE_CELL_W) {
         ctx.fillStyle = accent
+        ctx.fillRect(r.x + 1, r.y + 2, RESIZE_EDGE - 1, Math.max(2, r.h - 4))
         ctx.fillRect(r.x + r.w - RESIZE_EDGE, r.y + 2, RESIZE_EDGE - 1, Math.max(2, r.h - 4))
       }
     }
@@ -703,20 +770,41 @@ function onPointerDown(e: PointerEvent): void {
   const local = localPoint(e)
   if (!local) return
 
-  if (local.y < rulerH.value) {
-    // Dragging the triangle / ruler always scrubs playhead.
+  const cursorEdge = hitChordCursorEdge(local.x, local.y, props.chordCursor, {
+    rulerH: rulerH.value,
+    cssH: cssH.value,
+    scrollX: scrollX.value,
+    cellW: cellW.value,
+    ticksToPx,
+  })
+  if (cursorEdge && props.chordCursor) {
+    const c = props.chordCursor
     gesture = {
-      kind: 'playhead',
+      kind: 'chord-cursor',
+      edge: cursorEdge,
+      otherTick: cursorEdge === 'start' ? c.endTick : c.startTick,
+    }
+    return
+  }
+
+  if (local.y < rulerH.value) {
+    // Ruler: click → playhead + clear range; drag → inspect range select.
+    const raw = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
+    const tick = snapTick(raw, props.project.snapTicks)
+    gesture = {
+      kind: 'chord-range',
+      originTick: tick,
       startClientX: e.clientX,
       startClientY: e.clientY,
       moved: false,
     }
-    // Scrubbing the cursor clears note selection (click or drag).
     if (props.selectedNoteIds.length) emit('select', null)
-    const tick = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
     emit('playhead', tick)
     return
   }
+
+  // Body interactions dismiss a ruler inspect range (except edge resize above).
+  if (props.chordCursor) emit('chordCursorChange', null)
 
   // Compose: playhead only via the ruler — ignore body playhead grabs.
   if (mode.value !== 'compose' && hitPlayhead(local.x, local.y)) {
@@ -771,14 +859,16 @@ function onPointerDown(e: PointerEvent): void {
 
   // compose mode
   if (hit) {
+    const resizeEdge = hitResizeEdge(hit, local.x, local.y)
     if (
-      hitResizeEdge(hit, local.x, local.y) &&
+      resizeEdge &&
       hit.id === primarySelectedId.value &&
       props.selectedNoteIds.length === 1
     ) {
       gesture = {
         kind: 'resize',
         id: hit.id,
+        edge: resizeEdge,
         originDuration: hit.durationTicks,
         noteStartTick: hit.startTick,
         startClientX: e.clientX,
@@ -827,9 +917,17 @@ function onPointerMove(e: PointerEvent): void {
     const local = localPoint(e)
     if (!local || local.y < rulerH.value) {
       emit('pointerHud', null)
+      cursorEdgeHover.value = false
     } else {
       const grid = gridFromLocal(local.x, local.y)
       emit('pointerHud', { tick: grid.tick, midi: grid.midi })
+      cursorEdgeHover.value = !!hitChordCursorEdge(local.x, local.y, props.chordCursor, {
+        rulerH: rulerH.value,
+        cssH: cssH.value,
+        scrollX: scrollX.value,
+        cellW: cellW.value,
+        ticksToPx,
+      })
     }
     return
   }
@@ -871,10 +969,22 @@ function onPointerMove(e: PointerEvent): void {
     return
   }
 
-  if (gesture.kind === 'ruler') {
+  if (gesture.kind === 'chord-range') {
+    const local = localPoint(e)
+    if (!local) return
     const pdx = e.clientX - gesture.startClientX
     const pdy = e.clientY - gesture.startClientY
-    if (Math.abs(pdx) + Math.abs(pdy) > DRAG_SLOP) gesture.moved = true
+    if (Math.abs(pdx) + Math.abs(pdy) <= DRAG_SLOP) return
+    gesture.moved = true
+    const raw = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
+    const tick = snapTick(raw, props.project.snapTicks)
+    const next = rangeFromDragTicks(
+      gesture.originTick,
+      tick,
+      props.project.lengthTicks,
+      Math.max(1, props.project.snapTicks),
+    )
+    emit('chordCursorChange', next)
     return
   }
 
@@ -980,24 +1090,40 @@ function onPointerMove(e: PointerEvent): void {
   if (gesture.kind === 'resize') {
     const pdx = e.clientX - gesture.startClientX
     const deltaTicks = pxToTicks(pdx, cellW.value)
-    const raw = gesture.originDuration + deltaTicks
-    const snapped = Math.max(
-      props.project.snapTicks,
-      snapTick(raw, props.project.snapTicks),
+    const next = resizeNoteByEdge(
+      gesture.edge,
+      deltaTicks,
+      { startTick: gesture.noteStartTick, durationTicks: gesture.originDuration },
+      { snapTicks: props.project.snapTicks, lengthTicks: props.project.lengthTicks },
     )
-    const maxDur = Math.max(
-      props.project.snapTicks,
-      props.project.lengthTicks - gesture.noteStartTick,
-    )
-    const durationTicks = Math.min(maxDur, snapped)
-    if (!gesture.historyStarted && durationTicks !== gesture.originDuration) {
+    if (
+      !gesture.historyStarted &&
+      (next.durationTicks !== gesture.originDuration ||
+        next.startTick !== gesture.noteStartTick)
+    ) {
       emit('beginGesture')
       gesture.historyStarted = true
     }
     emit('resize', {
       id: gesture.id,
-      durationTicks,
+      startTick: next.startTick,
+      durationTicks: next.durationTicks,
     })
+  }
+
+  if (gesture.kind === 'chord-cursor') {
+    const local = localPoint(e)
+    if (!local) return
+    const raw = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
+    const tick = snapTick(raw, props.project.snapTicks)
+    const next = resizeChordCursor(
+      gesture.edge,
+      tick,
+      gesture.otherTick,
+      props.project.lengthTicks,
+      Math.max(1, props.project.snapTicks),
+    )
+    emit('chordCursorChange', next)
   }
 }
 
@@ -1032,12 +1158,19 @@ function onPointerUp(e: PointerEvent): void {
     if (!g.moved) {
       const local = localPoint(e)
       if (local) {
-        // Click ruler without drag: audition column (shift also moves — already moved on down).
-        if (local.y < rulerH.value) {
-          const tick = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
-          emit('auditionColumn', { tick, movePlayhead: true })
-        }
+        // Click playhead grab without drag: audition column.
+        const tick = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
+        emit('auditionColumn', { tick, movePlayhead: true })
       }
+    }
+    return
+  }
+
+  if (g.kind === 'chord-range') {
+    if (!g.moved) {
+      // Click ruler without drag: clear inspect range + audition.
+      emit('chordCursorChange', null)
+      emit('auditionColumn', { tick: g.originTick, movePlayhead: true })
     }
     return
   }
@@ -1120,10 +1253,12 @@ function onWheel(e: WheelEvent): void {
   }
 
   // Default wheel: horizontal zoom (cellW), keep tick under cursor stable.
+  // Scale by delta magnitude so trackpads don't apply a full 10% step per pixel.
   const rect = canvasRef.value?.getBoundingClientRect()
   const localX = rect ? e.clientX - rect.left : cssW.value / 2
   const tickUnder = pxToTicks(localX + scrollX.value, cellW.value)
-  const factor = e.deltaY > 0 ? 0.9 : 1.1
+  const t = Math.max(-1.25, Math.min(1.25, e.deltaY / 100))
+  const factor = Math.exp(-t * 0.028)
   const nextW = clampZoomW(Math.round(cellW.value * factor))
   if (nextW === cellW.value) return
   emit('cellSize', { cellW: nextW, cellH: cellH.value })
@@ -1166,6 +1301,7 @@ watch(
     props.project.view.mode,
     props.project.view.focusActivePart,
     props.project.tonality,
+    props.project.tonalityMode,
     props.project.lengthTicks,
     props.project.timeSignature,
     props.project.snapTicks,
@@ -1173,6 +1309,7 @@ watch(
     props.project.parts,
     props.selectedNoteIds,
     props.ghostNotes,
+    props.chordCursor,
     cssW.value,
     cssH.value,
   ],
@@ -1193,12 +1330,13 @@ defineExpose({ cssH, cssW, resize, draw })
     :class="{
       compose: project.view.mode === 'compose',
       marquee: marqueeUi,
+      'chord-edge': cursorEdgeHover,
       pan:
         (store.pointerTool === 'pan' || shiftHeld) &&
         project.view.mode !== 'view',
     }"
     @wheel="onWheel"
-    @pointerleave="emit('pointerHud', null)"
+    @pointerleave="onPointerLeave"
   >
     <canvas
       ref="canvasRef"
@@ -1239,11 +1377,17 @@ defineExpose({ cssH, cssW, resize, draw })
 .viewport.marquee {
   cursor: crosshair;
 }
+.viewport.chord-edge {
+  cursor: ew-resize;
+}
 .viewport:active {
   cursor: grabbing;
 }
 .viewport.marquee:active {
   cursor: crosshair;
+}
+.viewport.chord-edge:active {
+  cursor: ew-resize;
 }
 .roll-canvas {
   display: block;

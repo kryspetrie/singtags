@@ -25,6 +25,7 @@
     "@fortawesome/vue-fontawesome": "^3.3.3",
     "@mediabunny/aac-encoder": "^1.55.2",
     "@tanstack/vue-virtual": "^3.13.36",
+    "abcjs": "^6.7.0",
     "fflate": "^0.8.3",
     "jsqr": "^1.4.0",
     "lzma-wasm": "^1.0.7",

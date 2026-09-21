@@ -97,22 +97,23 @@ function toggleArranging(): void {
     <section class="card" aria-labelledby="arranging-h">
       <h2 id="arranging-h" class="card-title">Arranging</h2>
       <p class="card-desc">
-        Future Labs arranging coach (pillars, contest profile, harmony tools). Gate only for now —
-        no routes until the arranging package is ported into SingTags.
+        Guided arranging coach in Tag Studio: set home (pillar) chords on the Coach lane, lock them,
+        then walk the melody note-by-note with ranked suggestions. Enable here, then open Tag Studio
+        and click <strong>Coach</strong>.
       </p>
 
       <label
         class="setting-row"
         :class="{ on: prefs.arrangingEnabled }"
-        title="Enable Arranging (coming soon)"
+        title="Enable Arranging coach dock in Tag Studio"
       >
         <span class="setting-copy">
           <span class="setting-title">Arranging</span>
           <span class="setting-desc">
             {{
               prefs.arrangingEnabled
-                ? 'Flag on — coach UI not shipped yet'
-                : 'Off — ready for the upcoming Labs package port'
+                ? 'On — open Tag Studio → Coach'
+                : 'Off — coach toggle hidden in Tag Studio'
             }}
           </span>
         </span>

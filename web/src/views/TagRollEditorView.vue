@@ -9,7 +9,10 @@ import { MetronomeClicker } from '../audio/metronomeClicker'
 import { midiToNote } from '../audio/pianoSamples'
 import { resolvePitchPipeVoiceById } from '../audio/pitchPipeVoice'
 import TagRollExpressionLane from '../components/tagRoll/TagRollExpressionLane.vue'
+import TagRollLaneRail from '../components/tagRoll/TagRollLaneRail.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
+import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
+import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import TagRollLyricsInput from '../components/tagRoll/TagRollLyricsInput.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
@@ -58,6 +61,8 @@ import {
 import { useSnackbarStore } from '../stores/snackbar'
 import { usePreferencesStore } from '../stores/preferences'
 import { useTagRollStore } from '../stores/tagRoll'
+import { useTagRollCoachShell } from '../composables/useTagRollCoachShell'
+import { useTagRollCoachFocus } from '../composables/useTagRollCoachFocus'
 
 const props = defineProps<{ id: string }>()
 
@@ -77,10 +82,53 @@ const titleDraft = ref('')
 const partsOpen = ref(false)
 const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
+const arrangingEnabled = computed(() => !!prefs.arrangingEnabled)
+const projectIdRef = computed(() => store.current?.id ?? props.id)
+const {
+  coachOpen,
+  isPopoutWindow,
+  popoutHint,
+  showDetachedBanner,
+  toggleCoach,
+  onCoachClose: closeCoachShell,
+  onCoachPopOut,
+  onCoachPopIn,
+} = useTagRollCoachShell({
+  arrangingEnabled,
+  projectId: projectIdRef,
+  harmonizeOpen,
+  setPlayheadTick: (tick) => store.setPlayheadTick(tick, { snap: false }),
+  selectNotes: (ids) => store.selectNotes(ids),
+})
 const shortcutsOpen = ref(false)
 const ghostNotes = ref<
   { midi: number; startTick: number; durationTicks: number; color: string }[]
 >([])
+const {
+  chordCursor,
+  clearChordCursor,
+  setChordCursor,
+  onCoachFocusTick,
+  onCoachFocusRange,
+  onCoachFocusPart,
+} = useTagRollCoachFocus(() => store.current, store)
+function onCoachClose(): void {
+  closeCoachShell()
+  ghostNotes.value = []
+  clearChordCursor()
+}
+function onChordCursorChange(range: { startTick: number; endTick: number } | null): void {
+  if (!range) {
+    clearChordCursor()
+    return
+  }
+  setChordCursor(range)
+}
+function onCoachLaneOpenPanel(): void {
+  if (!arrangingEnabled.value) return
+  if (coachOpen.value) return
+  toggleCoach()
+}
 const saveBusy = ref(false)
 const exportBusy = ref(false)
 const exportBusyLabel = ref('')
@@ -145,13 +193,14 @@ function onLyricInspect(e: Event): void {
   store.setLyric(id, (e.target as HTMLInputElement).value)
 }
 
-/** Horizontal zoom with fill-width floor from the active viewport. */
+/** Horizontal zoom (±). Cannot zoom out past “all measures fill the viewport”. */
 function onNudgeCellW(delta: number): void {
   const p = project.value
   if (!p) return
   const sheet = p.view.mode === 'view' && p.view.scoreSurface === 'sheet'
-  const vpW =
+  const raw =
     (sheet ? sheetViewportRef.value?.cssW : viewportRef.value?.cssW) ?? 640
+  const vpW = typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : 640
   if (sheet) {
     const minW = minPxPerBeatToFillSheet(vpW, p.lengthTicks, p.timeSignature, p.ppq)
     store.setSheetZoom(clampSheetZoom(p.view.sheetZoom + delta, minW))
@@ -368,7 +417,6 @@ function snapPlayheadToGrid(): void {
   store.setPlayheadTick(tick, { snap: true })
 }
 
-/** Playhead tick when the current play-through started (Space returns here). */
 const playbackOriginTick = ref(0)
 
 async function runBlowPitchIntro(): Promise<boolean> {
@@ -649,8 +697,11 @@ function onMoveGroup(
   store.updateNotesLive(updates)
 }
 
-function onResize(payload: { id: string; durationTicks: number }): void {
-  store.updateNoteLive(payload.id, { durationTicks: payload.durationTicks })
+function onResize(payload: { id: string; startTick: number; durationTicks: number }): void {
+  store.updateNoteLive(payload.id, {
+    startTick: payload.startTick,
+    durationTicks: payload.durationTicks,
+  })
 }
 
 function onSelect(id: string | null, opts?: { additive?: boolean }): void {
@@ -685,7 +736,10 @@ function onHarmonizeClose(): void {
 
 function toggleHarmonize(): void {
   if (harmonizeOpen.value) onHarmonizeClose()
-  else harmonizeOpen.value = true
+  else {
+    coachOpen.value = false
+    harmonizeOpen.value = true
+  }
 }
 
 function toggleParts(): void {
@@ -704,7 +758,6 @@ function nudgePlayhead(dir: -1 | 1): void {
   store.setPlayheadTick(p.view.playheadTick + dir * snap)
 }
 
-/** Arrow-key nudge for the selection; auditions the primary note’s new pitch. */
 function nudgeSelectedNotes(deltaMidi: number, deltaTicks: number): void {
   const p = project.value
   const ids = store.selectedNoteIds
@@ -1044,6 +1097,8 @@ function onKeyDown(e: KeyboardEvent): void {
     <TagRollToolbar
       :harmonize-open="harmonizeOpen"
       :parts-open="partsOpen"
+      :coach-open="coachOpen"
+      :arranging-enabled="arrangingEnabled"
       @export-midi="onExportMidi"
       @export-music-xml="onExportMusicXml"
       @export-audio="onExportAudio"
@@ -1051,6 +1106,7 @@ function onKeyDown(e: KeyboardEvent): void {
       @save-library="onSaveLibrary"
       @open-harmonize="toggleHarmonize"
       @open-parts="toggleParts"
+      @open-coach="toggleCoach"
     />
 
     <TagRollLyricsInput />
@@ -1058,10 +1114,17 @@ function onKeyDown(e: KeyboardEvent): void {
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
     <p v-if="saveBusy" class="hint">Saving to My Library…</p>
     <p v-if="exportBusy" class="hint">{{ exportBusyLabel || 'Exporting…' }}</p>
+    <p v-if="popoutHint || showDetachedBanner" class="hint" role="status">
+      <template v-if="popoutHint">{{ popoutHint }}</template>
+      <template v-if="showDetachedBanner">
+        Coach is on another window.
+        <button type="button" class="linkish-inline" @click="onCoachPopIn">Pop in</button>
+      </template>
+    </p>
 
-    <div class="stage">
+    <div class="stage" :class="{ 'coach-popout': isPopoutWindow }">
       <div class="stage-body">
-        <div v-if="showPianoTote" class="tote-col">
+        <div v-if="showPianoTote && !isPopoutWindow" class="tote-col">
           <div
             class="ruler-gutter"
             :style="{ height: `${rulerH}px` }"
@@ -1073,7 +1136,7 @@ function onKeyDown(e: KeyboardEvent): void {
             @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
           />
         </div>
-        <div class="roll-col">
+        <div v-if="!isPopoutWindow" class="roll-col">
           <TagRollSheetViewport
             v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
             ref="sheetViewportRef"
@@ -1088,6 +1151,8 @@ function onKeyDown(e: KeyboardEvent): void {
             :project="project"
             :selected-note-ids="store.selectedNoteIds"
             :ghost-notes="ghostNotes"
+            :chord-cursor="chordCursor"
+            @chord-cursor-change="onChordCursorChange"
             @scroll="(x, y) => store.setScroll(x, y)"
             @playhead="(t) => store.setPlayheadTick(t)"
             @select="onSelect"
@@ -1110,12 +1175,35 @@ function onKeyDown(e: KeyboardEvent): void {
             {{ rollHudLabel }}
           </div>
         </div>
+        <ArrangingCoachDock
+          v-if="coachOpen && arrangingEnabled"
+          :inspect-range="chordCursor"
+          @close="onCoachClose"
+          @preview-ghost="onGhost"
+          @clear-ghost="ghostNotes = []"
+          @focus-tick="onCoachFocusTick"
+          @focus-range="onCoachFocusRange"
+          @focus-part="onCoachFocusPart"
+          @pop-out="onCoachPopOut"
+        />
       </div>
+      <TagRollLaneRail
+        v-if="showPianoTote && !isPopoutWindow"
+        :left-gutter-px="TOTE_W"
+      />
       <TagRollExpressionLane
-        v-if="showPianoTote"
+        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollExpressionLaneCollapsed"
         :project="project"
         :read-only="project.view.mode === 'view'"
         :left-gutter-px="TOTE_W"
+      />
+      <ArrangingCoachLane
+        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollCoachLaneCollapsed"
+        :project="project"
+        :left-gutter-px="isPopoutWindow ? 0 : TOTE_W"
+        @select-tick="onCoachFocusTick"
+        @focus-range="onCoachFocusRange"
+        @open-panel="onCoachLaneOpenPanel"
       />
     </div>
 
@@ -1291,8 +1379,24 @@ function onKeyDown(e: KeyboardEvent): void {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 18rem;
   min-height: 0;
+}
+.stage.coach-popout :deep(.coach-dock) {
+  width: 100% !important;
+  max-width: none;
+  min-width: 0;
+  border-left: 0;
+}
+.linkish-inline {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
 }
 .roll-col :deep(.viewport) {
   flex: 1 1 auto;

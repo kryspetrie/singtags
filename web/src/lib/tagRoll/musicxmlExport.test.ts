@@ -15,14 +15,39 @@ describe('musicxmlExport', () => {
     expect(midiToMusicXmlPitch(60, false)).toEqual({ step: 'C', alter: 0, octave: 4 })
   })
 
-  it('truncates overlapping notes for monophonic parts', () => {
+  it('defers portamento destination to source release for monophonic notation', () => {
     const lead = 'p1'
     const out = collapsePartNotesMono([
       { id: 'a', partId: lead, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ * 2 },
-      { id: 'b', partId: lead, midi: 62, startTick: TAG_ROLL_PPQ, durationTicks: TAG_ROLL_PPQ },
+      {
+        id: 'b',
+        partId: lead,
+        midi: 62,
+        startTick: TAG_ROLL_PPQ,
+        durationTicks: TAG_ROLL_PPQ * 2,
+      },
     ])
-    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ)
-    expect(out[1]!.startTick).toBe(TAG_ROLL_PPQ)
+    expect(out).toHaveLength(2)
+    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
+    expect(out[1]!.startTick).toBe(TAG_ROLL_PPQ * 2)
+    expect(out[1]!.durationTicks).toBe(TAG_ROLL_PPQ)
+  })
+
+  it('omits a destination that ends before the source releases', () => {
+    const lead = 'p1'
+    const out = collapsePartNotesMono([
+      { id: 'a', partId: lead, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ * 2 },
+      {
+        id: 'b',
+        partId: lead,
+        midi: 62,
+        startTick: TAG_ROLL_PPQ,
+        durationTicks: TAG_ROLL_PPQ / 2,
+      },
+    ])
+    expect(out).toHaveLength(1)
+    expect(out[0]!.id).toBe('a')
+    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
   })
 
   it('splits notes across barlines with ties', () => {

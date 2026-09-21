@@ -101,7 +101,7 @@ describe('LabsView', () => {
     await w.get('input[aria-label="Arranging"]').setValue(true)
     expect(usePreferencesStore().arrangingEnabled).toBe(true)
     expect(localStorage.getItem('singtags.labs.arranging.enabled.v1')).toBe('1')
-    expect(w.text()).toMatch(/not shipped yet|coming soon|package port/i)
+    expect(w.text()).toMatch(/Coach|Tag Studio/i)
     expect(w.text()).not.toContain('Open Arranging')
     w.unmount()
   })

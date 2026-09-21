@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canDeleteProjectMeasure,
+  deleteProjectMeasure,
   extendProjectMeasures,
   insertMeasureAtTick,
   insertProjectMeasure,
@@ -109,5 +111,42 @@ describe('measureEdit', () => {
     const n = next.notes[0]!
     expect(n.startTick).toBe(m - 50)
     expect(n.durationTicks).toBe(100 + m)
+  })
+
+  it('deletes before/after the cursor measure and shifts later content', () => {
+    let p = createEmptyTagRollProject({ title: 't' })
+    const m = TAG_ROLL_PPQ * 4
+    const partId = p.parts[0]!.id
+    p = {
+      ...p,
+      lengthTicks: m * 3,
+      notes: [
+        { id: 'a', partId, midi: 60, startTick: 0, durationTicks: 100 },
+        { id: 'b', partId, midi: 62, startTick: m, durationTicks: 100 },
+        { id: 'c', partId, midi: 64, startTick: m * 2, durationTicks: 100 },
+      ],
+      view: { ...p.view, playheadTick: m + 10 },
+    }
+
+    const delBefore = deleteProjectMeasure(p, m + 10, 'before')
+    expect(delBefore.lengthTicks).toBe(m * 2)
+    expect(delBefore.notes.map((n) => n.id)).toEqual(['a', 'c'])
+    expect(delBefore.notes.find((n) => n.id === 'c')!.startTick).toBe(m)
+    expect(delBefore.view.playheadTick).toBe(m)
+
+    const delAfter = deleteProjectMeasure(p, m + 10, 'after')
+    expect(delAfter.lengthTicks).toBe(m * 2)
+    expect(delAfter.notes.map((n) => n.id)).toEqual(['a', 'b'])
+    expect(delAfter.view.playheadTick).toBe(m + 10)
+  })
+
+  it('refuses delete when it would leave zero measures or past the end', () => {
+    const p = {
+      ...createEmptyTagRollProject({ title: 't' }),
+      lengthTicks: TAG_ROLL_PPQ * 4,
+    }
+    expect(canDeleteProjectMeasure(p, 0, 'before')).toBe(false)
+    expect(canDeleteProjectMeasure(p, 0, 'after')).toBe(false)
+    expect(deleteProjectMeasure(p, 0, 'before')).toBe(p)
   })
 })

@@ -40,6 +40,7 @@ export type TagRollDocumentSnapshot = {
   midiBakeSwing: boolean
   soundEnvelope: TagRollSoundEnvelope
   tonality: number
+  tonalityMode: 'major' | 'minor'
   preferFlats: boolean
   clefFamily: TagRollClefFamily
   parts: TagRollPart[]
@@ -66,6 +67,7 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     midiBakeSwing: p.midiBakeSwing !== false,
     soundEnvelope: { ...p.soundEnvelope },
     tonality: p.tonality,
+    tonalityMode: p.tonalityMode ?? 'major',
     preferFlats: p.preferFlats,
     clefFamily: p.clefFamily ?? TAG_ROLL_DEFAULT_CLEF_FAMILY,
     parts: p.parts.map((x) => ({ ...x })),
@@ -109,6 +111,7 @@ export function applyDocumentSnapshot(
       ? { ...snap.soundEnvelope }
       : { ...TAG_ROLL_DEFAULT_SOUND_ENVELOPE },
     tonality: snap.tonality,
+    tonalityMode: snap.tonalityMode ?? 'major',
     preferFlats: snap.preferFlats,
     clefFamily: snap.clefFamily ?? TAG_ROLL_DEFAULT_CLEF_FAMILY,
     parts,

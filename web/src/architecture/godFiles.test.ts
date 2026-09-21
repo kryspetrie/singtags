@@ -29,16 +29,19 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/TagPlayer.vue': 2300,
   'views/LocalLibraryView.vue': 2250,
   'views/TagView.vue': 2050,
-  'stores/preferences.ts': 1889,
+  'stores/preferences.ts': 1917, // exclusive Mods/Coach bottom lane opener
   'views/SettingsView.vue': 1800,
   'views/FavoritesView.vue': 1750,
   'App.vue': 1700,
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 1325,
-  'components/tagRoll/TagRollViewport.vue': 1253,
-  'stores/tagRoll.ts': 1237,
+  'views/TagRollEditorView.vue': 1431, // note start-edge resize payload
+  'components/arranging/useArrangingCoachDock.ts': 840, // mode landing enter/back
+  'components/arranging/ArrangingCoachDock.vue': 848, // dock resize pointer capture
+  'stores/arrangement.ts': 812, // P7 polish/export/checklist façade
+  'components/tagRoll/TagRollViewport.vue': 1397, // start+end note duration handles
+  'stores/tagRoll.ts': 1323, // tonalityMode on setTonality
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,
@@ -47,8 +50,8 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'lib/rouletteDraw.ts': 950,
   'audio/pitchPlayer.ts': 950,
   'stores/offlineLibrary.ts': 950,
-  'components/tagRoll/TagRollExpressionLane.vue': 946,
-  'components/tagRoll/TagRollMediaBar.vue': 931,
+  'components/tagRoll/TagRollExpressionLane.vue': 946, // exclusive lane; collapsed via rail
+  'components/tagRoll/TagRollMediaBar.vue': 1068, // major/minor key optgroups
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
@@ -60,6 +63,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/catalog.ts': 750,
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
+  'components/tagRoll/TagRollToolbar.vue': 848, // major/minor key optgroups
 }
 
 const SKIP_DIR = new Set([

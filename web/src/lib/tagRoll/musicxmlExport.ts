@@ -2,7 +2,7 @@
  * MusicXML 3.1 partwise export for Tag Studio.
  * Written score timeline (not fermata-expanded performance time).
  */
-import { MAJOR_KEY_CHOICES, vexMajorKeySpec } from './keySignature'
+import { KEY_CHOICES, vexKeySpec } from './keySignature'
 import type { TagRollNote, TagRollProject, TagRollTimeSignature } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
 
@@ -67,7 +67,14 @@ type Slice = {
   tieStop?: boolean
 }
 
-/** Truncate earlier notes when a later note overlaps (monophonic part). */
+/**
+ * Collapse same-part overlaps for monophonic sheet / MusicXML.
+ *
+ * Portamento in the roll starts the destination note early so the glide can
+ * finish at the source note’s written end. For notation we keep the source
+ * duration intact and defer the destination onset to that release (shortening
+ * its written length so the sounding end stays the same).
+ */
 export function collapsePartNotesMono(notes: readonly TagRollNote[]): TagRollNote[] {
   const sorted = [...notes].sort(
     (a, b) => a.startTick - b.startTick || a.midi - b.midi || a.id.localeCompare(b.id),
@@ -82,7 +89,14 @@ export function collapsePartNotesMono(notes: readonly TagRollNote[]): TagRollNot
         out.push(copy)
         continue
       }
-      last.durationTicks = Math.max(1, copy.startTick - last.startTick)
+      const fromEnd = last.startTick + last.durationTicks
+      const toEnd = copy.startTick + copy.durationTicks
+      if (toEnd <= fromEnd) {
+        // Destination ends during the glide — no separate written onset.
+        continue
+      }
+      copy.startTick = fromEnd
+      copy.durationTicks = Math.max(1, toEnd - fromEnd)
     }
     out.push(copy)
   }
@@ -216,9 +230,13 @@ function emitMeasureNotes(slices: Slice[], preferFlats: boolean): string {
   return parts.join('')
 }
 
-function musicXmlFifths(tonality: number, preferFlats: boolean): number {
-  const id = vexMajorKeySpec(tonality, preferFlats)
-  const choice = MAJOR_KEY_CHOICES.find((k) => k.id === id)
+function musicXmlFifths(
+  tonality: number,
+  preferFlats: boolean,
+  mode: 'major' | 'minor' = 'major',
+): number {
+  const id = vexKeySpec(tonality, preferFlats, mode)
+  const choice = KEY_CHOICES.find((k) => k.id === id)
   if (!choice) return 0
   return choice.preferFlats ? -choice.accidentals : choice.accidentals
 }
@@ -228,12 +246,13 @@ function attributesXml(
   divisions: number,
   tonality: number,
   preferFlats: boolean,
+  mode: 'major' | 'minor' = 'major',
 ): string {
-  const fifths = musicXmlFifths(tonality, preferFlats)
+  const fifths = musicXmlFifths(tonality, preferFlats, mode)
   return (
     `<attributes>` +
     `<divisions>${divisions}</divisions>` +
-    `<key><fifths>${fifths}</fifths><mode>major</mode></key>` +
+    `<key><fifths>${fifths}</fifths><mode>${mode}</mode></key>` +
     `<time><beats>${ts.numerator}</beats><beat-type>${ts.denominator}</beat-type></time>` +
     `<clef><sign>G</sign><line>2</line></clef>` +
     `</attributes>`
@@ -288,7 +307,13 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
         .map((slices, mi) => {
           const attrs =
             mi === 0
-              ? attributesXml(ts, TAG_ROLL_PPQ, project.tonality, preferFlats)
+              ? attributesXml(
+                  ts,
+                  TAG_ROLL_PPQ,
+                  project.tonality,
+                  preferFlats,
+                  project.tonalityMode ?? 'major',
+                )
               : ''
           const tempo = mi === 0 ? tempoDirectionXml(bpm) : ''
           const ferm = fermataDirectionsXml(project, mLen, mi)

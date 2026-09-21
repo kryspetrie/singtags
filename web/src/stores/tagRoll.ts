@@ -34,6 +34,8 @@ import {
 } from '../lib/tagRoll/selection'
 import { measureTicks, upsertRampEndMarker } from '../lib/tagRoll/tempoMap'
 import {
+  canDeleteProjectMeasure,
+  deleteProjectMeasure,
   extendProjectMeasures,
   insertProjectMeasure,
   shrinkProjectMeasures,
@@ -314,6 +316,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'midiBakeSwing',
         'soundEnvelope',
         'tonality',
+        'tonalityMode',
         'preferFlats',
         'clefFamily',
         'parts',
@@ -731,10 +734,15 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchProject({ midiBakeSwing: !!midiBakeSwing })
   }
 
-  function setTonality(tonality: number, preferFlats?: boolean): void {
+  function setTonality(
+    tonality: number,
+    preferFlats?: boolean,
+    tonalityMode?: 'major' | 'minor',
+  ): void {
     const pc = ((Math.round(tonality) % 12) + 12) % 12
     const patch: Partial<TagRollProject> = { tonality: pc }
     if (preferFlats != null) patch.preferFlats = preferFlats
+    if (tonalityMode === 'major' || tonalityMode === 'minor') patch.tonalityMode = tonalityMode
     patchProject(patch)
   }
 
@@ -998,6 +1006,29 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     scheduleSave()
   }
 
+  /**
+   * Replace document notes from an external coach/bridge merge.
+   * Preserves selection clearing; optional meta patches (title/bpm/tonality/length).
+   */
+  function replaceNotesFromExternal(
+    notes: TagRollNote[],
+    meta?: Partial<
+      Pick<TagRollProject, 'title' | 'bpm' | 'tonality' | 'tonalityMode' | 'preferFlats' | 'lengthTicks'>
+    >,
+  ): void {
+    const p = current.value
+    if (!p) return
+    pushHistory()
+    current.value = {
+      ...p,
+      ...meta,
+      notes: notes.map((n) => ({ ...n })),
+      updatedAt: svc().clock.now(),
+    }
+    clearNoteSelection()
+    scheduleSave()
+  }
+
   function addPart(name: string, color: string, hotkey?: string): void {
     const p = current.value
     if (!p) return
@@ -1095,10 +1126,28 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     })
   }
 
+  function deleteMeasure(side: 'before' | 'after'): void {
+    const p = current.value
+    if (!p) return
+    if (!canDeleteProjectMeasure(p, p.view.playheadTick, side)) return
+    withHistory(() => {
+      current.value = deleteProjectMeasure(p, p.view.playheadTick, side)
+      clearNoteSelection()
+      selectedExpressionId.value = null
+      scheduleSave()
+    })
+  }
+
   function canShrinkMeasures(): boolean {
     const p = current.value
     if (!p) return false
     return p.lengthTicks > measureTicks(p.timeSignature)
+  }
+
+  function canDeleteMeasure(side: 'before' | 'after'): boolean {
+    const p = current.value
+    if (!p) return false
+    return canDeleteProjectMeasure(p, p.view.playheadTick, side)
   }
 
 
@@ -1252,6 +1301,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     copySelectedNotes,
     pasteNotesAtPlayhead,
     upsertHarmonyNotes,
+    replaceNotesFromExternal,
     addPart,
     updatePart,
     removePart,
@@ -1259,7 +1309,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     extendMeasures,
     shrinkMeasures,
     insertMeasure,
+    deleteMeasure,
     canShrinkMeasures,
+    canDeleteMeasure,
     undo,
     redo,
     cancelLastEdit,

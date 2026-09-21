@@ -185,6 +185,7 @@ const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
 const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
 const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
+const TAG_ROLL_COACH_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.coachLaneCollapsed.v1'
 /** Default gain for Tag Studio metronome clicks (matches MetronomeClicker). */
 export const TAG_ROLL_METRONOME_VOLUME_DEFAULT = 0.85
 export const TAG_ROLL_METRONOME_VOLUME_MAX = 1.5
@@ -689,8 +690,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     ),
   )
   const tagRollExpressionLaneCollapsed = ref(
-    loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, false),
+    loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, true),
   )
+  const tagRollCoachLaneCollapsed = ref(loadBool(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, true))
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -1607,6 +1609,29 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Collapse the Tag Studio expression lane chrome. */
   function setTagRollExpressionLaneCollapsed(on: boolean): void {
     tagRollExpressionLaneCollapsed.value = !!on
+    localStorage.setItem(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  function setTagRollCoachLaneCollapsed(on: boolean): void {
+    tagRollCoachLaneCollapsed.value = !!on
+    localStorage.setItem(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  /**
+   * Bottom lanes are exclusive: at most one of Mods / Coach is expanded.
+   * `null` collapses both (horizontal rail toggles).
+   */
+  function openTagRollBottomLane(which: 'mods' | 'coach' | null): void {
+    if (which === 'mods') {
+      setTagRollExpressionLaneCollapsed(false)
+      setTagRollCoachLaneCollapsed(true)
+    } else if (which === 'coach') {
+      setTagRollExpressionLaneCollapsed(true)
+      setTagRollCoachLaneCollapsed(false)
+    } else {
+      setTagRollExpressionLaneCollapsed(true)
+      setTagRollCoachLaneCollapsed(true)
+    }
   }
 
   /** Replace the primary-nav preference order (normalized). */
@@ -1780,6 +1805,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollMetronomeSound,
     tagRollMetronomeVolume,
     tagRollExpressionLaneCollapsed,
+    tagRollCoachLaneCollapsed,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1830,6 +1856,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollMetronomeSound,
     setTagRollMetronomeVolume,
     setTagRollExpressionLaneCollapsed,
+    setTagRollCoachLaneCollapsed,
+    openTagRollBottomLane,
     setPrimaryNavOrder,
     movePrimaryNav,
     moveAvailablePrimaryNav,

@@ -153,6 +153,39 @@ describe('buildSheetRhythm', () => {
     expect(lead.some((e) => e.concertMidi == null && e.startTick === 0)).toBe(true)
   })
 
+  it('shows portamento destination after the source releases', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'from',
+          partId: 'l',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ * 2,
+        },
+        {
+          id: 'to',
+          partId: 'l',
+          midi: 64,
+          startTick: TAG_ROLL_PPQ,
+          durationTicks: TAG_ROLL_PPQ * 2,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(2)
+    expect(notes[0]!.concertMidi).toBe(60)
+    expect(notes[0]!.startTick).toBe(0)
+    expect(notes[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
+    expect(notes[1]!.concertMidi).toBe(64)
+    expect(notes[1]!.startTick).toBe(TAG_ROLL_PPQ * 2)
+    expect(notes[1]!.durationTicks).toBe(TAG_ROLL_PPQ)
+  })
+
   it('carries Lead lyrics onto rhythm events (not on tie continuations)', () => {
     const assignment = assignSheetStaves(parts, 'ttbb')
     const events = buildSheetRhythm({

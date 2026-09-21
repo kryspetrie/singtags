@@ -42,8 +42,8 @@ const props = defineProps<{
 }>()
 
 const leftGutterStyle = computed(() => {
-  const g = Math.max(0, props.leftGutterPx ?? 0)
-  return g > 0 ? { paddingLeft: `${g}px` } : undefined
+  const g = Math.max(52, props.leftGutterPx ?? 72)
+  return { '--lane-gutter': `${g}px` } as Record<string, string>
 })
 
 const store = useTagRollStore()
@@ -51,9 +51,10 @@ const prefs = usePreferencesStore()
 const collapsed = computed(() => prefs.tagRollExpressionLaneCollapsed)
 
 function toggleCollapsed(): void {
-  const next = !collapsed.value
-  prefs.setTagRollExpressionLaneCollapsed(next)
-  if (next) {
+  if (collapsed.value) {
+    prefs.openTagRollBottomLane('mods')
+  } else {
+    prefs.openTagRollBottomLane(null)
     store.setExpressionTool(null)
     store.selectExpression(null)
   }
@@ -667,28 +668,19 @@ watch(
 </script>
 
 <template>
-  <div class="expr-lane" :class="{ collapsed }" :style="leftGutterStyle">
-    <div class="tools" role="toolbar" aria-label="Expression tools">
-      <button
-        type="button"
-        class="collapse-btn"
-        :title="
-          collapsed
-            ? tagRollTip('Expand expression lane')
-            : tagRollTip('Collapse expression lane')
-        "
-        :aria-expanded="!collapsed"
-        :aria-label="collapsed ? 'Expand expression lane' : 'Collapse expression lane'"
-        @click="toggleCollapsed"
-      >
-        <font-awesome-icon
-          :icon="['fas', collapsed ? 'chevron-up' : 'chevron-down']"
-          class="collapse-ico"
-          aria-hidden="true"
-        />
-      </button>
-      <span class="lbl">Lane</span>
-      <template v-if="!collapsed">
+  <div v-if="!collapsed" class="expr-lane" :style="leftGutterStyle">
+    <button
+      type="button"
+      class="lane-toggle on"
+      title="Collapse Mods lane"
+      aria-label="Collapse Mods lane"
+      aria-expanded="true"
+      @click="toggleCollapsed"
+    >
+      Mods
+    </button>
+    <div class="lane-main">
+    <div v-if="!collapsed" class="tools" role="toolbar" aria-label="Expression tools">
       <span v-if="readOnly" class="hint">View only</span>
       <template v-else>
       <button
@@ -813,7 +805,6 @@ watch(
         Start tempo
       </span>
       </template>
-      </template>
     </div>
     <div v-show="!collapsed" ref="wrapRef" class="lane-wrap">
       <canvas
@@ -825,51 +816,60 @@ watch(
         @pointercancel="onPointerUp"
       />
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .expr-lane {
   display: grid;
-  gap: 0.4rem;
+  grid-template-columns: var(--lane-gutter, 72px) minmax(0, 1fr);
+  gap: 0;
+  align-items: stretch;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 94%, var(--bg, var(--surface)));
   padding-bottom: 0.2rem;
 }
-.expr-lane.collapsed {
-  gap: 0;
-  padding-bottom: 0;
+.lane-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  margin: 0.25rem 0.2rem;
+  padding: 0.35rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  min-height: 100%;
+  writing-mode: horizontal-tb;
+  transform: none;
+}
+.lane-toggle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.lane-toggle.on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+.lane-main {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
 }
 .tools {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.5rem;
-  padding: 0.45rem 0.55rem 0.15rem;
-}
-.expr-lane.collapsed .tools {
-  padding: 0.3rem 0.55rem;
-}
-.collapse-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.7rem;
-  min-height: 1.7rem;
-  padding: 0;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-}
-.collapse-btn:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.collapse-ico {
-  width: 0.7rem;
-  height: 0.7rem;
+  padding: 0.45rem 0.55rem 0.15rem 0.2rem;
 }
 .lbl {
   font-size: 0.78rem;
@@ -912,7 +912,7 @@ watch(
   height: 72px;
   overflow: hidden;
   touch-action: none;
-  margin: 0 0.15rem;
+  margin: 0 0.15rem 0 0;
   border-radius: 8px;
   border: 1px solid var(--border);
 }

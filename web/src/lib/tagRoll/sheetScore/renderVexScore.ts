@@ -32,7 +32,7 @@ import {
 import { buildSheetRhythm, type SheetRhythmEvent } from './rhythmLayout'
 import type { SheetClefKind, SheetStaffSpec } from './types'
 import { concertToWrittenMidi } from './writtenPitch'
-import { vexMajorKeySpec } from '../keySignature'
+import { vexKeySpec } from '../keySignature'
 
 export type VexScoreMeasureGeom = {
   measureIndex: number
@@ -461,7 +461,13 @@ export async function renderVexSheetScore(opts: {
         const c = clefSpec(staff.clef)
         if (c.annotation) stave.addClef(c.clef, undefined, c.annotation)
         else stave.addClef(c.clef)
-        stave.addKeySignature(vexMajorKeySpec(project.tonality, project.preferFlats))
+        stave.addKeySignature(
+          vexKeySpec(
+            project.tonality,
+            project.preferFlats,
+            project.tonalityMode ?? 'major',
+          ),
+        )
         stave.addTimeSignature(ts)
       }
     }

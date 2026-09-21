@@ -15,6 +15,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-studio-sheet-view.md](tag-studio-sheet-view.md) | In progress — View Roll/Sheet toggle; sheet via VexFlow/Bravura |
 | [tag-studio-ports-readiness.md](tag-studio-ports-readiness.md) | In progress — hygiene done; arranging package port next |
 | [tag-studio-swing.md](tag-studio-swing.md) | Implemented — swing playback + MIDI/MP3 bake; metronome swing |
+| [arranging-labs-dock.md](arranging-labs-dock.md) | In progress — timeline pillars + Arrange/Review walk |
+| [arranging-coach-full-surface.md](arranging-coach-full-surface.md) | Planned — Coach theory surface + chrome/pop-out + harmonic moments (posts) |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |

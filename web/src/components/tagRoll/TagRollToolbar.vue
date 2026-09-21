@@ -20,8 +20,9 @@ import {
 } from '../../lib/tagRoll/types'
 import {
   MAJOR_KEY_CHOICES,
-  majorKeyChoiceById,
-  majorKeyChoiceId,
+  MINOR_KEY_CHOICES,
+  keyChoiceById,
+  keyChoiceId,
 } from '../../lib/tagRoll/keySignature'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../../stores/tagRoll'
@@ -29,6 +30,8 @@ import { useTagRollStore } from '../../stores/tagRoll'
 const props = defineProps<{
   harmonizeOpen?: boolean
   partsOpen?: boolean
+  coachOpen?: boolean
+  arrangingEnabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +42,7 @@ const emit = defineEmits<{
   saveLibrary: []
   openHarmonize: []
   openParts: []
+  openCoach: []
 }>()
 
 const store = useTagRollStore()
@@ -50,6 +54,8 @@ const mode = computed(() => project.value?.view.mode ?? 'compose')
 const isView = computed(() => mode.value === 'view')
 const harmonizeOpen = computed(() => !!props.harmonizeOpen)
 const partsOpen = computed(() => !!props.partsOpen)
+const coachOpen = computed(() => !!props.coachOpen)
+const arrangingEnabled = computed(() => !!props.arrangingEnabled)
 const selectedNote = computed(() => store.selectedNote)
 
 const MODES: { id: TagRollEditorMode; label: string }[] = [
@@ -125,8 +131,8 @@ function onClefFamily(e: Event): void {
 }
 
 function onSheetKey(e: Event): void {
-  const choice = majorKeyChoiceById((e.target as HTMLSelectElement).value)
-  if (choice) store.setTonality(choice.tonality, choice.preferFlats)
+  const choice = keyChoiceById((e.target as HTMLSelectElement).value)
+  if (choice) store.setTonality(choice.tonality, choice.preferFlats, choice.mode)
 }
 
 function onScoreSurface(surface: 'roll' | 'sheet'): void {
@@ -182,8 +188,11 @@ function modeTip(id: TagRollEditorMode, label: string): string {
 }
 
 function onInsertBar(where: 'before' | 'after'): void {
-  insertBarOpen.value = false
   store.insertMeasure(where)
+}
+
+function onDeleteBar(where: 'before' | 'after'): void {
+  store.deleteMeasure(where)
 }
 
 function onDocPointer(e: PointerEvent): void {
@@ -347,13 +356,20 @@ onUnmounted(() => {
         <span class="lbl">Key</span>
         <select
           class="sel"
-          :value="majorKeyChoiceId(project.tonality, project.preferFlats)"
+          :value="keyChoiceId(project.tonality, project.preferFlats, project.tonalityMode ?? 'major')"
           aria-label="Key signature"
           @change="onSheetKey"
         >
-          <option v-for="k in MAJOR_KEY_CHOICES" :key="k.id" :value="k.id">
-            {{ k.id }}
-          </option>
+          <optgroup label="Major">
+            <option v-for="k in MAJOR_KEY_CHOICES" :key="k.id" :value="k.id">
+              {{ k.label }}
+            </option>
+          </optgroup>
+          <optgroup label="Minor">
+            <option v-for="k in MINOR_KEY_CHOICES" :key="k.id" :value="k.id">
+              {{ k.label }}
+            </option>
+          </optgroup>
         </select>
       </label>
 
@@ -457,6 +473,18 @@ onUnmounted(() => {
       </button>
 
       <button
+        v-if="!isView && arrangingEnabled"
+        type="button"
+        class="btn sm"
+        :class="{ on: coachOpen }"
+        :aria-expanded="coachOpen"
+        :title="tagRollTip('Arranging coach dock — Infer, Harmonize, Fix')"
+        @click="emit('openCoach')"
+      >
+        Coach
+      </button>
+
+      <button
         v-if="!isView"
         type="button"
         class="btn sm"
@@ -469,41 +497,24 @@ onUnmounted(() => {
       </button>
 
       <div v-if="!isView" class="bar-edit" role="group" aria-label="Measures">
-        <button
-          type="button"
-          class="btn sm"
-          :title="tagRollTip('Remove one measure from the end')"
-          :disabled="!store.canShrinkMeasures()"
-          @click="store.shrinkMeasures(1)"
-        >
-          −1 bar
-        </button>
-        <button
-          type="button"
-          class="btn sm"
-          :title="tagRollTip('Extend project by one measure')"
-          @click="store.extendMeasures(1)"
-        >
-          +1 bar
-        </button>
         <div class="insert-bar-wrap">
           <button
             type="button"
             class="btn sm"
-            :title="tagRollTip('Insert an empty measure at the cursor')"
+            :title="tagRollTip('Insert or delete a measure at the cursor')"
             :aria-expanded="insertBarOpen"
             @click="insertBarOpen = !insertBarOpen; exportOpen = false"
           >
-            Insert bar ▾
+            Measures ▾
           </button>
-          <div v-if="insertBarOpen" class="menu insert-bar-menu" role="menu">
+          <div v-if="insertBarOpen" class="menu insert-bar-menu" role="menu" @pointerdown.stop>
             <button
               type="button"
               role="menuitem"
               :title="tagRollTip('Insert empty measure before the cursor bar')"
               @click="onInsertBar('before')"
             >
-              Before cursor
+              Insert before
             </button>
             <button
               type="button"
@@ -511,7 +522,25 @@ onUnmounted(() => {
               :title="tagRollTip('Insert empty measure after the cursor bar')"
               @click="onInsertBar('after')"
             >
-              After cursor
+              Insert after
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Delete the measure at the cursor')"
+              :disabled="!store.canDeleteMeasure('before')"
+              @click="onDeleteBar('before')"
+            >
+              Delete before
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Delete the measure after the cursor bar')"
+              :disabled="!store.canDeleteMeasure('after')"
+              @click="onDeleteBar('after')"
+            >
+              Delete after
             </button>
           </div>
         </div>
@@ -759,6 +788,13 @@ onUnmounted(() => {
 }
 .menu button:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.menu button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.menu button:disabled:hover {
+  background: transparent;
 }
 .bake-row {
   display: flex;
