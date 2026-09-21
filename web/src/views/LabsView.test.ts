@@ -92,6 +92,20 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('toggles arranging labs gate without exposing routes', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().arrangingEnabled).toBe(false)
+    await w.get('input[aria-label="Arranging"]').setValue(true)
+    expect(usePreferencesStore().arrangingEnabled).toBe(true)
+    expect(localStorage.getItem('singtags.labs.arranging.enabled.v1')).toBe('1')
+    expect(w.text()).toMatch(/not shipped yet|coming soon|package port/i)
+    expect(w.text()).not.toContain('Open Arranging')
+    w.unmount()
+  })
+
   it('does not expose a Tag Roulette Labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

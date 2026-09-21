@@ -21,6 +21,7 @@ import {
   shouldDecayOnNoteEnd,
 } from './portamento'
 import { releaseSecForNoteEnd, TAG_ROLL_DEFAULT_SOUND_ENVELOPE } from './soundEnvelope'
+import { TAG_ROLL_DEFAULT_SWING, wallSecondsAtScoreTick } from './swingMap'
 import { secondsAtTick } from './tempoMap'
 import type { TagRollNote, TagRollProject } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
@@ -58,21 +59,14 @@ export function firstContentMeasureTick(project: TagRollProject): number {
   return measureStartTick(min, project.timeSignature, project.ppq || TAG_ROLL_PPQ)
 }
 
-/** Drop samples before `startTick` (tempo-map aware). */
+/** Drop samples before `startTick` (tempo-map + swing aware). */
 export function trimBufferFromTick(
   buf: AudioBuffer,
   project: TagRollProject,
   startTick: number,
 ): AudioBuffer {
   if (!(startTick > 0)) return buf
-  const startSec = secondsAtTick(
-    startTick,
-    project.tempoMarkers,
-    project.expressions,
-    project.bpm || TAG_ROLL_DEFAULT_BPM,
-    Math.max(1, Math.round(TAG_ROLL_PPQ / 16)),
-    project.notes,
-  )
+  const startSec = tickSec(project, startTick)
   const startSample = Math.min(
     Math.max(0, buf.length - 1),
     Math.max(0, Math.floor(startSec * buf.sampleRate)),
@@ -97,17 +91,28 @@ export function planNoteSoundSegments(
     project.expressions,
     project.bpm || TAG_ROLL_DEFAULT_BPM,
     project.notes,
+    project.swing ?? TAG_ROLL_DEFAULT_SWING,
+    project.timeSignature,
+    project.ppq || TAG_ROLL_PPQ,
   ).map((s) => ({ start: s.startSec, dur: s.durSec }))
 }
 
 function tickSec(project: TagRollProject, tick: number): number {
-  return secondsAtTick(
+  const straight = (t: number) =>
+    secondsAtTick(
+      t,
+      project.tempoMarkers,
+      project.expressions,
+      project.bpm || TAG_ROLL_DEFAULT_BPM,
+      Math.max(1, Math.round(TAG_ROLL_PPQ / 16)),
+      project.notes,
+    )
+  return wallSecondsAtScoreTick(
     tick,
-    project.tempoMarkers,
-    project.expressions,
-    project.bpm || TAG_ROLL_DEFAULT_BPM,
-    Math.max(1, Math.round(TAG_ROLL_PPQ / 16)),
-    project.notes,
+    project.swing ?? TAG_ROLL_DEFAULT_SWING,
+    straight,
+    project.timeSignature,
+    project.ppq || TAG_ROLL_PPQ,
   )
 }
 

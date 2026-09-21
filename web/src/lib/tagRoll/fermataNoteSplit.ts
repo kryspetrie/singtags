@@ -9,8 +9,9 @@ import {
   secondsAtTick,
   ticksToSecondsAtBpm,
 } from './tempoMap'
-import type { TagRollExpression, TagRollNote, TagRollTempoMarker } from './types'
-import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
+import { TAG_ROLL_DEFAULT_SWING, wallSecondsAtScoreTick } from './swingMap'
+import type { TagRollExpression, TagRollNote, TagRollSwing, TagRollTempoMarker, TagRollTimeSignature } from './types'
+import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_DEFAULT_TIME_SIGNATURE, TAG_ROLL_PPQ } from './types'
 
 export type SoundSegment = { startSec: number; durSec: number }
 
@@ -48,6 +49,7 @@ function fermatasAtNoteEnd(
 /**
  * Wall-clock sounding segments for one score note (gaps omitted = silence).
  * Continuous through written duration + hold(s) at the note end.
+ * When swing is enabled, onsets/ends use swung wall-clock (MP3 bake).
  */
 export function noteSoundSegments(
   note: Pick<TagRollNote, 'startTick' | 'durationTicks'>,
@@ -55,6 +57,9 @@ export function noteSoundSegments(
   expressions: readonly TagRollExpression[],
   fallbackBpm = TAG_ROLL_DEFAULT_BPM,
   allNotes: readonly { startTick: number; durationTicks: number }[] = [note],
+  swing: TagRollSwing = TAG_ROLL_DEFAULT_SWING,
+  timeSignature: TagRollTimeSignature = TAG_ROLL_DEFAULT_TIME_SIGNATURE,
+  ppq = TAG_ROLL_PPQ,
 ): SoundSegment[] {
   const startTick = note.startTick
   const endTick = noteEnd(note)
@@ -67,17 +72,13 @@ export function noteSoundSegments(
     holdSec += ticksToSecondsAtBpm(f.holdTicks, bpm)
   }
 
-  const step = Math.max(1, Math.round(TAG_ROLL_PPQ / 16))
-  const wStart = secondsAtTick(
-    startTick,
-    markers,
-    expressions,
-    fallbackBpm,
-    step,
-    allNotes,
-  )
-  const wEnd =
-    secondsAtTick(endTick, markers, expressions, fallbackBpm, step, allNotes) + holdSec
+  const step = Math.max(1, Math.round(ppq / 16))
+  const straightSec = (tick: number) =>
+    secondsAtTick(tick, markers, expressions, fallbackBpm, step, allNotes)
+  const wallSec = (tick: number) =>
+    wallSecondsAtScoreTick(tick, swing, straightSec, timeSignature, ppq)
+  const wStart = wallSec(startTick)
+  const wEnd = wallSec(endTick) + holdSec
   const dur = wEnd - wStart
   if (dur <= 1e-4) return []
   return [{ startSec: wStart, durSec: dur }]

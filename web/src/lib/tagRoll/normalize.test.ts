@@ -116,4 +116,28 @@ describe('tagRoll normalize', () => {
     expect(pxToTicks(cw / 2, cw)).toBeCloseTo(TAG_ROLL_PPQ / 2)
     expect(ticksToPx(TAG_ROLL_PPQ, cw)).toBe(cw)
   })
+
+  it('round-trips swing + midiBakeSwing through normalize', () => {
+    const p = createEmptyTagRollProject()
+    p.swing = { enabled: true, unit: 'sixteenth', style: 'ratio', amount: 0.8 }
+    p.midiBakeSwing = false
+    p.metronomeSwing = false
+    const again = normalizeTagRollProject(JSON.parse(JSON.stringify(p)))
+    expect(again!.swing).toEqual({
+      enabled: true,
+      unit: 'sixteenth',
+      style: 'ratio',
+      amount: 0.8,
+    })
+    expect(again!.midiBakeSwing).toBe(false)
+    expect(again!.metronomeSwing).toBe(false)
+    const legacy = { ...p } as Record<string, unknown>
+    delete legacy.swing
+    delete legacy.midiBakeSwing
+    delete legacy.metronomeSwing
+    const defaults = normalizeTagRollProject(legacy)!
+    expect(defaults.swing.enabled).toBe(false)
+    expect(defaults.midiBakeSwing).toBe(true)
+    expect(defaults.metronomeSwing).toBe(true)
+  })
 })

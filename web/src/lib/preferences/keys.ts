@@ -33,6 +33,8 @@ export const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v
 export const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 /** Labs: Tag Studio piano-roll composer. Default off. */
 export const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagStudio.enabled.v1'
+/** Labs: Arranging coach (future). Default off — gate only until package port. */
+export const ARRANGING_ENABLED_KEY = 'singtags.labs.arranging.enabled.v1'
 export const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagStudio.cellW.v1'
 export const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagStudio.cellH.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */

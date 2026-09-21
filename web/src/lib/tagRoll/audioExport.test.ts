@@ -1,40 +1,45 @@
 /**
  * @vitest-environment happy-dom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createEmptyTagRollProject } from './normalize'
-
-const bounceMock = vi.hoisted(() => ({
-  bounceTagRollTracks: vi.fn(),
-}))
+import {
+  createTagStudioServices,
+  setTagStudioServicesForTests,
+} from '../../composition/tagStudio'
+import type { AudioBounce } from '../../ports/AudioBounce'
 
 const zipMock = vi.hoisted(() => ({
   buildZip: vi.fn(() => new Uint8Array([1, 2, 3])),
   downloadBlob: vi.fn(),
 }))
 
-vi.mock('./audioBounce', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./audioBounce')>()
-  return {
-    ...actual,
-    bounceTagRollTracks: bounceMock.bounceTagRollTracks,
-  }
-})
-
 vi.mock('../../download/zip', () => zipMock)
 
 import { downloadTagRollAudio } from './audioExport'
 
 describe('downloadTagRollAudio', () => {
+  const bounce = vi.fn()
+
   beforeEach(() => {
-    bounceMock.bounceTagRollTracks.mockReset()
+    bounce.mockReset()
     zipMock.buildZip.mockClear()
     zipMock.downloadBlob.mockClear()
+    const audioBounce: AudioBounce = { bounce }
+    setTagStudioServicesForTests(
+      createTagStudioServices({
+        audioBounce,
+      }),
+    )
   })
 
-  it('downloads a single mix file directly', async () => {
+  afterEach(() => {
+    setTagStudioServicesForTests(null)
+  })
+
+  it('downloads a single mix file directly via AudioBounce port', async () => {
     const p = createEmptyTagRollProject({ title: 'Solo Mix' })
-    bounceMock.bounceTagRollTracks.mockResolvedValue([
+    bounce.mockResolvedValue([
       {
         partId: 'mix',
         label: 'Mix',
@@ -43,7 +48,7 @@ describe('downloadTagRollAudio', () => {
       },
     ])
     await downloadTagRollAudio(p, { mix: true, perPart: false, partLeft: false, format: 'mp3' })
-    expect(bounceMock.bounceTagRollTracks).toHaveBeenCalledWith(
+    expect(bounce).toHaveBeenCalledWith(
       p,
       expect.objectContaining({ mix: true, perPart: false, partLeft: false, format: 'mp3' }),
     )
@@ -54,7 +59,7 @@ describe('downloadTagRollAudio', () => {
 
   it('zips part-left packs and forces mix on in bounce', async () => {
     const p = createEmptyTagRollProject({ title: 'Learning Pack' })
-    bounceMock.bounceTagRollTracks.mockResolvedValue([
+    bounce.mockResolvedValue([
       {
         partId: 'mix',
         label: 'Mix',
@@ -74,7 +79,7 @@ describe('downloadTagRollAudio', () => {
       partLeft: true,
       format: 'wav',
     })
-    expect(bounceMock.bounceTagRollTracks).toHaveBeenCalledWith(
+    expect(bounce).toHaveBeenCalledWith(
       p,
       expect.objectContaining({ mix: true, partLeft: true, format: 'wav' }),
     )
@@ -84,7 +89,7 @@ describe('downloadTagRollAudio', () => {
 
   it('throws when bounce yields no tracks', async () => {
     const p = createEmptyTagRollProject()
-    bounceMock.bounceTagRollTracks.mockResolvedValue([])
+    bounce.mockResolvedValue([])
     await expect(
       downloadTagRollAudio(p, { mix: true, perPart: false, partLeft: false }),
     ).rejects.toThrow(/Nothing to render/)

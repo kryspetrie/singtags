@@ -24,15 +24,17 @@ import {
   TAG_ROLL_DEFAULT_SOUND_ENVELOPE,
   type TagRollSoundEnvelope,
 } from './soundEnvelope'
+import { TAG_ROLL_DEFAULT_SWING, swingScoreTickRate, swingUnitTicks } from './swingMap'
 import type {
   TagRollExpression,
   TagRollNote,
   TagRollPartMix,
+  TagRollSwing,
   TagRollTempoMarker,
   TagRollTimeSignature,
 } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_DEFAULT_TIME_SIGNATURE, TAG_ROLL_PPQ } from './types'
-import { beatsCrossed } from './metronomeBeats'
+import { beatsCrossed, subdivisionsCrossed } from './metronomeBeats'
 
 export type TagRollScheduler = {
   play(fromTick: number, opts?: { metronomePrime?: boolean }): void
@@ -60,6 +62,9 @@ export function createTagRollScheduler(opts: {
   getMix?: () => readonly TagRollPartMix[]
   getSoundEnvelope?: () => TagRollSoundEnvelope
   getTimeSignature?: () => TagRollTimeSignature
+  getSwing?: () => TagRollSwing
+  /** When true with swing, click swing-unit subdivisions instead of beats only. */
+  getMetronomeSwing?: () => boolean
   /** When true, fire {@link onMetronomeBeat} for each crossed beat. */
   getMetronomeEnabled?: () => boolean
   onMetronomeBeat?: (hit: { tick: number; downbeat: boolean }) => void
@@ -87,6 +92,10 @@ export function createTagRollScheduler(opts: {
     return opts.getExpressions?.() ?? []
   }
 
+  function swing(): TagRollSwing {
+    return opts.getSwing?.() ?? TAG_ROLL_DEFAULT_SWING
+  }
+
   function currentBpm(): number {
     return bpmAtTick(
       playhead,
@@ -111,14 +120,14 @@ export function createTagRollScheduler(opts: {
   function fireMetronome(fromTick: number, toTick: number, optsPrime?: { includeStart?: boolean }): void {
     if (!opts.getMetronomeEnabled?.() || !opts.onMetronomeBeat) return
     const ts = timeSignature()
-    if (optsPrime?.includeStart) {
-      const hits = beatsCrossed(fromTick - 0.75, toTick, ts)
-      for (const h of hits) opts.onMetronomeBeat({ tick: h.tick, downbeat: h.downbeat })
-      return
-    }
-    for (const h of beatsCrossed(fromTick, toTick, ts)) {
-      opts.onMetronomeBeat({ tick: h.tick, downbeat: h.downbeat })
-    }
+    const sw = swing()
+    const useSwingSubs =
+      !!opts.getMetronomeSwing?.() && sw.enabled && sw.amount > 0
+    const from = optsPrime?.includeStart ? fromTick - 0.75 : fromTick
+    const hits = useSwingSubs
+      ? subdivisionsCrossed(from, toTick, swingUnitTicks(sw.unit, ts), ts)
+      : beatsCrossed(from, toTick, ts)
+    for (const h of hits) opts.onMetronomeBeat({ tick: h.tick, downbeat: h.downbeat })
   }
 
   function phraseRelease(): number {
@@ -280,7 +289,8 @@ export function createTagRollScheduler(opts: {
     const stepDt = dt / steps
     for (let i = 0; i < steps; i++) {
       const stepBpm = i === 0 ? bpm : currentBpm()
-      playhead += stepDt * (stepBpm / 60) * TAG_ROLL_PPQ
+      const rate = swingScoreTickRate(playhead, swing(), timeSignature())
+      playhead += stepDt * (stepBpm / 60) * TAG_ROLL_PPQ * rate
     }
     const next = playhead
     const notes = opts.getNotes()

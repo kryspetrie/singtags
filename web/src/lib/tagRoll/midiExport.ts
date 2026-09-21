@@ -4,11 +4,20 @@
  * Notes with fermatas sustain through written duration + hold; gap is silent before what follows.
  */
 import { expandNotesForMidi } from './fermataNoteSplit'
+import { bakeSwingIntoNotes } from './swingMap'
 import { fermataExecutionTick, performanceTick, sampleTempoEvents } from './tempoMap'
 import type { TagRollNote, TagRollPart, TagRollProject } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
 
 export type MidiExportMode = 'one' | 'two' | 'all'
+
+export type MidiExportOptions = {
+  /**
+   * When true, rewrite note onsets/durations with swing baked into score ticks.
+   * Defaults to `project.midiBakeSwing` (true) when swing is enabled.
+   */
+  bakeSwing?: boolean
+}
 
 function writeVarLen(n: number, out: number[]): void {
   let buffer = n & 0x7f
@@ -179,8 +188,17 @@ function groupPartsForMode(
 export function exportTagRollMidi(
   project: TagRollProject,
   mode: MidiExportMode,
+  options?: MidiExportOptions,
 ): Uint8Array {
-  const remappedNotes = expandNotesForMidi(project.notes, project.expressions)
+  const swing = project.swing
+  const bake =
+    options?.bakeSwing ??
+    (project.midiBakeSwing !== false && !!swing?.enabled && (swing.amount ?? 0) > 0)
+  const written =
+    bake && swing
+      ? bakeSwingIntoNotes(project.notes, swing, project.timeSignature, project.ppq || TAG_ROLL_PPQ)
+      : project.notes
+  const remappedNotes = expandNotesForMidi(written, project.expressions)
   const tracks = groupPartsForMode(project.parts, remappedNotes, mode).filter(
     (t) => t.notes.length > 0 || mode === 'one',
   )
@@ -215,8 +233,12 @@ export function exportTagRollMidi(
   return all
 }
 
-export function downloadTagRollMidi(project: TagRollProject, mode: MidiExportMode): void {
-  const bytes = exportTagRollMidi(project, mode)
+export function downloadTagRollMidi(
+  project: TagRollProject,
+  mode: MidiExportMode,
+  options?: MidiExportOptions,
+): void {
+  const bytes = exportTagRollMidi(project, mode, options)
   const blob = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer], {
     type: 'audio/midi',
   })

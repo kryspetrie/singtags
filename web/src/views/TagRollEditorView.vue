@@ -26,13 +26,14 @@ import {
 import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
 import { isPartAudible, mixForPart } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
-import { downloadTagRollMidi, type MidiExportMode } from '../lib/tagRoll/midiExport'
-import { downloadTagRollMusicXml } from '../lib/tagRoll/musicxmlExport'
-import { downloadTagRollAudio } from '../lib/tagRoll/audioExport'
+import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
+import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
+import { downloadAudio } from '../application/tagRoll/downloadAudio'
 import { downloadTagRollProjectJson } from '../lib/tagRoll/projectJson'
 import { planBlowPitch, shouldBlowPitchOnPlay } from '../lib/tagRoll/blowPitch'
 import { beatsCrossedSigned } from '../lib/tagRoll/metronomeBeats'
 import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
+import { getTagStudioServices } from '../composition/tagStudio'
 import { TAG_ROLL_DURATION_PRESETS, dottedDurationTicks, stepDurationTicks } from '../lib/tagRoll/snap'
 import { findPartByHotkey } from '../lib/tagRoll/partHotkeys'
 import { isTypingTarget, matchModKey, tagRollTip, tipByShortcutId } from '../lib/tagRoll/shortcuts'
@@ -227,7 +228,9 @@ function rebuildScheduler(): void {
       },
     getTimeSignature: () =>
       store.current?.timeSignature ?? { numerator: 4, denominator: 4 },
+    getSwing: () => store.current?.swing ?? { enabled: false, unit: 'eighth', style: 'triplet', amount: 0 },
     getMetronomeEnabled: () => !!store.current?.metronomeEnabled,
+    getMetronomeSwing: () => store.current?.metronomeSwing !== false,
     onMetronomeBeat: (hit) => {
       void ensureMetronome().click(hit.downbeat)
     },
@@ -564,12 +567,14 @@ function onAuditionColumn(payload: { tick: number; movePlayhead: boolean }): voi
 
 function onExportMidi(mode: MidiExportMode): void {
   if (!project.value) return
-  downloadTagRollMidi(project.value, mode)
+  const { midiExporter } = getTagStudioServices()
+  downloadMidi(midiExporter, project.value, mode)
 }
 
 function onExportMusicXml(): void {
   if (!project.value) return
-  downloadTagRollMusicXml(project.value)
+  const { musicXmlExporter } = getTagStudioServices()
+  downloadMusicXml(musicXmlExporter, project.value)
 }
 
 function onExportJson(): void {
@@ -582,7 +587,8 @@ async function onExportAudio(kind: 'mix' | 'parts' | 'partLeft'): Promise<void> 
   exportBusy.value = true
   exportBusyLabel.value = 'Rendering MP3…'
   try {
-    await downloadTagRollAudio(project.value, {
+    const { audioBounce } = getTagStudioServices()
+    await downloadAudio(audioBounce, project.value, {
       mix: kind === 'mix',
       perPart: kind === 'parts',
       partLeft: kind === 'partLeft',

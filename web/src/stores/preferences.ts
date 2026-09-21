@@ -178,6 +178,8 @@ const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 /** Labs: Tag Roll piano-roll composer. Default off. */
 const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
+/** Labs: Arranging coach gate. Default off until package port. */
+const ARRANGING_ENABLED_KEY = 'singtags.labs.arranging.enabled.v1'
 const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
 const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
 const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
@@ -668,6 +670,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Labs: when true, Tag Studio (More → Tag Studio, /tag-studio) is available.
    */
   const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Arranging coach will be available (routes/package not wired yet).
+   */
+  const arrangingEnabled = ref(loadBool(ARRANGING_ENABLED_KEY, false))
   const tagRollCellW = ref(loadNumber(TAG_ROLL_CELL_W_KEY, 28))
   const tagRollCellH = ref(loadNumber(TAG_ROLL_CELL_H_KEY, 14))
   const tagRollMetronomeSound = ref<MetronomeSoundId>(
@@ -973,6 +979,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(TAG_ROLL_ENABLED_KEY, v ? '1' : '0')
+      } catch {
+        /* ignore */
+      }
+    },
+    { flush: 'sync' },
+  )
+
+  watch(
+    arrangingEnabled,
+    (v) => {
+      try {
+        localStorage.setItem(ARRANGING_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
       }
@@ -1561,6 +1579,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollEnabled.value = on
   }
 
+  /** Labs: enable/disable Arranging coach gate (no routes until package port). */
+  function setArrangingEnabled(on: boolean): void {
+    arrangingEnabled.value = on
+  }
+
   /** Remember last Tag Roll cell size for new projects. */
   function setTagRollCellSize(cellW: number, cellH: number): void {
     tagRollCellW.value = cellW
@@ -1751,6 +1774,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     audioRecorderEnabled,
     singTogetherEnabled,
     tagRollEnabled,
+    arrangingEnabled,
     tagRollCellW,
     tagRollCellH,
     tagRollMetronomeSound,
@@ -1801,6 +1825,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
     setTagRollEnabled,
+    setArrangingEnabled,
     setTagRollCellSize,
     setTagRollMetronomeSound,
     setTagRollMetronomeVolume,

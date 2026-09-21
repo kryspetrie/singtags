@@ -1,7 +1,7 @@
 export type { IdGenerator } from './IdGenerator'
 export type { Clock } from './Clock'
 export type { TagRollRepository, TagRollProjectSummary } from './TagRollRepository'
-export type { MidiExporter, MidiExportMode } from './MidiExporter'
+export type { MidiExporter, MidiExportMode, MidiExportOptions } from './MidiExporter'
 export type { MusicXmlExporter } from './MusicXmlExporter'
 export type { AudioBounce, AudioBounceOpts } from './AudioBounce'
 export type { LibraryIngest, LibraryIngestInput, LibraryIngestTrack } from './LibraryIngest'

@@ -6,7 +6,10 @@ import {
 import { applyHarmony } from './applyHarmony'
 import { exportMidiBytes } from './exportMidi'
 import { exportMusicXmlBytes } from './exportMusicXml'
-import { persistTagRoll } from './persist'
+import { persistTagRoll, putNewTagRoll, deleteTagRoll } from './persist'
+import { downloadMidi } from './downloadMidi'
+import { downloadMusicXml } from './downloadMusicXml'
+import { downloadAudio } from './downloadAudio'
 import { saveTagRollToLibrary } from './saveToLibrary'
 import { createEmptyTagRollProject } from '../../lib/tagRoll/normalize'
 import { TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
@@ -68,6 +71,83 @@ describe('tagRoll application use-cases', () => {
     expect(put.mock.calls[0]![0].title).toBe('Persist')
   })
 
+  it('putNewTagRoll / deleteTagRoll go through repository + Clock', async () => {
+    const put = vi.fn(async () => undefined)
+    const putHistory = vi.fn(async () => undefined)
+    const remove = vi.fn(async () => undefined)
+    const repository: TagRollRepository = {
+      list: vi.fn(),
+      get: vi.fn(),
+      put,
+      remove,
+      getHistory: vi.fn(),
+      putHistory,
+    }
+    const clock = createFixedClock(42)
+    const p = createEmptyTagRollProject({ title: 'New' })
+    const saved = await putNewTagRoll(repository, p, clock)
+    expect(saved.updatedAt).toBe(42)
+    expect(putHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: saved.id, updatedAt: 42 }),
+    )
+    await deleteTagRoll(repository, saved.id)
+    expect(remove).toHaveBeenCalledWith(saved.id)
+  })
+
+  it('downloadMidi / downloadMusicXml use exporter ports (not lib download helpers)', () => {
+    const p = createEmptyTagRollProject({ title: 'Dl' })
+    const midiExporter: MidiExporter = {
+      export: vi.fn(() => new Uint8Array([4, 5])),
+    }
+    const musicXmlExporter: MusicXmlExporter = {
+      export: vi.fn(() => new Uint8Array([6])),
+    }
+    const download = vi.fn()
+    downloadMidi(midiExporter, p, 'two', download)
+    expect(midiExporter.export).toHaveBeenCalledWith(p, 'two', undefined)
+    expect(download).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.stringMatching(/\.mid$/),
+      'audio/midi',
+    )
+    download.mockClear()
+    downloadMusicXml(musicXmlExporter, p, download)
+    expect(musicXmlExporter.export).toHaveBeenCalledWith(p)
+    expect(download).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      expect.stringMatching(/\.musicxml$/),
+      'application/vnd.recordare.musicxml+xml',
+    )
+  })
+
+  it('downloadAudio bounces through AudioBounce port', async () => {
+    const p = createEmptyTagRollProject({ title: 'Bounce' })
+    const audioBounce: AudioBounce = {
+      bounce: vi.fn(async () => [
+        {
+          partId: 'mix',
+          label: 'Mix',
+          filename: 'Bounce - Mix.mp3',
+          bytes: new Uint8Array([1]).buffer,
+        },
+      ]),
+    }
+    const zip = await import('../../download/zip')
+    const spy = vi.spyOn(zip, 'downloadBlob').mockImplementation(() => {})
+    await downloadAudio(audioBounce, p, {
+      mix: true,
+      perPart: false,
+      partLeft: false,
+      format: 'mp3',
+    })
+    expect(audioBounce.bounce).toHaveBeenCalledWith(
+      p,
+      expect.objectContaining({ mix: true, format: 'mp3' }),
+    )
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
   it('exportMidiBytes / exportMusicXmlBytes call exporter ports', () => {
     const p = createEmptyTagRollProject({ title: 'X' })
     const midiExporter: MidiExporter = {
@@ -77,7 +157,7 @@ describe('tagRoll application use-cases', () => {
       export: vi.fn(() => new Uint8Array([9, 9])),
     }
     expect([...exportMidiBytes(midiExporter, p, 'all')]).toEqual([1, 2, 3])
-    expect(midiExporter.export).toHaveBeenCalledWith(p, 'all')
+    expect(midiExporter.export).toHaveBeenCalledWith(p, 'all', undefined)
     expect([...exportMusicXmlBytes(musicXmlExporter, p)]).toEqual([9, 9])
     expect(musicXmlExporter.export).toHaveBeenCalledWith(p)
   })

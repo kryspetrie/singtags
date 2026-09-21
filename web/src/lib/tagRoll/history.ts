@@ -13,10 +13,12 @@ import type {
   TagRollPartMix,
   TagRollProject,
   TagRollSoundEnvelope,
+  TagRollSwing,
   TagRollTempoMarker,
   TagRollTimeSignature,
 } from './types'
 import { TAG_ROLL_DEFAULT_CLEF_FAMILY, TAG_ROLL_DEFAULT_SOUND_ENVELOPE } from './types'
+import { TAG_ROLL_DEFAULT_SWING } from './swingMap'
 import { syncProjectMix } from './mix'
 
 export const TAG_ROLL_HISTORY_LIMIT = 80
@@ -33,6 +35,9 @@ export type TagRollDocumentSnapshot = {
   pitchPipeSoundId: string
   blowPitchEnabled: boolean
   metronomeEnabled: boolean
+  metronomeSwing: boolean
+  swing: TagRollSwing
+  midiBakeSwing: boolean
   soundEnvelope: TagRollSoundEnvelope
   tonality: number
   preferFlats: boolean
@@ -56,6 +61,9 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     pitchPipeSoundId: p.pitchPipeSoundId,
     blowPitchEnabled: !!p.blowPitchEnabled,
     metronomeEnabled: !!p.metronomeEnabled,
+    metronomeSwing: p.metronomeSwing !== false,
+    swing: { ...(p.swing ?? TAG_ROLL_DEFAULT_SWING) },
+    midiBakeSwing: p.midiBakeSwing !== false,
     soundEnvelope: { ...p.soundEnvelope },
     tonality: p.tonality,
     preferFlats: p.preferFlats,
@@ -94,6 +102,9 @@ export function applyDocumentSnapshot(
     pitchPipeSoundId: snap.pitchPipeSoundId || 'mellow',
     blowPitchEnabled: !!snap.blowPitchEnabled,
     metronomeEnabled: !!snap.metronomeEnabled,
+    metronomeSwing: snap.metronomeSwing !== false,
+    swing: snap.swing ? { ...snap.swing } : { ...TAG_ROLL_DEFAULT_SWING },
+    midiBakeSwing: snap.midiBakeSwing !== false,
     soundEnvelope: snap.soundEnvelope
       ? { ...snap.soundEnvelope }
       : { ...TAG_ROLL_DEFAULT_SOUND_ENVELOPE },

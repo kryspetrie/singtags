@@ -7,6 +7,14 @@ import { computed, ref, shallowRef } from 'vue'
 import { applyHarmony } from '../application/tagRoll/applyHarmony'
 import { getTagStudioServices } from '../composition/tagStudio'
 import {
+  deleteTagRoll,
+  listTagRolls,
+  openTagRoll,
+  persistTagRoll,
+  persistTagRollHistory,
+  putNewTagRoll,
+} from '../application/tagRoll/persist'
+import {
   applyDocumentSnapshot,
   captureDocumentSnapshot,
   pushUndoStack,
@@ -63,6 +71,10 @@ import { usePreferencesStore } from './preferences'
 
 function svc() {
   return getTagStudioServices()
+}
+
+function now(): number {
+  return svc().clock.now()
 }
 
 export const useTagRollStore = defineStore('tagRoll', () => {
@@ -129,12 +141,15 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (historyTimer) clearTimeout(historyTimer)
     historyTimer = setTimeout(() => {
       historyTimer = null
-      void svc().repository.putHistory({
-        projectId: p.id,
-        undo: undoStack.value,
-        redo: redoStack.value,
-        updatedAt: Date.now(),
-      }).catch(() => {
+      void persistTagRollHistory(
+        svc().repository,
+        {
+          projectId: p.id,
+          undo: undoStack.value,
+          redo: redoStack.value,
+        },
+        svc().clock,
+      ).catch(() => {
         /* ignore history persist errors */
       })
     }, 350)
@@ -155,19 +170,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   async function refreshList(): Promise<void> {
     try {
-      let list = await svc().repository.list()
+      const { repository, clock } = svc()
+      let list = await listTagRolls(repository)
       if (!list.length) {
-        const seeded = createTagRollDefaultProjects()
+        const seeded = createTagRollDefaultProjects(clock.now())
         for (const p of seeded) {
-          await svc().repository.put(p)
-          await svc().repository.putHistory({
-            projectId: p.id,
-            undo: [],
-            redo: [],
-            updatedAt: p.updatedAt,
-          })
+          await putNewTagRoll(repository, p, clock)
         }
-        if (seeded.length) list = await svc().repository.list()
+        if (seeded.length) list = await listTagRolls(repository)
       }
       summaries.value = list
       loaded.value = true
@@ -181,7 +191,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   async function openProject(id: string): Promise<TagRollProject | null> {
     busy.value = true
     try {
-      const p = await svc().repository.get(id)
+      const { repository } = svc()
+      const p = await openTagRoll(repository, id)
       current.value = p
       clearNoteSelection()
       selectedExpressionId.value = null
@@ -189,7 +200,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       undoStack.value = []
       redoStack.value = []
       if (p) {
-        const hist = await svc().repository.getHistory(p.id)
+        const hist = await repository.getHistory(p.id)
         undoStack.value = hist.undo
         redoStack.value = hist.redo
       }
@@ -219,21 +230,15 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       p.view.cellW = cellW
       p.view.cellH = cellH
       p.view.scrollY = (TAG_ROLL_MIDI_MAX - 60) * cellH
-      await svc().repository.put(p)
-      await svc().repository.putHistory({
-        projectId: p.id,
-        undo: [],
-        redo: [],
-        updatedAt: Date.now(),
-      })
-      current.value = p
+      const saved = await putNewTagRoll(svc().repository, p, svc().clock)
+      current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
       await refreshList()
-      return p
+      return saved
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to create project'
       throw e
@@ -243,29 +248,23 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   /** Persist an imported SingTags JSON project (already normalized). */
   async function importProject(project: TagRollProject): Promise<TagRollProject> {
     try {
-      const now = Date.now()
+      const stamp = now()
       const p = normalizeTagRollProject({
         ...project,
-        updatedAt: now,
-        createdAt: project.createdAt || now,
+        updatedAt: stamp,
+        createdAt: project.createdAt || stamp,
         localEntryId: null,
       })
       if (!p) throw new Error('Invalid project')
-      await svc().repository.put(p)
-      await svc().repository.putHistory({
-        projectId: p.id,
-        undo: [],
-        redo: [],
-        updatedAt: now,
-      })
-      current.value = p
+      const saved = await putNewTagRoll(svc().repository, p, svc().clock)
+      current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
       await refreshList()
-      return p
+      return saved
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to import project'
       throw e
@@ -285,8 +284,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const p = current.value
     if (!p) return
     try {
-      const next = { ...p, updatedAt: Date.now() }
-      await svc().repository.put(next)
+      const next = await persistTagRoll(svc().repository, p, svc().clock)
       current.value = normalizeTagRollProject(next)
       await refreshList()
       error.value = null
@@ -311,6 +309,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'pitchPipeSoundId',
         'blowPitchEnabled',
         'metronomeEnabled',
+        'metronomeSwing',
+        'swing',
+        'midiBakeSwing',
         'soundEnvelope',
         'tonality',
         'preferFlats',
@@ -322,7 +323,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       const touchesMusic = musicalKeys.some((k) => k in patch)
       if (touchesMusic) pushHistory()
     }
-    current.value = { ...p, ...patch, updatedAt: Date.now() }
+    current.value = { ...p, ...patch, updatedAt: now() }
     scheduleSave()
   }
 
@@ -332,7 +333,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     current.value = {
       ...p,
       view: { ...p.view, ...patch },
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -411,7 +412,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
           }
         : m,
     )
-    current.value = { ...p, mix, updatedAt: Date.now() }
+    current.value = { ...p, mix, updatedAt: now() }
     scheduleSave()
   }
 
@@ -422,7 +423,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     current.value = {
       ...p,
       mix: p.mix.map((m) => ({ ...m, solo: false })),
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -510,7 +511,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       ...p,
       bpm: next,
       tempoMarkers: markers,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -541,7 +542,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       ...p,
       bpm: snapped === 0 ? nextBpm : p.bpm,
       tempoMarkers: markers,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -569,7 +570,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       ...p,
       tempoMarkers,
       bpm: zero?.bpm ?? p.bpm,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -587,7 +588,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     current.value = {
       ...p,
       tempoMarkers: p.tempoMarkers.filter((m) => m.id !== id),
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     if (selectedExpressionId.value === id) selectedExpressionId.value = null
     scheduleSave()
@@ -619,7 +620,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       expressions,
       tempoMarkers,
       bpm: zero?.bpm ?? p.bpm,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     selectedExpressionId.value = expr.id
     clearNoteSelection()
@@ -645,7 +646,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       expressions,
       tempoMarkers,
       bpm: zero?.bpm ?? p.bpm,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -666,7 +667,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       expressions,
       tempoMarkers,
       bpm: zero?.bpm ?? p.bpm,
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     if (selectedExpressionId.value === id) selectedExpressionId.value = null
     scheduleSave()
@@ -700,6 +701,34 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setMetronomeEnabled(metronomeEnabled: boolean): void {
     patchProject({ metronomeEnabled: !!metronomeEnabled })
+  }
+
+  function setMetronomeSwing(metronomeSwing: boolean): void {
+    patchProject({ metronomeSwing: !!metronomeSwing })
+  }
+
+  function setSwing(patch: Partial<TagRollProject['swing']>): void {
+    const p = current.value
+    if (!p) return
+    const prev = p.swing ?? { enabled: false, unit: 'eighth' as const, style: 'triplet' as const, amount: 0 }
+    const next = {
+      ...prev,
+      ...patch,
+      unit: patch.unit === 'sixteenth' ? 'sixteenth' as const : patch.unit === 'eighth' ? 'eighth' as const : prev.unit,
+      style: patch.style === 'ratio' ? 'ratio' as const : patch.style === 'triplet' ? 'triplet' as const : prev.style,
+      amount:
+        patch.amount != null && Number.isFinite(patch.amount)
+          ? Math.min(1, Math.max(0, Number(patch.amount)))
+          : prev.amount,
+      enabled: patch.enabled != null ? !!patch.enabled : prev.enabled,
+    }
+    if (next.enabled && !(next.amount > 0)) next.amount = 2 / 3
+    if (!next.enabled) next.amount = 0
+    patchProject({ swing: next })
+  }
+
+  function setMidiBakeSwing(midiBakeSwing: boolean): void {
+    patchProject({ midiBakeSwing: !!midiBakeSwing })
   }
 
   function setTonality(tonality: number, preferFlats?: boolean): void {
@@ -757,7 +786,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       notes: [...p.notes, note],
       lengthTicks,
       view: { ...p.view, mode: 'compose' },
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     selectNote(note.id)
     selectedExpressionId.value = null
@@ -790,7 +819,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
           measureTicks(p.timeSignature),
         )
       : p.lengthTicks
-    current.value = { ...p, notes, lengthTicks, updatedAt: Date.now() }
+    current.value = { ...p, notes, lengthTicks, updatedAt: now() }
     scheduleSave()
   }
 
@@ -820,7 +849,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       lengthTicks = ensureLengthForNote(lengthTicks, next.startTick, next.durationTicks, mTicks)
       return next
     })
-    current.value = { ...p, notes, lengthTicks, updatedAt: Date.now() }
+    current.value = { ...p, notes, lengthTicks, updatedAt: now() }
     scheduleSave()
   }
 
@@ -846,7 +875,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     current.value = {
       ...p,
       notes: p.notes.filter((n) => !remove.has(n.id)),
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     selectedNoteIds.value = selectedNoteIds.value.filter((id) => !remove.has(id))
     scheduleSave()
@@ -936,7 +965,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       notes: [...p.notes, ...created],
       lengthTicks,
       view: { ...p.view, mode: 'compose' },
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     selectedNoteIds.value = created.map((n) => n.id)
     selectedExpressionId.value = null
@@ -984,7 +1013,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       ...p,
       parts: [...p.parts, part],
       mix: syncProjectMix([...p.parts, part], p.mix),
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -1005,7 +1034,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         }
         return next
       }),
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -1026,7 +1055,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       notes,
       mix: syncProjectMix(parts, p.mix),
       view: { ...p.view, activePartId, melodyPartId },
-      updatedAt: Date.now(),
+      updatedAt: now(),
     }
     scheduleSave()
   }
@@ -1113,7 +1142,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   async function removeProject(id: string): Promise<void> {
-    await svc().repository.remove(id)
+    await deleteTagRoll(svc().repository, id)
     if (current.value?.id === id) current.value = null
     await refreshList()
   }
@@ -1203,6 +1232,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setPitchPipeSoundId,
     setBlowPitchEnabled,
     setMetronomeEnabled,
+    setMetronomeSwing,
+    setSwing,
+    setMidiBakeSwing,
     setTonality,
     setSoundEnvelope,
     addNote,

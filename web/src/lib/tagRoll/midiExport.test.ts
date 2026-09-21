@@ -47,4 +47,22 @@ describe('tagRoll midiExport', () => {
     expect(nTracks(two)).toBe(2)
     expect(all.length).toBeGreaterThan(one.length)
   })
+
+  it('bake swing on/off produces different MIDI when swing is enabled', () => {
+    const p = projectWithNotes()
+    p.notes = [
+      {
+        id: 'n1',
+        partId: p.parts[0]!.id,
+        midi: 60,
+        startTick: TAG_ROLL_PPQ / 2,
+        durationTicks: TAG_ROLL_PPQ / 2,
+      },
+    ]
+    p.swing = { enabled: true, unit: 'eighth', style: 'triplet', amount: 1 }
+    p.midiBakeSwing = true
+    const baked = exportTagRollMidi(p, 'one', { bakeSwing: true })
+    const straight = exportTagRollMidi(p, 'one', { bakeSwing: false })
+    expect([...baked]).not.toEqual([...straight])
+  })
 })

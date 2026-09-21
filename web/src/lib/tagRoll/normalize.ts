@@ -6,6 +6,8 @@ import { loadPitchPipeSoundId } from '../../audio/pitchPipeVoice'
 import { migratePartHotkey, normalizePartHotkey } from './partHotkeys'
 import { syncProjectMix } from './mix'
 import { allocatePrefixedId, newTagRollProjectId } from './ids'
+import { normalizeSoundEnvelope } from './soundEnvelope'
+import { TAG_ROLL_DEFAULT_SWING, normalizeSwing } from './swingMap'
 import {
   TAG_ROLL_CELL_H_MAX,
   TAG_ROLL_CELL_H_MIN,
@@ -36,7 +38,6 @@ import {
   type TagRollTempoMarker,
   type TagRollViewPrefs,
 } from './types'
-import { normalizeSoundEnvelope } from './soundEnvelope'
 import {
   createDefaultTempoMarkers,
   normalizeExpression,
@@ -164,6 +165,9 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     pitchPipeSoundId: loadPitchPipeSoundId(),
     blowPitchEnabled: false,
     metronomeEnabled: false,
+    metronomeSwing: true,
+    swing: { ...TAG_ROLL_DEFAULT_SWING },
+    midiBakeSwing: true,
     soundEnvelope: { ...TAG_ROLL_DEFAULT_SOUND_ENVELOPE },
     tonality: 0,
     preferFlats: false,
@@ -241,6 +245,9 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     pitchPipeSoundId,
     blowPitchEnabled: Boolean(o.blowPitchEnabled),
     metronomeEnabled: Boolean(o.metronomeEnabled),
+    metronomeSwing: o.metronomeSwing === false ? false : true,
+    swing: normalizeSwing(o.swing),
+    midiBakeSwing: o.midiBakeSwing === false ? false : true,
     soundEnvelope: normalizeSoundEnvelope(o.soundEnvelope),
     tonality: clamp(Math.round(Number(o.tonality) || 0), 0, 11),
     preferFlats: Boolean(o.preferFlats),

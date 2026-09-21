@@ -60,9 +60,23 @@ describe('audioBounce planning', () => {
     vi.restoreAllMocks()
   })
 
-  it('converts ticks to seconds at project BPM', () => {
-    expect(ticksToSec(TAG_ROLL_PPQ, 120)).toBeCloseTo(0.5)
-    expect(ticksToSec(TAG_ROLL_PPQ * 4, 60)).toBeCloseTo(4)
+  it('plans bounce note onsets with swing baked into wall-clock', () => {
+    const p = projectWithLeadNote({ startTick: TAG_ROLL_PPQ / 2, bpm: 120 })
+    p.notes = p.notes.slice(0, 1)
+    p.notes[0]!.durationTicks = TAG_ROLL_PPQ / 2
+    p.swing = { enabled: true, unit: 'eighth', style: 'triplet', amount: 1 }
+    const straight = planPartBounceEvents(p.notes, {
+      ...p,
+      swing: { enabled: false, unit: 'eighth', style: 'triplet', amount: 0 },
+    })
+    const swung = planPartBounceEvents(p.notes, p)
+    expect(straight[0]!.kind).toBe('attack')
+    expect(swung[0]!.kind).toBe('attack')
+    if (straight[0]!.kind === 'attack' && swung[0]!.kind === 'attack') {
+      expect(swung[0].startSec).toBeGreaterThan(straight[0].startSec)
+      // Pair total still one beat — note ends on the downbeat.
+      expect(swung[0].endSec).toBeCloseTo(straight[0].endSec, 5)
+    }
   })
 
   it('sanitizes track name fragments', () => {

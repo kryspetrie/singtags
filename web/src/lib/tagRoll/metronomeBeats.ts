@@ -89,6 +89,37 @@ export function beatsCrossedSigned(
   return out
 }
 
+/**
+ * Subdivision boundaries in (`fromTick`, `toTick`] at `unitTicks` spacing.
+ * `downbeat` is true when the hit lands on a measure downbeat (beat 0).
+ */
+export function subdivisionsCrossed(
+  fromTick: number,
+  toTick: number,
+  unitTicks: number,
+  ts: TagRollTimeSignature,
+  ppq = TAG_ROLL_PPQ,
+): MetronomeBeatHit[] {
+  if (!(toTick > fromTick) || !(unitTicks > 0)) return []
+  const unit = Math.max(1, Math.round(unitTicks))
+  const mt = measureTicks(ts, ppq)
+  const bt = beatTicks(ts, ppq)
+  const out: MetronomeBeatHit[] = []
+  let tick = Math.floor(fromTick / unit) * unit
+  if (tick <= fromTick) tick += unit
+  for (; tick <= toTick + 1e-6; tick += unit) {
+    const t = Math.round(tick)
+    const inMeasure = ((t % mt) + mt) % mt
+    const beatIndex = Math.min(ts.numerator - 1, Math.floor(inMeasure / bt))
+    out.push({
+      tick: t,
+      beatIndex,
+      downbeat: Math.abs(inMeasure) <= 0.5,
+    })
+  }
+  return out
+}
+
 /** True when `tick` lands on a beat boundary (within 0.5 tick). */
 export function isOnBeat(
   tick: number,

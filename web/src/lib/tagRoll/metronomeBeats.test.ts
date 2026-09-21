@@ -11,6 +11,7 @@ import {
   beatsCrossed,
   beatsCrossedSigned,
   isOnBeat,
+  subdivisionsCrossed,
 } from './metronomeBeats'
 import { TAG_ROLL_PPQ } from './types'
 
@@ -55,5 +56,14 @@ describe('metronomeBeats', () => {
     const hits = beatsCrossedSigned(-beat * 4, 0, ts44)
     expect(hits.map((h) => h.tick)).toEqual([-beat * 3, -beat * 2, -beat, 0])
     expect(hits.map((h) => h.downbeat)).toEqual([false, false, false, true])
+  })
+
+  it('lists swing-unit subdivisions with downbeat on measure starts', () => {
+    const eighth = beat / 2
+    const hits = subdivisionsCrossed(0, beat, eighth, ts44)
+    expect(hits.map((h) => h.tick)).toEqual([eighth, beat])
+    expect(hits.every((h) => !h.downbeat)).toBe(true)
+    const acrossBar = subdivisionsCrossed(beat * 3.5, beat * 4, eighth, ts44)
+    expect(acrossBar.some((h) => h.tick === beat * 4 && h.downbeat)).toBe(true)
   })
 })

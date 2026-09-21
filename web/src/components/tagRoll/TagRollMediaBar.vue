@@ -21,6 +21,7 @@ import {
   TAG_ROLL_PHRASE_DECAY_SEC_MAX,
   TAG_ROLL_PHRASE_DECAY_SEC_MIN,
 } from '../../lib/tagRoll/soundEnvelope'
+import { TAG_ROLL_SWING_SHUFFLE_AMOUNT } from '../../lib/tagRoll/swingMap'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
@@ -185,6 +186,33 @@ function onMetronome(e: Event): void {
   store.setMetronomeEnabled((e.target as HTMLInputElement).checked)
 }
 
+function onMetronomeSwing(e: Event): void {
+  store.setMetronomeSwing((e.target as HTMLInputElement).checked)
+}
+
+function onSwingEnabled(e: Event): void {
+  store.setSwing({ enabled: (e.target as HTMLInputElement).checked })
+}
+
+function onSwingUnit(e: Event): void {
+  const v = (e.target as HTMLSelectElement).value
+  if (v === 'eighth' || v === 'sixteenth') store.setSwing({ unit: v })
+}
+
+function onSwingStyle(e: Event): void {
+  const v = (e.target as HTMLSelectElement).value
+  if (v === 'triplet' || v === 'ratio') store.setSwing({ style: v })
+}
+
+function onSwingAmount(e: Event): void {
+  const v = Number((e.target as HTMLInputElement).value)
+  if (Number.isFinite(v)) store.setSwing({ amount: v, enabled: v > 0 })
+}
+
+function snapSwingShuffle(): void {
+  store.setSwing({ enabled: true, style: 'triplet', amount: TAG_ROLL_SWING_SHUFFLE_AMOUNT })
+}
+
 function onMetronomeSound(e: Event): void {
   prefs.setTagRollMetronomeSound((e.target as HTMLSelectElement).value)
 }
@@ -330,6 +358,98 @@ onUnmounted(() => {
                 aria-label="Metronome during playback"
                 @change="onMetronome"
               />
+            </label>
+            <label
+              class="field"
+              :title="tagRollTip('With swing on, click swung subdivisions (8ths/16ths) instead of beats only')"
+            >
+              <span class="lbl">Swing click</span>
+              <input
+                type="checkbox"
+                class="chk"
+                :checked="project.metronomeSwing !== false"
+                :disabled="isView || !project.metronomeEnabled || !project.swing?.enabled"
+                aria-label="Metronome swing subdivisions"
+                @change="onMetronomeSwing"
+              />
+            </label>
+            <label
+              class="field"
+              :title="tagRollTip('Swing feel for playback and MP3 (edit grid stays straight; playhead may drift within a beat)')"
+            >
+              <span class="lbl">Swing</span>
+              <input
+                type="checkbox"
+                class="chk"
+                :checked="project.swing?.enabled"
+                :disabled="isView"
+                aria-label="Enable swing"
+                @change="onSwingEnabled"
+              />
+            </label>
+            <label
+              class="field"
+              :title="tagRollTip('Which even subdivision is delayed')"
+            >
+              <span class="lbl">Unit</span>
+              <select
+                class="sel"
+                :value="project.swing?.unit ?? 'eighth'"
+                :disabled="isView || !project.swing?.enabled"
+                aria-label="Swing unit"
+                @change="onSwingUnit"
+              >
+                <option value="eighth">8th</option>
+                <option value="sixteenth">16th</option>
+              </select>
+            </label>
+            <label
+              class="field"
+              :title="tagRollTip('Shuffle locks toward triplets; Heavy goes toward a dotted split')"
+            >
+              <span class="lbl">Feel</span>
+              <select
+                class="sel"
+                :value="project.swing?.style ?? 'triplet'"
+                :disabled="isView || !project.swing?.enabled"
+                aria-label="Swing style"
+                @change="onSwingStyle"
+              >
+                <option value="triplet">Shuffle</option>
+                <option value="ratio">Heavy</option>
+              </select>
+            </label>
+            <label
+              class="field wide"
+              :title="tagRollTip('0 = straight · ~0.67 = classic shuffle · 1 = full')"
+            >
+              <span class="lbl">Amount {{ Math.round((project.swing?.amount ?? 0) * 100) }}%</span>
+              <input
+                type="range"
+                class="range"
+                min="0"
+                max="1"
+                step="0.01"
+                list="tag-roll-swing-notches"
+                :value="project.swing?.amount ?? 0"
+                :disabled="isView || !project.swing?.enabled"
+                aria-label="Swing amount"
+                @input="onSwingAmount"
+              />
+              <datalist id="tag-roll-swing-notches">
+                <option :value="0" label="Straight"></option>
+                <option :value="TAG_ROLL_SWING_SHUFFLE_AMOUNT" label="Shuffle"></option>
+                <option :value="1" label="Full"></option>
+              </datalist>
+              <button
+                type="button"
+                class="link-btn swing-notch"
+                :disabled="isView"
+                :title="tagRollTip('Snap to classic shuffle (~67%)')"
+                @click="snapSwingShuffle"
+              >
+                Shuffle
+              </button>
             </label>
             <label
               class="field"
@@ -872,6 +992,11 @@ onUnmounted(() => {
   width: 1.05rem;
   height: 1.05rem;
   accent-color: var(--accent);
+}
+.swing-notch {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
 }
 .transport {
   display: inline-flex;

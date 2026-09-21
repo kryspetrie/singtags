@@ -35,6 +35,10 @@ function toggleSingTogether(): void {
 function toggleTagStudio(): void {
   prefs.setTagRollEnabled(!prefs.tagRollEnabled)
 }
+
+function toggleArranging(): void {
+  prefs.setArrangingEnabled(!prefs.arrangingEnabled)
+}
 </script>
 
 <template>
@@ -86,6 +90,40 @@ function toggleTagStudio(): void {
           :aria-checked="prefs.tagRollEnabled"
           aria-label="Tag Studio"
           @change="toggleTagStudio"
+        />
+      </label>
+    </section>
+
+    <section class="card" aria-labelledby="arranging-h">
+      <h2 id="arranging-h" class="card-title">Arranging</h2>
+      <p class="card-desc">
+        Future Labs arranging coach (pillars, contest profile, harmony tools). Gate only for now —
+        no routes until the arranging package is ported into SingTags.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.arrangingEnabled }"
+        title="Enable Arranging (coming soon)"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Arranging</span>
+          <span class="setting-desc">
+            {{
+              prefs.arrangingEnabled
+                ? 'Flag on — coach UI not shipped yet'
+                : 'Off — ready for the upcoming Labs package port'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.arrangingEnabled"
+          :aria-checked="prefs.arrangingEnabled"
+          aria-label="Arranging"
+          @change="toggleArranging"
         />
       </label>
     </section>

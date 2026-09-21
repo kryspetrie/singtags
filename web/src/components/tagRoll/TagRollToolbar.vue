@@ -142,6 +142,10 @@ function onExport(mode: 'one' | 'two' | 'all'): void {
   emit('exportMidi', mode)
 }
 
+function onMidiBakeSwing(e: Event): void {
+  store.setMidiBakeSwing((e.target as HTMLInputElement).checked)
+}
+
 function onExportMusicXml(): void {
   exportOpen.value = false
   emit('exportMusicXml')
@@ -524,6 +528,20 @@ onUnmounted(() => {
           Export ▾
         </button>
         <div v-if="exportOpen" class="menu export-menu-pop" role="menu">
+          <label
+            v-if="project?.swing?.enabled"
+            class="bake-row"
+            :title="tagRollTip('Rewrite MIDI note times with swing (recommended)')"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :checked="project.midiBakeSwing !== false"
+              aria-label="Bake swing into MIDI score"
+              @change="onMidiBakeSwing"
+            />
+            Bake swing into MIDI
+          </label>
           <button type="button" role="menuitem" @click="onExport('one')">MIDI · 1 track</button>
           <button type="button" role="menuitem" @click="onExport('two')">MIDI · 2 tracks</button>
           <button type="button" role="menuitem" @click="onExport('all')">MIDI · all parts</button>
@@ -741,6 +759,21 @@ onUnmounted(() => {
 }
 .menu button:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.bake-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem 0.35rem;
+  font-size: 0.82rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.15rem;
+  cursor: default;
+  user-select: none;
+}
+.bake-row input {
+  accent-color: var(--accent);
 }
 .btn {
   min-height: 34px;

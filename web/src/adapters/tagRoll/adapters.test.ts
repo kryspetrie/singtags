@@ -18,7 +18,7 @@ describe('tagRoll adapters', () => {
       .spyOn(musicxmlExport, 'exportTagRollMusicXml')
       .mockReturnValue(new Uint8Array([2]))
     expect([...createMidiExporter().export(p, 'two')]).toEqual([1])
-    expect(midiSpy).toHaveBeenCalledWith(p, 'two')
+    expect(midiSpy).toHaveBeenCalledWith(p, 'two', undefined)
     expect([...createMusicXmlExporter().export(p)]).toEqual([2])
     expect(xmlSpy).toHaveBeenCalledWith(p)
     midiSpy.mockRestore()

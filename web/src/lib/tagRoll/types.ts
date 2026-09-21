@@ -97,6 +97,24 @@ export type TagRollExpression = TagRollFermata | TagRollTempoRamp
 
 export type TagRollExpressionTool = 'tempo' | 'fermata' | 'rit' | 'accel' | null
 
+/** Subdivision delayed for swing feel (even notes of the pair). */
+export type TagRollSwingUnit = 'eighth' | 'sixteenth'
+
+/**
+ * `triplet` — amount morphs straight → 2:1 shuffle.
+ * `ratio` — amount morphs straight → heavier (~dotted) split.
+ */
+export type TagRollSwingStyle = 'ratio' | 'triplet'
+
+/** Playback / export feel; edit grid stays straight score ticks. */
+export type TagRollSwing = {
+  enabled: boolean
+  unit: TagRollSwingUnit
+  style: TagRollSwingStyle
+  /** 0 = straight, 1 = full target for style. */
+  amount: number
+}
+
 export type TagRollPartMix = {
   partId: string
   /** Linear gain 0…1.5 (1 = unity). */
@@ -159,6 +177,21 @@ export type TagRollProject = {
   blowPitchEnabled: boolean
   /** Click the arrangement meter during live playback (downbeat vs other beats). */
   metronomeEnabled: boolean
+  /**
+   * When metronome + swing are on, also click swing-unit subdivisions (swung “ands”).
+   * Playhead rate already warps wall-clock, so crossing those ticks sounds swung.
+   */
+  metronomeSwing: boolean
+  /**
+   * Swing / shuffle feel for playback + MP3 bounce.
+   * MIDI can optionally bake swung ticks into the exported score.
+   */
+  swing: TagRollSwing
+  /**
+   * When true (default), MIDI export rewrites note times with swing baked in.
+   * Ignored when swing is off.
+   */
+  midiBakeSwing: boolean
   /** Attack / note-off decay for built-in synth & samples. */
   soundEnvelope: TagRollSoundEnvelope
   /** Pitch-class root (0=C … 11=B) — scale highlight + blow-pitch tonic. */

@@ -43,6 +43,7 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.audioEncodeQuality.v1',
   'singtags.labs.audioRecorder.enabled.v1',
   'singtags.labs.singTogether.enabled.v1',
+  'singtags.labs.arranging.enabled.v1',
   'singtags.primaryNav.order.v1',
   'singtags.primaryNav.hidden.v1',
   'singtags.primaryNav.pinOverride.v1',
