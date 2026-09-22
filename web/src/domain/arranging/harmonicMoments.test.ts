@@ -78,4 +78,23 @@ describe('buildHarmonicMoments', () => {
     expect(ev.durationTicks).toBe(480)
     expect(ev.id).toBe('post')
   })
+
+  it('defers lead portamento so the destination defines the chord at source release', () => {
+    const mel = [lead('from', 0, 480, 60), lead('to', 240, 480, 64)]
+    const moments = momentsFromMelodyAlone(mel)
+    expect(moments.map((m) => m.startTick)).toEqual([0, 480])
+    expect(moments[0]).toMatchObject({
+      leadMidi: 60,
+      leadNoteId: 'from',
+      durationTicks: 480,
+      heldLead: false,
+    })
+    expect(moments[1]).toMatchObject({
+      leadMidi: 64,
+      leadNoteId: 'to',
+      startTick: 480,
+      durationTicks: 240,
+      heldLead: false,
+    })
+  })
 })

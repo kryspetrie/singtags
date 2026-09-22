@@ -27,11 +27,15 @@ import {
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
 import { syncProjectMix } from '../lib/tagRoll/mix'
+import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
+import { clipboardFromCopy, clipboardFromCut } from '../lib/tagRoll/noteClipboardActions'
+import { type TagRollNoteClipboard } from '../lib/tagRoll/selection'
 import {
-  clipboardToNotesAt,
-  notesToClipboard,
-  type ClipboardNote,
-} from '../lib/tagRoll/selection'
+  tryBoundInspectCopy,
+  tryBoundInspectCut,
+  tryBoundInspectDelete,
+  tryBoundInspectPasteHighlight,
+} from '../lib/tagRoll/chordCursorTransport'
 import { measureTicks, upsertRampEndMarker } from '../lib/tagRoll/tempoMap'
 import {
   canDeleteProjectMeasure,
@@ -91,7 +95,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   const pointerTool = ref<TagRollPointerTool>('edit')
   const addDurationTicks = ref(TAG_ROLL_PPQ)
   const transportPlaying = ref(false)
-  const noteClipboard = shallowRef<ClipboardNote[] | null>(null)
+  const noteClipboard = shallowRef<TagRollNoteClipboard | null>(null)
   const undoStack = ref<TagRollDocumentSnapshot[]>([])
   const redoStack = ref<TagRollDocumentSnapshot[]>([])
   const canUndo = computed(() => undoStack.value.length > 0)
@@ -321,6 +325,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'clefFamily',
         'parts',
         'notes',
+        'melodyPasses',
         'localEntryId',
       ]
       const touchesMusic = musicalKeys.some((k) => k in patch)
@@ -880,20 +885,23 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p || !ids.length) return
     const remove = new Set(ids)
     pushHistory()
+    const notes = p.notes.filter((n) => !remove.has(n.id))
     current.value = {
       ...p,
-      notes: p.notes.filter((n) => !remove.has(n.id)),
+      notes,
+      melodyPasses: (p.melodyPasses ?? []).filter(
+        (l) => !remove.has(l.fromNoteId) && !remove.has(l.toNoteId),
+      ),
       updatedAt: now(),
     }
     selectedNoteIds.value = selectedNoteIds.value.filter((id) => !remove.has(id))
     scheduleSave()
   }
-
   function deleteSelectedNotes(): void {
+    if (tryBoundInspectDelete()) return
     if (!selectedNoteIds.value.length) return
     deleteNotes(selectedNoteIds.value)
   }
-
   function selectNote(
     id: string | null,
     opts?: { additive?: boolean },
@@ -945,38 +953,31 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   function copySelectedNotes(): boolean {
-    const notes = selectedNotes.value
-    if (!notes.length) return false
-    noteClipboard.value = notesToClipboard(notes)
+    const clip = clipboardFromCopy(tryBoundInspectCopy, selectedNotes.value)
+    if (!clip) return false
+    noteClipboard.value = clip
     return true
   }
-
+  function cutSelectedNotes(): boolean {
+    const hit = clipboardFromCut(tryBoundInspectCut, selectedNotes.value)
+    if (!hit) return false
+    noteClipboard.value = hit.clip
+    if (hit.removeIds.length) deleteNotes(hit.removeIds)
+    return true
+  }
   function pasteNotesAtPlayhead(): boolean {
     const p = current.value
     const clip = noteClipboard.value
-    if (!p || !clip?.length) return false
-    const partIds = new Set(p.parts.map((x) => x.id))
-    const active = p.view.activePartId ?? p.parts[0]?.id
-    const mapped = clip.map((c) => ({
-      ...c,
-      partId: partIds.has(c.partId) ? c.partId : (active ?? c.partId),
-    }))
+    if (!p || !clip) return false
+    const applied = applyNoteClipboardAtPlayhead(p, clip, () => svc().idGen.next('trn'))
+    if (!applied) return false
     pushHistory()
-    const created = clipboardToNotesAt(mapped, p.view.playheadTick, () => svc().idGen.next('trn'))
-    let lengthTicks = p.lengthTicks
-    const mTicks = measureTicks(p.timeSignature)
-    for (const n of created) {
-      lengthTicks = ensureLengthForNote(lengthTicks, n.startTick, n.durationTicks, mTicks)
-    }
-    current.value = {
-      ...p,
-      notes: [...p.notes, ...created],
-      lengthTicks,
-      view: { ...p.view, mode: 'compose' },
-      updatedAt: now(),
-    }
-    selectedNoteIds.value = created.map((n) => n.id)
+    current.value = { ...applied.project, updatedAt: now() }
+    selectedNoteIds.value = applied.createdIds
     selectedExpressionId.value = null
+    if (applied.spanTicks != null) {
+      tryBoundInspectPasteHighlight(applied.origin, applied.origin + applied.spanTicks)
+    }
     scheduleSave()
     return true
   }
@@ -1295,10 +1296,12 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     deleteNote,
     deleteNotes,
     deleteSelectedNotes,
+    nextNoteId: () => svc().idGen.next('trn'),
     selectNote,
     selectNotes,
     clearNoteSelection,
     copySelectedNotes,
+    cutSelectedNotes,
     pasteNotesAtPlayhead,
     upsertHarmonyNotes,
     replaceNotesFromExternal,

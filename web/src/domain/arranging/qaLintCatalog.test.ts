@@ -118,6 +118,24 @@ describe('QA lint catalog', () => {
     expect(lintArrangement(p).some((l) => l.ruleId === 'illegal-nature')).toBe(true)
   })
 
+  it('does not flag unidentified stacks as outside vocabulary', () => {
+    const p = createEmptyArrangement()
+    p.contestProfile = 'sai11'
+    p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
+    p.pillars = [
+      { id: 'p', rootPc: 0, startTick: 0, endTick: 480, source: 'user', confirmed: true },
+    ]
+    p.stacks = [
+      stack({
+        natureId: 'unknown',
+        midi: { bass: 48, bari: 55, lead: 60, tenor: 64 },
+      }),
+    ]
+    const lints = lintArrangement(p)
+    expect(lints.some((l) => l.ruleId === 'illegal-nature')).toBe(false)
+    expect(lints.some((l) => l.ruleId === 'unrecognized-nature')).toBe(true)
+  })
+
   it('aug-pillar and aug-many', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 120, role: 'pmn' }]

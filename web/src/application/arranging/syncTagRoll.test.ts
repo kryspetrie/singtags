@@ -92,8 +92,48 @@ describe('syncTagRoll bridge', () => {
     const merged = mergeArrangementIntoTagRoll(tag, arr, createSequentialIdGenerator(50))
     const leadNotes = merged.notes.filter((n) => n.partId === lead.id)
     expect(leadNotes).toHaveLength(1)
-    expect(leadNotes[0]).toMatchObject({ midi: 67, startTick: 0, durationTicks: 1920 })
+    expect(leadNotes[0]).toMatchObject({
+      id: 'post',
+      midi: 67,
+      startTick: 0,
+      durationTicks: 1920,
+    })
     const tenor = merged.parts.find((p) => p.name === 'Tenor')!
     expect(merged.notes.filter((n) => n.partId === tenor.id)).toHaveLength(2)
+  })
+
+  it('apply-style merge writes missing TBB parts without rewriting lead', () => {
+    const tag = createEmptyTagRollProject({ title: 'Lead only' })
+    const lead = tag.parts.find((p) => p.name === 'Lead')!
+    tag.notes = [
+      { id: 'n1', partId: lead.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+    ]
+    const arr = tagStudioToArrangement(tag, createSequentialIdGenerator(1))
+    expect(arr.stacks).toHaveLength(0)
+    arr.stacks = [
+      {
+        id: 's1',
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ,
+        natureId: 'seventh',
+        rootPc: 0,
+        voicing: '1735',
+        spread: false,
+        layer: 'primary',
+        scfGroup: null,
+        pillarId: null,
+        midi: { tenor: 67, lead: 60, bari: 55, bass: 48 },
+        ruleTags: [],
+      },
+    ]
+    const merged = mergeArrangementIntoTagRoll(tag, arr, createSequentialIdGenerator(20))
+    const byName = new Map(merged.parts.map((p) => [p.id, p.name]))
+    const counts = { Lead: 0, Tenor: 0, Bari: 0, Bass: 0 }
+    for (const n of merged.notes) {
+      const name = byName.get(n.partId)
+      if (name && name in counts) counts[name as keyof typeof counts]++
+    }
+    expect(counts).toEqual({ Lead: 1, Tenor: 1, Bari: 1, Bass: 1 })
+    expect(merged.notes.find((n) => n.id === 'n1')).toBeTruthy()
   })
 })

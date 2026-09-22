@@ -37,6 +37,7 @@ import {
   melodyWithLyric,
 } from '../domain/arranging/embellishments'
 import { tipsForProfile } from '../domain/arranging/orgTips'
+import { DEFAULT_CONTEST_PROFILE } from '../domain/arranging/contestProfile'
 import { DEFAULT_LENGTH, DEFAULT_SNAP, snapTick } from '../domain/arranging/snap'
 import { getHistory, putHistory } from '../offline/arrangingDb'
 import {
@@ -51,6 +52,10 @@ import {
   type TuningMode,
   type WizardStep,
 } from '../domain/arranging/types'
+import {
+  normalizeQaConfig,
+  type ArrangementQaConfig,
+} from '../domain/arranging/coachConfig'
 import {
   addPillarAtTick,
   deletePillar,
@@ -287,7 +292,11 @@ export const useArrangementStore = defineStore('arrangement', () => {
       p.contestProfile = profile
     })
   }
-
+  function setQaConfig(next: ArrangementQaConfig): void {
+    mutate((p) => {
+      p.qaConfig = normalizeQaConfig(next)
+    })
+  }
   function setTonality(pc: number): void {
     mutate((p) => {
       p.tonality = ((pc % 12) + 12) % 12
@@ -377,7 +386,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
   }
 
   const orgTips = computed(() => {
-    const profile = current.value?.contestProfile ?? 'sai11'
+    const profile = current.value?.contestProfile ?? DEFAULT_CONTEST_PROFILE
     return tipsForProfile(profile, 'ttbb')
   })
 
@@ -753,6 +762,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
     prevStep,
     setTuningMode,
     setContestProfile,
+    setQaConfig,
     setTonality,
     addMelodyNote,
     updateMelodyNote,

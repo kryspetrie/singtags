@@ -23,6 +23,33 @@ export function noteIdsInRange(
     .map((n) => n.id)
 }
 
+/**
+ * Pillar inspect selection: prefer the first real stack onset (2+ parts starting
+ * together) inside the span. Avoids grabbing a held Lead that merely sounds at
+ * the measure start (Lilly-style posts) — L/R bounds carry the pillar window.
+ */
+export function noteIdsForPillarInspect(
+  project: TagRollProject,
+  startTick: number,
+  endTick: number,
+): string[] {
+  const end = Math.max(startTick + 1, endTick)
+  const onsetTicks = [
+    ...new Set(
+      project.notes
+        .filter((n) => n.startTick >= startTick && n.startTick < end)
+        .map((n) => n.startTick),
+    ),
+  ].sort((a, b) => a - b)
+  for (const t of onsetTicks) {
+    const at = project.notes.filter((n) => n.startTick === t)
+    if (at.length >= 2) return at.map((n) => n.id)
+  }
+  const first = onsetTicks[0]
+  if (first == null) return []
+  return project.notes.filter((n) => n.startTick === first).map((n) => n.id)
+}
+
 /** Prefer a named part at tick (e.g. Tenor), else fall back to column. */
 export function noteIdsAtTickForPart(
   project: TagRollProject,

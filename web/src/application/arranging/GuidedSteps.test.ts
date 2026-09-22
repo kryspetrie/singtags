@@ -2,18 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { createEmptyArrangement } from '../../domain/arranging/types'
 import {
   focusTabForGuidedStep,
+  modeForGuidedStep,
   resolveGuidedStep,
   tipForGuidedStep,
   GUIDED_STEPS,
 } from './GuidedSteps'
 
 describe('GuidedSteps', () => {
-  it('defines exactly four steps (no VI–IX chrome)', () => {
-    expect(GUIDED_STEPS).toHaveLength(4)
-    expect(GUIDED_STEPS.map((s) => s.id)).toEqual(['pillars', 'roles', 'chords', 'review'])
+  it('defines a single ordered path', () => {
+    expect(GUIDED_STEPS.map((s) => s.id)).toEqual([
+      'pillars',
+      'roles',
+      'chords',
+      'check',
+      'polish',
+    ])
   })
 
-  it('resolves pillars → roles → chords → review', () => {
+  it('resolves pillars → roles → chords → check (compose)', () => {
     const p = createEmptyArrangement('G')
     expect(resolveGuidedStep(p)).toBe('pillars')
     p.melody = [{ id: 'm1', midi: 60, startTick: 0, durationTicks: 480, role: 'unknown' }]
@@ -39,13 +45,18 @@ describe('GuidedSteps', () => {
         ruleTags: [],
       },
     ]
-    expect(resolveGuidedStep(p)).toBe('review')
+    expect(resolveGuidedStep(p)).toBe('polish')
   })
 
-  it('maps steps to focus tabs and tips', () => {
+  it('maps steps to focus tabs, mode, and tips', () => {
     expect(focusTabForGuidedStep('pillars')).toBe('now')
     expect(focusTabForGuidedStep('chords')).toBe('choose')
-    expect(focusTabForGuidedStep('review')).toBe('check')
-    expect(tipForGuidedStep('roles')).toMatch(/PMN|SMN/)
+    expect(focusTabForGuidedStep('check')).toBe('check')
+    expect(focusTabForGuidedStep('polish')).toBe('polish')
+    expect(modeForGuidedStep('chords')).toBe('arrange')
+    expect(modeForGuidedStep('polish')).toBe('review')
+    expect(tipForGuidedStep('roles')).toMatch(/strong|passing/i)
+    expect(GUIDED_STEPS.every((s) => s.buttonTip.length > 20)).toBe(true)
+    expect(GUIDED_STEPS.every((s) => s.glossaryIds.length > 0)).toBe(true)
   })
 })

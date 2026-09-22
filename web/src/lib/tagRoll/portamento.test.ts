@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   easeInOutCosine,
+  deferOverlappingOnsets,
   findOverlappingPredecessor,
   frequencyEaseInOutCurve,
   hasImmediateFollower,
@@ -57,6 +58,17 @@ describe('portamento', () => {
     expect(links[0]?.to.id).toBe('b')
     expect(links[0]?.startTick).toBe(240)
     expect(links[0]?.endTick).toBe(480)
+  })
+
+  it('defers overlapping onsets to the source release', () => {
+    const out = deferOverlappingOnsets([
+      { id: 'a', startTick: 0, durationTicks: 480 },
+      { id: 'b', startTick: 240, durationTicks: 480 },
+    ])
+    expect(out).toEqual([
+      { id: 'a', startTick: 0, durationTicks: 480 },
+      { id: 'b', startTick: 480, durationTicks: 240 },
+    ])
   })
 
   it('decays only when no immediate same-part follower', () => {

@@ -47,6 +47,7 @@ import {
   easeInOutCosine,
   listPortamentoLinks,
 } from '../../lib/tagRoll/portamento'
+import { strokeMelodyPassLinks } from '../../lib/tagRoll/melodyPass'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const RESIZE_EDGE = 8
@@ -627,6 +628,18 @@ function draw(): void {
     }
     ctx.restore()
   }
+
+  strokeMelodyPassLinks(ctx, props.project, {
+    scrollX: scrollX.value,
+    scrollY: scrollY.value,
+    cellW: cw,
+    cellH: ch,
+    cssW: cssW.value,
+    cssH: cssH.value,
+    accent,
+    ticksToPx,
+    midiToY,
+  })
 
   const primaryId = primarySelectedId.value
   if (primaryId && selectedIds.size === 1) {
@@ -1307,6 +1320,7 @@ watch(
     props.project.snapTicks,
     props.project.notes,
     props.project.parts,
+    props.project.melodyPasses,
     props.selectedNoteIds,
     props.ghostNotes,
     props.chordCursor,

@@ -3,6 +3,7 @@
  * Written score timeline (not fermata-expanded performance time).
  */
 import { KEY_CHOICES, vexKeySpec } from './keySignature'
+import { deferOverlappingOnsets } from './portamento'
 import type { TagRollNote, TagRollProject, TagRollTimeSignature } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
 
@@ -76,31 +77,7 @@ type Slice = {
  * its written length so the sounding end stays the same).
  */
 export function collapsePartNotesMono(notes: readonly TagRollNote[]): TagRollNote[] {
-  const sorted = [...notes].sort(
-    (a, b) => a.startTick - b.startTick || a.midi - b.midi || a.id.localeCompare(b.id),
-  )
-  const out: TagRollNote[] = []
-  for (const n of sorted) {
-    const copy = { ...n }
-    const last = out[out.length - 1]
-    if (last && copy.startTick < last.startTick + last.durationTicks) {
-      if (copy.startTick <= last.startTick) {
-        // Same onset: keep both for chord emission later.
-        out.push(copy)
-        continue
-      }
-      const fromEnd = last.startTick + last.durationTicks
-      const toEnd = copy.startTick + copy.durationTicks
-      if (toEnd <= fromEnd) {
-        // Destination ends during the glide — no separate written onset.
-        continue
-      }
-      copy.startTick = fromEnd
-      copy.durationTicks = Math.max(1, toEnd - fromEnd)
-    }
-    out.push(copy)
-  }
-  return out
+  return deferOverlappingOnsets([...notes], (a, b) => a.midi - b.midi || a.id.localeCompare(b.id))
 }
 
 function notesToTimeline(notes: readonly TagRollNote[], lengthTicks: number): Slice[] {

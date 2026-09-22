@@ -72,8 +72,33 @@ describe('tagRollBridge', () => {
     expect(back.stacks).toHaveLength(1)
     expect(back.stacks[0]!.midi?.lead).toBe(62)
     expect(back.stacks[0]!.midi?.bass).toBe(arr.stacks[0]!.midi!.bass)
+    expect(back.stacks[0]!.natureId).toBe('seventh')
+    expect(back.stacks[0]!.natureId).not.toBe('unknown')
     expect(back.bpm).toBe(112)
     expect(back.preferFlats).toBe(true)
+  })
+
+  it('identifies library natures when importing TTBB notes (not unknown)', () => {
+    const gen = seqId()
+    const arr = fixture()
+    const tag = arrangementToTagRoll(arr, gen)
+    const back = tagRollToArrangement(tag, seqId())
+    const illegal = back.stacks.filter((s) => s.natureId === 'unknown')
+    expect(illegal).toHaveLength(0)
+    expect(back.stacks[0]!.rootPc).toBe(arr.stacks[0]!.rootPc)
+  })
+
+  it('identifies from sounding parts only (no invented fill-in pitches)', () => {
+    const gen = seqId()
+    const arr = fixture()
+    const tag = arrangementToTagRoll(arr, gen)
+    // Drop bari — present D+F still imply G7 (7th present), not the old placeholder “sixth”.
+    const bari = tag.parts.find((p) => p.name === 'Bari')!
+    tag.notes = tag.notes.filter((n) => n.partId !== bari.id)
+    const back = tagRollToArrangement(tag, seqId())
+    expect(back.stacks).toHaveLength(1)
+    expect(back.stacks[0]!.natureId).toBe('seventh')
+    expect(back.stacks[0]!.rootPc).toBe(7)
   })
 
   it('preserves held lead posts when exporting stacks at sub-spans', () => {

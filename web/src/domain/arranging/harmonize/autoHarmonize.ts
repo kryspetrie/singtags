@@ -1,5 +1,6 @@
 import type { ChordStack, MelodyEvent, Pillar, TonalityMode } from '../types'
 import type { ContestProfile } from '../contestProfile'
+import { DEFAULT_CONTEST_PROFILE } from '../contestProfile'
 import type { IdGenerator } from '../../../ports/IdGenerator'
 import type { VoicingPitches } from '../chords'
 import { generateCandidates } from './candidateGenerator'
@@ -75,7 +76,7 @@ export function autoHarmonizeMelody(opts: {
   idGen?: IdGenerator
 }): ChordStack[] {
   const { melody, pillars, tonality } = opts
-  const profile = opts.profile ?? 'sai11'
+  const profile = opts.profile ?? DEFAULT_CONTEST_PROFILE
   const mode = opts.mode ?? 'major'
   const sorted = [...melody].sort((a, b) => a.startTick - b.startTick)
   const stacks: ChordStack[] = []

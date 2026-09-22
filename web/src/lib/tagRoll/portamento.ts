@@ -107,6 +107,41 @@ export function partVoiceKey(partId: string): string {
   return `part:${partId}`
 }
 
+/**
+ * Defer overlapping same-voice onsets for notation / coach chord timing.
+ * Keeps the earlier note’s full length; moves the later onset to that release
+ * (shortening it so the sounding end is unchanged). Same-onset items are kept.
+ */
+export function deferOverlappingOnsets<T extends { startTick: number; durationTicks: number }>(
+  items: readonly T[],
+  compare?: (a: T, b: T) => number,
+): T[] {
+  const sorted = [...items].sort(
+    (a, b) =>
+      a.startTick - b.startTick ||
+      a.durationTicks - b.durationTicks ||
+      (compare ? compare(a, b) : 0),
+  )
+  const out: T[] = []
+  for (const item of sorted) {
+    const copy = { ...item }
+    const last = out[out.length - 1]
+    if (last && copy.startTick < last.startTick + last.durationTicks) {
+      if (copy.startTick <= last.startTick) {
+        out.push(copy)
+        continue
+      }
+      const fromEnd = last.startTick + last.durationTicks
+      const toEnd = copy.startTick + copy.durationTicks
+      if (toEnd <= fromEnd) continue
+      copy.startTick = fromEnd
+      copy.durationTicks = Math.max(1, toEnd - fromEnd)
+    }
+    out.push(copy)
+  }
+  return out
+}
+
 export type PortamentoLink = {
   from: TagRollNote
   to: TagRollNote

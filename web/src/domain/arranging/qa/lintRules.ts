@@ -96,6 +96,8 @@ export const illegalNatureRule: LintRule = {
   check(project, ctx) {
     const out: ArrangementLint[] = []
     for (const s of project.stacks) {
+      // Unidentified stacks are not "outside vocabulary" — they need ID first.
+      if (!s.natureId || s.natureId === 'unknown') continue
       if (!isNatureAllowed(ctx.profile, s.natureId)) {
         out.push({
           id: `illegal-${s.id}`,
@@ -106,6 +108,26 @@ export const illegalNatureRule: LintRule = {
           data: { natureId: s.natureId },
         })
       }
+    }
+    return out
+  },
+}
+
+export const unrecognizedNatureRule: LintRule = {
+  id: 'unrecognized-nature',
+  check(project) {
+    const out: ArrangementLint[] = []
+    for (const s of project.stacks) {
+      if (!s.midi) continue
+      if (s.natureId && s.natureId !== 'unknown') continue
+      out.push({
+        id: `unrecognized-${s.id}`,
+        ruleId: 'unrecognized-nature',
+        severity: 'warn',
+        message: 'Chord not recognized in the library — revoice or pick a catalogue chord.',
+        stackId: s.id,
+        teachingId: 'L-vocab',
+      })
     }
     return out
   },
@@ -334,6 +356,7 @@ export const DEFAULT_LINT_RULES: LintRule[] = [
   pillarsRule,
   leadRangeRule,
   illegalNatureRule,
+  unrecognizedNatureRule,
   augUsageRule,
   dimSustainRule,
   voicingIntegrityRule,

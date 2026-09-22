@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Coach mode landing — pick Quick / Guided / Review with plain descriptions.
+ * Coach mode landing — pick Arrange or Review.
  */
 import { COACH_MODE_CARDS, type CoachModeCard } from '../../domain/arranging/coachModeCatalog'
 import type { CoachUiMode } from '../../domain/arranging/coachTips'

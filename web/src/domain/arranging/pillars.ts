@@ -33,7 +33,8 @@ export function suggestPillars(opts: {
   const end = Math.max(...sorted.map((n) => n.startTick + n.durationTicks))
   const suggestions: PillarSuggestion[] = []
 
-  // One candidate pillar per measure (coarse); merge adjacent same roots later
+  // One candidate pillar per measure so ←/→ can step measure-by-measure.
+  // (Merging same-root neighbors used to yield one chart-length pillar.)
   const measures = Math.max(1, Math.ceil(end / measureTicks))
   for (let m = 0; m < measures; m++) {
     const startTick = m * measureTicks
@@ -55,7 +56,7 @@ export function suggestPillars(opts: {
     })
   }
 
-  return mergeAdjacent(suggestions)
+  return suggestions
 }
 
 function chordToneWeight(rel: number, mode: TonalityMode): number {
@@ -125,22 +126,6 @@ function scoreRootsForNotes(
     })
   }
   return results.sort((a, b) => b.score - a.score)
-}
-
-function mergeAdjacent(items: PillarSuggestion[]): PillarSuggestion[] {
-  if (!items.length) return []
-  const out: PillarSuggestion[] = [{ ...items[0]! }]
-  for (let i = 1; i < items.length; i++) {
-    const cur = items[i]!
-    const prev = out[out.length - 1]!
-    if (cur.rootPc === prev.rootPc && cur.startTick === prev.endTick) {
-      prev.endTick = cur.endTick
-      prev.confidence = (prev.confidence + cur.confidence) / 2
-    } else {
-      out.push({ ...cur })
-    }
-  }
-  return out
 }
 
 export function suggestionsToPillars(suggestions: readonly PillarSuggestion[]): Pillar[] {

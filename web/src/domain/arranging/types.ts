@@ -3,6 +3,9 @@
  * Pure domain: no Vue / storage / audio.
  */
 
+import type { ArrangementQaConfig } from './coachConfig'
+import { DEFAULT_QA_CONFIG } from './coachConfig'
+
 export const ARRANGEMENT_SCHEMA = 'arranging.arrangement.v1' as const
 export const ARRANGING_PPQ = 480
 
@@ -72,6 +75,9 @@ export type TuningMode = 'equal' | 'just'
 
 export type ContestProfile = 'sai11' | 'bhs_extended' | 'learning'
 
+/** Default Coach / Tag Studio ruleset — BHS extended vocabulary. */
+export const DEFAULT_CONTEST_PROFILE: ContestProfile = 'bhs_extended'
+
 /** Major vs minor-feel tonality for pillars / RN / springboards. */
 export type TonalityMode = 'major' | 'minor'
 
@@ -88,6 +94,8 @@ export type ArrangementProject = {
   wizardStep: WizardStep
   tuningMode: TuningMode
   contestProfile: ContestProfile
+  /** Which optional QA check groups run in Coach. */
+  qaConfig: ArrangementQaConfig
   melody: MelodyEvent[]
   pillars: Pillar[]
   stacks: ChordStack[]
@@ -144,7 +152,8 @@ export function createEmptyArrangement(
     ppq: ARRANGING_PPQ,
     wizardStep: 'melody',
     tuningMode: 'equal',
-    contestProfile: 'sai11',
+    contestProfile: DEFAULT_CONTEST_PROFILE,
+    qaConfig: { ...DEFAULT_QA_CONFIG, disabledGroups: [] },
     melody: [],
     pillars: [],
     stacks: [],

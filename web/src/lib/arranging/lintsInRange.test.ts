@@ -4,6 +4,7 @@ import { createEmptyArrangement } from '../../domain/arranging/types'
 import {
   filterLintsInRange,
   formatLintMeasureBeatRow,
+  lintRowParts,
   lintStartTick,
 } from './lintsInRange'
 
@@ -65,9 +66,13 @@ describe('lintsInRange', () => {
     ).toEqual(['b'])
   })
 
-  it('formats measure:beat pipe rows', () => {
+  it('formats measure:beat rows without pipe characters', () => {
     expect(
       formatLintMeasureBeatRow(lints[1]!, project, { numerator: 4, denominator: 4 }, 480),
-    ).toBe('| 1:2 | warn at 480 |')
+    ).toBe('1:2  warn at 480')
+    expect(lintRowParts(lints[1]!, project, { numerator: 4, denominator: 4 }, 480)).toEqual({
+      loc: '1:2',
+      message: 'warn at 480',
+    })
   })
 })

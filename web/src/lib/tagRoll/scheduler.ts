@@ -37,7 +37,7 @@ import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_DEFAULT_TIME_SIGNATURE, TAG_ROLL_PPQ } f
 import { beatsCrossed, subdivisionsCrossed } from './metronomeBeats'
 
 export type TagRollScheduler = {
-  play(fromTick: number, opts?: { metronomePrime?: boolean }): void
+  play(fromTick: number, opts?: { metronomePrime?: boolean; untilTick?: number }): void
   pause(): void
   stop(opts?: { resetPlayhead?: boolean }): void
   isPlaying(): boolean
@@ -76,6 +76,8 @@ export function createTagRollScheduler(opts: {
   let raf = 0
   let lastPerf = 0
   let playhead = 0
+  /** Exclusive stop bound (inspect-range playback); null = natural content end. */
+  let stopAt: number | null = null
   let fermata: FermataPhase | null = null
   const passedFermatas = new Set<string>()
   const scheduled = new Set<string>()
@@ -211,17 +213,22 @@ export function createTagRollScheduler(opts: {
 
   function scheduleNotes(t: number, lookAhead: number): void {
     const notes = [...opts.getNotes()].sort((a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id))
+    const cap = stopAt
+    const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
     for (const n of notes) {
+      if (cap != null && n.startTick >= cap) continue
       const end = n.startTick + n.durationTicks
       if (end <= t) {
         // Keep sounding through a fermata hold that begins at this note’s end.
         if (fermata?.stage !== 'hold') endNoteIfOwned(n)
         continue
       }
-      if (n.startTick <= lookAhead) {
+      if (n.startTick <= look) {
         startNote(n)
       }
-      if (active.has(n.id) && t >= end && fermata?.stage !== 'hold') {
+      // Release at natural end or when the inspect-range stop bound is reached.
+      const releaseAt = cap != null ? Math.min(end, cap) : end
+      if (active.has(n.id) && t >= releaseAt && fermata?.stage !== 'hold') {
         endNoteIfOwned(n)
       }
     }
@@ -311,7 +318,8 @@ export function createTagRollScheduler(opts: {
     opts.onPlayhead(Math.floor(playhead))
     fireMetronome(prev, next)
 
-    const endAt = playbackEndTick(opts.getNotes(), opts.getLengthTicks())
+    const naturalEnd = playbackEndTick(opts.getNotes(), opts.getLengthTicks())
+    const endAt = stopAt != null ? Math.min(stopAt, naturalEnd) : naturalEnd
     if (playhead >= endAt) {
       playing = false
       releaseAll()
@@ -327,10 +335,14 @@ export function createTagRollScheduler(opts: {
   }
 
   return {
-    play(fromTick: number, playOpts?: { metronomePrime?: boolean }) {
+    play(fromTick: number, playOpts?: { metronomePrime?: boolean; untilTick?: number }) {
       releaseAll()
       playing = true
       playhead = Math.max(0, fromTick)
+      stopAt =
+        playOpts?.untilTick != null && playOpts.untilTick > playhead
+          ? playOpts.untilTick
+          : null
       lastPerf = performance.now()
       fermata = null
       passedFermatas.clear()
@@ -362,6 +374,7 @@ export function createTagRollScheduler(opts: {
       playing = false
       cancelAnimationFrame(raf)
       fermata = null
+      stopAt = null
       releaseAll()
       opts.onPlayhead(Math.floor(playhead))
     },
@@ -369,6 +382,7 @@ export function createTagRollScheduler(opts: {
       playing = false
       cancelAnimationFrame(raf)
       fermata = null
+      stopAt = null
       releaseAll()
       if (o?.resetPlayhead) playhead = 0
       opts.onPlayhead(Math.floor(playhead))
@@ -379,6 +393,7 @@ export function createTagRollScheduler(opts: {
       playing = false
       cancelAnimationFrame(raf)
       fermata = null
+      stopAt = null
       releaseAll()
     },
   }

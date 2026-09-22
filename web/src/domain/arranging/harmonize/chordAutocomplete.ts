@@ -11,6 +11,7 @@ import { isDominantOf, secondaryDominantRootOf } from '../secondaryDominant'
 import { theoryRankBonuses } from '../theoryScores'
 import type { ChordSuggestion, TheoryFactor } from '../chordSuggestion'
 import type { ContestProfile } from '../contestProfile'
+import { DEFAULT_CONTEST_PROFILE } from '../contestProfile'
 import type { MelodyEvent, Pillar, TonalityMode } from '../types'
 import type { VoicingPitches } from '../chords'
 import type { HarmonizeCandidate } from './types'
@@ -82,7 +83,7 @@ function whySentence(
 }
 
 export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion[] {
-  const profile = input.profile ?? 'sai11'
+  const profile = input.profile ?? DEFAULT_CONTEST_PROFILE
   const mode = input.mode ?? 'major'
   const nextPillarRoot = input.nextPillarRoot ?? null
   const generated = generateCandidates({

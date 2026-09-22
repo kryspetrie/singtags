@@ -11,6 +11,12 @@ export type TickRange = {
   endTick: number
 }
 
+/** Two-column lint row: location + message (no literal pipe characters). */
+export type LintRowParts = {
+  loc: string
+  message: string
+}
+
 /** Absolute tick for a lint, when tied to a stack or melody note. */
 export function lintStartTick(
   lint: ArrangementLint,
@@ -43,14 +49,24 @@ export function filterLintsInRange(
   })
 }
 
-/** Pipe row: `| 3:2 | message |` */
+export function lintRowParts(
+  lint: ArrangementLint,
+  project: ArrangementProject,
+  ts: TagRollTimeSignature,
+  ppq = TAG_ROLL_PPQ,
+): LintRowParts {
+  const tick = lintStartTick(lint, project)
+  const loc = tick == null ? '—:—' : formatMeasureBeat(tick, ts, ppq)
+  return { loc, message: lint.message }
+}
+
+/** Single-line fallback (tests / plain text). No pipe characters. */
 export function formatLintMeasureBeatRow(
   lint: ArrangementLint,
   project: ArrangementProject,
   ts: TagRollTimeSignature,
   ppq = TAG_ROLL_PPQ,
 ): string {
-  const tick = lintStartTick(lint, project)
-  const loc = tick == null ? '—:—' : formatMeasureBeat(tick, ts, ppq)
-  return `| ${loc} | ${lint.message} |`
+  const { loc, message } = lintRowParts(lint, project, ts, ppq)
+  return `${loc}  ${message}`
 }

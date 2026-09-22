@@ -2,7 +2,10 @@
  * Logic for ArrangingCoachDock — session modes, focus tabs, harmonic moments.
  */
 import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
+import { bindCoachRollNav } from '../../lib/arranging/bindCoachRollNav'
 import { midiToNote } from '../../audio/pianoSamples'
+import { mergeCoachSessionFromExisting } from '../../application/arranging/mergeCoachSession'
+import { detectCoachEntryMode } from '../../domain/arranging/coachEntryMode'
 import { tipForCoachUi, type CoachUiMode } from '../../domain/arranging/coachTips'
 import { pcName } from '../../domain/arranging/chords/chords'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
@@ -41,13 +44,17 @@ import { setCoachHighlight } from '../../lib/arranging/coachHighlight'
 import {
   filterLintsInRange,
   formatLintMeasureBeatRow,
+  lintRowParts,
   lintStartTick,
+  type LintRowParts,
   type TickRange,
 } from '../../lib/arranging/lintsInRange'
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
+import { nextPillarIndex, sortPillarsByTime } from '../../lib/arranging/coachPillarNav'
 import { getArrangingServices } from '../../composition/arranging'
 import { useTagRollAudio } from '../../composables/useTagRollAudio'
 import { useArrangementStore } from '../../stores/arrangement'
+import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 export type CoachGhostNote = {
@@ -62,7 +69,7 @@ export type CoachDockEmit = {
   (e: 'previewGhost', ghosts: CoachGhostNote[]): void
   (e: 'clearGhost'): void
   (e: 'focusTick', tick: number): void
-  (e: 'focusRange', startTick: number, endTick: number): void
+  (e: 'focusRange', startTick: number, endTick: number, select?: 'pillar' | 'column' | 'range' | 'none'): void
   (e: 'focusPart', tick: number, partName: string): void
   (e: 'close'): void
   (e: 'popOut'): void
@@ -74,13 +81,13 @@ export function useArrangingCoachDock(
 ) {
   const tagStore = useTagRollStore()
   const arrStore = useArrangementStore()
+  const prefs = usePreferencesStore()
   const services = getArrangingServices()
   const audio = useTagRollAudio()
   const syncing = ref(false)
-  const showLanding = ref(true)
   const phase = ref<'pillars' | 'walk'>('pillars')
-  const mode = ref<CoachUiMode>('quick')
-  const focusTab = ref<CoachFocusTab>('choose')
+  const mode = ref<CoachUiMode>('arrange')
+  const focusTab = ref<CoachFocusTab>('now')
   const whyIndex = ref<number | null>(null)
   const whyShowNumbers = ref(false)
   const candFilter = ref<CandFilterId>('all')
@@ -136,6 +143,7 @@ export function useArrangingCoachDock(
       project: arrStore.current,
       mode: mode.value,
       lints: arrStore.lints,
+      momentsLen: moments.value.length,
     }),
   )
 
@@ -152,6 +160,16 @@ export function useArrangingCoachDock(
   })
 
   const progressLabel = computed(() => {
+    if (phase.value === 'pillars') {
+      const n = pillars.value.length
+      if (!n) return 'Suggest home roots under the melody'
+      const i = pilIndex.value
+      const locked = pillars.value.filter((p) => p.confirmed).length
+      const at = i >= 0 ? `${i + 1}/${n}` : `—/${n}`
+      const root =
+        selectedPil.value != null ? pcName(selectedPil.value.rootPc, preferFlats.value) : '—'
+      return `Pillar ${at} · ${root} · ${locked}/${n} locked`
+    }
     const n = moments.value.length
     if (!n) return 'Add a lead melody on the roll first'
     const filled = moments.value.filter((m) =>
@@ -227,12 +245,21 @@ export function useArrangingCoachDock(
 
   const issueGroups = computed(() => groupIssues(rangedLints.value))
   const learnHint = ref<string | null>(null)
+  const expandedLintId = ref<string | null>(null)
+  const lintDetail = ref<ReturnType<typeof explanationForLint> | null>(null)
 
   function lintRowLabel(lint: ArrangementLint): string {
     const p = arrStore.current
     const tag = tagStore.current
-    if (!p || !tag) return `| —:— | ${lint.message} |`
+    if (!p || !tag) return lint.message
     return formatLintMeasureBeatRow(lint, p, tag.timeSignature, tag.ppq)
+  }
+
+  function lintParts(lint: ArrangementLint): LintRowParts {
+    const p = arrStore.current
+    const tag = tagStore.current
+    if (!p || !tag) return { loc: '—:—', message: lint.message }
+    return lintRowParts(lint, p, tag.timeSignature, tag.ppq)
   }
 
   const canLockRemaining = computed(
@@ -242,26 +269,18 @@ export function useArrangingCoachDock(
   function setMode(next: CoachUiMode): void {
     mode.value = next
     focusTab.value = defaultFocusForMode(next)
-    altsOpen.value = next === 'guided'
+    altsOpen.value = next === 'arrange'
     if (next === 'review') phase.value = 'walk'
   }
 
-  function enterMode(next: CoachUiMode): void {
-    setMode(next)
-    showLanding.value = false
-  }
-
-  function backToModes(): void {
-    showLanding.value = true
-    emit('clearGhost')
-  }
-
-  function selectMoment(m: HarmonicMoment): void {
+  function selectMoment(m: HarmonicMoment, opts?: { syncRoll?: boolean }): void {
     selectedMomentId.value = m.id
     whyIndex.value = null
     if (m.leadNoteId) arrStore.selectMelody(m.leadNoteId)
     arrStore.setCandidateTarget(momentToMelodyEvent(m))
     emit('clearGhost')
+    // syncRoll false: selection came from the roll (pillar L/R) — don't shrink bounds.
+    if (opts?.syncRoll === false) return
     emit('focusRange', m.startTick, m.startTick + m.durationTicks)
     tagStore.setPlayheadTick(m.startTick, { snap: false })
     setCoachHighlight({
@@ -292,25 +311,19 @@ export function useArrangingCoachDock(
       await arrStore.hydrate()
       const linkId = `arr_${tag.id}`
       const existing = arrStore.projects.find((p) => p.id === linkId)
-      if (existing) await arrStore.open(existing.id)
-      else {
-        const next = tagStudioToArrangement(tag, services.idGen)
-        next.id = linkId
-        await arrStore.adoptProject(next)
-      }
+      const fresh = tagStudioToArrangement(tag, services.idGen)
+      fresh.id = linkId
+      if (existing) mergeCoachSessionFromExisting(fresh, existing)
+      await arrStore.adoptProject(fresh)
       arrStore.runQa()
       const p = arrStore.current
-      if (p?.stacks.length && !p.pillars.length) {
-        setMode('review')
-        phase.value = 'walk'
-      } else if (p?.pillars.some((x) => x.confirmed)) {
-        phase.value = 'walk'
-        setMode('quick')
-        focusTab.value = 'choose'
+      if (p?.pillars.some((x) => x.confirmed)) phase.value = 'walk'
+      if (phase.value === 'pillars' && pillars.value.length) {
+        focusPillar(arrStore.selectedPillarId ?? pillars.value[0]!.id)
+      } else {
+        syncSelectionFromTagStudio()
+        if (!selectedMomentId.value && moments.value[0]) selectMoment(moments.value[0]!)
       }
-      syncSelectionFromTagStudio()
-      if (!selectedMomentId.value && moments.value[0]) selectMoment(moments.value[0]!)
-      if (!arrStore.selectedPillarId && pillars.value[0]) focusPillar(pillars.value[0]!.id)
     } finally {
       syncing.value = false
     }
@@ -333,6 +346,7 @@ export function useArrangingCoachDock(
   }
 
   function syncSelectionFromTagStudio(): void {
+    if (phase.value === 'pillars' && arrStore.selectedPillarId) return
     const tag = tagStore.current
     const arr = arrStore.current
     if (!tag || !arr) return
@@ -343,17 +357,21 @@ export function useArrangingCoachDock(
         m.startTick === sel.startTick ||
         (sel.startTick >= m.startTick && sel.startTick < m.startTick + m.durationTicks),
     )
-    if (hit && hit.id !== selectedMomentId.value) selectMoment(hit)
+    if (hit && hit.id !== selectedMomentId.value) selectMoment(hit, { syncRoll: false })
+  }
+
+  function momentHasKnownStack(startTick: number): boolean {
+    return !!arrStore.current?.stacks.some(
+      (s) => s.startTick === startTick && s.natureId && s.natureId !== 'unknown',
+    )
   }
 
   function stepNextGap(): void {
-    const p = arrStore.current
-    if (!p) return
+    if (!arrStore.current) return
     const curTick = selectedMoment.value?.startTick ?? -1
     const gap =
-      moments.value.find(
-        (m) => m.startTick > curTick && !p.stacks.some((s) => s.startTick === m.startTick),
-      ) ?? moments.value.find((m) => !p.stacks.some((s) => s.startTick === m.startTick))
+      moments.value.find((m) => m.startTick > curTick && !momentHasKnownStack(m.startTick)) ??
+      moments.value.find((m) => !momentHasKnownStack(m.startTick))
     if (gap) selectMoment(gap)
   }
 
@@ -370,31 +388,104 @@ export function useArrangingCoachDock(
     jumpToLint(next)
   }
 
+  function stepNextProblem(): void {
+    const p = arrStore.current
+    if (!p) return
+    const curTick = selectedMoment.value?.startTick ?? -1
+
+    // Repair tour order: issue → unrecognized → empty
+    if (rangedLints.value.length) {
+      stepNextIssue()
+      return
+    }
+
+    const unrec = p.stacks
+      .filter((s) => s.midi && (!s.natureId || s.natureId === 'unknown'))
+      .sort((a, b) => a.startTick - b.startTick)
+    const nextUnrec = unrec.find((s) => s.startTick > curTick) ?? unrec[0]
+    if (nextUnrec) {
+      const m =
+        moments.value.find((x) => x.startTick === nextUnrec.startTick) ??
+        moments.value.find(
+          (x) =>
+            nextUnrec.startTick >= x.startTick &&
+            nextUnrec.startTick < x.startTick + x.durationTicks,
+        )
+      if (m) {
+        selectMoment(m)
+        return
+      }
+    }
+
+    const empty =
+      moments.value.find((m) => m.startTick > curTick && !momentHasKnownStack(m.startTick)) ??
+      moments.value.find((m) => !momentHasKnownStack(m.startTick))
+    if (empty) selectMoment(empty)
+  }
+
+  const emptyMomentCount = computed(
+    () => moments.value.filter((m) => !momentHasKnownStack(m.startTick)).length,
+  )
+  const unrecognizedCount = computed(
+    () =>
+      arrStore.current?.stacks.filter((s) => s.midi && (!s.natureId || s.natureId === 'unknown'))
+        .length ?? 0,
+  )
+
+  const repairTour = computed(
+    () => detectCoachEntryMode(arrStore.current, moments.value.length) === 'repair',
+  )
+
+  const unregisterRollNav = bindCoachRollNav({
+    focusTab,
+    momIndex,
+    moments,
+    momentContext,
+    noteLints,
+    emptyCount: emptyMomentCount,
+    unrecognizedCount,
+    repairTour,
+    stepMoment,
+    stepNextGap,
+    stepNextIssue,
+    stepNextProblem,
+  })
+
   function focusPillar(id: string): void {
-    const pil = pillars.value.find((p) => p.id === id)
+    const pil = sortPillarsByTime(pillars.value).find((p) => p.id === id)
     if (!pil) return
     arrStore.selectPillar(id)
     focusTab.value = 'now'
     phase.value = 'pillars'
-    emit('focusRange', pil.startTick, pil.endTick)
-    tagStore.setPlayheadTick(pil.startTick, { snap: false })
+    // 'pillar' select: L/R = full span; notes = first stack onset (not held Lead alone).
+    emit('focusRange', pil.startTick, pil.endTick, 'pillar')
+    setCoachHighlight({
+      tick: pil.startTick,
+      kind: 'pillar',
+      projectId: tagStore.current?.id,
+    })
   }
 
   function stepPillar(dir: -1 | 1): void {
-    const n = pillars.value.length
-    if (!n) return
-    const cur = pilIndex.value
-    const next = cur < 0 ? (dir > 0 ? 0 : n - 1) : Math.min(n - 1, Math.max(0, cur + dir))
-    focusPillar(pillars.value[next]!.id)
+    const sorted = sortPillarsByTime(pillars.value)
+    const next = nextPillarIndex(
+      sorted,
+      arrStore.selectedPillarId,
+      dir,
+      tagStore.current?.view.playheadTick ?? 0,
+    )
+    if (next < 0) return
+    focusPillar(sorted[next]!.id)
   }
 
   function onInfer(): void {
     arrStore.inferPillars()
     arrStore.runQa()
     phase.value = 'pillars'
-    if (mode.value === 'review') setMode('quick')
+    if (mode.value === 'review') setMode('arrange')
     focusTab.value = 'now'
     pillarTouched.value = false
+    prefs.openTagRollBottomLane('coach')
     const first =
       arrStore.current?.pillars.find((p) => !p.confirmed) ?? arrStore.current?.pillars[0]
     if (first) focusPillar(first.id)
@@ -410,14 +501,22 @@ export function useArrangingCoachDock(
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
+  function autoLabelRolesIfRepair(): void {
+    if (detectCoachEntryMode(arrStore.current, moments.value.length) !== 'repair') return
+    arrStore.labelRoles(false)
+    arrStore.runQa()
+  }
+
   function onLockPillar(): void {
     arrStore.lockSelectedPillar()
     pillarTouched.value = true
+    autoLabelRolesIfRepair()
   }
 
   function onLockRemaining(): void {
     if (!canLockRemaining.value) return
     arrStore.lockRemaining()
+    autoLabelRolesIfRepair()
   }
 
   function onDeletePillar(): void {
@@ -543,7 +642,8 @@ export function useArrangingCoachDock(
     const p = audio?.ensurePlayer()
     if (!p) return
     pillarTouched.value = true
-    const midi = 36 + ((pil.rootPc % 12) + 12) % 12
+    // C3 + pitch class — audible root, not the C2 sample floor.
+    const midi = 48 + ((pil.rootPc % 12) + 12) % 12
     p.allNotesOff(true)
     await p.noteOn(midiToNote(midi))
     window.setTimeout(() => {
@@ -625,8 +725,6 @@ export function useArrangingCoachDock(
   }
 
   function learnLint(lint: ArrangementLint): void {
-    const exp = explanationForLint(lint)
-    learnHint.value = `${exp.headline}: ${exp.body}`
     jumpToLint(lint)
   }
 
@@ -640,18 +738,29 @@ export function useArrangingCoachDock(
   }
 
   function jumpToLint(lint: ArrangementLint): void {
+    const p = arrStore.current
+    if (!p) return
     arrStore.selectLintTarget(lint)
     phase.value = 'walk'
-    focusTab.value = 'check'
-    const note = selectedMel.value
+    // Stay on Chords so the moment + ranked suggestions are visible.
+    focusTab.value = 'choose'
+    expandedLintId.value = lint.id
+    lintDetail.value = explanationForLint(lint)
+    learnHint.value = null
+
     const tick =
-      note?.startTick ??
-      (lint.stackId
-        ? arrStore.current?.stacks.find((s) => s.id === lint.stackId)?.startTick
-        : undefined)
-    if (tick == null) return
+      selectedMel.value?.startTick ??
+      (lint.stackId ? p.stacks.find((s) => s.id === lint.stackId)?.startTick : undefined) ??
+      lintStartTick(lint, p)
+    if (tick == null || !Number.isFinite(tick)) return
+
     const moment = moments.value.find((m) => m.startTick === tick)
-    if (moment) selectMoment(moment)
+    if (moment) {
+      selectMoment(moment)
+    } else {
+      emit('focusRange', tick, tick + 480)
+      tagStore.setPlayheadTick(tick, { snap: false })
+    }
     setCoachHighlight({
       tick,
       kind: 'issue',
@@ -659,9 +768,26 @@ export function useArrangingCoachDock(
       lintId: lint.id,
     })
     const part = partFromLint(lint)
-    if (part) emit('focusPart', tick, part)
-    else emit('focusTick', tick)
-    tagStore.setPlayheadTick(tick, { snap: false })
+    const tag = tagStore.current
+    if (part && tag) {
+      const partId = tag.parts.find((x) => x.name === part)?.id
+      if (partId) {
+        const ids = tag.notes
+          .filter(
+            (n) =>
+              n.partId === partId &&
+              n.startTick <= tick &&
+              tick < n.startTick + n.durationTicks,
+          )
+          .map((n) => n.id)
+        if (ids.length) tagStore.selectNotes(ids)
+      }
+    }
+  }
+
+  function clearLintDetail(): void {
+    expandedLintId.value = null
+    lintDetail.value = null
   }
 
   function candLabel(c: HarmonizeCandidate): string {
@@ -702,8 +828,11 @@ export function useArrangingCoachDock(
         enterWalk()
         break
       case 'fix_issues':
-      case 'done':
         focusTab.value = 'check'
+        phase.value = 'walk'
+        break
+      case 'done':
+        focusTab.value = a.focus ?? 'polish'
         phase.value = 'walk'
         break
     }
@@ -719,27 +848,34 @@ export function useArrangingCoachDock(
   )
 
   watch(
-    () => tagStore.current?.notes.length,
+    () => {
+      const notes = tagStore.current?.notes
+      if (!notes) return 0
+      let h = notes.length
+      for (const n of notes) {
+        h = (Math.imul(h, 33) + n.midi + n.startTick + n.durationTicks) | 0
+      }
+      return h
+    },
     async () => {
       const tag = tagStore.current
       if (!tag || !arrStore.current) return
       const keepTick = selectedMoment.value?.startTick
       const keepPil = arrStore.selectedPillarId
-      const next = tagStudioToArrangement(tag, services.idGen)
-      next.id = arrStore.current.id
-      next.pillars = arrStore.current.pillars
-      next.stacks = arrStore.current.stacks.filter((s) =>
-        next.melody.some(
-          (m) => m.startTick <= s.startTick && s.startTick < m.startTick + m.durationTicks,
-        ),
+      const keepPillarPhase = phase.value === 'pillars'
+      const next = mergeCoachSessionFromExisting(
+        tagStudioToArrangement(tag, services.idGen),
+        arrStore.current,
       )
-      next.wizardStep = arrStore.current.wizardStep
-      next.contestProfile = arrStore.current.contestProfile
-      next.tuningMode = arrStore.current.tuningMode
+      next.id = arrStore.current.id
       await arrStore.adoptProject(next)
       arrStore.runQa()
       if (keepPil && next.pillars.some((p) => p.id === keepPil)) {
         arrStore.selectPillar(keepPil)
+        if (keepPillarPhase) {
+          focusPillar(keepPil)
+          return
+        }
       }
       if (keepTick != null) {
         const hit = moments.value.find((m) => m.startTick === keepTick)
@@ -751,6 +887,7 @@ export function useArrangingCoachDock(
   )
 
   onUnmounted(() => {
+    unregisterRollNav()
     emit('clearGhost')
     arrStore.setCandidateTarget(null)
   })
@@ -758,7 +895,6 @@ export function useArrangingCoachDock(
   return {
     arrStore,
     syncing,
-    showLanding,
     phase,
     mode,
     focusTab,
@@ -783,7 +919,11 @@ export function useArrangingCoachDock(
     counterpart,
     issueGroups,
     learnHint,
+    expandedLintId,
+    lintDetail,
     lintRowLabel,
+    lintParts,
+    clearLintDetail,
     progressLabel,
     coverageGaps,
     noteLints,
@@ -795,8 +935,6 @@ export function useArrangingCoachDock(
     momentContext,
     ensureLinked,
     setMode,
-    enterMode,
-    backToModes,
     selectMoment,
     stepMoment,
     stepNextGap,

@@ -22,8 +22,9 @@ export function tagStudioToArrangement(
 }
 
 /**
- * Project arrangement stacks/melody onto an existing TagRoll document.
- * Preserves non-TTBB parts, expressions, mix, swing, and view prefs.
+ * Project arrangement stacks onto an existing TagRoll document.
+ * Preserves Lead notes (and non-TTBB parts) from the live roll so portamento
+ * overlaps stay intact; Tenor/Bari/Bass come from coach stacks.
  */
 export function mergeArrangementIntoTagRoll(
   tag: TagRollProject,
@@ -34,15 +35,23 @@ export function mergeArrangementIntoTagRoll(
   const partIdByName = new Map(tag.parts.map((p) => [p.name, p.id]))
   const projectedIdByName = new Map(projected.parts.map((p) => [p.name, p.id]))
 
+  const leadPart =
+    (tag.view.melodyPartId
+      ? tag.parts.find((p) => p.id === tag.view.melodyPartId)
+      : undefined) ?? tag.parts.find((p) => p.name === 'Lead')
+
   const kept = tag.notes.filter((n) => {
     const part = tag.parts.find((p) => p.id === n.partId)
-    return !part || !TTBB.has(part.name)
+    if (!part) return true
+    if (leadPart && n.partId === leadPart.id) return true
+    return !TTBB.has(part.name)
   })
 
   const mapped: TagRollNote[] = []
   for (const n of projected.notes) {
     const name = projected.parts.find((p) => p.id === n.partId)?.name
-    if (!name || !TTBB.has(name)) continue
+    // Lead stays from the live roll; only write harmony parts from stacks.
+    if (!name || name === 'Lead' || !TTBB.has(name)) continue
     const partId = partIdByName.get(name) ?? projectedIdByName.get(name)
     if (!partId) continue
     mapped.push({ ...n, partId })

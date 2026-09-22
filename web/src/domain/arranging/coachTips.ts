@@ -8,8 +8,8 @@ import type { CoachTip } from './coachTipsTypes'
 export type { CoachTip } from './coachTipsTypes'
 
 export type CoachUiPhase = 'pillars' | 'walk'
-/** Session lenses — maps to docs Quick / Guided / Review. */
-export type CoachUiMode = 'quick' | 'guided' | 'review'
+/** Session lenses — Arrange (build) vs Review (check/polish). */
+export type CoachUiMode = 'arrange' | 'review'
 
 export function tipForStep(step: WizardStep): CoachTip {
   const moment = teachWizardStep(step)
@@ -49,14 +49,7 @@ export function tipForCoachUi(opts: {
     return {
       step: opts.wizardStep ?? 'step9_final',
       title: 'Review',
-      body: 'Check issues and context. Switch to Quick or Guided when you want ranked chord suggestions under pillars.',
-    }
-  }
-  if (opts.mode === 'guided') {
-    return {
-      step: opts.wizardStep ?? 'step1_roots',
-      title: 'Guided',
-      body: 'Lock pillars, then choose chords one moment at a time — open Why? when you want the theory.',
+      body: 'Check issues and polish. Switch to Arrange when you want ranked chord suggestions under pillars.',
     }
   }
   if (opts.phase === 'pillars' || !opts.hasPillars) {
@@ -70,7 +63,7 @@ export function tipForCoachUi(opts: {
   return {
     step: 'step3_pmn_pcf',
     title: 'Choose chords',
-    body: 'For each moment, Hear suggestions and Apply. Held lead posts keep the same pitch while other parts change.',
+    body: 'Follow the path (pillars → roles → chords) or jump tabs freely. Hear suggestions and Apply one moment at a time.',
   }
 }
 

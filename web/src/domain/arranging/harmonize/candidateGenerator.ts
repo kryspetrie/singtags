@@ -12,7 +12,7 @@ import {
   type VoicingPitches,
 } from '../chords'
 import { classifyRootMotion, scoreRootMotion, isBs7Nature } from '../approachThree'
-import { isNatureAllowed, type ContestProfile } from '../contestProfile'
+import { isNatureAllowed, DEFAULT_CONTEST_PROFILE, type ContestProfile } from '../contestProfile'
 import { leadAllowsCounterpartSwap } from '../counterpart'
 import { secondaryDominantRootOf } from '../secondaryDominant'
 import { PCF_NATURE_PRIORITY, SCF_NATURES, scfRoots, type ScfGroup } from '../scf'
@@ -36,7 +36,7 @@ export type GenerateCandidatesInput = {
 
 export function generateCandidates(opts: GenerateCandidatesInput): UnscoredCandidate[] {
   const { note, pillar, tonality, prevRootPc } = opts
-  const profile = opts.profile ?? 'sai11'
+  const profile = opts.profile ?? DEFAULT_CONTEST_PROFILE
   const mode = opts.mode ?? 'major'
   const prevNatureId = opts.prevNatureId ?? null
   const out: UnscoredCandidate[] = []

@@ -1,5 +1,6 @@
 /**
- * Session mode catalog for the Coach landing screen.
+ * Legacy Arrange/Review card copy (mode still used internally by tips / next-action).
+ * Coach UI now uses the ordered GuidedSteps rail instead of a mode landing.
  */
 import type { CoachUiMode } from './coachTips'
 import type { CoachFocusTab } from './nextCoachAction'
@@ -12,27 +13,19 @@ export type CoachModeCard = {
   defaultFocus: CoachFocusTab
 }
 
-/** Ordered Quick → Guided → Review. */
 export const COACH_MODE_CARDS: readonly CoachModeCard[] = [
   {
-    id: 'quick',
-    title: 'Quick',
-    tagline: 'Arrange fast',
-    body: 'Suggest and lock home chords (pillars), walk moments with ranked picks, and fix blockers. Teaching chrome stays out of the way.',
-    defaultFocus: 'choose',
-  },
-  {
-    id: 'guided',
-    title: 'Guided',
-    tagline: 'Learn while you arrange',
-    body: 'Follow a short path: pillars → roles → chords. Tips and Why? explain each choice; still free to step moments yourself.',
+    id: 'arrange',
+    title: 'Arrange',
+    tagline: 'Build the chart',
+    body: 'Pillars → roles → chords along the step rail.',
     defaultFocus: 'now',
   },
   {
     id: 'review',
     title: 'Review',
     tagline: 'Check and polish',
-    body: 'Inspect issues in the selected range, strengthen voicings, and export. Ranked suggestions are optional when you open Choose.',
+    body: 'Clear issues, then polish and export.',
     defaultFocus: 'check',
   },
 ]

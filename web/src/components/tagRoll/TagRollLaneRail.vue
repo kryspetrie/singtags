@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Collapsed lane chrome: horizontal Mods / Coach toggles (one lane open at a time).
- * Coach is always offered; it opens the Coach lane (panel opens from the lane).
+ * Opening Coach expands the lane and the Coach sidebar together.
  */
 import { computed, onMounted } from 'vue'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
@@ -54,8 +54,8 @@ onMounted(() => {
       <button
         type="button"
         class="rail-btn"
-        :title="tagRollTip('Open Coach lane — click the lane to open the Coach panel')"
-        aria-label="Open Coach lane"
+        :title="tagRollTip('Open Coach lane and sidebar')"
+        aria-label="Open Coach lane and sidebar"
         @click="openCoach"
       >
         Coach

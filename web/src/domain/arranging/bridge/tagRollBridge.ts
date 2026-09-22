@@ -4,7 +4,10 @@
  */
 import type { ArrangementProject, ChordStack, MelodyEvent } from '../types'
 import { ARRANGEMENT_SCHEMA, ARRANGING_PPQ, createEmptyArrangement } from '../types'
-import { collectMomentBoundaries } from '../harmonicMoments'
+import { collectMomentBoundaries, melodyWithDeferredPortamento } from '../harmonicMoments'
+import { identifyNatureFromMidi } from '../chordCompletion'
+import { BARBERSHOP_CHORDS, placeVoicing } from '../chords'
+import { deferOverlappingOnsets } from '../../../lib/tagRoll/portamento'
 import {
   TAG_ROLL_DEFAULT_BPM,
   TAG_ROLL_DEFAULT_LENGTH_TICKS,
@@ -208,33 +211,47 @@ export function tagRollToArrangement(
     )
   })
 
-  // Stack boundaries: any TTBB note start/end under a sounding lead (same as coach moments).
+  // Stack boundaries use portamento-deferred onsets (chord at bend release).
+  const melodyForMoments = melodyWithDeferredPortamento(melody)
   const partSpans = [
-    ...leadNotes.map((n) => ({
-      startTick: n.startTick,
-      durationTicks: n.durationTicks,
-      midi: n.midi,
-      isLead: true as const,
-    })),
-    ...harmonyNotes.map((n) => ({
-      startTick: n.startTick,
-      durationTicks: n.durationTicks,
-      midi: n.midi,
-    })),
+    ...deferOverlappingOnsets(
+      leadNotes.map((n) => ({
+        startTick: n.startTick,
+        durationTicks: n.durationTicks,
+        midi: n.midi,
+        isLead: true as const,
+        partId: leadPart.id,
+      })),
+      (a, b) => a.midi - b.midi,
+    ),
+    ...(['Tenor', 'Bari', 'Bass'] as const).flatMap((name) => {
+      const part = partByName(tag.parts, name)
+      if (!part) return []
+      const notes = harmonyNotes.filter((n) => n.partId === part.id)
+      return deferOverlappingOnsets(
+        notes.map((n) => ({
+          startTick: n.startTick,
+          durationTicks: n.durationTicks,
+          midi: n.midi,
+          partId: part.id,
+        })),
+        (a, b) => a.midi - b.midi,
+      )
+    }),
   ]
-  const boundaries = collectMomentBoundaries(melody, partSpans)
+  const boundaries = collectMomentBoundaries(melodyForMoments, partSpans)
 
   const stacks: ChordStack[] = []
   for (let i = 0; i < boundaries.length; i++) {
     const startTick = boundaries[i]!
-    const lead = leadNotes.find(
+    const lead = melodyForMoments.find(
       (l) => l.startTick <= startTick && startTick < l.startTick + l.durationTicks,
     )
     if (!lead) continue
     const next = boundaries[i + 1]
     const endCap =
       next != null ? next : Math.min(
-        Math.max(...leadNotes.map((l) => l.startTick + l.durationTicks), startTick + 1),
+        Math.max(...melodyForMoments.map((l) => l.startTick + l.durationTicks), startTick + 1),
         lead.startTick + lead.durationTicks,
       )
     const durationTicks = Math.max(1, endCap - startTick)
@@ -264,23 +281,56 @@ export function tagRollToArrangement(
       : undefined
 
     if (!tOn && !bOn && !bsOn) continue
+    // Only real pitches for ID — invented fill-ins poison catalogue / PC matching.
+    const present = {
+      lead: lead.midi,
+      ...(tOn ? { tenor: tOn.midi } : {}),
+      ...(bOn ? { bari: bOn.midi } : {}),
+      ...(bsOn ? { bass: bsOn.midi } : {}),
+    }
+    const identified = identifyNatureFromMidi({
+      midi: present,
+      profile: base.contestProfile,
+      tonality: tag.tonality,
+    })
+    let midi = {
+      tenor: tOn?.midi ?? lead.midi + 4,
+      lead: lead.midi,
+      bari: bOn?.midi ?? lead.midi - 3,
+      bass: bsOn?.midi ?? lead.midi - 12,
+    }
+    if (identified?.voicing) {
+      const chord = BARBERSHOP_CHORDS.find((c) => c.id === identified.natureId)
+      const placed =
+        chord &&
+        placeVoicing({
+          chord,
+          rootPc: identified.rootPc,
+          leadMidi: lead.midi,
+          voicing: identified.voicing,
+          spread: false,
+        })
+      if (placed) {
+        midi = {
+          tenor: tOn?.midi ?? placed.tenor,
+          lead: lead.midi,
+          bari: bOn?.midi ?? placed.bari,
+          bass: bsOn?.midi ?? placed.bass,
+        }
+      }
+    }
     stacks.push({
       id: gen.next('stk'),
       startTick,
       durationTicks,
-      rootPc: ((bsOn?.midi ?? lead.midi) % 12 + 12) % 12,
-      natureId: 'unknown',
-      voicing: '',
+      rootPc: identified?.rootPc ?? ((bsOn?.midi ?? lead.midi) % 12 + 12) % 12,
+      natureId: identified?.natureId ?? 'unknown',
+      voicing: identified?.voicing ?? '',
       spread: false,
       layer: 'primary',
       scfGroup: null,
       pillarId: null,
-      midi: {
-        tenor: tOn?.midi ?? lead.midi + 4,
-        lead: lead.midi,
-        bari: bOn?.midi ?? lead.midi - 3,
-        bass: bsOn?.midi ?? lead.midi - 12,
-      },
+      midi,
       ruleTags: [],
     })
   }

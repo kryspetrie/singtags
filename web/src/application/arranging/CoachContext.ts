@@ -5,6 +5,7 @@ import { pcName } from '../../domain/arranging/chords/chords'
 import type { HarmonicMoment } from '../../domain/arranging/harmonicMoments'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
 import { functionTagForStack, type FunctionTag } from '../../domain/arranging/tensionRelease'
+import { melodyRoleShortLabel } from '../../domain/arranging/melodyRoleLabels'
 import type { ArrangementProject } from '../../domain/arranging/types'
 import { pillarAtTick } from '../../domain/arranging/pillars'
 import { romanLabelForStack } from './DocumentOps'
@@ -31,12 +32,13 @@ export type MomentContextDto = {
   narrative: string | null
   /** Plain-language best-alternate hint when candidates exist. */
   bestAltHint: string | null
-  /** Melody role at this moment (PMN/SMN). */
+  /** Melody weight at this moment (Strong / Passing). */
   roleLabel: string | null
   stackId: string | null
 }
 
 function natureSuffix(natureId: string): string {
+  if (!natureId || natureId === 'unknown') return ''
   if (natureId === 'major') return ''
   if (natureId === 'seventh') return '7'
   return natureId
@@ -48,6 +50,9 @@ function chordTitle(
   voicing: string | null | undefined,
   preferFlats: boolean,
 ): string {
+  if (!natureId || natureId === 'unknown') {
+    return `${pcName(rootPc, preferFlats)} · unrecognized`
+  }
   const base = `${pcName(rootPc, preferFlats)}${natureSuffix(natureId)}`
   const v = voicing?.trim()
   return v ? `${base} · ${v}` : base
@@ -104,7 +109,9 @@ export function contextForSelectedMoment(
 
   const stack = project.stacks.find((s) => s.startTick === moment.startTick) ?? null
   const roleLabel =
-    moment.role === 'pmn' ? 'PMN' : moment.role === 'smn' ? 'SMN' : null
+    moment.role === 'pmn' || moment.role === 'smn'
+      ? melodyRoleShortLabel(moment.role)
+      : null
 
   if (!stack) {
     return {

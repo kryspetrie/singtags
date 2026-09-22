@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Guided 4-step rail — Pillars → Roles → Chords → Review.
+ * Ordered Coach steps — Pillars → Strong/passing → Chords → Check → Polish.
  */
 import {
   GUIDED_STEPS,
@@ -20,17 +20,21 @@ const emit = defineEmits<{
 <template>
   <nav class="rail" aria-label="Guided steps">
     <ol>
-      <li v-for="(s, i) in GUIDED_STEPS" :key="s.id">
-        <button
-          type="button"
-          :class="{ on: s.id === active }"
-          :aria-current="s.id === active ? 'step' : undefined"
-          @click="emit('select', s.id)"
-        >
-          <span class="n">{{ i + 1 }}</span>
-          {{ s.label }}
-        </button>
-      </li>
+      <template v-for="(s, i) in GUIDED_STEPS" :key="s.id">
+        <li v-if="i > 0" class="sep" aria-hidden="true">→</li>
+        <li>
+          <button
+            type="button"
+            :class="{ on: s.id === active }"
+            :aria-current="s.id === active ? 'step' : undefined"
+            :title="s.buttonTip"
+            @click="emit('select', s.id)"
+          >
+            <span class="n">{{ i + 1 }}</span>
+            {{ s.label }}
+          </button>
+        </li>
+      </template>
     </ol>
     <p class="tip">{{ tip }}</p>
   </nav>
@@ -49,9 +53,25 @@ ol {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.25rem;
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+}
+ol > li {
+  min-width: 0;
+}
+ol > li:not(.sep) {
+  flex: 1 1 0;
+}
+.sep {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 650;
+  opacity: 0.7;
+  user-select: none;
 }
 button {
   width: 100%;
@@ -59,22 +79,30 @@ button {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg, var(--surface));
+  color: var(--text);
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 650;
+  font-weight: 700;
   cursor: pointer;
+  padding: 0.2rem 0.25rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
+  gap: 0.05rem;
+  line-height: 1.15;
+}
+button .n {
+  font-size: 0.62rem;
+  font-weight: 750;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 button.on {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-.n {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
+button:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 .tip {
   margin: 0;

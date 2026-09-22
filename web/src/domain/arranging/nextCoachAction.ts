@@ -5,6 +5,11 @@ import { melodyGapsOutsidePillars } from './pillars'
 import type { ArrangementLint } from './qa/types'
 import type { ArrangementProject } from './types'
 import type { CoachUiMode } from './coachTips'
+import {
+  detectCoachEntryMode,
+  knownStackCoverage,
+  knownStackCount,
+} from './coachEntryMode'
 
 export type CoachFocusTab = 'now' | 'choose' | 'check' | 'polish'
 
@@ -29,6 +34,7 @@ export function resolveCoachNextAction(opts: {
   project: ArrangementProject | null
   mode: CoachUiMode
   lints: readonly ArrangementLint[]
+  momentsLen?: number
 }): CoachNextAction {
   const p = opts.project
   if (!p || !p.melody.length) {
@@ -41,13 +47,19 @@ export function resolveCoachNextAction(opts: {
     }
   }
 
+  const entry = detectCoachEntryMode(p, opts.momentsLen)
+  const repair = entry === 'repair'
+  const coverage = knownStackCoverage(p, opts.momentsLen)
+  const known = knownStackCount(p)
+  const unrecognized = p.stacks.filter((s) => s.midi && (!s.natureId || s.natureId === 'unknown'))
+    .length
+
   if (!p.pillars.length) {
-    const hasStacks = p.stacks.length > 0
     return {
       id: 'suggest_pillars',
-      title: hasStacks ? 'Add pillars under this chart' : 'Suggest pillars',
-      body: hasStacks
-        ? 'You already have harmony notes. Suggest pillars so Choose can rank chords — stacks stay put.'
+      title: repair ? 'Add pillars under this chart' : 'Suggest pillars',
+      body: repair
+        ? 'Harmony is already on the roll. Suggest pillars so Check and Strengthen can rank fixes — stacks stay put.'
         : 'Lock home chords under each phrase, then walk chord choices.',
       cta: 'Suggest pillars',
       focus: 'now',
@@ -68,11 +80,14 @@ export function resolveCoachNextAction(opts: {
   }
 
   const unconfirmed = p.pillars.filter((x) => !x.confirmed).length
-  if (unconfirmed && opts.mode !== 'review') {
+  if (unconfirmed) {
     return {
       id: 'lock_pillars',
-      title: 'Lock pillars',
-      body: `${unconfirmed} pillar(s) still draft — Hear the root, then Lock.`,
+      title: repair && known > 0 ? 'Lock pillars (for Strengthen)' : 'Lock pillars',
+      body:
+        repair && known > 0
+          ? `${unconfirmed} draft pillar(s). Lock when you want Strengthen; issues can wait.`
+          : `${unconfirmed} pillar(s) still draft — Hear the root, then Lock.`,
       cta: 'Review pillars',
       focus: 'now',
       kind: 'lock_pillars',
@@ -80,6 +95,26 @@ export function resolveCoachNextAction(opts: {
   }
 
   const errors = opts.lints.filter((l) => l.severity === 'error')
+  const triageLints = opts.lints.filter(
+    (l) =>
+      l.severity === 'error' ||
+      l.severity === 'warn' ||
+      l.ruleId === 'unrecognized-nature',
+  )
+
+  if (repair && (errors.length || unrecognized > 0 || triageLints.length)) {
+    return {
+      id: 'fix_issues',
+      title: unrecognized ? 'Identify or fix chords' : 'Fix chart issues',
+      body: unrecognized
+        ? `${unrecognized} unrecognized chord(s)${errors.length ? ` · ${errors.length} error(s)` : ''}.`
+        : `${triageLints.length} issue(s) need attention.`,
+      cta: 'Open issues',
+      focus: 'check',
+      kind: 'fix_issues',
+    }
+  }
+
   if (opts.mode === 'review' && errors.length) {
     return {
       id: 'fix_issues',
@@ -91,13 +126,12 @@ export function resolveCoachNextAction(opts: {
     }
   }
 
-  const filled = p.melody.filter((m) => p.stacks.some((s) => s.startTick === m.startTick)).length
-  if (filled < p.melody.length && opts.mode !== 'review') {
+  if (coverage < 1 && (!repair || coverage < 0.85)) {
     return {
       id: 'walk_choose',
-      title: 'Choose chords',
-      body: `${filled}/${p.melody.length} lead onsets have a stack — step moments and Apply.`,
-      cta: 'Choose chords',
+      title: repair ? 'Fill remaining gaps' : 'Choose chords',
+      body: `${known}/${Math.max(1, opts.momentsLen ?? p.melody.length)} moments have a known chord — step and Apply.`,
+      cta: repair ? 'Fill gaps' : 'Choose chords',
       focus: 'choose',
       kind: 'walk_choose',
     }
@@ -117,9 +151,11 @@ export function resolveCoachNextAction(opts: {
   return {
     id: 'done',
     title: 'Looking good',
-    body: 'No blockers — keep polishing or export when ready.',
-    cta: 'Open issues',
-    focus: 'check',
+    body: repair
+      ? 'No blockers — Strengthen or export when ready.'
+      : 'No blockers — keep polishing or export when ready.',
+    cta: 'Polish',
+    focus: 'polish',
     kind: 'done',
   }
 }
@@ -127,6 +163,5 @@ export function resolveCoachNextAction(opts: {
 /** Default focus tab for a session mode. */
 export function defaultFocusForMode(mode: CoachUiMode): CoachFocusTab {
   if (mode === 'review') return 'check'
-  if (mode === 'guided') return 'now'
-  return 'choose'
+  return 'now'
 }

@@ -4,6 +4,7 @@ import {
   extendPillarToCover,
   lockRemainingPillars,
   melodyGapsOutsidePillars,
+  suggestPillars,
   suggestionsToPillars,
   type PillarSuggestion,
 } from './pillars'
@@ -79,5 +80,17 @@ describe('pillar ops', () => {
     expect(lockRemainingPillars(pillars)[0]!.confirmed).toBe(false)
     const one = lockRemainingPillars([{ ...pillars[0]!, confirmed: true }, { ...pillars[0]!, id: 'b', confirmed: false }])
     expect(one.every((p) => p.confirmed)).toBe(true)
+  })
+
+  it('suggestPillars keeps one span per measure (no whole-chart merge)', () => {
+    const melody: MelodyEvent[] = [mel('a', 0), mel('b', 1920), mel('c', 3840)]
+    // All C (tonic) — previously merged into one 0→5760 pillar.
+    const tips = suggestPillars({
+      melody: melody.map((m) => ({ ...m, midi: 60 })),
+      tonality: 0,
+      measureTicks: 1920,
+    })
+    expect(tips.length).toBeGreaterThanOrEqual(3)
+    expect(tips.every((t) => t.endTick - t.startTick === 1920)).toBe(true)
   })
 })

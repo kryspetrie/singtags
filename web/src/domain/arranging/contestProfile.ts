@@ -5,6 +5,7 @@
 import type { ContestProfile } from './types'
 
 export type { ContestProfile }
+export { DEFAULT_CONTEST_PROFILE } from './types'
 
 /** Rylander / Sweet Adelines 11. */
 export const CHORDS_SAI11 = [

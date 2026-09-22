@@ -4,14 +4,14 @@ import { defaultFocusForMode, resolveCoachNextAction } from './nextCoachAction'
 
 describe('resolveCoachNextAction', () => {
   it('asks for melody when empty', () => {
-    const a = resolveCoachNextAction({ project: null, mode: 'quick', lints: [] })
+    const a = resolveCoachNextAction({ project: null, mode: 'arrange', lints: [] })
     expect(a.kind).toBe('enter_melody')
   })
 
   it('suggests pillars when melody exists without pillars', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
-    const a = resolveCoachNextAction({ project: p, mode: 'quick', lints: [] })
+    const a = resolveCoachNextAction({ project: p, mode: 'arrange', lints: [] })
     expect(a.kind).toBe('suggest_pillars')
     expect(a.cta).toMatch(/Suggest pillars/i)
   })
@@ -40,8 +40,7 @@ describe('resolveCoachNextAction', () => {
   })
 
   it('defaultFocusForMode matches session lenses', () => {
+    expect(defaultFocusForMode('arrange')).toBe('now')
     expect(defaultFocusForMode('review')).toBe('check')
-    expect(defaultFocusForMode('guided')).toBe('now')
-    expect(defaultFocusForMode('quick')).toBe('choose')
   })
 })

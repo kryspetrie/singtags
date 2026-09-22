@@ -71,7 +71,18 @@ export type { IssueGroup, IssueGroupId } from './IssueBoard'
 export {
   GUIDED_STEPS,
   resolveGuidedStep,
+  resolveGuidedStepWithLints,
   tipForGuidedStep,
+  labelForGuidedStep,
   focusTabForGuidedStep,
+  modeForGuidedStep,
+  wizardStepForGuided,
 } from './GuidedSteps'
-export type { GuidedStepId } from './GuidedSteps'
+export type { GuidedStepId, GuidedStepDef, ResolveGuidedOpts } from './GuidedSteps'
+export {
+  detectCoachEntryMode,
+  knownStackCoverage,
+  knownStackCount,
+  isKnownStack,
+} from '../../domain/arranging/coachEntryMode'
+export type { CoachEntryMode } from '../../domain/arranging/coachEntryMode'

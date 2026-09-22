@@ -3,6 +3,7 @@
  * with sounding lead MIDI (supports held “posts”).
  */
 import type { MelodyEvent, MelodyRole } from './types'
+import { deferOverlappingOnsets } from '../../lib/tagRoll/portamento'
 
 export type PartOnset = {
   startTick: number
@@ -10,6 +11,8 @@ export type PartOnset = {
   midi: number
   /** When true, this onset is the Lead/melody part. */
   isLead?: boolean
+  /** Same-part key for portamento collapse (part id). */
+  partId?: string
 }
 
 export type HarmonicMoment = {
@@ -22,6 +25,16 @@ export type HarmonicMoment = {
   /** True when lead onset is earlier than this moment (held post). */
   heldLead: boolean
   role: MelodyRole
+}
+
+/**
+ * Defer lead portamento overlaps for coach / moment timing (destination onset
+ * at source release). Keeps original melody ids for selection.
+ */
+export function melodyWithDeferredPortamento(
+  melody: readonly MelodyEvent[],
+): MelodyEvent[] {
+  return deferOverlappingOnsets([...melody], (a, b) => a.midi - b.midi || a.id.localeCompare(b.id))
 }
 
 function coveringLead(
@@ -62,6 +75,8 @@ export function collectMomentBoundaries(
 /**
  * Build walk/analysis steps from lead melody + all part note spans.
  * Boundaries = unique start/end ticks of any part under a sounding lead.
+ * Same-part portamento overlaps are deferred so the destination onset is the
+ * source release (bend completes → chord defined by the note bent to).
  */
 export function buildHarmonicMoments(
   leadMelody: readonly MelodyEvent[],
@@ -69,16 +84,17 @@ export function buildHarmonicMoments(
   opts?: { idPrefix?: string },
 ): HarmonicMoment[] {
   const prefix = opts?.idPrefix ?? 'hm'
-  if (!leadMelody.length) return []
+  const leads = melodyWithDeferredPortamento(leadMelody)
+  if (!leads.length) return []
 
-  const leads = [...leadMelody].sort((a, b) => a.startTick - b.startTick)
+  const onsets = collapsePartOnsets(partOnsets)
   const chartEnd = Math.max(
     ...leads.map((m) => m.startTick + m.durationTicks),
-    ...partOnsets.map((p) => p.startTick + p.durationTicks),
+    ...onsets.map((p) => p.startTick + p.durationTicks),
     0,
   )
 
-  const boundaries = collectMomentBoundaries(leadMelody, partOnsets)
+  const boundaries = collectMomentBoundaries(leads, onsets)
   const out: HarmonicMoment[] = []
   for (let i = 0; i < boundaries.length; i++) {
     const startTick = boundaries[i]!
@@ -99,6 +115,23 @@ export function buildHarmonicMoments(
       heldLead: lead.startTick < startTick,
       role: lead.role,
     })
+  }
+  return out
+}
+
+function collapsePartOnsets(onsets: readonly PartOnset[]): PartOnset[] {
+  const byPart = new Map<string, PartOnset[]>()
+  for (const o of onsets) {
+    const key =
+      o.partId ??
+      (o.isLead ? '__lead__' : `__anon_${o.startTick}_${o.midi}_${o.durationTicks}`)
+    const list = byPart.get(key) ?? []
+    list.push(o)
+    byPart.set(key, list)
+  }
+  const out: PartOnset[] = []
+  for (const list of byPart.values()) {
+    out.push(...deferOverlappingOnsets(list, (a, b) => a.midi - b.midi))
   }
   return out
 }

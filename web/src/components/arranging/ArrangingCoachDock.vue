@@ -1,16 +1,20 @@
 <script setup lang="ts">
 /**
- * Guided arranging coach — mode landing + side-tab workspace.
+ * Arranging coach — single ordered path: Pillars → Strong/passing → Chords → Check → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
 import ArrangingContextCard from './ArrangingContextCard.vue'
 import ArrangingCandidateWhy from './ArrangingCandidateWhy.vue'
-import ArrangingCoachAlts from './ArrangingCoachAlts.vue'
-import ArrangingCoachLanding from './ArrangingCoachLanding.vue'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
-import { coachModeCard } from '../../domain/arranging/coachModeCatalog'
+import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
+import ArrangingCoachRolesPanel from './ArrangingCoachRolesPanel.vue'
+import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
+import { glossaryIdsForGuidedStep } from '../../application/arranging/GuidedSteps'
+import { glossaryTitle } from '../../lib/arranging/glossaryTooltip'
+import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
+import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
 import { useArrangingCoachDock, type CoachGhostNote } from './useArrangingCoachDock'
 import { useCoachGuidedAndReview } from '../../composables/useCoachGuidedAndReview'
 
@@ -25,7 +29,7 @@ const emit = defineEmits<{
   previewGhost: [ghosts: CoachGhostNote[]]
   clearGhost: []
   focusTick: [tick: number]
-  focusRange: [startTick: number, endTick: number]
+  focusRange: [startTick: number, endTick: number, select?: 'pillar' | 'column' | 'range' | 'none']
   focusPart: [tick: number, partName: string]
   popOut: []
 }>()
@@ -35,7 +39,6 @@ const api = useArrangingCoachDock(emit, { inspectRange: inspectRangeRef })
 const {
   arrStore,
   syncing,
-  showLanding,
   phase,
   mode,
   focusTab,
@@ -44,7 +47,6 @@ const {
   nextAction,
   preferFlats,
   melody,
-  moments,
   pillars,
   selectedMoment,
   selectedPil,
@@ -53,35 +55,30 @@ const {
   maxScore,
   filterOptions,
   candFilter,
-  altsOpen,
   altChips,
   counterpart,
   issueGroups,
-  learnHint,
-  lintRowLabel,
+  expandedLintId,
+  lintDetail,
+  lintParts,
+  clearLintDetail,
   progressLabel,
   coverageGaps,
   noteLints,
-  pillarsUnconfirmed,
   canWalkArrange,
   canLockRemaining,
   currentStack,
   uncoveredSelected,
   momentContext,
   ensureLinked,
-  enterMode,
-  backToModes,
-  stepMoment,
-  stepNextGap,
-  stepNextIssue,
   stepPillar,
+  focusPillar,
   onInfer,
   onAddPillarAtPlayhead,
   onLockPillar,
   onLockRemaining,
   onDeletePillar,
   updatePillarRoot,
-  enterWalk,
   addPillarHere,
   extendPreviousToHere,
   previewCand,
@@ -110,10 +107,13 @@ const {
 } = api
 
 const {
-  showStepRail,
   guidedStep,
   guidedTip,
+  guidedStepLabel,
   selectGuidedStep,
+  selectMelodyNote,
+  stepMelodyNote,
+  setMelodyNoteRole,
   onLabelRoles,
   checklist,
   howFactors,
@@ -124,6 +124,7 @@ const {
   onApplySwipe,
   setContestProfile,
   setTuningMode,
+  setQaGroup,
   exportMidi,
   exportMusicXml,
 } = useCoachGuidedAndReview({
@@ -131,9 +132,13 @@ const {
   focusTab,
   phase,
   pushToRoll,
+  momentsLen: computed(() => api.moments.value.length),
 })
 
-const modeCard = computed(() => coachModeCard(mode.value))
+const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
+const pillarGlossaryTip = glossaryTitle('pillar')
+
+const showConfig = ref(false)
 const dockWidthRem = ref(44)
 const resizing = ref(false)
 
@@ -170,16 +175,6 @@ function onResizePointerDown(e: PointerEvent): void {
   window.addEventListener('pointercancel', onUp)
 }
 
-function openTab(tab: 'now' | 'choose' | 'check' | 'polish'): void {
-  if (tab === 'choose') {
-    if (!canWalkArrange.value) return
-    enterWalk()
-    return
-  }
-  focusTab.value = tab
-  if (tab === 'check' || tab === 'polish') phase.value = 'walk'
-}
-
 onMounted(() => {
   void ensureLinked()
 })
@@ -203,18 +198,23 @@ onUnmounted(() => {
       @pointerdown="onResizePointerDown"
     />
 
-    <header class="dock-head">
-      <h2 class="dock-title">Coach</h2>
-      <div class="head-actions">
-        <span v-if="arrStore.qaBadge.errors || arrStore.qaBadge.warns" class="qa-badge">
-          {{ arrStore.qaBadge.errors }}e / {{ arrStore.qaBadge.warns }}w
-        </span>
-        <button type="button" class="icon-btn" title="Pop out" @click="emit('popOut')">↗</button>
-        <button type="button" class="icon-btn" aria-label="Close coach" @click="emit('close')">
-          ×
-        </button>
-      </div>
-    </header>
+    <ArrangingCoachChrome
+      :show-config="showConfig"
+      :qa-errors="arrStore.qaBadge.errors"
+      :qa-warns="arrStore.qaBadge.warns"
+      :show-config-panel="showConfig && !!melody.length"
+      :contest-profile="arrStore.current?.contestProfile ?? DEFAULT_CONTEST_PROFILE"
+      :tuning-mode="arrStore.current?.tuningMode ?? 'equal'"
+      :qa-config="arrStore.current?.qaConfig ?? DEFAULT_QA_CONFIG"
+      :org-tip="orgTip"
+      @toggle-config="showConfig = !showConfig"
+      @pop-out="emit('popOut')"
+      @close="emit('close')"
+      @update:contest-profile="setContestProfile"
+      @update:tuning-mode="setTuningMode"
+      @update:qa-group="setQaGroup"
+      @close-config="showConfig = false"
+    />
 
     <p v-if="syncing" class="muted">Linking…</p>
 
@@ -223,17 +223,10 @@ onUnmounted(() => {
       <button type="button" class="primary" @click="goCloseForMelody">Close coach</button>
     </div>
 
-    <ArrangingCoachLanding
-      v-else-if="showLanding"
-      :progress-label="progressLabel"
-      @pick="enterMode"
-    />
-
     <template v-else>
       <div class="session-bar">
-        <button type="button" class="back" @click="backToModes">← Modes</button>
         <div class="session-meta">
-          <strong>{{ modeCard.title }}</strong>
+          <strong>{{ guidedStepLabel }}</strong>
           <span>{{ progressLabel }}</span>
         </div>
         <button type="button" class="primary slim" @click="runNextAction">
@@ -242,52 +235,112 @@ onUnmounted(() => {
       </div>
 
       <ArrangingStepRail
-        v-if="showStepRail"
         :active="guidedStep"
         :tip="guidedTip"
         @select="selectGuidedStep"
       />
+      <ArrangingTeachStrip
+        class="step-teach"
+        heading="Key ideas for this step"
+        :ids="stepGlossaryIds"
+      />
 
       <div class="workspace">
-        <nav class="side-tabs" aria-label="Coach panels">
-          <button type="button" :class="{ on: focusTab === 'now' }" @click="openTab('now')">
-            Now
-            <span v-if="pillarsUnconfirmed" class="dot" />
-          </button>
-          <button
-            type="button"
-            :class="{ on: focusTab === 'choose' }"
-            :disabled="!canWalkArrange"
-            @click="openTab('choose')"
-          >
-            Choose
-          </button>
-          <button type="button" :class="{ on: focusTab === 'check' }" @click="openTab('check')">
-            Check
-            <span v-if="noteLints.length" class="count">{{ noteLints.length }}</span>
-          </button>
-          <button type="button" :class="{ on: focusTab === 'polish' }" @click="openTab('polish')">
-            Polish
-          </button>
-        </nav>
-
         <div class="panel-scroll">
-          <!-- NOW -->
-          <section v-if="focusTab === 'now'" class="panel">
-            <p class="hint">Home chords (pillars). Suggest on the lane, then Lock.</p>
+          <!-- ROLES (distinct from pillars) -->
+          <ArrangingCoachRolesPanel
+            v-if="focusTab === 'now' && guidedStep === 'roles'"
+            :melody="melody"
+            :selected-id="arrStore.selectedMelodyId"
+            @select="selectMelodyNote"
+            @step="stepMelodyNote"
+            @set-role="setMelodyNoteRole"
+            @label-all="onLabelRoles"
+          />
+
+          <!-- PILLARS -->
+          <section v-else-if="focusTab === 'now'" class="panel">
+            <p class="hint">
+              Home roots under the melody. Suggest draws bands on the Coach lane — Hear the root, then
+              Lock when it feels right.
+            </p>
             <div class="row">
-              <button type="button" class="primary" @click="onInfer">Suggest pillars</button>
-              <button type="button" class="step-btn" @click="onAddPillarAtPlayhead">
+              <button
+                type="button"
+                class="primary"
+                :title="
+                  pillarGlossaryTip ||
+                  'Guess one home root per measure from the Lead. Review and lock before arranging.'
+                "
+                @click="onInfer"
+              >
+                Suggest pillars
+              </button>
+              <button
+                type="button"
+                class="step-btn"
+                title="Insert a draft pillar starting at the playhead (or selected moment)."
+                @click="onAddPillarAtPlayhead"
+              >
                 Add at playhead
               </button>
-              <button type="button" class="step-btn" @click="onLabelRoles">Label roles</button>
             </div>
             <div v-if="pillars.length" class="row">
-              <button type="button" class="step-btn" @click="stepPillar(-1)">← Pillar</button>
-              <button type="button" class="step-btn" @click="stepPillar(1)">Pillar →</button>
+              <button
+                type="button"
+                class="step-btn"
+                title="Previous pillar — moves the L/R inspect bounds on the roll"
+                @click="stepPillar(-1)"
+              >
+                ← Pillar
+              </button>
+              <button
+                type="button"
+                class="step-btn"
+                title="Next pillar — moves the L/R inspect bounds on the roll"
+                @click="stepPillar(1)"
+              >
+                Pillar →
+              </button>
+              <button
+                type="button"
+                class="step-btn"
+                :disabled="!canWalkArrange"
+                title="Next: mark Lead notes as Strong (home) or Passing (connective)"
+                @click="selectGuidedStep('roles')"
+              >
+                Next: Strong / passing →
+              </button>
             </div>
+            <ul v-if="pillars.length" class="pillar-list">
+              <li v-for="(pil, i) in pillars" :key="pil.id">
+                <button
+                  type="button"
+                  class="pillar-btn"
+                  :class="{ on: pil.id === selectedPil?.id, locked: pil.confirmed }"
+                  :title="
+                    [
+                      `Pillar ${i + 1}: ${pcName(pil.rootPc, preferFlats)}`,
+                      pil.confirmed ? 'Locked home root' : 'Draft — Hear and Lock when ready',
+                      pil.reason || '',
+                      pillarGlossaryTip,
+                    ]
+                      .filter(Boolean)
+                      .join(' — ')
+                  "
+                  @click="focusPillar(pil.id)"
+                >
+                  <span class="idx">{{ i + 1 }}</span>
+                  <strong>{{ pcName(pil.rootPc, preferFlats) }}</strong>
+                  <span class="pill-state">{{ pil.confirmed ? 'locked' : 'draft' }}</span>
+                </button>
+              </li>
+            </ul>
             <div v-if="selectedPil" class="card">
-              <label class="root-big">
+              <label
+                class="root-big"
+                :title="pillarGlossaryTip || 'Pitch-class home root for this phrase'"
+              >
                 Home root
                 <select
                   class="root-sel"
@@ -299,36 +352,53 @@ onUnmounted(() => {
                   </option>
                 </select>
               </label>
-              <span class="stack-state" :class="selectedPil.confirmed ? 'ok' : 'missing'">
+              <span
+                class="stack-state"
+                :class="selectedPil.confirmed ? 'ok' : 'missing'"
+                :title="
+                  selectedPil.confirmed
+                    ? 'Locked — coach treats this as a confirmed home root'
+                    : 'Draft — still editable; Lock when you are happy with it'
+                "
+              >
                 {{ selectedPil.confirmed ? 'locked' : 'draft' }}
               </span>
               <p v-if="selectedPil.reason" class="muted tiny">{{ selectedPil.reason }}</p>
               <div class="row">
-                <button type="button" class="step-btn" @click="hearPillarRoot">Hear root</button>
-                <button type="button" class="primary" @click="onLockPillar">Lock</button>
-                <button type="button" class="step-btn" @click="onDeletePillar">Delete</button>
+                <button
+                  type="button"
+                  class="step-btn"
+                  title="Audition this pillar’s root pitch"
+                  @click="hearPillarRoot"
+                >
+                  Hear root
+                </button>
+                <button
+                  type="button"
+                  class="primary"
+                  title="Confirm this home root so arranging can rely on it"
+                  @click="onLockPillar"
+                >
+                  Lock
+                </button>
+                <button
+                  type="button"
+                  class="step-btn"
+                  title="Remove this pillar span"
+                  @click="onDeletePillar"
+                >
+                  Delete
+                </button>
               </div>
               <button
                 v-if="canLockRemaining"
                 type="button"
                 class="linkish"
+                title="Lock every remaining draft pillar after you have locked at least one"
                 @click="onLockRemaining"
               >
                 Lock remaining suggestions
               </button>
-            </div>
-            <div v-if="selectedMoment" class="card">
-              <ArrangingContextCard
-                v-if="momentContext"
-                :ctx="momentContext"
-                @hear="hearCurrentStack"
-                @add-pillar="addPillarHere"
-                @extend-pillar="extendPreviousToHere"
-              />
-              <div v-else class="note-line">
-                <strong>{{ midiToNote(selectedMoment.leadMidi) }}</strong>
-                <span v-if="selectedMoment.heldLead" class="post-badge">Post (held)</span>
-              </div>
             </div>
             <div v-if="coverageGaps.length" class="gaps">
               <h3 class="subh">Uncovered ({{ coverageGaps.length }})</h3>
@@ -336,7 +406,7 @@ onUnmounted(() => {
                 <li v-for="g in coverageGaps.slice(0, 6)" :key="g.id">
                   <button
                     type="button"
-                    class="lint-jump"
+                    class="gap-jump"
                     @click="arrStore.selectMelody(g.id); addPillarHere()"
                   >
                     {{ midiToNote(g.midi) }} — add pillar
@@ -344,35 +414,10 @@ onUnmounted(() => {
                 </li>
               </ul>
             </div>
-            <button
-              type="button"
-              class="primary"
-              :disabled="!canWalkArrange"
-              @click="enterWalk"
-            >
-              Choose chords →
-            </button>
           </section>
 
-          <!-- CHOOSE -->
+          <!-- CHOOSE — best on one line; other suggestions in a single collapsible -->
           <section v-else-if="focusTab === 'choose'" class="panel">
-            <div class="row">
-              <button type="button" class="step-btn" :disabled="!moments.length" @click="stepMoment(-1)">
-                ← Prev
-              </button>
-              <button type="button" class="step-btn" :disabled="!moments.length" @click="stepMoment(1)">
-                Next →
-              </button>
-              <button type="button" class="step-btn" @click="stepNextGap">Next gap</button>
-              <button
-                type="button"
-                class="step-btn"
-                :disabled="!currentStack?.midi"
-                @click="hearCurrentStack"
-              >
-                Hear stack
-              </button>
-            </div>
             <div v-if="selectedMoment" class="card">
               <ArrangingContextCard
                 v-if="momentContext"
@@ -382,10 +427,25 @@ onUnmounted(() => {
                 @extend-pillar="extendPreviousToHere"
               />
               <div v-if="uncoveredSelected" class="banner">
-                <p class="hint">No pillar under this moment.</p>
+                <p class="hint">
+                  No pillar under this moment — lock a home root first so ranked suggestions know
+                  which family to use.
+                </p>
                 <div class="row">
-                  <button type="button" class="primary" @click="addPillarHere">Add pillar</button>
-                  <button type="button" class="step-btn" @click="extendPreviousToHere">
+                  <button
+                    type="button"
+                    class="primary"
+                    :title="pillarGlossaryTip || 'Add a home-root pillar covering this moment'"
+                    @click="addPillarHere"
+                  >
+                    Add pillar
+                  </button>
+                  <button
+                    type="button"
+                    class="step-btn"
+                    title="Stretch the previous pillar forward to cover this moment"
+                    @click="extendPreviousToHere"
+                  >
                     Extend previous
                   </button>
                 </div>
@@ -395,106 +455,228 @@ onUnmounted(() => {
                 <button type="button" class="primary" @click="onInfer">Suggest pillars</button>
               </div>
               <template v-else>
-                <button
-                  type="button"
-                  class="primary"
-                  :disabled="!filteredCandidates.length"
-                  @click="applyBest"
-                >
-                  {{ currentStack ? 'Replace with best' : 'Apply best' }}
-                </button>
-                <button
-                  type="button"
-                  class="step-btn"
-                  :disabled="filteredCandidates.length < 1"
-                  @click="compareHearTop2"
-                >
-                  Compare hear top 2
-                </button>
+                <div v-if="filteredCandidates[0]" class="best-row">
+                  <strong class="best-id">{{ candIdentity(filteredCandidates[0]) }}</strong>
+                  <span class="cand-meta">{{ layerHint(filteredCandidates[0]) }}</span>
+                  <button
+                    type="button"
+                    class="primary slim"
+                    title="Write the top-ranked voicing into this moment"
+                    @click="applyBest"
+                  >
+                    {{ currentStack ? 'Replace' : 'Apply' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="step-btn slim"
+                    :disabled="!currentStack?.midi && !filteredCandidates[0]"
+                    title="Audition the current stack or the top candidate"
+                    @click="currentStack?.midi ? hearCurrentStack() : hearCand(filteredCandidates[0]!)"
+                  >
+                    Hear
+                  </button>
+                  <button
+                    type="button"
+                    class="step-btn slim"
+                    title="Explain which craft factors ranked this candidate"
+                    @click="whyIndex = whyIndex === 0 ? null : 0"
+                  >
+                    Why?
+                  </button>
+                </div>
+                <p v-else class="muted">
+                  {{ candidates.length ? 'No suggestions match this filter.' : 'No candidates.' }}
+                </p>
+                <ArrangingCandidateWhy
+                  v-if="whyIndex === 0 && filteredCandidates[0]"
+                  :why="whyFor(0)"
+                  :show-numbers="whyShowNumbers"
+                  @update:show-numbers="whyShowNumbers = $event"
+                />
               </template>
             </div>
-            <ArrangingCoachAlts
-              :alts-open="altsOpen"
-              :alt-chips="altChips"
-              :counterpart="counterpart"
-              :filter-options="filterOptions"
-              :cand-filter="candFilter"
-              @update:alts-open="altsOpen = $event"
-              @update:cand-filter="candFilter = $event"
-              @apply-alt="applyAltChip"
-              @apply-counterpart="applyCounterpartNow"
-            />
-            <ul v-if="noteLints.length" class="lint-mini">
-              <li v-for="lint in noteLints" :key="lint.id" :class="lint.severity">
-                <button type="button" class="lint-jump" @click="jumpToLint(lint)">
-                  {{ lintRowLabel(lint) }}
+
+            <details
+              v-if="lintDetail && expandedLintId"
+              class="lint-detail"
+              open
+            >
+              <summary>
+                <span class="loc">{{
+                  noteLints.find((l) => l.id === expandedLintId)
+                    ? lintParts(noteLints.find((l) => l.id === expandedLintId)!).loc
+                    : 'Issue'
+                }}</span>
+                <span class="msg">{{ lintDetail.headline }}</span>
+                <button type="button" class="x" title="Close" @click.prevent="clearLintDetail">
+                  ×
                 </button>
-                <button v-if="canFix(lint)" type="button" class="fix-btn" @click="fixItem(lint)">
+              </summary>
+              <p class="body">{{ lintDetail.body }}</p>
+              <ul v-if="lintDetail.glossary.length" class="gloss">
+                <li v-for="g in lintDetail.glossary" :key="g.id">
+                  <strong>{{ g.term }}</strong> — {{ g.short }}
+                </li>
+              </ul>
+              <p v-if="filteredCandidates.length" class="subh">Try these</p>
+              <ul v-if="filteredCandidates.length" class="cands flat">
+                <li
+                  v-for="(c, i) in filteredCandidates.slice(0, 4)"
+                  :key="`lint-${c.rootPc}-${c.natureId}-${i}`"
+                  @mouseenter="previewCand(c)"
+                  @mouseleave="emit('clearGhost')"
+                >
+                  <span class="cand-id">{{ candIdentity(c) }}</span>
+                  <span class="cand-meta">{{ layerHint(c) }}</span>
+                  <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
+                  <button type="button" class="step-btn slim" @click="applyCand(c)">
+                    {{ currentStack ? 'Replace' : 'Apply' }}
+                  </button>
+                </li>
+              </ul>
+            </details>
+
+            <ul v-if="noteLints.length" class="lint-mini">
+              <li
+                v-for="lint in noteLints"
+                :key="lint.id"
+                :class="[lint.severity, { on: lint.id === expandedLintId }]"
+              >
+                <button type="button" class="lint-jump" @click="jumpToLint(lint)">
+                  <span class="loc">{{ lintParts(lint).loc }}</span>
+                  <span class="msg">{{ lintParts(lint).message }}</span>
+                </button>
+                <button
+                  v-if="canFix(lint)"
+                  type="button"
+                  class="fix-btn"
+                  @click="fixItem(lint)"
+                >
                   Fix
                 </button>
               </li>
             </ul>
-            <h3 class="subh">Suggestions <span class="meta">bass→tenor</span></h3>
-            <ul v-if="filteredCandidates.length" class="cands">
-              <li
-                v-for="(c, i) in filteredCandidates"
-                :key="`${c.rootPc}-${c.natureId}-${c.voicing}-${i}`"
-                @mouseenter="previewCand(c)"
-                @mouseleave="emit('clearGhost')"
-              >
-                <button type="button" class="cand" @click="previewCand(c)">
-                  <strong>{{ candIdentity(c) }}</strong>
+
+            <details
+              v-if="filteredCandidates.length > 1 || altChips.length || counterpart"
+              class="other-cands"
+            >
+              <summary>
+                Other suggestions
+                <span class="meta">{{
+                  Math.max(0, filteredCandidates.length - 1) +
+                  altChips.length +
+                  (counterpart ? 1 : 0)
+                }}</span>
+              </summary>
+              <div v-if="altChips.length || counterpart" class="chip-row">
+                <button
+                  v-for="chip in altChips"
+                  :key="chip.id"
+                  type="button"
+                  class="chip"
+                  :title="chip.reason"
+                  @click="applyAltChip(chip)"
+                >
+                  {{ chip.label }}
+                </button>
+                <button
+                  v-if="counterpart"
+                  type="button"
+                  class="chip"
+                  :title="counterpart.reason"
+                  @click="applyCounterpartNow"
+                >
+                  Counterpart → {{ counterpart.label }}
+                </button>
+              </div>
+              <div class="filter-row" role="group" aria-label="Suggestion filter">
+                <button
+                  v-for="f in filterOptions"
+                  :key="f.id"
+                  type="button"
+                  :class="{ on: candFilter === f.id }"
+                  @click="candFilter = f.id"
+                >
+                  {{ f.label }}
+                </button>
+              </div>
+              <ul v-if="filteredCandidates.length > 1" class="cands flat">
+                <li
+                  v-for="(c, i) in filteredCandidates.slice(1)"
+                  :key="`${c.rootPc}-${c.natureId}-${c.voicing}-${i + 1}`"
+                  @mouseenter="previewCand(c)"
+                  @mouseleave="emit('clearGhost')"
+                >
+                  <span class="cand-id">{{ candIdentity(c) }}</span>
                   <span
                     class="score-bar"
                     :style="{ width: `${Math.round((c.score / maxScore) * 100)}%` }"
                   />
                   <span class="cand-meta">{{ layerHint(c) }}</span>
-                </button>
-                <div class="cand-actions">
-                  <button type="button" @click="hearCand(c)">Hear</button>
-                  <button type="button" @click="applyCand(c)">
+                  <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
+                  <button type="button" class="step-btn slim" @click="applyCand(c)">
                     {{ currentStack ? 'Replace' : 'Apply' }}
                   </button>
-                  <button type="button" @click="whyIndex = whyIndex === i ? null : i">Why?</button>
-                </div>
-                <ArrangingCandidateWhy
-                  v-if="whyIndex === i"
-                  :why="whyFor(i)"
-                  :show-numbers="whyShowNumbers"
-                  @update:show-numbers="whyShowNumbers = $event"
-                />
-              </li>
-            </ul>
-            <p v-else-if="selectedMoment && !uncoveredSelected" class="muted">
-              {{ candidates.length ? 'No suggestions match this filter.' : 'No candidates.' }}
-            </p>
-            <details class="advanced">
-              <summary>Advanced</summary>
-              <button type="button" class="linkish" @click="fillEmptyWithBest">
-                Fill empty moments with best picks
-              </button>
-              <p class="muted tiny">Does not teach — fills gaps only.</p>
+                  <button
+                    type="button"
+                    class="step-btn slim"
+                    @click="whyIndex = whyIndex === i + 1 ? null : i + 1"
+                  >
+                    Why?
+                  </button>
+                  <ArrangingCandidateWhy
+                    v-if="whyIndex === i + 1"
+                    class="why-inline"
+                    :why="whyFor(i + 1)"
+                    :show-numbers="whyShowNumbers"
+                    @update:show-numbers="whyShowNumbers = $event"
+                  />
+                </li>
+              </ul>
+              <div class="row">
+                <button
+                  type="button"
+                  class="step-btn"
+                  :disabled="filteredCandidates.length < 2"
+                  title="Play the top two ranked suggestions back-to-back"
+                  @click="compareHearTop2"
+                >
+                  Compare top 2
+                </button>
+                <button
+                  type="button"
+                  class="linkish"
+                  title="Fills empty moments with top picks — skips Apply + Why?"
+                  @click="fillEmptyWithBest"
+                >
+                  Fill empties
+                </button>
+              </div>
             </details>
           </section>
 
           <!-- CHECK -->
           <section v-else-if="focusTab === 'check'" class="panel">
+            <p class="hint">
+              Click an issue to jump to that measure on Chords and open a teaching note with live
+              suggestions. Fix when you understand the rule.
+            </p>
             <div class="row">
-              <button type="button" class="primary" @click="fixAllSafe">Fix all safe</button>
               <button
                 type="button"
-                class="step-btn"
-                :disabled="!noteLints.length"
-                @click="stepNextIssue"
+                class="primary"
+                title="Apply only auto-safe repairs; open Learn on anything that needs your ear"
+                @click="fixAllSafe"
               >
-                Next issue
+                Fix all safe
               </button>
             </div>
-            <p v-if="learnHint" class="hint">{{ learnHint }}</p>
             <ArrangingIssueBoard
               :groups="issueGroups"
               :can-fix="canFix"
-              :row-label="lintRowLabel"
+              :row-parts="lintParts"
+              :expanded-id="expandedLintId"
               @jump="jumpToLint"
               @fix="fixItem"
               @learn="learnLint"
@@ -504,9 +686,6 @@ onUnmounted(() => {
           <!-- POLISH -->
           <section v-else class="panel">
             <ArrangingReviewPolish
-              :contest-profile="arrStore.current?.contestProfile ?? 'sai11'"
-              :tuning-mode="arrStore.current?.tuningMode ?? 'equal'"
-              :org-tip="orgTip"
               :checklist="checklist.items"
               :ready="checklist.ready"
               :how-factors="howFactors"
@@ -514,8 +693,7 @@ onUnmounted(() => {
               @strengthen="onStrengthen"
               @polish="onPolish"
               @apply-swipe="onApplySwipe"
-              @update:contest-profile="setContestProfile"
-              @update:tuning-mode="setTuningMode"
+              @open-config="showConfig = true"
               @export-midi="exportMidi"
               @export-music-xml="exportMusicXml"
             />
@@ -554,40 +732,6 @@ onUnmounted(() => {
 .coach-dock.resizing .resize-handle {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
-.dock-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-}
-.dock-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-}
-.head-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-.qa-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--muted);
-  padding: 0.1rem 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
-.icon-btn {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.15rem;
-  line-height: 1;
-  cursor: pointer;
-  min-width: 1.6rem;
-}
 .muted,
 .hint,
 .meta,
@@ -611,19 +755,8 @@ onUnmounted(() => {
   flex: 0 0 auto;
   min-height: 2rem;
 }
-.back {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 650;
-  cursor: pointer;
-  padding: 0.15rem 0.2rem;
-  white-space: nowrap;
-}
-.back:hover {
-  color: var(--text);
+.step-teach {
+  flex: 0 0 auto;
 }
 .session-meta {
   flex: 1 1 auto;
@@ -638,56 +771,13 @@ onUnmounted(() => {
   color: var(--text);
 }
 .workspace {
-  display: grid;
-  grid-template-columns: 3.4rem 1fr;
-  gap: 0.45rem;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
 }
-.side-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.side-tabs button {
-  position: relative;
-  writing-mode: horizontal-tb;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg, var(--surface));
-  color: var(--text);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0.45rem 0.2rem;
-  min-height: 2.4rem;
-}
-.side-tabs button.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.side-tabs button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.dot {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: #c47a12;
-}
-.count {
-  display: block;
-  margin-top: 0.1rem;
-  font-size: 0.65rem;
-  font-weight: 650;
-  color: var(--muted);
-}
 .panel-scroll {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -781,6 +871,61 @@ onUnmounted(() => {
   display: grid;
   gap: 0.3rem;
 }
+.pillar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+  max-height: 9rem;
+  overflow: auto;
+}
+.pillar-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.28rem 0.4rem;
+  color: var(--text);
+  text-align: left;
+}
+.pillar-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.pillar-btn .idx {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  width: 1.2rem;
+}
+.pillar-btn .pill-state {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.pillar-btn.locked .pill-state {
+  color: #2d7a3e;
+}
+.gap-jump {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0;
+  text-align: left;
+}
+.gap-jump:hover {
+  text-decoration: underline;
+}
 .lint-mini li {
   display: flex;
   gap: 0.3rem;
@@ -793,19 +938,171 @@ onUnmounted(() => {
 .lint-mini li.error {
   border-color: color-mix(in srgb, #c0392b 45%, var(--border));
 }
+.lint-mini li.on {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .lint-jump {
   flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.4rem;
+  align-items: baseline;
   border: 0;
   background: transparent;
   text-align: left;
   font: inherit;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   cursor: pointer;
   color: var(--text);
   padding: 0;
 }
-.lint-jump:hover {
+.lint-jump .loc {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+.lint-jump .msg {
+  line-height: 1.35;
+}
+.lint-jump:hover .msg {
   text-decoration: underline;
+}
+.best-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+.best-id,
+.cand-id {
+  font-size: 0.88rem;
+}
+.step-btn.slim {
+  min-height: 1.65rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+}
+.lint-detail {
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-radius: 9px;
+  padding: 0.4rem 0.5rem;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  display: grid;
+  gap: 0.35rem;
+}
+.lint-detail summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.lint-detail summary::-webkit-details-marker {
+  display: none;
+}
+.lint-detail .loc {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.lint-detail .msg {
+  flex: 1;
+  min-width: 0;
+}
+.lint-detail .x {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0 0.2rem;
+}
+.lint-detail .body {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+.lint-detail .gloss {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.other-cands {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 0.35rem 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+}
+.other-cands summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.other-cands .meta {
+  margin-left: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  min-height: 1.65rem;
+  padding: 0.1rem 0.5rem;
+}
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+}
+.filter-row button {
+  min-height: 1.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, var(--surface));
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.filter-row button.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.cands.flat li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  padding: 0.25rem 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.cands.flat li:last-child {
+  border-bottom: 0;
+}
+.cands.flat .why-inline {
+  flex: 1 1 100%;
 }
 .cands li {
   display: grid;
@@ -814,35 +1111,25 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.cand {
-  border: 0;
-  background: transparent;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  display: grid;
-  gap: 0.15rem;
-  color: var(--text);
-  padding: 0;
-}
 .score-bar {
-  height: 3px;
-  border-radius: 2px;
+  display: inline-block;
+  height: 4px;
+  min-width: 1.5rem;
+  max-width: 3.5rem;
+  border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 55%, transparent);
+  vertical-align: middle;
 }
 .cand-meta {
   font-size: 0.72rem;
   color: var(--muted);
 }
-.cand-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-.advanced {
-  font-size: 0.8rem;
-}
 .linkish {
-  width: 100%;
+  background: transparent;
+  border-color: transparent;
+  text-decoration: underline;
+  min-height: auto;
+  padding: 0.1rem 0.2rem;
+  font-size: 0.75rem;
 }
 </style>

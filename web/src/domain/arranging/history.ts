@@ -10,6 +10,8 @@ import type {
   TuningMode,
   WizardStep,
 } from './types'
+import type { ArrangementQaConfig } from './coachConfig'
+import { normalizeQaConfig } from './coachConfig'
 
 export const ARRANGING_HISTORY_LIMIT = 80
 
@@ -21,6 +23,7 @@ export type ArrangementDocumentSnapshot = {
   wizardStep: WizardStep
   tuningMode: TuningMode
   contestProfile: ContestProfile
+  qaConfig: ArrangementQaConfig
   melody: MelodyEvent[]
   pillars: Pillar[]
   stacks: ChordStack[]
@@ -35,6 +38,7 @@ export function captureDocumentSnapshot(p: ArrangementProject): ArrangementDocum
     wizardStep: p.wizardStep,
     tuningMode: p.tuningMode,
     contestProfile: p.contestProfile,
+    qaConfig: normalizeQaConfig(p.qaConfig),
     melody: p.melody.map((n) => ({ ...n })),
     pillars: p.pillars.map((x) => ({ ...x })),
     stacks: p.stacks.map((s) => ({
@@ -58,6 +62,7 @@ export function applyDocumentSnapshot(
     wizardStep: snap.wizardStep,
     tuningMode: snap.tuningMode,
     contestProfile: snap.contestProfile,
+    qaConfig: normalizeQaConfig(snap.qaConfig),
     melody: snap.melody.map((n) => ({ ...n })),
     pillars: snap.pillars.map((x) => ({ ...x })),
     stacks: snap.stacks.map((s) => ({

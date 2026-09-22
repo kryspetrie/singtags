@@ -150,6 +150,219 @@ export function inferNaturesFromPcs(opts: {
   })
 }
 
+function roleOfPc(
+  rootPc: number,
+  natureId: string,
+  midi: number,
+): ChordToneRole | null {
+  const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
+  if (!chord) return null
+  const p = pc(midi)
+  for (const [role, off] of Object.entries(chord.offsets)) {
+    if (off != null && pc(rootPc + off) === p) return Number(role) as ChordToneRole
+  }
+  return null
+}
+
+/** Best-effort voicing string bass→tenor from sounding MIDI. */
+export function voicingStringFromMidi(
+  midi: Partial<VoicingPitches> & { lead: number },
+  rootPc: number,
+  natureId: string,
+): string {
+  if (midi.bass == null || midi.bari == null || midi.tenor == null) return ''
+  const roles = [midi.bass, midi.bari, midi.lead, midi.tenor].map((m) =>
+    roleOfPc(rootPc, natureId, m),
+  )
+  if (roles.some((r) => r == null)) return ''
+  return roles.join('')
+}
+
+/**
+ * Identify a library nature (+ root / voicing) from sounding TTBB MIDI.
+ * Prefers an exact (or octave-tolerant) match against the voicing catalogue so
+ * omit-root / incomplete spellings still resolve to the intended library chord.
+ */
+export function identifyNatureFromMidi(opts: {
+  midi: Partial<VoicingPitches> & { lead: number }
+  profile: ContestProfile
+  tonality: number
+}): { natureId: string; rootPc: number; voicing: string; confidence: number } | null {
+  const lead = opts.midi.lead
+  const presentMidi = [opts.midi.tenor, opts.midi.lead, opts.midi.bari, opts.midi.bass].filter(
+    (m): m is number => m != null,
+  )
+  const presentPcs = uniquePcs(presentMidi)
+  const bassPc = opts.midi.bass != null ? pc(opts.midi.bass) : null
+  let best: {
+    natureId: string
+    rootPc: number
+    voicing: string
+    score: number
+    tie: number
+  } | null = null
+
+  for (const nature of BARBERSHOP_CHORDS) {
+    if (!isNatureAllowed(opts.profile, nature.id)) continue
+    const voicings = VOICINGS_BY_CHORD[nature.id] ?? []
+    for (let rootPc = 0; rootPc < 12; rootPc++) {
+      const lr = leadRoleInChord(nature, rootPc, lead)
+      if (lr == null) continue
+      for (const voicing of voicings) {
+        if (!voicingFitsLead(voicing, lr)) continue
+        for (const spread of [false, true]) {
+          const placed = placeVoicing({
+            chord: nature,
+            rootPc,
+            leadMidi: lead,
+            voicing,
+            spread,
+          })
+          if (!placed) continue
+          const score = voicingMatchScore(placed, opts.midi)
+          if (score <= 0) continue
+          const tie = catalogueTieBreak(nature.id, rootPc, presentPcs, bassPc)
+          if (
+            !best ||
+            score > best.score ||
+            (score === best.score && tie > best.tie)
+          ) {
+            best = { natureId: nature.id, rootPc, voicing, score, tie }
+          }
+        }
+      }
+    }
+  }
+
+  const partsPresent = (['bass', 'bari', 'lead', 'tenor'] as const).filter(
+    (k) => opts.midi[k] != null,
+  ).length
+
+  // Full TTBB catalogue hits only — partial stacks are too ambiguous across natures.
+  if (best && best.score >= 3.5 && partsPresent >= 4) {
+    // Classic dual: omit-root Dom9 ≡ complete bass-rooted m6 (F+Ab+C+D = Fm6 / Bb9).
+    if (
+      bassPc != null &&
+      best.rootPc !== bassPc &&
+      (best.natureId === 'ninth' || best.natureId === 'seventh') &&
+      !presentPcs.includes(best.rootPc)
+    ) {
+      const dual = inferNaturesFromPcs({
+        presentMidi,
+        profile: opts.profile,
+        tonality: opts.tonality,
+        pillarRoot: bassPc,
+      }).find(
+        (x) =>
+          (x.natureId === 'madd6' || x.natureId === 'sixth') &&
+          x.rootPc === bassPc &&
+          x.missingRoles.length === 0,
+      )
+      if (dual) {
+        return {
+          natureId: dual.natureId,
+          rootPc: dual.rootPc,
+          voicing: voicingStringFromMidi(opts.midi, dual.rootPc, dual.natureId),
+          confidence: Math.max(dual.confidence, 0.75),
+        }
+      }
+    }
+    return {
+      natureId: best.natureId,
+      rootPc: best.rootPc,
+      voicing: best.voicing,
+      confidence: Math.min(1, best.score / 4),
+    }
+  }
+
+  // Fallback: PC-subset inference (incomplete / non-catalogue voicings).
+  const inferred = inferNaturesFromPcs({
+    presentMidi,
+    profile: opts.profile,
+    tonality: opts.tonality,
+    pillarRoot: bassPc ?? undefined,
+  })
+  if (!inferred.length) return null
+  const ranked = [...inferred].sort((a, b) => {
+    // Prefer natures that explain extensions actually present (7/6/9) — stops
+    // “Dm add6” winning over G7 when the sounding set is {B,D,F}.
+    const aExt = extensionPresenceBonus(a.natureId, a.rootPc, presentPcs)
+    const bExt = extensionPresenceBonus(b.natureId, b.rootPc, presentPcs)
+    if (bExt !== aExt) return bExt - aExt
+    const aRing = ringTier(a.natureId)
+    const bRing = ringTier(b.natureId)
+    if (aRing !== bRing) return aRing - bRing
+    const aComplete = a.missingRoles.length === 0 ? 1 : 0
+    const bComplete = b.missingRoles.length === 0 ? 1 : 0
+    if (bComplete !== aComplete) return bComplete - aComplete
+    // Omit-root dominants are common; don't lose to bass=root of a weaker nature.
+    const aOmitRoot =
+      isDominantNature(a.natureId) && a.missingRoles.length === 1 && a.missingRoles[0] === 1
+        ? 1
+        : 0
+    const bOmitRoot =
+      isDominantNature(b.natureId) && b.missingRoles.length === 1 && b.missingRoles[0] === 1
+        ? 1
+        : 0
+    if (bOmitRoot !== aOmitRoot) return bOmitRoot - aOmitRoot
+    if (bassPc != null) {
+      const aBass = a.rootPc === bassPc ? 1 : 0
+      const bBass = b.rootPc === bassPc ? 1 : 0
+      if (bBass !== aBass) return bBass - aBass
+    }
+    return b.confidence - a.confidence
+  })
+  const top = ranked[0]!
+  return {
+    natureId: top.natureId,
+    rootPc: top.rootPc,
+    voicing: voicingStringFromMidi(opts.midi, top.rootPc, top.natureId),
+    confidence: top.confidence,
+  }
+}
+
+/** Higher = better when voicing-match scores tie (partial stacks). */
+function catalogueTieBreak(
+  natureId: string,
+  rootPc: number,
+  presentPcs: number[],
+  bassPc: number | null,
+): number {
+  let t = extensionPresenceBonus(natureId, rootPc, presentPcs) * 10
+  // Omit-root Dom9 (etc.) shares PCs with a bass-rooted m6/6 — prefer the bass root.
+  if (!presentPcs.includes(pc(rootPc))) t -= 12
+  if (bassPc != null && bassPc === rootPc) t += 15
+  t += Math.max(0, 7 - ringTier(natureId))
+  return t
+}
+
+function extensionPresenceBonus(natureId: string, rootPc: number, presentPcs: number[]): number {
+  const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
+  if (!chord) return 0
+  let n = 0
+  for (const role of [6, 7, 9] as const) {
+    const off = chord.offsets[role]
+    if (off != null && presentPcs.includes(pc(rootPc + off))) n += 1
+  }
+  return n
+}
+
+function voicingMatchScore(
+  placed: VoicingPitches,
+  got: Partial<VoicingPitches>,
+): number {
+  let score = 0
+  let compared = 0
+  for (const k of ['bass', 'bari', 'lead', 'tenor'] as const) {
+    if (got[k] == null) continue
+    compared++
+    if (got[k] === placed[k]) score += 1
+    else if (pc(got[k]!) === pc(placed[k])) score += 0.5
+    else return -1
+  }
+  return compared > 0 ? score : -1
+}
+
 function assignLocked(
   midi: VoicingPitches,
   locked?: Partial<VoicingPitches>,

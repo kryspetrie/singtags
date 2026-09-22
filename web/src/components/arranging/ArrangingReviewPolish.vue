@@ -1,15 +1,11 @@
 <script setup lang="ts">
 /**
- * Review polish strip — strengthen, profile, tuning, export, checklist.
+ * Review polish strip — strengthen, export, checklist (ruleset lives in Coaching config).
  */
-import type { ContestProfile, TuningMode } from '../../domain/arranging/types'
 import type { FinalChecklistItem } from '../../domain/arranging/finalChecklist'
 import type { BarbershopnessFactor } from '../../domain/arranging/barbershopness'
 
 defineProps<{
-  contestProfile: ContestProfile
-  tuningMode: TuningMode
-  orgTip: string | null
   checklist: FinalChecklistItem[]
   ready: boolean
   howFactors: BarbershopnessFactor[]
@@ -19,57 +15,70 @@ defineProps<{
 const emit = defineEmits<{
   strengthen: []
   polish: []
-  'update:contestProfile': [ContestProfile]
-  'update:tuningMode': [TuningMode]
   exportMidi: []
   exportMusicXml: []
   applySwipe: []
+  openConfig: []
 }>()
-
-const profiles: { id: ContestProfile; label: string }[] = [
-  { id: 'sai11', label: 'SAI-11' },
-  { id: 'bhs_extended', label: 'BHS extended' },
-  { id: 'learning', label: 'Learning' },
-]
 </script>
 
 <template>
   <section class="polish" aria-label="Review polish">
     <h3 class="subh">Polish</h3>
+    <p class="hint">
+      Last teaching pass: strengthen approaches, check voicing craft, then export. Open Coaching
+      configuration to change contest vocabulary and learning strictness.
+    </p>
     <div class="row">
-      <button type="button" class="btn" @click="emit('strengthen')">Strengthen</button>
-      <button type="button" class="btn" @click="emit('polish')">Polish voicing</button>
-      <button type="button" class="btn" @click="emit('applySwipe')">Try swipe seed</button>
+      <button
+        type="button"
+        class="btn"
+        title="Improve weak approaches and secondary-dominant drives where the coach can do so safely"
+        @click="emit('strengthen')"
+      >
+        Strengthen
+      </button>
+      <button
+        type="button"
+        class="btn"
+        title="Nudge voicings toward stronger lead chord-tones and cleaner spacing"
+        @click="emit('polish')"
+      >
+        Polish voicing
+      </button>
+      <button
+        type="button"
+        class="btn"
+        title="Try a swipe-style seed pass for variety (review before keeping)"
+        @click="emit('applySwipe')"
+      >
+        Try swipe seed
+      </button>
     </div>
 
-    <label class="field">
-      Contest profile
-      <select
-        :value="contestProfile"
-        @change="emit('update:contestProfile', ($event.target as HTMLSelectElement).value as ContestProfile)"
-      >
-        <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.label }}</option>
-      </select>
-    </label>
-    <p v-if="orgTip" class="tip">{{ orgTip }}</p>
-
-    <label class="field">
-      Tuning
-      <select
-        :value="tuningMode"
-        @change="emit('update:tuningMode', ($event.target as HTMLSelectElement).value as TuningMode)"
-      >
-        <option value="equal">Equal temperament</option>
-        <option value="just">just intonation</option>
-      </select>
-    </label>
+    <button
+      type="button"
+      class="btn linkish"
+      title="Contest profile, tuning, and learning preferences"
+      @click="emit('openConfig')"
+    >
+      Coaching configuration…
+    </button>
 
     <div class="row">
-      <button type="button" class="btn primary" @click="emit('exportMidi')">Export MIDI</button>
+      <button
+        type="button"
+        class="btn primary"
+        title="Export the arrangement as MIDI for DAWs and players"
+        @click="emit('exportMidi')"
+      >
+        Export MIDI
+      </button>
       <button
         v-if="musicXmlAvailable"
         type="button"
         class="btn"
+        title="Export MusicXML for notation software"
         @click="emit('exportMusicXml')"
       >
         Export MusicXML
@@ -77,7 +86,7 @@ const profiles: { id: ContestProfile; label: string }[] = [
     </div>
 
     <details class="check">
-      <summary>
+      <summary title="Contest-minded craft checklist before you leave the coach">
         Checklist
         <span class="meta">{{ ready ? 'ready' : 'residuals' }}</span>
       </summary>
@@ -91,7 +100,9 @@ const profiles: { id: ContestProfile; label: string }[] = [
     </details>
 
     <details v-if="howFactors.length" class="check">
-      <summary>How barbershop (factors)</summary>
+      <summary title="How the coach scores barbershop style factors on this chart">
+        How barbershop (factors)
+      </summary>
       <ul>
         <li v-for="f in howFactors" :key="f.id">
           {{ f.label }}
@@ -106,6 +117,12 @@ const profiles: { id: ContestProfile; label: string }[] = [
 .polish {
   display: grid;
   gap: 0.4rem;
+}
+.hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 .subh {
   margin: 0;
@@ -132,20 +149,11 @@ const profiles: { id: ContestProfile; label: string }[] = [
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.field {
-  display: grid;
-  gap: 0.2rem;
-  font-size: 0.75rem;
-  font-weight: 650;
+.btn.linkish {
+  justify-self: start;
+  border-style: dashed;
+  color: var(--muted);
 }
-.field select {
-  min-height: 1.9rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg, var(--surface));
-  font: inherit;
-}
-.tip,
 .meta {
   margin: 0;
   font-size: 0.72rem;

@@ -86,6 +86,22 @@ function chromaticDegree(rootPc: number, tonality: number, mode: TonalityMode): 
   return table[deg] ?? `♭${deg}`
 }
 
+/**
+ * Spell roots with flats/sharps that match the Roman accidental in this key.
+ * e.g. ♭VII in C → Bb (not A#), even when the project prefers sharps.
+ * Returns null when the degree is natural — caller uses project preferFlats.
+ */
+export function accidentalBiasForRootInKey(
+  rootPc: number,
+  tonality: number,
+  mode: TonalityMode = 'major',
+): boolean | null {
+  const label = chromaticDegree(rootPc, tonality, mode)
+  if (label.includes('♭')) return true
+  if (label.includes('♯')) return false
+  return null
+}
+
 function baseRoman(rootPc: number, tonality: number, mode: TonalityMode): string {
   const deg = degreeOf(rootPc, tonality)
   const table = mode === 'minor' ? MINOR_RN : MAJOR_RN
@@ -132,6 +148,16 @@ export type RomanLabelResult = {
  */
 export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
   const mode = opts.mode ?? 'major'
+  // Dom9 shares Mm7 function labels; stamp 7(9) so Number mode matches Chord mode.
+  if (opts.natureId === 'ninth') {
+    const as7 = romanForChordDetailed({ ...opts, natureId: 'seventh' })
+    const stamp = (r: string) =>
+      r.includes('7(9)') ? r : r.replace(/7(?=\/|$)/g, '7(9)')
+    return {
+      roman: stamp(as7.roman),
+      altRoman: as7.altRoman ? stamp(as7.altRoman) : undefined,
+    }
+  }
   const target = opts.resolvesToRoot
   const rootDeg = degreeOf(opts.rootPc, opts.tonality)
   const tonicRoman = mode === 'minor' ? 'i' : 'I'
@@ -168,6 +194,17 @@ export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
 
   // m7 and other natures: quality on degree — never V7
   if (opts.natureId === 'm7') return { roman: `${base}7`.replace(/^I7$/, 'i7').replace(/^IV7$/, 'iv7') }
+  if (opts.natureId === 'sixth') return { roman: `${base}6` }
+  if (opts.natureId === 'madd6') {
+    const minorBase =
+      base === 'I' || base === 'IV' || base === 'V'
+        ? base.toLowerCase()
+        : base === base.toUpperCase()
+          ? base.toLowerCase()
+          : base
+    return { roman: `${minorBase}6` }
+  }
+  if (opts.natureId === 'add9') return { roman: `${base}(add9)` }
   if (opts.natureId === 'major' && mode === 'major') return { roman: base }
   if (opts.natureId === 'minor') {
     return { roman: base.toLowerCase() === base ? base : base.toLowerCase() }

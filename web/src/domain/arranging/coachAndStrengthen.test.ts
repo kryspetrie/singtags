@@ -17,7 +17,7 @@ describe('coach tips + strengthen + snap', () => {
 
   it('tipForCoachUi is phase-aware', () => {
     expect(tipForCoachUi({
-        mode: 'quick',
+        mode: 'arrange',
         phase: 'pillars',
         hasMelody: true,
         hasPillars: false,

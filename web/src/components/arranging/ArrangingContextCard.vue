@@ -2,6 +2,7 @@
 /**
  * Selected-moment context — presentational only (DTO from CoachContext).
  */
+import { glossaryTitle } from '../../lib/arranging/glossaryTooltip'
 import type { MomentContextDto } from '../../application/arranging/CoachContext'
 
 defineProps<{
@@ -13,36 +14,87 @@ const emit = defineEmits<{
   addPillar: []
   extendPillar: []
 }>()
+
+const pillarTip = glossaryTitle('pillar')
+const strongTip = glossaryTitle('pmn')
+const passingTip = glossaryTitle('smn')
+const heldTip =
+  'Held Lead (post) — the melody sustains while other parts may change chords underneath.'
+
+function roleTitle(label: string | null): string {
+  if (!label) return ''
+  if (/strong/i.test(label)) return strongTip
+  if (/pass/i.test(label)) return passingTip
+  return label
+}
 </script>
 
 <template>
   <article class="ctx-card" :data-kind="ctx.kind">
     <header class="ctx-head">
       <strong class="title">{{ ctx.title }}</strong>
-      <span v-if="ctx.roman" class="roman">{{ ctx.roman }}</span>
-      <span v-if="ctx.heldLead" class="post">Post</span>
-      <span v-if="ctx.roleLabel" class="role">{{ ctx.roleLabel }}</span>
-      <span v-if="ctx.functionLabel" class="fn">{{ ctx.functionLabel }}</span>
+      <span v-if="ctx.roman" class="roman" title="Roman numeral / scale-degree reading">{{
+        ctx.roman
+      }}</span>
+      <span v-if="ctx.heldLead" class="post" :title="heldTip">Post</span>
+      <span v-if="ctx.roleLabel" class="role" :title="roleTitle(ctx.roleLabel)">{{
+        ctx.roleLabel
+      }}</span>
+      <span
+        v-if="ctx.functionLabel"
+        class="fn"
+        title="Harmonic function relative to the local pillar / key"
+        >{{ ctx.functionLabel }}</span
+      >
     </header>
     <p v-if="ctx.voicing" class="voicing">
-      Voicing <code>{{ ctx.voicing }}</code>
+      Voicing <code :title="'Bass → bari → lead → tenor stacked reading'">{{ ctx.voicing }}</code>
       <span class="legend">{{ ctx.voicingLegend }}</span>
     </p>
     <p class="meta">
       Lead {{ ctx.leadPitch }}
-      <template v-if="ctx.pillarLabel"> · Pillar {{ ctx.pillarLabel }}</template>
-      <template v-if="ctx.layerLabel"> · {{ ctx.layerLabel }}</template>
-      <template v-if="ctx.scfLabel"> · {{ ctx.scfLabel }}</template>
+      <template v-if="ctx.pillarLabel">
+        ·
+        <span :title="pillarTip || 'Home root under this moment'">Pillar {{ ctx.pillarLabel }}</span>
+      </template>
+      <template v-if="ctx.layerLabel">
+        ·
+        <span :title="glossaryTitle('pcf') || ctx.layerLabel">{{ ctx.layerLabel }}</span>
+      </template>
+      <template v-if="ctx.scfLabel">
+        ·
+        <span :title="glossaryTitle('scf') || ctx.scfLabel">{{ ctx.scfLabel }}</span>
+      </template>
     </p>
     <p v-if="ctx.narrative" class="narrative">{{ ctx.narrative }}</p>
     <p v-if="ctx.bestAltHint" class="alt">{{ ctx.bestAltHint }}</p>
     <div class="actions">
-      <button v-if="ctx.kind === 'stack'" type="button" class="btn" @click="emit('hear')">
+      <button
+        v-if="ctx.kind === 'stack'"
+        type="button"
+        class="btn"
+        title="Audition the current stack voicing"
+        @click="emit('hear')"
+      >
         Hear
       </button>
       <template v-if="ctx.kind === 'gap' && !ctx.pillarLabel">
-        <button type="button" class="btn primary" @click="emit('addPillar')">Add pillar</button>
-        <button type="button" class="btn" @click="emit('extendPillar')">Extend previous</button>
+        <button
+          type="button"
+          class="btn primary"
+          :title="pillarTip || 'Add a home-root pillar covering this moment'"
+          @click="emit('addPillar')"
+        >
+          Add pillar
+        </button>
+        <button
+          type="button"
+          class="btn"
+          title="Stretch the previous pillar forward to cover this moment"
+          @click="emit('extendPillar')"
+        >
+          Extend previous
+        </button>
       </template>
     </div>
   </article>

@@ -7,6 +7,8 @@ import {
   createEmptyArrangement,
   type ArrangementProject,
 } from '../domain/arranging/types'
+import { normalizeQaConfig } from '../domain/arranging/coachConfig'
+import { DEFAULT_CONTEST_PROFILE } from '../domain/arranging/contestProfile'
 import type { ArrangementDocumentSnapshot } from '../domain/arranging/history'
 
 export const ARRANGING_DB_NAME = 'arranging-projects'
@@ -49,9 +51,10 @@ function migrate(p: ArrangementProject): ArrangementProject {
   return {
     ...createEmptyArrangement(p.title, { id: p.id, now: p.createdAt }),
     ...p,
-    contestProfile: p.contestProfile ?? 'sai11',
+    contestProfile: p.contestProfile ?? DEFAULT_CONTEST_PROFILE,
     tuningMode: p.tuningMode ?? 'equal',
     tonalityMode: p.tonalityMode ?? 'major',
+    qaConfig: normalizeQaConfig(p.qaConfig),
   }
 }
 

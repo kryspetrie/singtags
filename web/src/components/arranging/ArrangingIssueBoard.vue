@@ -1,15 +1,17 @@
 <script setup lang="ts">
 /**
- * Grouped issue board for Coach Check.
+ * Grouped issue board for Coach Check — two-column loc / message rows.
  */
 import type { ArrangementLint } from '../../domain/arranging/qa/types'
 import type { IssueGroup } from '../../application/arranging/IssueBoard'
+import type { LintRowParts } from '../../lib/arranging/lintsInRange'
 
 defineProps<{
   groups: IssueGroup[]
   canFix: (lint: ArrangementLint) => boolean
-  /** Pipe row label: `| measure:beat | message |` */
-  rowLabel: (lint: ArrangementLint) => string
+  rowParts: (lint: ArrangementLint) => LintRowParts
+  /** Expanded lint id (detail open on Chords). */
+  expandedId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -27,27 +29,42 @@ const emit = defineEmits<{
         <span class="count">{{ g.items.length }}</span>
       </h3>
       <ul>
-        <li v-for="lint in g.items" :key="lint.id" :class="lint.severity">
+        <li
+          v-for="lint in g.items"
+          :key="lint.id"
+          :class="[lint.severity, { on: lint.id === expandedId }]"
+        >
           <button type="button" class="jump" @click="emit('jump', lint)">
-            {{ rowLabel(lint) }}
+            <span class="loc">{{ rowParts(lint).loc }}</span>
+            <span class="msg">{{ rowParts(lint).message }}</span>
           </button>
           <div class="acts">
             <button
               v-if="canFix(lint)"
               type="button"
               class="btn"
+              title="Apply a safe automatic repair for this issue"
               @click="emit('fix', lint)"
             >
               Fix
             </button>
             <button
-              v-else
+              v-if="lint.teachingId"
               type="button"
               class="btn"
-              title="Open teaching note for this issue"
+              title="Open the teaching note for this craft issue"
               @click="emit('learn', lint)"
             >
-              {{ lint.teachingId ? 'Learn' : 'Needs your ear' }}
+              Learn
+            </button>
+            <button
+              v-else-if="!canFix(lint)"
+              type="button"
+              class="btn"
+              title="No auto-fix — use your ear and the coach narrative"
+              disabled
+            >
+              Needs your ear
             </button>
           </div>
         </li>
@@ -99,24 +116,40 @@ li.error {
 li.warn {
   border-color: color-mix(in srgb, #c47a12 40%, var(--border));
 }
+li.on {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
 .jump {
   flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.45rem;
+  align-items: baseline;
   border: 0;
   background: transparent;
   text-align: left;
   font: inherit;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   cursor: pointer;
   color: var(--text);
   padding: 0;
-  white-space: pre-wrap;
 }
-.jump:hover {
+.loc {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--muted);
+}
+.msg {
+  line-height: 1.35;
+}
+.jump:hover .msg {
   text-decoration: underline;
 }
 .acts {
   display: flex;
   gap: 0.25rem;
+  flex-shrink: 0;
 }
 .btn {
   border: 1px solid var(--border);

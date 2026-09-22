@@ -28,7 +28,7 @@ export const BARBERSHOP_CHORDS: BarbershopChordNature[] = [
     offsets: { 1: 0, 3: 3, 5: 6, 7: 10 },
   },
   { id: 'aug', name: 'augmented', notation: '+', offsets: { 1: 0, 3: 4, 5: 8 } },
-  { id: 'ninth', name: 'ninth', notation: '9', offsets: { 1: 0, 3: 4, 5: 7, 7: 10, 9: 2 } },
+  { id: 'ninth', name: 'ninth', notation: '7(9)', offsets: { 1: 0, 3: 4, 5: 7, 7: 10, 9: 2 } },
   { id: 'sixth', name: 'sixth', notation: '6', offsets: { 1: 0, 3: 4, 5: 7, 6: 9 } },
   { id: 'maj7', name: 'major seventh', notation: 'M7', offsets: { 1: 0, 3: 4, 5: 7, 7: 11 } },
   { id: 'minor', name: 'minor', notation: 'm', offsets: { 1: 0, 3: 3, 5: 7 } },

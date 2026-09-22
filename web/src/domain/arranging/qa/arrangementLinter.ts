@@ -1,6 +1,20 @@
 import type { ArrangementProject } from '../types'
 import type { ArrangementLint, LintContext, LintRule } from './types'
 import { DEFAULT_LINT_RULES } from './lintRules'
+import {
+  ALWAYS_ON_LINT_RULE_IDS,
+  checkLeadRangeEnabled,
+  disabledLintRuleIds,
+  type ArrangementQaConfig,
+} from '../coachConfig'
+
+export function lintRulesForQaConfig(
+  config: ArrangementQaConfig | null | undefined,
+  base: readonly LintRule[] = DEFAULT_LINT_RULES,
+): LintRule[] {
+  const off = disabledLintRuleIds(config)
+  return base.filter((r) => ALWAYS_ON_LINT_RULE_IDS.has(r.id) || !off.has(r.id))
+}
 
 export function createArrangementLinter(rules: readonly LintRule[] = DEFAULT_LINT_RULES) {
   return {
@@ -25,10 +39,12 @@ export function lintArrangement(
   opts: {
     profile?: ArrangementProject['contestProfile']
     checkLeadRange?: boolean
+    rules?: readonly LintRule[]
   } = {},
 ): ArrangementLint[] {
-  return createArrangementLinter().lint(project, {
+  const rules = opts.rules ?? lintRulesForQaConfig(project.qaConfig)
+  return createArrangementLinter(rules).lint(project, {
     profile: opts.profile ?? project.contestProfile,
-    checkLeadRange: opts.checkLeadRange,
+    checkLeadRange: opts.checkLeadRange ?? checkLeadRangeEnabled(project.qaConfig),
   })
 }

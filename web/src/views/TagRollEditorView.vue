@@ -13,6 +13,7 @@ import TagRollLaneRail from '../components/tagRoll/TagRollLaneRail.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
+import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
 import TagRollLyricsInput from '../components/tagRoll/TagRollLyricsInput.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
@@ -63,12 +64,23 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useTagRollStore } from '../stores/tagRoll'
 import { useTagRollCoachShell } from '../composables/useTagRollCoachShell'
 import { useTagRollCoachFocus } from '../composables/useTagRollCoachFocus'
+import { installInspectEditorHooks } from '../lib/tagRoll/chordCursorTransport'
+import {
+  hasMelodyPassLink,
+  melodyPassInspectHint,
+  melodyPassPairFromSelection,
+  toggleMelodyPassOnProject,
+} from '../lib/tagRoll/melodyPassActions'
+import { useChordAnalysisBar } from '../composables/useChordAnalysisBar'
+import TagRollChordAnalysisBar from '../components/tagRoll/TagRollChordAnalysisBar.vue'
+import { useArrangementStore } from '../stores/arrangement'
 
 const props = defineProps<{ id: string }>()
 
 const store = useTagRollStore()
 const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
+const arrStore = useArrangementStore()
 const router = useRouter()
 
 const viewportRef = ref<InstanceType<typeof TagRollViewport> | null>(null)
@@ -90,6 +102,7 @@ const {
   popoutHint,
   showDetachedBanner,
   toggleCoach,
+  ensureCoachOpen,
   onCoachClose: closeCoachShell,
   onCoachPopOut,
   onCoachPopIn,
@@ -104,6 +117,7 @@ const shortcutsOpen = ref(false)
 const ghostNotes = ref<
   { midi: number; startTick: number; durationTicks: number; color: string }[]
 >([])
+const coachFocus = useTagRollCoachFocus(() => store.current, store)
 const {
   chordCursor,
   clearChordCursor,
@@ -111,7 +125,11 @@ const {
   onCoachFocusTick,
   onCoachFocusRange,
   onCoachFocusPart,
-} = useTagRollCoachFocus(() => store.current, store)
+  armInspectPlayback,
+  clearInspectPlaybackRewind,
+  takeInspectPlaybackRewind,
+} = coachFocus
+let unbindInspectHooks: (() => void) | null = null
 function onCoachClose(): void {
   closeCoachShell()
   ghostNotes.value = []
@@ -122,12 +140,11 @@ function onChordCursorChange(range: { startTick: number; endTick: number } | nul
     clearChordCursor()
     return
   }
-  setChordCursor(range)
+  setChordCursor(range, { select: 'range' })
 }
 function onCoachLaneOpenPanel(): void {
   if (!arrangingEnabled.value) return
-  if (coachOpen.value) return
-  toggleCoach()
+  ensureCoachOpen()
 }
 const saveBusy = ref(false)
 const exportBusy = ref(false)
@@ -135,6 +152,15 @@ const exportBusyLabel = ref('')
 const pointerHud = ref<{ tick: number; midi: number } | null>(null)
 
 const project = computed(() => store.current)
+
+const {
+  collapsed: chordAnalysisCollapsed,
+  mode: chordAnalysisMode,
+  segments: chordAnalysisSegments,
+  setCollapsed: setChordAnalysisCollapsed,
+  setMode: setChordAnalysisMode,
+  setOverride: setChordAnalysisOverride,
+} = useChordAnalysisBar(project)
 
 const showPianoTote = computed(
   () => !!project.value && !(project.value.view.mode === 'view' && project.value.view.scoreSurface === 'sheet'),
@@ -177,6 +203,32 @@ const selectionSummary = computed(() => {
   }
   return { multi: true as const, count: notes.length }
 })
+
+const melodyPassPair = computed(() => {
+  const p = project.value
+  if (!p) return null
+  return melodyPassPairFromSelection(p.notes, store.selectedNoteIds)
+})
+
+const melodyPassActive = computed(() => {
+  const pair = melodyPassPair.value
+  const p = project.value
+  if (!pair || !p) return false
+  return hasMelodyPassLink(p.melodyPasses ?? [], pair.from.id, pair.to.id)
+})
+
+const melodyPassHint = computed(() => {
+  const p = project.value
+  if (!p || store.selectedNoteIds.length < 2) return ''
+  return melodyPassInspectHint(p.notes, store.selectedNoteIds)
+})
+
+function onToggleMelodyPass(): void {
+  const p = project.value
+  if (!p) return
+  const next = toggleMelodyPassOnProject(p, store.selectedNoteIds)
+  if (next) store.patchProject({ melodyPasses: next })
+}
 
 /** Lower-right roll overlay: active part + current note. */
 const rollHudLabel = computed(() => {
@@ -289,6 +341,8 @@ function rebuildScheduler(): void {
     },
     onEnded: () => {
       store.transportPlaying = false
+      const rewind = takeInspectPlaybackRewind()
+      if (rewind != null) store.setPlayheadTick(rewind, { snap: false })
     },
   })
 }
@@ -335,11 +389,14 @@ onMounted(async () => {
   }
   titleDraft.value = p.title
   rebuildScheduler()
+  unbindInspectHooks = installInspectEditorHooks(coachFocus)
   window.addEventListener('keydown', onKeyDown)
+  if (arrangingEnabled.value) void arrStore.hydrate()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown)
+  unbindInspectHooks?.(); unbindInspectHooks = null
   cancelBlowPitchIntro()
   scheduler?.dispose()
   player?.dispose()
@@ -479,25 +536,23 @@ async function runBlowPitchIntro(): Promise<boolean> {
 
 async function onPlay(): Promise<void> {
   // Keep compose/lyrics mode + selection; view-mode force was clearing edits mid-flow.
-  playbackOriginTick.value = store.current?.view.playheadTick ?? 0
+  const playhead = store.current?.view.playheadTick ?? 0
+  const bounds = armInspectPlayback(playhead)
+  playbackOriginTick.value = bounds?.rewindTick ?? playhead
   cancelBlowPitchIntro()
-  const clicker = ensureMetronome()
-  void clicker.ensureLoaded(prefs.tagRollMetronomeSound)
+  void ensureMetronome().ensureLoaded(prefs.tagRollMetronomeSound)
   rebuildScheduler()
-  const from = playbackOriginTick.value
+  const from = bounds?.fromTick ?? playbackOriginTick.value
   const p = project.value
   store.transportPlaying = true
-  if (p && shouldBlowPitchOnPlay(p, from)) {
+  if (!bounds && p && shouldBlowPitchOnPlay(p, from)) {
     const ok = await runBlowPitchIntro()
     if (!ok || !store.transportPlaying) return
-    // Content start already clicked as end of pitch measure if on a downbeat —
-    // scheduler primes the start beat when includeStart fires; skip double-click
-    // by playing just after the boundary when metronome is on.
-    const start = planBlowPitch(p)?.contentStartTick ?? from
-    scheduler?.play(start, { metronomePrime: false })
+    // Skip double metronome click after blow-pitch measure when clicker is on.
+    scheduler?.play(planBlowPitch(p)?.contentStartTick ?? from, { metronomePrime: false })
     return
   }
-  scheduler?.play(from)
+  scheduler?.play(from, bounds ? { untilTick: bounds.untilTick } : undefined)
 }
 
 /** Pause and leave the playhead where playback stopped. */
@@ -505,6 +560,7 @@ function onPauseInPlace(): void {
   cancelBlowPitchIntro()
   scheduler?.pause()
   store.transportPlaying = false
+  clearInspectPlaybackRewind()
   snapPlayheadToGrid()
 }
 
@@ -513,6 +569,7 @@ function onStopToOrigin(): void {
   cancelBlowPitchIntro()
   scheduler?.stop({ resetPlayhead: false })
   store.transportPlaying = false
+  clearInspectPlaybackRewind()
   store.setPlayheadTick(playbackOriginTick.value, { snap: true })
 }
 
@@ -861,10 +918,11 @@ function onKeyDown(e: KeyboardEvent): void {
     return
   }
 
-  if (mod && key.toLowerCase() === 'c') {
+  if (mod && (key.toLowerCase() === 'c' || key.toLowerCase() === 'x')) {
     if (readOnly) return
     e.preventDefault()
-    store.copySelectedNotes()
+    if (key.toLowerCase() === 'x') store.cutSelectedNotes()
+    else store.copySelectedNotes()
     return
   }
   if (mod && key.toLowerCase() === 'v') {
@@ -1174,6 +1232,18 @@ function onKeyDown(e: KeyboardEvent): void {
           >
             {{ rollHudLabel }}
           </div>
+          <ArrangingCoachRollNav v-if="coachOpen && arrangingEnabled" />
+          <TagRollChordAnalysisBar
+            v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
+            :project="project"
+            :segments="chordAnalysisSegments"
+            :mode="chordAnalysisMode"
+            :collapsed="chordAnalysisCollapsed"
+            @update:collapsed="setChordAnalysisCollapsed"
+            @update:mode="setChordAnalysisMode"
+            @pick="setChordAnalysisOverride"
+            @focus-range="onCoachFocusRange"
+          />
         </div>
         <ArrangingCoachDock
           v-if="coachOpen && arrangingEnabled"
@@ -1210,6 +1280,27 @@ function onKeyDown(e: KeyboardEvent): void {
     <div v-if="selectionSummary && project.view.mode !== 'view'" class="inspect-row">
       <template v-if="selectionSummary.multi">
         <span>{{ selectionSummary.count }} notes</span>
+        <button
+          v-if="melodyPassPair"
+          type="button"
+          class="melody-pass-btn"
+          :class="{ on: melodyPassActive }"
+          :title="
+            melodyPassActive
+              ? tagRollTip(
+                  'Remove the dashed melody handoff line between these notes',
+                )
+              : tagRollTip(
+                  'Melody pass — draw a dashed center-to-center line when the tune hands off to another part',
+                )
+          "
+          @click="onToggleMelodyPass"
+        >
+          {{ melodyPassActive ? 'Unlink melody pass' : 'Link melody pass' }}
+        </button>
+        <span v-else-if="melodyPassHint" class="melody-pass-hint" :title="melodyPassHint">{{
+          melodyPassHint
+        }}</span>
       </template>
       <template v-else>
         <span class="inspect-pitch">{{ selectionSummary.pitch }}</span>
@@ -1374,6 +1465,27 @@ function onKeyDown(e: KeyboardEvent): void {
   font: inherit;
   font-size: 0.82rem;
 }
+.melody-pass-btn {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0.2rem 0.45rem;
+}
+.melody-pass-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.melody-pass-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.3;
+  max-width: 28rem;
+}
 .roll-col {
   position: relative;
   display: flex;
@@ -1404,8 +1516,8 @@ function onKeyDown(e: KeyboardEvent): void {
 .roll-hud {
   position: absolute;
   right: 0.55rem;
-  bottom: 0.45rem;
-  z-index: 6;
+  top: 0.45rem;
+  z-index: 5;
   pointer-events: none;
   padding: 0.2rem 0.45rem;
   border-radius: 6px;
@@ -1415,17 +1527,8 @@ function onKeyDown(e: KeyboardEvent): void {
   font-size: 0.78rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
   box-shadow: 0 1px 4px color-mix(in srgb, #000 10%, transparent);
 }
-.err {
-  margin: 0;
-  color: var(--danger, #b42318);
-}
-.hint,
-.loading {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
+.err { margin: 0; color: var(--danger, #b42318); }
+.hint, .loading { margin: 0; color: var(--muted); font-size: 0.9rem; }
 </style>

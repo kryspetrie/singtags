@@ -65,6 +65,7 @@ export function setProjectMeta(
       | 'preferFlats'
       | 'tuningMode'
       | 'contestProfile'
+      | 'qaConfig'
       | 'wizardStep'
     >
   >,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyTagRollProject } from '../tagRoll/normalize'
-import { noteIdsAtTick, noteIdsInRange } from './selectNotesAtTick'
+import { noteIdsAtTick, noteIdsForPillarInspect, noteIdsInRange } from './selectNotesAtTick'
 
 describe('noteIdsAtTick', () => {
   it('prefers exact startTick column', () => {
@@ -31,5 +31,21 @@ describe('noteIdsAtTick', () => {
       { id: 'c', partId: lead.id, midi: 64, startTick: 960, durationTicks: 240 },
     ]
     expect(noteIdsInRange(p, 0, 720).sort()).toEqual(['a', 'b'])
+  })
+
+  it('noteIdsForPillarInspect prefers first stack onset over held Lead', () => {
+    const p = createEmptyTagRollProject({ title: 't' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const tenor = p.parts.find((x) => x.name === 'Tenor')!
+    const bari = p.parts.find((x) => x.name === 'Bari')!
+    const bass = p.parts.find((x) => x.name === 'Bass')!
+    // Lilly-style: held Lead through the pillar; TBB enter mid-span.
+    p.notes = [
+      { id: 'lead', partId: lead.id, midi: 60, startTick: 1920, durationTicks: 1920 },
+      { id: 't', partId: tenor.id, midi: 65, startTick: 2880, durationTicks: 240 },
+      { id: 'r', partId: bari.id, midi: 57, startTick: 2880, durationTicks: 240 },
+      { id: 'b', partId: bass.id, midi: 53, startTick: 2880, durationTicks: 240 },
+    ]
+    expect(noteIdsForPillarInspect(p, 1920, 3840).sort()).toEqual(['b', 'r', 't'])
   })
 })

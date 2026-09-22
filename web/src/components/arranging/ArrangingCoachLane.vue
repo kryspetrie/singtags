@@ -14,6 +14,7 @@ import {
   type CoachLaneMarker,
   type CoachLanePillarBand,
 } from '../../lib/arranging/coachLaneMetrics'
+import { melodyRoleLaneMark } from '../../domain/arranging/melodyRoleLabels'
 import {
   COACH_LANE_LENSES,
   subscribeCoachHighlight,
@@ -37,7 +38,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectTick: [tick: number]
-  focusRange: [startTick: number, endTick: number]
+  focusRange: [startTick: number, endTick: number, select?: 'pillar' | 'column' | 'range' | 'none']
   /** Open the arranging Coach dock panel. */
   openPanel: []
 }>()
@@ -59,17 +60,18 @@ function toggleCollapsed(): void {
 function onSuggest(): void {
   arrStore.inferPillars()
   arrStore.runQa()
+  prefs.openTagRollBottomLane('coach')
   const first =
     arrStore.current?.pillars.find((p) => !p.confirmed) ?? arrStore.current?.pillars[0]
   if (first) {
     arrStore.selectPillar(first.id)
-    emit('focusRange', first.startTick, first.endTick)
+    emit('focusRange', first.startTick, first.endTick, 'pillar')
   }
 }
 
 function selectPillarBand(pil: CoachLanePillarBand): void {
   arrStore.selectPillar(pil.pillarId)
-  emit('focusRange', pil.startTick, pil.endTick)
+  emit('focusRange', pil.startTick, pil.endTick, 'pillar')
 }
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -198,6 +200,13 @@ function draw(): void {
       ctx.strokeStyle = 'rgba(42, 140, 90, 0.9)'
       ctx.lineWidth = 2
       ctx.strokeRect(x - 0.5, BAR_TOP - 2, bw + 1, BAR_H + 4)
+    }
+
+    const role = arrStore.current?.melody.find((n) => n.id === m.melodyId)?.role
+    if (role === 'pmn' || role === 'smn') {
+      ctx.fillStyle = role === 'pmn' ? 'rgba(42, 140, 90, 0.95)' : 'rgba(91, 61, 143, 0.9)'
+      ctx.font = '700 9px system-ui, sans-serif'
+      ctx.fillText(melodyRoleLaneMark(role), x + 2, BAR_TOP + 10)
     }
 
     const hl = highlight.value
@@ -337,6 +346,7 @@ watch(
     cssW.value,
     lens.value,
     highlight.value?.pulseId,
+    arrStore.current?.melody.map((m) => `${m.id}:${m.role}`).join('|'),
   ],
   () => draw(),
   { deep: true },
@@ -373,6 +383,7 @@ watch(
           v-if="showSuggestCta"
           type="button"
           class="cta"
+          title="Guess home roots under the Lead — bands appear on this lane. Review, Hear, then Lock in the Coach panel."
           @click="onSuggest"
         >
           Suggest pillars

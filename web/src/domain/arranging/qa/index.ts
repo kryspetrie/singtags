@@ -5,7 +5,7 @@ export type {
   LintRule,
 } from './types'
 export { DEFAULT_LINT_RULES } from './lintRules'
-export { createArrangementLinter, lintArrangement } from './arrangementLinter'
+export { createArrangementLinter, lintArrangement, lintRulesForQaConfig } from './arrangementLinter'
 export { createFixRegistry } from './fixRegistry'
 export type { FixRegistry } from './fixRegistry'
 export {

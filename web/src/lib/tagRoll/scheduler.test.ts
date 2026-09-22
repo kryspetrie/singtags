@@ -465,4 +465,38 @@ describe('createTagRollScheduler', () => {
     expect(phraseOff).toBeTruthy()
     sched.dispose()
   })
+
+  it('stops at untilTick and fires onEnded', () => {
+    const clock = installClock()
+    let ended = false
+    const playheads: number[] = []
+    const sched = createTagRollScheduler({
+      getNotes: () => [
+        {
+          id: 'n1',
+          partId: 'p',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ * 4,
+        },
+      ],
+      getBpm: () => 120,
+      getLengthTicks: () => TAG_ROLL_PPQ * 8,
+      player: fakePlayer() as never,
+      onPlayhead: (t) => playheads.push(t),
+      onEnded: () => {
+        ended = true
+      },
+    })
+
+    const until = TAG_ROLL_PPQ // 480
+    sched.play(0, { untilTick: until })
+    // 120 BPM → 960 ticks/sec; 0.5s → 480 ticks.
+    clock.setNow(500)
+    clock.tick()
+    expect(ended).toBe(true)
+    expect(sched.isPlaying()).toBe(false)
+    expect(playheads.at(-1)).toBe(until)
+    sched.dispose()
+  })
 })

@@ -34,27 +34,38 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     id: 'pmn',
-    term: 'PMN',
-    short: 'Primary melody note — structural / stressed; should belong to the pillar harmony.',
+    term: 'Strong note',
+    short:
+      'A home / structural Lead tone (Approach Two: PMN). Prefer pillar-family chords under these.',
     citations: [bam('Approach Two labels')],
   },
   {
     id: 'smn',
-    term: 'SMN',
-    short: 'Secondary melody note — connective; may use color or passing chords.',
+    term: 'Passing note',
+    short:
+      'A connective Lead tone (Approach Two: SMN). May use color or secondary-family chords.',
     citations: [bam('Approach Two labels')],
   },
   {
     id: 'pcf',
-    term: 'PCF',
-    short: 'Primary chord family — chords built on the current pillar root.',
+    term: 'Primary chord family',
+    short:
+      'Chords built on the current pillar root (Approach Two: PCF). Prefer these under Strong notes.',
     citations: [bam('Approach Two')],
   },
   {
     id: 'scf',
-    term: 'SCF',
-    short: 'Secondary chord family — Groups 1–6 of passing roots related to the pillar.',
+    term: 'Secondary chord family',
+    short:
+      'Passing roots related to the pillar — Groups 1–6 (Approach Two: SCF). Useful under Passing notes for color.',
     citations: [bam('Approach Two Step V')],
+  },
+  {
+    id: 'melody_pass',
+    term: 'Melody pass',
+    short:
+      'When the tune hands off to another part: Ctrl/Cmd-click two notes on different parts (earlier → later), then Link melody pass in the bar under the roll. A dashed center-to-center line appears; Unlink removes it.',
+    citations: [bam('voicing / melody in other parts'), pri('melody swaps')],
   },
   {
     id: 'bs7',
@@ -216,23 +227,23 @@ export const LESSONS: readonly LessonCard[] = [
   {
     id: 'L-step3',
     wizardStep: 'step3_pmn_pcf',
-    title: 'PMN on PCF',
-    body: 'Structural melody notes get chords from the pillar’s primary family. Prefer complete chords and BS7 color when the lead allows.',
+    title: 'Strong notes on home chords',
+    body: 'Strong Lead tones get chords from the pillar’s primary family. Prefer complete chords and BS7 color when the lead allows.',
     glossaryIds: ['pmn', 'pcf', 'bs7'],
     citations: [bam('Step III')],
   },
   {
     id: 'L-step4',
     wizardStep: 'step4_smn_pcf',
-    title: 'SMN still on PCF',
-    body: 'Many weaker notes still work as PCF color (6, add9, 7ths). Leftovers that cannot sit on the pillar family wait for SCF.',
+    title: 'Passing notes still on home chords',
+    body: 'Many connective tones still work as PCF color (6, add9, 7ths). Leftovers that cannot sit on the pillar family wait for SCF.',
     glossaryIds: ['smn', 'pcf', 'scf'],
     citations: [bam('Step IV')],
   },
   {
     id: 'L-step5',
     wizardStep: 'step5_smn_scf',
-    title: 'Passing with SCF',
+    title: 'Passing tones with color chords',
     body: 'Secondary chord families supply legal passing roots that keep the pillar story while covering connective melody.',
     glossaryIds: ['scf', 'pillar'],
     citations: [bam('Step V')],
@@ -601,6 +612,7 @@ export const LINT_LESSON_ALIASES: Readonly<Record<string, string>> = {
   'dim7-chain': 'R4_dim7',
   'counterpart-flicker': 'R3_tritone',
   'aug-usage': 'aug-pillar',
+  'unrecognized-nature': 'illegal-nature',
 }
 
 /**

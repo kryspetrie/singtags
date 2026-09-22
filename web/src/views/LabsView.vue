@@ -97,8 +97,8 @@ function toggleArranging(): void {
     <section class="card" aria-labelledby="arranging-h">
       <h2 id="arranging-h" class="card-title">Arranging</h2>
       <p class="card-desc">
-        Guided arranging coach in Tag Studio: set home (pillar) chords on the Coach lane, lock them,
-        then walk the melody note-by-note with ranked suggestions. Enable here, then open Tag Studio
+        Arranging coach in Tag Studio: set home (pillar) chords on the Coach lane, lock them,
+        then walk moments with ranked suggestions. Enable here, then open Tag Studio
         and click <strong>Coach</strong>.
       </p>
 

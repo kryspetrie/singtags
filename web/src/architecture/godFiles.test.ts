@@ -36,12 +36,12 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 1431, // note start-edge resize payload
-  'components/arranging/useArrangingCoachDock.ts': 840, // mode landing enter/back
-  'components/arranging/ArrangingCoachDock.vue': 848, // dock resize pointer capture
+  'views/TagRollEditorView.vue': 1534, // melody-pass inspect hint + chord analysis strip
+  'components/arranging/useArrangingCoachDock.ts': 978, // lint→chords detail + pillar select mode
+  'components/arranging/ArrangingCoachDock.vue': 1135, // condensed chord pick + 2-col lint rows
   'stores/arrangement.ts': 812, // P7 polish/export/checklist façade
-  'components/tagRoll/TagRollViewport.vue': 1397, // start+end note duration handles
-  'stores/tagRoll.ts': 1323, // tonalityMode on setTonality
+  'components/tagRoll/TagRollViewport.vue': 1411, // melody-pass dashed lines
+  'stores/tagRoll.ts': 1326, // melodyPasses prune on delete
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,

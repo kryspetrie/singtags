@@ -8,6 +8,7 @@ import {
   openCoachPopoutChannel,
   type CoachPopoutChannel,
 } from '../lib/arranging/coachPopout'
+import { usePreferencesStore } from '../stores/preferences'
 
 export function useTagRollCoachShell(opts: {
   arrangingEnabled: Ref<boolean>
@@ -16,6 +17,7 @@ export function useTagRollCoachShell(opts: {
   setPlayheadTick: (tick: number) => void
   selectNotes: (ids: string[]) => void
 }) {
+  const prefs = usePreferencesStore()
   const coachOpen = ref(false)
   const coachDetached = ref(false)
   const isPopoutWindow = ref(false)
@@ -27,6 +29,16 @@ export function useTagRollCoachShell(opts: {
     window.setTimeout(() => {
       popoutHint.value = ''
     }, 5000)
+  }
+
+  function ensureCoachOpen(): void {
+    if (!opts.arrangingEnabled.value) return
+    if (coachDetached.value && popoutWin && !popoutWin.closed) {
+      popoutWin.focus()
+      return
+    }
+    coachOpen.value = true
+    opts.harmonizeOpen.value = false
   }
 
   function bindChannel(projectId: string): void {
@@ -65,9 +77,16 @@ export function useTagRollCoachShell(opts: {
       onCoachClose()
       return
     }
-    coachOpen.value = true
-    opts.harmonizeOpen.value = false
+    ensureCoachOpen()
   }
+
+  /** Opening the Coach lane always brings up the Coach sidebar too. */
+  watch(
+    () => prefs.tagRollCoachLaneCollapsed,
+    (collapsed) => {
+      if (!collapsed) ensureCoachOpen()
+    },
+  )
 
   function onCoachPopOut(): void {
     const id = opts.projectId.value
@@ -136,6 +155,7 @@ export function useTagRollCoachShell(opts: {
     popoutHint,
     showDetachedBanner,
     toggleCoach,
+    ensureCoachOpen,
     onCoachClose,
     onCoachPopOut,
     onCoachPopIn,

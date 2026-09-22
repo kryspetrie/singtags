@@ -8,6 +8,7 @@ import type {
 import type {
   TagRollClefFamily,
   TagRollExpression,
+  TagRollMelodyPass,
   TagRollNote,
   TagRollPart,
   TagRollPartMix,
@@ -46,6 +47,7 @@ export type TagRollDocumentSnapshot = {
   parts: TagRollPart[]
   mix: TagRollPartMix[]
   notes: TagRollNote[]
+  melodyPasses: TagRollMelodyPass[]
   localEntryId: string | null
 }
 
@@ -73,6 +75,7 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     parts: p.parts.map((x) => ({ ...x })),
     mix: (p.mix ?? []).map((m) => ({ ...m })),
     notes: p.notes.map((n) => ({ ...n })),
+    melodyPasses: (p.melodyPasses ?? []).map((l) => ({ ...l })),
     localEntryId: p.localEntryId,
   }
 }
@@ -117,6 +120,7 @@ export function applyDocumentSnapshot(
     parts,
     mix: syncProjectMix(parts, snap.mix),
     notes: snap.notes.map((n) => ({ ...n })),
+    melodyPasses: (snap.melodyPasses ?? []).map((l) => ({ ...l })),
     localEntryId: snap.localEntryId,
     updatedAt: Date.now(),
   }

@@ -16,6 +16,7 @@ function baseProject(partial: Partial<ArrangementProject> & Pick<ArrangementProj
     wizardStep: 'melody',
     tuningMode: 'equal',
     contestProfile: 'learning',
+    qaConfig: { disabledGroups: [] },
     pillars: [],
     createdAt: 0,
     updatedAt: 0,

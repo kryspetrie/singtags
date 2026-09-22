@@ -52,6 +52,16 @@ export type TagRollNote = {
   lyric?: string
 }
 
+/**
+ * Melody handoff between parts (Lead → Bari, etc.).
+ * Drawn as a dashed center-to-center line on the piano roll.
+ */
+export type TagRollMelodyPass = {
+  id: string
+  fromNoteId: string
+  toNoteId: string
+}
+
 /** Compose combines note add + edit; selection decides which. */
 export type TagRollEditorMode = 'view' | 'compose' | 'lyrics'
 
@@ -205,6 +215,8 @@ export type TagRollProject = {
   /** Per-part mute/solo/pan/volume. */
   mix: TagRollPartMix[]
   notes: TagRollNote[]
+  /** Cross-part melody handoffs (dashed lines on the roll). */
+  melodyPasses: TagRollMelodyPass[]
   localEntryId: string | null
   view: TagRollViewPrefs
   createdAt: number

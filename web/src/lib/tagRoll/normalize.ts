@@ -30,6 +30,7 @@ import {
   type TagRollClefFamily,
   type TagRollEditorMode,
   type TagRollExpression,
+  type TagRollMelodyPass,
   type TagRollMidiGroup,
   type TagRollNote,
   type TagRollPart,
@@ -176,6 +177,7 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     parts,
     mix: syncProjectMix(parts, null),
     notes: [],
+    melodyPasses: [],
     localEntryId: null,
     view: {
       ...TAG_ROLL_DEFAULT_VIEW,
@@ -224,6 +226,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
   const expressions = (Array.isArray(o.expressions) ? o.expressions : [])
     .map(normalizeExpression)
     .filter((e): e is TagRollExpression => !!e)
+  const melodyPasses = normalizeMelodyPasses(o.melodyPasses, notes)
 
   return {
     schema: TAG_ROLL_SCHEMA,
@@ -257,6 +260,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     parts,
     mix: syncProjectMix(parts, Array.isArray(o.mix) ? (o.mix as never) : null),
     notes,
+    melodyPasses,
     localEntryId:
       typeof o.localEntryId === 'string' && o.localEntryId.trim()
         ? o.localEntryId.trim()
@@ -265,6 +269,30 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     createdAt: Number.isFinite(Number(o.createdAt)) ? Number(o.createdAt) : now,
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : now,
   }
+}
+
+function normalizeMelodyPasses(raw: unknown, notes: readonly TagRollNote[]): TagRollMelodyPass[] {
+  if (!Array.isArray(raw)) return []
+  const ids = new Set(notes.map((n) => n.id))
+  const out: TagRollMelodyPass[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const o = item as Record<string, unknown>
+    const fromNoteId = typeof o.fromNoteId === 'string' ? o.fromNoteId : ''
+    const toNoteId = typeof o.toNoteId === 'string' ? o.toNoteId : ''
+    if (!fromNoteId || !toNoteId || fromNoteId === toNoteId) continue
+    if (!ids.has(fromNoteId) || !ids.has(toNoteId)) continue
+    const key = [fromNoteId, toNoteId].sort().join('|')
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({
+      id: typeof o.id === 'string' && o.id.trim() ? o.id.trim() : allocatePrefixedId('mp'),
+      fromNoteId,
+      toNoteId,
+    })
+  }
+  return out
 }
 
 export function clampTagRollMidi(midi: number): number {
