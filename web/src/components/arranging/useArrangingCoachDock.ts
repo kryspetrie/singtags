@@ -1026,6 +1026,7 @@ export function useArrangingCoachDock(
     stepMoment,
     stepNextGap,
     stepNextIssue,
+    stepNextProblem,
     stepLint,
     focusPillar,
     stepPillar,

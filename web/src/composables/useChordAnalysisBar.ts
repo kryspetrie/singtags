@@ -41,7 +41,7 @@ function partByName(project: TagRollProject, name: string) {
  */
 export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[] {
   const lead =
-    (tag.melodyPartId ? tag.parts.find((p) => p.id === tag.melodyPartId) : null) ??
+    (tag.view.melodyPartId ? tag.parts.find((p) => p.id === tag.view.melodyPartId) : null) ??
     partByName(tag, 'Lead')
   if (!lead) return []
   const tenor = partByName(tag, 'Tenor')

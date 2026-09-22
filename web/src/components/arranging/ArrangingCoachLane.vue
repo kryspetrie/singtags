@@ -25,7 +25,6 @@ import {
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { useArrangementStore } from '../../stores/arrangement'
 import { usePreferencesStore } from '../../stores/preferences'
-import { useTagRollStore } from '../../stores/tagRoll'
 
 const LANE_H = 112
 const BAND_H = 22
@@ -45,7 +44,6 @@ const emit = defineEmits<{
 }>()
 
 const arrStore = useArrangementStore()
-const tagStore = useTagRollStore()
 const prefs = usePreferencesStore()
 
 const collapsed = computed(() => prefs.tagRollCoachLaneCollapsed)

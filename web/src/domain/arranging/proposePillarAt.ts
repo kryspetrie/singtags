@@ -35,8 +35,9 @@ function isSkipped(
 ): boolean {
   if (!skipped) return false
   const key = spanKey(start, end)
-  if (skipped instanceof Set) return skipped.has(key)
-  return skipped.includes(key)
+  return skipped instanceof Set
+    ? skipped.has(key)
+    : (skipped as readonly string[]).includes(key)
 }
 
 function chordToneWeight(rel: number, mode: TonalityMode): number {

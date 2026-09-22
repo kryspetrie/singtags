@@ -77,7 +77,6 @@ const {
   lintDetail,
   lintParts,
   clearLintDetail,
-  progressLabel,
   pillarProgressLabel,
   momentProgressLabel,
   coverageGaps,
@@ -132,7 +131,6 @@ const {
   runNextAction,
   goCloseForMelody,
   pcName,
-  midiToNote,
   pushToRoll,
 } = api
 
