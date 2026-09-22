@@ -11,6 +11,14 @@ export * from './mergeStacksFromRoll'
 export * from './chordAnalysisBar'
 export * from './impliedMelodyChord'
 export * from './pillars'
+export {
+  candidatePillarPositions,
+  nextHomeRootProposal,
+  proposeRootForSpan,
+  scoreRootsForNotes,
+  spanKey,
+} from './proposePillarAt'
+export type { ProposeSpan } from './proposePillarAt'
 export * from './justIntonation'
 export * from './harmonize'
 export * from './harmonicity/harmonicityScore'

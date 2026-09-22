@@ -26,7 +26,7 @@ export function tipForStep(step: WizardStep): CoachTip {
   return {
     step,
     title: 'Arranging',
-    body: 'Set home (pillar) chords on the timeline, lock them with your ear, then walk chord choices moment by moment.',
+    body: 'Mark home roots under phrases — not full chords yet. Lock with your ear, then walk chord choices moment by moment.',
   }
 }
 
@@ -49,14 +49,14 @@ export function tipForCoachUi(opts: {
     return {
       step: opts.wizardStep ?? 'step9_final',
       title: 'Review',
-      body: 'Check issues and polish. Switch to Arrange when you want ranked chord suggestions under pillars.',
+      body: 'Check issues and polish. Switch to Arrange when you want ranked chord suggestions under locked home roots.',
     }
   }
   if (opts.phase === 'pillars' || !opts.hasPillars) {
     return {
       step: 'step1_roots',
-      title: 'Assign pillars',
-      body: 'Pillars are the home chords under each phrase. Suggest spans on the lane, set the root, Hear, then Lock.',
+      title: 'Mark home roots',
+      body: 'A pillar is a home root under a phrase — not a full chord. Propose the next draft, Hear, then Lock.',
     }
   }
   if (opts.wizardStep) return tipForStep(opts.wizardStep)

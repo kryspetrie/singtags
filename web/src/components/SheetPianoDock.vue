@@ -17,10 +17,10 @@ import {
   SHEET_PIANO_HEIGHT_DEFAULT_PX,
   SHEET_PIANO_HEIGHT_TALL_PX,
   SHEET_PIANO_SCALE_MAX,
-  SHEET_PIANO_SCALE_MIN,
   SHEET_PIANO_SCALE_STEP,
   clampSheetPianoHeightPx,
   sheetPianoWhiteKeyPx,
+  minSheetPianoKeyScaleForViewport,
 } from '../audio/pitchPlayer'
 import { getActivePitchPipeVoice, PITCH_PIPE_VOICE_CHANGE_EVENT } from '../audio/pitchPipeVoice'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
@@ -59,6 +59,7 @@ const showOctave = computed(() => prefs.pitchPipeShowOctave)
 const detune = computed(() => prefs.pitchPipeDetuneCents)
 const keyScale = computed(() => prefs.sheetPianoKeyScale)
 const whiteKeyPx = computed(() => sheetPianoWhiteKeyPx(keyScale.value))
+const dockViewportW = ref(0)
 const pianoHeightPx = computed(() => prefs.sheetPianoHeightPx)
 const pianoEngine = computed(() => prefs.pitchPipePianoEngine)
 const pianoLockPosition = computed(() => prefs.pitchPipePianoLockPosition)
@@ -102,6 +103,10 @@ const byNote = computed(() => {
 
 const pianoSlots = computed(() => pitchPipePianoSlots(noteList.value))
 const displayWhites = computed(() => pianoSlots.value.whites)
+/** Don't zoom out so far that white keys leave empty gutters beside the strip. */
+const minKeyScale = computed(() =>
+  minSheetPianoKeyScaleForViewport(dockViewportW.value, displayWhites.value.length),
+)
 const whiteKeyPct = computed(() => {
   const n = displayWhites.value.length
   return n > 0 ? 100 / n : 100
@@ -278,12 +283,23 @@ function syncScrollPcOctave(): void {
 }
 
 function nudgeScale(delta: number): void {
-  prefs.nudgeSheetPianoKeyScale(delta)
+  prefs.nudgeSheetPianoKeyScale(delta, minKeyScale.value)
   void nextTick(() => {
     emit('resize')
     if (pianoLockPosition.value) return
     centerOn(focusNote.value || props.centerNote || 'C4', false)
   })
+}
+
+function ensureScaleFillsWidth(): void {
+  const min = minKeyScale.value
+  if (keyScale.value < min) prefs.setSheetPianoKeyScale(min, min)
+}
+
+function measureDockViewport(): void {
+  const w = shellRef.value?.clientWidth ?? window.innerWidth
+  dockViewportW.value = Math.max(0, Math.round(w))
+  ensureScaleFillsWidth()
 }
 
 function setPianoHeight(px: number): void {
@@ -338,6 +354,7 @@ function centerOn(note: string, smooth = false): void {
 
 /** Viewport width / orientation changed — keep key size, reflow visible count + focus band. */
 function onViewportChange(): void {
+  measureDockViewport()
   void nextTick(() => {
     emit('resize')
     centerOn(focusNote.value || props.centerNote || 'C4', false)
@@ -359,13 +376,18 @@ onMounted(() => {
       sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t load piano samples'
     })
   }
+  measureDockViewport()
   centerOn(props.centerNote || 'C4')
-  void nextTick(() => emit('resize'))
+  void nextTick(() => {
+    measureDockViewport()
+    emit('resize')
+  })
   if (shellRef.value && typeof ResizeObserver !== 'undefined') {
     resizeRo = new ResizeObserver(() => {
       const w = window.innerWidth
       // Ignore height-only keyboard chrome jitter; react to width / rotation.
       if (Math.abs(w - lastViewportWidth) < 2) {
+        measureDockViewport()
         emit('resize')
         pianoHScrollRef.value?.syncThumb()
         return
@@ -442,7 +464,7 @@ watch(
         <button
           type="button"
           class="dock-btn"
-          :disabled="keyScale <= SHEET_PIANO_SCALE_MIN"
+          :disabled="keyScale <= minKeyScale"
           aria-label="Show more keys"
           title="Show more keys"
           @click="nudgeScale(-SHEET_PIANO_SCALE_STEP)"

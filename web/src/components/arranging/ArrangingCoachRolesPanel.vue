@@ -45,39 +45,12 @@ const passingTip = glossaryTitle('smn') || melodyRoleLongLabel('smn')
   <section class="panel">
     <p class="hint">
       Mark each Lead note as a <strong>strong</strong> home tone or a <strong>passing</strong>
-      connective tone. This steers which chords the coach prefers later — it is not the same as
-      Pillars (home roots under phrases). To mark a tune handoff to another part: Ctrl/Cmd-click
-      two notes on different parts, then <strong>Link melody pass</strong> under the roll.
+      connective tone. Strong notes prefer chords built on the current home root; passing notes may
+      use more color — this is separate from marking home roots under phrases (Pillars). To mark a
+      tune handoff to another part: Ctrl/Cmd-click two notes on different parts, then
+      <strong>Link melody pass</strong> under the roll.
     </p>
-    <div class="row">
-      <button
-        type="button"
-        class="primary"
-        title="Guess Strong vs Passing from beat stress, length, and pillar tones. You can override any note."
-        @click="emit('labelAll')"
-      >
-        Auto-label
-      </button>
-      <button
-        type="button"
-        class="step-btn"
-        :disabled="!melody.length"
-        title="Previous Lead melody note"
-        @click="emit('step', -1)"
-      >
-        ← Note
-      </button>
-      <button
-        type="button"
-        class="step-btn"
-        :disabled="!melody.length"
-        title="Next Lead melody note"
-        @click="emit('step', 1)"
-      >
-        Note →
-      </button>
-      <span class="meta">{{ indexLabel }} · {{ labeledCount }}/{{ melody.length }} labeled</span>
-    </div>
+    <p class="meta muted tiny">{{ indexLabel }} · {{ labeledCount }}/{{ melody.length }} labeled</p>
 
     <div v-if="selected" class="card">
       <div class="note-line">

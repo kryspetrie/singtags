@@ -29,9 +29,9 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'pillars',
     label: 'Pillars',
-    tip: 'Suggest and lock home chords (pillars) under the melody.',
+    tip: 'Propose and lock home roots under phrases — not full chords yet.',
     buttonTip:
-      'Pillars are the home roots under each phrase — what the harmony is “about,” not every passing chord. Suggest spans, set the root, Hear, then Lock.',
+      'Home roots are destinations under each phrase — what the harmony is “about.” Propose one at a time, Hear, then Lock.',
     glossaryIds: ['pillar', 'pcf'],
     wizardSteps: ['melody', 'step1_roots', 'step2_confirm'],
   },

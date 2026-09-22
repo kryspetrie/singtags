@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest'
+/**
+ * @vitest-environment node
+ */
+import { describe, expect, it, vi } from 'vitest'
 import {
+  dispatchCoachPopoutIntent,
+  registerCoachPopoutIntentHandler,
   buildCoachPopoutUrl,
-  coachChannelName,
   isCoachPopoutSearch,
+  coachChannelName,
 } from './coachPopout'
 
 describe('coachPopout', () => {
@@ -21,5 +26,15 @@ describe('coachPopout', () => {
 
   it('names channel by project', () => {
     expect(coachChannelName('tr_1')).toBe('singtags-coach-tr_1')
+  })
+
+  it('dispatches transport intents to the registered pop-out handler', () => {
+    const handler = vi.fn()
+    const off = registerCoachPopoutIntentHandler(handler)
+    dispatchCoachPopoutIntent('primary')
+    expect(handler).toHaveBeenCalledWith('primary')
+    off()
+    dispatchCoachPopoutIntent('lock')
+    expect(handler).toHaveBeenCalledTimes(1)
   })
 })

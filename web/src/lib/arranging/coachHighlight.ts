@@ -83,7 +83,7 @@ export type CoachLaneLens = 'overview' | 'gaps' | 'ring' | 'voiceLead' | 'issues
 
 export const COACH_LANE_LENSES: { id: CoachLaneLens; label: string }[] = [
   { id: 'overview', label: 'Overview' },
-  { id: 'gaps', label: 'Gaps' },
+  { id: 'gaps', label: 'Uncovered' },
   { id: 'ring', label: 'Ring' },
   { id: 'voiceLead', label: 'Voice-leading' },
   { id: 'issues', label: 'Issues' },

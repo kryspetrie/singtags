@@ -13,7 +13,6 @@ import {
   PITCH_PIPE_PIANO_DEFAULT_OCTAVE_OPTIONS,
   PITCH_PIPE_RANGE_OPTIONS,
   SHEET_PIANO_SCALE_MAX,
-  SHEET_PIANO_SCALE_MIN,
   SHEET_PIANO_SCALE_STEP,
   isPitchPipePianoLayout,
   pitchPipeAriaLabel,
@@ -26,6 +25,7 @@ import {
   pitchPipeNoteSemitoneShift,
   pitchPipePianoSlots,
   sheetPianoWhiteKeyPx,
+  minSheetPianoKeyScaleForViewport,
   type PitchPipeAHz,
   type PitchPipeLayout,
   type PitchPipePianoDefaultOctave,
@@ -130,6 +130,8 @@ const gridScale = computed(() => prefs.pitchPipeGridScale)
 /** Shared with sheet fullscreen piano dock. */
 const pianoKeyScale = computed(() => prefs.sheetPianoKeyScale)
 const pianoWhiteKeyPx = computed(() => sheetPianoWhiteKeyPx(pianoKeyScale.value))
+const pianoShellHRef = ref<HTMLElement | null>(null)
+const pianoViewportW = ref(0)
 
 const showFullKeyboard = computed({
   get: () => prefs.pitchPipeShowFullKeyboard,
@@ -239,6 +241,10 @@ const pianoSlots = computed(() => pitchPipePianoSlots(noteList.value))
  */
 const displayWhites = computed(() =>
   isHorizontalPiano.value ? pianoSlots.value.whites : [...pianoSlots.value.whites].reverse(),
+)
+
+const minPianoKeyScale = computed(() =>
+  minSheetPianoKeyScaleForViewport(pianoViewportW.value, displayWhites.value.length),
 )
 
 const whiteKeyPct = computed(() => {
@@ -370,8 +376,15 @@ function scrollPianoToAnchor(anchor: string): void {
   })
 }
 
+function measurePianoViewport(): void {
+  const w = pianoShellHRef.value?.clientWidth ?? window.innerWidth
+  pianoViewportW.value = Math.max(0, Math.round(w))
+  const min = minPianoKeyScale.value
+  if (pianoKeyScale.value < min) prefs.setSheetPianoKeyScale(min, min)
+}
+
 function nudgePianoKeyScale(delta: number): void {
-  prefs.nudgeSheetPianoKeyScale(delta)
+  prefs.nudgeSheetPianoKeyScale(delta, minPianoKeyScale.value)
   if (pianoLockPosition.value) return
   void nextTick(() => scrollPianoToRange())
 }
@@ -380,7 +393,9 @@ onMounted(() => {
   window.addEventListener('keydown', onPcKeyDown)
   window.addEventListener('keyup', onPcKeyUp)
   window.addEventListener('blur', onWindowBlur)
+  measurePianoViewport()
   scrollPianoToRange()
+  void nextTick(() => measurePianoViewport())
 })
 
 onUnmounted(() => {
@@ -658,7 +673,7 @@ function blackLeftPct(after: string): number {
           <button
             type="button"
             class="btn btn-ghost scale-btn"
-            :disabled="pianoKeyScale <= SHEET_PIANO_SCALE_MIN"
+            :disabled="pianoKeyScale <= minPianoKeyScale"
             aria-label="Zoom out (more keys)"
             @click="nudgePianoKeyScale(-SHEET_PIANO_SCALE_STEP)"
           >
@@ -865,7 +880,7 @@ function blackLeftPct(after: string): number {
         </div>
       </div>
 
-      <div v-else-if="isHorizontalPiano" class="piano-shell piano-shell-h">
+      <div v-else-if="isHorizontalPiano" ref="pianoShellHRef" class="piano-shell piano-shell-h">
         <PianoHorizontalScroll
           ref="pianoHScrollRef"
           :lock-position="pianoLockPosition"

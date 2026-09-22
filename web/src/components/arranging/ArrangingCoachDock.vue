@@ -2,7 +2,7 @@
 /**
  * Arranging coach — single ordered path: Pillars → Strong/passing → Chords → Check → Polish.
  */
-import { computed, onMounted, onUnmounted, ref, toRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import ArrangingContextCard from './ArrangingContextCard.vue'
 import ArrangingCandidateWhy from './ArrangingCandidateWhy.vue'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
@@ -10,8 +10,19 @@ import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachRolesPanel from './ArrangingCoachRolesPanel.vue'
+import ArrangingCoachPillarsPanel from './ArrangingCoachPillarsPanel.vue'
 import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
+import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
 import { glossaryIdsForGuidedStep } from '../../application/arranging/GuidedSteps'
+import { useCoachTransport } from '../../composables/useCoachTransport'
+import { createCoachTransportActions } from '../../composables/useCoachTransportActions'
+import {
+  clearCoachRollTransportState,
+  publishCoachRollTransport,
+  registerCoachRollTransport,
+} from '../../lib/arranging/coachRollTransport'
+import { registerCoachPopoutIntentHandler } from '../../lib/arranging/coachPopout'
+import type { CoachTransportView } from '../../composables/useCoachTransport'
 import { glossaryTitle } from '../../lib/arranging/glossaryTooltip'
 import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
 import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
@@ -22,6 +33,9 @@ export type { CoachGhostNote }
 
 const props = defineProps<{
   inspectRange?: { startTick: number; endTick: number } | null
+  /** Pop-out window: mirror transport model to the main roll strip. */
+  isPopoutWindow?: boolean
+  postTransportState?: (active: boolean, model: CoachTransportView | null) => void
 }>()
 
 const emit = defineEmits<{
@@ -47,6 +61,7 @@ const {
   nextAction,
   preferFlats,
   melody,
+  moments,
   pillars,
   selectedMoment,
   selectedPil,
@@ -63,23 +78,38 @@ const {
   lintParts,
   clearLintDetail,
   progressLabel,
+  pillarProgressLabel,
+  momentProgressLabel,
   coverageGaps,
+  formatGapRow,
+  canExtendPreviousAtGap,
+  repairTour,
   noteLints,
   canWalkArrange,
   canLockRemaining,
+  emptyMomentCount,
   currentStack,
   uncoveredSelected,
   momentContext,
   ensureLinked,
   stepPillar,
+  stepMoment,
+  stepLint,
+  stepNextGap,
+  stepNextProblem,
   focusPillar,
   onInfer,
+  onProposeNext,
+  onSkipProposed,
   onAddPillarAtPlayhead,
   onLockPillar,
   onLockRemaining,
   onDeletePillar,
   updatePillarRoot,
   addPillarHere,
+  jumpToUncovered,
+  addPillarAtUncovered,
+  extendPreviousToUncovered,
   extendPreviousToHere,
   previewCand,
   hearCand,
@@ -138,6 +168,105 @@ const {
 const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
 const pillarGlossaryTip = glossaryTitle('pillar')
 
+const rolesStatus = computed(() => {
+  const mel = melody.value
+  const n = mel.length
+  if (!n) return 'No Lead notes'
+  const labeled = mel.filter((m) => m.role !== 'unknown').length
+  const i = mel.findIndex((m) => m.id === arrStore.selectedMelodyId)
+  const at = i >= 0 ? `${i + 1}/${n}` : `—/${n}`
+  return `Note ${at} · ${labeled}/${n} labeled`
+})
+
+const checkStatus = computed(() => `${noteLints.value.length} issue(s) in range`)
+
+const transport = useCoachTransport({
+  guidedStep,
+  guidedStepLabel,
+  pillarStatus: pillarProgressLabel,
+  momentStatus: momentProgressLabel,
+  rolesStatus,
+  checkStatus,
+  repairTour,
+  pillarsLen: computed(() => pillars.value.length),
+  melodyLen: computed(() => melody.value.length),
+  momentsLen: computed(() => moments.value.length),
+  lintCount: computed(() => noteLints.value.length),
+  emptyMomentCount,
+  selectedPil,
+  canApplyChord: computed(() => filteredCandidates.value.length > 0),
+  hasStackMidi: computed(() => !!currentStack.value?.midi),
+})
+
+const transportActions = createCoachTransportActions({
+  guidedStep,
+  focusTab,
+  currentStack,
+  filteredCandidates,
+  stepPillar,
+  stepMelodyNote,
+  stepMoment,
+  stepLint,
+  stepNextGap,
+  stepNextProblem,
+  onProposeNext,
+  onLabelRoles,
+  applyBest,
+  fixAllSafe,
+  onStrengthen,
+  hearPillarRoot,
+  hearCurrentStack,
+  hearCand,
+})
+
+const onTransportPrev = transportActions.prev
+const onTransportNext = transportActions.next
+const onTransportPrimary = transportActions.primary
+const onTransportHear = transportActions.hear
+const onTransportSecondary = transportActions.secondary
+
+let unregisterRollTransport: (() => void) | null = null
+let unregisterPopoutIntent: (() => void) | null = null
+
+function runTransportIntent(
+  action: 'prev' | 'next' | 'primary' | 'hear' | 'lock' | 'skip' | 'secondary',
+): void {
+  switch (action) {
+    case 'prev':
+      onTransportPrev()
+      break
+    case 'next':
+      onTransportNext()
+      break
+    case 'primary':
+      onTransportPrimary()
+      break
+    case 'hear':
+      onTransportHear()
+      break
+    case 'lock':
+      onLockPillar()
+      break
+    case 'skip':
+      onSkipProposed()
+      break
+    case 'secondary':
+      onTransportSecondary()
+      break
+  }
+}
+
+watch(
+  [guidedStep, transport, () => melody.value.length],
+  () => {
+    const active = melody.value.length > 0
+    const model = transport.value
+    publishCoachRollTransport({ active, model })
+    props.postTransportState?.(active, model)
+  },
+  { immediate: true },
+)
+
 const showConfig = ref(false)
 const dockWidthRem = ref(44)
 const resizing = ref(false)
@@ -177,8 +306,24 @@ function onResizePointerDown(e: PointerEvent): void {
 
 onMounted(() => {
   void ensureLinked()
+  unregisterRollTransport = registerCoachRollTransport({
+    prev: onTransportPrev,
+    next: onTransportNext,
+    primary: onTransportPrimary,
+    hear: onTransportHear,
+    lock: onLockPillar,
+    skip: onSkipProposed,
+    secondary: onTransportSecondary,
+  })
+  if (props.isPopoutWindow) {
+    unregisterPopoutIntent = registerCoachPopoutIntentHandler(runTransportIntent)
+  }
 })
 onUnmounted(() => {
+  unregisterRollTransport?.()
+  unregisterPopoutIntent?.()
+  clearCoachRollTransportState()
+  props.postTransportState?.(false, null)
   emit('clearGhost')
 })
 </script>
@@ -224,15 +369,18 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
-      <div class="session-bar">
-        <div class="session-meta">
-          <strong>{{ guidedStepLabel }}</strong>
-          <span>{{ progressLabel }}</span>
-        </div>
-        <button type="button" class="primary slim" @click="runNextAction">
-          {{ nextAction.cta }}
-        </button>
-      </div>
+      <ArrangingCoachTransport
+        :model="transport"
+        :next-action-cta="nextAction.cta"
+        @prev="onTransportPrev"
+        @next="onTransportNext"
+        @primary="onTransportPrimary"
+        @hear="onTransportHear"
+        @lock="onLockPillar"
+        @skip="onSkipProposed"
+        @secondary="onTransportSecondary"
+        @next-action="runNextAction"
+      />
 
       <ArrangingStepRail
         :active="guidedStep"
@@ -259,162 +407,32 @@ onUnmounted(() => {
           />
 
           <!-- PILLARS -->
-          <section v-else-if="focusTab === 'now'" class="panel">
-            <p class="hint">
-              Home roots under the melody. Suggest draws bands on the Coach lane — Hear the root, then
-              Lock when it feels right.
-            </p>
-            <div class="row">
-              <button
-                type="button"
-                class="primary"
-                :title="
-                  pillarGlossaryTip ||
-                  'Guess one home root per measure from the Lead. Review and lock before arranging.'
-                "
-                @click="onInfer"
-              >
-                Suggest pillars
-              </button>
-              <button
-                type="button"
-                class="step-btn"
-                title="Insert a draft pillar starting at the playhead (or selected moment)."
-                @click="onAddPillarAtPlayhead"
-              >
-                Add at playhead
-              </button>
-            </div>
-            <div v-if="pillars.length" class="row">
-              <button
-                type="button"
-                class="step-btn"
-                title="Previous pillar — moves the L/R inspect bounds on the roll"
-                @click="stepPillar(-1)"
-              >
-                ← Pillar
-              </button>
-              <button
-                type="button"
-                class="step-btn"
-                title="Next pillar — moves the L/R inspect bounds on the roll"
-                @click="stepPillar(1)"
-              >
-                Pillar →
-              </button>
-              <button
-                type="button"
-                class="step-btn"
-                :disabled="!canWalkArrange"
-                title="Next: mark Lead notes as Strong (home) or Passing (connective)"
-                @click="selectGuidedStep('roles')"
-              >
-                Next: Strong / passing →
-              </button>
-            </div>
-            <ul v-if="pillars.length" class="pillar-list">
-              <li v-for="(pil, i) in pillars" :key="pil.id">
-                <button
-                  type="button"
-                  class="pillar-btn"
-                  :class="{ on: pil.id === selectedPil?.id, locked: pil.confirmed }"
-                  :title="
-                    [
-                      `Pillar ${i + 1}: ${pcName(pil.rootPc, preferFlats)}`,
-                      pil.confirmed ? 'Locked home root' : 'Draft — Hear and Lock when ready',
-                      pil.reason || '',
-                      pillarGlossaryTip,
-                    ]
-                      .filter(Boolean)
-                      .join(' — ')
-                  "
-                  @click="focusPillar(pil.id)"
-                >
-                  <span class="idx">{{ i + 1 }}</span>
-                  <strong>{{ pcName(pil.rootPc, preferFlats) }}</strong>
-                  <span class="pill-state">{{ pil.confirmed ? 'locked' : 'draft' }}</span>
-                </button>
-              </li>
-            </ul>
-            <div v-if="selectedPil" class="card">
-              <label
-                class="root-big"
-                :title="pillarGlossaryTip || 'Pitch-class home root for this phrase'"
-              >
-                Home root
-                <select
-                  class="root-sel"
-                  :value="selectedPil.rootPc"
-                  @change="updatePillarRoot(Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option v-for="n in 12" :key="n - 1" :value="n - 1">
-                    {{ pcName(n - 1, preferFlats) }}
-                  </option>
-                </select>
-              </label>
-              <span
-                class="stack-state"
-                :class="selectedPil.confirmed ? 'ok' : 'missing'"
-                :title="
-                  selectedPil.confirmed
-                    ? 'Locked — coach treats this as a confirmed home root'
-                    : 'Draft — still editable; Lock when you are happy with it'
-                "
-              >
-                {{ selectedPil.confirmed ? 'locked' : 'draft' }}
-              </span>
-              <p v-if="selectedPil.reason" class="muted tiny">{{ selectedPil.reason }}</p>
-              <div class="row">
-                <button
-                  type="button"
-                  class="step-btn"
-                  title="Audition this pillar’s root pitch"
-                  @click="hearPillarRoot"
-                >
-                  Hear root
-                </button>
-                <button
-                  type="button"
-                  class="primary"
-                  title="Confirm this home root so arranging can rely on it"
-                  @click="onLockPillar"
-                >
-                  Lock
-                </button>
-                <button
-                  type="button"
-                  class="step-btn"
-                  title="Remove this pillar span"
-                  @click="onDeletePillar"
-                >
-                  Delete
-                </button>
-              </div>
-              <button
-                v-if="canLockRemaining"
-                type="button"
-                class="linkish"
-                title="Lock every remaining draft pillar after you have locked at least one"
-                @click="onLockRemaining"
-              >
-                Lock remaining suggestions
-              </button>
-            </div>
-            <div v-if="coverageGaps.length" class="gaps">
-              <h3 class="subh">Uncovered ({{ coverageGaps.length }})</h3>
-              <ul>
-                <li v-for="g in coverageGaps.slice(0, 6)" :key="g.id">
-                  <button
-                    type="button"
-                    class="gap-jump"
-                    @click="arrStore.selectMelody(g.id); addPillarHere()"
-                  >
-                    {{ midiToNote(g.midi) }} — add pillar
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </section>
+          <ArrangingCoachPillarsPanel
+            v-else-if="focusTab === 'now'"
+            :repair-tour="repairTour"
+            :can-walk-arrange="canWalkArrange"
+            :can-lock-remaining="canLockRemaining"
+            :skipped-count="arrStore.skippedHomeRootCount"
+            :pillars="pillars"
+            :selected-pil="selectedPil"
+            :prefer-flats="preferFlats"
+            :pillar-glossary-tip="pillarGlossaryTip"
+            :coverage-gaps="coverageGaps"
+            :format-gap-row="formatGapRow"
+            :can-extend-previous-at-gap="canExtendPreviousAtGap"
+            :pc-name="pcName"
+            @add-at-playhead="onAddPillarAtPlayhead"
+            @next-roles="selectGuidedStep('roles')"
+            @infer-batch="onInfer"
+            @lock-remaining="onLockRemaining"
+            @clear-skips="arrStore.clearSkippedHomeRoots()"
+            @focus-pillar="focusPillar"
+            @update-root="updatePillarRoot"
+            @delete-pillar="onDeletePillar"
+            @jump-uncovered="jumpToUncovered"
+            @add-uncovered="addPillarAtUncovered"
+            @extend-uncovered="extendPreviousToUncovered"
+          />
 
           <!-- CHOOSE — best on one line; other suggestions in a single collapsible -->
           <section v-else-if="focusTab === 'choose'" class="panel">
@@ -428,22 +446,22 @@ onUnmounted(() => {
               />
               <div v-if="uncoveredSelected" class="banner">
                 <p class="hint">
-                  No pillar under this moment — lock a home root first so ranked suggestions know
-                  which family to use.
+                  No home root under this moment — add or extend a destination so ranked suggestions
+                  know which family to use.
                 </p>
                 <div class="row">
                   <button
                     type="button"
                     class="primary"
-                    :title="pillarGlossaryTip || 'Add a home-root pillar covering this moment'"
+                    :title="pillarGlossaryTip || 'Add a draft home root covering this moment'"
                     @click="addPillarHere"
                   >
-                    Add pillar
+                    Add home root
                   </button>
                   <button
                     type="button"
                     class="step-btn"
-                    title="Stretch the previous pillar forward to cover this moment"
+                    title="Stretch the previous home root forward to cover this moment"
                     @click="extendPreviousToHere"
                   >
                     Extend previous
@@ -451,8 +469,10 @@ onUnmounted(() => {
                 </div>
               </div>
               <div v-else-if="mode === 'review' && !pillars.length" class="banner">
-                <p class="hint">Review — add pillars for ranked suggestions.</p>
-                <button type="button" class="primary" @click="onInfer">Suggest pillars</button>
+                <p class="hint">Review — propose home roots for ranked suggestions.</p>
+                <button type="button" class="primary" @click="onProposeNext">
+                  Propose next home root
+                </button>
               </div>
               <template v-else>
                 <div v-if="filteredCandidates[0]" class="best-row">
@@ -923,6 +943,16 @@ onUnmounted(() => {
   padding: 0;
   text-align: left;
 }
+.gap-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.gap-add {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+}
 .gap-jump:hover {
   text-decoration: underline;
 }
@@ -1002,6 +1032,13 @@ onUnmounted(() => {
 }
 .lint-detail summary::-webkit-details-marker {
   display: none;
+}
+.advanced {
+  margin-top: 0.25rem;
+}
+.advanced summary {
+  cursor: pointer;
+  user-select: none;
 }
 .lint-detail .loc {
   font-variant-numeric: tabular-nums;

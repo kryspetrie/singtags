@@ -4,19 +4,13 @@
  */
 import type { MelodyEvent, Pillar, TonalityMode } from './types'
 import { newId } from './types'
+import { proposeRootForSpan, type PillarSuggestion } from './proposePillarAt'
 
-export type PillarSuggestion = {
-  rootPc: number
-  startTick: number
-  endTick: number
-  confidence: number
-  reason: string
-}
+export type { PillarSuggestion } from './proposePillarAt'
 
 /**
  * Segment melody into spans and guess primary roots.
- * Strategy: group consecutive notes into beat windows; prefer pitch classes
- * that fit I/IV/V (or i/iv/V) of tonality and appear as chord-tones on that root.
+ * Strategy: one candidate per measure with melody (batch / advanced path).
  */
 export function suggestPillars(opts: {
   melody: readonly MelodyEvent[]
@@ -34,7 +28,6 @@ export function suggestPillars(opts: {
   const suggestions: PillarSuggestion[] = []
 
   // One candidate pillar per measure so ←/→ can step measure-by-measure.
-  // (Merging same-root neighbors used to yield one chart-length pillar.)
   const measures = Math.max(1, Math.ceil(end / measureTicks))
   for (let m = 0; m < measures; m++) {
     const startTick = m * measureTicks
@@ -44,88 +37,24 @@ export function suggestPillars(opts: {
     )
     if (!notes.length) continue
 
-    const scored = scoreRootsForNotes(notes, tonality, mode)
-    const best = scored[0]
+    const best = proposeRootForSpan({
+      melody: notes,
+      startTick,
+      endTick,
+      tonality,
+      mode,
+    })
     if (!best) continue
     suggestions.push({
       rootPc: best.rootPc,
       startTick,
       endTick,
-      confidence: best.score,
+      confidence: best.confidence,
       reason: best.reason,
     })
   }
 
   return suggestions
-}
-
-function chordToneWeight(rel: number, mode: TonalityMode): number {
-  if (mode === 'minor') {
-    // minor triad + BS7 flat-7; keep major 3rd as weak color
-    return rel === 0
-      ? 4
-      : rel === 3
-        ? 3.5
-        : rel === 7
-          ? 3
-          : rel === 10
-            ? 3.5
-            : rel === 4
-              ? 1.5
-              : rel === 2
-                ? 1
-                : 0
-  }
-  // major / BS7
-  return rel === 0 ? 4 : rel === 4 ? 3 : rel === 7 ? 3 : rel === 10 ? 3.5 : rel === 2 ? 1 : 0
-}
-
-function scoreRootsForNotes(
-  notes: readonly MelodyEvent[],
-  tonality: number,
-  mode: TonalityMode,
-): { rootPc: number; score: number; reason: string }[] {
-  // Candidate roots: tonality degrees + melody pitch classes
-  const candidates = new Set<number>()
-  const degreeBoosts =
-    mode === 'minor'
-      ? [0, 5, 7, 3, 8, 10, 2] // i, iv, V, III, VI, VII, ii
-      : [0, 5, 7, 2, 9, 4, 11]
-  for (const deg of degreeBoosts) {
-    candidates.add(((tonality + deg) % 12 + 12) % 12)
-  }
-  for (const n of notes) candidates.add(((n.midi % 12) + 12) % 12)
-
-  const results: { rootPc: number; score: number; reason: string }[] = []
-  for (const rootPc of candidates) {
-    let score = 0
-    let hits = 0
-    for (const n of notes) {
-      const pc = ((n.midi % 12) + 12) % 12
-      const rel = ((pc - rootPc) % 12 + 12) % 12
-      const w = chordToneWeight(rel, mode)
-      if (w > 0) {
-        hits++
-        score += w * Math.max(1, n.durationTicks / 240)
-      } else {
-        score -= 0.5
-      }
-    }
-    // Prefer I/i, IV/iv, V of key
-    const deg = ((rootPc - tonality) % 12 + 12) % 12
-    if (deg === 0) score += 2.5
-    else if (deg === 5 || deg === 7) score += 1.75
-    else if (mode === 'minor' && (deg === 3 || deg === 8)) score += 0.75
-
-    const coverage = hits / notes.length
-    score *= 0.5 + coverage
-    results.push({
-      rootPc,
-      score,
-      reason: coverage >= 0.7 ? 'strong coverage' : 'partial coverage',
-    })
-  }
-  return results.sort((a, b) => b.score - a.score)
 }
 
 export function suggestionsToPillars(suggestions: readonly PillarSuggestion[]): Pillar[] {
@@ -169,6 +98,9 @@ export function addPillarAtTick(
     endTick?: number
     measureTicks?: number
     id?: string
+    reason?: string
+    confidence?: number
+    source?: Pillar['source']
   },
 ): Pillar[] {
   const measureTicks = opts.measureTicks ?? 480 * 4
@@ -180,8 +112,10 @@ export function addPillarAtTick(
     rootPc: opts.rootPc,
     startTick: tick,
     endTick: Math.max(tick + 1, endTick),
-    source: 'user',
+    source: opts.source ?? 'user',
     confirmed: false,
+    reason: opts.reason,
+    confidence: opts.confidence,
   }
   const kept = sorted
     .flatMap((p) => {

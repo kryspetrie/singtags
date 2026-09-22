@@ -1719,13 +1719,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   }
 
   /** Fullscreen sheet piano key width percent (persisted). */
-  function setSheetPianoKeyScale(percent: number): void {
-    sheetPianoKeyScale.value = normalizeSheetPianoKeyScale(percent)
+  function setSheetPianoKeyScale(percent: number, minScale?: number): void {
+    sheetPianoKeyScale.value = normalizeSheetPianoKeyScale(percent, minScale)
   }
 
   /** Nudge sheet piano key width by a percent delta (snapped via normalize). */
-  function nudgeSheetPianoKeyScale(delta: number): void {
-    setSheetPianoKeyScale(sheetPianoKeyScale.value + delta)
+  function nudgeSheetPianoKeyScale(delta: number, minScale?: number): void {
+    setSheetPianoKeyScale(sheetPianoKeyScale.value + delta, minScale)
   }
 
   /** Fullscreen sheet piano key-strip height in px (persisted). */

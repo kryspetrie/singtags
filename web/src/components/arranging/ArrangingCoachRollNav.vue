@@ -1,122 +1,81 @@
 <script setup lang="ts">
 /**
- * Piano-roll overlay: chord / issue / repair transport while Coach is open.
+ * Piano-roll overlay: mirrors shared coach transport while Coach is open (or detached).
  */
 import { computed } from 'vue'
 import {
-  coachRollNavState,
-  coachRollNavStepMoment,
-  coachRollNavStepNextGap,
-  coachRollNavStepNextIssue,
-  coachRollNavStepNextProblem,
-} from '../../lib/arranging/coachRollNav'
+  coachRollTransportState,
+  coachRollTransportHear,
+  coachRollTransportLock,
+  coachRollTransportNext,
+  coachRollTransportPrev,
+  coachRollTransportPrimary,
+  coachRollTransportSkip,
+} from '../../lib/arranging/coachRollTransport'
 
-const st = coachRollNavState
-
-const visible = computed(() => st.value.active && (st.value.chordMode || st.value.issueMode))
-
-const positionLabel = computed(() => {
-  const s = st.value
-  if (!s.chordMode || s.momentCount <= 0) return ''
-  const n = s.momentIndex >= 0 ? s.momentIndex + 1 : '—'
-  return `Chord ${n} / ${s.momentCount}`
-})
-
-const problemCount = computed(() => {
-  const s = st.value
-  return s.unrecognizedCount + s.emptyCount + s.issueCount
-})
+const tr = coachRollTransportState
+const visible = computed(() => tr.value.active && tr.value.model)
+const tm = computed(() => tr.value.model)
 </script>
 
 <template>
-  <div v-if="visible" class="roll-nav" role="toolbar" aria-label="Coach chord navigation">
-    <template v-if="st.chordMode">
-      <span class="kind">Chords</span>
+  <div v-if="visible && tm" class="roll-nav" role="toolbar" aria-label="Coach transport">
+    <span class="kind">{{ tm.stepLabel }}</span>
+    <span class="meta compact">{{ tm.status }}</span>
+    <template v-if="tm.showNav">
       <button
         type="button"
         class="nav-btn"
-        :disabled="st.momentCount < 2"
-        title="Previous chord moment"
-        @click="coachRollNavStepMoment(-1)"
+        :disabled="tm.prevDisabled"
+        @click="coachRollTransportPrev"
       >
-        ← Prev chord
+        {{ tm.prevLabel }}
       </button>
       <button
         type="button"
         class="nav-btn"
-        :disabled="st.momentCount < 2"
-        title="Next chord moment"
-        @click="coachRollNavStepMoment(1)"
+        :disabled="tm.nextDisabled"
+        @click="coachRollTransportNext"
       >
-        Next chord →
+        {{ tm.nextLabel }}
       </button>
-      <button
-        type="button"
-        class="nav-btn"
-        :disabled="st.emptyCount < 1"
-        title="Jump to next empty chord moment"
-        @click="coachRollNavStepNextGap"
-      >
-        Next empty
-      </button>
-      <span class="meta">
-        <strong>{{ positionLabel }}</strong>
-        <span v-if="st.momentLabel" class="lab">{{ st.momentLabel }}</span>
-      </span>
     </template>
-    <template v-else-if="st.issueMode && st.repairTour">
-      <span class="kind">Repair</span>
-      <button
-        type="button"
-        class="nav-btn"
-        :disabled="problemCount < 1"
-        title="Next QA issue, unrecognized chord, or empty moment"
-        @click="coachRollNavStepNextProblem"
-      >
-        Next problem →
-      </button>
-      <button
-        type="button"
-        class="nav-btn"
-        :disabled="st.emptyCount < 1"
-        title="Next empty chord moment"
-        @click="coachRollNavStepNextGap"
-      >
-        Empty
-      </button>
-      <button
-        type="button"
-        class="nav-btn"
-        :disabled="st.issueCount < 1"
-        title="Next QA issue"
-        @click="coachRollNavStepNextIssue"
-      >
-        Issue
-      </button>
-      <span class="meta">
-        <strong>{{ problemCount }}</strong>
-        problems
-        <span v-if="st.unrecognizedCount" class="lab"
-          >{{ st.unrecognizedCount }} unrecognized</span
-        >
-      </span>
-    </template>
-    <template v-else-if="st.issueMode">
-      <span class="kind">Issues</span>
-      <button
-        type="button"
-        class="nav-btn"
-        :disabled="st.issueCount < 1"
-        title="Jump to next QA issue on the roll"
-        @click="coachRollNavStepNextIssue"
-      >
-        Next issue →
-      </button>
-      <span class="meta">
-        <strong>{{ st.issueCount }}</strong>
-        in range
-      </span>
-    </template>
+    <button
+      type="button"
+      class="nav-btn primary"
+      :disabled="tm.primaryDisabled"
+      :title="tm.primaryTitle"
+      @click="coachRollTransportPrimary"
+    >
+      {{ tm.primaryLabel }}
+    </button>
+    <button
+      v-if="tm.showHear"
+      type="button"
+      class="nav-btn"
+      :disabled="tm.hearDisabled"
+      @click="coachRollTransportHear"
+    >
+      {{ tm.hearLabel }}
+    </button>
+    <button
+      v-if="tm.showLock"
+      type="button"
+      class="nav-btn"
+      :disabled="tm.lockDisabled"
+      @click="coachRollTransportLock"
+    >
+      Lock
+    </button>
+    <button
+      v-if="tm.showSkip"
+      type="button"
+      class="nav-btn"
+      :disabled="tm.skipDisabled"
+      @click="coachRollTransportSkip"
+    >
+      Skip
+    </button>
   </div>
 </template>
 
@@ -166,25 +125,18 @@ const problemCount = computed(() => {
 .nav-btn:not(:disabled):hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
-.meta {
-  margin-left: auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 550;
-  min-width: 0;
+.nav-btn.primary {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
-.meta strong {
-  color: var(--text);
-  font-weight: 700;
-}
-.lab {
+.meta.compact {
+  margin-left: 0;
+  max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 14rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 550;
 }
 </style>

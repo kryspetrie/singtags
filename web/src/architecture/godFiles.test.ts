@@ -36,10 +36,10 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 1534, // melody-pass inspect hint + chord analysis strip
-  'components/arranging/useArrangingCoachDock.ts': 978, // lint→chords detail + pillar select mode
-  'components/arranging/ArrangingCoachDock.vue': 1135, // condensed chord pick + 2-col lint rows
-  'stores/arrangement.ts': 812, // P7 polish/export/checklist façade
+  'views/TagRollEditorView.vue': 1580, // detached coach transport intent bridge
+  'components/arranging/useArrangingCoachDock.ts': 1071, // skip status + auto-propose after lock
+  'components/arranging/ArrangingCoachDock.vue': 1172, // pillars panel extracted
+  'stores/arrangement.ts': 892, // skipped home-root spans session registry
   'components/tagRoll/TagRollViewport.vue': 1411, // melody-pass dashed lines
   'stores/tagRoll.ts': 1326, // melodyPasses prune on delete
   'views/WirelessTransferView.vue': 1200,
@@ -56,7 +56,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
   'components/SearchChips.vue': 850,
-  'components/SheetPianoDock.vue': 876,
+  'components/SheetPianoDock.vue': 898, // min zoom fills viewport width
   'components/ScrubRail.vue': 800,
   'views/PitchPipeSoundLabView.vue': 800,
   'views/OsShareTransferView.vue': 750,

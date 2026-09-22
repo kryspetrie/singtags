@@ -50,7 +50,9 @@ import {
   type TickRange,
 } from '../../lib/arranging/lintsInRange'
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
+import { gapRowLabel } from '../../lib/arranging/gapRowLabel'
 import { nextPillarIndex, sortPillarsByTime } from '../../lib/arranging/coachPillarNav'
+import { TAG_ROLL_DEFAULT_TIME_SIGNATURE } from '../../lib/tagRoll/types'
 import { getArrangingServices } from '../../composition/arranging'
 import { useTagRollAudio } from '../../composables/useTagRollAudio'
 import { useArrangementStore } from '../../stores/arrangement'
@@ -159,17 +161,20 @@ export function useArrangingCoachDock(
     return pillars.value.findIndex((p) => p.id === id)
   })
 
-  const progressLabel = computed(() => {
-    if (phase.value === 'pillars') {
-      const n = pillars.value.length
-      if (!n) return 'Suggest home roots under the melody'
-      const i = pilIndex.value
-      const locked = pillars.value.filter((p) => p.confirmed).length
-      const at = i >= 0 ? `${i + 1}/${n}` : `—/${n}`
-      const root =
-        selectedPil.value != null ? pcName(selectedPil.value.rootPc, preferFlats.value) : '—'
-      return `Pillar ${at} · ${root} · ${locked}/${n} locked`
-    }
+  const pillarProgressLabel = computed(() => {
+    const n = pillars.value.length
+    if (!n) return 'Propose next home root under the melody'
+    const i = pilIndex.value
+    const locked = pillars.value.filter((p) => p.confirmed).length
+    const at = i >= 0 ? `${i + 1}/${n}` : `—/${n}`
+    const root =
+      selectedPil.value != null ? pcName(selectedPil.value.rootPc, preferFlats.value) : '—'
+    const skipped = arrStore.skippedHomeRootCount
+    const skipBit = skipped > 0 ? ` · ${skipped} skipped` : ''
+    return `Pillar ${at} · ${root} · ${locked}/${n} locked${skipBit}`
+  })
+
+  const momentProgressLabel = computed(() => {
     const n = moments.value.length
     if (!n) return 'Add a lead melody on the roll first'
     const filled = moments.value.filter((m) =>
@@ -180,9 +185,32 @@ export function useArrangingCoachDock(
     return `Moment ${at} · ${filled}/${n} harmonized`
   })
 
+  const progressLabel = computed(() =>
+    phase.value === 'pillars' ? pillarProgressLabel.value : momentProgressLabel.value,
+  )
+
   const coverageGaps = computed(() =>
     melodyGapsOutsidePillars(melody.value, pillars.value),
   )
+
+  function priorPillarForTick(tick: number) {
+    return (
+      [...pillars.value]
+        .filter((p) => p.endTick <= tick || p.startTick < tick)
+        .sort((a, b) => b.startTick - a.startTick)[0] ?? null
+    )
+  }
+
+  function formatGapRow(g: { startTick: number; midi: number }): string {
+    const ts = tagStore.current?.timeSignature ?? TAG_ROLL_DEFAULT_TIME_SIGNATURE
+    return gapRowLabel(g.startTick, g.midi, ts)
+  }
+
+  function canExtendPreviousAtGap(noteId: string): boolean {
+    const note = melody.value.find((m) => m.id === noteId)
+    if (!note) return false
+    return priorPillarForTick(note.startTick) != null
+  }
 
   const activeInspectRange = computed((): TickRange | null => {
     const r = opts?.inspectRange?.value
@@ -273,7 +301,10 @@ export function useArrangingCoachDock(
     if (next === 'review') phase.value = 'walk'
   }
 
-  function selectMoment(m: HarmonicMoment, opts?: { syncRoll?: boolean }): void {
+  function selectMoment(
+    m: HarmonicMoment,
+    opts?: { syncRoll?: boolean; select?: 'pillar' | 'column' | 'range' | 'none' },
+  ): void {
     selectedMomentId.value = m.id
     whyIndex.value = null
     if (m.leadNoteId) arrStore.selectMelody(m.leadNoteId)
@@ -281,7 +312,7 @@ export function useArrangingCoachDock(
     emit('clearGhost')
     // syncRoll false: selection came from the roll (pillar L/R) — don't shrink bounds.
     if (opts?.syncRoll === false) return
-    emit('focusRange', m.startTick, m.startTick + m.durationTicks)
+    emit('focusRange', m.startTick, m.startTick + m.durationTicks, opts?.select ?? 'column')
     tagStore.setPlayheadTick(m.startTick, { snap: false })
     setCoachHighlight({
       tick: m.startTick,
@@ -376,16 +407,17 @@ export function useArrangingCoachDock(
   }
 
   function stepNextIssue(): void {
+    stepLint(1)
+  }
+
+  function stepLint(dir: -1 | 1): void {
     const list = rangedLints.value
-    const p = arrStore.current
-    if (!list.length || !p) return
-    const curTick = selectedMoment.value?.startTick ?? -1
-    const next =
-      list.find((l) => {
-        const t = lintStartTick(l, p)
-        return t != null && t > curTick
-      }) ?? list[0]!
-    jumpToLint(next)
+    if (!list.length) return
+    const curId = expandedLintId.value
+    let idx = curId ? list.findIndex((l) => l.id === curId) : -1
+    if (idx < 0) idx = dir > 0 ? 0 : list.length - 1
+    else idx = (idx + dir + list.length) % list.length
+    jumpToLint(list[idx]!)
   }
 
   function stepNextProblem(): void {
@@ -457,8 +489,8 @@ export function useArrangingCoachDock(
     arrStore.selectPillar(id)
     focusTab.value = 'now'
     phase.value = 'pillars'
-    // 'pillar' select: L/R = full span; notes = first stack onset (not held Lead alone).
-    emit('focusRange', pil.startTick, pil.endTick, 'pillar')
+    // Overlay only — never steal Tag Studio edit selection.
+    emit('focusRange', pil.startTick, pil.endTick, 'none')
     setCoachHighlight({
       tick: pil.startTick,
       kind: 'pillar',
@@ -491,6 +523,28 @@ export function useArrangingCoachDock(
     if (first) focusPillar(first.id)
   }
 
+  /** Guided propose — one draft home root at/after playhead (overlay only). */
+  function onProposeNext(): void {
+    ensureLinked()
+    const cursor =
+      tagStore.current?.view.playheadTick ??
+      selectedPil.value?.endTick ??
+      selectedMoment.value?.startTick ??
+      0
+    const ok = arrStore.proposeNextHomeRoot(cursor)
+    phase.value = 'pillars'
+    if (mode.value === 'review') setMode('arrange')
+    focusTab.value = 'now'
+    pillarTouched.value = true
+    prefs.openTagRollBottomLane('coach')
+    if (ok && arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
+  }
+
+  function onSkipProposed(): void {
+    arrStore.skipProposedPillar()
+    onProposeNext()
+  }
+
   function onAddPillarAtPlayhead(): void {
     const tick =
       tagStore.current?.view.playheadTick ?? selectedMoment.value?.startTick ?? 0
@@ -511,6 +565,8 @@ export function useArrangingCoachDock(
     arrStore.lockSelectedPillar()
     pillarTouched.value = true
     autoLabelRolesIfRepair()
+    // Approach Two: confirm destination → next.
+    onProposeNext()
   }
 
   function onLockRemaining(): void {
@@ -552,12 +608,38 @@ export function useArrangingCoachDock(
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
+  /** Jump to an uncovered Lead note — overlay only, no edit selection. */
+  function jumpToUncovered(noteId: string): void {
+    const note = melody.value.find((m) => m.id === noteId)
+    if (!note) return
+    arrStore.selectMelody(note.id)
+    phase.value = 'pillars'
+    focusTab.value = 'now'
+    const end = note.startTick + Math.max(1, note.durationTicks)
+    emit('focusRange', note.startTick, end, 'none')
+    setCoachHighlight({
+      tick: note.startTick,
+      kind: 'gap',
+      projectId: tagStore.current?.id,
+    })
+  }
+
+  /** Add a home-root pillar at an uncovered note, then overlay that pillar. */
+  function addPillarAtUncovered(noteId: string): void {
+    const note = melody.value.find((m) => m.id === noteId)
+    if (!note) return
+    arrStore.selectMelody(note.id)
+    arrStore.addPillarAt(note.startTick)
+    pillarTouched.value = true
+    phase.value = 'pillars'
+    focusTab.value = 'now'
+    if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
+  }
+
   function extendPreviousToHere(): void {
     const tick = selectedMoment.value?.startTick ?? selectedMel.value?.startTick
     if (tick == null) return
-    const prev = [...pillars.value]
-      .filter((p) => p.endTick <= tick || p.startTick < tick)
-      .sort((a, b) => b.startTick - a.startTick)[0]
+    const prev = priorPillarForTick(tick)
     if (!prev) {
       addPillarHere()
       return
@@ -565,6 +647,24 @@ export function useArrangingCoachDock(
     arrStore.selectPillar(prev.id)
     arrStore.extendSelectedPillarTo(tick)
     pillarTouched.value = true
+    focusPillar(prev.id)
+  }
+
+  /** Stretch the previous home-root span to cover an uncovered note (overlay after). */
+  function extendPreviousToUncovered(noteId: string): void {
+    const note = melody.value.find((m) => m.id === noteId)
+    if (!note) return
+    const prev = priorPillarForTick(note.startTick)
+    if (!prev) {
+      addPillarAtUncovered(noteId)
+      return
+    }
+    arrStore.selectMelody(note.id)
+    arrStore.selectPillar(prev.id)
+    arrStore.extendSelectedPillarTo(note.startTick + Math.max(1, note.durationTicks))
+    pillarTouched.value = true
+    phase.value = 'pillars'
+    focusTab.value = 'now'
     focusPillar(prev.id)
   }
 
@@ -728,15 +828,6 @@ export function useArrangingCoachDock(
     jumpToLint(lint)
   }
 
-  function partFromLint(lint: ArrangementLint): string | null {
-    const msg = lint.message.toLowerCase()
-    if (msg.includes('tenor')) return 'Tenor'
-    if (msg.includes('bari')) return 'Bari'
-    if (msg.includes('bass')) return 'Bass'
-    if (msg.includes('lead')) return 'Lead'
-    return null
-  }
-
   function jumpToLint(lint: ArrangementLint): void {
     const p = arrStore.current
     if (!p) return
@@ -756,9 +847,9 @@ export function useArrangingCoachDock(
 
     const moment = moments.value.find((m) => m.startTick === tick)
     if (moment) {
-      selectMoment(moment)
+      selectMoment(moment, { select: 'none' })
     } else {
-      emit('focusRange', tick, tick + 480)
+      emit('focusRange', tick, tick + 480, 'none')
       tagStore.setPlayheadTick(tick, { snap: false })
     }
     setCoachHighlight({
@@ -767,22 +858,6 @@ export function useArrangingCoachDock(
       projectId: tagStore.current?.id,
       lintId: lint.id,
     })
-    const part = partFromLint(lint)
-    const tag = tagStore.current
-    if (part && tag) {
-      const partId = tag.parts.find((x) => x.name === part)?.id
-      if (partId) {
-        const ids = tag.notes
-          .filter(
-            (n) =>
-              n.partId === partId &&
-              n.startTick <= tick &&
-              tick < n.startTick + n.durationTicks,
-          )
-          .map((n) => n.id)
-        if (ids.length) tagStore.selectNotes(ids)
-      }
-    }
   }
 
   function clearLintDetail(): void {
@@ -817,13 +892,19 @@ export function useArrangingCoachDock(
         emit('close')
         break
       case 'suggest_pillars':
-        onInfer()
+        onProposeNext()
         break
       case 'lock_pillars':
-      case 'cover_gaps':
         phase.value = 'pillars'
         focusTab.value = 'now'
         break
+      case 'cover_gaps': {
+        phase.value = 'pillars'
+        focusTab.value = 'now'
+        const g = coverageGaps.value[0]
+        if (g) jumpToUncovered(g.id)
+        break
+      }
       case 'walk_choose':
         enterWalk()
         break
@@ -925,11 +1006,17 @@ export function useArrangingCoachDock(
     lintParts,
     clearLintDetail,
     progressLabel,
+    pillarProgressLabel,
+    momentProgressLabel,
     coverageGaps,
+    formatGapRow,
+    canExtendPreviousAtGap,
+    repairTour,
     noteLints,
     pillarsUnconfirmed,
     canWalkArrange,
     canLockRemaining,
+    emptyMomentCount,
     currentStack,
     uncoveredSelected,
     momentContext,
@@ -939,9 +1026,12 @@ export function useArrangingCoachDock(
     stepMoment,
     stepNextGap,
     stepNextIssue,
+    stepLint,
     focusPillar,
     stepPillar,
     onInfer,
+    onProposeNext,
+    onSkipProposed,
     onAddPillarAtPlayhead,
     onLockPillar,
     onLockRemaining,
@@ -949,6 +1039,9 @@ export function useArrangingCoachDock(
     updatePillarRoot,
     enterWalk,
     addPillarHere,
+    jumpToUncovered,
+    addPillarAtUncovered,
+    extendPreviousToUncovered,
     extendPreviousToHere,
     previewCand,
     hearCand,

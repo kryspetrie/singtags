@@ -190,9 +190,31 @@ describe('pitchPlayer helpers', () => {
     expect(normalizeSheetPianoKeyScale(undefined)).toBe(100)
     expect(normalizeSheetPianoKeyScale('')).toBe(100)
     expect(normalizeSheetPianoKeyScale(0)).toBe(100)
+    expect(normalizeSheetPianoKeyScale(50, 100)).toBe(100)
     expect(sheetPianoWhiteKeyPx(100)).toBe(51)
     expect(sheetPianoWhiteKeyPx(125)).toBe(63.8)
     expect(sheetPianoWhiteKeyPx(50)).toBe(25.5)
+  })
+
+  it('minSheetPianoKeyScaleForViewport keeps the strip at least viewport-wide', async () => {
+    const {
+      minSheetPianoKeyScaleForViewport,
+      sheetPianoWhiteKeyPx,
+      SHEET_PIANO_SCALE_MIN,
+    } = await import('./pitchPlayer')
+    const whites = 39
+    // Narrow phone: 50% still fills.
+    expect(minSheetPianoKeyScaleForViewport(800, whites)).toBe(SHEET_PIANO_SCALE_MIN)
+    // Wide desktop: must raise the floor so keys meet the edges.
+    const wide = 1600
+    const min = minSheetPianoKeyScaleForViewport(wide, whites)
+    expect(min).toBeGreaterThan(SHEET_PIANO_SCALE_MIN)
+    expect(whites * sheetPianoWhiteKeyPx(min)).toBeGreaterThanOrEqual(wide)
+    // One step lower must fall short.
+    const below = min - 25
+    if (below >= SHEET_PIANO_SCALE_MIN) {
+      expect(whites * sheetPianoWhiteKeyPx(below)).toBeLessThan(wide)
+    }
   })
 
   it('normalizes sheet piano dock height', async () => {

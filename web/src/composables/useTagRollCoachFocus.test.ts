@@ -25,6 +25,24 @@ describe('useTagRollCoachFocus', () => {
     expect(setPlayheadTick).toHaveBeenCalledWith(0, { snap: false })
   })
 
+  it('onCoachFocusRange none mode sets L/R and clears edit selection', () => {
+    const p = createEmptyTagRollProject({ title: 't' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      { id: 'a', partId: lead.id, midi: 60, startTick: 0, durationTicks: 240 },
+      { id: 'b', partId: lead.id, midi: 62, startTick: 480, durationTicks: 240 },
+    ]
+    const selectNotes = vi.fn()
+    const setPlayheadTick = vi.fn()
+    const api = useTagRollCoachFocus(() => p, { selectNotes, setPlayheadTick })
+
+    api.onCoachFocusRange(0, 960, 'none')
+
+    expect(api.chordCursor.value).toEqual({ startTick: 0, endTick: 960 })
+    expect(selectNotes).toHaveBeenCalledWith([])
+    expect(setPlayheadTick).toHaveBeenCalledWith(0, { snap: false })
+  })
+
   it('onCoachFocusRange pillar mode keeps L/R on the span and picks the stack onset', () => {
     const p = createEmptyTagRollProject({ title: 't' })
     const lead = p.parts.find((x) => x.name === 'Lead')!

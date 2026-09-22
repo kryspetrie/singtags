@@ -22,7 +22,7 @@ describe('coach tips + strengthen + snap', () => {
         hasMelody: true,
         hasPillars: false,
       }).title,
-    ).toBe('Assign pillars')
+    ).toBe('Mark home roots')
     expect(
       tipForCoachUi({
         mode: 'review',

@@ -13,7 +13,7 @@ describe('resolveCoachNextAction', () => {
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
     const a = resolveCoachNextAction({ project: p, mode: 'arrange', lints: [] })
     expect(a.kind).toBe('suggest_pillars')
-    expect(a.cta).toMatch(/Suggest pillars/i)
+    expect(a.cta).toMatch(/Propose next home root/i)
   })
 
   it('mentions existing stacks when suggesting pillars', () => {

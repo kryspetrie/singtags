@@ -7,7 +7,11 @@ import {
   isCoachPopoutSearch,
   openCoachPopoutChannel,
   type CoachPopoutChannel,
+  type CoachPopoutMsg,
+  type CoachTransportIntentAction,
+  dispatchCoachPopoutIntent,
 } from '../lib/arranging/coachPopout'
+import type { CoachTransportView } from './useCoachTransport'
 import { usePreferencesStore } from '../stores/preferences'
 
 export function useTagRollCoachShell(opts: {
@@ -15,7 +19,10 @@ export function useTagRollCoachShell(opts: {
   projectId: Ref<string | null | undefined>
   harmonizeOpen: Ref<boolean>
   setPlayheadTick: (tick: number) => void
-  selectNotes: (ids: string[]) => void
+  /** Apply coach overlay on the roll (pop-out → main window). */
+  onRemoteFocusRange?: (startTick: number, endTick: number) => void
+  /** Pop-out → main: update roll transport mirror. */
+  onRemoteTransportState?: (active: boolean, model: CoachTransportView | null) => void
 }) {
   const prefs = usePreferencesStore()
   const coachOpen = ref(false)
@@ -41,21 +48,32 @@ export function useTagRollCoachShell(opts: {
     opts.harmonizeOpen.value = false
   }
 
+  function handleChannelMsg(msg: CoachPopoutMsg): void {
+    if (msg.type === 'playhead') opts.setPlayheadTick(msg.tick)
+    if (msg.type === 'focusRange' && !isPopoutWindow.value) {
+      opts.onRemoteFocusRange?.(msg.startTick, msg.endTick)
+    }
+    if (msg.type === 'transportState' && !isPopoutWindow.value) {
+      opts.onRemoteTransportState?.(msg.active, msg.model)
+    }
+    if (msg.type === 'transportIntent' && isPopoutWindow.value) {
+      dispatchCoachPopoutIntent(msg.action)
+    }
+    if (msg.type === 'popIn' && !isPopoutWindow.value) {
+      coachDetached.value = false
+      coachOpen.value = true
+      popoutWin = null
+    }
+    if (msg.type === 'closed' && !isPopoutWindow.value) {
+      coachDetached.value = false
+      popoutWin = null
+      opts.onRemoteTransportState?.(false, null)
+    }
+  }
+
   function bindChannel(projectId: string): void {
     channel?.close()
-    channel = openCoachPopoutChannel(projectId, (msg) => {
-      if (msg.type === 'playhead') opts.setPlayheadTick(msg.tick)
-      if (msg.type === 'selection') opts.selectNotes(msg.noteIds)
-      if (msg.type === 'popIn' && !isPopoutWindow.value) {
-        coachDetached.value = false
-        coachOpen.value = true
-        popoutWin = null
-      }
-      if (msg.type === 'closed' && !isPopoutWindow.value) {
-        coachDetached.value = false
-        popoutWin = null
-      }
-    })
+    channel = openCoachPopoutChannel(projectId, handleChannelMsg)
   }
 
   function onCoachClose(): void {
@@ -105,6 +123,25 @@ export function useTagRollCoachShell(opts: {
     bindChannel(id)
   }
 
+  function postCoachFocusRange(startTick: number, endTick: number): void {
+    const id = opts.projectId.value
+    if (!id || !channel || !isPopoutWindow.value) return
+    channel.post({ type: 'focusRange', projectId: id, startTick, endTick })
+  }
+
+  function postTransportState(active: boolean, model: CoachTransportView | null): void {
+    const id = opts.projectId.value
+    if (!id || !channel || !isPopoutWindow.value) return
+    channel.post({ type: 'transportState', projectId: id, active, model })
+  }
+
+  function postTransportIntent(action: CoachTransportIntentAction): void {
+    const id = opts.projectId.value
+    if (!id || !channel || isPopoutWindow.value) return
+    if (!coachDetached.value) return
+    channel.post({ type: 'transportIntent', projectId: id, action })
+  }
+
   function onCoachPopIn(): void {
     const id = opts.projectId.value
     if (!id) return
@@ -115,6 +152,7 @@ export function useTagRollCoachShell(opts: {
       coachOpen.value = true
       if (popoutWin && !popoutWin.closed) popoutWin.close()
       popoutWin = null
+      opts.onRemoteTransportState?.(false, null)
     }
   }
 
@@ -159,5 +197,8 @@ export function useTagRollCoachShell(opts: {
     onCoachClose,
     onCoachPopOut,
     onCoachPopIn,
+    postCoachFocusRange,
+    postTransportState,
+    postTransportIntent,
   }
 }

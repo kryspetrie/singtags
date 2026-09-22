@@ -1,11 +1,32 @@
 /**
  * Dual-monitor Coach pop-out: URL flag + BroadcastChannel (best-effort, not CRDT).
  */
+import type { CoachTransportView } from '../../composables/useCoachTransport'
+
 export const COACH_POPOUT_QUERY = 'coachPopout'
+
+export type CoachTransportIntentAction =
+  | 'prev'
+  | 'next'
+  | 'primary'
+  | 'hear'
+  | 'lock'
+  | 'skip'
+  | 'secondary'
 
 export type CoachPopoutMsg =
   | { type: 'playhead'; projectId: string; tick: number }
-  | { type: 'selection'; projectId: string; noteIds: string[] }
+  /** Overlay-only inspect bounds on the main roll (no note selection). */
+  | { type: 'focusRange'; projectId: string; startTick: number; endTick: number }
+  /** Pop-out → main: keep roll transport strip in sync. */
+  | {
+      type: 'transportState'
+      projectId: string
+      active: boolean
+      model: CoachTransportView | null
+    }
+  /** Main roll strip → pop-out: execute against the live coach dock. */
+  | { type: 'transportIntent'; projectId: string; action: CoachTransportIntentAction }
   | { type: 'popIn'; projectId: string }
   | { type: 'closed'; projectId: string }
 
@@ -56,4 +77,19 @@ export function openCoachPopoutChannel(
       ch.close()
     },
   }
+}
+
+/** Pop-out dock registers here so main-window intents can run against the live coach. */
+type IntentHandler = (action: CoachTransportIntentAction) => void
+let popoutIntentHandler: IntentHandler | null = null
+
+export function registerCoachPopoutIntentHandler(handler: IntentHandler): () => void {
+  popoutIntentHandler = handler
+  return () => {
+    if (popoutIntentHandler === handler) popoutIntentHandler = null
+  }
+}
+
+export function dispatchCoachPopoutIntent(action: CoachTransportIntentAction): void {
+  popoutIntentHandler?.(action)
 }

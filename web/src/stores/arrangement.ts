@@ -62,8 +62,10 @@ import {
   extendPillarToCover,
   lockPillar,
   lockRemainingPillars,
+  pillarAtTick,
   trimPillarEnd,
 } from '../domain/arranging/pillars'
+import { nextHomeRootProposal, spanKey } from '../domain/arranging/proposePillarAt'
 import { downloadMidiBytes } from '../adapters/arranging/midi/arrangementMidiExporter'
 
 /**
@@ -78,6 +80,8 @@ export const useArrangementStore = defineStore('arrangement', () => {
   const currentId = ref<string | null>(null)
   const selectedMelodyId = ref<string | null>(null)
   const selectedPillarId = ref<string | null>(null)
+  /** Session-only skipped propose windows (`spanKey`); cleared on project switch. */
+  const skippedHomeRootSpans = ref<string[]>([])
   /** When set, candidates/apply use this event (harmonic moment) instead of selected melody onset. */
   const candidateTarget = ref<MelodyEvent | null>(null)
   const addDurationTicks = ref(480)
@@ -216,6 +220,8 @@ export const useArrangementStore = defineStore('arrangement', () => {
     else projects.value.push(p)
     currentId.value = p.id
     selectedMelodyId.value = null
+    selectedPillarId.value = null
+    skippedHomeRootSpans.value = []
     candidates.value = []
     playheadTick.value = 0
     const maxEnd = Math.max(
@@ -419,6 +425,76 @@ export const useArrangementStore = defineStore('arrangement', () => {
     replaceCurrent({ ...p, pillars, wizardStep: 'step1_roots' })
     selectedPillarId.value = pillars.find((x) => !x.confirmed)?.id ?? pillars[0]?.id ?? null
   }
+
+  /**
+   * Guided propose: one draft home root at/after cursor. Returns false when none left.
+   * Reuses an existing unconfirmed draft on the same span instead of stacking.
+   */
+  function proposeNextHomeRoot(cursorTick?: number): boolean {
+    const p = current.value
+    if (!p) return false
+    const cursor = cursorTick ?? playheadTick.value
+    const proposal = nextHomeRootProposal({
+      melody: p.melody,
+      pillars: p.pillars,
+      tonality: p.tonality,
+      mode: p.tonalityMode ?? 'major',
+      cursorTick: cursor,
+      skippedSpans: skippedHomeRootSpans.value,
+    })
+    if (!proposal) return false
+
+    const hit = pillarAtTick(p.pillars, proposal.startTick)
+    if (
+      hit &&
+      !hit.confirmed &&
+      hit.startTick === proposal.startTick &&
+      hit.endTick === proposal.endTick
+    ) {
+      selectedPillarId.value = hit.id
+      return true
+    }
+
+    let pillars = p.pillars
+    if (hit && !hit.confirmed) pillars = deletePillar(pillars, hit.id)
+    pillars = addPillarAtTick(pillars, proposal.startTick, {
+      rootPc: proposal.rootPc,
+      endTick: proposal.endTick,
+      id: services.idGen.next('pil'),
+      reason: proposal.reason,
+      confidence: proposal.confidence,
+      source: 'inferred',
+    })
+    replaceCurrent({
+      ...p,
+      pillars,
+      wizardStep: p.wizardStep === 'melody' ? 'step1_roots' : p.wizardStep,
+    })
+    const neu = pillarAtTick(pillars, proposal.startTick)
+    selectedPillarId.value = neu?.id ?? null
+    return true
+  }
+
+  /** Discard the selected draft, remember its span as skipped, clear selection. */
+  function skipProposedPillar(): void {
+    const p = current.value
+    const id = selectedPillarId.value
+    if (!p || !id) return
+    const pil = p.pillars.find((x) => x.id === id)
+    if (!pil || pil.confirmed) return
+    const key = spanKey(pil.startTick, pil.endTick)
+    if (!skippedHomeRootSpans.value.includes(key)) {
+      skippedHomeRootSpans.value = [...skippedHomeRootSpans.value, key]
+    }
+    replaceCurrent({ ...p, pillars: deletePillar(p.pillars, id) })
+    selectedPillarId.value = null
+  }
+
+  function clearSkippedHomeRoots(): void {
+    skippedHomeRootSpans.value = []
+  }
+
+  const skippedHomeRootCount = computed(() => skippedHomeRootSpans.value.length)
 
   function setPillars(pillars: Pillar[]): void {
     mutate((p) => {
@@ -769,6 +845,10 @@ export const useArrangementStore = defineStore('arrangement', () => {
     deleteMelodyNote,
     clearMelody,
     inferPillars,
+    proposeNextHomeRoot,
+    skipProposedPillar,
+    clearSkippedHomeRoots,
+    skippedHomeRootCount,
     setPillars,
     updatePillar,
     confirmAllPillars,

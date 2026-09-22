@@ -4,6 +4,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { pcName } from '../../domain/arranging/chords/chords'
+import { melodyGapsOutsidePillars } from '../../domain/arranging/pillars'
 import { buildHarmonicMoments } from '../../domain/arranging/harmonicMoments'
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
 import { pxToTicks, ticksToPx } from '../../lib/tagRoll/normalize'
@@ -58,20 +59,21 @@ function toggleCollapsed(): void {
 }
 
 function onSuggest(): void {
-  arrStore.inferPillars()
+  const cursor = props.project.view.playheadTick ?? 0
+  const ok = arrStore.proposeNextHomeRoot(cursor)
   arrStore.runQa()
   prefs.openTagRollBottomLane('coach')
-  const first =
-    arrStore.current?.pillars.find((p) => !p.confirmed) ?? arrStore.current?.pillars[0]
-  if (first) {
-    arrStore.selectPillar(first.id)
-    emit('focusRange', first.startTick, first.endTick, 'pillar')
+  if (ok && arrStore.selectedPillarId) {
+    const pil = arrStore.current?.pillars.find((p) => p.id === arrStore.selectedPillarId)
+    if (pil) {
+      emit('focusRange', pil.startTick, pil.endTick, 'none')
+    }
   }
 }
 
 function selectPillarBand(pil: CoachLanePillarBand): void {
   arrStore.selectPillar(pil.pillarId)
-  emit('focusRange', pil.startTick, pil.endTick, 'pillar')
+  emit('focusRange', pil.startTick, pil.endTick, 'none')
 }
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -99,6 +101,13 @@ const allMarkers = computed(() => {
 const markers = computed(() => filterMarkersForLens(allMarkers.value, lens.value))
 
 const bands = computed(() => buildCoachLanePillarBands(arrStore.current?.pillars ?? []))
+
+const uncoveredMelody = computed(() =>
+  melodyGapsOutsidePillars(
+    arrStore.current?.melody ?? [],
+    arrStore.current?.pillars ?? [],
+  ),
+)
 
 const preferFlats = computed(() => !!arrStore.current?.preferFlats)
 const selectedTick = computed(() => arrStore.selectedMelody?.startTick ?? null)
@@ -138,6 +147,21 @@ function draw(): void {
   const showPillars = lens.value === 'overview' || lens.value === 'gaps'
   const showVl = lens.value === 'overview' || lens.value === 'voiceLead'
   const showRing = lens.value === 'overview' || lens.value === 'ring' || lens.value === 'gaps' || lens.value === 'issues'
+
+  const showUncoveredTint = lens.value === 'overview' || lens.value === 'gaps'
+  if (showUncoveredTint && uncoveredMelody.value.length) {
+    for (const g of uncoveredMelody.value) {
+      const x = ticksToPx(g.startTick, cellW) - scrollX
+      const bw = Math.max(3, ticksToPx(Math.max(1, g.durationTicks), cellW) - 1)
+      if (x + bw < 0 || x > w) continue
+      ctx.fillStyle =
+        lens.value === 'gaps' ? 'rgba(200, 100, 30, 0.42)' : 'rgba(200, 120, 40, 0.22)'
+      ctx.fillRect(x, 2, bw, BAND_H - 2)
+      if (lens.value === 'gaps') {
+        ctx.fillRect(x, BAR_TOP + 2, bw, BAR_H - 4)
+      }
+    }
+  }
 
   if (showPillars) {
     for (const b of bands.value) {
@@ -287,13 +311,11 @@ function onPointer(e: PointerEvent): void {
     )
     if (!near) return
     arrStore.selectMelody(near.melodyId)
-    tagStore.setPlayheadTick(near.startTick, { snap: false })
-    emit('selectTick', near.startTick)
+    emit('focusRange', near.startTick, near.startTick + Math.max(1, near.durationTicks), 'none')
     return
   }
   arrStore.selectMelody(m.melodyId)
-  tagStore.setPlayheadTick(m.startTick, { snap: false })
-  emit('selectTick', m.startTick)
+  emit('focusRange', m.startTick, m.startTick + Math.max(1, m.durationTicks), 'none')
 }
 
 function onMove(e: PointerEvent): void {
@@ -339,6 +361,7 @@ watch(
   () => [
     markers.value,
     bands.value,
+    uncoveredMelody.value.map((g) => g.id).join('|'),
     props.project.view.scrollX,
     props.project.view.cellW,
     selectedTick.value,
@@ -383,10 +406,10 @@ watch(
           v-if="showSuggestCta"
           type="button"
           class="cta"
-          title="Guess home roots under the Lead — bands appear on this lane. Review, Hear, then Lock in the Coach panel."
+          title="Propose one draft home root at the playhead — Hear and Lock in the Coach panel."
           @click="onSuggest"
         >
-          Suggest pillars
+          Propose next
         </button>
       </div>
       <div v-show="!collapsed" ref="wrapRef" class="lane-wrap">

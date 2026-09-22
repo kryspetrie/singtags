@@ -57,11 +57,11 @@ export function resolveCoachNextAction(opts: {
   if (!p.pillars.length) {
     return {
       id: 'suggest_pillars',
-      title: repair ? 'Add pillars under this chart' : 'Suggest pillars',
+      title: repair ? 'Add home roots under this chart' : 'Propose next home root',
       body: repair
-        ? 'Harmony is already on the roll. Suggest pillars so Check and Strengthen can rank fixes — stacks stay put.'
-        : 'Lock home chords under each phrase, then walk chord choices.',
-      cta: 'Suggest pillars',
+        ? 'Harmony is already on the roll. Propose home-root spans so Check and Strengthen can rank fixes — stacks stay put.'
+        : 'Propose one home root at a time, Hear, then Lock before walking chords.',
+      cta: 'Propose next home root',
       focus: 'now',
       kind: 'suggest_pillars',
     }
@@ -72,8 +72,8 @@ export function resolveCoachNextAction(opts: {
     return {
       id: 'cover_gaps',
       title: 'Cover uncovered melody',
-      body: `${gaps.length} lead onset(s) sit outside a pillar span.`,
-      cta: 'Show gaps',
+      body: `${gaps.length} Lead onset(s) sit outside a home-root span — jump, then Add or Extend.`,
+      cta: 'Jump to gaps',
       focus: 'now',
       kind: 'cover_gaps',
     }
@@ -83,12 +83,12 @@ export function resolveCoachNextAction(opts: {
   if (unconfirmed) {
     return {
       id: 'lock_pillars',
-      title: repair && known > 0 ? 'Lock pillars (for Strengthen)' : 'Lock pillars',
+      title: repair && known > 0 ? 'Review home roots (for Strengthen)' : 'Review home roots',
       body:
         repair && known > 0
-          ? `${unconfirmed} draft pillar(s). Lock when you want Strengthen; issues can wait.`
-          : `${unconfirmed} pillar(s) still draft — Hear the root, then Lock.`,
-      cta: 'Review pillars',
+          ? `${unconfirmed} draft home root(s). Lock when you want Strengthen; issues can wait.`
+          : `${unconfirmed} draft home root(s) — Hear the root, then Lock.`,
+      cta: 'Review home roots',
       focus: 'now',
       kind: 'lock_pillars',
     }

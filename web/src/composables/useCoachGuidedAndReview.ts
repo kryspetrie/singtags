@@ -78,20 +78,10 @@ export function useCoachGuidedAndReview(opts: {
     if (!note) return
     arrStore.selectMelody(id)
     arrStore.setCandidateTarget(note)
+    // Overlay / playhead only — do not steal Tag Studio edit selection.
+    tagStore.selectNotes([])
     tagStore.setPlayheadTick(note.startTick, { snap: false })
-    const tag = tagStore.current
-    if (tag) {
-      const lead = tag.parts.find((p) => p.name === 'Lead')
-      const ids = tag.notes
-        .filter(
-          (n) =>
-            (!lead || n.partId === lead.id) &&
-            n.startTick <= note.startTick &&
-            note.startTick < n.startTick + n.durationTicks,
-        )
-        .map((n) => n.id)
-      if (ids.length) tagStore.selectNotes(ids)
-    }
+    pulseHighlight(note.startTick, 'moment')
   }
 
   function stepMelodyNote(dir: -1 | 1): void {

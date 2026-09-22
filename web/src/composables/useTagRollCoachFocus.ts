@@ -46,6 +46,8 @@ export function useTagRollCoachFocus(
   /**
    * Shows L/R bounds. Default note pick is the start column — never mass-select
    * a whole pillar/moment span (that looked like “select the entire score”).
+   * Coach pillar / uncovered nav should pass `select: 'none'` so edit selection
+   * is cleared (overlay only).
    */
   function setChordCursor(
     range: ChordCursorHighlight,

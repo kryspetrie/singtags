@@ -510,13 +510,38 @@ export function sheetPianoWhiteKeyPx(scalePercent: number): number {
   return Math.round(SHEET_PIANO_WHITE_KEY_PX_AT_100 * scale * 10) / 10
 }
 
-export function normalizeSheetPianoKeyScale(raw: unknown): number {
+/**
+ * Lowest scale (%) where `whiteKeyCount` keys still span at least `viewportWidthPx`.
+ * Snapped up to {@link SHEET_PIANO_SCALE_STEP} so zoom-out never leaves empty side gutters.
+ */
+export function minSheetPianoKeyScaleForViewport(
+  viewportWidthPx: number,
+  whiteKeyCount: number,
+): number {
+  if (!(viewportWidthPx > 0) || !(whiteKeyCount > 0)) return SHEET_PIANO_SCALE_MIN
+  const exact =
+    (viewportWidthPx / whiteKeyCount / SHEET_PIANO_WHITE_KEY_PX_AT_100) * 100
+  const stepped = Math.ceil(exact / SHEET_PIANO_SCALE_STEP) * SHEET_PIANO_SCALE_STEP
+  return Math.min(
+    SHEET_PIANO_SCALE_MAX,
+    Math.max(SHEET_PIANO_SCALE_MIN, stepped),
+  )
+}
+
+export function normalizeSheetPianoKeyScale(
+  raw: unknown,
+  minScale = SHEET_PIANO_SCALE_MIN,
+): number {
   // localStorage miss → null; Number(null) === 0, which must not become MIN.
   if (raw == null || raw === '') return SHEET_PIANO_SCALE_DEFAULT
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n) || n === 0) return SHEET_PIANO_SCALE_DEFAULT
   const stepped = Math.round(n / SHEET_PIANO_SCALE_STEP) * SHEET_PIANO_SCALE_STEP
-  return Math.min(SHEET_PIANO_SCALE_MAX, Math.max(SHEET_PIANO_SCALE_MIN, stepped))
+  const floor = Math.min(
+    SHEET_PIANO_SCALE_MAX,
+    Math.max(SHEET_PIANO_SCALE_MIN, minScale),
+  )
+  return Math.min(SHEET_PIANO_SCALE_MAX, Math.max(floor, stepped))
 }
 
 /**

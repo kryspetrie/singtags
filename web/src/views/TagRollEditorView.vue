@@ -64,6 +64,10 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useTagRollStore } from '../stores/tagRoll'
 import { useTagRollCoachShell } from '../composables/useTagRollCoachShell'
 import { useTagRollCoachFocus } from '../composables/useTagRollCoachFocus'
+import {
+  publishCoachRollTransport,
+  registerCoachRollTransport,
+} from '../lib/arranging/coachRollTransport'
 import { installInspectEditorHooks } from '../lib/tagRoll/chordCursorTransport'
 import {
   hasMelodyPassLink,
@@ -96,23 +100,6 @@ const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
 const arrangingEnabled = computed(() => !!prefs.arrangingEnabled)
 const projectIdRef = computed(() => store.current?.id ?? props.id)
-const {
-  coachOpen,
-  isPopoutWindow,
-  popoutHint,
-  showDetachedBanner,
-  toggleCoach,
-  ensureCoachOpen,
-  onCoachClose: closeCoachShell,
-  onCoachPopOut,
-  onCoachPopIn,
-} = useTagRollCoachShell({
-  arrangingEnabled,
-  projectId: projectIdRef,
-  harmonizeOpen,
-  setPlayheadTick: (tick) => store.setPlayheadTick(tick, { snap: false }),
-  selectNotes: (ids) => store.selectNotes(ids),
-})
 const shortcutsOpen = ref(false)
 const ghostNotes = ref<
   { midi: number; startTick: number; durationTicks: number; color: string }[]
@@ -129,6 +116,63 @@ const {
   clearInspectPlaybackRewind,
   takeInspectPlaybackRewind,
 } = coachFocus
+const {
+  coachOpen,
+  coachDetached,
+  isPopoutWindow,
+  popoutHint,
+  showDetachedBanner,
+  toggleCoach,
+  ensureCoachOpen,
+  onCoachClose: closeCoachShell,
+  onCoachPopOut,
+  onCoachPopIn,
+  postCoachFocusRange,
+  postTransportState,
+  postTransportIntent,
+} = useTagRollCoachShell({
+  arrangingEnabled,
+  projectId: projectIdRef,
+  harmonizeOpen,
+  setPlayheadTick: (tick) => store.setPlayheadTick(tick, { snap: false }),
+  onRemoteFocusRange: (start, end) => onCoachFocusRange(start, end, 'none'),
+  onRemoteTransportState: (active, model) => {
+    publishCoachRollTransport({ active, model })
+  },
+})
+let unregisterDetachedTransport: (() => void) | null = null
+watch(coachDetached, (detached) => {
+  unregisterDetachedTransport?.()
+  unregisterDetachedTransport = null
+  if (!detached || isPopoutWindow.value) return
+  // Main window: roll strip posts intents to the pop-out coach dock.
+  unregisterDetachedTransport = registerCoachRollTransport({
+    prev: () => postTransportIntent('prev'),
+    next: () => postTransportIntent('next'),
+    primary: () => postTransportIntent('primary'),
+    hear: () => postTransportIntent('hear'),
+    lock: () => postTransportIntent('lock'),
+    skip: () => postTransportIntent('skip'),
+    secondary: () => postTransportIntent('secondary'),
+  })
+})
+onUnmounted(() => {
+  unregisterDetachedTransport?.()
+})
+const showCoachRollNav = computed(
+  () => arrangingEnabled.value && !isPopoutWindow.value && (coachOpen.value || coachDetached.value),
+)
+function relayCoachFocusRange(
+  start: number,
+  end: number,
+  select?: 'pillar' | 'column' | 'range' | 'none',
+): void {
+  onCoachFocusRange(start, end, select)
+  if (isPopoutWindow.value) postCoachFocusRange(start, end)
+}
+function relayCoachFocusTick(tick: number): void {
+  onCoachFocusTick(tick)
+}
 let unbindInspectHooks: (() => void) | null = null
 function onCoachClose(): void {
   closeCoachShell()
@@ -1232,7 +1276,7 @@ function onKeyDown(e: KeyboardEvent): void {
           >
             {{ rollHudLabel }}
           </div>
-          <ArrangingCoachRollNav v-if="coachOpen && arrangingEnabled" />
+          <ArrangingCoachRollNav v-if="showCoachRollNav" />
           <TagRollChordAnalysisBar
             v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
             :project="project"
@@ -1242,17 +1286,19 @@ function onKeyDown(e: KeyboardEvent): void {
             @update:collapsed="setChordAnalysisCollapsed"
             @update:mode="setChordAnalysisMode"
             @pick="setChordAnalysisOverride"
-            @focus-range="onCoachFocusRange"
+            @focus-range="relayCoachFocusRange"
           />
         </div>
         <ArrangingCoachDock
           v-if="coachOpen && arrangingEnabled"
           :inspect-range="chordCursor"
+          :is-popout-window="isPopoutWindow"
+          :post-transport-state="isPopoutWindow ? postTransportState : undefined"
           @close="onCoachClose"
           @preview-ghost="onGhost"
           @clear-ghost="ghostNotes = []"
-          @focus-tick="onCoachFocusTick"
-          @focus-range="onCoachFocusRange"
+          @focus-tick="relayCoachFocusTick"
+          @focus-range="relayCoachFocusRange"
           @focus-part="onCoachFocusPart"
           @pop-out="onCoachPopOut"
         />
@@ -1271,8 +1317,8 @@ function onKeyDown(e: KeyboardEvent): void {
         v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollCoachLaneCollapsed"
         :project="project"
         :left-gutter-px="isPopoutWindow ? 0 : TOTE_W"
-        @select-tick="onCoachFocusTick"
-        @focus-range="onCoachFocusRange"
+        @select-tick="relayCoachFocusTick"
+        @focus-range="relayCoachFocusRange"
         @open-panel="onCoachLaneOpenPanel"
       />
     </div>

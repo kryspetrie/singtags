@@ -29,7 +29,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'pillar',
     term: 'Pillar',
     short:
-      'A primary harmonic destination under a stretch of melody — what the phrase is “about,” not every decorative chord.',
+      'A home root / destination under a stretch of melody — what the phrase is “about,” not a full chord voicing yet. (Approach Two: pillar.)',
     citations: [bam('Approach Two'), pri('harmonic pillars')],
   },
   {
