@@ -5,6 +5,7 @@ import { measureStartTick } from './measureBeat'
 import { measureTicks } from './tempoMap'
 import type {
   TagRollExpression,
+  TagRollKeyMarker,
   TagRollNote,
   TagRollProject,
   TagRollTempoMarker,
@@ -30,11 +31,11 @@ function shiftNotes(notes: readonly TagRollNote[], at: number, delta: number): T
   })
 }
 
-function shiftMarkers(
-  markers: readonly TagRollTempoMarker[],
+function shiftMarkers<T extends { tick: number }>(
+  markers: readonly T[],
   at: number,
   delta: number,
-): TagRollTempoMarker[] {
+): T[] {
   return markers.map((m) => {
     if (m.tick === 0 && at === 0) return m
     if (m.tick >= at) return { ...m, tick: m.tick + delta }
@@ -96,6 +97,17 @@ export function shrinkProjectMeasures(p: TagRollProject, count = 1): TagRollProj
     })
   }
 
+  const keyMarkers = (p.keyMarkers ?? []).filter((km) => km.tick < newLen)
+  if (!keyMarkers.some((km) => km.tick === 0)) {
+    keyMarkers.unshift({
+      id: (p.keyMarkers ?? []).find((km) => km.tick === 0)?.id ?? 'trk-start',
+      tick: 0,
+      tonality: p.tonality,
+      tonalityMode: p.tonalityMode ?? 'major',
+      preferFlats: p.preferFlats,
+    })
+  }
+
   const expressions = p.expressions
     .map((e) => {
       if (e.kind === 'fermata') {
@@ -116,6 +128,7 @@ export function shrinkProjectMeasures(p: TagRollProject, count = 1): TagRollProj
     lengthTicks: newLen,
     notes,
     tempoMarkers,
+    keyMarkers,
     expressions,
     view: { ...p.view, playheadTick },
     updatedAt: Date.now(),
@@ -195,6 +208,32 @@ function pruneMarkersInMeasure(
   return out
 }
 
+function pruneKeyMarkersInMeasure(
+  markers: readonly TagRollKeyMarker[],
+  from: number,
+  span: number,
+  fallback: Pick<TagRollKeyMarker, 'tonality' | 'tonalityMode' | 'preferFlats'>,
+): TagRollKeyMarker[] {
+  const to = from + span
+  const out: TagRollKeyMarker[] = []
+  for (const m of markers) {
+    if (m.tick > from && m.tick < to) continue
+    if (m.tick >= to) out.push({ ...m, tick: m.tick - span })
+    else out.push(m)
+  }
+  if (!out.some((km) => km.tick === 0)) {
+    const z = markers.find((km) => km.tick === 0)
+    out.unshift({
+      id: z?.id ?? 'trk-start',
+      tick: 0,
+      tonality: z?.tonality ?? fallback.tonality,
+      tonalityMode: z?.tonalityMode ?? fallback.tonalityMode,
+      preferFlats: z?.preferFlats ?? fallback.preferFlats,
+    })
+  }
+  return out
+}
+
 function pruneExpressionsInMeasure(
   expressions: readonly TagRollExpression[],
   from: number,
@@ -264,6 +303,11 @@ export function deleteProjectMeasure(
     lengthTicks: p.lengthTicks - m,
     notes: pruneNotesInMeasure(p.notes, at, m),
     tempoMarkers: pruneMarkersInMeasure(p.tempoMarkers, at, m, p.bpm),
+    keyMarkers: pruneKeyMarkersInMeasure(p.keyMarkers ?? [], at, m, {
+      tonality: p.tonality,
+      tonalityMode: p.tonalityMode ?? 'major',
+      preferFlats: p.preferFlats,
+    }),
     expressions: pruneExpressionsInMeasure(p.expressions, at, m),
     view: { ...p.view, playheadTick: Math.min(playheadTick, p.lengthTicks - m) },
     updatedAt: Date.now(),
@@ -283,6 +327,7 @@ export function insertProjectMeasure(
     lengthTicks: p.lengthTicks + m,
     notes: shiftNotes(p.notes, at, m),
     tempoMarkers: shiftMarkers(p.tempoMarkers, at, m),
+    keyMarkers: shiftMarkers(p.keyMarkers ?? [], at, m),
     expressions: shiftExpressions(p.expressions, at, m),
     view: {
       ...p.view,

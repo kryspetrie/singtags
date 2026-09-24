@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Compact “i” tips control matching Browse search tips (toggle + hover on desktop).
- * Popover flips to end-align when there isn’t room to the right (mobile-safe).
+ * Popover flips end-align / above when there isn’t room right or below (mobile + bottom bars).
  */
 import { nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 
@@ -20,6 +20,7 @@ withDefaults(
 
 const open = ref(false)
 const alignEnd = ref(false)
+const alignAbove = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 const popoverId = useId()
 
@@ -31,6 +32,18 @@ function updatePlacement(): void {
   const maxW = Math.min(22 * 16, window.innerWidth - margin * 2)
   const spaceRight = window.innerWidth - rect.left - margin
   alignEnd.value = spaceRight < maxW
+
+  const overlay = el.querySelector('.info-tips-overlay') as HTMLElement | null
+  const spaceBelow = window.innerHeight - rect.bottom - margin
+  const spaceAbove = rect.top - margin
+  // Prefer measuring the open overlay; fall back so bottom-bar tips flip up early.
+  const need = Math.max(overlay?.offsetHeight || 0, 220)
+  alignAbove.value = spaceBelow < need && spaceAbove > spaceBelow
+
+  if (overlay) {
+    const maxH = Math.max(120, (alignAbove.value ? spaceAbove : spaceBelow) - 8)
+    overlay.style.maxHeight = `${maxH}px`
+  }
 }
 
 async function toggle(): Promise<void> {
@@ -78,7 +91,7 @@ onUnmounted(() => {
   <div
     ref="rootEl"
     class="info-tips"
-    :class="{ open, 'align-end': alignEnd }"
+    :class="{ open, 'align-end': alignEnd, 'align-above': alignAbove }"
     @mouseleave="close"
     @mouseenter="updatePlacement"
   >
@@ -134,9 +147,12 @@ onUnmounted(() => {
   left: 0;
   right: auto;
   top: calc(100% + 0.35rem);
-  z-index: 20;
+  bottom: auto;
+  z-index: 40;
   width: min(22rem, calc(100vw - 2rem));
   max-width: calc(100vw - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0.65rem 0.75rem;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -154,6 +170,11 @@ onUnmounted(() => {
 .info-tips.align-end .info-tips-overlay {
   left: auto;
   right: 0;
+}
+.info-tips.align-above .info-tips-overlay {
+  top: auto;
+  bottom: calc(100% + 0.35rem);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.16);
 }
 .info-tips.open .info-tips-overlay {
   display: block;

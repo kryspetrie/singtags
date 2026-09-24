@@ -42,6 +42,7 @@ import {
   noteIdsInMarquee,
 } from '../../lib/tagRoll/selection'
 import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
+import { keyAtTick } from '../../lib/tagRoll/keyMap'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
 import {
   easeInOutCosine,
@@ -74,6 +75,11 @@ const props = defineProps<{
   ghostNotes?: GhostNote[]
   /** Vertical stack highlight for the chord currently under coach focus. */
   chordCursor?: ChordCursorHighlight | null
+  /**
+   * Extra header band below the ruler (e.g. Harmony strip) reserved from the pitch plane.
+   * Notes / hit-tests start below rulerH + headerExtraH.
+   */
+  headerExtraH?: number
 }>()
 
 const emit = defineEmits<{
@@ -136,6 +142,8 @@ const mode = computed(() => props.project.view.mode)
 const rulerH = computed(() =>
   mode.value === 'compose' ? TAG_ROLL_RULER_H_COMPOSE : TAG_ROLL_RULER_H,
 )
+/** Ruler + reserved chrome (Harmony strip) — pitch plane starts here. */
+const headerBandH = computed(() => rulerH.value + Math.max(0, props.headerExtraH ?? 0))
 
 const gridW = computed(() => ticksToPx(props.project.lengthTicks, cellW.value))
 const gridH = computed(
@@ -249,7 +257,9 @@ function maxScrollX(): number {
   return Math.max(0, gridW.value - cssW.value)
 }
 function maxScrollY(): number {
-  return Math.max(0, gridH.value - cssH.value)
+  // Pitch plane sits below the header band; scroll range is pitch-grid vs pitch viewport.
+  const pitchH = Math.max(0, cssH.value - headerBandH.value)
+  return Math.max(0, gridH.value - pitchH)
 }
 
 function clampScroll(x: number, y: number): { x: number; y: number } {
@@ -263,6 +273,11 @@ function clampTick(tick: number): number {
   return Math.max(0, Math.min(props.project.lengthTicks, tick))
 }
 
+/** Canvas Y of pitch-grid origin (below header band) for the current scroll. */
+function pitchOriginY(): number {
+  return headerBandH.value - scrollY.value
+}
+
 function localPoint(e: PointerEvent): { x: number; y: number } | null {
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return null
@@ -272,7 +287,7 @@ function localPoint(e: PointerEvent): { x: number; y: number } | null {
 function gridFromLocal(lx: number, ly: number): { tick: number; midi: number } {
   return {
     tick: clampTick(pxToTicks(lx + scrollX.value, cellW.value)),
-    midi: yToMidi(ly + scrollY.value, cellH.value),
+    midi: yToMidi(ly - headerBandH.value + scrollY.value, cellH.value),
   }
 }
 
@@ -286,7 +301,7 @@ function noteRect(n: Pick<TagRollNote, 'midi' | 'startTick' | 'durationTicks'>):
   const ch = cellH.value
   return {
     x: -scrollX.value + ticksToPx(n.startTick, cw),
-    y: -scrollY.value + midiToY(n.midi, ch),
+    y: pitchOriginY() + midiToY(n.midi, ch),
     w: Math.max(2, ticksToPx(n.durationTicks, cw)),
     h: ch,
   }
@@ -334,7 +349,7 @@ function playheadScreenX(): number {
 }
 
 function hitPlayhead(lx: number, ly: number): boolean {
-  if (ly < rulerH.value) return false
+  if (ly < headerBandH.value) return false
   return Math.abs(lx - playheadScreenX()) <= PLAYHEAD_HIT
 }
 
@@ -424,7 +439,7 @@ function draw(): void {
   ctx.fillRect(0, 0, cssW.value, cssH.value)
 
   const ox = -scrollX.value
-  const oy = -scrollY.value
+  const oy = pitchOriginY()
   const cw = cellW.value
   const ch = cellH.value
   const ts = props.project.timeSignature
@@ -476,6 +491,12 @@ function draw(): void {
     ctx.globalAlpha = 1
   }
 
+  const scaleKey = keyAtTick(props.project.view.playheadTick, props.project.keyMarkers, {
+    tonality: props.project.tonality,
+    tonalityMode: props.project.tonalityMode ?? 'major',
+    preferFlats: props.project.preferFlats,
+  })
+
   for (let m = TAG_ROLL_MIDI_MIN; m <= TAG_ROLL_MIDI_MAX; m++) {
     const y = oy + midiToY(m, ch)
     if (y + ch < 0 || y > cssH.value) continue
@@ -487,7 +508,7 @@ function draw(): void {
       ctx.fillRect(0, y, cssW.value, ch)
       ctx.globalAlpha = 1
     }
-    if (!midiInScale(m, props.project.tonality, props.project.tonalityMode ?? 'major')) {
+    if (!midiInScale(m, scaleKey.tonality, scaleKey.tonalityMode)) {
       ctx.fillStyle = muted
       ctx.globalAlpha = 0.1
       ctx.fillRect(0, y, cssW.value, ch)
@@ -511,7 +532,7 @@ function draw(): void {
     const x = Math.max(0, x0)
     const w = Math.max(2, Math.min(cssW.value, x1) - x)
     if (w > 0 && x < cssW.value) {
-      const bandTop = rulerH.value
+      const bandTop = headerBandH.value
       const bandH = Math.max(0, cssH.value - bandTop)
       ctx.fillStyle = accent
       ctx.globalAlpha = 0.1
@@ -600,8 +621,8 @@ function draw(): void {
     const x0 = -scrollX.value + ticksToPx(link.startTick, cw)
     const x1 = -scrollX.value + ticksToPx(link.endTick, cw)
     if (x1 < -2 || x0 > cssW.value + 2) continue
-    const yFrom = -scrollY.value + midiToY(link.from.midi, ch) + ch / 2
-    const yTo = -scrollY.value + midiToY(link.to.midi, ch) + ch / 2
+    const yFrom = pitchOriginY() + midiToY(link.from.midi, ch) + ch / 2
+    const yTo = pitchOriginY() + midiToY(link.to.midi, ch) + ch / 2
     const span = Math.max(1, x1 - x0)
     const steps = Math.max(8, Math.min(48, Math.round(span / 3)))
     ctx.save()
@@ -631,7 +652,7 @@ function draw(): void {
 
   strokeMelodyPassLinks(ctx, props.project, {
     scrollX: scrollX.value,
-    scrollY: scrollY.value,
+    scrollY: scrollY.value - headerBandH.value,
     cellW: cw,
     cellH: ch,
     cssW: cssW.value,
@@ -671,6 +692,11 @@ function draw(): void {
     ctx.setLineDash([])
   }
 
+  // Header band (ruler + reserved Harmony strip) — covers scrolled pitch under chrome.
+  ctx.fillStyle = surface
+  ctx.globalAlpha = 0.96
+  ctx.fillRect(0, 0, cssW.value, headerBandH.value)
+  ctx.globalAlpha = 1
   // Ruler strip
   ctx.fillStyle = surface
   ctx.globalAlpha = 0.92
@@ -682,6 +708,12 @@ function draw(): void {
   ctx.moveTo(0, rulerH.value + 0.5)
   ctx.lineTo(cssW.value, rulerH.value + 0.5)
   ctx.stroke()
+  if (headerBandH.value > rulerH.value) {
+    ctx.beginPath()
+    ctx.moveTo(0, headerBandH.value + 0.5)
+    ctx.lineTo(cssW.value, headerBandH.value + 0.5)
+    ctx.stroke()
+  }
   ctx.fillStyle = muted
   ctx.font = '600 11px sans-serif'
   ctx.textBaseline = 'middle'
@@ -784,7 +816,7 @@ function onPointerDown(e: PointerEvent): void {
   if (!local) return
 
   const cursorEdge = hitChordCursorEdge(local.x, local.y, props.chordCursor, {
-    rulerH: rulerH.value,
+    rulerH: headerBandH.value,
     cssH: cssH.value,
     scrollX: scrollX.value,
     cellW: cellW.value,
@@ -928,14 +960,14 @@ function onPointerMove(e: PointerEvent): void {
   if (!pointers.has(e.pointerId)) {
     // Hover HUD when not capturing this pointer.
     const local = localPoint(e)
-    if (!local || local.y < rulerH.value) {
+    if (!local || local.y < headerBandH.value) {
       emit('pointerHud', null)
       cursorEdgeHover.value = false
     } else {
       const grid = gridFromLocal(local.x, local.y)
       emit('pointerHud', { tick: grid.tick, midi: grid.midi })
       cursorEdgeHover.value = !!hitChordCursorEdge(local.x, local.y, props.chordCursor, {
-        rulerH: rulerH.value,
+        rulerH: headerBandH.value,
         cssH: cssH.value,
         scrollX: scrollX.value,
         cellW: cellW.value,
@@ -948,7 +980,7 @@ function onPointerMove(e: PointerEvent): void {
 
   {
     const local = localPoint(e)
-    if (local && local.y >= rulerH.value) {
+    if (local && local.y >= headerBandH.value) {
       const grid = gridFromLocal(local.x, local.y)
       emit('pointerHud', { tick: grid.tick, midi: grid.midi })
     }
@@ -1191,7 +1223,7 @@ function onPointerUp(e: PointerEvent): void {
   if (g.kind === 'pan') {
     if (!g.moved) {
       const local = localPoint(e)
-      if (!local || local.y < rulerH.value) return
+      if (!local || local.y < headerBandH.value) return
       if (g.onClick === 'deselect') emit('select', null)
       // Body click moves playhead only outside compose (compose uses ruler only).
       if (g.onClick === 'playhead') {
@@ -1315,6 +1347,7 @@ watch(
     props.project.view.focusActivePart,
     props.project.tonality,
     props.project.tonalityMode,
+    props.project.keyMarkers,
     props.project.lengthTicks,
     props.project.timeSignature,
     props.project.snapTicks,

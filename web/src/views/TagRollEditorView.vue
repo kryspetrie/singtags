@@ -9,12 +9,13 @@ import { MetronomeClicker } from '../audio/metronomeClicker'
 import { midiToNote } from '../audio/pianoSamples'
 import { resolvePitchPipeVoiceById } from '../audio/pitchPipeVoice'
 import TagRollExpressionLane from '../components/tagRoll/TagRollExpressionLane.vue'
-import TagRollLaneRail from '../components/tagRoll/TagRollLaneRail.vue'
+import TagRollDeclaredLane from '../components/tagRoll/TagRollDeclaredLane.vue'
+import TagRollDetectedLane from '../components/tagRoll/TagRollDetectedLane.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
-import TagRollLyricsInput from '../components/tagRoll/TagRollLyricsInput.vue'
+import TagRollLyricsLane from '../components/tagRoll/TagRollLyricsLane.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
 import TagRollMixerPanel from '../components/tagRoll/TagRollMixerPanel.vue'
@@ -28,7 +29,7 @@ import {
   type TagRollAudioApi,
 } from '../composables/useTagRollAudio'
 import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
-import { isPartAudible, mixForPart } from '../lib/tagRoll/mix'
+import { isPartAudible, mixForPart, syncProjectMix } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
 import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
 import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
@@ -42,8 +43,6 @@ import { TAG_ROLL_DURATION_PRESETS, dottedDurationTicks, stepDurationTicks } fro
 import { findPartByHotkey } from '../lib/tagRoll/partHotkeys'
 import { isTypingTarget, matchModKey, tagRollTip, tipByShortcutId } from '../lib/tagRoll/shortcuts'
 import {
-  formatDurationBeats,
-  formatMeasureBeat,
   nextMeasureTick,
   prevMeasureTick,
 } from '../lib/tagRoll/measureBeat'
@@ -69,15 +68,19 @@ import {
   registerCoachRollTransport,
 } from '../lib/arranging/coachRollTransport'
 import { installInspectEditorHooks } from '../lib/tagRoll/chordCursorTransport'
-import {
-  hasMelodyPassLink,
-  melodyPassInspectHint,
-  melodyPassPairFromSelection,
-  toggleMelodyPassOnProject,
-} from '../lib/tagRoll/melodyPassActions'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import { useChordAnalysisBar } from '../composables/useChordAnalysisBar'
-import TagRollChordAnalysisBar from '../components/tagRoll/TagRollChordAnalysisBar.vue'
+import {
+  isHarmonySketchQuality,
+  natureToSketchQuality,
+  parseHarmonyEntry,
+  pillarsFromHarmonySketch,
+  sketchWindowAtPlayhead,
+} from '../lib/tagRoll/harmonySketch'
+import { sketchHearMidis, sketchHearVoicing, optimizeSketchHearPath } from '../lib/tagRoll/sketchHearVoicing'
+import { measureTicks as measureTicksFn } from '../lib/tagRoll/tempoMap'
 import { useArrangementStore } from '../stores/arrangement'
+import { getArrangingServices } from '../composition/arranging'
 
 const props = defineProps<{ id: string }>()
 
@@ -115,7 +118,27 @@ const {
   armInspectPlayback,
   clearInspectPlaybackRewind,
   takeInspectPlaybackRewind,
+  peekInspectRangeDelete,
+  executeInspectRangeDelete,
 } = coachFocus
+const pendingInspectDeleteMessage = ref<string | null>(null)
+
+function requestInspectRangeDelete(): boolean {
+  const peek = peekInspectRangeDelete()
+  if (!peek) return false
+  if (peek.count <= 0) return true
+  pendingInspectDeleteMessage.value = peek.message
+  return true
+}
+
+function cancelInspectRangeDelete(): void {
+  pendingInspectDeleteMessage.value = null
+}
+
+function confirmInspectRangeDelete(): void {
+  pendingInspectDeleteMessage.value = null
+  executeInspectRangeDelete()
+}
 const {
   coachOpen,
   coachDetached,
@@ -198,12 +221,13 @@ const pointerHud = ref<{ tick: number; midi: number } | null>(null)
 const project = computed(() => store.current)
 
 const {
-  collapsed: chordAnalysisCollapsed,
-  mode: chordAnalysisMode,
+  declaredMode: chordDeclaredMode,
+  detectedMode: chordDetectedMode,
   segments: chordAnalysisSegments,
-  setCollapsed: setChordAnalysisCollapsed,
-  setMode: setChordAnalysisMode,
-  setOverride: setChordAnalysisOverride,
+  declaredSegments: chordDeclaredSegments,
+  detectSegments: chordDetectSegments,
+  setDeclaredMode: setChordDeclaredMode,
+  setDetectedMode: setChordDetectedMode,
 } = useChordAnalysisBar(project)
 
 const showPianoTote = computed(
@@ -216,10 +240,12 @@ const rulerH = computed(() => {
   return p.view.mode === 'compose' ? TAG_ROLL_RULER_H_COMPOSE : TAG_ROLL_RULER_H
 })
 
-/** Pitch-grid height only (viewport cssH includes the ruler strip). */
-const toteViewportH = computed(() => Math.max(0, stageViewportH.value - rulerH.value))
+const headerBandH = computed(() => rulerH.value)
 
-const TOTE_W = 72
+/** Pitch-grid height only (viewport cssH includes ruler). */
+const toteViewportH = computed(() => Math.max(0, stageViewportH.value - headerBandH.value))
+
+const TOTE_W = 112
 
 const activePartName = computed(() => {
   const p = project.value
@@ -229,50 +255,15 @@ const activePartName = computed(() => {
 
 const selectionSummary = computed(() => {
   const p = project.value
-  if (!p || !store.selectedNoteIds.length) return null
-  const notes = store.selectedNoteIds
-    .map((id) => p.notes.find((n) => n.id === id))
-    .filter(Boolean) as typeof p.notes
-  if (!notes.length) return null
-  if (notes.length === 1) {
-    const n = notes[0]!
-    return {
-      multi: false as const,
-      pitch: midiToNote(n.midi),
-      start: formatMeasureBeat(n.startTick, p.timeSignature, p.ppq),
-      length: formatDurationBeats(n.durationTicks, p.timeSignature, p.ppq),
-      lyric: n.lyric ?? '',
-      noteId: n.id,
-    }
+  if (!p || store.selectedNoteIds.length !== 1) return null
+  const n = p.notes.find((x) => x.id === store.selectedNoteIds[0])
+  if (!n) return null
+  return {
+    multi: false as const,
+    pitch: midiToNote(n.midi),
+    noteId: n.id,
   }
-  return { multi: true as const, count: notes.length }
 })
-
-const melodyPassPair = computed(() => {
-  const p = project.value
-  if (!p) return null
-  return melodyPassPairFromSelection(p.notes, store.selectedNoteIds)
-})
-
-const melodyPassActive = computed(() => {
-  const pair = melodyPassPair.value
-  const p = project.value
-  if (!pair || !p) return false
-  return hasMelodyPassLink(p.melodyPasses ?? [], pair.from.id, pair.to.id)
-})
-
-const melodyPassHint = computed(() => {
-  const p = project.value
-  if (!p || store.selectedNoteIds.length < 2) return ''
-  return melodyPassInspectHint(p.notes, store.selectedNoteIds)
-})
-
-function onToggleMelodyPass(): void {
-  const p = project.value
-  if (!p) return
-  const next = toggleMelodyPassOnProject(p, store.selectedNoteIds)
-  if (next) store.patchProject({ melodyPasses: next })
-}
 
 /** Lower-right roll overlay: active part + current note. */
 const rollHudLabel = computed(() => {
@@ -283,11 +274,18 @@ const rollHudLabel = computed(() => {
   return part
 })
 
-function onLyricInspect(e: Event): void {
-  const id = selectionSummary.value && !selectionSummary.value.multi ? selectionSummary.value.noteId : null
-  if (!id) return
-  store.setLyric(id, (e.target as HTMLInputElement).value)
-}
+watch(
+  () => prefs.tagRollLyricsLaneCollapsed,
+  (collapsed) => {
+    const p = project.value
+    if (!p) return
+    if (collapsed) {
+      if (p.view.mode === 'lyrics') store.setMode('compose')
+    } else if (p.view.mode !== 'lyrics') {
+      store.setMode('lyrics')
+    }
+  },
+)
 
 /** Horizontal zoom (±). Cannot zoom out past “all measures fill the viewport”. */
 function onNudgeCellW(delta: number): void {
@@ -364,7 +362,11 @@ function rebuildScheduler(): void {
     getTempoMarkers: () => store.current?.tempoMarkers ?? [],
     getExpressions: () => store.current?.expressions ?? [],
     getLengthTicks: () => store.current?.lengthTicks ?? 0,
-    getMix: () => store.current?.mix ?? [],
+    getMix: () => {
+      const cur = store.current
+      if (!cur) return []
+      return syncProjectMix(cur.parts, cur.mix)
+    },
     getSoundEnvelope: () =>
       store.current?.soundEnvelope ?? {
         attackSec: 0.05,
@@ -376,6 +378,28 @@ function rebuildScheduler(): void {
     getSwing: () => store.current?.swing ?? { enabled: false, unit: 'eighth', style: 'triplet', amount: 0 },
     getMetronomeEnabled: () => !!store.current?.metronomeEnabled,
     getMetronomeSwing: () => store.current?.metronomeSwing !== false,
+    getHarmonySketch: () => store.current?.harmonySketch ?? [],
+    getDetectedSpans: () =>
+      chordDetectSegments.value
+        .filter((s) => s.rootPc != null)
+        .map((s) => ({
+          id: s.id,
+          startTick: s.startTick,
+          endTick: s.endTick,
+          rootPc: s.rootPc!,
+          quality: natureToSketchQuality(s.quality ?? 'major'),
+        })),
+    getMelodyPartId: () => {
+      const cur = store.current
+      if (!cur) return null
+      return (
+        cur.view.melodyPartId ??
+        cur.parts.find((p) => p.name === 'Lead')?.id ??
+        null
+      )
+    },
+    getLeadMidiAt: (tick) => harmonyLeadMidiAt(tick),
+    getTonality: () => store.current?.tonality ?? 0,
     onMetronomeBeat: (hit) => {
       void ensureMetronome().click(hit.downbeat)
     },
@@ -433,7 +457,12 @@ onMounted(async () => {
   }
   titleDraft.value = p.title
   rebuildScheduler()
-  unbindInspectHooks = installInspectEditorHooks(coachFocus)
+  unbindInspectHooks = installInspectEditorHooks({
+    tryDeleteInspectRangeNotes: requestInspectRangeDelete,
+    tryCopyInspectRangeNotes: coachFocus.tryCopyInspectRangeNotes,
+    tryCutInspectRangeNotes: coachFocus.tryCutInspectRangeNotes,
+    setChordCursor: coachFocus.setChordCursor,
+  })
   window.addEventListener('keydown', onKeyDown)
   if (arrangingEnabled.value) void arrStore.hydrate()
 })
@@ -503,6 +532,18 @@ watch(
     if (env) player?.setEnvelope?.(env)
   },
   { deep: true },
+)
+
+/** Harmonize / external sketch writes should keep Coach pillars aligned when linked. */
+watch(
+  () =>
+    (project.value?.harmonySketch ?? [])
+      .map((s) => `${s.id}:${s.startTick}:${s.endTick}:${s.rootPc}:${s.quality}:${s.locked}`)
+      .join('|'),
+  () => {
+    if (!arrangingEnabled.value) return
+    syncSketchToCoachPillars()
+  },
 )
 
 function onTitleBlur(): void {
@@ -665,6 +706,24 @@ function onEnterTransport(): void {
 }
 
 let hearStackSeq = 0
+/** Sustained sketch-hear voice keys while pointer is held on a chord chip. */
+let sketchHearKeys: string[] | null = null
+let sketchHearTimer: ReturnType<typeof window.setTimeout> | null = null
+
+function clearSketchHearTimer(): void {
+  if (sketchHearTimer != null) {
+    window.clearTimeout(sketchHearTimer)
+    sketchHearTimer = null
+  }
+}
+
+function stopSketchHear(): void {
+  clearSketchHearTimer()
+  if (!sketchHearKeys) return
+  const tone = ensurePlayer()
+  for (const key of sketchHearKeys) tone.noteOff(key, true)
+  sketchHearKeys = null
+}
 
 /** Chord at tick — layers over transport / prior hears (does not cut them off). */
 async function auditionTick(tick: number): Promise<void> {
@@ -707,6 +766,309 @@ async function auditionTick(tick: number): Promise<void> {
 
 function onHearStack(): void {
   void auditionTick(project.value?.view.playheadTick ?? 0)
+}
+
+function harmonyLeadMidiAt(tick: number): number {
+  const p = project.value
+  if (!p) return 60
+  const leadId =
+    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  const note = p.notes.find(
+    (n) =>
+      (!leadId || n.partId === leadId) &&
+      n.startTick <= tick &&
+      tick < n.startTick + n.durationTicks,
+  )
+  return note?.midi ?? 60
+}
+
+async function onHearHarmonySketch(
+  startTick: number,
+  _endTick: number,
+  draft?: { rootPc: number; quality: import('../lib/tagRoll/types').HarmonySketchQuality },
+): Promise<void> {
+  if (store.transportPlaying) return
+  const p = project.value
+  if (!p) return
+  const detectSegs = chordDetectSegments.value.filter((s) => s.rootPc != null)
+  const declaredSegs = [...chordDeclaredSegments.value].sort(
+    (a, b) => a.startTick - b.startTick,
+  )
+  const seg =
+    declaredSegs.find((s) => s.startTick === startTick) ??
+    detectSegs.find((s) => s.startTick === startTick) ??
+    chordAnalysisSegments.value.find((s) => s.startTick === startTick)
+  const stored =
+    (p.harmonySketch ?? []).find((s) => s.startTick === startTick) ??
+    (seg ? (p.harmonySketch ?? []).find((s) => s.id === seg.id) : undefined)
+
+  // Prefer globally optimized path across My Chords + Detected so Hear matches mixer.
+  type SeqItem = { id: string; startTick: number; rootPc: number; quality: string }
+  const byTick = new Map<number, SeqItem>()
+  for (const s of detectSegs) {
+    if (s.rootPc == null) continue
+    byTick.set(s.startTick, {
+      id: s.id,
+      startTick: s.startTick,
+      rootPc: s.rootPc,
+      quality: natureToSketchQuality(s.quality ?? 'major'),
+    })
+  }
+  for (const s of declaredSegs) {
+    if (s.rootPc == null) continue
+    byTick.set(s.startTick, {
+      id: s.id,
+      startTick: s.startTick,
+      rootPc: s.rootPc,
+      quality: natureToSketchQuality(s.quality ?? 'major'),
+    })
+  }
+  const sequence = [...byTick.values()].sort(
+    (a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id),
+  )
+  const seqIdx = sequence.findIndex(
+    (s) => s.startTick === startTick || (seg != null && s.id === seg.id),
+  )
+  let midis: number[] | null = null
+  if (seqIdx >= 0 && !draft) {
+    const path = optimizeSketchHearPath(
+      sequence.map((s) => ({
+        rootPc: s.rootPc,
+        quality: natureToSketchQuality(s.quality),
+        leadMidi: harmonyLeadMidiAt(s.startTick),
+      })),
+      { tonality: p.tonality },
+    )
+    const hit = path[seqIdx]
+    if (hit) midis = [hit.bass, hit.bari, hit.lead, hit.tenor]
+  }
+  if (!midis) {
+    const rootPc = draft?.rootPc ?? stored?.rootPc ?? seg?.rootPc
+    const quality =
+      draft?.quality ??
+      stored?.quality ??
+      (seg?.quality && isHarmonySketchQuality(seg.quality) ? seg.quality : 'major')
+    if (rootPc == null) return
+    const prevSeg = seqIdx > 0 ? sequence[seqIdx - 1] : undefined
+    const nextSeg = seqIdx >= 0 ? sequence[seqIdx + 1] : undefined
+    const prevVoicing =
+      prevSeg?.rootPc != null
+        ? sketchHearVoicing({
+            rootPc: prevSeg.rootPc,
+            quality: natureToSketchQuality(prevSeg.quality ?? 'major'),
+            leadMidi: harmonyLeadMidiAt(prevSeg.startTick),
+          })
+        : null
+    midis = sketchHearMidis({
+      rootPc,
+      quality,
+      leadMidi: harmonyLeadMidiAt(startTick),
+      prev: prevVoicing,
+      next:
+        nextSeg?.rootPc != null
+          ? {
+              rootPc: nextSeg.rootPc,
+              quality: natureToSketchQuality(nextSeg.quality ?? 'major'),
+              leadMidi: harmonyLeadMidiAt(nextSeg.startTick),
+            }
+          : null,
+    })
+  }
+  const tone = ensurePlayer()
+  tone.allNotesOff(false)
+  clearSketchHearTimer()
+  sketchHearKeys = null
+  const keys = midis.map((_, i) => `hs:${startTick}:${i}`)
+  await Promise.all(
+    midis.map((m, i) => tone.noteOn(midiToNote(m), 0, { voiceKey: keys[i]!, gain: 0.7 })),
+  )
+  // Draft previews (popover hold) sustain until hearStop; one-shot Hear uses a short ring.
+  if (draft) {
+    sketchHearKeys = keys
+    return
+  }
+  sketchHearKeys = keys
+  sketchHearTimer = window.setTimeout(() => {
+    stopSketchHear()
+  }, 700)
+}
+
+function onStopHearHarmonySketch(): void {
+  stopSketchHear()
+}
+
+/** Hear declared sketch at playhead — ignores TTBB stacks (shortcut J). */
+function onHearSketchAtPlayhead(): void {
+  const p = project.value
+  if (!p) return
+  const tick = p.view.playheadTick ?? 0
+  const span =
+    (p.harmonySketch ?? []).find((s) => s.locked && s.startTick <= tick && tick < s.endTick) ??
+    chordDeclaredSegments.value.find((s) => s.startTick <= tick && tick < s.endTick)
+  if (!span) return
+  void onHearHarmonySketch(span.startTick, span.endTick)
+}
+
+function syncSketchToCoachPillars(): void {
+  const tag = project.value
+  if (!tag || !arrangingEnabled.value) return
+  const linkId = `arr_${tag.id}`
+  if (arrStore.current?.id !== linkId) return
+  const existing = arrStore.current.pillars
+  const fromSketch = pillarsFromHarmonySketch(tag.harmonySketch ?? [], (prefix) =>
+    getArrangingServices().idGen.next(prefix),
+  ).map((p) => {
+    const hit =
+      existing.find((e) => e.startTick === p.startTick && e.endTick === p.endTick) ??
+      existing.find((e) => e.startTick < p.endTick && p.startTick < e.endTick && e.rootPc === p.rootPc)
+    return {
+      id: hit?.id ?? p.id,
+      rootPc: p.rootPc,
+      startTick: p.startTick,
+      endTick: p.endTick,
+      source: p.source,
+      confirmed: p.confirmed,
+    }
+  })
+  // Keep unconfirmed Coach drafts that do not overlap locked Chords spans
+  const drafts = existing.filter(
+    (d) =>
+      !d.confirmed &&
+      !fromSketch.some((s) => d.startTick < s.endTick && s.startTick < d.endTick),
+  )
+  arrStore.setPillars([...fromSketch, ...drafts])
+}
+
+function defaultSketchWindow(): { startTick: number; endTick: number } {
+  const p = project.value!
+  const playhead = p.view.playheadTick ?? 0
+  const leadId =
+    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  const mel =
+    p.notes.find(
+      (n) =>
+        (!leadId || n.partId === leadId) &&
+        n.startTick <= playhead &&
+        playhead < n.startTick + n.durationTicks,
+    ) ?? null
+  return sketchWindowAtPlayhead({
+    playheadTick: playhead,
+    measureTicks: measureTicksFn(p.timeSignature, p.ppq),
+    inspectRange: chordCursor.value,
+    melodyNote: mel
+      ? { startTick: mel.startTick, durationTicks: mel.durationTicks }
+      : null,
+  })
+}
+
+function onRemoveHarmonySketch(id: string): void {
+  store.removeHarmonySketchSpan(id)
+  syncSketchToCoachPillars()
+}
+
+function onApplyHarmonyDraft(
+  id: string,
+  draft: { rootPc: number; quality: import('../lib/tagRoll/types').HarmonySketchQuality },
+): void {
+  const p = project.value
+  if (!p) return
+  const span = (p.harmonySketch ?? []).find((s) => s.id === id)
+  if (span) {
+    store.upsertHarmonySketchSpan({
+      ...span,
+      rootPc: draft.rootPc,
+      quality: draft.quality,
+      locked: true,
+      source: 'user',
+    })
+    syncSketchToCoachPillars()
+    return
+  }
+  const det =
+    chordDetectSegments.value.find((s) => s.id === id) ??
+    chordAnalysisSegments.value.find((s) => s.id === id)
+  if (!det) return
+  store.upsertHarmonySketchSpan({
+    id,
+    startTick: det.startTick,
+    endTick: det.endTick,
+    rootPc: draft.rootPc,
+    quality: draft.quality,
+    source: 'user',
+    locked: true,
+  })
+  syncSketchToCoachPillars()
+}
+
+function onLockAllDetected(): void {
+  const holes = chordDetectSegments.value
+    .filter((s) => s.rootPc != null)
+    .map((s) => ({
+      id: s.id,
+      startTick: s.startTick,
+      endTick: s.endTick,
+      rootPc: s.rootPc!,
+      quality: natureToSketchQuality(s.quality ?? 'major'),
+    }))
+  if (!holes.length) return
+  const n = store.lockDetectedAsMyChords(holes)
+  if (n > 0) syncSketchToCoachPillars()
+}
+
+function onHarmonyCommitAt(payload: {
+  raw: string
+  startTick: number
+  endTick: number
+  id?: string
+}): void {
+  const p = project.value
+  if (!p) return
+  const parsed = parseHarmonyEntry(payload.raw, {
+    tonality: p.tonality,
+    mode: p.tonalityMode ?? 'major',
+    preferFlats: p.preferFlats,
+    entryMode: chordDeclaredMode.value === 'roman' ? 'roman' : 'name',
+  })
+  if (!parsed) {
+    snackbar.show('Could not parse chord', { tone: 'info', ms: 2000 })
+    return
+  }
+  const existing = payload.id
+    ? (p.harmonySketch ?? []).find((s) => s.id === payload.id)
+    : undefined
+  store.upsertHarmonySketchSpan({
+    id: payload.id,
+    startTick: payload.startTick,
+    endTick: Math.max(payload.startTick + 1, payload.endTick),
+    rootPc: parsed.rootPc,
+    quality: parsed.quality,
+    source: 'user',
+    locked: true,
+    ...(existing ? {} : {}),
+  })
+  syncSketchToCoachPillars()
+}
+
+function onHarmonyGeometry(payload: { id: string; startTick: number; endTick: number }): void {
+  const p = project.value
+  if (!p) return
+  const span = (p.harmonySketch ?? []).find((s) => s.id === payload.id)
+  if (!span) return
+  store.upsertHarmonySketchSpan({
+    ...span,
+    startTick: payload.startTick,
+    endTick: Math.max(payload.startTick + 1, payload.endTick),
+    locked: true,
+    source: span.source === 'detect' ? 'user' : span.source,
+  })
+  syncSketchToCoachPillars()
+}
+
+function onHarmonyGeometryMany(
+  payloads: Array<{ id: string; startTick: number; endTick: number }>,
+): void {
+  store.moveSketchSpansGeometry(payloads)
+  syncSketchToCoachPillars()
 }
 
 function onAuditionColumn(payload: { tick: number; movePlayhead: boolean }): void {
@@ -965,19 +1327,29 @@ function onKeyDown(e: KeyboardEvent): void {
   if (mod && (key.toLowerCase() === 'c' || key.toLowerCase() === 'x')) {
     if (readOnly) return
     e.preventDefault()
-    if (key.toLowerCase() === 'x') store.cutSelectedNotes()
+    if (store.chordsLaneFocused) {
+      if (key.toLowerCase() === 'x') {
+        if (store.cutSelectedSketchSpans()) syncSketchToCoachPillars()
+      } else store.copySelectedSketchSpans()
+    } else if (key.toLowerCase() === 'x') store.cutSelectedNotes()
     else store.copySelectedNotes()
     return
   }
   if (mod && key.toLowerCase() === 'v') {
     if (readOnly) return
     e.preventDefault()
-    store.pasteNotesAtPlayhead()
+    if (store.chordsLaneFocused) {
+      if (store.pasteSketchSpansAtPlayhead()) syncSketchToCoachPillars()
+    } else store.pasteNotesAtPlayhead()
     return
   }
   if (mod && key.toLowerCase() === 'a') {
     if (readOnly) return
     e.preventDefault()
+    if (store.chordsLaneFocused) {
+      store.selectSketchSpans((project.value.harmonySketch ?? []).filter((s) => s.locked).map((s) => s.id))
+      return
+    }
     const p = project.value
     if (!p) return
     const focus = p.view.focusActivePart ? p.view.activePartId : null
@@ -1026,8 +1398,8 @@ function onKeyDown(e: KeyboardEvent): void {
       store.selectExpression(null)
       return
     }
-    if (project.value.view.mode === 'lyrics') {
-      store.setMode('compose')
+    if (!prefs.tagRollLyricsLaneCollapsed) {
+      prefs.setTagRollLaneCollapsed('lyrics', true)
       return
     }
     store.selectNote(null)
@@ -1079,6 +1451,12 @@ function onKeyDown(e: KeyboardEvent): void {
       if (marker?.tick === 0) return // never delete the start tempo via keyboard
       if (marker) store.deleteTempoMarker(exprId)
       else store.deleteExpression(exprId)
+      return
+    }
+    if (store.selectedSketchSpanIds.length) {
+      e.preventDefault()
+      store.deleteSelectedSketchSpans()
+      syncSketchToCoachPillars()
       return
     }
     if (store.selectedNoteIds.length) {
@@ -1140,7 +1518,7 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 'y') {
     e.preventDefault()
-    store.setMode('lyrics')
+    prefs.toggleTagRollLane('lyrics')
     return
   }
   if (lower === 's') {
@@ -1151,6 +1529,11 @@ function onKeyDown(e: KeyboardEvent): void {
   if (lower === 'h') {
     e.preventDefault()
     onHearStack()
+    return
+  }
+  if (lower === 'j') {
+    e.preventDefault()
+    onHearSketchAtPlayhead()
     return
   }
   if (lower === 'm') {
@@ -1211,8 +1594,6 @@ function onKeyDown(e: KeyboardEvent): void {
       @open-coach="toggleCoach"
     />
 
-    <TagRollLyricsInput />
-
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
     <p v-if="saveBusy" class="hint">Saving to My Library…</p>
     <p v-if="exportBusy" class="hint">{{ exportBusyLabel || 'Exporting…' }}</p>
@@ -1226,10 +1607,14 @@ function onKeyDown(e: KeyboardEvent): void {
 
     <div class="stage" :class="{ 'coach-popout': isPopoutWindow }">
       <div class="stage-body">
-        <div v-if="showPianoTote && !isPopoutWindow" class="tote-col">
+        <div
+          v-if="showPianoTote && !isPopoutWindow"
+          class="tote-col"
+          :style="{ width: `${TOTE_W}px`, flex: `0 0 ${TOTE_W}px` }"
+        >
           <div
             class="ruler-gutter"
-            :style="{ height: `${rulerH}px` }"
+            :style="{ height: `${headerBandH}px` }"
             aria-hidden="true"
           />
           <TagRollTote
@@ -1254,6 +1639,7 @@ function onKeyDown(e: KeyboardEvent): void {
             :selected-note-ids="store.selectedNoteIds"
             :ghost-notes="ghostNotes"
             :chord-cursor="chordCursor"
+            :header-extra-h="0"
             @chord-cursor-change="onChordCursorChange"
             @scroll="(x, y) => store.setScroll(x, y)"
             @playhead="(t) => store.setPlayheadTick(t)"
@@ -1277,17 +1663,6 @@ function onKeyDown(e: KeyboardEvent): void {
             {{ rollHudLabel }}
           </div>
           <ArrangingCoachRollNav v-if="showCoachRollNav" />
-          <TagRollChordAnalysisBar
-            v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
-            :project="project"
-            :segments="chordAnalysisSegments"
-            :mode="chordAnalysisMode"
-            :collapsed="chordAnalysisCollapsed"
-            @update:collapsed="setChordAnalysisCollapsed"
-            @update:mode="setChordAnalysisMode"
-            @pick="setChordAnalysisOverride"
-            @focus-range="relayCoachFocusRange"
-          />
         </div>
         <ArrangingCoachDock
           v-if="coachOpen && arrangingEnabled"
@@ -1303,9 +1678,37 @@ function onKeyDown(e: KeyboardEvent): void {
           @pop-out="onCoachPopOut"
         />
       </div>
-      <TagRollLaneRail
-        v-if="showPianoTote && !isPopoutWindow"
+      <TagRollDeclaredLane
+        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollChordsLaneCollapsed"
+        :project="project"
+        :segments="chordDeclaredSegments"
+        :detect-segments="chordDetectSegments"
+        :mode="chordDeclaredMode"
+        :read-only="project.view.mode === 'view'"
         :left-gutter-px="TOTE_W"
+        @update:mode="setChordDeclaredMode"
+        @focus-range="relayCoachFocusRange"
+        @hear="onHearHarmonySketch"
+        @hear-stop="onStopHearHarmonySketch"
+        @remove="onRemoveHarmonySketch"
+        @apply-draft="onApplyHarmonyDraft"
+        @commit-at="onHarmonyCommitAt"
+        @geometry="onHarmonyGeometry"
+        @geometry-many="onHarmonyGeometryMany"
+        @begin-gesture="store.pushHistoryCheckpoint()"
+      />
+      <TagRollDetectedLane
+        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollDetectedLaneCollapsed"
+        :project="project"
+        :segments="chordDetectSegments"
+        :mode="chordDetectedMode"
+        :left-gutter-px="TOTE_W"
+        @update:mode="setChordDetectedMode"
+        @focus-range="relayCoachFocusRange"
+        @hear="onHearHarmonySketch"
+        @hear-stop="onStopHearHarmonySketch"
+        @apply-draft="onApplyHarmonyDraft"
+        @lock-all="onLockAllDetected"
       />
       <TagRollExpressionLane
         v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollExpressionLaneCollapsed"
@@ -1321,47 +1724,10 @@ function onKeyDown(e: KeyboardEvent): void {
         @focus-range="relayCoachFocusRange"
         @open-panel="onCoachLaneOpenPanel"
       />
-    </div>
-
-    <div v-if="selectionSummary && project.view.mode !== 'view'" class="inspect-row">
-      <template v-if="selectionSummary.multi">
-        <span>{{ selectionSummary.count }} notes</span>
-        <button
-          v-if="melodyPassPair"
-          type="button"
-          class="melody-pass-btn"
-          :class="{ on: melodyPassActive }"
-          :title="
-            melodyPassActive
-              ? tagRollTip(
-                  'Remove the dashed melody handoff line between these notes',
-                )
-              : tagRollTip(
-                  'Melody pass — draw a dashed center-to-center line when the tune hands off to another part',
-                )
-          "
-          @click="onToggleMelodyPass"
-        >
-          {{ melodyPassActive ? 'Unlink melody pass' : 'Link melody pass' }}
-        </button>
-        <span v-else-if="melodyPassHint" class="melody-pass-hint" :title="melodyPassHint">{{
-          melodyPassHint
-        }}</span>
-      </template>
-      <template v-else>
-        <span class="inspect-pitch">{{ selectionSummary.pitch }}</span>
-        <span>{{ selectionSummary.start }}</span>
-        <span>×{{ selectionSummary.length }}</span>
-        <input
-          class="lyric-in"
-          type="text"
-          :value="selectionSummary.lyric"
-          :placeholder="tagRollTip('Lyric')"
-          :title="tagRollTip('Lyric for selected note')"
-          aria-label="Lyric for selected note"
-          @change="onLyricInspect"
-        />
-      </template>
+      <TagRollLyricsLane
+        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollLyricsLaneCollapsed"
+        :left-gutter-px="TOTE_W"
+      />
     </div>
 
     <TagRollMediaBar
@@ -1395,6 +1761,15 @@ function onKeyDown(e: KeyboardEvent): void {
     />
 
     <TagRollShortcutsOverlay :open="shortcutsOpen" @close="shortcutsOpen = false" />
+
+    <ConfirmDialog
+      :open="!!pendingInspectDeleteMessage"
+      title="Delete notes in selection?"
+      :message="pendingInspectDeleteMessage ?? ''"
+      confirm-label="Delete"
+      @close="cancelInspectRangeDelete"
+      @confirm="confirmInspectRangeDelete"
+    />
   </section>
   <p v-else class="loading">Loading…</p>
 </template>
@@ -1475,8 +1850,7 @@ function onKeyDown(e: KeyboardEvent): void {
 .tote-col {
   display: flex;
   flex-direction: column;
-  flex: 0 0 72px;
-  width: 72px;
+  flex: 0 0 auto;
   min-height: 0;
 }
 .ruler-gutter {
@@ -1484,53 +1858,6 @@ function onKeyDown(e: KeyboardEvent): void {
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   border-right: 1px solid #b8b0a4;
   border-bottom: 1px solid var(--border);
-}
-.inspect-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  padding: 0 0.15rem;
-  font-size: 0.82rem;
-  font-weight: 650;
-  color: var(--text);
-}
-.inspect-pitch {
-  color: var(--accent);
-}
-.lyric-in {
-  min-width: 6rem;
-  max-width: 10rem;
-  min-height: 30px;
-  padding: 0.15rem 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.82rem;
-}
-.melody-pass-btn {
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0.2rem 0.45rem;
-}
-.melody-pass-btn.on {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-}
-.melody-pass-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  line-height: 1.3;
-  max-width: 28rem;
 }
 .roll-col {
   position: relative;

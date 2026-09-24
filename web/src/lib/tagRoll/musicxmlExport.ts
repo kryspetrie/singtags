@@ -4,7 +4,13 @@
  */
 import { KEY_CHOICES, vexKeySpec } from './keySignature'
 import { deferOverlappingOnsets } from './portamento'
-import type { TagRollNote, TagRollProject, TagRollTimeSignature } from './types'
+import type {
+  HarmonySketchQuality,
+  HarmonySketchSpan,
+  TagRollNote,
+  TagRollProject,
+  TagRollTimeSignature,
+} from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_PPQ } from './types'
 
 function esc(s: string): string {
@@ -185,11 +191,74 @@ function noteXml(
   return `<note>${chordTag}${pitchXml(s.midi, preferFlats)}<duration>${s.dur}</duration><voice>1</voice>${ties.join('')}${notXml}${lyric}</note>`
 }
 
-function emitMeasureNotes(slices: Slice[], preferFlats: boolean): string {
+function musicXmlKind(
+  quality: HarmonySketchQuality,
+): { kind: string; text?: string } {
+  switch (quality) {
+    case 'minor':
+      return { kind: 'minor' }
+    case 'seventh':
+      return { kind: 'dominant', text: '7' }
+    case 'm7':
+      return { kind: 'minor-seventh', text: 'm7' }
+    case 'maj7':
+      return { kind: 'major-seventh', text: 'maj7' }
+    case 'dim':
+      return { kind: 'diminished', text: 'dim' }
+    case 'dim7':
+      return { kind: 'diminished-seventh', text: 'dim7' }
+    case 'half-dim':
+      return { kind: 'half-diminished', text: 'ø' }
+    case 'aug':
+      return { kind: 'augmented', text: 'aug' }
+    case 'sixth':
+      return { kind: 'major-sixth', text: '6' }
+    case 'madd6':
+      return { kind: 'minor-sixth', text: 'm6' }
+    case 'ninth':
+      return { kind: 'dominant-ninth', text: '9' }
+    case 'add9':
+      return { kind: 'major', text: 'add9' }
+    case 'major':
+    default:
+      return { kind: 'major' }
+  }
+}
+
+/** MusicXML `<harmony>` for a locked sketch span (Lead part). */
+export function harmonySketchToMusicXml(
+  span: Pick<HarmonySketchSpan, 'rootPc' | 'quality'>,
+  preferFlats: boolean,
+): string {
+  const root = midiToMusicXmlPitch(60 + (((span.rootPc % 12) + 12) % 12), preferFlats)
+  const alter = root.alter !== 0 ? `<root-alter>${root.alter}</root-alter>` : ''
+  const { kind, text } = musicXmlKind(span.quality)
+  const textAttr = text ? ` text="${esc(text)}"` : ''
+  return (
+    `<harmony>` +
+    `<root><root-step>${root.step}</root-step>${alter}</root>` +
+    `<kind${textAttr}>${kind}</kind>` +
+    `</harmony>`
+  )
+}
+
+function emitMeasureNotes(
+  slices: Slice[],
+  preferFlats: boolean,
+  pendingHarmony: readonly HarmonySketchSpan[] = [],
+): string {
   const parts: string[] = []
+  let hi = 0
+  const flush = (tick: number) => {
+    while (hi < pendingHarmony.length && pendingHarmony[hi]!.startTick <= tick) {
+      parts.push(harmonySketchToMusicXml(pendingHarmony[hi]!, preferFlats))
+      hi++
+    }
+  }
   let i = 0
   while (i < slices.length) {
     const start = slices[i]!.start
+    flush(start)
     const group: Slice[] = []
     while (i < slices.length && slices[i]!.start === start && slices[i]!.midi != null) {
       group.push(slices[i]!)
@@ -204,6 +273,7 @@ function emitMeasureNotes(slices: Slice[], preferFlats: boolean): string {
     parts.push(noteXml(slices[i]!, preferFlats, false))
     i++
   }
+  flush(Number.POSITIVE_INFINITY)
   return parts.join('')
 }
 
@@ -267,6 +337,14 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
   const lengthTicks = Math.max(mLen, project.lengthTicks)
   const bpm = project.bpm || TAG_ROLL_DEFAULT_BPM
   const preferFlats = project.preferFlats
+  const lockedSketch = (project.harmonySketch ?? [])
+    .filter((s) => s.locked)
+    .slice()
+    .sort((a, b) => a.startTick - b.startTick)
+  const leadPartId =
+    project.view.melodyPartId ??
+    project.parts.find((p) => p.name === 'Lead')?.id ??
+    null
 
   const partList = project.parts
     .map(
@@ -280,6 +358,7 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
       const notes = project.notes.filter((n) => n.partId === part.id)
       const timeline = notesToTimeline(notes, lengthTicks)
       const measures = splitSlicesAtMeasures(timeline, mLen, lengthTicks)
+      const emitHarmony = leadPartId != null && part.id === leadPartId
       const measureXml = measures
         .map((slices, mi) => {
           const attrs =
@@ -294,8 +373,13 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
               : ''
           const tempo = mi === 0 ? tempoDirectionXml(bpm) : ''
           const ferm = fermataDirectionsXml(project, mLen, mi)
+          const mStart = mi * mLen
+          const mEnd = mStart + mLen
+          const pending = emitHarmony
+            ? lockedSketch.filter((s) => s.startTick >= mStart && s.startTick < mEnd)
+            : []
           return (
-            `<measure number="${mi + 1}">${attrs}${tempo}${ferm}${emitMeasureNotes(slices, preferFlats)}</measure>`
+            `<measure number="${mi + 1}">${attrs}${tempo}${ferm}${emitMeasureNotes(slices, preferFlats, pending)}</measure>`
           )
         })
         .join('')

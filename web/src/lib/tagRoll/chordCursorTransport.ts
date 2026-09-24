@@ -17,16 +17,21 @@ export function resolveInspectPlayback(
   return { fromTick: from, untilTick: end, rewindTick: start }
 }
 
-/** Confirm wiping every note inside the L/R inspect bounds. */
+/** Message for wiping every note inside the L/R inspect bounds (UI confirm, never native). */
+export function inspectRangeDeleteMessage(count: number): string | null {
+  if (count <= 0) return null
+  const noun = count === 1 ? 'note' : 'notes'
+  return `Delete ${count} ${noun} in this selection?\n\nThis removes all notes between the left and right bounds.`
+}
+
+/** Confirm wiping every note inside the L/R inspect bounds via a caller-supplied ask. */
 export function confirmDeleteInspectRangeNotes(
   count: number,
-  ask: (message: string) => boolean = (message) => globalThis.confirm(message),
+  ask: (message: string) => boolean,
 ): boolean {
-  if (count <= 0) return false
-  const noun = count === 1 ? 'note' : 'notes'
-  return ask(
-    `Delete ${count} ${noun} in this selection?\n\nThis removes all notes between the left and right bounds.`,
-  )
+  const message = inspectRangeDeleteMessage(count)
+  if (!message) return false
+  return ask(message)
 }
 
 type InspectCopyFn = () => TagRollNoteClipboard | null

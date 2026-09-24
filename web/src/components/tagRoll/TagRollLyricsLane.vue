@@ -1,20 +1,30 @@
 <script setup lang="ts">
 /**
- * Lyrics mode: type syllables per note on the active part (Space / Dash advance).
+ * Lyrics bottom lane — type syllables per note on the active part (Space / Dash advance).
+ * Opened from the media-bar toggle (not auto on selection).
  */
 import { computed, ref, watch } from 'vue'
 import { notesForPartSorted } from '../../lib/tagRoll/notesAtTick'
+import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
+import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
+
+const props = defineProps<{
+  leftGutterPx?: number
+}>()
 
 const store = useTagRollStore()
+const prefs = usePreferencesStore()
 
 const buffer = ref('')
 const lyricCursorNoteId = ref<string | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
 
 const project = computed(() => store.current)
-const mode = computed(() => project.value?.view.mode)
 const activePartId = computed(() => project.value?.view.activePartId ?? null)
+const collapsed = computed(() => prefs.tagRollLyricsLaneCollapsed)
+const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
+const open = computed(() => !collapsed.value)
 
 const partNotes = computed(() => {
   const p = project.value
@@ -35,10 +45,6 @@ const cursorIndex = computed(() => {
   return partNotes.value.findIndex((n) => n.id === id)
 })
 
-const visible = computed(
-  () => mode.value === 'lyrics' && !!activePartId.value && !!project.value,
-)
-
 function initCursor(): void {
   const notes = partNotes.value
   if (!notes.length) {
@@ -53,19 +59,28 @@ function initCursor(): void {
   buffer.value = note?.lyric ?? ''
 }
 
+/** Lane open ↔ lyrics editor mode (parent also syncs on unmount). */
 watch(
-  [mode, activePartId, () => project.value?.id],
-  () => {
-    if (visible.value) initCursor()
+  open,
+  (on) => {
+    if (on) {
+      if (project.value?.view.mode !== 'lyrics') store.setMode('lyrics')
+      initCursor()
+      queueMicrotask(() => inputRef.value?.focus())
+    }
   },
   { immediate: true },
 )
+
+watch([activePartId, () => project.value?.id], () => {
+  if (open.value) initCursor()
+})
 
 /** Clicking a note in the roll moves the lyric cursor onto that note. */
 watch(
   () => store.selectedNoteId,
   (id) => {
-    if (!visible.value || !id) return
+    if (!open.value || !id) return
     const notes = partNotes.value
     if (!notes.some((n) => n.id === id)) return
     if (lyricCursorNoteId.value === id) return
@@ -74,12 +89,6 @@ watch(
     queueMicrotask(() => inputRef.value?.focus())
   },
 )
-
-watch(visible, (on) => {
-  if (on) {
-    queueMicrotask(() => inputRef.value?.focus())
-  }
-})
 
 function commitAndAdvance(text: string): void {
   const id = lyricCursorNoteId.value
@@ -125,60 +134,64 @@ function onKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <div v-if="visible" class="tr-lyr">
-    <label class="wrap">
-      <span class="lbl">Lyrics</span>
-      <input
-        ref="inputRef"
-        v-model="buffer"
-        class="inp"
-        type="text"
-        autocomplete="off"
-        spellcheck="false"
-        :placeholder="cursorNote ? 'Type syllable…' : 'No notes on this part'"
-        :disabled="!cursorNote"
-        aria-label="Lyric syllable"
-        @keydown="onKeydown"
-      />
-    </label>
-    <p class="hint">
-      Space commits · Dash commits with hyphen · Backspace (empty) goes back
-      <template v-if="cursorIndex >= 0">
-        · note {{ cursorIndex + 1 }}/{{ partNotes.length }}
-      </template>
-    </p>
-  </div>
+  <TagRollBottomLaneShell v-if="open" label="Lyrics" :left-gutter-px="leftGutterPx">
+    <div class="lyr-body">
+      <label class="wrap">
+        <input
+          ref="inputRef"
+          v-model="buffer"
+          class="inp"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          :placeholder="cursorNote ? 'Type syllable…' : 'No notes on this part'"
+          :disabled="!cursorNote"
+          aria-label="Lyric syllable"
+          @keydown="onKeydown"
+        />
+      </label>
+      <p class="hint">
+        Space commits · Dash hyphen · Backspace (empty) back
+        <template v-if="cursorIndex >= 0">
+          · {{ cursorIndex + 1 }}/{{ partNotes.length }}
+        </template>
+      </p>
+    </div>
+  </TagRollBottomLaneShell>
 </template>
 
 <style scoped>
-.tr-lyr {
-  display: grid;
-  gap: 0.25rem;
+.lyr-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: 52px;
+  margin: 0.3rem 0.15rem 0.3rem 0;
+  padding: 0.25rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg, var(--surface)));
+  box-sizing: border-box;
 }
 .wrap {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-}
-.lbl {
-  font-size: 0.72rem;
-  font-weight: 650;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  min-width: 0;
 }
 .inp {
-  flex: 1 1 12rem;
-  min-height: 40px;
-  min-width: 10rem;
-  padding: 0.35rem 0.55rem;
+  flex: 1 1 auto;
+  min-height: 2rem;
+  min-width: 0;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
   font-size: 1rem;
+  font-weight: 650;
 }
 .inp:focus {
   outline: 2px solid var(--accent);
@@ -186,7 +199,8 @@ function onKeydown(e: KeyboardEvent): void {
 }
 .hint {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
+  line-height: 1.25;
 }
 </style>

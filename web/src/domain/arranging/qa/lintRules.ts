@@ -19,6 +19,7 @@ import {
 import {
   bs7DensityDurationRule,
   bs7DensityRule,
+  cadenceMissRule,
   counterpartFlickerRule,
   dim7ChainRule,
   theorySpacingRule,
@@ -267,6 +268,7 @@ export {
   bs7DensityDurationRule,
   dim7ChainRule,
   counterpartFlickerRule,
+  cadenceMissRule,
 }
 
 export const songEligibilityRule: LintRule = {
@@ -369,6 +371,7 @@ export const DEFAULT_LINT_RULES: LintRule[] = [
   voiceLeadingRule,
   theorySpacingRule,
   theoryTensionRule,
+  cadenceMissRule,
   songEligibilityRule,
   strongVoicingRule,
   harmonicMotionRule,

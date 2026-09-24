@@ -26,8 +26,9 @@ const emit = defineEmits<{
   <section class="polish" aria-label="Review polish">
     <h3 class="subh">Polish</h3>
     <p class="hint">
-      Last teaching pass: strengthen approaches, check voicing craft, then export. Open Coaching
-      configuration to change contest vocabulary and learning strictness.
+      Last teaching pass: revoice the whole chart as one inversion path (I/V openings prefer
+      bass on 1 or 5; minimize part motion; favor ring), strengthen approaches, then export.
+      Open Coaching configuration to change contest vocabulary and learning strictness.
     </p>
     <div class="row">
       <button
@@ -40,11 +41,11 @@ const emit = defineEmits<{
       </button>
       <button
         type="button"
-        class="btn"
-        title="Nudge voicings toward stronger lead chord-tones and cleaner spacing"
+        class="btn primary"
+        title="Revoice stacks along a global path (not greedy): try I/V starting inversions, optimize voice leading and ring, then apply safe VL lint fixes"
         @click="emit('polish')"
       >
-        Polish voicing
+        Polish inversions
       </button>
       <button
         type="button"

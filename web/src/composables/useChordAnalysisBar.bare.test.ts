@@ -18,4 +18,19 @@ describe('bareMelodyMomentsFromTag', () => {
     const bare = bareMelodyMomentsFromTag(p)
     expect(bare).toEqual([{ startTick: 0, durationTicks: 960, midi: 60 }])
   })
+
+  it('defers lead portamento so the destination defines the chord at source release', () => {
+    const p = createEmptyTagRollProject({ title: 'porta' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    // Mar → lene bend: destination starts early; musical onset is at Mar’s end (1920 = M2).
+    p.notes = [
+      { id: 'mar', partId: lead.id, midi: 55, startTick: 1440, durationTicks: 480 },
+      { id: 'lene', partId: lead.id, midi: 60, startTick: 1680, durationTicks: 2160 },
+    ]
+    const bare = bareMelodyMomentsFromTag(p)
+    expect(bare).toEqual([
+      { startTick: 1440, durationTicks: 480, midi: 55 },
+      { startTick: 1920, durationTicks: 1920, midi: 60 },
+    ])
+  })
 })

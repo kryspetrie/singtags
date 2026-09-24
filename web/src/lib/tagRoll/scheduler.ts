@@ -12,7 +12,7 @@ import {
   shouldSkipFermataOnPlay,
   ticksToSecondsAtBpm,
 } from './tempoMap'
-import { isPartAudible, mixForPart } from './mix'
+import { isPartAudible, mixForPart, sketchMixGain, detectedMixGain } from './mix'
 import {
   findOverlappingPredecessor,
   overlapWindow,
@@ -35,6 +35,9 @@ import type {
 } from './types'
 import { TAG_ROLL_DEFAULT_BPM, TAG_ROLL_DEFAULT_TIME_SIGNATURE, TAG_ROLL_PPQ } from './types'
 import { beatsCrossed, subdivisionsCrossed } from './metronomeBeats'
+import { type HarmonySketchSpan } from './harmonySketch'
+import { sketchHearMidis, sketchHearVoicing, optimizeSketchHearPath } from './sketchHearVoicing'
+import type { VoicingPitches } from '../../domain/arranging/chords/chords'
 
 export type TagRollScheduler = {
   play(fromTick: number, opts?: { metronomePrime?: boolean; untilTick?: number }): void
@@ -53,6 +56,20 @@ type FermataPhase = {
   stage: 'hold' | 'gap'
 }
 
+export type SchedulerHarmonySketchSpan = Pick<
+  HarmonySketchSpan,
+  'id' | 'startTick' | 'endTick' | 'rootPc' | 'quality' | 'locked'
+>
+
+/** Detected-lane hole fills (unlocked) for mixer Detected audition. */
+export type SchedulerDetectedSpan = {
+  id: string
+  startTick: number
+  endTick: number
+  rootPc: number
+  quality: HarmonySketchSpan['quality']
+}
+
 export function createTagRollScheduler(opts: {
   getNotes: () => readonly TagRollNote[]
   getBpm: () => number
@@ -68,6 +85,15 @@ export function createTagRollScheduler(opts: {
   /** When true, fire {@link onMetronomeBeat} for each crossed beat. */
   getMetronomeEnabled?: () => boolean
   onMetronomeBeat?: (hit: { tick: number; downbeat: boolean }) => void
+  /** Locked sketch spans for Lead + block-chord audition during play. */
+  getHarmonySketch?: () => readonly SchedulerHarmonySketchSpan[]
+  /** Detected hole fills for Detected mixer channel. */
+  getDetectedSpans?: () => readonly SchedulerDetectedSpan[]
+  getLeadMidiAt?: (tick: number) => number
+  /** Key center for Detected/Sketch inversion path (I/V home-bass bias). */
+  getTonality?: () => number
+  /** Melody part id — sketch is skipped while non-melody notes sound at the span. */
+  getMelodyPartId?: () => string | null
   player: PitchTonePlayer
   onPlayhead: (tick: number) => void
   onEnded?: () => void
@@ -85,7 +111,79 @@ export function createTagRollScheduler(opts: {
   const active = new Map<string, string>()
   /** partId -> currently owned noteId (monophonic). */
   const activeByPart = new Map<string, string>()
+  /** sketch span id -> voice keys */
+  const sketchActive = new Map<string, string[]>()
+  const sketchScheduled = new Set<string>()
+  /** detected span id -> voice keys */
+  const detectActive = new Map<string, string[]>()
+  const detectScheduled = new Set<string>()
+  /** Last sketch/detect stab voicing for VL-aware inversions. */
+  let lastSketchVoicing: VoicingPitches | null = null
+  let lastDetectVoicing: VoicingPitches | null = null
+  /** Cached global inversion paths (id → voicing) — My Chords + Detected together. */
+  let harmonyPathById: Map<string, VoicingPitches> | null = null
+  let harmonyPathKey = ''
 
+  function clearVoicingPaths(): void {
+    lastSketchVoicing = null
+    lastDetectVoicing = null
+    harmonyPathById = null
+    harmonyPathKey = ''
+  }
+
+  /**
+   * One inversion path across locked My Chords and Detected fills (timeline order)
+   * so each lane’s voicings respect the other.
+   */
+  function ensureHarmonyPath(): Map<string, VoicingPitches> {
+    const locked = (opts.getHarmonySketch?.() ?? [])
+      .filter((s) => s.locked)
+      .map((s) => ({
+        id: s.id,
+        startTick: s.startTick,
+        rootPc: s.rootPc,
+        quality: s.quality,
+        leadMidi: opts.getLeadMidiAt?.(s.startTick) ?? 60,
+      }))
+    const detected = (opts.getDetectedSpans?.() ?? []).map((s) => ({
+      id: s.id,
+      startTick: s.startTick,
+      rootPc: s.rootPc,
+      quality: s.quality,
+      leadMidi: opts.getLeadMidiAt?.(s.startTick) ?? 60,
+    }))
+    // Prefer locked when both claim the same onset.
+    const byTick = new Map<number, (typeof locked)[0]>()
+    for (const d of detected) {
+      if (!byTick.has(d.startTick)) byTick.set(d.startTick, d)
+    }
+    for (const s of locked) {
+      byTick.set(s.startTick, s)
+    }
+    const combined = [...byTick.values()].sort(
+      (a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id),
+    )
+    const key = combined
+      .map((s) => `${s.id}:${s.rootPc}:${s.quality}:${s.leadMidi}`)
+      .join('|')
+    if (harmonyPathById && key === harmonyPathKey) return harmonyPathById
+    const path = optimizeSketchHearPath(
+      combined.map((s) => ({
+        rootPc: s.rootPc,
+        quality: s.quality,
+        leadMidi: s.leadMidi,
+      })),
+      { tonality: opts.getTonality?.() ?? 0 },
+    )
+    const map = new Map<string, VoicingPitches>()
+    for (let i = 0; i < combined.length; i++) {
+      const v = path[i]
+      if (v) map.set(combined[i]!.id, v)
+    }
+    harmonyPathById = map
+    harmonyPathKey = key
+    return map
+  }
   function markers(): readonly TagRollTempoMarker[] {
     return opts.getTempoMarkers?.() ?? [{ id: 'legacy', tick: 0, bpm: opts.getBpm() }]
   }
@@ -139,17 +237,39 @@ export function createTagRollScheduler(opts: {
   function releaseAll(): void {
     const rel = phraseRelease()
     for (const key of new Set(active.values())) opts.player.noteOff(key, rel)
+    for (const keys of sketchActive.values()) {
+      for (const key of keys) opts.player.noteOff(key, rel)
+    }
+    for (const keys of detectActive.values()) {
+      for (const key of keys) opts.player.noteOff(key, rel)
+    }
     active.clear()
     activeByPart.clear()
     scheduled.clear()
+    sketchActive.clear()
+    sketchScheduled.clear()
+    detectActive.clear()
+    detectScheduled.clear()
+    clearVoicingPaths()
   }
 
   function silenceActive(): void {
     // Fermata gap — phrase-end decay, not an abrupt cut.
     const rel = phraseRelease()
     for (const key of new Set(active.values())) opts.player.noteOff(key, rel)
+    for (const keys of sketchActive.values()) {
+      for (const key of keys) opts.player.noteOff(key, rel)
+    }
+    for (const keys of detectActive.values()) {
+      for (const key of keys) opts.player.noteOff(key, rel)
+    }
     active.clear()
     activeByPart.clear()
+    for (const id of sketchActive.keys()) sketchScheduled.delete(id)
+    sketchActive.clear()
+    for (const id of detectActive.keys()) detectScheduled.delete(id)
+    detectActive.clear()
+    clearVoicingPaths()
   }
 
   function overlapSeconds(startTick: number, endTick: number): number {
@@ -211,6 +331,136 @@ export function createTagRollScheduler(opts: {
     activeByPart.delete(n.partId)
   }
 
+  function startSketchSpan(span: SchedulerHarmonySketchSpan): void {
+    if (!span.locked) return
+    const gain = sketchMixGain(mixRows())
+    if (!(gain > 0)) {
+      // Stay eligible so unmute/solo mid-span can start sound.
+      if (sketchActive.has(span.id)) endSketchSpan(span.id)
+      return
+    }
+    if (sketchScheduled.has(span.id)) return
+    sketchScheduled.add(span.id)
+    const leadMidi = opts.getLeadMidiAt?.(span.startTick) ?? 60
+    const fromPath = ensureHarmonyPath().get(span.id)
+    const voicing =
+      fromPath ??
+      sketchHearVoicing({
+        rootPc: span.rootPc,
+        quality: span.quality,
+        leadMidi,
+        prev: lastSketchVoicing,
+      })
+    const midis = voicing
+      ? [voicing.bass, voicing.bari, voicing.lead, voicing.tenor]
+      : sketchHearMidis({
+          rootPc: span.rootPc,
+          quality: span.quality,
+          leadMidi,
+        })
+    if (voicing) lastSketchVoicing = voicing
+    const keys = midis.map((_, i) => `hs:${span.id}:${i}`)
+    sketchActive.set(span.id, keys)
+    for (let i = 0; i < midis.length; i++) {
+      void opts.player.noteOn(midiToNote(midis[i]!), 0, {
+        voiceKey: keys[i]!,
+        gain: 0.55 * gain,
+        pan: 0,
+      })
+    }
+  }
+
+  function endSketchSpan(spanId: string): void {
+    const keys = sketchActive.get(spanId)
+    if (!keys) return
+    const rel = envelope().decaySec
+    for (const key of keys) opts.player.noteOff(key, rel)
+    sketchActive.delete(spanId)
+  }
+
+  function scheduleSketch(t: number, lookAhead: number): void {
+    const spans = opts.getHarmonySketch?.() ?? []
+    const cap = stopAt
+    const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
+    for (const span of spans) {
+      if (!span.locked) continue
+      if (cap != null && span.startTick >= cap) continue
+      if (span.endTick <= t) {
+        if (fermata?.stage !== 'hold') endSketchSpan(span.id)
+        continue
+      }
+      if (span.startTick <= look) startSketchSpan(span)
+      const releaseAt = cap != null ? Math.min(span.endTick, cap) : span.endTick
+      if (sketchActive.has(span.id) && t >= releaseAt && fermata?.stage !== 'hold') {
+        endSketchSpan(span.id)
+      }
+    }
+  }
+
+  function startDetectedSpan(span: SchedulerDetectedSpan): void {
+    const gain = detectedMixGain(mixRows())
+    if (!(gain > 0)) {
+      // Do not mark scheduled while silent — Solo/unmute mid-play must still start.
+      if (detectActive.has(span.id)) endDetectedSpan(span.id)
+      return
+    }
+    if (detectScheduled.has(span.id)) return
+    detectScheduled.add(span.id)
+    const leadMidi = opts.getLeadMidiAt?.(span.startTick) ?? 60
+    const fromPath = ensureHarmonyPath().get(span.id)
+    const voicing =
+      fromPath ??
+      sketchHearVoicing({
+        rootPc: span.rootPc,
+        quality: span.quality,
+        leadMidi,
+        prev: lastDetectVoicing,
+      })
+    const midis = voicing
+      ? [voicing.bass, voicing.bari, voicing.lead, voicing.tenor]
+      : sketchHearMidis({
+          rootPc: span.rootPc,
+          quality: span.quality,
+          leadMidi,
+        })
+    if (voicing) lastDetectVoicing = voicing
+    const keys = midis.map((_, i) => `hd:${span.id}:${i}`)
+    detectActive.set(span.id, keys)
+    for (let i = 0; i < midis.length; i++) {
+      void opts.player.noteOn(midiToNote(midis[i]!), 0, {
+        voiceKey: keys[i]!,
+        gain: 0.5 * gain,
+        pan: 0,
+      })
+    }
+  }
+
+  function endDetectedSpan(spanId: string): void {
+    const keys = detectActive.get(spanId)
+    if (!keys) return
+    const rel = envelope().decaySec
+    for (const key of keys) opts.player.noteOff(key, rel)
+    detectActive.delete(spanId)
+  }
+
+  function scheduleDetected(t: number, lookAhead: number): void {
+    const spans = opts.getDetectedSpans?.() ?? []
+    const cap = stopAt
+    const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
+    for (const span of spans) {
+      if (cap != null && span.startTick >= cap) continue
+      if (span.endTick <= t) {
+        if (fermata?.stage !== 'hold') endDetectedSpan(span.id)
+        continue
+      }
+      if (span.startTick <= look) startDetectedSpan(span)
+      const releaseAt = cap != null ? Math.min(span.endTick, cap) : span.endTick
+      if (detectActive.has(span.id) && t >= releaseAt && fermata?.stage !== 'hold') {
+        endDetectedSpan(span.id)
+      }
+    }
+  }
+
   function scheduleNotes(t: number, lookAhead: number): void {
     const notes = [...opts.getNotes()].sort((a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id))
     const cap = stopAt
@@ -232,6 +482,8 @@ export function createTagRollScheduler(opts: {
         endNoteIfOwned(n)
       }
     }
+    scheduleSketch(t, lookAhead)
+    scheduleDetected(t, lookAhead)
   }
 
   function resumeAfterFermataGap(tick: number): void {

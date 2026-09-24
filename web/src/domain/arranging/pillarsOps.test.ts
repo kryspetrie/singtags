@@ -43,6 +43,47 @@ describe('pillar ops', () => {
     expect(gaps.map((g) => g.id)).toEqual(['b', 'c'])
   })
 
+  it('melodyGapsOutsidePillars uses portamento-deferred onsets', () => {
+    // Destination starts early for the bend; musical onset is at predecessor release (480).
+    const pillars: Pillar[] = [
+      {
+        id: 'p1',
+        rootPc: 0,
+        startTick: 0,
+        endTick: 960,
+        source: 'user',
+        confirmed: true,
+      },
+    ]
+    const gaps = melodyGapsOutsidePillars(
+      [
+        { ...mel('a', 0), durationTicks: 480 },
+        { ...mel('b', 240), durationTicks: 720 }, // overlaps a; deferred start = 480
+      ],
+      pillars,
+    )
+    expect(gaps.map((g) => g.id)).toEqual([])
+    const gaps2 = melodyGapsOutsidePillars(
+      [
+        { ...mel('a', 0), durationTicks: 480 },
+        { ...mel('b', 240), durationTicks: 720 },
+      ],
+      [
+        {
+          id: 'p1',
+          rootPc: 0,
+          startTick: 0,
+          endTick: 240,
+          source: 'user',
+          confirmed: true,
+        },
+      ],
+    )
+    expect(gaps2.map((g) => ({ id: g.id, start: g.startTick }))).toEqual([
+      { id: 'b', start: 480 },
+    ])
+  })
+
   it('addPillarAtTick trims overlaps', () => {
     const pillars: Pillar[] = [
       {

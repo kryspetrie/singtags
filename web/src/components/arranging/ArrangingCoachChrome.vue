@@ -25,6 +25,7 @@ const emit = defineEmits<{
   'update:contestProfile': [ContestProfile]
   'update:tuningMode': [TuningMode]
   'update:qaGroup': [groupId: QaCheckGroupId, enabled: boolean]
+  'update:cadenceBias': []
   closeConfig: []
 }>()
 </script>
@@ -60,6 +61,7 @@ const emit = defineEmits<{
     @update:contest-profile="emit('update:contestProfile', $event)"
     @update:tuning-mode="emit('update:tuningMode', $event)"
     @update:qa-group="(id, on) => emit('update:qaGroup', id, on)"
+    @update:cadence-bias="emit('update:cadenceBias')"
     @close="emit('closeConfig')"
   />
 </template>

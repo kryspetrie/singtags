@@ -62,6 +62,57 @@ export function layerHintForCandidate(c: HarmonizeCandidate): string {
   return 'passing'
 }
 
+/** Short cadence badge when Why?/ranking surfaces classic_cadences fit. */
+export function cadenceBadgeFromWhyFactors(
+  factors: readonly { label: string; value: number; teachingId?: string; detail?: string }[],
+): string | null {
+  const hit = factors.find((f) => f.label === 'cadenceFit' && f.value > 0)
+  if (!hit) return null
+  // Prefer teach detail pattern name when present ("… II7→V7→I …")
+  if (hit.detail) {
+    const m = hit.detail.match(/\b(V7→I|II7→V7→I|I7→IV|IV→I|♭II7→I|♭VII7→I)\b/)
+    if (m) return m[1]!
+  }
+  return 'Cadence'
+}
+
+export type ChordCandidateGroup = {
+  key: string
+  label: string
+  best: HarmonizeCandidate
+  stacks: HarmonizeCandidate[]
+}
+
+/** Group ranked stacks by root+nature so UI can show chords first, then inversions. */
+export function groupCandidatesByChord(
+  candidates: readonly HarmonizeCandidate[],
+  preferFlats: boolean,
+): ChordCandidateGroup[] {
+  const order: string[] = []
+  const map = new Map<string, HarmonizeCandidate[]>()
+  for (const c of candidates) {
+    const key = `${c.rootPc}:${c.natureId}`
+    if (!map.has(key)) {
+      map.set(key, [])
+      order.push(key)
+    }
+    map.get(key)!.push(c)
+  }
+  return order.map((key) => {
+    const stacks = map.get(key)!
+    const best = stacks[0]!
+    const root = pcName(best.rootPc, preferFlats)
+    const nat =
+      best.natureId === 'major' ? '' : best.natureId === 'seventh' ? '7' : best.natureId
+    return {
+      key,
+      label: `${root}${nat}`,
+      best,
+      stacks,
+    }
+  })
+}
+
 /** Chips that have at least one matching ranked candidate (hide empty). */
 export function altChipsForMoment(
   project: ArrangementProject,

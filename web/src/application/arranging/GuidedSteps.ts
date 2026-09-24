@@ -29,9 +29,9 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'pillars',
     label: 'Pillars',
-    tip: 'Propose and lock home roots under phrases — not full chords yet.',
+    tip: 'Mark phrase chords on the Harmony strip (or Propose here) — root first; quality on the strip or Chords.',
     buttonTip:
-      'Home roots are destinations under each phrase — what the harmony is “about.” Propose one at a time, Hear, then Lock.',
+      'Pillars are the structural chords under a phrase — like guitar block chords (C, G7). Prefer the Harmony strip on the roll; this panel proposes and locks roots that sync into that sketch.',
     glossaryIds: ['pillar', 'pcf'],
     wizardSteps: ['melody', 'step1_roots', 'step2_confirm'],
   },
@@ -47,27 +47,27 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'chords',
     label: 'Chords',
-    tip: 'Walk moments: pick a ranked chord per note. Prefer Apply over bulk fill.',
+    tip: 'Walk moments: pick a ranked chord per note. Prefer classic cadences (V7→I, II7→V7→I, I7→IV) and Apply over bulk fill.',
     buttonTip:
-      'At each moment, choose a ranked voicing for the Lead. Prefer Apply on one moment at a time so you hear and understand the choice. Open Why? to see which craft factors ranked a candidate.',
-    glossaryIds: ['bs7', 'pcf', 'scf'],
+      'At each moment, choose a ranked voicing for the Lead. Coach biases textbook cadences — V7→I, leading-tone V7, II7→V7→I, I7→IV. Prefer Apply on one moment at a time; open Why? to see cadenceFit and other craft factors.',
+    glossaryIds: ['bs7', 'pcf', 'scf', 'classic_cadences'],
     wizardSteps: ['step5_smn_scf', 'step6_alts'],
   },
   {
     id: 'check',
     label: 'Check',
-    tip: 'Clear blockers in the selected range. Fix what you can, then polish.',
+    tip: 'Clear blockers in the selected range. Watch for broken cadences (e.g. I under ^5→^1), then polish.',
     buttonTip:
-      'QA finds style and craft issues in the selected range. Fix what you understand; use Learn on an issue for the teaching note.',
-    glossaryIds: ['lock_ring', 'homophony'],
+      'QA finds style and craft issues in the selected range — including soft cadence misses. Fix what you understand; use Learn on an issue for the teaching note.',
+    glossaryIds: ['lock_ring', 'homophony', 'classic_cadences'],
     wizardSteps: ['step7_variety', 'step9_final'],
   },
   {
     id: 'polish',
     label: 'Polish',
-    tip: 'Strengthen voicings, skim the checklist, and export when ready.',
+    tip: 'Path-optimize inversions for voice leading and ring, then strengthen and export.',
     buttonTip:
-      'Strengthen weak approaches, check voicing craft, then export. Polish is the last teaching pass before the chart leaves the coach.',
+      'Polish revoices the chart as one path (try I/V openings on bass 1 or 5, minimize part motion, favor ring), then strengthen approaches and export.',
     glossaryIds: ['strong_voicing', 'secondary_dom'],
     wizardSteps: ['step8_voicing', 'done'],
   },

@@ -1,13 +1,15 @@
 /**
- * Persist chord-analysis strip chrome (collapse, name/roman mode, label overrides).
+ * Persist chord-analysis lane chrome (per-lane name/roman mode, label overrides).
  */
 import type {
   ChordAnalysisMode,
   ChordAnalysisOverride,
 } from '../../domain/arranging/chordAnalysisBar'
 
-const COLLAPSED_KEY = 'singtags.labs.tagRoll.chordAnalysisCollapsed.v1'
+/** Legacy shared mode — migrated once into declared/detected keys. */
 const MODE_KEY = 'singtags.labs.tagRoll.chordAnalysisMode.v1'
+const DECLARED_MODE_KEY = 'singtags.labs.tagRoll.declaredChordMode.v1'
+const DETECTED_MODE_KEY = 'singtags.labs.tagRoll.detectedChordMode.v1'
 const OVERRIDES_KEY = 'singtags.labs.tagRoll.chordAnalysisOverrides.v1'
 
 function readJson<T>(key: string, fallback: T): T {
@@ -28,39 +30,54 @@ function writeJson(key: string, value: unknown): void {
   }
 }
 
-export function loadChordAnalysisCollapsed(fallback = true): boolean {
+function readMode(key: string, fallback: ChordAnalysisMode): ChordAnalysisMode {
   try {
-    const raw = localStorage.getItem(COLLAPSED_KEY)
-    if (raw == null) return fallback
-    return raw === '1' || raw === 'true'
-  } catch {
-    return fallback
-  }
-}
-
-export function saveChordAnalysisCollapsed(on: boolean): void {
-  try {
-    localStorage.setItem(COLLAPSED_KEY, on ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
-}
-
-export function loadChordAnalysisMode(fallback: ChordAnalysisMode = 'name'): ChordAnalysisMode {
-  try {
-    const raw = localStorage.getItem(MODE_KEY)
+    const raw = localStorage.getItem(key)
     return raw === 'roman' || raw === 'name' ? raw : fallback
   } catch {
     return fallback
   }
 }
 
-export function saveChordAnalysisMode(mode: ChordAnalysisMode): void {
+function writeMode(key: string, mode: ChordAnalysisMode): void {
   try {
-    localStorage.setItem(MODE_KEY, mode)
+    localStorage.setItem(key, mode)
   } catch {
     /* ignore */
   }
+}
+
+/** Legacy shared mode, used only to seed per-lane prefs once. */
+export function loadChordAnalysisMode(fallback: ChordAnalysisMode = 'name'): ChordAnalysisMode {
+  return readMode(MODE_KEY, fallback)
+}
+
+export function loadDeclaredChordMode(fallback: ChordAnalysisMode = 'name'): ChordAnalysisMode {
+  try {
+    const raw = localStorage.getItem(DECLARED_MODE_KEY)
+    if (raw === 'roman' || raw === 'name') return raw
+  } catch {
+    /* fall through */
+  }
+  return loadChordAnalysisMode(fallback)
+}
+
+export function saveDeclaredChordMode(mode: ChordAnalysisMode): void {
+  writeMode(DECLARED_MODE_KEY, mode)
+}
+
+export function loadDetectedChordMode(fallback: ChordAnalysisMode = 'name'): ChordAnalysisMode {
+  try {
+    const raw = localStorage.getItem(DETECTED_MODE_KEY)
+    if (raw === 'roman' || raw === 'name') return raw
+  } catch {
+    /* fall through */
+  }
+  return loadChordAnalysisMode(fallback)
+}
+
+export function saveDetectedChordMode(mode: ChordAnalysisMode): void {
+  writeMode(DETECTED_MODE_KEY, mode)
 }
 
 type OverrideBag = Record<string, Record<string, ChordAnalysisOverride>>

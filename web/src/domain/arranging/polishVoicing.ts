@@ -1,5 +1,6 @@
 /**
- * Step VIII — batch safe voicing polish (stable fix order).
+ * Step VIII — batch safe voicing polish (lint fixes).
+ * Global inversion-path polish runs first in {@link polishArrangementVoicing}.
  */
 import type { ArrangementProject } from './types'
 import { lintArrangement } from './qa/arrangementLinter'

@@ -3,6 +3,7 @@
  */
 import type { ArrangementLint, LintRule } from './types'
 import { analyzeHarmonyTheory } from '../analyzeHarmonyTheory'
+import { cadenceMissMessage } from '../cadences'
 
 export const theorySpacingRule: LintRule = {
   id: 'theory-spacing',
@@ -139,6 +140,53 @@ export const counterpartFlickerRule: LintRule = {
           teachingId: 'counterpart',
         })
       }
+    }
+    return out
+  },
+}
+
+/**
+ * Soft Check nudge when a locked stack breaks an obvious ^5→^1 authentic cadence.
+ */
+export const cadenceMissRule: LintRule = {
+  id: 'cadence-miss',
+  check(project) {
+    const mode = project.tonalityMode ?? 'major'
+    const melody = [...project.melody].sort((a, b) => a.startTick - b.startTick)
+    if (melody.length < 2) return []
+    const stacks = [...project.stacks].sort((a, b) => a.startTick - b.startTick)
+    const out: ArrangementLint[] = []
+    for (let i = 0; i < melody.length - 1; i++) {
+      const a = melody[i]!
+      const b = melody[i + 1]!
+      const stack = stacks.find(
+        (s) =>
+          s.startTick <= a.startTick &&
+          a.startTick < s.startTick + Math.max(1, s.durationTicks),
+      )
+      if (!stack) continue
+      const miss = cadenceMissMessage(
+        { rootPc: stack.rootPc, natureId: stack.natureId },
+        {
+          tonality: project.tonality,
+          mode,
+          melodyMidi: a.midi,
+          nextMelodyMidi: b.midi,
+        },
+      )
+      if (!miss) continue
+      out.push({
+        id: `${miss.id}-${stack.id}`,
+        ruleId: 'cadence-miss',
+        severity: 'info',
+        message: miss.message,
+        stackId: stack.id,
+        noteId: a.id,
+        teachingId: miss.teachingId,
+        data: miss.suggest
+          ? { suggestRootPc: miss.suggest.rootPc, suggestNatureId: miss.suggest.natureId }
+          : undefined,
+      })
     }
     return out
   },

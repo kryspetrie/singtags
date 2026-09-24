@@ -44,17 +44,25 @@ export function listCandidatesForNote(
     .filter((s) => s.startTick < note.startTick)
     .sort((a, b) => b.startTick - a.startTick)[0]
   const nextPillar = project.pillars.find((x) => x.startTick >= pillar.endTick)
+  const melodySorted = [...project.melody].sort((a, b) => a.startTick - b.startTick)
+  const noteIdx = melodySorted.findIndex((m) => m.id === note.id)
+  const nextMel = noteIdx >= 0 ? melodySorted[noteIdx + 1] : null
+  const prevMel = noteIdx > 0 ? melodySorted[noteIdx - 1] : null
   return candidatesForMelodyNote({
     note,
     pillar,
     tonality: project.tonality,
     mode: project.tonalityMode ?? 'major',
     prevRootPc: prev?.rootPc ?? null,
+    prevNatureId: prev?.natureId ?? null,
     preferScf: opts.preferScf,
     limit: opts.limit ?? 16,
     profile: project.contestProfile,
     nextPillarRoot: nextPillar?.rootPc ?? null,
+    prevMidi: prev?.midi ?? null,
     rankerDeps: deps.rankerDeps,
+    nextMelodyMidi: nextMel?.midi ?? null,
+    prevMelodyMidi: prevMel?.midi ?? null,
   })
 }
 

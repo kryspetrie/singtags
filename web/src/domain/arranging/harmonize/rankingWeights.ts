@@ -26,6 +26,26 @@ export type RankingWeights = {
   commonTone: number
   /** Soft penalty for parallels / all-same-direction. */
   parallelPenalty: number
+  /**
+   * Prefer plain major/minor releases when the lead is the chord root (or 5th)
+   * on the primary pillar — avoids automatic I7 / IV7 homes.
+   */
+  homeTriad: number
+  /**
+   * Soft demotion of Dom9 / 6 / add9 when the lead is not itself the 6th or 9th.
+   * Keeps color chords available without winning the default top pick.
+   */
+  colorChordPenalty: number
+  /**
+   * Soft demotion of SCF/passing candidates so they stay alternates unless the
+   * melody (or preferScf path) genuinely needs them.
+   */
+  passingSoftPenalty: number
+  /**
+   * Classic cadence fit (V7→I, II7→V7→I, I7→IV, …) from domain/cadences.
+   * Separate from coarse tensionRelease so Why? can name the pattern.
+   */
+  cadenceFit: number
 }
 
 export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
@@ -46,4 +66,8 @@ export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
   contrary: 1,
   commonTone: 1,
   parallelPenalty: 1.5,
+  homeTriad: 3.25,
+  colorChordPenalty: 2.5,
+  passingSoftPenalty: 2,
+  cadenceFit: 1,
 }

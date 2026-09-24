@@ -89,6 +89,18 @@ describe('progressionAnalyze', () => {
     expect(report.links.some((l) => l.kind === 'tritone_sub_resolve')).toBe(true)
   })
 
+  it('authentic links teach classic_cadences', () => {
+    const project = createEmptyArrangement('auth')
+    project.tonality = 0
+    project.stacks = [
+      stack('s0', 0, 7, 'seventh'),
+      stack('s1', 480, 0, 'major'),
+    ]
+    const report = analyzeArrangementHarmony(project)
+    const auth = report.links.find((l) => l.kind === 'authentic')
+    expect(auth?.teachingId).toBe('classic_cadences')
+  })
+
   it('detects plagal IV → I and descending fifths', () => {
     const project = createEmptyArrangement('plag')
     project.tonality = 0
@@ -109,6 +121,8 @@ describe('progressionAnalyze', () => {
         report.counts.authentic +
         report.counts.secondaryResolutions,
     ).toBeGreaterThanOrEqual(2)
+    const plagal = report.links.find((l) => l.kind === 'plagal')
+    expect(plagal?.teachingId).toBe('classic_cadences')
   })
 
   it('detects counterpart swap between BS7s a tritone apart', () => {

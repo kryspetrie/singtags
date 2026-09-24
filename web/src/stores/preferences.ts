@@ -186,6 +186,13 @@ const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
 const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
 const TAG_ROLL_COACH_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.coachLaneCollapsed.v1'
+/** @deprecated migrated to chordsLaneCollapsed */
+const TAG_ROLL_DECLARED_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.declaredLaneCollapsed.v1'
+const TAG_ROLL_CHORDS_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.chordsLaneCollapsed.v1'
+const TAG_ROLL_DETECTED_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.detectedLaneCollapsed.v1'
+const TAG_ROLL_LYRICS_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.lyricsLaneCollapsed.v1'
+
+export type TagRollBottomLaneId = 'chords' | 'detected' | 'mods' | 'coach' | 'lyrics'
 /** Default gain for Tag Studio metronome clicks (matches MetronomeClicker). */
 export const TAG_ROLL_METRONOME_VOLUME_DEFAULT = 0.85
 export const TAG_ROLL_METRONOME_VOLUME_MAX = 1.5
@@ -693,6 +700,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, true),
   )
   const tagRollCoachLaneCollapsed = ref(loadBool(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, true))
+  /** Chords lane (locked harmony map). Migrates legacy Declared collapse pref. */
+  const tagRollChordsLaneCollapsed = ref(
+    (() => {
+      try {
+        const next = localStorage.getItem(TAG_ROLL_CHORDS_LANE_COLLAPSED_KEY)
+        if (next != null) return next === '1' || next === 'true'
+        const legacy = localStorage.getItem(TAG_ROLL_DECLARED_LANE_COLLAPSED_KEY)
+        if (legacy != null) return legacy === '1' || legacy === 'true'
+      } catch {
+        /* ignore */
+      }
+      return true
+    })(),
+  )
+  const tagRollDetectedLaneCollapsed = ref(loadBool(TAG_ROLL_DETECTED_LANE_COLLAPSED_KEY, true))
+  const tagRollLyricsLaneCollapsed = ref(loadBool(TAG_ROLL_LYRICS_LANE_COLLAPSED_KEY, true))
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -1606,7 +1629,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     )
   }
 
-  /** Collapse the Tag Studio expression lane chrome. */
+  /** Collapse the Tag Studio expression (Mods) lane chrome. */
   function setTagRollExpressionLaneCollapsed(on: boolean): void {
     tagRollExpressionLaneCollapsed.value = !!on
     localStorage.setItem(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, on ? '1' : '0')
@@ -1617,18 +1640,52 @@ export const usePreferencesStore = defineStore('preferences', () => {
     localStorage.setItem(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, on ? '1' : '0')
   }
 
+  function setTagRollChordsLaneCollapsed(on: boolean): void {
+    tagRollChordsLaneCollapsed.value = !!on
+    localStorage.setItem(TAG_ROLL_CHORDS_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  /** @deprecated Prefer setTagRollChordsLaneCollapsed */
+  function setTagRollDeclaredLaneCollapsed(on: boolean): void {
+    setTagRollChordsLaneCollapsed(on)
+  }
+
+  function setTagRollDetectedLaneCollapsed(on: boolean): void {
+    tagRollDetectedLaneCollapsed.value = !!on
+    localStorage.setItem(TAG_ROLL_DETECTED_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  function setTagRollLyricsLaneCollapsed(on: boolean): void {
+    tagRollLyricsLaneCollapsed.value = !!on
+    localStorage.setItem(TAG_ROLL_LYRICS_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  /** Independently open/collapse a bottom lane (lanes may stack). */
+  function setTagRollLaneCollapsed(lane: TagRollBottomLaneId, collapsed: boolean): void {
+    const on = !!collapsed
+    if (lane === 'mods') setTagRollExpressionLaneCollapsed(on)
+    else if (lane === 'coach') setTagRollCoachLaneCollapsed(on)
+    else if (lane === 'chords') setTagRollChordsLaneCollapsed(on)
+    else if (lane === 'lyrics') setTagRollLyricsLaneCollapsed(on)
+    else setTagRollDetectedLaneCollapsed(on)
+  }
+
+  function toggleTagRollLane(lane: TagRollBottomLaneId): void {
+    if (lane === 'mods') setTagRollExpressionLaneCollapsed(!tagRollExpressionLaneCollapsed.value)
+    else if (lane === 'coach') setTagRollCoachLaneCollapsed(!tagRollCoachLaneCollapsed.value)
+    else if (lane === 'chords') setTagRollChordsLaneCollapsed(!tagRollChordsLaneCollapsed.value)
+    else if (lane === 'lyrics') setTagRollLyricsLaneCollapsed(!tagRollLyricsLaneCollapsed.value)
+    else setTagRollDetectedLaneCollapsed(!tagRollDetectedLaneCollapsed.value)
+  }
+
   /**
-   * Bottom lanes are exclusive: at most one of Mods / Coach is expanded.
-   * `null` collapses both (horizontal rail toggles).
+   * @deprecated Prefer setTagRollLaneCollapsed / toggleTagRollLane (independent stacking).
+   * Kept so existing open-coach call sites still expand Coach without closing others.
    */
   function openTagRollBottomLane(which: 'mods' | 'coach' | null): void {
-    if (which === 'mods') {
-      setTagRollExpressionLaneCollapsed(false)
-      setTagRollCoachLaneCollapsed(true)
-    } else if (which === 'coach') {
-      setTagRollExpressionLaneCollapsed(true)
-      setTagRollCoachLaneCollapsed(false)
-    } else {
+    if (which === 'mods') setTagRollExpressionLaneCollapsed(false)
+    else if (which === 'coach') setTagRollCoachLaneCollapsed(false)
+    else {
       setTagRollExpressionLaneCollapsed(true)
       setTagRollCoachLaneCollapsed(true)
     }
@@ -1806,6 +1863,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollMetronomeVolume,
     tagRollExpressionLaneCollapsed,
     tagRollCoachLaneCollapsed,
+    tagRollChordsLaneCollapsed,
+    /** @deprecated Prefer tagRollChordsLaneCollapsed */
+    tagRollDeclaredLaneCollapsed: tagRollChordsLaneCollapsed,
+    tagRollDetectedLaneCollapsed,
+    tagRollLyricsLaneCollapsed,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1857,6 +1919,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollMetronomeVolume,
     setTagRollExpressionLaneCollapsed,
     setTagRollCoachLaneCollapsed,
+    setTagRollChordsLaneCollapsed,
+    setTagRollDeclaredLaneCollapsed,
+    setTagRollDetectedLaneCollapsed,
+    setTagRollLyricsLaneCollapsed,
+    setTagRollLaneCollapsed,
+    toggleTagRollLane,
     openTagRollBottomLane,
     setPrimaryNavOrder,
     movePrimaryNav,

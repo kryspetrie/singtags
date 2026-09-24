@@ -8,6 +8,7 @@ import { melodyGapsOutsidePillars } from '../../domain/arranging/pillars'
 import { buildHarmonicMoments } from '../../domain/arranging/harmonicMoments'
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
 import { pxToTicks, ticksToPx } from '../../lib/tagRoll/normalize'
+import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import {
   buildCoachLaneMarkers,
   buildCoachLanePillarBands,
@@ -25,6 +26,7 @@ import {
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { useArrangementStore } from '../../stores/arrangement'
 import { usePreferencesStore } from '../../stores/preferences'
+import TagRollBottomLaneShell from '../tagRoll/TagRollBottomLaneShell.vue'
 
 const LANE_H = 112
 const BAND_H = 22
@@ -51,16 +53,17 @@ const lens = ref<CoachLaneLens>('overview')
 const highlight = ref<CoachHighlight | null>(null)
 let unsubHl: (() => void) | null = null
 
-function toggleCollapsed(): void {
-  if (collapsed.value) prefs.openTagRollBottomLane('coach')
-  else prefs.openTagRollBottomLane(null)
+const lensViewOptions = COACH_LANE_LENSES.map((l) => ({ value: l.id, label: l.label }))
+
+function onLensView(v: string): void {
+  if (COACH_LANE_LENSES.some((l) => l.id === v)) lens.value = v as CoachLaneLens
 }
 
 function onSuggest(): void {
   const cursor = props.project.view.playheadTick ?? 0
   const ok = arrStore.proposeNextHomeRoot(cursor)
   arrStore.runQa()
-  prefs.openTagRollBottomLane('coach')
+  prefs.setTagRollLaneCollapsed('coach', false)
   if (ok && arrStore.selectedPillarId) {
     const pil = arrStore.current?.pillars.find((p) => p.id === arrStore.selectedPillarId)
     if (pil) {
@@ -79,10 +82,7 @@ const wrapRef = ref<HTMLElement | null>(null)
 const cssW = ref(640)
 const hoverLabel = ref('')
 
-const leftGutterStyle = computed(() => {
-  const g = Math.max(52, props.leftGutterPx ?? 72)
-  return { '--lane-gutter': `${g}px` } as Record<string, string>
-})
+const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
 
 const moments = computed(() => {
   const p = arrStore.current
@@ -137,6 +137,25 @@ function draw(): void {
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
+
+  const styles = getComputedStyle(canvas)
+  const text = styles.getPropertyValue('--text').trim() || '#222'
+  const muted = styles.getPropertyValue('--muted').trim() || '#888'
+  const surface = styles.getPropertyValue('--surface').trim() || '#f5f5f5'
+  ctx.fillStyle = surface
+  ctx.fillRect(0, 0, w, h)
+  drawLaneTimeGrid(ctx, {
+    scrollX: props.project.view.scrollX,
+    cellW: props.project.view.cellW,
+    lengthTicks: props.project.lengthTicks,
+    timeSignature: props.project.timeSignature,
+    height: h,
+    width: w,
+    measureColor: text,
+    beatColor: muted,
+    measureAlpha: 0.4,
+    beatAlpha: 0.2,
+  })
 
   const cellW = props.project.view.cellW
   const scrollX = props.project.view.scrollX
@@ -375,146 +394,74 @@ watch(
 </script>
 
 <template>
-  <div v-if="!collapsed" class="coach-lane" :style="leftGutterStyle">
-    <button
-      type="button"
-      class="lane-toggle on"
-      title="Collapse Coach lane"
-      aria-label="Collapse Coach lane"
-      aria-expanded="true"
-      @click="toggleCollapsed"
-    >
-      Coach
-    </button>
-    <div class="lane-main" @pointerdown="emit('openPanel')">
-      <div v-if="!collapsed" class="lane-head">
-        <div class="lens-row" role="tablist" aria-label="Lane lens">
-          <button
-            v-for="l in COACH_LANE_LENSES"
-            :key="l.id"
-            type="button"
-            :class="{ on: lens === l.id }"
-            @click="lens = l.id"
-          >
-            {{ l.label }}
-          </button>
-        </div>
-        <span class="legend">{{ hoverLabel || 'Pillars · ring · VL · issues' }}</span>
-        <button
-          v-if="showSuggestCta"
-          type="button"
-          class="cta"
-          title="Propose one draft home root at the playhead — Hear and Lock in the Coach panel."
-          @click="onSuggest"
-        >
-          Propose next
-        </button>
-      </div>
-      <div v-show="!collapsed" ref="wrapRef" class="lane-wrap">
-        <canvas
-          ref="canvasRef"
-          class="lane-canvas"
-          role="img"
-          aria-label="Arranging coach analysis lane"
-          @pointerdown="onPointer"
-          @pointermove="onMove"
-          @pointerleave="hoverLabel = ''"
-        />
-      </div>
+  <TagRollBottomLaneShell
+    v-if="!collapsed"
+    label="Coach"
+    :left-gutter-px="leftGutterPx"
+    :view-options="lensViewOptions"
+    :view-value="lens"
+    view-aria-label="Coach lane view"
+    @update:view="onLensView"
+  >
+    <template #gutter>
+      <button
+        v-if="showSuggestCta"
+        type="button"
+        class="gutter-cta"
+        title="Propose one draft home root at the playhead — Hear and Lock in the Coach panel."
+        @click="onSuggest"
+      >
+        Propose
+      </button>
+      <span class="gutter-legend" :title="hoverLabel || 'Drafts & coverage · Lock → My Chords'">
+        {{ hoverLabel || 'Coverage' }}
+      </span>
+    </template>
+    <div ref="wrapRef" class="lane-wrap" @pointerdown="emit('openPanel')">
+      <canvas
+        ref="canvasRef"
+        class="lane-canvas"
+        role="img"
+        aria-label="Arranging coach analysis lane"
+        @pointerdown="onPointer"
+        @pointermove="onMove"
+        @pointerleave="hoverLabel = ''"
+      />
     </div>
-  </div>
+  </TagRollBottomLaneShell>
 </template>
 
 <style scoped>
-.coach-lane {
-  display: grid;
-  grid-template-columns: var(--lane-gutter, 72px) minmax(0, 1fr);
-  gap: 0;
-  align-items: stretch;
-  margin: 0 0.15rem 0.15rem 0;
-}
-.lane-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  margin: 0.25rem 0.2rem;
-  padding: 0.35rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  min-height: 100%;
-  writing-mode: horizontal-tb;
-  transform: none;
-}
-.lane-toggle:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.lane-toggle.on {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--text);
-}
-.lane-main {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
-}
-.lane-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem;
-  padding: 0 0.15rem 0 0.1rem;
-}
-.lens-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem;
-}
-.lens-row button {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 650;
-  cursor: pointer;
-  min-height: 1.45rem;
-  padding: 0.1rem 0.35rem;
-}
-.lens-row button.on {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.legend {
-  flex: 1;
-  font-size: 0.72rem;
-  color: var(--muted);
-  min-height: 1em;
-}
-.cta {
+.gutter-cta {
+  width: 100%;
+  min-height: 1.55rem;
+  padding: 0.12rem 0.2rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--text);
   font: inherit;
-  font-size: 0.75rem;
-  font-weight: 650;
+  font-size: 0.68rem;
+  font-weight: 700;
   cursor: pointer;
-  min-height: 1.6rem;
-  padding: 0.15rem 0.45rem;
+}
+.gutter-legend {
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .lane-wrap {
   height: 112px;
   overflow: hidden;
   touch-action: none;
+  margin: 0 0.15rem 0.2rem 0;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 88%, var(--bg));

@@ -31,6 +31,10 @@ const VL_ONLY = {
   contrary: 0,
   commonTone: 0,
   parallelPenalty: 0,
+  homeTriad: 0,
+  colorChordPenalty: 0,
+  passingSoftPenalty: 0,
+  cadenceFit: 0,
 } as const
 
 function baseCand(midi: VoicingPitches, id = 'c'): UnscoredCandidate {

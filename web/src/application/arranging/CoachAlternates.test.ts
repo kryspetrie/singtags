@@ -3,7 +3,9 @@ import { buildHarmonicMoments } from '../../domain/arranging/harmonicMoments'
 import { createEmptyArrangement, type MelodyEvent } from '../../domain/arranging/types'
 import {
   altChipsForMoment,
+  cadenceBadgeFromWhyFactors,
   filterCandidates,
+  groupCandidatesByChord,
   layerHintForCandidate,
   pickCandidateForAltChip,
 } from './CoachAlternates'
@@ -48,6 +50,19 @@ describe('CoachAlternates', () => {
     expect(layerHintForCandidate(cand({ layer: 'primary' }))).toBe('home family')
   })
 
+  it('groups stacks by chord so inversions nest under one label', () => {
+    const list = [
+      cand({ rootPc: 0, natureId: 'major', voicing: '1351', score: 12 }),
+      cand({ rootPc: 0, natureId: 'major', voicing: '3515', score: 11 }),
+      cand({ rootPc: 7, natureId: 'seventh', voicing: '5317', score: 10 }),
+    ]
+    const groups = groupCandidatesByChord(list, false)
+    expect(groups).toHaveLength(2)
+    expect(groups[0]!.label).toBe('C')
+    expect(groups[0]!.stacks).toHaveLength(2)
+    expect(groups[1]!.label).toBe('G7')
+  })
+
   it('hides alt chips with no matching candidate', () => {
     const p = createEmptyArrangement('Alt')
     p.melody = [mel('post', 0, 960)]
@@ -69,7 +84,27 @@ describe('CoachAlternates', () => {
     expect(empty).toEqual([])
     const withHit = altChipsForMoment(p, moment, [cand({ rootPc: 0, natureId: 'seventh' })], false)
     expect(withHit.length).toBeGreaterThan(0)
-    const picked = pickCandidateForAltChip(withHit.length ? [cand({ rootPc: 0, natureId: 'seventh' })] : [], withHit[0]!)
+    const picked = pickCandidateForAltChip(
+      withHit.length ? [cand({ rootPc: 0, natureId: 'seventh' })] : [],
+      withHit[0]!,
+    )
     expect(picked?.rootPc).toBe(0)
+  })
+
+  it('cadenceBadgeFromWhyFactors extracts classic labels', () => {
+    expect(
+      cadenceBadgeFromWhyFactors([
+        {
+          label: 'cadenceFit',
+          value: 18,
+          teachingId: 'classic_cadences',
+          detail: 'II7→V7→I is the descending-fifths highway into the tonic pillar.',
+        },
+      ]),
+    ).toBe('II7→V7→I')
+    expect(
+      cadenceBadgeFromWhyFactors([{ label: 'cadenceFit', value: 12, detail: 'generic teach' }]),
+    ).toBe('Cadence')
+    expect(cadenceBadgeFromWhyFactors([{ label: 'motion', value: 1 }])).toBeNull()
   })
 })

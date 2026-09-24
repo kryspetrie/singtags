@@ -25,7 +25,10 @@ import {
   keyChoiceId,
 } from '../../lib/tagRoll/keySignature'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
+import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
+import TagRollApplyScopeDialog from '../TagRollApplyScopeDialog.vue'
+import TagRollBpmInput from './TagRollBpmInput.vue'
 
 const props = defineProps<{
   harmonizeOpen?: boolean
@@ -46,6 +49,18 @@ const emit = defineEmits<{
 }>()
 
 const store = useTagRollStore()
+const prefs = usePreferencesStore()
+
+type PendingScope =
+  | {
+      kind: 'key'
+      tonality: number
+      preferFlats: boolean
+      mode: 'major' | 'minor'
+    }
+  | { kind: 'tempo'; bpm: number }
+
+const pendingScope = ref<PendingScope | null>(null)
 const exportOpen = ref(false)
 const insertBarOpen = ref(false)
 
@@ -61,7 +76,6 @@ const selectedNote = computed(() => store.selectedNote)
 const MODES: { id: TagRollEditorMode; label: string }[] = [
   { id: 'view', label: 'View' },
   { id: 'compose', label: 'Compose' },
-  { id: 'lyrics', label: 'Lyrics' },
 ]
 
 const SNAP_PRESETS = [
@@ -95,6 +109,9 @@ function setDuration(id: string): void {
 
 function onMode(m: TagRollEditorMode): void {
   store.setMode(m)
+  if (m !== 'lyrics' && !prefs.tagRollLyricsLaneCollapsed) {
+    prefs.setTagRollLaneCollapsed('lyrics', true)
+  }
 }
 
 function onDelete(): void {
@@ -102,16 +119,25 @@ function onDelete(): void {
   if (exprId) {
     const marker = project.value?.tempoMarkers.find((m) => m.id === exprId)
     if (marker?.tick === 0) return
-    if (marker) store.deleteTempoMarker(exprId)
-    else store.deleteExpression(exprId)
+    if (marker) {
+      store.deleteTempoMarker(exprId)
+      return
+    }
+    const key = project.value?.keyMarkers?.find((m) => m.id === exprId)
+    if (key?.tick === 0) return
+    if (key) {
+      store.deleteKeyMarker(exprId)
+      return
+    }
+    store.deleteExpression(exprId)
     return
   }
   if (store.selectedNoteIds.length) store.deleteSelectedNotes()
 }
 
-function onBpm(e: Event): void {
-  const v = Number((e.target as HTMLInputElement).value)
-  if (Number.isFinite(v)) store.setBpm(v)
+function onBpm(v: number): void {
+  if (!Number.isFinite(v)) return
+  pendingScope.value = { kind: 'tempo', bpm: v }
 }
 
 function onSnap(e: Event): void {
@@ -132,7 +158,39 @@ function onClefFamily(e: Event): void {
 
 function onSheetKey(e: Event): void {
   const choice = keyChoiceById((e.target as HTMLSelectElement).value)
-  if (choice) store.setTonality(choice.tonality, choice.preferFlats, choice.mode)
+  if (!choice) return
+  pendingScope.value = {
+    kind: 'key',
+    tonality: choice.tonality,
+    preferFlats: choice.preferFlats,
+    mode: choice.mode,
+  }
+}
+
+function cancelPendingScope(): void {
+  pendingScope.value = null
+}
+
+function applyPendingScope(where: 'beginning' | 'cursor'): void {
+  const pending = pendingScope.value
+  pendingScope.value = null
+  if (!pending) return
+  const p = project.value
+  if (!p) return
+  if (pending.kind === 'tempo') {
+    if (where === 'beginning') store.setBpm(pending.bpm)
+    else store.setTempoAtTick(p.view.playheadTick, pending.bpm)
+    return
+  }
+  if (where === 'beginning') {
+    store.setTonality(pending.tonality, pending.preferFlats, pending.mode)
+  } else {
+    store.setKeyAtTick(p.view.playheadTick, {
+      tonality: pending.tonality,
+      preferFlats: pending.preferFlats,
+      tonalityMode: pending.mode,
+    })
+  }
 }
 
 function onScoreSurface(surface: 'roll' | 'sheet'): void {
@@ -183,8 +241,7 @@ function durationTip(label: string, index: number): string {
 
 function modeTip(id: TagRollEditorMode, label: string): string {
   if (id === 'view') return tipByShortcutId('mode-view', label)
-  if (id === 'compose') return tipByShortcutId('mode-compose', label)
-  return tipByShortcutId('mode-lyrics', label)
+  return tipByShortcutId('mode-compose', label)
 }
 
 function onInsertBar(where: 'before' | 'after'): void {
@@ -222,8 +279,8 @@ onUnmounted(() => {
           :key="m.id"
           type="button"
           class="seg-btn"
-          :class="{ on: mode === m.id }"
-          :aria-pressed="mode === m.id"
+          :class="{ on: mode === m.id || (m.id === 'compose' && mode === 'lyrics') }"
+          :aria-pressed="mode === m.id || (m.id === 'compose' && mode === 'lyrics')"
           :title="modeTip(m.id, m.label)"
           @click="onMode(m.id)"
         >
@@ -435,17 +492,9 @@ onUnmounted(() => {
           </select>
         </label>
 
-        <label class="field" :title="tagRollTip('Starting tempo (marker at beat 1)')">
+        <label class="field" :title="tagRollTip('Tempo — choose beginning or cursor when you set BPM')">
           <span class="lbl">BPM</span>
-          <input
-            class="num"
-            type="number"
-            min="20"
-            max="320"
-            :value="project.bpm"
-            aria-label="Starting tempo BPM"
-            @change="onBpm"
-          />
+          <TagRollBpmInput :model-value="project.bpm" aria-label="Tempo BPM" @change="onBpm" />
         </label>
 
         <label class="inline-check" :title="tagRollTip('Lock piano tote scroll')">
@@ -593,6 +642,19 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <TagRollApplyScopeDialog
+    :open="!!pendingScope"
+    :title="pendingScope?.kind === 'tempo' ? 'Apply tempo where?' : 'Apply key where?'"
+    :message="
+      pendingScope?.kind === 'tempo'
+        ? `Set tempo to ${pendingScope.bpm} BPM at the beginning of the song, or at the playhead cursor.`
+        : 'Set this key signature at the beginning of the song, or at the playhead cursor (Mods key change).'
+    "
+    @close="cancelPendingScope"
+    @beginning="applyPendingScope('beginning')"
+    @cursor="applyPendingScope('cursor')"
+  />
 </template>
 
 <style scoped>

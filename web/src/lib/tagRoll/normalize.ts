@@ -39,6 +39,8 @@ import {
   type TagRollTempoMarker,
   type TagRollViewPrefs,
 } from './types'
+import { normalizeHarmonySketch } from './harmonySketch'
+import { createDefaultKeyMarkers, ensureKeyMarkers, normalizeKeyMarker } from './keyMap'
 import {
   createDefaultTempoMarkers,
   normalizeExpression,
@@ -161,6 +163,7 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     lengthTicks: TAG_ROLL_DEFAULT_LENGTH_TICKS,
     timeSignature: { ...TAG_ROLL_DEFAULT_TIME_SIGNATURE },
     tempoMarkers: createDefaultTempoMarkers(bpm),
+    keyMarkers: createDefaultKeyMarkers(0, 'major', false),
     expressions: [],
     soundEngine: 'synth',
     pitchPipeSoundId: loadPitchPipeSoundId(),
@@ -178,6 +181,7 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     mix: syncProjectMix(parts, null),
     notes: [],
     melodyPasses: [],
+    harmonySketch: [],
     localEntryId: null,
     view: {
       ...TAG_ROLL_DEFAULT_VIEW,
@@ -223,10 +227,20 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     tempoMarkers = [{ id: allocatePrefixedId('trt'), tick: 0, bpm }, ...tempoMarkers]
   }
   tempoMarkers.sort((a, b) => a.tick - b.tick)
+
+  const tonality = clamp(Math.round(Number(o.tonality) || 0), 0, 11)
+  const tonalityMode = o.tonalityMode === 'minor' ? 'minor' : 'major'
+  const preferFlats = Boolean(o.preferFlats)
+  let keyMarkers = (Array.isArray(o.keyMarkers) ? o.keyMarkers : [])
+    .map(normalizeKeyMarker)
+    .filter((m): m is NonNullable<typeof m> => !!m)
+  keyMarkers = ensureKeyMarkers(keyMarkers, tonality, tonalityMode, preferFlats)
+
   const expressions = (Array.isArray(o.expressions) ? o.expressions : [])
     .map(normalizeExpression)
     .filter((e): e is TagRollExpression => !!e)
   const melodyPasses = normalizeMelodyPasses(o.melodyPasses, notes)
+  const harmonySketch = normalizeHarmonySketch(o.harmonySketch)
 
   return {
     schema: TAG_ROLL_SCHEMA,
@@ -244,6 +258,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     ),
     timeSignature,
     tempoMarkers,
+    keyMarkers,
     expressions,
     soundEngine,
     pitchPipeSoundId,
@@ -253,14 +268,15 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     swing: normalizeSwing(o.swing),
     midiBakeSwing: o.midiBakeSwing === false ? false : true,
     soundEnvelope: normalizeSoundEnvelope(o.soundEnvelope),
-    tonality: clamp(Math.round(Number(o.tonality) || 0), 0, 11),
-    tonalityMode: o.tonalityMode === 'minor' ? 'minor' : 'major',
-    preferFlats: Boolean(o.preferFlats),
+    tonality,
+    tonalityMode,
+    preferFlats,
     clefFamily: normalizeClefFamily(o.clefFamily),
     parts,
     mix: syncProjectMix(parts, Array.isArray(o.mix) ? (o.mix as never) : null),
     notes,
     melodyPasses,
+    harmonySketch,
     localEntryId:
       typeof o.localEntryId === 'string' && o.localEntryId.trim()
         ? o.localEntryId.trim()

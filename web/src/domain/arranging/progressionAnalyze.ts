@@ -482,7 +482,7 @@ function linkProgression(
       label: `${from.roman} → ${to.roman} (authentic cadence / 5–1)`,
       fromRoman: from.roman,
       toRoman: to.roman,
-      teachingId: 'tension_release',
+      teachingId: 'classic_cadences',
       confidence: isDominantNature(from.natureId) ? 0.98 : 0.85,
     }
   }
@@ -514,7 +514,7 @@ function linkProgression(
       label: `${from.roman} → ${to.roman} (5–1 resolution)`,
       fromRoman: from.roman,
       toRoman: to.roman,
-      teachingId: 'tension_release',
+      teachingId: 'classic_cadences',
       confidence: 0.98,
     }
   }
@@ -529,7 +529,7 @@ function linkProgression(
       label: `${from.roman} → ${to.roman} (plagal / amen)`,
       fromRoman: from.roman,
       toRoman: to.roman,
-      teachingId: 'springboard',
+      teachingId: 'classic_cadences',
       confidence: 0.9,
     }
   }
@@ -642,13 +642,16 @@ function detectPatterns(
     const bIsV = b.degree === 7 || b.roman === 'V7' || b.roman === 'V'
     const cIsI = c.degree === 0
     if (aIsVofV && bIsV && cIsI) {
+      const isIiHighway = a.roman === 'II7'
       patterns.push({
         id: `pat-vv-v-i-${a.stackId}`,
-        kind: 'V7/V–V–I',
-        label: `${a.roman} → ${b.roman} → ${c.roman} (five-of-five into 5–1)`,
+        kind: isIiHighway ? 'II7–V–I' : 'V7/V–V–I',
+        label: isIiHighway
+          ? `${a.roman} → ${b.roman} → ${c.roman} (II7→V7→I highway)`
+          : `${a.roman} → ${b.roman} → ${c.roman} (five-of-five into 5–1)`,
         stackIds: [a.stackId, b.stackId, c.stackId],
         romans: [a.roman, b.roman, c.roman],
-        teachingId: 'secondary_dom',
+        teachingId: isIiHighway ? 'classic_cadences' : 'secondary_dom',
       })
     }
     // Circle chain of 3+ descending fifths
@@ -679,8 +682,8 @@ function summarize(analysis: Omit<ArrangementHarmonicAnalysis, 'summary'>): stri
   if (analysis.counts.tritoneSubs) {
     parts.push(`${analysis.counts.tritoneSubs} tritone-substitute move(s).`)
   }
-  if (analysis.patterns.some((p) => p.kind === 'V7/V–V–I')) {
-    parts.push('Includes a V7/V → V → I (five-of-five) highway.')
+  if (analysis.patterns.some((p) => p.kind === 'V7/V–V–I' || p.kind === 'II7–V–I')) {
+    parts.push('Includes a V7/V → V → I or II7→V7→I highway.')
   }
   if (analysis.counts.circleFifths) {
     parts.push(`${analysis.counts.circleFifths} descending-fifth link(s).`)

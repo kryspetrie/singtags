@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   confirmDeleteInspectRangeNotes,
+  inspectRangeDeleteMessage,
   resolveInspectPlayback,
 } from './chordCursorTransport'
 
@@ -32,6 +33,14 @@ describe('resolveInspectPlayback', () => {
       untilTick: 960,
       rewindTick: 480,
     })
+  })
+})
+
+describe('inspectRangeDeleteMessage', () => {
+  it('formats a count warning', () => {
+    expect(inspectRangeDeleteMessage(3)).toContain('3 notes')
+    expect(inspectRangeDeleteMessage(1)).toContain('1 note')
+    expect(inspectRangeDeleteMessage(0)).toBeNull()
   })
 })
 

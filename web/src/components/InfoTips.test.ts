@@ -44,4 +44,31 @@ describe('InfoTips', () => {
     expect(w.find('.info-tips').classes()).toContain('align-end')
     w.unmount()
   })
+
+  it('opens above when there is little room below', async () => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 400 })
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 800 })
+    const w = mount(InfoTips, {
+      props: { label: 'How-to' },
+      slots: { default: '<p>Bottom bar tip</p>' },
+      attachTo: document.body,
+    })
+    const root = w.find('.info-tips').element as HTMLElement
+    root.getBoundingClientRect = () =>
+      ({
+        left: 120,
+        right: 148,
+        top: 360,
+        bottom: 388,
+        width: 28,
+        height: 28,
+        x: 120,
+        y: 360,
+        toJSON: () => ({}),
+      }) as DOMRect
+    await w.get('button[aria-label="How-to"]').trigger('click')
+    await flushPromises()
+    expect(w.find('.info-tips').classes()).toContain('align-above')
+    w.unmount()
+  })
 })

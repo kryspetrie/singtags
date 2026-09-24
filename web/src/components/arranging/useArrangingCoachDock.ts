@@ -4,11 +4,16 @@
 import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { bindCoachRollNav } from '../../lib/arranging/bindCoachRollNav'
 import { midiToNote } from '../../audio/pianoSamples'
-import { mergeCoachSessionFromExisting } from '../../application/arranging/mergeCoachSession'
+import {
+  migratePillarsToSketchIfEmpty,
+  mergeCoachSessionFromExisting,
+} from '../../application/arranging/mergeCoachSession'
 import { detectCoachEntryMode } from '../../domain/arranging/coachEntryMode'
 import { tipForCoachUi, type CoachUiMode } from '../../domain/arranging/coachTips'
+import { cadenceHintForCoachMoment } from '../../domain/arranging/cadenceCoachTip'
 import { pcName } from '../../domain/arranging/chords/chords'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
+import { voicingDisplayLabel } from '../../lib/tagRoll/harmonizer/inversionLabel'
 import {
   buildHarmonicMoments,
   momentToMelodyEvent,
@@ -28,10 +33,12 @@ import {
   candFilterLabels,
   counterpartForMoment,
   filterCandidates,
+  groupCandidatesByChord,
   layerHintForCandidate,
   pickCandidateForAltChip,
   type AltChipDto,
   type CandFilterId,
+  type ChordCandidateGroup,
 } from '../../application/arranging/CoachAlternates'
 import { groupIssues } from '../../application/arranging/IssueBoard'
 import { explanationForLint } from '../../application/arranging/ExplainCoach'
@@ -39,6 +46,7 @@ import {
   mergeArrangementIntoTagRoll,
   tagStudioToArrangement,
 } from '../../application/arranging/syncTagRoll'
+import { replaceSketchFromPillars } from '../../lib/tagRoll/harmonySketch'
 import { contextForSelectedMoment } from '../../application/arranging/CoachContext'
 import { setCoachHighlight } from '../../lib/arranging/coachHighlight'
 import {
@@ -104,6 +112,9 @@ export function useArrangingCoachDock(
   const selectedPil = computed(() => arrStore.selectedPillar)
   const candidates = computed(() => arrStore.candidates)
   const filteredCandidates = computed(() => filterCandidates(candidates.value, candFilter.value))
+  const candidateGroups = computed((): ChordCandidateGroup[] =>
+    groupCandidatesByChord(filteredCandidates.value, preferFlats.value),
+  )
   const maxScore = computed(() => Math.max(1, ...filteredCandidates.value.map((c) => c.score), 1))
   const filterOptions = candFilterLabels()
 
@@ -130,15 +141,25 @@ export function useArrangingCoachDock(
     () => moments.value.find((m) => m.id === selectedMomentId.value) ?? null,
   )
 
-  const tip = computed(() =>
-    tipForCoachUi({
+  const tip = computed(() => {
+    const p = arrStore.current
+    const cadenceHint = p
+      ? cadenceHintForCoachMoment({
+          moment: selectedMoment.value,
+          moments: moments.value,
+          tonality: p.tonality,
+          mode: p.tonalityMode ?? 'major',
+        })
+      : null
+    return tipForCoachUi({
       mode: mode.value,
       phase: phase.value,
       hasMelody: melody.value.length > 0,
       hasPillars: pillars.value.length > 0,
       wizardStep: arrStore.current?.wizardStep,
-    }),
-  )
+      cadenceHint,
+    })
+  })
 
   const nextAction = computed(() =>
     resolveCoachNextAction({
@@ -275,6 +296,11 @@ export function useArrangingCoachDock(
   const learnHint = ref<string | null>(null)
   const expandedLintId = ref<string | null>(null)
   const lintDetail = ref<ReturnType<typeof explanationForLint> | null>(null)
+  const pendingKeySuggestionLint = ref<ArrangementLint | null>(null)
+  const pendingKeySuggestionMessage = computed(() => {
+    const lint = pendingKeySuggestionLint.value
+    return lint ? `${lint.message}\n\nApply transpose now?` : ''
+  })
 
   function lintRowLabel(lint: ArrangementLint): string {
     const p = arrStore.current
@@ -342,9 +368,19 @@ export function useArrangingCoachDock(
       await arrStore.hydrate()
       const linkId = `arr_${tag.id}`
       const existing = arrStore.projects.find((p) => p.id === linkId)
-      const fresh = tagStudioToArrangement(tag, services.idGen)
+      // Migrate legacy pillars-only sessions into sketch once.
+      if (!(tag.harmonySketch ?? []).some((s) => s.locked) && existing?.pillars.length) {
+        tagStore.setHarmonySketch(migratePillarsToSketchIfEmpty(tag.harmonySketch ?? [], existing.pillars))
+      }
+      const live = tagStore.current!
+      const fresh = tagStudioToArrangement(live, services.idGen)
       fresh.id = linkId
-      if (existing) mergeCoachSessionFromExisting(fresh, existing)
+      if (existing) {
+        mergeCoachSessionFromExisting(fresh, existing, {
+          harmonySketch: live.harmonySketch ?? [],
+          nextId: (prefix) => services.idGen.next(prefix),
+        })
+      }
       await arrStore.adoptProject(fresh)
       arrStore.runQa()
       const p = arrStore.current
@@ -372,8 +408,17 @@ export function useArrangingCoachDock(
       preferFlats: merged.preferFlats,
       lengthTicks: merged.lengthTicks,
     })
+    if (merged.harmonySketch) tagStore.setHarmonySketch(merged.harmonySketch)
     const tick = selectedMoment.value?.startTick ?? selectedMel.value?.startTick
     if (tick != null) emit('focusTick', tick)
+  }
+
+  /** Keep Tag Studio sketch in sync when pillars change without a stack push. */
+  function syncPillarsToSketch(): void {
+    const tag = tagStore.current
+    const arr = arrStore.current
+    if (!tag || !arr) return
+    tagStore.setHarmonySketch(replaceSketchFromPillars(tag.harmonySketch ?? [], arr.pillars))
   }
 
   function syncSelectionFromTagStudio(): void {
@@ -537,6 +582,9 @@ export function useArrangingCoachDock(
     focusTab.value = 'now'
     pillarTouched.value = true
     prefs.openTagRollBottomLane('coach')
+    if (ok) {
+      // Drafts stay Coach-only until Lock — do not rebuild Chords from pillars here.
+    }
     if (ok && arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
@@ -552,6 +600,7 @@ export function useArrangingCoachDock(
     pillarTouched.value = true
     phase.value = 'pillars'
     focusTab.value = 'now'
+    syncPillarsToSketch()
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
@@ -564,6 +613,7 @@ export function useArrangingCoachDock(
   function onLockPillar(): void {
     arrStore.lockSelectedPillar()
     pillarTouched.value = true
+    syncPillarsToSketch()
     autoLabelRolesIfRepair()
     // Approach Two: confirm destination → next.
     onProposeNext()
@@ -572,6 +622,7 @@ export function useArrangingCoachDock(
   function onLockRemaining(): void {
     if (!canLockRemaining.value) return
     arrStore.lockRemaining()
+    syncPillarsToSketch()
     autoLabelRolesIfRepair()
   }
 
@@ -579,6 +630,7 @@ export function useArrangingCoachDock(
     const id = arrStore.selectedPillarId
     if (!id) return
     arrStore.removePillar(id)
+    syncPillarsToSketch()
   }
 
   function updatePillarRoot(rootPc: number): void {
@@ -586,6 +638,7 @@ export function useArrangingCoachDock(
     if (!id) return
     arrStore.updatePillar(id, { rootPc, source: 'user' })
     pillarTouched.value = true
+    syncPillarsToSketch()
   }
 
   function enterWalk(): void {
@@ -605,6 +658,7 @@ export function useArrangingCoachDock(
     pillarTouched.value = true
     phase.value = 'pillars'
     focusTab.value = 'now'
+    syncPillarsToSketch()
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
@@ -633,6 +687,7 @@ export function useArrangingCoachDock(
     pillarTouched.value = true
     phase.value = 'pillars'
     focusTab.value = 'now'
+    syncPillarsToSketch()
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
@@ -647,6 +702,7 @@ export function useArrangingCoachDock(
     arrStore.selectPillar(prev.id)
     arrStore.extendSelectedPillarTo(tick)
     pillarTouched.value = true
+    syncPillarsToSketch()
     focusPillar(prev.id)
   }
 
@@ -665,6 +721,7 @@ export function useArrangingCoachDock(
     pillarTouched.value = true
     phase.value = 'pillars'
     focusTab.value = 'now'
+    syncPillarsToSketch()
     focusPillar(prev.id)
   }
 
@@ -810,11 +867,22 @@ export function useArrangingCoachDock(
   function fixItem(lint: ArrangementLint): void {
     if (!arrStore.current) return
     if (lint.ruleId === 'key-suggestion') {
-      if (!confirm(`${lint.message}\n\nApply transpose now?`)) return
-      arrStore.fixLint(lint, { confirmDestructive: true })
-    } else {
-      arrStore.fixLint(lint)
+      pendingKeySuggestionLint.value = lint
+      return
     }
+    arrStore.fixLint(lint)
+    pushToRoll()
+  }
+
+  function cancelPendingKeySuggestion(): void {
+    pendingKeySuggestionLint.value = null
+  }
+
+  function confirmPendingKeySuggestion(): void {
+    const lint = pendingKeySuggestionLint.value
+    pendingKeySuggestionLint.value = null
+    if (!lint || !arrStore.current) return
+    arrStore.fixLint(lint, { confirmDestructive: true })
     pushToRoll()
   }
 
@@ -873,7 +941,8 @@ export function useArrangingCoachDock(
 
   function candIdentity(c: HarmonizeCandidate): string {
     const v = c.voicing?.trim()
-    return v ? `${candLabel(c)} · ${v}` : candLabel(c)
+    if (!v) return candLabel(c)
+    return `${candLabel(c)} · ${voicingDisplayLabel(v)}`
   }
 
   function whyFor(i: number) {
@@ -947,6 +1016,10 @@ export function useArrangingCoachDock(
       const next = mergeCoachSessionFromExisting(
         tagStudioToArrangement(tag, services.idGen),
         arrStore.current,
+        {
+          harmonySketch: tag.harmonySketch ?? [],
+          nextId: (prefix) => services.idGen.next(prefix),
+        },
       )
       next.id = arrStore.current.id
       await arrStore.adoptProject(next)
@@ -992,6 +1065,7 @@ export function useArrangingCoachDock(
     selectedPil,
     candidates,
     filteredCandidates,
+    candidateGroups,
     maxScore,
     filterOptions,
     candFilter,
@@ -1056,6 +1130,10 @@ export function useArrangingCoachDock(
     fillEmptyWithBest,
     fixAllSafe,
     fixItem,
+    pendingKeySuggestionLint,
+    pendingKeySuggestionMessage,
+    cancelPendingKeySuggestion,
+    confirmPendingKeySuggestion,
     canFix,
     learnLint,
     jumpToLint,

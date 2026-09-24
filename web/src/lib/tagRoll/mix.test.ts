@@ -37,10 +37,27 @@ describe('tagRoll mix', () => {
       { partId: '1', volume: 0.5, pan: -1, mute: true, solo: false },
       { partId: 'orphan', volume: 1, pan: 0, mute: false, solo: false },
     ])
-    expect(synced).toHaveLength(2)
+    expect(synced).toHaveLength(4)
     expect(synced[0]!.mute).toBe(true)
     expect(synced[0]!.volume).toBe(0.5)
     expect(synced[1]!.partId).toBe('2')
+    expect(synced[2]!.partId).toBe('mix:harmony-sketch')
+    expect(synced[2]!.mute).toBe(false)
+    expect(synced[3]!.partId).toBe('mix:harmony-detected')
+    expect(synced[3]!.mute).toBe(true)
     expect(mixForPart('2', synced).pan).toBeCloseTo(0.2)
+  })
+
+  it('detected channel is audible when soloed even if muted was default', () => {
+    const parts = [{ id: '1', name: 'Lead', color: '#000', midiGroup: 'upper' as const }]
+    const synced = syncProjectMix(parts, null)
+    const detect = synced.find((m) => m.partId === 'mix:harmony-detected')!
+    expect(detect.mute).toBe(true)
+    expect(isPartAudible('mix:harmony-detected', synced)).toBe(false)
+    const withSolo = synced.map((m) =>
+      m.partId === 'mix:harmony-detected' ? { ...m, mute: false, solo: true } : m,
+    )
+    expect(isPartAudible('mix:harmony-detected', withSolo)).toBe(true)
+    expect(isPartAudible('1', withSolo)).toBe(false)
   })
 })

@@ -3,6 +3,7 @@
  * Add / rename / recolor / delete Tag Studio parts; assign part hotkeys.
  */
 import { computed, ref } from 'vue'
+import ConfirmDialog from '../ConfirmDialog.vue'
 import {
   displayHotkeyForPart,
   normalizePartHotkey,
@@ -23,10 +24,15 @@ const store = useTagRollStore()
 const newName = ref('Part')
 const newColor = ref('#6b7280')
 const newHotkey = ref('')
+const pendingDelete = ref<{ id: string; name: string } | null>(null)
 
 const project = computed(() => store.current)
 const parts = computed(() => project.value?.parts ?? [])
 const canDelete = computed(() => parts.value.length > 1)
+const pendingDeleteMessage = computed(() => {
+  const p = pendingDelete.value
+  return p ? `Delete part “${p.name}” and its notes?` : ''
+})
 
 function onAdd(): void {
   const hk = normalizePartHotkey(newHotkey.value)
@@ -37,8 +43,18 @@ function onAdd(): void {
 
 function onDelete(id: string, name: string): void {
   if (!canDelete.value) return
-  if (!confirm(`Delete part “${name}” and its notes?`)) return
-  store.removePart(id)
+  pendingDelete.value = { id, name }
+}
+
+function cancelPendingDelete(): void {
+  pendingDelete.value = null
+}
+
+function confirmPendingDelete(): void {
+  const pending = pendingDelete.value
+  pendingDelete.value = null
+  if (!pending || !canDelete.value) return
+  store.removePart(pending.id)
 }
 
 function onHotkeyChange(id: string, raw: string): void {
@@ -70,7 +86,7 @@ function onHotkeyChange(id: string, raw: string): void {
 
     <p class="hint">
       Hotkeys select the active part while editing. Defaults: Tenor T · Lead L · Bari R · Bass B
-      (Y/S reserved for Lyrics/Stop). Custom parts: pick any free letter.
+      (Y/S reserved for Lyrics lane / Stop). Custom parts: pick any free letter.
     </p>
 
     <ul class="list" role="list">
@@ -153,6 +169,15 @@ function onHotkeyChange(id: string, raw: string): void {
         Add part
       </button>
     </div>
+
+    <ConfirmDialog
+      :open="!!pendingDelete"
+      title="Delete part?"
+      :message="pendingDeleteMessage"
+      confirm-label="Delete"
+      @close="cancelPendingDelete"
+      @confirm="confirmPendingDelete"
+    />
   </div>
 </template>
 

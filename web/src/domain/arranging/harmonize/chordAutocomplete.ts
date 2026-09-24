@@ -9,6 +9,7 @@ import { listSubstitutionBranches } from '../substitutions'
 import { leadAllowsCounterpartSwap, counterpartRoot } from '../counterpart'
 import { isDominantOf, secondaryDominantRootOf } from '../secondaryDominant'
 import { theoryRankBonuses } from '../theoryScores'
+import { scoreCadenceFit } from '../cadences'
 import type { ChordSuggestion, TheoryFactor } from '../chordSuggestion'
 import type { ContestProfile } from '../contestProfile'
 import { DEFAULT_CONTEST_PROFILE } from '../contestProfile'
@@ -32,6 +33,8 @@ export type AutocompleteInput = {
   rankerDeps?: RankerDeps
   /** When true, boost sevenths if arrangement BS7 density is low. */
   preferSevenths?: boolean
+  nextMelodyMidi?: number | null
+  prevMelodyMidi?: number | null
 }
 
 function chipFor(
@@ -75,6 +78,9 @@ function whySentence(
   if (tag === 'release') {
     return `${roman} — resting / release color under the lead.`
   }
+  if (top?.id === 'cadenceFit' || top?.teachingId === 'classic_cadences') {
+    return `${roman} — classic cadence fit (${top.label}).`
+  }
   if (top?.teachingId === 'tension_release') {
     return `${roman} — ranked for tension/release into the harmonic highway.`
   }
@@ -93,7 +99,9 @@ export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion
     mode,
     prevRootPc: input.prevRootPc,
     prevNatureId: input.prevNatureId ?? null,
-    preferScf: input.preferScf ?? true,
+    // SCF stays opt-in (SMN / wizard); default homes are PCF so Bonnie-style charts
+    // do not surface ♭II / ♭VII / add9 as the top pick.
+    preferScf: input.preferScf ?? false,
     profile,
     nextPillarRoot,
     prevMidi: input.prevMidi ?? null,
@@ -101,7 +109,21 @@ export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion
 
   // Annotate with prevDominant for resolution scoring via ranker deps path:
   // we re-score with theory bonuses on top of rankCandidates.
-  const ranked = rankCandidates(generated, input.rankerDeps)
+  const cadenceContext = {
+    tonality: input.tonality,
+    mode,
+    melodyMidi: input.note.midi,
+    nextMelodyMidi: input.nextMelodyMidi ?? null,
+    prevMelodyMidi: input.prevMelodyMidi ?? null,
+    prevRootPc: input.prevRootPc,
+    prevNatureId: input.prevNatureId ?? null,
+    nextPillarRoot,
+    pillarRoot: input.pillar.rootPc,
+  }
+  const ranked = rankCandidates(generated, {
+    ...input.rankerDeps,
+    cadenceContext: input.rankerDeps?.cadenceContext ?? cadenceContext,
+  })
 
   const out: ChordSuggestion[] = []
   for (const c of ranked) {
@@ -116,15 +138,24 @@ export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion
       towardPillar,
       prevDominant: input.prevDominant ?? null,
     })
+    const cad = scoreCadenceFit(
+      { rootPc: c.rootPc, natureId: c.natureId, layer: c.layer },
+      cadenceContext,
+      { includeColor: true, bias: input.rankerDeps?.cadenceBias },
+    )
     let score = c.score
     score += bonuses.spacing * 1.5
     score += bonuses.contrary * 1.25
     score += bonuses.commonTone * 1.25
     score += bonuses.tensionRelease * 2
     score += bonuses.resolution * 2
+    score += cad.boost
     score -= bonuses.parallelPenalty * 2
+    // Density nudge only when the lead already carries dominant color (3/7),
+    // never to force I7 / IV7 on a root-melody home.
     if (input.preferSevenths && (c.natureId === 'seventh' || c.natureId === 'ninth')) {
-      score += 2
+      const leadRole = Number(c.voicing[2])
+      if (leadRole === 3 || leadRole === 7) score += 2
     }
 
     const roman = romanForChord({
@@ -170,6 +201,12 @@ export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion
         label: 'resolution',
         value: bonuses.resolution * 2,
         teachingId: 'tension_release',
+      },
+      {
+        id: 'cadenceFit',
+        label: cad.hint?.label ?? 'cadence fit',
+        value: cad.boost,
+        teachingId: 'classic_cadences',
       },
       {
         id: 'spacing',

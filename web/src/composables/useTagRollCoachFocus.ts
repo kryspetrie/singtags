@@ -10,7 +10,7 @@ import {
   noteIdsInRange,
 } from '../lib/arranging/selectNotesAtTick'
 import {
-  confirmDeleteInspectRangeNotes,
+  inspectRangeDeleteMessage,
   resolveInspectPlayback,
   type InspectRange,
 } from '../lib/tagRoll/chordCursorTransport'
@@ -118,7 +118,7 @@ export function useTagRollCoachFocus(
   }
 
   /**
-   * Delete every note in the inspect range (with confirm). Returns true if handled
+   * Delete every note in the inspect range. Returns true if handled
    * (including cancel); false when there is no inspect range — caller may fall back.
    */
   function carveInspectRange(c: InspectRange, p: TagRollProject): boolean {
@@ -134,14 +134,35 @@ export function useTagRollCoachFocus(
     return false
   }
 
-  function tryDeleteInspectRangeNotes(ask?: (message: string) => boolean): boolean {
+  /** Peek a pending inspect-range delete (for Vue ConfirmDialog). Null = no range. */
+  function peekInspectRangeDelete(): { count: number; message: string } | null {
+    const c = chordCursor.value
+    const p = getProject()
+    if (!c || !p) return null
+    const clip = sectionClipboardFromRange(p.notes, c)
+    if (!clip) return { count: 0, message: '' }
+    const message = inspectRangeDeleteMessage(clip.notes.length)
+    if (!message) return { count: 0, message: '' }
+    return { count: clip.notes.length, message }
+  }
+
+  function executeInspectRangeDelete(): boolean {
     const c = chordCursor.value
     const p = getProject()
     if (!c || !p) return false
-    const clip = sectionClipboardFromRange(p.notes, c)
-    if (!clip) return true
-    if (!confirmDeleteInspectRangeNotes(clip.notes.length, ask)) return true
     return carveInspectRange(c, p)
+  }
+
+  /**
+   * Sync path for tests: pass `ask` to confirm. Production UI should use
+   * peekInspectRangeDelete + ConfirmDialog + executeInspectRangeDelete instead.
+   */
+  function tryDeleteInspectRangeNotes(ask: (message: string) => boolean): boolean {
+    const peek = peekInspectRangeDelete()
+    if (!peek) return false
+    if (peek.count <= 0) return true
+    if (!ask(peek.message)) return true
+    return executeInspectRangeDelete()
   }
 
   /** Copy notes in the inspect range, anchored to the left bound (sliced at bounds). */
@@ -174,6 +195,8 @@ export function useTagRollCoachFocus(
     armInspectPlayback,
     clearInspectPlaybackRewind,
     takeInspectPlaybackRewind,
+    peekInspectRangeDelete,
+    executeInspectRangeDelete,
     tryDeleteInspectRangeNotes,
     tryCopyInspectRangeNotes,
     tryCutInspectRangeNotes,

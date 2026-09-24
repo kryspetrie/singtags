@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Coaching configuration — ruleset, temperament, and which QA groups to run.
+ * Coaching configuration — ruleset, temperament, cadence bias, and QA groups.
  */
+import { ref, watch } from 'vue'
 import {
   QA_CHECK_GROUPS,
   isQaGroupEnabled,
@@ -9,6 +10,11 @@ import {
 } from '../../domain/arranging/coachConfig'
 import type { ContestProfile, TuningMode } from '../../domain/arranging/types'
 import type { ArrangementQaConfig } from '../../domain/arranging/coachConfig'
+import {
+  loadCadenceBias,
+  saveCadenceBias,
+  type CadenceBias,
+} from '../../domain/arranging/cadences'
 
 defineProps<{
   contestProfile: ContestProfile
@@ -21,6 +27,7 @@ const emit = defineEmits<{
   'update:contestProfile': [ContestProfile]
   'update:tuningMode': [TuningMode]
   'update:qaGroup': [groupId: QaCheckGroupId, enabled: boolean]
+  'update:cadenceBias': [CadenceBias]
   close: []
 }>()
 
@@ -29,6 +36,13 @@ const profiles: { id: ContestProfile; label: string; hint: string }[] = [
   { id: 'sai11', label: 'SAI-11 (Rylander)', hint: 'Sweet Adelines eleven-chord vocabulary' },
   { id: 'learning', label: 'Learning', hint: 'Full vocabulary; illegal chords warn only' },
 ]
+
+const cadenceBias = ref<CadenceBias>(loadCadenceBias())
+
+watch(cadenceBias, (v) => {
+  saveCadenceBias(v)
+  emit('update:cadenceBias', v)
+})
 
 function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
   return isQaGroupEnabled(config, id)
@@ -74,6 +88,19 @@ function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
       </select>
     </label>
     <p class="hint">Affects hear / export tuning; analysis still uses equal pitch classes.</p>
+
+    <label class="field">
+      Cadence bias
+      <select v-model="cadenceBias" aria-label="Cadence bias">
+        <option value="strong">Strong (default)</option>
+        <option value="moderate">Moderate</option>
+        <option value="off">Off</option>
+      </select>
+    </label>
+    <p class="hint">
+      How strongly Coach and Detected prefer textbook cadences (V7→I, II7→V7→I, I7→IV). Off is for
+      experimental reharmonization.
+    </p>
 
     <fieldset class="checks">
       <legend>Validations</legend>

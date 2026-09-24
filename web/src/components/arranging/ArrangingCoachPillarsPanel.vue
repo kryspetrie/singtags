@@ -37,21 +37,21 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Mark home roots under phrases — not full chords yet. Bands on the Coach lane show destinations;
-      Hear the root, then Lock when it feels right. Inspect bounds (L/R) highlight the phrase —
-      notes stay unselected for edit.
+      Prefer the <strong>My Chords</strong> lane on the roll for phrase chords (C, G7, or I / V7).
+      Propose drafts stay on the Coach lane until you <strong>Lock</strong> — Lock commits into My Chords.
+      For G→C mark <strong>G</strong> then <strong>C</strong>, not one C for everything.
     </p>
     <p v-if="repairTour" class="muted tiny">
-      This chart already has harmony on the roll — review home roots here; existing stacks stay put.
+      This chart already has harmony on the roll — review phrase chords here; existing stacks stay put.
     </p>
     <div class="row">
       <button
         type="button"
         class="step-btn"
-        title="Insert a draft home root starting at the playhead (or selected moment)."
+        title="Insert a draft home root at the playhead. Lock in Coach to commit to My Chords."
         @click="$emit('addAtPlayhead')"
       >
-        Add at playhead
+        Draft at playhead
       </button>
       <button
         type="button"
@@ -63,37 +63,6 @@ defineEmits<{
         Next: Strong / passing →
       </button>
     </div>
-    <details class="advanced">
-      <summary class="muted tiny">Advanced</summary>
-      <div class="row">
-        <button
-          type="button"
-          class="step-btn"
-          title="Draft a home root for every measure with melody (batch — not the teaching path)."
-          @click="$emit('inferBatch')"
-        >
-          Draft all measures
-        </button>
-        <button
-          v-if="canLockRemaining"
-          type="button"
-          class="step-btn"
-          title="Lock every remaining draft after you have locked at least one (advanced)."
-          @click="$emit('lockRemaining')"
-        >
-          Lock all drafts
-        </button>
-        <button
-          v-if="skippedCount > 0"
-          type="button"
-          class="step-btn"
-          title="Allow propose to revisit spans you Skip’d this session"
-          @click="$emit('clearSkips')"
-        >
-          Reset skips ({{ skippedCount }})
-        </button>
-      </div>
-    </details>
     <ul v-if="pillars.length" class="pillar-list">
       <li v-for="(pil, i) in pillars" :key="pil.id">
         <button
@@ -103,7 +72,7 @@ defineEmits<{
           :title="
             [
               `Pillar ${i + 1}: ${pcName(pil.rootPc, preferFlats)}`,
-              pil.confirmed ? 'Locked home root' : 'Draft — Hear and Lock when ready',
+              pil.confirmed ? 'Locked — edit quality on the Harmony strip' : 'Draft — Hear and Lock on transport',
               pil.reason || '',
               pillarGlossaryTip,
             ]
@@ -118,42 +87,9 @@ defineEmits<{
         </button>
       </li>
     </ul>
-    <div v-if="selectedPil" class="card">
-      <label class="root-big" :title="pillarGlossaryTip || 'Pitch-class home root for this phrase'">
-        Home root
-        <select
-          class="root-sel"
-          :value="selectedPil.rootPc"
-          @change="$emit('updateRoot', Number(($event.target as HTMLSelectElement).value))"
-        >
-          <option v-for="n in 12" :key="n - 1" :value="n - 1">
-            {{ pcName(n - 1, preferFlats) }}
-          </option>
-        </select>
-      </label>
-      <span
-        class="stack-state"
-        :class="selectedPil.confirmed ? 'ok' : 'missing'"
-        :title="
-          selectedPil.confirmed
-            ? 'Locked — coach treats this as a confirmed home root'
-            : 'Draft — still editable; Lock when you are happy with it'
-        "
-      >
-        {{ selectedPil.confirmed ? 'locked' : 'draft' }}
-      </span>
-      <p v-if="selectedPil.reason" class="muted tiny">{{ selectedPil.reason }}</p>
-      <div class="row">
-        <button
-          type="button"
-          class="step-btn"
-          title="Remove this home-root span"
-          @click="$emit('deletePillar')"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
+    <p v-if="selectedPil?.confirmed" class="muted tiny">
+      Locked root {{ pcName(selectedPil.rootPc, preferFlats) }} — change quality on the Harmony strip.
+    </p>
     <div v-if="coverageGaps.length" class="gaps">
       <h3 class="subh">Uncovered ({{ coverageGaps.length }})</h3>
       <p class="muted tiny">Melody outside any home-root span — jump to look, then add if you want.</p>
@@ -187,6 +123,71 @@ defineEmits<{
         </li>
       </ul>
     </div>
+    <details class="advanced">
+      <summary class="muted tiny">Advanced</summary>
+      <div class="row">
+        <button
+          type="button"
+          class="step-btn"
+          title="Draft a home root for every measure with melody (batch — not the teaching path)."
+          @click="$emit('inferBatch')"
+        >
+          Draft all measures
+        </button>
+        <button
+          v-if="canLockRemaining"
+          type="button"
+          class="step-btn"
+          title="Lock every remaining draft after you have locked at least one (advanced)."
+          @click="$emit('lockRemaining')"
+        >
+          Lock all drafts
+        </button>
+        <button
+          v-if="skippedCount > 0"
+          type="button"
+          class="step-btn"
+          title="Allow propose to revisit spans you Skip’d this session"
+          @click="$emit('clearSkips')"
+        >
+          Reset skips ({{ skippedCount }})
+        </button>
+      </div>
+      <div v-if="selectedPil && !selectedPil.confirmed" class="card">
+        <label class="root-big" :title="pillarGlossaryTip || 'Pitch-class home root for this phrase'">
+          Draft root
+          <select
+            class="root-sel"
+            :value="selectedPil.rootPc"
+            @change="$emit('updateRoot', Number(($event.target as HTMLSelectElement).value))"
+          >
+            <option v-for="n in 12" :key="n - 1" :value="n - 1">
+              {{ pcName(n - 1, preferFlats) }}
+            </option>
+          </select>
+        </label>
+        <div class="row">
+          <button
+            type="button"
+            class="step-btn"
+            title="Remove this home-root span"
+            @click="$emit('deletePillar')"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+      <div v-else-if="selectedPil" class="row">
+        <button
+          type="button"
+          class="step-btn"
+          title="Remove this home-root span (also removes Harmony strip chord)"
+          @click="$emit('deletePillar')"
+        >
+          Delete locked
+        </button>
+      </div>
+    </details>
   </section>
 </template>
 

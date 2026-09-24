@@ -52,6 +52,40 @@ describe('syncTagRoll bridge', () => {
     ])
   })
 
+  it('seeds pillars from locked harmony sketch and writes them back', () => {
+    const tag = createEmptyTagRollProject({ title: 'Sketch' })
+    tag.harmonySketch = [
+      {
+        id: 'hs1',
+        startTick: 0,
+        endTick: 480,
+        rootPc: 7,
+        quality: 'seventh',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    const arr = tagStudioToArrangement(tag, createSequentialIdGenerator(1))
+    expect(arr.pillars).toEqual([
+      expect.objectContaining({ rootPc: 7, startTick: 0, endTick: 480, confirmed: true }),
+    ])
+    arr.pillars = [
+      {
+        id: 'pil_new',
+        rootPc: 0,
+        startTick: 480,
+        endTick: 960,
+        source: 'user',
+        confirmed: true,
+      },
+    ]
+    const merged = mergeArrangementIntoTagRoll(tag, arr, createSequentialIdGenerator(50))
+    // Replace from pillars drops the old G7 span — coach list is authoritative after push.
+    expect(merged.harmonySketch).toEqual([
+      expect.objectContaining({ rootPc: 0, locked: true }),
+    ])
+  })
+
   it('merge keeps a held lead post intact when mid-hold stacks are applied', () => {
     const tag = createEmptyTagRollProject({ title: 'Post' })
     const lead = tag.parts.find((p) => p.name === 'Lead')!

@@ -1,12 +1,20 @@
 <script setup lang="ts">
 /**
- * Time-aligned expression lane: tempo markers, fermatas, rit/accel brackets.
+ * Time-aligned Mods lane: tempo, key, fermatas, rit/accel.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { newLocalId } from '../../offline/localLibraryDb'
 import { pxToTicks, ticksToPx } from '../../lib/tagRoll/normalize'
 import { snapTick } from '../../lib/tagRoll/snap'
-import { beatTicks, bpmAtTick, isRampStickyMarker, measureTicks } from '../../lib/tagRoll/tempoMap'
+import { bpmAtTick, isRampStickyMarker, measureTicks } from '../../lib/tagRoll/tempoMap'
+import { keyAtTick, keyMarkerLabel } from '../../lib/tagRoll/keyMap'
+import {
+  MAJOR_KEY_CHOICES,
+  MINOR_KEY_CHOICES,
+  keyChoiceById,
+  keyChoiceId,
+} from '../../lib/tagRoll/keySignature'
+import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import {
   beatsToTicks,
   ticksToBeatsDisplay,
@@ -14,17 +22,21 @@ import {
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import {
   hitExpressionAtX,
+  hitKeyMarkerAtX,
   hitTempoMarkerAtX,
 } from '../../lib/tagRoll/expressionLaneHitTest'
 import { fermataVisualCenterTick } from '../../lib/tagRoll/expressionDisplay'
 import {
   TAG_ROLL_PPQ,
   type TagRollExpression,
+  type TagRollKeyMarker,
   type TagRollProject,
   type TagRollTempoMarker,
 } from '../../lib/tagRoll/types'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
+import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
+import TagRollBpmInput from './TagRollBpmInput.vue'
 
 const LANE_H = 72
 const HANDLE_W = 10
@@ -41,22 +53,27 @@ const props = defineProps<{
   leftGutterPx?: number
 }>()
 
-const leftGutterStyle = computed(() => {
-  const g = Math.max(52, props.leftGutterPx ?? 72)
-  return { '--lane-gutter': `${g}px` } as Record<string, string>
-})
+const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
 
 const store = useTagRollStore()
 const prefs = usePreferencesStore()
 const collapsed = computed(() => prefs.tagRollExpressionLaneCollapsed)
 
-function toggleCollapsed(): void {
-  if (collapsed.value) {
-    prefs.openTagRollBottomLane('mods')
+const modViewOptions = [
+  { value: '', label: 'Select' },
+  { value: 'tempo', label: 'Tempo' },
+  { value: 'key', label: 'Key' },
+  { value: 'fermata', label: 'Fermata' },
+  { value: 'rit', label: 'Rit.' },
+  { value: 'accel', label: 'Accel.' },
+] as const
+
+function onModView(v: string): void {
+  if (props.readOnly) return
+  if (v === 'tempo' || v === 'key' || v === 'fermata' || v === 'rit' || v === 'accel') {
+    store.setExpressionTool(v)
   } else {
-    prefs.openTagRollBottomLane(null)
     store.setExpressionTool(null)
-    store.selectExpression(null)
   }
 }
 
@@ -82,6 +99,14 @@ const selectedTempo = computed(() => {
   return props.project.tempoMarkers.find((m) => m.id === id) ?? null
 })
 
+const selectedKey = computed(() => {
+  const id = selectedId.value
+  if (!id) return null
+  return (props.project.keyMarkers ?? []).find((m) => m.id === id) ?? null
+})
+
+const keyMarkers = computed(() => props.project.keyMarkers ?? [])
+
 type Gesture =
   | { kind: 'pan'; originX: number; startClientX: number; moved: boolean }
   | {
@@ -100,6 +125,7 @@ type Gesture =
       endTick: number
     }
   | { kind: 'tempo'; id: string; originTick: number; grabTick: number; history: boolean }
+  | { kind: 'key'; id: string; originTick: number; grabTick: number; history: boolean }
   | { kind: 'fermata'; id: string; originTick: number; grabTick: number; history: boolean }
 
 let gesture: Gesture | null = null
@@ -136,6 +162,10 @@ function xAtFermata(tick: number): number {
 
 function hitTempo(lx: number): TagRollTempoMarker | null {
   return hitTempoMarkerAtX(visibleTempoMarkers.value, lx, xAtTick)
+}
+
+function hitKey(lx: number): TagRollKeyMarker | null {
+  return hitKeyMarkerAtX(keyMarkers.value, lx, xAtTick)
 }
 
 function prevailingBpmAt(tick: number, excludeId?: string): number {
@@ -205,31 +235,16 @@ function draw(): void {
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, cssW.value, LANE_H)
 
-  const ts = props.project.timeSignature
-  const mTicks = measureTicks(ts)
-  const bTicks = beatTicks(ts)
-  const ox = -scrollX.value
-  const cw = cellW.value
-
-  for (let t = 0; t <= props.project.lengthTicks; t += bTicks) {
-    const x = ox + ticksToPx(t, cw)
-    if (x < -2 || x > cssW.value + 2) continue
-    const isMeasure = t % mTicks === 0
-    if (isMeasure) {
-      ctx.strokeStyle = text
-      ctx.globalAlpha = 0.55
-      ctx.lineWidth = 2
-    } else {
-      ctx.strokeStyle = muted
-      ctx.globalAlpha = 0.28
-      ctx.lineWidth = 1
-    }
-    ctx.beginPath()
-    ctx.moveTo(x + 0.5, 0)
-    ctx.lineTo(x + 0.5, LANE_H)
-    ctx.stroke()
-    ctx.globalAlpha = 1
-  }
+  drawLaneTimeGrid(ctx, {
+    scrollX: scrollX.value,
+    cellW: cellW.value,
+    lengthTicks: props.project.lengthTicks,
+    timeSignature: props.project.timeSignature,
+    height: LANE_H,
+    width: cssW.value,
+    measureColor: text,
+    beatColor: muted,
+  })
 
   ctx.strokeStyle = border
   ctx.lineWidth = 1
@@ -320,6 +335,37 @@ function draw(): void {
     ctx.fillText(label, px + (pw - tw) / 2, py + ph / 2)
   }
 
+  // Key markers — lower pills (avoid covering tempo)
+  for (const m of keyMarkers.value) {
+    const x = xAtTick(m.tick)
+    if (x < -40 || x > cssW.value + 40) continue
+    const on = m.id === selectedId.value
+    const label = keyMarkerLabel(m)
+    ctx.font = '700 11px ui-sans-serif, system-ui, sans-serif'
+    const tw = ctx.measureText(label).width
+    const pw = Math.max(26, tw + 12)
+    const ph = 20
+    const px = x - 2
+    const py = LANE_H - ph - 4
+    const color = '#0f766e'
+    ctx.fillStyle = on ? color : bg
+    roundRect(ctx, px, py, pw, ph, 5)
+    ctx.fill()
+    ctx.strokeStyle = on ? color : muted
+    ctx.lineWidth = on ? 2 : 1.5
+    roundRect(ctx, px + 0.5, py + 0.5, pw - 1, ph - 1, 5)
+    ctx.stroke()
+    ctx.strokeStyle = on ? color : muted
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(x + 0.5, 2)
+    ctx.lineTo(x + 0.5, py)
+    ctx.stroke()
+    ctx.fillStyle = on ? '#fff' : text
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, px + (pw - tw) / 2, py + ph / 2)
+  }
+
   // Fermatas — boxed like rit/accel; hold/gap edit in the toolbar when selected.
   for (const e of props.project.expressions) {
     if (e.kind !== 'fermata') continue
@@ -400,6 +446,17 @@ function placeAt(tick: number): void {
     if (marker) store.selectExpression(marker.id)
     return
   }
+  if (t === 'key') {
+    const cur = keyAtTick(at, props.project.keyMarkers, {
+      tonality: props.project.tonality,
+      tonalityMode: props.project.tonalityMode ?? 'major',
+      preferFlats: props.project.preferFlats,
+    })
+    store.setKeyAtTick(at, cur)
+    const marker = store.current?.keyMarkers?.find((m) => m.tick === at)
+    if (marker) store.selectExpression(marker.id)
+    return
+  }
   if (t === 'fermata') {
     store.addExpression({
       id: newLocalId('tre'),
@@ -469,6 +526,19 @@ function onPointerDown(e: PointerEvent): void {
       kind: 'tempo',
       id: hitT.id,
       originTick: hitT.tick,
+      grabTick: tickAtX(local.x),
+      history: false,
+    }
+    return
+  }
+
+  const hitK = hitKey(local.x)
+  if (hitK) {
+    store.selectExpression(hitK.id)
+    gesture = {
+      kind: 'key',
+      id: hitK.id,
+      originTick: hitK.tick,
       grabTick: tickAtX(local.x),
       history: false,
     }
@@ -568,6 +638,17 @@ function onPointerMove(e: PointerEvent): void {
     }
     const next = snapTick(gesture.originTick + (tick - gesture.grabTick), snap)
     store.updateTempoMarkerLive(gesture.id, { tick: Math.max(snap, next) })
+    return
+  }
+
+  if (gesture.kind === 'key') {
+    if (gesture.originTick === 0) return
+    if (!gesture.history) {
+      store.pushHistoryCheckpoint()
+      gesture.history = true
+    }
+    const next = snapTick(gesture.originTick + (tick - gesture.grabTick), snap)
+    store.updateKeyMarkerLive(gesture.id, { tick: Math.max(snap, next) })
   }
 }
 
@@ -605,24 +686,43 @@ function onGapChange(e: Event): void {
   store.updateExpression(expr.id, { gapTicks: Math.max(0, beatsToTicks(v)) })
 }
 
-function onRampBpm(which: 'startBpm' | 'endBpm', e: Event): void {
+function onTempoBpm(v: number): void {
+  const m = selectedTempo.value
+  if (!m || !Number.isFinite(v)) return
+  store.updateTempoMarker(m.id, { bpm: v })
+}
+
+function onRampBpm(which: 'startBpm' | 'endBpm', v: number): void {
   const expr = selectedExpr.value
   if (!expr || (expr.kind !== 'rit' && expr.kind !== 'accel')) return
-  const v = Number((e.target as HTMLInputElement).value)
   if (!Number.isFinite(v)) return
   store.updateExpression(expr.id, { [which]: Math.max(20, Math.min(320, Math.round(v))) })
 }
 
-function onTempoBpm(e: Event): void {
-  const m = selectedTempo.value
+function onKeyChoice(e: Event): void {
+  const m = selectedKey.value
   if (!m) return
-  const v = Number((e.target as HTMLInputElement).value)
-  if (!Number.isFinite(v)) return
-  store.updateTempoMarker(m.id, { bpm: v })
+  const choice = keyChoiceById((e.target as HTMLSelectElement).value)
+  if (!choice) return
+  store.updateKeyMarker(m.id, {
+    tonality: choice.tonality,
+    preferFlats: choice.preferFlats,
+    tonalityMode: choice.mode,
+  })
 }
 
-const selectedIsStartTempo = computed(
-  () => selectedTempo.value?.tick === 0,
+const selectedIsStartTempo = computed(() => selectedTempo.value?.tick === 0)
+const selectedIsStartKey = computed(() => selectedKey.value?.tick === 0)
+
+const showInspect = computed(
+  () =>
+    !readOnly.value &&
+    !!(
+      selectedTempo.value ||
+      selectedKey.value ||
+      selectedExpr.value ||
+      selectedIsStartTempo.value
+    ),
 )
 
 function onDeleteSelected(): void {
@@ -630,6 +730,8 @@ function onDeleteSelected(): void {
   if (!id) return
   if (props.project.tempoMarkers.some((m) => m.id === id)) {
     store.deleteTempoMarker(id)
+  } else if ((props.project.keyMarkers ?? []).some((m) => m.id === id)) {
+    store.deleteKeyMarker(id)
   } else {
     store.deleteExpression(id)
   }
@@ -658,6 +760,7 @@ watch(
     props.project.lengthTicks,
     props.project.timeSignature,
     props.project.tempoMarkers,
+    props.project.keyMarkers,
     props.project.expressions,
     selectedId.value,
     cssW.value,
@@ -668,69 +771,39 @@ watch(
 </script>
 
 <template>
-  <div v-if="!collapsed" class="expr-lane" :style="leftGutterStyle">
-    <button
-      type="button"
-      class="lane-toggle on"
-      title="Collapse Mods lane"
-      aria-label="Collapse Mods lane"
-      aria-expanded="true"
-      @click="toggleCollapsed"
-    >
-      Mods
-    </button>
-    <div class="lane-main">
-    <div v-if="!collapsed" class="tools" role="toolbar" aria-label="Expression tools">
-      <span v-if="readOnly" class="hint">View only</span>
-      <template v-else>
-      <button
-        type="button"
-        class="btn"
-        :class="{ on: tool === 'tempo' }"
-        :title="tagRollTip('Place tempo marker — click the lane')"
-        @click="store.setExpressionTool(tool === 'tempo' ? null : 'tempo')"
-      >
-        Tempo
-      </button>
-      <button
-        type="button"
-        class="btn"
-        :class="{ on: tool === 'fermata' }"
-        :title="tagRollTip('Place fermata — click the lane')"
-        @click="store.setExpressionTool(tool === 'fermata' ? null : 'fermata')"
-      >
-        Fermata
-      </button>
-      <button
-        type="button"
-        class="btn"
-        :class="{ on: tool === 'rit' }"
-        :title="tagRollTip('Place ritardando — drag on the lane')"
-        @click="store.setExpressionTool(tool === 'rit' ? null : 'rit')"
-      >
-        Ritardando
-      </button>
-      <button
-        type="button"
-        class="btn"
-        :class="{ on: tool === 'accel' }"
-        :title="tagRollTip('Place accelerando — drag on the lane')"
-        @click="store.setExpressionTool(tool === 'accel' ? null : 'accel')"
-      >
-        Accelerando
-      </button>
-
+  <TagRollBottomLaneShell
+    v-if="!collapsed"
+    label="Mods"
+    :left-gutter-px="leftGutterPx"
+    :view-options="[...modViewOptions]"
+    :view-value="tool ?? ''"
+    view-field-label="Add"
+    view-aria-label="Mods add tool"
+    @update:view="onModView"
+  >
+    <template v-if="showInspect" #inspect>
       <template v-if="selectedTempo">
         <label class="field">
           <span class="lbl">BPM</span>
-          <input
-            class="num"
-            type="number"
-            min="20"
-            max="320"
-            :value="selectedTempo.bpm"
-            @change="onTempoBpm"
-          />
+          <TagRollBpmInput :model-value="selectedTempo.bpm" aria-label="Tempo BPM" @change="onTempoBpm" />
+        </label>
+      </template>
+      <template v-else-if="selectedKey">
+        <label class="field">
+          <span class="lbl">Key</span>
+          <select
+            class="sel"
+            :value="keyChoiceId(selectedKey.tonality, selectedKey.preferFlats, selectedKey.tonalityMode)"
+            aria-label="Key signature"
+            @change="onKeyChoice"
+          >
+            <optgroup label="Major">
+              <option v-for="o in MAJOR_KEY_CHOICES" :key="o.id" :value="o.id">{{ o.label }}</option>
+            </optgroup>
+            <optgroup label="Minor">
+              <option v-for="o in MINOR_KEY_CHOICES" :key="o.id" :value="o.id">{{ o.label }}</option>
+            </optgroup>
+          </select>
         </label>
       </template>
       <template v-else-if="selectedExpr?.kind === 'fermata'">
@@ -765,33 +838,26 @@ watch(
       </template>
       <template v-else-if="selectedExpr && (selectedExpr.kind === 'rit' || selectedExpr.kind === 'accel')">
         <label class="field">
-          <span class="lbl">Start BPM</span>
-          <input
-            class="num"
-            type="number"
-            min="20"
-            max="320"
-            :value="selectedExpr.startBpm"
-            @change="onRampBpm('startBpm', $event)"
+          <span class="lbl">Start</span>
+          <TagRollBpmInput
+            :model-value="selectedExpr.startBpm"
+            aria-label="Ramp start BPM"
+            @change="(v) => onRampBpm('startBpm', v)"
           />
         </label>
         <label class="field">
-          <span class="lbl">End BPM</span>
-          <input
-            class="num"
-            type="number"
-            min="20"
-            max="320"
-            :value="selectedExpr.endBpm"
-            @change="onRampBpm('endBpm', $event)"
+          <span class="lbl">End</span>
+          <TagRollBpmInput
+            :model-value="selectedExpr.endBpm"
+            aria-label="Ramp end BPM"
+            @change="(v) => onRampBpm('endBpm', v)"
           />
         </label>
       </template>
-
       <button
-        v-if="selectedId && !selectedIsStartTempo"
+        v-if="selectedId && !selectedIsStartTempo && !selectedIsStartKey"
         type="button"
-        class="btn danger"
+        class="danger-btn"
         :title="tipByShortcutId('delete', 'Delete selected expression')"
         @click="onDeleteSelected"
       >
@@ -804,9 +870,15 @@ watch(
       >
         Start tempo
       </span>
-      </template>
-    </div>
-    <div v-show="!collapsed" ref="wrapRef" class="lane-wrap">
+      <span
+        v-else-if="selectedIsStartKey"
+        class="hint"
+        :title="tagRollTip('Starting key cannot be deleted')"
+      >
+        Start key
+      </span>
+    </template>
+    <div ref="wrapRef" class="lane-wrap">
       <canvas
         ref="canvasRef"
         class="lane-canvas"
@@ -816,103 +888,61 @@ watch(
         @pointercancel="onPointerUp"
       />
     </div>
-    </div>
-  </div>
+  </TagRollBottomLaneShell>
 </template>
 
 <style scoped>
-.expr-lane {
-  display: grid;
-  grid-template-columns: var(--lane-gutter, 72px) minmax(0, 1fr);
-  gap: 0;
-  align-items: stretch;
-  border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 94%, var(--bg, var(--surface)));
-  padding-bottom: 0.2rem;
-}
-.lane-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: stretch;
-  margin: 0.25rem 0.2rem;
-  padding: 0.35rem 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  min-height: 100%;
-  writing-mode: horizontal-tb;
-  transform: none;
-}
-.lane-toggle:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.lane-toggle.on {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--text);
-}
-.lane-main {
-  display: grid;
-  gap: 0.35rem;
-  min-width: 0;
-}
-.tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem 0.5rem;
-  padding: 0.45rem 0.55rem 0.15rem 0.2rem;
-}
 .lbl {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--muted);
   letter-spacing: 0.02em;
 }
 .hint {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--muted);
 }
 .unit {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--muted);
 }
 .field {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.15rem 0.35rem;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg, var(--surface)) 70%, transparent);
+  gap: 0.25rem;
 }
 .num {
-  width: 4.1rem;
-  min-height: 34px;
-  padding: 0.2rem 0.4rem;
+  width: 3.6rem;
+  min-height: 1.6rem;
+  padding: 0.1rem 0.3rem;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
+}
+.sel {
+  min-height: 1.6rem;
+  max-width: 8.5rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 .lane-wrap {
   height: 72px;
   overflow: hidden;
   touch-action: none;
-  margin: 0 0.15rem 0 0;
+  margin: 0 0.15rem 0.2rem 0;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
@@ -922,25 +952,16 @@ watch(
   height: 72px;
   cursor: crosshair;
 }
-.btn {
-  min-height: 34px;
-  padding: 0.25rem 0.7rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+.danger-btn {
+  min-height: 1.6rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--danger, #b42318) 35%, var(--border));
+  border-radius: 6px;
   background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 650;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-.btn.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  color: var(--accent);
-}
-.btn.danger {
   color: var(--danger, #b42318);
-  border-color: color-mix(in srgb, var(--danger, #b42318) 35%, var(--border));
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
 }
 </style>

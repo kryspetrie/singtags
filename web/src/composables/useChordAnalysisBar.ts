@@ -4,7 +4,6 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import {
   absoluteChordLabel,
-  buildChordAnalysisSegments,
   listNatureNameCandidates,
   type ChordAnalysisMode,
   type ChordAnalysisOverride,
@@ -19,15 +18,17 @@ import {
 } from '../domain/arranging/impliedMelodyChord'
 import { tagStudioToArrangement } from '../application/arranging/syncTagRoll'
 import { mergeStacksFromRollImport } from '../domain/arranging/mergeStacksFromRoll'
+import { buildHarmonyStripRows } from '../lib/tagRoll/harmonyStrip'
 import {
-  loadChordAnalysisCollapsed,
-  loadChordAnalysisMode,
   loadChordAnalysisOverrides,
-  saveChordAnalysisCollapsed,
-  saveChordAnalysisMode,
+  loadDeclaredChordMode,
+  loadDetectedChordMode,
   saveChordAnalysisOverride,
+  saveDeclaredChordMode,
+  saveDetectedChordMode,
 } from '../lib/tagRoll/chordAnalysisPrefs'
-import type { TagRollProject } from '../lib/tagRoll/types'
+import { deferOverlappingOnsets } from '../lib/tagRoll/portamento'
+import type { TagRollNote, TagRollProject } from '../lib/tagRoll/types'
 import { useArrangementStore } from '../stores/arrangement'
 import { DEFAULT_CONTEST_PROFILE } from '../domain/arranging/contestProfile'
 
@@ -35,9 +36,24 @@ function partByName(project: TagRollProject, name: string) {
   return project.parts.find((p) => p.name === name)
 }
 
+/** Unique portamento-deferred onsets for notes on one part. */
+function deferredPartOnsets(notes: readonly TagRollNote[]): number[] {
+  return deferOverlappingOnsets(
+    notes.map((n) => ({
+      startTick: n.startTick,
+      durationTicks: n.durationTicks,
+      midi: n.midi,
+      id: n.id,
+    })),
+    (a, b) => a.midi - b.midi || a.id.localeCompare(b.id),
+  ).map((n) => n.startTick)
+}
+
 /** Lead spans with no TBB sounding — candidates for key-based implication.
  * Held leads are clipped at the next harmony onset so we don't paint one
  * implied chord across later stack changes under the same note.
+ * Same-part portamento overlaps use release timing (destination onset at
+ * predecessor end) — matches sheet / Uncovered / coach moments.
  */
 export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[] {
   const lead =
@@ -49,13 +65,20 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
   const bass = partByName(tag, 'Bass')
   const harmonyIds = [tenor?.id, bari?.id, bass?.id].filter(Boolean) as string[]
 
-  const leadNotes = tag.notes
-    .filter((n) => n.partId === lead.id)
-    .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
+  const leadNotes = deferOverlappingOnsets(
+    tag.notes
+      .filter((n) => n.partId === lead.id)
+      .map((n) => ({
+        startTick: n.startTick,
+        durationTicks: n.durationTicks,
+        midi: n.midi,
+        id: n.id,
+      })),
+    (a, b) => a.midi - b.midi || a.id.localeCompare(b.id),
+  )
 
-  const harmonyOnsets = tag.notes
-    .filter((n) => harmonyIds.includes(n.partId))
-    .map((n) => n.startTick)
+  const harmonyOnsets = harmonyIds
+    .flatMap((partId) => deferredPartOnsets(tag.notes.filter((n) => n.partId === partId)))
     .sort((a, b) => a - b)
 
   const out: BareMelodyMoment[] = []
@@ -83,8 +106,8 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
 export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
   const arrStore = useArrangementStore()
 
-  const collapsed = ref(loadChordAnalysisCollapsed(false))
-  const mode = ref<ChordAnalysisMode>(loadChordAnalysisMode('name'))
+  const declaredMode = ref<ChordAnalysisMode>(loadDeclaredChordMode('name'))
+  const detectedMode = ref<ChordAnalysisMode>(loadDetectedChordMode('name'))
   const overrides = ref<Record<string, ChordAnalysisOverride>>({})
 
   watch(
@@ -95,14 +118,20 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     { immediate: true },
   )
 
-  function setCollapsed(on: boolean): void {
-    collapsed.value = on
-    saveChordAnalysisCollapsed(on)
+  function setDeclaredMode(next: ChordAnalysisMode): void {
+    declaredMode.value = next
+    saveDeclaredChordMode(next)
   }
 
+  function setDetectedMode(next: ChordAnalysisMode): void {
+    detectedMode.value = next
+    saveDetectedChordMode(next)
+  }
+
+  /** @deprecated Prefer setDeclaredMode / setDetectedMode. */
   function setMode(next: ChordAnalysisMode): void {
-    mode.value = next
-    saveChordAnalysisMode(next)
+    setDeclaredMode(next)
+    setDetectedMode(next)
   }
 
   function setOverride(tick: number, patch: ChordAnalysisOverride): void {
@@ -191,6 +220,9 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
       if (!s.midi && s.natureId !== 'unknown') {
         const midi = momentsByTick.get(s.startTick)?.midi
         if (midi == null) continue
+        const moments = bareMoments.value
+        const mi = moments.findIndex((m) => m.startTick === s.startTick)
+        const nextMidi = mi >= 0 ? moments[mi + 1]?.midi ?? null : null
         map.set(
           s.startTick,
           inferImpliedChordsFromMelody({
@@ -198,6 +230,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
             tonality: tag.tonality,
             mode,
             limit: 3,
+            nextMelodyMidi: nextMidi,
           }).map((c) => ({
             rootPc: c.rootPc,
             natureId: c.natureId,
@@ -206,6 +239,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
               tonalityMode: mode,
             }),
             roman: c.roman,
+            cadenceLabel: c.cadenceHint?.label,
           })),
         )
       }
@@ -213,25 +247,74 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     return map
   })
 
-  const segments = computed((): ChordAnalysisSegment[] => {
+  const stripRows = computed(() => {
     const tag = project.value
-    if (!tag) return []
-    return buildChordAnalysisSegments({
-      stacks: analysisStacks.value,
+    if (!tag) return { declared: [], detect: [] }
+    return buildHarmonyStripRows({
+      sketch: tag.harmonySketch ?? [],
+      detectStacks: analysisStacks.value,
       tonality: tag.tonality,
       tonalityMode: tonalityMode.value,
       preferFlats: tag.preferFlats,
-      nameCandidatesByTick: nameCandidatesByTick.value,
-      overrides: overrides.value,
       lengthTicks: tag.lengthTicks,
+      notes: tag.notes,
+      nameCandidatesByTick: nameCandidatesByTick.value,
     })
   })
 
+  const declaredSegments = computed((): ChordAnalysisSegment[] =>
+    stripRows.value.declared.map((s) => ({
+      id: s.id,
+      startTick: s.startTick,
+      endTick: s.endTick,
+      locked: s.locked,
+      implied: false,
+      rootPc: s.rootPc,
+      quality: s.quality,
+      name: s.name,
+      nameOptions: s.nameOptions,
+      roman: s.roman,
+      romanOptions: s.romanOptions,
+      displayName: s.displayName,
+      displayRoman: s.displayRoman,
+    })),
+  )
+
+  const detectSegments = computed((): ChordAnalysisSegment[] =>
+    stripRows.value.detect.map((s) => ({
+      id: s.id,
+      startTick: s.startTick,
+      endTick: s.endTick,
+      locked: false,
+      implied: true,
+      rootPc: s.rootPc,
+      quality: s.quality,
+      name: s.name,
+      nameOptions: s.nameOptions,
+      roman: s.roman,
+      romanOptions: s.romanOptions,
+      displayName: s.displayName,
+      displayRoman: s.displayRoman,
+      cadenceLabel: s.cadenceLabel,
+    })),
+  )
+
+  /** Flat list for Hear / pick lookups (declared first). */
+  const segments = computed((): ChordAnalysisSegment[] => [
+    ...declaredSegments.value,
+    ...detectSegments.value,
+  ])
+
   return {
-    collapsed,
-    mode,
+    declaredMode,
+    detectedMode,
+    /** @deprecated Prefer declaredMode / detectedMode. */
+    mode: declaredMode,
     segments,
-    setCollapsed,
+    declaredSegments,
+    detectSegments,
+    setDeclaredMode,
+    setDetectedMode,
     setMode,
     setOverride,
   }

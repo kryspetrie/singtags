@@ -5,6 +5,7 @@ import {
 } from '../../domain/arranging/embellishments'
 import { assessFinalReadiness, type FinalChecklistResult } from '../../domain/arranging/finalChecklist'
 import { polishVoicings } from '../../domain/arranging/polishVoicing'
+import { polishInversionPath } from './PolishInversionPath'
 import type { ArrangementProject } from '../../domain/arranging/types'
 import type { FixContext, FixRegistry } from '../../domain/arranging/qa'
 import {
@@ -41,7 +42,15 @@ export function polishArrangementVoicing(
   project: ArrangementProject,
   opts?: { registry?: FixRegistry; ctx?: FixContext },
 ): { project: ArrangementProject; applied: string[] } {
-  return polishVoicings(project, opts)
+  // 1) Global inversion path (I/V home-bass seeds, VL + ring) — not greedy per chord.
+  const path = polishInversionPath(project)
+  // 2) Lint-driven safe fixes on the path-polished chart.
+  const lint = polishVoicings(path.project, opts)
+  const applied = [
+    ...path.stackIds.map((id) => `path:${id}`),
+    ...lint.applied,
+  ]
+  return { project: lint.project, applied }
 }
 
 export function assessFinal(project: ArrangementProject): FinalChecklistResult {

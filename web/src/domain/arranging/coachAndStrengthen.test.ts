@@ -22,7 +22,7 @@ describe('coach tips + strengthen + snap', () => {
         hasMelody: true,
         hasPillars: false,
       }).title,
-    ).toBe('Mark home roots')
+    ).toBe('Mark phrase chords')
     expect(
       tipForCoachUi({
         mode: 'review',
@@ -31,6 +31,25 @@ describe('coach tips + strengthen + snap', () => {
         hasPillars: false,
       }).title,
     ).toBe('Review')
+  })
+
+  it('tipForCoachUi surfaces classic cadence when hinted', () => {
+    const tip = tipForCoachUi({
+      mode: 'arrange',
+      phase: 'walk',
+      hasMelody: true,
+      hasPillars: true,
+      cadenceHint: {
+        id: 'auth_v7_i',
+        label: 'V7→I',
+        teach: 'Lead ^5→^1 wants V7→I.',
+        glossaryIds: ['classic_cadences'],
+        priority: 1,
+      },
+    })
+    expect(tip.title).toContain('V7→I')
+    expect(tip.body).toMatch(/V7/i)
+    expect(tip.lessonId).toBe('L-classic-cadences')
   })
 
   it('strengthenStacks preserves stack count', () => {

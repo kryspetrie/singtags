@@ -46,12 +46,12 @@ describe('mergeStacksFromRollImport', () => {
     expect(out[0]!.midi).toEqual(sev)
   })
 
-  it('keeps known existing when fresh has no MIDI at that tick', () => {
+  it('drops existing stacks when the live roll no longer has that moment', () => {
     const existing = [stack(480, maj, 'major')]
     const fresh = [stack(0, sev, 'seventh')]
     const out = mergeStacksFromRollImport(fresh, existing)
-    expect(out.map((s) => s.startTick).sort((a, b) => a - b)).toEqual([0, 480])
-    expect(out.find((s) => s.startTick === 480)!.natureId).toBe('major')
+    expect(out.map((s) => s.startTick)).toEqual([0])
+    expect(out[0]!.natureId).toBe('seventh')
   })
 
   it('does not resurrect unknown existing over fresh ID', () => {

@@ -29,7 +29,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'pillar',
     term: 'Pillar',
     short:
-      'A home root / destination under a stretch of melody — what the phrase is “about,” not a full chord voicing yet. (Approach Two: pillar.)',
+      'A structural chord under a phrase — the big block harmony (I, V7, …), not every passing color. Prefer the Harmony strip on the roll (root + quality). Coach Pillars lock roots that sync into that sketch. (Approach Two: pillar.)',
     citations: [bam('Approach Two'), pri('harmonic pillars')],
   },
   {
@@ -189,6 +189,12 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     short: 'Label chords by key degree (I ii iii IV V vi vii°) and applied dominants (V7/V, ♭II7, etc.).',
     citations: [bam('harmony'), pri('function')],
   },
+  {
+    id: 'classic_cadences',
+    term: 'Classic cadences',
+    short: 'Textbook barbershop closes and highways: V7→I, II7→V7→I, I7→IV, plagal IV→I, tag penultimate V7.',
+    citations: [bam('harmony'), pri('cadences')],
+  },
 ]
 
 export const LESSONS: readonly LessonCard[] = [
@@ -252,8 +258,8 @@ export const LESSONS: readonly LessonCard[] = [
     id: 'L-step6',
     wizardStep: 'step6_alts',
     title: 'Strengthen the highway',
-    body: 'Revisit weak bars; prefer stronger approaches into the next pillar — often a secondary-dominant BS7.',
-    glossaryIds: ['secondary_dom', 'bs7', 'circle_fifths'],
+    body: 'Revisit weak bars; prefer stronger approaches into the next pillar — often a secondary-dominant BS7. Classic cadences (V7→I, II7→V7→I, I7→IV) are the Coach’s default highway.',
+    glossaryIds: ['secondary_dom', 'bs7', 'circle_fifths', 'classic_cadences'],
     citations: [bam('Step VI')],
   },
   {
@@ -268,7 +274,7 @@ export const LESSONS: readonly LessonCard[] = [
     id: 'L-step8',
     wizardStep: 'step8_voicing',
     title: 'Stack and lead',
-    body: 'Polish TTBB order, doubles, and muddy clusters. Bari above lead is normal; tenor below lead is not.',
+    body: 'Polish the chart as one inversion path — try I/V openings with bass on 1 or 5, minimize part motion, favor ring — then clean residual VL issues. Bari above lead is normal; tenor below lead is not.',
     glossaryIds: ['ttbb', 'strong_voicing'],
     citations: [bam('voicing')],
   },
@@ -554,6 +560,22 @@ export const LESSONS: readonly LessonCard[] = [
     citations: [bam('Approach Three')],
   },
   {
+    id: 'L-f-cadenceFit',
+    factorId: 'cadenceFit',
+    title: 'Classic cadence fit',
+    body: 'Candidates that complete a textbook cadence (V7→I, II7→V7→I, I7→IV, plagal, tag penultimate) score higher. Coach teaches these as core craft.',
+    glossaryIds: ['classic_cadences', 'circle_fifths', 'tension_release'],
+    citations: [bam('harmony'), pri('cadences')],
+  },
+  {
+    id: 'L-classic-cadences',
+    lintRuleId: 'cadence-miss',
+    title: 'Classic barbershop cadences',
+    body: 'When Lead ^5→^1, prefer V7→I. Other core moves: leading-tone V7, II7→V7→I, I7→IV into the subdominant, and tag penultimate V7 before final tonic. ♭II / backdoor stay optional color.',
+    glossaryIds: ['classic_cadences', 'circle_fifths', 'bs7', 'tension_release'],
+    citations: [bam('harmony'), pri('cadences')],
+  },
+  {
     id: 'L-f-resolution',
     factorId: 'resolution',
     title: 'Active-tone resolution',
@@ -613,6 +635,7 @@ export const LINT_LESSON_ALIASES: Readonly<Record<string, string>> = {
   'counterpart-flicker': 'R3_tritone',
   'aug-usage': 'aug-pillar',
   'unrecognized-nature': 'illegal-nature',
+  'cadence-miss': 'L-classic-cadences',
 }
 
 /**

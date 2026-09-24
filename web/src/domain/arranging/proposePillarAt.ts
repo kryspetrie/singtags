@@ -3,6 +3,7 @@
  * Batch `suggestPillars` remains for advanced “draft all measures.”
  */
 import type { MelodyEvent, Pillar, TonalityMode } from './types'
+import { melodyWithDeferredPortamento } from './harmonicMoments'
 
 export type ProposeSpan = {
   startTick: number
@@ -146,7 +147,10 @@ export function candidatePillarPositions(opts: {
   skippedSpans?: ReadonlySet<string> | readonly string[]
 }): ProposeSpan[] {
   const measureTicks = opts.measureTicks ?? 480 * 4
-  const melody = [...opts.melody].sort((a, b) => a.startTick - b.startTick)
+  // Portamento destinations start early in the roll; coach windows use release timing.
+  const melody = melodyWithDeferredPortamento(opts.melody).sort(
+    (a, b) => a.startTick - b.startTick,
+  )
   if (!melody.length) return []
 
   const out: ProposeSpan[] = []

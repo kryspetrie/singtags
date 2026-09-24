@@ -13,6 +13,7 @@ export { exportMusicXml } from './ExportMusicXml'
 export type { ExportMusicXmlResult } from './ExportMusicXml'
 export { autoLabelMelodyRoles } from './LabelMelodyRoles'
 export { strengthenArrangement } from './Strengthen'
+export { polishInversionPath } from './PolishInversionPath'
 export {
   explanationForWizardStep,
   explanationForLint,
@@ -62,6 +63,7 @@ export {
   candFilterLabels,
   counterpartForMoment,
   filterCandidates,
+  groupCandidatesByChord,
   layerHintForCandidate,
   pickCandidateForAltChip,
 } from './CoachAlternates'

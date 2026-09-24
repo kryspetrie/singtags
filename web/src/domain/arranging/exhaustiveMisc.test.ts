@@ -185,9 +185,10 @@ describe('org tips for profiles', () => {
 })
 
 describe('ranking weight sensitivity', () => {
-  it('zeroing seventh weight changes seventh candidate scores', () => {
+  it('zeroing seventh weight lowers BS7 scores when lead carries 3/7 color', () => {
+    // B lead → G7 (lead on 3); positive seventh bias applies.
     const raw = generateCandidates({
-      note: { id: 'n', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' },
+      note: { id: 'n', midi: 71, startTick: 0, durationTicks: 480, role: 'pmn' },
       pillar: {
         id: 'p',
         rootPc: 0,
@@ -204,9 +205,10 @@ describe('ranking weight sensitivity', () => {
       weights: { ...DEFAULT_RANKING_WEIGHTS, seventh: 0 },
     })
     expect(def.length).toBe(no7.length)
-    const d7 = def.find((c) => c.natureId === 'seventh')
-    const n7 = no7.find((c) => c.natureId === 'seventh')
-    if (d7 && n7) expect(d7.score).toBeGreaterThan(n7.score)
+    const d7 = def.find((c) => c.natureId === 'seventh' && c.rootPc === 7)
+    const n7 = no7.find((c) => c.natureId === 'seventh' && c.rootPc === 7)
+    expect(d7 && n7).toBeTruthy()
+    expect(d7!.score).toBeGreaterThan(n7!.score)
   })
 })
 

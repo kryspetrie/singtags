@@ -1,6 +1,6 @@
 /**
  * Merge coach stacks with a fresh roll import: keep named Apply results when MIDI
- * matches; otherwise prefer freshly identified stacks (re-ID after TBB edits).
+ * matches at the same tick; never resurrect stacks the live roll no longer has.
  */
 import type { ChordStack } from './types'
 import { isKnownStack } from './coachEntryMode'
@@ -20,10 +20,8 @@ export function mergeStacksFromRollImport(
   for (const s of existing) {
     if (!s.midi || !isKnownStack(s)) continue
     const f = byTick.get(s.startTick)
-    if (!f?.midi) {
-      byTick.set(s.startTick, s)
-      continue
-    }
+    // Live roll owns which moments exist — dropped ticks stay dropped.
+    if (!f?.midi) continue
     // Same sounding voicing → keep coach-named nature; otherwise accept re-ID.
     if (midiEqual(s.midi, f.midi)) byTick.set(s.startTick, s)
   }

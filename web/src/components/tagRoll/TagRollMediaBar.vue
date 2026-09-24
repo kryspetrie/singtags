@@ -24,8 +24,11 @@ import {
 } from '../../lib/tagRoll/soundEnvelope'
 import { TAG_ROLL_SWING_SHUFFLE_AMOUNT } from '../../lib/tagRoll/swingMap'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
+import { HARMONY_STRIP_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
+import InfoTips from '../InfoTips.vue'
+import TagRollApplyScopeDialog from '../TagRollApplyScopeDialog.vue'
 
 const props = defineProps<{
   playing: boolean
@@ -50,6 +53,11 @@ const prefs = usePreferencesStore()
 const project = computed(() => store.current)
 const isView = computed(() => project.value?.view.mode === 'view')
 const mixerOpen = computed(() => !!props.mixerOpen)
+const pendingKeyScope = ref<{
+  tonality: number
+  preferFlats: boolean
+  mode: 'major' | 'minor'
+} | null>(null)
 const showPitchZoom = computed(() => {
   const p = project.value
   if (!p) return false
@@ -218,7 +226,31 @@ function onMetronomeSound(e: Event): void {
 
 function onKey(e: Event): void {
   const choice = keyChoiceById((e.target as HTMLSelectElement).value)
-  if (choice) store.setTonality(choice.tonality, choice.preferFlats, choice.mode)
+  if (!choice) return
+  pendingKeyScope.value = {
+    tonality: choice.tonality,
+    preferFlats: choice.preferFlats,
+    mode: choice.mode,
+  }
+}
+
+function cancelKeyScope(): void {
+  pendingKeyScope.value = null
+}
+
+function applyKeyScope(where: 'beginning' | 'cursor'): void {
+  const pending = pendingKeyScope.value
+  pendingKeyScope.value = null
+  if (!pending || !project.value) return
+  if (where === 'beginning') {
+    store.setTonality(pending.tonality, pending.preferFlats, pending.mode)
+  } else {
+    store.setKeyAtTick(project.value.view.playheadTick, {
+      tonality: pending.tonality,
+      preferFlats: pending.preferFlats,
+      tonalityMode: pending.mode,
+    })
+  }
 }
 
 function onAttack(e: Event): void {
@@ -468,7 +500,7 @@ onUnmounted(() => {
             </label>
             <label
               class="field"
-              :title="tagRollTip('Key — scale highlight, blow-pitch tonic, and sheet key signature')"
+              :title="tagRollTip('Key — choose beginning or cursor when you change it')"
             >
               <span class="lbl">Key</span>
               <select
@@ -556,21 +588,21 @@ onUnmounted(() => {
           <button
             type="button"
             class="zoom-btn"
-            aria-label="Zoom out time"
-            :title="tagRollTip('Narrower cells (time)')"
-            @click="emit('nudgeTime', -2)"
-          >
-            −
-          </button>
-          <span class="zoom-lbl" title="Time zoom">W</span>
-          <button
-            type="button"
-            class="zoom-btn"
             aria-label="Zoom in time"
             :title="tagRollTip('Wider cells (time)')"
             @click="emit('nudgeTime', 4)"
           >
             +
+          </button>
+          <span class="zoom-lbl" title="Time zoom">W</span>
+          <button
+            type="button"
+            class="zoom-btn"
+            aria-label="Zoom out time"
+            :title="tagRollTip('Narrower cells (time)')"
+            @click="emit('nudgeTime', -2)"
+          >
+            −
           </button>
         </div>
         <div
@@ -582,23 +614,89 @@ onUnmounted(() => {
           <button
             type="button"
             class="zoom-btn"
-            aria-label="Zoom out pitch"
-            :title="tagRollTip('Shorter cells (pitch)')"
-            @click="emit('nudgePitch', -1)"
-          >
-            −
-          </button>
-          <span class="zoom-lbl" title="Pitch zoom">H</span>
-          <button
-            type="button"
-            class="zoom-btn"
             aria-label="Zoom in pitch"
             :title="tagRollTip('Taller cells (pitch)')"
             @click="emit('nudgePitch', 1)"
           >
             +
           </button>
+          <span class="zoom-lbl" title="Pitch zoom">H</span>
+          <button
+            type="button"
+            class="zoom-btn"
+            aria-label="Zoom out pitch"
+            :title="tagRollTip('Shorter cells (pitch)')"
+            @click="emit('nudgePitch', -1)"
+          >
+            −
+          </button>
         </div>
+      </div>
+
+      <div class="lane-toggles" role="group" aria-label="Bottom lanes">
+        <button
+          type="button"
+          class="lane-tog"
+          :class="{ on: !prefs.tagRollLyricsLaneCollapsed }"
+          :aria-pressed="!prefs.tagRollLyricsLaneCollapsed"
+          :title="tipByShortcutId('mode-lyrics', 'Show Lyrics lane')"
+          @click="prefs.toggleTagRollLane('lyrics')"
+        >
+          Lyrics
+        </button>
+        <button
+          type="button"
+          class="lane-tog"
+          :class="{ on: !prefs.tagRollChordsLaneCollapsed }"
+          :aria-pressed="!prefs.tagRollChordsLaneCollapsed"
+          :title="tagRollTip('Show My Chords lane — locked harmony map')"
+          @click="prefs.toggleTagRollLane('chords')"
+        >
+          My Chords
+        </button>
+        <button
+          type="button"
+          class="lane-tog"
+          :class="{ on: !prefs.tagRollDetectedLaneCollapsed }"
+          :aria-pressed="!prefs.tagRollDetectedLaneCollapsed"
+          :title="tagRollTip('Show Detected chords lane')"
+          @click="prefs.toggleTagRollLane('detected')"
+        >
+          Detected
+        </button>
+        <button
+          type="button"
+          class="lane-tog"
+          :class="{ on: !prefs.tagRollExpressionLaneCollapsed }"
+          :aria-pressed="!prefs.tagRollExpressionLaneCollapsed"
+          :title="tagRollTip('Show Mods lane (tempo, fermata, ramps)')"
+          @click="prefs.toggleTagRollLane('mods')"
+        >
+          Mods
+        </button>
+        <button
+          type="button"
+          class="lane-tog"
+          :class="{ on: !prefs.tagRollCoachLaneCollapsed }"
+          :aria-pressed="!prefs.tagRollCoachLaneCollapsed"
+          :title="tagRollTip('Show Coach lane')"
+          @click="prefs.toggleTagRollLane('coach')"
+        >
+          Coach
+        </button>
+        <InfoTips
+          class="lane-howto"
+          label="How to use bottom lanes"
+          title="My Chords, Detected, Mods, Coach, and Lyrics"
+        >
+          <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
+            <p><strong>{{ sec.title }}</strong></p>
+            <p>{{ sec.body }}</p>
+            <ol v-if="sec.steps?.length">
+              <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+            </ol>
+          </section>
+        </InfoTips>
       </div>
     </div>
 
@@ -738,6 +836,15 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+
+  <TagRollApplyScopeDialog
+    :open="!!pendingKeyScope"
+    title="Apply key where?"
+    message="Set this key signature at the beginning of the song, or at the playhead cursor (Mods key change)."
+    @close="cancelKeyScope"
+    @beginning="applyKeyScope('beginning')"
+    @cursor="applyKeyScope('cursor')"
+  />
 </template>
 
 <style scoped>
@@ -750,6 +857,9 @@ onUnmounted(() => {
   padding: 0.4rem 0.75rem calc(0.4rem + env(safe-area-inset-bottom, 0));
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 92%, var(--bg, var(--surface)));
+  overflow: visible;
+  position: relative;
+  z-index: 30;
 }
 .side {
   display: flex;
@@ -811,6 +921,54 @@ onUnmounted(() => {
 }
 .zoom-btn:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.lane-toggles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.28rem;
+  padding-left: 0.45rem;
+  border-left: 1px solid var(--border);
+}
+.lane-tog {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.85rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.lane-tog:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.lane-tog.on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.lane-howto :deep(.info-tips-btn) {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.82rem;
+}
+.howto-sec + .howto-sec {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--border);
+}
+.howto-sec ol {
+  margin: 0.35rem 0 0;
+  padding-left: 1.15rem;
 }
 .parts {
   display: inline-flex;

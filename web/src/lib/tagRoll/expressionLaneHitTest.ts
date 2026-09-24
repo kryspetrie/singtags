@@ -1,10 +1,11 @@
 /**
  * Hit-testing for the Tag Studio expression lane (tempo markers + expressions).
  */
-import type { TagRollExpression, TagRollTempoMarker } from './types'
+import type { TagRollExpression, TagRollKeyMarker, TagRollTempoMarker } from './types'
 
 export type ExpressionLaneHit =
   | { kind: 'tempo'; marker: TagRollTempoMarker }
+  | { kind: 'key'; marker: TagRollKeyMarker }
   | { kind: 'expression'; expr: TagRollExpression; edge: 'start' | 'end' | 'body' }
 
 export function hitTempoMarkerAtX(
@@ -13,6 +14,19 @@ export function hitTempoMarkerAtX(
   xAtTick: (tick: number) => number,
   slop = 10,
 ): TagRollTempoMarker | null {
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i]!
+    if (Math.abs(lx - xAtTick(m.tick)) <= slop) return m
+  }
+  return null
+}
+
+export function hitKeyMarkerAtX(
+  markers: readonly TagRollKeyMarker[],
+  lx: number,
+  xAtTick: (tick: number) => number,
+  slop = 12,
+): TagRollKeyMarker | null {
   for (let i = markers.length - 1; i >= 0; i--) {
     const m = markers[i]!
     if (Math.abs(lx - xAtTick(m.tick)) <= slop) return m

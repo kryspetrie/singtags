@@ -82,4 +82,27 @@ describe('musicxmlExport', () => {
     expect(xml).toContain('Test &amp; Tag')
     expect(xml).toContain('<step>C</step>')
   })
+
+  it('exports locked harmony sketch as MusicXML chord symbols on Lead', () => {
+    const p = createEmptyTagRollProject({ title: 'Sketch' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      { id: 'n1', partId: lead.id, midi: 67, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+    ]
+    p.harmonySketch = [
+      {
+        id: 'hs1',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ,
+        rootPc: 7,
+        quality: 'seventh',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
+    expect(xml).toContain('<harmony>')
+    expect(xml).toContain('<root-step>G</root-step>')
+    expect(xml).toContain('<kind text="7">dominant</kind>')
+  })
 })

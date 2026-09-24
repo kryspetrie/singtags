@@ -5,6 +5,7 @@
 import type { MelodyEvent, Pillar, TonalityMode } from './types'
 import { newId } from './types'
 import { proposeRootForSpan, type PillarSuggestion } from './proposePillarAt'
+import { melodyWithDeferredPortamento } from './harmonicMoments'
 
 export type { PillarSuggestion } from './proposePillarAt'
 
@@ -18,7 +19,8 @@ export function suggestPillars(opts: {
   mode?: TonalityMode
   measureTicks?: number
 }): PillarSuggestion[] {
-  const { melody, tonality } = opts
+  const { tonality } = opts
+  const melody = melodyWithDeferredPortamento(opts.melody)
   const mode = opts.mode ?? 'major'
   const measureTicks = opts.measureTicks ?? 480 * 4
   if (!melody.length) return []
@@ -74,12 +76,17 @@ export function pillarAtTick(pillars: readonly Pillar[], tick: number): Pillar |
   return pillars.find((p) => p.startTick <= tick && tick < p.endTick) ?? null
 }
 
-/** Melody notes whose start is not covered by any pillar span. */
+/** Melody notes whose (portamento-deferred) start is not covered by any pillar span.
+ * Destination notes that overlap their predecessor for a pitch bend are treated as
+ * starting at the predecessor’s release — same rule as sheet / MusicXML export.
+ */
 export function melodyGapsOutsidePillars(
   melody: readonly MelodyEvent[],
   pillars: readonly Pillar[],
 ): MelodyEvent[] {
-  return melody.filter((m) => !pillarAtTick(pillars, m.startTick))
+  return melodyWithDeferredPortamento(melody).filter(
+    (m) => !pillarAtTick(pillars, m.startTick),
+  )
 }
 
 function sortPillars(pillars: readonly Pillar[]): Pillar[] {

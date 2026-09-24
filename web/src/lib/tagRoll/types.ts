@@ -21,6 +21,11 @@ export const TAG_ROLL_DEFAULT_LENGTH_TICKS = TAG_ROLL_PPQ * 4 * 8
 /** Default starting tempo. */
 export const TAG_ROLL_DEFAULT_BPM = 104
 
+/** Canned BPM choices for tempo controls (type any value; these appear in the list). */
+export const TAG_ROLL_BPM_PRESETS = [
+  60, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 150, 160,
+] as const
+
 /** Pitch range for the tote / grid (C2–B5). */
 export const TAG_ROLL_MIDI_MIN = 36
 export const TAG_ROLL_MIDI_MAX = 83
@@ -62,6 +67,36 @@ export type TagRollMelodyPass = {
   toNoteId: string
 }
 
+/** Closed set for lead-sheet harmony sketch qualities (matches BARBERSHOP_CHORDS). */
+export const HARMONY_SKETCH_QUALITIES = [
+  'major',
+  'minor',
+  'seventh',
+  'm7',
+  'dim',
+  'dim7',
+  'half-dim',
+  'aug',
+  'sixth',
+  'madd6',
+  'ninth',
+  'add9',
+  'maj7',
+] as const
+
+export type HarmonySketchQuality = (typeof HARMONY_SKETCH_QUALITIES)[number]
+
+/** Lead-sheet chord span (root + quality) before TTBB stacks. */
+export type HarmonySketchSpan = {
+  id: string
+  startTick: number
+  endTick: number
+  rootPc: number
+  quality: HarmonySketchQuality
+  source: 'user' | 'detect' | 'coach'
+  locked: boolean
+}
+
 /** Compose combines note add + edit; selection decides which. */
 export type TagRollEditorMode = 'view' | 'compose' | 'lyrics'
 
@@ -82,6 +117,15 @@ export type TagRollTempoMarker = {
   id: string
   tick: number
   bpm: number
+}
+
+/** Key signature change (Mods lane); tick 0 mirrors project tonality fields. */
+export type TagRollKeyMarker = {
+  id: string
+  tick: number
+  tonality: number
+  tonalityMode: 'major' | 'minor'
+  preferFlats: boolean
 }
 
 export type TagRollFermata = {
@@ -105,7 +149,7 @@ export type TagRollTempoRamp = {
 
 export type TagRollExpression = TagRollFermata | TagRollTempoRamp
 
-export type TagRollExpressionTool = 'tempo' | 'fermata' | 'rit' | 'accel' | null
+export type TagRollExpressionTool = 'tempo' | 'key' | 'fermata' | 'rit' | 'accel' | null
 
 /** Subdivision delayed for swing feel (even notes of the pair). */
 export type TagRollSwingUnit = 'eighth' | 'sixteenth'
@@ -173,6 +217,8 @@ export type TagRollProject = {
   lengthTicks: number
   timeSignature: TagRollTimeSignature
   tempoMarkers: TagRollTempoMarker[]
+  /** Key signature changes over time; tick 0 matches tonality / tonalityMode / preferFlats. */
+  keyMarkers: TagRollKeyMarker[]
   expressions: TagRollExpression[]
   soundEngine: PianoSoundEngineId
   /**
@@ -217,6 +263,11 @@ export type TagRollProject = {
   notes: TagRollNote[]
   /** Cross-part melody handoffs (dashed lines on the roll). */
   melodyPasses: TagRollMelodyPass[]
+  /**
+   * Lead-sheet style harmony sketch (root + quality over time).
+   * Locked spans are authoritative; detect fills holes only.
+   */
+  harmonySketch: HarmonySketchSpan[]
   localEntryId: string | null
   view: TagRollViewPrefs
   createdAt: number
@@ -272,6 +323,15 @@ export const TAG_ROLL_SHEET_ZOOM_MAX = 160
 /** Ruler height (px) — taller in compose so playhead scrubbing is easier. */
 export const TAG_ROLL_RULER_H = 16
 export const TAG_ROLL_RULER_H_COMPOSE = 28
+
+/**
+ * Pitch-plane header reservation for the legacy top Chords strip (removed —
+ * Declared/Detected are bottom lanes). Kept at 0-sum for any leftover imports.
+ */
+export const TAG_ROLL_HARMONY_STRIP_CHROME_H = 0
+export const TAG_ROLL_HARMONY_STRIP_LANE_H = 0
+export const TAG_ROLL_HARMONY_STRIP_DETECT_H = 0
+export const TAG_ROLL_HARMONY_STRIP_H = 0
 
 export const TAG_ROLL_TIME_SIGNATURE_PRESETS: readonly TagRollTimeSignature[] = [
   { numerator: 4, denominator: 4 },

@@ -43,12 +43,21 @@
   "pitchPipeSoundId": "mellow",
   "blowPitchEnabled": false,
   "metronomeEnabled": true,
+  "metronomeSwing": true,
+  "swing": {
+    "enabled": false,
+    "unit": "eighth",
+    "style": "triplet",
+    "amount": 0
+  },
+  "midiBakeSwing": true,
   "soundEnvelope": {
     "attackSec": 0.05,
     "decaySec": 0.05,
     "phraseDecaySec": 0.6
   },
   "tonality": 0,
+  "tonalityMode": "major",
   "preferFlats": false,
   "clefFamily": "ttbb",
   "parts": [
@@ -75,12 +84,6 @@
       "name": "Bass",
       "color": "#5b3d8f",
       "midiGroup": "lower"
-    },
-    {
-      "id": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
-      "name": "5th",
-      "color": "#6b7280",
-      "midiGroup": "solo"
     }
   ],
   "mix": [
@@ -111,13 +114,6 @@
       "pan": 0.2,
       "mute": false,
       "solo": false
-    },
-    {
-      "partId": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
-      "volume": 0.82,
-      "pan": 0,
-      "mute": false,
-      "solo": false
     }
   ],
   "notes": [
@@ -126,15 +122,15 @@
       "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
       "midi": 55,
       "startTick": 1440,
-      "durationTicks": 720,
+      "durationTicks": 480,
       "lyric": "Mar"
     },
     {
       "id": "trn_486ace08-a1bd-4637-a973-aeae03beb842",
       "partId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
       "midi": 60,
-      "startTick": 1920,
-      "durationTicks": 1920,
+      "startTick": 1680,
+      "durationTicks": 2160,
       "lyric": "lene"
     },
     {
@@ -241,15 +237,16 @@
       "lyric": "lene"
     }
   ],
+  "melodyPasses": [],
   "localEntryId": null,
   "view": {
-    "cellW": 140,
+    "cellW": 125,
     "cellH": 29,
     "scrollX": 0,
-    "scrollY": 454.23695373535156,
+    "scrollY": 0,
     "lockPiano": false,
     "mode": "compose",
-    "activePartId": "trp_5184b93a-408a-4cb6-b930-5d87f2dbaabc",
+    "activePartId": "trp_e3291237-f6fd-4f38-855f-a60883e97b1e",
     "melodyPartId": "trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185",
     "playheadTick": 0,
     "focusActivePart": false,

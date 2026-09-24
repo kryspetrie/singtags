@@ -26,9 +26,14 @@ import {
 } from '../lib/tagRoll/normalize'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { syncProjectMix } from '../lib/tagRoll/mix'
+import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
 import { clipboardFromCopy, clipboardFromCut } from '../lib/tagRoll/noteClipboardActions'
+import {
+  clipboardSpansAtPlayhead,
+  spansToClipboard,
+  type TagRollSketchClipboard,
+} from '../lib/tagRoll/sketchClipboard'
 import { type TagRollNoteClipboard } from '../lib/tagRoll/selection'
 import {
   tryBoundInspectCopy,
@@ -44,11 +49,22 @@ import {
   insertProjectMeasure,
   shrinkProjectMeasures,
 } from '../lib/tagRoll/measureEdit'
+import {
+  removeSketchSpan,
+  sketchPatchFromMelodyNote,
+  sketchSpanAtTick,
+  sortSpans,
+  upsertSketchSpan,
+} from '../lib/tagRoll/harmonySketch'
+import { realizeSketchStacksToNotes } from '../lib/tagRoll/realizeSketchStacks'
 import type {
+  HarmonySketchQuality,
+  HarmonySketchSpan,
   TagRollClefFamily,
   TagRollEditorMode,
   TagRollExpression,
   TagRollExpressionTool,
+  TagRollKeyMarker,
   TagRollNote,
   TagRollPart,
   TagRollPartMix,
@@ -90,12 +106,16 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   const busy = ref(false)
   const error = ref<string | null>(null)
   const selectedNoteIds = ref<string[]>([])
+  const selectedSketchSpanIds = ref<string[]>([])
   const selectedExpressionId = ref<string | null>(null)
   const expressionTool = ref<TagRollExpressionTool>(null)
   const pointerTool = ref<TagRollPointerTool>('edit')
   const addDurationTicks = ref(TAG_ROLL_PPQ)
   const transportPlaying = ref(false)
   const noteClipboard = shallowRef<TagRollNoteClipboard | null>(null)
+  const sketchClipboard = shallowRef<TagRollSketchClipboard | null>(null)
+  /** When true, C/X/V/Del target Chords-lane spans instead of notes. */
+  const chordsLaneFocused = ref(false)
   const undoStack = ref<TagRollDocumentSnapshot[]>([])
   const redoStack = ref<TagRollDocumentSnapshot[]>([])
   const canUndo = computed(() => undoStack.value.length > 0)
@@ -310,6 +330,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'lengthTicks',
         'timeSignature',
         'tempoMarkers',
+        'keyMarkers',
         'expressions',
         'soundEngine',
         'pitchPipeSoundId',
@@ -326,6 +347,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'parts',
         'notes',
         'melodyPasses',
+        'harmonySketch',
         'localEntryId',
       ]
       const touchesMusic = musicalKeys.some((k) => k in patch)
@@ -430,7 +452,11 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     pushHistory()
     current.value = {
       ...p,
-      mix: p.mix.map((m) => ({ ...m, solo: false })),
+      mix: syncProjectMix(p.parts, p.mix).map((m) =>
+        m.partId === TAG_ROLL_DETECTED_MIX_ID
+          ? { ...m, solo: false, mute: true }
+          : { ...m, solo: false },
+      ),
       updatedAt: now(),
     }
     scheduleSave()
@@ -744,11 +770,292 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     preferFlats?: boolean,
     tonalityMode?: 'major' | 'minor',
   ): void {
+    const p = current.value
+    if (!p) return
     const pc = ((Math.round(tonality) % 12) + 12) % 12
-    const patch: Partial<TagRollProject> = { tonality: pc }
-    if (preferFlats != null) patch.preferFlats = preferFlats
-    if (tonalityMode === 'major' || tonalityMode === 'minor') patch.tonalityMode = tonalityMode
-    patchProject(patch)
+    const mode = tonalityMode === 'minor' || tonalityMode === 'major'
+      ? tonalityMode
+      : p.tonalityMode ?? 'major'
+    const flats = preferFlats != null ? preferFlats : p.preferFlats
+    setKeyAtTick(0, { tonality: pc, preferFlats: flats, tonalityMode: mode })
+  }
+
+  /**
+   * Upsert a key signature change at tick (tick 0 updates project.tonality fields).
+   */
+  function setKeyAtTick(
+    tick: number,
+    opts: { tonality: number; preferFlats: boolean; tonalityMode: 'major' | 'minor' },
+  ): void {
+    const p = current.value
+    if (!p) return
+    pushHistory()
+    const snapped = snapTick(tick, p.snapTicks)
+    const pc = ((Math.round(opts.tonality) % 12) + 12) % 12
+    const mode = opts.tonalityMode === 'minor' ? 'minor' : 'major'
+    const flats = !!opts.preferFlats
+    const markers = (p.keyMarkers ?? []).filter((m) => m.tick !== snapped)
+    markers.push({
+      id: svc().idGen.next('trk'),
+      tick: snapped,
+      tonality: pc,
+      tonalityMode: mode,
+      preferFlats: flats,
+    })
+    markers.sort((a, b) => a.tick - b.tick)
+    const zero = markers.find((m) => m.tick === 0)
+    current.value = {
+      ...p,
+      keyMarkers: markers,
+      ...(snapped === 0 || zero
+        ? {
+            tonality: zero?.tonality ?? pc,
+            tonalityMode: zero?.tonalityMode ?? mode,
+            preferFlats: zero?.preferFlats ?? flats,
+          }
+        : {}),
+      updatedAt: now(),
+    }
+    scheduleSave()
+  }
+
+  function updateKeyMarker(
+    id: string,
+    patch: Partial<TagRollKeyMarker>,
+    opts?: { history?: boolean },
+  ): void {
+    const p = current.value
+    if (!p) return
+    if (opts?.history !== false) pushHistory()
+    const keyMarkers = (p.keyMarkers ?? []).map((m) => {
+      if (m.id !== id) return m
+      return {
+        ...m,
+        ...patch,
+        tick: Math.max(0, Math.round(patch.tick ?? m.tick)),
+        tonality: ((Math.round(patch.tonality ?? m.tonality) % 12) + 12) % 12,
+        tonalityMode:
+          patch.tonalityMode === 'minor' || patch.tonalityMode === 'major'
+            ? patch.tonalityMode
+            : m.tonalityMode,
+        preferFlats: patch.preferFlats ?? m.preferFlats,
+      }
+    })
+    keyMarkers.sort((a, b) => a.tick - b.tick)
+    const zero = keyMarkers.find((m) => m.tick === 0)
+    current.value = {
+      ...p,
+      keyMarkers,
+      ...(zero
+        ? {
+            tonality: zero.tonality,
+            tonalityMode: zero.tonalityMode,
+            preferFlats: zero.preferFlats,
+          }
+        : {}),
+      updatedAt: now(),
+    }
+    scheduleSave()
+  }
+
+  function updateKeyMarkerLive(id: string, patch: Partial<TagRollKeyMarker>): void {
+    updateKeyMarker(id, patch, { history: false })
+  }
+
+  function deleteKeyMarker(id: string): void {
+    const p = current.value
+    if (!p) return
+    const target = (p.keyMarkers ?? []).find((m) => m.id === id)
+    if (!target || target.tick === 0) return
+    pushHistory()
+    current.value = {
+      ...p,
+      keyMarkers: (p.keyMarkers ?? []).filter((m) => m.id !== id),
+      updatedAt: now(),
+    }
+    scheduleSave()
+  }
+
+  function setHarmonySketch(spans: HarmonySketchSpan[]): void {
+    patchProject({ harmonySketch: sortSpans(spans) })
+  }
+
+  function upsertHarmonySketchSpan(
+    patch: Omit<HarmonySketchSpan, 'id'> & { id?: string },
+  ): string | null {
+    const p = current.value
+    if (!p) return null
+    const next = upsertSketchSpan(p.harmonySketch ?? [], { ...patch, locked: patch.locked ?? true })
+    const id = patch.id ?? next.find((s) => s.startTick === patch.startTick && s.endTick === patch.endTick)?.id
+    patchProject({ harmonySketch: next })
+    return id ?? next[next.length - 1]?.id ?? null
+  }
+
+  function removeHarmonySketchSpan(id: string): void {
+    const p = current.value
+    if (!p) return
+    patchProject({ harmonySketch: removeSketchSpan(p.harmonySketch ?? [], id) })
+    selectedSketchSpanIds.value = selectedSketchSpanIds.value.filter((x) => x !== id)
+  }
+
+  function clearSketchSelection(): void {
+    selectedSketchSpanIds.value = []
+  }
+
+  function setChordsLaneFocused(on: boolean): void {
+    chordsLaneFocused.value = !!on
+    if (on) clearNoteSelection()
+  }
+
+  function selectSketchSpans(ids: readonly string[], opts?: { additive?: boolean }): void {
+    const unique = [...new Set(ids.filter(Boolean))]
+    if (opts?.additive && selectedSketchSpanIds.value.length) {
+      const set = new Set(selectedSketchSpanIds.value)
+      for (const id of unique) {
+        if (set.has(id)) set.delete(id)
+        else set.add(id)
+      }
+      selectedSketchSpanIds.value = [...set]
+    } else {
+      selectedSketchSpanIds.value = unique
+    }
+    if (selectedSketchSpanIds.value.length) {
+      chordsLaneFocused.value = true
+    }
+    selectedNoteIds.value = []
+    selectedExpressionId.value = null
+  }
+
+  const selectedSketchSpans = computed(() => {
+    const p = current.value
+    if (!p || !selectedSketchSpanIds.value.length) return [] as HarmonySketchSpan[]
+    const set = new Set(selectedSketchSpanIds.value)
+    return (p.harmonySketch ?? []).filter((s) => set.has(s.id) && s.locked)
+  })
+
+  function copySelectedSketchSpans(): boolean {
+    const clip = spansToClipboard(selectedSketchSpans.value)
+    if (!clip) return false
+    sketchClipboard.value = clip
+    return true
+  }
+
+  function cutSelectedSketchSpans(): boolean {
+    if (!copySelectedSketchSpans()) return false
+    const ids = [...selectedSketchSpanIds.value]
+    pushHistory()
+    let sketch = current.value?.harmonySketch ?? []
+    for (const id of ids) sketch = removeSketchSpan(sketch, id)
+    patchProject({ harmonySketch: sketch })
+    selectedSketchSpanIds.value = []
+    return true
+  }
+
+  function pasteSketchSpansAtPlayhead(): boolean {
+    const p = current.value
+    const clip = sketchClipboard.value
+    if (!p || !clip?.spans.length) return false
+    pushHistory()
+    const placed = clipboardSpansAtPlayhead(clip, p.view.playheadTick ?? 0, p.lengthTicks)
+    let sketch = p.harmonySketch ?? []
+    const created: string[] = []
+    for (const s of placed) {
+      sketch = upsertSketchSpan(sketch, {
+        startTick: s.startTick,
+        endTick: s.endTick,
+        rootPc: s.rootPc,
+        quality: s.quality,
+        source: 'user',
+        locked: true,
+      })
+      const hit = sketch.find(
+        (x) => x.startTick === s.startTick && x.endTick === s.endTick && x.rootPc === s.rootPc,
+      )
+      if (hit) created.push(hit.id)
+    }
+    patchProject({ harmonySketch: sketch })
+    selectedSketchSpanIds.value = created
+    return created.length > 0
+  }
+
+  function deleteSelectedSketchSpans(): void {
+    if (!selectedSketchSpanIds.value.length) return
+    pushHistory()
+    let sketch = current.value?.harmonySketch ?? []
+    for (const id of selectedSketchSpanIds.value) sketch = removeSketchSpan(sketch, id)
+    patchProject({ harmonySketch: sketch })
+    selectedSketchSpanIds.value = []
+  }
+
+  function moveSketchSpansGeometry(
+    payloads: Array<{ id: string; startTick: number; endTick: number }>,
+  ): void {
+    const p = current.value
+    if (!p || !payloads.length) return
+    let sketch = p.harmonySketch ?? []
+    for (const payload of payloads) {
+      const hit = sketch.find((s) => s.id === payload.id)
+      if (!hit) continue
+      sketch = upsertSketchSpan(sketch, {
+        ...hit,
+        startTick: payload.startTick,
+        endTick: payload.endTick,
+        locked: true,
+      })
+    }
+    patchProject({ harmonySketch: sketch })
+  }
+
+  function lockHarmonySketchSpan(id: string, quality?: HarmonySketchQuality): void {
+    const p = current.value
+    if (!p) return
+    const spans = (p.harmonySketch ?? []).map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            locked: true,
+            source: s.source === 'detect' ? ('user' as const) : s.source,
+            quality: quality ?? s.quality,
+          }
+        : s,
+    )
+    patchProject({ harmonySketch: sortSpans(spans) })
+  }
+
+  /**
+   * Promote Detected (or other) holes into locked My Chords in one history step.
+   */
+  function lockDetectedAsMyChords(
+    holes: readonly {
+      id?: string
+      startTick: number
+      endTick: number
+      rootPc: number
+      quality: HarmonySketchQuality
+    }[],
+  ): number {
+    const p = current.value
+    if (!p || !holes.length) return 0
+    pushHistory()
+    let sketch = p.harmonySketch ?? []
+    for (const h of holes) {
+      sketch = upsertSketchSpan(sketch, {
+        id: h.id,
+        startTick: h.startTick,
+        endTick: h.endTick,
+        rootPc: h.rootPc,
+        quality: h.quality,
+        source: 'user',
+        locked: true,
+      })
+    }
+    current.value = {
+      ...p,
+      harmonySketch: sortSpans(sketch),
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return holes.length
   }
 
   function setSoundEnvelope(patch: Partial<TagRollProject['soundEnvelope']>): void {
@@ -910,6 +1217,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       clearNoteSelection()
       return
     }
+    chordsLaneFocused.value = false
+    clearSketchSelection()
     if (opts?.additive) {
       if (selectedNoteIds.value.includes(id)) {
         selectedNoteIds.value = selectedNoteIds.value.filter((x) => x !== id)
@@ -937,6 +1246,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function selectNotes(ids: readonly string[], opts?: { additive?: boolean }): void {
     const unique = [...new Set(ids)]
+    if (unique.length) {
+      chordsLaneFocused.value = false
+      clearSketchSelection()
+    }
     if (opts?.additive && selectedNoteIds.value.length) {
       const set = new Set(selectedNoteIds.value)
       for (const id of unique) set.add(id)
@@ -1005,6 +1318,92 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!result.ok) return
     current.value = { ...p, notes: result.notes, updatedAt: svc().clock.now() }
     scheduleSave()
+  }
+
+  /**
+   * Harmonize commit: always upsert locked sketch for the melody window;
+   * optionally write TTBB stacks in the same history step.
+   */
+  function commitHarmonizeAtMelody(opts: {
+    melodyNoteId: string
+    rootPc: number
+    quality: string
+    mode: 'chord' | 'chord+stack'
+    pitches?: { tenor: number; bari: number; bass: number; lead: number }
+  }): void {
+    const p = current.value
+    if (!p) return
+    const melody = p.notes.find((n) => n.id === opts.melodyNoteId)
+    if (!melody) return
+    pushHistory()
+    const existing = sketchSpanAtTick(p.harmonySketch ?? [], melody.startTick)
+    const sketchNext = upsertSketchSpan(
+      p.harmonySketch ?? [],
+      sketchPatchFromMelodyNote({
+        melodyStartTick: melody.startTick,
+        melodyDurationTicks: melody.durationTicks,
+        rootPc: opts.rootPc,
+        quality: opts.quality,
+        id: existing?.id,
+      }),
+    )
+    let notes = p.notes
+    if (opts.mode === 'chord+stack' && opts.pitches) {
+      const result = applyHarmony({
+        project: { ...p, harmonySketch: sketchNext },
+        melodyNoteId: opts.melodyNoteId,
+        pitches: opts.pitches,
+        idGen: svc().idGen,
+      })
+      if (result.ok) notes = result.notes
+    }
+    current.value = {
+      ...p,
+      notes,
+      harmonySketch: sketchNext,
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+  }
+
+  /**
+   * Realize locked My Chords as TTBB stacks under Lead melody notes.
+   * When sketch spans are selected, only those spans are used; otherwise all locked.
+   */
+  function realizeHarmonySketchStacks(opts?: {
+    detectSpans?: readonly {
+      id: string
+      startTick: number
+      endTick: number
+      rootPc: number
+      quality: string
+    }[]
+  }): { applied: number; spansUsed: number } {
+    const p = current.value
+    if (!p) return { applied: 0, spansUsed: 0 }
+    const melodyPartId =
+      p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+    if (!melodyPartId) return { applied: 0, spansUsed: 0 }
+    const spanIds = selectedSketchSpanIds.value.length ? selectedSketchSpanIds.value : null
+    const result = realizeSketchStacksToNotes({
+      notes: p.notes,
+      parts: p.parts,
+      sketch: p.harmonySketch ?? [],
+      melodyPartId,
+      spanIds,
+      detectSpans: opts?.detectSpans ?? null,
+      tonality: p.tonality,
+      idGen: svc().idGen,
+    })
+    if (result.applied === 0) return { applied: 0, spansUsed: result.spansUsed }
+    pushHistory()
+    current.value = {
+      ...p,
+      notes: result.notes,
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return { applied: result.applied, spansUsed: result.spansUsed }
   }
 
   /**
@@ -1229,6 +1628,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     selectedNoteIds,
     selectedNote,
     selectedNotes,
+    selectedSketchSpanIds,
+    selectedSketchSpans,
+    sketchClipboard,
+    chordsLaneFocused,
     selectedExpressionId,
     expressionTool,
     addDurationTicks,
@@ -1272,6 +1675,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     updateTempoMarker,
     updateTempoMarkerLive,
     deleteTempoMarker,
+    setKeyAtTick,
+    updateKeyMarker,
+    updateKeyMarkerLive,
+    deleteKeyMarker,
     addExpression,
     updateExpression,
     updateExpressionLive,
@@ -1286,6 +1693,19 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setSwing,
     setMidiBakeSwing,
     setTonality,
+    setHarmonySketch,
+    upsertHarmonySketchSpan,
+    removeHarmonySketchSpan,
+    lockHarmonySketchSpan,
+    lockDetectedAsMyChords,
+    clearSketchSelection,
+    setChordsLaneFocused,
+    selectSketchSpans,
+    copySelectedSketchSpans,
+    cutSelectedSketchSpans,
+    pasteSketchSpansAtPlayhead,
+    deleteSelectedSketchSpans,
+    moveSketchSpansGeometry,
     setSoundEnvelope,
     addNote,
     updateNote,
@@ -1304,6 +1724,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     cutSelectedNotes,
     pasteNotesAtPlayhead,
     upsertHarmonyNotes,
+    commitHarmonizeAtMelody,
+    realizeHarmonySketchStacks,
     replaceNotesFromExternal,
     addPart,
     updatePart,

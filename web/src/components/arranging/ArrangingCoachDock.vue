@@ -13,6 +13,7 @@ import ArrangingCoachRolesPanel from './ArrangingCoachRolesPanel.vue'
 import ArrangingCoachPillarsPanel from './ArrangingCoachPillarsPanel.vue'
 import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
 import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
+import ConfirmDialog from '../ConfirmDialog.vue'
 import { glossaryIdsForGuidedStep } from '../../application/arranging/GuidedSteps'
 import { useCoachTransport } from '../../composables/useCoachTransport'
 import { createCoachTransportActions } from '../../composables/useCoachTransportActions'
@@ -58,6 +59,7 @@ const {
   focusTab,
   whyIndex,
   whyShowNumbers,
+  tip,
   nextAction,
   preferFlats,
   melody,
@@ -67,6 +69,7 @@ const {
   selectedPil,
   candidates,
   filteredCandidates,
+  candidateGroups,
   maxScore,
   filterOptions,
   candFilter,
@@ -122,6 +125,9 @@ const {
   fillEmptyWithBest,
   fixAllSafe,
   fixItem,
+  pendingKeySuggestionMessage,
+  cancelPendingKeySuggestion,
+  confirmPendingKeySuggestion,
   canFix,
   learnLint,
   jumpToLint,
@@ -165,6 +171,11 @@ const {
 
 const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
 const pillarGlossaryTip = glossaryTitle('pillar')
+const cadenceBadge = computed(() => {
+  const t = tip.value
+  if (!t?.lessonId || t.lessonId !== 'L-classic-cadences') return null
+  return t.title.replace(/^Cadence:\s*/i, '').trim() || null
+})
 
 const rolesStatus = computed(() => {
   const mel = melody.value
@@ -356,6 +367,7 @@ onUnmounted(() => {
       @update:contest-profile="setContestProfile"
       @update:tuning-mode="setTuningMode"
       @update:qa-group="setQaGroup"
+      @update:cadence-bias="arrStore.refreshCandidates()"
       @close-config="showConfig = false"
     />
 
@@ -475,6 +487,11 @@ onUnmounted(() => {
               <template v-else>
                 <div v-if="filteredCandidates[0]" class="best-row">
                   <strong class="best-id">{{ candIdentity(filteredCandidates[0]) }}</strong>
+                  <span
+                    v-if="cadenceBadge"
+                    class="cadence-badge"
+                    :title="tip?.body || 'Classic cadence suggestion'"
+                  >{{ cadenceBadge }}</span>
                   <span class="cand-meta">{{ layerHint(filteredCandidates[0]) }}</span>
                   <button
                     type="button"
@@ -502,7 +519,30 @@ onUnmounted(() => {
                     Why?
                   </button>
                 </div>
-                <p v-else class="muted">
+                <details
+                  v-if="candidateGroups[0] && candidateGroups[0].stacks.length > 1"
+                  class="inv-details best-inv"
+                >
+                  <summary>
+                    {{ candidateGroups[0].stacks.length }} inversions of
+                    {{ candidateGroups[0].label }}
+                  </summary>
+                  <ul class="inv-list">
+                    <li
+                      v-for="(c, si) in candidateGroups[0].stacks"
+                      :key="`best-${c.voicing}-${si}`"
+                      @mouseenter="previewCand(c)"
+                      @mouseleave="emit('clearGhost')"
+                    >
+                      <span class="cand-id">{{ candIdentity(c) }}</span>
+                      <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
+                      <button type="button" class="step-btn slim" @click="applyCand(c)">
+                        {{ currentStack ? 'Replace' : 'Apply' }}
+                      </button>
+                    </li>
+                  </ul>
+                </details>
+                <p v-else-if="!filteredCandidates[0]" class="muted">
                   {{ candidates.length ? 'No suggestions match this filter.' : 'No candidates.' }}
                 </p>
                 <ArrangingCandidateWhy
@@ -619,7 +659,40 @@ onUnmounted(() => {
                   {{ f.label }}
                 </button>
               </div>
-              <ul v-if="filteredCandidates.length > 1" class="cands flat">
+              <ul v-if="candidateGroups.length > 1" class="cands flat">
+                <li
+                  v-for="(g, gi) in candidateGroups.slice(1)"
+                  :key="g.key"
+                  class="cand-group"
+                  @mouseenter="previewCand(g.best)"
+                  @mouseleave="emit('clearGhost')"
+                >
+                  <span class="cand-id">{{ g.label }}</span>
+                  <span class="cand-meta">{{ layerHint(g.best) }}</span>
+                  <button type="button" class="step-btn slim" @click="hearCand(g.best)">Hear</button>
+                  <button type="button" class="step-btn slim" @click="applyCand(g.best)">
+                    {{ currentStack ? 'Replace' : 'Apply' }}
+                  </button>
+                  <details v-if="g.stacks.length > 1" class="inv-details">
+                    <summary>{{ g.stacks.length }} inversions</summary>
+                    <ul class="inv-list">
+                      <li
+                        v-for="(c, si) in g.stacks"
+                        :key="`${g.key}-${c.voicing}-${si}`"
+                        @mouseenter="previewCand(c)"
+                        @mouseleave="emit('clearGhost')"
+                      >
+                        <span class="cand-id">{{ candIdentity(c) }}</span>
+                        <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
+                        <button type="button" class="step-btn slim" @click="applyCand(c)">
+                          {{ currentStack ? 'Replace' : 'Apply' }}
+                        </button>
+                      </li>
+                    </ul>
+                  </details>
+                </li>
+              </ul>
+              <ul v-else-if="filteredCandidates.length > 1" class="cands flat">
                 <li
                   v-for="(c, i) in filteredCandidates.slice(1)"
                   :key="`${c.rootPc}-${c.natureId}-${c.voicing}-${i + 1}`"
@@ -719,6 +792,15 @@ onUnmounted(() => {
         </div>
       </div>
     </template>
+
+    <ConfirmDialog
+      :open="!!pendingKeySuggestionMessage"
+      title="Transpose chart?"
+      :message="pendingKeySuggestionMessage"
+      confirm-label="Transpose"
+      @close="cancelPendingKeySuggestion"
+      @confirm="confirmPendingKeySuggestion"
+    />
   </aside>
 </template>
 
@@ -875,6 +957,17 @@ onUnmounted(() => {
 .post-badge {
   font-size: 0.7rem;
   color: var(--muted);
+}
+.cadence-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--accent, #3a6ea5);
+  border: 1px solid color-mix(in srgb, var(--accent, #3a6ea5) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent, #3a6ea5) 12%, var(--surface));
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
 }
 .subh {
   margin: 0;
@@ -1132,6 +1225,33 @@ onUnmounted(() => {
   border: 0;
   border-radius: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.inv-details {
+  flex: 1 1 100%;
+  margin: 0.15rem 0 0;
+}
+.inv-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.inv-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.inv-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  border-bottom: 0 !important;
+  padding: 0.15rem 0 !important;
+}
+.best-inv {
+  margin: 0.35rem 0 0.15rem;
 }
 .cands.flat li:last-child {
   border-bottom: 0;

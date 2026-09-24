@@ -29,6 +29,10 @@ export type ChordAnalysisSegment = {
   locked: boolean
   /** Key-based guess for bare melody (no TBB) — not a Coach Apply. */
   implied: boolean
+  /** Pitch-class root when known (harmony sketch / detect). */
+  rootPc?: number
+  /** Sketch / nature quality id when known. */
+  quality?: string
   name: string
   nameOptions: string[]
   roman: string
@@ -36,6 +40,8 @@ export type ChordAnalysisSegment = {
   /** Effective labels after user override (must be in options). */
   displayName: string
   displayRoman: string
+  /** Classic cadence hint for Detected tooltips. */
+  cadenceLabel?: string
 }
 
 export function natureSuffix(natureId: string): string {
@@ -101,6 +107,8 @@ export type NatureNameCandidate = {
   label: string
   /** Optional RN when supplied by key-based implication. */
   roman?: string
+  /** Classic cadence label for Detected tooltips (e.g. V7→I). */
+  cadenceLabel?: string
 }
 
 /**

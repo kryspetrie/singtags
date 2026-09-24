@@ -1,8 +1,18 @@
 /**
  * Key-based implied chords for bare melody notes (no TBB sounding).
  * Heuristic only — not an Apply/Coach commitment.
+ * Prefers clear diatonic homes (I/IV/V major, etc.); light BS7 color when the
+ * melody sits on 3 or 7 — not full Coach SCF/passing catalogs.
+ * Classic cadences come from domain/cadences (shared with Coach).
  */
 import { BARBERSHOP_CHORDS, leadRoleInChord, type ChordToneRole } from './chords/chords'
+import {
+  scoreCadenceFit,
+  type CadenceBias,
+  type CadenceContext,
+  type CadenceHint,
+  type PhraseRole,
+} from './cadences'
 import { diatonicChords } from './keyChangeShared'
 import { degreeOf } from './secondaryDominant'
 import type { ChordStack, TonalityMode } from './types'
@@ -13,6 +23,8 @@ export type ImpliedMelodyChord = {
   roman: string
   confidence: number
   leadRole: ChordToneRole
+  /** Best matching classic cadence for UI tooltips / Coach. */
+  cadenceHint?: CadenceHint
 }
 
 export type BareMelodyMoment = {
@@ -78,42 +90,92 @@ function scoreCandidate(
   leadRole: ChordToneRole,
   tonality: number,
   mode: TonalityMode,
-): number {
+  cadenceCtx: CadenceContext,
+  bias: CadenceBias,
+): { score: number; cadenceHint?: CadenceHint } {
   const deg = degreeOf(rootPc, tonality)
   let score = functionWeight(deg, mode) * 10 + (ROLE_SCORE[leadRole] ?? 1)
-  // Barbershop bias: V7 / I7 when the lead sits on 3 or 7.
-  if (natureId === 'seventh' && (leadRole === 3 || leadRole === 7)) {
-    if (deg === 7) score += 4
-    if (deg === 0) score += 2.5
-  }
-  // Prefer plain triads when the lead is root or fifth of I/IV.
+
+  // Prefer plain I / IV / V majors when the melody is the root (or fifth).
   if ((natureId === 'major' || natureId === 'minor') && (leadRole === 1 || leadRole === 5)) {
-    if (deg === 0 || deg === 5) score += 1.5
+    if (deg === 0 || deg === 5 || deg === 7) score += 3.5
   }
-  return score
+  // Strongly prefer triad over I7 / IV7 when melody is the chord root.
+  if (natureId === 'seventh' && leadRole === 1 && (deg === 0 || deg === 5)) {
+    score -= 6
+  }
+  // Barbershop color: V7 (and light I7) when lead sits on 3 or 7 — not as the default home.
+  if (natureId === 'seventh' && (leadRole === 3 || leadRole === 7)) {
+    if (deg === 7) score += 5
+    if (deg === 0) score += 1.5
+  }
+
+  // Classic cadences (V7→I, ^7→^1, II7→V7→I, I7→IV, …) — shared with Coach.
+  const cad = scoreCadenceFit(
+    { rootPc, natureId },
+    cadenceCtx,
+    { maxPriority: 2, bias },
+  )
+  score += cad.boost
+
+  // Keep Dom9 / add6 out of the top Detected pick unless nothing else fits.
+  if (natureId === 'ninth' || natureId === 'sixth' || natureId === 'add9' || natureId === 'madd6') {
+    score -= 8
+  }
+  return { score, cadenceHint: cad.hint ?? undefined }
 }
 
 /**
- * Ranked diatonic (+ common BS7 color) chords that contain this melody tone.
+ * Ranked diatonic (+ light BS7 color) chords that contain this melody tone.
  */
 export function inferImpliedChordsFromMelody(opts: {
   melodyMidi: number
   tonality: number
   mode?: TonalityMode
   limit?: number
+  /** Next melody pitch — enables cadence biases (V7→I, etc.). */
+  nextMelodyMidi?: number | null
+  prevMelodyMidi?: number | null
+  prevRootPc?: number | null
+  prevNatureId?: string | null
+  nextPillarRoot?: number | null
+  pillarRoot?: number | null
+  phraseRole?: PhraseRole
+  cadenceBias?: CadenceBias
 }): ImpliedMelodyChord[] {
   const mode = opts.mode ?? 'major'
   const limit = Math.max(1, opts.limit ?? 3)
+  const bias = opts.cadenceBias ?? 'strong'
   const diatonic = diatonicChords(opts.tonality, mode)
   type Cand = ImpliedMelodyChord & { score: number }
   const cands: Cand[] = []
+  const cadenceCtx: CadenceContext = {
+    tonality: opts.tonality,
+    mode,
+    melodyMidi: opts.melodyMidi,
+    nextMelodyMidi: opts.nextMelodyMidi ?? null,
+    prevMelodyMidi: opts.prevMelodyMidi ?? null,
+    prevRootPc: opts.prevRootPc ?? null,
+    prevNatureId: opts.prevNatureId ?? null,
+    nextPillarRoot: opts.nextPillarRoot ?? null,
+    pillarRoot: opts.pillarRoot ?? null,
+    phraseRole: opts.phraseRole,
+  }
 
   const push = (rootPc: number, natureId: string, baseRoman: string) => {
     const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
     if (!chord) return
     const leadRole = leadRoleInChord(chord, rootPc, opts.melodyMidi)
     if (leadRole == null) return
-    const score = scoreCandidate(rootPc, natureId, leadRole, opts.tonality, mode)
+    const { score, cadenceHint } = scoreCandidate(
+      rootPc,
+      natureId,
+      leadRole,
+      opts.tonality,
+      mode,
+      cadenceCtx,
+      bias,
+    )
     cands.push({
       rootPc,
       natureId,
@@ -121,12 +183,13 @@ export function inferImpliedChordsFromMelody(opts: {
       confidence: Math.min(1, score / 110),
       leadRole,
       score,
+      cadenceHint,
     })
   }
 
   for (const d of diatonic) {
     push(d.rootPc, d.natureId, d.roman)
-    // Common color extensions when the melody still fits.
+    // Common color extensions when the melody still fits (ranked below triads for I/IV roots).
     if (d.natureId === 'major' && (d.deg === 0 || d.deg === 5 || d.deg === 7)) {
       push(d.rootPc, 'seventh', d.roman)
     }
@@ -151,6 +214,7 @@ export function inferImpliedChordsFromMelody(opts: {
       roman: c.roman,
       confidence: c.confidence,
       leadRole: c.leadRole,
+      cadenceHint: c.cadenceHint,
     })
     if (out.length >= limit) break
   }
@@ -179,21 +243,29 @@ export function impliedStacksForBareMelody(opts: {
   tonality: number
   mode?: TonalityMode
   idPrefix?: string
+  cadenceBias?: CadenceBias
 }): ChordStack[] {
   const mode = opts.mode ?? 'major'
   const prefix = opts.idPrefix ?? 'implied'
   const out: ChordStack[] = []
   let n = 0
-  for (const m of opts.moments) {
+  const sorted = [...opts.moments].sort((a, b) => a.startTick - b.startTick)
+  for (let i = 0; i < sorted.length; i++) {
+    const m = sorted[i]!
     if (melodyOnsetCoveredByStack(m.startTick, opts.existingStacks)) continue
     if (opts.existingStacks.some((s) => s.startTick === m.startTick && s.natureId !== 'unknown')) {
       continue
     }
+    const next = sorted[i + 1]
+    const prev = sorted[i - 1]
     const best = inferImpliedChordsFromMelody({
       melodyMidi: m.midi,
       tonality: opts.tonality,
       mode,
       limit: 1,
+      nextMelodyMidi: next?.midi ?? null,
+      prevMelodyMidi: prev?.midi ?? null,
+      cadenceBias: opts.cadenceBias,
     })[0]
     if (!best) continue
     out.push({

@@ -191,14 +191,18 @@ export function tagRollToArrangement(
     .filter((n) => n.partId === leadPart.id)
     .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
 
-  const melody: MelodyEvent[] = leadNotes.map((n) => ({
-    id: gen.next('mel'),
-    midi: n.midi,
-    startTick: n.startTick,
-    durationTicks: n.durationTicks,
-    role: 'unknown' as const,
-    ...(n.lyric ? { lyric: n.lyric } : {}),
-  }))
+  // Musical onsets: portamento destinations begin at the predecessor release
+  // (bend completes → pitch is “on”). Matches sheet / MusicXML / coach moments.
+  const melody: MelodyEvent[] = melodyWithDeferredPortamento(
+    leadNotes.map((n) => ({
+      id: gen.next('mel'),
+      midi: n.midi,
+      startTick: n.startTick,
+      durationTicks: n.durationTicks,
+      role: 'unknown' as const,
+      ...(n.lyric ? { lyric: n.lyric } : {}),
+    })),
+  )
 
   const tenor = partByName(tag.parts, 'Tenor')
   const bari = partByName(tag.parts, 'Bari')

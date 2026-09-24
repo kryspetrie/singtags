@@ -29,19 +29,19 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/TagPlayer.vue': 2300,
   'views/LocalLibraryView.vue': 2250,
   'views/TagView.vue': 2050,
-  'stores/preferences.ts': 1917, // exclusive Mods/Coach bottom lane opener
+  'stores/preferences.ts': 2000, // Tag Studio lane prefs + chord strip toggles
   'views/SettingsView.vue': 1800,
   'views/FavoritesView.vue': 1750,
   'App.vue': 1700,
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 1580, // detached coach transport intent bridge
-  'components/arranging/useArrangingCoachDock.ts': 1071, // skip status + auto-propose after lock
-  'components/arranging/ArrangingCoachDock.vue': 1172, // pillars panel extracted
+  'views/TagRollEditorView.vue': 1920, // Chords lane multi-select / clipboard / draft-safe coach sync
+  'components/arranging/useArrangingCoachDock.ts': 1150, // sketch-authoritative coach open + sync
+  'components/arranging/ArrangingCoachDock.vue': 1300, // cadence badge + config bias refresh
   'stores/arrangement.ts': 892, // skipped home-root spans session registry
-  'components/tagRoll/TagRollViewport.vue': 1411, // melody-pass dashed lines
-  'stores/tagRoll.ts': 1326, // melodyPasses prune on delete
+  'components/tagRoll/TagRollViewport.vue': 1440, // headerExtraH reserves Harmony strip from pitch plane
+  'stores/tagRoll.ts': 1650, // Chords lock/realize + sketch clipboard
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,
@@ -50,8 +50,9 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'lib/rouletteDraw.ts': 950,
   'audio/pitchPlayer.ts': 950,
   'stores/offlineLibrary.ts': 950,
-  'components/tagRoll/TagRollExpressionLane.vue': 946, // exclusive lane; collapsed via rail
-  'components/tagRoll/TagRollMediaBar.vue': 1068, // major/minor key optgroups
+  'components/tagRoll/TagRollExpressionLane.vue': 860, // bottom-lane shell + shared time grid
+  'components/tagRoll/TagRollMediaBar.vue': 1200, // lane toggles beside W/H + major/minor key optgroups
+  'components/tagRoll/TagRollHarmonizePanel.vue': 1100, // one-click chords + inversion-labeled stacks; Hear uses raw placeVoicing
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
@@ -63,7 +64,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/catalog.ts': 750,
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
-  'components/tagRoll/TagRollToolbar.vue': 848, // major/minor key optgroups
+  'components/tagRoll/TagRollToolbar.vue': 860, // major/minor key optgroups (lane toggles on media bar)
 }
 
 const SKIP_DIR = new Set([

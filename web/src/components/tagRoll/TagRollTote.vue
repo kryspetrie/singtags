@@ -133,7 +133,7 @@ function onWheel(e: WheelEvent): void {
 .tote {
   position: relative;
   flex: 1 1 auto;
-  width: 72px;
+  width: 100%;
   min-height: 0;
   overflow: hidden;
   border-right: 1px solid #b8b0a4;
@@ -159,7 +159,7 @@ function onWheel(e: WheelEvent): void {
   color: #1a1714;
   cursor: pointer;
   font: inherit;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 650;
   letter-spacing: 0.01em;
   text-align: left;

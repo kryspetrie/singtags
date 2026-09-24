@@ -6,8 +6,10 @@ import type {
   PianoSoundEngineId,
 } from '../../audio/pianoSamples'
 import type {
+  HarmonySketchSpan,
   TagRollClefFamily,
   TagRollExpression,
+  TagRollKeyMarker,
   TagRollMelodyPass,
   TagRollNote,
   TagRollPart,
@@ -31,6 +33,7 @@ export type TagRollDocumentSnapshot = {
   lengthTicks: number
   timeSignature: TagRollTimeSignature
   tempoMarkers: TagRollTempoMarker[]
+  keyMarkers: TagRollKeyMarker[]
   expressions: TagRollExpression[]
   soundEngine: PianoSoundEngineId
   pitchPipeSoundId: string
@@ -48,6 +51,7 @@ export type TagRollDocumentSnapshot = {
   mix: TagRollPartMix[]
   notes: TagRollNote[]
   melodyPasses: TagRollMelodyPass[]
+  harmonySketch: HarmonySketchSpan[]
   localEntryId: string | null
 }
 
@@ -59,6 +63,7 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     lengthTicks: p.lengthTicks,
     timeSignature: { ...p.timeSignature },
     tempoMarkers: p.tempoMarkers.map((m) => ({ ...m })),
+    keyMarkers: (p.keyMarkers ?? []).map((m) => ({ ...m })),
     expressions: p.expressions.map((e) => ({ ...e })),
     soundEngine: p.soundEngine,
     pitchPipeSoundId: p.pitchPipeSoundId,
@@ -76,6 +81,7 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     mix: (p.mix ?? []).map((m) => ({ ...m })),
     notes: p.notes.map((n) => ({ ...n })),
     melodyPasses: (p.melodyPasses ?? []).map((l) => ({ ...l })),
+    harmonySketch: (p.harmonySketch ?? []).map((s) => ({ ...s })),
     localEntryId: p.localEntryId,
   }
 }
@@ -92,6 +98,18 @@ export function applyDocumentSnapshot(
     snap.tempoMarkers?.length
       ? snap.tempoMarkers.map((m) => ({ ...m }))
       : [{ id: 'trt-legacy', tick: 0, bpm }]
+  const keyMarkers =
+    snap.keyMarkers?.length
+      ? snap.keyMarkers.map((m) => ({ ...m }))
+      : [
+          {
+            id: 'trk-legacy',
+            tick: 0,
+            tonality: snap.tonality,
+            tonalityMode: snap.tonalityMode ?? 'major',
+            preferFlats: snap.preferFlats,
+          },
+        ]
   const expressions = snap.expressions?.map((e) => ({ ...e })) ?? []
   const parts = snap.parts.map((x) => ({ ...x }))
   return {
@@ -102,6 +120,7 @@ export function applyDocumentSnapshot(
     lengthTicks: snap.lengthTicks,
     timeSignature,
     tempoMarkers,
+    keyMarkers,
     expressions,
     soundEngine: snap.soundEngine,
     pitchPipeSoundId: snap.pitchPipeSoundId || 'mellow',
@@ -121,6 +140,7 @@ export function applyDocumentSnapshot(
     mix: syncProjectMix(parts, snap.mix),
     notes: snap.notes.map((n) => ({ ...n })),
     melodyPasses: (snap.melodyPasses ?? []).map((l) => ({ ...l })),
+    harmonySketch: (snap.harmonySketch ?? []).map((s) => ({ ...s })),
     localEntryId: snap.localEntryId,
     updatedAt: Date.now(),
   }
