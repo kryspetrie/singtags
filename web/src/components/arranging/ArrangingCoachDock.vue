@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Arranging coach — single ordered path: Pillars → Strong/passing → Chords → Check → Polish.
+ * Arranging coach — Pillars → Note roles → Chords → Check → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import ArrangingContextCard from './ArrangingContextCard.vue'
@@ -9,12 +9,16 @@ import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
+import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
 import ArrangingCoachRolesPanel from './ArrangingCoachRolesPanel.vue'
 import ArrangingCoachPillarsPanel from './ArrangingCoachPillarsPanel.vue'
-import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
 import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
 import ConfirmDialog from '../ConfirmDialog.vue'
-import { glossaryIdsForGuidedStep } from '../../application/arranging/GuidedSteps'
+import {
+  buttonTipForGuidedStep,
+  glossaryIdsForGuidedStep,
+  labelForGuidedStep,
+} from '../../application/arranging/GuidedSteps'
 import { useCoachTransport } from '../../composables/useCoachTransport'
 import { createCoachTransportActions } from '../../composables/useCoachTransportActions'
 import {
@@ -171,6 +175,10 @@ const {
 
 const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
 const pillarGlossaryTip = glossaryTitle('pillar')
+
+function openAssignNoteRoles(): void {
+  selectGuidedStep('roles')
+}
 const cadenceBadge = computed(() => {
   const t = tip.value
   if (!t?.lessonId || t.lessonId !== 'L-classic-cadences') return null
@@ -276,9 +284,16 @@ watch(
   { immediate: true },
 )
 
-const showConfig = ref(false)
+const panelMode = ref<'config' | 'ideas' | 'help' | null>(null)
 const dockWidthRem = ref(44)
 const resizing = ref(false)
+
+function togglePanel(mode: 'config' | 'ideas' | 'help'): void {
+  panelMode.value = panelMode.value === mode ? null : mode
+}
+
+const helpTitle = computed(() => `Help · ${labelForGuidedStep(guidedStep.value)}`)
+const helpDetail = computed(() => buttonTipForGuidedStep(guidedStep.value))
 
 function onResizePointerDown(e: PointerEvent): void {
   if (e.button !== 0) return
@@ -353,22 +368,10 @@ onUnmounted(() => {
     />
 
     <ArrangingCoachChrome
-      :show-config="showConfig"
-      :qa-errors="arrStore.qaBadge.errors"
-      :qa-warns="arrStore.qaBadge.warns"
-      :show-config-panel="showConfig && !!melody.length"
-      :contest-profile="arrStore.current?.contestProfile ?? DEFAULT_CONTEST_PROFILE"
-      :tuning-mode="arrStore.current?.tuningMode ?? 'equal'"
-      :qa-config="arrStore.current?.qaConfig ?? DEFAULT_QA_CONFIG"
-      :org-tip="orgTip"
-      @toggle-config="showConfig = !showConfig"
-      @pop-out="emit('popOut')"
-      @close="emit('close')"
-      @update:contest-profile="setContestProfile"
-      @update:tuning-mode="setTuningMode"
-      @update:qa-group="setQaGroup"
-      @update:cadence-bias="arrStore.refreshCandidates()"
-      @close-config="showConfig = false"
+      :show-config="panelMode === 'config'" :show-ideas="panelMode === 'ideas'"
+      :show-help="panelMode === 'help'"
+      @toggle-config="togglePanel('config')" @toggle-ideas="togglePanel('ideas')"
+      @toggle-help="togglePanel('help')" @pop-out="emit('popOut')" @close="emit('close')"
     />
 
     <p v-if="syncing" class="muted">Linking…</p>
@@ -392,56 +395,30 @@ onUnmounted(() => {
         @next-action="runNextAction"
       />
 
-      <ArrangingStepRail
-        :active="guidedStep"
-        :tip="guidedTip"
-        @select="selectGuidedStep"
-      />
-      <ArrangingTeachStrip
-        class="step-teach"
-        heading="Key ideas for this step"
-        :ids="stepGlossaryIds"
-      />
-
-      <div class="workspace">
-        <div class="panel-scroll">
-          <!-- ROLES (distinct from pillars) -->
+      <div class="coach-body">
+        <div class="coach-main">
+          <ArrangingCoachPanelOverlay
+            v-if="panelMode"
+            :mode="panelMode"
+            :contest-profile="arrStore.current?.contestProfile ?? DEFAULT_CONTEST_PROFILE"
+            :tuning-mode="arrStore.current?.tuningMode ?? 'equal'"
+            :qa-config="arrStore.current?.qaConfig ?? DEFAULT_QA_CONFIG"
+            :org-tip="orgTip" :glossary-ids="stepGlossaryIds"
+            :help-title="helpTitle" :help-tip="guidedTip" :help-detail="helpDetail"
+            @close="panelMode = null"
+            @update:contest-profile="setContestProfile" @update:tuning-mode="setTuningMode"
+            @update:qa-group="setQaGroup" @update:cadence-bias="arrStore.refreshCandidates()"
+          />
+          <div v-else class="workspace"><div class="panel-scroll">          <!-- ROLES (distinct from pillars) -->
           <ArrangingCoachRolesPanel
             v-if="focusTab === 'now' && guidedStep === 'roles'"
-            :melody="melody"
-            :selected-id="arrStore.selectedMelodyId"
-            @select="selectMelodyNote"
-            @step="stepMelodyNote"
-            @set-role="setMelodyNoteRole"
-            @label-all="onLabelRoles"
+            @open-assign="openAssignNoteRoles"
           />
 
           <!-- PILLARS -->
           <ArrangingCoachPillarsPanel
             v-else-if="focusTab === 'now'"
-            :repair-tour="repairTour"
-            :can-walk-arrange="canWalkArrange"
-            :can-lock-remaining="canLockRemaining"
-            :skipped-count="arrStore.skippedHomeRootCount"
-            :pillars="pillars"
-            :selected-pil="selectedPil"
-            :prefer-flats="preferFlats"
-            :pillar-glossary-tip="pillarGlossaryTip"
-            :coverage-gaps="coverageGaps"
-            :format-gap-row="formatGapRow"
-            :can-extend-previous-at-gap="canExtendPreviousAtGap"
-            :pc-name="pcName"
-            @add-at-playhead="onAddPillarAtPlayhead"
             @next-roles="selectGuidedStep('roles')"
-            @infer-batch="onInfer"
-            @lock-remaining="onLockRemaining"
-            @clear-skips="arrStore.clearSkippedHomeRoots()"
-            @focus-pillar="focusPillar"
-            @update-root="updatePillarRoot"
-            @delete-pillar="onDeletePillar"
-            @jump-uncovered="jumpToUncovered"
-            @add-uncovered="addPillarAtUncovered"
-            @extend-uncovered="extendPreviousToUncovered"
           />
 
           <!-- CHOOSE — best on one line; other suggestions in a single collapsible -->
@@ -784,12 +761,15 @@ onUnmounted(() => {
               @strengthen="onStrengthen"
               @polish="onPolish"
               @apply-swipe="onApplySwipe"
-              @open-config="showConfig = true"
+              @open-config="panelMode = 'config'"
               @export-midi="exportMidi"
               @export-music-xml="exportMusicXml"
             />
           </section>
+            </div>
+          </div>
         </div>
+        <ArrangingStepRail :active="guidedStep" @select="selectGuidedStep" />
       </div>
     </template>
 
@@ -855,9 +835,6 @@ onUnmounted(() => {
   flex: 0 0 auto;
   min-height: 2rem;
 }
-.step-teach {
-  flex: 0 0 auto;
-}
 .session-meta {
   flex: 1 1 auto;
   min-width: 0;
@@ -870,18 +847,17 @@ onUnmounted(() => {
   font-size: 0.84rem;
   color: var(--text);
 }
+.coach-body {
+  display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; gap: 0.4rem;
+}
+.coach-main {
+  display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; gap: 0.35rem;
+}
 .workspace {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0;
 }
 .panel-scroll {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-  padding-right: 0.15rem;
+  flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding-right: 0.15rem;
 }
 .panel {
   display: grid;

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * Shared chrome for Tag Studio bottom lanes:
- * left tote gutter = label + View select; body = time-aligned content.
- * Open/close lives on the media bar (no per-lane dismiss).
+ * Shared chrome for Tag Studio bottom lanes.
+ * Compact density: vertical spine label + tight actions (Sketch/Detected/Mods).
+ * Default density: stacked label + View select (Coach / taller lanes).
  */
 import { computed } from 'vue'
 
@@ -11,16 +11,20 @@ export type BottomLaneViewOption = {
   label: string
 }
 
-const props = defineProps<{
-  label: string
-  leftGutterPx?: number
-  /** Options for the dropdown under the lane label. */
-  viewOptions?: readonly BottomLaneViewOption[]
-  viewValue?: string
-  /** Caption above the select (default View; Mods uses Add). */
-  viewFieldLabel?: string
-  viewAriaLabel?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    label: string
+    leftGutterPx?: number
+    viewOptions?: readonly BottomLaneViewOption[]
+    viewValue?: string
+    /** Caption above the select (default View; Mods uses Add). Ignored when compact. */
+    viewFieldLabel?: string
+    viewAriaLabel?: string
+    /** Compact = vertical label + short gutter (Sketch / Detected / Mods). */
+    density?: 'default' | 'compact'
+  }>(),
+  { density: 'default' },
+)
 
 const emit = defineEmits<{
   'update:view': [value: string]
@@ -32,32 +36,64 @@ const gutterStyle = computed(() => {
 })
 
 const hasView = computed(() => (props.viewOptions?.length ?? 0) > 0)
+const compact = computed(() => props.density === 'compact')
+/** Two options → segmented toggle; otherwise keep a select. */
+const useSegment = computed(
+  () => compact.value && (props.viewOptions?.length ?? 0) === 2,
+)
 
 function onViewChange(e: Event): void {
   const el = e.target as HTMLSelectElement
   emit('update:view', el.value)
 }
+
+function shortOpt(label: string): string {
+  if (label === 'Chord') return 'C'
+  if (label === 'Number') return '#'
+  return label.slice(0, 1)
+}
 </script>
 
 <template>
-  <div class="bottom-lane" :style="gutterStyle">
+  <div class="bottom-lane" :class="{ compact }" :style="gutterStyle">
     <div class="gutter">
-      <div class="gutter-label">{{ label }}</div>
-      <label v-if="hasView" class="view-field">
-        <span class="view-lbl">{{ viewFieldLabel ?? 'View' }}</span>
-        <select
-          class="view-select"
-          :aria-label="viewAriaLabel ?? `${label} ${viewFieldLabel ?? 'view'}`"
-          :value="viewValue"
-          @change="onViewChange"
+      <div class="gutter-label" :title="label">{{ label }}</div>
+      <div class="gutter-actions">
+        <div
+          v-if="hasView && useSegment"
+          class="view-seg"
+          role="group"
+          :aria-label="viewAriaLabel ?? `${label} view`"
         >
-          <option v-for="opt in viewOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </label>
-      <div v-if="$slots.gutter" class="gutter-extra">
-        <slot name="gutter" />
+          <button
+            v-for="opt in viewOptions"
+            :key="opt.value"
+            type="button"
+            class="seg-btn"
+            :class="{ on: opt.value === viewValue }"
+            :aria-pressed="opt.value === viewValue"
+            :title="opt.label"
+            @click="emit('update:view', opt.value)"
+          >
+            {{ shortOpt(opt.label) }}
+          </button>
+        </div>
+        <label v-else-if="hasView" class="view-field">
+          <span v-if="!compact" class="view-lbl">{{ viewFieldLabel ?? 'View' }}</span>
+          <select
+            class="view-select"
+            :aria-label="viewAriaLabel ?? `${label} ${viewFieldLabel ?? 'view'}`"
+            :value="viewValue"
+            @change="onViewChange"
+          >
+            <option v-for="opt in viewOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </label>
+        <div v-if="$slots.gutter" class="gutter-extra">
+          <slot name="gutter" />
+        </div>
       </div>
     </div>
     <div class="lane-main">
@@ -90,6 +126,12 @@ function onViewChange(e: Event): void {
   padding: 0.35rem 0.35rem 0.4rem;
   box-sizing: border-box;
 }
+.bottom-lane.compact .gutter {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0.2rem 0.3rem;
+}
 .gutter-label {
   font-size: 0.8rem;
   font-weight: 750;
@@ -97,6 +139,27 @@ function onViewChange(e: Event): void {
   color: var(--text);
   line-height: 1.15;
   text-align: center;
+}
+.bottom-lane.compact .gutter-label {
+  flex: 0 0 auto;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.15rem 0;
+  user-select: none;
+}
+.gutter-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  justify-content: center;
 }
 .view-field {
   display: flex;
@@ -127,11 +190,42 @@ function onViewChange(e: Event): void {
   font-weight: 650;
   cursor: pointer;
 }
+.bottom-lane.compact .view-select {
+  min-height: 1.35rem;
+  font-size: 0.65rem;
+  padding: 0.05rem 0.15rem;
+}
+.view-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem;
+}
+.seg-btn {
+  min-height: 1.35rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.seg-btn.on {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.seg-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
 .gutter-extra {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
+  align-items: stretch;
+  gap: 0.15rem;
   min-width: 0;
 }
 .lane-main {

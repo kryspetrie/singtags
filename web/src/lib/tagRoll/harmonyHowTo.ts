@@ -20,17 +20,17 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
     title: 'Two apply modes',
     body: 'Use the toggle at the top of the panel:',
     steps: [
-      'Chord only — writes a locked My Chords sketch chord (full root + quality in one click). No Tenor/Bari/Bass notes.',
-      'Chord + stack — writes that sketch chord and places a TTBB stack; stacks are labeled by inversion (root / 1st / 2nd / 3rd).',
+      'Chord — pick/hold to preview a Sketch chord (same as Apply / Lock once you confirm). No Tenor/Bari/Bass notes until Apply.',
+      'Chord + stack — preview then Apply declares that sketch and realizes a TTBB stack for this note (same idea as Realize on the Sketch lane).',
     ],
   },
   {
     title: 'Recommended workflow',
     body: 'Declare first, then realize — the same loop many arrangers use in MuseScore:',
     steps: [
-      'Enter or import Lead melody (optional — you can also paint chords on the Chords lane with no notes).',
+      'Enter or import Lead melody (optional — you can also paint chords on the Sketch lane with no notes).',
       'Pick a full chord in one click (C, G7, Am…) from Valid chords — expand More for extra qualities/roots.',
-      'In Chord + stack, choose a stack by inversion (root / 1st / 2nd / 3rd), or Lock detections into My Chords then Realize there.',
+      'In Chord + stack, choose a stack by inversion (root / 1st / 2nd / 3rd), or Lock detections into Sketch then Realize there.',
       'Later passes: fill intermediary / passing chords the same way; use Hear (J) or Sketch in the mixer to check by ear.',
     ],
   },
@@ -43,9 +43,9 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
     title: 'Harmonize vs Coach vs lanes',
     body: 'Three surfaces, one truth:',
     steps: [
-      'Chords / Detected lanes — project harmony map (toggle from the media bar next to W/H). Exists with or without Coach. My Chords is the locked map.',
+      'Sketch / Detected lanes — project harmony map (toggle from the media bar next to W/H). Exists with or without Coach. Sketch is the locked map.',
       'Harmonize — fast local tool for experienced users who know what they want at this note.',
-      'Coach — guided teaching (propose, coverage, ranked Apply, QA). Lock commits into My Chords; Coach lane is coverage/overview, not chord entry.',
+      'Coach — guided teaching (propose, coverage, ranked Apply, QA). Lock commits into Sketch; Coach lane is coverage/overview, not chord entry.',
     ],
   },
 ]
@@ -53,32 +53,32 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
 /** Alias used by TagRollHarmonizePanel. */
 export const HARMONIZE_HOWTO = HARMONIZE_PANEL_HOWTO
 
-/** Chords / Detected bottom lanes (toggled from the media bar). */
+/** Sketch / Detected bottom lanes (toggled from the media bar). */
 export const HARMONY_STRIP_HOWTO: readonly HarmonyHowToSection[] = [
   {
-    title: 'My Chords vs Detected',
+    title: 'Sketch vs Detected',
     body:
-      'My Chords is your locked harmony map (authoritative) — independent of Coach. Detected fills holes with melody-based diatonic guesses (I/IV/V homes; light V7 color when the lead sits on 3 or 7) — Lock promotes into My Chords. Coach drafts stay in Coach until Lock.',
+      'Sketch is your locked harmony map (authoritative) — independent of Coach. Detected fills holes with melody-based diatonic guesses (I/IV/V homes; light V7 color when the lead sits on 3 or 7) — Lock promotes into Sketch. Coach drafts stay in Coach until Lock.',
   },
   {
-    title: 'Editing My Chords',
+    title: 'Editing Sketch',
     body:
-      'Open My Chords from the media bar (next to W/H). Drag on empty time to paint a span, then type the chord. Drag across existing chords to select them (or click one). Delete / Backspace removes the selection; click again to edit; ▾ menu → Delete. Drag edges to resize; drag a selected body to move. Ctrl/Cmd+click multi-select; Ctrl/Cmd+C/X/V copy/paste at the playhead. No piano-roll notes required.',
+      'Open Sketch from the media bar (next to W/H). Drag on empty time to paint a span, then type the chord. Drag across existing chords to select them (or click one). Delete / Backspace removes the selection; click a chord to open the dock editor. Drag edges to resize; drag a selected body to move. Ctrl/Cmd+click multi-select; Ctrl/Cmd+C/X/V copy/paste at the playhead. No piano-roll notes required.',
     steps: [
-      'Toggle My Chords (and optionally Detected) independently — multiple bottom lanes can stay open at once.',
+      'Toggle Sketch (and optionally Detected) independently — multiple bottom lanes can stay open at once.',
       'Use View on each lane to switch Chord / Number labels independently.',
-      'Detected → Lock promotes detections into My Chords. My Chords → Realize writes TTBB stacks under Lead notes (selection only when spans are selected; otherwise all locked).',
+      'Detected → Lock declares detections into Sketch. Sketch → Realize writes TTBB stacks under Lead notes (selection only when spans are selected; otherwise all locked). Apply in the chord picker also declares.',
     ],
   },
   {
     title: 'Hearing the map',
     body:
-      'Open a My Chords or Detected cell → pick a full chord (root + quality in one tap), Hear, then ✓ to apply (✕ cancels). Filter the list if needed. Press J for the sketch chord at the playhead. Hear / mixer Detected use a path-optimized inversion sequence. Mixer Sketch plays locked My Chords under Lead; mixer Detected (muted by default — solo it) plays hole-fill guesses.',
+      'Open a Sketch or Detected cell → hold a chord to hear, then ✓ to Apply/declare (↺ resets to the original; ✕ cancels). The Sketch lane shows a dashed preview before Apply; Play hears that preview. Press J for the sketch chord at the playhead. Mixer Sketch plays locked Sketch under Lead; mixer Detected (muted by default — solo it) plays hole-fill guesses.',
   },
   {
     title: 'With Harmonize / Coach',
     body:
-      'Harmonize Chord only writes into My Chords. Coach Propose drafts appear on the Coach lane; Lock commits them into My Chords. Prefer one place to own phrase harmony — My Chords is the map; Harmonize is the fast pen; Coach is the lesson.',
+      'Harmonize Chord only writes into Sketch. Coach Propose drafts appear on the Coach lane; Lock commits them into Sketch. Prefer one place to own phrase harmony — Sketch is the map; Harmonize is the fast pen; Coach is the lesson.',
   },
 ]
 

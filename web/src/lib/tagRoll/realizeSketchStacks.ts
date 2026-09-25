@@ -1,5 +1,5 @@
 /**
- * Realize locked My Chords (harmony sketch) as TTBB stacks on the piano roll.
+ * Realize locked Sketch (harmony sketch) as TTBB stacks on the piano roll.
  * One stack per Lead melody note that falls under a locked sketch span.
  */
 import type { IdGenerator } from '../../ports/IdGenerator'
@@ -40,7 +40,7 @@ export function realizeSketchStacksToNotes(opts: {
   melodyPartId: string
   /** When set, only spans with these ids are used (selection). */
   spanIds?: readonly string[] | null
-  /** Detected hole fills — included in the inversion path so My Chords voicings match. */
+  /** Detected hole fills — included in the inversion path so Sketch voicings match. */
   detectSpans?: readonly Pick<HarmonySketchSpan, 'id' | 'startTick' | 'endTick' | 'rootPc' | 'quality'>[] | null
   tonality?: number
   idGen: IdGenerator
@@ -77,7 +77,7 @@ export function realizeSketchStacksToNotes(opts: {
     return { notes: [...opts.notes], applied: 0, spansUsed: 0 }
   }
 
-  // Path context: locked My Chords + Detected fills on the timeline.
+  // Path context: locked Sketch + Detected fills on the timeline.
   type PathRef = {
     id: string
     startTick: number

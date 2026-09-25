@@ -12,6 +12,7 @@ import TagRollExpressionLane from '../components/tagRoll/TagRollExpressionLane.v
 import TagRollDeclaredLane from '../components/tagRoll/TagRollDeclaredLane.vue'
 import TagRollDetectedLane from '../components/tagRoll/TagRollDetectedLane.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
+import TagRollChordEditDock from '../components/tagRoll/TagRollChordEditDock.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
@@ -24,6 +25,7 @@ import TagRollTote from '../components/tagRoll/TagRollTote.vue'
 import TagRollToolbar from '../components/tagRoll/TagRollToolbar.vue'
 import TagRollViewport from '../components/tagRoll/TagRollViewport.vue'
 import TagRollSheetViewport from '../components/tagRoll/TagRollSheetViewport.vue'
+import TagRollAssignRolesHud from '../components/tagRoll/TagRollAssignRolesHud.vue'
 import {
   provideTagRollAudio,
   type TagRollAudioApi,
@@ -31,6 +33,8 @@ import {
 import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
 import { isPartAudible, mixForPart, syncProjectMix } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
+import { followPlayheadScrollX } from '../lib/tagRoll/followPlayheadScroll'
+import { useAssignNoteRoles } from '../composables/useAssignNoteRoles'
 import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
 import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
 import { downloadAudio } from '../application/tagRoll/downloadAudio'
@@ -64,6 +68,10 @@ import { useTagRollStore } from '../stores/tagRoll'
 import { useTagRollCoachShell } from '../composables/useTagRollCoachShell'
 import { useTagRollCoachFocus } from '../composables/useTagRollCoachFocus'
 import {
+  useTagRollChordEditDock,
+  type ChordEditDockSession,
+} from '../composables/useTagRollChordEditDock'
+import {
   publishCoachRollTransport,
   registerCoachRollTransport,
 } from '../lib/arranging/coachRollTransport'
@@ -77,7 +85,11 @@ import {
   pillarsFromHarmonySketch,
   sketchWindowAtPlayhead,
 } from '../lib/tagRoll/harmonySketch'
-import { sketchHearMidis, sketchHearVoicing, optimizeSketchHearPath } from '../lib/tagRoll/sketchHearVoicing'
+import {
+  sketchSpansForAudition,
+  type HarmonyPreviewDraft,
+} from '../lib/tagRoll/harmonyPreviewDraft'
+import { resolveSketchHearMidis } from '../lib/tagRoll/hearSketchSpan'
 import { measureTicks as measureTicksFn } from '../lib/tagRoll/tempoMap'
 import { useArrangementStore } from '../stores/arrangement'
 import { getArrangingServices } from '../composition/arranging'
@@ -101,6 +113,9 @@ const titleDraft = ref('')
 const partsOpen = ref(false)
 const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
+/** Live chord preview (dock / Harmonize) — Sketch lane chrome + transport audition. */
+const harmonyPreview = ref<HarmonyPreviewDraft | null>(null)
+const chordEditSession = ref<ChordEditDockSession | null>(null)
 const arrangingEnabled = computed(() => !!prefs.arrangingEnabled)
 const projectIdRef = computed(() => store.current?.id ?? props.id)
 const shortcutsOpen = ref(false)
@@ -145,11 +160,16 @@ const {
   isPopoutWindow,
   popoutHint,
   showDetachedBanner,
+  detachedBannerLabel,
   toggleCoach,
   ensureCoachOpen,
   onCoachClose: closeCoachShell,
   onCoachPopOut,
+  onHarmonizePopOut,
+  onChordEditPopOut,
   onCoachPopIn,
+  onHarmonizeCloseFromPopout,
+  onChordEditCloseFromPopout,
   postCoachFocusRange,
   postTransportState,
   postTransportIntent,
@@ -157,12 +177,19 @@ const {
   arrangingEnabled,
   projectId: projectIdRef,
   harmonizeOpen,
+  chordEditSession,
   setPlayheadTick: (tick) => store.setPlayheadTick(tick, { snap: false }),
   onRemoteFocusRange: (start, end) => onCoachFocusRange(start, end, 'none'),
   onRemoteTransportState: (active, model) => {
     publishCoachRollTransport({ active, model })
   },
 })
+
+/** While chord-editing or Harmonizing, cursor/playhead moves must not steal Sketch selection. */
+const inspectSelectNone = computed(
+  () => chordEditSession.value != null || harmonizeOpen.value,
+)
+
 let unregisterDetachedTransport: (() => void) | null = null
 watch(coachDetached, (detached) => {
   unregisterDetachedTransport?.()
@@ -190,7 +217,7 @@ function relayCoachFocusRange(
   end: number,
   select?: 'pillar' | 'column' | 'range' | 'none',
 ): void {
-  onCoachFocusRange(start, end, select)
+  onCoachFocusRange(start, end, inspectSelectNone.value ? 'none' : select)
   if (isPopoutWindow.value) postCoachFocusRange(start, end)
 }
 function relayCoachFocusTick(tick: number): void {
@@ -207,10 +234,11 @@ function onChordCursorChange(range: { startTick: number; endTick: number } | nul
     clearChordCursor()
     return
   }
-  setChordCursor(range, { select: 'range' })
+  setChordCursor(range, { select: inspectSelectNone.value ? 'none' : 'range' })
 }
 function onCoachLaneOpenPanel(): void {
   if (!arrangingEnabled.value) return
+  closeChordEdit()
   ensureCoachOpen()
 }
 const saveBusy = ref(false)
@@ -226,9 +254,57 @@ const {
   segments: chordAnalysisSegments,
   declaredSegments: chordDeclaredSegments,
   detectSegments: chordDetectSegments,
+  nameCandidatesByTick: chordNameCandidatesByTick,
   setDeclaredMode: setChordDeclaredMode,
   setDetectedMode: setChordDetectedMode,
 } = useChordAnalysisBar(project)
+
+const chordEdit = useTagRollChordEditDock({
+  coachOpen,
+  harmonizeOpen,
+  session: chordEditSession,
+  onClosePreview: () => {
+    if (harmonyPreview.value?.source === 'popover') harmonyPreview.value = null
+  },
+  project,
+  declaredSegments: chordDeclaredSegments,
+  detectSegments: chordDetectSegments,
+  declaredMode: chordDeclaredMode,
+  detectedMode: chordDetectedMode,
+  nameCandidatesByTick: chordNameCandidatesByTick,
+  harmonyPreview,
+  selectSketchSpans: (ids) => store.selectSketchSpans(ids),
+  setChordCursor,
+  applyDraft: (id, draft) => onApplyHarmonyDraft(id, draft),
+  removeSketch: (id) => onRemoveHarmonySketch(id),
+  hearSketch: (a, b, d) => void onHearHarmonySketch(a, b, d),
+})
+const {
+  isOpen: chordEditOpen,
+  close: closeChordEdit,
+  seg: chordEditSeg,
+  mode: chordEditMode,
+  rankHints: chordEditRankHints,
+  leadMidi: chordEditLeadMidi,
+  onLaneEdit: onLaneChordEdit,
+  onDraft: onChordEditDraft,
+  onHear: onChordEditHear,
+  onApply: onChordEditApply,
+  onRemove: onChordEditRemove,
+  promoteToDeclared,
+} = chordEdit
+
+function onChordEditDockClose(): void {
+  if (isPopoutWindow.value) {
+    onChordEditCloseFromPopout()
+    return
+  }
+  closeChordEdit()
+}
+
+watch(coachOpen, (on) => {
+  if (on) closeChordEdit()
+})
 
 const showPianoTote = computed(
   () => !!project.value && !(project.value.view.mode === 'view' && project.value.view.scoreSurface === 'sheet'),
@@ -378,7 +454,8 @@ function rebuildScheduler(): void {
     getSwing: () => store.current?.swing ?? { enabled: false, unit: 'eighth', style: 'triplet', amount: 0 },
     getMetronomeEnabled: () => !!store.current?.metronomeEnabled,
     getMetronomeSwing: () => store.current?.metronomeSwing !== false,
-    getHarmonySketch: () => store.current?.harmonySketch ?? [],
+    getHarmonySketch: () =>
+      sketchSpansForAudition(store.current?.harmonySketch ?? [], harmonyPreview.value),
     getDetectedSpans: () =>
       chordDetectSegments.value
         .filter((s) => s.rootPc != null)
@@ -405,7 +482,9 @@ function rebuildScheduler(): void {
     },
     player: p,
     onPlayhead: (tick) => {
-      if (store.current) store.setPlayheadTick(tick, { snap: false })
+      if (!store.current) return
+      store.setPlayheadTick(tick, { snap: false })
+      followPlayheadIntoView(tick)
     },
     onEnded: () => {
       store.transportPlaying = false
@@ -413,6 +492,28 @@ function rebuildScheduler(): void {
       if (rewind != null) store.setPlayheadTick(rewind, { snap: false })
     },
   })
+}
+
+function followPlayheadIntoView(tick: number): void {
+  const p = store.current
+  if (!p || (p.view.mode === 'view' && p.view.scoreSurface === 'sheet')) return
+  const raw = viewportRef.value?.cssW ?? 640
+  const vpW = typeof raw === 'number' && raw > 0 ? raw : 640
+  const next = followPlayheadScrollX({
+    playheadTick: tick,
+    scrollX: p.view.scrollX,
+    cellW: p.view.cellW,
+    viewportW: vpW,
+    lengthTicks: p.lengthTicks,
+    ppq: p.ppq,
+  })
+  if (next != null) store.setScroll(next, p.view.scrollY)
+}
+
+function onUserPlayhead(tick: number): void {
+  store.setPlayheadTick(tick)
+  if (store.transportPlaying) scheduler?.seek(tick)
+  else followPlayheadIntoView(tick)
 }
 
 async function previewPitch(midi: number | null): Promise<void> {
@@ -802,13 +903,11 @@ async function onHearHarmonySketch(
     (p.harmonySketch ?? []).find((s) => s.startTick === startTick) ??
     (seg ? (p.harmonySketch ?? []).find((s) => s.id === seg.id) : undefined)
 
-  // Prefer globally optimized path across My Chords + Detected so Hear matches mixer.
-  type SeqItem = { id: string; startTick: number; rootPc: number; quality: string }
+  type SeqItem = { startTick: number; rootPc: number; quality: string }
   const byTick = new Map<number, SeqItem>()
   for (const s of detectSegs) {
     if (s.rootPc == null) continue
     byTick.set(s.startTick, {
-      id: s.id,
       startTick: s.startTick,
       rootPc: s.rootPc,
       quality: natureToSketchQuality(s.quality ?? 'major'),
@@ -817,63 +916,35 @@ async function onHearHarmonySketch(
   for (const s of declaredSegs) {
     if (s.rootPc == null) continue
     byTick.set(s.startTick, {
-      id: s.id,
       startTick: s.startTick,
       rootPc: s.rootPc,
       quality: natureToSketchQuality(s.quality ?? 'major'),
     })
   }
-  const sequence = [...byTick.values()].sort(
-    (a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id),
-  )
-  const seqIdx = sequence.findIndex(
-    (s) => s.startTick === startTick || (seg != null && s.id === seg.id),
-  )
-  let midis: number[] | null = null
-  if (seqIdx >= 0 && !draft) {
-    const path = optimizeSketchHearPath(
-      sequence.map((s) => ({
-        rootPc: s.rootPc,
-        quality: natureToSketchQuality(s.quality),
-        leadMidi: harmonyLeadMidiAt(s.startTick),
-      })),
-      { tonality: p.tonality },
-    )
-    const hit = path[seqIdx]
-    if (hit) midis = [hit.bass, hit.bari, hit.lead, hit.tenor]
-  }
-  if (!midis) {
-    const rootPc = draft?.rootPc ?? stored?.rootPc ?? seg?.rootPc
-    const quality =
-      draft?.quality ??
-      stored?.quality ??
-      (seg?.quality && isHarmonySketchQuality(seg.quality) ? seg.quality : 'major')
-    if (rootPc == null) return
-    const prevSeg = seqIdx > 0 ? sequence[seqIdx - 1] : undefined
-    const nextSeg = seqIdx >= 0 ? sequence[seqIdx + 1] : undefined
-    const prevVoicing =
-      prevSeg?.rootPc != null
-        ? sketchHearVoicing({
-            rootPc: prevSeg.rootPc,
-            quality: natureToSketchQuality(prevSeg.quality ?? 'major'),
-            leadMidi: harmonyLeadMidiAt(prevSeg.startTick),
-          })
-        : null
-    midis = sketchHearMidis({
-      rootPc,
-      quality,
-      leadMidi: harmonyLeadMidiAt(startTick),
-      prev: prevVoicing,
-      next:
-        nextSeg?.rootPc != null
-          ? {
-              rootPc: nextSeg.rootPc,
-              quality: natureToSketchQuality(nextSeg.quality ?? 'major'),
-              leadMidi: harmonyLeadMidiAt(nextSeg.startTick),
-            }
-          : null,
-    })
-  }
+  const sequence = [...byTick.values()]
+    .sort((a, b) => a.startTick - b.startTick)
+    .map((s) => ({
+      ...s,
+      leadMidi: harmonyLeadMidiAt(s.startTick),
+    }))
+
+  const rootPc = draft?.rootPc ?? stored?.rootPc ?? seg?.rootPc
+  const quality =
+    draft?.quality ??
+    stored?.quality ??
+    (seg?.quality && isHarmonySketchQuality(seg.quality) ? seg.quality : 'major')
+  if (rootPc == null) return
+
+  const midis = resolveSketchHearMidis({
+    startTick,
+    rootPc,
+    quality,
+    leadMidi: harmonyLeadMidiAt(startTick),
+    mode: draft ? 'hold' : 'oneshot',
+    sequence: sequence.length ? sequence : undefined,
+    tonality: p.tonality,
+  })
+
   const tone = ensurePlayer()
   tone.allNotesOff(false)
   clearSketchHearTimer()
@@ -882,7 +953,6 @@ async function onHearHarmonySketch(
   await Promise.all(
     midis.map((m, i) => tone.noteOn(midiToNote(m), 0, { voiceKey: keys[i]!, gain: 0.7 })),
   )
-  // Draft previews (popover hold) sustain until hearStop; one-shot Hear uses a short ring.
   if (draft) {
     sketchHearKeys = keys
     return
@@ -939,6 +1009,24 @@ function syncSketchToCoachPillars(): void {
   arrStore.setPillars([...fromSketch, ...drafts])
 }
 
+const {
+  navigateSelectedNote,
+  onToggleSelectedMelodyRole,
+  onAssignMelodyPart,
+  noteRolesMap,
+  assignRolesMelodyName,
+  assignRolesSelectedRole,
+  onToggleChordPillar,
+} = useAssignNoteRoles({
+  project,
+  arrangingEnabled,
+  auditionMidi,
+  chordEditSeg,
+  chordEditVariant: computed(() => chordEditSession.value?.variant ?? null),
+  promoteToDeclared,
+  syncSketchToCoachPillars,
+})
+
 function defaultSketchWindow(): { startTick: number; endTick: number } {
   const p = project.value!
   const playhead = p.view.playheadTick ?? 0
@@ -981,6 +1069,7 @@ function onApplyHarmonyDraft(
       locked: true,
       source: 'user',
     })
+    harmonyPreview.value = null
     syncSketchToCoachPillars()
     return
   }
@@ -997,7 +1086,12 @@ function onApplyHarmonyDraft(
     source: 'user',
     locked: true,
   })
+  harmonyPreview.value = null
   syncSketchToCoachPillars()
+}
+
+function onHarmonyPreview(draft: HarmonyPreviewDraft | null): void {
+  harmonyPreview.value = draft
 }
 
 function onLockAllDetected(): void {
@@ -1072,6 +1166,13 @@ function onHarmonyGeometryMany(
 }
 
 function onAuditionColumn(payload: { tick: number; movePlayhead: boolean }): void {
+  if (store.transportPlaying) {
+    if (payload.movePlayhead) {
+      store.setPlayheadTick(payload.tick)
+      scheduler?.seek(payload.tick)
+    }
+    return
+  }
   if (payload.movePlayhead) store.setPlayheadTick(payload.tick)
   void auditionTick(payload.tick)
 }
@@ -1193,13 +1294,19 @@ function onGhost(
 }
 
 function onHarmonizeClose(): void {
+  if (isPopoutWindow.value) {
+    onHarmonizeCloseFromPopout()
+    return
+  }
   harmonizeOpen.value = false
   ghostNotes.value = []
+  if (harmonyPreview.value?.source === 'harmonize') harmonyPreview.value = null
 }
 
 function toggleHarmonize(): void {
   if (harmonizeOpen.value) onHarmonizeClose()
   else {
+    closeChordEdit()
     coachOpen.value = false
     harmonizeOpen.value = true
   }
@@ -1212,6 +1319,11 @@ function toggleParts(): void {
   }
   partsOpen.value = true
   mixerOpen.value = false
+}
+
+function onToggleMixer(): void {
+  mixerOpen.value = !mixerOpen.value
+  if (mixerOpen.value) partsOpen.value = false
 }
 
 function nudgePlayhead(dir: -1 | 1): void {
@@ -1374,12 +1486,20 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (key === 'Escape') {
     e.preventDefault()
+    if (store.assignNoteRolesActive) {
+      store.assignNoteRolesActive = false
+      return
+    }
     if (shortcutsOpen.value) {
       shortcutsOpen.value = false
       return
     }
     if (harmonizeOpen.value) {
       onHarmonizeClose()
+      return
+    }
+    if (chordEditOpen.value) {
+      closeChordEdit()
       return
     }
     if (partsOpen.value) {
@@ -1418,9 +1538,8 @@ function onKeyDown(e: KeyboardEvent): void {
   if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown') {
     e.preventDefault()
     const mode = project.value.view.mode
-    const moveNotes =
-      mode !== 'view' && store.selectedNoteIds.length > 0
-    if (moveNotes) {
+    const hasSel = store.selectedNoteIds.length > 0
+    if (hasSel && e.shiftKey && mode !== 'view') {
       const snap = project.value.snapTicks || 120
       if (key === 'ArrowLeft') nudgeSelectedNotes(0, -snap)
       else if (key === 'ArrowRight') nudgeSelectedNotes(0, snap)
@@ -1428,6 +1547,7 @@ function onKeyDown(e: KeyboardEvent): void {
       else nudgeSelectedNotes(-1, 0)
       return
     }
+    if (hasSel && navigateSelectedNote(key)) return
     if (key === 'ArrowLeft') nudgePlayhead(-1)
     else if (key === 'ArrowRight') nudgePlayhead(1)
     return
@@ -1523,7 +1643,19 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 's') {
     e.preventDefault()
-    onStop()
+    if (store.assignNoteRolesActive) onToggleSelectedMelodyRole('pmn')
+    else onStop()
+    return
+  }
+  if (lower === 'p' && store.assignNoteRolesActive) {
+    e.preventDefault()
+    onToggleSelectedMelodyRole('smn')
+    return
+  }
+  if (lower === 'm') {
+    e.preventDefault()
+    if (store.assignNoteRolesActive) onAssignMelodyPart()
+    else toggleHarmonize()
     return
   }
   if (lower === 'h') {
@@ -1534,12 +1666,6 @@ function onKeyDown(e: KeyboardEvent): void {
   if (lower === 'j') {
     e.preventDefault()
     onHearSketchAtPlayhead()
-    return
-  }
-  if (lower === 'm') {
-    if (readOnly) return
-    e.preventDefault()
-    toggleHarmonize()
     return
   }
   if (key >= '1' && key <= '6') {
@@ -1600,168 +1726,175 @@ function onKeyDown(e: KeyboardEvent): void {
     <p v-if="popoutHint || showDetachedBanner" class="hint" role="status">
       <template v-if="popoutHint">{{ popoutHint }}</template>
       <template v-if="showDetachedBanner">
-        Coach is on another window.
+        {{ detachedBannerLabel }} is on another window.
         <button type="button" class="linkish-inline" @click="onCoachPopIn">Pop in</button>
       </template>
     </p>
 
-    <div class="stage" :class="{ 'coach-popout': isPopoutWindow }">
-      <div class="stage-body">
-        <div
-          v-if="showPianoTote && !isPopoutWindow"
-          class="tote-col"
-          :style="{ width: `${TOTE_W}px`, flex: `0 0 ${TOTE_W}px` }"
-        >
-          <div
-            class="ruler-gutter"
-            :style="{ height: `${headerBandH}px` }"
-            aria-hidden="true"
-          />
-          <TagRollTote
-            :project="project"
-            :viewport-height="toteViewportH"
-            @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
-          />
-        </div>
-        <div v-if="!isPopoutWindow" class="roll-col">
-          <TagRollSheetViewport
-            v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
-            ref="sheetViewportRef"
-            :project="project"
-            @scroll="(x, y) => store.setSheetScroll(x, y)"
-            @playhead="(t) => store.setPlayheadTick(t)"
-            @sheet-zoom="(z) => store.setSheetZoom(z)"
-          />
-          <TagRollViewport
-            v-else
-            ref="viewportRef"
-            :project="project"
-            :selected-note-ids="store.selectedNoteIds"
-            :ghost-notes="ghostNotes"
-            :chord-cursor="chordCursor"
-            :header-extra-h="0"
-            @chord-cursor-change="onChordCursorChange"
-            @scroll="(x, y) => store.setScroll(x, y)"
-            @playhead="(t) => store.setPlayheadTick(t)"
-            @select="onSelect"
-            @select-many="onSelectMany"
-            @move="onMove"
-            @move-group="onMoveGroup"
-            @resize="onResize"
-            @begin-gesture="store.pushHistoryCheckpoint()"
-            @cell-size="(p) => store.setCellSize(p.cellW, p.cellH)"
-            @audition-column="onAuditionColumn"
-            @audition-note="(m) => void auditionMidi(m)"
-            @preview-pitch="(m) => void previewPitch(m)"
-            @pointer-hud="(p) => (pointerHud = p)"
-          />
-          <div
-            v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
-            class="roll-hud"
-            aria-live="polite"
-          >
-            {{ rollHudLabel }}
+    <div class="stage" :class="{ 'dock-popout': isPopoutWindow }">
+      <div class="stage-main">
+        <div v-if="!isPopoutWindow" class="stage-left">
+          <div class="stage-stack">
+          <div class="stage-body">
+            <div
+              v-if="showPianoTote"
+              class="tote-col"
+              :style="{ width: `${TOTE_W}px`, flex: `0 0 ${TOTE_W}px` }"
+            >
+              <div
+                class="ruler-gutter"
+                :style="{ height: `${headerBandH}px` }"
+                aria-hidden="true"
+              />
+              <TagRollTote
+                :project="project"
+                :viewport-height="toteViewportH"
+                @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
+              />
+            </div>
+            <div class="roll-col">
+              <TagRollAssignRolesHud
+                :active="store.assignNoteRolesActive"
+                :melody-part-name="assignRolesMelodyName"
+                :selected-role="assignRolesSelectedRole"
+                @close="store.assignNoteRolesActive = false"
+              />
+              <TagRollSheetViewport
+                v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
+                ref="sheetViewportRef"
+                :project="project"
+                @scroll="(x, y) => store.setSheetScroll(x, y)"
+                @playhead="onUserPlayhead"
+                @sheet-zoom="(z) => store.setSheetZoom(z)"
+              />
+              <TagRollViewport
+                v-else
+                ref="viewportRef"
+                :project="project"
+                :selected-note-ids="store.selectedNoteIds"
+                :ghost-notes="ghostNotes"
+                :chord-cursor="chordCursor"
+                :header-extra-h="0"
+                :note-roles="noteRolesMap"
+                @chord-cursor-change="onChordCursorChange"
+                @scroll="(x, y) => store.setScroll(x, y)"
+                @playhead="onUserPlayhead"
+                @select="onSelect"
+                @select-many="onSelectMany"
+                @move="onMove"
+                @move-group="onMoveGroup"
+                @resize="onResize"
+                @begin-gesture="store.pushHistoryCheckpoint()"
+                @cell-size="(p) => store.setCellSize(p.cellW, p.cellH)"
+                @audition-column="onAuditionColumn"
+                @audition-note="(m) => void auditionMidi(m)"
+                @preview-pitch="(m) => void previewPitch(m)"
+                @pointer-hud="(p) => (pointerHud = p)"
+              />
+              <div
+                v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
+                class="roll-hud"
+                aria-live="polite"
+              >
+                {{ rollHudLabel }}
+              </div>
+              <ArrangingCoachRollNav v-if="showCoachRollNav" />
+            </div>
           </div>
-          <ArrangingCoachRollNav v-if="showCoachRollNav" />
+          <TagRollDeclaredLane
+            v-if="showPianoTote && !prefs.tagRollChordsLaneCollapsed"
+            :project="project"
+            :segments="chordDeclaredSegments"
+            :detect-segments="chordDetectSegments"
+            :mode="chordDeclaredMode"
+            :read-only="project.view.mode === 'view'"
+            :left-gutter-px="TOTE_W"
+            :preview-draft="harmonyPreview"
+            :edit-seg-id="
+              chordEditSession?.variant === 'declared' ? chordEditSession.segId : null
+            "
+            @update:mode="setChordDeclaredMode"
+            @focus-range="relayCoachFocusRange"
+            @hear="onHearHarmonySketch"
+            @hear-stop="onStopHearHarmonySketch"
+            @remove="onRemoveHarmonySketch"
+            @edit="(seg) => onLaneChordEdit('declared', seg)"
+            @commit-at="onHarmonyCommitAt"
+            @geometry="onHarmonyGeometry"
+            @geometry-many="onHarmonyGeometryMany"
+            @begin-gesture="store.pushHistoryCheckpoint()"
+          />
+          <TagRollDetectedLane
+            v-if="showPianoTote && !prefs.tagRollDetectedLaneCollapsed"
+            :project="project"
+            :segments="chordDetectSegments"
+            :mode="chordDetectedMode"
+            :left-gutter-px="TOTE_W"
+            :edit-seg-id="
+              chordEditSession?.variant === 'detected' ? chordEditSession.segId : null
+            "
+            @update:mode="setChordDetectedMode"
+            @focus-range="relayCoachFocusRange"
+            @edit="(seg) => onLaneChordEdit('detected', seg)"
+            @lock-all="onLockAllDetected"
+          />
+          <TagRollExpressionLane
+            v-if="showPianoTote && !prefs.tagRollExpressionLaneCollapsed"
+            :project="project"
+            :read-only="project.view.mode === 'view'"
+            :left-gutter-px="TOTE_W"
+          />
+          <ArrangingCoachLane
+            v-if="showPianoTote && !prefs.tagRollCoachLaneCollapsed"
+            :project="project"
+            :left-gutter-px="TOTE_W"
+            @select-tick="relayCoachFocusTick"
+            @focus-range="relayCoachFocusRange"
+            @open-panel="onCoachLaneOpenPanel"
+          />
+          <TagRollLyricsLane
+            v-if="showPianoTote && !prefs.tagRollLyricsLaneCollapsed"
+            :left-gutter-px="TOTE_W"
+          />
+          </div>
+          <TagRollMediaBar
+            :playing="store.transportPlaying" :mixer-open="mixerOpen"
+            @beginning="onReturnToZero" @prev-measure="onPrevMeasure" @next-measure="onNextMeasure"
+            @return-origin="onReturnToOrigin" @play-pause="onPlayPause" @stop="onStop"
+            @hear-stack="onHearStack" @mixer="onToggleMixer" @nudge-time="onNudgeCellW"
+            @nudge-pitch="(d) => store.nudgeCellH(d)"
+          />
         </div>
         <ArrangingCoachDock
           v-if="coachOpen && arrangingEnabled"
-          :inspect-range="chordCursor"
-          :is-popout-window="isPopoutWindow"
+          :inspect-range="chordCursor" :is-popout-window="isPopoutWindow"
           :post-transport-state="isPopoutWindow ? postTransportState : undefined"
-          @close="onCoachClose"
-          @preview-ghost="onGhost"
-          @clear-ghost="ghostNotes = []"
-          @focus-tick="relayCoachFocusTick"
-          @focus-range="relayCoachFocusRange"
-          @focus-part="onCoachFocusPart"
-          @pop-out="onCoachPopOut"
+          @close="onCoachClose" @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
+          @focus-tick="relayCoachFocusTick" @focus-range="relayCoachFocusRange"
+          @focus-part="onCoachFocusPart" @pop-out="onCoachPopOut"
+        />
+        <TagRollHarmonizePanel
+          v-else-if="harmonizeOpen && project.view.mode !== 'view'"
+          ref="harmonizeRef" :open="true" :allow-pop-out="!isPopoutWindow"
+          @close="onHarmonizeClose" @pop-out="onHarmonizePopOut"
+          @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
+          @update:preview="onHarmonyPreview" @declared="syncSketchToCoachPillars"
+        />
+        <TagRollChordEditDock
+          v-else-if="chordEditOpen && project.view.mode !== 'view' && chordEditSession"
+          :variant="chordEditSession.variant" :seg="chordEditSeg" :mode="chordEditMode"
+          :project="project" :lead-midi="chordEditLeadMidi" :rank-hints="chordEditRankHints"
+          :allow-pop-out="!isPopoutWindow" @close="onChordEditDockClose" @pop-out="onChordEditPopOut"
+          @apply="onChordEditApply" @update:draft="onChordEditDraft" @hear="onChordEditHear"
+          @hear-stop="onStopHearHarmonySketch" @remove="onChordEditRemove"
+          @toggle-pillar="onToggleChordPillar"
         />
       </div>
-      <TagRollDeclaredLane
-        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollChordsLaneCollapsed"
-        :project="project"
-        :segments="chordDeclaredSegments"
-        :detect-segments="chordDetectSegments"
-        :mode="chordDeclaredMode"
-        :read-only="project.view.mode === 'view'"
-        :left-gutter-px="TOTE_W"
-        @update:mode="setChordDeclaredMode"
-        @focus-range="relayCoachFocusRange"
-        @hear="onHearHarmonySketch"
-        @hear-stop="onStopHearHarmonySketch"
-        @remove="onRemoveHarmonySketch"
-        @apply-draft="onApplyHarmonyDraft"
-        @commit-at="onHarmonyCommitAt"
-        @geometry="onHarmonyGeometry"
-        @geometry-many="onHarmonyGeometryMany"
-        @begin-gesture="store.pushHistoryCheckpoint()"
-      />
-      <TagRollDetectedLane
-        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollDetectedLaneCollapsed"
-        :project="project"
-        :segments="chordDetectSegments"
-        :mode="chordDetectedMode"
-        :left-gutter-px="TOTE_W"
-        @update:mode="setChordDetectedMode"
-        @focus-range="relayCoachFocusRange"
-        @hear="onHearHarmonySketch"
-        @hear-stop="onStopHearHarmonySketch"
-        @apply-draft="onApplyHarmonyDraft"
-        @lock-all="onLockAllDetected"
-      />
-      <TagRollExpressionLane
-        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollExpressionLaneCollapsed"
-        :project="project"
-        :read-only="project.view.mode === 'view'"
-        :left-gutter-px="TOTE_W"
-      />
-      <ArrangingCoachLane
-        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollCoachLaneCollapsed"
-        :project="project"
-        :left-gutter-px="isPopoutWindow ? 0 : TOTE_W"
-        @select-tick="relayCoachFocusTick"
-        @focus-range="relayCoachFocusRange"
-        @open-panel="onCoachLaneOpenPanel"
-      />
-      <TagRollLyricsLane
-        v-if="showPianoTote && !isPopoutWindow && !prefs.tagRollLyricsLaneCollapsed"
-        :left-gutter-px="TOTE_W"
-      />
     </div>
 
-    <TagRollMediaBar
-      :playing="store.transportPlaying"
-      :mixer-open="mixerOpen"
-      @beginning="onReturnToZero"
-      @prev-measure="onPrevMeasure"
-      @next-measure="onNextMeasure"
-      @return-origin="onReturnToOrigin"
-      @play-pause="onPlayPause"
-      @stop="onStop"
-      @hear-stack="onHearStack"
-      @mixer="mixerOpen = !mixerOpen; if (mixerOpen) partsOpen = false"
-      @nudge-time="onNudgeCellW"
-      @nudge-pitch="(d) => store.nudgeCellH(d)"
-    />
-
-    <TagRollPartsPanel
-      v-if="project.view.mode !== 'view'"
-      :open="partsOpen"
-      @close="partsOpen = false"
-    />
+    <TagRollPartsPanel v-if="project.view.mode !== 'view'" :open="partsOpen" @close="partsOpen = false" />
     <TagRollMixerPanel :open="mixerOpen" @close="mixerOpen = false" />
-    <TagRollHarmonizePanel
-      v-if="project.view.mode !== 'view'"
-      ref="harmonizeRef"
-      :open="harmonizeOpen"
-      @close="onHarmonizeClose"
-      @preview-ghost="onGhost"
-      @clear-ghost="ghostNotes = []"
-    />
-
     <TagRollShortcutsOverlay :open="shortcutsOpen" @close="shortcutsOpen = false" />
-
     <ConfirmDialog
       :open="!!pendingInspectDeleteMessage"
       title="Delete notes in selection?"
@@ -1842,10 +1975,33 @@ function onKeyDown(e: KeyboardEvent): void {
   overflow: hidden;
   background: var(--surface);
 }
+.stage-main {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+.stage-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.stage-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
 .stage-body {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
 }
 .tote-col {
   display: flex;
@@ -1867,11 +2023,25 @@ function onKeyDown(e: KeyboardEvent): void {
   min-width: 18rem;
   min-height: 0;
 }
-.stage.coach-popout :deep(.coach-dock) {
+.stage.dock-popout :deep(.coach-dock),
+.stage.dock-popout :deep(.tr-hz),
+.stage.dock-popout :deep(.chord-edit-dock) {
   width: 100% !important;
   max-width: none;
   min-width: 0;
   border-left: 0;
+}
+.stage-main > :deep(.coach-dock),
+.stage-main > :deep(.tr-hz),
+.stage-main > :deep(.chord-edit-dock) {
+  align-self: stretch;
+  height: auto;
+  max-height: none;
+}
+.stage-left > :deep(.media-bar) {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
 }
 .linkish-inline {
   border: 0;
@@ -1883,23 +2053,13 @@ function onKeyDown(e: KeyboardEvent): void {
   text-decoration: underline;
   padding: 0;
 }
-.roll-col :deep(.viewport) {
-  flex: 1 1 auto;
-}
+.roll-col :deep(.viewport) { flex: 1 1 auto; }
 .roll-hud {
-  position: absolute;
-  right: 0.55rem;
-  top: 0.45rem;
-  z-index: 5;
-  pointer-events: none;
-  padding: 0.2rem 0.45rem;
-  border-radius: 6px;
+  position: absolute; right: 0.55rem; top: 0.45rem; z-index: 5; pointer-events: none;
+  padding: 0.2rem 0.45rem; border-radius: 6px;
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  color: var(--text);
-  font-size: 0.78rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  color: var(--text); font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums;
   box-shadow: 0 1px 4px color-mix(in srgb, #000 10%, transparent);
 }
 .err { margin: 0; color: var(--danger, #b42318); }

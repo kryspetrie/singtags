@@ -57,6 +57,7 @@ export function sketchPatchFromMelodyNote(opts: {
     quality: natureToSketchQuality(opts.quality),
     source: 'user',
     locked: true,
+    pillar: true,
   }
 }
 
@@ -72,6 +73,8 @@ export function normalizeHarmonySketchSpan(raw: unknown): HarmonySketchSpan | nu
     o.source === 'detect' || o.source === 'coach' || o.source === 'user' ? o.source : 'user'
   const locked =
     typeof o.locked === 'boolean' ? o.locked : source === 'detect' ? false : true
+  const pillar =
+    typeof o.pillar === 'boolean' ? o.pillar : locked
   return {
     id: typeof o.id === 'string' && o.id.trim() ? o.id.trim() : allocatePrefixedId('hs'),
     startTick,
@@ -80,6 +83,7 @@ export function normalizeHarmonySketchSpan(raw: unknown): HarmonySketchSpan | nu
     quality,
     source,
     locked,
+    pillar,
   }
 }
 
@@ -97,9 +101,18 @@ export function sortSpans(spans: readonly HarmonySketchSpan[]): HarmonySketchSpa
   return [...spans].sort((a, b) => a.startTick - b.startTick || a.endTick - b.endTick)
 }
 
-/** Locked spans only — Declared row / pillars / Hear. Unlock drafts stay out of Declared. */
+/** Locked spans only — Declared row / Hear. Unlock drafts stay out of Declared. */
 export function authoritativeSketch(spans: readonly HarmonySketchSpan[]): HarmonySketchSpan[] {
   return sortSpans(spans.filter((s) => s.locked))
+}
+
+/** Locked spans marked as structural home-roots for Coach. */
+export function isPillarSketchSpan(s: Pick<HarmonySketchSpan, 'locked' | 'pillar'>): boolean {
+  return s.locked && s.pillar !== false
+}
+
+export function pillarSketch(spans: readonly HarmonySketchSpan[]): HarmonySketchSpan[] {
+  return authoritativeSketch(spans).filter(isPillarSketchSpan)
 }
 
 /**
@@ -160,6 +173,7 @@ export function upsertSketchSpan(
     quality: patch.quality,
     source: patch.source,
     locked: patch.locked,
+    pillar: patch.locked ? patch.pillar !== false : false,
   }
   // Replace overlapping authoritative spans when writing a locked user span.
   const kept = spans.filter((s) => {
@@ -378,7 +392,7 @@ export function parseChordNameToSketch(
     quality = rest === 'm' ? 'minor' : 'major'
   } else if (rest === '7' || rest === 'dom7') quality = 'seventh'
   else if (rest === 'm7' || rest === 'min7') quality = 'm7'
-  else if (rest === 'maj7' || rest === 'Δ' || rest === 'Δ7') quality = 'maj7'
+  else if (rest === 'maj7' || rest === 'M7' || rest === 'Δ' || rest === 'Δ7') quality = 'maj7'
   else if (rest === 'dim7' || rest === '°7' || rest === 'o7') quality = 'dim7'
   else if (rest === 'dim' || rest === '°' || rest === 'o') quality = 'dim'
   else if (rest === 'ø' || rest === 'ø7' || rest === 'hdim' || rest === 'halfdim' || rest === 'm7b5')
@@ -436,10 +450,11 @@ export function pillarToSketchSpan(opts: {
     quality: opts.quality ?? 'major',
     source: 'coach',
     locked: opts.confirmed,
+    pillar: opts.confirmed,
   }
 }
 
-/** Locked sketch → coach pillars (quality stays on the sketch). */
+/** Pillar-marked locked sketch → coach pillars (quality stays on the sketch). */
 export function pillarsFromHarmonySketch(
   sketch: readonly HarmonySketchSpan[],
   nextId: (prefix: string) => string,
@@ -451,20 +466,19 @@ export function pillarsFromHarmonySketch(
   source: 'user' | 'inferred'
   confirmed: boolean
 }> {
-  return authoritativeSketch(sketch).map((s) => ({
+  return pillarSketch(sketch).map((s) => ({
     id: nextId('pil'),
     rootPc: s.rootPc,
     startTick: s.startTick,
     endTick: s.endTick,
     source: s.source === 'coach' ? ('inferred' as const) : ('user' as const),
-    confirmed: s.locked,
+    confirmed: true,
   }))
 }
 
 /**
- * Replace locked sketch from **confirmed** coach pillars only.
- * Unconfirmed drafts stay coach-session-only until Lock (never paint as Declared).
- * Preserves quality from matching prior spans; drops spans not in confirmed pillars.
+ * Upsert confirmed coach pillars into locked+pillar sketch spans.
+ * Preserves locked non-pillar Declared chords; drops unlocked drafts.
  */
 export function replaceSketchFromPillars(
   sketch: readonly HarmonySketchSpan[],
@@ -477,9 +491,10 @@ export function replaceSketchFromPillars(
   }[],
 ): HarmonySketchSpan[] {
   const prev = authoritativeSketch(sketch)
+  const confirmed = pillars.filter((p) => p.confirmed)
+  const nonPillar = prev.filter((s) => !isPillarSketchSpan(s))
   const out: HarmonySketchSpan[] = []
-  for (const pil of pillars) {
-    if (!pil.confirmed) continue
+  for (const pil of confirmed) {
     const hit = prev.find(
       (s) =>
         s.id === pil.id ||
@@ -494,7 +509,12 @@ export function replaceSketchFromPillars(
       quality: hit?.quality ?? 'major',
       source: hit?.source === 'user' ? 'user' : 'coach',
       locked: true,
+      pillar: true,
     })
+  }
+  for (const s of nonPillar) {
+    if (out.some((p) => s.startTick < p.endTick && p.startTick < s.endTick)) continue
+    out.push({ ...s, locked: true, pillar: false })
   }
   return sortSpans(out)
 }

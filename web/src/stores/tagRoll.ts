@@ -24,6 +24,7 @@ import {
   createEmptyTagRollProject,
   normalizeTagRollProject,
 } from '../lib/tagRoll/normalize'
+import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
 import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID } from '../lib/tagRoll/mix'
@@ -50,6 +51,7 @@ import {
   shrinkProjectMeasures,
 } from '../lib/tagRoll/measureEdit'
 import {
+  natureToSketchQuality,
   removeSketchSpan,
   sketchPatchFromMelodyNote,
   sketchSpanAtTick,
@@ -112,6 +114,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   const pointerTool = ref<TagRollPointerTool>('edit')
   const addDurationTicks = ref(TAG_ROLL_PPQ)
   const transportPlaying = ref(false)
+  /** Piano-roll Assign Note Roles overlay (Strong / Passing / Melody). */
+  const assignNoteRolesActive = ref(false)
   const noteClipboard = shallowRef<TagRollNoteClipboard | null>(null)
   const sketchClipboard = shallowRef<TagRollSketchClipboard | null>(null)
   /** When true, C/X/V/Del target Chords-lane spans instead of notes. */
@@ -880,15 +884,71 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchProject({ harmonySketch: sortSpans(spans) })
   }
 
+  /**
+   * Canonical declare: upsert a locked user sketch span (optionally realize TTBB this window).
+   * Callers that care about Coach pillars should sync after this returns.
+   */
+  function declareHarmonySpan(opts: {
+    startTick: number
+    endTick: number
+    rootPc: number
+    quality: string
+    id?: string
+    /** Telemetry / future history labels */
+    windowKind?: 'melodyNote' | 'detectHole' | 'freeSpan'
+    alsoRealize?: {
+      melodyNoteId: string
+      pitches: { tenor: number; bari: number; bass: number; lead: number }
+    }
+  }): string | null {
+    const p = current.value
+    if (!p) return null
+    pushHistory()
+    const sketchNext = upsertSketchSpan(p.harmonySketch ?? [], {
+      id: opts.id,
+      startTick: opts.startTick,
+      endTick: Math.max(opts.startTick + 1, opts.endTick),
+      rootPc: opts.rootPc,
+      quality: natureToSketchQuality(opts.quality),
+      source: 'user',
+      locked: true,
+    })
+    let notes = p.notes
+    if (opts.alsoRealize) {
+      const result = applyHarmony({
+        project: { ...p, harmonySketch: sketchNext },
+        melodyNoteId: opts.alsoRealize.melodyNoteId,
+        pitches: opts.alsoRealize.pitches,
+        idGen: svc().idGen,
+      })
+      if (result.ok) notes = result.notes
+    }
+    const id =
+      opts.id ??
+      sketchNext.find((s) => s.startTick === opts.startTick && s.endTick === opts.endTick)?.id ??
+      sketchNext[sketchNext.length - 1]?.id ??
+      null
+    current.value = {
+      ...p,
+      notes,
+      harmonySketch: sketchNext,
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return id
+  }
+
   function upsertHarmonySketchSpan(
     patch: Omit<HarmonySketchSpan, 'id'> & { id?: string },
   ): string | null {
-    const p = current.value
-    if (!p) return null
-    const next = upsertSketchSpan(p.harmonySketch ?? [], { ...patch, locked: patch.locked ?? true })
-    const id = patch.id ?? next.find((s) => s.startTick === patch.startTick && s.endTick === patch.endTick)?.id
-    patchProject({ harmonySketch: next })
-    return id ?? next[next.length - 1]?.id ?? null
+    return declareHarmonySpan({
+      startTick: patch.startTick,
+      endTick: patch.endTick,
+      rootPc: patch.rootPc,
+      quality: patch.quality,
+      id: patch.id,
+      windowKind: 'freeSpan',
+    })
   }
 
   function removeHarmonySketchSpan(id: string): void {
@@ -1023,7 +1083,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   /**
-   * Promote Detected (or other) holes into locked My Chords in one history step.
+   * Promote Detected (or other) holes into locked Sketch in one history step.
    */
   function lockDetectedAsMyChords(
     holes: readonly {
@@ -1047,6 +1107,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         quality: h.quality,
         source: 'user',
         locked: true,
+        pillar: true,
       })
     }
     current.value = {
@@ -1056,6 +1117,49 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     scheduleSave()
     return holes.length
+  }
+
+  /** Toggle structural pillar on a Declared/locked span (or lock+pillar a Detected hole). */
+  function toggleSketchPillar(
+    target: {
+      id?: string
+      startTick: number
+      endTick: number
+      rootPc: number
+      quality: HarmonySketchQuality
+    },
+    force?: boolean,
+  ): boolean {
+    const p = current.value
+    if (!p) return false
+    const sketch = p.harmonySketch ?? []
+    const hit =
+      (target.id ? sketch.find((s) => s.id === target.id) : null) ??
+      sketch.find(
+        (s) =>
+          s.locked &&
+          s.startTick === target.startTick &&
+          s.endTick === target.endTick,
+      )
+    const nextPillar = force ?? !(hit && hit.locked && hit.pillar !== false)
+    pushHistory()
+    const next = upsertSketchSpan(sketch, {
+      id: hit?.id ?? target.id,
+      startTick: target.startTick,
+      endTick: target.endTick,
+      rootPc: target.rootPc,
+      quality: target.quality,
+      source: hit?.source === 'coach' ? 'coach' : 'user',
+      locked: true,
+      pillar: nextPillar,
+    })
+    current.value = {
+      ...p,
+      harmonySketch: sortSpans(next),
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return nextPillar
   }
 
   function setSoundEnvelope(patch: Partial<TagRollProject['soundEnvelope']>): void {
@@ -1321,8 +1425,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   /**
-   * Harmonize commit: always upsert locked sketch for the melody window;
-   * optionally write TTBB stacks in the same history step.
+   * Harmonize commit: declare locked sketch for the melody window;
+   * optionally realize TTBB in the same history step.
    */
   function commitHarmonizeAtMelody(opts: {
     melodyNoteId: string
@@ -1335,39 +1439,30 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p) return
     const melody = p.notes.find((n) => n.id === opts.melodyNoteId)
     if (!melody) return
-    pushHistory()
     const existing = sketchSpanAtTick(p.harmonySketch ?? [], melody.startTick)
-    const sketchNext = upsertSketchSpan(
-      p.harmonySketch ?? [],
-      sketchPatchFromMelodyNote({
-        melodyStartTick: melody.startTick,
-        melodyDurationTicks: melody.durationTicks,
-        rootPc: opts.rootPc,
-        quality: opts.quality,
-        id: existing?.id,
-      }),
-    )
-    let notes = p.notes
-    if (opts.mode === 'chord+stack' && opts.pitches) {
-      const result = applyHarmony({
-        project: { ...p, harmonySketch: sketchNext },
-        melodyNoteId: opts.melodyNoteId,
-        pitches: opts.pitches,
-        idGen: svc().idGen,
-      })
-      if (result.ok) notes = result.notes
-    }
-    current.value = {
-      ...p,
-      notes,
-      harmonySketch: sketchNext,
-      updatedAt: svc().clock.now(),
-    }
-    scheduleSave()
+    const patch = sketchPatchFromMelodyNote({
+      melodyStartTick: melody.startTick,
+      melodyDurationTicks: melody.durationTicks,
+      rootPc: opts.rootPc,
+      quality: opts.quality,
+      id: existing?.id,
+    })
+    declareHarmonySpan({
+      startTick: patch.startTick,
+      endTick: patch.endTick,
+      rootPc: patch.rootPc,
+      quality: patch.quality,
+      id: patch.id,
+      windowKind: 'melodyNote',
+      alsoRealize:
+        opts.mode === 'chord+stack' && opts.pitches
+          ? { melodyNoteId: opts.melodyNoteId, pitches: opts.pitches }
+          : undefined,
+    })
   }
 
   /**
-   * Realize locked My Chords as TTBB stacks under Lead melody notes.
+   * Realize locked Sketch as TTBB stacks under Lead melody notes.
    * When sketch spans are selected, only those spans are used; otherwise all locked.
    */
   function realizeHarmonySketchStacks(opts?: {
@@ -1596,6 +1691,12 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     await refreshList()
   }
 
+  async function duplicateProject(id: string): Promise<TagRollProject> {
+    const saved = await duplicateTagRoll(svc().repository, svc().clock, id)
+    await refreshList()
+    return saved
+  }
+
   function clearCurrent(): void {
     if (saveTimer) {
       clearTimeout(saveTimer)
@@ -1636,6 +1737,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     expressionTool,
     addDurationTicks,
     transportPlaying,
+    assignNoteRolesActive,
     noteClipboard,
     notesByPartId,
     canUndo,
@@ -1646,6 +1748,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     openProject,
     createProject,
     importProject,
+    duplicateProject,
     persistNow,
     patchProject,
     patchView,
@@ -1695,9 +1798,11 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setTonality,
     setHarmonySketch,
     upsertHarmonySketchSpan,
+    declareHarmonySpan,
     removeHarmonySketchSpan,
     lockHarmonySketchSpan,
     lockDetectedAsMyChords,
+    toggleSketchPillar,
     clearSketchSelection,
     setChordsLaneFocused,
     selectSketchSpans,

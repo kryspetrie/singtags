@@ -1,328 +1,67 @@
 <script setup lang="ts">
 /**
- * Pillars step panel — home-root list, editor, uncovered gaps, advanced batch.
+ * Pillars step — assign structural home-roots on Sketch / Detected lanes.
  */
-import type { MelodyEvent, Pillar } from '../../domain/arranging/types'
-
-defineProps<{
-  repairTour: boolean
-  canWalkArrange: boolean
-  canLockRemaining: boolean
-  skippedCount: number
-  pillars: readonly Pillar[]
-  selectedPil: Pillar | null
-  preferFlats: boolean
-  pillarGlossaryTip: string
-  coverageGaps: readonly MelodyEvent[]
-  formatGapRow: (g: { startTick: number; midi: number }) => string
-  canExtendPreviousAtGap: (noteId: string) => boolean
-  pcName: (pc: number, flats: boolean) => string
-}>()
-
 defineEmits<{
-  addAtPlayhead: []
   nextRoles: []
-  inferBatch: []
-  lockRemaining: []
-  clearSkips: []
-  focusPillar: [id: string]
-  updateRoot: [rootPc: number]
-  deletePillar: []
-  jumpUncovered: [id: string]
-  addUncovered: [id: string]
-  extendUncovered: [id: string]
 }>()
 </script>
 
 <template>
   <section class="panel">
     <p class="hint">
-      Prefer the <strong>My Chords</strong> lane on the roll for phrase chords (C, G7, or I / V7).
-      Propose drafts stay on the Coach lane until you <strong>Lock</strong> — Lock commits into My Chords.
-      For G→C mark <strong>G</strong> then <strong>C</strong>, not one C for everything.
+      Mark phrase chords as <strong>pillars</strong> on the <strong>Sketch</strong> or
+      <strong>Detected</strong> lane (open a chord → <strong>Pillar</strong>). Pillars paint in a
+      distinct color and drive Coach home-roots. Detected “Lock all” promotes holes as pillars.
     </p>
-    <p v-if="repairTour" class="muted tiny">
-      This chart already has harmony on the roll — review phrase chords here; existing stacks stay put.
+    <p class="muted tiny">
+      Coach Propose still drafts on the Coach lane until Lock; Lock writes pillars into Sketch.
     </p>
     <div class="row">
       <button
         type="button"
         class="step-btn"
-        title="Insert a draft home root at the playhead. Lock in Coach to commit to My Chords."
-        @click="$emit('addAtPlayhead')"
-      >
-        Draft at playhead
-      </button>
-      <button
-        type="button"
-        class="step-btn"
-        :disabled="!canWalkArrange"
-        title="Next: mark Lead notes as Strong (home) or Passing (connective)"
+        title="Open Assign Note Roles on the piano roll"
         @click="$emit('nextRoles')"
       >
-        Next: Strong / passing →
+        Next: Note roles →
       </button>
     </div>
-    <ul v-if="pillars.length" class="pillar-list">
-      <li v-for="(pil, i) in pillars" :key="pil.id">
-        <button
-          type="button"
-          class="pillar-btn"
-          :class="{ on: pil.id === selectedPil?.id, locked: pil.confirmed }"
-          :title="
-            [
-              `Pillar ${i + 1}: ${pcName(pil.rootPc, preferFlats)}`,
-              pil.confirmed ? 'Locked — edit quality on the Harmony strip' : 'Draft — Hear and Lock on transport',
-              pil.reason || '',
-              pillarGlossaryTip,
-            ]
-              .filter(Boolean)
-              .join(' — ')
-          "
-          @click="$emit('focusPillar', pil.id)"
-        >
-          <span class="idx">{{ i + 1 }}</span>
-          <strong>{{ pcName(pil.rootPc, preferFlats) }}</strong>
-          <span class="pill-state">{{ pil.confirmed ? 'locked' : 'draft' }}</span>
-        </button>
-      </li>
-    </ul>
-    <p v-if="selectedPil?.confirmed" class="muted tiny">
-      Locked root {{ pcName(selectedPil.rootPc, preferFlats) }} — change quality on the Harmony strip.
-    </p>
-    <div v-if="coverageGaps.length" class="gaps">
-      <h3 class="subh">Uncovered ({{ coverageGaps.length }})</h3>
-      <p class="muted tiny">Melody outside any home-root span — jump to look, then add if you want.</p>
-      <ul>
-        <li v-for="g in coverageGaps.slice(0, 6)" :key="g.id" class="gap-row">
-          <button
-            type="button"
-            class="gap-jump"
-            title="Overlay the roll at this uncovered note (does not select notes)"
-            @click="$emit('jumpUncovered', g.id)"
-          >
-            {{ formatGapRow(g) }}
-          </button>
-          <button
-            type="button"
-            class="step-btn gap-add"
-            title="Add a draft home root covering this note"
-            @click="$emit('addUncovered', g.id)"
-          >
-            Add
-          </button>
-          <button
-            v-if="canExtendPreviousAtGap(g.id)"
-            type="button"
-            class="step-btn gap-add"
-            title="Stretch the previous home-root span forward to here"
-            @click="$emit('extendUncovered', g.id)"
-          >
-            Extend
-          </button>
-        </li>
-      </ul>
-    </div>
-    <details class="advanced">
-      <summary class="muted tiny">Advanced</summary>
-      <div class="row">
-        <button
-          type="button"
-          class="step-btn"
-          title="Draft a home root for every measure with melody (batch — not the teaching path)."
-          @click="$emit('inferBatch')"
-        >
-          Draft all measures
-        </button>
-        <button
-          v-if="canLockRemaining"
-          type="button"
-          class="step-btn"
-          title="Lock every remaining draft after you have locked at least one (advanced)."
-          @click="$emit('lockRemaining')"
-        >
-          Lock all drafts
-        </button>
-        <button
-          v-if="skippedCount > 0"
-          type="button"
-          class="step-btn"
-          title="Allow propose to revisit spans you Skip’d this session"
-          @click="$emit('clearSkips')"
-        >
-          Reset skips ({{ skippedCount }})
-        </button>
-      </div>
-      <div v-if="selectedPil && !selectedPil.confirmed" class="card">
-        <label class="root-big" :title="pillarGlossaryTip || 'Pitch-class home root for this phrase'">
-          Draft root
-          <select
-            class="root-sel"
-            :value="selectedPil.rootPc"
-            @change="$emit('updateRoot', Number(($event.target as HTMLSelectElement).value))"
-          >
-            <option v-for="n in 12" :key="n - 1" :value="n - 1">
-              {{ pcName(n - 1, preferFlats) }}
-            </option>
-          </select>
-        </label>
-        <div class="row">
-          <button
-            type="button"
-            class="step-btn"
-            title="Remove this home-root span"
-            @click="$emit('deletePillar')"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-      <div v-else-if="selectedPil" class="row">
-        <button
-          type="button"
-          class="step-btn"
-          title="Remove this home-root span (also removes Harmony strip chord)"
-          @click="$emit('deletePillar')"
-        >
-          Delete locked
-        </button>
-      </div>
-    </details>
   </section>
 </template>
 
 <style scoped>
 .panel {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
 .hint {
   margin: 0;
   font-size: 0.82rem;
+  color: var(--muted);
   line-height: 1.35;
 }
 .row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 0.35rem;
-}
-.advanced {
-  margin-top: 0.1rem;
-}
-.advanced summary {
-  cursor: pointer;
-  user-select: none;
-}
-.pillar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.2rem;
-  max-height: 9rem;
-  overflow: auto;
-}
-.pillar-btn {
-  width: 100%;
-  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  border: 1px solid transparent;
+}
+.step-btn {
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: transparent;
+  background: var(--surface);
   font: inherit;
   font-size: 0.8rem;
   cursor: pointer;
-  padding: 0.28rem 0.4rem;
+  padding: 0.28rem 0.55rem;
   color: var(--text);
-  text-align: left;
-}
-.pillar-btn.on {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-.pillar-btn .idx {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-  width: 1.2rem;
-}
-.pillar-btn .pill-state {
-  margin-left: auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-.pillar-btn.locked .pill-state {
-  color: #2d7a3e;
-}
-.card {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-}
-.root-big {
-  display: grid;
-  gap: 0.2rem;
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-.root-sel {
-  font: inherit;
-  font-size: 1rem;
-  font-weight: 700;
-}
-.stack-state {
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-.stack-state.ok {
-  color: #2d7a3e;
-}
-.stack-state.missing {
-  color: var(--muted);
-}
-.gaps ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.3rem;
-}
-.subh {
-  margin: 0;
-  font-size: 0.78rem;
-}
-.gap-jump {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  color: var(--text);
-  padding: 0;
-  text-align: left;
-}
-.gap-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.gap-add {
-  font-size: 0.72rem;
-  padding: 0.15rem 0.45rem;
-}
-.gap-jump:hover {
-  text-decoration: underline;
 }
 .muted {
   color: var(--muted);
 }
 .tiny {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   margin: 0;
 }
 </style>

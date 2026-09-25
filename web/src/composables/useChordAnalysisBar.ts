@@ -313,6 +313,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     segments,
     declaredSegments,
     detectSegments,
+    nameCandidatesByTick,
     setDeclaredMode,
     setDetectedMode,
     setMode,

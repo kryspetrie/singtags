@@ -100,6 +100,71 @@ export function optionKey(o: Pick<HarmonizeChordOption, 'rootOffset' | 'chordId'
   return `${o.rootOffset}:${o.chordId}`
 }
 
+/** Rank hint from Detected / implied melody (root + nature). */
+export type ChordRankHint = {
+  rootPc: number
+  natureId: string
+  /** Cadence-aware suggestion (V7→I etc.). */
+  cadence?: boolean
+  /** Short reason for tooltips / chrome. */
+  label?: string
+}
+
+/** Map Detected/implied name candidates into pick-list rank hints. */
+export function rankHintsFromCandidates(
+  cands: readonly {
+    rootPc: number
+    natureId: string
+    label?: string
+    cadenceLabel?: string
+  }[],
+): ChordRankHint[] {
+  return cands.map((c) => ({
+    rootPc: c.rootPc,
+    natureId: c.natureId,
+    cadence: !!c.cadenceLabel,
+    label: c.cadenceLabel ?? c.label,
+  }))
+}
+
+export function optionKeyFromRootPc(
+  rootPc: number,
+  chordId: string,
+  tonality: number,
+): string {
+  const t = ((tonality % 12) + 12) % 12
+  const rootOffset = (((rootPc - t) % 12) + 12) % 12
+  return optionKey({ rootOffset, chordId })
+}
+
+/**
+ * Put ranked Detected/implied candidates first (stable for the rest).
+ * Incomplete catalog matches are skipped;Browse order otherwise preserved.
+ */
+export function prioritizeOptionsByRank(
+  options: readonly HarmonizeChordOption[],
+  ranked: readonly ChordRankHint[],
+  tonality: number,
+): HarmonizeChordOption[] {
+  if (!ranked.length) return [...options]
+  const byKey = new Map(options.map((o) => [optionKey(o), o]))
+  const used = new Set<string>()
+  const out: HarmonizeChordOption[] = []
+  for (const r of ranked) {
+    const k = optionKeyFromRootPc(r.rootPc, r.natureId, tonality)
+    const hit = byKey.get(k)
+    if (hit && !used.has(k)) {
+      out.push(hit)
+      used.add(k)
+    }
+  }
+  for (const o of options) {
+    const k = optionKey(o)
+    if (!used.has(k)) out.push(o)
+  }
+  return out
+}
+
 export function findChordNature(id: string): BarbershopChordNature | null {
   return BARBERSHOP_CHORDS.find((c) => c.id === id) ?? null
 }

@@ -4,6 +4,10 @@ Follow-up to the post-ship comparison of Harmonize, Detected, and My Chords. Goa
 
 Related: `harmonize-sketch-apply-plan.md`, `harmony-sketch-plan.md`, `cadence-coach-plan.md`.
 
+## Status
+
+Phases 1–5 implemented (shared `TagRollChordPickList`, `resolveSketchHearMidis`, Detected rank seeds, `declareHarmonySpan`, aligned Copy / Lock / Realize / Chord language). Optional P5 ranking façade is deferred.
+
 ## Problem
 
 All three surfaces already write the same persisted map (`project.harmonySketch`) and mostly share `buildHarmonizeChordOptions`, but:

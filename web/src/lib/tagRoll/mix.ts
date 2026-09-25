@@ -4,7 +4,7 @@
  */
 import type { TagRollPart, TagRollPartMix } from './types'
 
-/** Virtual mix channel for locked My Chords / harmony-sketch block chords. */
+/** Virtual mix channel for locked Sketch / harmony-sketch block chords. */
 export const TAG_ROLL_SKETCH_MIX_ID = 'mix:harmony-sketch'
 /** Virtual mix channel for Detected-lane hole fills (typically soloed to audition). */
 export const TAG_ROLL_DETECTED_MIX_ID = 'mix:harmony-detected'

@@ -774,6 +774,7 @@ watch(
   <TagRollBottomLaneShell
     v-if="!collapsed"
     label="Mods"
+    density="compact"
     :left-gutter-px="leftGutterPx"
     :view-options="[...modViewOptions]"
     :view-value="tool ?? ''"

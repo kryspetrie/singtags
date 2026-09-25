@@ -397,6 +397,7 @@ watch(
   <TagRollBottomLaneShell
     v-if="!collapsed"
     label="Coach"
+    density="compact"
     :left-gutter-px="leftGutterPx"
     :view-options="lensViewOptions"
     :view-value="lens"
@@ -413,7 +414,7 @@ watch(
       >
         Propose
       </button>
-      <span class="gutter-legend" :title="hoverLabel || 'Drafts & coverage · Lock → My Chords'">
+      <span class="gutter-legend" :title="hoverLabel || 'Drafts & coverage · Lock → Sketch'">
         {{ hoverLabel || 'Coverage' }}
       </span>
     </template>

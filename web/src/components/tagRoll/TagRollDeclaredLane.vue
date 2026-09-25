@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * My Chords bottom lane — locked harmony map (click/drag-to-define, multi-select, resize).
+ * Sketch (harmony map) bottom lane — locked sketch spans (click/drag-to-define, multi-select, resize).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
@@ -11,26 +11,29 @@ import {
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import { stripSegW, stripSegX } from '../../lib/tagRoll/harmonyStripGestures'
 import { useDeclaredStripGestures } from '../../lib/tagRoll/useDeclaredStripGestures'
-import { placePopoverNearAnchor } from '../../lib/tagRoll/placePopover'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
+import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
+import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
+import { sketchLabel, sketchRoman, isPillarSketchSpan } from '../../lib/tagRoll/harmonySketch'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
-import TagRollChordEditPopover, {
-  type ChordEditDraft,
-} from './TagRollChordEditPopover.vue'
 
-const TRACK_H = 52
+const TRACK_H = 44
 
 const props = defineProps<{
   project: TagRollProject
   segments: readonly ChordAnalysisSegment[]
-  /** Detected fills — Realize uses them so My Chords inversions path-match Detected. */
+  /** Detected fills — Realize uses them so Sketch inversions path-match Detected. */
   detectSegments?: readonly ChordAnalysisSegment[]
   mode: ChordAnalysisMode
   leftGutterPx?: number
   readOnly?: boolean
+  /** Live preview from dock / Harmonize (not yet Applied). */
+  previewDraft?: HarmonyPreviewDraft | null
+  /** Span id currently open in the right-hand chord dock. */
+  editSegId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -43,11 +46,12 @@ const emit = defineEmits<{
   ]
   hearStop: []
   remove: [id: string]
-  applyDraft: [id: string, draft: ChordEditDraft]
   commitAt: [payload: { raw: string; startTick: number; endTick: number; id?: string }]
   geometry: [payload: { id: string; startTick: number; endTick: number }]
   geometryMany: [payloads: Array<{ id: string; startTick: number; endTick: number }>]
   beginGesture: []
+  /** Open / toggle Sketch chord in the right dock. */
+  edit: [seg: ChordAnalysisSegment]
 }>()
 
 const prefs = usePreferencesStore()
@@ -80,21 +84,17 @@ function onRealize(): void {
 
 const rootEl = ref<HTMLElement | null>(null)
 const declaredTrackEl = ref<HTMLElement | null>(null)
-const menuEl = ref<HTMLElement | null>(null)
 const inlineEl = ref<HTMLElement | null>(null)
 const inlineInputEl = ref<HTMLInputElement | null>(null)
 const wrapRef = ref<HTMLElement | null>(null)
 const gridCanvasRef = ref<HTMLCanvasElement | null>(null)
 const cssW = ref(640)
 
-const openMenuTick = ref<number | null>(null)
 const inlineDraft = ref('')
 const inlineSuggestOpen = ref(false)
 const inlineSuggestIdx = ref(0)
 type InlineEdit = { id?: string; startTick: number; endTick: number; seed: string }
 const inlineEdit = ref<InlineEdit | null>(null)
-const menuPos = ref({ top: '0px', left: '0px', minWidth: '12rem' })
-const menuMaxHeightPx = ref(320)
 const inlinePos = ref({ top: '0px', left: '0px', minWidth: '12rem' })
 const inlineSuggestListId = 'tag-roll-declared-inline-suggest'
 
@@ -104,14 +104,48 @@ const ppq = computed(() => props.project.ppq)
 const snapTicks = computed(() => Math.max(1, props.project.snapTicks))
 const lengthTicks = computed(() => props.project.lengthTicks)
 
-const openSeg = computed(() => {
-  if (openMenuTick.value == null) return null
-  return props.segments.find((s) => s.startTick === openMenuTick.value) ?? null
-})
+const editSegId = computed(() => props.editSegId ?? null)
 
 function labelOf(seg: ChordAnalysisSegment): string {
   return props.mode === 'roman' ? seg.displayRoman : seg.displayName
 }
+
+function isPillarSeg(seg: ChordAnalysisSegment): boolean {
+  const s = (props.project.harmonySketch ?? []).find((x) => x.id === seg.id)
+  return s ? isPillarSketchSpan(s) : false
+}
+
+function previewLabelOf(d: HarmonyPreviewDraft): string {
+  if (props.mode === 'roman') {
+    return sketchRoman(d, props.project.tonality, props.project.tonalityMode ?? 'major')
+  }
+  return sketchLabel(
+    d,
+    props.project.preferFlats,
+    props.project.tonality,
+    props.project.tonalityMode ?? 'major',
+  )
+}
+
+function isPreviewingSeg(seg: ChordAnalysisSegment): boolean {
+  const p = props.previewDraft
+  if (!p || !previewDraftDirty(p)) return false
+  if (p.id === seg.id) return true
+  return p.startTick < seg.endTick && seg.startTick < p.endTick
+}
+
+/** Preview window that does not sit on an existing Sketch cell (Detected / Harmonize). */
+const orphanPreviewStyle = computed(() => {
+  const p = props.previewDraft
+  if (!p) return null
+  if (props.segments.some((s) => s.startTick < p.endTick && p.startTick < s.endTick)) {
+    // Overlaps a locked cell — only chrome via isPreviewingSeg when dirty.
+    return null
+  }
+  const x = stripSegX(p.startTick, scrollX.value, cellW.value, ppq.value)
+  const w = stripSegW(p.startTick, p.endTick, cellW.value, ppq.value)
+  return { transform: `translate3d(${x}px, 0, 0)`, width: `${w}px` }
+})
 
 function openInlineEditor(opts: {
   id?: string
@@ -119,7 +153,6 @@ function openInlineEditor(opts: {
   endTick: number
   seed: string
 }): void {
-  closeMenu()
   inlineEdit.value = {
     id: opts.id,
     startTick: opts.startTick,
@@ -162,12 +195,9 @@ const {
     openInlineEditor({ startTick, endTick, seed: '' })
   },
   onEdit: (seg) => {
-    openInlineEditor({
-      id: seg.id,
-      startTick: seg.startTick,
-      endTick: seg.endTick,
-      seed: labelOf(seg),
-    })
+    store.selectSketchSpans([seg.id])
+    emit('focusRange', seg.startTick, seg.endTick)
+    emit('edit', seg)
   },
   onGeometry: (payload) => emit('geometry', payload),
   onGeometryMany: (payloads) => emit('geometryMany', payloads),
@@ -196,44 +226,12 @@ function segStyle(seg: ChordAnalysisSegment): Record<string, string> {
   return { transform: `translate3d(${x}px, 0, 0)`, width: `${w}px` }
 }
 
-function closeMenu(): void {
-  emit('hearStop')
-  openMenuTick.value = null
-}
 function closeInline(): void {
   inlineEdit.value = null
   inlineDraft.value = ''
   inlineSuggestOpen.value = false
 }
-function placeMenu(): void {
-  const anchor = rootEl.value?.querySelector('.cell.menu .lab') as HTMLElement | null
-  if (!anchor) return
-  const placed = placePopoverNearAnchor(anchor.getBoundingClientRect(), {
-    minWidth: 280,
-    preferredWidth: 512,
-  })
-  menuPos.value = {
-    top: placed.top,
-    left: placed.left,
-    minWidth: placed.minWidth,
-  }
-  menuMaxHeightPx.value = placed.maxHeightPx
-}
 
-function leadMidiAt(tick: number): number | null {
-  const melId =
-    props.project.view.melodyPartId ??
-    props.project.parts.find((p) => p.name === 'Lead')?.id ??
-    null
-  if (!melId) return null
-  const hit = props.project.notes.find(
-    (n) =>
-      n.partId === melId &&
-      n.startTick <= tick &&
-      tick < n.startTick + n.durationTicks,
-  )
-  return hit?.midi ?? null
-}
 function placeInline(): void {
   const edit = inlineEdit.value
   if (!edit) return
@@ -249,16 +247,7 @@ function placeInline(): void {
 }
 function setMode(m: ChordAnalysisMode): void {
   emit('update:mode', m)
-  closeMenu()
   closeInline()
-}
-function onMenuButton(seg: ChordAnalysisSegment, e: MouseEvent): void {
-  e.stopPropagation()
-  e.preventDefault()
-  store.selectSketchSpans([seg.id])
-  emit('focusRange', seg.startTick, seg.endTick)
-  openMenuTick.value = openMenuTick.value === seg.startTick ? null : seg.startTick
-  void nextTick(() => placeMenu())
 }
 
 function placeGhostStyle(): Record<string, string> | null {
@@ -270,7 +259,7 @@ function placeGhostStyle(): Record<string, string> | null {
 }
 
 function isSelected(id: string): boolean {
-  return selectedIds.value.includes(id)
+  return selectedIds.value.includes(id) || editSegId.value === id
 }
 
 function isDragging(id: string): boolean {
@@ -279,23 +268,6 @@ function isDragging(id: string): boolean {
   if (g.kind === 'resize') return g.id === id
   if (g.kind === 'move') return g.ids.includes(id)
   return false
-}
-function onDraftHear(draft: ChordEditDraft): void {
-  const seg = openSeg.value
-  if (!seg) return
-  emit('hear', seg.startTick, seg.endTick, {
-    rootPc: draft.rootPc,
-    quality: draft.quality,
-  })
-}
-function onDraftHearStop(): void {
-  emit('hearStop')
-}
-function onDraftApply(draft: ChordEditDraft): void {
-  const seg = openSeg.value
-  if (!seg) return
-  emit('applyDraft', seg.id, draft)
-  closeMenu()
 }
 function submitInline(raw?: string): void {
   const edit = inlineEdit.value
@@ -390,41 +362,11 @@ onUnmounted(() => ro?.disconnect())
 
 watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => drawGrid())
 watch([scrollX, cellW], () => {
-  if (openMenuTick.value != null) placeMenu()
   if (inlineEdit.value) placeInline()
 })
 watch(inlineDraft, () => {
   inlineSuggestIdx.value = 0
   inlineSuggestOpen.value = true
-})
-watch(openMenuTick, (tick, _p, onCleanup) => {
-  if (tick == null) return
-  void nextTick(() => placeMenu())
-  const onPointerDownDoc = (e: PointerEvent) => {
-    const t = e.target
-    if (!(t instanceof Node)) {
-      closeMenu()
-      return
-    }
-    const openCell = rootEl.value?.querySelector('.cell.menu')
-    if (openCell?.contains(t) || menuEl.value?.contains(t)) return
-    closeMenu()
-  }
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation()
-      closeMenu()
-    }
-  }
-  const raf = requestAnimationFrame(() => {
-    document.addEventListener('pointerdown', onPointerDownDoc, true)
-    document.addEventListener('keydown', onKeyDown, true)
-  })
-  onCleanup(() => {
-    cancelAnimationFrame(raf)
-    document.removeEventListener('pointerdown', onPointerDownDoc, true)
-    document.removeEventListener('keydown', onKeyDown, true)
-  })
 })
 watch(inlineEdit, (edit, _p, onCleanup) => {
   if (!edit) return
@@ -451,14 +393,15 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 <template>
   <TagRollBottomLaneShell
     v-if="!collapsed"
-    label="My Chords"
+    label="Sketch"
+    density="compact"
     :left-gutter-px="leftGutterPx"
     :view-options="[
       { value: 'name', label: 'Chord' },
       { value: 'roman', label: 'Number' },
     ]"
     :view-value="mode"
-    view-aria-label="My Chords label view"
+    view-aria-label="Sketch label view"
     @update:view="setMode(($event as 'name' | 'roman'))"
   >
     <template #gutter>
@@ -467,8 +410,8 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         class="realize-btn"
         :disabled="!canRealize"
         :title="tagRollTip(selectedIds.length
-          ? 'Realize selected chords as TTBB stacks under Lead notes'
-          : 'Realize locked chords as TTBB stacks under Lead notes')"
+          ? 'Realize — write TTBB stacks from selected Sketch chords under Lead'
+          : 'Realize — write TTBB stacks from locked Sketch chords under Lead')"
         @click="onRealize"
       >
         Realize
@@ -480,7 +423,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         <div
           ref="declaredTrackEl"
           class="track"
-          :title="tagRollTip('Drag empty to paint a chord; drag across chords to select; Delete removes; click again to edit')"
+          :title="tagRollTip('Drag empty to paint a chord; drag across chords to select; Delete removes; click a chord to edit')"
           @pointerdown="onDeclaredPointerDown"
           @pointermove="onDeclaredPointerMove"
           @pointerup="onDeclaredPointerUp"
@@ -496,56 +439,53 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
             aria-hidden="true"
           />
           <div
+            v-if="orphanPreviewStyle"
+            class="cell preview-ghost"
+            :style="orphanPreviewStyle"
+            :title="previewDraft ? `Preview: ${previewLabelOf(previewDraft)}` : 'Preview'"
+            aria-hidden="true"
+          >
+            <div class="lab">
+              <span class="txt">{{ previewDraft ? previewLabelOf(previewDraft) : '' }}</span>
+            </div>
+          </div>
+          <div
             v-for="seg in segments"
             :key="`d-${seg.id}`"
             class="cell locked"
             :class="{
-              menu: openMenuTick === seg.startTick || inlineEdit?.id === seg.id,
+              pillar: isPillarSeg(seg),
+              menu: editSegId === seg.id || inlineEdit?.id === seg.id,
               selected: isSelected(seg.id),
               dragging: isDragging(seg.id),
+              preview: isPreviewingSeg(seg),
             }"
             :style="segStyle(seg)"
           >
             <span class="handle start" aria-hidden="true" />
-            <div class="lab" :title="`Chord: ${labelOf(seg)}`">
-              <span class="txt">{{ labelOf(seg) }}</span>
-              <button
-                type="button"
-                class="caret"
-                :title="tagRollTip('Chord menu')"
-                @pointerdown.stop="onMenuButton(seg, $event)"
-              >
-                ▾
-              </button>
+            <div
+              class="lab"
+              :title="
+                isPreviewingSeg(seg) && previewDraft
+                  ? `Preview: ${previewLabelOf(previewDraft)} (not applied)`
+                  : isPillarSeg(seg)
+                    ? `Pillar: ${labelOf(seg)}`
+                    : `Chord: ${labelOf(seg)}`
+              "
+            >
+              <span class="txt">
+                {{
+                  isPreviewingSeg(seg) && previewDraft
+                    ? previewLabelOf(previewDraft)
+                    : labelOf(seg)
+                }}
+              </span>
             </div>
             <span class="handle end" aria-hidden="true" />
           </div>
         </div>
       </div>
     </div>
-
-    <Teleport to="body">
-      <div
-        v-if="openSeg"
-        ref="menuEl"
-        class="pop-anchor"
-        :style="menuPos"
-      >
-        <TagRollChordEditPopover
-          :seg="openSeg"
-          :mode="mode"
-          :project="project"
-          variant="declared"
-          :max-height-px="menuMaxHeightPx"
-          :lead-midi="leadMidiAt(openSeg.startTick)"
-          @cancel="closeMenu"
-          @apply="onDraftApply"
-          @hear="onDraftHear"
-          @hear-stop="onDraftHearStop"
-          @remove="emit('remove', openSeg.id); closeMenu()"
-        />
-      </div>
-    </Teleport>
 
     <Teleport to="body">
       <div
@@ -593,14 +533,14 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .realize-btn {
   width: 100%;
   max-width: 100%;
-  margin-top: 0.15rem;
-  padding: 0.2rem 0.25rem;
+  padding: 0.1rem 0.2rem;
+  min-height: 1.35rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 5px;
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
   color: var(--text);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -616,14 +556,14 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  min-height: 52px;
+  min-height: 44px;
   height: 100%;
-  margin: 0.3rem 0.15rem 0.3rem 0;
+  margin: 0.12rem 0.12rem 0.12rem 0;
 }
 .grid-wrap {
   position: relative;
   flex: 1 1 auto;
-  min-height: 52px;
+  min-height: 44px;
   overflow: hidden;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -670,6 +610,14 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   display: flex;
   align-items: stretch;
 }
+.cell.pillar {
+  border-color: color-mix(in srgb, #1f7a4d 55%, var(--border));
+  background: color-mix(in srgb, #2a8c5a 28%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2a8c5a 35%, transparent);
+}
+.cell.pillar .handle {
+  background: color-mix(in srgb, #2a8c5a 45%, transparent);
+}
 .cell.selected {
   outline: 2px solid var(--accent);
   outline-offset: 0;
@@ -680,6 +628,25 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   pointer-events: none;
   z-index: 0;
+}
+.cell.preview,
+.cell.preview-ghost {
+  border-style: dashed;
+  border-color: color-mix(in srgb, #c47a1a 65%, var(--border));
+  background: color-mix(in srgb, #c47a1a 22%, var(--surface));
+  outline: 2px dashed color-mix(in srgb, #c47a1a 70%, transparent);
+  outline-offset: 1px;
+  z-index: 3;
+}
+.cell.preview-ghost {
+  pointer-events: none;
+  display: flex;
+  align-items: stretch;
+}
+.cell.preview .txt,
+.cell.preview-ghost .txt {
+  font-style: italic;
+  font-weight: 800;
 }
 .cell.dragging {
   opacity: 0.85;
@@ -700,14 +667,13 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .lab {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
   flex: 1;
   min-width: 0;
   padding: 0 0.35rem;
   color: var(--text);
   font: inherit;
-  font-size: 1rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: grab;
   text-align: left;
 }
@@ -717,17 +683,6 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   white-space: nowrap;
   flex: 1;
   min-width: 0;
-}
-.caret {
-  flex: none;
-  font-size: 0.75rem;
-  opacity: 0.7;
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 0 0.15rem;
-  min-height: 100%;
 }
 </style>
 

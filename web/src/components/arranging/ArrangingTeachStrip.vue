@@ -1,55 +1,50 @@
 <script setup lang="ts">
 /**
- * Inline curriculum glossary — collapsible so veterans can tuck it away.
+ * Key-ideas glossary — inline strip or full replaceable panel.
  */
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { glossaryEntries } from '../../lib/arranging/glossaryTooltip'
-import {
-  loadTeachStripCollapsed,
-  saveTeachStripCollapsed,
-} from '../../lib/arranging/teachStripPrefs'
 
-const props = defineProps<{
-  ids: readonly string[]
-  /** Optional heading in the summary row. */
-  heading?: string
+const props = withDefaults(
+  defineProps<{
+    ids: readonly string[]
+    heading?: string
+    /** Full-panel mode with close (replaces coach workspace). */
+    panel?: boolean
+  }>(),
+  { panel: false },
+)
+
+const emit = defineEmits<{
+  close: []
 }>()
 
 const entries = computed(() => glossaryEntries(props.ids))
-const open = ref(!loadTeachStripCollapsed(false))
-
-watch(open, (isOpen) => {
-  saveTeachStripCollapsed(!isOpen)
-})
-
 const summaryLabel = computed(() => props.heading || 'Key ideas')
-const summaryMeta = computed(() => {
-  const n = entries.value.length
-  if (!n) return ''
-  return n === 1 ? '1 term' : `${n} terms`
-})
 </script>
 
 <template>
-  <details
-    v-if="entries.length"
+  <section
+    v-if="entries.length || panel"
     class="teach"
-    :open="open"
+    :class="{ panel }"
     aria-label="Glossary"
-    @toggle="open = ($event.target as HTMLDetailsElement).open"
   >
-    <summary class="sum">
-      <span class="head">{{ summaryLabel }}</span>
-      <span class="meta">{{ summaryMeta }}</span>
-      <span class="chev" aria-hidden="true">{{ open ? '▾' : '▸' }}</span>
-    </summary>
-    <dl>
+    <header v-if="panel" class="panel-head">
+      <h3 class="head">{{ summaryLabel }}</h3>
+      <button type="button" class="close" aria-label="Close" title="Close" @click="emit('close')">
+        ×
+      </button>
+    </header>
+    <h3 v-else class="head">{{ summaryLabel }}</h3>
+    <p v-if="!entries.length" class="empty">No key ideas for this step.</p>
+    <dl v-else>
       <div v-for="g in entries" :key="g.id" class="row">
         <dt :title="g.citations.map((c) => c.label).join(' · ')">{{ g.term }}</dt>
         <dd>{{ g.short }}</dd>
       </div>
     </dl>
-  </details>
+  </section>
 </template>
 
 <style scoped>
@@ -60,42 +55,48 @@ const summaryMeta = computed(() => {
   border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--border));
   border-radius: 9px;
   background: color-mix(in srgb, var(--accent) 6%, transparent);
+  align-content: start;
 }
-.sum {
+.teach.panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-style: solid;
+  padding: 0.55rem 0.65rem 0.7rem;
+}
+.panel-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.4rem;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-  min-height: 1.4rem;
-}
-.sum::-webkit-details-marker {
-  display: none;
 }
 .head {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.meta {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: var(--muted);
-  opacity: 0.85;
+.close {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
 }
-.chev {
-  margin-left: auto;
-  font-size: 0.72rem;
+.empty {
+  margin: 0;
+  font-size: 0.78rem;
   color: var(--muted);
 }
 dl {
   margin: 0.15rem 0 0;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.45rem;
 }
 .row {
   display: grid;
@@ -103,14 +104,14 @@ dl {
 }
 dt {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 750;
   color: var(--text);
 }
 dd {
   margin: 0;
-  font-size: 0.75rem;
-  line-height: 1.35;
+  font-size: 0.78rem;
+  line-height: 1.4;
   color: var(--muted);
 }
 </style>

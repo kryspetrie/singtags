@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
- * Draft chord edit popover for My Chords / Detected.
- * One click picks root + quality together; hold a chord (or Hear) to sustain audition.
- * Drag the toolbar to reposition; wide multi-column list reduces vertical scroll.
- * Layout is viewport-clamped (scrollable list) — callers pass maxHeightPx.
+ * Draft chord edit for Sketch / Detected — floating or right-docked.
+ * Shared TagRollChordPickList; hold to audition; drag toolbar only when floating.
  */
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { midiToNote } from '../../audio/pianoSamples'
@@ -11,6 +9,7 @@ import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arran
 import {
   buildHarmonizeChordOptions,
   optionKey,
+  type ChordRankHint,
   type HarmonizeChordOption,
 } from '../../lib/tagRoll/harmonizer/chordPickOptions'
 import {
@@ -21,43 +20,43 @@ import {
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
 import { HARMONY_SKETCH_QUALITIES } from '../../lib/tagRoll/types'
+import TagRollChordPickList from './TagRollChordPickList.vue'
 
 export type ChordEditDraft = {
   rootPc: number
   quality: HarmonySketchQuality
-  /** Label currently highlighted (name or roman). */
   pickLabel: string
 }
 
-const props = defineProps<{
-  seg: ChordAnalysisSegment
-  mode: ChordAnalysisMode
-  project: TagRollProject
-  variant: 'declared' | 'detected'
-  /** Viewport-aware max height for the panel (px). */
-  maxHeightPx?: number
-  /** Melody MIDI at this span — prefers lead-valid chords when known. */
-  leadMidi?: number | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    seg: ChordAnalysisSegment
+    mode: ChordAnalysisMode
+    project: TagRollProject
+    variant: 'declared' | 'detected'
+    maxHeightPx?: number
+    leadMidi?: number | null
+    /** Detected implied candidates — sorted to the top of the list. */
+    rankHints?: readonly ChordRankHint[] | null
+    /** Right-column dock: no drag, fills parent, ✓ commits without dismiss. */
+    docked?: boolean
+  }>(),
+  { docked: false },
+)
 
 const emit = defineEmits<{
   cancel: []
   apply: [draft: ChordEditDraft]
-  /** Start (or restart) sustained audition while pointer is down. */
+  /** Draft changed — parent mirrors onto Sketch lane + transport audition. */
+  'update:draft': [draft: ChordEditDraft | null]
   hear: [draft: ChordEditDraft]
-  /** Release sustained audition. */
   hearStop: []
   remove: []
 }>()
 
-const filter = ref('')
-const showMore = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
-const listEl = ref<HTMLElement | null>(null)
 const holding = ref(false)
-/** User drag offset from the caller’s initial placement (px). */
 const dragOffset = ref({ x: 0, y: 0 })
-/** Live max height while dragging (fit remaining viewport below top). */
 const liveMaxH = ref<number | null>(null)
 
 const VIEW_PAD = 8
@@ -87,18 +86,45 @@ function seedFromSeg(seg: ChordAnalysisSegment): ChordEditDraft | null {
 }
 
 const draft = ref<ChordEditDraft | null>(seedFromSeg(props.seg))
+const baseline = ref<ChordEditDraft | null>(seedFromSeg(props.seg))
 
 watch(
-  () => props.seg.id,
-  () => {
-    stopHold()
-    draft.value = seedFromSeg(props.seg)
-    filter.value = ''
-    showMore.value = false
-    dragOffset.value = { x: 0, y: 0 }
-    liveMaxH.value = null
-    drag = null
-    dragging.value = false
+  draft,
+  (d) => {
+    emit('update:draft', d)
+  },
+  { immediate: true, deep: true },
+)
+
+function reseedsFromSeg(): void {
+  stopHold()
+  const seeded = seedFromSeg(props.seg)
+  draft.value = seeded
+  baseline.value = seeded
+  dragOffset.value = { x: 0, y: 0 }
+  liveMaxH.value = null
+  drag = null
+  dragging.value = false
+}
+
+watch(
+  () => [props.seg.id, props.seg.rootPc, props.seg.quality, props.variant] as const,
+  (next, prev) => {
+    // Reseed when the edit target changes; keep live draft while only ticks move.
+    if (!prev || next[0] !== prev[0] || next[3] !== prev[3]) {
+      reseedsFromSeg()
+      return
+    }
+    // After Apply, parent updates root/quality to match draft — refresh baseline only.
+    const d = draft.value
+    if (
+      d &&
+      next[1] === d.rootPc &&
+      next[2] === d.quality &&
+      (baseline.value?.rootPc !== d.rootPc || baseline.value?.quality !== d.quality)
+    ) {
+      baseline.value = { ...d }
+    }
   },
 )
 
@@ -126,40 +152,29 @@ const chordLists = computed(() =>
     mode: props.project.tonalityMode ?? 'major',
     preferFlats: props.project.preferFlats,
     leadMidi: props.leadMidi ?? null,
-    // Always keep lead-valid marking when melody is known (never flatten to chordOnly).
     chordOnly: false,
   }),
 )
 
+const effectiveRankHints = computed((): ChordRankHint[] => {
+  if (props.rankHints?.length) return [...props.rankHints]
+  // Seed with the strip’s top pick so Detected open keeps that chord first.
+  if (props.seg.rootPc != null && props.seg.quality) {
+    return [
+      {
+        rootPc: props.seg.rootPc,
+        natureId: props.seg.quality,
+        cadence: !!props.seg.cadenceLabel,
+        label: props.seg.cadenceLabel,
+      },
+    ]
+  }
+  return []
+})
+
 function labelOf(o: HarmonizeChordOption): string {
   return props.mode === 'roman' ? o.roman : o.name
 }
-
-function matchesFilter(o: HarmonizeChordOption): boolean {
-  const q = filter.value.trim().toLowerCase()
-  if (!q) return true
-  return (
-    o.name.toLowerCase().includes(q) ||
-    o.roman.toLowerCase().includes(q) ||
-    o.chordId.toLowerCase().includes(q)
-  )
-}
-
-/** Chords that contain the Lead tone (or all primary when no Lead). */
-const melodyOpts = computed(() => {
-  const all = [...chordLists.value.primary, ...chordLists.value.more].filter(matchesFilter)
-  if (props.leadMidi == null) {
-    return chordLists.value.primary.filter(matchesFilter)
-  }
-  return all.filter((o) => o.validForLead)
-})
-
-/** Other diatonic (etc.) chords that do not contain the Lead. */
-const otherOpts = computed(() => {
-  if (props.leadMidi == null) return chordLists.value.more.filter(matchesFilter)
-  const all = [...chordLists.value.primary, ...chordLists.value.more].filter(matchesFilter)
-  return all.filter((o) => !o.validForLead)
-})
 
 const selectedKey = computed(() => {
   const d = draft.value
@@ -171,12 +186,19 @@ const selectedKey = computed(() => {
 
 const dirty = computed(() => {
   const d = draft.value
-  if (!d || props.seg.rootPc == null) return false
-  const q0 = props.seg.quality ?? 'major'
-  return d.rootPc !== props.seg.rootPc || d.quality !== q0
+  const b = baseline.value
+  if (!d) return false
+  if (!b) return true
+  return d.rootPc !== b.rootPc || d.quality !== b.quality
 })
 
+function onReset(): void {
+  stopHold()
+  draft.value = baseline.value ? { ...baseline.value } : seedFromSeg(props.seg)
+}
+
 const panelStyle = computed(() => {
+  if (props.docked) return {}
   const maxH = liveMaxH.value ?? props.maxHeightPx
   const style: Record<string, string> = {
     transform: `translate(${dragOffset.value.x}px, ${dragOffset.value.y}px)`,
@@ -186,6 +208,8 @@ const panelStyle = computed(() => {
   }
   return style
 })
+
+const canApply = computed(() => !!draft.value && dirty.value)
 
 function clampOffset(ox: number, oy: number, box: DragState): { x: number; y: number } {
   const vw = window.innerWidth
@@ -206,7 +230,7 @@ function syncLiveMaxH(): void {
 }
 
 function onToolbarPointerDown(e: PointerEvent): void {
-  if (e.button !== 0) return
+  if (props.docked || e.button !== 0) return
   const t = e.target as HTMLElement | null
   if (t?.closest('button, a, input, select, textarea, label')) return
   const el = rootEl.value
@@ -240,10 +264,8 @@ function onRootPointerMove(e: PointerEvent): void {
     drag,
   )
   dragOffset.value = next
-  // Grow/shrink scroll area to remaining viewport under the dragged top edge.
   const top = drag.baseTop + next.y
   liveMaxH.value = Math.max(160, Math.floor(window.innerHeight - top - VIEW_PAD))
-  // Height may change after maxHeight update — refresh clamp box size next frame.
   void nextTick(() => {
     if (!drag || !rootEl.value) return
     const r = rootEl.value.getBoundingClientRect()
@@ -272,11 +294,6 @@ function applyOption(o: HarmonizeChordOption): ChordEditDraft | null {
     pickLabel: labelOf(o),
   }
   draft.value = next
-  void nextTick(() => {
-    listEl.value
-      ?.querySelector<HTMLElement>('.chord.on')
-      ?.scrollIntoView({ block: 'nearest' })
-  })
   return next
 }
 
@@ -286,7 +303,7 @@ function startHold(draftVal: ChordEditDraft, el?: HTMLElement | null, pointerId?
     try {
       el.setPointerCapture(pointerId)
     } catch {
-      /* ignore — already captured / unsupported */
+      /* ignore */
     }
   }
   emit('hear', draftVal)
@@ -298,12 +315,14 @@ function stopHold(): void {
   emit('hearStop')
 }
 
-function onChordPointerDown(o: HarmonizeChordOption, e: PointerEvent): void {
-  if (e.button !== 0) return
+function onPick(o: HarmonizeChordOption): void {
+  applyOption(o)
+}
+
+function onHoldStart(o: HarmonizeChordOption, e: PointerEvent): void {
   const next = applyOption(o)
   if (!next) return
-  e.preventDefault()
-  startHold(next, e.currentTarget as HTMLElement, e.pointerId)
+  startHold(next, e.currentTarget as HTMLElement | null, e.pointerId)
 }
 
 function onHearPointerDown(e: PointerEvent): void {
@@ -314,14 +333,21 @@ function onHearPointerDown(e: PointerEvent): void {
 
 function onApply(): void {
   stopHold()
-  if (draft.value) emit('apply', draft.value)
+  const d = draft.value
+  if (!d || !dirty.value) return
+  emit('apply', d)
+  baseline.value = { ...d }
 }
 function onCancel(): void {
   stopHold()
+  emit('update:draft', null)
   emit('cancel')
 }
 
-onUnmounted(() => stopHold())
+onUnmounted(() => {
+  stopHold()
+  emit('update:draft', null)
+})
 </script>
 
 <template>
@@ -330,7 +356,7 @@ onUnmounted(() => stopHold())
     class="chord-edit-pop"
     role="dialog"
     :aria-label="variant === 'detected' ? 'Edit detection' : 'Edit chord'"
-    :class="{ dragging }"
+    :class="{ dragging, docked }"
     :style="panelStyle"
     @pointermove="onRootPointerMove"
     @pointerup="onRootPointerUp"
@@ -338,11 +364,14 @@ onUnmounted(() => stopHold())
   >
     <div
       class="toolbar"
-      title="Drag to move"
+      :title="docked ? undefined : 'Drag to move'"
       @pointerdown="onToolbarPointerDown"
     >
-      <span class="drag-grip" aria-hidden="true">⠿</span>
-      <span class="preview" :title="previewLabel">{{ previewLabel }}</span>
+      <span v-if="!docked" class="drag-grip" aria-hidden="true">⠿</span>
+      <span class="preview" :class="{ dirty }" :title="previewLabel">
+        {{ previewLabel }}
+        <span v-if="dirty" class="preview-tag">preview</span>
+      </span>
       <div class="actions">
         <button
           type="button"
@@ -358,6 +387,17 @@ onUnmounted(() => stopHold())
         </button>
         <button
           type="button"
+          class="icon reset"
+          :disabled="!dirty"
+          :title="tagRollTip('Reset — restore the original chord')"
+          aria-label="Reset"
+          @click="onReset"
+        >
+          ↺
+        </button>
+        <button
+          v-if="!docked"
+          type="button"
           class="icon cancel"
           :title="tagRollTip('Cancel')"
           aria-label="Cancel"
@@ -369,96 +409,54 @@ onUnmounted(() => stopHold())
           type="button"
           class="icon apply"
           :class="{ dirty }"
-          :title="tagRollTip(variant === 'detected' ? 'Apply into My Chords' : 'Apply')"
+          :disabled="!canApply"
+          :title="
+            tagRollTip(
+              !canApply
+                ? 'Select a different chord to enable Apply'
+                : variant === 'detected'
+                  ? 'Apply — declare into Sketch'
+                  : 'Apply — declare this chord',
+            )
+          "
           aria-label="Apply"
           @click="onApply"
         >
           ✓
         </button>
+        <button
+          v-if="variant === 'declared'"
+          type="button"
+          class="icon danger"
+          :title="tagRollTip('Delete chord from Sketch')"
+          aria-label="Delete"
+          @click="emit('remove')"
+        >
+          ⌫
+        </button>
       </div>
     </div>
 
     <p v-if="leadLabel" class="lead-hint">
-      ♪ = contains Lead <strong>{{ leadLabel }}</strong> · hold a chord to hear
+      ♪ = contains Lead <strong>{{ leadLabel }}</strong> · hold to hear · ✓ Apply to commit
     </p>
-    <p v-else class="lead-hint muted">No Lead under this span · hold a chord to hear</p>
+    <p v-else class="lead-hint muted">No Lead under this span · hold to hear · ✓ Apply to commit</p>
 
-    <input
-      v-model="filter"
-      type="search"
-      class="filter"
-      :placeholder="mode === 'roman' ? 'Filter: V7, ii…' : 'Filter: G7, Dm…'"
-      autocomplete="off"
-      aria-label="Filter chords"
+      <TagRollChordPickList
+      :primary="chordLists.primary"
+      :more="chordLists.more"
+      :selected-key="selectedKey"
+      :label-mode="mode === 'roman' ? 'roman' : 'name'"
+      :lead-label="leadLabel"
+      :rank-hints="effectiveRankHints"
+      :tonality="project.tonality"
+      interaction="hold"
+      section-by-lead
+      empty-primary-text="No matches"
+      @pick="onPick"
+      @hold-start="onHoldStart"
+      @hold-stop="stopHold"
     />
-
-    <div ref="listEl" class="chord-scroll" role="listbox" :aria-label="'Chord choices'">
-      <p v-if="leadLabel && melodyOpts.length" class="sec-label">Contains melody</p>
-      <button
-        v-for="o in melodyOpts"
-        :key="optionKey(o)"
-        type="button"
-        class="chord"
-        role="option"
-        :class="{ on: selectedKey === optionKey(o), lead: o.validForLead && leadLabel }"
-        :aria-selected="selectedKey === optionKey(o)"
-        :title="
-          o.validForLead && leadLabel
-            ? `${o.name} (${o.roman}) — contains Lead ${leadLabel}. Hold to hear.`
-            : `${o.name} (${o.roman}). Hold to hear.`
-        "
-        @pointerdown="onChordPointerDown(o, $event)"
-        @pointerup="stopHold"
-        @pointercancel="stopHold"
-        @lostpointercapture="stopHold"
-      >
-        <span v-if="o.validForLead && leadLabel" class="lead-mark" aria-hidden="true">♪</span>
-        <span class="cn">{{ o.name }}</span>
-        <span class="cr">{{ o.roman }}</span>
-      </button>
-
-      <p v-if="!melodyOpts.length && !otherOpts.length" class="empty">No matches</p>
-
-      <button
-        v-if="otherOpts.length"
-        type="button"
-        class="more-tog"
-        @click="showMore = !showMore"
-      >
-        {{ showMore ? 'Hide other…' : `Other (${otherOpts.length})…` }}
-      </button>
-      <template v-if="showMore && otherOpts.length">
-        <p class="sec-label muted">
-          {{ leadLabel ? 'Does not contain melody' : 'More qualities' }}
-        </p>
-        <button
-          v-for="o in otherOpts"
-          :key="`m-${optionKey(o)}`"
-          type="button"
-          class="chord muted"
-          role="option"
-          :class="{ on: selectedKey === optionKey(o) }"
-          :aria-selected="selectedKey === optionKey(o)"
-          :title="`${o.name} (${o.roman}) — Lead not in this chord. Hold to hear.`"
-          @pointerdown="onChordPointerDown(o, $event)"
-          @pointerup="stopHold"
-          @pointercancel="stopHold"
-          @lostpointercapture="stopHold"
-        >
-          <span class="cn">{{ o.name }}</span>
-          <span class="cr">{{ o.roman }}</span>
-        </button>
-      </template>
-    </div>
-
-    <button
-      v-if="variant === 'declared'"
-      type="button"
-      class="danger"
-      @click="emit('remove')"
-    >
-      Delete
-    </button>
   </div>
 </template>
 
@@ -467,7 +465,7 @@ onUnmounted(() => stopHold())
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  width: min(32rem, calc(100vw - 1rem));
+  width: min(28rem, calc(100vw - 1rem));
   min-width: 16rem;
   padding: 0.4rem;
   border: 1px solid var(--border);
@@ -475,6 +473,29 @@ onUnmounted(() => stopHold())
   background: var(--surface);
   box-shadow: 0 10px 28px color-mix(in srgb, #000 20%, transparent);
   overflow: hidden;
+}
+.chord-edit-pop.docked {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.chord-edit-pop.docked :deep(.chord-pick-list) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chord-edit-pop.docked :deep(.chord-scroll) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 .chord-edit-pop.dragging {
   cursor: grabbing;
@@ -488,6 +509,10 @@ onUnmounted(() => stopHold())
   cursor: grab;
   min-height: 1.7rem;
   touch-action: none;
+}
+.chord-edit-pop.docked .toolbar {
+  cursor: default;
+  touch-action: auto;
 }
 .chord-edit-pop.dragging .toolbar {
   cursor: grabbing;
@@ -510,6 +535,23 @@ onUnmounted(() => stopHold())
   font-size: 1rem;
   font-weight: 750;
   color: var(--text);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.preview.dirty {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+.preview-tag {
+  flex: none;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 4px;
+  padding: 0.05rem 0.28rem;
 }
 .actions {
   display: inline-flex;
@@ -557,8 +599,21 @@ onUnmounted(() => stopHold())
   color: var(--accent);
   font-weight: 800;
 }
-.icon:hover {
+.icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.icon:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.icon.danger {
+  border-color: color-mix(in srgb, #c44 40%, var(--border));
+  background: color-mix(in srgb, #c44 8%, var(--surface));
+  color: #a33;
+  font-size: 0.85rem;
+}
+.icon.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #c44 16%, var(--surface));
 }
 .lead-hint {
   margin: 0;
@@ -566,125 +621,10 @@ onUnmounted(() => stopHold())
   color: var(--text);
   line-height: 1.35;
 }
-.lead-hint.muted,
-.sec-label.muted {
+.lead-hint.muted {
   color: var(--muted);
 }
 .lead-hint strong {
   font-weight: 750;
-}
-.filter {
-  width: 100%;
-  min-height: 1.7rem;
-  padding: 0.2rem 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg, var(--surface));
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  box-sizing: border-box;
-}
-.chord-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
-  gap: 0.25rem;
-  align-content: start;
-  padding: 0.05rem;
-}
-.sec-label {
-  grid-column: 1 / -1;
-  margin: 0.15rem 0 0;
-  font-size: 0.65rem;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.chord {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem;
-  min-height: 1.85rem;
-  padding: 0.2rem 0.35rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  cursor: pointer;
-  text-align: left;
-  touch-action: none;
-  user-select: none;
-}
-.chord.lead {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-.chord.muted {
-  opacity: 0.78;
-}
-.chord.on {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  font-weight: 700;
-}
-.chord:hover {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.lead-mark {
-  flex: none;
-  font-size: 0.72rem;
-  color: var(--accent, #3a6ea5);
-  font-weight: 800;
-}
-.cn {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 650;
-}
-.cr {
-  flex: none;
-  font-size: 0.68rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.more-tog {
-  grid-column: 1 / -1;
-  min-height: 1.6rem;
-  border: none;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: left;
-  padding: 0.15rem 0.1rem;
-}
-.empty {
-  grid-column: 1 / -1;
-  margin: 0.35rem 0;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-.danger {
-  flex: none;
-  min-height: 1.7rem;
-  border: 1px solid color-mix(in srgb, #c44 40%, var(--border));
-  border-radius: 6px;
-  background: color-mix(in srgb, #c44 8%, var(--surface));
-  color: #a33;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
 }
 </style>

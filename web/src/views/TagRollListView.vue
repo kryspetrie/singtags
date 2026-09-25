@@ -63,6 +63,17 @@ async function onDelete(id: string, title: string): Promise<void> {
   await store.removeProject(id)
 }
 
+async function onDuplicate(id: string, title: string): Promise<void> {
+  try {
+    const p = await store.duplicateProject(id)
+    snackbar.show(`Duplicated “${title}”`, { title: 'Duplicated', tone: 'ok', ms: 2500 })
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to duplicate project'
+    snackbar.show(msg, { title: 'Error', tone: 'error', ms: 4000 })
+  }
+}
+
 function fmtDate(ms: number): string {
   try {
     return new Date(ms).toLocaleString(undefined, {
@@ -133,6 +144,15 @@ function fmtDate(ms: number): string {
             {{ fmtDate(s.updatedAt) }}
           </span>
         </RouterLink>
+        <button
+          type="button"
+          class="btn ghost"
+          :aria-label="`Duplicate ${s.title}`"
+          :title="tagRollTip(`Duplicate ${s.title}`)"
+          @click="onDuplicate(s.id, s.title)"
+        >
+          Duplicate
+        </button>
         <button
           type="button"
           class="btn ghost"

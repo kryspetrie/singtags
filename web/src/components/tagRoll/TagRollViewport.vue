@@ -43,6 +43,8 @@ import {
 } from '../../lib/tagRoll/selection'
 import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
 import { keyAtTick } from '../../lib/tagRoll/keyMap'
+import { paintNoteBoxLabel } from '../../lib/tagRoll/noteBoxLabel'
+import { melodyRoleLaneMark } from '../../domain/arranging/melodyRoleLabels'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
 import {
   easeInOutCosine,
@@ -54,8 +56,6 @@ import { useTagRollStore } from '../../stores/tagRoll'
 const RESIZE_EDGE = 8
 const DRAG_SLOP = 6
 const PLAYHEAD_HIT = 10
-const LYRIC_MIN_W = 22
-const LYRIC_MIN_H = 11
 
 type GhostNote = {
   midi: number
@@ -80,6 +80,8 @@ const props = defineProps<{
    * Notes / hit-tests start below rulerH + headerExtraH.
    */
   headerExtraH?: number
+  /** Strong/Passing role badges keyed by note id (Assign Note Roles). */
+  noteRoles?: ReadonlyMap<string, 'pmn' | 'smn'> | null
 }>()
 
 const emit = defineEmits<{
@@ -491,11 +493,12 @@ function draw(): void {
     ctx.globalAlpha = 1
   }
 
-  const scaleKey = keyAtTick(props.project.view.playheadTick, props.project.keyMarkers, {
+  const keyFallback = {
     tonality: props.project.tonality,
-    tonalityMode: props.project.tonalityMode ?? 'major',
+    tonalityMode: (props.project.tonalityMode ?? 'major') as 'major' | 'minor',
     preferFlats: props.project.preferFlats,
-  })
+  }
+  const scaleKey = keyAtTick(props.project.view.playheadTick, props.project.keyMarkers, keyFallback)
 
   for (let m = TAG_ROLL_MIDI_MIN; m <= TAG_ROLL_MIDI_MAX; m++) {
     const y = oy + midiToY(m, ch)
@@ -597,14 +600,18 @@ function draw(): void {
     ctx.strokeStyle = surface
     ctx.lineWidth = 1
     ctx.strokeRect(r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3)
-
-    if (n.lyric && r.w > LYRIC_MIN_W && r.h > LYRIC_MIN_H) {
-      ctx.fillStyle = surface
-      ctx.font = `${Math.max(8, Math.min(r.h - 3, 11))}px sans-serif`
-      ctx.textBaseline = 'middle'
-      ctx.fillText(n.lyric.slice(0, 16), r.x + 4, r.y + r.h / 2, Math.max(4, r.w - 8))
+    paintNoteBoxLabel(ctx, {
+      midi: n.midi, startTick: n.startTick, lyric: n.lyric,
+      x: r.x, y: r.y, w: r.w, h: r.h, fillStyle: surface,
+      keyMarkers: props.project.keyMarkers, keyFallback,
+    })
+    const role = props.noteRoles?.get(n.id)
+    if (role && r.w > 22 && r.h > 12) {
+      ctx.fillStyle = role === 'pmn' ? 'rgba(42, 140, 90, 0.95)' : 'rgba(91, 61, 143, 0.9)'
+      ctx.font = '700 9px system-ui, sans-serif'
+      ctx.textBaseline = 'top'
+      ctx.fillText(melodyRoleLaneMark(role), r.x + 3, r.y + 2)
     }
-
     if (selected) {
       ctx.strokeStyle = accent
       ctx.lineWidth = selected && n.id === primarySelectedId.value ? 2 : 1.5
@@ -1357,6 +1364,7 @@ watch(
     props.selectedNoteIds,
     props.ghostNotes,
     props.chordCursor,
+    props.noteRoles,
     cssW.value,
     cssH.value,
   ],

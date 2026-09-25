@@ -50,10 +50,13 @@ export function filterCandidates(
   candidates: readonly HarmonizeCandidate[],
   filter: CandFilterId,
 ): HarmonizeCandidate[] {
-  if (filter === 'all') return [...candidates]
-  if (filter === 'pcf') return candidates.filter((c) => c.layer === 'primary')
-  if (filter === 'scf') return candidates.filter((c) => c.layer === 'passing' || c.scfGroup != null)
-  return candidates.filter((c) => c.natureId === 'seventh' || c.natureId === 'ninth')
+  let list: HarmonizeCandidate[]
+  if (filter === 'all') list = [...candidates]
+  else if (filter === 'pcf') list = candidates.filter((c) => c.layer === 'primary')
+  else if (filter === 'scf')
+    list = candidates.filter((c) => c.layer === 'passing' || c.scfGroup != null)
+  else list = candidates.filter((c) => c.natureId === 'seventh' || c.natureId === 'ninth')
+  return dedupeHarmonizeCandidates(list)
 }
 
 export function layerHintForCandidate(c: HarmonizeCandidate): string {
@@ -83,14 +86,43 @@ export type ChordCandidateGroup = {
   stacks: HarmonizeCandidate[]
 }
 
+/** Stable identity for one audible TTBB stack. */
+export function candidateSoundingKey(c: HarmonizeCandidate): string {
+  const m = c.midi
+  return `${c.rootPc}:${c.natureId}:${m.bass}:${m.bari}:${m.lead}:${m.tenor}`
+}
+
+/**
+ * Drop duplicate suggestions that sound the same (PCF/SCF overlap, etc.).
+ * Keeps the higher-scoring entry when already ranked.
+ */
+export function dedupeHarmonizeCandidates(
+  candidates: readonly HarmonizeCandidate[],
+): HarmonizeCandidate[] {
+  const best = new Map<string, HarmonizeCandidate>()
+  const order: string[] = []
+  for (const c of candidates) {
+    const key = candidateSoundingKey(c)
+    const prev = best.get(key)
+    if (!prev) {
+      best.set(key, c)
+      order.push(key)
+    } else if (c.score > prev.score) {
+      best.set(key, c)
+    }
+  }
+  return order.map((k) => best.get(k)!)
+}
+
 /** Group ranked stacks by root+nature so UI can show chords first, then inversions. */
 export function groupCandidatesByChord(
   candidates: readonly HarmonizeCandidate[],
   preferFlats: boolean,
 ): ChordCandidateGroup[] {
+  const unique = dedupeHarmonizeCandidates(candidates)
   const order: string[] = []
   const map = new Map<string, HarmonizeCandidate[]>()
-  for (const c of candidates) {
+  for (const c of unique) {
     const key = `${c.rootPc}:${c.natureId}`
     if (!map.has(key)) {
       map.set(key, [])

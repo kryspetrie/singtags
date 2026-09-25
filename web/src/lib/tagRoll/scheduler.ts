@@ -41,6 +41,8 @@ import type { VoicingPitches } from '../../domain/arranging/chords/chords'
 
 export type TagRollScheduler = {
   play(fromTick: number, opts?: { metronomePrime?: boolean; untilTick?: number }): void
+  /** Jump playhead while keeping transport running (no-op if paused). */
+  seek(tick: number): void
   pause(): void
   stop(opts?: { resetPlayhead?: boolean }): void
   isPlaying(): boolean
@@ -120,7 +122,7 @@ export function createTagRollScheduler(opts: {
   /** Last sketch/detect stab voicing for VL-aware inversions. */
   let lastSketchVoicing: VoicingPitches | null = null
   let lastDetectVoicing: VoicingPitches | null = null
-  /** Cached global inversion paths (id → voicing) — My Chords + Detected together. */
+  /** Cached global inversion paths (id → voicing) — Sketch + Detected together. */
   let harmonyPathById: Map<string, VoicingPitches> | null = null
   let harmonyPathKey = ''
 
@@ -132,7 +134,7 @@ export function createTagRollScheduler(opts: {
   }
 
   /**
-   * One inversion path across locked My Chords and Detected fills (timeline order)
+   * One inversion path across locked Sketch and Detected fills (timeline order)
    * so each lane’s voicings respect the other.
    */
   function ensureHarmonyPath(): Map<string, VoicingPitches> {
@@ -380,6 +382,16 @@ export function createTagRollScheduler(opts: {
 
   function scheduleSketch(t: number, lookAhead: number): void {
     const spans = opts.getHarmonySketch?.() ?? []
+    const live = new Set(
+      spans.filter((s) => s.locked && s.endTick > t).map((s) => s.id),
+    )
+    // Drop orphans when preview fingerprint changes mid-play.
+    for (const id of [...sketchActive.keys()]) {
+      if (!live.has(id)) endSketchSpan(id)
+    }
+    for (const id of [...sketchScheduled]) {
+      if (!spans.some((s) => s.id === id)) sketchScheduled.delete(id)
+    }
     const cap = stopAt
     const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
     for (const span of spans) {
@@ -586,45 +598,63 @@ export function createTagRollScheduler(opts: {
     raf = requestAnimationFrame(frame)
   }
 
+  function startFrom(
+    fromTick: number,
+    playOpts?: { metronomePrime?: boolean; untilTick?: number },
+  ): void {
+    cancelAnimationFrame(raf)
+    raf = 0
+    releaseAll()
+    playing = true
+    playhead = Math.max(0, fromTick)
+    stopAt =
+      playOpts?.untilTick != null && playOpts.untilTick > playhead
+        ? playOpts.untilTick
+        : null
+    lastPerf = performance.now()
+    fermata = null
+    passedFermatas.clear()
+    const notes = opts.getNotes()
+    for (const e of expressions()) {
+      if (e.kind !== 'fermata') continue
+      const at = fermataExecutionTick(e.tick, notes)
+      if (shouldSkipFermataOnPlay(at, playhead)) {
+        passedFermatas.add(e.id)
+      }
+    }
+    opts.onPlayhead(Math.floor(playhead))
+    if (playOpts?.metronomePrime !== false) {
+      fireMetronome(playhead, playhead, { includeStart: true })
+    }
+    for (const e of expressions()) {
+      if (e.kind !== 'fermata' || passedFermatas.has(e.id)) continue
+      const at = fermataExecutionTick(e.tick, notes)
+      if (Math.abs(at - playhead) <= 0.5) {
+        beginFermata(e, lastPerf, at)
+        break
+      }
+    }
+    scheduleNotes(playhead, playhead)
+    raf = requestAnimationFrame(frame)
+  }
+
   return {
     play(fromTick: number, playOpts?: { metronomePrime?: boolean; untilTick?: number }) {
-      releaseAll()
-      playing = true
-      playhead = Math.max(0, fromTick)
-      stopAt =
-        playOpts?.untilTick != null && playOpts.untilTick > playhead
-          ? playOpts.untilTick
-          : null
-      lastPerf = performance.now()
-      fermata = null
-      passedFermatas.clear()
-      const notes = opts.getNotes()
-      for (const e of expressions()) {
-        if (e.kind !== 'fermata') continue
-        const at = fermataExecutionTick(e.tick, notes)
-        if (shouldSkipFermataOnPlay(at, playhead)) {
-          passedFermatas.add(e.id)
-        }
-      }
-      opts.onPlayhead(Math.floor(playhead))
-      if (playOpts?.metronomePrime !== false) {
-        fireMetronome(playhead, playhead, { includeStart: true })
-      }
-      for (const e of expressions()) {
-        if (e.kind !== 'fermata' || passedFermatas.has(e.id)) continue
-        const at = fermataExecutionTick(e.tick, notes)
-        if (Math.abs(at - playhead) <= 0.5) {
-          beginFermata(e, lastPerf, at)
-          break
-        }
-      }
-      scheduleNotes(playhead, playhead)
-      raf = requestAnimationFrame(frame)
+      startFrom(fromTick, playOpts)
+    },
+    seek(tick: number) {
+      if (!playing) return
+      const keepUntil = stopAt
+      startFrom(tick, {
+        metronomePrime: false,
+        untilTick: keepUntil != null ? keepUntil : undefined,
+      })
     },
     pause() {
       if (!playing) return
       playing = false
       cancelAnimationFrame(raf)
+      raf = 0
       fermata = null
       stopAt = null
       releaseAll()
@@ -633,6 +663,7 @@ export function createTagRollScheduler(opts: {
     stop(o) {
       playing = false
       cancelAnimationFrame(raf)
+      raf = 0
       fermata = null
       stopAt = null
       releaseAll()
@@ -644,6 +675,7 @@ export function createTagRollScheduler(opts: {
     dispose() {
       playing = false
       cancelAnimationFrame(raf)
+      raf = 0
       fermata = null
       stopAt = null
       releaseAll()

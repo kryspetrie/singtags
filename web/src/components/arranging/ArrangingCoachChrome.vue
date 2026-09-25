@@ -1,32 +1,19 @@
 <script setup lang="ts">
 /**
- * Coach dock header + optional coaching configuration panel.
+ * Coach dock header — settings / ideas / help open as full-panel modes in the parent.
  */
-import ArrangingCoachConfig from './ArrangingCoachConfig.vue'
-import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
-import type { ArrangementQaConfig, QaCheckGroupId } from '../../domain/arranging/coachConfig'
-import type { ContestProfile, TuningMode } from '../../domain/arranging/types'
-
 defineProps<{
   showConfig: boolean
-  qaErrors: number
-  qaWarns: number
-  showConfigPanel: boolean
-  contestProfile: ContestProfile
-  tuningMode: TuningMode
-  qaConfig: ArrangementQaConfig
-  orgTip: string | null
+  showIdeas: boolean
+  showHelp: boolean
 }>()
 
 const emit = defineEmits<{
   toggleConfig: []
+  toggleIdeas: []
+  toggleHelp: []
   popOut: []
   close: []
-  'update:contestProfile': [ContestProfile]
-  'update:tuningMode': [TuningMode]
-  'update:qaGroup': [groupId: QaCheckGroupId, enabled: boolean]
-  'update:cadenceBias': []
-  closeConfig: []
 }>()
 </script>
 
@@ -34,7 +21,24 @@ const emit = defineEmits<{
   <header class="dock-head">
     <h2 class="dock-title">Coach</h2>
     <div class="head-actions">
-      <span v-if="qaErrors || qaWarns" class="qa-badge">{{ qaErrors }}e / {{ qaWarns }}w</span>
+      <button
+        type="button"
+        class="text-btn"
+        title="Key ideas for this step"
+        :aria-pressed="showIdeas"
+        @click="emit('toggleIdeas')"
+      >
+        Ideas
+      </button>
+      <button
+        type="button"
+        class="text-btn"
+        title="Help for this step"
+        :aria-pressed="showHelp"
+        @click="emit('toggleHelp')"
+      >
+        Help
+      </button>
       <button
         type="button"
         class="icon-btn"
@@ -51,19 +55,6 @@ const emit = defineEmits<{
       </button>
     </div>
   </header>
-
-  <ArrangingCoachConfig
-    v-if="showConfigPanel"
-    :contest-profile="contestProfile"
-    :tuning-mode="tuningMode"
-    :qa-config="qaConfig ?? DEFAULT_QA_CONFIG"
-    :org-tip="orgTip"
-    @update:contest-profile="emit('update:contestProfile', $event)"
-    @update:tuning-mode="emit('update:tuningMode', $event)"
-    @update:qa-group="(id, on) => emit('update:qaGroup', id, on)"
-    @update:cadence-bias="emit('update:cadenceBias')"
-    @close="emit('closeConfig')"
-  />
 </template>
 
 <style scoped>
@@ -72,6 +63,7 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
+  flex: 0 0 auto;
 }
 .dock-title {
   margin: 0;
@@ -83,22 +75,28 @@ const emit = defineEmits<{
   align-items: center;
   gap: 0.25rem;
 }
-.qa-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--muted);
-  padding: 0.1rem 0.35rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-}
+.text-btn,
 .icon-btn {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
+  color: var(--text);
   font: inherit;
   cursor: pointer;
-  min-width: 1.7rem;
   min-height: 1.7rem;
   line-height: 1;
+}
+.text-btn {
+  padding: 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.text-btn[aria-pressed='true'],
+.icon-btn[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.icon-btn {
+  min-width: 1.7rem;
 }
 </style>

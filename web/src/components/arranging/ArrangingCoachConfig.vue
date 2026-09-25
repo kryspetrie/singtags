@@ -129,8 +129,12 @@ function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
 .coach-config {
   display: grid;
   gap: 0.45rem;
-  padding: 0.35rem 0 0.55rem;
-  border-bottom: 1px solid var(--border);
+  align-content: start;
+  padding: 0.55rem 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  overflow: auto;
 }
 .cfg-head {
   display: flex;

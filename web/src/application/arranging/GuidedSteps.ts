@@ -29,18 +29,18 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'pillars',
     label: 'Pillars',
-    tip: 'Mark phrase chords on the Harmony strip (or Propose here) — root first; quality on the strip or Chords.',
+    tip: 'Assign Sketch/Detected chords as pillars (distinct color). Coach Propose drafts until Lock.',
     buttonTip:
-      'Pillars are the structural chords under a phrase — like guitar block chords (C, G7). Prefer the Harmony strip on the roll; this panel proposes and locks roots that sync into that sketch.',
+      'Pillars are structural phrase chords. Mark them on Sketch or Detected (Pillar toggle / Lock all), or Propose+Lock on the Coach lane.',
     glossaryIds: ['pillar', 'pcf'],
     wizardSteps: ['melody', 'step1_roots', 'step2_confirm'],
   },
   {
     id: 'roles',
-    label: 'Strong / passing',
-    tip: 'Mark Lead notes as strong home tones or passing connective tones so the coach picks chords accordingly.',
+    label: 'Note roles',
+    tip: 'Assign Strong / Passing on the roll (S / P) and Melody part (M). Arrows navigate; Shift+arrows move notes.',
     buttonTip:
-      'Strong notes are home tones that should sit on pillar-family chords. Passing notes are connective tones where color chords are more welcome later.',
+      'Open Assign Note Roles on the piano roll. Strong notes prefer pillar-family chords; Passing notes welcome color. M sets which part is the melody.',
     glossaryIds: ['pmn', 'smn', 'melody_pass'],
     wizardSteps: ['step3_pmn_pcf', 'step4_smn_pcf'],
   },

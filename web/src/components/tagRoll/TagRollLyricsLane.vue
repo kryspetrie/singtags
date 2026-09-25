@@ -134,7 +134,12 @@ function onKeydown(e: KeyboardEvent): void {
 </script>
 
 <template>
-  <TagRollBottomLaneShell v-if="open" label="Lyrics" :left-gutter-px="leftGutterPx">
+  <TagRollBottomLaneShell
+    v-if="open"
+    label="Lyrics"
+    density="compact"
+    :left-gutter-px="leftGutterPx"
+  >
     <div class="lyr-body">
       <label class="wrap">
         <input

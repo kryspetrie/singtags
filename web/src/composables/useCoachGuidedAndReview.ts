@@ -78,10 +78,26 @@ export function useCoachGuidedAndReview(opts: {
     if (!note) return
     arrStore.selectMelody(id)
     arrStore.setCandidateTarget(note)
-    // Overlay / playhead only — do not steal Tag Studio edit selection.
-    tagStore.selectNotes([])
     tagStore.setPlayheadTick(note.startTick, { snap: false })
     pulseHighlight(note.startTick, 'moment')
+    if (tagStore.assignNoteRolesActive) {
+      const tag = tagStore.current
+      const mid =
+        tag?.view.melodyPartId ??
+        tag?.parts.find((p) => p.name === 'Lead')?.id ??
+        null
+      const hit = tag?.notes.find(
+        (n) =>
+          (!mid || n.partId === mid) &&
+          n.startTick === note.startTick &&
+          n.midi === note.midi,
+      )
+      if (hit) tagStore.selectNotes([hit.id])
+      else tagStore.selectNotes([])
+    } else {
+      // Overlay / playhead only — do not steal Tag Studio edit selection.
+      tagStore.selectNotes([])
+    }
   }
 
   function stepMelodyNote(dir: -1 | 1): void {
@@ -108,12 +124,15 @@ export function useCoachGuidedAndReview(opts: {
     }
     if (id === 'roles') {
       prefs.openTagRollBottomLane('coach')
+      tagStore.assignNoteRolesActive = true
       const mel = p?.melody ?? []
       const pick =
         mel.find((m) => m.role === 'unknown') ??
         mel.find((m) => m.id === arrStore.selectedMelodyId) ??
         mel[0]
       if (pick) selectMelodyNote(pick.id)
+    } else {
+      tagStore.assignNoteRolesActive = false
     }
     if (id === 'pillars') {
       prefs.openTagRollBottomLane('coach')

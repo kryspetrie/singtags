@@ -169,7 +169,7 @@ export function useDeclaredStripGestures(opts: {
           origins,
           startClientX: e.clientX,
           moved: false,
-          editOnRelease: already && !additive && moveIds.length === 1,
+          editOnRelease: !additive && moveIds.length === 1,
           previews,
         }
       }

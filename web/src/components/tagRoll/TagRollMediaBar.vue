@@ -634,69 +634,44 @@ onUnmounted(() => {
       </div>
 
       <div class="lane-toggles" role="group" aria-label="Bottom lanes">
-        <button
-          type="button"
-          class="lane-tog"
-          :class="{ on: !prefs.tagRollLyricsLaneCollapsed }"
-          :aria-pressed="!prefs.tagRollLyricsLaneCollapsed"
-          :title="tipByShortcutId('mode-lyrics', 'Show Lyrics lane')"
-          @click="prefs.toggleTagRollLane('lyrics')"
-        >
-          Lyrics
-        </button>
-        <button
-          type="button"
-          class="lane-tog"
-          :class="{ on: !prefs.tagRollChordsLaneCollapsed }"
-          :aria-pressed="!prefs.tagRollChordsLaneCollapsed"
-          :title="tagRollTip('Show My Chords lane — locked harmony map')"
-          @click="prefs.toggleTagRollLane('chords')"
-        >
-          My Chords
-        </button>
-        <button
-          type="button"
-          class="lane-tog"
-          :class="{ on: !prefs.tagRollDetectedLaneCollapsed }"
-          :aria-pressed="!prefs.tagRollDetectedLaneCollapsed"
-          :title="tagRollTip('Show Detected chords lane')"
-          @click="prefs.toggleTagRollLane('detected')"
-        >
-          Detected
-        </button>
-        <button
-          type="button"
-          class="lane-tog"
-          :class="{ on: !prefs.tagRollExpressionLaneCollapsed }"
-          :aria-pressed="!prefs.tagRollExpressionLaneCollapsed"
-          :title="tagRollTip('Show Mods lane (tempo, fermata, ramps)')"
-          @click="prefs.toggleTagRollLane('mods')"
-        >
-          Mods
-        </button>
-        <button
-          type="button"
-          class="lane-tog"
-          :class="{ on: !prefs.tagRollCoachLaneCollapsed }"
-          :aria-pressed="!prefs.tagRollCoachLaneCollapsed"
-          :title="tagRollTip('Show Coach lane')"
-          @click="prefs.toggleTagRollLane('coach')"
-        >
-          Coach
-        </button>
-        <InfoTips
-          class="lane-howto"
-          label="How to use bottom lanes"
-          title="My Chords, Detected, Mods, Coach, and Lyrics"
-        >
-          <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
-            <p><strong>{{ sec.title }}</strong></p>
-            <p>{{ sec.body }}</p>
-            <ol v-if="sec.steps?.length">
-              <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
-            </ol>
-          </section>
-        </InfoTips>
+        <div class="lane-grid">
+          <div class="lane-col">
+            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollLyricsLaneCollapsed }"
+              :aria-pressed="!prefs.tagRollLyricsLaneCollapsed"
+              :title="tipByShortcutId('mode-lyrics', 'Show Lyrics lane')"
+              @click="prefs.toggleTagRollLane('lyrics')">Lyrics</button>
+            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollChordsLaneCollapsed }"
+              :aria-pressed="!prefs.tagRollChordsLaneCollapsed"
+              :title="tagRollTip('Show Sketch lane — locked harmony map')"
+              @click="prefs.toggleTagRollLane('chords')">Sketch</button>
+          </div>
+          <div class="lane-col">
+            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollDetectedLaneCollapsed }"
+              :aria-pressed="!prefs.tagRollDetectedLaneCollapsed"
+              :title="tagRollTip('Show Detected chords lane')"
+              @click="prefs.toggleTagRollLane('detected')">Detected</button>
+            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollExpressionLaneCollapsed }"
+              :aria-pressed="!prefs.tagRollExpressionLaneCollapsed"
+              :title="tagRollTip('Show Mods lane (tempo, fermata, ramps)')"
+              @click="prefs.toggleTagRollLane('mods')">Mods</button>
+          </div>
+          <div class="lane-col">
+            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollCoachLaneCollapsed }"
+              :aria-pressed="!prefs.tagRollCoachLaneCollapsed"
+              :title="tagRollTip('Show Coach lane')"
+              @click="prefs.toggleTagRollLane('coach')">Coach</button>
+            <InfoTips class="lane-howto" label="How to use bottom lanes"
+              title="Sketch, Detected, Mods, Coach, and Lyrics">
+              <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
+                <p><strong>{{ sec.title }}</strong></p>
+                <p>{{ sec.body }}</p>
+                <ol v-if="sec.steps?.length">
+                  <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+                </ol>
+              </section>
+            </InfoTips>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -923,28 +898,17 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .lane-toggles {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.28rem;
-  padding-left: 0.45rem;
-  border-left: 1px solid var(--border);
+  display: inline-flex; align-items: stretch; min-width: 0;
+  padding-left: 0.45rem; border-left: 1px solid var(--border);
 }
+.lane-grid { display: inline-flex; align-items: stretch; gap: 0.28rem; }
+.lane-col { display: inline-flex; flex-direction: column; gap: 0.2rem; }
 .lane-tog {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 1.85rem;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 1 1 auto; min-height: 1.55rem; min-width: 3.6rem; padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  color: var(--muted); font: inherit; font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.02em; cursor: pointer; white-space: nowrap;
 }
 .lane-tog:hover {
   color: var(--text);
@@ -956,10 +920,9 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
+.lane-howto { flex: 1 1 auto; display: flex; align-items: stretch; }
 .lane-howto :deep(.info-tips-btn) {
-  width: 1.85rem;
-  height: 1.85rem;
-  font-size: 0.82rem;
+  width: 100%; min-height: 1.55rem; height: auto; font-size: 0.82rem;
 }
 .howto-sec + .howto-sec {
   margin-top: 0.65rem;

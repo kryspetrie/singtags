@@ -941,8 +941,8 @@ export function useArrangingCoachDock(
 
   function candIdentity(c: HarmonizeCandidate): string {
     const v = c.voicing?.trim()
-    if (!v) return candLabel(c)
-    return `${candLabel(c)} · ${voicingDisplayLabel(v)}`
+    const base = v ? `${candLabel(c)} · ${voicingDisplayLabel(v)}` : candLabel(c)
+    return c.spread ? `${base} · spread` : base
   }
 
   function whyFor(i: number) {

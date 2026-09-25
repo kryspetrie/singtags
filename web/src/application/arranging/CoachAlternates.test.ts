@@ -53,14 +53,51 @@ describe('CoachAlternates', () => {
   it('groups stacks by chord so inversions nest under one label', () => {
     const list = [
       cand({ rootPc: 0, natureId: 'major', voicing: '1351', score: 12 }),
-      cand({ rootPc: 0, natureId: 'major', voicing: '3515', score: 11 }),
-      cand({ rootPc: 7, natureId: 'seventh', voicing: '5317', score: 10 }),
+      cand({ rootPc: 0, natureId: 'major', voicing: '3515', score: 11, midi: { bass: 52, bari: 55, lead: 67, tenor: 72 } }),
+      cand({ rootPc: 7, natureId: 'seventh', voicing: '5317', score: 10, midi: { bass: 43, bari: 50, lead: 67, tenor: 71 } }),
     ]
     const groups = groupCandidatesByChord(list, false)
     expect(groups).toHaveLength(2)
     expect(groups[0]!.label).toBe('C')
     expect(groups[0]!.stacks).toHaveLength(2)
     expect(groups[1]!.label).toBe('G7')
+  })
+
+  it('dedupes candidates that sound identical', () => {
+    const midi = { bass: 48, bari: 55, lead: 67, tenor: 72 }
+    const list = [
+      cand({ rootPc: 0, natureId: 'major', voicing: '1351', score: 10, midi, layer: 'primary' }),
+      cand({ rootPc: 0, natureId: 'major', voicing: '1351', score: 12, midi, layer: 'passing', scfGroup: 2 }),
+      cand({ rootPc: 0, natureId: 'major', voicing: '1351', score: 8, midi, spread: true }),
+    ]
+    const groups = groupCandidatesByChord(list, false)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]!.stacks).toHaveLength(1)
+    expect(groups[0]!.best.score).toBe(12)
+    expect(filterCandidates(list, 'all')).toHaveLength(1)
+  })
+
+  it('keeps closed vs spread when they sound different', () => {
+    const list = [
+      cand({
+        rootPc: 0,
+        natureId: 'major',
+        voicing: '1351',
+        score: 10,
+        spread: false,
+        midi: { bass: 48, bari: 55, lead: 67, tenor: 72 },
+      }),
+      cand({
+        rootPc: 0,
+        natureId: 'major',
+        voicing: '1351',
+        score: 9,
+        spread: true,
+        midi: { bass: 36, bari: 55, lead: 67, tenor: 79 },
+      }),
+    ]
+    const groups = groupCandidatesByChord(list, false)
+    expect(groups[0]!.stacks).toHaveLength(2)
   })
 
   it('hides alt chips with no matching candidate', () => {

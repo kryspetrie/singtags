@@ -95,6 +95,11 @@ export type HarmonySketchSpan = {
   quality: HarmonySketchQuality
   source: 'user' | 'detect' | 'coach'
   locked: boolean
+  /**
+   * Structural home-root (Coach pillar). Defaults to true for locked spans when
+   * omitted (legacy). Unset / false = Declared chord that is not a pillar.
+   */
+  pillar?: boolean
 }
 
 /** Compose combines note add + edit; selection decides which. */

@@ -62,6 +62,7 @@ export {
   altChipsForMoment,
   candFilterLabels,
   counterpartForMoment,
+  dedupeHarmonizeCandidates,
   filterCandidates,
   groupCandidatesByChord,
   layerHintForCandidate,
