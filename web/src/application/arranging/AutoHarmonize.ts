@@ -10,7 +10,6 @@ import type { IdGenerator } from '../../ports/IdGenerator'
 import {
   resolveSuggestHomeRoot,
   type SoftSuggestContext,
-  type SuggestHomeRootSource,
 } from './suggestHomeRoot'
 
 export type { SoftSuggestContext, SuggestHomeRootSource } from './suggestHomeRoot'

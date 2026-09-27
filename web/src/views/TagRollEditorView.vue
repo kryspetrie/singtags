@@ -2,7 +2,7 @@
 /**
  * Tag Studio editor — piano-roll arranger for custom tags.
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, unref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
 import { MetronomeClicker } from '../audio/metronomeClicker'
@@ -79,14 +79,12 @@ import {
   natureToSketchQuality,
   parseHarmonyEntry,
   pillarsFromHarmonySketch,
-  sketchWindowAtPlayhead,
 } from '../lib/tagRoll/harmonySketch'
 import {
   sketchSpansForAudition,
   type HarmonyPreviewDraft,
 } from '../lib/tagRoll/harmonyPreviewDraft'
 import { resolveSketchHearMidis } from '../lib/tagRoll/hearSketchSpan'
-import { measureTicks as measureTicksFn } from '../lib/tagRoll/tempoMap'
 import { useArrangementStore } from '../stores/arrangement'
 import { getArrangingServices } from '../composition/arranging'
 
@@ -377,8 +375,11 @@ function onNudgeCellW(delta: number): void {
 
 /** Exposed canvas css size may be a raw number or a still-wrapped ref. */
 function readExposedCssSize(raw: unknown, fallback = 640): number {
-  const v = unref(raw as number | { value: number })
-  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback
+  const inner =
+    raw && typeof raw === 'object' && raw !== null && 'value' in raw
+      ? (raw as { value: unknown }).value
+      : raw
+  return typeof inner === 'number' && Number.isFinite(inner) && inner > 0 ? inner : fallback
 }
 
 let player: PitchTonePlayer | null = null
@@ -859,7 +860,7 @@ function onEnterTransport(): void {
 let hearStackSeq = 0
 /** Sustained sketch-hear voice keys while pointer is held on a chord chip. */
 let sketchHearKeys: string[] | null = null
-let sketchHearTimer: ReturnType<typeof window.setTimeout> | null = null
+let sketchHearTimer: number | null = null
 
 function clearSketchHearTimer(): void {
   if (sketchHearTimer != null) {
@@ -1078,28 +1079,6 @@ const {
   promoteToDeclared,
   syncSketchToCoachPillars,
 })
-
-function defaultSketchWindow(): { startTick: number; endTick: number } {
-  const p = project.value!
-  const playhead = p.view.playheadTick ?? 0
-  const leadId =
-    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
-  const mel =
-    p.notes.find(
-      (n) =>
-        (!leadId || n.partId === leadId) &&
-        n.startTick <= playhead &&
-        playhead < n.startTick + n.durationTicks,
-    ) ?? null
-  return sketchWindowAtPlayhead({
-    playheadTick: playhead,
-    measureTicks: measureTicksFn(p.timeSignature, p.ppq),
-    inspectRange: chordCursor.value,
-    melodyNote: mel
-      ? { startTick: mel.startTick, durationTicks: mel.durationTicks }
-      : null,
-  })
-}
 
 function onRemoveHarmonySketch(id: string): void {
   store.removeHarmonySketchSpan(id)

@@ -159,6 +159,12 @@ const moreCount = computed(() =>
   moreGroups.value.reduce((n, g) => n + g.options.length, 0),
 )
 
+const moreLabel = computed(() => {
+  const n = moreCount.value
+  if (props.moreToggleLabel) return props.moreToggleLabel(n, showMore.value)
+  return showMore.value ? 'Hide more' : `More (${n})`
+})
+
 const hasSuggestChrome = computed(
   () => !!props.rankHints?.length,
 )

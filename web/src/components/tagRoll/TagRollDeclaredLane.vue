@@ -84,7 +84,6 @@ function onRealize(): void {
   store.realizeHarmonySketchStacks({ detectSpans })
 }
 
-const rootEl = ref<HTMLElement | null>(null)
 const declaredTrackEl = ref<HTMLElement | null>(null)
 const inlineEl = ref<HTMLElement | null>(null)
 const inlineInputEl = ref<HTMLInputElement | null>(null)
@@ -443,7 +442,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         Realize
       </button>
     </template>
-    <div ref="rootEl" class="track-wrap" @pointerdown="onTrackFocus">
+    <div class="track-wrap" @pointerdown="onTrackFocus">
       <div ref="wrapRef" class="grid-wrap">
         <canvas ref="gridCanvasRef" class="grid-canvas" aria-hidden="true" />
         <div

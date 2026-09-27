@@ -369,7 +369,7 @@ export function impliedStacksForBareMelody(opts: {
       scfGroup: null,
       pillarId: null,
       midi: null,
-      ruleTags: best.cadenceHint ? [`cadence:${best.cadenceHint.id}`] : [],
+      ruleTags: [],
     })
   }
   return out

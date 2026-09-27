@@ -28,8 +28,8 @@ export function useTagRollChordEditDock(opts: {
   project: ComputedRef<TagRollProject | null | undefined>
   declaredSegments: ComputedRef<readonly ChordAnalysisSegment[]>
   detectSegments: ComputedRef<readonly ChordAnalysisSegment[]>
-  declaredMode: ComputedRef<ChordAnalysisMode>
-  detectedMode: ComputedRef<ChordAnalysisMode>
+  declaredMode: Ref<ChordAnalysisMode>
+  detectedMode: Ref<ChordAnalysisMode>
   nameCandidatesByTick: ComputedRef<
     ReadonlyMap<
       number,

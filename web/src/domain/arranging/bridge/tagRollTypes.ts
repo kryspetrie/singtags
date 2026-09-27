@@ -25,6 +25,8 @@ export type TagRollNote = {
   startTick: number
   durationTicks: number
   lyric?: string
+  /** Strong / Passing / unlabeled (Approach Two). */
+  role?: 'pmn' | 'smn' | 'unknown'
 }
 
 export type TagRollTimeSignature = {

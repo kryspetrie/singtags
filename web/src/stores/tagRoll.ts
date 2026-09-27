@@ -51,6 +51,7 @@ import {
   shrinkProjectMeasures,
 } from '../lib/tagRoll/measureEdit'
 import {
+  isHarmonySketchQuality,
   natureToSketchQuality,
   removeSketchSpan,
   sketchPatchFromMelodyNote,
@@ -1539,13 +1540,23 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
     if (!melodyPartId) return { applied: 0, spansUsed: 0 }
     const spanIds = selectedSketchSpanIds.value.length ? selectedSketchSpanIds.value : null
+    const detectSpans =
+      opts?.detectSpans?.map((d) => ({
+        id: d.id,
+        startTick: d.startTick,
+        endTick: d.endTick,
+        rootPc: d.rootPc,
+        quality: isHarmonySketchQuality(d.quality)
+          ? d.quality
+          : natureToSketchQuality(d.quality),
+      })) ?? null
     const result = realizeSketchStacksToNotes({
       notes: p.notes,
       parts: p.parts,
       sketch: p.harmonySketch ?? [],
       melodyPartId,
       spanIds,
-      detectSpans: opts?.detectSpans ?? null,
+      detectSpans,
       tonality: p.tonality,
       idGen: svc().idGen,
     })

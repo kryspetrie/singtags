@@ -200,7 +200,7 @@ export function tagRollToArrangement(
       midi: n.midi,
       startTick: n.startTick,
       durationTicks: n.durationTicks,
-      role: (n.role === 'pmn' || n.role === 'smn' ? n.role : 'unknown') as const,
+      role: n.role === 'pmn' || n.role === 'smn' ? n.role : 'unknown',
       ...(n.lyric ? { lyric: n.lyric } : {}),
     })),
   )
