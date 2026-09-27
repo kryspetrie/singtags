@@ -8,12 +8,14 @@ describe('resolveCoachNextAction', () => {
     expect(a.kind).toBe('enter_melody')
   })
 
-  it('suggests pillars when melody exists without pillars', () => {
+  it('suggests Sketch pillars when melody exists without pillars', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
     const a = resolveCoachNextAction({ project: p, mode: 'arrange', lints: [] })
     expect(a.kind).toBe('suggest_pillars')
-    expect(a.cta).toMatch(/Propose next home root/i)
+    expect(a.cta).toMatch(/Open Sketch/i)
+    expect(a.focus).toBe('home')
+    expect(a.body).toMatch(/Alt\+click|◆/i)
   })
 
   it('mentions existing stacks when suggesting pillars', () => {
@@ -37,10 +39,11 @@ describe('resolveCoachNextAction', () => {
     ]
     const a = resolveCoachNextAction({ project: p, mode: 'review', lints: [] })
     expect(a.body).toMatch(/stacks stay put/i)
+    expect(a.cta).toMatch(/Open Sketch/i)
   })
 
   it('defaultFocusForMode matches session lenses', () => {
-    expect(defaultFocusForMode('arrange')).toBe('now')
+    expect(defaultFocusForMode('arrange')).toBe('home')
     expect(defaultFocusForMode('review')).toBe('check')
   })
 })

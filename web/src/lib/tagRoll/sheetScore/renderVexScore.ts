@@ -23,6 +23,10 @@ import {
 import { assignSheetStaves } from './assignStaves'
 import { mapTicksToDuration, type NoteDurationType } from './durationMap'
 import {
+  melodyRoleBorderColor,
+  MELODY_PART_BORDER_COLOR,
+} from '../../../domain/arranging/melodyRoleLabels'
+import {
   noteOccupantsFromEvents,
   pickRestKey,
   restDurationKind,
@@ -128,6 +132,8 @@ const LYRIC_FONT_PX = 12
 const LYRIC_TEXT_LINE_V1 = 2
 const LYRIC_TEXT_LINE_V2 = 3
 const LYRIC_STAVE_SPACE_BELOW = 4
+/** Dark-red outline for the project melody voice (matches piano-roll Roles chrome). */
+const MELODY_NOTE_STROKE = MELODY_PART_BORDER_COLOR
 
 function eventsInMeasure(
   events: readonly SheetRhythmEvent[],
@@ -194,6 +200,16 @@ function buildVoiceNotes(
       stemDirection: isRest ? undefined : stemUp ? Stem.UP : Stem.DOWN,
       autoStem: false,
     })
+    if (!isRest && e.isMelody) {
+      const roleStroke =
+        e.melodyRole === 'pmn' || e.melodyRole === 'smn'
+          ? melodyRoleBorderColor(e.melodyRole)
+          : null
+      // Strong/Passing = role-colored outline; unmarked melody stays the Lead cue.
+      note.setStyle({
+        strokeStyle: roleStroke ?? MELODY_NOTE_STROKE,
+      })
+    }
     if (showLyrics && e.lyric && !e.tieStop) {
       // Stack per voice under the staff; textLine clears stems above.
       const ann = factory.Annotation({
@@ -318,7 +334,9 @@ export async function renderVexSheetScore(opts: {
   const showLyrics = opts.showLyrics !== false
   host.replaceChildren()
 
-  const assignment = assignSheetStaves(project.parts, project.clefFamily)
+  const assignment = assignSheetStaves(project.parts, project.clefFamily, {
+    melodyPartId: project.view.melodyPartId,
+  })
   const events = buildSheetRhythm({
     assignment,
     notes: project.notes,

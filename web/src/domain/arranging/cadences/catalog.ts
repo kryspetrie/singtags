@@ -75,8 +75,21 @@ const authV7I: CadenceDef = {
   priority: 1,
   matchContext(ctx) {
     const n = nextDeg(ctx)
-    if (n == null) return miss()
-    if (melDeg(ctx) === 7 && n === 0) return hit(1)
+    if (melDeg(ctx) === 7 && n === 0) {
+      // Phrase openings get full strength (Bonnie "My…Bon-").
+      return hit(ctx.phraseRole === 'open' ? 1 : 0.95)
+    }
+    // After a rest on ^5 with tonic ahead (pillar / locked neighbor) — treat as open V7.
+    if (
+      melDeg(ctx) === 7 &&
+      ctx.phraseRole === 'open' &&
+      (n === 0 ||
+        (ctx.nextPillarRoot != null && pc(ctx.nextPillarRoot) === tonicPc(ctx)) ||
+        (ctx.lockedNeighbors?.after != null &&
+          pc(ctx.lockedNeighbors.after.rootPc) === tonicPc(ctx)))
+    ) {
+      return hit(0.9)
+    }
     // Prev was V7 and we are on tonic melody → completing authentic.
     if (
       ctx.prevRootPc != null &&
@@ -94,16 +107,16 @@ const authV7I: CadenceDef = {
     if (!m.hit) return 0
     const deg = rootDeg(cand.rootPc, ctx.tonality)
     const s = m.strength
-    // Opening ^5→^1: prefer V7, demote tonic under the ^5.
-    if (melDeg(ctx) === 7 && nextDeg(ctx) === 0) {
+    // Opening ^5→^1 (or open ^5 toward tonic): prefer V7, demote tonic under the ^5.
+    if (melDeg(ctx) === 7) {
       if (isSeventhish(cand.natureId) && deg === 7) return 22 * s
       if (isTriad(cand.natureId) && deg === 7) return 8 * s
       if (deg === 0) return -18 * s
       return 0
     }
-    // Completing into I after V7.
+    // Completing into I after V7 — never springboard I7 at the land.
     if (deg === 0 && isTriad(cand.natureId)) return 14 * s
-    if (deg === 0 && isSeventhish(cand.natureId)) return -4 * s
+    if (deg === 0 && isSeventhish(cand.natureId)) return -8 * s
     return 0
   },
   teachWhy() {
@@ -211,6 +224,9 @@ const primaryDom7: CadenceDef = {
   glossaryIds: ['secondary_dom', 'bs7', 'springboard'],
   priority: 1,
   matchContext(ctx) {
+    // Phrase endings / tags want a tonic home (or plagal), not a springboard I7
+    // into the *next* phrase's ^4 across a rest (Bonnie-style false positives).
+    if (ctx.phraseRole === 'cadence' || ctx.phraseRole === 'tag') return miss()
     if (melDeg(ctx) !== 0) return miss()
     const n = nextDeg(ctx)
     // Require melody (or locked neighbor) evidence — a later IV pillar alone is too common

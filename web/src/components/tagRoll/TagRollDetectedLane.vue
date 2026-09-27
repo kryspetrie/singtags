@@ -28,6 +28,8 @@ const emit = defineEmits<{
   lockAll: []
   /** Open / toggle Detected chord in the right dock. */
   edit: [seg: ChordAnalysisSegment]
+  /** Lock this detection into Sketch as a structural pillar. */
+  togglePillar: [seg: ChordAnalysisSegment]
 }>()
 
 const prefs = usePreferencesStore()
@@ -59,9 +61,21 @@ function setMode(m: ChordAnalysisMode): void {
   emit('update:mode', m)
 }
 
-function onDetectClick(seg: ChordAnalysisSegment): void {
+function onDetectClick(seg: ChordAnalysisSegment, e?: MouseEvent): void {
+  if (e?.altKey) {
+    onPillarBadge(seg, e)
+    return
+  }
   emit('focusRange', seg.startTick, seg.endTick)
   emit('edit', seg)
+}
+
+function onPillarBadge(seg: ChordAnalysisSegment, e: Event): void {
+  e.stopPropagation()
+  e.preventDefault()
+  if (seg.rootPc == null) return
+  emit('focusRange', seg.startTick, seg.endTick)
+  emit('togglePillar', seg)
 }
 
 function drawGrid(): void {
@@ -156,12 +170,22 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
               class="lab"
               :title="
                 seg.cadenceLabel
-                  ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit`
-                  : `Detected: ${labelOf(seg)} — click to edit`
+                  ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit; ◆ / Alt+click = pillar`
+                  : `Detected: ${labelOf(seg)} — click to edit; ◆ / Alt+click = pillar`
               "
-              @click="onDetectClick(seg)"
+              @click="onDetectClick(seg, $event)"
             >
               <span class="txt">{{ labelOf(seg) }}</span>
+            </button>
+            <button
+              type="button"
+              class="pillar-badge"
+              title="Lock as pillar into Sketch (Alt+click)"
+              aria-label="Lock as pillar"
+              :disabled="seg.rootPc == null"
+              @click="onPillarBadge(seg, $event)"
+            >
+              ◆
             </button>
           </div>
         </div>
@@ -268,5 +292,34 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.pillar-badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin: 2px 3px 0 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: #1f6b45;
+  font: inherit;
+  font-size: 0.55rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.pillar-badge:hover:not(:disabled),
+.cell.menu .pillar-badge {
+  opacity: 1;
+  background: color-mix(in srgb, #2a8c5a 22%, transparent);
+}
+.pillar-badge:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 </style>

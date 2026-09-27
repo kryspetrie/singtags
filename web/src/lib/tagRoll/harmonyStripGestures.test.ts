@@ -64,9 +64,10 @@ describe('harmonyStripGestures', () => {
   })
 
   it('hitStripResizeEdge detects left/right handles', () => {
-    expect(hitStripResizeEdge(2, 0, 100)).toBe('start')
-    expect(hitStripResizeEdge(98, 0, 100)).toBe('end')
+    expect(hitStripResizeEdge(1, 0, 100)).toBe('start')
+    expect(hitStripResizeEdge(99, 0, 100)).toBe('end')
     expect(hitStripResizeEdge(50, 0, 100)).toBeNull()
+    expect(hitStripResizeEdge(10, 0, 100)).toBeNull()
   })
 
   it('empty-track click tick inverts to the same start as a note at that onset', () => {

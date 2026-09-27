@@ -15,7 +15,7 @@ import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
-import { sketchLabel, sketchRoman, isPillarSketchSpan } from '../../lib/tagRoll/harmonySketch'
+import { sketchLabel, sketchRomanDisplay, isPillarSketchSpan } from '../../lib/tagRoll/harmonySketch'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
@@ -52,6 +52,8 @@ const emit = defineEmits<{
   beginGesture: []
   /** Open / toggle Sketch chord in the right dock. */
   edit: [seg: ChordAnalysisSegment]
+  /** Toggle structural pillar on a Sketch span (Alt+click / badge). */
+  togglePillar: [seg: ChordAnalysisSegment]
 }>()
 
 const prefs = usePreferencesStore()
@@ -117,7 +119,16 @@ function isPillarSeg(seg: ChordAnalysisSegment): boolean {
 
 function previewLabelOf(d: HarmonyPreviewDraft): string {
   if (props.mode === 'roman') {
-    return sketchRoman(d, props.project.tonality, props.project.tonalityMode ?? 'major')
+    const nextRoot =
+      (props.project.harmonySketch ?? [])
+        .filter((s) => s.locked && s.startTick >= d.endTick)
+        .sort((a, b) => a.startTick - b.startTick)[0]?.rootPc ?? null
+    return sketchRomanDisplay(
+      d,
+      props.project.tonality,
+      props.project.tonalityMode ?? 'major',
+      nextRoot,
+    )
   }
   return sketchLabel(
     d,
@@ -199,10 +210,25 @@ const {
     emit('focusRange', seg.startTick, seg.endTick)
     emit('edit', seg)
   },
+  onTogglePillar: (seg) => {
+    if (props.readOnly) return
+    store.selectSketchSpans([seg.id])
+    emit('focusRange', seg.startTick, seg.endTick)
+    emit('togglePillar', seg)
+  },
   onGeometry: (payload) => emit('geometry', payload),
   onGeometryMany: (payloads) => emit('geometryMany', payloads),
   onFocusRange: (a, b) => emit('focusRange', a, b),
 })
+
+function onPillarBadge(seg: ChordAnalysisSegment, e: PointerEvent): void {
+  e.stopPropagation()
+  e.preventDefault()
+  if (props.readOnly || seg.rootPc == null) return
+  store.selectSketchSpans([seg.id])
+  emit('focusRange', seg.startTick, seg.endTick)
+  emit('togglePillar', seg)
+}
 
 function onTrackFocus(): void {
   store.setChordsLaneFocused(true)
@@ -423,14 +449,14 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         <div
           ref="declaredTrackEl"
           class="track"
-          :title="tagRollTip('Drag empty to paint a chord; drag across chords to select; Delete removes; click a chord to edit')"
+          :title="tagRollTip('Drag empty to paint; Alt+click or ◆ marks a pillar; click opens editor')"
           @pointerdown="onDeclaredPointerDown"
           @pointermove="onDeclaredPointerMove"
           @pointerup="onDeclaredPointerUp"
           @pointercancel="onDeclaredPointerCancel"
         >
           <p v-if="!segments.length && !placePreview()" class="empty">
-            Drag empty to paint · drag across chords to select · Delete to remove…
+            Drag empty to paint · Alt+click / ◆ marks pillars · Delete removes…
           </p>
           <div
             v-if="placeGhostStyle()"
@@ -469,8 +495,8 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
                 isPreviewingSeg(seg) && previewDraft
                   ? `Preview: ${previewLabelOf(previewDraft)} (not applied)`
                   : isPillarSeg(seg)
-                    ? `Pillar: ${labelOf(seg)}`
-                    : `Chord: ${labelOf(seg)}`
+                    ? `Pillar: ${labelOf(seg)} — Alt+click or ◆ to clear`
+                    : `Chord: ${labelOf(seg)} — Alt+click or ◆ to mark pillar`
               "
             >
               <span class="txt">
@@ -481,6 +507,22 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
                 }}
               </span>
             </div>
+            <button
+              type="button"
+              class="pillar-badge"
+              :class="{ on: isPillarSeg(seg) }"
+              :title="
+                isPillarSeg(seg)
+                  ? 'Clear pillar (Alt+click)'
+                  : 'Mark as pillar (Alt+click)'
+              "
+              :aria-label="isPillarSeg(seg) ? 'Clear pillar' : 'Mark as pillar'"
+              :aria-pressed="isPillarSeg(seg)"
+              :disabled="readOnly || seg.rootPc == null"
+              @pointerdown="onPillarBadge(seg, $event)"
+            >
+              ◆
+            </button>
             <span class="handle end" aria-hidden="true" />
           </div>
         </div>
@@ -607,8 +649,6 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   overflow: hidden;
   z-index: 1;
-  display: flex;
-  align-items: stretch;
 }
 .cell.pillar {
   border-color: color-mix(in srgb, #1f7a4d 55%, var(--border));
@@ -616,7 +656,42 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #2a8c5a 35%, transparent);
 }
 .cell.pillar .handle {
-  background: color-mix(in srgb, #2a8c5a 45%, transparent);
+  background: color-mix(in srgb, #2a8c5a 40%, transparent);
+}
+.pillar-badge {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.55rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.72;
+}
+.pillar-badge:hover:not(:disabled),
+.cell.selected .pillar-badge,
+.cell.menu .pillar-badge {
+  opacity: 1;
+}
+.pillar-badge.on {
+  color: #1f6b45;
+  background: color-mix(in srgb, #2a8c5a 22%, transparent);
+  opacity: 1;
+}
+.pillar-badge:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 .cell.selected {
   outline: 2px solid var(--accent);
@@ -640,8 +715,6 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 }
 .cell.preview-ghost {
   pointer-events: none;
-  display: flex;
-  align-items: stretch;
 }
 .cell.preview .txt,
 .cell.preview-ghost .txt {
@@ -653,21 +726,31 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   z-index: 3;
 }
 .handle {
-  flex: none;
-  width: 8px;
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 0;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
   cursor: ew-resize;
+  pointer-events: none;
 }
 .handle.start {
+  left: 0;
   border-radius: 6px 0 0 6px;
 }
 .handle.end {
+  right: 0;
   border-radius: 0 6px 6px 0;
 }
 .lab {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  flex: 1;
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
   min-width: 0;
   padding: 0 0.35rem;
   color: var(--text);

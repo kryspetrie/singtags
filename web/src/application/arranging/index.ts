@@ -3,8 +3,9 @@ export {
   autoHarmonize,
   listCandidatesForNote,
   applyCandidateToProject,
+  resolveSuggestHomeRoot,
 } from './AutoHarmonize'
-export type { AutoHarmonizeDeps } from './AutoHarmonize'
+export type { AutoHarmonizeDeps, SoftSuggestContext, ListCandidatesOpts } from './AutoHarmonize'
 export { runQa, lintSummary } from './RunQa'
 export { applyFix, applyAllSafeFixes, canApplyFix } from './ApplyFix'
 export { exportMidi } from './ExportMidi'
@@ -80,6 +81,7 @@ export {
   focusTabForGuidedStep,
   modeForGuidedStep,
   wizardStepForGuided,
+  normalizeGuidedStepId,
 } from './GuidedSteps'
 export type { GuidedStepId, GuidedStepDef, ResolveGuidedOpts } from './GuidedSteps'
 export {

@@ -43,8 +43,10 @@ import {
 } from '../../lib/tagRoll/selection'
 import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
 import { keyAtTick } from '../../lib/tagRoll/keyMap'
-import { paintNoteBoxLabel } from '../../lib/tagRoll/noteBoxLabel'
-import { melodyRoleLaneMark } from '../../domain/arranging/melodyRoleLabels'
+import { paintNoteBoxLabel, darkenCssColor } from '../../lib/tagRoll/noteBoxLabel'
+import {
+  paintMelodyRoleBorders,
+} from '../../domain/arranging/melodyRoleLabels'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
 import {
   easeInOutCosine,
@@ -165,6 +167,24 @@ function ensureFillWidth(): void {
   if (cellW.value < min) {
     emit('cellSize', { cellW: min, cellH: cellH.value })
   }
+}
+
+/** Drop scroll that would leave empty space past the last measure after zoom/resize. */
+function ensureScrollInBounds(): void {
+  const next = clampScroll(scrollX.value, scrollY.value)
+  if (next.x !== scrollX.value || next.y !== scrollY.value) {
+    emit('scroll', next.x, next.y)
+  }
+}
+
+/** Media-bar ± time zoom — uses measured cssW so the fill floor cannot drift. */
+function nudgeTimeZoom(delta: number): void {
+  const nextW = clampZoomW(cellW.value + delta)
+  if (nextW === cellW.value) return
+  emit('cellSize', { cellW: nextW, cellH: cellH.value })
+  const maxX = Math.max(0, ticksToPx(props.project.lengthTicks, nextW) - cssW.value)
+  const nextX = Math.max(0, Math.min(maxX, scrollX.value))
+  if (nextX !== scrollX.value) emit('scroll', nextX, scrollY.value)
 }
 
 type Ptr = { id: number; x: number; y: number }
@@ -414,6 +434,7 @@ function resize(): void {
   cssW.value = Math.max(1, Math.floor(r.width))
   cssH.value = Math.max(1, Math.floor(r.height))
   ensureFillWidth()
+  ensureScrollInBounds()
   draw()
 }
 
@@ -587,6 +608,24 @@ function draw(): void {
   const selectedIds = selectedIdSet.value
   const focusActive = props.project.view.focusActivePart
   const activePartId = props.project.view.activePartId
+  const roleDisp = props.project.view.roleDisplay ?? 'off'
+  const wantMelodyChrome = roleDisp === 'melody' || roleDisp === 'both'
+  const wantRoleChrome = roleDisp === 'roles' || roleDisp === 'both'
+  const melodyPartId =
+    props.project.view.melodyPartId ??
+    props.project.parts.find((p) => p.name === 'Lead')?.id ??
+    null
+
+  type DrawnNote = {
+    n: (typeof props.project.notes)[number]
+    r: { x: number; y: number; w: number; h: number }
+    partColor: string
+    selected: boolean
+    showHandles: boolean
+    showMelody: boolean
+    role: 'pmn' | 'smn' | null
+  }
+  const drawn: DrawnNote[] = []
   for (const n of props.project.notes) {
     const faded = focusActive && !!activePartId && n.partId !== activePartId
     if (faded) continue // drawn as part ghosts above
@@ -594,28 +633,66 @@ function draw(): void {
     const r = noteRect(n)
     if (r.x + r.w < 0 || r.x > cssW.value || r.y + r.h < 0 || r.y > cssH.value) continue
     const selected = selectedIds.has(n.id)
+    const showHandles =
+      selected &&
+      n.id === primarySelectedId.value &&
+      selectedIds.size === 1 &&
+      cw >= TAG_ROLL_HANDLE_CELL_W
+    const roleRaw = props.noteRoles?.get(n.id)
+    const showRole = wantRoleChrome && (roleRaw === 'pmn' || roleRaw === 'smn')
+    drawn.push({
+      n,
+      r,
+      partColor: part?.color || accent,
+      selected,
+      showHandles,
+      showMelody: wantMelodyChrome && !!melodyPartId && n.partId === melodyPartId,
+      role: showRole ? (roleRaw as 'pmn' | 'smn') : null,
+    })
+  }
+
+  // 1) Fills — keep interiors clear of role/melody chrome.
+  for (const d of drawn) {
     ctx.globalAlpha = 1
-    ctx.fillStyle = part?.color || accent
-    ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2)
+    ctx.fillStyle = d.partColor
+    ctx.fillRect(d.r.x + 1, d.r.y + 1, d.r.w - 2, d.r.h - 2)
     ctx.strokeStyle = surface
     ctx.lineWidth = 1
-    ctx.strokeRect(r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3)
-    paintNoteBoxLabel(ctx, {
-      midi: n.midi, startTick: n.startTick, lyric: n.lyric,
-      x: r.x, y: r.y, w: r.w, h: r.h, fillStyle: surface,
-      keyMarkers: props.project.keyMarkers, keyFallback,
+    ctx.strokeRect(d.r.x + 1.5, d.r.y + 1.5, d.r.w - 3, d.r.h - 3)
+  }
+
+  // 2) Role / melody chrome — left-edge stripes on every note.
+  for (const d of drawn) {
+    if (!d.showMelody && !d.role) continue
+    paintMelodyRoleBorders(ctx, {
+      x: d.r.x,
+      y: d.r.y,
+      w: d.r.w,
+      h: d.r.h,
+      role: d.role,
+      showMelody: d.showMelody,
     })
-    const role = props.noteRoles?.get(n.id)
-    if (role && r.w > 22 && r.h > 12) {
-      ctx.fillStyle = role === 'pmn' ? 'rgba(42, 140, 90, 0.95)' : 'rgba(91, 61, 143, 0.9)'
-      ctx.font = '700 9px system-ui, sans-serif'
-      ctx.textBaseline = 'top'
-      ctx.fillText(melodyRoleLaneMark(role), r.x + 3, r.y + 2)
-    }
-    if (selected) {
+  }
+
+  // 3) Labels + selection on top of borders so names stay readable.
+  for (const d of drawn) {
+    paintNoteBoxLabel(ctx, {
+      midi: d.n.midi,
+      startTick: d.n.startTick,
+      lyric: d.n.lyric,
+      x: d.r.x,
+      y: d.r.y,
+      w: d.r.w,
+      h: d.r.h,
+      fillStyle: surface,
+      keyMarkers: props.project.keyMarkers,
+      keyFallback,
+      padX: d.showHandles ? RESIZE_EDGE + 2 : 4,
+    })
+    if (d.selected) {
       ctx.strokeStyle = accent
-      ctx.lineWidth = selected && n.id === primarySelectedId.value ? 2 : 1.5
-      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1)
+      ctx.lineWidth = d.n.id === primarySelectedId.value ? 2 : 1.5
+      ctx.strokeRect(d.r.x + 0.5, d.r.y + 0.5, d.r.w - 1, d.r.h - 1)
     }
   }
 
@@ -675,7 +752,8 @@ function draw(): void {
     if (selectedNote) {
       const r = noteRect(selectedNote)
       if (cw >= TAG_ROLL_HANDLE_CELL_W) {
-        ctx.fillStyle = accent
+        const part = props.project.parts.find((p) => p.id === selectedNote.partId)
+        ctx.fillStyle = darkenCssColor(part?.color || accent, 0.55)
         ctx.fillRect(r.x + 1, r.y + 2, RESIZE_EDGE - 1, Math.max(2, r.h - 4))
         ctx.fillRect(r.x + r.w - RESIZE_EDGE, r.y + 2, RESIZE_EDGE - 1, Math.max(2, r.h - 4))
       }
@@ -1314,7 +1392,8 @@ function onWheel(e: WheelEvent): void {
   const nextW = clampZoomW(Math.round(cellW.value * factor))
   if (nextW === cellW.value) return
   emit('cellSize', { cellW: nextW, cellH: cellH.value })
-  const newScrollX = Math.max(0, ticksToPx(tickUnder, nextW) - localX)
+  const maxX = Math.max(0, ticksToPx(props.project.lengthTicks, nextW) - cssW.value)
+  const newScrollX = Math.max(0, Math.min(maxX, ticksToPx(tickUnder, nextW) - localX))
   emit('scroll', newScrollX, scrollY.value)
 }
 
@@ -1362,6 +1441,8 @@ watch(
     props.project.parts,
     props.project.melodyPasses,
     props.selectedNoteIds,
+    props.project.view.roleDisplay,
+    props.project.view.melodyPartId,
     props.ghostNotes,
     props.chordCursor,
     props.noteRoles,
@@ -1370,12 +1451,13 @@ watch(
   ],
   () => {
     ensureFillWidth()
+    ensureScrollInBounds()
     draw()
   },
   { flush: 'post', deep: true },
 )
 
-defineExpose({ cssH, cssW, resize, draw })
+defineExpose({ cssH, cssW, resize, draw, nudgeTimeZoom })
 </script>
 
 <template>

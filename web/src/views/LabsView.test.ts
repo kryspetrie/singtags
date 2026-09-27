@@ -79,30 +79,30 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('toggles tag studio labs flag', async () => {
+  it('toggles tag studio labs flag (Coach included)', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
     expect(usePreferencesStore().tagRollEnabled).toBe(false)
+    expect(usePreferencesStore().arrangingEnabled).toBe(false)
     await w.get('input[aria-label="Tag Studio"]').setValue(true)
     expect(usePreferencesStore().tagRollEnabled).toBe(true)
+    expect(usePreferencesStore().arrangingEnabled).toBe(true)
     expect(w.text()).toMatch(/More → Tag Studio/)
+    expect(w.text()).toMatch(/Coach included/i)
+    expect(w.find('input[aria-label="Arranging"]').exists()).toBe(false)
     expect(w.text()).not.toContain('Open Tag Studio')
     w.unmount()
   })
 
-  it('toggles arranging labs gate without exposing routes', async () => {
+  it('does not expose a separate Arranging labs toggle', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    expect(usePreferencesStore().arrangingEnabled).toBe(false)
-    await w.get('input[aria-label="Arranging"]').setValue(true)
-    expect(usePreferencesStore().arrangingEnabled).toBe(true)
-    expect(localStorage.getItem('singtags.labs.arranging.enabled.v1')).toBe('1')
-    expect(w.text()).toMatch(/Coach|Tag Studio/i)
-    expect(w.text()).not.toContain('Open Arranging')
+    expect(w.find('input[aria-label="Arranging"]').exists()).toBe(false)
+    expect(w.find('#arranging-h').exists()).toBe(false)
     w.unmount()
   })
 

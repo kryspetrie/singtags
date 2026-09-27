@@ -32,6 +32,8 @@ import TagRollBpmInput from './TagRollBpmInput.vue'
 
 const props = defineProps<{
   harmonizeOpen?: boolean
+  rolesOpen?: boolean
+  marksOpen?: boolean
   partsOpen?: boolean
   coachOpen?: boolean
   arrangingEnabled?: boolean
@@ -44,6 +46,8 @@ const emit = defineEmits<{
   exportJson: []
   saveLibrary: []
   openHarmonize: []
+  openRoles: []
+  openMarks: []
   openParts: []
   openCoach: []
 }>()
@@ -68,6 +72,8 @@ const project = computed(() => store.current)
 const mode = computed(() => project.value?.view.mode ?? 'compose')
 const isView = computed(() => mode.value === 'view')
 const harmonizeOpen = computed(() => !!props.harmonizeOpen)
+const rolesOpen = computed(() => !!props.rolesOpen)
+const marksOpen = computed(() => !!props.marksOpen)
 const partsOpen = computed(() => !!props.partsOpen)
 const coachOpen = computed(() => !!props.coachOpen)
 const arrangingEnabled = computed(() => !!props.arrangingEnabled)
@@ -391,7 +397,7 @@ onUnmounted(() => {
       <label
         v-if="!isView"
         class="field"
-        :title="tagRollTip('Men’s TTBB (treble 8vb) or women’s SSAA (bass 8va) clefs')"
+        :title="tagRollTip('TTBB (tenor 8va) or SSAA (bass 8va) clefs')"
       >
         <span class="lbl">Clefs</span>
         <select
@@ -400,8 +406,8 @@ onUnmounted(() => {
           aria-label="Barbershop clef family"
           @change="onClefFamily"
         >
-          <option value="ttbb">Men’s (TTBB)</option>
-          <option value="ssaa">Women’s (SSAA)</option>
+          <option value="ttbb">TTBB (tenor 8va)</option>
+          <option value="ssaa">SSAA (bass 8va)</option>
         </select>
       </label>
 
@@ -519,6 +525,29 @@ onUnmounted(() => {
         @click="emit('openHarmonize')"
       >
         Harmonize
+      </button>
+
+      <button
+        v-if="!isView"
+        type="button"
+        class="btn sm"
+        :class="{ on: rolesOpen }"
+        :aria-expanded="rolesOpen"
+        :title="tagRollTip('Melody roles — set melody part, Strong / Passing', 'Roles')"
+        @click="emit('openRoles')"
+      >
+        Roles
+      </button>
+
+      <button
+        type="button"
+        class="btn sm"
+        :class="{ on: marksOpen }"
+        :aria-expanded="marksOpen"
+        :title="tagRollTip('Toggle Melody / Strong–Passing chrome and scale tint', 'Marks')"
+        @click="emit('openMarks')"
+      >
+        Marks
       </button>
 
       <button

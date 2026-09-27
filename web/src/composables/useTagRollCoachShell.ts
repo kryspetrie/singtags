@@ -19,6 +19,7 @@ import {
 import type { CoachTransportView } from './useCoachTransport'
 import type { ChordEditDockSession } from './useTagRollChordEditDock'
 import { usePreferencesStore } from '../stores/preferences'
+import { useTagRollStore } from '../stores/tagRoll'
 
 export function useTagRollCoachShell(opts: {
   arrangingEnabled: Ref<boolean>
@@ -32,6 +33,7 @@ export function useTagRollCoachShell(opts: {
   onRemoteTransportState?: (active: boolean, model: CoachTransportView | null) => void
 }) {
   const prefs = usePreferencesStore()
+const tagStore = useTagRollStore()
   const coachOpen = ref(false)
   /** Which dock is currently in a detached pop-out window (main only). */
   const detachedKind = ref<RightDockKind | null>(null)
@@ -69,12 +71,14 @@ export function useTagRollCoachShell(opts: {
       coachOpen.value = true
       opts.harmonizeOpen.value = false
       opts.chordEditSession.value = null
+      tagStore.assignNoteRolesActive = false
       return
     }
     if (kind === 'harmonize') {
       opts.harmonizeOpen.value = true
       coachOpen.value = false
       opts.chordEditSession.value = null
+      tagStore.assignNoteRolesActive = false
       return
     }
     if (chordEdit) {

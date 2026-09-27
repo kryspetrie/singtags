@@ -68,11 +68,28 @@ describe('cadence catalog', () => {
   })
 
   it('primary_dom7: tonic→IV prefers I7', () => {
-    const c = ctx({ melodyMidi: 60, nextMelodyMidi: 65, nextPillarRoot: 5 })
+    const c = ctx({ melodyMidi: 60, nextMelodyMidi: 65, nextPillarRoot: 5, phraseRole: 'mid' })
     const def = cadenceById('primary_dom7')!
     expect(def.matchContext(c).hit).toBe(true)
     expect(def.boostCandidate({ rootPc: 0, natureId: 'seventh' }, c)).toBeGreaterThan(5)
     expect(def.boostCandidate({ rootPc: 0, natureId: 'major' }, c)).toBeLessThan(0)
+  })
+
+  it('primary_dom7: does not fire at phrase cadence/tag', () => {
+    const def = cadenceById('primary_dom7')!
+    expect(
+      def.matchContext(ctx({ melodyMidi: 60, nextMelodyMidi: 65, phraseRole: 'cadence' })).hit,
+    ).toBe(false)
+    expect(
+      def.matchContext(ctx({ melodyMidi: 60, nextMelodyMidi: 65, phraseRole: 'tag' })).hit,
+    ).toBe(false)
+  })
+
+  it('auth_v7_i: open ^5→^1 still prefers V7', () => {
+    const c = ctx({ melodyMidi: 67, nextMelodyMidi: 60, phraseRole: 'open' })
+    const def = cadenceById('auth_v7_i')!
+    expect(def.matchContext(c).hit).toBe(true)
+    expect(def.boostCandidate({ rootPc: 7, natureId: 'seventh' }, c)).toBeGreaterThan(10)
   })
 
   it('priority-3 color stays out of Detected aggregate by default', () => {

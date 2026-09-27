@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Review polish strip — strengthen, export, checklist (ruleset lives in Coaching config).
+ * Review polish strip — strengthen, export, checklist.
  */
 import type { FinalChecklistItem } from '../../domain/arranging/finalChecklist'
 import type { BarbershopnessFactor } from '../../domain/arranging/barbershopness'
@@ -18,7 +18,6 @@ const emit = defineEmits<{
   exportMidi: []
   exportMusicXml: []
   applySwipe: []
-  openConfig: []
 }>()
 </script>
 
@@ -28,7 +27,7 @@ const emit = defineEmits<{
     <p class="hint">
       Last teaching pass: revoice the whole chart as one inversion path (I/V openings prefer
       bass on 1 or 5; minimize part motion; favor ring), strengthen approaches, then export.
-      Open Coaching configuration to change contest vocabulary and learning strictness.
+      Contest vocabulary and learning strictness live under Settings (gear).
     </p>
     <div class="row">
       <button
@@ -56,15 +55,6 @@ const emit = defineEmits<{
         Try swipe seed
       </button>
     </div>
-
-    <button
-      type="button"
-      class="btn linkish"
-      title="Contest profile, tuning, and learning preferences"
-      @click="emit('openConfig')"
-    >
-      Coaching configuration…
-    </button>
 
     <div class="row">
       <button

@@ -1,10 +1,12 @@
 /**
  * Assign Note Roles — navigate notes, toggle Strong/Passing, set Melody part.
+ * Roles persist on Tag Roll notes; Arrangement is mirrored when linked.
  */
 import { computed, type ComputedRef } from 'vue'
 import {
   findMelodyEventForNote,
   melodyPartIdOf,
+  noteRolesMapFromProject,
   roleForTagNote,
   toggleMelodyRole,
 } from '../lib/tagRoll/melodyNoteRoles'
@@ -53,25 +55,37 @@ export function useAssignNoteRoles(opts: {
     return true
   }
 
+  function mirrorRoleToArrangement(noteId: string, role: 'pmn' | 'smn' | 'unknown'): void {
+    if (!opts.arrangingEnabled.value) return
+    const p = opts.project.value
+    const note = p?.notes.find((n) => n.id === noteId)
+    if (!p || !note || !arrStore.current) return
+    const linkId = `arr_${p.id}`
+    if (arrStore.current.id !== linkId) return
+    const mel = findMelodyEventForNote(arrStore.current.melody, note)
+    if (!mel) return
+    arrStore.updateMelodyNote(mel.id, { role }, { recordHistory: false })
+    arrStore.runQa()
+  }
+
   function onToggleSelectedMelodyRole(want: 'pmn' | 'smn'): void {
     const p = opts.project.value
     const id = store.selectedNoteId
-    if (!p || !id || !opts.arrangingEnabled.value) return
+    if (!p || !id) return
     const note = p.notes.find((n) => n.id === id)
     if (!note) return
     const mid = melodyPartIdOf(p)
     if (!mid || note.partId !== mid) {
       snackbar.show('Select a note on the Melody part (or press M)', {
-        title: 'Note roles',
+        title: 'Melody roles',
         tone: 'info',
         ms: 2500,
       })
       return
     }
-    const mel = findMelodyEventForNote(arrStore.current?.melody ?? [], note)
-    if (!mel) return
-    arrStore.updateMelodyNote(mel.id, { role: toggleMelodyRole(mel.role, want) })
-    arrStore.runQa()
+    const next = toggleMelodyRole(note.role ?? 'unknown', want)
+    store.setNoteRole(id, next)
+    mirrorRoleToArrangement(id, next)
   }
 
   function onAssignMelodyPart(): void {
@@ -81,25 +95,18 @@ export function useAssignNoteRoles(opts: {
     const note = p.notes.find((n) => n.id === id)
     if (!note) return
     store.setMelodyPart(note.partId)
+    if (p.view.roleDisplay === 'off') store.setRoleDisplay('melody')
     snackbar.show(
       `Melody: ${p.parts.find((x) => x.id === note.partId)?.name ?? 'part'}`,
       { title: 'Melody part', tone: 'ok', ms: 2000 },
     )
   }
 
+  /** Always available; viewport paints roles only when Marks filter allows. */
   const noteRolesMap = computed(() => {
     const p = opts.project.value
-    const melody = arrStore.current?.melody
-    if (!p || !melody?.length) return null
-    const mid = melodyPartIdOf(p)
-    if (!mid) return null
-    const map = new Map<string, 'pmn' | 'smn'>()
-    for (const n of p.notes) {
-      if (n.partId !== mid) continue
-      const role = findMelodyEventForNote(melody, n)?.role
-      if (role === 'pmn' || role === 'smn') map.set(n.id, role)
-    }
-    return map.size ? map : null
+    if (!p) return null
+    return noteRolesMapFromProject(p)
   })
 
   const assignRolesMelodyName = computed(() => {
@@ -113,12 +120,14 @@ export function useAssignNoteRoles(opts: {
     const p = opts.project.value
     const id = store.selectedNoteId
     if (!p || !id) return null
-    return roleForTagNote(p, arrStore.current?.melody ?? [], id)
+    return roleForTagNote(p, id)
   })
 
-  function onToggleChordPillar(): void {
-    const seg = opts.chordEditSeg.value
-    if (!seg || seg.rootPc == null) return
+  function togglePillarForSeg(
+    seg: ChordAnalysisSegment,
+    optsExtra?: { promoteDetected?: boolean },
+  ): void {
+    if (seg.rootPc == null) return
     const quality = natureToSketchQuality(seg.quality ?? 'major')
     store.toggleSketchPillar({
       id: seg.id,
@@ -128,9 +137,28 @@ export function useAssignNoteRoles(opts: {
       quality,
     })
     opts.syncSketchToCoachPillars()
-    if (opts.chordEditVariant.value === 'detected') {
-      opts.promoteToDeclared(seg.id)
-    }
+    if (optsExtra?.promoteDetected) opts.promoteToDeclared(seg.id)
+  }
+
+  function onToggleChordPillar(): void {
+    const seg = opts.chordEditSeg.value
+    if (!seg) return
+    togglePillarForSeg(seg, {
+      promoteDetected: opts.chordEditVariant.value === 'detected',
+    })
+  }
+
+  /** Sketch-lane Alt+click / badge — toggle pillar without requiring the dock. */
+  function onToggleLanePillar(seg: ChordAnalysisSegment): void {
+    togglePillarForSeg(seg)
+  }
+
+  /**
+   * Detected-lane Alt+click / badge — lock that hole into Sketch as a pillar
+   * (no need to open Sketch first).
+   */
+  function onToggleDetectedPillar(seg: ChordAnalysisSegment): void {
+    togglePillarForSeg(seg, { promoteDetected: true })
   }
 
   return {
@@ -141,5 +169,7 @@ export function useAssignNoteRoles(opts: {
     assignRolesMelodyName,
     assignRolesSelectedRole,
     onToggleChordPillar,
+    onToggleLanePillar,
+    onToggleDetectedPillar,
   }
 }

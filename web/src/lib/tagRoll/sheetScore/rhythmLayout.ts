@@ -16,6 +16,10 @@ export type SheetRhythmEvent = {
   voice: 1 | 2
   stemUp: boolean
   role: SheetVoiceRole
+  /** Project melody part (lyrics / melody cues follow this). */
+  isMelody?: boolean
+  /** Strong / Passing on melody-part notes (Roles). */
+  melodyRole?: 'pmn' | 'smn'
   startTick: number
   durationTicks: number
   /** Concert MIDI; null = rest. */
@@ -134,6 +138,7 @@ function eventsForStaffVoice(
     color: string
     voice: 1 | 2
     role: SheetVoiceRole
+    isMelody?: boolean
   },
   notes: readonly TagRollNote[],
   lengthTicks: number,
@@ -150,6 +155,16 @@ function eventsForStaffVoice(
     for (const s of slices) {
       if (s.dur <= 0) continue
       const duration = mapTicksToDuration(s.dur, ppq)
+      const melodyRole =
+        voiceSlot.isMelody && s.midi != null && !s.tieStop
+          ? partNotes.find(
+              (n) =>
+                n.midi === s.midi &&
+                n.startTick <= s.start &&
+                s.start < n.startTick + n.durationTicks &&
+                (n.role === 'pmn' || n.role === 'smn'),
+            )?.role
+          : undefined
       out.push({
         id: `${staff.id}-${voiceSlot.voice}-${seq++}`,
         staffId: staff.id,
@@ -158,6 +173,8 @@ function eventsForStaffVoice(
         voice: voiceSlot.voice,
         stemUp: voiceSlot.voice === 1,
         role: voiceSlot.role,
+        ...(voiceSlot.isMelody ? { isMelody: true } : {}),
+        ...(melodyRole === 'pmn' || melodyRole === 'smn' ? { melodyRole } : {}),
         startTick: s.start,
         durationTicks: s.dur,
         concertMidi: s.midi ?? null,

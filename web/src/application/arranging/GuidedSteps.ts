@@ -1,5 +1,6 @@
 /**
- * Coach workflow steps — compose vs repair share the rail; routing differs.
+ * Coach workflow steps — Chords → Check → Polish, with a Home landing.
+ * Pillars / Note roles live on the roll (Sketch / Toolbar Roles), not in Coach.
  */
 import type { CoachFocusTab } from '../../domain/arranging/nextCoachAction'
 import type { ArrangementProject, WizardStep } from '../../domain/arranging/types'
@@ -10,7 +11,7 @@ import {
   type CoachEntryMode,
 } from '../../domain/arranging/coachEntryMode'
 
-export type GuidedStepId = 'pillars' | 'roles' | 'chords' | 'check' | 'polish'
+export type GuidedStepId = 'home' | 'chords' | 'check' | 'polish'
 
 export type GuidedStepDef = {
   id: GuidedStepId
@@ -27,22 +28,13 @@ export type GuidedStepDef = {
 
 export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
-    id: 'pillars',
-    label: 'Pillars',
-    tip: 'Assign Sketch/Detected chords as pillars (distinct color). Coach Propose drafts until Lock.',
+    id: 'home',
+    label: 'Home',
+    tip: 'How Coach fits Tag Studio — melody roles and Sketch first, then Chords → Check → Polish.',
     buttonTip:
-      'Pillars are structural phrase chords. Mark them on Sketch or Detected (Pillar toggle / Lock all), or Propose+Lock on the Coach lane.',
-    glossaryIds: ['pillar', 'pcf'],
+      'Start here for the intended workflow. Set Melody/Strong–Passing on the roll, lock harmony in Sketch, then use Coach to walk moments, clear issues, and polish.',
+    glossaryIds: ['homophony', 'pillar', 'classic_cadences'],
     wizardSteps: ['melody', 'step1_roots', 'step2_confirm'],
-  },
-  {
-    id: 'roles',
-    label: 'Note roles',
-    tip: 'Assign Strong / Passing on the roll (S / P) and Melody part (M). Arrows navigate; Shift+arrows move notes.',
-    buttonTip:
-      'Open Assign Note Roles on the piano roll. Strong notes prefer pillar-family chords; Passing notes welcome color. M sets which part is the melody.',
-    glossaryIds: ['pmn', 'smn', 'melody_pass'],
-    wizardSteps: ['step3_pmn_pcf', 'step4_smn_pcf'],
   },
   {
     id: 'chords',
@@ -51,7 +43,7 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
     buttonTip:
       'At each moment, choose a ranked voicing for the Lead. Coach biases textbook cadences — V7→I, leading-tone V7, II7→V7→I, I7→IV. Prefer Apply on one moment at a time; open Why? to see cadenceFit and other craft factors.',
     glossaryIds: ['bs7', 'pcf', 'scf', 'classic_cadences'],
-    wizardSteps: ['step5_smn_scf', 'step6_alts'],
+    wizardSteps: ['step3_pmn_pcf', 'step4_smn_pcf', 'step5_smn_scf', 'step6_alts'],
   },
   {
     id: 'check',
@@ -83,27 +75,29 @@ export function guidedStepIndex(id: GuidedStepId): number {
   return GUIDED_STEPS.findIndex((s) => s.id === id)
 }
 
+/** Normalize prefs / legacy ids to a current rail step. */
+export function normalizeGuidedStepId(raw: unknown): GuidedStepId | null {
+  if (raw === 'home' || raw === 'chords' || raw === 'check' || raw === 'polish') return raw
+  // Former Coach pages — send users to Home / Chords instead.
+  if (raw === 'pillars' || raw === 'roles') return 'home'
+  return null
+}
+
 export function resolveGuidedStep(
   project: ArrangementProject | null,
   opts: ResolveGuidedOpts = {},
 ): GuidedStepId {
-  if (!project?.melody.length) return 'pillars'
+  if (!project?.melody.length) return 'home'
 
   const entry = opts.entryMode ?? detectCoachEntryMode(project, opts.momentsLen)
-  const pillars = project.pillars
   const coverage = knownStackCoverage(project, opts.momentsLen)
 
-  if (!pillars.length || pillars.some((p) => !p.confirmed)) return 'pillars'
-
   if (entry === 'repair') {
-    // Roles are optional in repair — jump to fill gaps or Check.
     if (coverage < 0.5) return 'chords'
     if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'polish'
     return 'check'
   }
 
-  const unlabeled = project.melody.some((m) => m.role === 'unknown')
-  if (unlabeled) return 'roles'
   if (coverage < 0.5) return 'chords'
   if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'polish'
   return 'check'
@@ -134,7 +128,7 @@ export function labelForGuidedStep(id: GuidedStepId): string {
 }
 
 export function focusTabForGuidedStep(id: GuidedStepId): CoachFocusTab {
-  if (id === 'pillars' || id === 'roles') return 'now'
+  if (id === 'home') return 'home'
   if (id === 'chords') return 'choose'
   if (id === 'polish') return 'polish'
   return 'check'

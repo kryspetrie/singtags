@@ -39,8 +39,26 @@ const hasTarget = computed(() => props.seg != null && props.seg.rootPc != null)
 const showPopOut = computed(() => props.allowPopOut !== false)
 const isPillar = computed(() => {
   if (!props.seg) return false
-  const s = (props.project.harmonySketch ?? []).find((x) => x.id === props.seg!.id)
+  const sketch = props.project.harmonySketch ?? []
+  const s =
+    sketch.find((x) => x.id === props.seg!.id) ??
+    sketch.find(
+      (x) =>
+        x.locked &&
+        x.startTick === props.seg!.startTick &&
+        x.endTick === props.seg!.endTick,
+    )
   return !!(s?.locked && s.pillar !== false)
+})
+const pillarTitle = computed(() => {
+  if (props.variant === 'detected') {
+    return isPillar.value
+      ? 'Clear pillar'
+      : 'Lock Detected chord into Sketch as a pillar'
+  }
+  return isPillar.value
+    ? 'Clear pillar (Alt+click on Sketch)'
+    : 'Assign as pillar (or Alt+click on Sketch)'
 })
 </script>
 
@@ -58,7 +76,7 @@ const isPillar = computed(() => {
           type="button"
           class="btn ghost"
           :class="{ on: isPillar }"
-          :title="isPillar ? 'Clear pillar' : 'Assign as pillar'"
+          :title="pillarTitle"
           :aria-pressed="isPillar"
           @click="emit('togglePillar')"
         >

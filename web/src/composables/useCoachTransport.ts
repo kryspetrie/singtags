@@ -1,5 +1,5 @@
 /**
- * Shared coach transport model — one nav strip per guided step (Pillars → Polish).
+ * Shared coach transport model — one nav strip per guided step (Home → Polish).
  */
 import { computed, type ComputedRef } from 'vue'
 import type { GuidedStepId } from '../application/arranging/GuidedSteps'
@@ -70,40 +70,13 @@ export function useCoachTransport(opts: {
       secondaryDisabled: true,
     }
 
-    if (step === 'pillars') {
+    if (step === 'home') {
       return {
         ...empty,
-        status: opts.pillarStatus.value,
-        showNav: true,
-        prevLabel: '← Pillar',
-        nextLabel: 'Pillar →',
-        prevDisabled: opts.pillarsLen.value < 1,
-        nextDisabled: opts.pillarsLen.value < 1,
-        primaryLabel: opts.repairTour.value ? 'Review home roots' : 'Propose next home root',
-        primaryTitle: 'One draft home root at a time — Hear, then Lock',
+        status: 'Workflow overview — then Chords → Check → Polish',
+        primaryLabel: 'Start Chords',
+        primaryTitle: 'Begin walking Lead moments',
         primaryDisabled: false,
-        showHear: true,
-        hearLabel: 'Hear root',
-        hearDisabled: !opts.selectedPil.value,
-        showLock: true,
-        lockDisabled: !opts.selectedPil.value || opts.selectedPil.value.confirmed,
-        showSkip: true,
-        skipDisabled: !opts.selectedPil.value || opts.selectedPil.value.confirmed,
-      }
-    }
-
-    if (step === 'roles') {
-      return {
-        ...empty,
-        status: opts.rolesStatus.value,
-        showNav: true,
-        prevLabel: '← Note',
-        nextLabel: 'Note →',
-        prevDisabled: opts.melodyLen.value < 1,
-        nextDisabled: opts.melodyLen.value < 1,
-        primaryLabel: 'Auto-label',
-        primaryTitle: 'Guess Strong vs Passing from stress and length',
-        primaryDisabled: opts.melodyLen.value < 1,
       }
     }
 

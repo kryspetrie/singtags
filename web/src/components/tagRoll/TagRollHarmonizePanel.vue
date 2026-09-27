@@ -33,8 +33,16 @@ import { HARMONIZE_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import {
   loadHarmonizeApplyMode,
   saveHarmonizeApplyMode,
+  loadHarmonizeWorkspace,
+  saveHarmonizeWorkspace,
   type HarmonizeApplyMode,
+  type HarmonizeWorkspace,
 } from '../../lib/tagRoll/harmonizePrefs'
+import {
+  ensureHarmonizeCoachSession,
+  melodyEventFromTagNote,
+  pushCoachStacksToRoll,
+} from '../../lib/tagRoll/harmonizeCoachSuggest'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import {
@@ -45,6 +53,9 @@ import { resolveSketchHearMidis } from '../../lib/tagRoll/hearSketchSpan'
 import { notesAtTick } from '../../lib/tagRoll/notesAtTick'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
 import type { HarmonySketchQuality, TagRollNote } from '../../lib/tagRoll/types'
+import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
+import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import { useArrangementStore } from '../../stores/arrangement'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollChordPickList from './TagRollChordPickList.vue'
 
@@ -60,6 +71,8 @@ const props = defineProps<{
   open: boolean
   /** Hide ↗ when this panel is already the pop-out window. */
   allowPopOut?: boolean
+  /** Detected holes — soft home-root fallback for Suggest. */
+  detectSegments?: readonly ChordAnalysisSegment[]
 }>()
 
 const emit = defineEmits<{
@@ -68,7 +81,7 @@ const emit = defineEmits<{
   previewGhost: [ghosts: TagRollGhostNote[]]
   clearGhost: []
   stepMelody: [direction: -1 | 1]
-  /** Fired after a successful declare (chord or chord+stack) so editor can sync Coach. */
+  /** Fired after a successful declare (Sketch or Stack) so editor can sync Coach. */
   declared: []
   /** Live sketch preview for Sketch lane + transport audition. */
   'update:preview': [draft: HarmonyPreviewDraft | null]
@@ -77,20 +90,21 @@ const emit = defineEmits<{
 const showPopOut = computed(() => props.allowPopOut !== false)
 
 const store = useTagRollStore()
+const arrStore = useArrangementStore()
 const rootOffset = ref(0)
 const chordId = ref<string | null>(null)
 const voicing = ref<string | null>(null)
 const spread = ref(false)
-const appliedCount = ref(0)
-const applyMode = ref<HarmonizeApplyMode>(loadHarmonizeApplyMode('chord+stack'))
+const applyMode = ref<HarmonizeApplyMode>(loadHarmonizeApplyMode('stack'))
+const workspace = ref<HarmonizeWorkspace>(loadHarmonizeWorkspace('pick'))
+const suggestBusy = ref(false)
+const suggestIndex = ref(0)
 const sketchMatchLabel = ref<string | null>(null)
 /** Baseline sketch under the current melody note (Reset target). */
 const baseline = ref<{ rootPc: number; quality: HarmonySketchQuality } | null>(null)
 const holding = ref(false)
 /** Suppress preview emit while syncing UI from an existing sketch span. */
 const syncingFromSketch = ref(false)
-
-const panelRef = ref<HTMLElement | null>(null)
 
 const shared = useTagRollAudio()
 let localPlayer: PitchTonePlayer | null = null
@@ -164,7 +178,7 @@ const chordPickLists = computed(() =>
     mode: project.value?.tonalityMode ?? 'major',
     preferFlats: preferFlats.value,
     leadMidi: melodyNote.value?.midi ?? null,
-    chordOnly: applyMode.value === 'chord',
+    chordOnly: applyMode.value === 'sketch',
   }),
 )
 
@@ -286,7 +300,7 @@ function publishPreview(): void {
     source: 'harmonize',
   })
 
-  if (applyMode.value === 'chord+stack' && voicing.value) {
+  if (applyMode.value === 'stack' && voicing.value) {
     const pitches = placeVoicingConcert({
       chord,
       rootPc: rootPc.value,
@@ -319,33 +333,81 @@ const draftDirty = computed(() => {
 })
 
 const canApply = computed(() => {
+  if (workspace.value === 'suggest') return !!selectedSuggest.value
   if (!melodyNote.value || !selectedChord.value) return false
-  if (applyMode.value === 'chord') return true
+  if (applyMode.value === 'sketch') return true
   return !!voicing.value
 })
 
-function onUndoLast(): void {
-  if (appliedCount.value <= 0) return
-  store.cancelLastEdit()
-  appliedCount.value = Math.max(0, appliedCount.value - 1)
-  emit('clearGhost')
-  stopStab()
-  preselectFromSketch()
-  publishPreview()
-}
+const suggestCandidates = computed(() => arrStore.candidates)
+const selectedSuggest = computed(
+  (): HarmonizeCandidate | null =>
+    suggestCandidates.value[suggestIndex.value] ?? suggestCandidates.value[0] ?? null,
+)
 
 function onClose(): void {
   stopStab()
   clearPreview()
-  appliedCount.value = 0
   emit('close')
 }
 
 function setApplyMode(mode: HarmonizeApplyMode): void {
   applyMode.value = mode
   saveHarmonizeApplyMode(mode)
-  if (mode === 'chord') voicing.value = null
+  if (mode === 'sketch') voicing.value = null
   publishPreview()
+}
+
+async function setWorkspace(mode: HarmonizeWorkspace): Promise<void> {
+  workspace.value = mode
+  saveHarmonizeWorkspace(mode)
+  if (mode === 'suggest') await refreshSuggest()
+}
+
+async function refreshSuggest(): Promise<void> {
+  const mel = melodyNote.value
+  if (!mel) {
+    arrStore.setCandidateTarget(null)
+    return
+  }
+  suggestBusy.value = true
+  try {
+    const ok = await ensureHarmonizeCoachSession()
+    if (!ok) return
+    const sketch = project.value?.harmonySketch ?? []
+    arrStore.setSoftSuggestContext({
+      sketchSpans: sketch.map((s) => ({
+        startTick: s.startTick,
+        endTick: s.endTick,
+        rootPc: s.rootPc,
+        locked: s.locked,
+      })),
+      detectedSpans: (props.detectSegments ?? [])
+        .filter((s): s is ChordAnalysisSegment & { rootPc: number } => s.rootPc != null)
+        .map((s) => ({
+          startTick: s.startTick,
+          endTick: s.endTick,
+          rootPc: s.rootPc,
+        })),
+    })
+    arrStore.setCandidateTarget(melodyEventFromTagNote(mel))
+    suggestIndex.value = 0
+  } finally {
+    suggestBusy.value = false
+  }
+}
+
+function selectSuggest(i: number): void {
+  suggestIndex.value = Math.max(0, Math.min(i, suggestCandidates.value.length - 1))
+}
+
+function applySelectedSuggest(): void {
+  const c = selectedSuggest.value
+  if (!c) return
+  arrStore.applyCandidate(c)
+  pushCoachStacksToRoll()
+  emit('declared')
+  void refreshSuggest()
 }
 
 function selectChordOption(opt: HarmonizeChordOption): void {
@@ -356,7 +418,7 @@ function selectChordOption(opt: HarmonizeChordOption): void {
   sketchMatchLabel.value = null
   const chord = BARBERSHOP_CHORDS.find((c) => c.id === opt.chordId)
   if (!chord) return
-  if (applyMode.value === 'chord') {
+  if (applyMode.value === 'sketch') {
     voicing.value = null
   } else {
     const role = leadRoleInChord(chord, opt.rootPc, mel.midi)
@@ -369,14 +431,14 @@ function selectChordOption(opt: HarmonizeChordOption): void {
 }
 
 function selectVoicing(v: string): void {
-  if (applyMode.value === 'chord') return
+  if (applyMode.value === 'sketch') return
   voicing.value = v
   publishPreview()
 }
 
 function setSpread(on: boolean): void {
   spread.value = on
-  if (applyMode.value === 'chord+stack' && voicing.value) publishPreview()
+  if (applyMode.value === 'stack' && voicing.value) publishPreview()
 }
 
 function onReset(): void {
@@ -403,6 +465,10 @@ function onReset(): void {
 }
 
 function commitHarmony(): void {
+  if (workspace.value === 'suggest') {
+    applySelectedSuggest()
+    return
+  }
   const mel = melodyNote.value
   const chord = selectedChord.value
   if (!mel || !chord) {
@@ -410,14 +476,13 @@ function commitHarmony(): void {
     return
   }
 
-  if (applyMode.value === 'chord') {
+  if (applyMode.value === 'sketch') {
     store.commitHarmonizeAtMelody({
       melodyNoteId: mel.id,
       rootPc: rootPc.value,
       quality: chord.id,
       mode: 'chord',
     })
-    appliedCount.value += 1
     baseline.value = {
       rootPc: rootPc.value,
       quality: natureToSketchQuality(chord.id),
@@ -451,7 +516,6 @@ function commitHarmony(): void {
     mode: 'chord+stack',
     pitches,
   })
-  appliedCount.value += 1
   baseline.value = {
     rootPc: rootPc.value,
     quality: natureToSketchQuality(chord.id),
@@ -475,7 +539,7 @@ async function holdHearChord(opt?: HarmonizeChordOption): Promise<void> {
   const mel = melodyNote.value
   const chord = selectedChord.value
   if (!mel || !chord) return
-  if (applyMode.value === 'chord+stack' && voicing.value) {
+  if (applyMode.value === 'stack' && voicing.value) {
     const hear =
       placeVoicing({
         chord,
@@ -597,20 +661,14 @@ function preselectFromSketch(): void {
 
 watch(
   () => melodyNote.value?.id,
-  () => {
+  async () => {
     chordId.value = null
     voicing.value = null
     stopStab()
     preselectFromSketch()
+    if (props.open && workspace.value === 'suggest') await refreshSuggest()
   },
 )
-
-function onMelodyPartChange(e: Event): void {
-  const id = (e.target as HTMLSelectElement).value
-  store.setMelodyPart(id)
-  chordId.value = null
-  voicing.value = null
-}
 
 function step(dir: -1 | 1): void {
   const sorted = melodyNotesSorted.value
@@ -636,26 +694,25 @@ watch(
     if (!on) {
       clearPreview()
       stopStab()
-      appliedCount.value = 0
       return
     }
     if (
-      applyMode.value === 'chord+stack' &&
+      applyMode.value === 'stack' &&
       chordId.value &&
       !primaryChordOptions.value.some(
         (o) => o.chordId === chordId.value && o.rootOffset === rootOffset.value,
       )
     ) {
-      // Keep chordId for Sketch chip / Chord-only apply; drop unrealizable voicing.
       voicing.value = null
     }
     await nextTick()
     preselectFromSketch()
+    if (workspace.value === 'suggest') await refreshSuggest()
   },
 )
 
 watch(primaryChordOptions, (list) => {
-  if (applyMode.value === 'chord') return
+  if (applyMode.value === 'sketch') return
   if (
     chordId.value &&
     !list.some((o) => o.chordId === chordId.value && o.rootOffset === rootOffset.value)
@@ -682,20 +739,35 @@ onUnmounted(() => {
   localPlayer = null
 })
 
-defineExpose({ step, onCancel: onUndoLast })
+defineExpose({ step })
 </script>
 
 <template>
   <aside
     v-if="open"
-    ref="panelRef"
     class="tr-hz"
     role="complementary"
     aria-label="Harmonize"
   >
-    <header class="head">
-      <div class="head-title">
+    <header class="hz-top">
+      <div class="hz-top-left">
         <h2 class="title">Harmonize</h2>
+        <div class="seg" role="group" aria-label="Write depth">
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: applyMode === 'sketch' }"
+            title="Write chord to Sketch only"
+            @click="setApplyMode('sketch')"
+          >Sketch</button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{ on: applyMode === 'stack' }"
+            title="Write Sketch and realize TTBB"
+            @click="setApplyMode('stack')"
+          >Stack</button>
+        </div>
         <InfoTips
           label="How to use Harmonize"
           title="How to use Harmonize — flows and philosophy"
@@ -705,90 +777,112 @@ defineExpose({ step, onCancel: onUndoLast })
             <p><strong>{{ sec.title }}</strong></p>
             <p>{{ sec.body }}</p>
             <ol v-if="sec.steps?.length">
-              <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+              <li v-for="(s, i) in sec.steps" :key="i">{{ s }}</li>
             </ol>
           </section>
         </InfoTips>
       </div>
-      <div class="head-actions">
+      <div class="hz-top-right">
         <button v-if="showPopOut" type="button" class="btn ghost" title="Pop out" aria-label="Pop out" @click="emit('popOut')">↗</button>
         <button type="button" class="btn ghost" :aria-label="tagRollTip('Close', 'Esc')" :title="tagRollTip('Close', 'Esc')" @click="onClose">✕</button>
       </div>
     </header>
 
-      <div class="panel-body">
-      <p class="mode-tip">
-        <strong>Chord</strong> → Sketch; <strong>Chord + stack</strong> also realizes TTBB. Hold to hear; Play uses preview.
-      </p>
-      <div class="mode-row" role="group" aria-label="Apply mode">
-        <button
-          type="button"
-          class="btn sm"
-          :class="{ on: applyMode === 'chord' }"
-          :title="tagRollTip('Declare chord on the Sketch lane only (no TTBB notes)')"
-          @click="setApplyMode('chord')"
-        >
-          Chord
-        </button>
-        <button
-          type="button"
-          class="btn sm"
-          :class="{ on: applyMode === 'chord+stack' }"
-          :title="tagRollTip('Declare sketch and realize TTBB stack for this note')"
-          @click="setApplyMode('chord+stack')"
-        >
-          Chord + stack
-        </button>
-      </div>
+    <div class="hz-actions">
+      <button
+        type="button"
+        class="btn"
+        :disabled="workspace === 'suggest' || !draftDirty"
+        :title="tagRollTip('Reset — restore the Sketch chord under this note')"
+        @click="onReset"
+      >Reset</button>
+      <button
+        type="button"
+        class="btn primary"
+        :disabled="!canApply"
+        :class="{ dirty: draftDirty && workspace === 'pick' }"
+        :title="
+          tagRollTip(
+            workspace === 'suggest'
+              ? 'Apply selected Coach suggestion'
+              : applyMode === 'sketch'
+                ? 'Apply — declare into Sketch'
+                : 'Apply — Sketch + TTBB',
+          )
+        "
+        @click="commitHarmony"
+      >Apply</button>
+    </div>
 
-      <label class="field" :title="tagRollTip('Melody part for harmonizer')">
-        <span class="lbl">Melody part</span>
-        <select
-          class="sel"
-          :value="melodyPartId ?? ''"
-          aria-label="Melody part for harmonizer"
-          @change="onMelodyPartChange"
-        >
-          <option v-for="part in project?.parts ?? []" :key="part.id" :value="part.id">
-            {{ part.name }}
-          </option>
-        </select>
-      </label>
+    <div class="hz-tabs" role="tablist" aria-label="Harmonize workspace">
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ on: workspace === 'pick' }"
+        :aria-selected="workspace === 'pick'"
+        @click="setWorkspace('pick')"
+      >Pick</button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ on: workspace === 'suggest' }"
+        :aria-selected="workspace === 'suggest'"
+        @click="setWorkspace('suggest')"
+      >Suggest</button>
+    </div>
 
+    <div class="panel-body">
       <div class="step-row" role="group" aria-label="Step melody notes">
-        <button
-          type="button"
-          class="btn sm"
-          :title="tipByShortcutId('harm-prev')"
-          @click="step(-1)"
-        >
-          ← Prev
-        </button>
+        <button type="button" class="btn sm" :title="tipByShortcutId('harm-prev')" @click="step(-1)">← Prev</button>
         <span class="step-meta">
           <template v-if="melodyNote">
             {{ melodyIndex + 1 }}/{{ melodyNotesSorted.length }} ·
-            {{ midiToNote(melodyNote.midi) }}
+            {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }}
           </template>
           <template v-else>No {{ melodyPart?.name ?? 'melody' }} notes</template>
         </span>
-        <button
-          type="button"
-          class="btn sm"
-          :title="tipByShortcutId('harm-next')"
-          @click="step(1)"
-        >
-          Next →
-        </button>
+        <button type="button" class="btn sm" :title="tipByShortcutId('harm-next')" @click="step(1)">Next →</button>
       </div>
 
       <p v-if="!melodyNote" class="warn">
         Add a {{ melodyPart?.name ?? 'melody' }} note or move the playhead onto one.
+        Melody part is set under Toolbar → Roles.
       </p>
+
+      <template v-else-if="workspace === 'suggest'">
+        <p class="meta">
+          Coach-ranked voicings
+          <span v-if="suggestBusy" class="sec-note"> · loading…</span>
+          <span v-else class="sec-note"> · {{ suggestCandidates.length }}</span>
+        </p>
+        <p v-if="!suggestBusy && !suggestCandidates.length" class="empty">
+          No ranked voicings for this note. Try Pick, or lock a Sketch chord under the
+          playhead — pillars (◆) are optional and improve long-range ranking.
+        </p>
+        <ul v-else class="suggest-list" role="listbox" aria-label="Coach suggestions">
+          <li v-for="(c, i) in suggestCandidates" :key="`${c.label}-${c.voicing}-${i}`">
+            <button
+              type="button"
+              class="suggest-row"
+              role="option"
+              :aria-selected="i === suggestIndex"
+              :class="{ on: i === suggestIndex }"
+              @click="selectSuggest(i)"
+              @dblclick="applySelectedSuggest()"
+            >
+              <span class="suggest-lab">{{ c.label }}</span>
+              <span class="suggest-meta">{{ c.layer }} · {{ Math.round(c.score) }}</span>
+            </button>
+          </li>
+        </ul>
+      </template>
+
       <template v-else>
         <p class="meta">
-          {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }}
           <span v-if="selectedChord" class="root-chip">
-            · {{ pcName(rootPc, preferFlats) }}{{ selectedChord.notation || 'maj' }}
+            {{ pcName(rootPc, preferFlats) }}{{ selectedChord.notation || 'maj' }}
           </span>
           <span v-if="sketchMatchLabel" class="sketch-chip" title="Locked sketch under this note">
             Sketch: {{ sketchMatchLabel }}
@@ -797,14 +891,8 @@ defineExpose({ step, onCancel: onUndoLast })
 
         <section class="block" aria-label="Chords">
           <h3 class="sec">
-            {{ applyMode === 'chord' ? 'Chords' : 'Valid chords' }}
-            <span class="sec-note">
-              {{
-                applyMode === 'chord'
-                  ? '(hold to hear · Apply to commit)'
-                  : '(contain this melody tone · hold to hear)'
-              }}
-            </span>
+            {{ applyMode === 'sketch' ? 'Chords' : 'Valid chords' }}
+            <span class="sec-note">(hold to hear)</span>
           </h3>
           <TagRollChordPickList
             :primary="primaryChordOptions"
@@ -816,7 +904,7 @@ defineExpose({ step, onCancel: onUndoLast })
             :tonality="project?.tonality ?? 0"
             interaction="hold"
             :empty-primary-text="
-              applyMode === 'chord'
+              applyMode === 'sketch'
                 ? 'No matching chords'
                 : 'No chords contain this melody tone.'
             "
@@ -826,36 +914,14 @@ defineExpose({ step, onCancel: onUndoLast })
           />
         </section>
 
-        <section
-          class="block"
-          :class="{ dimmed: applyMode === 'chord' }"
-          aria-label="Voicing"
-        >
+        <section class="block" :class="{ dimmed: applyMode === 'sketch' }" aria-label="Voicing">
           <h3 class="sec">
             Stack / inversion
-            <span v-if="applyMode === 'chord'" class="sec-note"> (Chord + stack only)</span>
+            <span v-if="applyMode === 'sketch'" class="sec-note"> (Stack mode only)</span>
           </h3>
           <div class="spread-row">
-            <button
-              type="button"
-              class="btn sm"
-              :class="{ on: !spread }"
-              :disabled="applyMode === 'chord'"
-              :title="tagRollTip('Closed voicing')"
-              @click="setSpread(false)"
-            >
-              Closed
-            </button>
-            <button
-              type="button"
-              class="btn sm"
-              :class="{ on: spread }"
-              :disabled="applyMode === 'chord'"
-              :title="tagRollTip('Spread voicing')"
-              @click="setSpread(true)"
-            >
-              Spread
-            </button>
+            <button type="button" class="btn sm" :class="{ on: !spread }" :disabled="applyMode === 'sketch'" @click="setSpread(false)">Closed</button>
+            <button type="button" class="btn sm" :class="{ on: spread }" :disabled="applyMode === 'sketch'" @click="setSpread(true)">Spread</button>
           </div>
           <div class="grid">
             <button
@@ -864,61 +930,22 @@ defineExpose({ step, onCancel: onUndoLast })
               type="button"
               class="cell mono inv"
               :class="{ on: voicing === v }"
-              :disabled="applyMode === 'chord'"
+              :disabled="applyMode === 'sketch'"
               :title="tagRollTip(voicingDisplayLabel(v))"
               @click="selectVoicing(v)"
-            >
-              {{ voicingDisplayLabel(v) }}
-            </button>
+            >{{ voicingDisplayLabel(v) }}</button>
           </div>
-          <p v-if="chordId && applyMode === 'chord+stack' && !availableVoicings.length" class="empty">
+          <p v-if="chordId && applyMode === 'stack' && !availableVoicings.length" class="empty">
             No voicings for this melody role.
           </p>
         </section>
-
-        <div class="actions">
-          <button
-            type="button"
-            class="btn"
-            :disabled="!draftDirty"
-            :title="tagRollTip('Reset — restore the Sketch chord under this note')"
-            @click="onReset"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :disabled="appliedCount <= 0"
-            :title="tipByShortcutId('harm-cancel')"
-            @click="onUndoLast"
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            class="btn primary"
-            :disabled="!canApply"
-            :class="{ dirty: draftDirty }"
-            :title="
-              tagRollTip(
-                applyMode === 'chord'
-                  ? 'Apply — declare preview into Sketch'
-                  : 'Apply — declare Sketch and realize TTBB',
-              )
-            "
-            @click="commitHarmony"
-          >
-            Apply
-          </button>
-        </div>
       </template>
 
       <p class="credit">
-        Chord / voicing tables inspired by the MuseScore Barbershop Harmonizer plugin (znarf94) —
-        reimplemented for Tag Studio. Chord declares sketch; Chord + stack also realizes parts.
+        Pick = catalog · Suggest = Coach ranks · Sketch = map only · Stack = map + TTBB.
+        Undo is global (Ctrl+Z).
       </p>
-      </div>
+    </div>
   </aside>
 </template>
 
@@ -938,6 +965,130 @@ defineExpose({ step, onCancel: onUndoLast })
   overflow: hidden;
   flex: 0 0 auto;
 }
+.hz-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+.hz-top-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.hz-top-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex: none;
+}
+.hz-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+.hz-actions .btn {
+  flex: 1 1 auto;
+  min-height: 2rem;
+}
+.hz-actions .btn.primary {
+  flex: 1.4 1 auto;
+}
+.hz-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+}
+.tab {
+  min-height: 1.85rem;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.tab.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: none;
+}
+.seg-btn {
+  min-height: 1.7rem;
+  padding: 0 0.55rem;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn.on {
+  background: color-mix(in srgb, var(--accent, #1d6a9f) 16%, var(--surface));
+  color: var(--text);
+}
+.suggest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.28rem;
+  max-height: min(42vh, 24rem);
+  overflow: auto;
+}
+.suggest-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+.suggest-row.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  font-weight: 700;
+}
+.suggest-lab {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggest-meta {
+  flex: none;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
 .panel-body {
   display: grid;
   gap: 0.55rem;
@@ -946,26 +1097,9 @@ defineExpose({ step, onCancel: onUndoLast })
   overflow: auto;
   align-content: start;
 }
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  flex: 0 0 auto;
-  user-select: none;
-}
-.head-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: none;
-}
-.head-title {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-}
+
+
+
 .howto-sec + .howto-sec {
   margin-top: 0.65rem;
   padding-top: 0.55rem;
@@ -975,22 +1109,9 @@ defineExpose({ step, onCancel: onUndoLast })
   margin: 0.35rem 0 0;
   padding-left: 1.15rem;
 }
-.mode-tip {
-  margin: 0;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-.mode-row {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-.mode-row .btn.on {
-  border-color: color-mix(in srgb, var(--accent, #1d6a9f) 50%, var(--border));
-  background: color-mix(in srgb, var(--accent, #1d6a9f) 16%, var(--surface));
-  font-weight: 700;
-}
+
+
+
 .sketch-chip {
   display: inline-block;
   margin-left: 0.35rem;
@@ -1142,11 +1263,7 @@ defineExpose({ step, onCancel: onUndoLast })
   display: flex;
   gap: 0.3rem;
 }
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
+
 .btn {
   min-height: 36px;
   padding: 0.25rem 0.7rem;

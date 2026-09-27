@@ -6,6 +6,7 @@ import {
   focusTabForGuidedStep,
   labelForGuidedStep,
   modeForGuidedStep,
+  normalizeGuidedStepId,
   resolveGuidedStepWithLints,
   tipForGuidedStep,
   wizardStepForGuided,
@@ -37,7 +38,9 @@ export function useCoachGuidedAndReview(opts: {
   const arrStore = useArrangementStore()
   const tagStore = useTagRollStore()
   const prefs = usePreferencesStore()
-  const guidedStepOverride = ref<GuidedStepId | null>(null)
+  const guidedStepOverride = ref<GuidedStepId | null>(
+    normalizeGuidedStepId(prefs.tagRollCoachGuidedStep),
+  )
   let unbindHl: (() => void) | null = null
 
   const guidedStep = computed((): GuidedStepId => {
@@ -54,7 +57,8 @@ export function useCoachGuidedAndReview(opts: {
   function applyStepChrome(id: GuidedStepId): void {
     opts.focusTab.value = focusTabForGuidedStep(id)
     opts.mode.value = modeForGuidedStep(id)
-    opts.phase.value = id === 'pillars' || id === 'roles' ? 'pillars' : 'walk'
+    // Pillar propose/lock still uses dock phase; rail no longer has a Pillars page.
+    opts.phase.value = 'walk'
   }
 
   watch(
@@ -112,30 +116,28 @@ export function useCoachGuidedAndReview(opts: {
   function setMelodyNoteRole(id: string, role: 'pmn' | 'smn' | 'unknown'): void {
     arrStore.updateMelodyNote(id, { role })
     arrStore.runQa()
+    const tag = tagStore.current
+    const mel = arrStore.current?.melody.find((m) => m.id === id)
+    if (!tag || !mel) return
+    const mid =
+      tag.view.melodyPartId ?? tag.parts.find((p) => p.name === 'Lead')?.id ?? null
+    const note = tag.notes.find(
+      (n) =>
+        (!mid || n.partId === mid) &&
+        n.startTick === mel.startTick &&
+        n.midi === mel.midi,
+    )
+    if (note) tagStore.setNoteRole(note.id, role)
   }
 
   function selectGuidedStep(id: GuidedStepId): void {
     guidedStepOverride.value = id
+    prefs.setTagRollCoachGuidedStep(id)
     applyStepChrome(id)
     const p = arrStore.current
     if (p) {
       const wiz = wizardStepForGuided(id)
       if (p.wizardStep !== wiz) arrStore.setWizardStep(wiz)
-    }
-    if (id === 'roles') {
-      prefs.openTagRollBottomLane('coach')
-      tagStore.assignNoteRolesActive = true
-      const mel = p?.melody ?? []
-      const pick =
-        mel.find((m) => m.role === 'unknown') ??
-        mel.find((m) => m.id === arrStore.selectedMelodyId) ??
-        mel[0]
-      if (pick) selectMelodyNote(pick.id)
-    } else {
-      tagStore.assignNoteRolesActive = false
-    }
-    if (id === 'pillars') {
-      prefs.openTagRollBottomLane('coach')
     }
   }
 

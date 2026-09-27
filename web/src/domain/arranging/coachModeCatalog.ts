@@ -18,8 +18,8 @@ export const COACH_MODE_CARDS: readonly CoachModeCard[] = [
     id: 'arrange',
     title: 'Arrange',
     tagline: 'Build the chart',
-    body: 'Pillars → roles → chords along the step rail.',
-    defaultFocus: 'now',
+    body: 'Home → Chords along the step rail (melody roles + Sketch live on the roll).',
+    defaultFocus: 'home',
   },
   {
     id: 'review',

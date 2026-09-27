@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Coach step: Assign Note Roles on the piano roll (Strong / Passing / Melody).
+ * Coach step: open top-level Melody roles (toolbar).
  */
 defineEmits<{
   openAssign: []
@@ -10,16 +10,12 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Use the piano-roll overlay to label melody notes.
-      <kbd>←→</kbd> move along a part,
-      <kbd>↑↓</kbd> jump in the stack,
-      <kbd>Shift+arrows</kbd> nudge notes,
-      <kbd>S</kbd> Strong,
-      <kbd>P</kbd> Passing,
-      <kbd>M</kbd> set Melody part.
+      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> — one place for
+      Harmonize, Detected, and Coach. Open Roles to label notes on the roll
+      (<kbd>S</kbd> / <kbd>P</kbd> / <kbd>M</kbd>).
     </p>
     <button type="button" class="primary" @click="$emit('openAssign')">
-      Open Assign Note Roles
+      Open Melody roles
     </button>
   </section>
 </template>

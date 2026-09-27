@@ -193,7 +193,18 @@ export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
   }
 
   // m7 and other natures: quality on degree — never V7
-  if (opts.natureId === 'm7') return { roman: `${base}7`.replace(/^I7$/, 'i7').replace(/^IV7$/, 'iv7') }
+  if (opts.natureId === 'm7') {
+    const roman = `${base}7`.replace(/^I7$/, 'i7').replace(/^IV7$/, 'iv7')
+    // ii7 resolving to V → dual spelling as applied ii7/V (supertonic of V)
+    if (
+      target != null &&
+      rootDeg === 2 &&
+      degreeOf(target, opts.tonality) === 7
+    ) {
+      return { roman, altRoman: 'ii7/V' }
+    }
+    return { roman }
+  }
   if (opts.natureId === 'sixth') return { roman: `${base}6` }
   if (opts.natureId === 'madd6') {
     const minorBase =
@@ -217,6 +228,12 @@ export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
  */
 export function romanForChord(opts: RomanLabelOpts): string {
   return romanForChordDetailed(opts).roman
+}
+
+/** Primary with muted alt for Number-mode cells, e.g. `V7/V (II7)`. */
+export function formatRomanWithAlt(roman: string, altRoman?: string | null): string {
+  if (!altRoman || altRoman === roman) return roman
+  return `${roman} (${altRoman})`
 }
 
 /** True when this seventh is a secondary dominant of the given target (or diatonic V7). */

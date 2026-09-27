@@ -67,6 +67,19 @@ function ensureFillWidth(): void {
   if (sheetZoom.value < min) emitZoom(min)
 }
 
+/** Drop scroll that would leave empty space past the score after zoom/resize. */
+function ensureScrollInBounds(): void {
+  const next = clampScroll(scrollX.value, scrollY.value)
+  if (next.x !== scrollX.value || next.y !== scrollY.value) {
+    emit('scroll', next.x, next.y)
+  }
+}
+
+/** Media-bar ± time zoom — uses measured cssW so the fill floor cannot drift. */
+function nudgeTimeZoom(delta: number): void {
+  emitZoom(sheetZoom.value + delta)
+}
+
 /** Vertical offset so a short score sits centered in the viewport. */
 const centerPadY = computed(() => {
   const h = layout.value?.height ?? 0
@@ -150,6 +163,7 @@ async function rerender(): Promise<void> {
     if (centerPadY.value > 0 && scrollY.value !== 0) {
       emit('scroll', scrollX.value, 0)
     }
+    ensureScrollInBounds()
   } catch (e) {
     if (gen !== renderGen) return
     renderError.value = e instanceof Error ? e.message : 'Sheet render failed'
@@ -163,6 +177,7 @@ function measure(): void {
   cssW.value = Math.max(1, Math.floor(wrap.clientWidth))
   cssH.value = Math.max(1, Math.floor(wrap.clientHeight))
   ensureFillWidth()
+  ensureScrollInBounds()
 }
 
 function onPointerDown(e: PointerEvent): void {
@@ -379,7 +394,7 @@ watch(
   { deep: true },
 )
 
-defineExpose({ cssH, cssW })
+defineExpose({ cssH, cssW, nudgeTimeZoom })
 </script>
 
 <template>

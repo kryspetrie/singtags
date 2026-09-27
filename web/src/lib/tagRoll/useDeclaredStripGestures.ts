@@ -66,6 +66,8 @@ export function useDeclaredStripGestures(opts: {
   onPlaceRange: (startTick: number, endTick: number) => void
   /** Double-click / click-without-drag on selected span → inline edit. */
   onEdit: (seg: ChordAnalysisSegment) => void
+  /** Alt+click a span → toggle structural pillar (home root). */
+  onTogglePillar?: (seg: ChordAnalysisSegment) => void
   onGeometry: (payload: { id: string; startTick: number; endTick: number }) => void
   onGeometryMany: (payloads: Array<{ id: string; startTick: number; endTick: number }>) => void
   onFocusRange: (startTick: number, endTick: number) => void
@@ -124,6 +126,14 @@ export function useDeclaredStripGestures(opts: {
     const hit = findAtLocalX(localX)
 
     if (hit) {
+      // Alt+click marks / clears a structural home-root (pillar) without opening the dock.
+      if (e.altKey && opts.onTogglePillar) {
+        opts.onSelect([hit.id])
+        opts.onTogglePillar(hit)
+        e.preventDefault()
+        return
+      }
+
       const x = stripSegX(hit.startTick, opts.scrollX.value, opts.cellW.value, opts.ppq.value)
       const w = stripSegW(hit.startTick, hit.endTick, opts.cellW.value, opts.ppq.value)
       const edge = hitStripResizeEdge(localX, x, w)

@@ -42,8 +42,8 @@ const emit = defineEmits<{
       <button
         type="button"
         class="icon-btn"
-        title="Coaching configuration"
-        aria-label="Coaching configuration"
+        title="Settings"
+        aria-label="Settings"
         :aria-pressed="showConfig"
         @click="emit('toggleConfig')"
       >

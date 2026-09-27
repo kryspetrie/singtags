@@ -5,7 +5,7 @@ import { hitNoteResizeEdge, resizeNoteByEdge, type NoteResizeEdge } from './note
 import { snapTick } from './snap'
 import { pxToTicks, ticksToPx } from './normalize'
 
-export const STRIP_RESIZE_EDGE_PX = 8
+export const STRIP_RESIZE_EDGE_PX = 4
 export const STRIP_DRAG_SLOP_PX = 4
 
 /** Screen X of a span start — must match TagRollViewport note/ruler math (no track inset). */

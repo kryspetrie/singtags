@@ -10,6 +10,7 @@ import {
 import type { VoicingPitches } from './chords'
 import {
   accidentalBiasForRootInKey,
+  formatRomanWithAlt,
   romanForChordDetailed,
 } from './secondaryDominant'
 import type { ChordStack, ContestProfile, TonalityMode } from './types'
@@ -182,6 +183,10 @@ export function buildChordAnalysisSegments(opts: {
 
     const ovKey = String(s.startTick)
     const ov = opts.overrides?.[ovKey] ?? opts.overrides?.[s.id]
+    const defaultRoman =
+      s.natureId === 'unknown'
+        ? roman
+        : formatRomanWithAlt(detailed.roman, detailed.altRoman)
     out.push({
       id: s.id,
       startTick: s.startTick,
@@ -193,7 +198,8 @@ export function buildChordAnalysisSegments(opts: {
       roman,
       romanOptions,
       displayName: pickDisplay(ov?.name, nameOptions, name),
-      displayRoman: pickDisplay(ov?.roman, romanOptions, roman),
+      displayRoman:
+        ov?.roman && romanOptions.includes(ov.roman) ? ov.roman : defaultRoman,
     })
   }
   return out

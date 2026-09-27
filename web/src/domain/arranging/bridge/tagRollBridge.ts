@@ -76,6 +76,7 @@ export function arrangementToTagRoll(
       startTick: m.startTick,
       durationTicks: m.durationTicks,
       ...(m.lyric ? { lyric: m.lyric } : {}),
+      ...(m.role === 'pmn' || m.role === 'smn' ? { role: m.role } : {}),
     })
   }
 
@@ -199,7 +200,7 @@ export function tagRollToArrangement(
       midi: n.midi,
       startTick: n.startTick,
       durationTicks: n.durationTicks,
-      role: 'unknown' as const,
+      role: (n.role === 'pmn' || n.role === 'smn' ? n.role : 'unknown') as const,
       ...(n.lyric ? { lyric: n.lyric } : {}),
     })),
   )

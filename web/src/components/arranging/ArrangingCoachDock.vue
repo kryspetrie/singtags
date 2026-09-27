@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Arranging coach — Pillars → Note roles → Chords → Check → Polish.
+ * Arranging coach — Home → Chords → Check → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import ArrangingContextCard from './ArrangingContextCard.vue'
@@ -10,8 +10,7 @@ import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
-import ArrangingCoachRolesPanel from './ArrangingCoachRolesPanel.vue'
-import ArrangingCoachPillarsPanel from './ArrangingCoachPillarsPanel.vue'
+import ArrangingCoachLanding from './ArrangingCoachLanding.vue'
 import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
 import ConfirmDialog from '../ConfirmDialog.vue'
 import {
@@ -28,7 +27,6 @@ import {
 } from '../../lib/arranging/coachRollTransport'
 import { registerCoachPopoutIntentHandler } from '../../lib/arranging/coachPopout'
 import type { CoachTransportView } from '../../composables/useCoachTransport'
-import { glossaryTitle } from '../../lib/arranging/glossaryTooltip'
 import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
 import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
 import { useArrangingCoachDock, type CoachGhostNote } from './useArrangingCoachDock'
@@ -65,7 +63,6 @@ const {
   whyShowNumbers,
   tip,
   nextAction,
-  preferFlats,
   melody,
   moments,
   pillars,
@@ -86,13 +83,8 @@ const {
   clearLintDetail,
   pillarProgressLabel,
   momentProgressLabel,
-  coverageGaps,
-  formatGapRow,
-  canExtendPreviousAtGap,
   repairTour,
   noteLints,
-  canWalkArrange,
-  canLockRemaining,
   emptyMomentCount,
   currentStack,
   uncoveredSelected,
@@ -103,19 +95,10 @@ const {
   stepLint,
   stepNextGap,
   stepNextProblem,
-  focusPillar,
-  onInfer,
   onProposeNext,
   onSkipProposed,
-  onAddPillarAtPlayhead,
   onLockPillar,
-  onLockRemaining,
-  onDeletePillar,
-  updatePillarRoot,
   addPillarHere,
-  jumpToUncovered,
-  addPillarAtUncovered,
-  extendPreviousToUncovered,
   extendPreviousToHere,
   previewCand,
   hearCand,
@@ -140,7 +123,6 @@ const {
   whyFor,
   runNextAction,
   goCloseForMelody,
-  pcName,
   pushToRoll,
 } = api
 
@@ -149,9 +131,7 @@ const {
   guidedTip,
   guidedStepLabel,
   selectGuidedStep,
-  selectMelodyNote,
   stepMelodyNote,
-  setMelodyNoteRole,
   onLabelRoles,
   checklist,
   howFactors,
@@ -174,27 +154,14 @@ const {
 })
 
 const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
-const pillarGlossaryTip = glossaryTitle('pillar')
 
-function openAssignNoteRoles(): void {
-  selectGuidedStep('roles')
-}
 const cadenceBadge = computed(() => {
   const t = tip.value
   if (!t?.lessonId || t.lessonId !== 'L-classic-cadences') return null
   return t.title.replace(/^Cadence:\s*/i, '').trim() || null
 })
 
-const rolesStatus = computed(() => {
-  const mel = melody.value
-  const n = mel.length
-  if (!n) return 'No Lead notes'
-  const labeled = mel.filter((m) => m.role !== 'unknown').length
-  const i = mel.findIndex((m) => m.id === arrStore.selectedMelodyId)
-  const at = i >= 0 ? `${i + 1}/${n}` : `—/${n}`
-  return `Note ${at} · ${labeled}/${n} labeled`
-})
-
+const rolesStatus = computed(() => '')
 const checkStatus = computed(() => `${noteLints.value.length} issue(s) in range`)
 
 const transport = useCoachTransport({
@@ -228,6 +195,7 @@ const transportActions = createCoachTransportActions({
   stepNextProblem,
   onProposeNext,
   onLabelRoles,
+  goChords: () => selectGuidedStep('chords'),
   applyBest,
   fixAllSafe,
   onStrengthen,
@@ -409,16 +377,11 @@ onUnmounted(() => {
             @update:contest-profile="setContestProfile" @update:tuning-mode="setTuningMode"
             @update:qa-group="setQaGroup" @update:cadence-bias="arrStore.refreshCandidates()"
           />
-          <div v-else class="workspace"><div class="panel-scroll">          <!-- ROLES (distinct from pillars) -->
-          <ArrangingCoachRolesPanel
-            v-if="focusTab === 'now' && guidedStep === 'roles'"
-            @open-assign="openAssignNoteRoles"
-          />
-
-          <!-- PILLARS -->
-          <ArrangingCoachPillarsPanel
-            v-else-if="focusTab === 'now'"
-            @next-roles="selectGuidedStep('roles')"
+          <div v-else class="workspace"><div class="panel-scroll">
+          <!-- HOME — workflow landing -->
+          <ArrangingCoachLanding
+            v-if="guidedStep === 'home' || focusTab === 'home'"
+            @continue="selectGuidedStep('chords')"
           />
 
           <!-- CHOOSE — best on one line; other suggestions in a single collapsible -->
@@ -433,33 +396,15 @@ onUnmounted(() => {
               />
               <div v-if="uncoveredSelected" class="banner">
                 <p class="hint">
-                  No home root under this moment — add or extend a destination so ranked suggestions
-                  know which family to use.
+                  No home root under this moment — mark a Sketch pillar covering this tick
+                  (Alt+click / ◆ on the Sketch lane).
                 </p>
-                <div class="row">
-                  <button
-                    type="button"
-                    class="primary"
-                    :title="pillarGlossaryTip || 'Add a draft home root covering this moment'"
-                    @click="addPillarHere"
-                  >
-                    Add home root
-                  </button>
-                  <button
-                    type="button"
-                    class="step-btn"
-                    title="Stretch the previous home root forward to cover this moment"
-                    @click="extendPreviousToHere"
-                  >
-                    Extend previous
-                  </button>
-                </div>
               </div>
               <div v-else-if="mode === 'review' && !pillars.length" class="banner">
-                <p class="hint">Review — propose home roots for ranked suggestions.</p>
-                <button type="button" class="primary" @click="onProposeNext">
-                  Propose next home root
-                </button>
+                <p class="hint">
+                  Review needs Sketch pillars for ranked suggestions — lock phrase chords, then
+                  Alt+click / ◆ to mark home roots.
+                </p>
               </div>
               <template v-else>
                 <div v-if="filteredCandidates[0]" class="best-row">
@@ -638,7 +583,7 @@ onUnmounted(() => {
               </div>
               <ul v-if="candidateGroups.length > 1" class="cands flat">
                 <li
-                  v-for="(g, gi) in candidateGroups.slice(1)"
+                  v-for="g in candidateGroups.slice(1)"
                   :key="g.key"
                   class="cand-group"
                   @mouseenter="previewCand(g.best)"
@@ -761,7 +706,6 @@ onUnmounted(() => {
               @strengthen="onStrengthen"
               @polish="onPolish"
               @apply-swipe="onApplySwipe"
-              @open-config="panelMode = 'config'"
               @export-midi="exportMidi"
               @export-music-xml="exportMusicXml"
             />

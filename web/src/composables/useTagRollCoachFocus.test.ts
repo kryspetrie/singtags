@@ -184,4 +184,22 @@ describe('useTagRollCoachFocus', () => {
     expect(api.chordCursor.value).toBeNull()
     expect(selectNotes).toHaveBeenLastCalledWith(['a'])
   })
+
+  it('clearChordCursor disarms inspect-range playback', () => {
+    const p = createEmptyTagRollProject({ title: 't' })
+    const api = useTagRollCoachFocus(() => p, {
+      selectNotes: vi.fn(),
+      setPlayheadTick: vi.fn(),
+    })
+    api.setChordCursor({ startTick: 480, endTick: 1920 })
+    expect(api.armInspectPlayback(480)).toEqual({
+      fromTick: 480,
+      untilTick: 1920,
+      rewindTick: 480,
+    })
+    api.clearChordCursor()
+    api.clearInspectPlaybackRewind()
+    expect(api.chordCursor.value).toBeNull()
+    expect(api.armInspectPlayback(480)).toBeNull()
+  })
 })

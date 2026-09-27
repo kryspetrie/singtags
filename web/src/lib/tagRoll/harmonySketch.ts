@@ -6,6 +6,7 @@ import { absoluteChordLabel, natureSuffix } from '../../domain/arranging/chordAn
 import { BARBERSHOP_CHORDS, pcName } from '../../domain/arranging/chords/chords'
 import {
   degreeOf,
+  formatRomanWithAlt,
   romanForChordDetailed,
 } from '../../domain/arranging/secondaryDominant'
 import type { TonalityMode } from '../../domain/arranging/types'
@@ -231,6 +232,23 @@ export function sketchRoman(
     mode: tonalityMode,
     resolvesToRoot: nextRootPc ?? null,
   }).roman
+}
+
+/** Number-mode cell label with optional alt, e.g. `V7/V (II7)`. */
+export function sketchRomanDisplay(
+  span: Pick<HarmonySketchSpan, 'rootPc' | 'quality'>,
+  tonality: number,
+  tonalityMode: TonalityMode,
+  nextRootPc?: number | null,
+): string {
+  const d = romanForChordDetailed({
+    rootPc: span.rootPc,
+    natureId: span.quality,
+    tonality,
+    mode: tonalityMode,
+    resolvesToRoot: nextRootPc ?? null,
+  })
+  return formatRomanWithAlt(d.roman, d.altRoman)
 }
 
 export function qualityChipLabel(quality: HarmonySketchQuality): string {

@@ -953,6 +953,12 @@ export function useArrangingCoachDock(
     return layerHintForCandidate(c)
   }
 
+  function openSketchForPillars(): void {
+    prefs.setTagRollChordsLaneCollapsed(false)
+    focusTab.value = 'home'
+    phase.value = 'walk'
+  }
+
   function runNextAction(): void {
     const a = nextAction.value
     if (a.focus) focusTab.value = a.focus
@@ -961,15 +967,11 @@ export function useArrangingCoachDock(
         emit('close')
         break
       case 'suggest_pillars':
-        onProposeNext()
-        break
       case 'lock_pillars':
-        phase.value = 'pillars'
-        focusTab.value = 'now'
+        openSketchForPillars()
         break
       case 'cover_gaps': {
-        phase.value = 'pillars'
-        focusTab.value = 'now'
+        openSketchForPillars()
         const g = coverageGaps.value[0]
         if (g) jumpToUncovered(g.id)
         break

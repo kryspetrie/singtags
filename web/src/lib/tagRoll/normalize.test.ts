@@ -30,7 +30,8 @@ describe('tagRoll normalize', () => {
     expect(p.parts.map((x) => x.name)).toEqual(['Tenor', 'Lead', 'Bari', 'Bass'])
     expect(p.notes).toEqual([])
     expect(p.view.activePartId).toBe(p.parts.find((x) => x.name === 'Lead')!.id)
-    expect(p.mix).toHaveLength(4)
+    expect(p.mix.filter((m) => p.parts.some((x) => x.id === m.partId))).toHaveLength(4)
+    expect(p.mix.length).toBeGreaterThanOrEqual(4)
     const leadMix = p.mix.find((m) => m.partId === p.parts.find((x) => x.name === 'Lead')!.id)!
     const tenorMix = p.mix.find((m) => m.partId === p.parts.find((x) => x.name === 'Tenor')!.id)!
     expect(tenorMix.pan).toBeCloseTo(-0.6)
@@ -38,6 +39,7 @@ describe('tagRoll normalize', () => {
     expect(leadMix.volume).toBeGreaterThan(tenorMix.volume)
     expect(p.view.focusActivePart).toBe(false)
     expect(p.view.scaleHighlight).toBe(true)
+    expect(p.view.roleDisplay).toBe('off')
     expect(p.clefFamily).toBe('ttbb')
     expect(p.view.scoreSurface).toBe('roll')
   })

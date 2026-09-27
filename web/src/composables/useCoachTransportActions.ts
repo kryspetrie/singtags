@@ -7,7 +7,7 @@ import type { HarmonizeCandidate } from '../domain/arranging/harmonize'
 
 export type CoachTransportActionCtx = {
   guidedStep: Ref<GuidedStepId>
-  focusTab: Ref<'now' | 'choose' | 'check' | 'polish'>
+  focusTab: Ref<'home' | 'now' | 'choose' | 'check' | 'polish'>
   currentStack: Ref<{ midi?: unknown } | null>
   filteredCandidates: Ref<readonly HarmonizeCandidate[]>
   stepPillar: (dir: -1 | 1) => void
@@ -18,6 +18,8 @@ export type CoachTransportActionCtx = {
   stepNextProblem: () => void
   onProposeNext: () => void
   onLabelRoles: () => void
+  /** Home → Chords (or other continue). */
+  goChords: () => void
   applyBest: () => void
   fixAllSafe: () => void
   onStrengthen: () => void
@@ -29,12 +31,6 @@ export type CoachTransportActionCtx = {
 export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
   function prev(): void {
     switch (ctx.guidedStep.value) {
-      case 'pillars':
-        ctx.stepPillar(-1)
-        break
-      case 'roles':
-        ctx.stepMelodyNote(-1)
-        break
       case 'chords':
         ctx.focusTab.value = 'choose'
         ctx.stepMoment(-1)
@@ -47,12 +43,6 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
 
   function next(): void {
     switch (ctx.guidedStep.value) {
-      case 'pillars':
-        ctx.stepPillar(1)
-        break
-      case 'roles':
-        ctx.stepMelodyNote(1)
-        break
       case 'chords':
         ctx.focusTab.value = 'choose'
         ctx.stepMoment(1)
@@ -65,11 +55,8 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
 
   function primary(): void {
     switch (ctx.guidedStep.value) {
-      case 'pillars':
-        ctx.onProposeNext()
-        break
-      case 'roles':
-        ctx.onLabelRoles()
+      case 'home':
+        ctx.goChords()
         break
       case 'chords':
         ctx.focusTab.value = 'choose'
@@ -84,10 +71,6 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
   }
 
   function hear(): void {
-    if (ctx.guidedStep.value === 'pillars') {
-      ctx.hearPillarRoot()
-      return
-    }
     if (ctx.guidedStep.value === 'chords') {
       ctx.focusTab.value = 'choose'
       if (ctx.currentStack.value?.midi) ctx.hearCurrentStack()

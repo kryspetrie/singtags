@@ -11,11 +11,12 @@ import {
 describe('harmonyHowTo', () => {
   it('covers Harmonize modes and the declare-then-realize workflow', () => {
     const text = formatHowToPlain(HARMONIZE_HOWTO)
-    expect(text).toMatch(/\bChord\b/)
-    expect(text).toMatch(/Chord \+ stack/i)
+    expect(text).toMatch(/\bSketch\b/)
+    expect(text).toMatch(/\bStack\b/)
+    expect(text).toMatch(/Suggest/i)
     expect(text).toMatch(/Declare first/i)
-    expect(text).toMatch(/Coach/i)
-    expect(text).toMatch(/Apply \/ Lock/i)
+    expect(text).toMatch(/Apply/)
+    expect(text).toMatch(/pillars? when present|implied/i)
   })
 
   it('covers Sketch vs Detected lanes', () => {
@@ -25,5 +26,13 @@ describe('harmonyHowTo', () => {
     expect(text).toMatch(/media bar/i)
     expect(text).toMatch(/Lock/i)
     expect(text).toMatch(/Realize/i)
+  })
+
+  it('teaches Sketch and Detected pillar marking', () => {
+    const text = formatHowToPlain(HARMONY_STRIP_HOWTO)
+    expect(text).toMatch(/Pillars on Sketch/i)
+    expect(text).toMatch(/Alt\+click/i)
+    expect(text).toMatch(/◆/)
+    expect(text).toMatch(/Detected/i)
   })
 })

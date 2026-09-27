@@ -36,12 +36,12 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 2100, // assign note roles + pillar toggle on chords
-  'components/arranging/useArrangingCoachDock.ts': 1150, // sketch-authoritative coach open + sync
+  'views/TagRollEditorView.vue': 2320, // title edit-in-place + View marks
+  'components/arranging/useArrangingCoachDock.ts': 1160, // Open Sketch next-action for pillars
   'components/arranging/ArrangingCoachDock.vue': 1300, // cadence badge + config bias refresh
-  'stores/arrangement.ts': 892, // skipped home-root spans session registry
-  'components/tagRoll/TagRollViewport.vue': 1460, // note-role badges + headerExtraH
-  'stores/tagRoll.ts': 1860, // toggleSketchPillar + duplicate project / sketch clipboard
+  'stores/arrangement.ts': 910, // soft Suggest context (Sketch/Detected fallback)
+  'components/tagRoll/TagRollViewport.vue': 1560, // dense-note compact role chrome
+  'stores/tagRoll.ts': 1920, // setNoteRole + importMelodyRolesFromArrangement
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,
@@ -52,8 +52,8 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/offlineLibrary.ts': 950,
   'components/tagRoll/TagRollExpressionLane.vue': 970, // bottom-lane shell + shared time grid
   'components/tagRoll/TagRollMediaBar.vue': 1230, // lane toggles beside W/H + major/minor key optgroups
-  'components/tagRoll/TagRollHarmonizePanel.vue': 1200, // Coach-column dock (was floating Teleport)
-  'components/tagRoll/TagRollDeclaredLane.vue': 750, // dock-driven edit; Teleport picker removed
+  'components/tagRoll/TagRollHarmonizePanel.vue': 1320, // Suggest soft home-root (no pillar gate)
+  'components/tagRoll/TagRollDeclaredLane.vue': 820, // Sketch-lane pillar badge + Alt+click
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
@@ -65,7 +65,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/catalog.ts': 750,
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
-  'components/tagRoll/TagRollToolbar.vue': 910, // major/minor key optgroups (lane toggles on media bar)
+  'components/tagRoll/TagRollToolbar.vue': 940, // Roles toolbar entry
 }
 
 const SKIP_DIR = new Set([

@@ -11,7 +11,7 @@ import {
   knownStackCount,
 } from './coachEntryMode'
 
-export type CoachFocusTab = 'now' | 'choose' | 'check' | 'polish'
+export type CoachFocusTab = 'home' | 'now' | 'choose' | 'check' | 'polish'
 
 export type CoachNextAction = {
   id: string
@@ -57,12 +57,12 @@ export function resolveCoachNextAction(opts: {
   if (!p.pillars.length) {
     return {
       id: 'suggest_pillars',
-      title: repair ? 'Add home roots under this chart' : 'Propose next home root',
+      title: repair ? 'Mark home roots on Sketch' : 'Mark home roots on Sketch',
       body: repair
-        ? 'Harmony is already on the roll. Propose home-root spans so Check and Strengthen can rank fixes — stacks stay put.'
-        : 'Propose one home root at a time, Hear, then Lock before walking chords.',
-      cta: 'Propose next home root',
-      focus: 'now',
+        ? 'Harmony is already on the roll. Lock phrase chords in Sketch, then Alt+click (or ◆) to mark structural home roots — stacks stay put.'
+        : 'Open Sketch, lock phrase chords, then Alt+click (or ◆) to mark pillars. Coach reads those home roots when ranking.',
+      cta: 'Open Sketch',
+      focus: 'home',
       kind: 'suggest_pillars',
     }
   }
@@ -72,9 +72,9 @@ export function resolveCoachNextAction(opts: {
     return {
       id: 'cover_gaps',
       title: 'Cover uncovered melody',
-      body: `${gaps.length} Lead onset(s) sit outside a home-root span — jump, then Add or Extend.`,
-      cta: 'Jump to gaps',
-      focus: 'now',
+      body: `${gaps.length} Lead onset(s) sit outside a home-root span — extend Sketch pillars or paint the gap.`,
+      cta: 'Open Sketch',
+      focus: 'home',
       kind: 'cover_gaps',
     }
   }
@@ -83,13 +83,13 @@ export function resolveCoachNextAction(opts: {
   if (unconfirmed) {
     return {
       id: 'lock_pillars',
-      title: repair && known > 0 ? 'Review home roots (for Strengthen)' : 'Review home roots',
+      title: repair && known > 0 ? 'Confirm Sketch pillars' : 'Confirm Sketch pillars',
       body:
         repair && known > 0
-          ? `${unconfirmed} draft home root(s). Lock when you want Strengthen; issues can wait.`
-          : `${unconfirmed} draft home root(s) — Hear the root, then Lock.`,
-      cta: 'Review home roots',
-      focus: 'now',
+          ? `${unconfirmed} draft home root(s) still on the Coach lane. Prefer marking pillars on Sketch; Lock only if you used Propose.`
+          : `${unconfirmed} draft home root(s) — mark pillars on Sketch, or Lock a Coach draft if you Proposed one.`,
+      cta: 'Open Sketch',
+      focus: 'home',
       kind: 'lock_pillars',
     }
   }
@@ -163,5 +163,5 @@ export function resolveCoachNextAction(opts: {
 /** Default focus tab for a session mode. */
 export function defaultFocusForMode(mode: CoachUiMode): CoachFocusTab {
   if (mode === 'review') return 'check'
-  return 'now'
+  return 'home'
 }

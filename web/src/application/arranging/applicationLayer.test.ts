@@ -89,10 +89,10 @@ function memoryRepo(seed: ArrangementProject[] = []): ArrangementRepository {
 }
 
 describe('AutoHarmonize use-case', () => {
-  it('listCandidatesForNote returns [] without pillar', () => {
+  it('listCandidatesForNote returns implied candidates without pillar', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
-    expect(listCandidatesForNote(p, p.melody[0]!)).toEqual([])
+    expect(listCandidatesForNote(p, p.melody[0]!).length).toBeGreaterThan(0)
   })
 
   it('lists candidates and applyCandidateToProject replaces stack at onset', () => {

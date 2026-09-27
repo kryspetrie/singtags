@@ -21,6 +21,8 @@ export type SheetVoiceSlot = {
   /** Voice 1 = stems/beams up; voice 2 = down. */
   voice: 1 | 2
   role: SheetVoiceRole
+  /** True when this part is the project melody (view.melodyPartId). */
+  isMelody?: boolean
 }
 
 export type SheetStaffSpec = {

@@ -67,19 +67,19 @@ describe('coachEntryMode', () => {
 })
 
 describe('resolveGuidedStep entry routing', () => {
-  it('compose: pillars → roles → chords', () => {
+  it('compose: empty melody → home; otherwise chords when coverage is low', () => {
     const p = createEmptyArrangement()
+    expect(resolveGuidedStep(p)).toBe('home')
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'unknown' }]
-    expect(resolveGuidedStep(p)).toBe('pillars')
     p.pillars = [
       { id: 'p1', rootPc: 0, startTick: 0, endTick: 480, confirmed: true, source: 'user' },
     ]
-    expect(resolveGuidedStep(p)).toBe('roles')
+    expect(resolveGuidedStep(p)).toBe('chords')
     p.melody[0]!.role = 'pmn'
     expect(resolveGuidedStep(p)).toBe('chords')
   })
 
-  it('repair: skips roles after pillars locked', () => {
+  it('repair: skips to polish when coverage is high', () => {
     const p = createEmptyArrangement()
     p.melody = [
       { id: 'm1', midi: 60, startTick: 0, durationTicks: 480, role: 'unknown' },

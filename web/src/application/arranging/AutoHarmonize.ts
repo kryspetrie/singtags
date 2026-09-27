@@ -7,10 +7,25 @@ import {
 } from '../../domain/arranging/harmonize'
 import type { ArrangementProject, ChordStack, MelodyEvent } from '../../domain/arranging/types'
 import type { IdGenerator } from '../../ports/IdGenerator'
+import {
+  resolveSuggestHomeRoot,
+  type SoftSuggestContext,
+  type SuggestHomeRootSource,
+} from './suggestHomeRoot'
+
+export type { SoftSuggestContext, SuggestHomeRootSource } from './suggestHomeRoot'
+export { resolveSuggestHomeRoot } from './suggestHomeRoot'
 
 export type AutoHarmonizeDeps = {
   idGen?: IdGenerator
   rankerDeps?: RankerDeps
+}
+
+export type ListCandidatesOpts = {
+  preferScf?: boolean
+  limit?: number
+  /** Sketch / Detected spans for mid-arrangement Suggest without pillars. */
+  softContext?: SoftSuggestContext | null
 }
 
 export function autoHarmonize(
@@ -30,24 +45,39 @@ export function autoHarmonize(
   })
 }
 
+/**
+ * Rank voicings for one melody note. Uses a real pillar when present; otherwise
+ * falls back to locked Sketch → Detected → implied melody chord (soft context).
+ */
 export function listCandidatesForNote(
   project: ArrangementProject,
   note: MelodyEvent,
-  opts: { preferScf?: boolean; limit?: number } = {},
+  opts: ListCandidatesOpts = {},
   deps: AutoHarmonizeDeps = {},
 ): HarmonizeCandidate[] {
-  const pillar = project.pillars.find(
-    (x) => x.startTick <= note.startTick && note.startTick < x.endTick,
-  )
-  if (!pillar) return []
   const prev = [...project.stacks]
     .filter((s) => s.startTick < note.startTick)
     .sort((a, b) => b.startTick - a.startTick)[0]
-  const nextPillar = project.pillars.find((x) => x.startTick >= pillar.endTick)
   const melodySorted = [...project.melody].sort((a, b) => a.startTick - b.startTick)
   const noteIdx = melodySorted.findIndex((m) => m.id === note.id)
   const nextMel = noteIdx >= 0 ? melodySorted[noteIdx + 1] : null
   const prevMel = noteIdx > 0 ? melodySorted[noteIdx - 1] : null
+
+  const resolved = resolveSuggestHomeRoot({
+    note,
+    pillars: project.pillars,
+    soft: opts.softContext,
+    tonality: project.tonality,
+    mode: project.tonalityMode ?? 'major',
+    nextMelodyMidi: nextMel?.midi ?? null,
+    prevMelodyMidi: prevMel?.midi ?? null,
+    prevRootPc: prev?.rootPc ?? null,
+    prevNatureId: prev?.natureId ?? null,
+  })
+  if (!resolved) return []
+
+  const { pillar } = resolved
+  const nextPillar = project.pillars.find((x) => x.startTick >= pillar.endTick)
   return candidatesForMelodyNote({
     note,
     pillar,

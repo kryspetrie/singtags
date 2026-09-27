@@ -2,7 +2,7 @@
 /**
  * Tag Studio editor — piano-roll arranger for custom tags.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, unref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
 import { MetronomeClicker } from '../audio/metronomeClicker'
@@ -26,6 +26,7 @@ import TagRollToolbar from '../components/tagRoll/TagRollToolbar.vue'
 import TagRollViewport from '../components/tagRoll/TagRollViewport.vue'
 import TagRollSheetViewport from '../components/tagRoll/TagRollSheetViewport.vue'
 import TagRollAssignRolesHud from '../components/tagRoll/TagRollAssignRolesHud.vue'
+import TagRollViewFiltersPanel from '../components/tagRoll/TagRollViewFiltersPanel.vue'
 import {
   provideTagRollAudio,
   type TagRollAudioApi,
@@ -34,6 +35,7 @@ import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
 import { isPartAudible, mixForPart, syncProjectMix } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
 import { followPlayheadScrollX } from '../lib/tagRoll/followPlayheadScroll'
+import { pageScrollToRevealTagNote } from '../lib/tagRoll/selectionPageScroll'
 import { useAssignNoteRoles } from '../composables/useAssignNoteRoles'
 import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
 import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
@@ -56,12 +58,6 @@ import {
   TAG_ROLL_RULER_H,
   TAG_ROLL_RULER_H_COMPOSE,
 } from '../lib/tagRoll/types'
-import {
-  clampCellW,
-  clampSheetZoom,
-  minCellWToFillRoll,
-  minPxPerBeatToFillSheet,
-} from '../lib/tagRoll/zoomFill'
 import { useSnackbarStore } from '../stores/snackbar'
 import { usePreferencesStore } from '../stores/preferences'
 import { useTagRollStore } from '../stores/tagRoll'
@@ -105,12 +101,15 @@ const router = useRouter()
 const viewportRef = ref<InstanceType<typeof TagRollViewport> | null>(null)
 const sheetViewportRef = ref<InstanceType<typeof TagRollSheetViewport> | null>(null)
 const stageH = ref(480)
-const stageViewportH = computed(
-  () => viewportRef.value?.cssH ?? sheetViewportRef.value?.cssH ?? stageH.value,
+const stageViewportH = computed(() =>
+  readExposedCssSize(viewportRef.value?.cssH ?? sheetViewportRef.value?.cssH, stageH.value),
 )
 const harmonizeRef = ref<InstanceType<typeof TagRollHarmonizePanel> | null>(null)
 const titleDraft = ref('')
+const titleEditing = ref(false)
+const titleInputRef = ref<HTMLInputElement | null>(null)
 const partsOpen = ref(false)
+const marksOpen = ref(false)
 const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
 /** Live chord preview (dock / Harmonize) — Sketch lane chrome + transport audition. */
@@ -232,6 +231,7 @@ function onCoachClose(): void {
 function onChordCursorChange(range: { startTick: number; endTick: number } | null): void {
   if (!range) {
     clearChordCursor()
+    clearInspectPlaybackRewind()
     return
   }
   setChordCursor(range, { select: inspectSelectNone.value ? 'none' : 'range' })
@@ -368,16 +368,17 @@ function onNudgeCellW(delta: number): void {
   const p = project.value
   if (!p) return
   const sheet = p.view.mode === 'view' && p.view.scoreSurface === 'sheet'
-  const raw =
-    (sheet ? sheetViewportRef.value?.cssW : viewportRef.value?.cssW) ?? 640
-  const vpW = typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : 640
   if (sheet) {
-    const minW = minPxPerBeatToFillSheet(vpW, p.lengthTicks, p.timeSignature, p.ppq)
-    store.setSheetZoom(clampSheetZoom(p.view.sheetZoom + delta, minW))
+    sheetViewportRef.value?.nudgeTimeZoom?.(delta)
     return
   }
-  const minW = minCellWToFillRoll(vpW, p.lengthTicks, p.ppq)
-  store.setCellSize(clampCellW(p.view.cellW + delta, minW), p.view.cellH)
+  viewportRef.value?.nudgeTimeZoom?.(delta)
+}
+
+/** Exposed canvas css size may be a raw number or a still-wrapped ref. */
+function readExposedCssSize(raw: unknown, fallback = 640): number {
+  const v = unref(raw as number | { value: number })
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : fallback
 }
 
 let player: PitchTonePlayer | null = null
@@ -385,6 +386,7 @@ let blowPitchPlayer: PitchTonePlayer | null = null
 let metronome: MetronomeClicker | null = null
 let scheduler: TagRollScheduler | null = null
 let previewNote: string | null = null
+let auditionGen = 0
 let blowPitchGen = 0
 let blowPitchRaf = 0
 
@@ -497,8 +499,7 @@ function rebuildScheduler(): void {
 function followPlayheadIntoView(tick: number): void {
   const p = store.current
   if (!p || (p.view.mode === 'view' && p.view.scoreSurface === 'sheet')) return
-  const raw = viewportRef.value?.cssW ?? 640
-  const vpW = typeof raw === 'number' && raw > 0 ? raw : 640
+  const vpW = readExposedCssSize(viewportRef.value?.cssW)
   const next = followPlayheadScrollX({
     playheadTick: tick,
     scrollX: p.view.scrollX,
@@ -508,6 +509,29 @@ function followPlayheadIntoView(tick: number): void {
     ppq: p.ppq,
   })
   if (next != null) store.setScroll(next, p.view.scrollY)
+}
+
+/** After arrow-key note selection: page-scroll so the note is on-screen. */
+function ensureSelectedNoteInView(): void {
+  const p = store.current
+  if (!p || (p.view.mode === 'view' && p.view.scoreSurface === 'sheet')) return
+  const id = store.selectedNoteId
+  const note = id ? p.notes.find((n) => n.id === id) : null
+  if (!note) return
+  const vpW = readExposedCssSize(viewportRef.value?.cssW)
+  const cssH = readExposedCssSize(viewportRef.value?.cssH)
+  const pitchH = Math.max(1, cssH - headerBandH.value)
+  const next = pageScrollToRevealTagNote(note, {
+    scrollX: p.view.scrollX,
+    scrollY: p.view.scrollY,
+    cellW: p.view.cellW,
+    cellH: p.view.cellH,
+    viewportW: vpW,
+    viewportH: pitchH,
+    lengthTicks: p.lengthTicks,
+    ppq: p.ppq,
+  })
+  if (next) store.setScroll(next.scrollX, next.scrollY)
 }
 
 function onUserPlayhead(tick: number): void {
@@ -533,9 +557,13 @@ async function auditionMidi(midi: number): Promise<void> {
   if (store.transportPlaying) return
   const tone = ensurePlayer()
   const name = midiToNote(midi)
+  const gen = ++auditionGen
   tone.allNotesOff(false)
   await tone.noteOn(name)
-  window.setTimeout(() => tone.noteOff(name, true), 450)
+  window.setTimeout(() => {
+    if (gen !== auditionGen) return
+    tone.noteOff(name, true)
+  }, 450)
 }
 
 const audioApi: TagRollAudioApi = {
@@ -596,6 +624,7 @@ watch(
       return
     }
     titleDraft.value = p.title
+    titleEditing.value = false
     rebuildScheduler()
   },
 )
@@ -604,6 +633,7 @@ watch(
   () => project.value?.view.mode,
   (mode) => {
     if (mode !== 'view') return
+    titleEditing.value = false
     harmonizeOpen.value = false
     partsOpen.value = false
     ghostNotes.value = []
@@ -653,6 +683,26 @@ function onTitleBlur(): void {
   if (project.value && t !== project.value.title) {
     store.patchProject({ title: t })
   }
+}
+
+async function startTitleEdit(): Promise<void> {
+  if (project.value?.view.mode === 'view') return
+  titleDraft.value = project.value?.title ?? titleDraft.value
+  titleEditing.value = true
+  await nextTick()
+  const el = titleInputRef.value
+  el?.focus()
+  el?.select()
+}
+
+function cancelTitleEdit(): void {
+  titleDraft.value = project.value?.title ?? titleDraft.value
+  titleEditing.value = false
+}
+
+function commitTitleEdit(): void {
+  onTitleBlur()
+  titleEditing.value = false
 }
 
 function snapPlayheadToGrid(): void {
@@ -1017,6 +1067,8 @@ const {
   assignRolesMelodyName,
   assignRolesSelectedRole,
   onToggleChordPillar,
+  onToggleLanePillar,
+  onToggleDetectedPillar,
 } = useAssignNoteRoles({
   project,
   arrangingEnabled,
@@ -1130,7 +1182,7 @@ function onHarmonyCommitAt(payload: {
   const existing = payload.id
     ? (p.harmonySketch ?? []).find((s) => s.id === payload.id)
     : undefined
-  store.upsertHarmonySketchSpan({
+  const id = store.upsertHarmonySketchSpan({
     id: payload.id,
     startTick: payload.startTick,
     endTick: Math.max(payload.startTick + 1, payload.endTick),
@@ -1141,6 +1193,13 @@ function onHarmonyCommitAt(payload: {
     ...(existing ? {} : {}),
   })
   syncSketchToCoachPillars()
+  // New paint (no existing id): select the span and open the Sketch chord dock.
+  if (!payload.id && id) {
+    void nextTick(() => {
+      const seg = chordDeclaredSegments.value.find((s) => s.id === id)
+      if (seg) onLaneChordEdit('declared', seg)
+    })
+  }
 }
 
 function onHarmonyGeometry(payload: { id: string; startTick: number; endTick: number }): void {
@@ -1308,8 +1367,37 @@ function toggleHarmonize(): void {
   else {
     closeChordEdit()
     coachOpen.value = false
+    store.assignNoteRolesActive = false
     harmonizeOpen.value = true
   }
+}
+
+function toggleRoles(): void {
+  if (store.assignNoteRolesActive) {
+    store.assignNoteRolesActive = false
+    return
+  }
+  closeChordEdit()
+  coachOpen.value = false
+  marksOpen.value = false
+  if (harmonizeOpen.value) onHarmonizeClose()
+  store.assignNoteRolesActive = true
+  // Show role chrome only — melody stripes stay off until Marks toggles them.
+  if (project.value?.view.roleDisplay === 'off') store.setRoleDisplay('roles')
+  const arr = arrStore.current
+  if (arr && project.value && arr.id === `arr_${project.value.id}`) {
+    store.importMelodyRolesFromArrangement(arr.melody)
+  }
+}
+
+function toggleMarks(): void {
+  if (marksOpen.value) {
+    marksOpen.value = false
+    return
+  }
+  marksOpen.value = true
+  partsOpen.value = false
+  mixerOpen.value = false
 }
 
 function toggleParts(): void {
@@ -1318,12 +1406,16 @@ function toggleParts(): void {
     return
   }
   partsOpen.value = true
+  marksOpen.value = false
   mixerOpen.value = false
 }
 
 function onToggleMixer(): void {
   mixerOpen.value = !mixerOpen.value
-  if (mixerOpen.value) partsOpen.value = false
+  if (mixerOpen.value) {
+    partsOpen.value = false
+    marksOpen.value = false
+  }
 }
 
 function nudgePlayhead(dir: -1 | 1): void {
@@ -1431,7 +1523,7 @@ function onKeyDown(e: KeyboardEvent): void {
   if (mod && key === 'Backspace') {
     if (readOnly) return
     e.preventDefault()
-    if (harmonizeOpen.value) harmonizeRef.value?.onCancel()
+    if (harmonizeOpen.value) store.undo()
     else store.cancelLastEdit()
     return
   }
@@ -1506,6 +1598,10 @@ function onKeyDown(e: KeyboardEvent): void {
       partsOpen.value = false
       return
     }
+    if (marksOpen.value) {
+      marksOpen.value = false
+      return
+    }
     if (mixerOpen.value) {
       mixerOpen.value = false
       return
@@ -1520,6 +1616,13 @@ function onKeyDown(e: KeyboardEvent): void {
     }
     if (!prefs.tagRollLyricsLaneCollapsed) {
       prefs.setTagRollLaneCollapsed('lyrics', true)
+      return
+    }
+    // Measure / inspect range limits play-until — clear it so Space plays from the cursor freely.
+    if (chordCursor.value) {
+      clearChordCursor()
+      clearInspectPlaybackRewind()
+      store.selectNote(null)
       return
     }
     store.selectNote(null)
@@ -1539,6 +1642,15 @@ function onKeyDown(e: KeyboardEvent): void {
     e.preventDefault()
     const mode = project.value.view.mode
     const hasSel = store.selectedNoteIds.length > 0
+    if (
+      harmonizeOpen.value &&
+      !e.shiftKey &&
+      (key === 'ArrowLeft' || key === 'ArrowRight')
+    ) {
+      harmonizeRef.value?.step(key === 'ArrowLeft' ? -1 : 1)
+      ensureSelectedNoteInView()
+      return
+    }
     if (hasSel && e.shiftKey && mode !== 'view') {
       const snap = project.value.snapTicks || 120
       if (key === 'ArrowLeft') nudgeSelectedNotes(0, -snap)
@@ -1547,7 +1659,10 @@ function onKeyDown(e: KeyboardEvent): void {
       else nudgeSelectedNotes(-1, 0)
       return
     }
-    if (hasSel && navigateSelectedNote(key)) return
+    if (hasSel && navigateSelectedNote(key)) {
+      ensureSelectedNoteInView()
+      return
+    }
     if (key === 'ArrowLeft') nudgePlayhead(-1)
     else if (key === 'ArrowRight') nudgePlayhead(1)
     return
@@ -1686,15 +1801,41 @@ function onKeyDown(e: KeyboardEvent): void {
       <RouterLink class="back" to="/tag-studio" :title="tagRollTip('Back to projects')">
         ← Projects
       </RouterLink>
-      <input
-        v-model="titleDraft"
-        class="title-input"
-        aria-label="Project title"
-        :title="tagRollTip('Project title')"
-        :readonly="project.view.mode === 'view'"
-        @blur="onTitleBlur"
-        @keydown.enter="($event.target as HTMLInputElement).blur()"
-      />
+      <div class="title-row" :class="{ editing: titleEditing }">
+        <template v-if="titleEditing">
+          <input
+            ref="titleInputRef"
+            v-model="titleDraft"
+            class="title-input"
+            aria-label="Project title"
+            :title="tagRollTip('Project title')"
+            @keydown.enter.prevent="commitTitleEdit"
+            @keydown.escape.prevent="cancelTitleEdit"
+          />
+          <label class="title-confirm" :title="tagRollTip('Apply title')">
+            <input
+              type="checkbox"
+              class="title-confirm-box"
+              aria-label="Apply title"
+              @change="commitTitleEdit"
+            />
+            <span class="title-confirm-mark" aria-hidden="true">✓</span>
+          </label>
+        </template>
+        <template v-else>
+          <h1 class="title-text" :title="project.title">{{ project.title || 'Untitled tag' }}</h1>
+          <button
+            v-if="project.view.mode !== 'view'"
+            type="button"
+            class="title-edit"
+            :title="tagRollTip('Edit title')"
+            aria-label="Edit title"
+            @click="startTitleEdit"
+          >
+            ✎
+          </button>
+        </template>
+      </div>
       <button
         type="button"
         class="shortcuts-btn"
@@ -1707,6 +1848,8 @@ function onKeyDown(e: KeyboardEvent): void {
 
     <TagRollToolbar
       :harmonize-open="harmonizeOpen"
+      :roles-open="store.assignNoteRolesActive"
+      :marks-open="marksOpen"
       :parts-open="partsOpen"
       :coach-open="coachOpen"
       :arranging-enabled="arrangingEnabled"
@@ -1716,6 +1859,8 @@ function onKeyDown(e: KeyboardEvent): void {
       @export-json="onExportJson"
       @save-library="onSaveLibrary"
       @open-harmonize="toggleHarmonize"
+      @open-roles="toggleRoles"
+      @open-marks="toggleMarks"
       @open-parts="toggleParts"
       @open-coach="toggleCoach"
     />
@@ -1757,7 +1902,10 @@ function onKeyDown(e: KeyboardEvent): void {
                 :active="store.assignNoteRolesActive"
                 :melody-part-name="assignRolesMelodyName"
                 :selected-role="assignRolesSelectedRole"
+                :role-display="project.view.roleDisplay ?? 'off'"
                 @close="store.assignNoteRolesActive = false"
+                @update:role-display="(d) => store.setRoleDisplay(d)"
+                @open-marks="toggleMarks"
               />
               <TagRollSheetViewport
                 v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
@@ -1819,6 +1967,7 @@ function onKeyDown(e: KeyboardEvent): void {
             @hear-stop="onStopHearHarmonySketch"
             @remove="onRemoveHarmonySketch"
             @edit="(seg) => onLaneChordEdit('declared', seg)"
+            @toggle-pillar="onToggleLanePillar"
             @commit-at="onHarmonyCommitAt"
             @geometry="onHarmonyGeometry"
             @geometry-many="onHarmonyGeometryMany"
@@ -1836,6 +1985,7 @@ function onKeyDown(e: KeyboardEvent): void {
             @update:mode="setChordDetectedMode"
             @focus-range="relayCoachFocusRange"
             @edit="(seg) => onLaneChordEdit('detected', seg)"
+            @toggle-pillar="onToggleDetectedPillar"
             @lock-all="onLockAllDetected"
           />
           <TagRollExpressionLane
@@ -1876,6 +2026,7 @@ function onKeyDown(e: KeyboardEvent): void {
         <TagRollHarmonizePanel
           v-else-if="harmonizeOpen && project.view.mode !== 'view'"
           ref="harmonizeRef" :open="true" :allow-pop-out="!isPopoutWindow"
+          :detect-segments="chordDetectSegments"
           @close="onHarmonizeClose" @pop-out="onHarmonizePopOut"
           @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
           @update:preview="onHarmonyPreview" @declared="syncSketchToCoachPillars"
@@ -1893,6 +2044,7 @@ function onKeyDown(e: KeyboardEvent): void {
     </div>
 
     <TagRollPartsPanel v-if="project.view.mode !== 'view'" :open="partsOpen" @close="partsOpen = false" />
+    <TagRollViewFiltersPanel :open="marksOpen" @close="marksOpen = false" />
     <TagRollMixerPanel :open="mixerOpen" @close="mixerOpen = false" />
     <TagRollShortcutsOverlay :open="shortcutsOpen" @close="shortcutsOpen = false" />
     <ConfirmDialog
@@ -1933,9 +2085,54 @@ function onKeyDown(e: KeyboardEvent): void {
   font-weight: 600;
   font-size: 0.9rem;
 }
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: min(36rem, 70vw);
+}
+.title-row.editing {
+  max-width: none;
+}
+.title-text {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  line-height: 1.25;
+}
+.title-edit {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+}
+.title-edit:hover {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
 .title-input {
-  min-width: 10rem;
-  max-width: min(22rem, 70vw);
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
   min-height: 40px;
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--border);
@@ -1945,6 +2142,35 @@ function onKeyDown(e: KeyboardEvent): void {
   font: inherit;
   font-weight: 650;
   font-size: 1.05rem;
+}
+.title-confirm {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, #2a8c5a 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, #2a8c5a 14%, var(--surface));
+  cursor: pointer;
+}
+.title-confirm-box {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.title-confirm-mark {
+  font-weight: 800;
+  font-size: 1rem;
+  color: #1f6b45;
+  pointer-events: none;
+}
+.title-confirm:hover {
+  background: color-mix(in srgb, #2a8c5a 22%, var(--surface));
 }
 .shortcuts-btn {
   margin-left: auto;

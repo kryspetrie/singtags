@@ -1,96 +1,111 @@
 <script setup lang="ts">
 /**
- * Coach mode landing — pick Arrange or Review.
+ * Coach Home — intended Tag Studio + Coach workflow (landing page).
  */
-import { COACH_MODE_CARDS, type CoachModeCard } from '../../domain/arranging/coachModeCatalog'
-import type { CoachUiMode } from '../../domain/arranging/coachTips'
-
-defineProps<{
-  progressLabel: string
+defineEmits<{
+  continue: []
 }>()
-
-const emit = defineEmits<{
-  pick: [mode: CoachUiMode]
-}>()
-
-const cards: readonly CoachModeCard[] = COACH_MODE_CARDS
 </script>
 
 <template>
-  <div class="landing" aria-label="Choose coach mode">
+  <section class="landing" aria-label="Coach workflow">
+    <h3 class="title">How to use Coach</h3>
     <p class="lead">
-      Pick how you want to work. You can return here anytime with
-      <strong>← Modes</strong>.
+      Coach walks the chart after the roll owns melody and the harmony map. Use the step rail
+      (Home → Chords → Check → Polish); we remember where you left off.
     </p>
-    <p class="progress">{{ progressLabel }}</p>
-    <ul class="cards">
-      <li v-for="c in cards" :key="c.id">
-        <button type="button" class="card" @click="emit('pick', c.id)">
-          <span class="title">{{ c.title }}</span>
-          <span class="tag">{{ c.tagline }}</span>
-          <span class="body">{{ c.body }}</span>
-        </button>
+
+    <ol class="steps">
+      <li>
+        <strong>Melody &amp; roles on the roll</strong>
+        <span>
+          Toolbar → Roles: set the Melody part (M), then mark Strong / Passing (S / P). Those
+          labels feed Detected, Harmonize, and Coach suggestions.
+        </span>
       </li>
-    </ul>
-  </div>
+      <li>
+        <strong>Sketch the harmony map</strong>
+        <span>
+          Lock phrase chords in the Sketch lane, or mark pillars directly on Detected
+          (◆ / Alt+click locks that hole as a home root). Dock Pillar works on either lane.
+        </span>
+      </li>
+      <li>
+        <strong>Chords</strong>
+        <span>
+          Walk each Lead moment, hear ranked voicings, and Apply. Prefer textbook cadences
+          (V7→I, II7→V7→I, I7→IV) when the melody implies them.
+        </span>
+      </li>
+      <li>
+        <strong>Check</strong>
+        <span>
+          Clear craft issues in range. Learn explains the rule; Fix all safe applies only
+          automatic repairs.
+        </span>
+      </li>
+      <li>
+        <strong>Polish</strong>
+        <span>
+          Path-optimize inversions for voice leading and ring, strengthen approaches, then
+          export. Contest / tuning prefs live under Settings (gear).
+        </span>
+      </li>
+    </ol>
+
+    <button type="button" class="primary" @click="$emit('continue')">
+      Continue to Chords
+    </button>
+  </section>
 </template>
 
 <style scoped>
 .landing {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.15rem 0.1rem 0.5rem;
+}
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
 }
 .lead {
   margin: 0;
   font-size: 0.84rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text);
 }
-.progress {
+.steps {
   margin: 0;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-.cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  padding: 0 0 0 1.15rem;
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
 }
-.card {
-  width: 100%;
+.steps li {
   display: grid;
-  gap: 0.25rem;
-  text-align: left;
-  padding: 0.7rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg, var(--surface));
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-}
-.card:hover {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-.title {
-  font-size: 1rem;
-  font-weight: 750;
-}
-.tag {
-  font-size: 0.78rem;
-  font-weight: 650;
-  color: color-mix(in srgb, var(--accent) 80%, var(--text));
-}
-.body {
+  gap: 0.2rem;
   font-size: 0.8rem;
   line-height: 1.4;
   color: var(--muted);
+}
+.steps strong {
+  color: var(--text);
+  font-size: 0.84rem;
+}
+.primary {
+  justify-self: start;
+  margin-top: 0.15rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+}
+.primary:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 </style>

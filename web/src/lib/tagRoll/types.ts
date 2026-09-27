@@ -34,8 +34,8 @@ export type TagRollMidiGroup = 'upper' | 'lower' | 'solo'
 
 /**
  * Barbershop clef family for sheet view:
- * - ttbb (men’s): treble-8va-bassa upper, normal bass lower
- * - ssaa (women’s): normal treble upper, bass-8va-alta lower
+ * - ttbb: treble-8va-bassa upper (tenor 8va), normal bass lower
+ * - ssaa: normal treble upper, bass-8va-alta lower (bass 8va)
  */
 export type TagRollClefFamily = 'ttbb' | 'ssaa'
 
@@ -55,11 +55,19 @@ export type TagRollNote = {
   startTick: number
   durationTicks: number
   lyric?: string
+  /**
+   * Melody weight for arranging / Detected (Strong / Passing).
+   * Meaningful on the melody part; ignored elsewhere.
+   */
+  role?: TagRollMelodyRole
 }
+
+/** Strong (pmn) / Passing (smn) / unlabeled — mirrors arrangement MelodyRole. */
+export type TagRollMelodyRole = 'pmn' | 'smn' | 'unknown'
 
 /**
  * Melody handoff between parts (Lead → Bari, etc.).
- * Drawn as a dashed center-to-center line on the piano roll.
+ * Drawn as a dashed center-to-center line on the piano roll / sheet cue.
  */
 export type TagRollMelodyPass = {
   id: string
@@ -107,6 +115,9 @@ export type TagRollEditorMode = 'view' | 'compose' | 'lyrics'
 
 /** View-mode surface: piano roll (default) or engraved sheet. */
 export type TagRollScoreSurface = 'roll' | 'sheet'
+
+/** Piano-roll filter for melody / Strong–Passing chrome. */
+export type TagRollRoleDisplay = 'off' | 'melody' | 'roles' | 'both'
 
 /** Compose/Lyrics pointer: edit notes vs pan the grid (hand tool). */
 export type TagRollPointerTool = 'edit' | 'pan'
@@ -200,6 +211,11 @@ export type TagRollViewPrefs = {
   focusActivePart: boolean
   /** Shade out-of-scale pitch rows from project tonality (major). */
   scaleHighlight: boolean
+  /**
+   * Piano-roll chrome for global melody / Strong–Passing.
+   * off | melody outer border | role-colored border | both (role inner + melody outer).
+   */
+  roleDisplay: TagRollRoleDisplay
   /** View mode: piano roll (default) or sheet music. */
   scoreSurface: TagRollScoreSurface
   /** Sheet surface: pixels per beat (independent of piano-roll cellW). */
@@ -260,7 +276,7 @@ export type TagRollProject = {
   /** Major vs minor feel for scale highlight / engraved key. Default major. */
   tonalityMode: 'major' | 'minor'
   preferFlats: boolean
-  /** Men’s (ttbb) or women’s (ssaa) barbershop clefs for sheet view. Default ttbb. */
+  /** TTBB (tenor 8va) or SSAA (bass 8va) clefs for sheet view. Default ttbb. */
   clefFamily: TagRollClefFamily
   parts: TagRollPart[]
   /** Per-part mute/solo/pan/volume. */
@@ -309,6 +325,8 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   playheadTick: 0,
   focusActivePart: false,
   scaleHighlight: true,
+  /** Opt-in chrome — roll stays clean until Marks / Roles turns filters on. */
+  roleDisplay: 'off',
   scoreSurface: 'roll',
   sheetZoom: 40,
   sheetShowLyrics: true,

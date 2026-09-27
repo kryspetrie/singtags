@@ -16,7 +16,14 @@ import {
   type CoachLaneMarker,
   type CoachLanePillarBand,
 } from '../../lib/arranging/coachLaneMetrics'
-import { melodyRoleLaneMark } from '../../domain/arranging/melodyRoleLabels'
+import {
+  MELODY_PART_BORDER_COLOR,
+  MELODY_PART_BORDER_WIDTH,
+  MELODY_ROLE_BORDER_WIDTH,
+  MELODY_ROLE_RING_GAP,
+  melodyRoleBorderColor,
+  paintOutsetBorderFrame,
+} from '../../domain/arranging/melodyRoleLabels'
 import {
   COACH_LANE_LENSES,
   subscribeCoachHighlight,
@@ -245,9 +252,27 @@ function draw(): void {
 
     const role = arrStore.current?.melody.find((n) => n.id === m.melodyId)?.role
     if (role === 'pmn' || role === 'smn') {
-      ctx.fillStyle = role === 'pmn' ? 'rgba(42, 140, 90, 0.95)' : 'rgba(91, 61, 143, 0.9)'
-      ctx.font = '700 9px system-ui, sans-serif'
-      ctx.fillText(melodyRoleLaneMark(role), x + 2, BAR_TOP + 10)
+      // Outward rings around the moment bar (role closest, melody outside).
+      paintOutsetBorderFrame(
+        ctx,
+        x,
+        BAR_TOP,
+        bw,
+        BAR_H,
+        MELODY_ROLE_BORDER_WIDTH + MELODY_ROLE_RING_GAP,
+        MELODY_PART_BORDER_WIDTH,
+        MELODY_PART_BORDER_COLOR,
+      )
+      paintOutsetBorderFrame(
+        ctx,
+        x,
+        BAR_TOP,
+        bw,
+        BAR_H,
+        0,
+        MELODY_ROLE_BORDER_WIDTH,
+        melodyRoleBorderColor(role),
+      )
     }
 
     const hl = highlight.value

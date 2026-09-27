@@ -64,7 +64,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'melody_pass',
     term: 'Melody pass',
     short:
-      'When the tune hands off to another part: Ctrl/Cmd-click two notes on different parts (earlier → later), then Link melody pass in the bar under the roll. A dashed center-to-center line appears; Unlink removes it.',
+      'The tune is the Roles melody part (Toolbar → Roles, M on a note). Sheet outlines that voice and shows St/Pa marks for Strong/Passing. Optional cross-part handoff links still draw as dashed lines on the piano roll when present.',
     citations: [bam('voicing / melody in other parts'), pri('melody swaps')],
   },
   {

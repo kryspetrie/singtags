@@ -2,7 +2,10 @@
  * One-click Harmonize chord options (root + quality together).
  * Valid = lead is a chord tone; More = remaining catalog for browsing.
  */
-import { romanForChord } from '../../../domain/arranging/secondaryDominant'
+import {
+  formatRomanWithAlt,
+  romanForChordDetailed,
+} from '../../../domain/arranging/secondaryDominant'
 import type { TonalityMode } from '../../../domain/arranging/types'
 import {
   BARBERSHOP_CHORDS,
@@ -18,8 +21,10 @@ export type HarmonizeChordOption = {
   chordId: string
   /** Absolute label e.g. C, G7, Am */
   name: string
-  /** Roman e.g. I, V7, vi */
+  /** Roman e.g. I, V7, V7/V (II7) */
   roman: string
+  /** Primary roman without alt (for matching / overrides). */
+  romanPrimary: string
   /** Lead is a tone of this chord. */
   validForLead: boolean
   /** Root is a diatonic scale degree (named ROOT_OFFSETS entry). */
@@ -40,6 +45,8 @@ export function buildHarmonizeChordOptions(opts: {
   leadMidi: number | null
   /** When true, primary list ignores lead-in-chord filter (declare anything). */
   chordOnly?: boolean
+  /** Next harmony root (Sketch / pillar) — enables V7/V, ii7/V dual labels. */
+  resolvesToRoot?: number | null
 }): { primary: HarmonizeChordOption[]; more: HarmonizeChordOption[] } {
   const mode = opts.mode ?? 'major'
   const tonality = ((opts.tonality % 12) + 12) % 12
@@ -54,18 +61,20 @@ export function buildHarmonizeChordOptions(opts: {
           ? true
           : chordContainsLead(chord, rootPc, opts.leadMidi)
       const name = `${pcName(rootPc, opts.preferFlats)}${chord.notation || ''}` || pcName(rootPc, opts.preferFlats)
-      const roman = romanForChord({
+      const detailed = romanForChordDetailed({
         rootPc,
         natureId: chord.id,
         tonality,
         mode,
+        resolvesToRoot: opts.resolvesToRoot ?? null,
       })
       all.push({
         rootOffset: r.offset,
         rootPc,
         chordId: chord.id,
         name: name || 'maj',
-        roman,
+        roman: formatRomanWithAlt(detailed.roman, detailed.altRoman),
+        romanPrimary: detailed.roman,
         validForLead,
         diatonicRoot,
       })

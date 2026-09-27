@@ -35,10 +35,6 @@ function toggleSingTogether(): void {
 function toggleTagStudio(): void {
   prefs.setTagRollEnabled(!prefs.tagRollEnabled)
 }
-
-function toggleArranging(): void {
-  prefs.setArrangingEnabled(!prefs.arrangingEnabled)
-}
 </script>
 
 <template>
@@ -64,7 +60,8 @@ function toggleArranging(): void {
       <h2 id="tag-studio-h" class="card-title">Tag Studio</h2>
       <p class="card-desc">
         Sketch original tags on a piano-roll grid — polyphonic parts, playback, lyrics, MIDI export,
-        and Save to My Library. Experimental Labs composer.
+        Save to My Library, and the Arranging Coach (pillars, ranked suggestions, Check / Polish).
+        Experimental Labs composer.
       </p>
 
       <label
@@ -77,7 +74,7 @@ function toggleArranging(): void {
           <span class="setting-desc">
             {{
               prefs.tagRollEnabled
-                ? 'Feature available — open from More → Tag Studio'
+                ? 'Feature available — open from More → Tag Studio (Coach included)'
                 : 'Off — More link and /tag-studio stay hidden'
             }}
           </span>
@@ -90,41 +87,6 @@ function toggleArranging(): void {
           :aria-checked="prefs.tagRollEnabled"
           aria-label="Tag Studio"
           @change="toggleTagStudio"
-        />
-      </label>
-    </section>
-
-    <section class="card" aria-labelledby="arranging-h">
-      <h2 id="arranging-h" class="card-title">Arranging</h2>
-      <p class="card-desc">
-        Arranging coach in Tag Studio: set home (pillar) chords on the Coach lane, lock them,
-        then walk moments with ranked suggestions. Enable here, then open Tag Studio
-        and click <strong>Coach</strong>.
-      </p>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.arrangingEnabled }"
-        title="Enable Arranging coach dock in Tag Studio"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Arranging</span>
-          <span class="setting-desc">
-            {{
-              prefs.arrangingEnabled
-                ? 'On — open Tag Studio → Coach'
-                : 'Off — coach toggle hidden in Tag Studio'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.arrangingEnabled"
-          :aria-checked="prefs.arrangingEnabled"
-          aria-label="Arranging"
-          @change="toggleArranging"
         />
       </label>
     </section>

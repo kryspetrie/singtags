@@ -100,6 +100,7 @@ function stemLength(lineGap: number, flags: number): number {
 }
 
 function showsLyrics(e: SheetRhythmEvent): boolean {
+  if (e.isMelody) return true
   return e.role === 'lead' || e.role === 'solo'
 }
 

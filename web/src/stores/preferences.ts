@@ -186,6 +186,7 @@ const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
 const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
 const TAG_ROLL_COACH_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.coachLaneCollapsed.v1'
+const TAG_ROLL_COACH_GUIDED_STEP_KEY = 'singtags.labs.tagRoll.coachGuidedStep.v1'
 /** @deprecated migrated to chordsLaneCollapsed */
 const TAG_ROLL_DECLARED_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.declaredLaneCollapsed.v1'
 const TAG_ROLL_CHORDS_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.chordsLaneCollapsed.v1'
@@ -676,12 +677,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const singTogetherEnabled = ref(loadBool(SING_TOGETHER_ENABLED_KEY, false))
   /**
    * Labs: when true, Tag Studio (More → Tag Studio, /tag-studio) is available.
+   * Coach / arranging surfaces ship with Tag Studio — no separate labs gate.
    */
   const tagRollEnabled = ref(loadBool(TAG_ROLL_ENABLED_KEY, false))
-  /**
-   * Labs: when true, Arranging coach will be available (routes/package not wired yet).
-   */
-  const arrangingEnabled = ref(loadBool(ARRANGING_ENABLED_KEY, false))
+  /** Always mirrors Tag Studio — kept for callers that still check arrangingEnabled. */
+  const arrangingEnabled = computed(() => tagRollEnabled.value)
   const tagRollCellW = ref(loadNumber(TAG_ROLL_CELL_W_KEY, 28))
   const tagRollCellH = ref(loadNumber(TAG_ROLL_CELL_H_KEY, 14))
   const tagRollMetronomeSound = ref<MetronomeSoundId>(
@@ -700,6 +700,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, true),
   )
   const tagRollCoachLaneCollapsed = ref(loadBool(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, true))
+  /** Last Coach rail page (home | chords | check | polish). */
+  const tagRollCoachGuidedStep = ref(
+    loadString(TAG_ROLL_COACH_GUIDED_STEP_KEY, 'home') || 'home',
+  )
   /** Chords lane (locked harmony map). Migrates legacy Declared collapse pref. */
   const tagRollChordsLaneCollapsed = ref(
     (() => {
@@ -1004,17 +1008,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     (v) => {
       try {
         localStorage.setItem(TAG_ROLL_ENABLED_KEY, v ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
-    },
-    { flush: 'sync' },
-  )
-
-  watch(
-    arrangingEnabled,
-    (v) => {
-      try {
+        // Legacy key — keep in sync so old builds / bookmarks don't leave Coach off.
         localStorage.setItem(ARRANGING_ENABLED_KEY, v ? '1' : '0')
       } catch {
         /* ignore */
@@ -1599,14 +1593,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singTogetherEnabled.value = on
   }
 
-  /** Labs: enable/disable Tag Roll piano-roll composer. */
+  /** Labs: enable/disable Tag Studio (includes Coach). */
   function setTagRollEnabled(on: boolean): void {
     tagRollEnabled.value = on
   }
 
-  /** Labs: enable/disable Arranging coach gate (no routes until package port). */
+  /**
+   * @deprecated Coach tracks Tag Studio — prefer setTagRollEnabled.
+   */
   function setArrangingEnabled(on: boolean): void {
-    arrangingEnabled.value = on
+    setTagRollEnabled(on)
   }
 
   /** Remember last Tag Roll cell size for new projects. */
@@ -1638,6 +1634,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function setTagRollCoachLaneCollapsed(on: boolean): void {
     tagRollCoachLaneCollapsed.value = !!on
     localStorage.setItem(TAG_ROLL_COACH_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  /** Remember the last Coach step rail page across sessions. */
+  function setTagRollCoachGuidedStep(step: string): void {
+    const id = String(step || 'home')
+    tagRollCoachGuidedStep.value = id
+    localStorage.setItem(TAG_ROLL_COACH_GUIDED_STEP_KEY, id)
   }
 
   function setTagRollChordsLaneCollapsed(on: boolean): void {
@@ -1863,6 +1866,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollMetronomeVolume,
     tagRollExpressionLaneCollapsed,
     tagRollCoachLaneCollapsed,
+    tagRollCoachGuidedStep,
     tagRollChordsLaneCollapsed,
     /** @deprecated Prefer tagRollChordsLaneCollapsed */
     tagRollDeclaredLaneCollapsed: tagRollChordsLaneCollapsed,
@@ -1919,6 +1923,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollMetronomeVolume,
     setTagRollExpressionLaneCollapsed,
     setTagRollCoachLaneCollapsed,
+    setTagRollCoachGuidedStep,
     setTagRollChordsLaneCollapsed,
     setTagRollDeclaredLaneCollapsed,
     setTagRollDetectedLaneCollapsed,

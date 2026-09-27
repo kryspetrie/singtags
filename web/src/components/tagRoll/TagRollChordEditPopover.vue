@@ -13,9 +13,10 @@ import {
   type HarmonizeChordOption,
 } from '../../lib/tagRoll/harmonizer/chordPickOptions'
 import {
+  authoritativeSketch,
   isHarmonySketchQuality,
   sketchLabel,
-  sketchRoman,
+  sketchRomanDisplay,
 } from '../../lib/tagRoll/harmonySketch'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
@@ -132,7 +133,12 @@ const previewLabel = computed(() => {
   const d = draft.value
   if (!d) return props.mode === 'roman' ? props.seg.displayRoman : props.seg.displayName
   if (props.mode === 'roman') {
-    return sketchRoman(d, props.project.tonality, props.project.tonalityMode ?? 'major')
+    return sketchRomanDisplay(
+      d,
+      props.project.tonality,
+      props.project.tonalityMode ?? 'major',
+      resolvesToRoot.value,
+    )
   }
   return sketchLabel(
     d,
@@ -146,6 +152,15 @@ const leadLabel = computed(() =>
   props.leadMidi != null ? midiToNote(props.leadMidi) : null,
 )
 
+/** Next Sketch / Detected root after this span — dual Number labels. */
+const resolvesToRoot = computed((): number | null => {
+  const sketch = authoritativeSketch(props.project.harmonySketch ?? [])
+  const next = sketch.find((s) => s.startTick >= props.seg.endTick && s.id !== props.seg.id)
+  if (next) return next.rootPc
+  // Detected hole: look at later Detected segments via name isn't available — use locked sketch only.
+  return null
+})
+
 const chordLists = computed(() =>
   buildHarmonizeChordOptions({
     tonality: props.project.tonality,
@@ -153,6 +168,7 @@ const chordLists = computed(() =>
     preferFlats: props.project.preferFlats,
     leadMidi: props.leadMidi ?? null,
     chordOnly: false,
+    resolvesToRoot: resolvesToRoot.value,
   }),
 )
 

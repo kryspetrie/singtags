@@ -95,10 +95,11 @@ function rootNameLabel(opts: readonly HarmonizeChordOption[]): string {
 
 function rootRomanLabel(opts: readonly HarmonizeChordOption[]): string {
   const maj = opts.find((o) => o.chordId === 'major')
-  if (maj) return maj.roman
+  if (maj) return maj.romanPrimary || maj.roman
   const first = opts[0]!
-  const m = first.roman.match(/^([b#]?[ivIV]+)/)
-  return m?.[1] ?? first.roman
+  const primary = first.romanPrimary || first.roman
+  const m = primary.match(/^([b#♭♯]?[ivIV]+)/)
+  return m?.[1] ?? primary
 }
 
 function groupByRoot(options: readonly HarmonizeChordOption[]): RootChordGroup[] {

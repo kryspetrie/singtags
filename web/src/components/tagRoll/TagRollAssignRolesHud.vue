@@ -1,22 +1,55 @@
 <script setup lang="ts">
 /**
- * Thin HUD for Assign Note Roles (Strong / Passing / Melody) on the piano roll.
+ * Thin HUD for Melody roles (Strong / Passing / Melody) on the piano roll.
  */
-defineProps<{
+import { computed } from 'vue'
+import InfoTips from '../InfoTips.vue'
+import { ROLES_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
+import {
+  roleDisplayFromToggles,
+  roleDisplayShowsMelody,
+  roleDisplayShowsRoles,
+} from '../../lib/tagRoll/roleDisplay'
+import type { TagRollRoleDisplay } from '../../lib/tagRoll/types'
+
+const props = defineProps<{
   active: boolean
   melodyPartName: string | null
   selectedRole: 'pmn' | 'smn' | 'unknown' | null
+  roleDisplay: TagRollRoleDisplay
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
+  'update:roleDisplay': [TagRollRoleDisplay]
+  openMarks: []
 }>()
+
+const showMelody = computed(() => roleDisplayShowsMelody(props.roleDisplay))
+const showRoles = computed(() => roleDisplayShowsRoles(props.roleDisplay))
+
+function setMelody(on: boolean): void {
+  emit('update:roleDisplay', roleDisplayFromToggles(on, showRoles.value))
+}
+
+function setRoles(on: boolean): void {
+  emit('update:roleDisplay', roleDisplayFromToggles(showMelody.value, on))
+}
 </script>
 
 <template>
   <div v-if="active" class="hud" role="status" aria-live="polite">
     <div class="main">
-      <strong>Assign Note Roles</strong>
+      <strong>Melody roles</strong>
+      <InfoTips class="howto" label="How to use Melody roles" title="How to use Melody roles">
+        <section v-for="sec in ROLES_HOWTO" :key="sec.title" class="howto-sec">
+          <h4>{{ sec.title }}</h4>
+          <p>{{ sec.body }}</p>
+          <ol v-if="sec.steps?.length">
+            <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+          </ol>
+        </section>
+      </InfoTips>
       <span class="sep">·</span>
       <span>←→ part notes</span>
       <span class="sep">·</span>
@@ -30,6 +63,26 @@ defineEmits<{
       <span v-if="melodyPartName" class="mel">Melody: {{ melodyPartName }}</span>
       <span v-if="selectedRole === 'pmn'" class="role pmn">Strong</span>
       <span v-else-if="selectedRole === 'smn'" class="role smn">Passing</span>
+      <span class="sep">·</span>
+      <label class="tog" title="Show red Melody stripe">
+        <input
+          type="checkbox"
+          :checked="showMelody"
+          @change="setMelody(($event.target as HTMLInputElement).checked)"
+        />
+        Melody
+      </label>
+      <label class="tog" title="Show Strong / Passing stripes">
+        <input
+          type="checkbox"
+          :checked="showRoles"
+          @change="setRoles(($event.target as HTMLInputElement).checked)"
+        />
+        Roles
+      </label>
+      <button type="button" class="filter" title="Open View marks" @click="emit('openMarks')">
+        Marks…
+      </button>
     </div>
     <button type="button" class="close" title="Exit (Esc)" @click="$emit('close')">✕</button>
   </div>
@@ -62,6 +115,28 @@ defineEmits<{
   gap: 0.35rem;
   min-width: 0;
 }
+.howto {
+  display: inline-flex;
+  align-items: center;
+}
+.howto-sec + .howto-sec {
+  margin-top: 0.65rem;
+}
+.howto-sec h4 {
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
+}
+.howto-sec p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.howto-sec ol {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
 .sep {
   color: var(--muted);
 }
@@ -86,14 +161,37 @@ kbd {
   border: 1px solid var(--border);
 }
 .role.pmn {
+  color: #9a7a10;
+  border-color: color-mix(in srgb, #d4a81c 55%, var(--border));
+  background: color-mix(in srgb, #d4a81c 16%, transparent);
+}
+.role.smn {
   color: #1f6b45;
   border-color: color-mix(in srgb, #2a8c5a 45%, var(--border));
   background: color-mix(in srgb, #2a8c5a 14%, transparent);
 }
-.role.smn {
-  color: #5b3d8f;
-  border-color: color-mix(in srgb, #5b3d8f 40%, var(--border));
-  background: color-mix(in srgb, #5b3d8f 12%, transparent);
+.tog {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-weight: 650;
+  cursor: pointer;
+  user-select: none;
+}
+.tog input {
+  margin: 0;
+}
+.filter {
+  margin-left: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0.12rem 0.4rem;
+  color: var(--text);
 }
 .close {
   border: none;

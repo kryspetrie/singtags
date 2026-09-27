@@ -35,6 +35,7 @@ import {
   type TagRollNote,
   type TagRollPart,
   type TagRollProject,
+  type TagRollRoleDisplay,
   type TagRollScoreSurface,
   type TagRollTempoMarker,
   type TagRollViewPrefs,
@@ -72,6 +73,11 @@ export function normalizeScoreSurface(v: unknown): TagRollScoreSurface {
   return v === 'sheet' ? 'sheet' : 'roll'
 }
 
+export function normalizeRoleDisplay(v: unknown): TagRollRoleDisplay {
+  if (v === 'off' || v === 'melody' || v === 'roles' || v === 'both') return v
+  return TAG_ROLL_DEFAULT_VIEW.roleDisplay
+}
+
 export function normalizeTagRollPart(raw: unknown, fallbackIndex = 0): TagRollPart {
   const d = TAG_ROLL_DEFAULT_PARTS[fallbackIndex % TAG_ROLL_DEFAULT_PARTS.length]!
   const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
@@ -98,7 +104,17 @@ export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
   const durationTicks = Math.max(1, Math.round(Number(o.durationTicks)) || TAG_ROLL_DEFAULT_SNAP_TICKS)
   const lyric =
     typeof o.lyric === 'string' && o.lyric.length ? o.lyric : undefined
-  return { id, partId, midi, startTick, durationTicks, ...(lyric != null ? { lyric } : {}) }
+  const role =
+    o.role === 'pmn' || o.role === 'smn' ? o.role : undefined
+  return {
+    id,
+    partId,
+    midi,
+    startTick,
+    durationTicks,
+    ...(lyric != null ? { lyric } : {}),
+    ...(role ? { role } : {}),
+  }
 }
 
 export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRollViewPrefs {
@@ -126,6 +142,7 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
     playheadTick: Math.max(0, Math.round(Number(o.playheadTick)) || 0),
     focusActivePart: Boolean(o.focusActivePart),
     scaleHighlight: o.scaleHighlight === undefined ? true : Boolean(o.scaleHighlight),
+    roleDisplay: normalizeRoleDisplay(o.roleDisplay),
     scoreSurface: normalizeScoreSurface(o.scoreSurface),
     sheetZoom: clamp(
       Math.round(Number(o.sheetZoom) || TAG_ROLL_DEFAULT_VIEW.sheetZoom),

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { useCoachTransport } from './useCoachTransport'
 
 const base = {
-  guidedStepLabel: computed(() => 'Pillars'),
+  guidedStepLabel: computed(() => 'Home'),
   pillarStatus: computed(() => '2/3 locked'),
   momentStatus: computed(() => ''),
   rolesStatus: computed(() => ''),
@@ -21,30 +21,15 @@ const base = {
 }
 
 describe('useCoachTransport', () => {
-  it('pillars step exposes propose + hear + lock', () => {
+  it('home step offers Start Chords', () => {
     const view = useCoachTransport({
       ...base,
-      guidedStep: computed(() => 'pillars' as const),
+      guidedStep: computed(() => 'home' as const),
       repairTour: computed(() => false),
-      selectedPil: computed(() => ({ confirmed: false })),
-    })
-    expect(view.value.primaryLabel).toMatch(/Propose next/)
-    expect(view.value.showLock).toBe(true)
-    expect(view.value.showSkip).toBe(true)
-  })
-
-  it('repair tour uses review label on pillars', () => {
-    const repair = ref(true)
-    const view = useCoachTransport({
-      ...base,
-      guidedStep: computed(() => 'pillars' as const),
-      repairTour: computed(() => repair.value),
-      pillarsLen: computed(() => 0),
-      melodyLen: computed(() => 1),
-      momentsLen: computed(() => 1),
       selectedPil: computed(() => null),
     })
-    expect(view.value.primaryLabel).toBe('Review home roots')
+    expect(view.value.primaryLabel).toBe('Start Chords')
+    expect(view.value.showNav).toBe(false)
   })
 
   it('chords step offers Next empty secondary', () => {

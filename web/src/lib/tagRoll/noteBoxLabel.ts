@@ -25,6 +25,8 @@ export function paintNoteBoxLabel(
     fillStyle: string
     keyMarkers: readonly TagRollKeyMarker[] | undefined
     keyFallback: KeyAtTick
+    /** Inset from left/right (e.g. clear of resize handles). */
+    padX?: number
   },
 ): void {
   if (opts.w <= 18 || opts.h <= 10) return
@@ -32,12 +34,30 @@ export function paintNoteBoxLabel(
   const label = noteBoxPitchName(opts.midi, key.preferFlats)
   const fontPx = Math.max(8, Math.min(opts.h - 3, 11))
   ctx.fillStyle = opts.fillStyle
-  ctx.font = `${fontPx}px sans-serif`
+  ctx.font = `700 ${fontPx}px system-ui, sans-serif`
   ctx.textBaseline = 'middle'
-  const pad = 4
+  const pad = Math.max(2, opts.padX ?? 4)
   const maxW = Math.max(4, opts.w - pad * 2)
   const cy = opts.y + opts.h / 2
   const lyric = opts.lyric?.trim()
   const text = lyric ? `${label} ${lyric}`.slice(0, 20) : label
   ctx.fillText(text, opts.x + pad, cy, maxW)
+}
+
+/** Darken a #rgb / #rrggbb color toward black (factor 0–1, lower = darker). */
+export function darkenCssColor(color: string, factor = 0.55): string {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())
+  if (!m) return color
+  let hex = m[1]!
+  if (hex.length === 3) {
+    hex = hex
+      .split('')
+      .map((c) => c + c)
+      .join('')
+  }
+  const n = parseInt(hex, 16)
+  const r = Math.round(((n >> 16) & 255) * factor)
+  const g = Math.round(((n >> 8) & 255) * factor)
+  const b = Math.round((n & 255) * factor)
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`
 }

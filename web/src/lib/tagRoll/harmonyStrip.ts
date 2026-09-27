@@ -2,12 +2,15 @@
  * Build display segments for the Tag Studio harmony strip (declared + detect rows).
  */
 import { absoluteChordLabel } from '../../domain/arranging/chordAnalysisBar'
+import {
+  formatRomanWithAlt,
+  romanForChordDetailed,
+} from '../../domain/arranging/secondaryDominant'
 import type { TonalityMode } from '../../domain/arranging/types'
 import {
   authoritativeSketch,
   mergeDetectIntoSketchHoles,
   sketchLabel,
-  sketchRoman,
   type HarmonySketchDetectHole,
   type HarmonySketchSpan,
   natureToSketchQuality,
@@ -87,7 +90,15 @@ function toSegment(
 ): HarmonyStripSegment {
   const locked = s.locked && s.source !== 'detect'
   const name = sketchLabel(s, opts.preferFlats, opts.tonality, opts.mode)
-  const roman = sketchRoman(s, opts.tonality, opts.mode, next?.rootPc)
+  const detailed = romanForChordDetailed({
+    rootPc: s.rootPc,
+    natureId: s.quality,
+    tonality: opts.tonality,
+    mode: opts.mode,
+    resolvesToRoot: next?.rootPc ?? null,
+  })
+  const roman = detailed.roman
+  const displayRoman = formatRomanWithAlt(roman, detailed.altRoman)
   const tickCands = opts.nameCandidatesByTick?.get(s.startTick) ?? []
   const nameOptions = unique([
     name,
@@ -95,6 +106,8 @@ function toSegment(
   ])
   const romanOptions = unique([
     roman,
+    ...(detailed.altRoman ? [detailed.altRoman] : []),
+    displayRoman,
     ...(!locked ? (tickCands.map((c) => c.roman).filter(Boolean) as string[]) : []),
   ])
   const cadenceLabel =
@@ -115,7 +128,7 @@ function toSegment(
     roman,
     romanOptions,
     displayName: name,
-    displayRoman: roman,
+    displayRoman,
     cadenceLabel,
   }
 }

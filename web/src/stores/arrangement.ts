@@ -20,6 +20,7 @@ import {
   polishArrangementVoicing,
   runQa,
   strengthenArrangement,
+  type SoftSuggestContext,
 } from '../application/arranging'
 import type { HarmonizeCandidate } from '../domain/arranging/harmonize'
 import type { ArrangementLint } from '../domain/arranging/qa'
@@ -84,6 +85,8 @@ export const useArrangementStore = defineStore('arrangement', () => {
   const skippedHomeRootSpans = ref<string[]>([])
   /** When set, candidates/apply use this event (harmonic moment) instead of selected melody onset. */
   const candidateTarget = ref<MelodyEvent | null>(null)
+  /** Sketch / Detected fallbacks for Harmonize Suggest (cleared when target cleared). */
+  const softSuggestContext = ref<SoftSuggestContext | null>(null)
   const addDurationTicks = ref(480)
   const snapTicks = ref(DEFAULT_SNAP)
   const lengthTicks = ref(DEFAULT_LENGTH)
@@ -582,13 +585,19 @@ export const useArrangementStore = defineStore('arrangement', () => {
       {
         preferScf: p.wizardStep === 'step5_smn_scf' || note.role === 'smn',
         limit: 16,
+        softContext: softSuggestContext.value,
       },
       { rankerDeps: services.rankerDeps, idGen: services.idGen },
     )
   }
 
+  function setSoftSuggestContext(ctx: SoftSuggestContext | null): void {
+    softSuggestContext.value = ctx
+  }
+
   function setCandidateTarget(note: MelodyEvent | null): void {
     candidateTarget.value = note
+    if (!note) softSuggestContext.value = null
     refreshCandidates()
   }
 
@@ -810,6 +819,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
     selectedPillarId,
     selectedPillar,
     candidateTarget,
+    softSuggestContext,
     addDurationTicks,
     snapTicks,
     lengthTicks,
@@ -860,6 +870,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
     lockSelectedPillar,
     lockRemaining,
     refreshCandidates,
+    setSoftSuggestContext,
     setCandidateTarget,
     applyCandidate,
     applyCounterpartStack,

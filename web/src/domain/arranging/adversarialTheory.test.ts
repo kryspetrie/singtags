@@ -7,6 +7,7 @@ import {
   distanceFromHome,
 } from './approachThree'
 import {
+  formatRomanWithAlt,
   romanForChord,
   romanForChordDetailed,
   isDominantOf,
@@ -144,6 +145,18 @@ describe('adversarialTheory: roman / sec-dom (D2–D4, U8)', () => {
     })
     expect(vv.roman).toBe('V7/V')
     expect(vv.altRoman).toBe('II7')
+    expect(formatRomanWithAlt(vv.roman, vv.altRoman)).toBe('V7/V (II7)')
+  })
+
+  it('labels ii7 with alt ii7/V when resolving to V', () => {
+    const d = romanForChordDetailed({
+      rootPc: PC.D,
+      natureId: 'm7',
+      tonality: PC.C,
+      resolvesToRoot: PC.G,
+    })
+    expect(d.roman).toBe('ii7')
+    expect(d.altRoman).toBe('ii7/V')
   })
 
   it('tonic Mm7 → I7; driving IV gets alt V7/IV', () => {

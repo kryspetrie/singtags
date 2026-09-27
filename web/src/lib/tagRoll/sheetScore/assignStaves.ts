@@ -36,6 +36,7 @@ function slot(
   part: TagRollPart,
   role: SheetVoiceRole,
   voice: 1 | 2,
+  melodyPartId?: string | null,
 ): SheetVoiceSlot {
   return {
     partId: part.id,
@@ -43,6 +44,7 @@ function slot(
     color: part.color,
     voice,
     role,
+    ...(melodyPartId && part.id === melodyPartId ? { isMelody: true } : {}),
   }
 }
 
@@ -53,12 +55,14 @@ function slot(
 export function assignSheetStaves(
   parts: readonly TagRollPart[],
   clefFamily: TagRollClefFamily,
+  opts?: { melodyPartId?: string | null },
 ): SheetStaffAssignment {
   let tenor: TagRollPart | undefined
   let lead: TagRollPart | undefined
   let bari: TagRollPart | undefined
   let bass: TagRollPart | undefined
   const extras: TagRollPart[] = []
+  const mid = opts?.melodyPartId ?? null
 
   for (const p of parts) {
     const role = roleForPartName(p.name)
@@ -74,8 +78,8 @@ export function assignSheetStaves(
 
   if (hasGrand) {
     const upperVoices: SheetVoiceSlot[] = []
-    if (tenor) upperVoices.push(slot(tenor, 'tenor', 1))
-    if (lead) upperVoices.push(slot(lead, 'lead', 2))
+    if (tenor) upperVoices.push(slot(tenor, 'tenor', 1, mid))
+    if (lead) upperVoices.push(slot(lead, 'lead', 2, mid))
     staves.push({
       id: 'upper',
       kind: 'upper',
@@ -85,8 +89,8 @@ export function assignSheetStaves(
     })
 
     const lowerVoices: SheetVoiceSlot[] = []
-    if (bari) lowerVoices.push(slot(bari, 'bari', 1))
-    if (bass) lowerVoices.push(slot(bass, 'bass', 2))
+    if (bari) lowerVoices.push(slot(bari, 'bari', 1, mid))
+    if (bass) lowerVoices.push(slot(bass, 'bass', 2, mid))
     staves.push({
       id: 'lower',
       kind: 'lower',
@@ -102,7 +106,7 @@ export function assignSheetStaves(
       kind: 'solo',
       clef: clefForStaff('solo', clefFamily),
       labels: [p.name],
-      voices: [slot(p, 'solo', 1)],
+      voices: [slot(p, 'solo', 1, mid)],
     })
   }
 

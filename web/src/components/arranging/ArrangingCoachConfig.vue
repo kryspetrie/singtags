@@ -50,10 +50,10 @@ function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
 </script>
 
 <template>
-  <section class="coach-config" aria-label="Coaching configuration">
+  <section class="coach-config" aria-label="Settings">
     <header class="cfg-head">
-      <h3 class="subh">Coaching configuration</h3>
-      <button type="button" class="icon" aria-label="Close configuration" @click="emit('close')">
+      <h3 class="subh">Settings</h3>
+      <button type="button" class="icon" aria-label="Close settings" @click="emit('close')">
         ×
       </button>
     </header>

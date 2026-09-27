@@ -35,6 +35,21 @@ describe('buildHarmonizeChordOptions', () => {
     expect(primary.some((o) => o.chordId === 'major')).toBe(true)
     expect(primary.some((o) => o.chordId === 'seventh')).toBe(true)
   })
+  it('labels V7/V (II7) when resolvesToRoot is the next V', () => {
+    const { primary } = buildHarmonizeChordOptions({
+      tonality: 0,
+      preferFlats: false,
+      leadMidi: 62, // D — chord tone of D7 / Dm7
+      chordOnly: false,
+      resolvesToRoot: 7, // G = V in C
+    })
+    const d7 = primary.find((o) => o.rootPc === 2 && o.chordId === 'seventh')
+    expect(d7?.romanPrimary).toBe('V7/V')
+    expect(d7?.roman).toBe('V7/V (II7)')
+    const dm7 = primary.find((o) => o.rootPc === 2 && o.chordId === 'm7')
+    expect(dm7?.romanPrimary).toBe('ii7')
+    expect(dm7?.roman).toBe('ii7 (ii7/V)')
+  })
 })
 
 describe('rankHintsFromCandidates', () => {

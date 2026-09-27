@@ -14,8 +14,10 @@ import { isKnownStack } from '../domain/arranging/coachEntryMode'
 import {
   impliedStacksForBareMelody,
   inferImpliedChordsFromMelody,
+  reorderImpliedByMelodyRole,
   type BareMelodyMoment,
 } from '../domain/arranging/impliedMelodyChord'
+import { phraseRoleAtMelodyIndex } from '../domain/arranging/cadences'
 import { tagStudioToArrangement } from '../application/arranging/syncTagRoll'
 import { mergeStacksFromRollImport } from '../domain/arranging/mergeStacksFromRoll'
 import { buildHarmonyStripRows } from '../lib/tagRoll/harmonyStrip'
@@ -65,6 +67,9 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
   const bass = partByName(tag, 'Bass')
   const harmonyIds = [tenor?.id, bari?.id, bass?.id].filter(Boolean) as string[]
 
+  const roleById = new Map(
+    tag.notes.filter((n) => n.partId === lead.id).map((n) => [n.id, n.role] as const),
+  )
   const leadNotes = deferOverlappingOnsets(
     tag.notes
       .filter((n) => n.partId === lead.id)
@@ -94,10 +99,12 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
     if (hasHarmony) continue
     const leadEnd = n.startTick + n.durationTicks
     const cut = harmonyOnsets.find((t) => t > n.startTick && t < leadEnd)
+    const role = roleById.get(n.id)
     out.push({
       startTick: n.startTick,
       durationTicks: Math.max(1, (cut ?? leadEnd) - n.startTick),
       midi: n.midi,
+      ...(role === 'pmn' || role === 'smn' ? { melodyRole: role } : {}),
     })
   }
   return out
@@ -184,6 +191,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
       existingStacks: harmonyStacks.value,
       tonality: tag.tonality,
       mode: tonalityMode.value,
+      songEndTick: tag.lengthTicks,
     })
   })
 
@@ -218,20 +226,44 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
         continue
       }
       if (!s.midi && s.natureId !== 'unknown') {
-        const midi = momentsByTick.get(s.startTick)?.midi
+        const moment = momentsByTick.get(s.startTick)
+        const midi = moment?.midi
         if (midi == null) continue
         const moments = bareMoments.value
         const mi = moments.findIndex((m) => m.startTick === s.startTick)
         const nextMidi = mi >= 0 ? moments[mi + 1]?.midi ?? null : null
-        map.set(
-          s.startTick,
+        const prevMidi = mi > 0 ? moments[mi - 1]?.midi ?? null : null
+        const phraseRole =
+          mi >= 0 ? phraseRoleAtMelodyIndex(moments, mi, tag.lengthTicks) : undefined
+        let prevRootPc: number | null = null
+        let prevNatureId: string | null = null
+        if (mi > 0) {
+          const prevTick = moments[mi - 1]!.startTick
+          const prevStack = analysisStacks.value
+            .filter((x) => x.startTick <= prevTick && x.natureId !== 'unknown')
+            .sort((a, b) => b.startTick - a.startTick)[0]
+          if (prevStack) {
+            prevRootPc = prevStack.rootPc
+            prevNatureId = prevStack.natureId
+          }
+        }
+        const ranked = reorderImpliedByMelodyRole(
           inferImpliedChordsFromMelody({
             melodyMidi: midi,
             tonality: tag.tonality,
             mode,
             limit: 3,
             nextMelodyMidi: nextMidi,
-          }).map((c) => ({
+            prevMelodyMidi: prevMidi,
+            prevRootPc,
+            prevNatureId,
+            phraseRole,
+          }),
+          moment?.melodyRole,
+        )
+        map.set(
+          s.startTick,
+          ranked.map((c) => ({
             rootPc: c.rootPc,
             natureId: c.natureId,
             label: absoluteChordLabel(c.rootPc, c.natureId, tag.preferFlats, {

@@ -7,6 +7,7 @@
  */
 import { BARBERSHOP_CHORDS, leadRoleInChord, type ChordToneRole } from './chords/chords'
 import {
+  phraseRoleAtMelodyIndex,
   scoreCadenceFit,
   type CadenceBias,
   type CadenceContext,
@@ -31,6 +32,59 @@ export type BareMelodyMoment = {
   startTick: number
   durationTicks: number
   midi: number
+  /** Strong / Passing bias from Tag Roll Roles (optional). */
+  melodyRole?: 'pmn' | 'smn' | 'unknown'
+}
+
+export type MelodyRoleBias = 'pmn' | 'smn' | 'unknown' | null | undefined
+
+/** Cadences that must not be undone by Strong→triad / Passing→seventh reorder. */
+const CADENCE_PROTECTED_IDS = new Set([
+  'auth_v7_i',
+  'lead_tone_v7',
+  'circle_ii_v_i',
+  'tag_penult',
+])
+
+function isCadenceProtected(hint?: CadenceHint): boolean {
+  return !!hint && CADENCE_PROTECTED_IDS.has(hint.id)
+}
+
+/** Reorder implied chords: Strong → home triads; Passing → color / sevenths.
+ * Keeps a protected cadence top-pick pinned (Bonnie openings stay V7 under Strong).
+ */
+export function reorderImpliedByMelodyRole<
+  T extends { natureId: string; cadenceHint?: CadenceHint },
+>(inferred: readonly T[], melodyRole?: MelodyRoleBias): T[] {
+  if (!inferred.length) return []
+  const pinCadence = isCadenceProtected(inferred[0]?.cadenceHint)
+  const head = pinCadence ? inferred[0]! : null
+  const rest = pinCadence ? inferred.slice(1) : [...inferred]
+
+  let ordered: T[]
+  if (melodyRole === 'smn') {
+    ordered = [...rest].sort((a, b) => {
+      const score = (n: string) =>
+        n === 'seventh' || n === 'm7' || n === 'ninth' || n === 'half-dim' ? 0 : 1
+      return score(a.natureId) - score(b.natureId)
+    })
+  } else if (melodyRole === 'pmn') {
+    ordered = [...rest].sort((a, b) => {
+      const score = (n: string) =>
+        n === 'major' || n === 'minor' || n === 'sixth' ? 0 : 1
+      return score(a.natureId) - score(b.natureId)
+    })
+  } else {
+    ordered = rest
+  }
+  return head ? [head, ...ordered] : ordered
+}
+
+function pickImpliedByMelodyRole(
+  pool: readonly ImpliedMelodyChord[],
+  melodyRole?: MelodyRoleBias,
+): ImpliedMelodyChord | undefined {
+  return reorderImpliedByMelodyRole(pool, melodyRole)[0]
 }
 
 const ROLE_SCORE: Partial<Record<ChordToneRole, number>> = {
@@ -108,6 +162,14 @@ function scoreCandidate(
   if (natureId === 'seventh' && (leadRole === 3 || leadRole === 7)) {
     if (deg === 7) score += 5
     if (deg === 0) score += 1.5
+  }
+  // Phrase-end / tag: prefer plain tonic over springboard I7 (next phrase's ^4 is not IV here).
+  if (
+    (cadenceCtx.phraseRole === 'cadence' || cadenceCtx.phraseRole === 'tag') &&
+    natureId === 'seventh' &&
+    deg === 0
+  ) {
+    score -= 10
   }
 
   // Classic cadences (V7→I, ^7→^1, II7→V7→I, I7→IV, …) — shared with Coach.
@@ -244,12 +306,33 @@ export function impliedStacksForBareMelody(opts: {
   mode?: TonalityMode
   idPrefix?: string
   cadenceBias?: CadenceBias
+  /** Exclusive-ish end of chart / selection for phrase-role heuristics. */
+  songEndTick?: number
 }): ChordStack[] {
   const mode = opts.mode ?? 'major'
   const prefix = opts.idPrefix ?? 'implied'
   const out: ChordStack[] = []
   let n = 0
   const sorted = [...opts.moments].sort((a, b) => a.startTick - b.startTick)
+  const last = sorted[sorted.length - 1]
+  const songEndTick =
+    opts.songEndTick ??
+    (last ? last.startTick + Math.max(1, last.durationTicks) : 0)
+
+  const stackAtOrBefore = (tick: number): ChordStack | undefined => {
+    let best: ChordStack | undefined
+    for (const s of opts.existingStacks) {
+      if (s.natureId === 'unknown') continue
+      if (s.startTick > tick) continue
+      if (!best || s.startTick > best.startTick) best = s
+    }
+    for (const s of out) {
+      if (s.startTick > tick) continue
+      if (!best || s.startTick > best.startTick) best = s
+    }
+    return best
+  }
+
   for (let i = 0; i < sorted.length; i++) {
     const m = sorted[i]!
     if (melodyOnsetCoveredByStack(m.startTick, opts.existingStacks)) continue
@@ -258,15 +341,21 @@ export function impliedStacksForBareMelody(opts: {
     }
     const next = sorted[i + 1]
     const prev = sorted[i - 1]
-    const best = inferImpliedChordsFromMelody({
+    const prevStack = stackAtOrBefore(m.startTick - 1)
+    const phraseRole = phraseRoleAtMelodyIndex(sorted, i, songEndTick)
+    const pool = inferImpliedChordsFromMelody({
       melodyMidi: m.midi,
       tonality: opts.tonality,
       mode,
-      limit: 1,
+      limit: 4,
       nextMelodyMidi: next?.midi ?? null,
       prevMelodyMidi: prev?.midi ?? null,
+      prevRootPc: prevStack?.rootPc ?? null,
+      prevNatureId: prevStack?.natureId ?? null,
+      phraseRole,
       cadenceBias: opts.cadenceBias,
-    })[0]
+    })
+    const best = pickImpliedByMelodyRole(pool, m.melodyRole)
     if (!best) continue
     out.push({
       id: `${prefix}_${n++}_${m.startTick}`,
@@ -280,7 +369,7 @@ export function impliedStacksForBareMelody(opts: {
       scfGroup: null,
       pillarId: null,
       midi: null,
-      ruleTags: [],
+      ruleTags: best.cadenceHint ? [`cadence:${best.cadenceHint.id}`] : [],
     })
   }
   return out

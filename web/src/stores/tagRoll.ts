@@ -59,6 +59,11 @@ import {
   upsertSketchSpan,
 } from '../lib/tagRoll/harmonySketch'
 import { realizeSketchStacksToNotes } from '../lib/tagRoll/realizeSketchStacks'
+import {
+  applyMelodyRolesToTagNotes,
+  melodyPartIdOf,
+} from '../lib/tagRoll/melodyNoteRoles'
+import type { MelodyEvent } from '../domain/arranging/types'
 import type {
   HarmonySketchQuality,
   HarmonySketchSpan,
@@ -468,6 +473,60 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setMelodyPart(partId: string): void {
     patchView({ melodyPartId: partId })
+  }
+
+  function setRoleDisplay(roleDisplay: TagRollViewPrefs['roleDisplay']): void {
+    patchView({ roleDisplay })
+  }
+
+  /** Persist Strong / Passing / clear on a Tag Roll note (document source of truth). */
+  function setNoteRole(id: string, role: 'pmn' | 'smn' | 'unknown'): void {
+    const p = current.value
+    if (!p) return
+    const note = p.notes.find((n) => n.id === id)
+    if (!note) return
+    const cur = note.role === 'pmn' || note.role === 'smn' ? note.role : 'unknown'
+    if (cur === role) return
+    pushHistory()
+    const notes = p.notes.map((n) => {
+      if (n.id !== id) return n
+      if (role === 'unknown') {
+        if (!n.role) return n
+        const { role: _r, ...rest } = n
+        return rest
+      }
+      return { ...n, role }
+    })
+    current.value = { ...p, notes, updatedAt: now() }
+    scheduleSave()
+  }
+
+  /**
+   * One-shot: copy Arrangement melody roles onto Tag Roll notes when the
+   * project has none yet (Coach → Roles migration).
+   */
+  function importMelodyRolesFromArrangement(melody: readonly MelodyEvent[]): void {
+    const p = current.value
+    if (!p || !melody.length) return
+    const mid = melodyPartIdOf(p)
+    if (!mid) return
+    if (p.notes.some((n) => n.partId === mid && (n.role === 'pmn' || n.role === 'smn'))) {
+      return
+    }
+    if (!melody.some((m) => m.role === 'pmn' || m.role === 'smn')) return
+    const notes = applyMelodyRolesToTagNotes(p, melody)
+    if (notes === p.notes) return
+    let changed = false
+    for (let i = 0; i < notes.length; i++) {
+      if (notes[i] !== p.notes[i]) {
+        changed = true
+        break
+      }
+    }
+    if (!changed) return
+    pushHistory()
+    current.value = { ...p, notes, updatedAt: now() }
+    scheduleSave()
   }
 
   function setCellSize(cellW: number, cellH: number): void {
@@ -1762,6 +1821,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchPartMix,
     clearMixSolos,
     setMelodyPart,
+    setRoleDisplay,
+    setNoteRole,
+    importMelodyRolesFromArrangement,
     nudgeCellW,
     nudgeCellH,
     setCellSize,
