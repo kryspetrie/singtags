@@ -5,6 +5,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
+import { readTagRollMusicXmlFile } from '../lib/tagRoll/musicxmlImport'
 import { tagRollTip } from '../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../stores/tagRoll'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -13,6 +14,7 @@ const store = useTagRollStore()
 const router = useRouter()
 const snackbar = useSnackbarStore()
 const importInput = ref<HTMLInputElement | null>(null)
+const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
 
 onMounted(() => {
@@ -34,6 +36,10 @@ function onImportClick(): void {
   importInput.value?.click()
 }
 
+function onImportMusicXmlClick(): void {
+  importMusicXmlInput.value?.click()
+}
+
 async function onImportFile(e: Event): Promise<void> {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
@@ -53,6 +59,34 @@ async function onImportFile(e: Event): Promise<void> {
     const msg = err instanceof Error ? err.message : 'Failed to import project'
     snackbar.show(msg, { title: 'Import failed', tone: 'error', ms: 4000 })
     console.error('Failed to import project:', err)
+  } finally {
+    importBusy.value = false
+  }
+}
+
+async function onImportMusicXmlFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importBusy.value) return
+  importBusy.value = true
+  try {
+    const parsed = await readTagRollMusicXmlFile(file)
+    if (!parsed.ok) {
+      snackbar.show(parsed.error, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
+      return
+    }
+    const p = await store.importProject(parsed.project)
+    snackbar.show(`Imported “${p.title}” from MusicXML`, {
+      title: 'Imported',
+      tone: 'ok',
+      ms: 2500,
+    })
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to import MusicXML'
+    snackbar.show(msg, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
+    console.error('Failed to import MusicXML:', err)
   } finally {
     importBusy.value = false
   }
@@ -97,7 +131,9 @@ function fmtDate(ms: number): string {
         </p>
         <h1 class="title">Tag Studio</h1>
         <p class="lead">
-          Create and arrange custom tag arrangements on a piano-roll grid.
+          Create and arrange custom tag arrangements on a piano-roll grid. Import
+          <strong>SingTags JSON</strong> or <strong>MusicXML</strong> here, or from Export ▾ inside a
+          project.
         </p>
       </div>
       <div class="head-actions">
@@ -109,6 +145,14 @@ function fmtDate(ms: number): string {
           aria-label="Import SingTags JSON project"
           @change="onImportFile"
         />
+        <input
+          ref="importMusicXmlInput"
+          class="sr-only"
+          type="file"
+          accept=".musicxml,.xml,.mxl,application/vnd.recordare.musicxml+xml,application/xml,text/xml"
+          aria-label="Import MusicXML project"
+          @change="onImportMusicXmlFile"
+        />
         <button
           type="button"
           class="btn"
@@ -117,6 +161,15 @@ function fmtDate(ms: number): string {
           @click="onImportClick"
         >
           {{ importBusy ? 'Importing…' : 'Import JSON' }}
+        </button>
+        <button
+          type="button"
+          class="btn"
+          :disabled="importBusy"
+          :title="tagRollTip('Import MusicXML (.musicxml / .mxl) as a new project')"
+          @click="onImportMusicXmlClick"
+        >
+          Import MusicXML
         </button>
         <button
           type="button"

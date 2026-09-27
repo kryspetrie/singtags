@@ -433,6 +433,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchView({ scaleHighlight: on })
   }
 
+  function setShowNoteNames(on: boolean): void {
+    patchView({ showNoteNames: on })
+  }
+
+  function setShowNoteLyrics(on: boolean): void {
+    patchView({ showNoteLyrics: on })
+  }
+
   function patchPartMix(
     partId: string,
     patch: Partial<Omit<TagRollPartMix, 'partId'>>,
@@ -1829,6 +1837,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     cycleActivePart,
     setFocusActivePart,
     setScaleHighlight,
+    setShowNoteNames,
+    setShowNoteLyrics,
     patchPartMix,
     clearMixSolos,
     setMelodyPart,

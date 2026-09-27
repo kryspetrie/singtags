@@ -27,21 +27,47 @@ export function paintNoteBoxLabel(
     keyFallback: KeyAtTick
     /** Inset from left/right (e.g. clear of resize handles). */
     padX?: number
+    /** Show pitch name (default true). */
+    showNoteName?: boolean
+    /** Show lyric after the pitch name (default true). */
+    showNoteLyric?: boolean
   },
 ): void {
   if (opts.w <= 18 || opts.h <= 10) return
+  const showName = opts.showNoteName !== false
+  const showLyric = opts.showNoteLyric !== false
+  if (!showName && !showLyric) return
+
   const key = keyAtTick(opts.startTick, opts.keyMarkers, opts.keyFallback)
-  const label = noteBoxPitchName(opts.midi, key.preferFlats)
+  const label = showName ? noteBoxPitchName(opts.midi, key.preferFlats) : ''
+  const lyric = showLyric ? opts.lyric?.trim() || '' : ''
+  if (!label && !lyric) return
+
   const fontPx = Math.max(8, Math.min(opts.h - 3, 11))
+  const fontStack = 'system-ui, sans-serif'
   ctx.fillStyle = opts.fillStyle
-  ctx.font = `700 ${fontPx}px system-ui, sans-serif`
   ctx.textBaseline = 'middle'
   const pad = Math.max(2, opts.padX ?? 4)
   const maxW = Math.max(4, opts.w - pad * 2)
   const cy = opts.y + opts.h / 2
-  const lyric = opts.lyric?.trim()
-  const text = lyric ? `${label} ${lyric}`.slice(0, 20) : label
-  ctx.fillText(text, opts.x + pad, cy, maxW)
+  let x = opts.x + pad
+  let remaining = maxW
+
+  if (label) {
+    // Bold pitch name by default.
+    ctx.font = `700 ${fontPx}px ${fontStack}`
+    const nameW = Math.min(remaining, ctx.measureText(label).width)
+    ctx.fillText(label, x, cy, remaining)
+    x += nameW
+    remaining = Math.max(0, remaining - nameW)
+  }
+
+  if (lyric && remaining > 4) {
+    // Non-bold italic lyric, spaced after the pitch name when both show.
+    ctx.font = `italic 400 ${fontPx}px ${fontStack}`
+    const text = label ? ` ${lyric}` : lyric
+    ctx.fillText(text.slice(0, 20), x, cy, remaining)
+  }
 }
 
 /** Darken a #rgb / #rrggbb color toward black (factor 0–1, lower = darker). */

@@ -526,15 +526,20 @@ function draw(): void {
     if (y + ch < 0 || y > cssH.value) continue
     const pc = ((m % 12) + 12) % 12
     const isBlack = pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10
+    // Quiet piano-key lanes (independent of scale membership).
     if (isBlack) {
       ctx.fillStyle = muted
-      ctx.globalAlpha = 0.12
+      ctx.globalAlpha = 0.08
       ctx.fillRect(0, y, cssW.value, ch)
       ctx.globalAlpha = 1
     }
-    if (!midiInScale(m, scaleKey.tonality, scaleKey.tonalityMode)) {
-      ctx.fillStyle = muted
-      ctx.globalAlpha = 0.1
+    // Scale highlight: wash IN-key rows so membership follows tonality (not black keys).
+    if (
+      props.project.view.scaleHighlight !== false &&
+      midiInScale(m, scaleKey.tonality, scaleKey.tonalityMode)
+    ) {
+      ctx.fillStyle = accent
+      ctx.globalAlpha = 0.11
       ctx.fillRect(0, y, cssW.value, ch)
       ctx.globalAlpha = 1
     }
@@ -688,6 +693,8 @@ function draw(): void {
       keyMarkers: props.project.keyMarkers,
       keyFallback,
       padX: d.showHandles ? RESIZE_EDGE + 2 : 4,
+      showNoteName: props.project.view.showNoteNames !== false,
+      showNoteLyric: props.project.view.showNoteLyrics !== false,
     })
     if (d.selected) {
       ctx.strokeStyle = accent
@@ -1442,6 +1449,9 @@ watch(
     props.project.melodyPasses,
     props.selectedNoteIds,
     props.project.view.roleDisplay,
+    props.project.view.scaleHighlight,
+    props.project.view.showNoteNames,
+    props.project.view.showNoteLyrics,
     props.project.view.melodyPartId,
     props.ghostNotes,
     props.chordCursor,

@@ -3,7 +3,7 @@
  * with sounding lead MIDI (supports held “posts”).
  */
 import type { MelodyEvent, MelodyRole } from './types'
-import { deferOverlappingOnsets } from '../../lib/tagRoll/portamento'
+import { deferOverlappingOnsets, portamentoInteriorWindows, tickInPortamentoInterior } from '../../lib/tagRoll/portamento'
 
 export type PartOnset = {
   startTick: number
@@ -49,12 +49,17 @@ function coveringLead(
 /**
  * Collect unique split ticks: every note start and end that falls under a sounding lead
  * (or is a lead start/end). A held lead with moving TBB yields one moment per split.
+ * TBB splits that fall inside a lead portamento bend are ignored — the destination
+ * onset is the predecessor release (matches sheet / Detected / coach).
  */
 export function collectMomentBoundaries(
   leadMelody: readonly MelodyEvent[],
   partOnsets: readonly PartOnset[],
+  /** Raw (pre-deferral) lead notes — used to suppress mid-bend TBB splits. */
+  rawLeadForPortamento?: readonly { startTick: number; durationTicks: number }[],
 ): number[] {
   const leads = [...leadMelody].sort((a, b) => a.startTick - b.startTick)
+  const bendWindows = portamentoInteriorWindows(rawLeadForPortamento ?? leadMelody)
   const boundarySet = new Set<number>()
 
   for (const m of leads) {
@@ -64,9 +69,17 @@ export function collectMomentBoundaries(
   for (const p of partOnsets) {
     const start = p.startTick
     const end = p.startTick + p.durationTicks
-    if (coveringLead(leads, start)) boundarySet.add(start)
+    if (coveringLead(leads, start) && !tickInPortamentoInterior(start, bendWindows)) {
+      boundarySet.add(start)
+    }
     // End split: lead still sounding just before the end (part releases / re-attacks).
-    if (end > start && coveringLead(leads, end - 1)) boundarySet.add(end)
+    if (
+      end > start &&
+      coveringLead(leads, end - 1) &&
+      !tickInPortamentoInterior(end, bendWindows)
+    ) {
+      boundarySet.add(end)
+    }
   }
 
   return [...boundarySet].sort((a, b) => a - b)
@@ -94,7 +107,7 @@ export function buildHarmonicMoments(
     0,
   )
 
-  const boundaries = collectMomentBoundaries(leads, onsets)
+  const boundaries = collectMomentBoundaries(leads, onsets, leadMelody)
   const out: HarmonicMoment[] = []
   for (let i = 0; i < boundaries.length; i++) {
     const startTick = boundaries[i]!

@@ -209,13 +209,17 @@ export type TagRollViewPrefs = {
   playheadTick: number
   /** When true, only the active part is editable; others are faded but still play. */
   focusActivePart: boolean
-  /** Shade out-of-scale pitch rows from project tonality (major). */
+  /** Tint in-key pitch rows from project tonality / mode. */
   scaleHighlight: boolean
   /**
    * Piano-roll chrome for global melody / Strong–Passing.
    * off | melody outer border | role-colored border | both (role inner + melody outer).
    */
   roleDisplay: TagRollRoleDisplay
+  /** Piano-roll note boxes: show pitch name (e.g. Bb). */
+  showNoteNames: boolean
+  /** Piano-roll note boxes: show lyric syllable after the pitch name. */
+  showNoteLyrics: boolean
   /** View mode: piano roll (default) or sheet music. */
   scoreSurface: TagRollScoreSurface
   /** Sheet surface: pixels per beat (independent of piano-roll cellW). */
@@ -327,6 +331,8 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   scaleHighlight: true,
   /** Opt-in chrome — roll stays clean until Marks / Roles turns filters on. */
   roleDisplay: 'off',
+  showNoteNames: true,
+  showNoteLyrics: true,
   scoreSurface: 'roll',
   sheetZoom: 40,
   sheetShowLyrics: true,

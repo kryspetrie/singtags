@@ -28,6 +28,8 @@ const roleDisplay = computed(
 const showMelody = computed(() => roleDisplayShowsMelody(roleDisplay.value))
 const showRoles = computed(() => roleDisplayShowsRoles(roleDisplay.value))
 const scaleHighlight = computed(() => project.value?.view.scaleHighlight !== false)
+const showNoteNames = computed(() => project.value?.view.showNoteNames !== false)
+const showNoteLyrics = computed(() => project.value?.view.showNoteLyrics !== false)
 
 function setMelody(on: boolean): void {
   store.setRoleDisplay(roleDisplayFromToggles(on, showRoles.value))
@@ -41,8 +43,18 @@ function setScale(on: boolean): void {
   store.setScaleHighlight(on)
 }
 
+function setNoteNames(on: boolean): void {
+  store.setShowNoteNames(on)
+}
+
+function setNoteLyrics(on: boolean): void {
+  store.setShowNoteLyrics(on)
+}
+
 function clearMarks(): void {
   store.setRoleDisplay('off')
+  store.setShowNoteNames(false)
+  store.setShowNoteLyrics(false)
 }
 
 function rolesOnly(): void {
@@ -70,8 +82,8 @@ function melodyOnly(): void {
     </header>
 
     <p class="hint">
-      Turn chrome on only when you need it. Melody and Strong/Passing are independent so the roll
-      stays readable.
+      Turn chrome on only when you need it. Melody, roles, note names, and lyrics are independent so
+      the roll stays readable.
     </p>
 
     <fieldset class="group">
@@ -103,6 +115,28 @@ function melodyOnly(): void {
           <span class="sub">Role stripes on labeled notes</span>
         </span>
       </label>
+      <label class="row" :title="tagRollTip('Pitch name inside each note (e.g. Bb)')">
+        <input
+          type="checkbox"
+          :checked="showNoteNames"
+          @change="setNoteNames(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="lbl">
+          <strong>Note names</strong>
+          <span class="sub">Bold pitch spelling in each box</span>
+        </span>
+      </label>
+      <label class="row" :title="tagRollTip('Lyric syllable after the pitch name')">
+        <input
+          type="checkbox"
+          :checked="showNoteLyrics"
+          @change="setNoteLyrics(($event.target as HTMLInputElement).checked)"
+        />
+        <span class="lbl">
+          <strong>Lyrics on notes</strong>
+          <span class="sub">Italic lyric after the pitch name</span>
+        </span>
+      </label>
     </fieldset>
 
     <fieldset class="group">
@@ -121,7 +155,7 @@ function melodyOnly(): void {
     </fieldset>
 
     <div class="presets" role="group" aria-label="Quick presets">
-      <button type="button" class="btn sm" :title="tagRollTip('Hide all note chrome')" @click="clearMarks">
+      <button type="button" class="btn sm" :title="tagRollTip('Hide melody, roles, note names, and lyrics')" @click="clearMarks">
         Clear
       </button>
       <button

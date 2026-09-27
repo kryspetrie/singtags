@@ -93,7 +93,8 @@ function setRoles(on: boolean): void {
   position: absolute;
   left: 0.5rem;
   right: 0.5rem;
-  top: 0.4rem;
+  top: auto;
+  bottom: 0.4rem;
   z-index: 6;
   display: flex;
   align-items: center;

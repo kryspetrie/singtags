@@ -36,12 +36,12 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 2320, // title edit-in-place + View marks
+  'views/TagRollEditorView.vue': 2380, // MusicXML import + SingTags JSON import
+  'stores/tagRoll.ts': 1940, // soft Suggest detectSpans quality normalize
   'components/arranging/useArrangingCoachDock.ts': 1160, // Open Sketch next-action for pillars
   'components/arranging/ArrangingCoachDock.vue': 1300, // cadence badge + config bias refresh
   'stores/arrangement.ts': 910, // soft Suggest context (Sketch/Detected fallback)
   'components/tagRoll/TagRollViewport.vue': 1560, // dense-note compact role chrome
-  'stores/tagRoll.ts': 1920, // setNoteRole + importMelodyRolesFromArrangement
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,
@@ -65,7 +65,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/catalog.ts': 750,
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
-  'components/tagRoll/TagRollToolbar.vue': 940, // Roles toolbar entry
+  'components/tagRoll/TagRollToolbar.vue': 970, // Import SingTags JSON in Export menu
 }
 
 const SKIP_DIR = new Set([

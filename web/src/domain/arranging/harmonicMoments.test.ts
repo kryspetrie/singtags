@@ -97,4 +97,17 @@ describe('buildHarmonicMoments', () => {
       heldLead: false,
     })
   })
+
+  it('suppresses TBB splits during lead portamento (no mid-bend phantom chord)', () => {
+    // Lead bends 0–480 into a destination that starts at 240; TBB changes at 240.
+    const mel = [lead('from', 0, 480, 53), lead('to', 240, 480, 62)]
+    const moments = buildHarmonicMoments(mel, [
+      { startTick: 0, durationTicks: 240, midi: 70, partId: 'bari' },
+      { startTick: 240, durationTicks: 480, midi: 68, partId: 'bari' },
+      { startTick: 0, durationTicks: 240, midi: 73, partId: 'tenor' },
+      { startTick: 240, durationTicks: 480, midi: 70, partId: 'tenor' },
+    ])
+    expect(moments.map((m) => m.startTick)).toEqual([0, 480])
+    expect(moments.map((m) => m.leadMidi)).toEqual([53, 62])
+  })
 })

@@ -217,6 +217,7 @@ export function tagRollToArrangement(
   })
 
   // Stack boundaries use portamento-deferred onsets (chord at bend release).
+  // Raw lead notes keep mid-bend TBB splits from creating phantom chords.
   const melodyForMoments = melodyWithDeferredPortamento(melody)
   const partSpans = [
     ...deferOverlappingOnsets(
@@ -244,7 +245,7 @@ export function tagRollToArrangement(
       )
     }),
   ]
-  const boundaries = collectMomentBoundaries(melodyForMoments, partSpans)
+  const boundaries = collectMomentBoundaries(melodyForMoments, partSpans, leadNotes)
 
   const stacks: ChordStack[] = []
   for (let i = 0; i < boundaries.length; i++) {

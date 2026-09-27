@@ -13,7 +13,7 @@ import {
   type VoicingPitches,
 } from './chords'
 import { isNatureAllowed, ringTier, type ContestProfile } from './contestProfile'
-import { romanForChord } from './secondaryDominant'
+import { degreeOf, romanForChord } from './secondaryDominant'
 import { theoryRankBonuses } from './theoryScores'
 import { isDominantNature } from './tensionRelease'
 import type { TonalityMode } from './types'
@@ -284,6 +284,14 @@ export function identifyNatureFromMidi(opts: {
   })
   if (!inferred.length) return null
   const ranked = [...inferred].sort((a, b) => {
+    // Completeness first — never let a Dom9 missing root+3rd beat a complete triad
+    // just because the 7th/9th pitch-classes happen to be present (Bonnie IV7(9)).
+    const aComplete = a.missingRoles.length === 0 ? 1 : 0
+    const bComplete = b.missingRoles.length === 0 ? 1 : 0
+    if (bComplete !== aComplete) return bComplete - aComplete
+    const aStruct = structuralScore(a.natureId, a.missingRoles)
+    const bStruct = structuralScore(b.natureId, b.missingRoles)
+    if (bStruct !== aStruct) return bStruct - aStruct
     // Prefer natures that explain extensions actually present (7/6/9) — stops
     // “Dm add6” winning over G7 when the sounding set is {B,D,F}.
     const aExt = extensionPresenceBonus(a.natureId, a.rootPc, presentPcs)
@@ -292,9 +300,6 @@ export function identifyNatureFromMidi(opts: {
     const aRing = ringTier(a.natureId)
     const bRing = ringTier(b.natureId)
     if (aRing !== bRing) return aRing - bRing
-    const aComplete = a.missingRoles.length === 0 ? 1 : 0
-    const bComplete = b.missingRoles.length === 0 ? 1 : 0
-    if (bComplete !== aComplete) return bComplete - aComplete
     // Omit-root dominants are common; don't lose to bass=root of a weaker nature.
     const aOmitRoot =
       isDominantNature(a.natureId) && a.missingRoles.length === 1 && a.missingRoles[0] === 1
@@ -312,7 +317,27 @@ export function identifyNatureFromMidi(opts: {
     }
     return b.confidence - a.confidence
   })
-  const top = ranked[0]!
+  let top = ranked[0]!
+
+  // Incomplete TTBB under Lead ^5: prefer functional V7 (Bonnie openings) unless
+  // the stack already IDs as V / V7. Full 4-part stacks keep catalogue spelling.
+  const leadDeg = degreeOf(lead, opts.tonality)
+  const dominantPc = ((opts.tonality + 7) % 12 + 12) % 12
+  if (partsPresent < 4 && leadDeg === 7) {
+    const isAlreadyV =
+      degreeOf(top.rootPc, opts.tonality) === 7 &&
+      (isDominantNature(top.natureId) || top.natureId === 'major')
+    if (!isAlreadyV) {
+      top = {
+        natureId: 'seventh',
+        rootPc: dominantPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Lead ^5 incomplete stack → functional V7',
+      }
+    }
+  }
+
   return {
     natureId: top.natureId,
     rootPc: top.rootPc,

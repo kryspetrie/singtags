@@ -143,6 +143,8 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
     focusActivePart: Boolean(o.focusActivePart),
     scaleHighlight: o.scaleHighlight === undefined ? true : Boolean(o.scaleHighlight),
     roleDisplay: normalizeRoleDisplay(o.roleDisplay),
+    showNoteNames: o.showNoteNames === undefined ? true : Boolean(o.showNoteNames),
+    showNoteLyrics: o.showNoteLyrics === undefined ? true : Boolean(o.showNoteLyrics),
     scoreSurface: normalizeScoreSurface(o.scoreSurface),
     sheetZoom: clamp(
       Math.round(Number(o.sheetZoom) || TAG_ROLL_DEFAULT_VIEW.sheetZoom),

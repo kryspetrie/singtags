@@ -40,6 +40,8 @@ describe('tagRoll normalize', () => {
     expect(p.view.focusActivePart).toBe(false)
     expect(p.view.scaleHighlight).toBe(true)
     expect(p.view.roleDisplay).toBe('off')
+    expect(p.view.showNoteNames).toBe(true)
+    expect(p.view.showNoteLyrics).toBe(true)
     expect(p.clefFamily).toBe('ttbb')
     expect(p.view.scoreSurface).toBe('roll')
   })

@@ -142,6 +142,36 @@ export function deferOverlappingOnsets<T extends { startTick: number; durationTi
   return out
 }
 
+/**
+ * Inclusive-start exclusive-end windows where a later same-voice note overlaps
+ * its predecessor (portamento bend). Chord boundaries inside these windows are
+ * suppressed — the destination defines the chord at the predecessor release.
+ */
+export function portamentoInteriorWindows(
+  notes: readonly { startTick: number; durationTicks: number }[],
+): Array<{ startTick: number; endTick: number }> {
+  const sorted = [...notes].sort(
+    (a, b) => a.startTick - b.startTick || a.durationTicks - b.durationTicks,
+  )
+  const out: Array<{ startTick: number; endTick: number }> = []
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]!
+    const cur = sorted[i]!
+    const prevEnd = prev.startTick + prev.durationTicks
+    if (cur.startTick > prev.startTick && cur.startTick < prevEnd) {
+      out.push({ startTick: cur.startTick, endTick: prevEnd })
+    }
+  }
+  return out
+}
+
+export function tickInPortamentoInterior(
+  tick: number,
+  windows: readonly { startTick: number; endTick: number }[],
+): boolean {
+  return windows.some((w) => tick >= w.startTick && tick < w.endTick)
+}
+
 export type PortamentoLink = {
   from: TagRollNote
   to: TagRollNote

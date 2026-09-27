@@ -29,16 +29,28 @@ describe('Dom9 omit-root vs minor-sixth dual', () => {
   })
 
   it('still IDs omit-root Dom9 when no complete bass-rooted m6 exists', () => {
-    // Bb9 omit-root tones but bass not an m6 root for these PCs alone…
-    // Use a voicing where bass is the Dom9 5th but m6 isn't complete? 
-    // F Ab C D always completes Fm6. Use D F Ab C with bass D (3 of Bb9 / root of Dø).
+    // D F Ab C — PCs complete Fm6 (F–Ab–C–D) even with bass on D; completeness
+    // beats omit-root Dom9. Half-dim on D is also plausible.
     const id = identifyNatureFromMidi({
       midi: { tenor: 60, lead: 56, bari: 53, bass: 50 }, // C Ab F D
       profile: 'sai11',
       tonality: 0,
     })
     expect(id).not.toBeNull()
-    // Bass D → not Fm6 root; Dom9 Bb or half-dim D are plausible.
-    expect(['ninth', 'half-dim', 'm7']).toContain(id!.natureId)
+    expect(['madd6', 'ninth', 'half-dim', 'm7', 'sixth']).toContain(id!.natureId)
+  })
+
+  it('maps incomplete ^5 stack to V7 (Bonnie opening, not IV7(9))', () => {
+    // Bb–Db–F under Lead F in Bb: PC-complete Bbm/Db6, but Lead ^5 + incomplete
+    // TTBB should Detect as functional F7 (V7).
+    const id = identifyNatureFromMidi({
+      midi: { tenor: 73, lead: 53, bari: 70 }, // Db F Bb
+      profile: 'sai11',
+      tonality: 10, // Bb
+    })
+    expect(id).not.toBeNull()
+    expect(id!.natureId).toBe('seventh')
+    expect(id!.rootPc).toBe(5) // F7 = V7 of Bb
+    expect(absoluteChordLabel(id!.rootPc, id!.natureId, true, { tonality: 10 })).toBe('F7')
   })
 })

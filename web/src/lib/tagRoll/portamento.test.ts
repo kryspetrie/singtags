@@ -8,7 +8,9 @@ import {
   listPortamentoLinks,
   overlapWindow,
   partVoiceKey,
+  portamentoInteriorWindows,
   shouldDecayOnNoteEnd,
+  tickInPortamentoInterior,
 } from './portamento'
 
 describe('portamento', () => {
@@ -69,6 +71,18 @@ describe('portamento', () => {
       { id: 'a', startTick: 0, durationTicks: 480 },
       { id: 'b', startTick: 480, durationTicks: 240 },
     ])
+  })
+
+  it('marks portamento interior ticks between destination onset and source release', () => {
+    const wins = portamentoInteriorWindows([
+      { startTick: 1080, durationTicks: 480 },
+      { startTick: 1440, durationTicks: 480 },
+    ])
+    expect(wins).toEqual([{ startTick: 1440, endTick: 1560 }])
+    expect(tickInPortamentoInterior(1440, wins)).toBe(true)
+    expect(tickInPortamentoInterior(1500, wins)).toBe(true)
+    expect(tickInPortamentoInterior(1560, wins)).toBe(false)
+    expect(tickInPortamentoInterior(1080, wins)).toBe(false)
   })
 
   it('decays only when no immediate same-part follower', () => {

@@ -44,6 +44,8 @@ const emit = defineEmits<{
   exportMusicXml: []
   exportAudio: [kind: 'mix' | 'parts' | 'partLeft']
   exportJson: []
+  importJson: []
+  importMusicXml: []
   saveLibrary: []
   openHarmonize: []
   openRoles: []
@@ -229,6 +231,16 @@ function onExportAudio(kind: 'mix' | 'parts' | 'partLeft'): void {
 function onExportJson(): void {
   exportOpen.value = false
   emit('exportJson')
+}
+
+function onImportJson(): void {
+  exportOpen.value = false
+  emit('importJson')
+}
+
+function onImportMusicXml(): void {
+  exportOpen.value = false
+  emit('importMusicXml')
 }
 
 function onSaveLibrary(): void {
@@ -628,7 +640,7 @@ onUnmounted(() => {
         <button
           type="button"
           class="btn sm"
-          :title="tagRollTip('Export MIDI, MusicXML, MP3, or save to My Library')"
+          :title="tagRollTip('Export MIDI, MusicXML, MP3, SingTags JSON — or import JSON / MusicXML')"
           :aria-expanded="exportOpen"
           @click="exportOpen = !exportOpen; insertBarOpen = false"
         >
@@ -652,14 +664,30 @@ onUnmounted(() => {
           <button type="button" role="menuitem" @click="onExport('one')">MIDI · 1 track</button>
           <button type="button" role="menuitem" @click="onExport('two')">MIDI · 2 tracks</button>
           <button type="button" role="menuitem" @click="onExport('all')">MIDI · all parts</button>
-          <button type="button" role="menuitem" @click="onExportMusicXml">MusicXML</button>
+          <button type="button" role="menuitem" @click="onExportMusicXml">Export MusicXML</button>
           <button
             type="button"
             role="menuitem"
-            :title="tagRollTip('SingTags Tag Studio project JSON')"
+            :title="tagRollTip('Import MusicXML (.musicxml / .mxl) as a new Tag Studio project')"
+            @click="onImportMusicXml"
+          >
+            Import MusicXML…
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            :title="tagRollTip('Download this project as SingTags Tag Studio JSON')"
             @click="onExportJson"
           >
-            SingTags JSON
+            Export SingTags JSON
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            :title="tagRollTip('Import a SingTags Tag Studio JSON file as a new project')"
+            @click="onImportJson"
+          >
+            Import SingTags JSON…
           </button>
           <button type="button" role="menuitem" @click="onExportAudio('mix')">MP3 · mix</button>
           <button type="button" role="menuitem" @click="onExportAudio('parts')">MP3 · parts</button>

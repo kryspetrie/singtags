@@ -40,7 +40,8 @@ import { useAssignNoteRoles } from '../composables/useAssignNoteRoles'
 import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
 import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
 import { downloadAudio } from '../application/tagRoll/downloadAudio'
-import { downloadTagRollProjectJson } from '../lib/tagRoll/projectJson'
+import { downloadTagRollProjectJson, readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
+import { readTagRollMusicXmlFile } from '../lib/tagRoll/musicxmlImport'
 import { planBlowPitch, shouldBlowPitchOnPlay } from '../lib/tagRoll/blowPitch'
 import { beatsCrossedSigned } from '../lib/tagRoll/metronomeBeats'
 import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
@@ -106,6 +107,9 @@ const harmonizeRef = ref<InstanceType<typeof TagRollHarmonizePanel> | null>(null
 const titleDraft = ref('')
 const titleEditing = ref(false)
 const titleInputRef = ref<HTMLInputElement | null>(null)
+const importJsonInput = ref<HTMLInputElement | null>(null)
+const importMusicXmlInput = ref<HTMLInputElement | null>(null)
+const importJsonBusy = ref(false)
 const partsOpen = ref(false)
 const marksOpen = ref(false)
 const mixerOpen = ref(false)
@@ -182,9 +186,12 @@ const {
   },
 })
 
-/** While chord-editing or Harmonizing, cursor/playhead moves must not steal Sketch selection. */
+/** While chord-editing, Harmonizing, or working in Sketch, cursor moves must not steal Sketch selection. */
 const inspectSelectNone = computed(
-  () => chordEditSession.value != null || harmonizeOpen.value,
+  () =>
+    chordEditSession.value != null ||
+    harmonizeOpen.value ||
+    store.chordsLaneFocused,
 )
 
 let unregisterDetachedTransport: (() => void) | null = null
@@ -1232,6 +1239,68 @@ function onExportJson(): void {
   downloadTagRollProjectJson(project.value)
 }
 
+function onImportJsonClick(): void {
+  if (importJsonBusy.value) return
+  importJsonInput.value?.click()
+}
+
+function onImportMusicXmlClick(): void {
+  if (importJsonBusy.value) return
+  importMusicXmlInput.value?.click()
+}
+
+async function onImportJsonFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importJsonBusy.value) return
+  importJsonBusy.value = true
+  try {
+    const parsed = await readTagRollProjectJsonFile(file)
+    if (!parsed.ok) {
+      snackbar.show(parsed.error, { title: 'Import failed', tone: 'error', ms: 4000 })
+      return
+    }
+    const p = await store.importProject(parsed.project)
+    snackbar.show(`Imported “${p.title}”`, { title: 'Imported', tone: 'ok', ms: 2500 })
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to import project'
+    snackbar.show(msg, { title: 'Import failed', tone: 'error', ms: 4000 })
+    console.error('Failed to import project:', err)
+  } finally {
+    importJsonBusy.value = false
+  }
+}
+
+async function onImportMusicXmlFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importJsonBusy.value) return
+  importJsonBusy.value = true
+  try {
+    const parsed = await readTagRollMusicXmlFile(file)
+    if (!parsed.ok) {
+      snackbar.show(parsed.error, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
+      return
+    }
+    const p = await store.importProject(parsed.project)
+    snackbar.show(`Imported “${p.title}” from MusicXML`, {
+      title: 'Imported',
+      tone: 'ok',
+      ms: 2500,
+    })
+    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Failed to import MusicXML'
+    snackbar.show(msg, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
+    console.error('Failed to import MusicXML:', err)
+  } finally {
+    importJsonBusy.value = false
+  }
+}
+
 async function onExportAudio(kind: 'mix' | 'parts' | 'partLeft'): Promise<void> {
   if (!project.value || exportBusy.value) return
   exportBusy.value = true
@@ -1836,12 +1905,30 @@ function onKeyDown(e: KeyboardEvent): void {
       @export-music-xml="onExportMusicXml"
       @export-audio="onExportAudio"
       @export-json="onExportJson"
+      @import-json="onImportJsonClick"
+      @import-music-xml="onImportMusicXmlClick"
       @save-library="onSaveLibrary"
       @open-harmonize="toggleHarmonize"
       @open-roles="toggleRoles"
       @open-marks="toggleMarks"
       @open-parts="toggleParts"
       @open-coach="toggleCoach"
+    />
+    <input
+      ref="importJsonInput"
+      class="sr-only"
+      type="file"
+      accept="application/json,.json"
+      aria-label="Import SingTags JSON project"
+      @change="onImportJsonFile"
+    />
+    <input
+      ref="importMusicXmlInput"
+      class="sr-only"
+      type="file"
+      accept=".musicxml,.xml,.mxl,application/vnd.recordare.musicxml+xml,application/xml,text/xml"
+      aria-label="Import MusicXML project"
+      @change="onImportMusicXmlFile"
     />
 
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
@@ -1941,7 +2028,7 @@ function onKeyDown(e: KeyboardEvent): void {
               chordEditSession?.variant === 'declared' ? chordEditSession.segId : null
             "
             @update:mode="setChordDeclaredMode"
-            @focus-range="relayCoachFocusRange"
+            @focus-range="(a, b) => relayCoachFocusRange(a, b, 'none')"
             @hear="onHearHarmonySketch"
             @hear-stop="onStopHearHarmonySketch"
             @remove="onRemoveHarmonySketch"
@@ -2259,6 +2346,10 @@ function onKeyDown(e: KeyboardEvent): void {
   padding: 0;
 }
 .roll-col :deep(.viewport) { flex: 1 1 auto; }
+/* Keep Melody roles HUD above Coach transport when both sit on the roll. */
+.roll-col:has(.roll-nav) :deep(.hud) {
+  bottom: 3.1rem;
+}
 .roll-hud {
   position: absolute; right: 0.55rem; top: 0.45rem; z-index: 5; pointer-events: none;
   padding: 0.2rem 0.45rem; border-radius: 6px;
@@ -2269,4 +2360,15 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 .err { margin: 0; color: var(--danger, #b42318); }
 .hint, .loading { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 </style>
