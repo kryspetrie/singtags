@@ -34,6 +34,21 @@ import {
   type MetronomeSoundId,
 } from '../audio/metronomeSamples'
 import {
+  loadDetectedInterest,
+  saveDetectedInterest,
+  type DetectedInterestLevel,
+} from '../lib/tagRoll/detectedInterestPrefs'
+import {
+  clearDetectedScoreTweaks,
+  loadDetectedScoreTweaks,
+  saveDetectedScoreTweaks,
+} from '../lib/tagRoll/detectedScoreTweaksPrefs'
+import {
+  DEFAULT_DETECTED_SCORE_TWEAKS,
+  normalizeDetectedScoreTweaks,
+  type DetectedScoreTweaks,
+} from '../domain/arranging/detectedScoreTweaks'
+import {
   UI_SCALE_DEFAULT,
   UI_SCALE_STEP,
   applyUiScale,
@@ -171,7 +186,7 @@ const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 /** Labs: WebRTC DataChannel transfer (Wi‑Fi / hotspot). Default off. */
 const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
-/** Labs: OS Share handoff (Quick Share / AirDrop via share sheet). Default off. */
+/** @deprecated OS Share / Quick Share / AirDrop removed; key retained for migrate. */
 const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
@@ -647,10 +662,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   /** Sheet erode intensity (off / light / medium / strong). */
   const sheetErode = ref<SheetErodeLevel>(resolveInitialSheetErodeLevel())
   /**
-   * Labs: when true, animated QR optical transfer (send/receive pages, Browse camera receive) is available.
-   * Static QR share codes are unrelated and stay available either way.
+   * Optical transfer (More → Optical transfer). Always on; legacy Labs key forced on.
    */
-  const opticalTransferEnabled = ref(loadBool(OPTICAL_TRANSFER_ENABLED_KEY, true))
+  const opticalTransferEnabled = ref(true)
   /**
    * Labs: when true, Local Library (More → Local Library, /library routes) is available.
    * Existing on-device data is kept; the UI and routes stay hidden while off.
@@ -662,14 +676,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
    */
   const webrtcTransferEnabled = ref(loadBool(WEBRTC_TRANSFER_ENABLED_KEY, false))
   /**
-   * Labs: when true, Share via device (OS share sheet / share_target import) is available.
+   * @deprecated OS Share / Quick Share / AirDrop removed from product surface.
+   * Legacy key retained so old settings do not throw.
    */
-  const osShareTransferEnabled = ref(loadBool(OS_SHARE_TRANSFER_ENABLED_KEY, false))
+  const osShareTransferEnabled = ref(false)
   /**
-   * Labs: when true, Audio Recorder (More → Recorder, /recorder routes) is available.
-   * Recordings stay on-device in IndexedDB.
+   * Audio Recorder (More → Recorder). Always on; legacy Labs key forced on.
    */
-  const audioRecorderEnabled = ref(loadBool(AUDIO_RECORDER_ENABLED_KEY, false))
+  const audioRecorderEnabled = ref(true)
+  try {
+    localStorage.setItem(OPTICAL_TRANSFER_ENABLED_KEY, '1')
+    localStorage.setItem(AUDIO_RECORDER_ENABLED_KEY, '1')
+    localStorage.setItem(OS_SHARE_TRANSFER_ENABLED_KEY, '0')
+  } catch {
+    /* ignore */
+  }
   /**
    * Labs: when true, Sing Together (More → Sing Together, /matcher) is available.
    * Repertoire + QR correlation stay on-device.
@@ -720,6 +741,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
   )
   const tagRollDetectedLaneCollapsed = ref(loadBool(TAG_ROLL_DETECTED_LANE_COLLAPSED_KEY, true))
   const tagRollLyricsLaneCollapsed = ref(loadBool(TAG_ROLL_LYRICS_LANE_COLLAPSED_KEY, true))
+  /** Detected hole-fill aggressiveness (Basic / Mild / Bold). Default Mild. */
+  const detectedInterest = ref<DetectedInterestLevel>(loadDetectedInterest('mild'))
+  /** Detected scoring weight Tweaks (JSON). Default = shipped Mild/Bold table. */
+  const detectedScoreTweaks = ref<DetectedScoreTweaks>(loadDetectedScoreTweaks())
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -1563,9 +1588,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     singMode.value = on
   }
 
-  /** Labs: enable/disable animated QR optical transfer. */
-  function setOpticalTransferEnabled(on: boolean): void {
-    opticalTransferEnabled.value = on
+  /** @deprecated Optical is always on (More); setter kept for API compat. */
+  function setOpticalTransferEnabled(_on: boolean): void {
+    opticalTransferEnabled.value = true
   }
 
   /** Labs: enable/disable Local Library UI and routes. */
@@ -1578,14 +1603,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
     webrtcTransferEnabled.value = on
   }
 
-  /** Labs: enable/disable OS Share handoff mode. */
-  function setOsShareTransferEnabled(on: boolean): void {
-    osShareTransferEnabled.value = on
+  /** @deprecated OS Share removed; no-op. */
+  function setOsShareTransferEnabled(_on: boolean): void {
+    osShareTransferEnabled.value = false
   }
 
-  /** Labs: enable/disable Audio Recorder UI and routes. */
-  function setAudioRecorderEnabled(on: boolean): void {
-    audioRecorderEnabled.value = on
+  /** @deprecated Audio Recorder is always on (More); setter kept for API compat. */
+  function setAudioRecorderEnabled(_on: boolean): void {
+    audioRecorderEnabled.value = true
   }
 
   /** Labs: enable/disable Sing Together repertoire correlation. */
@@ -1661,6 +1686,30 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function setTagRollLyricsLaneCollapsed(on: boolean): void {
     tagRollLyricsLaneCollapsed.value = !!on
     localStorage.setItem(TAG_ROLL_LYRICS_LANE_COLLAPSED_KEY, on ? '1' : '0')
+  }
+
+  /** Detected interest: Basic (today) / Mild (V7, ii7→V, held cadences) / Bold (+V7/V, Dom9). */
+  function setDetectedInterest(level: DetectedInterestLevel): void {
+    detectedInterest.value = level
+    saveDetectedInterest(level)
+  }
+
+  /** Apply Detected scoring Tweaks (normalizes unknown keys). */
+  function setDetectedScoreTweaks(raw: DetectedScoreTweaks | Record<string, unknown>): void {
+    const next = normalizeDetectedScoreTweaks(raw)
+    detectedScoreTweaks.value = next
+    saveDetectedScoreTweaks(next)
+  }
+
+  /** Restore shipped Detected scoring weights. */
+  function resetDetectedScoreTweaks(): void {
+    detectedScoreTweaks.value = {
+      ...DEFAULT_DETECTED_SCORE_TWEAKS,
+      mild: { ...DEFAULT_DETECTED_SCORE_TWEAKS.mild },
+      bold: { ...DEFAULT_DETECTED_SCORE_TWEAKS.bold },
+      held: { ...DEFAULT_DETECTED_SCORE_TWEAKS.held },
+    }
+    clearDetectedScoreTweaks()
   }
 
   /** Independently open/collapse a bottom lane (lanes may stack). */
@@ -1872,6 +1921,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollDeclaredLaneCollapsed: tagRollChordsLaneCollapsed,
     tagRollDetectedLaneCollapsed,
     tagRollLyricsLaneCollapsed,
+    detectedInterest,
+    detectedScoreTweaks,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1928,6 +1979,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollDeclaredLaneCollapsed,
     setTagRollDetectedLaneCollapsed,
     setTagRollLyricsLaneCollapsed,
+    setDetectedInterest,
+    setDetectedScoreTweaks,
+    resetDetectedScoreTweaks,
     setTagRollLaneCollapsed,
     toggleTagRollLane,
     openTagRollBottomLane,

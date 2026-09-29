@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest'
 import {
   absoluteChordLabel,
   buildChordAnalysisSegments,
+  detectAltCandidateCount,
   listNatureNameCandidates,
+  nextDetectAltIndex,
 } from './chordAnalysisBar'
 import type { ChordStack } from './types'
 
@@ -122,5 +124,15 @@ describe('chordAnalysisBar', () => {
     expect(
       absoluteChordLabel(10, 'ninth', false, { tonality: 0, tonalityMode: 'major' }),
     ).toBe('Bb7(9)')
+  })
+
+  it('cycles Detected Alt among top-5 picks', () => {
+    expect(nextDetectAltIndex(0, 1)).toBe(0)
+    expect(nextDetectAltIndex(0, 2)).toBe(1)
+    expect(nextDetectAltIndex(1, 2)).toBe(0)
+    expect(nextDetectAltIndex(0, 5)).toBe(1)
+    expect(nextDetectAltIndex(3, 5)).toBe(4)
+    expect(nextDetectAltIndex(4, 5)).toBe(0)
+    expect(detectAltCandidateCount([{ rootPc: 0, natureId: 'major', label: 'C' }])).toBe(1)
   })
 })

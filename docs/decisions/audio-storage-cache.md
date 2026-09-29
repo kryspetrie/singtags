@@ -24,14 +24,29 @@ Encoding and `audio_layout_summary` live under `sync/` (`sync/lib/audio_layout.p
 
 ### Online tag page
 
-1. **Play** uses Playback (64 kbps) unless Original is already in device cache.
-2. **Download** always fetches Original and upgrades cache for that part.
-3. No automatic Original fetch on play; no tag-wide prefetch — first play of a part only.
-4. Decode prefers native Opus; otherwise deferred **WASM Ogg Opus** (`web/src/audio/opusWasmDecode.ts`).
+1. **Play** uses Playback (64 kbps Opus) on all browsers, unless Original is already in device cache.
+2. **Safari / no native Opus:** still fetch compact **Opus**; software-decode via **WASM** (`opusWasmDecode`) and/or **on-the-fly Opus → WAV** session blobs (`opusPlayable`) so Web Audio / MediaElement can play without streaming Original. Original AAC/MP3 is only an online fallback when the Opus WASM module fails to load this session (`isOpusWasmUnavailable`).
+3. **Download** always fetches Original and upgrades cache for that part.
+4. No automatic Original fetch on play for Opus-capable browsers; no tag-wide prefetch — first play of a part only.
+5. Decode prefers native Opus; otherwise deferred **WASM Ogg Opus** when an Opus file must still be played (`web/src/audio/opusWasmDecode.ts`).
+
+Offline packs and favorites **never** require Original downloads — compact Opus stays on disk; Safari plays via WASM / session WAV.
 
 ### Custom combine
 
-Fetch only selected parts. Online: solo-channel extract + pan. Offline ultra-low: fixed barbershop mix weights (below). Non-recombinable tags: no solo reconstruct (disable Custom / use hosted stems per client rules).
+Fetch only selected parts (same resolver as single-part play). Online: solo-channel extract + pan from Original or Playback — layout is identical across those tiers. Offline ultra-low: fixed barbershop mix weights (below). Non-recombinable tags: no solo reconstruct (disable Custom / use hosted stems per client rules).
+
+### Offline / favorites (Safari included)
+
+Offline bytes are **still Opus**, not AAC:
+
+| Cache | Bytes stored | Safari play |
+| --- | --- | --- |
+| Offline audio pack (Tier 4) | Published **ultra** Opus solos / mix | WASM decode → PCM; resolve may session-transcode Opus → WAV blob URLs |
+| Favorites / starred | Prefer published Opus playback/ultra as-is (`compactAudio.ts` skips re-encode for published tiers); legacy tags may on-device encode **to** Opus | Same path |
+| Cache upgrade after Download | Original AAC/MP3 | Native Web Audio (no Opus) |
+
+On-device `compactAudio` / favorites encoding goes **toward Opus for size**. Safari playback does **not** store AAC offline; it depends on WASM (supported in Safari) with optional session WAV for playable object URLs. If WASM fails to load, online may fall back to Original; offline Opus still errors clearly rather than silently skipping.
 
 ### Offline ultra-low
 
@@ -45,7 +60,7 @@ Fetch only selected parts. Online: solo-channel extract + pan. Offline ultra-low
 none → ultra_low → playback → original
 ```
 
-Resolve (`web/src/offline/resolveMedia.ts`): Original blob → Playback blob → online Playback fetch → offline ultra reconstruct.
+Resolve (`web/src/offline/resolveMedia.ts`): Original blob → Playback blob → online play path (codec-aware) → offline ultra reconstruct.
 
 ---
 
@@ -76,10 +91,11 @@ Resolve (`web/src/offline/resolveMedia.ts`): Original blob → Playback blob →
 3. Offline `mono_solos` pack — solos only; part-left reconstruct OK.
 4. Mix-only / non-recombinable — hosted ultra stereo/mix; no false solo rebuild.
 5. Custom: selected parts only.
-6. Safari without native Opus — WASM path plays.
+6. Safari without native Opus — online play uses **Opus** + WASM / session WAV; Original only if WASM failed to load.
 
 ---
 
 ## Out of scope
 
-- Prefetch entire tag on load; automatic Original on play; server-side live transcoding
+- Prefetch entire tag on load; automatic Original on play for Opus-capable browsers; server-side live transcoding
+- Storing AAC/WAV in the offline pack for Safari (session Opus→WAV only; disk stays Opus)

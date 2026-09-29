@@ -101,6 +101,23 @@ async function bootstrap(): Promise<void> {
     }
   }
   scheduleBakePreload()
+
+  /** Warm Opus WASM on Safari so offline/favorites play without first-hit compile lag. */
+  function scheduleOpusWasmPreload(): void {
+    const run = () => {
+      void import('./audio/opusPlayable')
+        .then((m) => m.preloadOpusWasmDecoder())
+        .catch(() => {
+          /* optional warm-up */
+        })
+    }
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => run(), { timeout: 5000 })
+    } else {
+      setTimeout(run, 2000)
+    }
+  }
+  scheduleOpusWasmPreload()
 }
 
 void bootstrap()

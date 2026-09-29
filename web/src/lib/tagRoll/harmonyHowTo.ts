@@ -23,7 +23,7 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
     steps: [
       '← / → (or [ / ]) step through melody notes and hear each one.',
       'Change which part is melody anytime in Roles without reopening Harmonize.',
-      'Chord romans use the next Sketch chord when present (e.g. V7/V (II7), ii7/V).',
+      'Chord romans use the next Sketch chord when present (e.g. V7/V (II7) for D7 into G).',
     ],
   },
   {
@@ -39,7 +39,7 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
     body: 'Tabs under the action row switch how you choose chords:',
     steps: [
       'Pick — MuseScore-style catalog (free choice).',
-      'Suggest — Coach-ranked voicings for this melody note. Uses a pillar when present; otherwise Sketch, Detected, or implied harmony. Select a row, then Apply (or double-click).',
+      'Suggest — same chord chips as Pick, ordered and colored by Coach ranks for this melody note. Uses a pillar when present; otherwise Sketch, Detected, or implied harmony. Hold to hear, then Apply.',
     ],
   },
   {
@@ -83,10 +83,10 @@ export const ROLES_HOWTO: readonly HarmonyHowToSection[] = [
     body: 'Open Roles from the toolbar (next to Harmonize / Coach):',
     steps: [
       'Select a note → M sets that part as Melody (shared everywhere).',
-      'On melody notes, S toggles Strong and P toggles Passing (press again to clear).',
+      'On melody notes, S sets Strong and P sets Passing (always assign — not a toggle). C clears the role.',
       'Arrows move the selection (and audition); Shift+arrows nudge notes on the grid.',
-      'Show: cycles Off / Melody / Roles / Both — Roles uses Strong (yellow) / Passing (green) borders; Melody adds an outer Lead border around that.',
-      'Esc closes Roles mode (S returns to Stop, M to Harmonize).',
+      'Show: cycles Off / Melody / Roles / Both — Roles uses Strong (green) / Passing (yellow) borders; Melody adds an outer Lead border around that.',
+      'Esc closes Roles mode (S returns to Stop, M to Harmonize, C to cycle parts).',
     ],
   },
   {
@@ -94,9 +94,28 @@ export const ROLES_HOWTO: readonly HarmonyHowToSection[] = [
     body: 'One definition, many consumers:',
     steps: [
       'Harmonize steps the Roles melody part — no separate picker.',
-      'Detected hole-fills prefer home triads under Strong notes and color/sevenths under Passing.',
-      'Sheet view outlines the melody voice; Strong/Passing use the same yellow/green border colors (no St/Pa text).',
+      'Detected hole-fills prefer home triads under Strong notes and color/sevenths under Passing. The Detected-lane interest button (next to Lock: Basic / Mild / Bold) re-ranks those guesses — Mild favors V7, ii7→V, V7→I under held notes, and rewrites consecutive I–I as V7→I when Lead fits; Bold keeps Mild’s top picks and adds V7/V / Dom9 as alts when the circle supports them. Settings ▾ → Detected Tweaks… opens a right dock with JSON weights and Reset to defaults. When a hole has multiple ranked picks, click alt on the Detected cell to cycle the top 5.',
+      'Sheet view outlines the melody voice; Strong/Passing use the same green/yellow border colors (no St/Pa text).',
     ],
+  },
+]
+
+/** Sketch lane gutter (empty-state info). */
+export const SKETCH_LANE_HOWTO: readonly HarmonyHowToSection[] = [
+  {
+    title: 'Paint the map',
+    body:
+      'Drag on empty time to paint a span, then type a chord (or click a suggestion). Click a chord to open the editor dock; drag edges to resize; drag a selected body to move.',
+    steps: [
+      'Alt+click or ◆ marks / clears a pillar (structural home root).',
+      'Delete / Backspace removes the selection.',
+      'Ctrl/Cmd+C/X/V copy/paste at the playhead — no piano-roll notes required.',
+    ],
+  },
+  {
+    title: 'Realize stacks',
+    body:
+      'Once Sketch has chords, Realize writes TTBB stacks under Lead notes (selection only when spans are selected; otherwise all locked), then closes the Sketch lane, mutes Sketch in the mixer, and offers to clear the map.',
   },
 ]
 
@@ -105,7 +124,7 @@ export const HARMONY_STRIP_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Sketch vs Detected',
     body:
-      'Sketch is your locked harmony map (authoritative) — independent of Coach. Detected fills holes with melody-based diatonic guesses (I/IV/V homes; light V7 color when the lead sits on 3 or 7) — Lock promotes into Sketch. Strong/Passing from Roles bias those guesses. In Number mode, dual labels appear when useful (e.g. V7/V (II7), ii7/V). Coach drafts stay in Coach until Lock.',
+      'Sketch is your locked harmony map (authoritative) — independent of Coach. Detected fills holes with melody-based diatonic guesses (I/IV/V homes; light V7 color when the lead sits on 3 or 7) — Lock promotes into Sketch. The Detected-lane interest button (next to Lock: Basic / Mild / Bold) controls aggressiveness: Mild favors V7, ii7→V, held-note V7→I, and I–I→V7→I when Lead fits; Bold keeps those Mild tops and offers V7/V / Dom9 as alts when preparing V. Strong/Passing from Roles bias those guesses. When Detected ranks multiple options, alt cycles the top 5 picks before Lock. In Number mode, dual labels appear when useful (e.g. V7/V (II7)). Coach drafts stay in Coach until Lock.',
   },
   {
     title: 'Pillars on Sketch / Detected',
@@ -120,7 +139,7 @@ export const HARMONY_STRIP_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Editing Sketch',
     body:
-      'Open Sketch from the media bar (next to W/H). Drag on empty time to paint a span, then type the chord (or click a suggestion). After you commit, the new chord is selected and the Sketch dock opens for further editing. Drag across existing chords to select them (or click one). Delete / Backspace removes the selection; click a chord to open the dock editor. Drag edges to resize; drag a selected body to move. Ctrl/Cmd+C/X/V copy/paste at the playhead. No piano-roll notes required.',
+      'Open Sketch from the media bar (next to W/H). Drag on empty time to paint a span, then type the chord (or click a suggestion). After you commit, the new chord is selected and the Sketch dock opens for further editing. Drag across existing chords to select them, click one, or Shift+click a second chord to select that chord and everything in between. Delete / Backspace removes the selection; click a chord to open the dock editor. Drag edges to resize; drag a selected body to move. Ctrl/Cmd+C/X/V copy/paste at the playhead. No piano-roll notes required.',
     steps: [
       'Toggle Sketch (and optionally Detected) independently — multiple bottom lanes can stay open at once.',
       'Use the C / # gutter toggle on each lane for Chord / Number labels.',

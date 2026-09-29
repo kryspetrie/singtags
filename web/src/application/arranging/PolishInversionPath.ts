@@ -8,7 +8,7 @@ import type { ArrangementProject, ChordStack } from '../../domain/arranging/type
 import {
   optimizeSketchHearPath,
   type SketchHearChordRef,
-} from '../../lib/tagRoll/sketchHearVoicing'
+} from '../../domain/arranging/sketchHearVoicing'
 import { natureToSketchQuality } from '../../lib/tagRoll/harmonySketch'
 
 function roleOfPc(

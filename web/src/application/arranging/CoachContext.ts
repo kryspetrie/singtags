@@ -35,6 +35,8 @@ export type MomentContextDto = {
   /** Melody weight at this moment (Strong / Passing). */
   roleLabel: string | null
   stackId: string | null
+  /** Soft home-root source when no Coach pillar (Sketch / Detected / implied). */
+  softHomeSource?: 'sketch' | 'detected' | 'implied' | null
 }
 
 function natureSuffix(natureId: string): string {
@@ -99,6 +101,7 @@ export function contextForSelectedMoment(
   project: ArrangementProject,
   moment: HarmonicMoment,
   candidates: readonly HarmonizeCandidate[] = [],
+  opts?: { softHomeSource?: 'sketch' | 'detected' | 'implied' | null },
 ): MomentContextDto {
   const preferFlats = !!project.preferFlats
   const leadPitch = midiPitchLabel(moment.leadMidi, preferFlats)
@@ -114,6 +117,15 @@ export function contextForSelectedMoment(
       : null
 
   if (!stack) {
+    const soft = opts?.softHomeSource
+    const softNarrative =
+      soft === 'sketch'
+        ? 'No Coach stack yet — ranking from Sketch. Apply a suggestion, or ◆ to mark a structural home root.'
+        : soft === 'detected'
+          ? 'No Coach stack yet — ranking from Detected. Apply a suggestion, or lock into Sketch + ◆ for teaching.'
+          : soft === 'implied'
+            ? 'No Sketch/Detected chord here — ranking from the melody. Lock a Sketch chord when you know the home root.'
+            : 'No pillar under this moment — add or extend a home chord first.'
     return {
       kind: 'gap',
       title: leadPitch,
@@ -130,11 +142,12 @@ export function contextForSelectedMoment(
       roleLabel,
       narrative: pillar
         ? 'No chord yet under this moment — pick a suggestion or apply best.'
-        : 'No pillar under this moment — add or extend a home chord first.',
+        : softNarrative,
       bestAltHint: candidates[0]
         ? `Top suggestion: ${chordTitle(candidates[0].rootPc, candidates[0].natureId, candidates[0].voicing, preferFlats)}`
         : null,
       stackId: null,
+      softHomeSource: pillar ? null : (soft ?? null),
     }
   }
 

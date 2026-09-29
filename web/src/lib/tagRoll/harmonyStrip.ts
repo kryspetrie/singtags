@@ -1,7 +1,11 @@
 /**
  * Build display segments for the Tag Studio harmony strip (declared + detect rows).
  */
-import { absoluteChordLabel } from '../../domain/arranging/chordAnalysisBar'
+import {
+  absoluteChordLabel,
+  detectAltCandidateCount,
+  type NatureNameCandidate,
+} from '../../domain/arranging/chordAnalysisBar'
 import {
   formatRomanWithAlt,
   romanForChordDetailed,
@@ -85,6 +89,8 @@ function toSegment(
       number,
       readonly { rootPc: number; natureId: string; label: string; roman?: string; cadenceLabel?: string }[]
     >
+    /** Fragment start → analysis tick for candidate lookup (sketch-split holes). */
+    resolveCandidateTick?: (fragmentStartTick: number) => number
   },
   detectOnly: boolean,
 ): HarmonyStripSegment {
@@ -99,7 +105,8 @@ function toSegment(
   })
   const roman = detailed.roman
   const displayRoman = formatRomanWithAlt(roman, detailed.altRoman)
-  const tickCands = opts.nameCandidatesByTick?.get(s.startTick) ?? []
+  const candTick = opts.resolveCandidateTick?.(s.startTick) ?? s.startTick
+  const tickCands = opts.nameCandidatesByTick?.get(candTick) ?? []
   const nameOptions = unique([
     name,
     ...(!locked ? tickCands.map((c) => c.label) : []),
@@ -133,6 +140,42 @@ function toSegment(
   }
 }
 
+/**
+ * Apply Detected Alt picks per *fragment* startTick (after sketch splits a hole).
+ * Candidates resolve via `resolveCandidateTick` (defaults to fragment start).
+ */
+export function applyDetectAltToDetectSpans(
+  spans: readonly HarmonySketchSpan[],
+  opts: {
+    nameCandidatesByTick?: ReadonlyMap<number, readonly NatureNameCandidate[]>
+    detectAltIndexByStartTick?: Readonly<Record<number, number>>
+    resolveCandidateTick?: (fragmentStartTick: number) => number
+  },
+): HarmonySketchSpan[] {
+  const alts = opts.detectAltIndexByStartTick
+  const candsByTick = opts.nameCandidatesByTick
+  if (!alts || !candsByTick) return spans as HarmonySketchSpan[]
+  const resolve = opts.resolveCandidateTick ?? ((t: number) => t)
+  return spans.map((s) => {
+    if (s.source !== 'detect' || s.locked) return s
+    const raw = alts[s.startTick] ?? 0
+    if (raw <= 0) return s
+    const cands = candsByTick.get(resolve(s.startTick))
+    const n = detectAltCandidateCount(cands)
+    if (n < 2 || !cands) return s
+    const pick = cands[Math.min(raw, n - 1)]
+    if (!pick) return s
+    const quality = natureToSketchQuality(pick.natureId)
+    if (pick.rootPc === s.rootPc && quality === s.quality) return s
+    return {
+      ...s,
+      rootPc: pick.rootPc,
+      quality,
+      id: `det:${s.startTick}:${s.endTick}:${pick.rootPc}:${quality}`,
+    }
+  })
+}
+
 /** Separate declared (authoritative) and detect-only rows for the dual-lane strip. */
 export function buildHarmonyStripRows(opts: {
   sketch: readonly HarmonySketchSpan[]
@@ -147,6 +190,12 @@ export function buildHarmonyStripRows(opts: {
     number,
     readonly { rootPc: number; natureId: string; label: string; roman?: string; cadenceLabel?: string }[]
   >
+  /**
+   * Detected Alt index keyed by fragment startTick (independent for sketch-split halves).
+   */
+  detectAltIndexByStartTick?: Readonly<Record<number, number>>
+  /** Map Detected fragment start → analysis-stack tick for ranked candidates. */
+  resolveCandidateTick?: (fragmentStartTick: number) => number
 }): HarmonyStripRows {
   const mode = opts.tonalityMode ?? 'major'
   const declaredSpans = authoritativeSketch(opts.sketch)
@@ -160,12 +209,20 @@ export function buildHarmonyStripRows(opts: {
       ),
     )
   }
+  detectOnly = applyDetectAltToDetectSpans(detectOnly, {
+    nameCandidatesByTick: opts.nameCandidatesByTick as
+      | ReadonlyMap<number, readonly NatureNameCandidate[]>
+      | undefined,
+    detectAltIndexByStartTick: opts.detectAltIndexByStartTick,
+    resolveCandidateTick: opts.resolveCandidateTick,
+  })
 
   const baseOpts = {
     tonality: opts.tonality,
     mode,
     preferFlats: opts.preferFlats,
     nameCandidatesByTick: opts.nameCandidatesByTick,
+    resolveCandidateTick: opts.resolveCandidateTick,
   }
 
   const declared: HarmonyStripSegment[] = declaredSpans.map((s, i) =>

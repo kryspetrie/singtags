@@ -50,10 +50,10 @@ function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
 </script>
 
 <template>
-  <section class="coach-config" aria-label="Settings">
+  <section class="coach-config" aria-label="Tweaks">
     <header class="cfg-head">
-      <h3 class="subh">Settings</h3>
-      <button type="button" class="icon" aria-label="Close settings" @click="emit('close')">
+      <h3 class="subh">Tweaks</h3>
+      <button type="button" class="icon" aria-label="Close Tweaks" @click="emit('close')">
         ×
       </button>
     </header>
@@ -98,7 +98,7 @@ function groupOn(config: ArrangementQaConfig, id: QaCheckGroupId): boolean {
       </select>
     </label>
     <p class="hint">
-      How strongly Coach and Detected prefer textbook cadences (V7→I, II7→V7→I, I7→IV). Off is for
+      How strongly Coach and Detected prefer textbook cadences (V7->I, II7->V7->I, I7->IV). Off is for
       experimental reharmonization.
     </p>
 

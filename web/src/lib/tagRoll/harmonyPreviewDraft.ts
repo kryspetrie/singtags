@@ -18,7 +18,7 @@ export type HarmonyPreviewDraft = {
   quality: HarmonySketchQuality
   /** Chord before the preview session (Reset target). Null = empty / new. */
   baseline: HarmonyPreviewBaseline | null
-  source: 'popover' | 'harmonize'
+  source: 'popover' | 'harmonize' | 'coach'
 }
 
 export function previewDraftDirty(draft: HarmonyPreviewDraft): boolean {

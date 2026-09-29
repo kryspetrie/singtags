@@ -3,7 +3,7 @@
  */
 import type { ArrangementLint, LintRule } from './types'
 import { analyzeHarmonyTheory } from '../analyzeHarmonyTheory'
-import { cadenceMissMessage } from '../cadences'
+import { cadenceMissMessage, suggestCadencesForPhrase } from '../cadences'
 
 export const theorySpacingRule: LintRule = {
   id: 'theory-spacing',
@@ -165,14 +165,34 @@ export const cadenceMissRule: LintRule = {
           a.startTick < s.startTick + Math.max(1, s.durationTicks),
       )
       if (!stack) continue
+      const ctx = {
+        tonality: project.tonality,
+        mode,
+        melodyMidi: a.midi,
+        nextMelodyMidi: b.midi,
+      }
+      const plans = suggestCadencesForPhrase({
+        moments: [
+          {
+            startTick: a.startTick,
+            endTick: a.startTick + Math.max(1, a.durationTicks),
+            melodyMidi: a.midi,
+          },
+          {
+            startTick: b.startTick,
+            endTick: b.startTick + Math.max(1, b.durationTicks),
+            melodyMidi: b.midi,
+          },
+        ],
+        tonality: project.tonality,
+        mode,
+        bias: 'strong',
+        limit: 1,
+      })
       const miss = cadenceMissMessage(
         { rootPc: stack.rootPc, natureId: stack.natureId },
-        {
-          tonality: project.tonality,
-          mode,
-          melodyMidi: a.midi,
-          nextMelodyMidi: b.midi,
-        },
+        ctx,
+        { planLabel: plans[0]?.label },
       )
       if (!miss) continue
       out.push({

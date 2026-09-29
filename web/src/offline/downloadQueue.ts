@@ -37,6 +37,7 @@ export function isEmptyMediaBody(buf: ArrayBuffer): boolean {
  * Rejects HTML/JSON/XML *bodies* and known non-Web-Audio containers (MIDI/ASF).
  * Trusts audio magic bytes over a wrong Content-Type (S3/CDN sometimes labels
  * Opus as `text/html` or `application/octet-stream` after an SPA miss).
+ * Accepts WebP (`RIFF….WEBP`) for sheet packs — do not confuse with WAV.
  * Do not use for sheet-pack `metadata.json` — see {@link isCatalogJsonPath}.
  */
 export function isPlausibleMediaBody(buf: ArrayBuffer, contentType = ''): boolean {
@@ -44,17 +45,18 @@ export function isPlausibleMediaBody(buf: ArrayBuffer, contentType = ''): boolea
   if (isNonAudioPayload(buf)) return false
   const magic = sniffAudioMagic(buf)
   if (magic === 'midi' || magic === 'asf') return false
-  // Clear audio containers win even when Content-Type is wrong/missing.
+  // Clear containers win even when Content-Type is wrong/missing.
   if (
     magic === 'ogg' ||
     magic === 'mpeg' ||
     magic === 'mp4' ||
     magic === 'wav' ||
+    magic === 'webp' ||
     magic === 'aac-adts'
   ) {
     return true
   }
-  // Unknown magic (e.g. WebP sheets): deny document Content-Types only.
+  // Unknown magic: deny document Content-Types only.
   if (/text\/html|application\/json|text\/plain|application\/xml|text\/xml/i.test(contentType)) {
     return false
   }

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * Coach full-panel modes: settings, key ideas, or help (replaces workspace).
+ * Coach full-panel modes: Tweaks, ideas, or help (replaces workspace).
  */
 import ArrangingCoachConfig from './ArrangingCoachConfig.vue'
 import ArrangingCoachHelpPanel from './ArrangingCoachHelpPanel.vue'
-import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
+import ArrangingCoachIdeasPanel from './ArrangingCoachIdeasPanel.vue'
 import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
 import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
 import type { ArrangementQaConfig, QaCheckGroupId } from '../../domain/arranging/coachConfig'
 import type { ContestProfile, TuningMode } from '../../domain/arranging/types'
+import type { CoachIdeaCard, CoachHelpSection } from '../../application/arranging/coachIdeasHelp'
 
 defineProps<{
   mode: 'config' | 'ideas' | 'help'
@@ -16,10 +17,12 @@ defineProps<{
   tuningMode: TuningMode
   qaConfig: ArrangementQaConfig
   orgTip: string | null
-  glossaryIds: readonly string[]
+  ideasTitle: string
+  ideasIntro: string
+  ideas: readonly CoachIdeaCard[]
   helpTitle: string
-  helpTip: string
-  helpDetail: string
+  helpIntro: string
+  helpSections: readonly CoachHelpSection[]
 }>()
 
 const emit = defineEmits<{
@@ -45,20 +48,20 @@ const emit = defineEmits<{
     @update:cadence-bias="emit('update:cadenceBias')"
     @close="emit('close')"
   />
-  <ArrangingTeachStrip
+  <ArrangingCoachIdeasPanel
     v-else-if="mode === 'ideas'"
-    panel
     class="overlay"
-    heading="Key ideas for this step"
-    :ids="glossaryIds"
+    :title="ideasTitle"
+    :intro="ideasIntro"
+    :ideas="ideas"
     @close="emit('close')"
   />
   <ArrangingCoachHelpPanel
     v-else
     class="overlay"
     :title="helpTitle"
-    :tip="helpTip"
-    :detail="helpDetail"
+    :intro="helpIntro"
+    :sections="helpSections"
     @close="emit('close')"
   />
 </template>

@@ -20,14 +20,15 @@ export const SHEET_PIANO_KEY_SCALE_KEY_V1 = 'singtags.sheetPianoKeyScale.v1'
 export const SHEET_PIANO_HEIGHT_KEY = 'singtags.sheetPianoHeightPx.v1'
 /** Invert sheet page colors (night reading). */
 export const SHEET_INVERT_KEY = 'singtags.sheetInvert.v1'
-/** Labs: animated QR file transfer (Decimen). Default on. */
+/** Optical transfer — always on; legacy Labs key retained for migrate. */
 export const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabled.v1'
 /** Labs: on-device Local Library (charts/images/tracks). Default off. */
 export const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 /** Labs: WebRTC DataChannel transfer (Wi‑Fi / hotspot). Default off. */
 export const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
-/** Labs: OS Share handoff (Quick Share / AirDrop via share sheet). Default off. */
+/** @deprecated OS Share / Quick Share / AirDrop removed; key retained for migrate. */
 export const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
+/** Audio Recorder — always on; legacy Labs key retained for migrate. */
 export const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
 export const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'

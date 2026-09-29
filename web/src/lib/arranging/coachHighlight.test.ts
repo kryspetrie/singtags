@@ -24,13 +24,8 @@ describe('coachHighlight', () => {
     unsub()
   })
 
-  it('lists five lane lenses', () => {
-    expect(COACH_LANE_LENSES.map((l) => l.id)).toEqual([
-      'overview',
-      'gaps',
-      'ring',
-      'voiceLead',
-      'issues',
-    ])
+  it('exposes Ring, Voice-leading, and Issues lane toggles', () => {
+    expect(COACH_LANE_LENSES.map((l) => l.id)).toEqual(['ring', 'voiceLead', 'issues'])
   })
 })
+

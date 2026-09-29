@@ -45,7 +45,7 @@ export function buildHarmonizeChordOptions(opts: {
   leadMidi: number | null
   /** When true, primary list ignores lead-in-chord filter (declare anything). */
   chordOnly?: boolean
-  /** Next harmony root (Sketch / pillar) — enables V7/V, ii7/V dual labels. */
+  /** Next harmony root (Sketch / pillar) — enables V7/V dual labels. */
   resolvesToRoot?: number | null
 }): { primary: HarmonizeChordOption[]; more: HarmonizeChordOption[] } {
   const mode = opts.mode ?? 'major'

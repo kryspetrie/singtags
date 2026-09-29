@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { followPlayheadScrollX } from './followPlayheadScroll'
+import { followPlayheadScrollX, followPlayheadContentScrollX } from './followPlayheadScroll'
 import { TAG_ROLL_PPQ } from './types'
 
 describe('followPlayheadScrollX', () => {
@@ -48,5 +48,36 @@ describe('followPlayheadScrollX', () => {
     })
     expect(next).not.toBeNull()
     expect(next!).toBeLessThan(400)
+  })
+
+  it('transport seeks can land inset via focusRatio', () => {
+    const next = followPlayheadScrollX({
+      playheadTick: beat * 12,
+      scrollX: 0,
+      cellW,
+      viewportW: 400,
+      lengthTicks: beat * 64,
+      marginPx: 48,
+      focusRatio: 0.35,
+    })
+    expect(next).not.toBeNull()
+    const phX = beat * 12 * (cellW / TAG_ROLL_PPQ) - next!
+    expect(phX).toBeCloseTo(400 * 0.35, 0)
+    expect(phX).toBeGreaterThan(48)
+    expect(phX).toBeLessThan(400 - 48)
+  })
+})
+
+describe('followPlayheadContentScrollX', () => {
+  it('works from absolute content X (sheet layout)', () => {
+    const next = followPlayheadContentScrollX({
+      playheadContentX: 900,
+      scrollX: 0,
+      viewportW: 400,
+      contentW: 2000,
+      marginPx: 48,
+    })
+    expect(next).not.toBeNull()
+    expect(900 - next!).toBeCloseTo(48, 0)
   })
 })

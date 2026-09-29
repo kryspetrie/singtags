@@ -24,9 +24,12 @@ export {
   NOTATION_EXAMPLES,
   notationExampleById,
   notationExamplesForLesson,
+  notationExamplesForGlossary,
   notationExampleToAbc,
   midiToAbcPitch,
 } from './notation'
+export { GLOSSARY_DETAILS } from './glossaryDetails'
+export type { GlossaryDetail, GlossaryImage } from './glossaryDetails'
 export type { NotationExample, NotationChord, NotationSnippet } from './notation'
 export {
   narrateArrangementAnalysis,

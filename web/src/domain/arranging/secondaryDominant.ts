@@ -194,15 +194,8 @@ export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
 
   // m7 and other natures: quality on degree — never V7
   if (opts.natureId === 'm7') {
+    // Dm7 → G in C is plain ii7→V, not “ii7/V” (that would be Am7 = ii of V).
     const roman = `${base}7`.replace(/^I7$/, 'i7').replace(/^IV7$/, 'iv7')
-    // ii7 resolving to V → dual spelling as applied ii7/V (supertonic of V)
-    if (
-      target != null &&
-      rootDeg === 2 &&
-      degreeOf(target, opts.tonality) === 7
-    ) {
-      return { roman, altRoman: 'ii7/V' }
-    }
     return { roman }
   }
   if (opts.natureId === 'sixth') return { roman: `${base}6` }

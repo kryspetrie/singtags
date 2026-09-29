@@ -3,8 +3,8 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { STRIP_DRAG_SLOP_PX } from './harmonyStripGestures'
-import { useDeclaredStripGestures } from './useDeclaredStripGestures'
+import { STRIP_DRAG_SLOP_PX } from '../lib/tagRoll/harmonyStripGestures'
+import { useDeclaredStripGestures, sketchSpanIdsBetween } from './useDeclaredStripGestures'
 
 function makeTrack() {
   const track = document.createElement('div')
@@ -134,5 +134,131 @@ describe('useDeclaredStripGestures drag-select', () => {
     expect(onPlaceRange).not.toHaveBeenCalled()
     expect(onSelect).toHaveBeenCalledWith(['s1', 's2'])
     expect(onFocusRange).toHaveBeenCalledWith(480, 1440)
+  })
+})
+
+describe('useDeclaredStripGestures shift-click range', () => {
+  const spans = [
+    {
+      id: 's1',
+      startTick: 0,
+      endTick: 480,
+      rootPc: 0,
+      quality: 'major' as const,
+      displayName: 'C',
+      displayRoman: 'I',
+    },
+    {
+      id: 's2',
+      startTick: 480,
+      endTick: 960,
+      rootPc: 5,
+      quality: 'major' as const,
+      displayName: 'F',
+      displayRoman: 'IV',
+    },
+    {
+      id: 's3',
+      startTick: 960,
+      endTick: 1440,
+      rootPc: 7,
+      quality: 'major' as const,
+      displayName: 'G',
+      displayRoman: 'V',
+    },
+  ]
+
+  it('sketchSpanIdsBetween returns inclusive endpoints ordered by time', () => {
+    expect(sketchSpanIdsBetween(spans, 's1', 's3')).toEqual(['s1', 's2', 's3'])
+    expect(sketchSpanIdsBetween(spans, 's3', 's1')).toEqual(['s1', 's2', 's3'])
+    expect(sketchSpanIdsBetween(spans, 's2', 's2')).toEqual(['s2'])
+  })
+
+  it('click then Shift+click selects the inclusive range', () => {
+    const trackEl = ref<HTMLElement | null>(makeTrack())
+    const selectedIds = ref<string[]>([])
+    const onSelect = vi.fn((ids: string[]) => {
+      selectedIds.value = ids
+    })
+
+    const { onPointerDown, onPointerUp } = useDeclaredStripGestures({
+      trackEl,
+      declared: ref(spans),
+      selectedIds,
+      scrollX: ref(0),
+      cellW: ref(24),
+      ppq: ref(480),
+      snapTicks: ref(120),
+      lengthTicks: ref(1920),
+      onBeginGesture: vi.fn(),
+      onSelect,
+      onClearSelection: vi.fn(),
+      onPlaceRange: vi.fn(),
+      onEdit: vi.fn(),
+      onTogglePillar: vi.fn(),
+      onGeometry: vi.fn(),
+      onGeometryMany: vi.fn(),
+      onFocusRange: vi.fn(),
+    })
+
+    // Click s1 (x≈12 → tick 240)
+    onPointerDown(
+      new PointerEvent('pointerdown', { button: 0, clientX: 12, clientY: 10, pointerId: 1 }),
+    )
+    onPointerUp(new PointerEvent('pointerup', { pointerId: 1 }))
+    expect(onSelect).toHaveBeenLastCalledWith(['s1'])
+
+    // Shift+click s3 (x≈60 → tick 1200)
+    onPointerDown(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        clientX: 60,
+        clientY: 10,
+        shiftKey: true,
+        pointerId: 2,
+      }),
+    )
+    onPointerUp(new PointerEvent('pointerup', { pointerId: 2 }))
+    expect(onSelect).toHaveBeenLastCalledWith(['s1', 's2', 's3'])
+  })
+
+  it('Shift+click alone with no prior selection selects only that chord', () => {
+    const trackEl = ref<HTMLElement | null>(makeTrack())
+    const selectedIds = ref<string[]>([])
+    const onSelect = vi.fn((ids: string[]) => {
+      selectedIds.value = ids
+    })
+
+    const { onPointerDown, onPointerUp } = useDeclaredStripGestures({
+      trackEl,
+      declared: ref(spans),
+      selectedIds,
+      scrollX: ref(0),
+      cellW: ref(24),
+      ppq: ref(480),
+      snapTicks: ref(120),
+      lengthTicks: ref(1920),
+      onBeginGesture: vi.fn(),
+      onSelect,
+      onClearSelection: vi.fn(),
+      onPlaceRange: vi.fn(),
+      onEdit: vi.fn(),
+      onTogglePillar: vi.fn(),
+      onGeometry: vi.fn(),
+      onGeometryMany: vi.fn(),
+      onFocusRange: vi.fn(),
+    })
+
+    onPointerDown(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        clientX: 60,
+        clientY: 10,
+        shiftKey: true,
+        pointerId: 1,
+      }),
+    )
+    onPointerUp(new PointerEvent('pointerup', { pointerId: 1 }))
+    expect(onSelect).toHaveBeenCalledWith(['s3'])
   })
 })

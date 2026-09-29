@@ -16,6 +16,7 @@ import {
   bindCoachHighlightChannel,
   setCoachHighlight,
 } from '../lib/arranging/coachHighlight'
+import { subscribeCoachUiIntent } from '../lib/arranging/coachUiIntent'
 import type { CoachFocusTab } from '../domain/arranging/nextCoachAction'
 import type { CoachUiMode } from '../domain/arranging/coachTips'
 import { useArrangementStore } from '../stores/arrangement'
@@ -212,7 +213,15 @@ export function useCoachGuidedAndReview(opts: {
     { immediate: true },
   )
 
-  onUnmounted(() => unbindHl?.())
+  const unbindUiIntent = subscribeCoachUiIntent((intent) => {
+    if (intent.type === 'openCheck') selectGuidedStep('check')
+    else if (intent.type === 'openChoose') selectGuidedStep('chords')
+  })
+
+  onUnmounted(() => {
+    unbindHl?.()
+    unbindUiIntent()
+  })
 
   return {
     guidedStep,

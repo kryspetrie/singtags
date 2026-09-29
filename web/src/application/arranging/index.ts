@@ -54,7 +54,22 @@ export {
   teachArrangementAnalysis,
   teachStackAnalysis,
 } from './TheoryAssist'
-export { suggestModulation, suggestModulationGrouped, combineModulationPaths } from './KeyChange'
+export { suggestModulation, suggestModulationGrouped, combineModulationPaths, suggestPostModulation } from './KeyChange'
+export { prepareModulationApply, pickModulationPath, packedToSketchPatches, listModulationOptions } from './KeyChangeApply'
+export { voiceModulationHearPath } from './KeyChangeHear'
+export type { MelodyLeadHint } from './KeyChangeHear'
+export type {
+  PrepareModulationApplyOpts,
+  PrepareModulationApplyResult,
+  ModulationSketchPatch,
+  ModulationOption,
+} from './KeyChangeApply'
+export {
+  listCadencePlans,
+  planToSketchPatches,
+  planStepToSketchPatch,
+} from './CadencePlans'
+export type { CadenceSketchPatch, CadencePlanApplyResult } from './CadencePlans'
 export { contextForSelectedMoment } from './CoachContext'
 export type { MomentContextDto } from './CoachContext'
 export { whyViewForCandidate } from './CandidateWhy'

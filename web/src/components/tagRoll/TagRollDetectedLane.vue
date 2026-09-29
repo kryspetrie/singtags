@@ -8,10 +8,22 @@ import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arran
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import { stripSegW, stripSegX } from '../../lib/tagRoll/harmonyStripGestures'
 import type { TagRollProject } from '../../lib/tagRoll/types'
+import type { DetectedInterestLevel } from '../../lib/tagRoll/detectedInterestPrefs'
 import { usePreferencesStore } from '../../stores/preferences'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
 
 const TRACK_H = 44
+/** Hide ◆ when the cell is narrower than this (px). */
+const PILLAR_BADGE_MIN_W = 36
+/** Hide alt when the cell can't fit alt + ◆ (px). */
+const ALT_BADGE_MIN_W = 52
+
+const INTEREST_CYCLE: readonly DetectedInterestLevel[] = ['basic', 'mild', 'bold']
+const INTEREST_LABEL: Record<DetectedInterestLevel, string> = {
+  basic: 'Basic',
+  mild: 'Mild',
+  bold: 'Bold',
+}
 
 const props = defineProps<{
   project: TagRollProject
@@ -30,6 +42,8 @@ const emit = defineEmits<{
   edit: [seg: ChordAnalysisSegment]
   /** Lock this detection into Sketch as a structural pillar. */
   togglePillar: [seg: ChordAnalysisSegment]
+  /** Cycle ranked Detected picks for this hole (top 5). */
+  cycleAlt: [seg: ChordAnalysisSegment]
 }>()
 
 const prefs = usePreferencesStore()
@@ -37,6 +51,24 @@ const collapsed = computed(() => prefs.tagRollDetectedLaneCollapsed)
 const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
 const canLockAll = computed(() => props.segments.length > 0)
 const editSegId = computed(() => props.editSegId ?? null)
+const interest = computed(() => prefs.detectedInterest)
+const interestLabel = computed(() => INTEREST_LABEL[interest.value])
+const interestTitle = computed(() => {
+  const cur = INTEREST_LABEL[interest.value]
+  if (interest.value === 'basic') {
+    return `Detected interest: ${cur} — click for Mild (V7, ii7→V, held cadences)`
+  }
+  if (interest.value === 'mild') {
+    return `Detected interest: ${cur} — click for Bold (V7/V · Dom9 alts)`
+  }
+  return `Detected interest: ${cur} — click for Basic (diatonic homes)`
+})
+
+function cycleInterest(): void {
+  const i = INTEREST_CYCLE.indexOf(interest.value)
+  const next = INTEREST_CYCLE[(i + 1) % INTEREST_CYCLE.length]!
+  prefs.setDetectedInterest(next)
+}
 
 const wrapRef = ref<HTMLElement | null>(null)
 const gridCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -51,9 +83,21 @@ function labelOf(seg: ChordAnalysisSegment): string {
   return props.mode === 'roman' ? seg.displayRoman : seg.displayName
 }
 
+function segWidthPx(seg: ChordAnalysisSegment): number {
+  return stripSegW(seg.startTick, seg.endTick, cellW.value, ppq.value)
+}
+
+function showPillarBadge(seg: ChordAnalysisSegment): boolean {
+  return segWidthPx(seg) >= PILLAR_BADGE_MIN_W
+}
+
+function showAltBadge(seg: ChordAnalysisSegment): boolean {
+  return (seg.altCount ?? 0) > 1 && segWidthPx(seg) >= ALT_BADGE_MIN_W
+}
+
 function segStyle(seg: ChordAnalysisSegment): Record<string, string> {
   const x = stripSegX(seg.startTick, scrollX.value, cellW.value, ppq.value)
-  const w = stripSegW(seg.startTick, seg.endTick, cellW.value, ppq.value)
+  const w = segWidthPx(seg)
   return { transform: `translate3d(${x}px, 0, 0)`, width: `${w}px` }
 }
 
@@ -76,6 +120,24 @@ function onPillarBadge(seg: ChordAnalysisSegment, e: Event): void {
   if (seg.rootPc == null) return
   emit('focusRange', seg.startTick, seg.endTick)
   emit('togglePillar', seg)
+}
+
+function onAltBadge(seg: ChordAnalysisSegment, e: Event): void {
+  e.stopPropagation()
+  e.preventDefault()
+  if ((seg.altCount ?? 0) < 2) return
+  emit('cycleAlt', seg)
+}
+
+function altLabel(seg: ChordAnalysisSegment): string {
+  const idx = seg.altIndex ?? 0
+  return idx > 0 ? `alt ${idx + 1}` : 'alt'
+}
+
+function altTitle(seg: ChordAnalysisSegment): string {
+  const n = seg.altCount ?? 0
+  const idx = (seg.altIndex ?? 0) + 1
+  return `Cycle Detected pick (${idx}/${n}) — top 5 ranked`
 }
 
 function drawGrid(): void {
@@ -145,6 +207,16 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
     <template #gutter>
       <button
         type="button"
+        class="interest-btn"
+        :class="{ mild: interest === 'mild', bold: interest === 'bold' }"
+        :aria-label="`Detected interest: ${interestLabel}. Cycle level`"
+        :title="interestTitle"
+        @click="cycleInterest"
+      >
+        {{ interestLabel }}
+      </button>
+      <button
+        type="button"
         class="lock-btn"
         :disabled="!canLockAll"
         title="Lock — declare all detections into Sketch"
@@ -168,16 +240,28 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
             <button
               type="button"
               class="lab"
+              :aria-label="`Detected: ${labelOf(seg)}`"
               :title="
                 seg.cadenceLabel
                   ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit; ◆ / Alt+click = pillar`
                   : `Detected: ${labelOf(seg)} — click to edit; ◆ / Alt+click = pillar`
               "
               @click="onDetectClick(seg, $event)"
+            />
+            <span class="txt" aria-hidden="true">{{ labelOf(seg) }}</span>
+            <button
+              v-if="showAltBadge(seg)"
+              type="button"
+              class="alt-badge"
+              :class="{ active: (seg.altIndex ?? 0) > 0 }"
+              :title="altTitle(seg)"
+              :aria-label="altTitle(seg)"
+              @click="onAltBadge(seg, $event)"
             >
-              <span class="txt">{{ labelOf(seg) }}</span>
+              {{ altLabel(seg) }}
             </button>
             <button
+              v-if="showPillarBadge(seg)"
               type="button"
               class="pillar-badge"
               title="Lock as pillar into Sketch (Alt+click)"
@@ -217,6 +301,35 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
 .lock-btn:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent) 22%, var(--surface));
 }
+.interest-btn {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.1rem 0.2rem;
+  min-height: 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.interest-btn.mild {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.interest-btn.bold {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+.interest-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
 .track-wrap {
   flex: 1 1 auto;
   display: flex;
@@ -236,6 +349,7 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
 .grid-canvas {
   position: absolute;
   inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -243,6 +357,7 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
 .track {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 .empty {
   position: absolute;
@@ -259,8 +374,6 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
   position: absolute;
   top: 4px;
   bottom: 4px;
-  display: flex;
-  align-items: stretch;
   border-radius: 6px;
   border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
@@ -272,31 +385,71 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 .lab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  padding: 0 0.35rem;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
   cursor: pointer;
-  text-align: left;
 }
 .txt {
-  flex: 1;
+  position: absolute;
+  left: 0.28rem;
+  right: 0.28rem;
+  bottom: 0.1rem;
+  z-index: 3;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.15;
+  pointer-events: none;
+  text-shadow:
+    0 0 2px color-mix(in srgb, var(--surface) 90%, transparent),
+    0 0 4px color-mix(in srgb, var(--surface) 80%, transparent);
+}
+.alt-badge {
+  position: absolute;
+  top: 2px;
+  right: 1.15rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1rem;
+  padding: 0 0.22rem;
+  border: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: lowercase;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.alt-badge:hover,
+.alt-badge.active,
+.cell.menu .alt-badge {
+  opacity: 1;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .pillar-badge {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  margin: 2px 3px 0 0;
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -117,7 +117,27 @@ async function packBlobFromResponse(
   else if (magic === 'mp4') mime = 'audio/mp4'
   else if (magic === 'mpeg' || magic === 'aac-adts') mime = 'audio/mpeg'
   else if (magic === 'wav') mime = 'audio/wav'
+  else if (magic === 'webp') mime = 'image/webp'
+  // Safari: keep Opus in the pack; session-transcode to WAV for playable blob URLs.
+  if (magic === 'ogg') {
+    const { needsOpusOnDeviceTranscode, playableObjectUrlFromAudioBytes } = await import(
+      '../audio/opusPlayable'
+    )
+    if (needsOpusOnDeviceTranscode()) {
+      return playableObjectUrlFromAudioBytes(buf, mime, `pack:${key}`)
+    }
+  }
   return URL.createObjectURL(new Blob([buf], { type: mime }))
+}
+
+/** Starred/cached audio → playable object URL (Opus→WAV on Safari). */
+async function playableUrlFromStarEntry(
+  entry: { mime: string; data: ArrayBuffer; path?: string } | undefined,
+  cacheKey: string,
+): Promise<string | null> {
+  if (!entry) return null
+  const { playableObjectUrlFromAudioBytes } = await import('../audio/opusPlayable')
+  return playableObjectUrlFromAudioBytes(entry.data, entry.mime, cacheKey)
 }
 
 async function packGetBlobUrl(absolute: string): Promise<string | null> {
@@ -318,7 +338,10 @@ async function collectVoiceStemUrls(
       starEntry &&
       (isUltraMonoStemPath(starEntry.path) || starEntry.quality === 'lofi')
     ) {
-      const url = blobUrlFromCached(starEntry)
+      const url = await playableUrlFromStarEntry(
+        starEntry,
+        `star:${detail.tag_id}:${part}:${starEntry.path}`,
+      )
       if (url) {
         inputs.push({ part, url })
         continue
@@ -510,7 +533,7 @@ export async function resolvePathUrl(
     }
     for (const entry of Object.values(starred.audioBlobs ?? {})) {
       if (entry.path === path) {
-        const url = blobUrlFromCached(entry)
+        const url = await playableUrlFromStarEntry(entry, `star-path:${path}`)
         if (url) return { kind: 'blob', url, source: 'star' }
       }
     }
@@ -562,7 +585,10 @@ async function resolveOnlineVirtualPartLearning(
   if (!activeUrl) {
     const starEntry = starredAudioEntry(starred, part)
     if (starEntry) {
-      activeUrl = blobUrlFromCached(starEntry)
+      activeUrl = await playableUrlFromStarEntry(
+        starEntry,
+        `star:${detail.tag_id}:${part}:${starEntry.path}`,
+      )
       activeOwned = !!activeUrl
     }
   }
@@ -583,7 +609,10 @@ async function resolveOnlineVirtualPartLearning(
     }
     const starEntry = starredAudioEntry(starred, voice)
     if (starEntry) {
-      const u = blobUrlFromCached(starEntry)
+      const u = await playableUrlFromStarEntry(
+        starEntry,
+        `star:${detail.tag_id}:${voice}:${starEntry.path}`,
+      )
       if (u) {
         others.push({ part: voice, url: u })
         owned.push(u)
@@ -726,7 +755,10 @@ async function resolveCachedHighQualityVoice(
 
   const starEntry = starredAudioEntry(starred, part)
   if (starEntry && isHighQualityAudioBlob(starEntry.path, starEntry.quality)) {
-    const raw = blobUrlFromCached(starEntry)
+    const raw = await playableUrlFromStarEntry(
+      starEntry,
+      `star:${detail.tag_id}:${part}:${starEntry.path}`,
+    )
     if (raw) {
       const tier =
         starEntry.quality === 'original' ? 'original' : starEntry.quality || 'cached'
@@ -801,7 +833,10 @@ export async function resolveAudioPart(
       (starEntry.quality === 'lofi' || isUltraMonoStemPath(starEntry.path))
     // Online: skip degraded star blobs so pack/network HQ can upgrade.
     if (!(degraded && !offlineOnly)) {
-      const raw = blobUrlFromCached(starEntry)
+      const raw = await playableUrlFromStarEntry(
+        starEntry,
+        `star:${detail.tag_id}:${part}:${starEntry.path}`,
+      )
       if (raw) {
         const tier = starEntry.quality === 'original' ? 'original' : starEntry.quality || 'cached'
         const url = await finalizeBlobUrl(raw, starEntry.path, {
@@ -931,7 +966,10 @@ async function resolveOfflineUltraVoice(
     starEntry &&
     (isUltraMonoStemPath(starEntry.path) || starEntry.quality === 'lofi')
   ) {
-    const raw = blobUrlFromCached(starEntry)
+    const raw = await playableUrlFromStarEntry(
+      starEntry,
+      `star:${detail.tag_id}:${part}:${starEntry.path}`,
+    )
     if (raw) {
       const url = await finalizeBlobUrl(raw, starEntry.path, {
         detail,

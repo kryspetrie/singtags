@@ -28,19 +28,43 @@ describe('pillar ops', () => {
     expect(p[0]!.confidence).toBe(2)
   })
 
-  it('melodyGapsOutsidePillars finds uncovered notes', () => {
+  it('melodyGapsOutsidePillars only flags notes before the first pillar', () => {
     const pillars: Pillar[] = [
       {
         id: 'p1',
         rootPc: 0,
-        startTick: 0,
-        endTick: 480,
+        startTick: 480,
+        endTick: 960,
         source: 'inferred',
         confirmed: false,
       },
     ]
     const gaps = melodyGapsOutsidePillars([mel('a', 0), mel('b', 480), mel('c', 960)], pillars)
-    expect(gaps.map((g) => g.id)).toEqual(['b', 'c'])
+    expect(gaps.map((g) => g.id)).toEqual(['a'])
+  })
+
+  it('melodyGapsOutsidePillars ignores short endTick holes between pillars', () => {
+    const pillars: Pillar[] = [
+      {
+        id: 'p1',
+        rootPc: 0,
+        startTick: 0,
+        endTick: 240,
+        source: 'user',
+        confirmed: true,
+      },
+      {
+        id: 'p2',
+        rootPc: 7,
+        startTick: 960,
+        endTick: 1440,
+        source: 'user',
+        confirmed: true,
+      },
+    ]
+    // Mid-phrase Detected/defined color between short pillar ends is expected.
+    const gaps = melodyGapsOutsidePillars([mel('a', 0), mel('b', 480), mel('c', 960)], pillars)
+    expect(gaps.map((g) => g.id)).toEqual([])
   })
 
   it('melodyGapsOutsidePillars uses portamento-deferred onsets', () => {
@@ -63,6 +87,7 @@ describe('pillar ops', () => {
       pillars,
     )
     expect(gaps.map((g) => g.id)).toEqual([])
+    // Short stored endTick still covers deferred onset — pillars span until the next home.
     const gaps2 = melodyGapsOutsidePillars(
       [
         { ...mel('a', 0), durationTicks: 480 },
@@ -79,9 +104,7 @@ describe('pillar ops', () => {
         },
       ],
     )
-    expect(gaps2.map((g) => ({ id: g.id, start: g.startTick }))).toEqual([
-      { id: 'b', start: 480 },
-    ])
+    expect(gaps2.map((g) => g.id)).toEqual([])
   })
 
   it('addPillarAtTick trims overlaps', () => {

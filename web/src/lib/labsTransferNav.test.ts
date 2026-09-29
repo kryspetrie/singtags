@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isLabsReceiveFullscreenQuery,
-  isOsShareReceiveRoute,
   isWirelessReceiveRoute,
-  OS_SHARE_RX_PATH,
   WIRELESS_RX_PATH,
 } from './labsTransferNav'
 
@@ -18,15 +16,6 @@ describe('labsTransferNav', () => {
     expect(
       isWirelessReceiveRoute({ name: 'wireless-transfer', path: '/wireless', query: { mode: 'receive' } }),
     ).toBe(true)
-  })
-
-  it('detects OS Share receive routes', () => {
-    expect(isOsShareReceiveRoute({ name: 'os-share-rx', path: OS_SHARE_RX_PATH, query: {} })).toBe(
-      true,
-    )
-    expect(isOsShareReceiveRoute({ name: 'os-share-transfer', path: '/share', query: {} })).toBe(
-      false,
-    )
   })
 
   it('detects fullscreen receive query', () => {

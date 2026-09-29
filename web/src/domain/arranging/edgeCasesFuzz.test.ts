@@ -118,8 +118,15 @@ describe('extreme MIDI and tick boundaries', () => {
     ])
     expect(pillarAtTick(pillars, 0)?.rootPc).toBe(0)
     expect(pillarAtTick(pillars, 1919)?.rootPc).toBe(0)
-    expect(pillarAtTick(pillars, 1920)).toBeNull()
+    // Last home continues past stored endTick until a later pillar starts.
+    expect(pillarAtTick(pillars, 1920)?.rootPc).toBe(0)
     expect(pillarAtTick(pillars, -1)).toBeNull()
+    const two = suggestionsToPillars([
+      { rootPc: 0, startTick: 0, endTick: 480, confidence: 1, reason: 't' },
+      { rootPc: 7, startTick: 1920, endTick: 2400, confidence: 1, reason: 't' },
+    ])
+    expect(pillarAtTick(two, 1000)?.rootPc).toBe(0)
+    expect(pillarAtTick(two, 1920)?.rootPc).toBe(7)
   })
 })
 

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * Full-panel Coach help for the active guided step.
+ * Full-panel Coach Help — how to use the current step’s controls.
  */
+import type { CoachHelpSection } from '../../application/arranging/coachIdeasHelp'
+
 defineProps<{
   title: string
-  tip: string
-  detail: string
+  intro: string
+  sections: readonly CoachHelpSection[]
 }>()
 
 const emit = defineEmits<{
@@ -18,11 +20,16 @@ const emit = defineEmits<{
     <header class="head">
       <h3>{{ title }}</h3>
       <button type="button" class="close" aria-label="Close" title="Close" @click="emit('close')">
-        ×
+        x
       </button>
     </header>
-    <p class="tip">{{ tip }}</p>
-    <p class="detail">{{ detail }}</p>
+    <p class="intro">{{ intro }}</p>
+    <ol class="sections">
+      <li v-for="sec in sections" :key="sec.title">
+        <strong>{{ sec.title }}</strong>
+        <p>{{ sec.body }}</p>
+      </li>
+    </ol>
   </section>
 </template>
 
@@ -60,17 +67,31 @@ h3 {
   font: inherit;
   line-height: 1;
 }
-.tip {
+.intro {
   margin: 0;
-  font-size: 0.88rem;
-  font-weight: 650;
+  font-size: 0.84rem;
   line-height: 1.4;
+  font-weight: 600;
   color: var(--text);
 }
-.detail {
+.sections {
   margin: 0;
+  padding: 0 0 0 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.sections li {
+  display: grid;
+  gap: 0.15rem;
+}
+.sections strong {
   font-size: 0.82rem;
-  line-height: 1.45;
+  font-weight: 750;
+}
+.sections p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
   color: var(--muted);
 }
 </style>

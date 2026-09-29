@@ -53,6 +53,12 @@ describe('DownloadQueue', () => {
     // Valid Opus/Ogg must win over a wrong SPA Content-Type.
     expect(isPlausibleMediaBody(ogg.buffer, 'text/html')).toBe(true)
     expect(isPlausibleMediaBody(ogg.buffer, 'application/json')).toBe(true)
+    // Sheet WebP is RIFF….WEBP — must not be confused with WAV.
+    const webp = new Uint8Array(96)
+    webp.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])
+    expect(isPlausibleMediaBody(webp.buffer, 'application/octet-stream')).toBe(true)
+    const { sniffAudioMagic } = await import('../audio/audioBytes')
+    expect(sniffAudioMagic(webp)).toBe('webp')
 
     expect(isCatalogJsonPath('/tags/1/metadata.json')).toBe(true)
     expect(isCatalogJsonPath('tags/1/metadata.json')).toBe(true)

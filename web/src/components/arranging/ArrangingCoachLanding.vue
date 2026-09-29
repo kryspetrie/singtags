@@ -12,14 +12,14 @@ defineEmits<{
     <h3 class="title">How to use Coach</h3>
     <p class="lead">
       Coach walks the chart after the roll owns melody and the harmony map. Use the step rail
-      (Home → Chords → Check → Polish); we remember where you left off.
+      (Home > Chords > Check > Polish); we remember where you left off.
     </p>
 
     <ol class="steps">
       <li>
         <strong>Melody &amp; roles on the roll</strong>
         <span>
-          Toolbar → Roles: set the Melody part (M), then mark Strong / Passing (S / P). Those
+          Toolbar > Roles: set the Melody part (M), then mark Strong / Passing (S / P). Those
           labels feed Detected, Harmonize, and Coach suggestions.
         </span>
       </li>
@@ -27,14 +27,14 @@ defineEmits<{
         <strong>Sketch the harmony map</strong>
         <span>
           Lock phrase chords in the Sketch lane, or mark pillars directly on Detected
-          (◆ / Alt+click locks that hole as a home root). Dock Pillar works on either lane.
+          (pillar badge / Alt+click locks that hole as a home root). Dock Pillar works on either lane.
         </span>
       </li>
       <li>
         <strong>Chords</strong>
         <span>
           Walk each Lead moment, hear ranked voicings, and Apply. Prefer textbook cadences
-          (V7→I, II7→V7→I, I7→IV) when the melody implies them.
+          (V7->I, II7->V7->I, I7->IV) when the melody implies them.
         </span>
       </li>
       <li>
@@ -48,7 +48,7 @@ defineEmits<{
         <strong>Polish</strong>
         <span>
           Path-optimize inversions for voice leading and ring, strengthen approaches, then
-          export. Contest / tuning prefs live under Settings (gear).
+          export. Contest / tuning prefs live under Tweaks.
         </span>
       </li>
     </ol>

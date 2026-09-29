@@ -1,9 +1,10 @@
 /**
- * Feature-detect formats that Web Audio `decodeAudioData` can handle.
+ * Feature-detect formats that Web Audio `decodeAudioData` can handle natively.
  *
- * Online playback defaults to Ogg Opus. Safari only gained reliable Ogg Opus
- * support in iOS/macOS 18.4 — older iPhones reject with EncodingError
- * "Decoding failed". Prefer original AAC/MP3 on those browsers.
+ * Online play prefers compact Opus everywhere; Safari without native Ogg Opus
+ * software-decodes via WASM (and may session-transcode Opus → WAV). Original
+ * AAC/MP3 is only an online fallback when WASM fails to load (see
+ * `onlinePlayAudioPath` + `isOpusWasmUnavailable`).
  */
 
 let oggOpusSupported: boolean | null = null
@@ -14,15 +15,15 @@ export function resetCodecSupportForTests(): void {
 }
 
 /**
- * Mark Ogg Opus as unusable for this session after a native decode failure.
- * Next online resolves fall back to original without waiting for canPlayType.
+ * Mark native Ogg Opus as unusable for this session after a decode failure.
+ * Further resolves prefer original AAC/MP3 via `onlinePlayAudioPath`.
  */
 export function noteOggOpusDecodeFailed(): void {
   oggOpusSupported = false
 }
 
 /**
- * Whether this browser can decode Ogg Opus for Web Audio playback.
+ * Whether this browser can decode Ogg Opus natively for Web Audio.
  * Uses `HTMLMediaElement.canPlayType` (same signal Safari documents for Ogg).
  */
 export function supportsOggOpusWebAudio(): boolean {

@@ -147,30 +147,6 @@ export default defineConfig({
         background_color: '#f7f5f1',
         display: 'standalone',
         start_url: viteBase(),
-        // Android: appear in the system share sheet and POST files into the installed PWA.
-        share_target: {
-          action: `${viteBase()}import-share`.replace(/\/{2,}/g, '/'),
-          method: 'POST',
-          enctype: 'multipart/form-data',
-          params: {
-            title: 'title',
-            text: 'text',
-            url: 'url',
-            files: [
-              {
-                name: 'files',
-                accept: [
-                  '*/*',
-                  'application/zip',
-                  'application/pdf',
-                  'application/octet-stream',
-                  'audio/*',
-                  'image/*',
-                ],
-              },
-            ],
-          },
-        },
         icons: [
           {
             src: 'icon-192.png',
@@ -199,11 +175,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Companion script handles POST /import-share for Web Share Target.
-        importScripts: ['share-target-sw.js'],
         navigateFallback: navigateFallbackUrl(),
         // Media files under /library/… only — not SPA routes /library/:id (see LIBRARY_MEDIA_NAV_DENY).
-        navigateFallbackDenylist: [LIBRARY_MEDIA_NAV_DENY, /^\/api\//, /\/import-share\/?$/],
+        navigateFallbackDenylist: [LIBRARY_MEDIA_NAV_DENY, /^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,wasm}'],
         // ogg-opus-decoder ships an optional ~4 MiB ML enhancement we never load.
         globIgnores: ['**/opus-ml*.js'],

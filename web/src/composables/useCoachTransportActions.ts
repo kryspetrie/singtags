@@ -26,6 +26,8 @@ export type CoachTransportActionCtx = {
   hearPillarRoot: () => void
   hearCurrentStack: () => void
   hearCand: (c: HarmonizeCandidate) => void
+  /** Chords: hear selected suggest row (falls back inside if omitted). */
+  hearSelectedSuggest?: () => void
 }
 
 export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
@@ -73,6 +75,10 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
   function hear(): void {
     if (ctx.guidedStep.value === 'chords') {
       ctx.focusTab.value = 'choose'
+      if (ctx.hearSelectedSuggest) {
+        ctx.hearSelectedSuggest()
+        return
+      }
       if (ctx.currentStack.value?.midi) ctx.hearCurrentStack()
       else if (ctx.filteredCandidates.value[0]) ctx.hearCand(ctx.filteredCandidates.value[0]!)
     }

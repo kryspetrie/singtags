@@ -1,12 +1,11 @@
 <script setup lang="ts">
 /**
- * Shared coach transport — prev/next, primary, hear/lock/skip; suggested next is a link.
+ * Shared coach transport — prev/next, primary, hear/lock/skip.
  */
 import type { CoachTransportView } from '../../composables/useCoachTransport'
 
 defineProps<{
   model: CoachTransportView
-  nextActionCta: string
 }>()
 
 defineEmits<{
@@ -17,7 +16,6 @@ defineEmits<{
   lock: []
   skip: []
   secondary: []
-  nextAction: []
 }>()
 </script>
 
@@ -25,7 +23,7 @@ defineEmits<{
   <div class="coach-transport" role="toolbar" :aria-label="`${model.stepLabel} transport`">
     <div class="transport-meta">
       <strong>{{ model.stepLabel }}</strong>
-      <span class="status">{{ model.status }}</span>
+      <span v-if="model.status" class="status">{{ model.status }}</span>
     </div>
     <div class="transport-actions">
       <template v-if="model.showNav">
@@ -95,9 +93,6 @@ defineEmits<{
         {{ model.secondaryLabel }}
       </button>
     </div>
-    <button type="button" class="linkish suggested" @click="$emit('nextAction')">
-      Suggested: {{ nextActionCta }}
-    </button>
   </div>
 </template>
 
@@ -129,19 +124,5 @@ defineEmits<{
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-}
-.suggested {
-  justify-self: start;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: 0.78rem;
-  color: var(--accent);
-  cursor: pointer;
-  padding: 0;
-  text-align: left;
-}
-.suggested:hover {
-  text-decoration: underline;
 }
 </style>

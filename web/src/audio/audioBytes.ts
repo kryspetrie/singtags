@@ -3,6 +3,9 @@
  * Chromium logs native "Unable to decode audio data" even when the promise is
  * caught — so skip decode when the payload is clearly not audio (HTML/JSON/empty)
  * or a known non-Web-Audio container (MIDI / WMA-ASF).
+ *
+ * RIFF is ambiguous: WAV is `RIFF….WAVE`, WebP sheets are `RIFF….WEBP` — never
+ * treat every RIFF as audio/wav (Safari rejects sheet pack blobs labeled wav).
  */
 
 /** Detected container/format from the first bytes of a payload. */
@@ -11,6 +14,7 @@ export type AudioMagicKind =
   | 'mpeg'
   | 'mp4'
   | 'wav'
+  | 'webp'
   | 'aac-adts'
   | 'midi'
   | 'asf'
@@ -19,7 +23,7 @@ export type AudioMagicKind =
 /** ASF / WMA GUID header (`30 26 B2 75 8E 66 CF 11 …`). */
 const ASF_HEADER = [0x30, 0x26, 0xb2, 0x75, 0x8e, 0x66, 0xcf, 0x11] as const
 
-/** Inspect magic bytes to guess audio container before calling `decodeAudioData`. */
+/** Inspect magic bytes to guess audio/image container before calling `decodeAudioData`. */
 export function sniffAudioMagic(data: ArrayBuffer | Uint8Array): AudioMagicKind {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
   if (bytes.byteLength < 4) return 'unknown'
@@ -31,7 +35,15 @@ export function sniffAudioMagic(data: ArrayBuffer | Uint8Array): AudioMagicKind 
   if (a === 0x4d && b === 0x54 && c === 0x68 && d === 0x64) return 'midi' // MThd
   if (a === 0x49 && b === 0x44 && c === 0x33) return 'mpeg' // ID3
   if (a === 0xff && (b & 0xe0) === 0xe0) return 'aac-adts' // MPEG ADTS / MP3 frame
-  if (a === 0x52 && b === 0x49 && c === 0x46 && d === 0x46) return 'wav' // RIFF
+  if (a === 0x52 && b === 0x49 && c === 0x46 && d === 0x46) {
+    // RIFF container — form type at byte 8 distinguishes WAVE vs WEBP (sheets).
+    if (bytes.byteLength >= 12) {
+      const form = String.fromCharCode(bytes[8]!, bytes[9]!, bytes[10]!, bytes[11]!)
+      if (form === 'WEBP') return 'webp'
+      if (form === 'WAVE') return 'wav'
+    }
+    return 'unknown'
+  }
   if (bytes.byteLength >= 8) {
     const box = String.fromCharCode(bytes[4]!, bytes[5]!, bytes[6]!, bytes[7]!)
     if (box === 'ftyp') return 'mp4'
@@ -93,6 +105,9 @@ export function assertDecodableAudioBytes(data: ArrayBuffer | Uint8Array): void 
     throw new Error(
       'This mix is a WMA/ASF file that can’t play in the browser. No learning-track audio is available for this tag.',
     )
+  }
+  if (magic === 'webp') {
+    throw new Error('Unable to decode audio data (received a WebP image instead of an audio file)')
   }
   // Known containers are fine; unknown binary may still be valid (rare codecs) —
   // let decodeAudioData decide. We only gate obvious text/document payloads.

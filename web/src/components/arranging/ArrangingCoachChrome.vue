@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Coach dock header — settings / ideas / help open as full-panel modes in the parent.
+ * Coach dock header — Tweaks / ideas / help open as full-panel modes in the parent.
  */
 defineProps<{
   showConfig: boolean
@@ -24,7 +24,7 @@ const emit = defineEmits<{
       <button
         type="button"
         class="text-btn"
-        title="Key ideas for this step"
+        title="Craft ideas for this step"
         :aria-pressed="showIdeas"
         @click="emit('toggleIdeas')"
       >
@@ -33,7 +33,7 @@ const emit = defineEmits<{
       <button
         type="button"
         class="text-btn"
-        title="Help for this step"
+        title="How to use this step"
         :aria-pressed="showHelp"
         @click="emit('toggleHelp')"
       >
@@ -41,17 +41,17 @@ const emit = defineEmits<{
       </button>
       <button
         type="button"
-        class="icon-btn"
-        title="Settings"
-        aria-label="Settings"
+        class="text-btn"
+        title="Tweaks — contest rules, temperament, cadence bias, validations"
+        aria-label="Tweaks"
         :aria-pressed="showConfig"
         @click="emit('toggleConfig')"
       >
-        ⚙
+        Tweaks
       </button>
-      <button type="button" class="icon-btn" title="Pop out" @click="emit('popOut')">↗</button>
+      <button type="button" class="text-btn" title="Pop out" @click="emit('popOut')">Pop out</button>
       <button type="button" class="icon-btn" aria-label="Close coach" @click="emit('close')">
-        ×
+        x
       </button>
     </div>
   </header>

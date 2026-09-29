@@ -100,7 +100,7 @@ function melodyOnly(): void {
           <span class="sub">Red stripe on the Melody part</span>
         </span>
       </label>
-      <label class="row" :title="tagRollTip('Yellow / green stripes for Strong and Passing')">
+      <label class="row" :title="tagRollTip('Green / yellow stripes for Strong and Passing')">
         <input
           type="checkbox"
           :checked="showRoles"
@@ -265,10 +265,10 @@ function melodyOnly(): void {
   background: rgba(140, 16, 28, 1);
 }
 .swatch.pmn {
-  background: rgba(230, 175, 20, 1);
+  background: rgba(28, 130, 78, 1);
 }
 .swatch.smn {
-  background: rgba(28, 130, 78, 1);
+  background: rgba(230, 175, 20, 1);
 }
 .swatch-pair {
   display: inline-flex;

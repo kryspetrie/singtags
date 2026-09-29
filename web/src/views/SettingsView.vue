@@ -89,12 +89,9 @@ const { offline } = useOnline()
 const primaryNavGates = computed(
   (): PrimaryNavGates => ({
     localLibraryEnabled: prefs.localLibraryEnabled,
-    audioRecorderEnabled: prefs.audioRecorderEnabled,
     singTogetherEnabled: prefs.singTogetherEnabled,
     tagStudioEnabled: prefs.tagRollEnabled,
-    opticalTransferEnabled: prefs.opticalTransferEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
-    osShareTransferEnabled: prefs.osShareTransferEnabled,
   }),
 )
 
@@ -142,23 +139,14 @@ function onNavHideChange(id: PrimaryNavId, hide: boolean): void {
       case 'library':
         prefs.setLocalLibraryEnabled(on)
         break
-      case 'recorder':
-        prefs.setAudioRecorderEnabled(on)
-        break
       case 'matcher':
         prefs.setSingTogetherEnabled(on)
         break
       case 'tag-studio':
         prefs.setTagRollEnabled(on)
         break
-      case 'tx':
-        prefs.setOpticalTransferEnabled(on)
-        break
       case 'wireless':
         prefs.setWebrtcTransferEnabled(on)
-        break
-      case 'share':
-        prefs.setOsShareTransferEnabled(on)
         break
     }
     return

@@ -3,21 +3,19 @@
  * Arranging coach — Home → Chords → Check → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
-import ArrangingContextCard from './ArrangingContextCard.vue'
-import ArrangingCandidateWhy from './ArrangingCandidateWhy.vue'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
+import ArrangingCoachSuggestPanel from './ArrangingCoachSuggestPanel.vue'
+import ArrangingCoachWhyDock from './ArrangingCoachWhyDock.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
 import ArrangingCoachLanding from './ArrangingCoachLanding.vue'
 import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
+import ArrangingCoachTeachLesson from './ArrangingCoachTeachLesson.vue'
 import ConfirmDialog from '../ConfirmDialog.vue'
-import {
-  buttonTipForGuidedStep,
-  glossaryIdsForGuidedStep,
-  labelForGuidedStep,
-} from '../../application/arranging/GuidedSteps'
+import { labelForGuidedStep } from '../../application/arranging/GuidedSteps'
+import { coachIdeasHelpForStep } from '../../application/arranging/coachIdeasHelp'
 import { useCoachTransport } from '../../composables/useCoachTransport'
 import { createCoachTransportActions } from '../../composables/useCoachTransportActions'
 import {
@@ -29,6 +27,7 @@ import { registerCoachPopoutIntentHandler } from '../../lib/arranging/coachPopou
 import type { CoachTransportView } from '../../composables/useCoachTransport'
 import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
 import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
+import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
 import { useArrangingCoachDock, type CoachGhostNote } from './useArrangingCoachDock'
 import { useCoachGuidedAndReview } from '../../composables/useCoachGuidedAndReview'
 
@@ -36,6 +35,8 @@ export type { CoachGhostNote }
 
 const props = defineProps<{
   inspectRange?: { startTick: number; endTick: number } | null
+  /** Detected lane — soft home-root ranking when Sketch pillars are not marked. */
+  detectSegments?: readonly ChordAnalysisSegment[]
   /** Pop-out window: mirror transport model to the main roll strip. */
   isPopoutWindow?: boolean
   postTransportState?: (active: boolean, model: CoachTransportView | null) => void
@@ -45,6 +46,8 @@ const emit = defineEmits<{
   close: []
   previewGhost: [ghosts: CoachGhostNote[]]
   clearGhost: []
+  'update:preview': [draft: import('../../lib/tagRoll/harmonyPreviewDraft').HarmonyPreviewDraft | null]
+  releaseInspect: []
   focusTick: [tick: number]
   focusRange: [startTick: number, endTick: number, select?: 'pillar' | 'column' | 'range' | 'none']
   focusPart: [tick: number, partName: string]
@@ -52,7 +55,11 @@ const emit = defineEmits<{
 }>()
 
 const inspectRangeRef = toRef(props, 'inspectRange')
-const api = useArrangingCoachDock(emit, { inspectRange: inspectRangeRef })
+const detectSegmentsRef = toRef(props, 'detectSegments')
+const api = useArrangingCoachDock(emit, {
+  inspectRange: inspectRangeRef,
+  detectSegments: detectSegmentsRef,
+})
 const {
   arrStore,
   syncing,
@@ -62,16 +69,12 @@ const {
   whyIndex,
   whyShowNumbers,
   tip,
-  nextAction,
   melody,
   moments,
   pillars,
   selectedMoment,
   selectedPil,
-  candidates,
   filteredCandidates,
-  candidateGroups,
-  maxScore,
   filterOptions,
   candFilter,
   altChips,
@@ -79,8 +82,8 @@ const {
   issueGroups,
   expandedLintId,
   lintDetail,
-  lintParts,
   clearLintDetail,
+  lintParts,
   pillarProgressLabel,
   momentProgressLabel,
   repairTour,
@@ -88,7 +91,9 @@ const {
   emptyMomentCount,
   currentStack,
   uncoveredSelected,
+  softHomeLabel,
   momentContext,
+  suggestIndex,
   ensureLinked,
   stepPillar,
   stepMoment,
@@ -98,20 +103,31 @@ const {
   onProposeNext,
   onSkipProposed,
   onLockPillar,
-  addPillarHere,
-  extendPreviousToHere,
   previewCand,
   hearCand,
+  holdStartHear,
+  holdStopHear,
   hearCurrentStack,
   hearPillarRoot,
+  hearSelectedSuggest,
   applyCand,
-  applyBest,
+  applySelectedSuggest,
   applyAltChip,
+  previewAltChip,
+  holdStartAltChip,
+  previewCounterpartCand,
+  holdStartCounterpartCand,
   applyCounterpartNow,
-  compareHearTop2,
   fillEmptyWithBest,
   fixAllSafe,
   fixItem,
+  cadencePlans,
+  applyCadencePlan,
+  applyCadencePlanStep,
+  hearCadencePlan,
+  previewCadencePlan,
+  hearingPlanId,
+  previewPlanId,
   pendingKeySuggestionMessage,
   cancelPendingKeySuggestion,
   confirmPendingKeySuggestion,
@@ -121,14 +137,12 @@ const {
   candIdentity,
   layerHint,
   whyFor,
-  runNextAction,
   goCloseForMelody,
   pushToRoll,
 } = api
 
 const {
   guidedStep,
-  guidedTip,
   guidedStepLabel,
   selectGuidedStep,
   stepMelodyNote,
@@ -153,12 +167,63 @@ const {
   momentsLen: computed(() => api.moments.value.length),
 })
 
-const stepGlossaryIds = computed(() => glossaryIdsForGuidedStep(guidedStep.value))
+const ideasHelp = computed(() => coachIdeasHelpForStep(guidedStep.value))
 
-const cadenceBadge = computed(() => {
+const cadenceTeach = computed(() => {
   const t = tip.value
   if (!t?.lessonId || t.lessonId !== 'L-classic-cadences') return null
-  return t.title.replace(/^Cadence:\s*/i, '').trim() || null
+  const label = t.title.replace(/^Cadence:\s*/i, '').trim()
+  if (!label || !t.body) return null
+  const glossaryIds =
+    t.glossaryIds?.length ?
+      [...t.glossaryIds]
+    : ['classic_cadences', 'circle_fifths', 'tension_release']
+  if (!glossaryIds.includes('classic_cadences')) glossaryIds.unshift('classic_cadences')
+  return { label, body: t.body, glossaryIds }
+})
+
+const chooseMomentLine = computed(() => {
+  const ctx = momentContext.value
+  if (!ctx) return selectedMoment.value ? 'Moment' : ''
+  const bits = [`Lead ${ctx.leadPitch}`]
+  if (ctx.roleLabel) bits.push(ctx.roleLabel)
+  if (ctx.pillarLabel) bits.push(`Pillar ${ctx.pillarLabel}`)
+  else if (softHomeLabel.value) bits.push(softHomeLabel.value)
+  if (ctx.heldLead) bits.push('Post')
+  if (ctx.kind === 'stack' && ctx.title) bits.push(ctx.title)
+  return bits.join(' · ')
+})
+
+const chooseBanner = computed(() => {
+  if (uncoveredSelected.value) {
+    return 'No Sketch, Detected, or melody home under this moment — paint a chord or ◆ a pillar.'
+  }
+  if (mode.value === 'review' && !pillars.value.length && !softHomeLabel.value) {
+    return 'Review needs Sketch pillars for ranked suggestions — lock phrase chords, then ◆ home roots.'
+  }
+  return null
+})
+
+const chooseWhyOpen = computed({
+  get: () => whyIndex.value != null,
+  set: (on: boolean) => {
+    whyIndex.value = on ? suggestIndex.value : null
+  },
+})
+
+const chooseWhyView = computed(() => {
+  if (whyIndex.value == null) return null
+  const i = suggestIndex.value
+  if (!filteredCandidates.value[i]) return null
+  return whyFor(i)
+})
+
+watch(suggestIndex, (i) => {
+  if (whyIndex.value != null) whyIndex.value = i
+})
+
+watch(focusTab, (tab) => {
+  if (tab !== 'choose' && whyIndex.value != null) whyIndex.value = null
 })
 
 const rolesStatus = computed(() => '')
@@ -196,12 +261,13 @@ const transportActions = createCoachTransportActions({
   onProposeNext,
   onLabelRoles,
   goChords: () => selectGuidedStep('chords'),
-  applyBest,
+  applyBest: applySelectedSuggest,
   fixAllSafe,
   onStrengthen,
   hearPillarRoot,
   hearCurrentStack,
   hearCand,
+  hearSelectedSuggest,
 })
 
 const onTransportPrev = transportActions.prev
@@ -260,8 +326,8 @@ function togglePanel(mode: 'config' | 'ideas' | 'help'): void {
   panelMode.value = panelMode.value === mode ? null : mode
 }
 
-const helpTitle = computed(() => `Help · ${labelForGuidedStep(guidedStep.value)}`)
-const helpDetail = computed(() => buttonTipForGuidedStep(guidedStep.value))
+const ideasTitle = computed(() => `Ideas - ${labelForGuidedStep(guidedStep.value)}`)
+const helpTitle = computed(() => `Help - ${labelForGuidedStep(guidedStep.value)}`)
 
 function onResizePointerDown(e: PointerEvent): void {
   if (e.button !== 0) return
@@ -321,12 +387,25 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <aside
-    class="coach-dock"
-    :class="{ resizing }"
-    :style="{ width: `${dockWidthRem}rem`, maxWidth: 'min(56rem, 92vw)' }"
-    aria-label="Arranging coach"
-  >
+  <div class="coach-shell" :style="{ '--coach-dock-w': `${dockWidthRem}rem` }">
+    <ArrangingCoachWhyDock
+      v-if="chooseWhyOpen && chooseWhyView && focusTab === 'choose'"
+      :why="chooseWhyView"
+      :show-numbers="whyShowNumbers"
+      :chord-label="
+        filteredCandidates[suggestIndex]
+          ? candIdentity(filteredCandidates[suggestIndex]!)
+          : null
+      "
+      @close="chooseWhyOpen = false"
+      @update:show-numbers="whyShowNumbers = $event"
+    />
+    <aside
+      class="coach-dock"
+      :class="{ resizing }"
+      :style="{ width: `${dockWidthRem}rem`, maxWidth: 'min(56rem, 92vw)' }"
+      aria-label="Arranging coach"
+    >
     <div
       class="resize-handle"
       title="Drag to resize"
@@ -350,9 +429,10 @@ onUnmounted(() => {
     </div>
 
     <template v-else>
+      <!-- Roll overlay owns transport when docked; keep strip only in the pop-out window. -->
       <ArrangingCoachTransport
+        v-if="isPopoutWindow"
         :model="transport"
-        :next-action-cta="nextAction.cta"
         @prev="onTransportPrev"
         @next="onTransportNext"
         @primary="onTransportPrimary"
@@ -360,7 +440,6 @@ onUnmounted(() => {
         @lock="onLockPillar"
         @skip="onSkipProposed"
         @secondary="onTransportSecondary"
-        @next-action="runNextAction"
       />
 
       <div class="coach-body">
@@ -371,8 +450,13 @@ onUnmounted(() => {
             :contest-profile="arrStore.current?.contestProfile ?? DEFAULT_CONTEST_PROFILE"
             :tuning-mode="arrStore.current?.tuningMode ?? 'equal'"
             :qa-config="arrStore.current?.qaConfig ?? DEFAULT_QA_CONFIG"
-            :org-tip="orgTip" :glossary-ids="stepGlossaryIds"
-            :help-title="helpTitle" :help-tip="guidedTip" :help-detail="helpDetail"
+            :org-tip="orgTip"
+            :ideas-title="ideasTitle"
+            :ideas-intro="ideasHelp.ideasIntro"
+            :ideas="ideasHelp.ideas"
+            :help-title="helpTitle"
+            :help-intro="ideasHelp.helpIntro"
+            :help-sections="ideasHelp.help"
             @close="panelMode = null"
             @update:contest-profile="setContestProfile" @update:tuning-mode="setTuningMode"
             @update:qa-group="setQaGroup" @update:cadence-bias="arrStore.refreshCandidates()"
@@ -384,97 +468,47 @@ onUnmounted(() => {
             @continue="selectGuidedStep('chords')"
           />
 
-          <!-- CHOOSE — best on one line; other suggestions in a single collapsible -->
+          <!-- CHOOSE — Harmonize-style flat suggest list + sticky Hear/Apply -->
           <section v-else-if="focusTab === 'choose'" class="panel">
-            <div v-if="selectedMoment" class="card">
-              <ArrangingContextCard
-                v-if="momentContext"
-                :ctx="momentContext"
-                @hear="hearCurrentStack"
-                @add-pillar="addPillarHere"
-                @extend-pillar="extendPreviousToHere"
-              />
-              <div v-if="uncoveredSelected" class="banner">
-                <p class="hint">
-                  No home root under this moment — mark a Sketch pillar covering this tick
-                  (Alt+click / ◆ on the Sketch lane).
-                </p>
-              </div>
-              <div v-else-if="mode === 'review' && !pillars.length" class="banner">
-                <p class="hint">
-                  Review needs Sketch pillars for ranked suggestions — lock phrase chords, then
-                  Alt+click / ◆ to mark home roots.
-                </p>
-              </div>
-              <template v-else>
-                <div v-if="filteredCandidates[0]" class="best-row">
-                  <strong class="best-id">{{ candIdentity(filteredCandidates[0]) }}</strong>
-                  <span
-                    v-if="cadenceBadge"
-                    class="cadence-badge"
-                    :title="tip?.body || 'Classic cadence suggestion'"
-                  >{{ cadenceBadge }}</span>
-                  <span class="cand-meta">{{ layerHint(filteredCandidates[0]) }}</span>
-                  <button
-                    type="button"
-                    class="primary slim"
-                    title="Write the top-ranked voicing into this moment"
-                    @click="applyBest"
-                  >
-                    {{ currentStack ? 'Replace' : 'Apply' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="step-btn slim"
-                    :disabled="!currentStack?.midi && !filteredCandidates[0]"
-                    title="Audition the current stack or the top candidate"
-                    @click="currentStack?.midi ? hearCurrentStack() : hearCand(filteredCandidates[0]!)"
-                  >
-                    Hear
-                  </button>
-                  <button
-                    type="button"
-                    class="step-btn slim"
-                    title="Explain which craft factors ranked this candidate"
-                    @click="whyIndex = whyIndex === 0 ? null : 0"
-                  >
-                    Why?
-                  </button>
-                </div>
-                <details
-                  v-if="candidateGroups[0] && candidateGroups[0].stacks.length > 1"
-                  class="inv-details best-inv"
-                >
-                  <summary>
-                    {{ candidateGroups[0].stacks.length }} inversions of
-                    {{ candidateGroups[0].label }}
-                  </summary>
-                  <ul class="inv-list">
-                    <li
-                      v-for="(c, si) in candidateGroups[0].stacks"
-                      :key="`best-${c.voicing}-${si}`"
-                      @mouseenter="previewCand(c)"
-                      @mouseleave="emit('clearGhost')"
-                    >
-                      <span class="cand-id">{{ candIdentity(c) }}</span>
-                      <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
-                      <button type="button" class="step-btn slim" @click="applyCand(c)">
-                        {{ currentStack ? 'Replace' : 'Apply' }}
-                      </button>
-                    </li>
-                  </ul>
-                </details>
-                <p v-else-if="!filteredCandidates[0]" class="muted">
-                  {{ candidates.length ? 'No suggestions match this filter.' : 'No candidates.' }}
-                </p>
-                <ArrangingCandidateWhy
-                  v-if="whyIndex === 0 && filteredCandidates[0]"
-                  :why="whyFor(0)"
-                  :show-numbers="whyShowNumbers"
-                  @update:show-numbers="whyShowNumbers = $event"
-                />
-              </template>
-            </div>
+            <ArrangingCoachSuggestPanel
+              v-if="selectedMoment"
+              :moment-line="chooseMomentLine"
+              :cadence-teach="cadenceTeach"
+              :cadence-plans="cadencePlans"
+              :hearing-plan-id="hearingPlanId"
+              :preview-plan-id="previewPlanId"
+              :banner="chooseBanner"
+              :candidates="filteredCandidates"
+              :selected-index="suggestIndex"
+              :has-stack="!!currentStack"
+              :identity="candIdentity"
+              :meta="layerHint"
+              :why-open="chooseWhyOpen"
+              :alt-chips="altChips"
+              :counterpart="counterpart"
+              :filter-options="filterOptions"
+              :cand-filter="candFilter"
+              @update:selected-index="suggestIndex = $event"
+              @update:cand-filter="candFilter = $event"
+              @update:why-open="chooseWhyOpen = $event"
+              @preview="previewCand"
+              @clear-preview="holdStopHear"
+              @hold-start="holdStartHear"
+              @hold-stop="holdStopHear"
+              @apply="applyCand"
+              @preview-alt="previewAltChip"
+              @hold-start-alt="holdStartAltChip"
+              @apply-alt="applyAltChip"
+              @preview-counterpart="previewCounterpartCand"
+              @hold-start-counterpart="holdStartCounterpartCand"
+              @apply-counterpart="applyCounterpartNow"
+              @fill-empties="fillEmptyWithBest"
+              @apply-cadence-plan="applyCadencePlan"
+              @apply-cadence-step="applyCadencePlanStep"
+              @hear-cadence-plan="hearCadencePlan"
+              @preview-cadence-plan="previewCadencePlan"
+            />
+            <p v-else class="muted">Select a moment with ← / → or click the roll.</p>
 
             <details
               v-if="lintDetail && expandedLintId"
@@ -489,184 +523,45 @@ onUnmounted(() => {
                 }}</span>
                 <span class="msg">{{ lintDetail.headline }}</span>
                 <button type="button" class="x" title="Close" @click.prevent="clearLintDetail">
-                  ×
+                  x
                 </button>
               </summary>
-              <p class="body">{{ lintDetail.body }}</p>
-              <ul v-if="lintDetail.glossary.length" class="gloss">
-                <li v-for="g in lintDetail.glossary" :key="g.id">
-                  <strong>{{ g.term }}</strong> — {{ g.short }}
-                </li>
-              </ul>
-              <p v-if="filteredCandidates.length" class="subh">Try these</p>
-              <ul v-if="filteredCandidates.length" class="cands flat">
-                <li
-                  v-for="(c, i) in filteredCandidates.slice(0, 4)"
-                  :key="`lint-${c.rootPc}-${c.natureId}-${i}`"
-                  @mouseenter="previewCand(c)"
-                  @mouseleave="emit('clearGhost')"
-                >
-                  <span class="cand-id">{{ candIdentity(c) }}</span>
-                  <span class="cand-meta">{{ layerHint(c) }}</span>
-                  <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
-                  <button type="button" class="step-btn slim" @click="applyCand(c)">
-                    {{ currentStack ? 'Replace' : 'Apply' }}
-                  </button>
-                </li>
-              </ul>
+              <ArrangingCoachTeachLesson
+                v-if="lintDetail.glossary.length"
+                :title="lintDetail.headline"
+                :glossary-ids="lintDetail.glossary.map((g) => g.id)"
+                :intro="lintDetail.body"
+                hide-back
+              />
+              <p v-else class="body">{{ lintDetail.body }}</p>
             </details>
 
-            <ul v-if="noteLints.length" class="lint-mini">
-              <li
-                v-for="lint in noteLints"
-                :key="lint.id"
-                :class="[lint.severity, { on: lint.id === expandedLintId }]"
-              >
-                <button type="button" class="lint-jump" @click="jumpToLint(lint)">
-                  <span class="loc">{{ lintParts(lint).loc }}</span>
-                  <span class="msg">{{ lintParts(lint).message }}</span>
-                </button>
-                <button
-                  v-if="canFix(lint)"
-                  type="button"
-                  class="fix-btn"
-                  @click="fixItem(lint)"
-                >
-                  Fix
-                </button>
-              </li>
-            </ul>
-
-            <details
-              v-if="filteredCandidates.length > 1 || altChips.length || counterpart"
-              class="other-cands"
-            >
-              <summary>
-                Other suggestions
-                <span class="meta">{{
-                  Math.max(0, filteredCandidates.length - 1) +
-                  altChips.length +
-                  (counterpart ? 1 : 0)
-                }}</span>
-              </summary>
-              <div v-if="altChips.length || counterpart" class="chip-row">
-                <button
-                  v-for="chip in altChips"
-                  :key="chip.id"
-                  type="button"
-                  class="chip"
-                  :title="chip.reason"
-                  @click="applyAltChip(chip)"
-                >
-                  {{ chip.label }}
-                </button>
-                <button
-                  v-if="counterpart"
-                  type="button"
-                  class="chip"
-                  :title="counterpart.reason"
-                  @click="applyCounterpartNow"
-                >
-                  Counterpart → {{ counterpart.label }}
-                </button>
-              </div>
-              <div class="filter-row" role="group" aria-label="Suggestion filter">
-                <button
-                  v-for="f in filterOptions"
-                  :key="f.id"
-                  type="button"
-                  :class="{ on: candFilter === f.id }"
-                  @click="candFilter = f.id"
-                >
-                  {{ f.label }}
-                </button>
-              </div>
-              <ul v-if="candidateGroups.length > 1" class="cands flat">
+            <aside v-if="noteLints.length" class="potential-issues">
+              <h3 class="potential-title">
+                Potential issues
+                <span class="potential-count">{{ noteLints.length }}</span>
+              </h3>
+              <ul class="lint-mini">
                 <li
-                  v-for="g in candidateGroups.slice(1)"
-                  :key="g.key"
-                  class="cand-group"
-                  @mouseenter="previewCand(g.best)"
-                  @mouseleave="emit('clearGhost')"
+                  v-for="lint in noteLints"
+                  :key="lint.id"
+                  :class="[lint.severity, { on: lint.id === expandedLintId }]"
                 >
-                  <span class="cand-id">{{ g.label }}</span>
-                  <span class="cand-meta">{{ layerHint(g.best) }}</span>
-                  <button type="button" class="step-btn slim" @click="hearCand(g.best)">Hear</button>
-                  <button type="button" class="step-btn slim" @click="applyCand(g.best)">
-                    {{ currentStack ? 'Replace' : 'Apply' }}
-                  </button>
-                  <details v-if="g.stacks.length > 1" class="inv-details">
-                    <summary>{{ g.stacks.length }} inversions</summary>
-                    <ul class="inv-list">
-                      <li
-                        v-for="(c, si) in g.stacks"
-                        :key="`${g.key}-${c.voicing}-${si}`"
-                        @mouseenter="previewCand(c)"
-                        @mouseleave="emit('clearGhost')"
-                      >
-                        <span class="cand-id">{{ candIdentity(c) }}</span>
-                        <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
-                        <button type="button" class="step-btn slim" @click="applyCand(c)">
-                          {{ currentStack ? 'Replace' : 'Apply' }}
-                        </button>
-                      </li>
-                    </ul>
-                  </details>
-                </li>
-              </ul>
-              <ul v-else-if="filteredCandidates.length > 1" class="cands flat">
-                <li
-                  v-for="(c, i) in filteredCandidates.slice(1)"
-                  :key="`${c.rootPc}-${c.natureId}-${c.voicing}-${i + 1}`"
-                  @mouseenter="previewCand(c)"
-                  @mouseleave="emit('clearGhost')"
-                >
-                  <span class="cand-id">{{ candIdentity(c) }}</span>
-                  <span
-                    class="score-bar"
-                    :style="{ width: `${Math.round((c.score / maxScore) * 100)}%` }"
-                  />
-                  <span class="cand-meta">{{ layerHint(c) }}</span>
-                  <button type="button" class="step-btn slim" @click="hearCand(c)">Hear</button>
-                  <button type="button" class="step-btn slim" @click="applyCand(c)">
-                    {{ currentStack ? 'Replace' : 'Apply' }}
+                  <button type="button" class="lint-jump" @click="jumpToLint(lint)">
+                    <span class="loc">{{ lintParts(lint).loc }}</span>
+                    <span class="msg">{{ lintParts(lint).message }}</span>
                   </button>
                   <button
+                    v-if="canFix(lint)"
                     type="button"
-                    class="step-btn slim"
-                    @click="whyIndex = whyIndex === i + 1 ? null : i + 1"
+                    class="fix-btn"
+                    @click="fixItem(lint)"
                   >
-                    Why?
+                    Fix
                   </button>
-                  <ArrangingCandidateWhy
-                    v-if="whyIndex === i + 1"
-                    class="why-inline"
-                    :why="whyFor(i + 1)"
-                    :show-numbers="whyShowNumbers"
-                    @update:show-numbers="whyShowNumbers = $event"
-                  />
                 </li>
               </ul>
-              <div class="row">
-                <button
-                  type="button"
-                  class="step-btn"
-                  :disabled="filteredCandidates.length < 2"
-                  title="Play the top two ranked suggestions back-to-back"
-                  @click="compareHearTop2"
-                >
-                  Compare top 2
-                </button>
-                <button
-                  type="button"
-                  class="linkish"
-                  title="Fills empty moments with top picks — skips Apply + Why?"
-                  @click="fillEmptyWithBest"
-                >
-                  Fill empties
-                </button>
-              </div>
-            </details>
+            </aside>
           </section>
 
           <!-- CHECK -->
@@ -685,15 +580,21 @@ onUnmounted(() => {
                 Fix all safe
               </button>
             </div>
-            <ArrangingIssueBoard
-              :groups="issueGroups"
-              :can-fix="canFix"
-              :row-parts="lintParts"
-              :expanded-id="expandedLintId"
-              @jump="jumpToLint"
-              @fix="fixItem"
-              @learn="learnLint"
-            />
+            <aside class="potential-issues">
+              <h3 class="potential-title">
+                Potential issues
+                <span v-if="noteLints.length" class="potential-count">{{ noteLints.length }}</span>
+              </h3>
+              <ArrangingIssueBoard
+                :groups="issueGroups"
+                :can-fix="canFix"
+                :row-parts="lintParts"
+                :expanded-id="expandedLintId"
+                @jump="jumpToLint"
+                @fix="fixItem"
+                @learn="learnLint"
+              />
+            </aside>
           </section>
 
           <!-- POLISH -->
@@ -725,10 +626,20 @@ onUnmounted(() => {
       @close="cancelPendingKeySuggestion"
       @confirm="confirmPendingKeySuggestion"
     />
-  </aside>
+    </aside>
+  </div>
 </template>
 
 <style scoped>
+.coach-shell {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+}
 .coach-dock {
   position: relative;
   display: flex;
@@ -878,17 +789,6 @@ onUnmounted(() => {
   font-size: 0.7rem;
   color: var(--muted);
 }
-.cadence-badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--accent, #3a6ea5);
-  border: 1px solid color-mix(in srgb, var(--accent, #3a6ea5) 35%, var(--border));
-  background: color-mix(in srgb, var(--accent, #3a6ea5) 12%, var(--surface));
-  border-radius: 4px;
-  padding: 0.05rem 0.35rem;
-  white-space: nowrap;
-}
 .subh {
   margin: 0;
   font-size: 0.8rem;
@@ -901,6 +801,24 @@ onUnmounted(() => {
   padding: 0;
   display: grid;
   gap: 0.3rem;
+}
+.potential-issues {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+.potential-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.potential-count {
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 .pillar-list {
   list-style: none;

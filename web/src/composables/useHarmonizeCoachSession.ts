@@ -1,16 +1,17 @@
 /**
- * Coach session helpers for Harmonize → Suggest tab.
+ * Coach session helpers for Harmonize → Suggest (Pinia + composition wiring).
+ * Lives under composables — not lib/tagRoll — so Tag Studio purity stays intact.
  */
 import {
   mergeCoachSessionFromExisting,
   migratePillarsToSketchIfEmpty,
-} from '../../application/arranging/mergeCoachSession'
-import { mergeArrangementIntoTagRoll, tagStudioToArrangement } from '../../application/arranging/syncTagRoll'
-import { getArrangingServices } from '../../composition/arranging'
-import type { MelodyEvent } from '../../domain/arranging/types'
-import type { TagRollNote } from '../../lib/tagRoll/types'
-import { useArrangementStore } from '../../stores/arrangement'
-import { useTagRollStore } from '../../stores/tagRoll'
+} from '../application/arranging/mergeCoachSession'
+import { mergeArrangementIntoTagRoll, tagStudioToArrangement } from '../application/arranging/syncTagRoll'
+import { getArrangingServices } from '../composition/arranging'
+import type { MelodyEvent } from '../domain/arranging/types'
+import type { TagRollNote } from '../lib/tagRoll/types'
+import { useArrangementStore } from '../stores/arrangement'
+import { useTagRollStore } from '../stores/tagRoll'
 
 export async function ensureHarmonizeCoachSession(): Promise<boolean> {
   const tagStore = useTagRollStore()
@@ -57,6 +58,7 @@ export function pushCoachStacksToRoll(): void {
   if (merged.harmonySketch) tagStore.setHarmonySketch(merged.harmonySketch)
 }
 
+/** Tag-roll note → arranging melody event (pure). */
 export function melodyEventFromTagNote(note: TagRollNote): MelodyEvent {
   return {
     id: note.id,

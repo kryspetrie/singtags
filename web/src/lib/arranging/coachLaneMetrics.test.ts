@@ -60,13 +60,14 @@ describe('buildCoachLaneMarkers', () => {
     expect(markers).toHaveLength(2)
     expect(markers[0]!.severity).toBe('warn')
     expect(markers[0]!.harmonicity).not.toBeNull()
-    expect(markers[0]!.label).toBe('test')
+    expect(markers[0]!.label).toBe('Check')
+    expect(markers[0]!.lintMessage).toBe('test')
     expect(markers[1]!.severity).toBe('empty')
     expect(markers[1]!.harmonicity).toBeNull()
     expect(markers[1]!.label).toBe('Needs chord')
   })
 
-  it('filterMarkersForLens isolates gaps', async () => {
+  it('filterMarkersForLens isolates issues; ring keeps empties', async () => {
     const { filterMarkersForLens } = await import('./coachLaneMetrics')
     const project = baseProject({
       melody: [
@@ -90,10 +91,20 @@ describe('buildCoachLaneMarkers', () => {
         },
       ],
     })
-    const markers = buildCoachLaneMarkers(project, [])
-    expect(filterMarkersForLens(markers, 'gaps')).toHaveLength(1)
+    const markers = buildCoachLaneMarkers(project, [
+      {
+        id: 'l1',
+        ruleId: 'test',
+        severity: 'warn',
+        message: 'test',
+        stackId: 's1',
+      },
+    ])
+    expect(filterMarkersForLens(markers, 'ring')).toHaveLength(2)
+    expect(filterMarkersForLens(markers, 'issues')).toHaveLength(1)
   })
-})
+}
+)
 
 describe('buildCoachLanePillarBands', () => {
   it('maps pillars to bands', () => {

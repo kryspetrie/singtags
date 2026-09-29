@@ -5,6 +5,7 @@ import type { IdGenerator } from '../../../ports/IdGenerator'
 import type { VoicingPitches } from '../chords'
 import type { PhraseRole } from '../cadences'
 import { loadCadenceBias, phraseRoleAtMelodyIndex } from '../cadences'
+import { pillarAtTick } from '../pillars'
 import { generateCandidates } from './candidateGenerator'
 import { createCandidateRanker, type RankerDeps } from './candidateRanker'
 import type { HarmonizeCandidate } from './types'
@@ -134,14 +135,11 @@ export function autoHarmonizeMelody(opts: {
 
   for (let i = 0; i < sorted.length; i++) {
     const note = sorted[i]!
-    const pillar =
-      pillars.find((p) => p.startTick <= note.startTick && note.startTick < p.endTick) ?? null
+    const pillar = pillarAtTick(pillars, note.startTick)
     if (!pillar) continue
 
     const nextNote = sorted[i + 1]
-    const nextPillar = nextNote
-      ? pillars.find((p) => p.startTick <= nextNote.startTick && nextNote.startTick < p.endTick)
-      : null
+    const nextPillar = nextNote ? pillarAtTick(pillars, nextNote.startTick) : null
     const preferScf = !!(opts.preferScfForSmn && note.role === 'smn')
     const phraseRole = phraseRoleAtMelodyIndex(
       sorted.map((n) => ({ startTick: n.startTick, durationTicks: n.durationTicks })),

@@ -23,7 +23,6 @@ export const PRIMARY_NAV_IDS = [
   'tag-studio',
   'tx',
   'wireless',
-  'share',
   'labs',
   'queue',
 ] as const
@@ -34,23 +33,17 @@ const PRIMARY_NAV_ID_SET = new Set<string>(PRIMARY_NAV_IDS)
 
 export type PrimaryNavGates = {
   localLibraryEnabled: boolean
-  audioRecorderEnabled: boolean
   singTogetherEnabled: boolean
   tagStudioEnabled: boolean
-  opticalTransferEnabled: boolean
   webrtcTransferEnabled: boolean
-  osShareTransferEnabled: boolean
 }
 
 /** Labs destinations — “Hide feature” toggles the Labs flag instead of a hide list. */
 export const PRIMARY_NAV_LAB_IDS = [
   'library',
-  'recorder',
   'matcher',
   'tag-studio',
-  'tx',
   'wireless',
-  'share',
 ] as const
 
 export type PrimaryNavLabId = (typeof PRIMARY_NAV_LAB_IDS)[number]
@@ -185,14 +178,6 @@ export const PRIMARY_NAV_ITEMS: Record<PrimaryNavId, PrimaryNavItem> = {
     icon: '≋',
     desc: 'Same Wi‑Fi / hotspot file link (QR pairing)',
   },
-  share: {
-    id: 'share',
-    label: 'OS Share',
-    shortLabel: 'Share',
-    path: '/share',
-    icon: '↗',
-    desc: 'Quick Share / AirDrop via the system share sheet',
-  },
   labs: {
     id: 'labs',
     label: 'SingTags Labs',
@@ -219,13 +204,12 @@ export const DEFAULT_PRIMARY_NAV_ORDER: readonly PrimaryNavId[] = [
   'pitch-pipe',
   'roulette',
   'settings',
-  'library',
   'recorder',
+  'tx',
+  'library',
   'matcher',
   'tag-studio',
-  'tx',
   'wireless',
-  'share',
   'labs',
   'queue',
 ]
@@ -257,18 +241,12 @@ export function isPrimaryNavAvailable(
   switch (id) {
     case 'library':
       return gates.localLibraryEnabled
-    case 'recorder':
-      return gates.audioRecorderEnabled
     case 'matcher':
       return gates.singTogetherEnabled
     case 'tag-studio':
       return gates.tagStudioEnabled
-    case 'tx':
-      return gates.opticalTransferEnabled
     case 'wireless':
       return gates.webrtcTransferEnabled
-    case 'share':
-      return gates.osShareTransferEnabled
     default:
       return !hidden.includes(id)
   }
@@ -412,9 +390,6 @@ export function primaryNavIdForRouteName(name: unknown): PrimaryNavId | null {
     case 'wireless-transfer':
     case 'wireless-rx':
       return 'wireless'
-    case 'os-share-transfer':
-    case 'os-share-rx':
-      return 'share'
     case 'labs':
     case 'labs-pitch-pipe-sound':
       return 'labs'

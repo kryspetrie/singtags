@@ -40,7 +40,7 @@ const summaryLabel = computed(() => props.heading || 'Key ideas')
     <p v-if="!entries.length" class="empty">No key ideas for this step.</p>
     <dl v-else>
       <div v-for="g in entries" :key="g.id" class="row">
-        <dt :title="g.citations.map((c) => c.label).join(' · ')">{{ g.term }}</dt>
+        <dt :title="g.citations.map((c) => c.label).join(' | ')">{{ g.term }}</dt>
         <dd>{{ g.short }}</dd>
       </div>
     </dl>

@@ -1,6 +1,7 @@
 /**
  * Coach → roll selection helpers (keep TagRollEditorView under god-file budget).
- * Range focus (pillars / moments) drives the L/R chord-cursor bounds; tick focus clears it.
+ * L/R chord-cursor bounds are for inspect/edit ranges (Sketch/Detected).
+ * While Coach is open, moment/stack selection uses highlight + chord preview instead.
  */
 import { ref } from 'vue'
 import {
@@ -41,6 +42,30 @@ export function useTagRollCoachFocus(
 
   function clearChordCursor(): void {
     chordCursor.value = null
+  }
+
+  /** Drop L/R inspect bounds so Space can play the phrase freely. */
+  function releaseInspectRange(): void {
+    clearChordCursor()
+    clearInspectPlaybackRewind()
+  }
+
+  /**
+   * While Coach is open, ignore focus that would mass-select notes.
+   * Overlay-only ranges (`select: 'none'`) still show L/R bounds — used for
+   * cadence replace preview and pillar bands.
+   */
+  function onCoachFocusRangeMaybe(
+    coaching: boolean,
+    start: number,
+    end: number,
+    select: ChordCursorSelectMode = 'column',
+  ): void {
+    if (coaching && select !== 'none') {
+      releaseInspectRange()
+      return
+    }
+    setChordCursor({ startTick: start, endTick: end }, { select })
   }
 
   /**
@@ -188,9 +213,11 @@ export function useTagRollCoachFocus(
   return {
     chordCursor,
     clearChordCursor,
+    releaseInspectRange,
     setChordCursor,
     onCoachFocusTick,
     onCoachFocusRange,
+    onCoachFocusRangeMaybe,
     onCoachFocusPart,
     armInspectPlayback,
     clearInspectPlaybackRewind,

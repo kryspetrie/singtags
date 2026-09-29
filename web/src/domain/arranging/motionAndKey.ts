@@ -2,6 +2,7 @@
  * Approach Three motion lint across consecutive stacks + key suggestion from range.
  */
 import { classifyRootMotion, isBs7Nature } from './approachThree'
+import { pillarAtTick } from './pillars'
 import type { ArrangementProject, ChordStack } from './types'
 import type { ArrangementLint } from './qa/types'
 import { RANGE_PRESETS } from './songEligibility'
@@ -105,18 +106,15 @@ export function missingPillarCoverageLints(project: ArrangementProject): Arrange
   if (!project.pillars.length) return []
   const out: ArrangementLint[] = []
   for (const n of project.melody) {
-    const covered = project.pillars.some(
-      (p) => p.startTick <= n.startTick && n.startTick < p.endTick,
-    )
-    if (!covered) {
-      out.push({
-        id: `no-pillar-${n.id}`,
-        ruleId: 'missing-pillar',
-        severity: 'warn',
-        message: 'Melody note sits outside any pillar span.',
-        noteId: n.id,
-      })
-    }
+    // Pillars span until the next pillar starts — only notes before the first home are gaps.
+    if (pillarAtTick(project.pillars, n.startTick)) continue
+    out.push({
+      id: `no-pillar-${n.id}`,
+      ruleId: 'missing-pillar',
+      severity: 'warn',
+      message: 'Melody note sits before the first home-root pillar.',
+      noteId: n.id,
+    })
   }
   return out
 }

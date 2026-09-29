@@ -53,4 +53,18 @@ describe('Dom9 omit-root vs minor-sixth dual', () => {
     expect(id!.rootPc).toBe(5) // F7 = V7 of Bb
     expect(absoluteChordLabel(id!.rootPc, id!.natureId, true, { tonality: 10 })).toBe('F7')
   })
+
+  it('maps incomplete tonic Mm7 with Lead ^3 to I (Bonnie authentic land, not I7)', () => {
+    // Bb–D–Ab under Lead D in Bb: PC-complete Bb7, but Lead ^3 + incomplete
+    // TTBB after V7 should Detect as I (V7→I), not I7.
+    const id = identifyNatureFromMidi({
+      midi: { tenor: 70, lead: 62, bari: 68 }, // Bb D Ab
+      profile: 'sai11',
+      tonality: 10, // Bb
+    })
+    expect(id).not.toBeNull()
+    expect(id!.natureId).toBe('major')
+    expect(id!.rootPc).toBe(10) // Bb
+    expect(absoluteChordLabel(id!.rootPc, id!.natureId, true, { tonality: 10 })).toBe('Bb')
+  })
 })

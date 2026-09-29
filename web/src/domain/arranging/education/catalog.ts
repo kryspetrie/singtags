@@ -87,6 +87,16 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     citations: [bam('style + Approach Three Rule 1')],
   },
   {
+    id: 'eleven_chords',
+    term: 'Eleven chords of barbershop',
+    short:
+      'Contest vocabulary: six major, three minor, and two symmetrical natures — major, BS7, and Dom9 carry most of the style.',
+    citations: [
+      ryl('11 chords'),
+      { sourceId: 'flinn', label: 'Flinn 11 BBS chords', detail: 'Travel in Tune Region 17, 2020' },
+    ],
+  },
+  {
     id: 'springboard',
     term: 'Springboard',
     short: 'I and IV may leap freely; afterward normal progression rules resume.',
@@ -295,6 +305,25 @@ export const LESSONS: readonly LessonCard[] = [
     citations: [bam('Approach Three Rule 1')],
   },
   {
+    id: 'L-circle-fifths',
+    title: 'Using the circle of fifths',
+    body:
+      'Read the circle as a key map and a root-motion map. Leap from I/IV when needed, then walk home counterclockwise on BS7s (distance shrinking by one each step).',
+    glossaryIds: ['circle_fifths', 'secondary_dom', 'springboard', 'bs7'],
+    citations: [bam('Approach Three Rule 1'), bam('style — circle highway')],
+  },
+  {
+    id: 'L-eleven-chords',
+    title: 'The eleven chords of barbershop',
+    body:
+      'Stay inside the contest eleven: major family (triad, BS7, Dom9, 6, M7, add9), minor family (m, m6, m7), and symmetrical (aug, dim7). Major, BS7, and Dom9 dominate the sound.',
+    glossaryIds: ['eleven_chords', 'bs7', 'omit_5', 'lock_ring'],
+    citations: [
+      ryl('11 chords'),
+      { sourceId: 'flinn', label: 'Flinn 11 BBS chords', detail: '2020 handout' },
+    ],
+  },
+  {
     id: 'L-R1r',
     ruleTag: 'R1_retro',
     title: 'Retrogression on the circle',
@@ -347,7 +376,7 @@ export const LESSONS: readonly LessonCard[] = [
     lintRuleId: 'illegal-nature',
     title: 'Contest vocabulary',
     body: 'SAI/Rylander charts stay on eleven ringing chord types. Outside natures break the intended lock vocabulary.',
-    glossaryIds: ['bs7', 'lock_ring'],
+    glossaryIds: ['eleven_chords', 'bs7', 'lock_ring'],
     citations: [ryl('11 chords'), pri('SAI vocabulary')],
   },
   {
@@ -574,6 +603,7 @@ export const LESSONS: readonly LessonCard[] = [
     body: 'When Lead ^5→^1, prefer V7→I. Other core moves: leading-tone V7, II7→V7→I, I7→IV into the subdominant, and tag penultimate V7 before final tonic. ♭II / backdoor stay optional color.',
     glossaryIds: ['classic_cadences', 'circle_fifths', 'bs7', 'tension_release'],
     citations: [bam('harmony'), pri('cadences')],
+    exampleIds: ['ex-auth-v7-i', 'ex-circle-fifths', 'ex-i7-iv', 'ex-plagal-iv-i', 'ex-bs7-makeup'],
   },
   {
     id: 'L-f-resolution',

@@ -104,14 +104,44 @@ describe('audioTiers', () => {
     expect(catalogOriginalPaths(monoSolos).lead).toBe('media/31/lead.m4a')
   })
 
-  it('keeps Opus online play path even when native Ogg Opus is unsupported', () => {
+  it('prefers Opus playback online even when native Ogg Opus is unsupported (WASM / on-device path)', () => {
     resetCodecSupportForTests()
     vi.spyOn(document, 'createElement').mockReturnValue({
       canPlayType: () => '',
     } as unknown as HTMLAudioElement)
     expect(onlinePlayAudioPath(monoSolos, 'lead')).toBe('media/31/lead.playback.opus')
+    expect(onlinePlaybackPaths(monoSolos).lead).toBe('media/31/lead.playback.opus')
   })
 
+  it('falls back to original AAC/MP3 online when Opus WASM is unavailable', async () => {
+    resetCodecSupportForTests()
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      canPlayType: () => '',
+    } as unknown as HTMLAudioElement)
+    const { noteOpusWasmUnavailable, resetOpusPlayableForTests } = await import(
+      '../audio/opusPlayable'
+    )
+    resetOpusPlayableForTests()
+    noteOpusWasmUnavailable()
+    expect(onlinePlayAudioPath(monoSolos, 'lead')).toBe('media/31/lead.m4a')
+    expect(onlinePlaybackPaths(monoSolos).lead).toBe('media/31/lead.m4a')
+  })
+
+  it('falls back to Opus playback when original is missing and Opus unsupported', () => {
+    resetCodecSupportForTests()
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      canPlayType: () => '',
+    } as unknown as HTMLAudioElement)
+    const opusOnly = detail({
+      tag_id: 40,
+      audio: {},
+      audio_tiers: {
+        lead: { playback: 'media/40/lead.playback.opus' },
+      },
+    })
+    expect(originalAudioPath(opusOnly, 'lead')).toBeNull()
+    expect(onlinePlayAudioPath(opusOnly, 'lead')).toBe('media/40/lead.playback.opus')
+  })
   it('falls back to legacy audio when tiers missing', () => {
     const legacy = detail({
       tag_id: 1,

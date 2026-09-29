@@ -9,9 +9,9 @@ import {
 } from './melodyRoleLabels'
 
 describe('melodyRoleLabels borders', () => {
-  it('maps Strong→yellow and Passing→green', () => {
-    expect(melodyRoleBorderColor('pmn')).toMatch(/230,\s*175,\s*20/)
-    expect(melodyRoleBorderColor('smn')).toMatch(/28,\s*130,\s*78/)
+  it('maps Strong→green and Passing→yellow', () => {
+    expect(melodyRoleBorderColor('pmn')).toMatch(/28,\s*130,\s*78/)
+    expect(melodyRoleBorderColor('smn')).toMatch(/230,\s*175,\s*20/)
   })
 
   it('always paints left-edge stripes (melody then role)', () => {

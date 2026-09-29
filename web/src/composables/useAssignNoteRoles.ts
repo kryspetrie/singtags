@@ -1,5 +1,5 @@
 /**
- * Assign Note Roles — navigate notes, toggle Strong/Passing, set Melody part.
+ * Assign Note Roles — navigate notes, set Strong/Passing (idempotent), clear with C.
  * Roles persist on Tag Roll notes; Arrangement is mirrored when linked.
  */
 import { computed, type ComputedRef } from 'vue'
@@ -8,7 +8,6 @@ import {
   melodyPartIdOf,
   noteRolesMapFromProject,
   roleForTagNote,
-  toggleMelodyRole,
 } from '../lib/tagRoll/melodyNoteRoles'
 import {
   neighborNoteInStack,
@@ -68,12 +67,12 @@ export function useAssignNoteRoles(opts: {
     arrStore.runQa()
   }
 
-  function onToggleSelectedMelodyRole(want: 'pmn' | 'smn'): void {
+  function requireMelodyNote(): { id: string } | null {
     const p = opts.project.value
     const id = store.selectedNoteId
-    if (!p || !id) return
+    if (!p || !id) return null
     const note = p.notes.find((n) => n.id === id)
-    if (!note) return
+    if (!note) return null
     const mid = melodyPartIdOf(p)
     if (!mid || note.partId !== mid) {
       snackbar.show('Select a note on the Melody part (or press M)', {
@@ -81,11 +80,25 @@ export function useAssignNoteRoles(opts: {
         tone: 'info',
         ms: 2500,
       })
-      return
+      return null
     }
-    const next = toggleMelodyRole(note.role ?? 'unknown', want)
-    store.setNoteRole(id, next)
-    mirrorRoleToArrangement(id, next)
+    return { id }
+  }
+
+  /** Idempotent: S / P always assign Strong / Passing. */
+  function onSetSelectedMelodyRole(want: 'pmn' | 'smn'): void {
+    const sel = requireMelodyNote()
+    if (!sel) return
+    store.setNoteRole(sel.id, want)
+    mirrorRoleToArrangement(sel.id, want)
+  }
+
+  /** C clears Strong / Passing on the selected melody note. */
+  function onClearSelectedMelodyRole(): void {
+    const sel = requireMelodyNote()
+    if (!sel) return
+    store.setNoteRole(sel.id, 'unknown')
+    mirrorRoleToArrangement(sel.id, 'unknown')
   }
 
   function onAssignMelodyPart(): void {
@@ -163,7 +176,8 @@ export function useAssignNoteRoles(opts: {
 
   return {
     navigateSelectedNote,
-    onToggleSelectedMelodyRole,
+    onSetSelectedMelodyRole,
+    onClearSelectedMelodyRole,
     onAssignMelodyPart,
     noteRolesMap,
     assignRolesMelodyName,

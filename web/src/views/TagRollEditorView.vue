@@ -12,10 +12,13 @@ import TagRollExpressionLane from '../components/tagRoll/TagRollExpressionLane.v
 import TagRollDeclaredLane from '../components/tagRoll/TagRollDeclaredLane.vue'
 import TagRollDetectedLane from '../components/tagRoll/TagRollDetectedLane.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
+import TagRollKeyChangePanel from '../components/tagRoll/TagRollKeyChangePanel.vue'
+import TagRollDetectedTweaksPanel from '../components/tagRoll/TagRollDetectedTweaksPanel.vue'
 import TagRollChordEditDock from '../components/tagRoll/TagRollChordEditDock.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
+import { tryCoachArrowStepMoment } from '../lib/arranging/coachArrowNav'
 import TagRollLyricsLane from '../components/tagRoll/TagRollLyricsLane.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
@@ -32,7 +35,7 @@ import {
   type TagRollAudioApi,
 } from '../composables/useTagRollAudio'
 import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
-import { isPartAudible, mixForPart, syncProjectMix } from '../lib/tagRoll/mix'
+import { isPartAudible, mixForPart, syncProjectMix, TAG_ROLL_SKETCH_MIX_ID } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
 import { followPlayheadScrollX } from '../lib/tagRoll/followPlayheadScroll'
 import { pageScrollToRevealTagNote } from '../lib/tagRoll/selectionPageScroll'
@@ -114,6 +117,8 @@ const partsOpen = ref(false)
 const marksOpen = ref(false)
 const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
+const keyChangeOpen = ref(false)
+const tweaksOpen = ref(false)
 /** Live chord preview (dock / Harmonize) — Sketch lane chrome + transport audition. */
 const harmonyPreview = ref<HarmonyPreviewDraft | null>(null)
 const chordEditSession = ref<ChordEditDockSession | null>(null)
@@ -126,10 +131,10 @@ const ghostNotes = ref<
 const coachFocus = useTagRollCoachFocus(() => store.current, store)
 const {
   chordCursor,
-  clearChordCursor,
+  releaseInspectRange,
   setChordCursor,
   onCoachFocusTick,
-  onCoachFocusRange,
+  onCoachFocusRangeMaybe,
   onCoachFocusPart,
   armInspectPlayback,
   clearInspectPlaybackRewind,
@@ -138,6 +143,8 @@ const {
   executeInspectRangeDelete,
 } = coachFocus
 const pendingInspectDeleteMessage = ref<string | null>(null)
+/** After Realize: offer to clear the Sketch map (lane already closing). */
+const pendingClearSketchAfterRealize = ref(false)
 
 function requestInspectRangeDelete(): boolean {
   const peek = peekInspectRangeDelete()
@@ -180,10 +187,9 @@ const {
   harmonizeOpen,
   chordEditSession,
   setPlayheadTick: (tick) => store.setPlayheadTick(tick, { snap: false }),
-  onRemoteFocusRange: (start, end) => onCoachFocusRange(start, end, 'none'),
-  onRemoteTransportState: (active, model) => {
-    publishCoachRollTransport({ active, model })
-  },
+  onRemoteFocusRange: (start, end) =>
+    onCoachFocusRangeMaybe(coachOpen.value || coachDetached.value, start, end, 'none'),
+  onRemoteTransportState: (active, model) => publishCoachRollTransport({ active, model }),
 })
 
 /** While chord-editing, Harmonizing, or working in Sketch, cursor moves must not steal Sketch selection. */
@@ -221,30 +227,34 @@ function relayCoachFocusRange(
   end: number,
   select?: 'pillar' | 'column' | 'range' | 'none',
 ): void {
-  onCoachFocusRange(start, end, inspectSelectNone.value ? 'none' : select)
+  const sel = inspectSelectNone.value ? 'none' : (select ?? 'column')
+  onCoachFocusRangeMaybe(coachOpen.value || coachDetached.value, start, end, sel)
   if (isPopoutWindow.value) postCoachFocusRange(start, end)
 }
-function relayCoachFocusTick(tick: number): void {
-  onCoachFocusTick(tick)
-}
+const relayCoachFocusTick = (tick: number): void => onCoachFocusTick(tick)
 let unbindInspectHooks: (() => void) | null = null
 function onCoachClose(): void {
   closeCoachShell()
   ghostNotes.value = []
-  clearChordCursor()
+  if (harmonyPreview.value?.source === 'coach') harmonyPreview.value = null
+  releaseInspectRange()
 }
 function onChordCursorChange(range: { startTick: number; endTick: number } | null): void {
-  if (!range) {
-    clearChordCursor()
-    clearInspectPlaybackRewind()
-    return
-  }
+  if (!range) { releaseInspectRange(); return }
   setChordCursor(range, { select: inspectSelectNone.value ? 'none' : 'range' })
 }
 function onCoachLaneOpenPanel(): void {
   if (!arrangingEnabled.value) return
   closeChordEdit()
+  keyChangeOpen.value = false
+  tweaksOpen.value = false
   ensureCoachOpen()
+}
+
+function openCoachFromToolbar(): void {
+  keyChangeOpen.value = false
+  tweaksOpen.value = false
+  toggleCoach()
 }
 const saveBusy = ref(false)
 const exportBusy = ref(false)
@@ -262,6 +272,7 @@ const {
   nameCandidatesByTick: chordNameCandidatesByTick,
   setDeclaredMode: setChordDeclaredMode,
   setDetectedMode: setChordDetectedMode,
+  cycleDetectAlt: cycleChordDetectAlt,
 } = useChordAnalysisBar(project)
 
 const chordEdit = useTagRollChordEditDock({
@@ -307,8 +318,28 @@ function onChordEditDockClose(): void {
   closeChordEdit()
 }
 
+/** Post-Realize: close Sketch dock/lane, mute Sketch mix, optionally clear the map. */
+function onSketchRealized(): void {
+  if (chordEditSession.value?.variant === 'declared') closeChordEdit()
+  store.patchPartMix(TAG_ROLL_SKETCH_MIX_ID, { mute: true, solo: false }, { history: false })
+  prefs.setTagRollChordsLaneCollapsed(true)
+  const hasSketch = (store.current?.harmonySketch ?? []).some((s) => s.locked)
+  pendingClearSketchAfterRealize.value = hasSketch
+}
+
+function cancelClearSketchAfterRealize(): void {
+  pendingClearSketchAfterRealize.value = false
+}
+
+function confirmClearSketchAfterRealize(): void {
+  pendingClearSketchAfterRealize.value = false
+  store.setHarmonySketch([])
+  store.clearSketchSelection()
+}
+
 watch(coachOpen, (on) => {
-  if (on) closeChordEdit()
+  if (on) { closeChordEdit(); releaseInspectRange() }
+  else if (harmonyPreview.value?.source === 'coach') harmonyPreview.value = null
 })
 
 const showPianoTote = computed(
@@ -504,9 +535,13 @@ function rebuildScheduler(): void {
   })
 }
 
-function followPlayheadIntoView(tick: number): void {
+function followPlayheadIntoView(tick: number, opts?: { focusRatio?: number }): void {
   const p = store.current
-  if (!p || (p.view.mode === 'view' && p.view.scoreSurface === 'sheet')) return
+  if (!p) return
+  if (p.view.mode === 'view' && p.view.scoreSurface === 'sheet') {
+    sheetViewportRef.value?.followPlayheadIntoView?.(tick, opts)
+    return
+  }
   const vpW = readExposedCssSize(viewportRef.value?.cssW)
   const next = followPlayheadScrollX({
     playheadTick: tick,
@@ -515,8 +550,14 @@ function followPlayheadIntoView(tick: number): void {
     viewportW: vpW,
     lengthTicks: p.lengthTicks,
     ppq: p.ppq,
+    focusRatio: opts?.focusRatio,
   })
   if (next != null) store.setScroll(next, p.view.scrollY)
+}
+
+/** Transport seeks: keep cursor on-screen, inset (~⅓) rather than flush to an edge. */
+function followTransportPlayhead(tick: number): void {
+  followPlayheadIntoView(tick, { focusRatio: 0.35 })
 }
 
 /** After arrow-key note selection: page-scroll so the note is on-screen. */
@@ -643,6 +684,8 @@ watch(
     if (mode !== 'view') return
     titleEditing.value = false
     harmonizeOpen.value = false
+    keyChangeOpen.value = false
+    tweaksOpen.value = false
     partsOpen.value = false
     ghostNotes.value = []
   },
@@ -814,7 +857,9 @@ function onStopToOrigin(): void {
   scheduler?.stop({ resetPlayhead: false })
   store.transportPlaying = false
   clearInspectPlaybackRewind()
-  store.setPlayheadTick(playbackOriginTick.value, { snap: true })
+  const tick = playbackOriginTick.value
+  store.setPlayheadTick(tick, { snap: true })
+  followTransportPlayhead(tick)
 }
 
 function onStop(): void {
@@ -824,11 +869,14 @@ function onStop(): void {
 function onReturnToZero(): void {
   if (store.transportPlaying) onPauseInPlace()
   store.setPlayheadTick(0, { snap: false })
+  followTransportPlayhead(0)
 }
 
 function onReturnToOrigin(): void {
   if (store.transportPlaying) onPauseInPlace()
-  store.setPlayheadTick(playbackOriginTick.value, { snap: true })
+  const tick = playbackOriginTick.value
+  store.setPlayheadTick(tick, { snap: true })
+  followTransportPlayhead(tick)
 }
 
 function onPrevMeasure(): void {
@@ -837,6 +885,7 @@ function onPrevMeasure(): void {
   if (store.transportPlaying) onPauseInPlace()
   const tick = prevMeasureTick(p.view.playheadTick, p.timeSignature, p.ppq)
   store.setPlayheadTick(tick, { snap: false })
+  followTransportPlayhead(tick)
 }
 
 function onNextMeasure(): void {
@@ -845,6 +894,7 @@ function onNextMeasure(): void {
   if (store.transportPlaying) onPauseInPlace()
   const tick = nextMeasureTick(p.view.playheadTick, p.timeSignature, p.lengthTicks, p.ppq)
   store.setPlayheadTick(tick, { snap: false })
+  followTransportPlayhead(tick)
 }
 
 /** Transport ▶ / ⏸: play or pause in place. */
@@ -1069,7 +1119,8 @@ function syncSketchToCoachPillars(): void {
 
 const {
   navigateSelectedNote,
-  onToggleSelectedMelodyRole,
+  onSetSelectedMelodyRole,
+  onClearSelectedMelodyRole,
   onAssignMelodyPart,
   noteRolesMap,
   assignRolesMelodyName,
@@ -1145,6 +1196,10 @@ function onLockAllDetected(): void {
   if (!holes.length) return
   const n = store.lockDetectedAsMyChords(holes)
   if (n > 0) syncSketchToCoachPillars()
+}
+
+function onCycleDetectedAlt(seg: { startTick: number }): void {
+  cycleChordDetectAlt(seg.startTick)
 }
 
 function onHarmonyCommitAt(payload: {
@@ -1410,13 +1465,47 @@ function onHarmonizeClose(): void {
   if (harmonyPreview.value?.source === 'harmonize') harmonyPreview.value = null
 }
 
+function onKeyChangeClose(): void {
+  keyChangeOpen.value = false
+}
+
+function onTweaksClose(): void {
+  tweaksOpen.value = false
+}
+
 function toggleHarmonize(): void {
   if (harmonizeOpen.value) onHarmonizeClose()
   else {
     closeChordEdit()
     coachOpen.value = false
+    keyChangeOpen.value = false
+    tweaksOpen.value = false
     store.assignNoteRolesActive = false
     harmonizeOpen.value = true
+  }
+}
+
+function toggleKeyChange(): void {
+  if (keyChangeOpen.value) onKeyChangeClose()
+  else {
+    closeChordEdit()
+    coachOpen.value = false
+    if (harmonizeOpen.value) onHarmonizeClose()
+    tweaksOpen.value = false
+    store.assignNoteRolesActive = false
+    keyChangeOpen.value = true
+  }
+}
+
+function toggleTweaks(): void {
+  if (tweaksOpen.value) onTweaksClose()
+  else {
+    closeChordEdit()
+    coachOpen.value = false
+    if (harmonizeOpen.value) onHarmonizeClose()
+    keyChangeOpen.value = false
+    store.assignNoteRolesActive = false
+    tweaksOpen.value = true
   }
 }
 
@@ -1428,6 +1517,8 @@ function toggleRoles(): void {
   closeChordEdit()
   coachOpen.value = false
   marksOpen.value = false
+  keyChangeOpen.value = false
+  tweaksOpen.value = false
   if (harmonizeOpen.value) onHarmonizeClose()
   store.assignNoteRolesActive = true
   // Show role chrome only — melody stripes stay off until Marks toggles them.
@@ -1626,8 +1717,9 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (key === 'Escape') {
     e.preventDefault()
+    // Roles stays open on Esc — only clear the note selection (exit via Roles toggle or ✕).
     if (store.assignNoteRolesActive) {
-      store.assignNoteRolesActive = false
+      store.selectNote(null)
       return
     }
     if (shortcutsOpen.value) {
@@ -1668,8 +1760,7 @@ function onKeyDown(e: KeyboardEvent): void {
     }
     // Measure / inspect range limits play-until — clear it so Space plays from the cursor freely.
     if (chordCursor.value) {
-      clearChordCursor()
-      clearInspectPlaybackRewind()
+      releaseInspectRange()
       store.selectNote(null)
       return
     }
@@ -1690,6 +1781,7 @@ function onKeyDown(e: KeyboardEvent): void {
     e.preventDefault()
     const mode = project.value.view.mode
     const hasSel = store.selectedNoteIds.length > 0
+    if (tryCoachArrowStepMoment(key, coachOpen.value || coachDetached.value, e.shiftKey)) return
     if (
       harmonizeOpen.value &&
       !e.shiftKey &&
@@ -1796,7 +1888,8 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 'c') {
     e.preventDefault()
-    store.cycleActivePart(1)
+    if (store.assignNoteRolesActive) onClearSelectedMelodyRole()
+    else store.cycleActivePart(1)
     return
   }
   if (lower === 'y') {
@@ -1806,13 +1899,13 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 's') {
     e.preventDefault()
-    if (store.assignNoteRolesActive) onToggleSelectedMelodyRole('pmn')
+    if (store.assignNoteRolesActive) onSetSelectedMelodyRole('pmn')
     else onStop()
     return
   }
   if (lower === 'p' && store.assignNoteRolesActive) {
     e.preventDefault()
-    onToggleSelectedMelodyRole('smn')
+    onSetSelectedMelodyRole('smn')
     return
   }
   if (lower === 'm') {
@@ -1896,6 +1989,8 @@ function onKeyDown(e: KeyboardEvent): void {
 
     <TagRollToolbar
       :harmonize-open="harmonizeOpen"
+      :key-change-open="keyChangeOpen"
+      :tweaks-open="tweaksOpen"
       :roles-open="store.assignNoteRolesActive"
       :marks-open="marksOpen"
       :parts-open="partsOpen"
@@ -1909,10 +2004,12 @@ function onKeyDown(e: KeyboardEvent): void {
       @import-music-xml="onImportMusicXmlClick"
       @save-library="onSaveLibrary"
       @open-harmonize="toggleHarmonize"
+      @open-key-change="toggleKeyChange"
+      @open-tweaks="toggleTweaks"
       @open-roles="toggleRoles"
       @open-marks="toggleMarks"
       @open-parts="toggleParts"
-      @open-coach="toggleCoach"
+      @open-coach="openCoachFromToolbar"
     />
     <input
       ref="importJsonInput"
@@ -2038,6 +2135,7 @@ function onKeyDown(e: KeyboardEvent): void {
             @geometry="onHarmonyGeometry"
             @geometry-many="onHarmonyGeometryMany"
             @begin-gesture="store.pushHistoryCheckpoint()"
+            @realized="onSketchRealized"
           />
           <TagRollDetectedLane
             v-if="showPianoTote && !prefs.tagRollDetectedLaneCollapsed"
@@ -2052,6 +2150,7 @@ function onKeyDown(e: KeyboardEvent): void {
             @focus-range="relayCoachFocusRange"
             @edit="(seg) => onLaneChordEdit('detected', seg)"
             @toggle-pillar="onToggleDetectedPillar"
+            @cycle-alt="onCycleDetectedAlt"
             @lock-all="onLockAllDetected"
           />
           <TagRollExpressionLane
@@ -2084,8 +2183,10 @@ function onKeyDown(e: KeyboardEvent): void {
         <ArrangingCoachDock
           v-if="coachOpen && arrangingEnabled"
           :inspect-range="chordCursor" :is-popout-window="isPopoutWindow"
+          :detect-segments="chordDetectSegments"
           :post-transport-state="isPopoutWindow ? postTransportState : undefined"
           @close="onCoachClose" @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
+          @update:preview="onHarmonyPreview" @release-inspect="releaseInspectRange"
           @focus-tick="relayCoachFocusTick" @focus-range="relayCoachFocusRange"
           @focus-part="onCoachFocusPart" @pop-out="onCoachPopOut"
         />
@@ -2097,6 +2198,20 @@ function onKeyDown(e: KeyboardEvent): void {
           @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
           @update:preview="onHarmonyPreview" @declared="syncSketchToCoachPillars"
         />
+        <aside
+          v-else-if="keyChangeOpen && project.view.mode !== 'view'"
+          class="keychange-dock"
+          aria-label="Key change"
+        >
+          <TagRollKeyChangePanel @close="onKeyChangeClose" />
+        </aside>
+        <aside
+          v-else-if="tweaksOpen && project.view.mode !== 'view'"
+          class="tweaks-dock"
+          aria-label="Detected Tweaks"
+        >
+          <TagRollDetectedTweaksPanel @close="onTweaksClose" />
+        </aside>
         <TagRollChordEditDock
           v-else-if="chordEditOpen && project.view.mode !== 'view' && chordEditSession"
           :variant="chordEditSession.variant" :seg="chordEditSeg" :mode="chordEditMode"
@@ -2120,6 +2235,15 @@ function onKeyDown(e: KeyboardEvent): void {
       confirm-label="Delete"
       @close="cancelInspectRangeDelete"
       @confirm="confirmInspectRangeDelete"
+    />
+    <ConfirmDialog
+      :open="pendingClearSketchAfterRealize"
+      title="Clear Sketch?"
+      message="Stacks are on the roll. Clear the Sketch chord map? You can keep it for further edits if you Cancel."
+      confirm-label="Clear Sketch"
+      cancel-label="Keep Sketch"
+      @close="cancelClearSketchAfterRealize"
+      @confirm="confirmClearSketchAfterRealize"
     />
   </section>
   <p v-else class="loading">Loading…</p>
@@ -2315,15 +2439,34 @@ function onKeyDown(e: KeyboardEvent): void {
   min-width: 18rem;
   min-height: 0;
 }
+.stage.dock-popout :deep(.coach-shell),
 .stage.dock-popout :deep(.coach-dock),
 .stage.dock-popout :deep(.tr-hz),
-.stage.dock-popout :deep(.chord-edit-dock) {
+.stage.dock-popout :deep(.chord-edit-dock),
+.stage.dock-popout :deep(.keychange-dock) {
   width: 100% !important;
   max-width: none;
   min-width: 0;
   border-left: 0;
 }
-.stage-main > :deep(.coach-dock),
+.keychange-dock,
+.tweaks-dock {
+  flex: 0 0 auto;
+  width: min(22rem, 100%);
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto;
+  padding: 0.35rem;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, var(--bg, var(--surface)));
+}
+.stage.dock-popout :deep(.why-dock) {
+  width: min(16.5rem, 40%) !important;
+  min-width: 12rem;
+  border-left: 0;
+  border-right: 1px solid var(--border);
+}
+.stage-main > :deep(.coach-shell),
 .stage-main > :deep(.tr-hz),
 .stage-main > :deep(.chord-edit-dock) {
   align-self: stretch;

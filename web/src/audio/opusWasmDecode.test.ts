@@ -16,6 +16,14 @@ vi.mock('ogg-opus-decoder', () => ({
       free: vi.fn(),
     }
   }),
+  OggOpusDecoder: vi.fn(function MockMain() {
+    return {
+      ready: Promise.resolve(),
+      decodeFile,
+      reset,
+      free: vi.fn(),
+    }
+  }),
 }))
 
 describe('opusWasmDecode', () => {

@@ -632,47 +632,6 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
-
-      <div class="lane-toggles" role="group" aria-label="Bottom lanes">
-        <div class="lane-grid">
-          <div class="lane-col">
-            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollLyricsLaneCollapsed }"
-              :aria-pressed="!prefs.tagRollLyricsLaneCollapsed"
-              :title="tipByShortcutId('mode-lyrics', 'Show Lyrics lane')"
-              @click="prefs.toggleTagRollLane('lyrics')">Lyrics</button>
-            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollChordsLaneCollapsed }"
-              :aria-pressed="!prefs.tagRollChordsLaneCollapsed"
-              :title="tagRollTip('Show Sketch lane — locked harmony map')"
-              @click="prefs.toggleTagRollLane('chords')">Sketch</button>
-          </div>
-          <div class="lane-col">
-            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollDetectedLaneCollapsed }"
-              :aria-pressed="!prefs.tagRollDetectedLaneCollapsed"
-              :title="tagRollTip('Show Detected chords lane')"
-              @click="prefs.toggleTagRollLane('detected')">Detected</button>
-            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollExpressionLaneCollapsed }"
-              :aria-pressed="!prefs.tagRollExpressionLaneCollapsed"
-              :title="tagRollTip('Show Mods lane (tempo, fermata, ramps)')"
-              @click="prefs.toggleTagRollLane('mods')">Mods</button>
-          </div>
-          <div class="lane-col">
-            <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollCoachLaneCollapsed }"
-              :aria-pressed="!prefs.tagRollCoachLaneCollapsed"
-              :title="tagRollTip('Show Coach lane')"
-              @click="prefs.toggleTagRollLane('coach')">Coach</button>
-            <InfoTips class="lane-howto" label="How to use bottom lanes"
-              title="Sketch, Detected, Mods, Coach, and Lyrics">
-              <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
-                <p><strong>{{ sec.title }}</strong></p>
-                <p>{{ sec.body }}</p>
-                <ol v-if="sec.steps?.length">
-                  <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
-                </ol>
-              </section>
-            </InfoTips>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="transport" role="group" aria-label="Transport">
@@ -810,6 +769,47 @@ onUnmounted(() => {
         </button>
       </div>
     </div>
+
+    <div class="lane-toggles" role="group" aria-label="Bottom lanes">
+      <div class="lane-grid">
+        <div class="lane-col">
+          <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollLyricsLaneCollapsed }"
+            :aria-pressed="!prefs.tagRollLyricsLaneCollapsed"
+            :title="tipByShortcutId('mode-lyrics', 'Show Lyrics lane')"
+            @click="prefs.toggleTagRollLane('lyrics')">Lyrics</button>
+          <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollChordsLaneCollapsed }"
+            :aria-pressed="!prefs.tagRollChordsLaneCollapsed"
+            :title="tagRollTip('Show Sketch lane — locked harmony map')"
+            @click="prefs.toggleTagRollLane('chords')">Sketch</button>
+        </div>
+        <div class="lane-col">
+          <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollDetectedLaneCollapsed }"
+            :aria-pressed="!prefs.tagRollDetectedLaneCollapsed"
+            :title="tagRollTip('Show Detected chords lane')"
+            @click="prefs.toggleTagRollLane('detected')">Detected</button>
+          <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollExpressionLaneCollapsed }"
+            :aria-pressed="!prefs.tagRollExpressionLaneCollapsed"
+            :title="tagRollTip('Show Mods lane (tempo, fermata, ramps)')"
+            @click="prefs.toggleTagRollLane('mods')">Mods</button>
+        </div>
+        <div class="lane-col">
+          <button type="button" class="lane-tog" :class="{ on: !prefs.tagRollCoachLaneCollapsed }"
+            :aria-pressed="!prefs.tagRollCoachLaneCollapsed"
+            :title="tagRollTip('Show Coach lane')"
+            @click="prefs.toggleTagRollLane('coach')">Coach</button>
+          <InfoTips class="lane-howto" label="How to use bottom lanes"
+            title="Sketch, Detected, Mods, Coach, and Lyrics">
+            <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
+              <p><strong>{{ sec.title }}</strong></p>
+              <p>{{ sec.body }}</p>
+              <ol v-if="sec.steps?.length">
+                <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+              </ol>
+            </section>
+          </InfoTips>
+        </div>
+      </div>
+    </div>
   </div>
 
   <TagRollApplyScopeDialog
@@ -825,9 +825,13 @@ onUnmounted(() => {
 <style scoped>
 .media-bar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, auto) minmax(min-content, 1fr) minmax(0, auto);
+  grid-template-areas:
+    'left transport right'
+    'lanes lanes lanes';
   align-items: center;
-  gap: 0.45rem 0.75rem;
+  column-gap: 0.75rem;
+  row-gap: 0.4rem;
   flex: 0 0 auto;
   padding: 0.4rem 0.75rem calc(0.4rem + env(safe-area-inset-bottom, 0));
   border-top: 1px solid var(--border);
@@ -843,10 +847,30 @@ onUnmounted(() => {
   min-width: 0;
 }
 .side.left {
+  grid-area: left;
   justify-content: flex-start;
 }
 .side.right {
+  grid-area: right;
   justify-content: flex-end;
+}
+.transport {
+  grid-area: transport;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 0.35rem;
+  /* Keep the control cluster intact — wrap the whole bar row, not individual buttons. */
+  flex-shrink: 0;
+}
+.lane-toggles {
+  grid-area: lanes;
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  justify-self: start;
 }
 .util-stack {
   display: inline-flex;
@@ -896,10 +920,6 @@ onUnmounted(() => {
 }
 .zoom-btn:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.lane-toggles {
-  display: inline-flex; align-items: stretch; min-width: 0;
-  padding-left: 0.45rem; border-left: 1px solid var(--border);
 }
 .lane-grid { display: inline-flex; align-items: stretch; gap: 0.28rem; }
 .lane-col { display: inline-flex; flex-direction: column; gap: 0.2rem; }
@@ -1131,12 +1151,6 @@ onUnmounted(() => {
   font-size: 0.75rem;
   padding: 0.15rem 0.4rem;
 }
-.transport {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-}
 .tr-btn {
   display: inline-flex;
   align-items: center;
@@ -1175,15 +1189,29 @@ onUnmounted(() => {
 .tr-btn:active {
   transform: translateY(1px);
 }
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .media-bar {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'transport'
+      'left'
+      'right'
+      'lanes';
     justify-items: center;
   }
   .side.left,
-  .side.right {
+  .side.right,
+  .lane-toggles {
+    justify-content: center;
+    justify-self: stretch;
+    width: 100%;
+  }
+  .lane-grid {
     justify-content: center;
     width: 100%;
+  }
+  .transport {
+    justify-self: center;
   }
 }
 </style>

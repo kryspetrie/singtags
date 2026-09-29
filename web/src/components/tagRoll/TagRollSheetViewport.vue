@@ -14,6 +14,7 @@ import {
 import { isRampStickyMarker } from '../../lib/tagRoll/tempoMap'
 import { clampSheetZoom, minPxPerBeatToFillSheet } from '../../lib/tagRoll/zoomFill'
 import { pointerDistance } from '../../lib/tagRoll/zoomPan'
+import { followPlayheadContentScrollX } from '../../lib/tagRoll/followPlayheadScroll'
 
 const PLAYHEAD_HIT = 10
 const DRAG_SLOP = 6
@@ -394,7 +395,28 @@ watch(
   { deep: true },
 )
 
-defineExpose({ cssH, cssW, nudgeTimeZoom })
+defineExpose({
+  cssH,
+  cssW,
+  nudgeTimeZoom,
+  /** Keep the playhead on-screen (same jump-scroll policy as the piano roll). */
+  followPlayheadIntoView(tick: number, opts?: { focusRatio?: number }): void {
+    const lay = layout.value
+    if (!lay) return
+    const next = followPlayheadContentScrollX({
+      playheadContentX: lay.tickToX(Math.max(0, tick)),
+      scrollX: scrollX.value,
+      viewportW: cssW.value,
+      contentW: lay.width,
+      focusRatio: opts?.focusRatio,
+    })
+    if (next == null) return
+    const clamped = clampScroll(next, scrollY.value)
+    if (clamped.x !== scrollX.value || clamped.y !== scrollY.value) {
+      emit('scroll', clamped.x, clamped.y)
+    }
+  },
+})
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 /**
  * Map Tag Roll notes ↔ melody part / Strong–Passing roles (project source of truth).
  */
-import type { MelodyEvent, MelodyRole } from '../../domain/arranging/types'
+import type { MelodyEvent } from '../../domain/arranging/types'
 import type { TagRollMelodyRole, TagRollNote, TagRollProject } from './types'
 
 export function melodyPartIdOf(project: TagRollProject): string | null {
@@ -15,13 +15,6 @@ export function melodyPartIdOf(project: TagRollProject): string | null {
 
 export function noteRoleOf(note: TagRollNote): TagRollMelodyRole {
   return note.role === 'pmn' || note.role === 'smn' ? note.role : 'unknown'
-}
-
-export function toggleMelodyRole(
-  current: MelodyRole | TagRollMelodyRole,
-  want: 'pmn' | 'smn',
-): TagRollMelodyRole {
-  return current === want ? 'unknown' : want
 }
 
 /** Match arrangement melody to a Tag Roll note by onset + pitch. */

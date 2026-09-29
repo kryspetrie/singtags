@@ -280,6 +280,64 @@ describe('harmonyStrip', () => {
     expect(rows.detect.some((s) => s.rootPc === 7)).toBe(true)
   })
 
+  it('Detected Alt applies per sketch-split fragment, not the whole original hole', () => {
+    // One detect stack 0–1920; sketch occupies the middle → two Detected halves.
+    const cands = new Map([
+      [
+        0,
+        [
+          { rootPc: 7, natureId: 'seventh', label: 'G7' },
+          { rootPc: 0, natureId: 'major', label: 'C' },
+          { rootPc: 5, natureId: 'major', label: 'F' },
+        ],
+      ],
+    ])
+    const rows = buildHarmonyStripRows({
+      sketch: [
+        {
+          id: 'hs1',
+          startTick: 480,
+          endTick: 960,
+          rootPc: 2,
+          quality: 'm7',
+          source: 'user',
+          locked: true,
+        },
+      ],
+      detectStacks: [
+        {
+          id: 's1',
+          startTick: 0,
+          durationTicks: 1920,
+          rootPc: 7,
+          natureId: 'seventh',
+          voicing: '',
+          spread: false,
+          layer: 'primary',
+          scfGroup: null,
+          pillarId: null,
+          midi: null,
+          ruleTags: [],
+        },
+      ],
+      tonality: 0,
+      preferFlats: false,
+      lengthTicks: 1920,
+      nameCandidatesByTick: cands,
+      // Only the right half (starts at 960) takes the 2nd pick.
+      detectAltIndexByStartTick: { 960: 1 },
+      resolveCandidateTick: () => 0,
+    })
+    const left = rows.detect.find((s) => s.startTick === 0)
+    const right = rows.detect.find((s) => s.startTick === 960)
+    expect(left).toBeTruthy()
+    expect(right).toBeTruthy()
+    expect(left!.rootPc).toBe(7)
+    expect(left!.name).toMatch(/G7/)
+    expect(right!.rootPc).toBe(0)
+    expect(right!.name).toMatch(/^C/)
+  })
+
   it('suggestHarmonyEntries offers symbol-friendly completions', () => {
     const sug = suggestHarmonyEntries('Bb', {
       tonality: 0,

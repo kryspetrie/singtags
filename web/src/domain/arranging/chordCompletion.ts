@@ -323,6 +323,7 @@ export function identifyNatureFromMidi(opts: {
   // the stack already IDs as V / V7. Full 4-part stacks keep catalogue spelling.
   const leadDeg = degreeOf(lead, opts.tonality)
   const dominantPc = ((opts.tonality + 7) % 12 + 12) % 12
+  const tonicPc = ((opts.tonality % 12) + 12) % 12
   if (partsPresent < 4 && leadDeg === 7) {
     const isAlreadyV =
       degreeOf(top.rootPc, opts.tonality) === 7 &&
@@ -335,6 +336,22 @@ export function identifyNatureFromMidi(opts: {
         missingRoles: [],
         reason: 'Lead ^5 incomplete stack → functional V7',
       }
+    }
+  }
+  // Incomplete tonic Mm7 with Lead on ^3: prefer I triad (Bonnie authentic land).
+  // A ♭7 in TBB alone should not force I7 as the Detected home after V7→I.
+  if (
+    partsPresent < 4 &&
+    leadDeg === 4 &&
+    pc(top.rootPc) === tonicPc &&
+    isDominantNature(top.natureId)
+  ) {
+    top = {
+      natureId: 'major',
+      rootPc: tonicPc,
+      confidence: Math.max(top.confidence, 0.55),
+      missingRoles: [],
+      reason: 'Lead ^3 incomplete tonic Mm7 → I triad (authentic land)',
     }
   }
 

@@ -52,7 +52,9 @@ export function autocompleteChordAtNote(
   const prev = [...project.stacks]
     .filter((s) => s.startTick < note.startTick)
     .sort((a, b) => b.startTick - a.startTick)[0]
-  const nextPillar = project.pillars.find((p) => p.startTick >= pillar.endTick)
+  const nextPillar = [...project.pillars]
+    .filter((p) => p.startTick > pillar.startTick)
+    .sort((a, b) => a.startTick - b.startTick)[0]
   return autocompleteNextChord({
     note,
     pillar,
@@ -73,7 +75,9 @@ export function autocompleteChordAtNote(
 export function listTheorySubstitutionChips(project: ArrangementProject, note: MelodyEvent) {
   const pillar = pillarAtTick(project.pillars, note.startTick)
   if (!pillar) return []
-  const nextPillar = project.pillars.find((p) => p.startTick >= pillar.endTick)
+  const nextPillar = [...project.pillars]
+    .filter((p) => p.startTick > pillar.startTick)
+    .sort((a, b) => a.startTick - b.startTick)[0]
   return autocompleteSubstitutionChips({
     leadMidi: note.midi,
     pillarRoot: pillar.rootPc,
@@ -92,7 +96,9 @@ export function completeChordFromPitches(
   const tick = request.tick ?? 0
   const pillar = pillarAtTick(project.pillars, tick)
   const nextPillar = pillar
-    ? project.pillars.find((p) => p.startTick >= pillar.endTick)
+    ? [...project.pillars]
+        .filter((p) => p.startTick > pillar.startTick)
+        .sort((a, b) => a.startTick - b.startTick)[0]
     : undefined
   return completePartialChord({
     ...request,

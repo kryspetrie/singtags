@@ -104,7 +104,7 @@ Boundaries match [`../docs/architecture.md`](../docs/architecture.md): keep DSP 
 - **Browse** — title DSL, chips, lyrics FTS, year bins, density scrub, window virtualization
 - **Tag / Sing** — WebP sheets, learning tracks, bake-first pitch & speed, fullscreen Sing mode
 - **Pitch pipe** — E3–E4 (and layouts); optional custom voice from Labs
-- **Offline** — favorites + songbook/audio packs; 64 kbps Opus online (WASM decode when needed)
+- **Offline** — favorites + songbook/audio packs; online Opus (Safari: WASM + session Opus→WAV; Original only if WASM failed); offline Opus via WASM / on-the-fly WAV
 - **Local Library + optical transfer** — on-device charts; QR transfer under Labs flags
 - **PWA** — installable shell; waiting service workers apply silently when the session is idle (not playing / not fullscreen)
 

@@ -25,9 +25,9 @@ export function melodyRoleLaneMark(role: MelodyRole): string {
   return ''
 }
 
-/** Strong = yellow; Passing = green. */
+/** Strong = green; Passing = yellow. */
 export function melodyRoleBorderColor(role: 'pmn' | 'smn'): string {
-  return role === 'pmn' ? 'rgba(230, 175, 20, 1)' : 'rgba(28, 130, 78, 1)'
+  return role === 'pmn' ? 'rgba(28, 130, 78, 1)' : 'rgba(230, 175, 20, 1)'
 }
 
 /** Melody / Lead cue. */

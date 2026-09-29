@@ -3,6 +3,8 @@
  * Paths are catalog-relative (e.g. media/31/lead.playback.opus).
  */
 
+import { supportsOggOpusWebAudio } from '../audio/codecSupport'
+import { isOpusWasmUnavailable } from '../audio/opusPlayable'
 import type { AudioEncodeQuality } from '../types/audio'
 import type { AudioTierId, TagDetail } from '../types/tag'
 import { sortPartIds } from './parts'
@@ -141,10 +143,16 @@ export function playbackAudioPath(detail: TagDetail, part: string): string | nul
 
 /**
  * Network path to fetch for in-tag play.
- * Always prefers the Opus playback tier when published — browsers without native
- * Ogg Opus Web Audio support software-decode via WASM (see decodeLock).
+ *
+ * - Default: 64 kbps playback Opus (bandwidth). Safari uses WASM decode and/or
+ *   on-the-fly Opus→WAV; offline packs never require Original downloads.
+ * - Only if Opus WASM failed to load this session: prefer original AAC/MP3 when
+ *   published (online reliability fallback).
  */
 export function onlinePlayAudioPath(detail: TagDetail, part: string): string | null {
+  if (!supportsOggOpusWebAudio() && isOpusWasmUnavailable()) {
+    return originalAudioPath(detail, part) ?? playbackAudioPath(detail, part)
+  }
   return playbackAudioPath(detail, part)
 }
 

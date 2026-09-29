@@ -185,14 +185,6 @@ const tagStore = useTagRollStore()
     ensureCoachOpen()
   }
 
-  /** Opening the Coach lane always brings up the Coach sidebar too. */
-  watch(
-    () => prefs.tagRollCoachLaneCollapsed,
-    (collapsed) => {
-      if (!collapsed) ensureCoachOpen()
-    },
-  )
-
   function watchPopoutClosed(w: Window): void {
     stopClosedPoll()
     closedPoll = setInterval(() => {

@@ -6,6 +6,7 @@ import {
   formatHowToPlain,
   HARMONIZE_HOWTO,
   HARMONY_STRIP_HOWTO,
+  SKETCH_LANE_HOWTO,
 } from './harmonyHowTo'
 
 describe('harmonyHowTo', () => {
@@ -34,5 +35,12 @@ describe('harmonyHowTo', () => {
     expect(text).toMatch(/Alt\+click/i)
     expect(text).toMatch(/◆/)
     expect(text).toMatch(/Detected/i)
+  })
+
+  it('covers empty Sketch lane tips', () => {
+    const text = formatHowToPlain(SKETCH_LANE_HOWTO)
+    expect(text).toMatch(/paint/i)
+    expect(text).toMatch(/pillar/i)
+    expect(text).toMatch(/Realize/)
   })
 })

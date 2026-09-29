@@ -66,37 +66,42 @@ function miss(): CadenceMatch {
   return { hit: false, strength: 0 }
 }
 
-/** V7 → I when Lead ^5 resolves to ^1 (phrase opening / authentic). */
+/** V7 → I when Lead ^5 resolves toward a tonic chord tone (phrase opening / authentic). */
 const authV7I: CadenceDef = {
   id: 'auth_v7_i',
   label: 'V7→I',
-  shortTeach: 'Lead ^5 resolving to ^1 almost always wants V7→I — the fundamental authentic cadence.',
+  shortTeach:
+    'Lead ^5 resolving into a I chord tone (^1/^3/^5) almost always wants V7→I — the fundamental authentic cadence.',
   glossaryIds: ['tension_release', 'bs7', 'leading_tone'],
   priority: 1,
   matchContext(ctx) {
     const n = nextDeg(ctx)
-    if (melDeg(ctx) === 7 && n === 0) {
-      // Phrase openings get full strength (Bonnie "My…Bon-").
-      return hit(ctx.phraseRole === 'open' ? 1 : 0.95)
+    // Next is a tonic triad tone: ^1, ^3, or ^5.
+    const nextTowardI = n === 0 || n === 4 || n === 7
+    if (melDeg(ctx) === 7 && nextTowardI) {
+      // Phrase openings get full strength (Bonnie "My…Bon-"); ^5→^1 slightly stronger.
+      const open = ctx.phraseRole === 'open'
+      if (n === 0) return hit(open ? 1 : 0.95)
+      return hit(open ? 0.92 : 0.88)
     }
     // After a rest on ^5 with tonic ahead (pillar / locked neighbor) — treat as open V7.
     if (
       melDeg(ctx) === 7 &&
       ctx.phraseRole === 'open' &&
-      (n === 0 ||
+      (nextTowardI ||
         (ctx.nextPillarRoot != null && pc(ctx.nextPillarRoot) === tonicPc(ctx)) ||
         (ctx.lockedNeighbors?.after != null &&
           pc(ctx.lockedNeighbors.after.rootPc) === tonicPc(ctx)))
     ) {
       return hit(0.9)
     }
-    // Prev was V7 and we are on tonic melody → completing authentic.
+    // Prev was V7 and we are on tonic melody (^1 or ^3) → completing authentic.
     if (
       ctx.prevRootPc != null &&
       ctx.prevNatureId != null &&
       isDominantNature(ctx.prevNatureId) &&
       isDominantOf(ctx.prevRootPc, tonicPc(ctx)) &&
-      melDeg(ctx) === 0
+      (melDeg(ctx) === 0 || melDeg(ctx) === 4)
     ) {
       return hit(0.85)
     }
@@ -107,20 +112,20 @@ const authV7I: CadenceDef = {
     if (!m.hit) return 0
     const deg = rootDeg(cand.rootPc, ctx.tonality)
     const s = m.strength
-    // Opening ^5→^1 (or open ^5 toward tonic): prefer V7, demote tonic under the ^5.
+    // Opening ^5→I-tone (or open ^5 toward tonic): prefer V7, demote tonic under the ^5.
     if (melDeg(ctx) === 7) {
       if (isSeventhish(cand.natureId) && deg === 7) return 22 * s
       if (isTriad(cand.natureId) && deg === 7) return 8 * s
       if (deg === 0) return -18 * s
       return 0
     }
-    // Completing into I after V7 — never springboard I7 at the land.
+    // Completing into I after V7 — never springboard I7 at the land (^1 or ^3).
     if (deg === 0 && isTriad(cand.natureId)) return 14 * s
     if (deg === 0 && isSeventhish(cand.natureId)) return -8 * s
     return 0
   },
   teachWhy() {
-    return 'Lead ^5→^1 (or V7 into tonic) is the classic authentic cadence — prefer V7 then I.'
+    return 'Lead ^5 into a I chord tone (or V7 into tonic) is the classic authentic cadence — prefer V7 then I.'
   },
 }
 

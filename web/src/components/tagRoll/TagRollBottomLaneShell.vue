@@ -3,8 +3,11 @@
  * Shared chrome for Tag Studio bottom lanes.
  * Compact density: vertical spine label + tight actions (Sketch/Detected/Mods).
  * Default density: stacked label + View select (Coach / taller lanes).
+ * Wheel over the time track pans/zooms like the piano roll.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { applyTagRollTimeWheel } from '../../lib/tagRoll/timeWheel'
+import { useTagRollStore } from '../../stores/tagRoll'
 
 export type BottomLaneViewOption = {
   value: string
@@ -30,6 +33,9 @@ const emit = defineEmits<{
   'update:view': [value: string]
 }>()
 
+const store = useTagRollStore()
+const laneBodyRef = ref<HTMLElement | null>(null)
+
 const gutterStyle = computed(() => {
   const g = Math.max(64, props.leftGutterPx ?? 112)
   return { '--lane-gutter': `${g}px` } as Record<string, string>
@@ -37,10 +43,12 @@ const gutterStyle = computed(() => {
 
 const hasView = computed(() => (props.viewOptions?.length ?? 0) > 0)
 const compact = computed(() => props.density === 'compact')
-/** Two options → segmented toggle; otherwise keep a select. */
-const useSegment = computed(
-  () => compact.value && (props.viewOptions?.length ?? 0) === 2,
-)
+/** Compact lanes use toggle buttons (2–4 options); taller lanes keep a select. */
+const useSegment = computed(() => {
+  const n = props.viewOptions?.length ?? 0
+  return compact.value && n >= 2 && n <= 4
+})
+const segCols = computed(() => Math.max(2, props.viewOptions?.length ?? 2))
 
 function onViewChange(e: Event): void {
   const el = e.target as HTMLSelectElement
@@ -50,7 +58,36 @@ function onViewChange(e: Event): void {
 function shortOpt(label: string): string {
   if (label === 'Chord') return 'C'
   if (label === 'Number') return '#'
+  if (label === 'Voice-leading') return 'VL'
+  if (label === 'Issues') return 'Iss'
+  if (label === 'Ring') return 'Ring'
   return label.slice(0, 1)
+}
+
+function onWheel(e: WheelEvent): void {
+  const p = store.current
+  const el = laneBodyRef.value
+  if (!p || !el) return
+  const rect = el.getBoundingClientRect()
+  const result = applyTagRollTimeWheel(e, {
+    scrollX: p.view.scrollX,
+    scrollY: p.view.scrollY,
+    cellW: p.view.cellW,
+    cellH: p.view.cellH,
+    lengthTicks: p.lengthTicks,
+    ppq: p.ppq,
+    viewportWidthPx: el.clientWidth,
+    localX: e.clientX - rect.left,
+    shiftPansTime: true,
+  })
+  if (!result) return
+  e.preventDefault()
+  if (result.cellSize) {
+    store.setCellSize(result.cellSize.cellW, result.cellSize.cellH)
+  }
+  if (result.scroll) {
+    store.setScroll(result.scroll.x, result.scroll.y)
+  }
 }
 </script>
 
@@ -64,6 +101,7 @@ function shortOpt(label: string): string {
           class="view-seg"
           role="group"
           :aria-label="viewAriaLabel ?? `${label} view`"
+          :style="{ '--seg-cols': String(segCols) }"
         >
           <button
             v-for="opt in viewOptions"
@@ -97,7 +135,7 @@ function shortOpt(label: string): string {
       </div>
     </div>
     <div class="lane-main">
-      <div class="lane-body">
+      <div ref="laneBodyRef" class="lane-body" @wheel="onWheel">
         <slot />
         <div v-if="$slots.inspect" class="lane-inspect">
           <slot name="inspect" />
@@ -197,20 +235,23 @@ function shortOpt(label: string): string {
 }
 .view-seg {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.15rem;
+  grid-template-columns: repeat(var(--seg-cols, 2), minmax(0, 1fr));
+  gap: 0.12rem;
 }
 .seg-btn {
-  min-height: 1.35rem;
-  padding: 0;
+  min-height: 1.3rem;
+  padding: 0 0.1rem;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--surface);
   color: var(--muted);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 750;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .seg-btn.on {
   color: var(--text);

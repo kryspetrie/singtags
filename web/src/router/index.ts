@@ -113,33 +113,28 @@ export const router = createRouter({
       path: '/recorder',
       name: 'recorder',
       component: () => import('../views/RecorderView.vue'),
-      meta: { requiresAudioRecorder: true },
     },
     {
       path: '/recorder/:id',
       name: 'recorder-session',
       component: () => import('../views/RecorderSessionView.vue'),
       props: true,
-      meta: { requiresAudioRecorder: true },
     },
     {
       path: '/recorder/:id/take/:takeId/edit',
       name: 'recorder-take-edit',
       component: () => import('../views/RecorderTakeEditView.vue'),
       props: true,
-      meta: { requiresAudioRecorder: true },
     },
     {
       path: '/tx',
       name: 'tx',
       component: () => import('../views/OpticalTransferView.vue'),
-      meta: { requiresOpticalTransfer: true },
     },
     {
       path: '/rx',
       name: 'rx',
       component: () => import('../views/OpticalTransferView.vue'),
-      meta: { requiresOpticalTransfer: true },
     },
     {
       path: '/wireless',
@@ -155,15 +150,11 @@ export const router = createRouter({
     },
     {
       path: '/share',
-      name: 'os-share-transfer',
-      component: () => import('../views/OsShareTransferView.vue'),
-      meta: { requiresOsShareTransfer: true },
+      redirect: '/tx',
     },
     {
       path: '/share/rx',
-      name: 'os-share-rx',
-      component: () => import('../views/OsShareTransferView.vue'),
-      meta: { requiresOsShareTransfer: true },
+      redirect: '/rx',
     },
     {
       path: '/optical-transfer',
@@ -230,20 +221,11 @@ router.beforeEach((to, from) => {
   // Deep links to gated Labs features turn the flag on so shared URLs work.
   try {
     const prefs = usePreferencesStore()
-    if (to.meta.requiresOpticalTransfer && !prefs.opticalTransferEnabled) {
-      prefs.setOpticalTransferEnabled(true)
-    }
     if (to.meta.requiresWebrtcTransfer && !prefs.webrtcTransferEnabled) {
       prefs.setWebrtcTransferEnabled(true)
     }
-    if (to.meta.requiresOsShareTransfer && !prefs.osShareTransferEnabled) {
-      prefs.setOsShareTransferEnabled(true)
-    }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
       prefs.setLocalLibraryEnabled(true)
-    }
-    if (to.meta.requiresAudioRecorder && !prefs.audioRecorderEnabled) {
-      prefs.setAudioRecorderEnabled(true)
     }
     if (to.meta.requiresSingTogether && !prefs.singTogetherEnabled) {
       prefs.setSingTogetherEnabled(true)

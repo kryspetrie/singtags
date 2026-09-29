@@ -14,13 +14,15 @@ describe('LabsView', () => {
     document.body.innerHTML = ''
   })
 
-  it('shows optical transfer on by default', async () => {
+  it('does not expose Optical Transfer or Audio Recorder labs toggles', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
-    expect(usePreferencesStore().opticalTransferEnabled).toBe(true)
-    expect(w.get('input[aria-label="Optical Transfer"]').element).toHaveProperty('checked', true)
+    expect(w.find('input[aria-label="Optical Transfer"]').exists()).toBe(false)
+    expect(w.find('input[aria-label="Audio Recorder"]').exists()).toBe(false)
+    expect(w.find('input[aria-label="OS Share Handoff"]').exists()).toBe(false)
+    expect(w.text()).toMatch(/Optical Transfer and Audio Recorder live under More/)
     w.unmount()
   })
 
@@ -34,16 +36,6 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('toggles optical transfer', async () => {
-    const w = mount(LabsView, {
-      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
-    })
-    await flushPromises()
-    await w.get('input[aria-label="Optical Transfer"]').setValue(false)
-    expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
-    w.unmount()
-  })
-
   it('toggles my library', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
@@ -54,17 +46,14 @@ describe('LabsView', () => {
     w.unmount()
   })
 
-  it('toggles wireless and OS share labs flags', async () => {
+  it('toggles wireless labs flag', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     })
     await flushPromises()
     expect(usePreferencesStore().webrtcTransferEnabled).toBe(false)
-    expect(usePreferencesStore().osShareTransferEnabled).toBe(false)
     await w.get('input[aria-label="Wireless Transfer"]').setValue(true)
-    await w.get('input[aria-label="OS Share Handoff"]').setValue(true)
     expect(usePreferencesStore().webrtcTransferEnabled).toBe(true)
-    expect(usePreferencesStore().osShareTransferEnabled).toBe(true)
     w.unmount()
   })
 
@@ -85,14 +74,9 @@ describe('LabsView', () => {
     })
     await flushPromises()
     expect(usePreferencesStore().tagRollEnabled).toBe(false)
-    expect(usePreferencesStore().arrangingEnabled).toBe(false)
     await w.get('input[aria-label="Tag Studio"]').setValue(true)
     expect(usePreferencesStore().tagRollEnabled).toBe(true)
-    expect(usePreferencesStore().arrangingEnabled).toBe(true)
     expect(w.text()).toMatch(/More → Tag Studio/)
-    expect(w.text()).toMatch(/Coach included/i)
-    expect(w.find('input[aria-label="Arranging"]').exists()).toBe(false)
-    expect(w.text()).not.toContain('Open Tag Studio')
     w.unmount()
   })
 
@@ -102,7 +86,6 @@ describe('LabsView', () => {
     })
     await flushPromises()
     expect(w.find('input[aria-label="Arranging"]').exists()).toBe(false)
-    expect(w.find('#arranging-h').exists()).toBe(false)
     w.unmount()
   })
 
@@ -112,17 +95,6 @@ describe('LabsView', () => {
     })
     await flushPromises()
     expect(w.find('input[aria-label="Tag Roulette"]').exists()).toBe(false)
-    expect(w.text()).not.toContain('Tag Roulette')
-    w.unmount()
-  })
-
-  it('links to the pitch pipe sound lab', async () => {
-    const w = mount(LabsView, {
-      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
-    })
-    await flushPromises()
-    expect(w.text()).toContain('Pitch pipe sound')
-    expect(w.text()).toContain('Open sound lab')
     w.unmount()
   })
 })

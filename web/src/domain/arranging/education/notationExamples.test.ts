@@ -37,6 +37,12 @@ describe('notation examples (abcjs)', () => {
     expect(abc).toContain('[V:L]')
     expect(abc).toContain('[V:Br]')
     expect(abc).toContain('[V:B]')
+    // Titles / captions / chord labels belong in HTML, not the engraved SVG.
+    expect(abc).not.toMatch(/^T:/m)
+    expect(abc).not.toMatch(/^C:/m)
+    expect(abc).not.toMatch(/^W:/m)
+    expect(abc).not.toContain('name=')
+    expect(abc).not.toMatch(/"[^"]+"[A-Ga-g]/) // no chord-symbol annotations
   })
 
   it('abcjs renderer draws SVG from ABC', () => {
@@ -45,6 +51,9 @@ describe('notation examples (abcjs)', () => {
     const svg = renderer.renderSvg(abc)
     expect(svg).toContain('<svg')
     expect(svg.length).toBeGreaterThan(200)
+    expect(svg).toContain('viewBox=')
+    expect(svg).not.toMatch(/position:\s*absolute/)
+    expect(svg).toMatch(/width="100%"/)
   })
 
   it('bad TTBB example marks tenor below lead in data', () => {

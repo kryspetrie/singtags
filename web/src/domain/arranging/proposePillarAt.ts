@@ -5,6 +5,11 @@
 import type { MelodyEvent, Pillar, TonalityMode } from './types'
 import { melodyWithDeferredPortamento } from './harmonicMoments'
 
+/** Stored span only — Propose still offers later homes inside a succession gap. */
+function pillarSpanAtTick(pillars: readonly Pillar[], tick: number): Pillar | null {
+  return pillars.find((p) => p.startTick <= tick && tick < p.endTick) ?? null
+}
+
 export type ProposeSpan = {
   startTick: number
   endTick: number
@@ -18,10 +23,6 @@ export type PillarSuggestion = {
   endTick: number
   confidence: number
   reason: string
-}
-
-function pillarAtTick(pillars: readonly Pillar[], tick: number): Pillar | null {
-  return pillars.find((p) => p.startTick <= tick && tick < p.endTick) ?? null
 }
 
 /** Stable key for a proposed / skipped home-root window. */
@@ -129,7 +130,7 @@ function spanNeedsWork(pillars: readonly Pillar[], start: number, end: number): 
     (p) => p.confirmed && p.startTick < end && p.endTick > start,
   )
   if (locked && locked.startTick <= start && locked.endTick >= end) return false
-  const covering = pillarAtTick(pillars, start)
+  const covering = pillarSpanAtTick(pillars, start)
   if (covering?.confirmed) return false
   return true
 }
@@ -187,9 +188,9 @@ export function candidatePillarPositions(opts: {
   const chain = usePhrase ? labeledStrong : strongOrOpen.length ? strongOrOpen : melody
   for (let i = 0; i < chain.length; i++) {
     const n = chain[i]!
-    if (pillarAtTick(opts.pillars, n.startTick)?.confirmed) continue
+    if (pillarSpanAtTick(opts.pillars, n.startTick)?.confirmed) continue
     if (
-      pillarAtTick(opts.pillars, n.startTick) &&
+      pillarSpanAtTick(opts.pillars, n.startTick) &&
       !spanNeedsWork(opts.pillars, n.startTick, n.startTick + 1)
     ) {
       continue
@@ -260,7 +261,7 @@ export function nextHomeRootProposal(opts: {
   })
   for (const pos of positions) {
     // Prefer creating where no pillar covers the start; skip locked.
-    const hit = pillarAtTick(opts.pillars, pos.startTick)
+    const hit = pillarSpanAtTick(opts.pillars, pos.startTick)
     if (hit?.confirmed) continue
     if (isSkipped(opts.skippedSpans, pos.startTick, pos.endTick)) continue
     const root = proposeRootForSpan({

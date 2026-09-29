@@ -35,6 +35,11 @@ export function resolveCoachNextAction(opts: {
   mode: CoachUiMode
   lints: readonly ArrangementLint[]
   momentsLen?: number
+  /**
+   * Tag Studio already has locked Sketch and/or Detected spans —
+   * skip “mark pillars first” and go to Choose chords.
+   */
+  hasSoftHarmonyMap?: boolean
 }): CoachNextAction {
   const p = opts.project
   if (!p || !p.melody.length) {
@@ -55,9 +60,19 @@ export function resolveCoachNextAction(opts: {
     .length
 
   if (!p.pillars.length) {
+    if (opts.hasSoftHarmonyMap) {
+      return {
+        id: 'walk_choose',
+        title: 'Choose chords',
+        body: 'Sketch/Detected already map the phrase — step moments and Apply voicings. ◆ on Sketch is optional for structural home roots.',
+        cta: 'Choose chords',
+        focus: 'choose',
+        kind: 'walk_choose',
+      }
+    }
     return {
       id: 'suggest_pillars',
-      title: repair ? 'Mark home roots on Sketch' : 'Mark home roots on Sketch',
+      title: 'Mark home roots on Sketch',
       body: repair
         ? 'Harmony is already on the roll. Lock phrase chords in Sketch, then Alt+click (or ◆) to mark structural home roots — stacks stay put.'
         : 'Open Sketch, lock phrase chords, then Alt+click (or ◆) to mark pillars. Coach reads those home roots when ranking.',
@@ -72,7 +87,7 @@ export function resolveCoachNextAction(opts: {
     return {
       id: 'cover_gaps',
       title: 'Cover uncovered melody',
-      body: `${gaps.length} Lead onset(s) sit outside a home-root span — extend Sketch pillars or paint the gap.`,
+      body: `${gaps.length} Lead onset(s) sit before the first home-root pillar — add or move a Sketch pillar earlier.`,
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'cover_gaps',

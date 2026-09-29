@@ -122,6 +122,7 @@ export function cadenceHintForContext(
 export function cadenceMissMessage(
   locked: CadenceCandidate,
   ctx: CadenceContext,
+  opts?: { planLabel?: string },
 ): { id: string; message: string; teachingId: string; suggest?: CadenceCandidate } | null {
   const auth = CADENCE_CATALOG.find((c) => c.id === 'auth_v7_i')
   if (!auth) return null
@@ -130,9 +131,11 @@ export function cadenceMissMessage(
   const deg = ((locked.rootPc - ctx.tonality) % 12 + 12) % 12
   // Locked I / I7 under ^5→^1 is the classic miss.
   if (deg === 0) {
+    const plan = opts?.planLabel?.trim()
+    const cite = plan ? ` Coach Cadence plans suggest ${plan}.` : ''
     return {
       id: 'cadence-miss-auth-v7-i',
-      message: 'Lead ^5→^1 usually wants V7→I — try V7 under this tone instead of I.',
+      message: `Lead ^5→^1 usually wants V7→I — try V7 under this tone instead of I.${cite}`,
       teachingId: 'classic_cadences',
       suggest: { rootPc: ((ctx.tonality + 7) % 12 + 12) % 12, natureId: 'seventh' },
     }

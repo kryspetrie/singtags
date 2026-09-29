@@ -8,7 +8,7 @@ describe('resolveCoachNextAction', () => {
     expect(a.kind).toBe('enter_melody')
   })
 
-  it('suggests Sketch pillars when melody exists without pillars', () => {
+  it('suggests Sketch pillars when melody exists without pillars or soft map', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
     const a = resolveCoachNextAction({ project: p, mode: 'arrange', lints: [] })
@@ -16,6 +16,20 @@ describe('resolveCoachNextAction', () => {
     expect(a.cta).toMatch(/Open Sketch/i)
     expect(a.focus).toBe('home')
     expect(a.body).toMatch(/Alt\+click|◆/i)
+  })
+
+  it('skips pillar nag when Sketch/Detected already map the phrase', () => {
+    const p = createEmptyArrangement()
+    p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
+    const a = resolveCoachNextAction({
+      project: p,
+      mode: 'arrange',
+      lints: [],
+      hasSoftHarmonyMap: true,
+    })
+    expect(a.kind).toBe('walk_choose')
+    expect(a.focus).toBe('choose')
+    expect(a.body).toMatch(/Sketch\/Detected|◆/i)
   })
 
   it('mentions existing stacks when suggesting pillars', () => {

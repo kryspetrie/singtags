@@ -5,6 +5,8 @@ export type CoachHighlightKind = 'moment' | 'issue' | 'pillar' | 'ring' | 'vl' |
 
 export type CoachHighlight = {
   tick: number
+  /** When set, Coach lane draws a replace/preview band through this tick. */
+  endTick?: number
   kind: CoachHighlightKind
   /** Bumps on each set so UI can re-pulse the same tick. */
   pulseId: number
@@ -65,6 +67,7 @@ export function bindCoachHighlightChannel(projectId: string): () => void {
     if (!data || data.type !== 'highlight' || data.projectId !== channelProjectId) return
     notify({
       tick: data.tick,
+      endTick: data.endTick,
       kind: data.kind,
       pulseId: data.pulseId,
       projectId: data.projectId,
@@ -79,12 +82,20 @@ export function bindCoachHighlightChannel(projectId: string): () => void {
   }
 }
 
-export type CoachLaneLens = 'overview' | 'gaps' | 'ring' | 'voiceLead' | 'issues'
+export type CoachLaneLens = 'ring' | 'voiceLead' | 'issues'
 
 export const COACH_LANE_LENSES: { id: CoachLaneLens; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'gaps', label: 'Uncovered' },
   { id: 'ring', label: 'Ring' },
   { id: 'voiceLead', label: 'Voice-leading' },
   { id: 'issues', label: 'Issues' },
 ]
+
+/** ASCII help for the Coach lane [i] button (per active view). */
+export const COACH_LANE_LENS_INFO: Record<CoachLaneLens, string> = {
+  ring:
+    'Bar height is Ring % of a strong 4-part (TTBB) lock — lock and overtones, scaled so excellent stacks can reach ~100. Taller is stronger. Dashed boxes still need a chord. Thin purple strip = held Lead (post). Home roots sit in the top band.',
+  voiceLead:
+    'Bar height and the blue line show voice-leading ease from the previous chord. Taller / higher means smoother part motion into this moment. Dashed boxes still need a chord.',
+  issues:
+    'Shows only spots where Coach Check found a problem (missing chord, voice clash, theory warning, and so on). Colored dots mark severity; bar height still reflects Ring. Read the full wording under Potential issues in Coach Chords / Check.',
+}

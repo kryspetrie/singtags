@@ -10,7 +10,7 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> — one place for
+      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> - one place for
       Harmonize, Detected, and Coach. Open Roles to label notes on the roll
       (<kbd>S</kbd> / <kbd>P</kbd> / <kbd>M</kbd>).
     </p>

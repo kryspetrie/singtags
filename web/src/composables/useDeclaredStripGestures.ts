@@ -2,7 +2,7 @@
  * Chords-lane pointer gestures: drag-to-define, select, multi-select, move/resize.
  */
 import { ref, type Ref } from 'vue'
-import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import type { ChordAnalysisSegment } from '../domain/arranging/chordAnalysisBar'
 import {
   hitStripResizeEdge,
   moveSketchSpan,
@@ -12,8 +12,8 @@ import {
   stripSegX,
   stripTickFromLocalX,
   type StripResizeEdge,
-} from './harmonyStripGestures'
-import { snapTick } from './snap'
+} from '../lib/tagRoll/harmonyStripGestures'
+import { snapTick } from '../lib/tagRoll/snap'
 
 export type DeclaredStripGesture =
   | {
@@ -49,6 +49,25 @@ export type DeclaredStripGesture =
       additive: boolean
     }
 
+/** Inclusive range of Sketch spans between two ids, ordered by startTick. */
+export function sketchSpanIdsBetween(
+  spans: readonly { id: string; startTick: number; endTick: number }[],
+  aId: string,
+  bId: string,
+): string[] {
+  const sorted = [...spans].sort(
+    (a, b) => a.startTick - b.startTick || a.endTick - b.endTick || a.id.localeCompare(b.id),
+  )
+  const ia = sorted.findIndex((s) => s.id === aId)
+  const ib = sorted.findIndex((s) => s.id === bId)
+  if (ia < 0 && ib < 0) return []
+  if (ia < 0) return [bId]
+  if (ib < 0) return [aId]
+  const lo = Math.min(ia, ib)
+  const hi = Math.max(ia, ib)
+  return sorted.slice(lo, hi + 1).map((s) => s.id)
+}
+
 export function useDeclaredStripGestures(opts: {
   trackEl: Ref<HTMLElement | null>
   declared: Ref<readonly ChordAnalysisSegment[]>
@@ -73,6 +92,8 @@ export function useDeclaredStripGestures(opts: {
   onFocusRange: (startTick: number, endTick: number) => void
 }) {
   const gesture = ref<DeclaredStripGesture | null>(null)
+  /** Anchor for Shift+click range select (last plain click). */
+  const selectionAnchorId = ref<string | null>(null)
 
   function isReadOnly(): boolean {
     const r = opts.readOnly
@@ -122,6 +143,7 @@ export function useDeclaredStripGestures(opts: {
     const localX = localXInTrack(e.clientX)
     if (localX == null) return
     const additive = e.ctrlKey || e.metaKey
+    const rangeSelect = e.shiftKey && !additive
     const tick = stripTickFromLocalX(localX, opts.scrollX.value, opts.cellW.value, opts.ppq.value)
     const hit = findAtLocalX(localX)
 
@@ -129,6 +151,7 @@ export function useDeclaredStripGestures(opts: {
       // Alt+click marks / clears a structural home-root (pillar) without opening the dock.
       if (e.altKey && opts.onTogglePillar) {
         opts.onSelect([hit.id])
+        selectionAnchorId.value = hit.id
         opts.onTogglePillar(hit)
         e.preventDefault()
         return
@@ -139,13 +162,31 @@ export function useDeclaredStripGestures(opts: {
       const edge = hitStripResizeEdge(localX, x, w)
       const already = opts.selectedIds.value.includes(hit.id)
 
-      if (additive) {
+      let moveIds: string[]
+      if (rangeSelect) {
+        const anchor =
+          selectionAnchorId.value ??
+          opts.selectedIds.value[0] ??
+          hit.id
+        if (!selectionAnchorId.value) selectionAnchorId.value = anchor
+        const ids = sketchSpanIdsBetween(opts.declared.value, anchor, hit.id)
+        const next = ids.length ? ids : [hit.id]
+        opts.onSelect(next)
+        moveIds = next
+      } else if (additive) {
         opts.onSelect([hit.id], { additive: true })
+        moveIds = [...opts.selectedIds.value]
       } else if (!already) {
         opts.onSelect([hit.id])
+        selectionAnchorId.value = hit.id
+        moveIds = [...opts.selectedIds.value]
+      } else {
+        if (opts.selectedIds.value.length === 1) {
+          selectionAnchorId.value = hit.id
+        }
+        moveIds = [...opts.selectedIds.value]
       }
 
-      const moveIds = [...opts.selectedIds.value]
       if (!moveIds.length) {
         // Toggled off the only selection — no drag
         e.preventDefault()
@@ -179,7 +220,8 @@ export function useDeclaredStripGestures(opts: {
           origins,
           startClientX: e.clientX,
           moved: false,
-          editOnRelease: !additive && moveIds.length === 1,
+          // Range / additive clicks never open the chord dock on release.
+          editOnRelease: !additive && !rangeSelect && moveIds.length === 1,
           previews,
         }
       }
@@ -200,6 +242,7 @@ export function useDeclaredStripGestures(opts: {
       }
     } else {
       opts.onClearSelection()
+      selectionAnchorId.value = null
       opts.onBeginGesture()
       gesture.value = {
         kind: 'place',
@@ -273,7 +316,9 @@ export function useDeclaredStripGestures(opts: {
       if (g.moved) {
         const hits = opts.declared.value.filter((s) => s.startTick < end && start < s.endTick)
         if (hits.length) {
-          opts.onSelect(hits.map((s) => s.id))
+          const ids = hits.map((s) => s.id)
+          opts.onSelect(ids)
+          selectionAnchorId.value = ids[0] ?? null
           opts.onFocusRange(
             Math.min(...hits.map((s) => s.startTick)),
             Math.max(...hits.map((s) => s.endTick)),
@@ -293,7 +338,10 @@ export function useDeclaredStripGestures(opts: {
         .filter((s) => s.startTick < hi && lo < s.endTick)
         .map((s) => s.id)
       if (hitIds.length) opts.onSelect(hitIds, { additive: g.additive })
-      else if (!g.additive) opts.onClearSelection()
+      else if (!g.additive) {
+        opts.onClearSelection()
+        selectionAnchorId.value = null
+      }
       return
     }
 

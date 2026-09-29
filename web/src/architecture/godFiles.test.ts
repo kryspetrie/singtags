@@ -29,17 +29,17 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/TagPlayer.vue': 2300,
   'views/LocalLibraryView.vue': 2250,
   'views/TagView.vue': 2050,
-  'stores/preferences.ts': 2000, // Tag Studio lane prefs + chord strip toggles
-  'views/SettingsView.vue': 1800,
+  'stores/preferences.ts': 2060, // + Detected interest + scoring Tweaks JSON
+  'views/SettingsView.vue': 1750,
   'views/FavoritesView.vue': 1750,
   'App.vue': 1700,
   'views/RecorderSessionView.vue': 1600,
   'views/PitchPipeView.vue': 1550,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 2380, // MusicXML import + SingTags JSON import
+  'views/TagRollEditorView.vue': 2530, // + Realize → close/mute Sketch + clear prompt
   'stores/tagRoll.ts': 1940, // soft Suggest detectSpans quality normalize
-  'components/arranging/useArrangingCoachDock.ts': 1160, // Open Sketch next-action for pillars
-  'components/arranging/ArrangingCoachDock.vue': 1300, // cadence badge + config bias refresh
+  'components/arranging/useArrangingCoachDock.ts': 1380, // carve Hear/fill to application + AudioPreview
+  'components/arranging/ArrangingCoachDock.vue': 1130, // Keychange panel on Polish (K6)
   'stores/arrangement.ts': 910, // soft Suggest context (Sketch/Detected fallback)
   'components/tagRoll/TagRollViewport.vue': 1560, // dense-note compact role chrome
   'views/WirelessTransferView.vue': 1200,
@@ -52,8 +52,8 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/offlineLibrary.ts': 950,
   'components/tagRoll/TagRollExpressionLane.vue': 970, // bottom-lane shell + shared time grid
   'components/tagRoll/TagRollMediaBar.vue': 1230, // lane toggles beside W/H + major/minor key optgroups
-  'components/tagRoll/TagRollHarmonizePanel.vue': 1320, // Suggest soft home-root (no pillar gate)
-  'components/tagRoll/TagRollDeclaredLane.vue': 820, // Sketch-lane pillar badge + Alt+click
+  'components/tagRoll/TagRollHarmonizePanel.vue': 1360, // Suggest soft home-root (no pillar gate)
+  'components/tagRoll/TagRollDeclaredLane.vue': 840, // Sketch-lane pillar badge + Alt+click + Realize emit
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
@@ -61,11 +61,10 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/SheetPianoDock.vue': 898, // min zoom fills viewport width
   'components/ScrubRail.vue': 800,
   'views/PitchPipeSoundLabView.vue': 800,
-  'views/OsShareTransferView.vue': 750,
   'stores/catalog.ts': 750,
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
-  'components/tagRoll/TagRollToolbar.vue': 970, // Import SingTags JSON in Export menu
+  'components/tagRoll/TagRollToolbar.vue': 1060, // + Settings ▾ (Detected Tweaks)
 }
 
 const SKIP_DIR = new Set([

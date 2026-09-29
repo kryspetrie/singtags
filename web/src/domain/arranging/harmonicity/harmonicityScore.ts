@@ -239,13 +239,43 @@ export function commonFundamentalBonus(
   return hits > 0 ? weight * (hits / (fundamentals.length - 1)) : 0
 }
 
+/** Absolute logistic used by ranking / QA (not Coach Ring %). */
 export function normalizeHarmonicity(raw: number): number {
   return 1 / (1 + Math.exp(-raw / 2))
+}
+
+/**
+ * Stretch factor into the logistic so strong TTBB majors land near 100%.
+ * Raw ≈ 2.5 (practical 4-part peak) → display ≈ 0.95.
+ */
+const DISPLAY_STRETCH_4 = 2.35
+/** Tighter stretch when scoring more than 4 locking voices (future N-part). */
+const DISPLAY_STRETCH_MULTI = 1.6
+
+export type HarmonicityDisplayOpts = {
+  /** Number of voices in the scored stack. Default 4 (TTBB). */
+  partCount?: number
+}
+
+/**
+ * Coach Ring display scale: % of a strong lock for the given part count.
+ * Ranking / QA should keep using {@link normalizeHarmonicity}.
+ */
+export function normalizeHarmonicityForDisplay(
+  raw: number,
+  opts: HarmonicityDisplayOpts = {},
+): number {
+  const parts = opts.partCount ?? 4
+  const stretch = parts > 4 ? DISPLAY_STRETCH_MULTI : DISPLAY_STRETCH_4
+  const n = normalizeHarmonicity(raw * stretch)
+  return Math.min(1, Math.max(0, n))
 }
 
 export interface HarmonicityScorer {
   score(input: HarmonicityInput): number
   normalize(raw: number): number
+  /** Coach Ring / lane bar — calibrated by part count. */
+  normalizeForDisplay(raw: number, opts?: HarmonicityDisplayOpts): number
 }
 
 export function createHarmonicityScorer(
@@ -254,6 +284,7 @@ export function createHarmonicityScorer(
   return {
     score: (input) => scoreHarmonicity(input, options),
     normalize: normalizeHarmonicity,
+    normalizeForDisplay: normalizeHarmonicityForDisplay,
   }
 }
 

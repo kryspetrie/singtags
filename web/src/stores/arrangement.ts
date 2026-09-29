@@ -593,6 +593,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
 
   function setSoftSuggestContext(ctx: SoftSuggestContext | null): void {
     softSuggestContext.value = ctx
+    if (candidateTarget.value) refreshCandidates()
   }
 
   function setCandidateTarget(note: MelodyEvent | null): void {

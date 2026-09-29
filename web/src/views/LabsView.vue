@@ -8,24 +8,12 @@ import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
 
-function toggleOpticalTransfer(): void {
-  prefs.setOpticalTransferEnabled(!prefs.opticalTransferEnabled)
-}
-
 function toggleLocalLibrary(): void {
   prefs.setLocalLibraryEnabled(!prefs.localLibraryEnabled)
 }
 
 function toggleWebrtcTransfer(): void {
   prefs.setWebrtcTransferEnabled(!prefs.webrtcTransferEnabled)
-}
-
-function toggleOsShareTransfer(): void {
-  prefs.setOsShareTransferEnabled(!prefs.osShareTransferEnabled)
-}
-
-function toggleAudioRecorder(): void {
-  prefs.setAudioRecorderEnabled(!prefs.audioRecorderEnabled)
 }
 
 function toggleSingTogether(): void {
@@ -43,7 +31,8 @@ function toggleTagStudio(): void {
       <h1 class="labs-title">SingTags Labs</h1>
       <p class="labs-intro">
         Optional experiments. Turn features on when you want them; leave them off to keep the main app
-        quiet. Static QR codes for sharing tags are not controlled here.
+        quiet. Optical Transfer and Audio Recorder live under More (not Labs). Static QR codes for
+        sharing tags are not controlled here.
       </p>
     </header>
 
@@ -125,40 +114,6 @@ function toggleTagStudio(): void {
       </label>
     </section>
 
-    <section class="card" aria-labelledby="recorder-h">
-      <h2 id="recorder-h" class="card-title">Audio Recorder</h2>
-      <p class="card-desc">
-        Capture multi-take practice sessions on this device, link them to a SingTag, crop with loop
-        brackets, and export takes or sessions as files/zips.
-      </p>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.audioRecorderEnabled }"
-        title="Enable Audio Recorder"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Audio Recorder</span>
-          <span class="setting-desc">
-            {{
-              prefs.audioRecorderEnabled
-                ? 'On — open from More → Audio Recorder'
-                : 'Off — More link and /recorder routes stay hidden'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.audioRecorderEnabled"
-          :aria-checked="prefs.audioRecorderEnabled"
-          aria-label="Audio Recorder"
-          @change="toggleAudioRecorder"
-        />
-      </label>
-    </section>
-
     <section class="card" aria-labelledby="sing-together-h">
       <h2 id="sing-together-h" class="card-title">Sing Together</h2>
       <p class="card-desc">
@@ -194,41 +149,6 @@ function toggleTagStudio(): void {
       </label>
     </section>
 
-    <section class="card" aria-labelledby="optical-h">
-      <h2 id="optical-h" class="card-title">Optical transfer</h2>
-      <p class="card-desc">
-        Animated (rolling) QR streams for ad-hoc file send/receive via More → Optical transfer and
-        the Browse camera. Does not affect normal share QR codes. Catalog tag list buttons were
-        removed — use My Library for curated songs you keep on this device.
-      </p>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.opticalTransferEnabled }"
-        title="Enable animated QR optical transfer"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">Optical Transfer</span>
-          <span class="setting-desc">
-            {{
-              prefs.opticalTransferEnabled
-                ? 'Feature available — open from More, or use receive links'
-                : 'Hidden — More link and animated QR transfer are off'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.opticalTransferEnabled"
-          :aria-checked="prefs.opticalTransferEnabled"
-          aria-label="Optical Transfer"
-          @change="toggleOpticalTransfer"
-        />
-      </label>
-    </section>
-
     <section class="card" aria-labelledby="webrtc-h">
       <div class="card-title-row">
         <h2 id="webrtc-h" class="card-title">Wireless transfer (WebRTC)</h2>
@@ -241,7 +161,7 @@ function toggleTagStudio(): void {
           <p>
             Flow: sender creates an offer QR → receiver scans it → receiver shows an answer QR →
             sender scans that → file transfers. Stay on both screens until done. If it stalls, use
-            Optical transfer.
+            Optical transfer (More → Optical transfer).
           </p>
         </InfoTips>
       </div>
@@ -281,61 +201,6 @@ function toggleTagStudio(): void {
         to="/wireless"
       >
         Open wireless transfer
-      </RouterLink>
-    </section>
-
-    <section class="card" aria-labelledby="os-share-h">
-      <div class="card-title-row">
-        <h2 id="os-share-h" class="card-title">OS Share (Quick Share / AirDrop)</h2>
-        <InfoTips label="OS Share details" title="OS Share details">
-          <p>
-            Not a Quick Share API — SingTags opens the <strong>system share sheet</strong>. Enable,
-            then use <strong>More → OS Share</strong>.
-          </p>
-          <p>
-            <strong>Android receive:</strong> install the PWA so SingTags can appear as a share
-            target, or Import the saved file. <strong>iPhone receive:</strong> AirDrop into Files,
-            then Import on the receive tab.
-          </p>
-        </InfoTips>
-      </div>
-      <p class="card-desc">
-        Not a Quick Share API — packs your queue and opens the system share sheet so you can pick
-        Quick Share, AirDrop, or Files. Android: install the PWA to receive into SingTags. iPhone:
-        AirDrop → Files → Import on the receive tab.
-      </p>
-
-      <label
-        class="setting-row"
-        :class="{ on: prefs.osShareTransferEnabled }"
-        title="Enable OS Share handoff"
-      >
-        <span class="setting-copy">
-          <span class="setting-title">OS Share Handoff</span>
-          <span class="setting-desc">
-            {{
-              prefs.osShareTransferEnabled
-                ? 'Feature available — open from More → OS Share'
-                : 'Hidden — More link stays off'
-            }}
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          class="setting-switch"
-          role="switch"
-          :checked="prefs.osShareTransferEnabled"
-          :aria-checked="prefs.osShareTransferEnabled"
-          aria-label="OS Share Handoff"
-          @change="toggleOsShareTransfer"
-        />
-      </label>
-      <RouterLink
-        v-if="prefs.osShareTransferEnabled"
-        class="btn"
-        to="/share"
-      >
-        Open OS Share
       </RouterLink>
     </section>
   </section>

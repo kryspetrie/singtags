@@ -1,11 +1,13 @@
 /**
- * Minimal oscillator playback with per-voice detune (for JI audition).
- * SingTags uses a richer pitchTone stack — swap/port on merge.
+ * Four-part stack audition using the app pitch-pipe / pay-the-key voice
+ * ({@link createPitchTonePlayer}), not bare oscillators.
  */
-
-function midiToHz(midi: number, cents = 0): number {
-  return 440 * 2 ** ((midi - 69 + cents / 100) / 12)
-}
+import { midiToNote } from '../../../audio/pianoSamples'
+import {
+  getActivePitchPipeVoice,
+  PITCH_PIPE_VOICE_CHANGE_EVENT,
+} from '../../../audio/pitchPipeVoice'
+import { createPitchTonePlayer, type PitchTonePlayer } from '../../../audio/pitchTone'
 
 export type StackVoice = 'tenor' | 'lead' | 'bari' | 'bass'
 
@@ -14,52 +16,47 @@ export type StackPlayback = {
   cents?: Partial<Record<StackVoice, number>>
 }
 
-export function createStackPlayer() {
-  let ctx: AudioContext | null = null
-  const nodes = new Map<string, { osc: OscillatorNode; gain: GainNode }>()
+const VOICES: readonly StackVoice[] = ['bass', 'bari', 'lead', 'tenor']
 
-  function ensure(): AudioContext {
-    if (!ctx) ctx = new AudioContext()
-    return ctx
+export function createStackPlayer() {
+  const tone: PitchTonePlayer = createPitchTonePlayer('synth', { polyphony: true })
+  tone.setVoice(getActivePitchPipeVoice())
+
+  function syncVoice(): void {
+    tone.setVoice(getActivePitchPipeVoice())
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncVoice)
+  }
+
+  async function startStack(stack: StackPlayback): Promise<void> {
+    syncVoice()
+    tone.allNotesOff(false)
+    await Promise.all(
+      VOICES.map((v) => tone.noteOn(midiToNote(stack.midi[v]), stack.cents?.[v] ?? 0)),
+    )
+  }
+
+  function stopStack(release = true): void {
+    tone.allNotesOff(release)
   }
 
   async function playStack(stack: StackPlayback, durationMs = 900): Promise<void> {
-    const ac = ensure()
-    if (ac.state === 'suspended') await ac.resume()
-    const t0 = ac.currentTime
-    const voices: StackVoice[] = ['bass', 'bari', 'lead', 'tenor']
-    for (const v of voices) {
-      const midi = stack.midi[v]
-      const cents = stack.cents?.[v] ?? 0
-      const osc = ac.createOscillator()
-      const gain = ac.createGain()
-      osc.type = 'sine'
-      osc.frequency.value = midiToHz(midi, cents)
-      gain.gain.setValueAtTime(0.0001, t0)
-      gain.gain.exponentialRampToValueAtTime(0.12, t0 + 0.03)
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durationMs / 1000)
-      osc.connect(gain)
-      gain.connect(ac.destination)
-      osc.start(t0)
-      osc.stop(t0 + durationMs / 1000 + 0.05)
-      const id = `${v}-${midi}-${t0}`
-      nodes.set(id, { osc, gain })
-      osc.onended = () => nodes.delete(id)
-    }
+    await startStack(stack)
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, Math.max(50, durationMs))
+    })
+    stopStack(true)
   }
 
   function dispose(): void {
-    for (const { osc } of nodes.values()) {
-      try {
-        osc.stop()
-      } catch {
-        /* already stopped */
-      }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncVoice)
     }
-    nodes.clear()
-    void ctx?.close()
-    ctx = null
+    tone.allNotesOff(false)
+    tone.dispose()
   }
 
-  return { playStack, dispose }
+  return { playStack, startStack, stopStack, dispose }
 }

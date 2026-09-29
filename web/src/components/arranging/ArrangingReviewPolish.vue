@@ -27,7 +27,7 @@ const emit = defineEmits<{
     <p class="hint">
       Last teaching pass: revoice the whole chart as one inversion path (I/V openings prefer
       bass on 1 or 5; minimize part motion; favor ring), strengthen approaches, then export.
-      Contest vocabulary and learning strictness live under Settings (gear).
+      Contest vocabulary and learning strictness live under Tweaks.
     </p>
     <div class="row">
       <button
@@ -83,9 +83,9 @@ const emit = defineEmits<{
       </summary>
       <ul>
         <li v-for="item in checklist" :key="item.id" :class="{ ok: item.ok }">
-          <strong>{{ item.ok ? '✓' : '·' }}</strong>
+          <strong>{{ item.ok ? 'OK' : '-' }}</strong>
           {{ item.label }}
-          <span v-if="item.detail" class="meta"> — {{ item.detail }}</span>
+          <span v-if="item.detail" class="meta"> - {{ item.detail }}</span>
         </li>
       </ul>
     </details>
@@ -97,7 +97,7 @@ const emit = defineEmits<{
       <ul>
         <li v-for="f in howFactors" :key="f.id">
           {{ f.label }}
-          <span class="meta"> — {{ f.detail || `${Math.round(f.points)} pts` }}</span>
+          <span class="meta"> - {{ f.detail || `${Math.round(f.points)} pts` }}</span>
         </li>
       </ul>
     </details>

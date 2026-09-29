@@ -30,36 +30,36 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'home',
     label: 'Home',
-    tip: 'How Coach fits Tag Studio — melody roles and Sketch first, then Chords → Check → Polish.',
+    tip: 'Coach walks the chart after melody and Sketch exist - then Chords > Check > Polish.',
     buttonTip:
-      'Start here for the intended workflow. Set Melody/Strong–Passing on the roll, lock harmony in Sketch, then use Coach to walk moments, clear issues, and polish.',
+      'Orient here, then open Chords. Lock phrase homes in Sketch first; Coach ranks under that map while the roll bar drives the walk.',
     glossaryIds: ['homophony', 'pillar', 'classic_cadences'],
     wizardSteps: ['melody', 'step1_roots', 'step2_confirm'],
   },
   {
     id: 'chords',
     label: 'Chords',
-    tip: 'Walk moments: pick a ranked chord per note. Prefer classic cadences (V7→I, II7→V7→I, I7→IV) and Apply over bulk fill.',
+    tip: 'Hold to hear, ✓ to apply — one moment at a time. Prefer classic cadences when the Lead supports them.',
     buttonTip:
-      'At each moment, choose a ranked voicing for the Lead. Coach biases textbook cadences — V7→I, leading-tone V7, II7→V7→I, I7→IV. Prefer Apply on one moment at a time; open Why? to see cadenceFit and other craft factors.',
+      'Select moments with ← → or the Coach lane. Preview stays audible while the playhead stays free. Next empty jumps gaps; Why? explains ranking.',
     glossaryIds: ['bs7', 'pcf', 'scf', 'classic_cadences'],
     wizardSteps: ['step3_pmn_pcf', 'step4_smn_pcf', 'step5_smn_scf', 'step6_alts'],
   },
   {
     id: 'check',
     label: 'Check',
-    tip: 'Clear blockers in the selected range. Watch for broken cadences (e.g. I under ^5→^1), then polish.',
+    tip: 'Clear potential issues - cadence misses, spacing, motion - then polish.',
     buttonTip:
-      'QA finds style and craft issues in the selected range — including soft cadence misses. Fix what you understand; use Learn on an issue for the teaching note.',
+      'Open Check on the step rail, or Potential issues under Chords. Fix what you understand; Learn opens the teaching note for a rule.',
     glossaryIds: ['lock_ring', 'homophony', 'classic_cadences'],
     wizardSteps: ['step7_variety', 'step9_final'],
   },
   {
     id: 'polish',
     label: 'Polish',
-    tip: 'Path-optimize inversions for voice leading and ring, then strengthen and export.',
+    tip: 'Path-optimize inversions, strengthen approaches, then export.',
     buttonTip:
-      'Polish revoices the chart as one path (try I/V openings on bass 1 or 5, minimize part motion, favor ring), then strengthen approaches and export.',
+      'Treat the chart as one voice-leading path. Strengthen safely, skim the checklist, export MIDI/MusicXML when ready.',
     glossaryIds: ['strong_voicing', 'secondary_dom'],
     wizardSteps: ['step8_voicing', 'done'],
   },

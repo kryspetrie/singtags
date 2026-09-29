@@ -325,13 +325,19 @@ describe('Motion, key, swipe, pillar coverage', () => {
     expect(lints.some((l) => l.id === 'key-both-ends')).toBe(true)
   })
 
-  it('missing pillar coverage', () => {
+  it('missing pillar coverage only before first pillar', () => {
     const p = createEmptyArrangement()
-    p.melody = [{ id: 'm', midi: 60, startTick: 960, durationTicks: 240, role: 'pmn' }]
+    p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 240, role: 'pmn' }]
+    p.pillars = [
+      { id: 'p', rootPc: 0, startTick: 960, endTick: 1440, source: 'user', confirmed: true },
+    ]
+    expect(missingPillarCoverageLints(p).length).toBeGreaterThan(0)
+    // Short endTick with later melody is not a gap — home continues forward.
+    p.melody = [{ id: 'm2', midi: 60, startTick: 1200, durationTicks: 240, role: 'pmn' }]
     p.pillars = [
       { id: 'p', rootPc: 0, startTick: 0, endTick: 480, source: 'user', confirmed: true },
     ]
-    expect(missingPillarCoverageLints(p).length).toBeGreaterThan(0)
+    expect(missingPillarCoverageLints(p)).toHaveLength(0)
   })
 
   it('swipe opportunity on long hold with gap', () => {
@@ -469,7 +475,7 @@ describe('Strengthen, polish, embellish, pillars, final', () => {
     const pillars = suggestionsToPillars(tips)
     expect(pillars[0]!.confirmed).toBe(false)
     expect(pillarAtTick(pillars, pillars[0]!.startTick)?.id).toBe(pillars[0]!.id)
-    expect(pillarAtTick(pillars, 999999)).toBeNull()
+    expect(pillarAtTick(pillars, 999999)?.id).toBe(pillars[pillars.length - 1]!.id)
   })
 
   it('final checklist ready only when gates pass', () => {

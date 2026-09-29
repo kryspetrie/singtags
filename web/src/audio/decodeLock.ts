@@ -37,8 +37,11 @@ export function formatAudioDecodeError(err: unknown): string {
     if (
       /MIDI file/i.test(msg) ||
       /WMA\/ASF/i.test(msg) ||
+      /Opus decoder/i.test(msg) ||
+      /Opus decode/i.test(msg) ||
       /\(received HTML/i.test(msg) ||
       /\(received JSON/i.test(msg) ||
+      /\(received a WebP/i.test(msg) ||
       /\(empty response\)/i.test(msg) ||
       /\(received a non-audio/i.test(msg)
     ) {

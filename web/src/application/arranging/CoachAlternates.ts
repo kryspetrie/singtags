@@ -33,9 +33,9 @@ export type CounterpartDto = {
 }
 
 const FILTER_LABELS: Record<CandFilterId, string> = {
-  all: 'All',
+  all: 'All ranked',
   pcf: 'Home family',
-  scf: 'Passing',
+  scf: 'Passing colors',
   sevenths: 'Sevenths',
 }
 

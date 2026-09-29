@@ -18,7 +18,12 @@ export function nextPillarIndex(
   if (!n) return -1
   let cur = sorted.findIndex((p) => p.id === selectedId)
   if (cur < 0) {
-    cur = sorted.findIndex((p) => p.startTick <= playheadTick && playheadTick < p.endTick)
+    // Same succession rule as pillarAtTick: latest start ≤ playhead.
+    let best = -1
+    for (let i = 0; i < n; i++) {
+      if (sorted[i]!.startTick <= playheadTick) best = i
+    }
+    cur = best
   }
   if (cur < 0) return dir > 0 ? 0 : n - 1
   return (cur + dir + n) % n

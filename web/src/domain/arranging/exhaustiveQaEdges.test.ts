@@ -249,10 +249,13 @@ describe('applyAllSafe on auto-harmonized phrases of varying length', () => {
 
 describe('missing pillar coverage ticks', () => {
   it.each([
+    // [pillarStart, pillarEnd, noteTick, missing] — endTick holes after start are not gaps
     [0, 480, 0, false],
     [0, 480, 240, false],
-    [0, 480, 480, true],
-    [0, 480, 1000, true],
+    [0, 480, 480, false],
+    [0, 480, 1000, false],
+    [960, 1440, 0, true],
+    [960, 1440, 960, false],
   ] as const)('pillar[%i,%i) note@%i missing=%s', (ps, pe, tick, missing) => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: tick, durationTicks: 120, role: 'pmn' }]

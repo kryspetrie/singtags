@@ -6,6 +6,7 @@ import {
   type CombineKeyChangeOpts,
   type ModulationPath,
 } from '../../domain/arranging/keyChange'
+import { suggestPostKeyChanges } from '../../domain/arranging/keyChangePosts'
 
 /** Suggest modulation paths between two keys (abrupt→extended, plus hybrids). */
 export function suggestModulation(opts: SuggestKeyChangesOpts) {
@@ -23,4 +24,11 @@ export function combineModulationPaths(
   opts?: CombineKeyChangeOpts,
 ) {
   return combineKeyChangePaths(first, second, opts)
+}
+
+/** Common-tone / Lead-post modulation paths. */
+export function suggestPostModulation(
+  opts: Parameters<typeof suggestPostKeyChanges>[0],
+) {
+  return suggestPostKeyChanges(opts)
 }

@@ -72,13 +72,24 @@ export function suggestionsToPillars(suggestions: readonly PillarSuggestion[]): 
   }))
 }
 
+/**
+ * Active home root at `tick`: the latest pillar whose start is ≤ tick.
+ * Spans run until the next pillar starts (stored `endTick` may be shorter when
+ * Detected/defined color chords sit between structural homes — that is expected).
+ * Notes before the first pillar remain uncovered.
+ */
 export function pillarAtTick(pillars: readonly Pillar[], tick: number): Pillar | null {
-  return pillars.find((p) => p.startTick <= tick && tick < p.endTick) ?? null
+  if (!pillars.length || tick < 0) return null
+  let best: Pillar | null = null
+  for (const p of pillars) {
+    if (p.startTick <= tick && (!best || p.startTick >= best.startTick)) best = p
+  }
+  return best
 }
 
-/** Melody notes whose (portamento-deferred) start is not covered by any pillar span.
- * Destination notes that overlap their predecessor for a pitch bend are treated as
- * starting at the predecessor’s release — same rule as sheet / MusicXML export.
+/** Melody notes before the first pillar (portamento-deferred onsets).
+ * Mid-phrase holes between short pillar `endTick`s are not gaps — the prior
+ * home root continues until the next pillar starts.
  */
 export function melodyGapsOutsidePillars(
   melody: readonly MelodyEvent[],

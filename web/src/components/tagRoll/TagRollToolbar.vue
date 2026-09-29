@@ -32,6 +32,8 @@ import TagRollBpmInput from './TagRollBpmInput.vue'
 
 const props = defineProps<{
   harmonizeOpen?: boolean
+  keyChangeOpen?: boolean
+  tweaksOpen?: boolean
   rolesOpen?: boolean
   marksOpen?: boolean
   partsOpen?: boolean
@@ -48,6 +50,8 @@ const emit = defineEmits<{
   importMusicXml: []
   saveLibrary: []
   openHarmonize: []
+  openKeyChange: []
+  openTweaks: []
   openRoles: []
   openMarks: []
   openParts: []
@@ -68,12 +72,23 @@ type PendingScope =
 
 const pendingScope = ref<PendingScope | null>(null)
 const exportOpen = ref(false)
+const inputOpen = ref(false)
 const insertBarOpen = ref(false)
+const settingsOpen = ref(false)
+
+function closeMenus(except?: 'export' | 'input' | 'insert' | 'settings'): void {
+  if (except !== 'export') exportOpen.value = false
+  if (except !== 'input') inputOpen.value = false
+  if (except !== 'insert') insertBarOpen.value = false
+  if (except !== 'settings') settingsOpen.value = false
+}
 
 const project = computed(() => store.current)
 const mode = computed(() => project.value?.view.mode ?? 'compose')
 const isView = computed(() => mode.value === 'view')
 const harmonizeOpen = computed(() => !!props.harmonizeOpen)
+const keyChangeOpen = computed(() => !!props.keyChangeOpen)
+const tweaksOpen = computed(() => !!props.tweaksOpen)
 const rolesOpen = computed(() => !!props.rolesOpen)
 const marksOpen = computed(() => !!props.marksOpen)
 const partsOpen = computed(() => !!props.partsOpen)
@@ -234,12 +249,12 @@ function onExportJson(): void {
 }
 
 function onImportJson(): void {
-  exportOpen.value = false
+  inputOpen.value = false
   emit('importJson')
 }
 
 function onImportMusicXml(): void {
-  exportOpen.value = false
+  inputOpen.value = false
   emit('importMusicXml')
 }
 
@@ -275,9 +290,20 @@ function onDocPointer(e: PointerEvent): void {
   if (exportOpen.value && !el?.closest?.('.export-wrap')) {
     exportOpen.value = false
   }
+  if (inputOpen.value && !el?.closest?.('.input-wrap')) {
+    inputOpen.value = false
+  }
   if (insertBarOpen.value && !el?.closest?.('.insert-bar-wrap')) {
     insertBarOpen.value = false
   }
+  if (settingsOpen.value && !el?.closest?.('.settings-wrap')) {
+    settingsOpen.value = false
+  }
+}
+
+function onOpenTweaks(): void {
+  settingsOpen.value = false
+  emit('openTweaks')
 }
 
 onMounted(() => {
@@ -543,6 +569,18 @@ onUnmounted(() => {
         v-if="!isView"
         type="button"
         class="btn sm"
+        :class="{ on: keyChangeOpen }"
+        :aria-expanded="keyChangeOpen"
+        :title="tagRollTip('Key change — assign keys, pick transition measures, apply a path', 'Key change')"
+        @click="emit('openKeyChange')"
+      >
+        Key change
+      </button>
+
+      <button
+        v-if="!isView"
+        type="button"
+        class="btn sm"
         :class="{ on: rolesOpen }"
         :aria-expanded="rolesOpen"
         :title="tagRollTip('Melody roles — set melody part, Strong / Passing', 'Roles')"
@@ -593,7 +631,7 @@ onUnmounted(() => {
             class="btn sm"
             :title="tagRollTip('Insert or delete a measure at the cursor')"
             :aria-expanded="insertBarOpen"
-            @click="insertBarOpen = !insertBarOpen; exportOpen = false"
+            @click="insertBarOpen = !insertBarOpen; closeMenus(insertBarOpen ? 'insert' : undefined)"
           >
             Measures ▾
           </button>
@@ -636,13 +674,67 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <div v-if="!isView" class="settings-wrap">
+        <button
+          type="button"
+          class="btn sm"
+          :class="{ on: tweaksOpen || settingsOpen }"
+          :title="tagRollTip('Tag Studio settings')"
+          :aria-expanded="settingsOpen"
+          @click="settingsOpen = !settingsOpen; closeMenus(settingsOpen ? 'settings' : undefined)"
+        >
+          Settings ▾
+        </button>
+        <div v-if="settingsOpen" class="menu settings-menu-pop" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            :aria-pressed="tweaksOpen"
+            :title="tagRollTip('Detected scoring Tweaks — JSON weights for Mild / Bold')"
+            @click="onOpenTweaks"
+          >
+            Detected Tweaks…
+          </button>
+        </div>
+      </div>
+
+      <div class="input-wrap">
+        <button
+          type="button"
+          class="btn sm"
+          :title="tagRollTip('Import MusicXML or SingTags JSON as a new Tag Studio project')"
+          :aria-expanded="inputOpen"
+          @click="inputOpen = !inputOpen; closeMenus(inputOpen ? 'input' : undefined)"
+        >
+          Import ▾
+        </button>
+        <div v-if="inputOpen" class="menu input-menu-pop" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            :title="tagRollTip('Import MusicXML (.musicxml / .mxl) as a new Tag Studio project')"
+            @click="onImportMusicXml"
+          >
+            MusicXML
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            :title="tagRollTip('Import a SingTags Tag Studio JSON file as a new project')"
+            @click="onImportJson"
+          >
+            SingTags JSON
+          </button>
+        </div>
+      </div>
+
       <div class="export-wrap">
         <button
           type="button"
           class="btn sm"
-          :title="tagRollTip('Export MIDI, MusicXML, MP3, SingTags JSON — or import JSON / MusicXML')"
+          :title="tagRollTip('Export MIDI, MusicXML, MP3, SingTags JSON, or save to My Library')"
           :aria-expanded="exportOpen"
-          @click="exportOpen = !exportOpen; insertBarOpen = false"
+          @click="exportOpen = !exportOpen; closeMenus(exportOpen ? 'export' : undefined)"
         >
           Export ▾
         </button>
@@ -664,30 +756,14 @@ onUnmounted(() => {
           <button type="button" role="menuitem" @click="onExport('one')">MIDI · 1 track</button>
           <button type="button" role="menuitem" @click="onExport('two')">MIDI · 2 tracks</button>
           <button type="button" role="menuitem" @click="onExport('all')">MIDI · all parts</button>
-          <button type="button" role="menuitem" @click="onExportMusicXml">Export MusicXML</button>
-          <button
-            type="button"
-            role="menuitem"
-            :title="tagRollTip('Import MusicXML (.musicxml / .mxl) as a new Tag Studio project')"
-            @click="onImportMusicXml"
-          >
-            Import MusicXML…
-          </button>
+          <button type="button" role="menuitem" @click="onExportMusicXml">MusicXML</button>
           <button
             type="button"
             role="menuitem"
             :title="tagRollTip('Download this project as SingTags Tag Studio JSON')"
             @click="onExportJson"
           >
-            Export SingTags JSON
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            :title="tagRollTip('Import a SingTags Tag Studio JSON file as a new project')"
-            @click="onImportJson"
-          >
-            Import SingTags JSON…
+            SingTags JSON
           </button>
           <button type="button" role="menuitem" @click="onExportAudio('mix')">MP3 · mix</button>
           <button type="button" role="menuitem" @click="onExportAudio('parts')">MP3 · parts</button>
@@ -706,7 +782,7 @@ onUnmounted(() => {
     :message="
       pendingScope?.kind === 'tempo'
         ? `Set tempo to ${pendingScope.bpm} BPM at the beginning of the song, or at the playhead cursor.`
-        : 'Set this key signature at the beginning of the song, or at the playhead cursor (Mods key change).'
+        : 'Set this key signature at the beginning of the song, or at the playhead (Key change / Mods).'
     "
     @close="cancelPendingScope"
     @beginning="applyPendingScope('beginning')"
@@ -864,7 +940,9 @@ onUnmounted(() => {
 .num {
   width: 4.2rem;
 }
-.export-wrap {
+.export-wrap,
+.input-wrap,
+.settings-wrap {
   position: relative;
   flex: 0 0 auto;
 }
@@ -890,7 +968,9 @@ onUnmounted(() => {
   right: auto;
   min-width: 10rem;
 }
-.export-menu-pop {
+.export-menu-pop,
+.input-menu-pop,
+.settings-menu-pop {
   min-width: 12rem;
 }
 .menu button {

@@ -10,6 +10,14 @@ export type {
   LockedNeighbor,
   PhraseRole,
 } from './types'
+export type {
+  CadencePlanMoment,
+  CadencePlanPillar,
+  CadencePlanSketchSpan,
+  CadencePlanStep,
+  CadenceSuggestion,
+  SuggestCadencesForPhraseOpts,
+} from './planTypes'
 export { CADENCE_CATALOG, cadenceById, cadenceTonics } from './catalog'
 export {
   scoreCadenceFit,
@@ -24,3 +32,9 @@ export {
   type PhraseRoleInput,
 } from './phraseRole'
 export { loadCadenceBias, saveCadenceBias, scaleForBias } from './prefs'
+export { materializeCadenceSteps } from './materialize'
+export {
+  suggestCadencesForPhrase,
+  dedupeCadencePlans,
+  cadencePlanFingerprint,
+} from './suggestPlans'

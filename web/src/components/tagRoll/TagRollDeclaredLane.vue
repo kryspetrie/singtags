@@ -10,14 +10,16 @@ import {
 } from '../../lib/tagRoll/harmonySketch'
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import { stripSegW, stripSegX } from '../../lib/tagRoll/harmonyStripGestures'
-import { useDeclaredStripGestures } from '../../lib/tagRoll/useDeclaredStripGestures'
+import { useDeclaredStripGestures } from '../../composables/useDeclaredStripGestures'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
 import { sketchLabel, sketchRomanDisplay, isPillarSketchSpan } from '../../lib/tagRoll/harmonySketch'
+import { SKETCH_LANE_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
+import InfoTips from '../InfoTips.vue'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
 
 const TRACK_H = 44
@@ -54,6 +56,8 @@ const emit = defineEmits<{
   edit: [seg: ChordAnalysisSegment]
   /** Toggle structural pillar on a Sketch span (Alt+click / badge). */
   togglePillar: [seg: ChordAnalysisSegment]
+  /** Fired after Realize wrote at least one TTBB stack. */
+  realized: [payload: { applied: number; spansUsed: number }]
 }>()
 
 const prefs = usePreferencesStore()
@@ -81,7 +85,9 @@ function onRealize(): void {
       rootPc: s.rootPc!,
       quality: s.quality ?? 'major',
     }))
-  store.realizeHarmonySketchStacks({ detectSpans })
+  const result = store.realizeHarmonySketchStacks({ detectSpans })
+  if (result.applied === 0) return
+  emit('realized', result)
 }
 
 const declaredTrackEl = ref<HTMLElement | null>(null)
@@ -430,7 +436,22 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
     @update:view="setMode(($event as 'name' | 'roman'))"
   >
     <template #gutter>
+      <InfoTips
+        v-if="!segments.length"
+        class="sketch-howto"
+        label="How to use Sketch"
+        title="How to use Sketch"
+      >
+        <section v-for="sec in SKETCH_LANE_HOWTO" :key="sec.title" class="howto-sec">
+          <p><strong>{{ sec.title }}</strong></p>
+          <p>{{ sec.body }}</p>
+          <ol v-if="sec.steps?.length">
+            <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
+          </ol>
+        </section>
+      </InfoTips>
       <button
+        v-else
         type="button"
         class="realize-btn"
         :disabled="!canRealize"
@@ -454,9 +475,6 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
           @pointerup="onDeclaredPointerUp"
           @pointercancel="onDeclaredPointerCancel"
         >
-          <p v-if="!segments.length && !placePreview()" class="empty">
-            Drag empty to paint · Alt+click / ◆ marks pillars · Delete removes…
-          </p>
           <div
             v-if="placeGhostStyle()"
             class="cell ghost"
@@ -593,6 +611,27 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .realize-btn:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent) 22%, var(--surface));
 }
+.sketch-howto {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.sketch-howto :deep(.info-tips-btn) {
+  width: 1.35rem;
+  height: 1.35rem;
+  min-width: 1.35rem;
+  padding: 0;
+  font-size: 0.72rem;
+}
+.howto-sec + .howto-sec {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+.howto-sec ol {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
 .track-wrap {
   flex: 1 1 auto;
   display: flex;
@@ -621,22 +660,6 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   inset: 0;
   touch-action: none;
   cursor: crosshair;
-}
-.empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  padding: 0 0.65rem;
-  margin: 0;
-  font-size: 0.92rem;
-  color: var(--muted);
-  pointer-events: none;
-}
-.hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
 }
 .cell {
   position: absolute;
@@ -706,9 +729,9 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .cell.preview,
 .cell.preview-ghost {
   border-style: dashed;
-  border-color: color-mix(in srgb, #c47a1a 65%, var(--border));
-  background: color-mix(in srgb, #c47a1a 22%, var(--surface));
-  outline: 2px dashed color-mix(in srgb, #c47a1a 70%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  outline: 2px dashed color-mix(in srgb, var(--accent) 65%, transparent);
   outline-offset: 1px;
   z-index: 3;
 }

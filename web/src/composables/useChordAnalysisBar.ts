@@ -4,14 +4,17 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import {
   absoluteChordLabel,
+  DETECT_ALT_LIMIT,
+  detectAltCandidateCount,
   listNatureNameCandidates,
+  nextDetectAltIndex,
   type ChordAnalysisMode,
   type ChordAnalysisOverride,
   type ChordAnalysisSegment,
   type NatureNameCandidate,
 } from '../domain/arranging/chordAnalysisBar'
-import { isKnownStack } from '../domain/arranging/coachEntryMode'
 import {
+  expandHeldMomentsForCadences,
   impliedStacksForBareMelody,
   inferImpliedChordsFromMelody,
   reorderImpliedByMelodyRole,
@@ -32,6 +35,7 @@ import {
 import { deferOverlappingOnsets } from '../lib/tagRoll/portamento'
 import type { TagRollNote, TagRollProject } from '../lib/tagRoll/types'
 import { useArrangementStore } from '../stores/arrangement'
+import { usePreferencesStore } from '../stores/preferences'
 import { DEFAULT_CONTEST_PROFILE } from '../domain/arranging/contestProfile'
 
 function partByName(project: TagRollProject, name: string) {
@@ -112,6 +116,7 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
 
 export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
   const arrStore = useArrangementStore()
+  const prefs = usePreferencesStore()
 
   const declaredMode = ref<ChordAnalysisMode>(loadDeclaredChordMode('name'))
   const detectedMode = ref<ChordAnalysisMode>(loadDetectedChordMode('name'))
@@ -183,15 +188,33 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     return tag ? bareMelodyMomentsFromTag(tag) : []
   })
 
+  /** Mild/Bold may split long holds into tension→resolve onsets (forceImplied). */
+  const detectMoments = computed((): BareMelodyMoment[] => {
+    const tag = project.value
+    if (!tag) return []
+    return expandHeldMomentsForCadences(bareMoments.value, {
+      interest: prefs.detectedInterest,
+      tonality: tag.tonality,
+      mode: tonalityMode.value,
+      ppq: tag.ppq,
+      timeSignature: tag.timeSignature,
+      tweaks: prefs.detectedScoreTweaks,
+    })
+  })
+
   const impliedStacks = computed(() => {
     const tag = project.value
     if (!tag) return []
     return impliedStacksForBareMelody({
-      moments: bareMoments.value,
+      moments: detectMoments.value,
       existingStacks: harmonyStacks.value,
       tonality: tag.tonality,
       mode: tonalityMode.value,
       songEndTick: tag.lengthTicks,
+      interest: prefs.detectedInterest,
+      ppq: tag.ppq,
+      timeSignature: tag.timeSignature,
+      tweaks: prefs.detectedScoreTweaks,
     })
   })
 
@@ -209,27 +232,91 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     if (!tag) return map
     const profile = linkedArrangement.value?.contestProfile ?? DEFAULT_CONTEST_PROFILE
     const mode = tonalityMode.value
-    const momentsByTick = new Map(bareMoments.value.map((m) => [m.startTick, m]))
+    const momentsByTick = new Map(detectMoments.value.map((m) => [m.startTick, m]))
+
+    const mergeUnique = (
+      primary: readonly NatureNameCandidate[],
+      extra: readonly NatureNameCandidate[],
+      limit = DETECT_ALT_LIMIT,
+    ): NatureNameCandidate[] => {
+      const out: NatureNameCandidate[] = []
+      for (const c of [...primary, ...extra]) {
+        if (out.some((x) => x.label === c.label)) continue
+        out.push(c)
+        if (out.length >= limit) break
+      }
+      return out
+    }
+
+    const interest = prefs.detectedInterest
+    const tweaks = prefs.detectedScoreTweaks
 
     for (const s of analysisStacks.value) {
-      if (s.midi && !isKnownStack(s)) {
-        map.set(
-          s.startTick,
-          listNatureNameCandidates({
-            midi: s.midi,
-            profile,
+      if (s.midi) {
+        const sounding = listNatureNameCandidates({
+          midi: s.midi,
+          profile,
+          tonality: tag.tonality,
+          preferFlats: tag.preferFlats,
+          limit: DETECT_ALT_LIMIT,
+        })
+        // Pad with melody-implied homes when the voicing ID is unambiguous.
+        const moments = detectMoments.value
+        const mi = moments.findIndex((m) => m.startTick === s.startTick)
+        const moment =
+          momentsByTick.get(s.startTick) ??
+          (mi >= 0 ? moments[mi] : undefined)
+        const melodyMidi = moment?.midi ?? s.midi.lead
+        const nextMidi = mi >= 0 ? moments[mi + 1]?.midi ?? null : null
+        const prevMidi = mi > 0 ? moments[mi - 1]?.midi ?? null : null
+        const phraseRole =
+          mi >= 0 ? phraseRoleAtMelodyIndex(moments, mi, tag.lengthTicks) : undefined
+        let prevRootPc: number | null = null
+        let prevNatureId: string | null = null
+        if (mi > 0) {
+          const prevTick = moments[mi - 1]!.startTick
+          const prevStack = analysisStacks.value
+            .filter((x) => x.startTick <= prevTick && x.natureId !== 'unknown')
+            .sort((a, b) => b.startTick - a.startTick)[0]
+          if (prevStack) {
+            prevRootPc = prevStack.rootPc
+            prevNatureId = prevStack.natureId
+          }
+        }
+        const implied = reorderImpliedByMelodyRole(
+          inferImpliedChordsFromMelody({
+            melodyMidi,
             tonality: tag.tonality,
-            preferFlats: tag.preferFlats,
-            limit: 3,
+            mode,
+            limit: DETECT_ALT_LIMIT,
+            nextMelodyMidi: nextMidi,
+            prevMelodyMidi: prevMidi,
+            prevRootPc,
+            prevNatureId,
+            phraseRole,
+            interest,
+            tweaks,
           }),
-        )
+          moment?.melodyRole,
+          interest,
+        ).map((c) => ({
+          rootPc: c.rootPc,
+          natureId: c.natureId,
+          label: absoluteChordLabel(c.rootPc, c.natureId, tag.preferFlats, {
+            tonality: tag.tonality,
+            tonalityMode: mode,
+          }),
+          roman: c.roman,
+          cadenceLabel: c.cadenceHint?.label,
+        }))
+        map.set(s.startTick, mergeUnique(sounding, implied, DETECT_ALT_LIMIT))
         continue
       }
-      if (!s.midi && s.natureId !== 'unknown') {
+      if (s.natureId !== 'unknown') {
         const moment = momentsByTick.get(s.startTick)
         const midi = moment?.midi
         if (midi == null) continue
-        const moments = bareMoments.value
+        const moments = detectMoments.value
         const mi = moments.findIndex((m) => m.startTick === s.startTick)
         const nextMidi = mi >= 0 ? moments[mi + 1]?.midi ?? null : null
         const prevMidi = mi > 0 ? moments[mi - 1]?.midi ?? null : null
@@ -252,18 +339,45 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
             melodyMidi: midi,
             tonality: tag.tonality,
             mode,
-            limit: 3,
+            limit: DETECT_ALT_LIMIT,
             nextMelodyMidi: nextMidi,
             prevMelodyMidi: prevMidi,
             prevRootPc,
             prevNatureId,
             phraseRole,
+            interest,
+            tweaks,
           }),
           moment?.melodyRole,
+          interest,
         )
+        const forced = moment?.forceImplied
+        const rows: {
+          rootPc: number
+          natureId: string
+          roman?: string
+          cadenceLabel?: string
+        }[] = []
+        if (forced) {
+          rows.push({
+            rootPc: forced.rootPc,
+            natureId: forced.natureId,
+            roman: forced.roman,
+          })
+        }
+        for (const c of ranked) {
+          if (forced && c.rootPc === forced.rootPc && c.natureId === forced.natureId) continue
+          rows.push({
+            rootPc: c.rootPc,
+            natureId: c.natureId,
+            roman: c.roman,
+            cadenceLabel: c.cadenceHint?.label,
+          })
+          if (rows.length >= DETECT_ALT_LIMIT) break
+        }
         map.set(
           s.startTick,
-          ranked.map((c) => ({
+          rows.map((c) => ({
             rootPc: c.rootPc,
             natureId: c.natureId,
             label: absoluteChordLabel(c.rootPc, c.natureId, tag.preferFlats, {
@@ -271,13 +385,52 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
               tonalityMode: mode,
             }),
             roman: c.roman,
-            cadenceLabel: c.cadenceHint?.label,
+            cadenceLabel: c.cadenceLabel,
           })),
         )
       }
     }
     return map
   })
+
+  /** Map a Detected cell tick → analysis-stack tick (holes may clip past the onset). */
+  function analysisTickForDetect(startTick: number): number {
+    const stacks = analysisStacks.value
+    const covering = stacks
+      .filter(
+        (s) =>
+          s.startTick <= startTick &&
+          s.startTick + Math.max(1, s.durationTicks) > startTick,
+      )
+      .sort((a, b) => b.startTick - a.startTick)[0]
+    if (covering) return covering.startTick
+    if (nameCandidatesByTick.value.has(startTick)) return startTick
+    let best = startTick
+    let bestDist = Number.POSITIVE_INFINITY
+    for (const t of nameCandidatesByTick.value.keys()) {
+      if (t > startTick) continue
+      const d = startTick - t
+      if (d < bestDist) {
+        bestDist = d
+        best = t
+      }
+    }
+    return best
+  }
+
+  /** Session-local Detected Alt pick per *fragment* startTick (sketch-split halves are independent). */
+  const detectAltIndexByTick = ref<Record<number, number>>({})
+
+  function cycleDetectAlt(fragmentStartTick: number): void {
+    const candTick = analysisTickForDetect(fragmentStartTick)
+    const n = detectAltCandidateCount(nameCandidatesByTick.value.get(candTick))
+    if (n < 2) return
+    const cur = detectAltIndexByTick.value[fragmentStartTick] ?? 0
+    detectAltIndexByTick.value = {
+      ...detectAltIndexByTick.value,
+      [fragmentStartTick]: nextDetectAltIndex(cur, n),
+    }
+  }
 
   const stripRows = computed(() => {
     const tag = project.value
@@ -291,6 +444,8 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
       lengthTicks: tag.lengthTicks,
       notes: tag.notes,
       nameCandidatesByTick: nameCandidatesByTick.value,
+      detectAltIndexByStartTick: detectAltIndexByTick.value,
+      resolveCandidateTick: analysisTickForDetect,
     })
   })
 
@@ -313,22 +468,31 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
   )
 
   const detectSegments = computed((): ChordAnalysisSegment[] =>
-    stripRows.value.detect.map((s) => ({
-      id: s.id,
-      startTick: s.startTick,
-      endTick: s.endTick,
-      locked: false,
-      implied: true,
-      rootPc: s.rootPc,
-      quality: s.quality,
-      name: s.name,
-      nameOptions: s.nameOptions,
-      roman: s.roman,
-      romanOptions: s.romanOptions,
-      displayName: s.displayName,
-      displayRoman: s.displayRoman,
-      cadenceLabel: s.cadenceLabel,
-    })),
+    stripRows.value.detect.map((s) => {
+      const candTick = analysisTickForDetect(s.startTick)
+      const cands = nameCandidatesByTick.value.get(candTick)
+      const altCount = detectAltCandidateCount(cands)
+      const rawAlt = detectAltIndexByTick.value[s.startTick] ?? 0
+      const altIndex = altCount > 0 ? Math.min(Math.max(0, rawAlt), altCount - 1) : 0
+      return {
+        id: s.id,
+        startTick: s.startTick,
+        endTick: s.endTick,
+        locked: false,
+        implied: true,
+        rootPc: s.rootPc,
+        quality: s.quality,
+        name: s.name,
+        nameOptions: s.nameOptions,
+        roman: s.roman,
+        romanOptions: s.romanOptions,
+        displayName: s.displayName,
+        displayRoman: s.displayRoman,
+        cadenceLabel: s.cadenceLabel,
+        altIndex,
+        altCount,
+      }
+    }),
   )
 
   /** Flat list for Hear / pick lookups (declared first). */
@@ -346,6 +510,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     declaredSegments,
     detectSegments,
     nameCandidatesByTick,
+    cycleDetectAlt,
     setDeclaredMode,
     setDetectedMode,
     setMode,

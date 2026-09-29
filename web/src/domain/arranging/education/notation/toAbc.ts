@@ -1,6 +1,9 @@
 /**
  * Convert NotationExample → ABC notation (pure domain, no DOM / no abcjs).
  * Staffing: Tenor+Lead on treble-8 (tenor staff); Bari+Bass on bass.
+ *
+ * Output is staves + notes only — titles, captions, chord labels, and voice
+ * names are rendered by the Learn UI (HTML), not engraved into the SVG.
  */
 import type { NotationChord, NotationExample, NotationVoice } from './types'
 
@@ -29,22 +32,14 @@ function durSuffix(quarters: number): string {
   return q === 1 ? '' : String(q)
 }
 
-function voiceLine(
-  voice: NotationVoice,
-  chords: readonly NotationChord[],
-  opts: { chordSymbols?: boolean; markBad?: boolean },
-): string {
+function voiceLine(voice: NotationVoice, chords: readonly NotationChord[]): string {
   const parts: string[] = []
   for (const ch of chords) {
     const pitch = midiToAbcPitch(ch.midi[voice])
     const dur = durSuffix(ch.quarters)
     let token = `${pitch}${dur}`
-    if (opts.markBad && ch.highlight?.[voice] === 'bad') {
+    if (ch.highlight?.[voice] === 'bad') {
       token = `!emphasis!${token}`
-    }
-    if (opts.chordSymbols && voice === 'lead') {
-      const lab = ch.label.replace(/"/g, '')
-      token = `"${lab}"${token}`
     }
     parts.push(token)
   }
@@ -52,30 +47,22 @@ function voiceLine(
 }
 
 /**
- * Build a multi-voice ABC tune for a pedagogical miniature.
+ * Build a multi-voice ABC tune for a pedagogical miniature (notes only).
  */
 export function notationExampleToAbc(example: NotationExample): string {
-  const title = example.title.replace(/\n/g, ' ')
-  const lines = [
+  return [
     'X:1',
-    `T:${title}`,
-    `C:${example.conceptCite}`,
     'M:none',
     'L:1/4',
+    'K:C',
     '%%score (T L) | (Br B)',
-    'V:T clef=treble-8 name=Tenor snm=T',
-    'V:L clef=treble-8 name=Lead snm=L',
-    'V:Br clef=bass name=Bari snm=Br',
-    'V:B clef=bass name=Bass snm=B',
-    `[V:T] ${voiceLine('tenor', example.chords, { markBad: true })} |]`,
-    `[V:L] ${voiceLine('lead', example.chords, { chordSymbols: true, markBad: true })} |]`,
-    `[V:Br] ${voiceLine('bari', example.chords, { markBad: true })} |]`,
-    `[V:B] ${voiceLine('bass', example.chords, { markBad: true })} |]`,
-  ]
-  const ann = example.chords.map((c) => c.annotation).filter(Boolean)
-  if (ann.length) {
-    lines.push(`W:${ann.join(' · ')}`)
-  }
-  lines.push(`W:${example.caption}`)
-  return lines.join('\n')
+    'V:T clef=treble-8',
+    'V:L clef=treble-8',
+    'V:Br clef=bass',
+    'V:B clef=bass',
+    `[V:T] ${voiceLine('tenor', example.chords)} |]`,
+    `[V:L] ${voiceLine('lead', example.chords)} |]`,
+    `[V:Br] ${voiceLine('bari', example.chords)} |]`,
+    `[V:B] ${voiceLine('bass', example.chords)} |]`,
+  ].join('\n')
 }

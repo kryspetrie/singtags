@@ -7,6 +7,7 @@ import {
   reorderImpliedByMelodyRole,
   type MelodyRoleBias,
 } from '../../domain/arranging/impliedMelodyChord'
+import { pillarAtTick } from '../../domain/arranging/pillars'
 import type { MelodyEvent, Pillar, TonalityMode } from '../../domain/arranging/types'
 
 export type SoftHomeRootSpan = {
@@ -15,6 +16,8 @@ export type SoftHomeRootSpan = {
   rootPc: number
   /** Sketch only — Detected holes are unlocked until promoted. */
   locked?: boolean
+  /** Sketch / Detected quality when known (seventh, major, …). */
+  natureId?: string
 }
 
 export type SoftSuggestContext = {
@@ -68,7 +71,7 @@ export function resolveSuggestHomeRoot(opts: {
   melodyRole?: MelodyRoleBias
 }): SuggestHomeRoot | null {
   const tick = opts.note.startTick
-  const real = opts.pillars.find((p) => covers(p.startTick, p.endTick, tick))
+  const real = pillarAtTick(opts.pillars, tick)
   if (real) return { pillar: real, source: 'pillar', ephemeral: false }
 
   const lockedSketch = (opts.soft?.sketchSpans ?? []).find(

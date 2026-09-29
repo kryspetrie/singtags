@@ -35,7 +35,7 @@ Contributing / pipeline: [../CONTRIBUTING.md](../CONTRIBUTING.md), [publish.md](
 ### Offline & media
 
 - Offline library tiers + tiered Opus ([offline-library](decisions/offline-library.md), [audio-storage-cache](decisions/audio-storage-cache.md))
-- Online playback prefers Opus; **WASM Ogg Opus decode** when Safari lacks native support
+- Online playback prefers **Opus** everywhere; Safari uses **WASM** + optional session Opus→WAV (`opusPlayable`); Original only if WASM failed to load; offline packs/favorites stay Opus ([audio-storage-cache](decisions/audio-storage-cache.md))
 - Favorites/device cache at 64 kbps; backup/restore zip (prefs + packs)
 - Non-recombinable / `stereo_fallback` path ([non-recombinable-tracks](plans/non-recombinable-tracks.md) — residual spot-listen)
 

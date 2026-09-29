@@ -61,7 +61,7 @@ const emit = defineEmits<{
               v-else-if="!canFix(lint)"
               type="button"
               class="btn"
-              title="No auto-fix — use your ear and the coach narrative"
+              title="No auto-fix - use your ear and the coach narrative"
               disabled
             >
               Needs your ear

@@ -45,19 +45,17 @@ function worstSeverity(
   return rank[b] > rank[a] ? b : a
 }
 
-function markerLabel(
-  m: Omit<CoachLaneMarker, 'label'>,
-  lintMsg?: string,
-): string {
-  if (lintMsg) return lintMsg
+/** Short lane hover — never the lint message body (that lives under Potential issues). */
+function markerLabel(m: Omit<CoachLaneMarker, 'label'>): string {
   if (m.severity === 'empty') return 'Needs chord'
-  if (m.severity === 'error') return 'Chord issue'
-  if (m.severity === 'warn') return 'Check this chord'
+  if (m.lintCount > 0) {
+    if (m.severity === 'error') return 'Issue'
+    if (m.severity === 'warn') return 'Check'
+    return 'Note'
+  }
   if (m.heldLead) return 'Post (held lead)'
-  if (m.voiceLead != null && m.voiceLead < 0.35) return 'Voice-leading jump'
-  if (m.harmonicity != null && m.harmonicity >= 0.65) return 'Strong ring'
-  if (m.harmonicity != null) return 'OK ring'
-  return 'Harmonized'
+  if (m.harmonicity != null) return `Ring ${Math.round(m.harmonicity * 100)}`
+  return 'Has chord'
 }
 
 /** Prefer harmonic moments when provided; else melody onsets (legacy). */
@@ -104,7 +102,8 @@ export function buildCoachLaneMarkers(
         natureId: stack.natureId,
         voicing: stack.voicing,
       })
-      harmonicity = harm.normalize(raw)
+      // Display scale: strong 4-part lock ≈ 100% (ranking keeps absolute normalize).
+      harmonicity = harm.normalizeForDisplay(raw, { partCount: 4 })
       const prev = stacks.filter((s) => s.startTick < stack.startTick).at(-1)
       if (prev?.midi) {
         voiceLead = voiceLeadScore(prev.midi, stack.midi, { melodyVoice: 'lead' })
@@ -125,7 +124,7 @@ export function buildCoachLaneMarkers(
       lintCount: related.length,
       lintMessage,
     }
-    return { ...base, label: markerLabel(base, lintMessage) }
+    return { ...base, label: markerLabel(base) }
   })
 }
 
@@ -146,11 +145,13 @@ export function filterMarkersForLens(
   markers: readonly CoachLaneMarker[],
   lens: CoachLaneLens,
 ): CoachLaneMarker[] {
-  if (lens === 'overview') return [...markers]
-  if (lens === 'gaps') return markers.filter((m) => m.severity === 'empty')
-  if (lens === 'issues') return markers.filter((m) => m.lintCount > 0 || m.severity === 'error' || m.severity === 'warn')
-  if (lens === 'ring') return markers.filter((m) => m.harmonicity != null)
-  return markers.filter((m) => m.voiceLead != null)
+  if (lens === 'issues') {
+    return markers.filter(
+      (m) => m.lintCount > 0 || m.severity === 'error' || m.severity === 'warn',
+    )
+  }
+  // Ring / voice-leading keep empties visible as dashed boxes.
+  return [...markers]
 }
 
 export function buildCoachLanePillarBands(

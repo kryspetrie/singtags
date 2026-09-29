@@ -73,7 +73,7 @@ export function useCoachTransport(opts: {
     if (step === 'home') {
       return {
         ...empty,
-        status: 'Workflow overview — then Chords → Check → Polish',
+        status: 'Workflow overview - then Chords > Check > Polish',
         primaryLabel: 'Start Chords',
         primaryTitle: 'Begin walking Lead moments',
         primaryDisabled: false,
@@ -83,10 +83,11 @@ export function useCoachTransport(opts: {
     if (step === 'chords') {
       return {
         ...empty,
+        // Optional short teach cue (e.g. cadence label) - never Moment X/Y counts.
         status: opts.momentStatus.value,
         showNav: true,
-        prevLabel: '← Moment',
-        nextLabel: 'Moment →',
+        prevLabel: 'Prev',
+        nextLabel: 'Next',
         prevDisabled: opts.momentsLen.value < 1,
         nextDisabled: opts.momentsLen.value < 1,
         primaryLabel: 'Apply best',
@@ -107,8 +108,8 @@ export function useCoachTransport(opts: {
         ...empty,
         status: opts.checkStatus.value,
         showNav: true,
-        prevLabel: '← Issue',
-        nextLabel: 'Issue →',
+        prevLabel: 'Prev issue',
+        nextLabel: 'Next issue',
         prevDisabled: opts.lintCount.value < 1,
         nextDisabled: opts.lintCount.value < 1,
         primaryLabel: 'Fix all safe',

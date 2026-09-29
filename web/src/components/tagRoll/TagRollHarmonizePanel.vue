@@ -24,6 +24,7 @@ import {
 import {
   buildHarmonizeChordOptions,
   optionKey,
+  rankHintsFromCandidates,
   type ChordRankHint,
   type HarmonizeChordOption,
 } from '../../lib/tagRoll/harmonizer/chordPickOptions'
@@ -42,7 +43,7 @@ import {
   ensureHarmonizeCoachSession,
   melodyEventFromTagNote,
   pushCoachStacksToRoll,
-} from '../../lib/tagRoll/harmonizeCoachSuggest'
+} from '../../composables/useHarmonizeCoachSession'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import {
@@ -98,7 +99,6 @@ const spread = ref(false)
 const applyMode = ref<HarmonizeApplyMode>(loadHarmonizeApplyMode('stack'))
 const workspace = ref<HarmonizeWorkspace>(loadHarmonizeWorkspace('pick'))
 const suggestBusy = ref(false)
-const suggestIndex = ref(0)
 const sketchMatchLabel = ref<string | null>(null)
 /** Baseline sketch under the current melody note (Reset target). */
 const baseline = ref<{ rootPc: number; quality: HarmonySketchQuality } | null>(null)
@@ -185,8 +185,26 @@ const chordPickLists = computed(() =>
 const primaryChordOptions = computed(() => chordPickLists.value.primary)
 const moreChordOptions = computed(() => chordPickLists.value.more)
 
-/** Implied + cadence suggestions for the current melody note (pick-list color). */
+const suggestCandidates = computed(() => arrStore.candidates)
+
+const coachRankHints = computed((): ChordRankHint[] => {
+  const seen = new Set<string>()
+  const unique: { rootPc: number; natureId: string; label?: string }[] = []
+  for (const c of suggestCandidates.value) {
+    const k = `${c.rootPc}:${c.natureId}`
+    if (seen.has(k)) continue
+    seen.add(k)
+    unique.push({ rootPc: c.rootPc, natureId: c.natureId, label: c.label })
+  }
+  return rankHintsFromCandidates(unique)
+})
+
+/** Implied + cadence suggestions (Pick) or Coach ranks (Suggest) for pick-list chrome. */
 const chordRankHints = computed((): ChordRankHint[] | null => {
+  if (workspace.value === 'suggest') {
+    const hints = coachRankHints.value
+    return hints.length ? hints : null
+  }
   const mel = melodyNote.value
   const p = project.value
   if (!mel || !p) return null
@@ -333,17 +351,37 @@ const draftDirty = computed(() => {
 })
 
 const canApply = computed(() => {
-  if (workspace.value === 'suggest') return !!selectedSuggest.value
+  if (workspace.value === 'suggest') {
+    return !!matchingSuggestCandidate() || (!!melodyNote.value && !!selectedChord.value)
+  }
   if (!melodyNote.value || !selectedChord.value) return false
   if (applyMode.value === 'sketch') return true
   return !!voicing.value
 })
 
-const suggestCandidates = computed(() => arrStore.candidates)
-const selectedSuggest = computed(
-  (): HarmonizeCandidate | null =>
-    suggestCandidates.value[suggestIndex.value] ?? suggestCandidates.value[0] ?? null,
-)
+function matchingSuggestCandidate(): HarmonizeCandidate | null {
+  const id = chordId.value
+  if (id == null) return null
+  const pc = rootPc.value
+  const v = voicing.value
+  const list = suggestCandidates.value
+  if (!list.length) return null
+  if (v) {
+    const exact = list.find((c) => c.rootPc === pc && c.natureId === id && c.voicing === v)
+    if (exact) return exact
+  }
+  return list.find((c) => c.rootPc === pc && c.natureId === id) ?? null
+}
+
+function applyCandidateToLocalUi(c: HarmonizeCandidate): void {
+  const tonality = project.value?.tonality ?? 0
+  rootOffset.value = (((c.rootPc - tonality) % 12) + 12) % 12
+  chordId.value = c.natureId
+  voicing.value = applyMode.value === 'sketch' ? null : c.voicing
+  spread.value = c.spread
+  sketchMatchLabel.value = null
+  publishPreview()
+}
 
 function onClose(): void {
   stopStab()
@@ -381,6 +419,7 @@ async function refreshSuggest(): Promise<void> {
         endTick: s.endTick,
         rootPc: s.rootPc,
         locked: s.locked,
+        natureId: s.quality || undefined,
       })),
       detectedSpans: (props.detectSegments ?? [])
         .filter((s): s is ChordAnalysisSegment & { rootPc: number } => s.rootPc != null)
@@ -388,21 +427,19 @@ async function refreshSuggest(): Promise<void> {
           startTick: s.startTick,
           endTick: s.endTick,
           rootPc: s.rootPc,
+          natureId: s.quality || undefined,
         })),
     })
     arrStore.setCandidateTarget(melodyEventFromTagNote(mel))
-    suggestIndex.value = 0
+    const top = arrStore.candidates[0]
+    if (top) applyCandidateToLocalUi(top)
   } finally {
     suggestBusy.value = false
   }
 }
 
-function selectSuggest(i: number): void {
-  suggestIndex.value = Math.max(0, Math.min(i, suggestCandidates.value.length - 1))
-}
-
 function applySelectedSuggest(): void {
-  const c = selectedSuggest.value
+  const c = matchingSuggestCandidate() ?? suggestCandidates.value[0] ?? null
   if (!c) return
   arrStore.applyCandidate(c)
   pushCoachStacksToRoll()
@@ -413,6 +450,15 @@ function applySelectedSuggest(): void {
 function selectChordOption(opt: HarmonizeChordOption): void {
   const mel = melodyNote.value
   if (!mel) return
+  if (workspace.value === 'suggest') {
+    const match = suggestCandidates.value.find(
+      (c) => c.rootPc === opt.rootPc && c.natureId === opt.chordId,
+    )
+    if (match) {
+      applyCandidateToLocalUi(match)
+      return
+    }
+  }
   rootOffset.value = opt.rootOffset
   chordId.value = opt.chordId
   sketchMatchLabel.value = null
@@ -441,6 +487,22 @@ function setSpread(on: boolean): void {
   if (applyMode.value === 'stack' && voicing.value) publishPreview()
 }
 
+function onSpreadPointerDown(on: boolean, e: PointerEvent): void {
+  if (e.button !== 0 || applyMode.value === 'sketch') return
+  e.preventDefault()
+  ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  setSpread(on)
+  void holdHearChord()
+}
+
+function onVoicingPointerDown(v: string, e: PointerEvent): void {
+  if (e.button !== 0 || applyMode.value === 'sketch') return
+  e.preventDefault()
+  ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  selectVoicing(v)
+  void holdHearChord()
+}
+
 function onReset(): void {
   stopStab()
   const mel = melodyNote.value
@@ -465,7 +527,7 @@ function onReset(): void {
 }
 
 function commitHarmony(): void {
-  if (workspace.value === 'suggest') {
+  if (workspace.value === 'suggest' && matchingSuggestCandidate()) {
     applySelectedSuggest()
     return
   }
@@ -792,7 +854,7 @@ defineExpose({ step })
       <button
         type="button"
         class="btn"
-        :disabled="workspace === 'suggest' || !draftDirty"
+        :disabled="!draftDirty"
         :title="tagRollTip('Reset — restore the Sketch chord under this note')"
         @click="onReset"
       >Reset</button>
@@ -804,7 +866,7 @@ defineExpose({ step })
         :title="
           tagRollTip(
             workspace === 'suggest'
-              ? 'Apply selected Coach suggestion'
+              ? 'Apply — write Coach-ranked chord (and stack when in Stack mode)'
               : applyMode === 'sketch'
                 ? 'Apply — declare into Sketch'
                 : 'Apply — Sketch + TTBB',
@@ -851,47 +913,35 @@ defineExpose({ step })
         Melody part is set under Toolbar → Roles.
       </p>
 
-      <template v-else-if="workspace === 'suggest'">
-        <p class="meta">
-          Coach-ranked voicings
-          <span v-if="suggestBusy" class="sec-note"> · loading…</span>
-          <span v-else class="sec-note"> · {{ suggestCandidates.length }}</span>
-        </p>
-        <p v-if="!suggestBusy && !suggestCandidates.length" class="empty">
-          No ranked voicings for this note. Try Pick, or lock a Sketch chord under the
-          playhead — pillars (◆) are optional and improve long-range ranking.
-        </p>
-        <ul v-else class="suggest-list" role="listbox" aria-label="Coach suggestions">
-          <li v-for="(c, i) in suggestCandidates" :key="`${c.label}-${c.voicing}-${i}`">
-            <button
-              type="button"
-              class="suggest-row"
-              role="option"
-              :aria-selected="i === suggestIndex"
-              :class="{ on: i === suggestIndex }"
-              @click="selectSuggest(i)"
-              @dblclick="applySelectedSuggest()"
-            >
-              <span class="suggest-lab">{{ c.label }}</span>
-              <span class="suggest-meta">{{ c.layer }} · {{ Math.round(c.score) }}</span>
-            </button>
-          </li>
-        </ul>
-      </template>
-
       <template v-else>
         <p class="meta">
-          <span v-if="selectedChord" class="root-chip">
-            {{ pcName(rootPc, preferFlats) }}{{ selectedChord.notation || 'maj' }}
-          </span>
-          <span v-if="sketchMatchLabel" class="sketch-chip" title="Locked sketch under this note">
-            Sketch: {{ sketchMatchLabel }}
-          </span>
+          <template v-if="workspace === 'suggest'">
+            Coach-ranked chords
+            <span v-if="suggestBusy" class="sec-note"> · loading…</span>
+            <span v-else-if="suggestCandidates.length" class="sec-note">
+              · {{ coachRankHints.length }} highlighted
+            </span>
+            <span v-else class="sec-note"> · no ranks yet — catalog still works</span>
+          </template>
+          <template v-else>
+            <span v-if="selectedChord" class="root-chip">
+              {{ pcName(rootPc, preferFlats) }}{{ selectedChord.notation || 'maj' }}
+            </span>
+            <span v-if="sketchMatchLabel" class="sketch-chip" title="Locked sketch under this note">
+              Sketch: {{ sketchMatchLabel }}
+            </span>
+          </template>
         </p>
 
         <section class="block" aria-label="Chords">
           <h3 class="sec">
-            {{ applyMode === 'sketch' ? 'Chords' : 'Valid chords' }}
+            {{
+              workspace === 'suggest'
+                ? 'Suggested chords'
+                : applyMode === 'sketch'
+                  ? 'Chords'
+                  : 'Valid chords'
+            }}
             <span class="sec-note">(hold to hear)</span>
           </h3>
           <TagRollChordPickList
@@ -918,10 +968,37 @@ defineExpose({ step })
           <h3 class="sec">
             Stack / inversion
             <span v-if="applyMode === 'sketch'" class="sec-note"> (Stack mode only)</span>
+            <span v-else class="sec-note">(hold to hear)</span>
           </h3>
           <div class="spread-row">
-            <button type="button" class="btn sm" :class="{ on: !spread }" :disabled="applyMode === 'sketch'" @click="setSpread(false)">Closed</button>
-            <button type="button" class="btn sm" :class="{ on: spread }" :disabled="applyMode === 'sketch'" @click="setSpread(true)">Spread</button>
+            <button
+              type="button"
+              class="btn sm"
+              :class="{ on: !spread }"
+              :disabled="applyMode === 'sketch'"
+              title="Closed voicing — hold to hear"
+              @pointerdown="onSpreadPointerDown(false, $event)"
+              @pointerup="stopHoldHear"
+              @pointercancel="stopHoldHear"
+              @lostpointercapture="stopHoldHear"
+              @pointerleave="stopHoldHear"
+            >
+              Closed
+            </button>
+            <button
+              type="button"
+              class="btn sm"
+              :class="{ on: spread }"
+              :disabled="applyMode === 'sketch'"
+              title="Spread voicing — hold to hear"
+              @pointerdown="onSpreadPointerDown(true, $event)"
+              @pointerup="stopHoldHear"
+              @pointercancel="stopHoldHear"
+              @lostpointercapture="stopHoldHear"
+              @pointerleave="stopHoldHear"
+            >
+              Spread
+            </button>
           </div>
           <div class="grid">
             <button
@@ -931,8 +1008,12 @@ defineExpose({ step })
               class="cell mono inv"
               :class="{ on: voicing === v }"
               :disabled="applyMode === 'sketch'"
-              :title="tagRollTip(voicingDisplayLabel(v))"
-              @click="selectVoicing(v)"
+              :title="tagRollTip(`${voicingDisplayLabel(v)} — hold to hear`)"
+              @pointerdown="onVoicingPointerDown(v, $event)"
+              @pointerup="stopHoldHear"
+              @pointercancel="stopHoldHear"
+              @lostpointercapture="stopHoldHear"
+              @pointerleave="stopHoldHear"
             >{{ voicingDisplayLabel(v) }}</button>
           </div>
           <p v-if="chordId && applyMode === 'stack' && !availableVoicings.length" class="empty">
@@ -942,7 +1023,7 @@ defineExpose({ step })
       </template>
 
       <p class="credit">
-        Pick = catalog · Suggest = Coach ranks · Sketch = map only · Stack = map + TTBB.
+        Pick = catalog · Suggest = same chips, Coach ranks · Sketch = map only · Stack = map + TTBB.
         Undo is global (Ctrl+Z).
       </p>
     </div>
@@ -1046,47 +1127,6 @@ defineExpose({ step })
 .seg-btn.on {
   background: color-mix(in srgb, var(--accent, #1d6a9f) 16%, var(--surface));
   color: var(--text);
-}
-.suggest-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.28rem;
-  max-height: min(42vh, 24rem);
-  overflow: auto;
-}
-.suggest-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-  text-align: left;
-}
-.suggest-row.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  font-weight: 700;
-}
-.suggest-lab {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.suggest-meta {
-  flex: none;
-  font-size: 0.68rem;
-  color: var(--muted);
 }
 
 .panel-body {

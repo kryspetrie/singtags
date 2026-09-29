@@ -43,6 +43,10 @@ export type ChordAnalysisSegment = {
   displayRoman: string
   /** Classic cadence hint for Detected tooltips. */
   cadenceLabel?: string
+  /** Detected Alt pick: 0 = best … up to DETECT_ALT_LIMIT - 1. */
+  altIndex?: number
+  /** How many ranked Detected picks are available (≤ {@link DETECT_ALT_LIMIT}). */
+  altCount?: number
 }
 
 export function natureSuffix(natureId: string): string {
@@ -243,4 +247,21 @@ export function listNatureNameCandidates(opts: {
     push(inf.rootPc, inf.natureId)
   }
   return out.slice(0, limit)
+}
+
+/** Cap Detected Alt picks at top-N ranked candidates. */
+export const DETECT_ALT_LIMIT = 5
+
+/** Cap Detected Alt picks at top-{@link DETECT_ALT_LIMIT} ranked candidates. */
+export function detectAltCandidateCount(
+  candidates: readonly NatureNameCandidate[] | undefined,
+): number {
+  return Math.min(DETECT_ALT_LIMIT, candidates?.length ?? 0)
+}
+
+/** Cycle 0 → 1 → … → N-1 → 0 among available Detected picks. */
+export function nextDetectAltIndex(current: number, candidateCount: number): number {
+  const n = Math.min(DETECT_ALT_LIMIT, Math.max(0, candidateCount))
+  if (n < 2) return 0
+  return (((current % n) + n) % n + 1) % n
 }

@@ -59,6 +59,7 @@ function setRoles(on: boolean): void {
       <span class="sep">·</span>
       <kbd>S</kbd> Strong
       <kbd>P</kbd> Passing
+      <kbd>C</kbd> Clear
       <kbd>M</kbd> Melody
       <span v-if="melodyPartName" class="mel">Melody: {{ melodyPartName }}</span>
       <span v-if="selectedRole === 'pmn'" class="role pmn">Strong</span>
@@ -84,7 +85,7 @@ function setRoles(on: boolean): void {
         Marks…
       </button>
     </div>
-    <button type="button" class="close" title="Exit (Esc)" @click="$emit('close')">✕</button>
+    <button type="button" class="close" title="Exit Roles" @click="$emit('close')">✕</button>
   </div>
 </template>
 
@@ -162,14 +163,14 @@ kbd {
   border: 1px solid var(--border);
 }
 .role.pmn {
-  color: #9a7a10;
-  border-color: color-mix(in srgb, #d4a81c 55%, var(--border));
-  background: color-mix(in srgb, #d4a81c 16%, transparent);
-}
-.role.smn {
   color: #1f6b45;
   border-color: color-mix(in srgb, #2a8c5a 45%, var(--border));
   background: color-mix(in srgb, #2a8c5a 14%, transparent);
+}
+.role.smn {
+  color: #9a7a10;
+  border-color: color-mix(in srgb, #d4a81c 55%, var(--border));
+  background: color-mix(in srgb, #d4a81c 16%, transparent);
 }
 .tog {
   display: inline-flex;

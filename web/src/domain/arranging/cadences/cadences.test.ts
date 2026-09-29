@@ -48,6 +48,33 @@ describe('cadence catalog', () => {
     expect(def.boostCandidate({ rootPc: 0, natureId: 'major' }, c)).toBeLessThan(0)
   })
 
+  it('auth_v7_i: ^5→^3 (I chord tone) also prefers V7', () => {
+    const c = ctx({ melodyMidi: 67, nextMelodyMidi: 64 }) // G→E = ^5→^3
+    const def = cadenceById('auth_v7_i')!
+    expect(def.matchContext(c).hit).toBe(true)
+    expect(def.boostCandidate({ rootPc: 7, natureId: 'seventh' }, c)).toBeGreaterThan(10)
+    expect(def.boostCandidate({ rootPc: 0, natureId: 'major' }, c)).toBeLessThan(0)
+  })
+
+  it('auth_v7_i: ^5→^5 (held fifth into I) prefers V7', () => {
+    const c = ctx({ melodyMidi: 67, nextMelodyMidi: 79 }) // G→G = ^5→^5
+    const def = cadenceById('auth_v7_i')!
+    expect(def.matchContext(c).hit).toBe(true)
+    expect(def.boostCandidate({ rootPc: 7, natureId: 'seventh' }, c)).toBeGreaterThan(10)
+  })
+
+  it('auth_v7_i: after V7, Lead ^3 prefers I over I7', () => {
+    const c = ctx({
+      melodyMidi: 64, // E = ^3 in C
+      prevRootPc: 7,
+      prevNatureId: 'seventh',
+    })
+    const def = cadenceById('auth_v7_i')!
+    expect(def.matchContext(c).hit).toBe(true)
+    expect(def.boostCandidate({ rootPc: 0, natureId: 'major' }, c)).toBeGreaterThan(5)
+    expect(def.boostCandidate({ rootPc: 0, natureId: 'seventh' }, c)).toBeLessThan(0)
+  })
+
   it('lead_tone_v7: ^7→^1 prefers V7', () => {
     const c = ctx({ melodyMidi: 59, nextMelodyMidi: 60 }) // B→C
     const def = cadenceById('lead_tone_v7')!
@@ -127,6 +154,15 @@ describe('cadence catalog', () => {
     )
     expect(miss?.suggest?.natureId).toBe('seventh')
     expect(miss?.suggest?.rootPc).toBe(7)
+  })
+
+  it('cadenceMissMessage cites Cadence plan label when provided', () => {
+    const miss = cadenceMissMessage(
+      { rootPc: 0, natureId: 'major' },
+      ctx({ melodyMidi: 67, nextMelodyMidi: 60 }),
+      { planLabel: 'V7→I' },
+    )
+    expect(miss?.message).toMatch(/Cadence plans suggest V7→I/)
   })
 
   it('bias off zeroes boosts', () => {

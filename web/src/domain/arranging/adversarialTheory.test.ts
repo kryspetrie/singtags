@@ -148,7 +148,8 @@ describe('adversarialTheory: roman / sec-dom (D2–D4, U8)', () => {
     expect(formatRomanWithAlt(vv.roman, vv.altRoman)).toBe('V7/V (II7)')
   })
 
-  it('labels ii7 with alt ii7/V when resolving to V', () => {
+  it('labels Dm7 resolving to V as plain ii7 (not ii7/V)', () => {
+    // ii7/V would be Am7 (supertonic of G); Dm7→G is diatonic ii7→V.
     const d = romanForChordDetailed({
       rootPc: PC.D,
       natureId: 'm7',
@@ -156,7 +157,15 @@ describe('adversarialTheory: roman / sec-dom (D2–D4, U8)', () => {
       resolvesToRoot: PC.G,
     })
     expect(d.roman).toBe('ii7')
-    expect(d.altRoman).toBe('ii7/V')
+    expect(d.altRoman).toBeUndefined()
+    const a = romanForChordDetailed({
+      rootPc: PC.A,
+      natureId: 'm7',
+      tonality: PC.C,
+      resolvesToRoot: PC.G,
+    })
+    // Am7 toward G is vi7 (or could be read as ii7 of V) — primary stays diatonic vi7.
+    expect(a.roman).toBe('vi7')
   })
 
   it('tonic Mm7 → I7; driving IV gets alt V7/IV', () => {

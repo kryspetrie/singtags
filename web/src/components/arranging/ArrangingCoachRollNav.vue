@@ -10,6 +10,7 @@ import {
   coachRollTransportNext,
   coachRollTransportPrev,
   coachRollTransportPrimary,
+  coachRollTransportSecondary,
   coachRollTransportSkip,
 } from '../../lib/arranging/coachRollTransport'
 
@@ -21,12 +22,13 @@ const tm = computed(() => tr.value.model)
 <template>
   <div v-if="visible && tm" class="roll-nav" role="toolbar" aria-label="Coach transport">
     <span class="kind">{{ tm.stepLabel }}</span>
-    <span class="meta compact">{{ tm.status }}</span>
+    <span v-if="tm.status" class="meta compact">{{ tm.status }}</span>
     <template v-if="tm.showNav">
       <button
         type="button"
         class="nav-btn"
         :disabled="tm.prevDisabled"
+        :title="tm.prevLabel === 'Prev' ? 'Previous moment' : tm.prevLabel"
         @click="coachRollTransportPrev"
       >
         {{ tm.prevLabel }}
@@ -35,6 +37,7 @@ const tm = computed(() => tr.value.model)
         type="button"
         class="nav-btn"
         :disabled="tm.nextDisabled"
+        :title="tm.nextLabel === 'Next' ? 'Next moment' : tm.nextLabel"
         @click="coachRollTransportNext"
       >
         {{ tm.nextLabel }}
@@ -57,6 +60,16 @@ const tm = computed(() => tr.value.model)
       @click="coachRollTransportHear"
     >
       {{ tm.hearLabel }}
+    </button>
+    <button
+      v-if="tm.secondaryLabel"
+      type="button"
+      class="nav-btn"
+      :disabled="tm.secondaryDisabled"
+      :title="tm.secondaryTitle"
+      @click="coachRollTransportSecondary"
+    >
+      {{ tm.secondaryLabel }}
     </button>
     <button
       v-if="tm.showLock"
@@ -131,7 +144,7 @@ const tm = computed(() => tr.value.model)
 }
 .meta.compact {
   margin-left: 0;
-  max-width: 12rem;
+  max-width: 14rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

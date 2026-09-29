@@ -243,8 +243,7 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
-  it('shows Audio Recorder in More when the Labs flag is on', async () => {
-    localStorage.setItem('singtags.labs.audioRecorder.enabled.v1', '1')
+  it('shows Audio Recorder in More (promoted out of Labs)', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     expect(usePreferencesStore().audioRecorderEnabled).toBe(true)

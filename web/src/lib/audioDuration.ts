@@ -6,22 +6,12 @@ export async function probeAudioDurationSeconds(
   mime?: string,
 ): Promise<number | null> {
   if (!data.byteLength) return null
-  // Prefer WebAudio decode when available (accurate, works offline).
+  // Prefer exclusive decode (native + Opus WASM) — accurate and Safari-safe.
   try {
-    const AC =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (AC) {
-      const ctx = new AC()
-      try {
-        const copy = data.slice(0)
-        const buf = await ctx.decodeAudioData(copy)
-        const sec = buf.duration
-        return Number.isFinite(sec) && sec > 0 ? sec : null
-      } finally {
-        void ctx.close()
-      }
-    }
+    const { decodeAudioDataExclusive } = await import('../audio/decodeLock')
+    const buf = await decodeAudioDataExclusive(data.slice(0))
+    const sec = buf.duration
+    return Number.isFinite(sec) && sec > 0 ? sec : null
   } catch {
     /* fall through to element probe */
   }

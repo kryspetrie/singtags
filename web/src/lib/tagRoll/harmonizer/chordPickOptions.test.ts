@@ -48,7 +48,7 @@ describe('buildHarmonizeChordOptions', () => {
     expect(d7?.roman).toBe('V7/V (II7)')
     const dm7 = primary.find((o) => o.rootPc === 2 && o.chordId === 'm7')
     expect(dm7?.romanPrimary).toBe('ii7')
-    expect(dm7?.roman).toBe('ii7 (ii7/V)')
+    expect(dm7?.roman).toBe('ii7')
   })
 })
 

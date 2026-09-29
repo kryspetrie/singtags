@@ -3,7 +3,6 @@ import {
   melodyPartIdOf,
   noteRoleOf,
   noteRolesMapFromProject,
-  toggleMelodyRole,
   applyMelodyRolesToTagNotes,
 } from './melodyNoteRoles'
 import { createEmptyTagRollProject } from './normalize'
@@ -22,8 +21,6 @@ describe('melodyNoteRoles', () => {
     expect(noteRoleOf(p.notes[0]!)).toBe('pmn')
     expect(noteRoleOf(p.notes[1]!)).toBe('unknown')
     expect(noteRolesMapFromProject(p)?.get('n1')).toBe('pmn')
-    expect(toggleMelodyRole('pmn', 'pmn')).toBe('unknown')
-    expect(toggleMelodyRole('unknown', 'smn')).toBe('smn')
   })
 
   it('applies arrangement melody roles onto Tag Roll notes', () => {

@@ -50,6 +50,19 @@ describe('contextForSelectedMoment', () => {
     expect(dto.narrative).toMatch(/No chord yet/)
   })
 
+  it('gap narrative ranks from Detected soft home without pillars', () => {
+    const p = createEmptyArrangement('Ctx')
+    p.melody = [mel('m1', 0, 480)]
+    const moment = buildHarmonicMoments(p.melody, [
+      { startTick: 0, durationTicks: 480, midi: 67 },
+    ])[0]!
+    const dto = contextForSelectedMoment(p, moment, [], { softHomeSource: 'detected' })
+    expect(dto.kind).toBe('gap')
+    expect(dto.softHomeSource).toBe('detected')
+    expect(dto.narrative).toMatch(/Detected/)
+    expect(dto.narrative).not.toMatch(/No pillar/)
+  })
+
   it('returns stack DTO with voicing, roman, post badge fields', () => {
     const p = createEmptyArrangement('Ctx')
     p.melody = [mel('post', 0, 960)]

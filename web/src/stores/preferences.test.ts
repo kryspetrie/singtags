@@ -190,13 +190,13 @@ describe('preferences store', () => {
     expect(prefs.uiScalePercent).toBe(70)
   })
 
-  it('defaults optical transfer on', () => {
+  it('keeps optical transfer on (promoted out of Labs)', () => {
+    localStorage.setItem('singtags.labs.opticalTransfer.enabled.v1', '0')
     const prefs = usePreferencesStore()
     expect(prefs.opticalTransferEnabled).toBe(true)
+    expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('1')
     prefs.setOpticalTransferEnabled(false)
-    expect(localStorage.getItem('singtags.labs.opticalTransfer.enabled.v1')).toBe('0')
-    setActivePinia(createPinia())
-    expect(usePreferencesStore().opticalTransferEnabled).toBe(false)
+    expect(prefs.opticalTransferEnabled).toBe(true)
   })
 
   it('defaults local library off', () => {

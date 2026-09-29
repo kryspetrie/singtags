@@ -91,12 +91,9 @@ const moreOpen = ref(false)
 const primaryNavGates = computed(
   (): PrimaryNavGates => ({
     localLibraryEnabled: prefs.localLibraryEnabled,
-    audioRecorderEnabled: prefs.audioRecorderEnabled,
     singTogetherEnabled: prefs.singTogetherEnabled,
     tagStudioEnabled: prefs.tagRollEnabled,
-    opticalTransferEnabled: prefs.opticalTransferEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
-    osShareTransferEnabled: prefs.osShareTransferEnabled,
   }),
 )
 
@@ -366,12 +363,9 @@ watch(
     prefs.primaryNavOrder.join(','),
     prefs.primaryNavHidden.join(','),
     primaryNavGates.value.localLibraryEnabled,
-    primaryNavGates.value.audioRecorderEnabled,
     primaryNavGates.value.singTogetherEnabled,
     primaryNavGates.value.tagStudioEnabled,
-    primaryNavGates.value.opticalTransferEnabled,
     primaryNavGates.value.webrtcTransferEnabled,
-    primaryNavGates.value.osShareTransferEnabled,
     offlineMode.manualOffline,
     queue.count,
   ],

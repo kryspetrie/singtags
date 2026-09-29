@@ -66,16 +66,18 @@ Extrapolated from an early ~250-tag sample to ~7.1k tags (order-of-magnitude):
 
 | Use | Tier | Notes |
 | --- | --- | --- |
-| Online play | 64 kbps Opus | Lazy fetch on first play per part |
+| Online play (Opus-capable) | 64 kbps Opus | Lazy fetch on first play per part |
+| Online play (Safari / no native Opus) | **Opus** + WASM / session WAV | Original only if WASM failed to load |
 | User download | Original | Upgrades device cache to Original |
-| Offline pack | 16 kbps mono solos + mix formula (or ultra stereo / mix for demoted tags) | Manifests from `build_offline_manifest.py` |
-| Original playback | Original in cache only | After download or prior fetch |
+| Offline pack | 16 kbps mono solos + mix formula (or ultra stereo / mix for demoted tags) | **Opus as published**; Safari plays via **WASM** + optional session Opus→WAV |
+| Favorites / starred | Published Opus as-is (or on-device encode **to** Opus when tiers missing) | Same Safari path |
+| Original playback offline | Original in cache only | After download or prior fetch |
 
 Full client/encoder rules: [audio-storage-cache.md](audio-storage-cache.md).
 
 ### On-device compression (legacy fallback)
 
-When metadata has **no** `audio_tiers`, starring may still re-encode hosted originals on device. When publish tiers exist (current catalog), prefs select Original / Playback / Ultra paths via `web/src/lib/audioTiers.ts` and `resolveMedia.ts`.
+When metadata has **no** `audio_tiers`, starring may still re-encode hosted originals **to Opus** on device for size. When publish tiers exist (current catalog), the client stores published Opus paths as-is (`compactAudio.ts`) — it does **not** convert Opus → AAC for Safari storage. Offline Safari therefore relies on `opusWasmDecode` / `decodeLock` / session `opusPlayable` Opus→WAV for pack and favorites Opus blobs — **WebAssembly is supported in Safari**; Original downloads are not required for offline play.
 
 **Cull quality upgrades** (Settings → Advanced → Storage): clears PDF rasters and warmed HQ blobs while keeping WebP + ultra packs (`cacheManage.ts`).
 

@@ -78,7 +78,14 @@ function roleTitle(label: string | null): string {
       >
         Hear
       </button>
-      <template v-if="ctx.kind === 'gap' && !ctx.pillarLabel">
+      <template
+        v-if="
+          ctx.kind === 'gap' &&
+          !ctx.pillarLabel &&
+          ctx.softHomeSource !== 'sketch' &&
+          ctx.softHomeSource !== 'detected'
+        "
+      >
         <button
           type="button"
           class="btn primary"
@@ -132,7 +139,7 @@ function roleTitle(label: string | null): string {
   background: color-mix(in srgb, #5b3d8f 22%, transparent);
 }
 .role {
-  background: color-mix(in srgb, #1d6a9f 22%, transparent);
+  background: color-mix(in srgb, #0f6b5c 22%, transparent);
 }
 .fn {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
