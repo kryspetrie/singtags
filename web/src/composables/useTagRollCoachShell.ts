@@ -18,7 +18,6 @@ import {
 } from '../lib/arranging/coachPopout'
 import type { CoachTransportView } from './useCoachTransport'
 import type { ChordEditDockSession } from './useTagRollChordEditDock'
-import { usePreferencesStore } from '../stores/preferences'
 import { useTagRollStore } from '../stores/tagRoll'
 
 export function useTagRollCoachShell(opts: {
@@ -32,8 +31,7 @@ export function useTagRollCoachShell(opts: {
   /** Pop-out → main: update roll transport mirror. */
   onRemoteTransportState?: (active: boolean, model: CoachTransportView | null) => void
 }) {
-  const prefs = usePreferencesStore()
-const tagStore = useTagRollStore()
+  const tagStore = useTagRollStore()
   const coachOpen = ref(false)
   /** Which dock is currently in a detached pop-out window (main only). */
   const detachedKind = ref<RightDockKind | null>(null)

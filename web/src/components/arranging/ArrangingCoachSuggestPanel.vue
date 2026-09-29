@@ -131,7 +131,6 @@ function onCounterpartHoldStart(e: PointerEvent): void {
 const cadenceLearnOpen = ref(false)
 const planTeach = ref<CadenceSuggestion | null>(null)
 const moreOpen = ref(false)
-const moreWrapRef = ref<HTMLElement | null>(null)
 
 function onFillEmpties(): void {
   moreOpen.value = false
@@ -251,7 +250,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
         >
           {{ whyOpen ? 'Hide Why?' : 'Why?' }}
         </button>
-        <div ref="moreWrapRef" class="more-wrap">
+        <div class="more-wrap">
           <button
             type="button"
             class="more-btn"

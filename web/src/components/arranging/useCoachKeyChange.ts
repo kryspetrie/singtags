@@ -66,7 +66,7 @@ export function useCoachKeyChange(opts?: {
   const melodyNotes = computed(() => {
     const p = tagStore.current
     if (!p) return []
-    const leadId = p.parts.find((x) => x.role === 'lead')?.id
+    const leadId = p.parts.find((x) => x.name === 'Lead')?.id
     return p.notes
       .filter((n) => (leadId ? n.partId === leadId : true))
       .filter((n) => n.startTick >= span.value.startTick && n.startTick < span.value.endTick)

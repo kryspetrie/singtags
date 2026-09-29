@@ -35,7 +35,7 @@ function chordTonePcs(rootPc: number, natureId: string): Set<number> {
 }
 
 function stepAtTick(
-  path: ModulationPath,
+  _path: ModulationPath,
   packedStarts: readonly number[],
   packedEnds: readonly number[],
   tick: number,

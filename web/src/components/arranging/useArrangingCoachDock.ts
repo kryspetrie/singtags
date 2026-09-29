@@ -24,7 +24,7 @@ import {
   resolveCoachNextAction,
   type CoachFocusTab,
 } from '../../domain/arranging/nextCoachAction'
-import { melodyGapsOutsidePillars, pillarAtTick } from '../../domain/arranging/pillars'
+import { melodyGapsOutsidePillars } from '../../domain/arranging/pillars'
 import type { ArrangementLint } from '../../domain/arranging/qa'
 import { canApplyFix } from '../../application/arranging/ApplyFix'
 import { whyViewForCandidate } from '../../application/arranging/CandidateWhy'
@@ -123,7 +123,7 @@ export function useArrangingCoachDock(
   let coachPreview = services.createAudioPreview()
   const stackHear = createCoachStackHear({
     getPreview: () => coachPreview,
-    isTransportPlaying: () => !!audio.isTransportPlaying?.(),
+    isTransportPlaying: () => !!audio?.isTransportPlaying?.(),
   })
   const syncing = ref(false)
   const phase = ref<'pillars' | 'walk'>('pillars')
