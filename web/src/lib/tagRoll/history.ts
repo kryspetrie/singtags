@@ -28,6 +28,10 @@ export const TAG_ROLL_HISTORY_LIMIT = 80
 
 export type TagRollDocumentSnapshot = {
   title: string
+  subtitle: string
+  composer: string
+  arranger: string
+  sheetNote: string
   bpm: number
   snapTicks: number
   lengthTicks: number
@@ -58,6 +62,10 @@ export type TagRollDocumentSnapshot = {
 export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnapshot {
   return {
     title: p.title,
+    subtitle: p.subtitle ?? '',
+    composer: p.composer ?? '',
+    arranger: p.arranger ?? '',
+    sheetNote: p.sheetNote ?? '',
     bpm: p.bpm,
     snapTicks: p.snapTicks,
     lengthTicks: p.lengthTicks,
@@ -115,6 +123,10 @@ export function applyDocumentSnapshot(
   return {
     ...p,
     title: snap.title,
+    subtitle: snap.subtitle ?? '',
+    composer: snap.composer ?? '',
+    arranger: snap.arranger ?? '',
+    sheetNote: snap.sheetNote ?? '',
     bpm,
     snapTicks: snap.snapTicks,
     lengthTicks: snap.lengthTicks,

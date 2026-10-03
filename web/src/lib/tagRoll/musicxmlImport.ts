@@ -336,6 +336,10 @@ function buildProjectFromStreams(
   streams: { nameHint: string; notes: RawNote[] }[],
   meta: {
     title: string
+    subtitle?: string
+    composer?: string
+    arranger?: string
+    sheetNote?: string
     bpm: number
     timeSig: TagRollTimeSignature
     tonality: number
@@ -374,6 +378,10 @@ function buildProjectFromStreams(
     ...base,
     id: newTagRollProjectId(),
     title: meta.title,
+    subtitle: meta.subtitle ?? '',
+    composer: meta.composer ?? '',
+    arranger: meta.arranger ?? '',
+    sheetNote: meta.sheetNote ?? '',
     bpm: meta.bpm,
     timeSignature: meta.timeSig,
     tempoMarkers: createDefaultTempoMarkers(meta.bpm),
@@ -420,10 +428,37 @@ export function parseTagRollMusicXml(xmlText: string): MusicXmlImportResult {
     }
   }
 
-  const title =
-    text(doc.querySelector('work-title')) ||
-    text(doc.querySelector('movement-title')) ||
-    'Imported MusicXML'
+  const workTitle = text(doc.querySelector('work-title'))
+  const movementTitle = text(doc.querySelector('movement-title'))
+  const title = workTitle || movementTitle || 'Imported MusicXML'
+  const subtitle = workTitle && movementTitle && movementTitle !== workTitle ? movementTitle : ''
+
+  let composer = ''
+  let arranger = ''
+  for (const el of Array.from(doc.querySelectorAll('identification creator'))) {
+    const type = (el.getAttribute('type') || '').toLowerCase()
+    const val = text(el)
+    if (!val) continue
+    if (type === 'arranger') {
+      if (!arranger) arranger = val
+    } else if (type === 'composer' || type === '') {
+      if (!composer) composer = val
+    }
+  }
+
+  let sheetNote = ''
+  for (const credit of Array.from(doc.querySelectorAll('credit'))) {
+    const types = Array.from(credit.querySelectorAll('credit-type')).map((t) =>
+      text(t).toLowerCase(),
+    )
+    if (types.includes('footer') || types.includes('note')) {
+      const words = text(credit.querySelector('credit-words'))
+      if (words) {
+        sheetNote = words
+        break
+      }
+    }
+  }
 
   const partList = child(root, 'part-list')
   const scoreParts = partList ? children(partList, 'score-part') : []
@@ -461,7 +496,18 @@ export function parseTagRollMusicXml(xmlText: string): MusicXmlImportResult {
   }
 
   const { tonality, preferFlats } = fifthsToTonality(fifths)
-  const meta = { title, bpm, timeSig, tonality, preferFlats, mode }
+  const meta = {
+    title,
+    subtitle,
+    composer,
+    arranger,
+    sheetNote,
+    bpm,
+    timeSig,
+    tonality,
+    preferFlats,
+    mode,
+  }
 
   const explode =
     partLooksGrandStaff(parsed[0]!) ||

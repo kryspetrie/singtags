@@ -2,7 +2,7 @@
 /**
  * Compact Coach lane — Ring / VL / Issues toggles + [i] help for the active view.
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { pcName } from '../../domain/arranging/chords/chords'
 import { melodyGapsOutsidePillars } from '../../domain/arranging/pillars'
 import { buildHarmonicMoments } from '../../domain/arranging/harmonicMoments'
@@ -28,6 +28,7 @@ import { ensureHarmonizeCoachSession } from '../../composables/useHarmonizeCoach
 import { useArrangementStore } from '../../stores/arrangement'
 import { usePreferencesStore } from '../../stores/preferences'
 import TagRollBottomLaneShell from '../tagRoll/TagRollBottomLaneShell.vue'
+import InfoTips from '../InfoTips.vue'
 
 const LANE_H = 64
 const BAND_H = 14
@@ -50,9 +51,6 @@ const prefs = usePreferencesStore()
 
 const collapsed = computed(() => prefs.tagRollCoachLaneCollapsed)
 const lens = ref<CoachLaneLens>('ring')
-const infoOpen = ref(false)
-const infoBtnRef = ref<HTMLButtonElement | null>(null)
-const infoPopStyle = ref<Record<string, string>>({})
 const highlight = ref<CoachHighlight | null>(null)
 let unsubHl: (() => void) | null = null
 
@@ -61,7 +59,6 @@ const lensViewOptions = COACH_LANE_LENSES.map((l) => ({ value: l.id, label: l.la
 function onLensView(v: string): void {
   if (COACH_LANE_LENSES.some((l) => l.id === v)) {
     lens.value = v as CoachLaneLens
-    infoOpen.value = false
   }
 }
 
@@ -127,28 +124,6 @@ function projectSyncKey(p: TagRollProject): string {
     .map((s) => `${s.startTick}:${s.endTick}:${s.rootPc}:${s.locked ? 1 : 0}`)
     .join('|')
   return `${p.id}:${p.tonality}:${p.tonalityMode ?? 'major'}:${h}:${sketch}`
-}
-
-function placeInfoPop(): void {
-  const btn = infoBtnRef.value
-  if (!btn) return
-  const r = btn.getBoundingClientRect()
-  const maxW = Math.min(288, window.innerWidth - 16)
-  let left = r.left
-  if (left + maxW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - maxW)
-  infoPopStyle.value = {
-    left: `${left}px`,
-    bottom: `${Math.max(8, window.innerHeight - r.top + 8)}px`,
-    width: `${maxW}px`,
-  }
-}
-
-async function toggleInfo(): Promise<void> {
-  infoOpen.value = !infoOpen.value
-  if (infoOpen.value) {
-    await nextTick()
-    placeInfoPop()
-  }
 }
 
 async function onPropose(): Promise<void> {
@@ -360,7 +335,6 @@ function selectMomentMarker(m: CoachLaneMarker): void {
 
 function onPointer(e: PointerEvent): void {
   emit('openPanel')
-  infoOpen.value = false
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
   const x = e.clientX - rect.left
@@ -414,14 +388,12 @@ onMounted(() => {
     highlight.value = h
     draw()
   })
-  window.addEventListener('resize', onWinResize)
   void syncCoachLaneSession().then(() => draw())
   draw()
 })
 onUnmounted(() => {
   ro?.disconnect()
   unsubHl?.()
-  window.removeEventListener('resize', onWinResize)
 })
 
 watch(
@@ -447,14 +419,6 @@ watch(
   () => draw(),
   { deep: true },
 )
-
-watch(lens, () => {
-  if (infoOpen.value) void nextTick(() => placeInfoPop())
-})
-
-function onWinResize(): void {
-  if (infoOpen.value) placeInfoPop()
-}
 </script>
 
 <template>
@@ -479,35 +443,18 @@ function onWinResize(): void {
         Propose
       </button>
       <div class="gutter-tools">
-        <button
-          ref="infoBtnRef"
-          type="button"
-          class="info-btn"
-          :class="{ on: infoOpen }"
-          :aria-pressed="infoOpen"
-          :aria-label="`About ${lensLabel} view`"
+        <InfoTips
+          class="lane-info"
+          :label="`About ${lensLabel} view`"
           :title="`About ${lensLabel} view`"
-          @click.stop="toggleInfo"
         >
-          i
-        </button>
+          <strong>{{ lensLabel }}</strong>
+          <p>{{ lensInfo }}</p>
+        </InfoTips>
         <span class="gutter-legend" :title="hoverLabel || lensLabel">
           {{ hoverLabel || lensLabel }}
         </span>
       </div>
-      <Teleport to="body">
-        <aside
-          v-if="infoOpen"
-          class="coach-lane-info-pop"
-          role="status"
-          :style="infoPopStyle"
-          @pointerdown.stop
-        >
-          <strong>{{ lensLabel }}</strong>
-          <p>{{ lensInfo }}</p>
-          <button type="button" class="info-close" @click.stop="infoOpen = false">Close</button>
-        </aside>
-      </Teleport>
     </template>
     <div ref="wrapRef" class="lane-wrap" @pointerdown="emit('openPanel')">
       <canvas
@@ -544,25 +491,12 @@ function onWinResize(): void {
   align-items: center;
   min-width: 0;
 }
-.info-btn {
+.lane-info :deep(.info-tips-btn) {
   width: 1.3rem;
   height: 1.3rem;
+  min-width: 1.3rem;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
   font-size: 0.72rem;
-  font-weight: 750;
-  font-style: italic;
-  line-height: 1;
-  cursor: pointer;
-}
-.info-btn.on {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 .gutter-legend {
   font-size: 0.6rem;
@@ -590,43 +524,5 @@ function onWinResize(): void {
   width: 100%;
   height: 64px;
   cursor: pointer;
-}
-</style>
-
-<style>
-.coach-lane-info-pop {
-  position: fixed;
-  z-index: 80;
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface) 96%, var(--bg));
-  box-shadow: 0 6px 18px color-mix(in srgb, #000 16%, transparent);
-  color: var(--text);
-}
-.coach-lane-info-pop strong {
-  font-size: 0.75rem;
-  font-weight: 750;
-}
-.coach-lane-info-pop p {
-  margin: 0;
-  font-size: 0.72rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-.coach-lane-info-pop .info-close {
-  justify-self: start;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--accent, #0f6b5c);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 650;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 </style>

@@ -131,9 +131,9 @@ export function useCoachGuidedAndReview(opts: {
     if (note) tagStore.setNoteRole(note.id, role)
   }
 
-  function selectGuidedStep(id: GuidedStepId): void {
+  function selectGuidedStep(id: GuidedStepId, optsExtra?: { persist?: boolean }): void {
     guidedStepOverride.value = id
-    prefs.setTagRollCoachGuidedStep(id)
+    if (optsExtra?.persist !== false) prefs.setTagRollCoachGuidedStep(id)
     applyStepChrome(id)
     const p = arrStore.current
     if (p) {
@@ -215,7 +215,7 @@ export function useCoachGuidedAndReview(opts: {
 
   const unbindUiIntent = subscribeCoachUiIntent((intent) => {
     if (intent.type === 'openCheck') selectGuidedStep('check')
-    else if (intent.type === 'openChoose') selectGuidedStep('chords')
+    else if (intent.type === 'openChoose') selectGuidedStep('chords', { persist: false })
   })
 
   onUnmounted(() => {

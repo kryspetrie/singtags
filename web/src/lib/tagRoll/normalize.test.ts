@@ -65,6 +65,73 @@ describe('tagRoll normalize', () => {
     expect(normalizeTagRollProject(legacy)!.view.scoreSurface).toBe('roll')
   })
 
+  it('normalizes sheet metadata and sheetLayout', () => {
+    const p = createEmptyTagRollProject()
+    expect(p.subtitle).toBe('')
+    expect(p.composer).toBe('')
+    expect(p.arranger).toBe('')
+    expect(p.sheetNote).toBe('')
+    expect(p.view.sheetLayout).toBe('continuous')
+    expect(p.view.sheetMeasureSizing).toBe('equal')
+    expect(p.view.sheetNoteColors).toBe(true)
+    expect(p.view.sheetStaveGap).toBe('tight')
+    expect(p.view.sheetMeasureScale).toBe(1)
+    expect(p.view.sheetNoteSpacing).toBe(1)
+    expect(p.view.sheetBeatStretch).toBe(1)
+    expect(p.view.sheetStaveGapFine).toBe(0.85)
+    expect(p.view.sheetSystemGap).toBe(0.65)
+    expect(p.view.sheetMarginLeftIn).toBe(0.3)
+    expect(p.view.sheetEngravingScale).toBe(0.9)
+    expect(p.view.sheetPlaybackHighlight).toBe(true)
+    expect(p.view.sheetLyricOffsets).toEqual({})
+    expect(p.view.sheetPageWidthIn).toBe(8.5)
+    const leadId = p.parts.find((part) => part.name === 'Lead')!.id
+    const n = normalizeTagRollProject({
+      ...p,
+      subtitle: '  Sub  ',
+      composer: 'C',
+      arranger: 'A',
+      sheetNote: 'Foot',
+      view: {
+        ...p.view,
+        sheetLayout: 'page',
+        sheetMeasureSizing: 'dynamic',
+        sheetNoteColors: false,
+        sheetStaveGap: 'wide',
+        sheetMeasureScale: 1.25,
+        sheetNoteSpacing: 1.4,
+        sheetLyricOffsets: { [leadId]: 2.5, gone: 3, bad: 'x' },
+      },
+    })
+    expect(n!.subtitle).toBe('Sub')
+    expect(n!.composer).toBe('C')
+    expect(n!.arranger).toBe('A')
+    expect(n!.sheetNote).toBe('Foot')
+    expect(n!.view.sheetLayout).toBe('page')
+    expect(n!.view.sheetMeasureSizing).toBe('dynamic')
+    expect(n!.view.sheetNoteColors).toBe(false)
+    expect(n!.view.sheetLyricOffsets).toEqual({ [leadId]: 2.5 })
+    expect(n!.view.sheetStaveGap).toBe('wide')
+    expect(n!.view.sheetMeasureScale).toBe(1.25)
+    expect(n!.view.sheetNoteSpacing).toBe(1.4)
+    // Legacy compressed → continuous + dynamic (when sizing omitted)
+    const { sheetMeasureSizing: _omit, ...viewSansSizing } = p.view
+    const legacy = normalizeTagRollProject({
+      ...p,
+      view: { ...viewSansSizing, sheetLayout: 'compressed' as 'continuous' },
+    })!
+    expect(legacy.view.sheetLayout).toBe('continuous')
+    expect(legacy.view.sheetMeasureSizing).toBe('dynamic')
+    expect(
+      normalizeTagRollProject({ ...p, view: { ...p.view, sheetLayout: 'nope' as 'continuous' } })!
+        .view.sheetLayout,
+    ).toBe('continuous')
+    expect(
+      normalizeTagRollProject({ ...p, view: { ...p.view, sheetStaveGap: 'nope' as 'normal' } })!
+        .view.sheetStaveGap,
+    ).toBe('normal')
+  })
+
   it('round-trips through normalize', () => {
     const p = createEmptyTagRollProject()
     p.notes.push({

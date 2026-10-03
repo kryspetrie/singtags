@@ -7,7 +7,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import EmptyState from '../components/EmptyState.vue'
 import SheetViewer from '../components/SheetViewer.vue'
 import { useQueueStore } from '../stores/queue'
-import { MAX_QUEUE_TRACKS } from '../download/zip'
+import { MAX_QUEUE_TRACKS } from '../download/zipTypes'
 
 describe('EmptyState', () => {
   it('renders title and message', () => {

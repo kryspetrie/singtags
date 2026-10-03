@@ -39,7 +39,8 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
     body: 'Tabs under the action row switch how you choose chords:',
     steps: [
       'Pick — MuseScore-style catalog (free choice).',
-      'Suggest — same chord chips as Pick, ordered and colored by Coach ranks for this melody note. Uses a pillar when present; otherwise Sketch, Detected, or implied harmony. Hold to hear, then Apply.',
+      'Suggest — same chips, ranked by Coach for the harmonic moment under the playhead (held Lead posts use the stack onset, not the Lead attack). Prev/Next steps moments. Apply writes Sketch/Stack for that moment window.',
+      'Apply respects Sketch vs Stack. Open in Coach jumps to Choose for the selected chord (Why / alts / cadences).',
     ],
   },
   {
@@ -129,7 +130,7 @@ export const HARMONY_STRIP_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Pillars on Sketch / Detected',
     body:
-      'Pillars are structural home roots — phrase destinations Coach and Detected lean on. They live on the harmony lanes, not as a Coach page.',
+      'A pillar is a structural chord under a phrase — the big block harmony (I, V7, …), not every passing color. Prefer the Harmony strip on the roll (root + quality). Coach Pillars lock roots that sync into that sketch.',
     steps: [
       'On Sketch: Alt+click a chord or its ◆ badge to mark / clear a pillar (dock Pillar does the same).',
       'On Detected: ◆ / Alt+click locks that hole into Sketch as a pillar — no need to open Sketch first.',
@@ -149,7 +150,7 @@ export const HARMONY_STRIP_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Hearing the map',
     body:
-      'Open a Sketch or Detected cell → hold a chord to hear, then ✓ to Apply/declare (↺ resets to the original; ✕ cancels). The Sketch lane shows a dashed preview before Apply; Play hears that preview. Press J for the sketch chord at the playhead. Mixer Sketch plays locked Sketch under Lead; mixer Detected (muted by default — solo it) plays hole-fill guesses.',
+      'Open a Sketch or Detected cell → hold a chord to hear, then ✓ to Apply/declare (↺ resets to the original; ✕ cancels). The Sketch lane shows a dashed preview before Apply; Play hears that preview. Press J for the sketch chord at the playhead. When an arrangement already has chords, Mixer Sketch and Detected open muted so written parts are the default listen path — unmute or solo to audition the map/guesses.',
   },
   {
     title: 'With Harmonize / Coach',

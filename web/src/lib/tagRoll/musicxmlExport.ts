@@ -388,12 +388,28 @@ export function exportTagRollMusicXml(project: TagRollProject): Uint8Array {
     .join('')
 
   const title = esc(project.title || 'Tag Studio')
+  const subtitle = esc(project.subtitle || '')
+  const composer = esc(project.composer || '')
+  const arranger = esc(project.arranger || '')
+  const sheetNote = esc(project.sheetNote || '')
+  const creators =
+    (composer ? `<creator type="composer">${composer}</creator>` : '') +
+    (arranger ? `<creator type="arranger">${arranger}</creator>` : '')
+  const credit =
+    sheetNote
+      ? `<credit page="1"><credit-type>footer</credit-type><credit-words>${sheetNote}</credit-words></credit>`
+      : ''
   const xml =
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">` +
     `<score-partwise version="3.1">` +
     `<work><work-title>${title}</work-title></work>` +
-    `<identification><encoding><software>SingTags Tag Studio</software></encoding></identification>` +
+    (subtitle ? `<movement-title>${subtitle}</movement-title>` : '') +
+    `<identification>` +
+    (creators || '') +
+    `<encoding><software>SingTags Tag Studio</software></encoding>` +
+    `</identification>` +
+    credit +
     `<part-list>${partList}</part-list>` +
     partsXml +
     `</score-partwise>`

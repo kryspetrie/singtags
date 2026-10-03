@@ -1,4 +1,4 @@
-import { normalizeSheetPianoHeightPx, normalizeSheetPianoKeyScale } from '../../audio/pitchPlayer'
+import { normalizeSheetPianoHeightPx, normalizeSheetPianoKeyScale } from '../../audio/pitchUiLabels'
 import {
   SHEET_FS_PAGE_MODE_KEY,
   SHEET_PIANO_HEIGHT_KEY,

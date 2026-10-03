@@ -58,6 +58,35 @@ describe('parseTagRollMusicXml', () => {
     expect(r.project.view.melodyPartId).toBe(r.project.parts.find((p) => p.name === 'Lead')!.id)
   })
 
+  it('reads subtitle, credits, and footer note', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work><work-title>Main</work-title></work>
+  <movement-title>Subline</movement-title>
+  <identification>
+    <creator type="composer">Comp</creator>
+    <creator type="arranger">Arr</creator>
+  </identification>
+  <credit page="1"><credit-type>footer</credit-type><credit-words>Foot</credit-words></credit>
+  <part-list>
+    <score-part id="P1"><part-name>Lead</part-name></score-part>
+  </part-list>
+  <part id="P1"><measure number="1">
+    <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+    <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type></note>
+  </measure></part>
+</score-partwise>`
+    const r = parseTagRollMusicXml(xml)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.project.title).toBe('Main')
+    expect(r.project.subtitle).toBe('Subline')
+    expect(r.project.composer).toBe('Comp')
+    expect(r.project.arranger).toBe('Arr')
+    expect(r.project.sheetNote).toBe('Foot')
+  })
+
   it('explodes grand-staff 2+2 voices into Tenor/Lead/Bari/Bass', () => {
     const xml = partwise(`
       <part-list>

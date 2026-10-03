@@ -23,6 +23,16 @@ const fea = (detail: string): SourceCitation => ({
   label: 'Product limits',
   detail,
 })
+const lloyd = (detail: string): SourceCitation => ({
+  sourceId: 'lloyd',
+  label: 'Lloyd ranges & ensembles',
+  detail,
+})
+const flinn = (detail: string): SourceCitation => ({
+  sourceId: 'flinn',
+  label: 'Flinn 11 BBS chords',
+  detail,
+})
 
 export const GLOSSARY: readonly GlossaryEntry[] = [
   {
@@ -91,10 +101,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: 'Eleven chords of barbershop',
     short:
       'Contest vocabulary: six major, three minor, and two symmetrical natures — major, BS7, and Dom9 carry most of the style.',
-    citations: [
-      ryl('11 chords'),
-      { sourceId: 'flinn', label: 'Flinn 11 BBS chords', detail: 'Travel in Tune Region 17, 2020' },
-    ],
+    citations: [ryl('11 chords'), flinn('Travel in Tune Region 17, 2020')],
   },
   {
     id: 'springboard',
@@ -204,6 +211,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: 'Classic cadences',
     short: 'Textbook barbershop closes and highways: V7→I, II7→V7→I, I7→IV, plagal IV→I, tag penultimate V7.',
     citations: [bam('harmony'), pri('cadences')],
+  },
+  {
+    id: 'voicing_spread',
+    term: 'Close / medium / wide',
+    short:
+      'Gender-agnostic spacing labels: close keeps bari often above Lead; wide sits bari below Lead with fewer tight clusters. Match density to the ensemble.',
+    citations: [lloyd('ranges & ensembles'), bam('voicing')],
   },
 ]
 
@@ -316,12 +330,9 @@ export const LESSONS: readonly LessonCard[] = [
     id: 'L-eleven-chords',
     title: 'The eleven chords of barbershop',
     body:
-      'Stay inside the contest eleven: major family (triad, BS7, Dom9, 6, M7, add9), minor family (m, m6, m7), and symmetrical (aug, dim7). Major, BS7, and Dom9 dominate the sound.',
+      'Stay inside the contest eleven: major family (triad, BS7, Dom9, 6, M7, add9), minor family (m, m6, m7), and symmetrical (aug, dim7).\n\n>> Of the eleven, major / BS7 / Dom9 predominate. | Flinn · 11 BBS chords',
     glossaryIds: ['eleven_chords', 'bs7', 'omit_5', 'lock_ring'],
-    citations: [
-      ryl('11 chords'),
-      { sourceId: 'flinn', label: 'Flinn 11 BBS chords', detail: '2020 handout' },
-    ],
+    citations: [ryl('11 chords'), flinn('2020 handout')],
   },
   {
     id: 'L-R1r',
@@ -407,9 +418,18 @@ export const LESSONS: readonly LessonCard[] = [
     id: 'L-dom9',
     lintRuleId: 'thin-ninth',
     title: 'Dom9 omit choice',
-    body: 'A dominant ninth has five pitch classes. Prietto/BAM often omit the root (bass on 5th); Rylander often omits the 5th (bass on root). Always keep 3, ♭7, and 9.',
+    body:
+      'A dominant ninth has five pitch classes.\n\n> Dom9 omit choice: Prietto/BAM often omit the root (bass on 5th); Rylander often omits the 5th (bass on root). Always keep 3, ♭7, and 9.',
     glossaryIds: ['omit_5', 'bs7'],
     citations: [pri('Dom9 voicing'), ryl('ninth')],
+  },
+  {
+    id: 'L-voicing-spread',
+    title: 'Close / medium / wide spacing',
+    body:
+      'Match chart density to the voices you have.\n\n> Close spreads keep bari often above Lead; wide spreads sit bari below Lead with fewer tight clusters.',
+    glossaryIds: ['voicing_spread', 'ttbb', 'harmonic_series_spacing'],
+    citations: [lloyd('ranges & ensembles'), bam('voicing')],
   },
   {
     id: 'L-doubles',

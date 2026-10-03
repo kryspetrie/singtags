@@ -11,7 +11,7 @@ import {
   downloadFormatLabel,
   type UserDownloadFormat,
 } from '../types/audio'
-import { normalizeZipLayout, type ZipLayout } from '../download/zip'
+import { normalizeZipLayout, type ZipLayout } from '../download/zipTypes'
 
 const queue = useQueueStore()
 const { offline } = useOnline()

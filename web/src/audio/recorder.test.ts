@@ -187,6 +187,11 @@ describe('recorderCapture mime pick', () => {
   })
 
   it('prefers supported mime', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      vendor: 'Google Inc.',
+    })
     vi.stubGlobal(
       'MediaRecorder',
       class {
@@ -196,6 +201,43 @@ describe('recorderCapture mime pick', () => {
       },
     )
     expect(pickSupportedRecorderMime('audio/mp4')).toBe('audio/webm')
+    vi.unstubAllGlobals()
+  })
+
+  it('prefers MP4 over WebM on Safari even when WebM isTypeSupported', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15',
+      vendor: 'Apple Computer, Inc.',
+    })
+    vi.stubGlobal(
+      'MediaRecorder',
+      class {
+        static isTypeSupported(m: string) {
+          return m === 'audio/webm;codecs=opus' || m === 'audio/mp4'
+        }
+      },
+    )
+    expect(pickSupportedRecorderMime('audio/webm;codecs=opus')).toBe('audio/mp4')
+    expect(pickSupportedRecorderMime()).toBe('audio/mp4')
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps WebM first on Chromium', () => {
+    vi.stubGlobal('navigator', {
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      vendor: 'Google Inc.',
+    })
+    vi.stubGlobal(
+      'MediaRecorder',
+      class {
+        static isTypeSupported(m: string) {
+          return m === 'audio/webm;codecs=opus' || m === 'audio/mp4'
+        }
+      },
+    )
+    expect(pickSupportedRecorderMime()).toBe('audio/webm;codecs=opus')
     vi.unstubAllGlobals()
   })
 })

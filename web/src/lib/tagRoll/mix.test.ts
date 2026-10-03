@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyOpenMixDefaults,
   defaultMixForPart,
   isPartAudible,
   mixForPart,
+  projectHasDefinedChords,
   syncProjectMix,
 } from './mix'
 
@@ -59,5 +61,71 @@ describe('tagRoll mix', () => {
     )
     expect(isPartAudible('mix:harmony-detected', withSolo)).toBe(true)
     expect(isPartAudible('1', withSolo)).toBe(false)
+  })
+
+  it('projectHasDefinedChords detects locked sketch or non-melody notes', () => {
+    const parts = [
+      { id: 'lead', name: 'Lead' },
+      { id: 'bass', name: 'Bass' },
+    ]
+    expect(
+      projectHasDefinedChords({
+        parts,
+        notes: [{ partId: 'lead' }],
+        view: { melodyPartId: 'lead' },
+        harmonySketch: [],
+      }),
+    ).toBe(false)
+    expect(
+      projectHasDefinedChords({
+        parts,
+        notes: [{ partId: 'lead' }],
+        view: { melodyPartId: 'lead' },
+        harmonySketch: [{ locked: true }],
+      }),
+    ).toBe(true)
+    expect(
+      projectHasDefinedChords({
+        parts,
+        notes: [{ partId: 'lead' }, { partId: 'bass' }],
+        view: { melodyPartId: 'lead' },
+        harmonySketch: [],
+      }),
+    ).toBe(true)
+  })
+
+  it('applyOpenMixDefaults mutes Sketch+Detected when chords exist', () => {
+    const parts = [
+      { id: 'lead', name: 'Lead', color: '#000', midiGroup: 'upper' as const },
+      { id: 'bass', name: 'Bass', color: '#000', midiGroup: 'lower' as const },
+    ]
+    const unmuted = [
+      { partId: 'lead', volume: 1, pan: 0, mute: false, solo: false },
+      { partId: 'bass', volume: 1, pan: 0, mute: false, solo: false },
+      { partId: 'mix:harmony-sketch', volume: 0.6, pan: 0, mute: false, solo: true },
+      { partId: 'mix:harmony-detected', volume: 0.5, pan: 0, mute: false, solo: true },
+    ]
+    const withChords = applyOpenMixDefaults(parts, unmuted, {
+      parts,
+      notes: [{ partId: 'lead' }, { partId: 'bass' }],
+      view: { melodyPartId: 'lead' },
+      harmonySketch: [],
+    })
+    expect(withChords.find((m) => m.partId === 'mix:harmony-sketch')).toMatchObject({
+      mute: true,
+      solo: false,
+    })
+    expect(withChords.find((m) => m.partId === 'mix:harmony-detected')).toMatchObject({
+      mute: true,
+      solo: false,
+    })
+
+    const melodyOnly = applyOpenMixDefaults(parts, unmuted, {
+      parts,
+      notes: [{ partId: 'lead' }],
+      view: { melodyPartId: 'lead' },
+      harmonySketch: [],
+    })
+    expect(melodyOnly.find((m) => m.partId === 'mix:harmony-sketch')!.mute).toBe(false)
   })
 })

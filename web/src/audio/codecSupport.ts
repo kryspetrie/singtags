@@ -8,10 +8,22 @@
  */
 
 let oggOpusSupported: boolean | null = null
+let opusWasmUnavailable = false
 
 /** Reset cached detection (tests only). */
 export function resetCodecSupportForTests(): void {
   oggOpusSupported = null
+  opusWasmUnavailable = false
+}
+
+/** True when the Opus WASM module failed to load this session. */
+export function isOpusWasmUnavailable(): boolean {
+  return opusWasmUnavailable
+}
+
+/** Mark WASM Opus decode as unusable; online play may fall back to Original. */
+export function noteOpusWasmUnavailable(): void {
+  opusWasmUnavailable = true
 }
 
 /**

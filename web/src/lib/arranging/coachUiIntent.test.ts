@@ -29,4 +29,27 @@ describe('coachUiIntent', () => {
     expect(late).not.toHaveBeenCalled()
     offLate()
   })
+
+  it('fans pending openChoose with seed to co-mounted subscribers', async () => {
+    requestCoachUi({
+      type: 'openChoose',
+      tick: 480,
+      rootPc: 0,
+      natureId: 'major',
+      voicing: 'root',
+    })
+    const a = vi.fn()
+    const b = vi.fn()
+    const offA = subscribeCoachUiIntent(a)
+    const offB = subscribeCoachUiIntent(b)
+    expect(a).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'openChoose', tick: 480, natureId: 'major' }),
+    )
+    expect(b).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'openChoose', tick: 480, natureId: 'major' }),
+    )
+    offA()
+    offB()
+    await Promise.resolve()
+  })
 })

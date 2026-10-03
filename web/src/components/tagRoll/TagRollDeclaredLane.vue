@@ -20,6 +20,7 @@ import { SKETCH_LANE_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 import InfoTips from '../InfoTips.vue'
+import HarmonyHowToSections from './HarmonyHowToSections.vue'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
 
 const TRACK_H = 44
@@ -442,13 +443,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         label="How to use Sketch"
         title="How to use Sketch"
       >
-        <section v-for="sec in SKETCH_LANE_HOWTO" :key="sec.title" class="howto-sec">
-          <p><strong>{{ sec.title }}</strong></p>
-          <p>{{ sec.body }}</p>
-          <ol v-if="sec.steps?.length">
-            <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
-          </ol>
-        </section>
+        <HarmonyHowToSections :sections="SKETCH_LANE_HOWTO" />
       </InfoTips>
       <button
         v-else
@@ -623,15 +618,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   padding: 0;
   font-size: 0.72rem;
 }
-.howto-sec + .howto-sec {
-  margin-top: 0.55rem;
-  padding-top: 0.45rem;
-  border-top: 1px solid var(--border);
-}
-.howto-sec ol {
-  margin: 0.25rem 0 0;
-  padding-left: 1.1rem;
-}
+
 .track-wrap {
   flex: 1 1 auto;
   display: flex;

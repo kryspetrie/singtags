@@ -120,11 +120,18 @@ const myRating = computed(() => {
       </svg>
     </span>
   </span>
+  <!--
+    Browse/Roulette pass lyricsSnippet (string|null): always reserve one line so
+    late lyrics hydrate fades in without growing the card. Favorites/Recent omit
+    the prop and skip the slot entirely.
+  -->
   <span
-    v-if="lyricsSnippet"
+    v-if="lyricsSnippet !== undefined"
     class="lyrics-snip"
-    title="Lyrics match"
-  >{{ lyricsSnippet }}</span>
+    :class="{ ready: !!lyricsSnippet }"
+    :title="lyricsSnippet ? 'Lyrics' : undefined"
+    :aria-hidden="lyricsSnippet ? undefined : true"
+  >{{ lyricsSnippet || '\u00a0' }}</span>
 </template>
 
 <style scoped>
@@ -223,14 +230,26 @@ const myRating = computed(() => {
   display: block;
 }
 .lyrics-snip {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.35;
+  /* Fixed one-line box so virtualized rows don’t reflow when lyrics arrive. */
+  min-height: calc(0.86rem * 1.35);
   font-weight: 400;
   max-width: 42rem;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.lyrics-snip.ready {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lyrics-snip {
+    transition: none;
+  }
 }
 </style>

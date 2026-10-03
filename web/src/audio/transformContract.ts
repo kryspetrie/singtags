@@ -6,7 +6,7 @@
  * downgrade to coupled playbackRate on worker failure; no independent per-channel
  * stretch without stereo-image proof.
  */
-import { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, clampPitchSemitonesFractional } from './pitchPlayer'
+import { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES, clampPitchSemitonesFractional } from './pitchUiLabels'
 
 export { MIN_PITCH_SEMITONES, MAX_PITCH_SEMITONES }
 

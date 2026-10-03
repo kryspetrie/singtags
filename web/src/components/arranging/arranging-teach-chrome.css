@@ -1,0 +1,58 @@
+/* Shared Coach Learn button + Ideas/Help panel shell. */
+
+.teach-learn-btn {
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+  padding: 0.18rem 0.5rem;
+  min-height: 1.55rem;
+  line-height: 1.2;
+}
+
+.teach-learn-btn:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+
+.teach-panel-shell {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.55rem 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.teach-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.teach-panel-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 750;
+}
+
+.teach-panel-close {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  flex-shrink: 0;
+}

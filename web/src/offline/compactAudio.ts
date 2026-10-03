@@ -6,11 +6,10 @@
  */
 
 import { isNonAudioPayload } from '../audio/audioBytes'
-import { encodeDecodedBytes } from '../download/encode'
 import { isPublishedTierPath } from '../lib/audioTiers'
 import type { AudioEncodeQuality } from '../types/audio'
 import { HOSTED_AUDIO_MIME, usesOpusStorage } from '../types/audio'
-import { sampleUrl } from '../download/zip'
+import { mediaUrl } from '../lib/mediaUrl'
 
 /** Result of fetching (and optionally encoding) one audio file for local storage. */
 export interface CompactedAudio {
@@ -37,7 +36,7 @@ export async function fetchAudioForStorage(
   onLabel?: (label: string) => void,
 ): Promise<CompactedAudio | null> {
   try {
-    const res = await fetch(sampleUrl(path))
+    const res = await fetch(mediaUrl(path))
     if (!res.ok) return null
     const data = await res.arrayBuffer()
     if (isNonAudioPayload(data)) return null
@@ -49,6 +48,7 @@ export async function fetchAudioForStorage(
     }
 
     onLabel?.('Encoding Opus…')
+    const { encodeDecodedBytes } = await import('../download/encode')
     const encoded = await encodeDecodedBytes(new Uint8Array(data), 'ogg-opus', {
       quality: quality as Exclude<AudioEncodeQuality, 'original'>,
     })
@@ -113,6 +113,7 @@ export async function encodeBytesForStorage(
     return { bytes: data, mime }
   }
   try {
+    const { encodeDecodedBytes } = await import('../download/encode')
     const encoded = await encodeDecodedBytes(data, 'ogg-opus', {
       quality: quality as Exclude<AudioEncodeQuality, 'original'>,
     })

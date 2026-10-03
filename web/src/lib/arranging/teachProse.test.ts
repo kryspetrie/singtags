@@ -42,4 +42,28 @@ describe('parseTeachProse', () => {
       ],
     })
   })
+
+  it('parses callout and attributed epigraph lines', () => {
+    const blocks = parseTeachProse(
+      [
+        'Lead-in sentence.',
+        '',
+        '> Dom9 has five tones — omit root or fifth so TTBB can sing it.',
+        '',
+        '>> Of the eleven, major / BS7 / Dom9 predominate. | Flinn · 11 BBS chords',
+      ].join('\n'),
+    )
+    expect(blocks).toEqual([
+      { type: 'p', text: 'Lead-in sentence.' },
+      {
+        type: 'callout',
+        text: 'Dom9 has five tones — omit root or fifth so TTBB can sing it.',
+      },
+      {
+        type: 'epigraph',
+        text: 'Of the eleven, major / BS7 / Dom9 predominate.',
+        cite: 'Flinn · 11 BBS chords',
+      },
+    ])
+  })
 })

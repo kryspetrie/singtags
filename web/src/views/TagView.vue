@@ -4,7 +4,7 @@
  * Practice-set UI is gated off via PRACTICE_MODE_ENABLED.
  */
 import { bookletBadgeForTag, collectionLabel } from '../search/browse'
-import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { goTagBack, peekTagReturnOrigin, tagBackLabel } from '../lib/tagReturn'
 import { useCatalogStore } from '../stores/catalog'
@@ -16,16 +16,15 @@ import { PRACTICE_MODE_ENABLED } from '../lib/practiceMode'
 import { downloadableSheetAssets } from '../lib/sheetAssets'
 import { catalogOriginalPaths } from '../lib/audioTiers'
 import { downloadFormatLabel } from '../types/audio'
-import type { QueueTrack } from '../download/zip'
-import { PitchPlayer, formatKeyShiftLabel, formatRelativePitchLabel, keyToTonicNote, transposeKeyLabel, clampPitchSemitones } from '../audio/pitchPlayer'
+import type { QueueTrack } from '../download/zipTypes'
 import {
-  getActivePitchPipeVoice,
-  PITCH_PIPE_VOICE_CHANGE_EVENT,
-} from '../audio/pitchPipeVoice'
+  clampPitchSemitones,
+  formatKeyShiftLabel,
+  formatRelativePitchLabel,
+  keyToTonicNote,
+  transposeKeyLabel,
+} from '../audio/pitchUiLabels'
 import SheetViewer from '../components/SheetViewer.vue'
-import TagPlayer from '../components/TagPlayer.vue'
-import PitchControls from '../components/PitchControls.vue'
-import TagDownloads from '../components/TagDownloads.vue'
 import TagMyRating from '../components/TagMyRating.vue'
 import TagPageTitle from '../components/TagPageTitle.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -40,6 +39,27 @@ import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import TagShareSheet from '../components/TagShareSheet.vue'
+
+const TagPlayer = defineAsyncComponent(() => import('../components/TagPlayer.vue'))
+const PitchControls = defineAsyncComponent(() => import('../components/PitchControls.vue'))
+const TagDownloads = defineAsyncComponent(() => import('../components/TagDownloads.vue'))
+
+type PitchPlayerHandle = {
+  start: (note: string, detuneCents?: number) => Promise<void>
+  stop: (immediate?: boolean) => void
+  dispose: () => void
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  setVoice: (voice: any) => void
+}
+
+let pitchPlayerMod: typeof import('../audio/pitchPlayer') | null = null
+let pitchVoiceMod: typeof import('../audio/pitchPipeVoice') | null = null
+
+async function loadPitchModules() {
+  if (!pitchPlayerMod) pitchPlayerMod = await import('../audio/pitchPlayer')
+  if (!pitchVoiceMod) pitchVoiceMod = await import('../audio/pitchPipeVoice')
+  return { pitchPlayerMod, pitchVoiceMod }
+}
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -249,11 +269,25 @@ watch(error, (msg) => {
 })
 
 const keyShift = ref(0)
-const pitch = new PitchPlayer(getActivePitchPipeVoice())
+const pitch = ref<PitchPlayerHandle | null>(null)
 const playerTransform = ref<AudioTransform>({ pitchSemitones: 0, speed: 1 })
 const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
 const practiceDone = ref(false)
+
+async function ensurePitchPlayer(): Promise<PitchPlayerHandle> {
+  if (pitch.value) return pitch.value
+  const { pitchPlayerMod: ppm, pitchVoiceMod: pvm } = await loadPitchModules()
+  const instance = new ppm.PitchPlayer(pvm.getActivePitchPipeVoice())
+  pitch.value = instance
+  return instance
+}
+
+function onPitchPipeVoiceChange(): void {
+  void loadPitchModules().then(({ pitchVoiceMod: pvm }) => {
+    pitch.value?.setVoice(pvm.getActivePitchPipeVoice())
+  })
+}
 
 /** Absolute cents for pay-the-key and Mix: URL session wins over local global detune. */
 function fineDetuneForPayKey(): number {
@@ -349,18 +383,15 @@ watch(
 )
 
 onUnmounted(() => {
-  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+  window.removeEventListener('singtags:pitch-pipe-voice', onPitchPipeVoiceChange)
   cancelTagQueryPatches()
-  pitch.dispose()
+  pitch.value?.dispose()
+  pitch.value = null
   stopPlayerTick()
 })
 
-function syncPitchVoice(): void {
-  pitch.setVoice(getActivePitchPipeVoice())
-}
-
 if (typeof window !== 'undefined') {
-  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
+  window.addEventListener('singtags:pitch-pipe-voice', onPitchPipeVoiceChange)
 }
 
 watch(
@@ -636,11 +667,12 @@ async function payKeyDown(): Promise<void> {
   // Session `?detune=` (from QR/share) applies here without touching local prefs.
   const shiftCents = keyDisplay.value ? keyShift.value * 100 : 0
   const detuneCents = shiftCents + fineDetuneForPayKey()
-  await pitch.start(note, detuneCents)
+  const p = await ensurePitchPlayer()
+  await p.start(note, detuneCents)
 }
 
 function payKeyUp(): void {
-  pitch.stop(true)
+  pitch.value?.stop(true)
 }
 
 function addItemsToQueue(items: QueueTrack[]): void {

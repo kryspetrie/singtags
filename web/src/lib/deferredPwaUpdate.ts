@@ -15,6 +15,8 @@ type ScrollSnapshot = {
   path: string
   scrollY: number
   at: number
+  /** Only snapshots written by deferred SW apply may restore (ignore leftovers). */
+  source?: 'pwa-deferred-update'
 }
 
 type UpdateFn = (reloadPage?: boolean) => Promise<void>
@@ -48,6 +50,7 @@ export function saveScrollForPwaReload(): void {
     path: currentPath(),
     scrollY: window.scrollY || 0,
     at: Date.now(),
+    source: 'pwa-deferred-update',
   }
   try {
     sessionStorage.setItem(PWA_RELOAD_SCROLL_KEY, JSON.stringify(snap))
@@ -59,6 +62,8 @@ export function saveScrollForPwaReload(): void {
 /**
  * Restore window scroll after a deferred PWA reload (same path, fresh snapshot).
  * Retries a few frames so list layout can settle.
+ * Ignores snapshots that were not written by {@link saveScrollForPwaReload} so a
+ * stuck key cannot yank Browse mid-list on a normal refresh.
  */
 export function restoreScrollAfterPwaReload(): void {
   if (typeof sessionStorage === 'undefined' || typeof window === 'undefined') return
@@ -77,6 +82,8 @@ export function restoreScrollAfterPwaReload(): void {
     return
   }
   if (!snap || typeof snap.scrollY !== 'number') return
+  // Drop legacy / accidental keys — only explicit deferred-update saves restore.
+  if (snap.source !== 'pwa-deferred-update') return
   if (snap.path !== currentPath()) return
   if (Date.now() - (snap.at || 0) > 90_000) return
 

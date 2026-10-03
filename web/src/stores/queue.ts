@@ -1,6 +1,8 @@
 /**
  * Zip download queue: tracks selected audio/sheet parts, layout, and batch download progress.
  * Queue and zip layout persist in localStorage.
+ *
+ * Heavy zip/encode code loads only when {@link downloadZip} runs.
  */
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -9,8 +11,7 @@ import {
   normalizeZipLayout,
   type QueueTrack,
   type ZipLayout,
-  zipQueueTracks,
-} from '../download/zip'
+} from '../download/zipTypes'
 import type { AudioTransform, AudioEncodeQuality, DownloadFormat } from '../types/audio'
 import { encodeQualityForDownload, IDENTITY_TRANSFORM, normalizeDownloadFormat } from '../types/audio'
 
@@ -164,6 +165,7 @@ export const useQueueStore = defineStore('queue', () => {
     progress.value = { done: 0, total: tracks.value.length }
     abort = new AbortController()
     try {
+      const { zipQueueTracks } = await import('../download/zip')
       await zipQueueTracks(tracks.value, {
         onProgress: (done, total) => {
           progress.value = { done, total }
@@ -210,12 +212,12 @@ export const useQueueStore = defineStore('queue', () => {
     addMany,
     remove,
     clear,
-    downloadZip,
-    cancelZip,
     updateTrack,
     setFormat,
     setPlaybackTransform,
-    max: MAX_QUEUE_TRACKS,
+    downloadZip,
+    cancelZip,
     clearError,
+    max: MAX_QUEUE_TRACKS,
   }
 })

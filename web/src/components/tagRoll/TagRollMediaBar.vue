@@ -28,6 +28,7 @@ import { HARMONY_STRIP_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 import InfoTips from '../InfoTips.vue'
+import HarmonyHowToSections from './HarmonyHowToSections.vue'
 import TagRollApplyScopeDialog from '../TagRollApplyScopeDialog.vue'
 
 const props = defineProps<{
@@ -799,13 +800,7 @@ onUnmounted(() => {
             @click="prefs.toggleTagRollLane('coach')">Coach</button>
           <InfoTips class="lane-howto" label="How to use bottom lanes"
             title="Sketch, Detected, Mods, Coach, and Lyrics">
-            <section v-for="sec in HARMONY_STRIP_HOWTO" :key="sec.title" class="howto-sec">
-              <p><strong>{{ sec.title }}</strong></p>
-              <p>{{ sec.body }}</p>
-              <ol v-if="sec.steps?.length">
-                <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
-              </ol>
-            </section>
+            <HarmonyHowToSections :sections="HARMONY_STRIP_HOWTO" />
           </InfoTips>
         </div>
       </div>
@@ -944,15 +939,7 @@ onUnmounted(() => {
 .lane-howto :deep(.info-tips-btn) {
   width: 100%; min-height: 1.55rem; height: auto; font-size: 0.82rem;
 }
-.howto-sec + .howto-sec {
-  margin-top: 0.65rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--border);
-}
-.howto-sec ol {
-  margin: 0.35rem 0 0;
-  padding-left: 1.15rem;
-}
+
 .parts {
   display: inline-flex;
   align-items: center;

@@ -38,6 +38,7 @@ const props = defineProps<{
   marksOpen?: boolean
   partsOpen?: boolean
   coachOpen?: boolean
+  sheetFormatOpen?: boolean
   arrangingEnabled?: boolean
 }>()
 
@@ -56,6 +57,13 @@ const emit = defineEmits<{
   openMarks: []
   openParts: []
   openCoach: []
+  openSheetFormat: []
+  openSheetPrint: []
+  openSheetMetadata: []
+  exportSheetPng: []
+  exportSheetWebp: []
+  exportSheetPdf: []
+  exportSheetPdfVector: []
 }>()
 
 const store = useTagRollStore()
@@ -75,7 +83,6 @@ const exportOpen = ref(false)
 const inputOpen = ref(false)
 const insertBarOpen = ref(false)
 const settingsOpen = ref(false)
-
 function closeMenus(except?: 'export' | 'input' | 'insert' | 'settings'): void {
   if (except !== 'export') exportOpen.value = false
   if (except !== 'input') inputOpen.value = false
@@ -86,6 +93,9 @@ function closeMenus(except?: 'export' | 'input' | 'insert' | 'settings'): void {
 const project = computed(() => store.current)
 const mode = computed(() => project.value?.view.mode ?? 'compose')
 const isView = computed(() => mode.value === 'view')
+const isSheet = computed(
+  () => isView.value && project.value?.view.scoreSurface === 'sheet',
+)
 const harmonizeOpen = computed(() => !!props.harmonizeOpen)
 const keyChangeOpen = computed(() => !!props.keyChangeOpen)
 const tweaksOpen = computed(() => !!props.tweaksOpen)
@@ -93,6 +103,7 @@ const rolesOpen = computed(() => !!props.rolesOpen)
 const marksOpen = computed(() => !!props.marksOpen)
 const partsOpen = computed(() => !!props.partsOpen)
 const coachOpen = computed(() => !!props.coachOpen)
+const sheetFormatOpen = computed(() => !!props.sheetFormatOpen)
 const arrangingEnabled = computed(() => !!props.arrangingEnabled)
 const selectedNote = computed(() => store.selectedNote)
 
@@ -220,8 +231,8 @@ function onScoreSurface(surface: 'roll' | 'sheet'): void {
   store.setScoreSurface(surface)
 }
 
-function onSheetShowLyrics(e: Event): void {
-  store.setSheetShowLyrics((e.target as HTMLInputElement).checked)
+function onSheetLayout(layout: 'continuous' | 'page'): void {
+  store.setSheetLayout(layout)
 }
 
 function onExport(mode: 'one' | 'two' | 'all'): void {
@@ -418,19 +429,55 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <label
+      <div
         v-if="isView && project.view.scoreSurface === 'sheet'"
-        class="chk"
-        :title="tagRollTip('Show stacked lyrics under each staff')"
+        class="modes segment"
+        role="group"
+        aria-label="Sheet layout"
       >
-        <input
-          type="checkbox"
-          :checked="project.view.sheetShowLyrics !== false"
-          aria-label="Show sheet lyrics"
-          @change="onSheetShowLyrics"
-        />
-        <span>Lyrics</span>
-      </label>
+        <button
+          type="button"
+          class="seg-btn"
+          :class="{ on: (project.view.sheetLayout ?? 'continuous') === 'continuous' }"
+          :aria-pressed="(project.view.sheetLayout ?? 'continuous') === 'continuous'"
+          :title="tagRollTip('Continuous — one horizontal system strip')"
+          @click="onSheetLayout('continuous')"
+        >
+          Continuous
+        </button>
+        <button
+          type="button"
+          class="seg-btn"
+          :class="{ on: project.view.sheetLayout === 'page' }"
+          :aria-pressed="project.view.sheetLayout === 'page'"
+          :title="tagRollTip('Page — wrap systems onto Letter (or custom) pages')"
+          @click="onSheetLayout('page')"
+        >
+          Page
+        </button>
+      </div>
+
+      <button
+        v-if="isView && project.view.scoreSurface === 'sheet'"
+        type="button"
+        class="btn sm"
+        :class="{ on: sheetFormatOpen }"
+        :title="tagRollTip('Sheet engraving format — right dock')"
+        :aria-expanded="sheetFormatOpen"
+        @click="emit('openSheetFormat')"
+      >
+        Format
+      </button>
+
+      <button
+        v-if="isView && project.view.scoreSurface === 'sheet' && project.view.sheetLayout === 'page'"
+        type="button"
+        class="btn sm"
+        :title="tagRollTip('Print preview — Letter pages')"
+        @click="emit('openSheetPrint')"
+      >
+        Print
+      </button>
 
       <label
         v-if="!isView"
@@ -590,6 +637,17 @@ onUnmounted(() => {
       </button>
 
       <button
+        v-if="isSheet"
+        type="button"
+        class="btn sm"
+        :title="tagRollTip('Edit title, subtitle, composer, arranger, footer')"
+        @click="emit('openSheetMetadata')"
+      >
+        Metadata
+      </button>
+
+      <button
+        v-if="!isSheet"
         type="button"
         class="btn sm"
         :class="{ on: marksOpen }"
@@ -698,7 +756,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="input-wrap">
+      <div v-if="!isSheet" class="input-wrap">
         <button
           type="button"
           class="btn sm"
@@ -757,6 +815,40 @@ onUnmounted(() => {
           <button type="button" role="menuitem" @click="onExport('two')">MIDI · 2 tracks</button>
           <button type="button" role="menuitem" @click="onExport('all')">MIDI · all parts</button>
           <button type="button" role="menuitem" @click="onExportMusicXml">MusicXML</button>
+          <template v-if="isSheet">
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Page layout: zip of page images when multi-page; continuous: one long PNG')"
+              @click="exportOpen = false; emit('exportSheetPng')"
+            >
+              Sheet · PNG
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Page layout: zip of page images when multi-page; continuous: one long WebP')"
+              @click="exportOpen = false; emit('exportSheetWebp')"
+            >
+              Sheet · WebP
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Raster PDF (JPEG pages) — multi-page for Page layout, long page for Continuous')"
+              @click="exportOpen = false; emit('exportSheetPdf')"
+            >
+              Sheet · PDF (raster)
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              :title="tagRollTip('Vector PDF from score SVG — multi-page for Page layout, long page for Continuous')"
+              @click="exportOpen = false; emit('exportSheetPdfVector')"
+            >
+              Sheet · PDF (vector)
+            </button>
+          </template>
           <button
             type="button"
             role="menuitem"

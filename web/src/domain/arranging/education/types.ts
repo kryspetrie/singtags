@@ -2,7 +2,14 @@
  * Educational DTOs — paraphrased teaching units with source citations.
  * Content mirrors knowledge/16-teachable-curriculum.md (no OCR verbatim).
  */
-export type EducationSourceId = 'bam1980' | 'rylander' | 'szabo' | 'prietto' | 'flinn' | 'feasibility'
+export type EducationSourceId =
+  | 'bam1980'
+  | 'rylander'
+  | 'szabo'
+  | 'prietto'
+  | 'flinn'
+  | 'lloyd'
+  | 'feasibility'
 
 export type SourceCitation = {
   sourceId: EducationSourceId

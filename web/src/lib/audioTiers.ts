@@ -3,8 +3,7 @@
  * Paths are catalog-relative (e.g. media/31/lead.playback.opus).
  */
 
-import { supportsOggOpusWebAudio } from '../audio/codecSupport'
-import { isOpusWasmUnavailable } from '../audio/opusPlayable'
+import { isOpusWasmUnavailable, supportsOggOpusWebAudio } from '../audio/codecSupport'
 import type { AudioEncodeQuality } from '../types/audio'
 import type { AudioTierId, TagDetail } from '../types/tag'
 import { sortPartIds } from './parts'

@@ -65,6 +65,11 @@ import {
   coachSketchPreviewDraft,
 } from '../../lib/arranging/coachChordPreview'
 import { setCoachHighlight } from '../../lib/arranging/coachHighlight'
+import {
+  subscribeCoachUiIntent,
+  type CoachUiIntent,
+} from '../../lib/arranging/coachUiIntent'
+import { indexOfSeedInCandidates } from '../../lib/tagRoll/harmonizeSuggest'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import {
   filterLintsInRange,
@@ -572,6 +577,56 @@ export function useArrangingCoachDock(
       (m) => m.startTick === tick || (tick >= m.startTick && tick < m.startTick + m.durationTicks),
     )
     if (hit && hit.id !== selectedMomentId.value) selectMoment(hit, { syncRoll: false })
+  }
+
+  function momentAtTick(tick: number): HarmonicMoment | null {
+    return (
+      moments.value.find(
+        (m) =>
+          m.startTick === tick || (tick >= m.startTick && tick < m.startTick + m.durationTicks),
+      ) ?? null
+    )
+  }
+
+  function selectCandidateMatching(seed: {
+    rootPc?: number
+    natureId?: string
+    voicing?: string | null
+  }): void {
+    if (seed.rootPc == null || !seed.natureId) return
+    let idx = indexOfSeedInCandidates(filteredCandidates.value, seed)
+    if (idx < 0 && candFilter.value !== 'all') {
+      candFilter.value = 'all'
+      idx = indexOfSeedInCandidates(filteredCandidates.value, seed)
+    }
+    if (idx < 0) {
+      idx = indexOfSeedInCandidates(candidates.value, seed)
+      if (idx < 0) return
+      // Unfiltered hit — reset filter so Choose shows it.
+      candFilter.value = 'all'
+      idx = indexOfSeedInCandidates(filteredCandidates.value, seed)
+      if (idx < 0) return
+    }
+    suggestIndex.value = idx
+    const c = filteredCandidates.value[idx]
+    if (c) previewCand(c)
+  }
+
+  /** Harmonize → Coach: Choose tab at the same tick / chord identity. */
+  async function applyOpenChooseIntent(intent: Extract<CoachUiIntent, { type: 'openChoose' }>): Promise<void> {
+    await ensureLinked()
+    phase.value = 'walk'
+    focusTab.value = 'choose'
+    const tick =
+      intent.tick ?? tagStore.selectedNote?.startTick ?? selectedMel.value?.startTick ?? null
+    if (tick != null) {
+      const hit = momentAtTick(tick)
+      if (hit) selectMoment(hit, { syncRoll: false })
+      else syncSelectionFromTagStudio()
+    } else {
+      syncSelectionFromTagStudio()
+    }
+    selectCandidateMatching(intent)
   }
 
   function momentHasKnownStack(startTick: number): boolean {
@@ -1199,7 +1254,12 @@ export function useArrangingCoachDock(
     },
   )
 
+  const unbindUiIntent = subscribeCoachUiIntent((intent) => {
+    if (intent.type === 'openChoose') void applyOpenChooseIntent(intent)
+  })
+
   onUnmounted(() => {
+    unbindUiIntent()
     unregisterRollNav()
     emit('clearGhost')
     emit('update:preview', null)

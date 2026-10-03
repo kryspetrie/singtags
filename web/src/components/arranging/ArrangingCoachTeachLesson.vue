@@ -13,6 +13,7 @@ import { getArrangingServices } from '../../composition/arranging'
 import { asciiMusicText } from '../../lib/arranging/asciiMusicText'
 import type { AudioPreview } from '../../ports/AudioPreview'
 import ArrangingTeachProse from './ArrangingTeachProse.vue'
+import ArrangingTeachSources from './ArrangingTeachSources.vue'
 
 const props = defineProps<{
   title: string
@@ -156,7 +157,7 @@ const examples = computed(() => lesson.value?.examples ?? [])
           <img :src="img.src" :alt="img.alt" loading="lazy" decoding="async" />
           <figcaption v-if="img.caption">{{ asciiMusicText(img.caption) }}</figcaption>
         </figure>
-        <p v-if="t.citations.length" class="cite">{{ t.citations.join(' · ') }}</p>
+        <ArrangingTeachSources v-if="t.citations.length" :items="t.citations" />
       </div>
     </section>
 
@@ -221,7 +222,7 @@ const examples = computed(() => lesson.value?.examples ?? [])
               </div>
             </li>
           </ul>
-          <p class="cite">{{ ex.cite }}</p>
+          <ArrangingTeachSources v-if="ex.cite" :items="[ex.cite]" />
         </div>
       </article>
     </template>
@@ -391,11 +392,6 @@ const examples = computed(() => lesson.value?.examples ?? [])
   font-size: 0.7rem;
   line-height: 1.35;
   color: var(--muted);
-}
-.cite {
-  margin: 0;
-  font-size: 0.68rem;
-  color: color-mix(in srgb, var(--muted) 85%, var(--text));
 }
 .ex-head {
   display: flex;

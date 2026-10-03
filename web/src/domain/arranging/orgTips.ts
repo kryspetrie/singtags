@@ -34,6 +34,14 @@ export const ORG_TIPS: readonly OrgTip[] = [
     body: 'Men’s lead often lives roughly D3–F4. Flag extremes early and transpose before writing dense harmony.',
   },
   {
+    id: 'spread-close-wide',
+    org: 'general',
+    ensemble: 'any',
+    title: 'Close / medium / wide',
+    body:
+      'Lloyd (Harmony U): close spreads keep bari often above Lead with bass near the stack; wide spreads sit bari below Lead. Match chart density to the ensemble — SSAA, TTBB, and SATB share the same idea with different absolute ranges.',
+  },
+  {
     id: 'ssaa-range',
     org: 'sai',
     ensemble: 'ssaa',

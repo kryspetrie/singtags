@@ -1,11 +1,14 @@
 /**
  * Non-destructive take edit settings: pitch/speed/normalize/compress on playback
  * and baked on export. Crop still changes the working blob.
+ *
+ * Keep this module free of bake/encode imports so prefs/types can load without DSP.
  */
 import { canonicalizeTransform } from './transformContract'
-import { normalizeCompressIntensity, type TakeCompressMode } from './takeLevelProcess'
 import type { AudioTransform } from '../types/audio'
 import { IDENTITY_TRANSFORM, isIdentityTransform } from '../types/audio'
+
+export type TakeCompressMode = 'gentle' | 'vocal' | 'punch' | 'broadcast'
 
 export type RecorderTakeCompressEdit = {
   mode: TakeCompressMode
@@ -23,6 +26,14 @@ export type RecorderTakeEdits = {
 }
 
 const MODES: ReadonlySet<string> = new Set(['gentle', 'vocal', 'punch', 'broadcast'])
+
+function normalizeCompressIntensity(intensity: number | 'light' | 'medium' | 'heavy' = 0.5): number {
+  if (intensity === 'light') return 0
+  if (intensity === 'medium') return 0.5
+  if (intensity === 'heavy') return 1
+  if (!Number.isFinite(intensity)) return 0.5
+  return Math.max(0, Math.min(1, intensity))
+}
 
 export function defaultRecorderTakeEdits(): RecorderTakeEdits {
   return { pitchSemitones: 0, speed: 1, normalize: false, compress: null }

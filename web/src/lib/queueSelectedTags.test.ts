@@ -7,7 +7,7 @@ import {
   queueTracksFromTagDetail,
 } from './queueSelectedTags'
 import type { TagDetail } from '../types/tag'
-import type { QueueTrack } from '../download/zip'
+import type { QueueTrack } from '../download/zipTypes'
 
 function detail(partial: Partial<TagDetail> & Pick<TagDetail, 'tag_id'>): TagDetail {
   return {

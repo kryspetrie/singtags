@@ -3,6 +3,12 @@
  * Full-panel Coach Help — how to use the current step’s controls.
  */
 import type { CoachHelpSection } from '../../application/arranging/coachIdeasHelp'
+import {
+  TEACH_PANEL_CLASS,
+  TEACH_PANEL_CLOSE_CLASS,
+  TEACH_PANEL_HEAD_CLASS,
+} from '../../lib/arranging/teachChrome'
+import './arranging-teach-chrome.css'
 
 defineProps<{
   title: string
@@ -16,11 +22,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="help-panel" aria-label="Coach help">
-    <header class="head">
+  <section :class="TEACH_PANEL_CLASS" aria-label="Coach help">
+    <header :class="TEACH_PANEL_HEAD_CLASS" class="help-head">
       <h3>{{ title }}</h3>
-      <button type="button" class="close" aria-label="Close" title="Close" @click="emit('close')">
-        x
+      <button
+        type="button"
+        :class="TEACH_PANEL_CLOSE_CLASS"
+        aria-label="Close"
+        title="Close"
+        @click="emit('close')"
+      >
+        ×
       </button>
     </header>
     <p class="intro">{{ intro }}</p>
@@ -34,38 +46,8 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-.help-panel {
-  display: grid;
-  gap: 0.55rem;
-  align-content: start;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  padding: 0.55rem 0.65rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-}
-.head {
-  display: flex;
+.help-head {
   align-items: center;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 750;
-}
-.close {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  min-width: 1.7rem;
-  min-height: 1.7rem;
-  cursor: pointer;
-  font: inherit;
-  line-height: 1;
 }
 .intro {
   margin: 0;

@@ -135,3 +135,46 @@ export function detectedMixGain(mix: readonly TagRollPartMix[]): number {
   if (!isDetectedAudible(mix)) return 0
   return mixForPart(TAG_ROLL_DETECTED_MIX_ID, mix).volume
 }
+
+/** Locked Sketch and/or written non-melody notes count as defined harmony. */
+export function projectHasDefinedChords(project: {
+  notes: readonly { partId: string }[]
+  parts: readonly { id: string; name: string }[]
+  harmonySketch?: readonly { locked?: boolean }[] | null
+  view?: { melodyPartId?: string | null } | null
+}): boolean {
+  if ((project.harmonySketch ?? []).some((s) => s.locked)) return true
+  const mid =
+    project.view?.melodyPartId ??
+    project.parts.find((p) => p.name.trim().toLowerCase() === 'lead')?.id ??
+    null
+  if (!mid) return project.notes.length > 0
+  return project.notes.some((n) => n.partId !== mid)
+}
+
+/** Mute Sketch + Detected (and clear their solos) — open default when chords exist. */
+export function muteSketchAndDetectedMix(
+  mix: readonly TagRollPartMix[],
+): TagRollPartMix[] {
+  return mix.map((m) => {
+    if (m.partId === TAG_ROLL_SKETCH_MIX_ID || m.partId === TAG_ROLL_DETECTED_MIX_ID) {
+      return { ...m, mute: true, solo: false }
+    }
+    return m
+  })
+}
+
+/**
+ * When opening a project that already has chords, Sketch + Detected start muted
+ * so written TTBB (or the arrangement bed) is the default listen path.
+ */
+export function applyOpenMixDefaults(
+  parts: readonly TagRollPart[],
+  mix: readonly TagRollPartMix[] | undefined | null,
+  project: Parameters<typeof projectHasDefinedChords>[0],
+): TagRollPartMix[] {
+  const synced = syncProjectMix(parts, mix)
+  if (!projectHasDefinedChords(project)) return synced
+  return muteSketchAndDetectedMix(synced)
+}
+

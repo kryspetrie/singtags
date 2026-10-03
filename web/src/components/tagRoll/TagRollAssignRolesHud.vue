@@ -4,6 +4,7 @@
  */
 import { computed } from 'vue'
 import InfoTips from '../InfoTips.vue'
+import HarmonyHowToSections from './HarmonyHowToSections.vue'
 import { ROLES_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import {
   roleDisplayFromToggles,
@@ -42,13 +43,7 @@ function setRoles(on: boolean): void {
     <div class="main">
       <strong>Melody roles</strong>
       <InfoTips class="howto" label="How to use Melody roles" title="How to use Melody roles">
-        <section v-for="sec in ROLES_HOWTO" :key="sec.title" class="howto-sec">
-          <h4>{{ sec.title }}</h4>
-          <p>{{ sec.body }}</p>
-          <ol v-if="sec.steps?.length">
-            <li v-for="(step, i) in sec.steps" :key="i">{{ step }}</li>
-          </ol>
-        </section>
+        <HarmonyHowToSections :sections="ROLES_HOWTO" />
       </InfoTips>
       <span class="sep">·</span>
       <span>←→ part notes</span>
@@ -121,24 +116,7 @@ function setRoles(on: boolean): void {
   display: inline-flex;
   align-items: center;
 }
-.howto-sec + .howto-sec {
-  margin-top: 0.65rem;
-}
-.howto-sec h4 {
-  margin: 0 0 0.2rem;
-  font-size: 0.85rem;
-}
-.howto-sec p {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-.howto-sec ol {
-  margin: 0.3rem 0 0;
-  padding-left: 1.1rem;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
+
 .sep {
   color: var(--muted);
 }

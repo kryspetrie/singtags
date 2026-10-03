@@ -8,8 +8,11 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { midiToNote } from '../../audio/pianoSamples'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../../audio/pitchTone'
 import { resolvePitchPipeVoiceById } from '../../audio/pitchPipeVoice'
+import { createCoachStackHear } from '../../application/arranging/CoachStackHear'
+import { getArrangingServices } from '../../composition/arranging'
 import { useTagRollAudio } from '../../composables/useTagRollAudio'
 import InfoTips from '../InfoTips.vue'
+import HarmonyHowToSections from './HarmonyHowToSections.vue'
 import {
   BARBERSHOP_CHORDS,
   leadRoleInChord,
@@ -44,6 +47,16 @@ import {
   melodyEventFromTagNote,
   pushCoachStacksToRoll,
 } from '../../composables/useHarmonizeCoachSession'
+import {
+  harmonizeSuggestAnchorTick,
+  listHarmonizeSuggestMoments,
+  resolveHarmonizeSuggestMoment,
+  stepHarmonizeSuggestMoment,
+  suggestApplyWindow,
+  suggestTargetFromMoment,
+} from '../../lib/arranging/harmonizeSuggestTarget'
+import type { HarmonicMoment } from '../../domain/arranging/harmonicMoments'
+import { TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
 import {
@@ -53,9 +66,17 @@ import {
 import { resolveSketchHearMidis } from '../../lib/tagRoll/hearSketchSpan'
 import { notesAtTick } from '../../lib/tagRoll/notesAtTick'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
+import {
+  canApplyHarmonizeSuggest,
+  coachOpenSeedFromSelection,
+  matchSuggestCandidate,
+} from '../../lib/tagRoll/harmonizeSuggest'
 import type { HarmonySketchQuality, TagRollNote } from '../../lib/tagRoll/types'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
 import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import { coachPreviewFromCandidate } from '../../lib/arranging/coachChordPreview'
+import { clearCoachHighlight, setCoachHighlight } from '../../lib/arranging/coachHighlight'
+import type { CoachOpenChooseSeed } from '../../lib/arranging/coachUiIntent'
 import { useArrangementStore } from '../../stores/arrangement'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollChordPickList from './TagRollChordPickList.vue'
@@ -72,8 +93,12 @@ const props = defineProps<{
   open: boolean
   /** Hide ↗ when this panel is already the pop-out window. */
   allowPopOut?: boolean
+  /** When false, hide Open in Coach (arranging feature flag). */
+  arrangingEnabled?: boolean
   /** Detected holes — soft home-root fallback for Suggest. */
   detectSegments?: readonly ChordAnalysisSegment[]
+  /** Timeline inspect / chord cursor — Suggest anchors at its start when set. */
+  inspectRange?: { startTick: number; endTick: number } | null
 }>()
 
 const emit = defineEmits<{
@@ -86,9 +111,15 @@ const emit = defineEmits<{
   declared: []
   /** Live sketch preview for Sketch lane + transport audition. */
   'update:preview': [draft: HarmonyPreviewDraft | null]
+  /** Switch to Coach Choose for the same melody tick / chord. */
+  openInCoach: [seed: CoachOpenChooseSeed]
 }>()
 
 const showPopOut = computed(() => props.allowPopOut !== false)
+/** Coach handoff only from the main window (pop-out Harmonize has no Coach dock). */
+const showOpenInCoach = computed(
+  () => props.arrangingEnabled !== false && props.allowPopOut !== false,
+)
 
 const store = useTagRollStore()
 const arrStore = useArrangementStore()
@@ -99,16 +130,27 @@ const spread = ref(false)
 const applyMode = ref<HarmonizeApplyMode>(loadHarmonizeApplyMode('stack'))
 const workspace = ref<HarmonizeWorkspace>(loadHarmonizeWorkspace('pick'))
 const suggestBusy = ref(false)
+/** Active Suggest harmonic moment (sounding lead under the timeline anchor). */
+const suggestMoment = ref<HarmonicMoment | null>(null)
+/** Measure / inspect start used for ranking + Apply (not Lead note onset). */
+const suggestAnchorTick = ref(0)
 const sketchMatchLabel = ref<string | null>(null)
 /** Baseline sketch under the current melody note (Reset target). */
 const baseline = ref<{ rootPc: number; quality: HarmonySketchQuality } | null>(null)
 const holding = ref(false)
 /** Suppress preview emit while syncing UI from an existing sketch span. */
 const syncingFromSketch = ref(false)
+/** Suggest hold uses Coach AudioPreview (not pitch-tone stab). */
+const holdingCoachStack = ref(false)
 
 const shared = useTagRollAudio()
 let localPlayer: PitchTonePlayer | null = null
 let stabTimer: ReturnType<typeof setTimeout> | null = null
+let coachPreview = getArrangingServices().createAudioPreview()
+const stackHear = createCoachStackHear({
+  getPreview: () => coachPreview,
+  isTransportPlaying: () => !!shared?.isTransportPlaying?.(),
+})
 
 const project = computed(() => store.current)
 
@@ -269,9 +311,61 @@ function stopStab(): void {
     stabTimer = null
   }
   holding.value = false
+  if (holdingCoachStack.value) {
+    holdingCoachStack.value = false
+    stackHear.holdStop()
+  }
   if (shared?.isTransportPlaying?.()) return
   if (shared) shared.allNotesOff(true)
   else localPlayer?.allNotesOff(true)
+}
+
+function partColor(name: string, fallback: string): string {
+  return project.value?.parts.find((p) => p.name === name)?.color ?? fallback
+}
+
+function pulseSuggestHighlight(tick: number): void {
+  setCoachHighlight({
+    tick,
+    kind: 'moment',
+    projectId: project.value?.id,
+  })
+}
+
+function publishSuggestCoachPreview(c: HarmonizeCandidate, mel: TagRollNote): void {
+  const moment = suggestMoment.value
+  const window = moment
+    ? suggestApplyWindow(moment, suggestAnchorTick.value)
+    : { startTick: suggestAnchorTick.value || mel.startTick, durationTicks: mel.durationTicks }
+  const { draft, ghosts } = coachPreviewFromCandidate(
+    c,
+    window.startTick,
+    window.durationTicks,
+    partColor,
+  )
+  emit('update:preview', {
+    ...draft,
+    id: `harm:${mel.id}:${window.startTick}`,
+    baseline: baseline.value,
+    source: 'harmonize',
+  })
+  // Sketch mode: map preview only — same write depth as Apply.
+  if (applyMode.value === 'sketch') {
+    emit('clearGhost')
+    pulseSuggestHighlight(window.startTick)
+    return
+  }
+  emit(
+    'previewGhost',
+    ghosts.map((g) => ({
+      role: g.role as TagRollGhostNote['role'],
+      midi: g.midi,
+      startTick: g.startTick,
+      durationTicks: g.durationTicks,
+      color: g.color,
+    })),
+  )
+  pulseSuggestHighlight(window.startTick)
 }
 
 async function soundPitches(pitches: VoicingPitches, hold = false): Promise<void> {
@@ -302,8 +396,29 @@ function clearPreview(): void {
 function publishPreview(): void {
   if (syncingFromSketch.value) return
   const mel = melodyNote.value
+  if (!mel) {
+    clearPreview()
+    return
+  }
+
+  if (workspace.value === 'suggest') {
+    const c = matchingSuggestCandidate()
+    if (c) {
+      // Stack with exact ranked voicing+spread → Coach ghosts; else fall through to place.
+      if (
+        applyMode.value === 'sketch' ||
+        (voicing.value &&
+          c.voicing === voicing.value &&
+          !!c.spread === !!spread.value)
+      ) {
+        publishSuggestCoachPreview(c, mel)
+        return
+      }
+    }
+  }
+
   const chord = selectedChord.value
-  if (!mel || !chord) {
+  if (!chord) {
     clearPreview()
     return
   }
@@ -352,26 +467,46 @@ const draftDirty = computed(() => {
 
 const canApply = computed(() => {
   if (workspace.value === 'suggest') {
-    return !!matchingSuggestCandidate() || (!!melodyNote.value && !!selectedChord.value)
+    const exactOrSketch = matchingSuggestCandidate(
+      applyMode.value === 'stack' ? { exact: true } : undefined,
+    )
+    return canApplyHarmonizeSuggest({
+      hasMatch: !!exactOrSketch,
+      hasMelody: !!melodyNote.value,
+      hasChord: !!selectedChord.value,
+      applyMode: applyMode.value,
+      hasVoicing: !!voicing.value,
+    })
   }
   if (!melodyNote.value || !selectedChord.value) return false
   if (applyMode.value === 'sketch') return true
   return !!voicing.value
 })
 
-function matchingSuggestCandidate(): HarmonizeCandidate | null {
+function matchingSuggestCandidate(opts?: { exact?: boolean }): HarmonizeCandidate | null {
   const id = chordId.value
   if (id == null) return null
-  const pc = rootPc.value
-  const v = voicing.value
-  const list = suggestCandidates.value
-  if (!list.length) return null
-  if (v) {
-    const exact = list.find((c) => c.rootPc === pc && c.natureId === id && c.voicing === v)
-    if (exact) return exact
+  if (applyMode.value === 'sketch') {
+    return matchSuggestCandidate(suggestCandidates.value, {
+      rootPc: rootPc.value,
+      natureId: id,
+    })
   }
-  return list.find((c) => c.rootPc === pc && c.natureId === id) ?? null
+  return matchSuggestCandidate(
+    suggestCandidates.value,
+    {
+      rootPc: rootPc.value,
+      natureId: id,
+      voicing: voicing.value,
+      spread: spread.value,
+    },
+    opts?.exact ? { exact: true } : undefined,
+  )
 }
+
+const canOpenInCoach = computed(
+  () => showOpenInCoach.value && !!melodyNote.value && !!chordId.value,
+)
 
 function applyCandidateToLocalUi(c: HarmonizeCandidate): void {
   const tonality = project.value?.tonality ?? 0
@@ -385,8 +520,42 @@ function applyCandidateToLocalUi(c: HarmonizeCandidate): void {
 
 function onClose(): void {
   stopStab()
+  clearCoachHighlight()
   clearPreview()
   emit('close')
+}
+
+function openInCoach(): void {
+  const mel = melodyNote.value
+  if (!mel || !canOpenInCoach.value) return
+  stopStab()
+  clearPreview()
+  store.selectNote(mel.id)
+  const tick = currentEditTick()
+  // Keep playhead on the measure/column being edited (not Lead onset).
+  store.setPlayheadTick(tick)
+  const match = matchingSuggestCandidate()
+  emit(
+    'openInCoach',
+    coachOpenSeedFromSelection({
+      tick,
+      match,
+      rootPc: rootPc.value,
+      natureId: chordId.value,
+      voicing: voicing.value,
+    }),
+  )
+}
+
+function currentEditTick(): number {
+  const p = project.value
+  if (!p) return 0
+  return harmonizeSuggestAnchorTick({
+    playheadTick: p.view.playheadTick,
+    timeSignature: p.timeSignature,
+    ppq: p.ppq || TAG_ROLL_PPQ,
+    inspectRange: props.inspectRange,
+  })
 }
 
 function setApplyMode(mode: HarmonizeApplyMode): void {
@@ -399,12 +568,17 @@ function setApplyMode(mode: HarmonizeApplyMode): void {
 async function setWorkspace(mode: HarmonizeWorkspace): Promise<void> {
   workspace.value = mode
   saveHarmonizeWorkspace(mode)
+  if (mode !== 'suggest') clearCoachHighlight()
   if (mode === 'suggest') await refreshSuggest()
+  else publishPreview()
 }
 
 async function refreshSuggest(): Promise<void> {
   const mel = melodyNote.value
-  if (!mel) {
+  const tag = project.value
+  if (!mel || !tag) {
+    suggestMoment.value = null
+    suggestAnchorTick.value = 0
     arrStore.setCandidateTarget(null)
     return
   }
@@ -412,7 +586,7 @@ async function refreshSuggest(): Promise<void> {
   try {
     const ok = await ensureHarmonizeCoachSession()
     if (!ok) return
-    const sketch = project.value?.harmonySketch ?? []
+    const sketch = tag.harmonySketch ?? []
     arrStore.setSoftSuggestContext({
       sketchSpans: sketch.map((s) => ({
         startTick: s.startTick,
@@ -430,7 +604,25 @@ async function refreshSuggest(): Promise<void> {
           natureId: s.quality || undefined,
         })),
     })
-    arrStore.setCandidateTarget(melodyEventFromTagNote(mel))
+    const tick = currentEditTick()
+    suggestAnchorTick.value = tick
+    const melody = arrStore.current?.melody ?? []
+    const moment =
+      resolveHarmonizeSuggestMoment({ tag, melody, tick }) ??
+      resolveHarmonizeSuggestMoment({
+        tag,
+        melody: melody.length ? melody : [melodyEventFromTagNote(mel)],
+        tick,
+      })
+    suggestMoment.value = moment
+    const target = moment
+      ? suggestTargetFromMoment(moment, tick)
+      : {
+          ...melodyEventFromTagNote(mel),
+          startTick: tick,
+          durationTicks: Math.max(1, mel.startTick + mel.durationTicks - tick),
+        }
+    arrStore.setCandidateTarget(target)
     const top = arrStore.candidates[0]
     if (top) applyCandidateToLocalUi(top)
   } finally {
@@ -439,11 +631,43 @@ async function refreshSuggest(): Promise<void> {
 }
 
 function applySelectedSuggest(): void {
-  const c = matchingSuggestCandidate() ?? suggestCandidates.value[0] ?? null
+  const mel = melodyNote.value
+  if (!mel) return
+  const moment = suggestMoment.value
+  const window = moment != null ? suggestApplyWindow(moment, suggestAnchorTick.value) : undefined
+
+  if (applyMode.value === 'sketch') {
+    const c = matchingSuggestCandidate() ?? suggestCandidates.value[0] ?? null
+    if (!c) return
+    store.commitHarmonizeAtMelody({
+      melodyNoteId: mel.id,
+      rootPc: c.rootPc,
+      quality: c.natureId,
+      mode: 'chord',
+      window,
+    })
+    baseline.value = {
+      rootPc: c.rootPc,
+      quality: natureToSketchQuality(c.natureId),
+    }
+    const chord = BARBERSHOP_CHORDS.find((x) => x.id === c.natureId)
+    sketchMatchLabel.value = `${pcName(c.rootPc, preferFlats.value)}${chord?.notation || ''}`
+    clearPreview()
+    clearCoachHighlight()
+    emit('declared')
+    void soundSketchStab(mel)
+    void refreshSuggest()
+    return
+  }
+
+  const c = matchingSuggestCandidate({ exact: true })
   if (!c) return
   arrStore.applyCandidate(c)
   pushCoachStacksToRoll()
+  clearPreview()
+  clearCoachHighlight()
   emit('declared')
+  void stackHear.hearCandidate(c)
   void refreshSuggest()
 }
 
@@ -484,7 +708,7 @@ function selectVoicing(v: string): void {
 
 function setSpread(on: boolean): void {
   spread.value = on
-  if (applyMode.value === 'stack' && voicing.value) publishPreview()
+  publishPreview()
 }
 
 function onSpreadPointerDown(on: boolean, e: PointerEvent): void {
@@ -527,9 +751,15 @@ function onReset(): void {
 }
 
 function commitHarmony(): void {
-  if (workspace.value === 'suggest' && matchingSuggestCandidate()) {
-    applySelectedSuggest()
-    return
+  if (workspace.value === 'suggest') {
+    if (applyMode.value === 'sketch' && matchingSuggestCandidate()) {
+      applySelectedSuggest()
+      return
+    }
+    if (applyMode.value === 'stack' && matchingSuggestCandidate({ exact: true })) {
+      applySelectedSuggest()
+      return
+    }
   }
   const mel = melodyNote.value
   const chord = selectedChord.value
@@ -599,8 +829,35 @@ function commitHarmony(): void {
 async function holdHearChord(opt?: HarmonizeChordOption): Promise<void> {
   if (opt) selectChordOption(opt)
   const mel = melodyNote.value
+  if (!mel) return
+
+  if (workspace.value === 'suggest') {
+    const c = matchingSuggestCandidate()
+    if (c) {
+      if (applyMode.value === 'sketch') {
+        publishSuggestCoachPreview(c, mel)
+        await soundSketchStab(mel, true)
+        return
+      }
+      if (
+        c.midi &&
+        voicing.value &&
+        c.voicing === voicing.value &&
+        !!c.spread === !!spread.value
+      ) {
+        if (shared?.isTransportPlaying?.()) return
+        stopStab()
+        publishSuggestCoachPreview(c, mel)
+        await stackHear.holdStart(c.midi)
+        holding.value = true
+        holdingCoachStack.value = true
+        return
+      }
+    }
+  }
+
   const chord = selectedChord.value
-  if (!mel || !chord) return
+  if (!chord) return
   if (applyMode.value === 'stack' && voicing.value) {
     const hear =
       placeVoicing({
@@ -626,6 +883,12 @@ async function holdHearChord(opt?: HarmonizeChordOption): Promise<void> {
 }
 
 function stopHoldHear(): void {
+  if (holdingCoachStack.value) {
+    stackHear.holdStop()
+    holdingCoachStack.value = false
+    holding.value = false
+    return
+  }
   if (!holding.value) return
   stopStab()
 }
@@ -697,7 +960,9 @@ function preselectFromSketch(): void {
     clearPreview()
     return
   }
-  const span = sketchSpanAtTick(p.harmonySketch ?? [], mel.startTick)
+  const tick =
+    workspace.value === 'suggest' ? currentEditTick() : mel.startTick
+  const span = sketchSpanAtTick(p.harmonySketch ?? [], tick)
   if (!span || !span.locked) {
     sketchMatchLabel.value = null
     baseline.value = null
@@ -722,17 +987,52 @@ function preselectFromSketch(): void {
 }
 
 watch(
-  () => melodyNote.value?.id,
-  async () => {
-    chordId.value = null
-    voicing.value = null
-    stopStab()
-    preselectFromSketch()
+  () =>
+    [
+      melodyNote.value?.id ?? null,
+      props.open && workspace.value === 'suggest' ? (project.value?.view.playheadTick ?? null) : null,
+      props.open && workspace.value === 'suggest'
+        ? (props.inspectRange?.startTick ?? null)
+        : null,
+    ] as const,
+  async ([noteId], prev) => {
+    const prevNoteId = prev?.[0] ?? null
+    const prevTick = prev?.[1] ?? null
+    const tick = props.open && workspace.value === 'suggest' ? (project.value?.view.playheadTick ?? null) : null
+    // Column click / scrub: stop a held Suggest hear so audition is suggestion-only.
+    if (tick !== prevTick && (holding.value || holdingCoachStack.value)) stopHoldHear()
+    if (noteId !== prevNoteId) {
+      chordId.value = null
+      voicing.value = null
+      stopStab()
+      preselectFromSketch()
+    }
     if (props.open && workspace.value === 'suggest') await refreshSuggest()
   },
 )
 
 function step(dir: -1 | 1): void {
+  // Suggest walks harmonic moments (stack onsets under held Lead), not Lead note starts.
+  if (workspace.value === 'suggest') {
+    const tag = project.value
+    const mel = melodyNote.value
+    if (!tag || !mel) return
+    const melody = arrStore.current?.melody ?? []
+    const moments = listHarmonizeSuggestMoments({
+      tag,
+      melody: melody.length ? melody : [melodyEventFromTagNote(mel)],
+    })
+    const next = stepHarmonizeSuggestMoment(moments, currentEditTick(), dir)
+    if (!next) return
+    if (next.leadNoteId) store.selectNote(next.leadNoteId)
+    // Land on the moment onset, or keep measure grid if stepping within a hold.
+    store.setPlayheadTick(next.startTick)
+    chordId.value = null
+    voicing.value = null
+    emit('stepMelody', dir)
+    return
+  }
+
   const sorted = melodyNotesSorted.value
   if (!sorted.length) return
   const idx = melodyIndex.value
@@ -755,6 +1055,8 @@ watch(
   async (on) => {
     if (!on) {
       clearPreview()
+      clearCoachHighlight()
+      suggestMoment.value = null
       stopStab()
       return
     }
@@ -796,6 +1098,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopStab()
+  clearCoachHighlight()
   clearPreview()
   localPlayer?.dispose()
   localPlayer = null
@@ -835,13 +1138,7 @@ defineExpose({ step })
           title="How to use Harmonize — flows and philosophy"
           @pointerdown.stop
         >
-          <section v-for="sec in HARMONIZE_HOWTO" :key="sec.title" class="howto-sec">
-            <p><strong>{{ sec.title }}</strong></p>
-            <p>{{ sec.body }}</p>
-            <ol v-if="sec.steps?.length">
-              <li v-for="(s, i) in sec.steps" :key="i">{{ s }}</li>
-            </ol>
-          </section>
+          <HarmonyHowToSections :sections="HARMONIZE_HOWTO" />
         </InfoTips>
       </div>
       <div class="hz-top-right">
@@ -866,7 +1163,9 @@ defineExpose({ step })
         :title="
           tagRollTip(
             workspace === 'suggest'
-              ? 'Apply — write Coach-ranked chord (and stack when in Stack mode)'
+              ? applyMode === 'sketch'
+                ? 'Apply — write Coach-ranked chord to Sketch only'
+                : 'Apply — write Coach-ranked chord and TTBB stack'
               : applyMode === 'sketch'
                 ? 'Apply — declare into Sketch'
                 : 'Apply — Sketch + TTBB',
@@ -874,6 +1173,20 @@ defineExpose({ step })
         "
         @click="commitHarmony"
       >Apply</button>
+      <button
+        v-if="showOpenInCoach"
+        type="button"
+        class="btn"
+        :disabled="!canOpenInCoach"
+        :title="
+          tagRollTip(
+            canOpenInCoach
+              ? 'Open in Coach — Choose at this chord'
+              : 'Open in Coach — select a chord first',
+          )
+        "
+        @click="openInCoach"
+      >Open in Coach</button>
     </div>
 
     <div class="hz-tabs" role="tablist" aria-label="Harmonize workspace">
@@ -896,12 +1209,22 @@ defineExpose({ step })
     </div>
 
     <div class="panel-body">
-      <div class="step-row" role="group" aria-label="Step melody notes">
+      <div
+        class="step-row"
+        role="group"
+        :aria-label="workspace === 'suggest' ? 'Step harmonic moments' : 'Step melody notes'"
+      >
         <button type="button" class="btn sm" :title="tipByShortcutId('harm-prev')" @click="step(-1)">← Prev</button>
         <span class="step-meta">
           <template v-if="melodyNote">
-            {{ melodyIndex + 1 }}/{{ melodyNotesSorted.length }} ·
-            {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }}
+            <template v-if="workspace === 'suggest' && suggestMoment">
+              Moment · {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }}
+              <span v-if="suggestMoment.heldLead"> · post</span>
+            </template>
+            <template v-else>
+              {{ melodyIndex + 1 }}/{{ melodyNotesSorted.length }} ·
+              {{ melodyPart?.name ?? 'Melody' }} {{ midiToNote(melodyNote.midi) }}
+            </template>
           </template>
           <template v-else>No {{ melodyPart?.name ?? 'melody' }} notes</template>
         </span>
@@ -917,6 +1240,7 @@ defineExpose({ step })
         <p class="meta">
           <template v-if="workspace === 'suggest'">
             Coach-ranked chords
+            <span v-if="suggestMoment?.heldLead" class="sec-note"> · post (held lead)</span>
             <span v-if="suggestBusy" class="sec-note"> · loading…</span>
             <span v-else-if="suggestCandidates.length" class="sec-note">
               · {{ coachRankHints.length }} highlighted
@@ -1023,7 +1347,7 @@ defineExpose({ step })
       </template>
 
       <p class="credit">
-        Pick = catalog · Suggest = same chips, Coach ranks · Sketch = map only · Stack = map + TTBB.
+        Pick = catalog · Suggest = Coach ranks · Sketch = map · Stack = map + TTBB · Open in Coach = Choose.
         Undo is global (Ctrl+Z).
       </p>
     </div>
@@ -1070,6 +1394,7 @@ defineExpose({ step })
   display: flex;
   gap: 0.4rem;
   flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 .hz-actions .btn {
   flex: 1 1 auto;
@@ -1136,18 +1461,6 @@ defineExpose({ step })
   min-height: 0;
   overflow: auto;
   align-content: start;
-}
-
-
-
-.howto-sec + .howto-sec {
-  margin-top: 0.65rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--border);
-}
-.howto-sec ol {
-  margin: 0.35rem 0 0;
-  padding-left: 1.15rem;
 }
 
 

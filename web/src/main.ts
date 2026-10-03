@@ -1,6 +1,9 @@
 /**
- * SingTags SPA bootstrap: Pinia, offline fetch patch, catalog hydration,
- * router mount, and idle preload of the pitch/speed DSP worker.
+ * SingTags SPA bootstrap: Pinia, offline fetch patch, catalog hydration, router mount.
+ * Heavy audio (bake / Opus WASM) warms on first Tag play or Pitch Pipe — not on cold boot.
+ *
+ * Paint the shell immediately; hydrate the catalog from IndexedDB in parallel so a
+ * reload is not a blank screen waiting on async storage / network.
  */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
@@ -24,6 +27,7 @@ import { ensureFetchPatchInstalled } from './lib/manualOfflineFetch'
 import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
 import { resolveInitialAppTheme, applyAppTheme } from './lib/theme'
 import { resolveInitialEmbolden, applyEmbolden } from './lib/embolden'
+import { getCatalogSnapshotIdb } from './offline/indexSnapshotDb'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
@@ -59,6 +63,10 @@ library.add(
 
 ensureFetchPatchInstalled()
 
+// Start IndexedDB catalog read ASAP (overlaps Vue/app setup).
+const earlyCatalogIdb =
+  typeof indexedDB !== 'undefined' ? getCatalogSnapshotIdb() : Promise.resolve(undefined)
+
 async function bootstrap(): Promise<void> {
   const app = createApp(App)
   const pinia = createPinia()
@@ -71,53 +79,37 @@ async function bootstrap(): Promise<void> {
   const catalog = useCatalogStore()
 
   offlineLib.restoreCatalogCached()
+  // Sync mirror is legacy/tiny only — full library lives in IndexedDB.
+  // (First-paint viewport slice removed: it painted early then full catalog
+  // height landed and left the window mid-list on refresh.)
   catalog.hydrateFromSnapshot()
   offlineLib.hydrateManifestSnapshots()
-  await catalog.hydrateFromIndexedDb()
 
-  if (!catalog.loaded) {
-    await catalog.load({ refresh: !offlineMode.offline })
-  } else if (!offlineMode.offline) {
-    void catalog.load({ refresh: true })
-  }
-  await catalog.ensureLyrics()
+  const catalogIdb = earlyCatalogIdb
+
+  // Kick IDB/network warm-up immediately; do not block shell paint on it.
+  const warmCatalog = (async () => {
+    if (!catalog.loaded) {
+      const snap = await catalogIdb
+      await catalog.hydrateFromIndexedDb(
+        snap?.tags?.length
+          ? { tags: snap.tags, expansions: snap.expansions }
+          : null,
+      )
+    }
+    if (!catalog.loaded) {
+      await catalog.load({ refresh: !offlineMode.offline })
+    } else if (!offlineMode.offline) {
+      void catalog.load({ refresh: true })
+    }
+    await catalog.hydrateLyricsFromIndexedDb()
+    await catalog.ensureLyrics()
+  })()
 
   app.use(router)
   app.mount('#app')
 
-  /** Warm pitch/speed DSP worker after first paint — does not block browse/play at 1×. */
-  function scheduleBakePreload(): void {
-    const run = () => {
-      void import('./audio/bakeClient')
-        .then((m) => m.preloadBakePipeline())
-        .catch(() => {
-          /* optional warm-up */
-        })
-    }
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(() => run(), { timeout: 4000 })
-    } else {
-      setTimeout(run, 1500)
-    }
-  }
-  scheduleBakePreload()
-
-  /** Warm Opus WASM on Safari so offline/favorites play without first-hit compile lag. */
-  function scheduleOpusWasmPreload(): void {
-    const run = () => {
-      void import('./audio/opusPlayable')
-        .then((m) => m.preloadOpusWasmDecoder())
-        .catch(() => {
-          /* optional warm-up */
-        })
-    }
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(() => run(), { timeout: 5000 })
-    } else {
-      setTimeout(run, 2000)
-    }
-  }
-  scheduleOpusWasmPreload()
+  void warmCatalog
 }
 
 void bootstrap()

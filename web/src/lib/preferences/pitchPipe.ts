@@ -8,7 +8,7 @@ import {
   type PitchPipeAHz,
   type PitchPipeLayout,
   type PitchPipeRange,
-} from '../../audio/pitchPlayer'
+} from '../../audio/pitchUiLabels'
 import { isPitchPipeSoundId, type PitchPipeSoundId } from '../../audio/pitchPipeVoice'
 import { isPianoSoundEngineId, type PianoSoundEngineId } from '../../audio/pianoSamples'
 import {

@@ -27,7 +27,7 @@ import {
 import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID } from '../lib/tagRoll/mix'
+import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID, applyOpenMixDefaults } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
 import { clipboardFromCopy, clipboardFromCut } from '../lib/tagRoll/noteClipboardActions'
 import {
@@ -79,6 +79,11 @@ import type {
   TagRollPointerTool,
   TagRollProject,
   TagRollScoreSurface,
+  TagRollSheetLayout,
+  TagRollSheetMeasureSizing,
+  TagRollSheetMusicFont,
+  TagRollSheetStaveGap,
+  TagRollSheetTextFont,
   TagRollTempoMarker,
   TagRollTimeSignature,
   TagRollViewPrefs,
@@ -89,12 +94,66 @@ import {
   TAG_ROLL_CELL_W_MAX,
   TAG_ROLL_CELL_W_MIN,
   TAG_ROLL_DEFAULT_SNAP_TICKS,
+  TAG_ROLL_DEFAULT_VIEW,
   TAG_ROLL_MIDI_MAX,
   TAG_ROLL_MIDI_MIN,
   TAG_ROLL_PPQ,
   TAG_ROLL_SHEET_ZOOM_MAX,
   TAG_ROLL_SHEET_ZOOM_MIN,
 } from '../lib/tagRoll/types'
+import {
+  clampSheetFormat,
+  clampSheetMeasureScale,
+  clampSheetNoteSpacing,
+  defaultSheetFormat,
+  SHEET_BEAT_STRETCH_MAX,
+  SHEET_BEAT_STRETCH_MIN,
+  SHEET_LYRIC_SIZE_MAX,
+  SHEET_LYRIC_SIZE_MIN,
+  SHEET_LYRIC_LINE_OFFSET_MAX,
+  SHEET_LYRIC_LINE_OFFSET_MIN,
+  SHEET_STAVE_GAP_FINE_MAX,
+  SHEET_STAVE_GAP_FINE_MIN,
+  SHEET_SYSTEM_GAP_MAX,
+  SHEET_SYSTEM_GAP_MIN,
+  SHEET_TOP_MARGIN_MAX,
+  SHEET_TOP_MARGIN_MIN,
+  SHEET_BOTTOM_MARGIN_MAX,
+  SHEET_BOTTOM_MARGIN_MIN,
+  SHEET_CLEF_GUTTER_MAX,
+  SHEET_CLEF_GUTTER_MIN,
+  SHEET_MIN_BAR_MAX,
+  SHEET_MIN_BAR_MIN,
+  SHEET_PADDING_MAX,
+  SHEET_PADDING_MIN,
+  SHEET_TIME_FACTOR_MAX,
+  SHEET_TIME_FACTOR_MIN,
+  SHEET_STAFF_LINE_MAX,
+  SHEET_STAFF_LINE_MIN,
+  SHEET_MARGIN_IN_MIN,
+  SHEET_MARGIN_IN_MAX,
+  SHEET_ENGRAVING_SCALE_MIN,
+  SHEET_ENGRAVING_SCALE_MAX,
+  SHEET_SCORE_SCALE_MIN,
+  SHEET_SCORE_SCALE_MAX,
+} from '../lib/tagRoll/sheetFormat'
+import {
+  clearSheetFormatCustomDefault,
+  effectiveSheetFormatDefault,
+  hasSheetFormatCustomDefault,
+  saveSheetFormatCustomDefault,
+  sheetFormatViewKey,
+  snapshotSheetFormat,
+} from '../lib/tagRoll/sheetFormatDefaults'
+import { normalizeSheetMusicFont, normalizeSheetTextFont } from '../lib/tagRoll/sheetFonts'
+import {
+  clampSheetPageDpi,
+  clampSheetPageInches,
+  SHEET_PAGE_HEIGHT_IN_MAX,
+  SHEET_PAGE_HEIGHT_IN_MIN,
+  SHEET_PAGE_WIDTH_IN_MAX,
+  SHEET_PAGE_WIDTH_IN_MIN,
+} from '../lib/tagRoll/sheetPage'
 import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects'
 import type { TagRollProjectSummary } from '../ports/TagRollRepository'
 import { usePreferencesStore } from './preferences'
@@ -230,18 +289,20 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       const { repository } = svc()
       const p = await openTagRoll(repository, id)
       current.value = p
+        ? { ...p, mix: applyOpenMixDefaults(p.parts, p.mix, p) }
+        : null
       clearNoteSelection()
       selectedExpressionId.value = null
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
-      if (p) {
-        const hist = await repository.getHistory(p.id)
+      if (current.value) {
+        const hist = await repository.getHistory(current.value.id)
         undoStack.value = hist.undo
         redoStack.value = hist.redo
       }
       error.value = null
-      return p
+      return current.value
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to open project'
       current.value = null
@@ -292,7 +353,11 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         localEntryId: null,
       })
       if (!p) throw new Error('Invalid project')
-      const saved = await putNewTagRoll(svc().repository, p, svc().clock)
+      const withMix = {
+        ...p,
+        mix: applyOpenMixDefaults(p.parts, p.mix, p),
+      }
+      const saved = await putNewTagRoll(svc().repository, withMix, svc().clock)
       current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
@@ -555,6 +620,361 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setSheetShowLyrics(on: boolean): void {
     patchView({ sheetShowLyrics: on })
+  }
+
+  function setSheetLayout(sheetLayout: TagRollSheetLayout): void {
+    patchView({
+      sheetLayout: sheetLayout === 'page' ? 'page' : 'continuous',
+    })
+  }
+
+  function setSheetMeasureSizing(sheetMeasureSizing: TagRollSheetMeasureSizing): void {
+    patchView({
+      sheetMeasureSizing: sheetMeasureSizing === 'dynamic' ? 'dynamic' : 'equal',
+    })
+  }
+
+  function setSheetNoteColors(on: boolean): void {
+    patchView({ sheetNoteColors: on })
+  }
+
+  function setSheetStaveGap(sheetStaveGap: TagRollSheetStaveGap): void {
+    patchView({
+      sheetStaveGap:
+        sheetStaveGap === 'tight' || sheetStaveGap === 'wide' ? sheetStaveGap : 'normal',
+    })
+  }
+
+  function setSheetMeasureScale(sheetMeasureScale: number): void {
+    patchView({
+      sheetMeasureScale: clampSheetMeasureScale(
+        sheetMeasureScale,
+        TAG_ROLL_DEFAULT_VIEW.sheetMeasureScale,
+      ),
+    })
+  }
+
+  function setSheetNoteSpacing(sheetNoteSpacing: number): void {
+    patchView({
+      sheetNoteSpacing: clampSheetNoteSpacing(
+        sheetNoteSpacing,
+        TAG_ROLL_DEFAULT_VIEW.sheetNoteSpacing,
+      ),
+    })
+  }
+
+  function setSheetBeatStretch(sheetBeatStretch: number): void {
+    patchView({
+      sheetBeatStretch: clampSheetFormat(
+        sheetBeatStretch,
+        SHEET_BEAT_STRETCH_MIN,
+        SHEET_BEAT_STRETCH_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetBeatStretch,
+      ),
+    })
+  }
+
+  function setSheetStaveGapFine(sheetStaveGapFine: number): void {
+    patchView({
+      sheetStaveGapFine: clampSheetFormat(
+        sheetStaveGapFine,
+        SHEET_STAVE_GAP_FINE_MIN,
+        SHEET_STAVE_GAP_FINE_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetStaveGapFine,
+      ),
+    })
+  }
+
+  function setSheetSystemGap(sheetSystemGap: number): void {
+    patchView({
+      sheetSystemGap: clampSheetFormat(
+        sheetSystemGap,
+        SHEET_SYSTEM_GAP_MIN,
+        SHEET_SYSTEM_GAP_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetSystemGap,
+      ),
+    })
+  }
+
+  function setSheetTopMargin(sheetTopMargin: number): void {
+    patchView({
+      sheetTopMargin: clampSheetFormat(
+        sheetTopMargin,
+        SHEET_TOP_MARGIN_MIN,
+        SHEET_TOP_MARGIN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetTopMargin,
+      ),
+    })
+  }
+
+  function setSheetLyricSize(sheetLyricSize: number): void {
+    patchView({
+      sheetLyricSize: Math.round(
+        clampSheetFormat(
+          sheetLyricSize,
+          SHEET_LYRIC_SIZE_MIN,
+          SHEET_LYRIC_SIZE_MAX,
+          TAG_ROLL_DEFAULT_VIEW.sheetLyricSize,
+        ),
+      ),
+    })
+  }
+
+  function setSheetLyricOffset(partId: string, offset: number): void {
+    const p = current.value
+    if (!p || !p.parts.some((part) => part.id === partId)) return
+    const next = { ...(p.view.sheetLyricOffsets ?? {}) }
+    const n = clampSheetFormat(
+      offset,
+      SHEET_LYRIC_LINE_OFFSET_MIN,
+      SHEET_LYRIC_LINE_OFFSET_MAX,
+      0,
+    )
+    if (n === 0) delete next[partId]
+    else next[partId] = n
+    patchView({ sheetLyricOffsets: next })
+  }
+
+  function resetSheetLyricOffsets(): void {
+    patchView({ sheetLyricOffsets: {} })
+  }
+
+  function setSheetPlaybackHighlight(on: boolean): void {
+    patchView({ sheetPlaybackHighlight: on })
+  }
+
+  function setSheetShowEngravedHeader(on: boolean): void {
+    patchView({ sheetShowEngravedHeader: on })
+  }
+
+  function resetSheetFormat(): void {
+    const layout = sheetFormatViewKey(current.value?.view.sheetLayout)
+    patchView(effectiveSheetFormatDefault(layout))
+  }
+
+  /** Persist current Format settings as the custom default for Continuous or Page. */
+  function saveSheetFormatAsDefault(): void {
+    const p = current.value
+    if (!p) return
+    const viewKey = sheetFormatViewKey(p.view.sheetLayout)
+    saveSheetFormatCustomDefault(viewKey, snapshotSheetFormat(p.view))
+  }
+
+  /** Drop the custom overlay for the active layout; next reset uses system defaults. */
+  function clearSheetFormatDefault(): void {
+    const layout = sheetFormatViewKey(current.value?.view.sheetLayout)
+    clearSheetFormatCustomDefault(layout)
+  }
+
+  function hasCustomSheetFormatDefault(): boolean {
+    return hasSheetFormatCustomDefault(
+      sheetFormatViewKey(current.value?.view.sheetLayout),
+    )
+  }
+
+  /** Apply system defaults only (ignores any saved custom overlay). */
+  function resetSheetFormatToSystem(): void {
+    patchView(defaultSheetFormat())
+  }
+
+  function setSheetShowEngravedFooter(on: boolean): void {
+    patchView({ sheetShowEngravedFooter: on })
+  }
+
+  function setSheetPadding(sheetPadding: number): void {
+    patchView({
+      sheetPadding: clampSheetFormat(
+        sheetPadding,
+        SHEET_PADDING_MIN,
+        SHEET_PADDING_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetPadding,
+      ),
+    })
+  }
+
+  function setSheetMinBarWidth(sheetMinBarWidth: number): void {
+    patchView({
+      sheetMinBarWidth: clampSheetFormat(
+        sheetMinBarWidth,
+        SHEET_MIN_BAR_MIN,
+        SHEET_MIN_BAR_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetMinBarWidth,
+      ),
+    })
+  }
+
+  function setSheetClefGutter(sheetClefGutter: number): void {
+    patchView({
+      sheetClefGutter: clampSheetFormat(
+        sheetClefGutter,
+        SHEET_CLEF_GUTTER_MIN,
+        SHEET_CLEF_GUTTER_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetClefGutter,
+      ),
+    })
+  }
+
+  function setSheetTimeFactor(sheetTimeFactor: number): void {
+    patchView({
+      sheetTimeFactor: clampSheetFormat(
+        sheetTimeFactor,
+        SHEET_TIME_FACTOR_MIN,
+        SHEET_TIME_FACTOR_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetTimeFactor,
+      ),
+    })
+  }
+
+  function setSheetBottomMargin(sheetBottomMargin: number): void {
+    patchView({
+      sheetBottomMargin: clampSheetFormat(
+        sheetBottomMargin,
+        SHEET_BOTTOM_MARGIN_MIN,
+        SHEET_BOTTOM_MARGIN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetBottomMargin,
+      ),
+    })
+  }
+
+  function setSheetMarginLeftIn(sheetMarginLeftIn: number): void {
+    patchView({
+      sheetMarginLeftIn: clampSheetPageInches(
+        sheetMarginLeftIn,
+        SHEET_MARGIN_IN_MIN,
+        SHEET_MARGIN_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetMarginLeftIn,
+      ),
+    })
+  }
+
+  function setSheetMarginRightIn(sheetMarginRightIn: number): void {
+    patchView({
+      sheetMarginRightIn: clampSheetPageInches(
+        sheetMarginRightIn,
+        SHEET_MARGIN_IN_MIN,
+        SHEET_MARGIN_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetMarginRightIn,
+      ),
+    })
+  }
+
+  function setSheetMarginTopIn(sheetMarginTopIn: number): void {
+    patchView({
+      sheetMarginTopIn: clampSheetPageInches(
+        sheetMarginTopIn,
+        SHEET_MARGIN_IN_MIN,
+        SHEET_MARGIN_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetMarginTopIn,
+      ),
+    })
+  }
+
+  function setSheetMarginBottomIn(sheetMarginBottomIn: number): void {
+    patchView({
+      sheetMarginBottomIn: clampSheetPageInches(
+        sheetMarginBottomIn,
+        SHEET_MARGIN_IN_MIN,
+        SHEET_MARGIN_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetMarginBottomIn,
+      ),
+    })
+  }
+
+  /** Set all four page/strip margins to the same inch value. */
+  function setSheetMarginsUniformIn(inches: number): void {
+    const v = clampSheetPageInches(
+      inches,
+      SHEET_MARGIN_IN_MIN,
+      SHEET_MARGIN_IN_MAX,
+      TAG_ROLL_DEFAULT_VIEW.sheetMarginLeftIn,
+    )
+    patchView({
+      sheetMarginLeftIn: v,
+      sheetMarginRightIn: v,
+      sheetMarginTopIn: v,
+      sheetMarginBottomIn: v,
+    })
+  }
+
+  function setSheetEngravingScale(sheetEngravingScale: number): void {
+    patchView({
+      sheetEngravingScale: clampSheetFormat(
+        sheetEngravingScale,
+        SHEET_ENGRAVING_SCALE_MIN,
+        SHEET_ENGRAVING_SCALE_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetEngravingScale,
+      ),
+    })
+  }
+
+  function setSheetScoreScale(sheetScoreScale: number): void {
+    patchView({
+      sheetScoreScale: clampSheetFormat(
+        sheetScoreScale,
+        SHEET_SCORE_SCALE_MIN,
+        SHEET_SCORE_SCALE_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetScoreScale,
+      ),
+    })
+  }
+
+  function setSheetMusicFont(sheetMusicFont: TagRollSheetMusicFont | string): void {
+    patchView({ sheetMusicFont: normalizeSheetMusicFont(sheetMusicFont) })
+  }
+
+  function setSheetTextFont(sheetTextFont: TagRollSheetTextFont | string): void {
+    patchView({ sheetTextFont: normalizeSheetTextFont(sheetTextFont) })
+  }
+
+  function setSheetStaffLineWeight(sheetStaffLineWeight: number): void {
+    patchView({
+      sheetStaffLineWeight: clampSheetFormat(
+        sheetStaffLineWeight,
+        SHEET_STAFF_LINE_MIN,
+        SHEET_STAFF_LINE_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetStaffLineWeight,
+      ),
+    })
+  }
+
+  function setSheetPartNames(on: boolean): void {
+    patchView({ sheetPartNames: on })
+  }
+
+  function setSheetPageWidthIn(sheetPageWidthIn: number): void {
+    patchView({
+      sheetPageWidthIn: clampSheetPageInches(
+        sheetPageWidthIn,
+        SHEET_PAGE_WIDTH_IN_MIN,
+        SHEET_PAGE_WIDTH_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetPageWidthIn,
+      ),
+    })
+  }
+
+  function setSheetPageHeightIn(sheetPageHeightIn: number): void {
+    patchView({
+      sheetPageHeightIn: clampSheetPageInches(
+        sheetPageHeightIn,
+        SHEET_PAGE_HEIGHT_IN_MIN,
+        SHEET_PAGE_HEIGHT_IN_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetPageHeightIn,
+      ),
+    })
+  }
+
+  function setSheetPageDpi(sheetPageDpi: number): void {
+    patchView({
+      sheetPageDpi: clampSheetPageDpi(sheetPageDpi, TAG_ROLL_DEFAULT_VIEW.sheetPageDpi),
+    })
+  }
+
+  function setSheetPagePreset(preset: 'letter' | 'a4'): void {
+    if (preset === 'a4') {
+      patchView({ sheetPageWidthIn: 8.27, sheetPageHeightIn: 11.69 })
+    } else {
+      patchView({ sheetPageWidthIn: 8.5, sheetPageHeightIn: 11 })
+    }
   }
 
   function nudgeCellW(delta: number): void {
@@ -1495,6 +1915,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   /**
    * Harmonize commit: declare locked sketch for the melody window;
    * optionally realize TTBB in the same history step.
+   * Pass `window` for held-post / harmonic-moment slices (not the full Lead note).
    */
   function commitHarmonizeAtMelody(opts: {
     melodyNoteId: string
@@ -1502,15 +1923,19 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     quality: string
     mode: 'chord' | 'chord+stack'
     pitches?: { tenor: number; bari: number; bass: number; lead: number }
+    /** Override sketch/realize span (harmonic moment under a held Lead). */
+    window?: { startTick: number; durationTicks: number }
   }): void {
     const p = current.value
     if (!p) return
     const melody = p.notes.find((n) => n.id === opts.melodyNoteId)
     if (!melody) return
-    const existing = sketchSpanAtTick(p.harmonySketch ?? [], melody.startTick)
+    const startTick = opts.window?.startTick ?? melody.startTick
+    const durationTicks = opts.window?.durationTicks ?? melody.durationTicks
+    const existing = sketchSpanAtTick(p.harmonySketch ?? [], startTick)
     const patch = sketchPatchFromMelodyNote({
-      melodyStartTick: melody.startTick,
-      melodyDurationTicks: melody.durationTicks,
+      melodyStartTick: startTick,
+      melodyDurationTicks: durationTicks,
       rootPc: opts.rootPc,
       quality: opts.quality,
       id: existing?.id,
@@ -1521,7 +1946,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       rootPc: patch.rootPc,
       quality: patch.quality,
       id: patch.id,
-      windowKind: 'melodyNote',
+      windowKind: opts.window ? 'freeSpan' : 'melodyNote',
       alsoRealize:
         opts.mode === 'chord+stack' && opts.pitches
           ? { melodyNoteId: opts.melodyNoteId, pitches: opts.pitches }
@@ -1653,12 +2078,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       p.view.activePartId === id ? parts[0]?.id ?? null : p.view.activePartId
     const melodyPartId =
       p.view.melodyPartId === id ? parts[0]?.id ?? null : p.view.melodyPartId
+    const sheetLyricOffsets = { ...(p.view.sheetLyricOffsets ?? {}) }
+    delete sheetLyricOffsets[id]
     current.value = {
       ...p,
       parts,
       notes,
       mix: syncProjectMix(parts, p.mix),
-      view: { ...p.view, activePartId, melodyPartId },
+      view: { ...p.view, activePartId, melodyPartId, sheetLyricOffsets },
       updatedAt: now(),
     }
     scheduleSave()
@@ -1850,6 +2277,47 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setCellSize,
     setSheetZoom,
     setSheetShowLyrics,
+    setSheetLayout,
+    setSheetMeasureSizing,
+    setSheetNoteColors,
+    setSheetStaveGap,
+    setSheetMeasureScale,
+    setSheetNoteSpacing,
+    setSheetBeatStretch,
+    setSheetStaveGapFine,
+    setSheetSystemGap,
+    setSheetTopMargin,
+    setSheetLyricSize,
+    setSheetLyricOffset,
+    resetSheetLyricOffsets,
+    setSheetPlaybackHighlight,
+    setSheetShowEngravedHeader,
+    setSheetShowEngravedFooter,
+    setSheetPadding,
+    setSheetMinBarWidth,
+    setSheetClefGutter,
+    setSheetTimeFactor,
+    setSheetBottomMargin,
+    setSheetMarginLeftIn,
+    setSheetMarginRightIn,
+    setSheetMarginTopIn,
+    setSheetMarginBottomIn,
+    setSheetMarginsUniformIn,
+    setSheetEngravingScale,
+    setSheetScoreScale,
+    setSheetMusicFont,
+    setSheetTextFont,
+    setSheetStaffLineWeight,
+    setSheetPartNames,
+    setSheetPageWidthIn,
+    setSheetPageHeightIn,
+    setSheetPageDpi,
+    setSheetPagePreset,
+    resetSheetFormat,
+    saveSheetFormatAsDefault,
+    clearSheetFormatDefault,
+    hasCustomSheetFormatDefault,
+    resetSheetFormatToSystem,
     setLockPiano,
     setScroll,
     setSheetScroll,

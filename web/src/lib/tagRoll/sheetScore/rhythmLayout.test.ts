@@ -208,13 +208,16 @@ describe('buildSheetRhythm', () => {
     expect(notes.slice(1).every((n) => !n.lyric)).toBe(true)
   })
 
-  it('assigns solo extras their own staff with voice 1', () => {
+  it('assigns high extras to an overflow upper staff with voice 1', () => {
     const withSolo = [
       ...parts,
       { id: 'x', name: 'Solo', color: '#999', midiGroup: 'solo' as const },
     ]
-    const assignment = assignSheetStaves(withSolo, 'ttbb')
-    expect(assignment.staves.some((s) => s.kind === 'solo')).toBe(true)
+    const assignment = assignSheetStaves(withSolo, 'ttbb', {
+      notes: [{ partId: 'x', midi: 67 }],
+    })
+    expect(assignment.staves.some((s) => s.id === 'upper:1')).toBe(true)
+    expect(assignment.staves.some((s) => s.kind === 'solo')).toBe(false)
     const events = buildSheetRhythm({
       assignment,
       notes: [

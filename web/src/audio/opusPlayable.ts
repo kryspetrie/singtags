@@ -8,7 +8,14 @@
  */
 import { sniffAudioMagic } from './audioBytes'
 import { audioBufferToWavBlob } from './channelSolo'
-import { supportsOggOpusWebAudio } from './codecSupport'
+import {
+  isOpusWasmUnavailable,
+  noteOpusWasmUnavailable,
+  resetCodecSupportForTests,
+  supportsOggOpusWebAudio,
+} from './codecSupport'
+
+export { isOpusWasmUnavailable, noteOpusWasmUnavailable } from './codecSupport'
 
 const MAX_SESSION_WAV = 12
 
@@ -16,23 +23,11 @@ const MAX_SESSION_WAV = 12
 const sessionWavBlobs = new Map<string, Blob>()
 const sessionWavOrder: string[] = []
 
-let opusWasmUnavailable = false
-
 /** Reset session state (tests only). */
 export function resetOpusPlayableForTests(): void {
   sessionWavBlobs.clear()
   sessionWavOrder.length = 0
-  opusWasmUnavailable = false
-}
-
-/** True when the Opus WASM module failed to load this session. */
-export function isOpusWasmUnavailable(): boolean {
-  return opusWasmUnavailable
-}
-
-/** Mark WASM Opus decode as unusable; online play may fall back to Original. */
-export function noteOpusWasmUnavailable(): void {
-  opusWasmUnavailable = true
+  resetCodecSupportForTests()
 }
 
 /**
@@ -99,7 +94,7 @@ export async function playableObjectUrlFromAudioBytes(
 /** Idle warm-up so first Safari play doesn't pay WASM compile latency. */
 export function preloadOpusWasmDecoder(): void {
   if (!needsOpusOnDeviceTranscode()) return
-  if (opusWasmUnavailable) return
+  if (isOpusWasmUnavailable()) return
   void import('./opusWasmDecode')
     .then((m) => m.warmOpusWasmDecoder())
     .catch(() => {

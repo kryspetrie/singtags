@@ -2,20 +2,27 @@
  * @vitest-environment happy-dom
  */
 import { createPinia, setActivePinia } from 'pinia'
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import {
   armTagReturnScroll,
   clearTagReturnOrigin,
   peekTagReturnScrollY,
 } from '../lib/tagReturn'
+import { BROWSE_RELOAD_SCROLL_KEY } from '../lib/browseReloadScroll'
 import { usePreferencesStore } from '../stores/preferences'
-import { browseScrollIntent, router } from './index'
+import { browseReloadScrollY, browseScrollIntent, router } from './index'
 
 describe('router', () => {
   beforeEach(() => {
     clearTagReturnOrigin()
     localStorage.clear()
+    sessionStorage.clear()
     setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    sessionStorage.clear()
+    vi.unstubAllGlobals()
   })
 
   it('registers primary routes', () => {
@@ -178,5 +185,44 @@ describe('router', () => {
     // @ts-expect-error minimal route stubs for scrollBehavior
     const result = await behavior(to, from, null)
     expect(result).toBe(false)
+  })
+
+  it('scrollBehavior restores saved Browse Y on full-page reload', async () => {
+    window.history.replaceState({}, '', '/')
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/', scrollY: 2200, at: Date.now() }),
+    )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'reload' }],
+    })
+    const behavior = router.options.scrollBehavior
+    expect(behavior).toBeTypeOf('function')
+    const to = {
+      name: 'home',
+      path: '/',
+      fullPath: '/',
+      hash: '',
+      query: {},
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    const from = {
+      name: undefined,
+      path: '/',
+      fullPath: '/',
+      hash: '',
+      query: {},
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    // @ts-expect-error minimal route stubs for scrollBehavior
+    const result = await behavior(to, from, null)
+    expect(browseScrollIntent).toBe('restore')
+    expect(browseReloadScrollY).toBe(2200)
+    expect(result).toEqual({ left: 0, top: 2200 })
+    expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
   })
 })

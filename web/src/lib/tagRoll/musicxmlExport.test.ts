@@ -83,6 +83,24 @@ describe('musicxmlExport', () => {
     expect(xml).toContain('<step>C</step>')
   })
 
+  it('emits subtitle, composer, arranger, and footer credit', () => {
+    const p = createEmptyTagRollProject({ title: 'Title' })
+    p.subtitle = 'Sub'
+    p.composer = 'Comp'
+    p.arranger = 'Arr'
+    p.sheetNote = 'Foot note'
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      { id: 'n1', partId: lead.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+    ]
+    const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
+    expect(xml).toContain('<movement-title>Sub</movement-title>')
+    expect(xml).toContain('<creator type="composer">Comp</creator>')
+    expect(xml).toContain('<creator type="arranger">Arr</creator>')
+    expect(xml).toContain('<credit-type>footer</credit-type>')
+    expect(xml).toContain('<credit-words>Foot note</credit-words>')
+  })
+
   it('exports locked harmony sketch as MusicXML chord symbols on Lead', () => {
     const p = createEmptyTagRollProject({ title: 'Sketch' })
     const lead = p.parts.find((x) => x.name === 'Lead')!

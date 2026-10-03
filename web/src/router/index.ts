@@ -3,14 +3,17 @@
  * `/starred` redirects to `/favorites` for legacy bookmarks.
  */
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import TagView from '../views/TagView.vue'
 import { onTagReturnBeforeEach, peekTagReturnScrollY } from '../lib/tagReturn'
+import { consumeBrowseReloadScroll } from '../lib/browseReloadScroll'
 import { usePreferencesStore } from '../stores/preferences'
+// Landing route is eager so reload paints Browse with the shell (no async chunk gap).
+import HomeView from '../views/HomeView.vue'
 
 /** How Browse should settle scroll after the next home navigation (HomeView reads this). */
 export type BrowseScrollIntent = 'top' | 'restore' | null
 export let browseScrollIntent: BrowseScrollIntent = null
+/** Y from a full-page Browse reload — HomeView re-applies after virtualizer layout. */
+export let browseReloadScrollY: number | null = null
 
 if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
   // Let Vue Router own scroll; avoid mid-list restores that hide the search bar on open.
@@ -20,11 +23,15 @@ if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', name: 'home', component: HomeView },
+    {
+      path: '/',
+      name: 'home',
+      component: HomeView,
+    },
     {
       path: '/tag/:id',
       name: 'tag',
-      component: TagView,
+      component: () => import('../views/TagView.vue'),
       props: true,
     },
     {
@@ -172,7 +179,7 @@ export const router = createRouter({
      * Unknown paths (stale PWA links, typos, removed routes).
      * Send users to Browse — installed PWAs often have no browser Back.
      */
-    { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
+    { path: '/:pathMatch(.*)*', redirect: (to) => ({ name: 'home', query: to.query, hash: to.hash }) },
   ],
   scrollBehavior(to, from, saved) {
     const tagReturnY = peekTagReturnScrollY()
@@ -187,6 +194,7 @@ export const router = createRouter({
       // Browser / in-app back: restore after a frame so remounted browse has height.
       if (saved) {
         browseScrollIntent = 'restore'
+        browseReloadScrollY = null
         return new Promise((resolve) => {
           requestAnimationFrame(() => resolve(saved))
         })
@@ -194,13 +202,24 @@ export const router = createRouter({
       // goTagBack uses push (skip tag stack) — restore the click position, not search top.
       if (restoreFromTag) {
         browseScrollIntent = 'restore'
+        browseReloadScrollY = null
         return restoreFromTag
       }
       // Filter/query sync after remount must not wipe the restored scroll.
       if (from?.name === 'home' && to.path === from.path) {
         return false
       }
+      // Full page reload: resume prior Browse scrollY when we saved it on pagehide.
+      const reloadY = consumeBrowseReloadScroll()
+      if (reloadY != null && reloadY > 0) {
+        browseScrollIntent = 'restore'
+        browseReloadScrollY = reloadY
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => resolve({ left: 0, top: reloadY }))
+        })
+      }
       browseScrollIntent = 'top'
+      browseReloadScrollY = null
       return { top: 0 }
     }
     browseScrollIntent = null

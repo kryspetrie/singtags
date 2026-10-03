@@ -3,7 +3,7 @@ import type {
   PitchPipeLayout,
   PitchPipePianoDefaultOctave,
   PitchPipeRange,
-} from '../../audio/pitchPlayer'
+} from '../../audio/pitchUiLabels'
 import type { PitchPipeSoundId } from '../../audio/pitchPipeVoice'
 import type { PianoSoundEngineId } from '../../audio/pianoSamples'
 

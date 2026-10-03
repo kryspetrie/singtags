@@ -9,6 +9,8 @@ import type { AltChipDto, CandFilterId, CounterpartDto } from '../../application
 import ArrangingCoachTeachLesson from './ArrangingCoachTeachLesson.vue'
 import ArrangingCoachCadencePlans from './ArrangingCoachCadencePlans.vue'
 import ArrangingTeachProse from './ArrangingTeachProse.vue'
+import { TEACH_LEARN_BTN_CLASS } from '../../lib/arranging/teachChrome'
+import './arranging-teach-chrome.css'
 
 export type CadenceTeachView = {
   label: string
@@ -272,7 +274,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
           <strong>Cadence · {{ cadenceTeach.label }}</strong>
           <button
             type="button"
-            class="learn"
+            :class="TEACH_LEARN_BTN_CLASS"
             title="Open full cadence lesson with examples"
             @click="cadenceLearnOpen = true"
           >
@@ -647,18 +649,6 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
 }
 .cadence-teach strong {
   font-size: 0.78rem;
-}
-.cadence-teach .learn {
-  flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  color: var(--text);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 0.1rem 0.35rem;
 }
 .cadence-body {
   font-size: 0.75rem;

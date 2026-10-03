@@ -3,7 +3,7 @@
  * Tag Studio editor — piano-roll arranger for custom tags.
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
 import { MetronomeClicker } from '../audio/metronomeClicker'
 import { midiToNote } from '../audio/pianoSamples'
@@ -14,11 +14,15 @@ import TagRollDetectedLane from '../components/tagRoll/TagRollDetectedLane.vue'
 import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.vue'
 import TagRollKeyChangePanel from '../components/tagRoll/TagRollKeyChangePanel.vue'
 import TagRollDetectedTweaksPanel from '../components/tagRoll/TagRollDetectedTweaksPanel.vue'
+import TagRollSheetFormatPanel from '../components/tagRoll/TagRollSheetFormatPanel.vue'
+import TagRollSheetMetaPanel from '../components/tagRoll/TagRollSheetMetaPanel.vue'
+import TagRollSheetPrintPreview from '../components/tagRoll/TagRollSheetPrintPreview.vue'
 import TagRollChordEditDock from '../components/tagRoll/TagRollChordEditDock.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
 import { tryCoachArrowStepMoment } from '../lib/arranging/coachArrowNav'
+import { requestCoachUi, type CoachOpenChooseSeed } from '../lib/arranging/coachUiIntent'
 import TagRollLyricsLane from '../components/tagRoll/TagRollLyricsLane.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
@@ -34,11 +38,17 @@ import {
   provideTagRollAudio,
   type TagRollAudioApi,
 } from '../composables/useTagRollAudio'
-import { hearStackNotesAtTick } from '../lib/tagRoll/notesAtTick'
+import { notesForColumnAudition } from '../lib/tagRoll/columnAudition'
 import { isPartAudible, mixForPart, syncProjectMix, TAG_ROLL_SKETCH_MIX_ID } from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
 import { followPlayheadScrollX } from '../lib/tagRoll/followPlayheadScroll'
 import { pageScrollToRevealTagNote } from '../lib/tagRoll/selectionPageScroll'
+import {
+  editorQueryFromView,
+  parseTagRollEditorQuery,
+  serializeEditorQuery,
+  viewPatchFromEditorQuery,
+} from '../lib/tagRoll/editorUrlQuery'
 import { useAssignNoteRoles } from '../composables/useAssignNoteRoles'
 import { downloadMidi, type MidiExportMode } from '../application/tagRoll/downloadMidi'
 import { downloadMusicXml } from '../application/tagRoll/downloadMusicXml'
@@ -99,6 +109,35 @@ const prefs = usePreferencesStore()
 const snackbar = useSnackbarStore()
 const arrStore = useArrangementStore()
 const router = useRouter()
+const route = useRoute()
+/** Skip writing URL while applying query → view (avoids loops). */
+let applyingEditorQuery = false
+
+function applyEditorQueryFromRoute(): void {
+  const p = store.current
+  if (!p) return
+  const patch = viewPatchFromEditorQuery(parseTagRollEditorQuery(route.query as Record<string, unknown>))
+  if (!Object.keys(patch).length) return
+  applyingEditorQuery = true
+  store.patchView(patch)
+  void nextTick(() => {
+    applyingEditorQuery = false
+  })
+}
+
+function syncEditorQueryToRoute(): void {
+  const p = store.current
+  if (!p || applyingEditorQuery) return
+  const next = serializeEditorQuery(editorQueryFromView(p.view))
+  const cur = route.query
+  const same =
+    String(cur.mode ?? '') === (next.mode ?? '') &&
+    String(cur.surface ?? '') === (next.surface ?? '') &&
+    String(cur.layout ?? '') === (next.layout ?? '') &&
+    String(cur.sizing ?? '') === (next.sizing ?? '')
+  if (same) return
+  void router.replace({ query: { ...cur, ...next } })
+}
 
 const viewportRef = ref<InstanceType<typeof TagRollViewport> | null>(null)
 const sheetViewportRef = ref<InstanceType<typeof TagRollSheetViewport> | null>(null)
@@ -110,6 +149,10 @@ const harmonizeRef = ref<InstanceType<typeof TagRollHarmonizePanel> | null>(null
 const titleDraft = ref('')
 const titleEditing = ref(false)
 const titleInputRef = ref<HTMLInputElement | null>(null)
+const subtitleDraft = ref('')
+const composerDraft = ref('')
+const arrangerDraft = ref('')
+const sheetNoteDraft = ref('')
 const importJsonInput = ref<HTMLInputElement | null>(null)
 const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importJsonBusy = ref(false)
@@ -119,6 +162,9 @@ const mixerOpen = ref(false)
 const harmonizeOpen = ref(false)
 const keyChangeOpen = ref(false)
 const tweaksOpen = ref(false)
+const sheetFormatOpen = ref(false)
+const sheetMetaOpen = ref(false)
+const sheetPrintOpen = ref(false)
 /** Live chord preview (dock / Harmonize) — Sketch lane chrome + transport audition. */
 const harmonyPreview = ref<HarmonyPreviewDraft | null>(null)
 const chordEditSession = ref<ChordEditDockSession | null>(null)
@@ -254,6 +300,7 @@ function onCoachLaneOpenPanel(): void {
 function openCoachFromToolbar(): void {
   keyChangeOpen.value = false
   tweaksOpen.value = false
+  sheetFormatOpen.value = false
   toggleCoach()
 }
 const saveBusy = ref(false)
@@ -633,7 +680,12 @@ onMounted(async () => {
     await router.replace({ name: 'tag-studio' })
     return
   }
+  applyEditorQueryFromRoute()
   titleDraft.value = p.title
+  subtitleDraft.value = p.subtitle ?? ''
+  composerDraft.value = p.composer ?? ''
+  arrangerDraft.value = p.arranger ?? ''
+  sheetNoteDraft.value = p.sheetNote ?? ''
   rebuildScheduler()
   unbindInspectHooks = installInspectEditorHooks({
     tryDeleteInspectRangeNotes: requestInspectRangeDelete,
@@ -643,6 +695,7 @@ onMounted(async () => {
   })
   window.addEventListener('keydown', onKeyDown)
   if (arrangingEnabled.value) void arrStore.hydrate()
+  syncEditorQueryToRoute()
 })
 
 onUnmounted(() => {
@@ -673,8 +726,32 @@ watch(
       return
     }
     titleDraft.value = p.title
+    subtitleDraft.value = p.subtitle ?? ''
+    composerDraft.value = p.composer ?? ''
+    arrangerDraft.value = p.arranger ?? ''
+    sheetNoteDraft.value = p.sheetNote ?? ''
     titleEditing.value = false
+    applyEditorQueryFromRoute()
     rebuildScheduler()
+    syncEditorQueryToRoute()
+  },
+)
+
+watch(
+  () => [
+    project.value?.view.mode,
+    project.value?.view.scoreSurface,
+    project.value?.view.sheetLayout,
+    project.value?.view.sheetMeasureSizing,
+  ],
+  () => syncEditorQueryToRoute(),
+)
+
+watch(
+  () => route.query,
+  () => {
+    if (applyingEditorQuery) return
+    applyEditorQueryFromRoute()
   },
 )
 
@@ -749,6 +826,27 @@ async function startTitleEdit(): Promise<void> {
 function cancelTitleEdit(): void {
   titleDraft.value = project.value?.title ?? titleDraft.value
   titleEditing.value = false
+}
+
+function syncMetaDraftsFromProject(): void {
+  const p = project.value
+  if (!p) return
+  subtitleDraft.value = p.subtitle ?? ''
+  composerDraft.value = p.composer ?? ''
+  arrangerDraft.value = p.arranger ?? ''
+  sheetNoteDraft.value = p.sheetNote ?? ''
+}
+
+function commitMetaFields(): void {
+  const p = project.value
+  if (!p) return
+  store.patchProject({
+    subtitle: subtitleDraft.value.trim().slice(0, 120),
+    composer: composerDraft.value.trim().slice(0, 120),
+    arranger: arrangerDraft.value.trim().slice(0, 120),
+    sheetNote: sheetNoteDraft.value.trim().slice(0, 400),
+  })
+  syncMetaDraftsFromProject()
 }
 
 function commitTitleEdit(): void {
@@ -934,22 +1032,19 @@ function stopSketchHear(): void {
   sketchHearKeys = null
 }
 
-/** Chord at tick — layers over transport / prior hears (does not cut them off). */
+/** Chord at tick — when Harmonize/Coach ghosts preview a stack, hear that (not written TTBB too). */
 async function auditionTick(tick: number): Promise<void> {
   const p = project.value
   if (!p) return
-  const notes = hearStackNotesAtTick(p.notes, tick)
-  if (ghostNotes.value.length) {
-    for (const g of ghostNotes.value) {
-      notes.push({
-        id: `ghost-${g.midi}`,
-        partId: '',
-        midi: g.midi,
-        startTick: g.startTick,
-        durationTicks: g.durationTicks,
-      })
-    }
-  }
+  stopSketchHear()
+  const melodyPartId =
+    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  const notes = notesForColumnAudition({
+    notes: p.notes,
+    tick,
+    ghosts: ghostNotes.value,
+    melodyPartId,
+  })
   const tone = ensurePlayer()
   const mix = p.mix ?? []
   const sounding = notes.filter((n) => !n.partId || isPartAudible(n.partId, mix))
@@ -1465,6 +1560,12 @@ function onHarmonizeClose(): void {
   if (harmonyPreview.value?.source === 'harmonize') harmonyPreview.value = null
 }
 
+function onHarmonizeOpenInCoach(seed: CoachOpenChooseSeed): void {
+  onHarmonizeClose()
+  requestCoachUi({ type: 'openChoose', ...seed })
+  ensureCoachOpen()
+}
+
 function onKeyChangeClose(): void {
   keyChangeOpen.value = false
 }
@@ -1504,10 +1605,124 @@ function toggleTweaks(): void {
     coachOpen.value = false
     if (harmonizeOpen.value) onHarmonizeClose()
     keyChangeOpen.value = false
+    sheetFormatOpen.value = false
     store.assignNoteRolesActive = false
     tweaksOpen.value = true
   }
 }
+
+function onSheetFormatClose(): void {
+  sheetFormatOpen.value = false
+}
+
+function onSheetMetaClose(): void {
+  sheetMetaOpen.value = false
+  syncMetaDraftsFromProject()
+  if (project.value) titleDraft.value = project.value.title
+}
+
+function openSheetMetadata(): void {
+  sheetFormatOpen.value = false
+  sheetPrintOpen.value = false
+  closeChordEdit()
+  coachOpen.value = false
+  tweaksOpen.value = false
+  marksOpen.value = false
+  syncMetaDraftsFromProject()
+  titleDraft.value = project.value?.title ?? ''
+  sheetMetaOpen.value = true
+}
+
+function openSheetPrint(): void {
+  sheetFormatOpen.value = false
+  sheetMetaOpen.value = false
+  sheetPrintOpen.value = true
+  if (project.value?.view.sheetLayout !== 'page') {
+    store.setSheetLayout('page')
+  }
+}
+
+function onSheetPrintClose(): void {
+  sheetPrintOpen.value = false
+}
+
+function toggleSheetFormat(): void {
+  if (sheetFormatOpen.value) {
+    onSheetFormatClose()
+    return
+  }
+  closeChordEdit()
+  coachOpen.value = false
+  if (harmonizeOpen.value) onHarmonizeClose()
+  keyChangeOpen.value = false
+  tweaksOpen.value = false
+  marksOpen.value = false
+  partsOpen.value = false
+  sheetMetaOpen.value = false
+  store.assignNoteRolesActive = false
+  sheetFormatOpen.value = true
+}
+
+async function onExportSheetPng(): Promise<void> {
+  const p = project.value
+  if (!p) return
+  try {
+    const { exportSheetImage } = await import('../lib/tagRoll/sheetScoreExport')
+    await exportSheetImage(p, 'png')
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'PNG export failed', { tone: 'error' })
+  }
+}
+
+async function onExportSheetWebp(): Promise<void> {
+  const p = project.value
+  if (!p) return
+  try {
+    const { exportSheetImage } = await import('../lib/tagRoll/sheetScoreExport')
+    await exportSheetImage(p, 'webp')
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'WebP export failed', { tone: 'error' })
+  }
+}
+
+async function onExportSheetPdf(): Promise<void> {
+  const p = project.value
+  if (!p) return
+  try {
+    const { exportSheetPdfRaster } = await import('../lib/tagRoll/sheetScoreExport')
+    await exportSheetPdfRaster(p)
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'PDF export failed', { tone: 'error' })
+  }
+}
+
+async function onExportSheetPdfVector(): Promise<void> {
+  const p = project.value
+  if (!p) return
+  try {
+    const { exportSheetPdfVector } = await import('../lib/tagRoll/sheetScoreExport')
+    await exportSheetPdfVector(p)
+  } catch (e) {
+    snackbar.show(e instanceof Error ? e.message : 'Vector PDF export failed', { tone: 'error' })
+  }
+}
+
+const sheetViewActive = computed(
+  () =>
+    !!project.value &&
+    project.value.view.mode === 'view' &&
+    project.value.view.scoreSurface === 'sheet',
+)
+
+watch(sheetViewActive, (on) => {
+  if (!on) {
+    sheetFormatOpen.value = false
+    sheetMetaOpen.value = false
+    sheetPrintOpen.value = false
+  } else {
+    marksOpen.value = false
+  }
+})
 
 function toggleRoles(): void {
   if (store.assignNoteRolesActive) {
@@ -1977,6 +2192,55 @@ function onKeyDown(e: KeyboardEvent): void {
           </button>
         </template>
       </div>
+      <details class="meta-panel">
+        <summary :title="tagRollTip('Subtitle, composer, arranger, footer note')">Metadata</summary>
+        <div class="meta-grid">
+          <label class="meta-field">
+            <span>Subtitle</span>
+            <input
+              v-model="subtitleDraft"
+              type="text"
+              maxlength="120"
+              aria-label="Subtitle"
+              @change="commitMetaFields"
+              @keydown.enter.prevent="commitMetaFields"
+            />
+          </label>
+          <label class="meta-field">
+            <span>Composer</span>
+            <input
+              v-model="composerDraft"
+              type="text"
+              maxlength="120"
+              aria-label="Composer"
+              @change="commitMetaFields"
+              @keydown.enter.prevent="commitMetaFields"
+            />
+          </label>
+          <label class="meta-field">
+            <span>Arranger</span>
+            <input
+              v-model="arrangerDraft"
+              type="text"
+              maxlength="120"
+              aria-label="Arranger"
+              @change="commitMetaFields"
+              @keydown.enter.prevent="commitMetaFields"
+            />
+          </label>
+          <label class="meta-field meta-wide">
+            <span>Footer note</span>
+            <input
+              v-model="sheetNoteDraft"
+              type="text"
+              maxlength="400"
+              aria-label="Footer note"
+              @change="commitMetaFields"
+              @keydown.enter.prevent="commitMetaFields"
+            />
+          </label>
+        </div>
+      </details>
       <button
         type="button"
         class="shortcuts-btn"
@@ -1995,6 +2259,7 @@ function onKeyDown(e: KeyboardEvent): void {
       :marks-open="marksOpen"
       :parts-open="partsOpen"
       :coach-open="coachOpen"
+      :sheet-format-open="sheetFormatOpen"
       :arranging-enabled="arrangingEnabled"
       @export-midi="onExportMidi"
       @export-music-xml="onExportMusicXml"
@@ -2010,6 +2275,13 @@ function onKeyDown(e: KeyboardEvent): void {
       @open-marks="toggleMarks"
       @open-parts="toggleParts"
       @open-coach="openCoachFromToolbar"
+      @open-sheet-format="toggleSheetFormat"
+      @open-sheet-print="openSheetPrint"
+      @open-sheet-metadata="openSheetMetadata"
+      @export-sheet-png="onExportSheetPng"
+      @export-sheet-webp="onExportSheetWebp"
+      @export-sheet-pdf="onExportSheetPdf"
+      @export-sheet-pdf-vector="onExportSheetPdfVector"
     />
     <input
       ref="importJsonInput"
@@ -2074,6 +2346,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-if="project.view.mode === 'view' && project.view.scoreSurface === 'sheet'"
                 ref="sheetViewportRef"
                 :project="project"
+                :playing="store.transportPlaying"
                 @scroll="(x, y) => store.setSheetScroll(x, y)"
                 @playhead="onUserPlayhead"
                 @sheet-zoom="(z) => store.setSheetZoom(z)"
@@ -2193,8 +2466,11 @@ function onKeyDown(e: KeyboardEvent): void {
         <TagRollHarmonizePanel
           v-else-if="harmonizeOpen && project.view.mode !== 'view'"
           ref="harmonizeRef" :open="true" :allow-pop-out="!isPopoutWindow"
+          :arranging-enabled="arrangingEnabled"
           :detect-segments="chordDetectSegments"
+          :inspect-range="chordCursor"
           @close="onHarmonizeClose" @pop-out="onHarmonizePopOut"
+          @open-in-coach="onHarmonizeOpenInCoach"
           @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
           @update:preview="onHarmonyPreview" @declared="syncSketchToCoachPillars"
         />
@@ -2211,6 +2487,23 @@ function onKeyDown(e: KeyboardEvent): void {
           aria-label="Detected Tweaks"
         >
           <TagRollDetectedTweaksPanel @close="onTweaksClose" />
+        </aside>
+        <aside
+          v-else-if="sheetMetaOpen && sheetViewActive"
+          class="sheet-format-dock"
+          aria-label="Sheet metadata"
+        >
+          <TagRollSheetMetaPanel :project="project" @close="onSheetMetaClose" />
+        </aside>
+        <aside
+          v-else-if="sheetFormatOpen && sheetViewActive"
+          class="sheet-format-dock"
+          aria-label="Sheet format"
+        >
+          <TagRollSheetFormatPanel
+            :project="project"
+            @close="onSheetFormatClose"
+          />
         </aside>
         <TagRollChordEditDock
           v-else-if="chordEditOpen && project.view.mode !== 'view' && chordEditSession"
@@ -2245,6 +2538,11 @@ function onKeyDown(e: KeyboardEvent): void {
       @close="cancelClearSketchAfterRealize"
       @confirm="confirmClearSketchAfterRealize"
     />
+    <TagRollSheetPrintPreview
+      v-if="sheetPrintOpen && project"
+      :project="project"
+      @close="onSheetPrintClose"
+    />
   </section>
   <p v-else class="loading">Loading…</p>
 </template>
@@ -2268,6 +2566,46 @@ function onKeyDown(e: KeyboardEvent): void {
   align-items: center;
   gap: 0.55rem;
   flex: 0 0 auto;
+}
+.meta-panel {
+  flex: 1 1 100%;
+  order: 5;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  padding: 0.25rem 0.55rem 0.45rem;
+  background: var(--surface, #fff);
+}
+.meta-panel summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted, #666);
+  user-select: none;
+}
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.4rem 0.65rem;
+  margin-top: 0.4rem;
+}
+.meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--muted, #666);
+}
+.meta-field.meta-wide {
+  grid-column: 1 / -1;
+}
+.meta-field input {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 4px;
+  background: var(--bg, #fff);
 }
 .back {
   color: var(--accent);
@@ -2450,9 +2788,10 @@ function onKeyDown(e: KeyboardEvent): void {
   border-left: 0;
 }
 .keychange-dock,
-.tweaks-dock {
+.tweaks-dock,
+.sheet-format-dock {
   flex: 0 0 auto;
-  width: min(22rem, 100%);
+  width: min(26rem, 100%);
   max-width: 100%;
   min-width: 0;
   overflow: auto;

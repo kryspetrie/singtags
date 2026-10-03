@@ -2,7 +2,7 @@
  * Build / enqueue download-queue items from selected catalog tags.
  */
 import type { PartId, TagDetail } from '../types/tag'
-import type { QueueTrack } from '../download/zip'
+import type { QueueTrack } from '../download/zipTypes'
 import { catalogOriginalPaths } from './audioTiers'
 import { downloadableSheetAssets } from './sheetAssets'
 import { partTrackLabel } from './parts'

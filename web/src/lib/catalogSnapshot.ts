@@ -1,6 +1,9 @@
 /**
- * Catalog snapshot persistence: tag summaries + search expansions in IndexedDB
- * with a localStorage mirror for synchronous boot.
+ * Catalog snapshot persistence: tag summaries + search expansions in IndexedDB.
+ *
+ * A localStorage mirror is read for legacy/small snapshots only — the full
+ * library (~6MB JSON) exceeds typical 5MB quotas, so we never write it there
+ * (failed setItem + giant stringify was stalling refresh).
  */
 
 import type { ExpansionMap } from '../search/expansions'
@@ -12,10 +15,9 @@ import {
 import {
   clearPersistentSnapshot,
   loadPersistentSnapshot,
-  savePersistentSnapshot,
 } from './persistentSnapshot'
 
-/** localStorage key for the catalog snapshot mirror. */
+/** localStorage key for legacy/small catalog mirrors (read-only going forward). */
 export const CATALOG_SNAPSHOT_KEY = 'singtags.catalogSnapshot.v1'
 
 /** localStorage / IDB payload shape for the full tag index. */
@@ -33,15 +35,21 @@ function isCatalogSnapshot(data: unknown): data is CatalogSnapshot {
   )
 }
 
-/** Fast mirror for sync boot (small catalogs). Primary store is IndexedDB. */
-export function saveCatalogSnapshot(tags: TagSummary[], expansions: ExpansionMap): void {
-  savePersistentSnapshot(CATALOG_SNAPSHOT_KEY, { tags, expansions })
-  void putCatalogSnapshotIdb(tags, expansions).catch(() => {
+/** Persist to IndexedDB; clear any oversized/legacy sync mirror. */
+export async function saveCatalogSnapshot(
+  tags: TagSummary[],
+  expansions: ExpansionMap,
+): Promise<void> {
+  // Full catalog must not go through localStorage (quota + main-thread jank).
+  clearPersistentSnapshot(CATALOG_SNAPSHOT_KEY)
+  try {
+    await putCatalogSnapshotIdb(tags, expansions)
+  } catch {
     /* IDB quota or private mode */
-  })
+  }
 }
 
-/** Synchronous read from the localStorage mirror only. */
+/** Synchronous read from the localStorage mirror only (legacy / tests / tiny snapshots). */
 export function loadCatalogSnapshotSync(): CatalogSnapshot | null {
   const snap = loadPersistentSnapshot(CATALOG_SNAPSHOT_KEY, isCatalogSnapshot)
   if (!snap) return null

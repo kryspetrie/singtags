@@ -3,7 +3,7 @@
  * Root shell: primary navigation, offline ribbon, PWA install/update toasts,
  * global snackbar, and routed main content.
  */
-import { onMounted, onUnmounted, computed, ref, watch, nextTick } from 'vue'
+import { onMounted, onUnmounted, computed, ref, watch, nextTick, defineAsyncComponent } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useFavoritesStore } from './stores/favorites'
@@ -49,9 +49,14 @@ import AboutDialog from './components/AboutDialog.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
 import LocalGroupPickerSheet from './components/LocalGroupPickerSheet.vue'
-import LocalReceiveDuplicateDialog from './components/LocalReceiveDuplicateDialog.vue'
-import OfflineOpticalTransferPrompt from './components/OfflineOpticalTransferPrompt.vue'
 import { useLocalReceiveUiStore } from './stores/localReceiveUi'
+
+const LocalReceiveDuplicateDialog = defineAsyncComponent(
+  () => import('./components/LocalReceiveDuplicateDialog.vue'),
+)
+const OfflineOpticalTransferPrompt = defineAsyncComponent(
+  () => import('./components/OfflineOpticalTransferPrompt.vue'),
+)
 
 const favorites = useFavoritesStore()
 const queue = useQueueStore()

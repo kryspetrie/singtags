@@ -20,7 +20,9 @@ python3 build/build_offline_manifest.py
 | `./deploy/publish.sh website\|library\|all` | Dispatcher |
 | `./deploy/weekly_prod.sh` | Weekly: sync → indexes → library + website (same bucket) |
 
-Website sync uploads **hashed `/assets` first**, then `index.html`.
+Website sync uploads **hashed `/assets` first**, then other prefixes, then root `index.html`.
+It never syncs the bucket root as a whole (avoids LISTing `library/`) and uses
+`--size-only` on bulk trees so rebuild mtimes do not re-PUT unchanged `tags/*.json`.
 
 Weekly single-bucket flow: [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md).
 
@@ -39,6 +41,7 @@ SKIP_BUILD=1 ./deploy/publish.sh website
 | `DEPLOY_ENV` | Env file path (default: repo-root `.env.deploy`) |
 | `SKIP_BUILD=1` | Reuse existing `web/dist` |
 | `DRY_RUN=1` | Dry-run S3 sync |
+| `SIZE_ONLY=0` | Disable `--size-only` on prefix syncs (mtime-based) |
 
 Env template: [`./.env.deploy.example`](.env.deploy.example).
 

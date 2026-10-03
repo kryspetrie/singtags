@@ -34,14 +34,6 @@ import {
   requestPersistentStorage,
   type StorageEstimateInfo,
 } from '../offline/storageEstimate'
-import {
-  clearAllOfflineData as clearAllOfflineDataImpl,
-  cullUpgradeCaches as cullUpgradeCachesImpl,
-  exportOfflineCacheZip,
-  importOfflineCacheZip,
-  type CacheProgress,
-  CATALOG_CACHED_KEY,
-} from '../offline/cacheManage'
 import type { OfflineManifest, OfflineManifestEntry } from '../offline/manifestTypes'
 import {
   filterAudioManifest,
@@ -61,7 +53,6 @@ import { fetchGzipJson, parseGzipJsonBuffer } from '../lib/gunzipJson'
 import { matchOfflineCache } from '../lib/manualOfflineFetch'
 import { loadPersistentSnapshot, savePersistentSnapshot } from '../lib/persistentSnapshot'
 import type { LibraryAudioPartsMode } from '../lib/audioParts'
-import { encodeBytesForStorage } from '../offline/compactAudio'
 import { isPublishedTierPath } from '../lib/audioTiers'
 import {
   DEVICE_AUDIO_STORAGE_QUALITY,
@@ -71,6 +62,16 @@ import {
 } from '../types/audio'
 import { useOfflineModeStore } from './offlineMode'
 import { loadOfflineReadinessIndex } from '../lib/offlineReadiness'
+
+/** localStorage key for last successful catalog fetch (also cleared by cacheManage wipe). */
+const CATALOG_CACHED_KEY = 'singtags.catalogCachedAt'
+
+type CacheProgress = {
+  label: string
+  done: number
+  total: number
+  ratio: number
+}
 
 export type { OfflineManifest, OfflineManifestEntry }
 
@@ -411,7 +412,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     try {
       sheetsQueue?.pause()
       audioQueue?.pause()
-      await clearAllOfflineDataImpl()
+      const { clearAllOfflineData } = await import('../offline/cacheManage')
+      await clearAllOfflineData()
       sheetsStatus.value = 'idle'
       audioStatus.value = 'idle'
       sheetsProgress.value = null
@@ -442,6 +444,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     cacheMessage.value = null
     error.value = null
     try {
+      const { cullUpgradeCaches: cullUpgradeCachesImpl } = await import('../offline/cacheManage')
       const result = await cullUpgradeCachesImpl({
         audioManifest: audioManifest.value,
         onProgress: (p) => {
@@ -482,6 +485,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     error.value = null
     cacheProgress.value = null
     try {
+      const { exportOfflineCacheZip } = await import('../offline/cacheManage')
       const { fileCount, bytes } = await exportOfflineCacheZip((p) => {
         cacheProgress.value = p
       })
@@ -504,6 +508,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     error.value = null
     cacheProgress.value = null
     try {
+      const { importOfflineCacheZip } = await import('../offline/cacheManage')
       const result = await importOfflineCacheZip(file, (p) => {
         cacheProgress.value = p
       })
@@ -683,6 +688,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         kind === 'audio' && usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY)
           ? async (item, response) => {
               if (isPublishedTierPath(item.path)) return response
+              const { encodeBytesForStorage } = await import('../offline/compactAudio')
               const buf = new Uint8Array(await response.arrayBuffer())
               const hostedMime = response.headers.get('content-type') || HOSTED_AUDIO_MIME
               const { bytes, mime } = await encodeBytesForStorage(

@@ -18,7 +18,7 @@ import {
   type PitchPipeLayout,
   type PitchPipePianoDefaultOctave,
   type PitchPipeRange,
-} from '../audio/pitchPlayer'
+} from '../audio/pitchUiLabels'
 import {
   clearActivePitchPipeVoice,
   isPitchPipeSoundId,

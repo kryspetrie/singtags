@@ -116,6 +116,39 @@ export type TagRollEditorMode = 'view' | 'compose' | 'lyrics'
 /** View-mode surface: piano roll (default) or engraved sheet. */
 export type TagRollScoreSurface = 'roll' | 'sheet'
 
+/**
+ * Sheet surface layout:
+ * - continuous — one horizontal system strip (scroll sideways)
+ * - page — wrapped systems packed into page-sized frames
+ */
+export type TagRollSheetLayout = 'continuous' | 'page'
+
+/**
+ * How measure widths are computed (applies to continuous and page):
+ * - equal — every bar the same beat-proportional width
+ * - dynamic — bar widths follow onset density (busy bars wider, sparse narrower)
+ */
+export type TagRollSheetMeasureSizing = 'equal' | 'dynamic'
+
+/** Vertical space between grand-staff staves on the sheet. */
+export type TagRollSheetStaveGap = 'tight' | 'normal' | 'wide'
+
+/** SMuFL engraving font (noteheads, clefs, beams). */
+export type TagRollSheetMusicFont =
+  | 'bravura'
+  | 'petaluma'
+  | 'leland'
+  | 'gonville'
+  | 'finale-maestro'
+
+/** Text font for lyrics, tempo, part names. */
+export type TagRollSheetTextFont =
+  | 'academico'
+  | 'petaluma-text'
+  | 'leland-text'
+  | 'roboto-slab'
+  | 'finale-maestro-text'
+
 /** Piano-roll filter for melody / Strong–Passing chrome. */
 export type TagRollRoleDisplay = 'off' | 'melody' | 'roles' | 'both'
 
@@ -226,6 +259,81 @@ export type TagRollViewPrefs = {
   sheetZoom: number
   /** Sheet surface: show stacked lyrics under each staff. */
   sheetShowLyrics: boolean
+  /** Sheet: continuous strip vs paginated pages. */
+  sheetLayout: TagRollSheetLayout
+  /** Sheet: equal vs dynamic (content-sized) measure widths. */
+  sheetMeasureSizing: TagRollSheetMeasureSizing
+  /** Sheet: outline melody / Strong–Passing in color (print-friendly when off). */
+  sheetNoteColors: boolean
+  /** Sheet: grand-staff gap between upper and lower clefs. */
+  sheetStaveGap: TagRollSheetStaveGap
+  /** Sheet: global measure-width multiplier (0.5–2). */
+  sheetMeasureScale: number
+  /**
+   * Sheet: per-onset column spacing for dynamic measure sizing.
+   * Higher = more room between notes in dense bars.
+   */
+  sheetNoteSpacing: number
+  /** Equal sizing: stretch beats horizontally (time-proportional width). */
+  sheetBeatStretch: number
+  /** Multiplier on grand-staff gap (after Tight/Normal/Wide preset). */
+  sheetStaveGapFine: number
+  /** Page layout: vertical gap between systems. */
+  sheetSystemGap: number
+  /** Room above staves for tempo / expression marks. */
+  sheetTopMargin: number
+  /** Lyric font size (px) under staves. */
+  sheetLyricSize: number
+  /**
+   * Per-part lyric vertical nudge in VexFlow textLine units (0 = default stack).
+   * Positive moves the lyric line further below the staff.
+   */
+  sheetLyricOffsets: Record<string, number>
+  /** Tint sounding notes during transport playback. */
+  sheetPlaybackHighlight: boolean
+  /** Title / credits block above the score in sheet view. */
+  sheetShowEngravedHeader: boolean
+  /** Footer note block below the score. */
+  sheetShowEngravedFooter: boolean
+  /** Left/right page padding multiplier. */
+  sheetPadding: number
+  /** Minimum measure width floor multiplier. */
+  sheetMinBarWidth: number
+  /** Clef / key / time gutter on system starts. */
+  sheetClefGutter: number
+  /** Equal sizing: beats → horizontal space multiplier. */
+  sheetTimeFactor: number
+  /** Space below the bottom staff per system. */
+  sheetBottomMargin: number
+  /** Page/score margins in inches (inside page frame, or strip padding when continuous). */
+  sheetMarginLeftIn: number
+  sheetMarginRightIn: number
+  sheetMarginTopIn: number
+  sheetMarginBottomIn: number
+  /**
+   * Scales music notation (staff line spacing, noteheads, clefs) via VexFlow stave space.
+   * Independent of page size / margins.
+   */
+  sheetEngravingScale: number
+  /**
+   * Scales score content (measure widths + vertical gaps + engraving) inside the margins.
+   * Page size and margins stay fixed.
+   */
+  sheetScoreScale: number
+  /** Page layout: printable page width in inches (default Letter 8.5). */
+  sheetPageWidthIn: number
+  /** Page layout: printable page height in inches (default Letter 11). */
+  sheetPageHeightIn: number
+  /** Page layout: CSS px per inch for screen/print preview (default 96). */
+  sheetPageDpi: number
+  /** SMuFL music font. */
+  sheetMusicFont: TagRollSheetMusicFont
+  /** Text font for lyrics and labels. */
+  sheetTextFont: TagRollSheetTextFont
+  /** Staff line thickness multiplier. */
+  sheetStaffLineWeight: number
+  /** Part names at the start of each system. */
+  sheetPartNames: boolean
   /** Sheet surface pan (independent of piano-roll scrollX/Y). */
   sheetScrollX: number
   sheetScrollY: number
@@ -235,6 +343,14 @@ export type TagRollProject = {
   schema: typeof TAG_ROLL_SCHEMA
   id: string
   title: string
+  /** Optional subtitle under the title on the sheet. */
+  subtitle: string
+  /** Left credit on the sheet (below subtitle). */
+  composer: string
+  /** Right credit on the sheet (below subtitle). */
+  arranger: string
+  /** Optional footer note under the score. */
+  sheetNote: string
   /** Starting / legacy BPM; kept in sync with the tempo marker at tick 0. */
   bpm: number
   ppq: typeof TAG_ROLL_PPQ
@@ -336,6 +452,39 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   scoreSurface: 'roll',
   sheetZoom: 40,
   sheetShowLyrics: true,
+  sheetLayout: 'continuous',
+  sheetMeasureSizing: 'equal',
+  sheetNoteColors: true,
+  sheetStaveGap: 'tight',
+  sheetMeasureScale: 1,
+  sheetNoteSpacing: 1,
+  sheetBeatStretch: 1,
+  sheetStaveGapFine: 0.85,
+  sheetSystemGap: 0.65,
+  sheetTopMargin: 0.85,
+  sheetLyricSize: 11,
+  sheetLyricOffsets: {},
+  sheetPlaybackHighlight: true,
+  sheetShowEngravedHeader: true,
+  sheetShowEngravedFooter: true,
+  sheetPadding: 1,
+  sheetMinBarWidth: 1,
+  sheetClefGutter: 0.9,
+  sheetTimeFactor: 1,
+  sheetBottomMargin: 0.75,
+  sheetMarginLeftIn: 0.3,
+  sheetMarginRightIn: 0.3,
+  sheetMarginTopIn: 0.3,
+  sheetMarginBottomIn: 0.3,
+  sheetEngravingScale: 0.9,
+  sheetScoreScale: 0.95,
+  sheetPageWidthIn: 8.5,
+  sheetPageHeightIn: 11,
+  sheetPageDpi: 96,
+  sheetMusicFont: 'bravura',
+  sheetTextFont: 'academico',
+  sheetStaffLineWeight: 1,
+  sheetPartNames: false,
   sheetScrollX: 0,
   sheetScrollY: 0,
 }

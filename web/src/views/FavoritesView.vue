@@ -21,7 +21,6 @@ import { useCatalogStore } from '../stores/catalog'
 import { usePracticeStore } from '../stores/practice'
 import { useUserCollectionsStore } from '../stores/userCollections'
 import { buildFavoritesBackup, parseFavoritesBackup } from '../lib/favoritesBackup'
-import { downloadBlob } from '../download/zip'
 import { useOnline } from '../composables/useOnline'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
@@ -393,7 +392,9 @@ function downloadStarredFile(): void {
     practice: practice.exportSnapshot(),
   })
   const bytes = new TextEncoder().encode(JSON.stringify(data, null, 2))
-  downloadBlob(bytes, 'favorites.tags', 'application/json')
+  void import('../download/zip').then(({ downloadBlob }) => {
+    downloadBlob(bytes, 'favorites.tags', 'application/json')
+  })
 }
 
 async function onImportFile(e: Event): Promise<void> {

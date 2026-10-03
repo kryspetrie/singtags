@@ -109,7 +109,7 @@ describe('catalog store', () => {
     catalog.debouncedQuery = 'my soul'
     expect(catalog.results.map((t) => t.id)).toEqual([])
 
-    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(await catalog.hydrateLyricsFromIndexedDb()).toBe(true)
     expect(catalog.lyricsLoaded).toBe(true)
     expect(catalog.results.map((t) => t.id)).toEqual([1540])
   })
@@ -158,14 +158,18 @@ describe('catalog store', () => {
 
     const catalog = useCatalogStore()
     await catalog.load()
-    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(await catalog.hydrateLyricsFromIndexedDb()).toBe(true)
     catalog.patchFilters({ fullText: true })
     catalog.queryText = 'hey mom and daddy'
     catalog.debouncedQuery = 'hey mom and daddy'
     expect(catalog.results.map((t) => t.id)).toEqual([125])
 
     // Background catalog refresh (bootstrap) rebuilds SearchEngine without lyrics opts.
-    await catalog.load({ refresh: true })
+    const refresh = catalog.load({ refresh: true })
+    expect(catalog.loading).toBe(false)
+    expect(catalog.loaded).toBe(true)
+    await refresh
+    expect(catalog.loading).toBe(false)
     expect(catalog.lyricsLoaded).toBe(true)
     expect(catalog.results.map((t) => t.id)).toEqual([125])
   })
@@ -301,6 +305,71 @@ describe('catalog store', () => {
     expect(catalog.sortMode).toBe('title')
   })
 
+  it('round-trips Browse URL state for copy/paste (q, sort, rev, filters)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 404 })),
+    )
+    const catalog = useCatalogStore()
+    catalog.tags = [
+      {
+        id: 1,
+        title: 'Hello',
+        arranger: 'Paul',
+        key: 'C',
+        rating: 3,
+        type: 'Barbershop',
+        collection: 'Classic',
+        hasSheet: true,
+        audioParts: ['lead'],
+        sheet: null,
+      },
+    ] as never
+    catalog.loaded = true
+
+    catalog.syncFromRoute(
+      {
+        q: 'hello',
+        sort: 'year',
+        rev: '1',
+        sheet: '1',
+        arr: 'Paul',
+        col: 'Classic',
+        ymin: '2000',
+      },
+      'year',
+    )
+    expect(catalog.queryText).toBe('hello')
+    expect(catalog.sortMode).toBe('year')
+    expect(catalog.sortReverse).toBe(true)
+    expect(catalog.filters.hasSheet).toBe(true)
+    expect(catalog.filters.arrangers).toEqual(['Paul'])
+    expect(catalog.filters.collections).toEqual(['Classic'])
+    expect(catalog.filters.yearMin).toBe(2000)
+
+    const patch = catalog.routeQueryPatch()
+    expect(patch).toMatchObject({
+      q: 'hello',
+      sort: 'year',
+      rev: '1',
+      sheet: '1',
+      arr: 'Paul',
+      col: 'Classic',
+      ymin: '2000',
+    })
+
+    catalog.syncFromRoute({}, 'collection')
+    expect(catalog.sortMode).toBe('collection')
+    expect(catalog.sortReverse).toBe(false)
+    expect(catalog.filters.hasSheet).toBeNull()
+
+    catalog.syncFromRoute(patch, (patch.sort as 'year') || 'collection')
+    expect(catalog.queryText).toBe('hello')
+    expect(catalog.sortMode).toBe('year')
+    expect(catalog.sortReverse).toBe(true)
+    expect(catalog.filters.hasSheet).toBe(true)
+  })
+
   it('falls back to sample manifest when indexes fail', async () => {
     vi.stubGlobal(
       'fetch',
@@ -422,7 +491,7 @@ describe('catalog store', () => {
       { id: 5, lyrics: 'Hello lyrics line' },
     ])
     const catalog = useCatalogStore()
-    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(await catalog.hydrateLyricsFromIndexedDb()).toBe(true)
     expect(catalog.lyricsLoaded).toBe(true)
     expect(catalog.lyricsSnippet(5)).toMatch(/Hello lyrics/)
   })
@@ -434,7 +503,7 @@ describe('catalog store', () => {
     expect(lyrics.length).toBeGreaterThan(110)
     await putLyricsSnapshotIdb([{ id: 2, lyrics }])
     const catalog = useCatalogStore()
-    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(await catalog.hydrateLyricsFromIndexedDb()).toBe(true)
     expect(catalog.lyricsSnippet(2)).toBe(lyrics)
     expect(catalog.lyricsSnippet(2)).not.toMatch(/…|\.\.\./)
   })
@@ -464,7 +533,7 @@ describe('catalog store', () => {
     vi.stubGlobal('fetch', fetchSpy)
 
     const catalog = useCatalogStore()
-    expect(await catalog.hydrateFromIndexedDb()).toBe(true)
+    expect(await catalog.hydrateLyricsFromIndexedDb()).toBe(true)
     expect(catalog.lyricsSnippet(26)).toMatch(/stale idb/)
     expect(offline.offline).toBe(false)
     await catalog.prefetchLyrics()

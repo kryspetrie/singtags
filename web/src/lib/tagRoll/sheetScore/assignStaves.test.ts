@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { assignSheetStaves } from './assignStaves'
+import {
+  assignSheetStaves,
+  sheetExtraStaffBucket,
+  SHEET_EXTRA_RANGE_SPLIT_MIDI,
+} from './assignStaves'
 import { layoutSheetScore } from './staffGeometry'
 import { concertToWrittenMidi, writtenToConcertMidi } from './writtenPitch'
 import { TAG_ROLL_DEFAULT_LENGTH_TICKS, TAG_ROLL_PPQ } from '../types'
@@ -41,19 +45,80 @@ describe('assignSheetStaves', () => {
     expect(a.staves[1]!.clef).toBe('bass8va')
   })
 
-  it('puts extra parts on solo staves', () => {
+  it('packs high-range extras onto additional tenor-clef staves', () => {
     const parts = [
       ...ttbbParts,
       { id: 'x', name: 'Solo', color: '#x', midiGroup: 'solo' as const },
     ]
-    const a = assignSheetStaves(parts, 'ttbb')
+    const notes = [{ partId: 'x', midi: 67 }]
+    const a = assignSheetStaves(parts, 'ttbb', { notes })
     expect(a.staves).toHaveLength(3)
     expect(a.staves[2]).toMatchObject({
-      kind: 'solo',
-      clef: 'treble',
+      id: 'upper:1',
+      kind: 'upper',
+      clef: 'treble8vb',
       labels: ['Solo'],
     })
     expect(a.staves[2]!.voices[0]!.voice).toBe(1)
+    expect(a.staves.some((s) => s.kind === 'solo')).toBe(false)
+  })
+
+  it('packs low-range extras onto additional bass-clef staves', () => {
+    const parts = [
+      ...ttbbParts,
+      { id: 'x', name: 'Guest', color: '#x', midiGroup: 'solo' as const },
+    ]
+    const notes = [{ partId: 'x', midi: 40 }]
+    const a = assignSheetStaves(parts, 'ttbb', { notes })
+    expect(a.staves).toHaveLength(3)
+    expect(a.staves[2]).toMatchObject({
+      id: 'lower:1',
+      kind: 'lower',
+      clef: 'bass',
+      labels: ['Guest'],
+    })
+  })
+
+  it('pairs two high extras on one overflow upper staff', () => {
+    const parts = [
+      ...ttbbParts,
+      { id: 'x', name: 'Solo A', color: '#x', midiGroup: 'upper' as const },
+      { id: 'y', name: 'Solo B', color: '#y', midiGroup: 'upper' as const },
+    ]
+    const a = assignSheetStaves(parts, 'ttbb')
+    expect(a.staves).toHaveLength(3)
+    expect(a.staves[2]).toMatchObject({
+      kind: 'upper',
+      labels: ['Solo A', 'Solo B'],
+    })
+    expect(a.staves[2]!.voices.map((v) => v.voice)).toEqual([1, 2])
+  })
+
+  it('fills an empty primary voice slot before creating a new staff', () => {
+    const parts = [
+      { id: 't', name: 'Tenor', color: '#c', midiGroup: 'upper' as const },
+      { id: 'r', name: 'Bari', color: '#b', midiGroup: 'lower' as const },
+      { id: 'b', name: 'Bass', color: '#s', midiGroup: 'lower' as const },
+      { id: 'x', name: 'Guest', color: '#x', midiGroup: 'upper' as const },
+    ]
+    const a = assignSheetStaves(parts, 'ttbb')
+    expect(a.staves).toHaveLength(2)
+    expect(a.staves[0]!.labels).toEqual(['Tenor', 'Guest'])
+  })
+})
+
+describe('sheetExtraStaffBucket', () => {
+  it('honors midiGroup over pitch', () => {
+    const part = { id: 'x', name: 'Low', color: '#x', midiGroup: 'upper' as const }
+    expect(sheetExtraStaffBucket(part, [{ partId: 'x', midi: 36 }])).toBe('upper')
+  })
+
+  it('splits solo parts by mean pitch', () => {
+    const part = { id: 'x', name: 'Solo', color: '#x', midiGroup: 'solo' as const }
+    expect(
+      sheetExtraStaffBucket(part, [{ partId: 'x', midi: SHEET_EXTRA_RANGE_SPLIT_MIDI }]),
+    ).toBe('upper')
+    expect(sheetExtraStaffBucket(part, [{ partId: 'x', midi: 40 }])).toBe('lower')
   })
 })
 

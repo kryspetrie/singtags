@@ -33,6 +33,22 @@ describe('harmonize sketch helpers', () => {
     })
   })
 
+  it('builds a locked sketch patch from a held-post moment window', () => {
+    const patch = sketchPatchFromMelodyNote({
+      melodyStartTick: 2880,
+      melodyDurationTicks: 240,
+      rootPc: 5,
+      quality: 'major',
+    })
+    expect(patch).toMatchObject({
+      startTick: 2880,
+      endTick: 3120,
+      rootPc: 5,
+      quality: 'major',
+      locked: true,
+    })
+  })
+
   it('upserts sketch covering a melody tick for preselect', () => {
     const sketch = upsertSketchSpan([], {
       ...sketchPatchFromMelodyNote({

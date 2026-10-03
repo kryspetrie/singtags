@@ -15,6 +15,13 @@
     <meta name="apple-mobile-web-app-title" content="SingTags" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>SingTags</title>
+    <script>
+      // Before any content paints: stop the browser from restoring a prior scrollY
+      // on reload (SPA catalog height arrives later and would land mid-list).
+      try {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+      } catch (_) {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

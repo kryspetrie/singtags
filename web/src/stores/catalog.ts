@@ -27,10 +27,9 @@ import {
   activeFilterCount,
   buildSearchQuery,
   EMPTY_FILTERS,
-  filtersFromRouteQuery,
-  filtersToRouteQuery,
   type CatalogFilters,
 } from '../search/filters'
+import { browseQueryToState, browseStateToQuery } from '../lib/browseRouteQuery'
 import { normalizeYear } from '../lib/year'
 import type { CoreIndex, LyricsIndex, TagSummary } from '../types/tag'
 import {
@@ -38,7 +37,13 @@ import {
   loadCatalogSnapshotSync,
   saveCatalogSnapshot,
 } from '../lib/catalogSnapshot'
+import {
+  browseUrlLooksDefault,
+  loadCatalogFirstPaint,
+  saveCatalogFirstPaint,
+} from '../lib/catalogFirstPaint'
 import { loadLyricsSnapshotAsync, saveLyricsSnapshot } from '../lib/lyricsSnapshot'
+import { putCatalogSnapshotIdb } from '../offline/indexSnapshotDb'
 import { fetchGzipJsonCached, fetchJsonCached } from '../lib/gunzipJson'
 import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
 import { useOfflineLibraryStore } from './offlineLibrary'
@@ -74,6 +79,13 @@ export const useCatalogStore = defineStore('catalog', () => {
   const tags = ref<TagSummary[]>([])
   const loaded = ref(false)
   const loading = ref(false)
+  /**
+   * True while showing the sync first-paint slice (viewport of tags) before the
+   * full IndexedDB / network catalog replaces it.
+   */
+  const partialCatalog = ref(false)
+  /** Full catalog size while `partialCatalog` (from first-paint cache). */
+  const catalogTotalHint = ref<number | null>(null)
   const error = ref<string | null>(null)
   const expansions = ref<ExpansionMap>({})
   const lyricsById = ref<Map<number, string>>(new Map())
@@ -85,6 +97,8 @@ export const useCatalogStore = defineStore('catalog', () => {
   let lyricsPrefetch: Promise<void> | null = null
   /** True after a successful online lyrics.json.gz fetch this session. */
   let lyricsRevalidatedOnline = false
+  /** Dedupes boot IDB hydrate so HomeView `load()` waits instead of racing the network. */
+  let idbHydratePromise: Promise<boolean> | null = null
   const filters = ref<CatalogFilters>({ ...EMPTY_FILTERS })
   /** Live free-text input. */
   const queryText = ref('')
@@ -142,29 +156,58 @@ export const useCatalogStore = defineStore('catalog', () => {
 
   /**
    * Apply fetched catalog tags and expansions; rebuild search engine.
-   * Side effects: IndexedDB catalog snapshot, offline library `markCatalogCached`.
+   * Side effects: optional IndexedDB catalog snapshot, offline library `markCatalogCached`.
+   *
+   * @param opts.persist - Write snapshot (default true). False on IDB hydrate (already stored).
+   * @param opts.deferEngine - Yield a frame before building SearchEngine so Browse can paint.
    */
-  function applyCatalogData(list: TagSummary[], exp: ExpansionMap): void {
+  async function applyCatalogData(
+    list: TagSummary[],
+    exp: ExpansionMap,
+    opts?: { persist?: boolean; deferEngine?: boolean },
+  ): Promise<void> {
     expansions.value = exp
-    engine.value = new SearchEngine({
-      tags: list,
-      expansions: exp,
-    })
     tags.value = list
     loaded.value = true
+    partialCatalog.value = false
+    catalogTotalHint.value = null
     error.value = null
-    // Refresh rebuilds the engine without lyrics — reattach so FTS keeps working.
-    if (lyricsById.value.size) {
-      engine.value.setLyrics(
-        [...lyricsById.value.entries()].map(([id, lyrics]) => ({ id, lyrics })),
-      )
-      lyricsEpoch.value++
+
+    const buildEngine = () => {
+      const eng = new SearchEngine({
+        tags: list,
+        expansions: exp,
+      })
+      if (lyricsById.value.size) {
+        eng.setLyrics(
+          [...lyricsById.value.entries()].map(([id, lyrics]) => ({ id, lyrics })),
+        )
+        lyricsEpoch.value++
+      }
+      engine.value = eng
     }
-    saveCatalogSnapshot(list, exp)
-    try {
-      useOfflineLibraryStore().markCatalogCached()
-    } catch {
-      /* pinia may not be ready in unit tests */
+
+    if (opts?.persist !== false) {
+      await saveCatalogSnapshot(list, exp)
+      saveCatalogFirstPaint(list)
+      try {
+        useOfflineLibraryStore().markCatalogCached()
+      } catch {
+        /* pinia may not be ready in unit tests */
+      }
+    }
+
+    if (opts?.deferEngine) {
+      await new Promise<void>((resolve) => {
+        const run = () => {
+          buildEngine()
+          resolve()
+        }
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => run())
+        else run()
+      })
+    } else {
+      buildEngine()
     }
   }
 
@@ -173,35 +216,56 @@ export const useCatalogStore = defineStore('catalog', () => {
    * Side effects: network, IndexedDB snapshot, prefetches lyrics when online.
    *
    * @param opts.refresh - Force re-fetch even when already loaded.
+   *   When the catalog is already painted from a snapshot, refresh does not
+   *   set `loading` (stale-while-revalidate — Browse stays interactive).
    */
   async function load(opts?: { refresh?: boolean }): Promise<void> {
+    // Let boot IDB finish first so we paint cache before any network refresh.
+    if (idbHydratePromise) await idbHydratePromise
     if (loading.value) return
     if (opts?.refresh) lyricsRevalidatedOnline = false
     if (loaded.value && !opts?.refresh) {
-      // Revalidate lyrics once per online session even if IDB already hydrated them.
-      if (!lyricsLoading.value) void prefetchLyrics()
-      return
+      // First-paint slice: wait one tick for boot hydrate to start, then await it.
+      if (partialCatalog.value) {
+        if (!idbHydratePromise) await Promise.resolve()
+        if (idbHydratePromise) await idbHydratePromise
+        if (!partialCatalog.value) {
+          if (!lyricsLoading.value) void prefetchLyrics()
+          return
+        }
+      } else {
+        // Revalidate lyrics once per online session even if IDB already hydrated them.
+        if (!lyricsLoading.value) void prefetchLyrics()
+        return
+      }
     }
-    loading.value = true
-    error.value = null
+    // Initial fetch shows the loading gate; background refresh must not.
+    const showLoading = !loaded.value
+    if (showLoading) {
+      loading.value = true
+      error.value = null
+    }
     try {
       const [core, exp] = await Promise.all([
         fetchGzipJsonCached<CoreIndex>(indexesUrl('core.json.gz')),
         fetchJsonCached(indexesUrl('expansions.json'), { map: {} as ExpansionMap }),
       ])
       const list = core.tags ?? []
-      applyCatalogData(list, exp.map ?? {})
+      await applyCatalogData(list, exp.map ?? {})
       void prefetchLyrics()
     } catch (e) {
       try {
         const res = await fetch(mediaUrl('manifest.json'))
         const data = (await res.json()) as { tags: TagSummary[] }
         const list = data.tags ?? []
-        applyCatalogData(list, {})
+        await applyCatalogData(list, {})
       } catch {
         const snap = await loadCatalogSnapshotAsync()
         if (snap?.tags.length) {
-          applyCatalogData(snap.tags, snap.expansions)
+          await applyCatalogData(snap.tags, snap.expansions, {
+            persist: false,
+            deferEngine: true,
+          })
           void hydrateLyricsFromIndexedDb()
           return
         }
@@ -217,16 +281,35 @@ export const useCatalogStore = defineStore('catalog', () => {
         }
       }
     } finally {
-      loading.value = false
+      if (showLoading) loading.value = false
     }
+  }
+
+  /**
+   * Instant Browse paint from a tiny sync cache (one viewport of collection order).
+   * Skipped when the URL already has search/filters (would flash the wrong list).
+   */
+  function hydrateFirstPaint(): boolean {
+    if (loaded.value) return true
+    if (!browseUrlLooksDefault()) return false
+    const fp = loadCatalogFirstPaint()
+    if (!fp?.tags.length) return false
+    tags.value = fp.tags
+    loaded.value = true
+    partialCatalog.value = true
+    catalogTotalHint.value = fp.totalCount
+    error.value = null
+    engine.value = null
+    return true
   }
 
   /** Sync restore from localStorage mirror (instant boot). */
   function hydrateFromSnapshot(): boolean {
-    if (loaded.value) return true
+    if (loaded.value && !partialCatalog.value) return true
     const snap = loadCatalogSnapshotSync()
     if (!snap?.tags.length) return false
-    applyCatalogData(snap.tags, snap.expansions)
+    // Sync path: defer engine so the first frame can clear “Loading catalog…”.
+    void applyCatalogData(snap.tags, snap.expansions, { persist: false, deferEngine: true })
     return true
   }
 
@@ -242,24 +325,34 @@ export const useCatalogStore = defineStore('catalog', () => {
     lyricsLoaded.value = map.size > 0
   }
 
-  /** Restore catalog (if needed) and lyrics from IndexedDB — call early on startup. */
-  async function hydrateFromIndexedDb(): Promise<boolean> {
-    let ok = false
-    if (!loaded.value) {
-      const snap = await loadCatalogSnapshotAsync()
-      if (snap?.tags.length) {
-        applyCatalogData(snap.tags, snap.expansions)
-        ok = true
-      }
+  /** Restore catalog from IndexedDB — lyrics hydrate separately after first paint. */
+  async function hydrateFromIndexedDb(
+    preloaded?: { tags: TagSummary[]; expansions?: ExpansionMap } | null,
+  ): Promise<boolean> {
+    if (idbHydratePromise) return idbHydratePromise
+    idbHydratePromise = (async () => {
+      // Allow replacing a first-paint slice with the full catalog.
+      if (loaded.value && !partialCatalog.value) return true
+      const snap =
+        preloaded?.tags?.length
+          ? { tags: preloaded.tags, expansions: preloaded.expansions ?? {} }
+          : await loadCatalogSnapshotAsync()
+      if (!snap?.tags.length) return false
+      await applyCatalogData(snap.tags, snap.expansions, {
+        persist: false,
+        deferEngine: true,
+      })
+      // Upgrade legacy object-form snapshots to gzip for faster subsequent boots.
+      void putCatalogSnapshotIdb(snap.tags, snap.expansions).catch(() => {
+        /* quota */
+      })
+      return true
+    })()
+    try {
+      return await idbHydratePromise
+    } finally {
+      idbHydratePromise = null
     }
-    if (!lyricsLoaded.value) {
-      const docs = await loadLyricsSnapshotAsync()
-      if (docs?.length) {
-        applyLyricsDocs(docs)
-        ok = true
-      }
-    }
-    return ok
   }
 
   /** Load lyrics index only from IndexedDB (when catalog already in memory). */
@@ -357,7 +450,6 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Full filtered/sorted result set (virtualizer uses entire list). */
   const allResults = computed(() => {
     const eng = engine.value
-    if (!eng) return [] as TagSummary[]
     // Re-run when the lyrics index arrives or is reattached after a catalog refresh.
     void lyricsLoaded.value
     void lyricsById.value.size
@@ -365,6 +457,13 @@ export const useCatalogStore = defineStore('catalog', () => {
     // Re-run when My Ratings change (Rated chip).
     void useRatingsStore().revision
     const sortOpts = browseSortOpts()
+    // Tags-only window: SearchEngine still building after IDB hydrate.
+    if (!eng) {
+      if (!tags.value.length || hasSearchOrFilter()) return [] as TagSummary[]
+      return applyClientFilters(
+        sortBrowseTags(tags.value, sortMode.value, sortReverse.value, sortOpts),
+      )
+    }
     // `n123` → site Tag # only (exact; never prefix / fall through to FTS)
     const tagNum = parseTagNumberQuery(debouncedQuery.value)
     if (tagNum != null) {
@@ -538,15 +637,14 @@ export const useCatalogStore = defineStore('catalog', () => {
    * Resets result limit when browse key changes.
    */
   function syncFromRoute(query: Record<string, unknown>, sort: SortMode): void {
-    const q = typeof query.q === 'string' ? query.q : ''
-    const parsed = filtersFromRouteQuery(query)
+    const parsed = browseQueryToState(query, sort)
     const nextFilters: CatalogFilters = {
       ...EMPTY_FILTERS,
-      ...parsed,
-      arrangers: parsed.arrangers ?? [],
-      types: parsed.types ?? [],
-      collections: parsed.collections ?? [],
-      titleLetters: parsed.titleLetters ?? [],
+      ...parsed.filters,
+      arrangers: parsed.filters.arrangers ?? [],
+      types: parsed.filters.types ?? [],
+      collections: parsed.filters.collections ?? [],
+      titleLetters: parsed.filters.titleLetters ?? [],
     }
     const allowed: SortMode[] = [
       'rating',
@@ -557,13 +655,20 @@ export const useCatalogStore = defineStore('catalog', () => {
       'id',
       'collection',
     ]
-    const requested = allowed.includes(sort) ? sort : DEFAULT_BROWSE_SORT
-    const nextRev = query.rev === '1'
+    const requested = allowed.includes(parsed.sort) ? parsed.sort : DEFAULT_BROWSE_SORT
+    const nextRev = parsed.rev
+    const q = parsed.q
     const prevBrowseKey = JSON.stringify({
       q: debouncedQuery.value,
       sort: sortMode.value,
       rev: sortReverse.value,
-      f: filtersToRouteQuery(filters.value),
+      f: browseStateToQuery({
+        q: debouncedQuery.value,
+        sort: sortMode.value,
+        defaultSort: DEFAULT_BROWSE_SORT,
+        rev: sortReverse.value,
+        filters: filters.value,
+      }),
     })
 
     // Apply query/filters before coerce so scoped sorts drop when the catalog widens.
@@ -583,7 +688,13 @@ export const useCatalogStore = defineStore('catalog', () => {
       q,
       sort: nextSort,
       rev: nextRev,
-      f: filtersToRouteQuery(nextFilters),
+      f: browseStateToQuery({
+        q,
+        sort: nextSort,
+        defaultSort: DEFAULT_BROWSE_SORT,
+        rev: nextRev,
+        filters: nextFilters,
+      }),
     })
     // Remounting browse (tag → back) re-applies the same route — keep infinite-scroll
     // window so scroll restoration has enough content height.
@@ -591,13 +702,14 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   /** Build router query patch from current browse state. */
-  function routeQueryPatch(): Record<string, string | undefined> {
-    return {
-      q: debouncedQuery.value || undefined,
-      sort: sortMode.value === DEFAULT_BROWSE_SORT ? undefined : sortMode.value,
-      rev: sortReverse.value ? '1' : undefined,
-      ...filtersToRouteQuery(filters.value),
-    }
+  function routeQueryPatch(): Record<string, string> {
+    return browseStateToQuery({
+      q: debouncedQuery.value,
+      sort: sortMode.value,
+      defaultSort: DEFAULT_BROWSE_SORT,
+      rev: sortReverse.value,
+      filters: filters.value,
+    })
   }
 
   /** Flip ascending/descending for the current sort mode. */
@@ -639,6 +751,8 @@ export const useCatalogStore = defineStore('catalog', () => {
     tags,
     loaded,
     loading,
+    partialCatalog,
+    catalogTotalHint,
     error,
     filters,
     fullText,
@@ -663,8 +777,10 @@ export const useCatalogStore = defineStore('catalog', () => {
     searching,
     resultLimit,
     load,
+    hydrateFirstPaint,
     hydrateFromSnapshot,
     hydrateFromIndexedDb,
+    hydrateLyricsFromIndexedDb,
     ensureLyrics,
     prefetchLyrics,
     lyricsSnippet,

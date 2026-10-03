@@ -1,7 +1,9 @@
 /**
- * Map Tag Studio parts onto barbershop grand-staff voices + solo staves.
+ * Map Tag Studio parts onto barbershop grand-staff voices.
+ * Canonical TTBB/SSAA names fill the first upper/lower pair; extras pack onto
+ * additional tenor-clef or bass-clef staves based on midiGroup / pitch range.
  */
-import type { TagRollClefFamily, TagRollPart } from '../types'
+import type { TagRollClefFamily, TagRollNote, TagRollPart } from '../types'
 import type {
   SheetClefKind,
   SheetStaffAssignment,
@@ -24,10 +26,9 @@ function roleForPartName(name: string): SheetVoiceRole | null {
 }
 
 function clefForStaff(
-  kind: 'upper' | 'lower' | 'solo',
+  kind: 'upper' | 'lower',
   family: TagRollClefFamily,
 ): SheetClefKind {
-  if (kind === 'solo') return 'treble'
   if (kind === 'upper') return family === 'ttbb' ? 'treble8vb' : 'treble'
   return family === 'ssaa' ? 'bass8va' : 'bass'
 }
@@ -48,14 +49,91 @@ function slot(
   }
 }
 
+/** Concert MIDI split between tenor-clef vs bass-clef extras (~G3). */
+export const SHEET_EXTRA_RANGE_SPLIT_MIDI = 55
+
+function meanMidiForPart(
+  partId: string,
+  notes: readonly Pick<TagRollNote, 'partId' | 'midi'>[],
+): number | null {
+  let sum = 0
+  let n = 0
+  for (const note of notes) {
+    if (note.partId !== partId) continue
+    sum += note.midi
+    n++
+  }
+  return n > 0 ? sum / n : null
+}
+
 /**
- * Assign parts to staves. Canonical TTBB names share the grand staff;
- * everything else gets its own solo staff (order preserved).
+ * Decide whether an extra (non-TTBB-named) part belongs on a tenor-clef or
+ * bass-clef staff. Prefers explicit midiGroup; otherwise mean pitch; finally
+ * a light name heuristic when the part has no notes yet.
+ */
+export function sheetExtraStaffBucket(
+  part: TagRollPart,
+  notes: readonly Pick<TagRollNote, 'partId' | 'midi'>[] = [],
+): 'upper' | 'lower' {
+  if (part.midiGroup === 'upper') return 'upper'
+  if (part.midiGroup === 'lower') return 'lower'
+
+  const mean = meanMidiForPart(part.id, notes)
+  if (mean != null) {
+    return mean >= SHEET_EXTRA_RANGE_SPLIT_MIDI ? 'upper' : 'lower'
+  }
+
+  const n = normName(part.name)
+  if (/(bass|bari|baritone|alto|contralto)/.test(n)) return 'lower'
+  return 'upper'
+}
+
+function roleForPacked(part: TagRollPart): SheetVoiceRole {
+  return roleForPartName(part.name) ?? 'solo'
+}
+
+/** Pack parts two-per-staff (stems up / down). */
+function packStaffQueue(
+  queue: readonly TagRollPart[],
+  kind: 'upper' | 'lower',
+  clefFamily: TagRollClefFamily,
+  melodyPartId: string | null,
+): SheetStaffSpec[] {
+  const staves: SheetStaffSpec[] = []
+  for (let i = 0; i < queue.length; i += 2) {
+    const a = queue[i]!
+    const b = queue[i + 1]
+    const voices: SheetVoiceSlot[] = [
+      slot(a, roleForPacked(a), 1, melodyPartId),
+      ...(b ? [slot(b, roleForPacked(b), 2, melodyPartId)] : []),
+    ]
+    const n = staves.length
+    staves.push({
+      id: n === 0 ? kind : `${kind}:${n}`,
+      kind,
+      clef: clefForStaff(kind, clefFamily),
+      labels: voices.map((v) => v.partName),
+      voices,
+    })
+  }
+  return staves
+}
+
+/**
+ * Assign parts to staves.
+ * - Named Tenor/Lead/Bari/Bass fill the first upper/lower pair (in part order).
+ * - Remaining parts join matching-range queues and pack onto additional
+ *   tenor-clef or bass-clef staves (max two voices each).
+ * - Empty primary voice slots are filled by matching-range extras before new
+ *   staves are created.
  */
 export function assignSheetStaves(
   parts: readonly TagRollPart[],
   clefFamily: TagRollClefFamily,
-  opts?: { melodyPartId?: string | null },
+  opts?: {
+    melodyPartId?: string | null
+    notes?: readonly Pick<TagRollNote, 'partId' | 'midi'>[]
+  },
 ): SheetStaffAssignment {
   let tenor: TagRollPart | undefined
   let lead: TagRollPart | undefined
@@ -63,6 +141,7 @@ export function assignSheetStaves(
   let bass: TagRollPart | undefined
   const extras: TagRollPart[] = []
   const mid = opts?.melodyPartId ?? null
+  const notes = opts?.notes ?? []
 
   for (const p of parts) {
     const role = roleForPartName(p.name)
@@ -73,42 +152,37 @@ export function assignSheetStaves(
     else extras.push(p)
   }
 
-  const staves: SheetStaffSpec[] = []
-  const hasGrand = !!(tenor || lead || bari || bass)
+  const upperQueue: TagRollPart[] = []
+  const lowerQueue: TagRollPart[] = []
 
-  if (hasGrand) {
-    const upperVoices: SheetVoiceSlot[] = []
-    if (tenor) upperVoices.push(slot(tenor, 'tenor', 1, mid))
-    if (lead) upperVoices.push(slot(lead, 'lead', 2, mid))
-    staves.push({
-      id: 'upper',
-      kind: 'upper',
-      clef: clefForStaff('upper', clefFamily),
-      labels: upperVoices.map((v) => v.partName),
-      voices: upperVoices,
-    })
-
-    const lowerVoices: SheetVoiceSlot[] = []
-    if (bari) lowerVoices.push(slot(bari, 'bari', 1, mid))
-    if (bass) lowerVoices.push(slot(bass, 'bass', 2, mid))
-    staves.push({
-      id: 'lower',
-      kind: 'lower',
-      clef: clefForStaff('lower', clefFamily),
-      labels: lowerVoices.map((v) => v.partName),
-      voices: lowerVoices,
-    })
-  }
+  if (tenor) upperQueue.push(tenor)
+  if (lead) upperQueue.push(lead)
+  if (bari) lowerQueue.push(bari)
+  if (bass) lowerQueue.push(bass)
 
   for (const p of extras) {
-    staves.push({
-      id: `solo:${p.id}`,
-      kind: 'solo',
-      clef: clefForStaff('solo', clefFamily),
-      labels: [p.name],
-      voices: [slot(p, 'solo', 1, mid)],
-    })
+    if (sheetExtraStaffBucket(p, notes) === 'upper') upperQueue.push(p)
+    else lowerQueue.push(p)
   }
+
+  // No named TTBB parts and no extras classified yet — still pack every part.
+  if (!upperQueue.length && !lowerQueue.length) {
+    for (const p of parts) {
+      if (sheetExtraStaffBucket(p, notes) === 'upper') upperQueue.push(p)
+      else lowerQueue.push(p)
+    }
+  }
+
+  const upperStaves = packStaffQueue(upperQueue, 'upper', clefFamily, mid)
+  const lowerStaves = packStaffQueue(lowerQueue, 'lower', clefFamily, mid)
+
+  // Primary grand-staff pair first, then overflow upper, then overflow lower.
+  const staves: SheetStaffSpec[] = [
+    ...(upperStaves[0] ? [upperStaves[0]] : []),
+    ...(lowerStaves[0] ? [lowerStaves[0]] : []),
+    ...upperStaves.slice(1),
+    ...lowerStaves.slice(1),
+  ]
 
   return { clefFamily, staves }
 }

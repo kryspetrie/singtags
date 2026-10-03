@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * View-mode sheet surface — VexFlow (Bravura) continuous horizontal score.
+ * View-mode sheet surface — VexFlow continuous / page score.
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
@@ -19,9 +19,29 @@ import { followPlayheadContentScrollX } from '../../lib/tagRoll/followPlayheadSc
 const PLAYHEAD_HIT = 10
 const DRAG_SLOP = 6
 const RULER_H = 28
+/** Title / credits band reserved inside page 1 (and continuous when engraved header on). */
+const SHEET_TITLE_BAND_MIN_PX = 92
+
+function estimateSheetTitleBandPx(
+  project: TagRollProject,
+  show: boolean,
+): number {
+  if (!show) return 0
+  const hasTitle = !!project.title?.trim()
+  const hasSub = !!project.subtitle?.trim()
+  const hasCredits = !!(project.composer?.trim() || project.arranger?.trim())
+  if (!hasTitle && !hasSub && !hasCredits) return 0
+  let h = 28
+  if (hasTitle) h += 28
+  if (hasSub) h += 20
+  if (hasCredits) h += 22
+  return Math.max(SHEET_TITLE_BAND_MIN_PX, h)
+}
 
 const props = defineProps<{
   project: TagRollProject
+  /** Tag Roll transport is running — drives in-measure playback highlights. */
+  playing?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -39,11 +59,55 @@ const renderError = ref<string | null>(null)
 let renderGen = 0
 
 const sheetZoom = computed(() => props.project.view.sheetZoom)
+const sheetLayout = computed(() => props.project.view.sheetLayout ?? 'continuous')
+const measureSizing = computed(() => props.project.view.sheetMeasureSizing ?? 'equal')
 const showLyrics = computed(() => props.project.view.sheetShowLyrics !== false)
 const scrollX = computed(() => props.project.view.sheetScrollX)
 const scrollY = computed(() => props.project.view.sheetScrollY)
 
+const showEngravedHeader = computed(
+  () => props.project.view.sheetShowEngravedHeader !== false,
+)
+
+const hasMetaHeader = computed(
+  () =>
+    showEngravedHeader.value &&
+    !!(
+      props.project.title?.trim() ||
+      props.project.subtitle?.trim() ||
+      props.project.composer?.trim() ||
+      props.project.arranger?.trim()
+    ),
+)
+const showEngravedFooter = computed(
+  () => props.project.view.sheetShowEngravedFooter !== false,
+)
+
+const hasMetaFooter = computed(
+  () => showEngravedFooter.value && !!props.project.sheetNote?.trim(),
+)
+
+const isPageLayout = computed(() => sheetLayout.value === 'page')
+
+/** Title band reserved in the score (page 1 / strip). 0 when header off. */
+const titleBandPx = computed(() =>
+  estimateSheetTitleBandPx(props.project, hasMetaHeader.value),
+)
+
+/**
+ * Extra scroll chrome above the SVG host.
+ * Page mode: title sits inside page 1 (already in layout height) — don't double-count.
+ * Continuous: title sits above the SVG strip.
+ */
+const metaHeaderH = computed(() =>
+  isPageLayout.value ? 0 : titleBandPx.value,
+)
+const metaFooterH = computed(() =>
+  hasMetaFooter.value && !isPageLayout.value ? 36 : 0,
+)
+
 function minZoom(): number {
+  if (sheetLayout.value === 'page') return TAG_ROLL_SHEET_ZOOM_MIN
   return minPxPerBeatToFillSheet(
     cssW.value,
     props.project.lengthTicks,
@@ -62,8 +126,11 @@ function emitZoom(z: number): void {
   emit('sheetZoom', next)
 }
 
-/** If the viewport grew, bump zoom so measures still fill the width. */
+/** If the viewport grew, bump zoom so measures still fill the width (equal continuous only). */
 function ensureFillWidth(): void {
+  if (sheetLayout.value === 'page') return
+  // Dynamic sizing: don't force equal-based fill — that crushed Equal vs Dynamic contrast.
+  if (measureSizing.value === 'dynamic') return
   const min = minZoom()
   if (sheetZoom.value < min) emitZoom(min)
 }
@@ -81,9 +148,52 @@ function nudgeTimeZoom(delta: number): void {
   emitZoom(sheetZoom.value + delta)
 }
 
+const scoreContentH = computed(() => {
+  const h = layout.value?.height ?? 0
+  return h + metaHeaderH.value + metaFooterH.value
+})
+
+const marginsPx = computed(
+  () =>
+    layout.value?.marginsPx ?? {
+      left: Math.round((props.project.view.sheetMarginLeftIn ?? 0.3) * 96),
+      right: Math.round((props.project.view.sheetMarginRightIn ?? 0.3) * 96),
+      top: Math.round((props.project.view.sheetMarginTopIn ?? 0.3) * 96),
+      bottom: Math.round((props.project.view.sheetMarginBottomIn ?? 0.3) * 96),
+    },
+)
+
+const pageTitleStyle = computed(() => ({
+  width: `${layout.value?.pages[0]?.width ?? 816}px`,
+  height: `${titleBandPx.value}px`,
+  paddingLeft: `${marginsPx.value.left}px`,
+  paddingRight: `${marginsPx.value.right}px`,
+  boxSizing: 'border-box' as const,
+}))
+
+const pageFooterStyle = computed(() => {
+  const pages = layout.value?.pages
+  if (!pages?.length) return {}
+  const last = pages[pages.length - 1]!
+  const bottom = Math.max(28, marginsPx.value.bottom)
+  return {
+    width: `${last.width}px`,
+    paddingLeft: `${marginsPx.value.left}px`,
+    paddingRight: `${marginsPx.value.right}px`,
+    boxSizing: 'border-box' as const,
+    transform: `translate(0, ${last.y + last.height - bottom}px)`,
+  }
+})
+
+const continuousMetaPadStyle = computed(() => ({
+  paddingLeft: `${marginsPx.value.left}px`,
+  paddingRight: `${marginsPx.value.right}px`,
+  boxSizing: 'border-box' as const,
+}))
+
 /** Vertical offset so a short score sits centered in the viewport. */
 const centerPadY = computed(() => {
-  const h = layout.value?.height ?? 0
+  const h = scoreContentH.value
   const avail = Math.max(0, cssH.value - RULER_H)
   if (h <= 0 || h >= avail) return 0
   return Math.floor((avail - h) / 2)
@@ -121,10 +231,88 @@ function localPoint(e: PointerEvent): { x: number; y: number } | null {
   return { x: e.clientX - r.left, y: e.clientY - r.top }
 }
 
-function playheadScreenX(): number {
+/** Content coords inside the VexFlow host (below meta header). */
+function contentPointFromLocal(local: { x: number; y: number }): { x: number; y: number } {
+  return {
+    x: local.x + scrollX.value,
+    y: local.y - RULER_H - centerPadY.value + scrollY.value - metaHeaderH.value,
+  }
+}
+
+const playheadTick = computed(() => props.project.view.playheadTick)
+
+const playheadPoint = computed((): { x: number; y: number } => {
   const lay = layout.value
-  if (!lay) return RULER_H
-  return lay.tickToX(props.project.view.playheadTick) - scrollX.value
+  if (!lay) return { x: 0, y: 0 }
+  return lay.tickToPoint(playheadTick.value)
+})
+
+type PlaybackHighlight = {
+  id: string
+  x: number
+  y: number
+  w: number
+  h: number
+  color: string
+}
+
+/** Tint notes whose sounding window contains the live playhead. */
+const playbackHighlights = computed((): PlaybackHighlight[] => {
+  if (
+    !props.playing ||
+    props.project.view.sheetPlaybackHighlight === false ||
+    !layout.value
+  ) {
+    return []
+  }
+  const lay = layout.value
+  const t = playheadTick.value
+  const colorByPart = new Map(props.project.parts.map((p) => [p.id, p.color]))
+  const out: PlaybackHighlight[] = []
+  const padX = 5
+  const padY = 10
+  for (const n of props.project.notes) {
+    if (t < n.startTick || t >= n.startTick + n.durationTicks) continue
+    const endTick = Math.min(props.project.lengthTicks, n.startTick + n.durationTicks)
+    const a = lay.tickToPoint(n.startTick)
+    const b = lay.tickToPoint(endTick)
+    const x0 = Math.min(a.x, b.x)
+    const x1 = Math.max(a.x, b.x)
+    out.push({
+      id: n.id,
+      x: x0 - padX,
+      y: a.y + padY,
+      w: Math.max(10, x1 - x0 + padX * 2),
+      h: Math.max(24, lay.systemBodyHeight - padY * 2),
+      color: colorByPart.get(n.partId) ?? '#1d6a9f',
+    })
+  }
+  return out
+})
+
+function playheadScreenX(): number {
+  return playheadPoint.value.x - scrollX.value
+}
+
+function playheadHit(local: { x: number; y: number }): boolean {
+  const lay = layout.value
+  if (!lay) return false
+  if (local.y <= RULER_H) return Math.abs(local.x - playheadScreenX()) <= PLAYHEAD_HIT
+  const pt = playheadPoint.value
+  const content = contentPointFromLocal(local)
+  const rowH = lay.systemBodyHeight
+  return (
+    Math.abs(content.x - pt.x) <= PLAYHEAD_HIT &&
+    content.y >= pt.y - 4 &&
+    content.y <= pt.y + rowH + 4
+  )
+}
+
+function tickFromLocal(local: { x: number; y: number }): number {
+  const lay = layout.value
+  if (!lay) return 0
+  const c = contentPointFromLocal(local)
+  return lay.pointToTick(c.x, c.y)
 }
 
 function maxScrollX(): number {
@@ -133,7 +321,7 @@ function maxScrollX(): number {
 }
 
 function maxScrollY(): number {
-  const h = (layout.value?.height ?? cssH.value) + RULER_H
+  const h = scoreContentH.value + RULER_H
   // When centered, no vertical scroll needed.
   if (centerPadY.value > 0) return 0
   return Math.max(0, h - cssH.value)
@@ -157,6 +345,37 @@ async function rerender(): Promise<void> {
       project: props.project,
       pxPerBeat: sheetZoom.value,
       showLyrics: showLyrics.value,
+      sheetLayout: sheetLayout.value,
+      measureSizing: measureSizing.value,
+      pageWidthIn: props.project.view.sheetPageWidthIn ?? 8.5,
+      pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
+      pageDpi: props.project.view.sheetPageDpi ?? 96,
+      headerBandPx: isPageLayout.value ? titleBandPx.value : 0,
+      noteColors: props.project.view.sheetNoteColors !== false,
+      staveGap: props.project.view.sheetStaveGap ?? 'normal',
+      measureScale: props.project.view.sheetMeasureScale ?? 1,
+      noteSpacing: props.project.view.sheetNoteSpacing ?? 1,
+      beatStretch: props.project.view.sheetBeatStretch ?? 1,
+      staveGapFine: props.project.view.sheetStaveGapFine ?? 1,
+      systemGap: props.project.view.sheetSystemGap ?? 1,
+      topMargin: props.project.view.sheetTopMargin ?? 1,
+      lyricSize: props.project.view.sheetLyricSize ?? 12,
+      lyricOffsets: props.project.view.sheetLyricOffsets ?? {},
+      paddingScale: props.project.view.sheetPadding ?? 1,
+      minBarWidth: props.project.view.sheetMinBarWidth ?? 1,
+      clefGutter: props.project.view.sheetClefGutter ?? 1,
+      timeFactor: props.project.view.sheetTimeFactor ?? 1,
+      bottomMargin: props.project.view.sheetBottomMargin ?? 1,
+      musicFont: props.project.view.sheetMusicFont,
+      textFont: props.project.view.sheetTextFont,
+      staffLineWeight: props.project.view.sheetStaffLineWeight ?? 1,
+      showPartNames: props.project.view.sheetPartNames === true,
+      marginLeftIn: props.project.view.sheetMarginLeftIn ?? 0.3,
+      marginRightIn: props.project.view.sheetMarginRightIn ?? 0.3,
+      marginTopIn: props.project.view.sheetMarginTopIn ?? 0.3,
+      marginBottomIn: props.project.view.sheetMarginBottomIn ?? 0.3,
+      engravingScale: props.project.view.sheetEngravingScale ?? 1,
+      scoreScale: props.project.view.sheetScoreScale ?? 1,
     })
     if (gen !== renderGen) return
     layout.value = next
@@ -200,22 +419,8 @@ function onPointerDown(e: PointerEvent): void {
     return
   }
 
-  const phX = playheadScreenX()
-  if (local.y <= RULER_H || Math.abs(local.x - phX) <= PLAYHEAD_HIT) {
-    const lay = layout.value
-    const tickAt = lay
-      ? (() => {
-          let lo = 0
-          let hi = props.project.lengthTicks
-          const target = local.x + scrollX.value
-          for (let i = 0; i < 24; i++) {
-            const mid = (lo + hi) / 2
-            if (lay.tickToX(mid) < target) lo = mid
-            else hi = mid
-          }
-          return (lo + hi) / 2
-        })()
-      : 0
+  if (local.y <= RULER_H || playheadHit(local)) {
+    const tickAt = tickFromLocal(local)
     gesture = {
       kind: 'playhead',
       grabOffsetTicks: tickAt - props.project.view.playheadTick,
@@ -256,17 +461,7 @@ function onPointerMove(e: PointerEvent): void {
   if (gesture.kind === 'playhead') {
     const local = localPoint(e)
     if (!local) return
-    const lay = layout.value
-    if (!lay) return
-    let lo = 0
-    let hi = props.project.lengthTicks
-    const target = local.x + scrollX.value
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2
-      if (lay.tickToX(mid) < target) lo = mid
-      else hi = mid
-    }
-    emit('playhead', clampTick((lo + hi) / 2))
+    emit('playhead', clampTick(tickFromLocal(local)))
     return
   }
 
@@ -316,11 +511,12 @@ function onWheel(e: WheelEvent): void {
 }
 
 type SheetExprMark =
-  | { kind: 'fermata'; left: number }
-  | { kind: 'tempo'; left: number; bpm: number }
+  | { kind: 'fermata'; left: number; top: number }
+  | { kind: 'tempo'; left: number; top: number; bpm: number }
   | {
       kind: 'rit' | 'accel'
       left: number
+      top: number
       width: number
       label: string
       startBpm: number
@@ -334,20 +530,22 @@ const exprMarks = computed((): SheetExprMark[] => {
 
   for (const m of props.project.tempoMarkers) {
     if (isRampStickyMarker(m.id)) continue
-    out.push({ kind: 'tempo', left: lay.tickToX(m.tick), bpm: m.bpm })
+    const pt = lay.tickToPoint(m.tick)
+    out.push({ kind: 'tempo', left: pt.x, top: pt.y, bpm: m.bpm })
   }
 
   for (const ex of props.project.expressions) {
     if (ex.kind === 'fermata') {
-      // Align with note onset (notehead), not duration center like the roll lane.
-      out.push({ kind: 'fermata', left: lay.tickToX(ex.tick) })
+      const pt = lay.tickToPoint(ex.tick)
+      out.push({ kind: 'fermata', left: pt.x, top: pt.y })
     } else {
-      const x0 = lay.tickToX(ex.startTick)
-      const x1 = lay.tickToX(ex.endTick)
+      const a = lay.tickToPoint(ex.startTick)
+      const b = lay.tickToPoint(ex.endTick)
       out.push({
         kind: ex.kind,
-        left: Math.min(x0, x1),
-        width: Math.abs(x1 - x0),
+        left: Math.min(a.x, b.x),
+        top: a.y,
+        width: Math.abs(b.x - a.x),
         label: ex.kind === 'rit' ? 'rit.' : 'accel.',
         startBpm: ex.startBpm,
         endBpm: ex.endBpm,
@@ -358,10 +556,18 @@ const exprMarks = computed((): SheetExprMark[] => {
 })
 
 let ro: ResizeObserver | null = null
+let measureRerenderTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   measure()
-  ro = new ResizeObserver(() => measure())
+  ro = new ResizeObserver(() => {
+    measure()
+    // Page layout packs to viewport width — reflow after resize settles.
+    if (sheetLayout.value === 'page') {
+      if (measureRerenderTimer) clearTimeout(measureRerenderTimer)
+      measureRerenderTimer = setTimeout(() => void rerender(), 80)
+    }
+  })
   if (wrapRef.value) ro.observe(wrapRef.value)
   window.addEventListener('resize', measure)
   void nextTick(() => void rerender())
@@ -370,6 +576,7 @@ onMounted(() => {
 onUnmounted(() => {
   ro?.disconnect()
   window.removeEventListener('resize', measure)
+  if (measureRerenderTimer) clearTimeout(measureRerenderTimer)
   renderGen++
 })
 
@@ -384,9 +591,46 @@ watch(
     props.project.timeSignature.numerator,
     props.project.timeSignature.denominator,
     props.project.view.sheetZoom,
+    props.project.view.sheetLayout,
+    props.project.view.sheetMeasureSizing,
+    props.project.view.sheetPageWidthIn,
+    props.project.view.sheetPageHeightIn,
+    props.project.view.sheetPageDpi,
     props.project.view.sheetShowLyrics,
+    props.project.view.sheetNoteColors,
+    props.project.view.sheetStaveGap,
+    props.project.view.sheetMeasureScale,
+    props.project.view.sheetNoteSpacing,
+    props.project.view.sheetBeatStretch,
+    props.project.view.sheetStaveGapFine,
+    props.project.view.sheetSystemGap,
+    props.project.view.sheetTopMargin,
+    props.project.view.sheetLyricSize,
+    props.project.view.sheetLyricOffsets,
+    props.project.view.sheetShowEngravedHeader,
+    props.project.view.sheetShowEngravedFooter,
+    props.project.view.sheetPadding,
+    props.project.view.sheetMinBarWidth,
+    props.project.view.sheetClefGutter,
+    props.project.view.sheetTimeFactor,
+    props.project.view.sheetBottomMargin,
+    props.project.view.sheetMusicFont,
+    props.project.view.sheetTextFont,
+    props.project.view.sheetStaffLineWeight,
+    props.project.view.sheetPartNames,
+    props.project.view.sheetMarginLeftIn,
+    props.project.view.sheetMarginRightIn,
+    props.project.view.sheetMarginTopIn,
+    props.project.view.sheetMarginBottomIn,
+    props.project.view.sheetEngravingScale,
+    props.project.view.sheetScoreScale,
     props.project.expressions,
     props.project.tempoMarkers,
+    props.project.title,
+    props.project.subtitle,
+    props.project.composer,
+    props.project.arranger,
+    props.project.sheetNote,
   ],
   () => {
     ensureFillWidth()
@@ -403,15 +647,27 @@ defineExpose({
   followPlayheadIntoView(tick: number, opts?: { focusRatio?: number }): void {
     const lay = layout.value
     if (!lay) return
-    const next = followPlayheadContentScrollX({
-      playheadContentX: lay.tickToX(Math.max(0, tick)),
+    const pt = lay.tickToPoint(Math.max(0, tick))
+    const nextX = followPlayheadContentScrollX({
+      playheadContentX: pt.x,
       scrollX: scrollX.value,
       viewportW: cssW.value,
       contentW: lay.width,
       focusRatio: opts?.focusRatio,
     })
-    if (next == null) return
-    const clamped = clampScroll(next, scrollY.value)
+    let nextY = scrollY.value
+    if (sheetLayout.value === 'page' && centerPadY.value <= 0) {
+      const contentY = pt.y + metaHeaderH.value
+      const viewTop = scrollY.value
+      const viewBot = scrollY.value + Math.max(1, cssH.value - RULER_H)
+      const margin = 24
+      if (contentY < viewTop + margin) {
+        nextY = Math.max(0, contentY - margin)
+      } else if (contentY + lay.systemBodyHeight > viewBot - margin) {
+        nextY = contentY + lay.systemBodyHeight - (cssH.value - RULER_H) + margin
+      }
+    }
+    const clamped = clampScroll(nextX ?? scrollX.value, nextY)
     if (clamped.x !== scrollX.value || clamped.y !== scrollY.value) {
       emit('scroll', clamped.x, clamped.y)
     }
@@ -438,35 +694,107 @@ defineExpose({
       />
     </div>
     <div class="score-scroller" :style="{ transform: scrollerTransform }">
-      <div ref="scoreHostRef" class="score-host" />
-      <div class="expr-layer" aria-hidden="true">
+      <!-- Continuous: title above the strip. Page: title is inside page 1 (below). -->
+      <header
+        v-if="hasMetaHeader && !isPageLayout"
+        class="sheet-meta-header"
+        :style="continuousMetaPadStyle"
+      >
+        <p v-if="project.title?.trim()" class="meta-title">{{ project.title }}</p>
+        <p v-if="project.subtitle?.trim()" class="meta-subtitle">{{ project.subtitle }}</p>
         <div
-          v-for="(m, i) in exprMarks"
-          :key="i"
-          class="expr-mark"
-          :class="m.kind"
-          :style="{
-            left: `${m.left}px`,
-            width: m.kind === 'rit' || m.kind === 'accel' ? `${m.width}px` : undefined,
-          }"
+          v-if="project.composer?.trim() || project.arranger?.trim()"
+          class="meta-credits"
         >
-          <span v-if="m.kind === 'fermata'" class="ferm">𝄐</span>
-          <span v-else-if="m.kind === 'tempo'" class="tempo-mark">♩={{ m.bpm }}</span>
-          <template v-else>
-            <span class="ramp-label">{{ m.label }}</span>
-            <span class="ramp-bpm start">♩={{ m.startBpm }}</span>
-            <span class="ramp-bpm end">♩={{ m.endBpm }}</span>
-          </template>
+          <span class="meta-composer">{{ project.composer }}</span>
+          <span class="meta-arranger">{{ project.arranger }}</span>
         </div>
+      </header>
+      <div class="score-body">
+        <div
+          v-for="pg in layout?.pages ?? []"
+          :key="`page-${pg.index}`"
+          class="page-frame"
+          :style="{
+            width: `${pg.width}px`,
+            height: `${pg.height}px`,
+            transform: `translate(0, ${pg.y}px)`,
+          }"
+          aria-hidden="true"
+        >
+          <span class="page-label">Page {{ pg.index + 1 }}</span>
+        </div>
+        <header
+          v-if="hasMetaHeader && isPageLayout"
+          class="sheet-meta-header on-page"
+          :style="pageTitleStyle"
+        >
+          <p v-if="project.title?.trim()" class="meta-title">{{ project.title }}</p>
+          <p v-if="project.subtitle?.trim()" class="meta-subtitle">{{ project.subtitle }}</p>
+          <div
+            v-if="project.composer?.trim() || project.arranger?.trim()"
+            class="meta-credits"
+          >
+            <span class="meta-composer">{{ project.composer }}</span>
+            <span class="meta-arranger">{{ project.arranger }}</span>
+          </div>
+        </header>
+        <div ref="scoreHostRef" class="score-host" />
+        <div class="expr-layer" aria-hidden="true">
+          <div
+            v-for="(m, i) in exprMarks"
+            :key="i"
+            class="expr-mark"
+            :class="m.kind"
+            :style="{
+              left: `${m.left}px`,
+              top: `${m.top}px`,
+              width: m.kind === 'rit' || m.kind === 'accel' ? `${m.width}px` : undefined,
+            }"
+          >
+            <span v-if="m.kind === 'fermata'" class="ferm">𝄐</span>
+            <span v-else-if="m.kind === 'tempo'" class="tempo-mark">♩={{ m.bpm }}</span>
+            <template v-else>
+              <span class="ramp-label">{{ m.label }}</span>
+              <span class="ramp-bpm start">♩={{ m.startBpm }}</span>
+              <span class="ramp-bpm end">♩={{ m.endBpm }}</span>
+            </template>
+          </div>
+        </div>
+        <div
+          v-for="h in playbackHighlights"
+          :key="h.id"
+          class="playback-note"
+          :style="{
+            width: `${h.w}px`,
+            height: `${h.h}px`,
+            backgroundColor: h.color,
+            transform: `translate(${h.x}px, ${h.y}px)`,
+          }"
+        />
+        <div
+          v-if="layout"
+          class="playhead"
+          :style="{
+            height: `${layout.systemBodyHeight}px`,
+            transform: `translate(${playheadPoint.x}px, ${playheadPoint.y}px)`,
+          }"
+        />
+        <footer
+          v-if="hasMetaFooter && isPageLayout && layout?.pages?.length"
+          class="sheet-meta-footer on-page"
+          :style="pageFooterStyle"
+        >
+          <p class="meta-note">{{ project.sheetNote }}</p>
+        </footer>
       </div>
-      <div
-        v-if="layout"
-        class="playhead"
-        :style="{
-          height: `${layout.height}px`,
-          transform: `translateX(${layout.tickToX(project.view.playheadTick)}px)`,
-        }"
-      />
+      <footer
+        v-if="hasMetaFooter && !isPageLayout"
+        class="sheet-meta-footer"
+        :style="continuousMetaPadStyle"
+      >
+        <p class="meta-note">{{ project.sheetNote }}</p>
+      </footer>
     </div>
     <p v-if="renderError" class="err" role="alert">{{ renderError }}</p>
   </div>
@@ -514,9 +842,103 @@ defineExpose({
   left: 0;
   will-change: transform;
 }
-.score-host {
+.sheet-meta-header {
+  box-sizing: border-box;
   min-width: 100%;
-  background: #f7f4ee;
+  padding: 10px 28px 6px;
+  text-align: center;
+  color: #1a1a1a;
+}
+.sheet-meta-header.on-page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: none;
+}
+.meta-title {
+  margin: 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.meta-subtitle {
+  margin: 4px 0 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.95rem;
+  font-style: italic;
+  color: #3d3a34;
+}
+.meta-credits {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: #3d3a34;
+}
+.meta-composer {
+  text-align: left;
+}
+.meta-arranger {
+  text-align: right;
+  margin-left: auto;
+}
+.sheet-meta-footer {
+  box-sizing: border-box;
+  min-width: 100%;
+  padding: 8px 28px 12px;
+  text-align: center;
+}
+.sheet-meta-footer.on-page {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  min-width: 0;
+  pointer-events: none;
+}
+.meta-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #5a564e;
+  font-style: italic;
+}
+.score-body {
+  position: relative;
+  min-width: 100%;
+}
+.page-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, #bbb);
+  box-shadow: 0 2px 10px color-mix(in srgb, #000 12%, transparent);
+  pointer-events: none;
+}
+.page-label {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a857c;
+}
+.score-host {
+  position: relative;
+  z-index: 1;
+  min-width: 100%;
+  background: transparent;
 }
 .score-host :deep(svg) {
   display: block;
@@ -529,10 +951,8 @@ defineExpose({
 }
 .expr-mark {
   position: absolute;
-  top: 4px;
 }
 .expr-mark.fermata {
-  top: 0;
   transform: translateX(-50%);
   line-height: 1;
 }
@@ -544,6 +964,7 @@ defineExpose({
 }
 .expr-mark.tempo {
   transform: translateX(-2px);
+  margin-top: 4px;
 }
 .tempo-mark {
   display: inline-block;
@@ -558,7 +979,7 @@ defineExpose({
 }
 .expr-mark.rit,
 .expr-mark.accel {
-  top: 18px;
+  margin-top: 18px;
   height: 22px;
   min-width: 4.5em;
 }
@@ -603,9 +1024,20 @@ defineExpose({
   right: 0;
   transform: translateX(40%);
 }
+.playback-note {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.28;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, currentColor 40%, transparent);
+}
 .playhead {
   position: absolute;
   top: 0;
+  left: 0;
   width: 2px;
   margin-left: -1px;
   background: #c45c26;

@@ -45,6 +45,25 @@ describe('indexSnapshotDb', () => {
     expect(rec?.expansions).toEqual({ foo: ['bar'] })
   })
 
+  it('round-trips catalog via gzip storage format', async () => {
+    const tags = Array.from({ length: 20 }, (_, i) => ({
+      id: i + 1,
+      title: `Tag ${i + 1}`,
+      arranger: null,
+      key: null,
+      rating: null,
+      type: null,
+      collection: null,
+      hasSheet: false,
+      audioParts: [] as string[],
+      sheet: null,
+    }))
+    await putCatalogSnapshotIdb(tags, {})
+    const rec = await getCatalogSnapshotIdb()
+    expect(rec?.tags).toHaveLength(20)
+    expect(rec?.tags[19]?.title).toBe('Tag 20')
+  })
+
   it('persists and loads lyrics snapshot', async () => {
     await putLyricsSnapshotIdb([
       { id: 1, lyrics: 'hello world' },

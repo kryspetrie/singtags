@@ -200,6 +200,12 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
           'Strengthening looks for weak approaches into the next home and may insert or prefer secondary-dominant BS7 drive when safe. Still audition - software suggests highways; your ear keeps the lyric story.',
         glossaryIds: ['secondary_dom', 'bs7', 'circle_fifths'],
       },
+      {
+        title: 'Close / medium / wide spacing',
+        body:
+          'Think gender-agnostic spreads: close keeps bari often above Lead with bass near the stack; wide sits bari below Lead and uses fewer tight clusters. Match density to the ensemble you have.',
+        glossaryIds: ['voicing_spread', 'ttbb', 'harmonic_series_spacing'],
+      },
     ],
     helpIntro: 'Finish the walk and take the arrangement out.',
     help: [

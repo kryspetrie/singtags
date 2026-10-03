@@ -67,6 +67,10 @@ export type TagRollProject = {
   schema: typeof TAG_ROLL_SCHEMA
   id: string
   title: string
+  subtitle?: string
+  composer?: string
+  arranger?: string
+  sheetNote?: string
   bpm: number
   ppq: typeof TAG_ROLL_PPQ
   snapTicks: number

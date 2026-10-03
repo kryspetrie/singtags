@@ -8,9 +8,8 @@
 import type { PartId, TagDetail, TagSummary } from '../types/tag'
 import type { AudioEncodeQuality } from '../types/audio'
 import { listAudioParts, storageAudioPath } from '../lib/audioTiers'
-import { sampleUrl } from '../download/zip'
+import { mediaUrl } from '../lib/mediaUrl'
 import { sheetDisplayPages } from '../lib/sheetPaths'
-import { fetchAudioForStorage } from './compactAudio'
 import { mediaCacheKey } from '../lib/mediaCacheKey'
 
 const DB_NAME = 'singtags'
@@ -161,7 +160,7 @@ export async function removeStarred(tagId: number): Promise<void> {
 
 async function fetchBlob(path: string): Promise<{ path: string; mime: string; data: ArrayBuffer } | null> {
   try {
-    const res = await fetch(sampleUrl(path))
+    const res = await fetch(mediaUrl(path))
     if (!res.ok) return null
     const data = await res.arrayBuffer()
     const mime = res.headers.get('content-type') || 'application/octet-stream'
@@ -277,6 +276,7 @@ export async function starTag(
       if (sheets.length) record.sheetBlobs = sheets
 
       const audio: NonNullable<StarredTagRecord['audioBlobs']> = {}
+      const { fetchAudioForStorage } = await import('./compactAudio')
       for (const [part, path] of audioEntries) {
         const b = await fetchAudioForStorage(path, audioQuality, (label) => {
           report(onProgress, `${part}: ${label}`, done, Math.max(total, 1))

@@ -3,7 +3,7 @@
  * Sheet music viewer: image sets and PDFs with zoom/pan, fullscreen, optional pay-the-key,
  * and offline PDF raster cache integration.
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { mediaUrl } from '../lib/mediaUrl'
 import type { SheetImageSet, SheetPdfFile } from '../lib/sheetAssets'
 import { cropImageUrl } from '../lib/contentCrop'
@@ -30,7 +30,7 @@ import {
   type SheetFitMode,
   type SheetZoomPan,
 } from '../lib/sheetZoomPan'
-import { KEY_SHIFT_LABEL_SIZE_SAMPLE, pitchPipeNotes } from '../audio/pitchPlayer'
+import { KEY_SHIFT_LABEL_SIZE_SAMPLE, pitchPipeNotes } from '../audio/pitchUiLabels'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import { OverlayHistorySentinel, setScrollLock, setShellInert } from '../lib/overlayShell'
 import { setSessionBusy } from '../lib/sessionActivity'
@@ -39,7 +39,8 @@ import {
   processSheetImageUrl,
   sheetErodeFilterParams,
 } from '../lib/sheetErode'
-import SheetPianoDock from './SheetPianoDock.vue'
+
+const SheetPianoDock = defineAsyncComponent(() => import('./SheetPianoDock.vue'))
 
 export type SheetDisplayMode = 'images' | 'pdf'
 

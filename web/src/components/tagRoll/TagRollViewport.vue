@@ -45,6 +45,12 @@ import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
 import { keyAtTick } from '../../lib/tagRoll/keyMap'
 import { paintNoteBoxLabel, darkenCssColor } from '../../lib/tagRoll/noteBoxLabel'
 import {
+  bandColorsForNote,
+  fillNoteColorBands,
+  notesSharingPitch,
+  sortNotesForOverlapPaint,
+} from '../../lib/tagRoll/overlapNotePaint'
+import {
   paintMelodyRoleBorders,
 } from '../../domain/arranging/melodyRoleLabels'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
@@ -625,15 +631,21 @@ function draw(): void {
     n: (typeof props.project.notes)[number]
     r: { x: number; y: number; w: number; h: number }
     partColor: string
+    bandColors: string[]
     selected: boolean
     showHandles: boolean
     showMelody: boolean
     role: 'pmn' | 'smn' | null
   }
   const drawn: DrawnNote[] = []
-  for (const n of props.project.notes) {
-    const faded = focusActive && !!activePartId && n.partId !== activePartId
-    if (faded) continue // drawn as part ghosts above
+  const visibleNotes = props.project.notes.filter((n) => {
+    if (focusActive && !!activePartId && n.partId !== activePartId) return false
+    return true
+  })
+  for (const n of sortNotesForOverlapPaint(visibleNotes, {
+    activePartId,
+    selectedIds,
+  })) {
     const part = props.project.parts.find((p) => p.id === n.partId)
     const r = noteRect(n)
     if (r.x + r.w < 0 || r.x > cssW.value || r.y + r.h < 0 || r.y > cssH.value) continue
@@ -645,10 +657,15 @@ function draw(): void {
       cw >= TAG_ROLL_HANDLE_CELL_W
     const roleRaw = props.noteRoles?.get(n.id)
     const showRole = wantRoleChrome && (roleRaw === 'pmn' || roleRaw === 'smn')
+    const sharing = notesSharingPitch(props.project.notes, n)
+    const bandColors = bandColorsForNote(n, sharing, props.project.parts, {
+      activePartId,
+    })
     drawn.push({
       n,
       r,
       partColor: part?.color || accent,
+      bandColors: bandColors.length ? bandColors : [part?.color || accent],
       selected,
       showHandles,
       showMelody: wantMelodyChrome && !!melodyPartId && n.partId === melodyPartId,
@@ -656,11 +673,16 @@ function draw(): void {
     })
   }
 
-  // 1) Fills — keep interiors clear of role/melody chrome.
+  // 1) Fills — horizontal bands when multiple parts share the pitch.
   for (const d of drawn) {
     ctx.globalAlpha = 1
-    ctx.fillStyle = d.partColor
-    ctx.fillRect(d.r.x + 1, d.r.y + 1, d.r.w - 2, d.r.h - 2)
+    fillNoteColorBands(ctx, {
+      x: d.r.x + 1,
+      y: d.r.y + 1,
+      w: d.r.w - 2,
+      h: d.r.h - 2,
+      colors: d.bandColors,
+    })
     ctx.strokeStyle = surface
     ctx.lineWidth = 1
     ctx.strokeRect(d.r.x + 1.5, d.r.y + 1.5, d.r.w - 3, d.r.h - 3)

@@ -7,6 +7,7 @@ import {
   type RecorderChannels,
 } from '../types/recorder'
 
+/** Chromium / Firefox order — WebM Opus is reliable. */
 const MIME_CANDIDATES = [
   'audio/webm;codecs=opus',
   'audio/webm',
@@ -15,12 +16,46 @@ const MIME_CANDIDATES = [
   'audio/ogg',
 ] as const
 
+/**
+ * Safari / iOS: prefer MP4/AAC. Safari 18.4+ may report WebM Opus as supported
+ * via `isTypeSupported`, but recorded blob playback / duration probes often fail.
+ */
+const MIME_CANDIDATES_SAFARI = [
+  'audio/mp4',
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+] as const
+
+/**
+ * True for Apple WebKit browsers (Safari, iOS Chrome/Firefox shells) where
+ * recorded WebM Opus is less reliable than MP4/AAC for in-app playback.
+ */
+export function prefersSafariRecorderMp4(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (/iP(hone|ad|od)/i.test(ua)) return true
+  // Desktop Safari (not Chrome/Edge/Opera/Firefox, which also include "Safari" in UA).
+  return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/i.test(ua)
+}
+
+function mimeCandidates(): readonly string[] {
+  return prefersSafariRecorderMp4() ? MIME_CANDIDATES_SAFARI : MIME_CANDIDATES
+}
+
 /** First supported mime from preferred + fallbacks. */
 export function pickSupportedRecorderMime(preferred?: string): string {
-  const ordered = preferred
-    ? [preferred, ...MIME_CANDIDATES.filter((m) => m !== preferred)]
-    : [...MIME_CANDIDATES]
-  if (typeof MediaRecorder === 'undefined') return preferred || 'audio/webm'
+  const candidates = mimeCandidates()
+  // On Safari, do not honor a preferred WebM — `isTypeSupported` can lie.
+  const honorPreferred =
+    preferred && !(prefersSafariRecorderMp4() && /webm/i.test(preferred)) ? preferred : undefined
+  const ordered = honorPreferred
+    ? [honorPreferred, ...candidates.filter((m) => m !== honorPreferred)]
+    : [...candidates]
+  if (typeof MediaRecorder === 'undefined') {
+    return honorPreferred || (prefersSafariRecorderMp4() ? 'audio/mp4' : 'audio/webm')
+  }
   for (const mime of ordered) {
     try {
       if (MediaRecorder.isTypeSupported(mime)) return mime
@@ -28,7 +63,7 @@ export function pickSupportedRecorderMime(preferred?: string): string {
       /* ignore */
     }
   }
-  return preferred || 'audio/webm'
+  return honorPreferred || (prefersSafariRecorderMp4() ? 'audio/mp4' : 'audio/webm')
 }
 
 export function recorderMimeChoices(): Array<{ value: string; label: string; supported: boolean }> {
@@ -39,7 +74,7 @@ export function recorderMimeChoices(): Array<{ value: string; label: string; sup
     'audio/ogg;codecs=opus': 'Ogg Opus',
     'audio/ogg': 'Ogg',
   }
-  return MIME_CANDIDATES.map((value) => {
+  return mimeCandidates().map((value) => {
     let supported = false
     try {
       supported = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(value)

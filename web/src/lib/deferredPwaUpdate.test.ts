@@ -86,7 +86,12 @@ describe('deferredPwaUpdate', () => {
     window.history.replaceState({}, '', '/?q=1')
     sessionStorage.setItem(
       PWA_RELOAD_SCROLL_KEY,
-      JSON.stringify({ path: '/?q=1', scrollY: 320, at: Date.now() }),
+      JSON.stringify({
+        path: '/?q=1',
+        scrollY: 320,
+        at: Date.now(),
+        source: 'pwa-deferred-update',
+      }),
     )
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     restoreScrollAfterPwaReload()
@@ -96,12 +101,27 @@ describe('deferredPwaUpdate', () => {
     scrollTo.mockRestore()
   })
 
+  it('ignores legacy scroll snapshots without pwa source (normal refresh)', () => {
+    window.history.replaceState({}, '', '/')
+    sessionStorage.setItem(
+      PWA_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/', scrollY: 2400, at: Date.now() }),
+    )
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    restoreScrollAfterPwaReload()
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(PWA_RELOAD_SCROLL_KEY)).toBeNull()
+    scrollTo.mockRestore()
+  })
+
   it('saveScrollForPwaReload writes snapshot', () => {
     window.history.replaceState({}, '', '/browse')
     Object.defineProperty(window, 'scrollY', { configurable: true, get: () => 88 })
     saveScrollForPwaReload()
     const raw = sessionStorage.getItem(PWA_RELOAD_SCROLL_KEY)
     expect(raw).toBeTruthy()
-    expect(JSON.parse(raw!).scrollY).toBe(88)
+    const snap = JSON.parse(raw!)
+    expect(snap.scrollY).toBe(88)
+    expect(snap.source).toBe('pwa-deferred-update')
   })
 })
