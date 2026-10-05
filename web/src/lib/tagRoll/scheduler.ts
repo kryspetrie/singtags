@@ -170,7 +170,8 @@ export function createTagRollScheduler(opts: {
       lane: 'detected' as const,
     }))
     // Prefer locked when both claim the same onset.
-    const byTick = new Map<number, (typeof locked)[0]>()
+    type HarmonyPathSpan = (typeof locked)[number] | (typeof detected)[number]
+    const byTick = new Map<number, HarmonyPathSpan>()
     for (const d of detected) {
       if (!byTick.has(d.startTick)) byTick.set(d.startTick, d)
     }

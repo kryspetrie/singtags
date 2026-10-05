@@ -83,7 +83,7 @@ export function findEmbellishmentSeeds(project: ArrangementProject): Embellishme
             durationTicks: swipeDur,
             layer: 'embellishment',
             voicing: alt.voicing,
-            ruleTags: [...base.ruleTags, 'swipe'],
+            ruleTags: [...base.ruleTags],
             midi: alt.midi,
           }
         }

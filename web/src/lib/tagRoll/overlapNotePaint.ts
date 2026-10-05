@@ -51,7 +51,7 @@ export function sortNotesForOverlapPaint<T extends { partId: string; id: string 
 }
 
 export function bandColorsForNote(
-  note: TagRollNote,
+  _note: TagRollNote,
   sharing: readonly TagRollNote[],
   parts: readonly Pick<TagRollPart, 'id' | 'color'>[],
   opts?: { activePartId?: string | null },
