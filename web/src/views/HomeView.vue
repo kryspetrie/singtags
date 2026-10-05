@@ -70,7 +70,7 @@ import {
 } from '../search/browse'
 import { isUserCollectionFilterId } from '../lib/collections'
 import { normalizeYear } from '../lib/year'
-import { DEFAULT_AXIS_BLEND } from '../lib/scrub'
+import { DEFAULT_AXIS_BLEND, scrubResultsIndexTick } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { tagOpenLocation } from '../lib/tagOpen'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
@@ -1246,11 +1246,11 @@ function scrubLabelAtIndex(index: number): string {
   if (!tag) return ''
   if (catalog.sortMode === 'id') return tagIdHundredKey(tag.id)
   if (catalog.sortMode === 'year') return yearSectionKey(normalizeYear(tag.year))
-  // Landmark ticks for optional results scrub — section key when we have one.
+  // Sectioned sorts: letter / collection / rating key — never song titles.
   const key = sectionKeyFor(tag, catalog.sortMode)
   if (key && key !== 'All') return key
-  const title = (tag.title || '').trim()
-  return title.length > 14 ? `${title.slice(0, 13)}…` : title || String(index + 1)
+  // Flat sorts (rating, downloads, …): coarse result-index ticks.
+  return scrubResultsIndexTick(index, catalog.allResults.length)
 }
 
 function scrubValueAtIndex(index: number): number {

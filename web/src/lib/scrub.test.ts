@@ -15,6 +15,7 @@ import {
   loupeGeometry,
   pickLandmarkAnchors,
   landmarkMinGapForWidth,
+  scrubResultsIndexTick,
   trackFractionFromIndex,
   trackToContent,
 } from './scrub'
@@ -24,6 +25,16 @@ describe('scrub helpers', () => {
     expect(indexFromTrackFraction(0, 10)).toBe(0)
     expect(indexFromTrackFraction(1, 10)).toBe(9)
     expect(indexFromTrackFraction(0.5, 11)).toBe(5)
+  })
+
+  it('uses coarse 1-based index ticks instead of per-item labels', () => {
+    expect(scrubResultsIndexTick(0, 100)).toBe('1')
+    expect(scrubResultsIndexTick(4, 100)).toBe('1')
+    expect(scrubResultsIndexTick(5, 100)).toBe('6')
+    expect(scrubResultsIndexTick(99, 100)).toBe('96')
+    expect(scrubResultsIndexTick(0, 3)).toBe('1')
+    expect(scrubResultsIndexTick(2, 3)).toBe('3')
+    expect(scrubResultsIndexTick(0, 0)).toBe('')
   })
 
   it('reverses axis so left is last index (oldest when list is newest-first)', () => {

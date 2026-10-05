@@ -207,7 +207,6 @@ export function pickLandmarkAnchors(
 ): ScrubLabelAnchor[] {
   if (anchors.length === 0) return []
   if (anchors.length <= 2) return [...anchors]
-
   const gap = Math.max(0.02, minGap)
   const picked: ScrubLabelAnchor[] = [anchors[0]!]
   for (let i = 1; i < anchors.length - 1; i++) {
@@ -224,6 +223,25 @@ export function pickLandmarkAnchors(
     picked.push(last)
   }
   return picked
+}
+
+/**
+ * Coarse 1-based index tick for flat results scrubs (rating / downloads / …).
+ * Consecutive items share a label so the rail stays readable — never use song
+ * titles as tickmarks.
+ */
+export function scrubResultsIndexTick(
+  index: number,
+  length: number,
+  /** Soft cap on how many distinct tick labels the axis may form. */
+  maxBuckets = 20,
+): string {
+  if (length <= 0) return ''
+  const i = Math.min(length - 1, Math.max(0, index))
+  const buckets = Math.min(Math.max(1, maxBuckets), length)
+  const size = Math.ceil(length / buckets)
+  const start = Math.floor(i / size) * size
+  return String(start + 1)
 }
 
 /**
