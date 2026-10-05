@@ -14,8 +14,6 @@ import {
   SHEET_BOTTOM_MARGIN_MIN,
   SHEET_CLEF_GUTTER_MAX,
   SHEET_CLEF_GUTTER_MIN,
-  SHEET_ENGRAVING_SCALE_MAX,
-  SHEET_ENGRAVING_SCALE_MIN,
   SHEET_LYRIC_SIZE_MAX,
   SHEET_LYRIC_SIZE_MIN,
   SHEET_MARGIN_IN_MAX,
@@ -67,7 +65,7 @@ export function sheetFormatViewKey(
 export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot {
   const base = defaultSheetFormat()
   return {
-    sheetNoteColors: view.sheetNoteColors !== false,
+    sheetNoteColors: view.sheetNoteColors === true,
     sheetStaveGap:
       view.sheetStaveGap === 'tight' || view.sheetStaveGap === 'wide'
         ? view.sheetStaveGap
@@ -108,6 +106,8 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
     ),
     sheetLyricOffsets: {},
     sheetPlaybackHighlight: view.sheetPlaybackHighlight !== false,
+    sheetShowSketchChords: view.sheetShowSketchChords === true,
+    sheetShowDetectedChords: view.sheetShowDetectedChords === true,
     sheetShowEngravedHeader: view.sheetShowEngravedHeader !== false,
     sheetShowEngravedFooter: view.sheetShowEngravedFooter !== false,
     sheetPadding: clampSheetFormat(
@@ -187,18 +187,15 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
       SHEET_MARGIN_IN_MAX,
       base.sheetMarginBottomIn,
     ),
-    sheetEngravingScale: clampSheetFormat(
-      view.sheetEngravingScale,
-      SHEET_ENGRAVING_SCALE_MIN,
-      SHEET_ENGRAVING_SCALE_MAX,
-      base.sheetEngravingScale,
-    ),
-    sheetScoreScale: clampSheetFormat(
-      view.sheetScoreScale,
-      SHEET_SCORE_SCALE_MIN,
-      SHEET_SCORE_SCALE_MAX,
-      base.sheetScoreScale,
-    ),
+    ...(() => {
+      const size = clampSheetFormat(
+        view.sheetScoreScale,
+        SHEET_SCORE_SCALE_MIN,
+        SHEET_SCORE_SCALE_MAX,
+        base.sheetScoreScale,
+      )
+      return { sheetScoreScale: size, sheetEngravingScale: size }
+    })(),
   }
 }
 

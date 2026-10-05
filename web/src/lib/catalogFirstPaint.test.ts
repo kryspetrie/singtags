@@ -39,11 +39,16 @@ describe('catalogFirstPaint', () => {
     vi.stubGlobal('localStorage', storage)
     vi.stubGlobal('sessionStorage', storage)
 
-    const tags = Array.from({ length: 120 }, (_, i) => tag(i + 1, `T${i + 1}`))
+    const tags = [
+      ...Array.from({ length: 60 }, (_, i) => tag(i + 1, `C${i + 1}`, 'Classic')),
+      ...Array.from({ length: 60 }, (_, i) => tag(i + 101, `D${i + 1}`, '100')),
+    ]
     saveCatalogFirstPaint(tags)
     const fp = loadCatalogFirstPaint()
     expect(fp?.totalCount).toBe(120)
     expect(fp?.tags.length).toBe(96)
+    expect(fp?.jumpKeys?.length).toBeGreaterThanOrEqual(2)
+    expect(fp?.jumpKeys).toEqual(expect.arrayContaining(['Classic']))
     expect(store.has(CATALOG_FIRST_PAINT_KEY)).toBe(true)
   })
 
@@ -54,5 +59,9 @@ describe('catalogFirstPaint', () => {
     expect(browseUrlLooksDefault('?col=Classic')).toBe(false)
     expect(browseUrlLooksDefault('?ft=1')).toBe(false)
     expect(browseUrlLooksDefault('?rev=1')).toBe(false)
+    expect(browseUrlLooksDefault('?at=1204')).toBe(false)
+    expect(browseUrlLooksDefault('?scroll=800')).toBe(false)
+    expect(browseUrlLooksDefault('?sy=800')).toBe(false)
+    expect(browseUrlLooksDefault('?sec=Classic')).toBe(false)
   })
 })

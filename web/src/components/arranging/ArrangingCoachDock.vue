@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * Arranging coach — Home → Chords → Check → Polish.
+ * Arranging coach — Home → Chords → Check → Auto → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingCoachSuggestPanel from './ArrangingCoachSuggestPanel.vue'
 import ArrangingCoachWhyDock from './ArrangingCoachWhyDock.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
+import ArrangingChartAuto from './ArrangingChartAuto.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
@@ -150,15 +151,15 @@ const {
   checklist,
   howFactors,
   orgTip,
-  musicXmlAvailable,
+  autoStatus,
+  canRunPathTools,
+  swipeAvailable,
   onStrengthen,
   onPolish,
   onApplySwipe,
   setContestProfile,
   setTuningMode,
   setQaGroup,
-  exportMidi,
-  exportMusicXml,
 } = useCoachGuidedAndReview({
   mode,
   focusTab,
@@ -264,6 +265,7 @@ const transportActions = createCoachTransportActions({
   applyBest: applySelectedSuggest,
   fixAllSafe,
   onStrengthen,
+  onPolish,
   hearPillarRoot,
   hearCurrentStack,
   hearCand,
@@ -597,18 +599,24 @@ onUnmounted(() => {
             </aside>
           </section>
 
-          <!-- POLISH -->
+          <!-- AUTO — whole-chart tools -->
+          <section v-else-if="focusTab === 'auto'" class="panel">
+            <ArrangingChartAuto
+              :status="autoStatus"
+              :swipe-available="swipeAvailable"
+              :can-run-path-tools="canRunPathTools"
+              @strengthen="onStrengthen"
+              @polish="onPolish"
+              @apply-swipe="onApplySwipe"
+            />
+          </section>
+
+          <!-- POLISH — checklist / finish -->
           <section v-else class="panel">
             <ArrangingReviewPolish
               :checklist="checklist.items"
               :ready="checklist.ready"
               :how-factors="howFactors"
-              :music-xml-available="musicXmlAvailable"
-              @strengthen="onStrengthen"
-              @polish="onPolish"
-              @apply-swipe="onApplySwipe"
-              @export-midi="exportMidi"
-              @export-music-xml="exportMusicXml"
             />
           </section>
             </div>

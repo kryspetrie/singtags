@@ -8,6 +8,7 @@ import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arran
 import type { ChordRankHint } from '../../lib/tagRoll/harmonizer/chordPickOptions'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { TagRollProject } from '../../lib/tagRoll/types'
+import { usePreferencesStore } from '../../stores/preferences'
 import TagRollChordEditPopover, {
   type ChordEditDraft,
 } from './TagRollChordEditPopover.vue'
@@ -34,8 +35,25 @@ const emit = defineEmits<{
   togglePillar: []
 }>()
 
+const prefs = usePreferencesStore()
 const title = computed(() => (props.variant === 'detected' ? 'Detected' : 'Sketch'))
 const hasTarget = computed(() => props.seg != null && props.seg.rootPc != null)
+/** Include melody pitch in audition inversions (per Sketch / Detected). */
+const lockLeadVoicing = computed({
+  get: () =>
+    props.variant === 'detected'
+      ? prefs.tagRollDetectedLockLeadVoicing
+      : prefs.tagRollSketchLockLeadVoicing,
+  set: (on: boolean) => {
+    if (props.variant === 'detected') prefs.setTagRollDetectedLockLeadVoicing(on)
+    else prefs.setTagRollSketchLockLeadVoicing(on)
+  },
+})
+const lockLeadHint = computed(() =>
+  lockLeadVoicing.value
+    ? 'On: Sketch/Detected audition must include the Lead melody pitch in the voicing.'
+    : 'Off: closed catalog inversions (Lead not forced into the chord).',
+)
 const showPopOut = computed(() => props.allowPopOut !== false)
 const isPillar = computed(() => {
   if (!props.seg) return false
@@ -103,6 +121,29 @@ const pillarTitle = computed(() => {
         </button>
       </div>
     </header>
+
+    <label
+      class="voicing-setting"
+      :class="{ on: lockLeadVoicing }"
+      :title="lockLeadHint"
+    >
+      <span class="voicing-copy">
+        <span class="voicing-title">Include Lead note in voicing</span>
+        <span class="voicing-hint">{{
+          lockLeadVoicing
+            ? 'Melody pitch must appear in the chord (default).'
+            : 'Closed catalog inversions — Lead not required.'
+        }}</span>
+      </span>
+      <input
+        v-model="lockLeadVoicing"
+        type="checkbox"
+        class="voicing-switch"
+        role="switch"
+        :aria-checked="lockLeadVoicing"
+        :aria-label="`Include Lead note in ${title} voicing`"
+      />
+    </label>
 
     <div class="body" :class="{ dimmed: !hasTarget }">
       <p v-if="!hasTarget" class="empty">
@@ -185,6 +226,46 @@ const pillarTitle = computed(() => {
 }
 .btn.ghost:hover {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.voicing-setting {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex: 0 0 auto;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg, var(--surface)) 55%, var(--surface));
+  cursor: pointer;
+}
+.voicing-setting.on {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.voicing-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.voicing-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.voicing-hint {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.voicing-switch {
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 1.2rem;
+  margin-top: 0.1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 .body {
   display: flex;

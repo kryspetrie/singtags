@@ -63,7 +63,7 @@ export type SchedulerHarmonySketchSpan = Pick<
   'id' | 'startTick' | 'endTick' | 'rootPc' | 'quality' | 'locked'
 >
 
-/** Detected-lane hole fills (unlocked) for mixer Detected audition. */
+/** Detected-lane hole fills (unlocked) for the Detected mix bus. */
 export type SchedulerDetectedSpan = {
   id: string
   startTick: number
@@ -91,7 +91,18 @@ export function createTagRollScheduler(opts: {
   getHarmonySketch?: () => readonly SchedulerHarmonySketchSpan[]
   /** Detected hole fills for Detected mixer channel. */
   getDetectedSpans?: () => readonly SchedulerDetectedSpan[]
-  getLeadMidiAt?: (tick: number) => number
+  /** Melody MIDI at tick, or null when no melody note covers that onset. */
+  getLeadMidiAt?: (tick: number) => number | null
+  /**
+   * When false, Sketch audition ignores melody and uses closed catalog inversions.
+   * Default true (Lead locked into the voicing).
+   */
+  getSketchLockLead?: () => boolean
+  /**
+   * When false, Detected audition ignores melody and uses closed catalog inversions.
+   * Default true.
+   */
+  getDetectedLockLead?: () => boolean
   /** Key center for Detected/Sketch inversion path (I/V home-bass bias). */
   getTonality?: () => number
   /** Melody part id — sketch is skipped while non-melody notes sound at the span. */
@@ -138,6 +149,8 @@ export function createTagRollScheduler(opts: {
    * so each lane’s voicings respect the other.
    */
   function ensureHarmonyPath(): Map<string, VoicingPitches> {
+    const sketchLock = opts.getSketchLockLead?.() !== false
+    const detectedLock = opts.getDetectedLockLead?.() !== false
     const locked = (opts.getHarmonySketch?.() ?? [])
       .filter((s) => s.locked)
       .map((s) => ({
@@ -145,14 +158,16 @@ export function createTagRollScheduler(opts: {
         startTick: s.startTick,
         rootPc: s.rootPc,
         quality: s.quality,
-        leadMidi: opts.getLeadMidiAt?.(s.startTick) ?? 60,
+        leadMidi: sketchLock ? (opts.getLeadMidiAt?.(s.startTick) ?? null) : null,
+        lane: 'sketch' as const,
       }))
     const detected = (opts.getDetectedSpans?.() ?? []).map((s) => ({
       id: s.id,
       startTick: s.startTick,
       rootPc: s.rootPc,
       quality: s.quality,
-      leadMidi: opts.getLeadMidiAt?.(s.startTick) ?? 60,
+      leadMidi: detectedLock ? (opts.getLeadMidiAt?.(s.startTick) ?? null) : null,
+      lane: 'detected' as const,
     }))
     // Prefer locked when both claim the same onset.
     const byTick = new Map<number, (typeof locked)[0]>()
@@ -165,9 +180,9 @@ export function createTagRollScheduler(opts: {
     const combined = [...byTick.values()].sort(
       (a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id),
     )
-    const key = combined
-      .map((s) => `${s.id}:${s.rootPc}:${s.quality}:${s.leadMidi}`)
-      .join('|')
+    const key =
+      `s${sketchLock ? 1 : 0}d${detectedLock ? 1 : 0}|` +
+      combined.map((s) => `${s.id}:${s.rootPc}:${s.quality}:${s.leadMidi}`).join('|')
     if (harmonyPathById && key === harmonyPathKey) return harmonyPathById
     const path = optimizeSketchHearPath(
       combined.map((s) => ({
@@ -343,7 +358,10 @@ export function createTagRollScheduler(opts: {
     }
     if (sketchScheduled.has(span.id)) return
     sketchScheduled.add(span.id)
-    const leadMidi = opts.getLeadMidiAt?.(span.startTick) ?? 60
+    const leadMidi =
+      opts.getSketchLockLead?.() === false
+        ? null
+        : (opts.getLeadMidiAt?.(span.startTick) ?? null)
     const fromPath = ensureHarmonyPath().get(span.id)
     const voicing =
       fromPath ??
@@ -418,7 +436,10 @@ export function createTagRollScheduler(opts: {
     }
     if (detectScheduled.has(span.id)) return
     detectScheduled.add(span.id)
-    const leadMidi = opts.getLeadMidiAt?.(span.startTick) ?? 60
+    const leadMidi =
+      opts.getDetectedLockLead?.() === false
+        ? null
+        : (opts.getLeadMidiAt?.(span.startTick) ?? null)
     const fromPath = ensureHarmonyPath().get(span.id)
     const voicing =
       fromPath ??

@@ -72,8 +72,8 @@ describe('tagRoll normalize', () => {
     expect(p.arranger).toBe('')
     expect(p.sheetNote).toBe('')
     expect(p.view.sheetLayout).toBe('continuous')
-    expect(p.view.sheetMeasureSizing).toBe('equal')
-    expect(p.view.sheetNoteColors).toBe(true)
+    expect(p.view.sheetMeasureSizing).toBe('dynamic')
+    expect(p.view.sheetNoteColors).toBe(false)
     expect(p.view.sheetStaveGap).toBe('tight')
     expect(p.view.sheetMeasureScale).toBe(1)
     expect(p.view.sheetNoteSpacing).toBe(1)
@@ -81,7 +81,8 @@ describe('tagRoll normalize', () => {
     expect(p.view.sheetStaveGapFine).toBe(0.85)
     expect(p.view.sheetSystemGap).toBe(0.65)
     expect(p.view.sheetMarginLeftIn).toBe(0.3)
-    expect(p.view.sheetEngravingScale).toBe(0.9)
+    expect(p.view.sheetEngravingScale).toBe(0.95)
+    expect(p.view.sheetScoreScale).toBe(0.95)
     expect(p.view.sheetPlaybackHighlight).toBe(true)
     expect(p.view.sheetLyricOffsets).toEqual({})
     expect(p.view.sheetPageWidthIn).toBe(8.5)
@@ -114,6 +115,17 @@ describe('tagRoll normalize', () => {
     expect(n!.view.sheetStaveGap).toBe('wide')
     expect(n!.view.sheetMeasureScale).toBe(1.25)
     expect(n!.view.sheetNoteSpacing).toBe(1.4)
+    // Divergent legacy scales lock to score scale.
+    const locked = normalizeTagRollProject({
+      ...p,
+      view: {
+        ...p.view,
+        sheetScoreScale: 1.2,
+        sheetEngravingScale: 0.7,
+      },
+    })
+    expect(locked!.view.sheetScoreScale).toBe(1.2)
+    expect(locked!.view.sheetEngravingScale).toBe(1.2)
     // Legacy compressed → continuous + dynamic (when sizing omitted)
     const { sheetMeasureSizing: _omit, ...viewSansSizing } = p.view
     const legacy = normalizeTagRollProject({

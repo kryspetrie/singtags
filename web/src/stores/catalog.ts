@@ -86,6 +86,11 @@ export const useCatalogStore = defineStore('catalog', () => {
   const partialCatalog = ref(false)
   /** Full catalog size while `partialCatalog` (from first-paint cache). */
   const catalogTotalHint = ref<number | null>(null)
+  /**
+   * Full-catalog collection jump keys from first-paint cache.
+   * Used so the jump rail can size correctly before IDB returns.
+   */
+  const firstPaintJumpKeys = ref<string[] | null>(null)
   const error = ref<string | null>(null)
   const expansions = ref<ExpansionMap>({})
   const lyricsById = ref<Map<number, string>>(new Map())
@@ -171,6 +176,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     loaded.value = true
     partialCatalog.value = false
     catalogTotalHint.value = null
+    firstPaintJumpKeys.value = null
     error.value = null
 
     const buildEngine = () => {
@@ -298,8 +304,24 @@ export const useCatalogStore = defineStore('catalog', () => {
     loaded.value = true
     partialCatalog.value = true
     catalogTotalHint.value = fp.totalCount
+    firstPaintJumpKeys.value = fp.jumpKeys?.length ? [...fp.jumpKeys] : null
     error.value = null
     engine.value = null
+    return true
+  }
+
+  /**
+   * Jump-rail chrome only (no tag rows). Used for `?at=` reloads so mid-list
+   * layout can size the collection strip before IDB returns.
+   */
+  function hydrateFirstPaintChrome(): boolean {
+    if (firstPaintJumpKeys.value?.length) return true
+    const fp = loadCatalogFirstPaint()
+    if (!fp?.jumpKeys?.length) return false
+    firstPaintJumpKeys.value = [...fp.jumpKeys]
+    if (catalogTotalHint.value == null && fp.totalCount > 0) {
+      catalogTotalHint.value = fp.totalCount
+    }
     return true
   }
 
@@ -753,6 +775,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     loading,
     partialCatalog,
     catalogTotalHint,
+    firstPaintJumpKeys,
     error,
     filters,
     fullText,
@@ -778,6 +801,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     resultLimit,
     load,
     hydrateFirstPaint,
+    hydrateFirstPaintChrome,
     hydrateFromSnapshot,
     hydrateFromIndexedDb,
     hydrateLyricsFromIndexedDb,

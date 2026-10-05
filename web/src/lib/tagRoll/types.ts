@@ -138,8 +138,9 @@ export type TagRollSheetMusicFont =
   | 'bravura'
   | 'petaluma'
   | 'leland'
-  | 'gonville'
   | 'finale-maestro'
+  /** @deprecated Mapped to bravura on load. */
+  | 'gonville'
 
 /** Text font for lyrics, tempo, part names. */
 export type TagRollSheetTextFont =
@@ -291,6 +292,10 @@ export type TagRollViewPrefs = {
   sheetLyricOffsets: Record<string, number>
   /** Tint sounding notes during transport playback. */
   sheetPlaybackHighlight: boolean
+  /** Show Sketch chord labels in boxes above the staff. */
+  sheetShowSketchChords: boolean
+  /** Show Detected chord labels in boxes above the staff. */
+  sheetShowDetectedChords: boolean
   /** Title / credits block above the score in sheet view. */
   sheetShowEngravedHeader: boolean
   /** Footer note block below the score. */
@@ -311,13 +316,12 @@ export type TagRollViewPrefs = {
   sheetMarginTopIn: number
   sheetMarginBottomIn: number
   /**
-   * Scales music notation (staff line spacing, noteheads, clefs) via VexFlow stave space.
-   * Independent of page size / margins.
+   * Notation size (kept locked to {@link sheetScoreScale} — one proportional Size control).
    */
   sheetEngravingScale: number
   /**
-   * Scales score content (measure widths + vertical gaps + engraving) inside the margins.
-   * Page size and margins stay fixed.
+   * Overall score Size (measures, gaps, staves). Kept locked to {@link sheetEngravingScale}.
+   * Page size and margins stay fixed; Continuous W zoom is separate.
    */
   sheetScoreScale: number
   /** Page layout: printable page width in inches (default Letter 8.5). */
@@ -334,6 +338,14 @@ export type TagRollViewPrefs = {
   sheetStaffLineWeight: number
   /** Part names at the start of each system. */
   sheetPartNames: boolean
+  /**
+   * Stashed Format snapshots for the inactive layout (Continuous ↔ Page).
+   * Live fields on `view` are always for the current `sheetLayout`.
+   */
+  sheetFormatByLayout: {
+    continuous?: Record<string, unknown>
+    page?: Record<string, unknown>
+  }
   /** Sheet surface pan (independent of piano-roll scrollX/Y). */
   sheetScrollX: number
   sheetScrollY: number
@@ -453,8 +465,8 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetZoom: 40,
   sheetShowLyrics: true,
   sheetLayout: 'continuous',
-  sheetMeasureSizing: 'equal',
-  sheetNoteColors: true,
+  sheetMeasureSizing: 'dynamic',
+  sheetNoteColors: false,
   sheetStaveGap: 'tight',
   sheetMeasureScale: 1,
   sheetNoteSpacing: 1,
@@ -465,6 +477,8 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetLyricSize: 11,
   sheetLyricOffsets: {},
   sheetPlaybackHighlight: true,
+  sheetShowSketchChords: false,
+  sheetShowDetectedChords: false,
   sheetShowEngravedHeader: true,
   sheetShowEngravedFooter: true,
   sheetPadding: 1,
@@ -476,7 +490,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetMarginRightIn: 0.3,
   sheetMarginTopIn: 0.3,
   sheetMarginBottomIn: 0.3,
-  sheetEngravingScale: 0.9,
+  sheetEngravingScale: 0.95,
   sheetScoreScale: 0.95,
   sheetPageWidthIn: 8.5,
   sheetPageHeightIn: 11,
@@ -485,6 +499,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetTextFont: 'academico',
   sheetStaffLineWeight: 1,
   sheetPartNames: false,
+  sheetFormatByLayout: {},
   sheetScrollX: 0,
   sheetScrollY: 0,
 }

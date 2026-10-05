@@ -45,4 +45,25 @@ describe('useCoachTransport', () => {
     expect(view.value.secondaryLabel).toBe('Next empty')
     expect(view.value.secondaryDisabled).toBe(false)
   })
+
+  it('auto step primaries Polish inversions; polish has no primary CTA', () => {
+    const auto = useCoachTransport({
+      ...base,
+      guidedStep: computed(() => 'auto' as const),
+      guidedStepLabel: computed(() => 'Auto'),
+      repairTour: computed(() => false),
+      selectedPil: computed(() => null),
+    })
+    expect(auto.value.primaryLabel).toBe('Polish inversions')
+
+    const polish = useCoachTransport({
+      ...base,
+      guidedStep: computed(() => 'polish' as const),
+      guidedStepLabel: computed(() => 'Polish'),
+      repairTour: computed(() => false),
+      selectedPil: computed(() => null),
+    })
+    expect(polish.value.primaryLabel).toBe('')
+    expect(polish.value.primaryDisabled).toBe(true)
+  })
 })

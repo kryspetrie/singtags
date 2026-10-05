@@ -4,7 +4,11 @@
  */
 import { createRouter, createWebHistory } from 'vue-router'
 import { onTagReturnBeforeEach, peekTagReturnScrollY } from '../lib/tagReturn'
-import { consumeBrowseReloadScroll } from '../lib/browseReloadScroll'
+import {
+  BROWSE_RELOAD_SCROLL_KEY,
+  consumeBrowseReloadScroll,
+} from '../lib/browseReloadScroll'
+import { parseBrowseScrollQuery } from '../lib/browseScrollUrl'
 import { usePreferencesStore } from '../stores/preferences'
 // Landing route is eager so reload paints Browse with the shell (no async chunk gap).
 import HomeView from '../views/HomeView.vue'
@@ -209,7 +213,19 @@ export const router = createRouter({
       if (from?.name === 'home' && to.path === from.path) {
         return false
       }
-      // Full page reload: resume prior Browse scrollY when we saved it on pagehide.
+      // Prefer URL tag anchor (`at`) — HomeView scrolls that row under the chrome.
+      const urlScroll = parseBrowseScrollQuery(to.query as Record<string, unknown>)
+      if (urlScroll.at != null) {
+        browseScrollIntent = 'restore'
+        browseReloadScrollY = null
+        try {
+          sessionStorage?.removeItem(BROWSE_RELOAD_SCROLL_KEY)
+        } catch {
+          /* ignore */
+        }
+        return false
+      }
+      // Fallback: sessionStorage from pagehide (reload mid-drag before URL catch-up).
       const reloadY = consumeBrowseReloadScroll()
       if (reloadY != null && reloadY > 0) {
         browseScrollIntent = 'restore'
@@ -220,6 +236,15 @@ export const router = createRouter({
       }
       browseScrollIntent = 'top'
       browseReloadScrollY = null
+      // Drop any leftover reload snapshot so nothing can yank mid-list before pin-to-top.
+      try {
+        sessionStorage?.removeItem(BROWSE_RELOAD_SCROLL_KEY)
+      } catch {
+        /* ignore */
+      }
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0)
+      }
       return { top: 0 }
     }
     browseScrollIntent = null

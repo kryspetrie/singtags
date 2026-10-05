@@ -39,6 +39,16 @@ import {
   mergeBrowseQuery,
 } from '../lib/browseRouteQuery'
 import {
+  BROWSE_SECTION_ROW_H,
+  BROWSE_TAG_ROW_H,
+  browseScrollToQuery,
+  browseScrollQueriesEqual,
+  estimateBrowseScrollY,
+  mergeBrowseScrollQuery,
+  onlyBrowseScrollQueryChanged,
+  parseBrowseScrollQuery,
+} from '../lib/browseScrollUrl'
+import {
   hasJumpRail,
   hasScrubRail,
   type BrowseRow,
@@ -85,6 +95,38 @@ const tipsOpen = ref(false)
 const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
 const qrScannerOpen = ref(false)
+/**
+ * Placeholder browse rows while the catalog hydrates — enough for ~1–2 viewports
+ * so cold loads feel like a list, not a blank “Loading…” gap.
+ */
+const BROWSE_SKELETON_ROWS = 16
+const browseSkeletonRows = Array.from({ length: BROWSE_SKELETON_ROWS }, (_, i) => i)
+/** Fade Browse list in once catalog is ready (scroll is applied while still opacity 0). */
+const browseReveal = ref(false)
+
+/** Reload/share with `?at=` — keep mid-list chrome, don't flash search-top. */
+const restoringAtTag = computed(
+  () => parseBrowseScrollQuery(route.query as Record<string, unknown>).at != null,
+)
+/** Mid-list `?at=` restore: mid chrome until real rows are pinned and faded in. */
+const showMidRestoreSkeleton = computed(
+  () => restoringAtTag.value && !browseReveal.value && !catalog.error,
+)
+
+/**
+ * Dock sticky jump chrome under the app header (search / results-meta scrolled
+ * away). Those blocks stay in flow (visibility:hidden) so offsets stay stable
+ * when they become visible again on reveal.
+ */
+function scrollPastSearchChrome(): void {
+  if (typeof window === 'undefined') return
+  const meta = document.querySelector('.home .results-meta') as HTMLElement | null
+  const search = document.querySelector('.home .search-toolbar') as HTMLElement | null
+  const el = meta ?? search
+  const y = el ? Math.max(0, el.offsetTop + el.offsetHeight - 4) : 120
+  window.scrollTo({ top: y, left: 0, behavior: 'auto' })
+  windowScrollY.value = window.scrollY
+}
 
 function closeWelcome(): void {
   // Welcome owns the first-run download ask — suppress the sheets/sync toasts so they
@@ -102,6 +144,7 @@ function scrollToSearchTop(): void {
   scrubScrollIndex.value = 0
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   windowScrollY.value = 0
+  scheduleBrowseScrollUrlSync()
 }
 
 async function onWelcomeContinue(opts: { cacheSheets: boolean; cacheAudio: boolean }): Promise<void> {
@@ -239,6 +282,9 @@ function browseAltTitle(tag: TagSummary): string | null {
   return visibleAltTitle(tag.altTitle, tag.title)
 }
 
+/** True while we are writing `at` so route watch does not re-apply filters. */
+const syncingScrollUrl = ref(false)
+
 function applyRoute(): void {
   syncingRoute.value = true
   const sort = (
@@ -260,16 +306,29 @@ applyRoute()
 
 watch(
   () => route.query,
-  () => applyRoute(),
+  (q, prev) => {
+    if (syncingScrollUrl.value) return
+    if (
+      onlyBrowseScrollQueryChanged(
+        q as Record<string, unknown>,
+        prev as Record<string, unknown> | undefined,
+        browseQueriesEqual,
+      )
+    ) {
+      return
+    }
+    applyRoute()
+  },
 )
 
 watch(
   () => [catalog.debouncedQuery, catalog.filters, catalog.sortMode, catalog.sortReverse] as const,
   () => {
-    if (syncingRoute.value) return
+    if (syncingRoute.value || syncingScrollUrl.value) return
     const browsePatch = catalog.routeQueryPatch()
     const nextQuery = mergeBrowseQuery(route.query as Record<string, unknown>, browsePatch)
     if (browseQueriesEqual(route.query as Record<string, unknown>, nextQuery)) return
+    // Preserve list anchor (`at`) across filter/sort URL updates.
     void router.replace({ query: nextQuery })
   },
   { deep: true },
@@ -541,21 +600,63 @@ function onJumpTopClick(): void {
   })
 }
 
+/**
+ * Jump keys for the rail. Prefer cached full-catalog collection keys while the
+ * live window is empty or still a first-paint slice — keeps strip size stable.
+ * When live matches cache, keep the cached array reference so the strip does
+ * not remount/remeasure on catalog hydrate.
+ */
+const browseJumpKeys = computed(() => {
+  const live = catalog.browseWindow.jumpKeys
+  const cached = catalog.firstPaintJumpKeys
+  if (catalog.sortMode === 'collection' && cached?.length) {
+    if (catalog.partialCatalog || live.length === 0) return cached
+    if (live.length === cached.length && live.every((k, i) => k === cached[i])) {
+      return cached
+    }
+  }
+  return live
+})
+
+/** Year / Tag # density scrub — always available when that View-by is active. */
+const specificScrub = computed(
+  () => hasScrubRail(catalog.sortMode) && catalog.allResults.length >= 1,
+)
+/**
+ * Optional results scrub for every other View-by (title, collection, rating, …).
+ * Collapsed by default; expands into the same ScrubRail chrome and replaces the
+ * section/collection chip row entirely.
+ */
+const resultsScrubAvailable = computed(
+  () => !hasScrubRail(catalog.sortMode) && catalog.allResults.length >= 2,
+)
+const resultsScrubOpen = ref(false)
+const showScrub = computed(
+  () => specificScrub.value || (resultsScrubAvailable.value && resultsScrubOpen.value),
+)
+
 const showJump = computed(
   () =>
-    !catalog.partialCatalog &&
     hasJumpRail(catalog.sortMode) &&
-    catalog.browseWindow.jumpKeys.length >= 1,
+    browseJumpKeys.value.length >= 1 &&
+    !resultsScrubOpen.value,
 )
 /** Letter/booklet keys only — ↑ sits outside the key grid like year scrub. */
-const jumpKeyCount = computed(() => catalog.browseWindow.jumpKeys.length)
+const jumpKeyCount = computed(() => browseJumpKeys.value.length)
 
 const collectionJumpKeys = computed(() =>
-  catalog.sortMode === 'collection' ? catalog.browseWindow.jumpKeys : [],
+  catalog.sortMode === 'collection' ? browseJumpKeys.value : [],
 )
 
 const collectionStripHost = ref<HTMLElement | null>(null)
 const collectionMeasureEl = ref<HTMLElement | null>(null)
+
+function bindCollectionStripHost(el: unknown): void {
+  collectionStripHost.value = el instanceof HTMLElement ? el : null
+}
+function bindCollectionMeasureEl(el: unknown): void {
+  collectionMeasureEl.value = el instanceof HTMLElement ? el : null
+}
 
 const {
   page: collectionJumpPage,
@@ -617,28 +718,6 @@ const jumpKeysStyle = computed(() => {
     gridTemplateColumns: `repeat(${jumpCols.value}, minmax(0, 1fr))`,
   }
 })
-
-/** Year / Tag # density scrub — always available when that View-by is active. */
-const specificScrub = computed(
-  () =>
-    !catalog.partialCatalog &&
-    hasScrubRail(catalog.sortMode) &&
-    catalog.allResults.length >= 1,
-)
-/**
- * Optional results scrub for every other View-by (title, collection, rating, …).
- * Collapsed by default; expands into the same ScrubRail chrome.
- */
-const resultsScrubAvailable = computed(
-  () =>
-    !catalog.partialCatalog &&
-    !hasScrubRail(catalog.sortMode) &&
-    catalog.allResults.length >= 2,
-)
-const resultsScrubOpen = ref(false)
-const showScrub = computed(
-  () => specificScrub.value || (resultsScrubAvailable.value && resultsScrubOpen.value),
-)
 
 watch(
   () => catalog.sortMode,
@@ -706,9 +785,6 @@ function syncStickyBrowsePad(): void {
 /** Extra rows while scrubbing so mid-drag jumps stay filled longer. */
 const BROWSE_OVERSCAN = 14
 const BROWSE_SCRUB_OVERSCAN = 48
-const SCRUB_GHOST_SECTION_H = 48
-const SCRUB_GHOST_TAG_H = 72
-
 /** True while year/tag# scrub is driving the list — drives overscan + ghost layer. */
 const scrubbing = ref(false)
 
@@ -716,7 +792,7 @@ const rowVirtualizer = useWindowVirtualizer(
   computed(() => ({
     count: browseRows.value.length,
     estimateSize: (index: number) =>
-      browseRows.value[index]?.type === 'section' ? 48 : 72,
+      browseRows.value[index]?.type === 'section' ? BROWSE_SECTION_ROW_H : BROWSE_TAG_ROW_H,
     overscan: scrubbing.value ? BROWSE_SCRUB_OVERSCAN : BROWSE_OVERSCAN,
     scrollMargin: listScrollMargin.value,
     scrollPaddingStart: stickyBrowsePad.value,
@@ -761,8 +837,29 @@ function browseScrollFloorY(): number {
   return Math.max(0, listScrollMargin.value - stickyBrowsePad.value)
 }
 
+/**
+ * Keep document y=0 while Browse is meant to open on search (fresh / reload-at-top).
+ * Jump rail + virtualizer padding often land on the first collection header otherwise.
+ */
+let pinSearchTopUntil = 0
+
+function shouldPinSearchTop(): boolean {
+  return browseScrollIntent !== 'restore' && Date.now() <= pinSearchTopUntil
+}
+
+function armPinSearchTop(ms = 2000): void {
+  if (browseScrollIntent === 'restore') return
+  pinSearchTopUntil = Math.max(pinSearchTopUntil, Date.now() + ms)
+}
+
+function pinSearchTopIfArmed(): void {
+  if (!shouldPinSearchTop()) return
+  if (window.scrollY > DOC_TOP_EPS) scrollToSearchTop()
+}
+
 /** After programmatic list scrolls, never leave the rail unstuck above search. */
 function clampBrowseScrollFloor(): void {
+  if (shouldPinSearchTop()) return
   const floor = browseScrollFloorY()
   if (window.scrollY < floor) {
     window.scrollTo({ top: floor, behavior: 'auto' })
@@ -908,8 +1005,59 @@ function syncScrubFromScroll(): void {
   scrubScrollIndex.value = bestIdx
 }
 
+/** Tag id currently under sticky browse chrome (for `at=` in the URL). */
+function activeBrowseTagId(): number | null {
+  const pad = stickyBrowsePad.value || 0
+  const focus = pad + 8
+  const nodes = document.querySelectorAll<HTMLElement>('[data-browse-index]')
+  let bestIdx: number | null = null
+  let bestTop = -Infinity
+  for (const el of nodes) {
+    const top = el.getBoundingClientRect().top
+    if (top <= focus && top >= bestTop) {
+      bestTop = top
+      const raw = el.getAttribute('data-browse-index')
+      if (raw == null) continue
+      const idx = Number(raw)
+      if (Number.isFinite(idx)) bestIdx = idx
+    }
+  }
+  if (bestIdx == null) return null
+  const row = browseRows.value.find((r) => r.type === 'tag' && r.index === bestIdx)
+  return row?.type === 'tag' ? row.tag.id : null
+}
+
+let browseScrollUrlTimer: ReturnType<typeof setTimeout> | null = null
+
+/** After scroll settles, mirror the under-chrome tag into `?at=` (cleared at search top). */
+function syncBrowseScrollUrl(): void {
+  const y = window.scrollY || 0
+  const tagId = y > DOC_TOP_EPS ? activeBrowseTagId() : null
+  const patch = browseScrollToQuery(tagId, y)
+  const nextQuery = mergeBrowseScrollQuery(route.query as Record<string, unknown>, patch)
+  if (browseScrollQueriesEqual(route.query as Record<string, unknown>, nextQuery)) return
+  syncingScrollUrl.value = true
+  void router
+    .replace({ query: nextQuery })
+    .catch(() => undefined)
+    .finally(() => {
+      void nextTick(() => {
+        syncingScrollUrl.value = false
+      })
+    })
+}
+
+function scheduleBrowseScrollUrlSync(): void {
+  if (browseScrollUrlTimer != null) clearTimeout(browseScrollUrlTimer)
+  browseScrollUrlTimer = setTimeout(() => {
+    browseScrollUrlTimer = null
+    syncBrowseScrollUrl()
+  }, 160)
+}
+
 function onBrowseScroll(): void {
   windowScrollY.value = window.scrollY
+  scheduleBrowseScrollUrlSync()
   if (scrubbing.value) return
   if (scrubScrollRaf) return
   scrubScrollRaf = requestAnimationFrame(() => {
@@ -927,7 +1075,7 @@ type ScrubGhostItem = {
 
 /**
  * Full-format rows in normal document flow while scrubbing (same spacing/radius as
- * the real list). Absolute 72px packing overlapped real row heights and hid gaps.
+ * the real list). Pack with the same estimates as the virtualizer.
  */
 const scrubGhostItems = computed((): ScrubGhostItem[] => {
   if (!scrubbing.value || !showScrub.value) return []
@@ -952,7 +1100,7 @@ const scrubGhostItems = computed((): ScrubGhostItem[] => {
   let before = 0
   let used = 0
   for (let i = focus - 1; i >= 0 && used < viewH; i--) {
-    used += rows[i]!.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+    used += rows[i]!.type === 'section' ? BROWSE_SECTION_ROW_H : BROWSE_TAG_ROW_H
     before++
   }
   const start = focus - before
@@ -963,7 +1111,7 @@ const scrubGhostItems = computed((): ScrubGhostItem[] => {
     const key = row.type === 'section' ? `g-s-${row.key}-${i}` : `g-t-${row.tag.id}-${i}`
     out.push({ key, row, focus: i === focus })
     if (i > focus) {
-      afterUsed += row.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+      afterUsed += row.type === 'section' ? BROWSE_SECTION_ROW_H : BROWSE_TAG_ROW_H
       if (afterUsed > viewH) break
     }
   }
@@ -985,9 +1133,9 @@ const scrubGhostShiftY = computed(() => {
       ? Math.max(240, window.innerHeight - stickyBrowsePad.value - bottomNav)
       : 480
   let before = 0
-  let focusH = SCRUB_GHOST_TAG_H
+  let focusH = BROWSE_TAG_ROW_H
   for (const item of items) {
-    const h = item.row.type === 'section' ? SCRUB_GHOST_SECTION_H : SCRUB_GHOST_TAG_H
+    const h = item.row.type === 'section' ? BROWSE_SECTION_ROW_H : BROWSE_TAG_ROW_H
     if (item.focus) {
       focusH = h
       break
@@ -1049,6 +1197,7 @@ function onScrubEnd(): void {
   // Do not sync from scroll immediately: the list may still be at the pre-jump
   // offset for a frame (and used to snap the ↑ jump right back). Keep the last
   // scrubbed index; the next user scroll will re-sync if needed.
+  window.setTimeout(() => scheduleBrowseScrollUrlSync(), 180)
 }
 
 function jumpSectionTip(key: string): string {
@@ -1232,15 +1381,7 @@ function restoreBrowseScrollFromTag(): void {
     )
     if (rowIndex >= 0) {
       consumeTagReturnScrollY()
-      const pin = () => scrollToBrowseRow(rowIndex, 'start')
-      pin()
-      requestAnimationFrame(() => {
-        pin()
-        requestAnimationFrame(pin)
-      })
-      window.setTimeout(pin, 50)
-      window.setTimeout(pin, 200)
-      window.setTimeout(pin, 500)
+      pinBrowseRow(rowIndex)
       return
     }
   }
@@ -1263,16 +1404,189 @@ function restoreBrowseScrollFromReload(y: number): void {
   window.setTimeout(apply, 50)
   window.setTimeout(apply, 200)
   window.setTimeout(apply, 500)
-  window.setTimeout(apply, 900)
-  window.setTimeout(apply, 1200)
 }
 
 function onBrowsePageHide(): void {
   saveBrowseReloadScroll(window.scrollY || 0)
+  // Flush scroll URL immediately — debounce may not run before unload.
+  if (browseScrollUrlTimer != null) {
+    clearTimeout(browseScrollUrlTimer)
+    browseScrollUrlTimer = null
+  }
+  syncBrowseScrollUrl()
+}
+
+/** Jump to an estimated Y for `rowIndex`, then refine with the virtualizer. */
+function prepositionBrowseRow(rowIndex: number): void {
+  if (rowIndex < 0) return
+  syncListScrollMargin()
+  syncStickyBrowsePad()
+  const y = estimateBrowseScrollY({
+    rows: browseRows.value,
+    rowIndex,
+    listScrollMargin: listScrollMargin.value,
+    stickyPad: stickyBrowsePad.value,
+  })
+  window.scrollTo({ top: y, left: 0, behavior: 'auto' })
+  windowScrollY.value = window.scrollY
+  scrollToBrowseRow(rowIndex, 'start')
+}
+
+/** Pin a browse row under sticky chrome (retries while the virtualizer settles). */
+function pinBrowseRow(rowIndex: number): void {
+  if (rowIndex < 0) return
+  prepositionBrowseRow(rowIndex)
+  const pin = () => scrollToBrowseRow(rowIndex, 'start')
+  requestAnimationFrame(() => {
+    pin()
+    requestAnimationFrame(pin)
+  })
+  window.setTimeout(pin, 50)
+  window.setTimeout(pin, 200)
+  window.setTimeout(pin, 500)
+}
+
+/** Restore list from `?at=` / reload Y. */
+function restoreBrowseScrollFromUrl(): void {
+  const { at } = parseBrowseScrollQuery(route.query as Record<string, unknown>)
+  if (at != null) {
+    const rowIndex = browseRows.value.findIndex((r) => r.type === 'tag' && r.tag.id === at)
+    if (rowIndex >= 0) {
+      pinBrowseRow(rowIndex)
+      return
+    }
+  }
+  if (browseReloadScrollY != null && browseReloadScrollY > 0) {
+    restoreBrowseScrollFromReload(browseReloadScrollY)
+  }
+}
+
+/** Decide restore vs pin-to-top before awaiting catalog (avoids a mid-list flash). */
+function browseShouldRestoreList(): boolean {
+  const urlScroll = parseBrowseScrollQuery(route.query as Record<string, unknown>)
+  return (
+    browseScrollIntent === 'restore' ||
+    urlScroll.at != null ||
+    (browseReloadScrollY != null && browseReloadScrollY > 0)
+  )
+}
+
+function startPinSearchTop(): void {
+  armPinSearchTop(2500)
+  scrollToSearchTop()
+  const pin = () => pinSearchTopIfArmed()
+  requestAnimationFrame(() => {
+    scrollToSearchTop()
+    requestAnimationFrame(pin)
+  })
+  window.setTimeout(pin, 50)
+  window.setTimeout(pin, 200)
+  window.setTimeout(pin, 500)
+  window.setTimeout(pin, 900)
+  window.setTimeout(pin, 1400)
+  window.setTimeout(pin, 2000)
+}
+
+/** Apply top / `at=` / tag-return scroll once (used while list is still opacity 0). */
+function applyBrowseScrollIntent(): void {
+  syncListScrollMargin()
+  syncStickyBrowsePad()
+  if (browseShouldRestoreList()) {
+    const { at } = parseBrowseScrollQuery(route.query as Record<string, unknown>)
+    if (at != null || (browseReloadScrollY != null && browseReloadScrollY > 0)) {
+      restoreBrowseScrollFromUrl()
+    } else {
+      restoreBrowseScrollFromTag()
+    }
+    return
+  }
+  if (browseScrollIntent === 'restore') {
+    restoreBrowseScrollFromTag()
+    return
+  }
+  scrollToSearchTop()
+}
+
+function frames(n = 2): Promise<void> {
+  return new Promise((resolve) => {
+    const step = (left: number) => {
+      if (left <= 0) {
+        resolve()
+        return
+      }
+      requestAnimationFrame(() => step(left - 1))
+    }
+    step(n)
+  })
+}
+
+/**
+ * Position the *real* virtualized list (opacity 0), wait for measure/pin, then fade
+ * it in. Placeholder cards cannot match measured row heights — they always jump.
+ */
+async function settleScrollThenReveal(): Promise<void> {
+  await nextTick()
+  syncListScrollMargin()
+  syncStickyBrowsePad()
+  syncJumpCols()
+  if (restoringAtTag.value) {
+    scrollPastSearchChrome()
+    applyBrowseScrollIntent()
+    // Row heights are locked to estimates — one re-pin after layout is enough.
+    await frames(2)
+    syncListScrollMargin()
+    syncStickyBrowsePad()
+    applyBrowseScrollIntent()
+    await frames(1)
+  } else {
+    applyBrowseScrollIntent()
+    await frames(2)
+  }
+  windowScrollY.value = window.scrollY
+  browseReveal.value = true
+}
+
+/**
+ * Fade the list in after scroll is settled. Never toggles reveal back off —
+ * that blanked the page and killed the fade.
+ */
+watch(
+  () => catalog.loaded && !catalog.error,
+  async (ok) => {
+    if (!ok) {
+      browseReveal.value = false
+      return
+    }
+    // Already faded in (e.g. first-paint → full): keep visible, nudge scroll only.
+    if (browseReveal.value) {
+      await nextTick()
+      applyBrowseScrollIntent()
+      return
+    }
+    await settleScrollThenReveal()
+  },
+  { immediate: true },
+)
+
+// Setup-time pin (before onMounted await) so jump-rail paint cannot flash mid-list.
+if (!browseShouldRestoreList() && browseScrollIntent !== 'restore') {
+  if (typeof window !== 'undefined') window.scrollTo(0, 0)
+  startPinSearchTop()
 }
 
 onMounted(async () => {
   void offlineLib.refreshCacheReady().catch(() => undefined)
+  window.addEventListener('scroll', onBrowseScroll, { passive: true })
+  window.addEventListener('pagehide', onBrowsePageHide)
+
+  const restoreList = browseShouldRestoreList()
+  if (!restoreList && browseScrollIntent !== 'restore') {
+    startPinSearchTop()
+  } else if (restoringAtTag.value) {
+    scrollPastSearchChrome()
+    requestAnimationFrame(scrollPastSearchChrome)
+  }
+
   await Promise.all([catalog.load(), favorites.ensureLoaded()])
   applyRoute()
   if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
@@ -1281,40 +1595,19 @@ onMounted(async () => {
   syncStickyBrowsePad()
   syncScrubFromScroll()
   syncJumpCols()
-  // Fresh Browse / reload-at-top: land on search.
-  // Reload mid-list / back-from-tag: restore prior Y (virtualizer needs post-load height).
-  const reloadY = browseReloadScrollY
-  if (reloadY != null && reloadY > 0 && browseScrollIntent === 'restore') {
-    restoreBrowseScrollFromReload(reloadY)
-  } else if (browseScrollIntent !== 'restore') {
-    scrollToSearchTop()
-    // Defeat late scroll restorers (browser / stale PWA snapshot retries up to ~800ms)
-    // and virtualizer margin compensation when the full catalog height lands.
-    const pinTopUntil = Date.now() + 1200
-    const pin = () => {
-      if (browseScrollIntent === 'restore') return
-      if (Date.now() > pinTopUntil) return
-      if (window.scrollY > 0) scrollToSearchTop()
-    }
-    requestAnimationFrame(() => {
-      scrollToSearchTop()
-      requestAnimationFrame(pin)
-    })
-    window.setTimeout(pin, 50)
-    window.setTimeout(pin, 200)
-    window.setTimeout(pin, 500)
-    window.setTimeout(pin, 900)
-    window.setTimeout(pin, 1200)
+  if (!browseReveal.value) {
+    await settleScrollThenReveal()
   } else {
-    restoreBrowseScrollFromTag()
+    if (restoringAtTag.value) scrollPastSearchChrome()
+    applyBrowseScrollIntent()
   }
+
   windowScrollY.value = window.scrollY
-  window.addEventListener('scroll', onBrowseScroll, { passive: true })
-  window.addEventListener('pagehide', onBrowsePageHide)
   jumpRailRo = new ResizeObserver(() => {
     syncJumpCols()
     syncListScrollMargin()
     syncStickyBrowsePad()
+    pinSearchTopIfArmed()
   })
   if (jumpRailEl.value) jumpRailRo.observe(jumpRailEl.value)
   if (listEl.value) jumpRailRo.observe(listEl.value)
@@ -1335,6 +1628,10 @@ onUnmounted(() => {
   window.removeEventListener('pagehide', onBrowsePageHide)
   document.removeEventListener('pointerdown', onTipsOutsidePointerDown, true)
   if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
+  if (browseScrollUrlTimer != null) {
+    clearTimeout(browseScrollUrlTimer)
+    browseScrollUrlTimer = null
+  }
 })
 
 watch(collectionStripRows, () => {
@@ -1344,22 +1641,28 @@ watch(collectionStripRows, () => {
 })
 
 /**
- * First-paint shows a short list at y=0; when the full catalog + jump rail arrive the
- * document grows and the window can end up mid-list. Re-pin to search on that swap.
+ * First-paint → full catalog grows the document / jump rail. Nudge scroll quietly —
+ * do not blank/re-fade the list (that flickered).
  */
 watch(
   () => catalog.partialCatalog,
   async (partial, wasPartial) => {
     if (wasPartial !== true || partial !== false) return
-    if (browseScrollIntent === 'restore') return
     await nextTick()
     syncListScrollMargin()
     syncStickyBrowsePad()
-    scrollToSearchTop()
-    requestAnimationFrame(() => {
+    syncJumpCols()
+    applyBrowseScrollIntent()
+    if (!browseShouldRestoreList() && browseScrollIntent !== 'restore') {
+      armPinSearchTop(2000)
       scrollToSearchTop()
-      requestAnimationFrame(scrollToSearchTop)
-    })
+      requestAnimationFrame(() => {
+        pinSearchTopIfArmed()
+        requestAnimationFrame(pinSearchTopIfArmed)
+      })
+      window.setTimeout(pinSearchTopIfArmed, 200)
+      window.setTimeout(pinSearchTopIfArmed, 500)
+    }
   },
 )
 
@@ -1370,6 +1673,7 @@ watch(
     syncJumpCols()
     syncListScrollMargin()
     syncStickyBrowsePad()
+    pinSearchTopIfArmed()
     if (jumpRailRo && jumpRailEl.value) {
       jumpRailRo.disconnect()
       jumpRailRo.observe(jumpRailEl.value)
@@ -1377,6 +1681,13 @@ watch(
     }
   },
 )
+
+watch(showJump, (on, was) => {
+  if (on && !was) {
+    armPinSearchTop(1800)
+    pinSearchTopIfArmed()
+  }
+})
 
 watch(
   () => [showScrub.value, catalog.allResults.length, catalog.browseWindow.rows.length] as const,
@@ -1391,12 +1702,13 @@ watch(
   <section
     class="home"
     :class="{
+      'mid-restore-pending': showMidRestoreSkeleton,
       'has-selection': catalog.selectedIds.size,
       'jump-rows-2': showJump && !jumpRailCollapsed && jumpRows === 2,
       'jump-rows-1': showJump && (jumpRailCollapsed || jumpRows === 1),
     }"
   >
-    <div class="search-toolbar">
+    <div class="search-toolbar" :aria-hidden="showMidRestoreSkeleton">
       <div class="searchrow">
         <div class="search-field">
           <input
@@ -1552,9 +1864,254 @@ watch(
     </p>
     <p v-if="lyricsError" class="warn" role="alert">{{ lyricsError }}</p>
 
-    <p v-if="!catalog.loaded && !catalog.error" class="text-muted" role="status">
-      Loading catalog…
-    </p>
+    <!--
+      Results meta + jump rail are hoisted above the list so mid-list `?at=`
+      restore never remounts the collection strip when the catalog arrives.
+    -->
+    <div
+      v-if="catalog.loaded"
+      class="results-meta"
+      aria-live="polite"
+    >
+      <div class="text-muted count">
+        <template v-if="!catalog.queryText.trim() && !catalog.filterCount">
+          {{ catalog.partialCatalog ? (catalog.catalogTotalHint ?? '…') : catalog.tags.length }}
+          tags in catalog
+        </template>
+        <template v-else>
+          Matched {{ catalog.allResults.length }} of
+          {{ catalog.partialCatalog ? (catalog.catalogTotalHint ?? catalog.tags.length) : catalog.tags.length }}
+          <button
+            v-if="catalog.filterCount"
+            type="button"
+            class="clear-filters"
+            :aria-label="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
+            :title="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
+            @click="catalog.clearFilters()"
+          >
+            · {{ catalog.filterCount }} filter{{ catalog.filterCount === 1 ? '' : 's' }}
+            <span aria-hidden="true">✕</span>
+          </button>
+        </template>
+      </div>
+      <div class="sort-controls">
+        <label class="sort-field" title="Choose how matching tags are grouped and ordered">
+          <span class="sort-lbl">View by</span>
+          <select
+            v-model="catalog.sortMode"
+            aria-label="View results by"
+            @change="($event.target as HTMLSelectElement).blur()"
+          >
+            <option v-for="s in availableSorts" :key="s.id" :value="s.id" :title="sortOptionTip(s.id)">
+              {{ s.label }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="button"
+          class="sort-rev"
+          :class="{ on: catalog.sortReverse }"
+          :aria-pressed="catalog.sortReverse"
+          :title="sortReverseTip()"
+          aria-label="Reverse view order"
+          @click="catalog.toggleSortReverse()"
+        >
+          ⇅
+        </button>
+        <button
+          v-if="resultsScrubAvailable"
+          type="button"
+          class="results-scrub-toggle"
+          :class="{ on: resultsScrubOpen }"
+          :aria-expanded="resultsScrubOpen"
+          :title="
+            resultsScrubOpen
+              ? 'Hide the results scrub bar'
+              : 'Scrub through the current results'
+          "
+          @click="resultsScrubOpen = !resultsScrubOpen"
+        >
+          {{ resultsScrubOpen ? 'Hide scrub' : 'Scrub' }}
+        </button>
+      </div>
+    </div>
+    <div
+      v-else-if="showMidRestoreSkeleton"
+      class="results-meta browse-skeleton-meta"
+      aria-hidden="true"
+    >
+      <div class="skel skel-count" />
+      <div class="skel skel-sort" />
+    </div>
+
+    <nav
+      v-if="showJump"
+      ref="jumpRailEl"
+      class="jump-rail"
+      :class="{
+        'jump-rail-fit': catalog.sortMode === 'collection',
+        'jump-rail-collapsible': titleJumpCollapsible,
+        'jump-rail-collapsed': jumpRailCollapsed,
+      }"
+      :aria-hidden="showMidRestoreSkeleton || undefined"
+      :aria-label="showMidRestoreSkeleton ? undefined : 'Jump to section'"
+    >
+      <button
+        type="button"
+        class="jump jump-top"
+        :disabled="jumpTopDisabled"
+        :title="jumpTopTitle"
+        :aria-label="jumpTopTitle"
+        @pointerdown="onJumpTopPointerDown"
+        @pointerup="onJumpTopPointerEnd"
+        @pointercancel="onJumpTopPointerEnd"
+        @click="onJumpTopClick"
+      >
+        ↑
+      </button>
+      <p v-if="singleJumpGroup" class="jump-rail-status" role="status">
+        {{ jumpRailStatus }}
+      </p>
+      <template v-else-if="!jumpRailCollapsed">
+        <div
+          v-if="catalog.sortMode === 'collection'"
+          class="collection-strip"
+          :class="{ paged: showCollectionJumpPager }"
+          role="group"
+          :aria-label="
+            showCollectionJumpPager
+              ? `Collection page ${collectionJumpPage + 1} of ${collectionJumpPageCount}`
+              : 'Collections'
+          "
+        >
+          <button
+            v-if="showCollectionJumpPager"
+            type="button"
+            class="collection-strip-nav"
+            :disabled="collectionJumpPage <= 0"
+            aria-label="Previous collections"
+            @click="collectionJumpPage -= 1"
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
+          <div :ref="bindCollectionStripHost" class="collection-strip-body">
+            <div
+              :ref="bindCollectionMeasureEl"
+              class="collection-measure"
+              aria-hidden="true"
+            >
+              <span
+                v-for="key in collectionJumpKeys"
+                :key="key"
+                class="jump"
+                :class="{ custom: isCustomJumpKey(key) }"
+              >
+                <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+                {{ jumpKeyLabel(key) }}
+              </span>
+            </div>
+            <div class="collection-page jump-keys-collection">
+              <button
+                v-for="key in pagedCollectionJumpKeys"
+                :key="key"
+                type="button"
+                class="jump"
+                :class="{ custom: isCustomJumpKey(key) }"
+                :title="jumpSectionTip(key)"
+                @click="jumpToSection(key)"
+              >
+                <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+                {{ jumpKeyLabel(key) }}
+              </button>
+            </div>
+          </div>
+          <button
+            v-if="showCollectionJumpPager"
+            type="button"
+            class="collection-strip-nav"
+            :disabled="collectionJumpPage >= collectionJumpPageCount - 1"
+            aria-label="Next collections"
+            @click="collectionJumpPage += 1"
+          >
+            <span aria-hidden="true">›</span>
+          </button>
+        </div>
+        <div v-else class="jump-keys" :style="jumpKeysStyle">
+          <button
+            v-for="key in browseJumpKeys"
+            :key="key"
+            type="button"
+            class="jump"
+            :class="{ custom: isCustomJumpKey(key) }"
+            :title="jumpSectionTip(key)"
+            @click="jumpToSection(key)"
+          >
+            <CustomCollectionMark v-if="isCustomJumpKey(key)" />
+            {{ jumpKeyLabel(key) }}
+          </button>
+        </div>
+      </template>
+      <button
+        v-if="titleJumpCollapsible"
+        type="button"
+        class="jump jump-rail-toggle"
+        :aria-expanded="titleJumpExpanded"
+        :title="titleJumpExpanded ? 'Hide A–Z letter grid' : 'Show A–Z letter grid'"
+        :aria-label="titleJumpExpanded ? 'Hide A–Z letter grid' : 'Show A–Z letter grid'"
+        @click="titleJumpExpanded = !titleJumpExpanded"
+      >
+        {{ titleJumpExpanded ? 'Hide A–Z' : 'A–Z' }}
+      </button>
+    </nav>
+    <div
+      v-else-if="showMidRestoreSkeleton"
+      class="skel skel-jump-rail"
+      aria-hidden="true"
+    />
+
+    <!-- Mid-list list area before catalog: solid band under the stable jump rail. -->
+    <div
+      v-if="showMidRestoreSkeleton && !catalog.loaded"
+      class="mid-restore-list-placeholder"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      :style="{ height: `${browseSkeletonRows.length * BROWSE_TAG_ROW_H}px` }"
+    >
+      <span class="visually-hidden">Restoring browse position…</span>
+    </div>
+
+    <div
+      v-if="!catalog.loaded && !catalog.error && !restoringAtTag"
+      class="browse-skeleton"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      :style="{ '--browse-tag-row-h': `${BROWSE_TAG_ROW_H}px` }"
+    >
+      <span class="visually-hidden">Loading catalog…</span>
+      <div class="results-meta browse-skeleton-meta" aria-hidden="true">
+        <div class="skel skel-count" />
+        <div class="skel skel-sort" />
+      </div>
+      <div class="list browse-skeleton-list" aria-hidden="true">
+        <div
+          v-for="i in browseSkeletonRows"
+          :key="i"
+          class="virt-row browse-skeleton-virt"
+        >
+          <div class="list-row">
+            <div class="row-link">
+              <div class="skel skel-title" />
+              <div class="skel skel-alt" />
+              <div class="skel skel-meta" />
+              <div class="skel skel-lyrics" />
+            </div>
+            <button type="button" class="row-fav" tabindex="-1" disabled aria-hidden="true" />
+          </div>
+        </div>
+      </div>
+    </div>
     <EmptyState
       v-else-if="catalog.error"
       :title="offline ? 'Offline — nothing cached yet' : 'Catalog failed to load'"
@@ -1567,186 +2124,14 @@ watch(
     >
       <OfflineOpticalTransferPrompt v-if="offline && prefs.opticalTransferEnabled" />
     </EmptyState>
-    <template v-else>
-      <div class="results-meta" aria-live="polite">
-        <div class="text-muted count">
-          <template v-if="!catalog.queryText.trim() && !catalog.filterCount">
-            {{ catalog.partialCatalog ? (catalog.catalogTotalHint ?? '…') : catalog.tags.length }}
-            tags in catalog
-          </template>
-          <template v-else>
-            Matched {{ catalog.allResults.length }} of
-            {{ catalog.partialCatalog ? (catalog.catalogTotalHint ?? catalog.tags.length) : catalog.tags.length }}
-            <button
-              v-if="catalog.filterCount"
-              type="button"
-              class="clear-filters"
-              :aria-label="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
-              :title="`Clear ${catalog.filterCount} filter${catalog.filterCount === 1 ? '' : 's'}`"
-              @click="catalog.clearFilters()"
-            >
-              · {{ catalog.filterCount }} filter{{ catalog.filterCount === 1 ? '' : 's' }}
-              <span aria-hidden="true">✕</span>
-            </button>
-          </template>
-        </div>
-        <div class="sort-controls">
-          <label class="sort-field" title="Choose how matching tags are grouped and ordered">
-            <span class="sort-lbl">View by</span>
-            <select
-              v-model="catalog.sortMode"
-              aria-label="View results by"
-              @change="($event.target as HTMLSelectElement).blur()"
-            >
-              <option v-for="s in availableSorts" :key="s.id" :value="s.id" :title="sortOptionTip(s.id)">
-                {{ s.label }}
-              </option>
-            </select>
-          </label>
-          <button
-            type="button"
-            class="sort-rev"
-            :class="{ on: catalog.sortReverse }"
-            :aria-pressed="catalog.sortReverse"
-            :title="sortReverseTip()"
-            aria-label="Reverse view order"
-            @click="catalog.toggleSortReverse()"
-          >
-            ⇅
-          </button>
-          <button
-            v-if="resultsScrubAvailable"
-            type="button"
-            class="results-scrub-toggle"
-            :class="{ on: resultsScrubOpen }"
-            :aria-expanded="resultsScrubOpen"
-            :title="
-              resultsScrubOpen
-                ? 'Hide the results scrub bar'
-                : 'Scrub through the current results'
-            "
-            @click="resultsScrubOpen = !resultsScrubOpen"
-          >
-            {{ resultsScrubOpen ? 'Hide scrub' : 'Scrub' }}
-          </button>
-        </div>
-      </div>
-
-      <nav
-        v-if="showJump"
-        ref="jumpRailEl"
-        class="jump-rail"
-        :class="{
-          'jump-rail-fit': catalog.sortMode === 'collection',
-          'jump-rail-collapsible': titleJumpCollapsible,
-          'jump-rail-collapsed': jumpRailCollapsed,
-        }"
-        aria-label="Jump to section"
-      >
-        <button
-          type="button"
-          class="jump jump-top"
-          :disabled="jumpTopDisabled"
-          :title="jumpTopTitle"
-          :aria-label="jumpTopTitle"
-          @pointerdown="onJumpTopPointerDown"
-          @pointerup="onJumpTopPointerEnd"
-          @pointercancel="onJumpTopPointerEnd"
-          @click="onJumpTopClick"
-        >
-          ↑
-        </button>
-        <p v-if="singleJumpGroup" class="jump-rail-status" role="status">
-          {{ jumpRailStatus }}
-        </p>
-        <template v-else-if="!jumpRailCollapsed">
-          <div
-            v-if="catalog.sortMode === 'collection'"
-            class="collection-strip"
-            :class="{ paged: showCollectionJumpPager }"
-            role="group"
-            :aria-label="
-              showCollectionJumpPager
-                ? `Collection page ${collectionJumpPage + 1} of ${collectionJumpPageCount}`
-                : 'Collections'
-            "
-          >
-            <button
-              v-if="showCollectionJumpPager"
-              type="button"
-              class="collection-strip-nav"
-              :disabled="collectionJumpPage <= 0"
-              aria-label="Previous collections"
-              @click="collectionJumpPage -= 1"
-            >
-              <span aria-hidden="true">‹</span>
-            </button>
-            <div ref="collectionStripHost" class="collection-strip-body">
-              <div ref="collectionMeasureEl" class="collection-measure" aria-hidden="true">
-                <span
-                  v-for="key in collectionJumpKeys"
-                  :key="key"
-                  class="jump"
-                  :class="{ custom: isCustomJumpKey(key) }"
-                >
-                  <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-                  {{ jumpKeyLabel(key) }}
-                </span>
-              </div>
-              <div class="collection-page jump-keys-collection">
-                <button
-                  v-for="key in pagedCollectionJumpKeys"
-                  :key="key"
-                  type="button"
-                  class="jump"
-                  :class="{ custom: isCustomJumpKey(key) }"
-                  :title="jumpSectionTip(key)"
-                  @click="jumpToSection(key)"
-                >
-                  <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-                  {{ jumpKeyLabel(key) }}
-                </button>
-              </div>
-            </div>
-            <button
-              v-if="showCollectionJumpPager"
-              type="button"
-              class="collection-strip-nav"
-              :disabled="collectionJumpPage >= collectionJumpPageCount - 1"
-              aria-label="Next collections"
-              @click="collectionJumpPage += 1"
-            >
-              <span aria-hidden="true">›</span>
-            </button>
-          </div>
-          <div v-else class="jump-keys" :style="jumpKeysStyle">
-            <button
-              v-for="key in catalog.browseWindow.jumpKeys"
-              :key="key"
-              type="button"
-              class="jump"
-              :class="{ custom: isCustomJumpKey(key) }"
-              :title="jumpSectionTip(key)"
-              @click="jumpToSection(key)"
-            >
-              <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-              {{ jumpKeyLabel(key) }}
-            </button>
-          </div>
-        </template>
-        <button
-          v-if="titleJumpCollapsible"
-          type="button"
-          class="jump jump-rail-toggle"
-          :aria-expanded="titleJumpExpanded"
-          :title="titleJumpExpanded ? 'Hide A–Z letter grid' : 'Show A–Z letter grid'"
-          :aria-label="titleJumpExpanded ? 'Hide A–Z letter grid' : 'Show A–Z letter grid'"
-          @click="titleJumpExpanded = !titleJumpExpanded"
-        >
-          {{ titleJumpExpanded ? 'Hide A–Z' : 'A–Z' }}
-        </button>
-      </nav>
-
+    <div
+      v-else-if="catalog.loaded"
+      class="browse-body"
+      :class="{
+        ready: browseReveal,
+        'mid-restore-layout': showMidRestoreSkeleton,
+      }"
+    >
       <div
         v-if="showScrub"
         class="scrub-rail"
@@ -1780,9 +2165,15 @@ watch(
         v-else
         ref="listEl"
         class="list"
-        :class="{ 'is-scrubbing': scrubbing }"
+        :class="{ 'is-scrubbing': scrubbing, 'is-mid-restore': showMidRestoreSkeleton }"
         aria-label="Search results"
-        :style="{ height: `${browseListHeight}px`, position: 'relative', width: '100%' }"
+        :style="{
+          height: `${browseListHeight}px`,
+          position: 'relative',
+          width: '100%',
+          '--browse-tag-row-h': `${BROWSE_TAG_ROW_H}px`,
+          '--browse-section-row-h': `${BROWSE_SECTION_ROW_H}px`,
+        }"
       >
         <div
           v-if="scrubbing && scrubGhostItems.length"
@@ -1941,7 +2332,7 @@ watch(
           </div>
         </div>
       </div>
-    </template>
+    </div>
 
     <TagSelectionBar
       :count="catalog.selectedIds.size"
@@ -1987,6 +2378,139 @@ watch(
 .ok {
   color: var(--accent);
   font-size: 0.9rem;
+}
+.browse-body {
+  opacity: 0;
+}
+.browse-body.ready,
+.browse-body.mid-restore-layout {
+  /* Mid-restore shows the real jump rail immediately; list fades via .list. */
+  opacity: 1;
+}
+.browse-body.ready {
+  transition: opacity 0.28s ease;
+}
+.browse-body.mid-restore-layout {
+  pointer-events: none;
+}
+.browse-body.mid-restore-layout .scrub-rail {
+  opacity: 0;
+}
+.browse-body.ready .scrub-rail {
+  opacity: 1;
+  transition: opacity 0.28s ease;
+}
+.list.is-mid-restore {
+  opacity: 0;
+}
+.browse-body.ready .list {
+  opacity: 1;
+  transition: opacity 0.28s ease;
+}
+/* Stay in flow (scroll offsets stay valid) but never paint over mid-list chrome. */
+.home.mid-restore-pending .search-toolbar,
+.home.mid-restore-pending .results-meta {
+  visibility: hidden;
+  pointer-events: none;
+}
+.home.mid-restore-pending .jump-rail {
+  pointer-events: none;
+}
+.browse-skeleton {
+  margin: 0;
+}
+.mid-restore-list-placeholder {
+  margin: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.skel-jump-rail {
+  width: 100%;
+  height: var(--jump-rail-h, 5.5rem);
+  margin: 0 0 0.5rem;
+  border-radius: 10px;
+}
+.browse-skeleton-meta {
+  opacity: 0.85;
+}
+.browse-skeleton-list {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+.browse-skeleton-virt {
+  position: relative;
+  pointer-events: none;
+  height: var(--browse-tag-row-h, 128px);
+  overflow: hidden;
+}
+.browse-skeleton-virt .row-fav:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.skel {
+  display: block;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--muted) 18%, var(--surface));
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--surface) 55%, transparent) 45%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: browse-skel-shimmer 1.1s ease-in-out infinite;
+}
+.skel-count {
+  width: 8.5rem;
+  height: 1rem;
+}
+.skel-sort {
+  width: 10.5rem;
+  height: 2.5rem;
+  border-radius: 10px;
+}
+.skel-title {
+  width: min(72%, 18rem);
+  height: 1.05rem;
+  margin: 0 0 0.2rem;
+}
+.skel-alt {
+  width: min(48%, 12rem);
+  height: calc(0.88em * 1.35);
+  margin: 0 0 0.2rem;
+}
+.skel-meta {
+  width: min(55%, 14rem);
+  height: 0.92rem;
+  margin: 0 0 0.2rem;
+}
+.skel-lyrics {
+  width: min(88%, 22rem);
+  height: calc(0.86rem * 1.35);
+  margin: 0;
+}
+.skel-fav {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 10px;
+  align-self: center;
+}
+@keyframes browse-skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .browse-body.ready {
+    transition: none;
+  }
+  .skel {
+    animation: none;
+  }
 }
 .search-toolbar {
   position: relative;
@@ -2642,6 +3166,11 @@ watch(
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   box-sizing: border-box;
+  height: var(--browse-tag-row-h, 128px);
+  overflow: hidden;
+}
+.scrub-ghost-row:has(> .section-head) {
+  height: var(--browse-section-row-h, 56px);
 }
 .scrub-ghost-row .list-row {
   /* Match real rows: surface card + radius (ghost sits on page bg). */
@@ -2663,6 +3192,15 @@ watch(
 .virt-row {
   padding-bottom: 0.35rem;
   box-sizing: border-box;
+}
+/* Lock to estimateSize so measureElement never reflows scroll restore. */
+.list > .virt-row:has(> .list-row) {
+  height: var(--browse-tag-row-h, 128px);
+  overflow: hidden;
+}
+.list > .virt-row:has(> .section-head) {
+  height: var(--browse-section-row-h, 56px);
+  overflow: hidden;
 }
 .list-row {
   display: grid;

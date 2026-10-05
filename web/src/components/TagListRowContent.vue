@@ -45,7 +45,17 @@ const myRating = computed(() => {
         :aria-label="`My rating: ${myRating} of 5`"
       >{{ '★'.repeat(myRating) }}</span>
     </span>
-    <span v-if="altTitle" class="alt-title">{{ altTitle }}</span>
+    <!--
+      Browse/Roulette (lyricsSnippet prop set): always reserve one alt line so
+      virtualized rows keep a stable height. Favorites/Recent omit lyricsSnippet
+      and only show alt when present.
+    -->
+    <span
+      v-if="lyricsSnippet !== undefined || altTitle"
+      class="alt-title"
+      :class="{ ready: !!altTitle }"
+      :aria-hidden="altTitle ? undefined : true"
+    >{{ altTitle || '\u00a0' }}</span>
   </span>
   <span class="meta">
     <slot name="extra-meta" />
@@ -140,13 +150,16 @@ const myRating = computed(() => {
 }
 .title-line {
   min-width: 0;
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem 0.45rem;
 }
 .title-text {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tag-num {
   display: inline-block;
@@ -184,16 +197,25 @@ const myRating = computed(() => {
   font-weight: 500;
   font-size: 0.88em;
   line-height: 1.35;
+  /* Fixed one-line box so rows don’t grow when an alt title is present. */
+  min-height: calc(0.88em * 1.35);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.alt-title.ready {
+  opacity: 1;
 }
 .meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.75rem;
   color: var(--muted);
   font-size: 0.92rem;
+  min-width: 0;
+  overflow: hidden;
 }
 .dl-count {
   font-variant-numeric: tabular-nums;
@@ -248,6 +270,7 @@ const myRating = computed(() => {
   opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
+  .alt-title,
   .lyrics-snip {
     transition: none;
   }

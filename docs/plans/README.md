@@ -17,6 +17,8 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-studio-swing.md](tag-studio-swing.md) | Implemented — swing playback + MIDI/MP3 bake; metronome swing |
 | [arranging-labs-dock.md](arranging-labs-dock.md) | In progress — timeline pillars + Arrange/Review walk |
 | [arranging-coach-full-surface.md](arranging-coach-full-surface.md) | Planned — Coach theory surface + chrome/pop-out + harmonic moments (posts) |
+| [coach-path-optimize-and-chord-walk.md](coach-path-optimize-and-chord-walk.md) | Planned — Retire Strengthen/Polish/Swipe; Path Optimizer + Chord Walk keys |
+| [catalog-split-and-s3-pull.md](catalog-split-and-s3-pull.md) | Planned — Slim core + catalog-media.json.gz; S3→local library pull |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |
 | [local-library-transfer.md](local-library-transfer.md) | Optical Entry transfer shipped; Phase C S3 deferred |

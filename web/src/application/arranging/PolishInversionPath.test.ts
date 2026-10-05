@@ -80,6 +80,38 @@ function phrase() {
   return p
 }
 
+function smoothPhrase() {
+  const p = createEmptyArrangement('Smooth coach path')
+  p.tonality = 0
+  p.melody = [
+    { id: 'm0', midi: 67, startTick: 0, durationTicks: 480, role: 'pmn' },
+    { id: 'm1', midi: 65, startTick: 480, durationTicks: 480, role: 'smn' },
+    { id: 'm2', midi: 64, startTick: 960, durationTicks: 480, role: 'pmn' },
+    { id: 'm3', midi: 62, startTick: 1440, durationTicks: 480, role: 'smn' },
+    { id: 'm4', midi: 60, startTick: 1920, durationTicks: 480, role: 'pmn' },
+  ]
+  const specs = [
+    { rootPc: 0, natureId: 'major', midi: { bass: 48, bari: 55, lead: 67, tenor: 72 } },
+    { rootPc: 7, natureId: 'seventh', midi: { bass: 43, bari: 53, lead: 65, tenor: 71 } },
+    { rootPc: 0, natureId: 'major', midi: { bass: 48, bari: 52, lead: 64, tenor: 67 } },
+    { rootPc: 7, natureId: 'seventh', midi: { bass: 50, bari: 53, lead: 62, tenor: 71 } },
+    { rootPc: 0, natureId: 'major', midi: { bass: 48, bari: 52, lead: 60, tenor: 67 } },
+  ]
+  p.stacks = specs.map((s, i) => ({
+    id: `s${i}`,
+    startTick: i * 480,
+    durationTicks: 480,
+    ...s,
+    voicing: '1513',
+    spread: false,
+    layer: 'primary' as const,
+    scfGroup: null,
+    pillarId: null,
+    ruleTags: [],
+  }))
+  return p
+}
+
 function harmonyMotion(stacks: { midi: { bass: number; bari: number; tenor: number } | null }[]): number {
   let m = 0
   for (let i = 1; i < stacks.length; i++) {
@@ -105,15 +137,22 @@ describe('polishInversionPath', () => {
     expect(harmonyMotion(project.stacks)).toBeLessThanOrEqual(before)
   })
 
-  it('prefers opening I with bass on root or fifth', () => {
-    const { project } = polishInversionPath(phrase())
-    const bassPc = ((project.stacks[0]!.midi!.bass % 12) + 12) % 12
-    expect([0, 7]).toContain(bassPc)
+  it('does not yank a smooth coach path into a higher mid-range register', () => {
+    const p = smoothPhrase()
+    const before = harmonyMotion(p.stacks)
+    const { project } = polishInversionPath(p)
+    const after = harmonyMotion(project.stacks)
+    expect(after).toBeLessThanOrEqual(before)
+    // Opening bass should stay near the coach register (C3 area), not leap to G3+.
+    expect(Math.abs(project.stacks[0]!.midi!.bass - p.stacks[0]!.midi!.bass)).toBeLessThanOrEqual(5)
+    for (let i = 0; i < p.stacks.length; i++) {
+      expect(Math.abs(project.stacks[i]!.midi!.bass - p.stacks[i]!.midi!.bass)).toBeLessThanOrEqual(7)
+    }
   })
 })
 
 describe('polishArrangementVoicing', () => {
-  it('includes path revoice ids in applied list', () => {
+  it('includes path revoice ids in applied list when path improves', () => {
     const { project, applied } = polishArrangementVoicing(phrase())
     expect(project.stacks.length).toBe(4)
     expect(applied.some((a) => a.startsWith('path:'))).toBe(true)

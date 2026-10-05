@@ -145,7 +145,11 @@ describe('adversarial fixing & export', () => {
     expect(seeds.some((s) => s.kind === 'swipe' && s.suggestedStack)).toBe(true)
     const swipe = seeds.find((s) => s.suggestedStack)!
     const next = applyEmbellishmentSeed(p, swipe)
-    expect(next.stacks.some((s) => s.layer === 'embellishment')).toBe(true)
+    const emb = next.stacks.find((s) => s.layer === 'embellishment')
+    expect(emb).toBeTruthy()
+    const host = next.stacks.find((s) => s.id === 's1')
+    expect(host?.durationTicks).toBe(emb!.startTick - host!.startTick)
+    expect(emb!.midi).not.toEqual(p.stacks[0]!.midi)
   })
 
   it('org tips include SAI vocabulary for sai11', () => {

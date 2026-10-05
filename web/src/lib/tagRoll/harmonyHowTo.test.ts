@@ -10,37 +10,28 @@ import {
 } from './harmonyHowTo'
 
 describe('harmonyHowTo', () => {
-  it('covers Harmonize modes and the declare-then-realize workflow', () => {
+  it('covers Harmonize modes briefly', () => {
     const text = formatHowToPlain(HARMONIZE_HOWTO)
     expect(text).toMatch(/\bSketch\b/)
     expect(text).toMatch(/\bStack\b/)
     expect(text).toMatch(/Suggest/i)
-    expect(text).toMatch(/Declare first/i)
-    expect(text).toMatch(/Apply/)
-    expect(text).toMatch(/pillars? when present|implied/i)
+    expect(text).toMatch(/Roles/)
   })
 
-  it('covers Sketch vs Detected lanes', () => {
+  it('gives short overviews for each bottom lane', () => {
     const text = formatHowToPlain(HARMONY_STRIP_HOWTO)
-    expect(text).toMatch(/Sketch/i)
-    expect(text).toMatch(/Detected/i)
-    expect(text).toMatch(/media bar/i)
-    expect(text).toMatch(/Lock/i)
-    expect(text).toMatch(/Realize/i)
-  })
-
-  it('teaches Sketch and Detected pillar marking', () => {
-    const text = formatHowToPlain(HARMONY_STRIP_HOWTO)
-    expect(text).toMatch(/Pillars on Sketch/i)
-    expect(text).toMatch(/Alt\+click/i)
-    expect(text).toMatch(/◆/)
-    expect(text).toMatch(/Detected/i)
+    expect(text).toMatch(/^Sketch\n/m)
+    expect(text).toMatch(/^Detected\n/m)
+    expect(text).toMatch(/^Coach\n/m)
+    expect(text).toMatch(/^Lyrics\n/m)
+    expect(text).toMatch(/^Mods\n/m)
+    // Keep hover tips short — no long procedure dumps.
+    expect(text.length).toBeLessThan(900)
   })
 
   it('covers empty Sketch lane tips', () => {
     const text = formatHowToPlain(SKETCH_LANE_HOWTO)
-    expect(text).toMatch(/paint/i)
-    expect(text).toMatch(/pillar/i)
+    expect(text).toMatch(/paint|map/i)
     expect(text).toMatch(/Realize/)
   })
 })

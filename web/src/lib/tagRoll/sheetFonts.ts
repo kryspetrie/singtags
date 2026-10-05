@@ -8,7 +8,6 @@ export const SHEET_MUSIC_FONT_CHOICES: { id: TagRollSheetMusicFont; label: strin
     { id: 'bravura', label: 'Bravura', vex: 'Bravura' },
     { id: 'petaluma', label: 'Petaluma', vex: 'Petaluma' },
     { id: 'leland', label: 'Leland', vex: 'Leland' },
-    { id: 'gonville', label: 'Gonville', vex: 'Gonville' },
     { id: 'finale-maestro', label: 'Finale Maestro', vex: 'Finale Maestro' },
   ]
 
@@ -22,6 +21,8 @@ export const SHEET_TEXT_FONT_CHOICES: { id: TagRollSheetTextFont; label: string;
   ]
 
 export function normalizeSheetMusicFont(v: unknown): TagRollSheetMusicFont {
+  // Legacy Gonville removed from the picker — map to Bravura.
+  if (v === 'gonville') return 'bravura'
   const ids = new Set(SHEET_MUSIC_FONT_CHOICES.map((c) => c.id))
   return typeof v === 'string' && ids.has(v as TagRollSheetMusicFont)
     ? (v as TagRollSheetMusicFont)

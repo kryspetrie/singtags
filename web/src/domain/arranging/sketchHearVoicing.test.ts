@@ -78,6 +78,28 @@ describe('sketchHearMidis', () => {
     expect(midis.includes(62)).toBe(false)
   })
 
+  it('locks chord-tone melody MIDI into the sounding lead', () => {
+    const midis = sketchHearMidis({ rootPc: 0, quality: 'major', leadMidi: 64 }) // E4 = 3rd
+    expect(midis).toHaveLength(4)
+    expect(midis[2]).toBe(64)
+    expect(midis[3]!).toBeGreaterThan(64)
+  })
+
+  it('path optimize keeps chord-tone leads locked to melody MIDI', () => {
+    const path = optimizeSketchHearPath(
+      [
+        { rootPc: 0, quality: 'major', leadMidi: 60 },
+        { rootPc: 7, quality: 'seventh', leadMidi: 67 },
+        { rootPc: 0, quality: 'major', leadMidi: 64 },
+      ],
+      { tonality: 0 },
+    )
+    expect(path).toHaveLength(3)
+    expect(path[0]!.lead).toBe(60)
+    expect(path[1]!.lead).toBe(67)
+    expect(path[2]!.lead).toBe(64)
+  })
+
   it('picks a smoother inversion given the previous chord (VL rules)', () => {
     const c = sketchHearVoicing({ rootPc: 0, quality: 'major', leadMidi: 60 })
     expect(c).toBeTruthy()
@@ -117,6 +139,54 @@ describe('sketchHearMidis', () => {
 })
 
 describe('optimizeSketchHearPath', () => {
+  it('keeps Bonnie-style home I out of first inversion (bass on 3)', () => {
+    // Prior chord in 1st inv must not drag tonic Bb into bass-on-D.
+    const path = optimizeSketchHearPath(
+      [
+        { rootPc: 5, quality: 'seventh', leadMidi: 57 }, // F7
+        { rootPc: 10, quality: 'major', leadMidi: 55 }, // Bb (Lead G ∉ chord)
+        { rootPc: 10, quality: 'major', leadMidi: 58 }, // Bb home, Lead on root
+      ],
+      { tonality: 10 },
+    )
+    expect(path).toHaveLength(3)
+    const home = path[2]!
+    expect(home.lead).toBe(58)
+    const bassRel = (((home.bass % 12) - 10) % 12 + 12) % 12
+    expect([0, 7]).toContain(bassRel) // root or 5th — not 3rd (4)
+  })
+
+  it('voices Bonnie-style V7(9)/V with Lead on the 5th without non-chord tones', () => {
+    // Bb major: C7(9) = V7(9)/V, Lead on G (5th) — previously lockVoicingLeadToMelody
+    // invented an A in the tenor (m2 above lead) which is not a C9 chord tone.
+    const path = optimizeSketchHearPath(
+      [
+        { rootPc: 10, quality: 'major', leadMidi: 58 }, // Bb
+        { rootPc: 0, quality: 'ninth', leadMidi: 55 }, // C7(9), Lead G3
+        { rootPc: 5, quality: 'seventh', leadMidi: 60 }, // F7
+      ],
+      { tonality: 10 },
+    )
+    expect(path).toHaveLength(3)
+    const c9 = path[1]!
+    expect(c9.lead).toBe(55)
+    const set = new Set(
+      [c9.bass, c9.bari, c9.lead, c9.tenor].map((m) => ((m % 12) + 12) % 12),
+    )
+    // Chord tones of C9: C E G Bb D — no A (9), no B (11), etc.
+    for (const pc of set) {
+      expect([0, 2, 4, 7, 10]).toContain(pc)
+    }
+    expect(set.has(2) || set.has(10)).toBe(true) // keep 9 and/or b7 character
+    const bassRole = ((c9.bass % 12) + 12) % 12
+    // Prefer root or 5th in bass — never 7th or 9th inversion.
+    expect([0, 7]).toContain(bassRole)
+    // No m2 cluster against the locked lead.
+    for (const m of [c9.bass, c9.bari, c9.tenor]) {
+      expect(Math.abs(m - c9.lead)).not.toBe(1)
+    }
+  })
+
   it('returns one voicing per chord', () => {
     const path = optimizeSketchHearPath(
       [
@@ -167,5 +237,25 @@ describe('optimizeSketchHearPath', () => {
       return m
     }
     expect(motion(path)).toBeLessThanOrEqual(motion(cold))
+  })
+
+  it('with seedPitches prefers staying near the existing register', () => {
+    const chords = [
+      { rootPc: 0, quality: 'major' as const, leadMidi: 67 },
+      { rootPc: 7, quality: 'seventh' as const, leadMidi: 65 },
+      { rootPc: 0, quality: 'major' as const, leadMidi: 64 },
+    ]
+    const seeds = [
+      { bass: 48, bari: 55, lead: 67, tenor: 72 },
+      { bass: 43, bari: 53, lead: 65, tenor: 71 },
+      { bass: 48, bari: 52, lead: 64, tenor: 67 },
+    ]
+    const cold = optimizeSketchHearPath(chords, { tonality: 0 })
+    const seeded = optimizeSketchHearPath(chords, { tonality: 0, seedPitches: seeds })
+    // Seeded path should not leap the opening bass up into G3+ territory.
+    expect(Math.abs(seeded[0]!.bass - seeds[0]!.bass)).toBeLessThanOrEqual(5)
+    expect(Math.abs(seeded[0]!.bass - seeds[0]!.bass)).toBeLessThanOrEqual(
+      Math.abs(cold[0]!.bass - seeds[0]!.bass),
+    )
   })
 })

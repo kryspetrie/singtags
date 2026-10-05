@@ -1,5 +1,5 @@
 /**
- * Coach workflow steps — Chords → Check → Polish, with a Home landing.
+ * Coach workflow steps — Chords → Check → Auto → Polish, with a Home landing.
  * Pillars / Note roles live on the roll (Sketch / Toolbar Roles), not in Coach.
  */
 import type { CoachFocusTab } from '../../domain/arranging/nextCoachAction'
@@ -11,7 +11,7 @@ import {
   type CoachEntryMode,
 } from '../../domain/arranging/coachEntryMode'
 
-export type GuidedStepId = 'home' | 'chords' | 'check' | 'polish'
+export type GuidedStepId = 'home' | 'chords' | 'check' | 'auto' | 'polish'
 
 export type GuidedStepDef = {
   id: GuidedStepId
@@ -30,7 +30,7 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'home',
     label: 'Home',
-    tip: 'Coach walks the chart after melody and Sketch exist - then Chords > Check > Polish.',
+    tip: 'Coach walks the chart after melody and Sketch exist — Chords > Check > Auto > Polish.',
     buttonTip:
       'Orient here, then open Chords. Lock phrase homes in Sketch first; Coach ranks under that map while the roll bar drives the walk.',
     glossaryIds: ['homophony', 'pillar', 'classic_cadences'],
@@ -48,20 +48,29 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   {
     id: 'check',
     label: 'Check',
-    tip: 'Clear potential issues - cadence misses, spacing, motion - then polish.',
+    tip: 'Clear potential issues - cadence misses, spacing, motion - then Auto.',
     buttonTip:
       'Open Check on the step rail, or Potential issues under Chords. Fix what you understand; Learn opens the teaching note for a rule.',
     glossaryIds: ['lock_ring', 'homophony', 'classic_cadences'],
     wizardSteps: ['step7_variety', 'step9_final'],
   },
   {
+    id: 'auto',
+    label: 'Auto',
+    tip: 'Whole-chart passes: strengthen approaches, polish the inversion path, try a swipe seed.',
+    buttonTip:
+      'Run tools that rewrite many stacks at once. Audition after each pass. Local chord picks stay on Chords.',
+    glossaryIds: ['strong_voicing', 'secondary_dom'],
+    wizardSteps: ['step8_voicing'],
+  },
+  {
     id: 'polish',
     label: 'Polish',
-    tip: 'Path-optimize inversions, strengthen approaches, then export.',
+    tip: 'Skim the checklist and style factors — export from the Tag Studio toolbar.',
     buttonTip:
-      'Treat the chart as one voice-leading path. Strengthen safely, skim the checklist, export MIDI/MusicXML when ready.',
-    glossaryIds: ['strong_voicing', 'secondary_dom'],
-    wizardSteps: ['step8_voicing', 'done'],
+      'Final craft skim. Whole-chart tools live on Auto; MIDI/MusicXML export is on the main toolbar.',
+    glossaryIds: ['strong_voicing', 'classic_cadences'],
+    wizardSteps: ['done'],
   },
 ]
 
@@ -77,7 +86,15 @@ export function guidedStepIndex(id: GuidedStepId): number {
 
 /** Normalize prefs / legacy ids to a current rail step. */
 export function normalizeGuidedStepId(raw: unknown): GuidedStepId | null {
-  if (raw === 'home' || raw === 'chords' || raw === 'check' || raw === 'polish') return raw
+  if (
+    raw === 'home' ||
+    raw === 'chords' ||
+    raw === 'check' ||
+    raw === 'auto' ||
+    raw === 'polish'
+  ) {
+    return raw
+  }
   // Former Coach pages — send users to Home / Chords instead.
   if (raw === 'pillars' || raw === 'roles') return 'home'
   return null
@@ -94,12 +111,12 @@ export function resolveGuidedStep(
 
   if (entry === 'repair') {
     if (coverage < 0.5) return 'chords'
-    if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'polish'
+    if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'auto'
     return 'check'
   }
 
   if (coverage < 0.5) return 'chords'
-  if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'polish'
+  if ((opts.errorCount ?? 0) === 0 && coverage >= 0.85) return 'auto'
   return 'check'
 }
 
@@ -130,12 +147,13 @@ export function labelForGuidedStep(id: GuidedStepId): string {
 export function focusTabForGuidedStep(id: GuidedStepId): CoachFocusTab {
   if (id === 'home') return 'home'
   if (id === 'chords') return 'choose'
+  if (id === 'auto') return 'auto'
   if (id === 'polish') return 'polish'
   return 'check'
 }
 
 export function modeForGuidedStep(id: GuidedStepId): CoachUiMode {
-  return id === 'check' || id === 'polish' ? 'review' : 'arrange'
+  return id === 'check' || id === 'auto' || id === 'polish' ? 'review' : 'arrange'
 }
 
 export function wizardStepForGuided(id: GuidedStepId): WizardStep {

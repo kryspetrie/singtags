@@ -125,12 +125,23 @@ export function useCoachTransport(opts: {
       }
     }
 
+    if (step === 'auto') {
+      return {
+        ...empty,
+        status: 'Whole-chart passes — strengthen, polish inversions, then audition',
+        primaryLabel: 'Polish inversions',
+        primaryTitle: 'Revoice stacks along a global inversion path',
+        primaryDisabled: false,
+      }
+    }
+
+    // polish (and any unknown step)
     return {
       ...empty,
-      status: 'Strengthen voicings, skim the checklist, export when ready',
-      primaryLabel: 'Strengthen',
-      primaryTitle: 'Polish weak voice-leading in place',
-      primaryDisabled: false,
+      status: 'Skim the checklist — export from the Tag Studio toolbar',
+      primaryLabel: '',
+      primaryTitle: '',
+      primaryDisabled: true,
     }
   })
 }

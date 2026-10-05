@@ -6,6 +6,7 @@ export {
   SKETCH_HEAR_BASS_MIN,
   SKETCH_HEAR_TENOR_MAX,
   SKETCH_HEAR_DEFAULT_LEAD,
+  lockVoicingLeadToMelody,
   optimizeSketchHearPath,
   sketchHearMidis,
   sketchHearVoicing,

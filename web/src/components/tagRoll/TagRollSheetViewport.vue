@@ -3,6 +3,12 @@
  * View-mode sheet surface — VexFlow continuous / page score.
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import { sketchLabel } from '../../lib/tagRoll/harmonySketch'
+import {
+  buildSheetChordMarkBoxes,
+  type SheetChordMarkSpan,
+} from '../../lib/tagRoll/sheetChordMarks'
 import {
   TAG_ROLL_SHEET_ZOOM_MIN,
   type TagRollProject,
@@ -25,23 +31,27 @@ const SHEET_TITLE_BAND_MIN_PX = 92
 function estimateSheetTitleBandPx(
   project: TagRollProject,
   show: boolean,
+  sizeScale = 1,
 ): number {
   if (!show) return 0
   const hasTitle = !!project.title?.trim()
   const hasSub = !!project.subtitle?.trim()
   const hasCredits = !!(project.composer?.trim() || project.arranger?.trim())
   if (!hasTitle && !hasSub && !hasCredits) return 0
+  const s = Math.max(0.4, sizeScale)
   let h = 28
   if (hasTitle) h += 28
   if (hasSub) h += 20
   if (hasCredits) h += 22
-  return Math.max(SHEET_TITLE_BAND_MIN_PX, h)
+  return Math.round(Math.max(SHEET_TITLE_BAND_MIN_PX, h) * s)
 }
 
 const props = defineProps<{
   project: TagRollProject
   /** Tag Roll transport is running — drives in-measure playback highlights. */
   playing?: boolean
+  /** Live Detected lane segments (for optional sheet chord boxes). */
+  detectSegments?: readonly ChordAnalysisSegment[]
 }>()
 
 const emit = defineEmits<{
@@ -60,7 +70,7 @@ let renderGen = 0
 
 const sheetZoom = computed(() => props.project.view.sheetZoom)
 const sheetLayout = computed(() => props.project.view.sheetLayout ?? 'continuous')
-const measureSizing = computed(() => props.project.view.sheetMeasureSizing ?? 'equal')
+const measureSizing = computed(() => props.project.view.sheetMeasureSizing ?? 'dynamic')
 const showLyrics = computed(() => props.project.view.sheetShowLyrics !== false)
 const scrollX = computed(() => props.project.view.sheetScrollX)
 const scrollY = computed(() => props.project.view.sheetScrollY)
@@ -89,9 +99,15 @@ const hasMetaFooter = computed(
 
 const isPageLayout = computed(() => sheetLayout.value === 'page')
 
+const sheetSizeScale = computed(() => props.project.view.sheetScoreScale ?? 1)
+
 /** Title band reserved in the score (page 1 / strip). 0 when header off. */
 const titleBandPx = computed(() =>
-  estimateSheetTitleBandPx(props.project, hasMetaHeader.value),
+  estimateSheetTitleBandPx(props.project, hasMetaHeader.value, sheetSizeScale.value),
+)
+
+const sheetSizeStyle = computed(
+  () => ({ '--sheet-size': String(sheetSizeScale.value) }) as Record<string, string>,
 )
 
 /**
@@ -103,7 +119,9 @@ const metaHeaderH = computed(() =>
   isPageLayout.value ? 0 : titleBandPx.value,
 )
 const metaFooterH = computed(() =>
-  hasMetaFooter.value && !isPageLayout.value ? 36 : 0,
+  hasMetaFooter.value && !isPageLayout.value
+    ? Math.round(36 * sheetSizeScale.value)
+    : 0,
 )
 
 function minZoom(): number {
@@ -253,10 +271,9 @@ type PlaybackHighlight = {
   y: number
   w: number
   h: number
-  color: string
 }
 
-/** Tint notes whose sounding window contains the live playhead. */
+/** Highlight the engraved measure that currently contains the playhead. */
 const playbackHighlights = computed((): PlaybackHighlight[] => {
   if (
     !props.playing ||
@@ -267,27 +284,21 @@ const playbackHighlights = computed((): PlaybackHighlight[] => {
   }
   const lay = layout.value
   const t = playheadTick.value
-  const colorByPart = new Map(props.project.parts.map((p) => [p.id, p.color]))
-  const out: PlaybackHighlight[] = []
-  const padX = 5
-  const padY = 10
-  for (const n of props.project.notes) {
-    if (t < n.startTick || t >= n.startTick + n.durationTicks) continue
-    const endTick = Math.min(props.project.lengthTicks, n.startTick + n.durationTicks)
-    const a = lay.tickToPoint(n.startTick)
-    const b = lay.tickToPoint(endTick)
-    const x0 = Math.min(a.x, b.x)
-    const x1 = Math.max(a.x, b.x)
-    out.push({
-      id: n.id,
-      x: x0 - padX,
-      y: a.y + padY,
-      w: Math.max(10, x1 - x0 + padX * 2),
-      h: Math.max(24, lay.systemBodyHeight - padY * 2),
-      color: colorByPart.get(n.partId) ?? '#1d6a9f',
-    })
+  let m =
+    lay.measures.find((row) => t >= row.startTick && t < row.endTick) ?? null
+  if (!m && lay.measures.length) {
+    m = lay.measures[lay.measures.length - 1]!
   }
-  return out
+  if (!m) return []
+  return [
+    {
+      id: `meas-${m.measureIndex}`,
+      x: m.x,
+      y: m.y,
+      w: Math.max(8, m.width),
+      h: lay.systemBodyHeight,
+    },
+  ]
 })
 
 function playheadScreenX(): number {
@@ -351,7 +362,7 @@ async function rerender(): Promise<void> {
       pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
       pageDpi: props.project.view.sheetPageDpi ?? 96,
       headerBandPx: isPageLayout.value ? titleBandPx.value : 0,
-      noteColors: props.project.view.sheetNoteColors !== false,
+      noteColors: props.project.view.sheetNoteColors === true,
       staveGap: props.project.view.sheetStaveGap ?? 'normal',
       measureScale: props.project.view.sheetMeasureScale ?? 1,
       noteSpacing: props.project.view.sheetNoteSpacing ?? 1,
@@ -555,6 +566,56 @@ const exprMarks = computed((): SheetExprMark[] => {
   return out
 })
 
+const chordMarkBoxes = computed(() => {
+  const lay = layout.value
+  if (!lay) return []
+  const showSketch = props.project.view.sheetShowSketchChords === true
+  const showDetected = props.project.view.sheetShowDetectedChords === true
+  if (!showSketch && !showDetected) return []
+
+  const spans: SheetChordMarkSpan[] = []
+  const preferFlats = props.project.preferFlats
+  const tonality = props.project.tonality
+  const mode = props.project.tonalityMode ?? 'major'
+  const s = Math.max(0.55, props.project.view.sheetScoreScale ?? 1)
+
+  // When both lanes are on, stack Sketch above Detected; otherwise sit on the staff.
+  const sketchRow = showSketch && showDetected ? 1 : 0
+  if (showSketch) {
+    for (const span of props.project.harmonySketch ?? []) {
+      if (!span.locked) continue
+      spans.push({
+        id: span.id,
+        startTick: span.startTick,
+        endTick: span.endTick,
+        label: sketchLabel(span, preferFlats, tonality, mode),
+        variant: 'sketch',
+        row: sketchRow,
+      })
+    }
+  }
+  if (showDetected) {
+    for (const seg of props.detectSegments ?? []) {
+      if (seg.rootPc == null) continue
+      const label = (seg.displayName || seg.name || '').trim()
+      if (!label) continue
+      spans.push({
+        id: seg.id,
+        startTick: seg.startTick,
+        endTick: seg.endTick,
+        label,
+        variant: 'detected',
+        row: 0,
+      })
+    }
+  }
+
+  return buildSheetChordMarkBoxes(lay, spans, {
+    boxHeight: Math.round(18 * s),
+    gapAboveStaff: Math.round(8 * s),
+  })
+})
+
 let ro: ResizeObserver | null = null
 let measureRerenderTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -698,7 +759,7 @@ defineExpose({
       <header
         v-if="hasMetaHeader && !isPageLayout"
         class="sheet-meta-header"
-        :style="continuousMetaPadStyle"
+        :style="{ ...continuousMetaPadStyle, ...sheetSizeStyle }"
       >
         <p v-if="project.title?.trim()" class="meta-title">{{ project.title }}</p>
         <p v-if="project.subtitle?.trim()" class="meta-subtitle">{{ project.subtitle }}</p>
@@ -710,7 +771,7 @@ defineExpose({
           <span class="meta-arranger">{{ project.arranger }}</span>
         </div>
       </header>
-      <div class="score-body">
+      <div class="score-body" :style="sheetSizeStyle">
         <div
           v-for="pg in layout?.pages ?? []"
           :key="`page-${pg.index}`"
@@ -727,7 +788,7 @@ defineExpose({
         <header
           v-if="hasMetaHeader && isPageLayout"
           class="sheet-meta-header on-page"
-          :style="pageTitleStyle"
+          :style="{ ...pageTitleStyle, ...sheetSizeStyle }"
         >
           <p v-if="project.title?.trim()" class="meta-title">{{ project.title }}</p>
           <p v-if="project.subtitle?.trim()" class="meta-subtitle">{{ project.subtitle }}</p>
@@ -760,15 +821,28 @@ defineExpose({
               <span class="ramp-bpm end">♩={{ m.endBpm }}</span>
             </template>
           </div>
+          <div
+            v-for="box in chordMarkBoxes"
+            :key="box.id"
+            class="chord-mark"
+            :class="box.variant"
+            :style="{
+              left: `${box.left}px`,
+              top: `${box.top}px`,
+              width: `${box.width}px`,
+            }"
+            :title="box.label"
+          >
+            {{ box.label }}
+          </div>
         </div>
         <div
           v-for="h in playbackHighlights"
           :key="h.id"
-          class="playback-note"
+          class="playback-measure"
           :style="{
             width: `${h.w}px`,
             height: `${h.h}px`,
-            backgroundColor: h.color,
             transform: `translate(${h.x}px, ${h.y}px)`,
           }"
         />
@@ -777,7 +851,8 @@ defineExpose({
           class="playhead"
           :style="{
             height: `${layout.systemBodyHeight}px`,
-            transform: `translate(${playheadPoint.x}px, ${playheadPoint.y}px)`,
+            left: `${playheadPoint.x}px`,
+            top: `${playheadPoint.y}px`,
           }"
         />
         <footer
@@ -791,7 +866,7 @@ defineExpose({
       <footer
         v-if="hasMetaFooter && !isPageLayout"
         class="sheet-meta-footer"
-        :style="continuousMetaPadStyle"
+        :style="{ ...continuousMetaPadStyle, ...sheetSizeStyle }"
       >
         <p class="meta-note">{{ project.sheetNote }}</p>
       </footer>
@@ -807,7 +882,8 @@ defineExpose({
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  background: #f7f4ee;
+  /* Match page paper — Continuous strip should read as white score paper. */
+  background: #fff;
   border: 1px solid var(--border);
   border-radius: 8px;
   touch-action: none;
@@ -821,8 +897,8 @@ defineExpose({
   inset: 0 0 auto 0;
   height: 28px;
   z-index: 3;
-  background: #efebe3;
-  border-bottom: 1px solid #d4cfc4;
+  background: #f3f3f3;
+  border-bottom: 1px solid #e0e0e0;
   pointer-events: none;
 }
 .ph-tri {
@@ -863,15 +939,15 @@ defineExpose({
 .meta-title {
   margin: 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.35rem;
+  font-size: calc(1.35rem * var(--sheet-size, 1));
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.2;
 }
 .meta-subtitle {
-  margin: 4px 0 0;
+  margin: calc(4px * var(--sheet-size, 1)) 0 0;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--sheet-size, 1));
   font-style: italic;
   color: #3d3a34;
 }
@@ -879,8 +955,8 @@ defineExpose({
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 10px;
-  font-size: 0.82rem;
+  margin-top: calc(10px * var(--sheet-size, 1));
+  font-size: calc(0.82rem * var(--sheet-size, 1));
   color: #3d3a34;
 }
 .meta-composer {
@@ -906,7 +982,7 @@ defineExpose({
 }
 .meta-note {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--sheet-size, 1));
   color: #5a564e;
   font-style: italic;
 }
@@ -952,35 +1028,68 @@ defineExpose({
 .expr-mark {
   position: absolute;
 }
+.chord-mark {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(16px * var(--sheet-size, 1));
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, #1a1a1a 35%, transparent);
+  background: color-mix(in srgb, #fff 92%, #e8e4dc);
+  color: #1a1a1a;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: calc(0.72rem * var(--sheet-size, 1));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chord-mark.sketch {
+  border-color: color-mix(in srgb, #1d6a9f 55%, transparent);
+  background: color-mix(in srgb, #dceaf5 70%, #fff);
+  color: #143d5c;
+}
+.chord-mark.detected {
+  border-color: color-mix(in srgb, #6a5a3a 45%, transparent);
+  background: color-mix(in srgb, #f5efe3 85%, #fff);
+  border-style: dashed;
+  color: #4a4030;
+  font-weight: 650;
+}
 .expr-mark.fermata {
   transform: translateX(-50%);
   line-height: 1;
 }
 .ferm {
   display: block;
-  font-size: 48px;
+  font-size: calc(48px * var(--sheet-size, 1));
   line-height: 1;
   color: #1a1a1a;
 }
 .expr-mark.tempo {
   transform: translateX(-2px);
-  margin-top: 4px;
+  margin-top: calc(4px * var(--sheet-size, 1));
 }
 .tempo-mark {
   display: inline-block;
-  font-size: 14px;
+  font-size: calc(14px * var(--sheet-size, 1));
   font-weight: 700;
   letter-spacing: 0.01em;
   color: #1a1a1a;
-  background: color-mix(in srgb, #f7f4ee 88%, transparent);
+  background: color-mix(in srgb, #fff 88%, transparent);
   padding: 0 3px;
   border-radius: 3px;
   white-space: nowrap;
 }
 .expr-mark.rit,
 .expr-mark.accel {
-  margin-top: 18px;
-  height: 22px;
+  margin-top: calc(18px * var(--sheet-size, 1));
+  height: calc(22px * var(--sheet-size, 1));
   min-width: 4.5em;
 }
 .expr-mark.rit::after,
@@ -989,30 +1098,30 @@ defineExpose({
   position: absolute;
   left: 2.5em;
   right: 0;
-  top: 8px;
-  border-top: 2px dashed #3d3a34;
+  top: calc(8px * var(--sheet-size, 1));
+  border-top: calc(2px * var(--sheet-size, 1)) dashed #3d3a34;
 }
 .ramp-label {
   position: absolute;
-  top: -2px;
+  top: calc(-2px * var(--sheet-size, 1));
   left: 0;
-  font-size: 14px;
+  font-size: calc(14px * var(--sheet-size, 1));
   font-weight: 700;
   font-style: italic;
   letter-spacing: 0.02em;
   color: #3d3a34;
-  background: color-mix(in srgb, #f7f4ee 85%, transparent);
+  background: color-mix(in srgb, #fff 85%, transparent);
   padding: 0 3px;
   border-radius: 3px;
   white-space: nowrap;
 }
 .ramp-bpm {
   position: absolute;
-  top: 10px;
-  font-size: 11px;
+  top: calc(10px * var(--sheet-size, 1));
+  font-size: calc(11px * var(--sheet-size, 1));
   font-weight: 650;
   color: #3d3a34;
-  background: color-mix(in srgb, #f7f4ee 88%, transparent);
+  background: color-mix(in srgb, #fff 88%, transparent);
   padding: 0 2px;
   border-radius: 2px;
   white-space: nowrap;
@@ -1024,25 +1133,25 @@ defineExpose({
   right: 0;
   transform: translateX(40%);
 }
-.playback-note {
+.playback-measure {
   position: absolute;
   top: 0;
   left: 0;
   border-radius: 4px;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.28;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, currentColor 40%, transparent);
+  background: color-mix(in srgb, #c45c26 16%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, #c45c26 45%, transparent);
 }
 .playhead {
   position: absolute;
-  top: 0;
-  left: 0;
   width: 2px;
   margin-left: -1px;
   background: #c45c26;
   pointer-events: none;
   z-index: 2;
+  /* No transform transition — system wraps must teleport (not CR then LF). */
+  transition: none;
 }
 .err {
   position: absolute;

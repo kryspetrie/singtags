@@ -178,9 +178,9 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
       },
     ],
   },
-  polish: {
+  auto: {
     ideasIntro:
-      'Polish is path thinking: one inversion story across the phrase, not a greedy pick per chord.',
+      'Auto is path thinking across the whole chart: one inversion story and safer approaches, not a greedy pick per chord.',
     ideas: [
       {
         title: 'Bass on 1 or 5 at openings',
@@ -201,25 +201,50 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
         glossaryIds: ['secondary_dom', 'bs7', 'circle_fifths'],
       },
       {
+        title: 'Swipe seeds',
+        body:
+          'A swipe is a short embellishment stacked near the end of a long hold. Try swipe seed only when a held melody note already has a TTBB stack.',
+        glossaryIds: ['strong_voicing'],
+      },
+    ],
+    helpIntro: 'Whole-chart tools — then audition before you call it done.',
+    help: [
+      {
+        title: 'Strengthen / Polish inversions',
+        body: 'These rewrite many stacks at once. Polish keeps your current register and only moves when voice leading improves — if a pass leaves stacks unchanged, the path was already smooth.',
+      },
+      {
+        title: 'Try swipe seed',
+        body: 'Needs a long held Lead note with a stack. If the button is disabled, there is no eligible hold yet.',
+      },
+    ],
+  },
+  polish: {
+    ideasIntro:
+      'Polish is the final craft skim: checklist and style factors after Auto passes.',
+    ideas: [
+      {
+        title: 'Checklist is a reminder, not a gate',
+        body:
+          'Contest-minded items help you notice residuals. They do not block export — your ear still owns the tag.',
+        glossaryIds: ['classic_cadences', 'lock_ring'],
+      },
+      {
         title: 'Close / medium / wide spacing',
         body:
           'Think gender-agnostic spreads: close keeps bari often above Lead with bass near the stack; wide sits bari below Lead and uses fewer tight clusters. Match density to the ensemble you have.',
         glossaryIds: ['voicing_spread', 'ttbb', 'harmonic_series_spacing'],
       },
     ],
-    helpIntro: 'Finish the walk and take the arrangement out.',
+    helpIntro: 'Finish the walk — export from the main toolbar.',
     help: [
       {
-        title: 'Strengthen / polish actions',
-        body: 'Use the Polish panel buttons to run path voicing and strengthen passes, then listen through with the free playhead.',
-      },
-      {
         title: 'Checklist',
-        body: 'Contest-minded checklist items are reminders, not blockers. Expand them when you want a final craft skim.',
+        body: 'Expand items when you want a final craft skim. Residuals often mean return to Chords or Auto.',
       },
       {
-        title: 'Back to Chords',
-        body: 'If something still feels wrong locally, return to Chords, select that moment, and replace the voicing - then polish again.',
+        title: 'Back to Auto / Chords',
+        body: 'Whole-chart tools are on Auto. Local voicing fixes stay on Chords.',
       },
     ],
   },

@@ -55,10 +55,21 @@ export function useTwoRowStripPaging<T>(
       return
     }
 
-    // Phase 1: full strip width (no side chevrons).
-    needsPager.value = false
-    await nextTick()
-    measure.style.width = `${host.clientWidth}px`
+    // Measure both widths off-DOM so we never flash needsPager false→true
+    // (that remounts chevrons and makes the collection row flicker).
+    const strip = host.parentElement
+    const stripW = strip?.clientWidth || host.clientWidth
+    const rootFs =
+      typeof window !== 'undefined'
+        ? Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+        : 16
+    // Match HomeView `.collection-strip-nav` (2.75rem) + `.collection-strip.paged` gap.
+    const navW = 2.75 * rootFs
+    const gridGap = 0.35 * rootFs
+    const fullW = stripW
+    const pagedBodyW = Math.max(1, stripW - 2 * navW - 2 * gridGap)
+
+    measure.style.width = `${fullW}px`
     let fit = countItemsWithinRows(measure, maxRows)
 
     if (total <= fit) {
@@ -68,14 +79,11 @@ export function useTwoRowStripPaging<T>(
       return
     }
 
-    // Phase 2: enable chevron columns, re-measure the narrower pill area.
-    needsPager.value = true
-    await nextTick()
-    measure.style.width = `${host.clientWidth}px`
+    measure.style.width = `${pagedBodyW}px`
     fit = Math.max(1, countItemsWithinRows(measure, maxRows))
     fitCount.value = fit
     stripRows.value = maxRows
-    return
+    needsPager.value = true
   }
 
   let ro: ResizeObserver | null = null

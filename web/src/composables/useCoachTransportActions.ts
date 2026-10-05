@@ -7,7 +7,7 @@ import type { HarmonizeCandidate } from '../domain/arranging/harmonize'
 
 export type CoachTransportActionCtx = {
   guidedStep: Ref<GuidedStepId>
-  focusTab: Ref<'home' | 'now' | 'choose' | 'check' | 'polish'>
+  focusTab: Ref<'home' | 'now' | 'choose' | 'check' | 'auto' | 'polish'>
   currentStack: Ref<{ midi?: unknown } | null>
   filteredCandidates: Ref<readonly HarmonizeCandidate[]>
   stepPillar: (dir: -1 | 1) => void
@@ -23,6 +23,7 @@ export type CoachTransportActionCtx = {
   applyBest: () => void
   fixAllSafe: () => void
   onStrengthen: () => void
+  onPolish: () => void
   hearPillarRoot: () => void
   hearCurrentStack: () => void
   hearCand: (c: HarmonizeCandidate) => void
@@ -67,8 +68,11 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
       case 'check':
         ctx.fixAllSafe()
         break
+      case 'auto':
+        ctx.onPolish()
+        break
       default:
-        ctx.onStrengthen()
+        break
     }
   }
 

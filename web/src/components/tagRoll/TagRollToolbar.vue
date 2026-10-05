@@ -59,7 +59,6 @@ const emit = defineEmits<{
   openCoach: []
   openSheetFormat: []
   openSheetPrint: []
-  openSheetMetadata: []
   exportSheetPng: []
   exportSheetWebp: []
   exportSheetPdf: []
@@ -634,16 +633,6 @@ onUnmounted(() => {
         @click="emit('openRoles')"
       >
         Roles
-      </button>
-
-      <button
-        v-if="isSheet"
-        type="button"
-        class="btn sm"
-        :title="tagRollTip('Edit title, subtitle, composer, arranger, footer')"
-        @click="emit('openSheetMetadata')"
-      >
-        Metadata
       </button>
 
       <button

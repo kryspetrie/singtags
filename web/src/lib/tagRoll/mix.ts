@@ -6,8 +6,10 @@ import type { TagRollPart, TagRollPartMix } from './types'
 
 /** Virtual mix channel for locked Sketch / harmony-sketch block chords. */
 export const TAG_ROLL_SKETCH_MIX_ID = 'mix:harmony-sketch'
-/** Virtual mix channel for Detected-lane hole fills (typically soloed to audition). */
+/** Virtual mix channel for Detected-lane hole fills (defaults muted). */
 export const TAG_ROLL_DETECTED_MIX_ID = 'mix:harmony-detected'
+/** Virtual mix channel for metronome clicks (shown in mixer only when enabled). */
+export const TAG_ROLL_METRONOME_MIX_ID = 'mix:metronome'
 
 /** User-requested defaults: T 60%L, Lead 20%L, Bass 20%R, Bari 60%R. */
 export const TAG_ROLL_DEFAULT_PAN: Record<string, number> = {
@@ -51,7 +53,7 @@ export function defaultSketchMix(prev?: TagRollPartMix | null): TagRollPartMix {
   }
 }
 
-/** Detected defaults muted — audition via solo (or unmute) so it stays out of the bed. */
+/** Detected defaults muted — unmute (and/or solo) like any other strip. */
 export function defaultDetectedMix(prev?: TagRollPartMix | null): TagRollPartMix {
   return {
     partId: TAG_ROLL_DETECTED_MIX_ID,
@@ -62,11 +64,26 @@ export function defaultDetectedMix(prev?: TagRollPartMix | null): TagRollPartMix
   }
 }
 
-/** Ensure every part has a mix row; keep sketch + detected channels; drop other orphans. */
+export function defaultMetronomeMix(prev?: TagRollPartMix | null): TagRollPartMix {
+  return {
+    partId: TAG_ROLL_METRONOME_MIX_ID,
+    volume: clamp(prev?.volume ?? 1, 0, 1.5),
+    pan: clamp(prev?.pan ?? 0, -1, 1),
+    mute: Boolean(prev?.mute),
+    // Metronome is mute-only in the mixer — never participates in the solo bus.
+    solo: false,
+  }
+}
+
+/** Ensure every part has a mix row; keep sketch + detected + metronome; drop other orphans. */
 export function syncProjectMix(
   parts: readonly TagRollPart[],
   mix: readonly TagRollPartMix[] | undefined | null,
-  opts?: { includeSketch?: boolean; includeDetected?: boolean },
+  opts?: {
+    includeSketch?: boolean
+    includeDetected?: boolean
+    includeMetronome?: boolean
+  },
 ): TagRollPartMix[] {
   const byId = new Map((mix ?? []).map((m) => [m.partId, m]))
   const rows = parts.map((p) => {
@@ -86,6 +103,9 @@ export function syncProjectMix(
   if (opts?.includeDetected !== false) {
     rows.push(defaultDetectedMix(byId.get(TAG_ROLL_DETECTED_MIX_ID)))
   }
+  if (opts?.includeMetronome !== false) {
+    rows.push(defaultMetronomeMix(byId.get(TAG_ROLL_METRONOME_MIX_ID)))
+  }
   return rows
 }
 
@@ -102,7 +122,8 @@ export function isPartAudible(
   const row = mix.find((m) => m.partId === partId)
   if (!row) return true
   if (row.mute) return false
-  const anySolo = mix.some((m) => m.solo)
+  // Metronome never contributes to / participates in the solo bus.
+  const anySolo = mix.some((m) => m.solo && m.partId !== TAG_ROLL_METRONOME_MIX_ID)
   if (anySolo) return row.solo
   return true
 }
@@ -113,6 +134,13 @@ export function isSketchAudible(mix: readonly TagRollPartMix[]): boolean {
 
 export function isDetectedAudible(mix: readonly TagRollPartMix[]): boolean {
   return isPartAudible(TAG_ROLL_DETECTED_MIX_ID, mix)
+}
+
+/** Metronome is mute-only — clicks ignore the part solo bus. */
+export function isMetronomeAudible(mix: readonly TagRollPartMix[]): boolean {
+  const row = mix.find((m) => m.partId === TAG_ROLL_METRONOME_MIX_ID)
+  if (!row) return true
+  return !row.mute
 }
 
 export function mixForPart(

@@ -12,7 +12,7 @@ defineEmits<{
     <h3 class="title">How to use Coach</h3>
     <p class="lead">
       Coach walks the chart after the roll owns melody and the harmony map. Use the step rail
-      (Home > Chords > Check > Polish); we remember where you left off.
+      (Home > Chords > Check > Auto > Polish); we remember where you left off.
     </p>
 
     <ol class="steps">
@@ -45,10 +45,17 @@ defineEmits<{
         </span>
       </li>
       <li>
+        <strong>Auto</strong>
+        <span>
+          Whole-chart passes: strengthen approaches, polish the inversion path, try a swipe
+          seed. Audition after each pass.
+        </span>
+      </li>
+      <li>
         <strong>Polish</strong>
         <span>
-          Path-optimize inversions for voice leading and ring, strengthen approaches, then
-          export. Contest / tuning prefs live under Tweaks.
+          Skim the checklist and style factors. Export MIDI / MusicXML from the Tag Studio
+          toolbar. Contest / tuning prefs live under Tweaks.
         </span>
       </li>
     </ol>

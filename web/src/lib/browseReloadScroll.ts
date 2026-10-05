@@ -97,5 +97,7 @@ export function consumeBrowseReloadScroll(): number | null {
   if (!snap || typeof snap.scrollY !== 'number') return null
   if (snap.path !== currentPath()) return null
   if (Date.now() - (snap.at || 0) > 30 * 60_000) return null
-  return Math.max(0, Math.round(snap.scrollY))
+  const y = Math.max(0, Math.round(snap.scrollY))
+  // Tiny offsets still count as search-top (don't restore into the first section).
+  return y <= 24 ? 0 : y
 }

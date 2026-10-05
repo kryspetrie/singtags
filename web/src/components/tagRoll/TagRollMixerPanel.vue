@@ -1,11 +1,16 @@
 <script setup lang="ts">
 /**
  * Per-part mute/solo, volume, and pan — floating / draggable like Harmonize.
- * Detected uses a single On/Off audition toggle (solo vs muted).
- * Pan only when a row is expanded.
+ * Sketch, Detected, and (when enabled) Metronome use the same M/S controls.
+ * Pan only when a row is expanded (not metronome).
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID, TAG_ROLL_SKETCH_MIX_ID } from '../../lib/tagRoll/mix'
+import {
+  syncProjectMix,
+  TAG_ROLL_DETECTED_MIX_ID,
+  TAG_ROLL_METRONOME_MIX_ID,
+  TAG_ROLL_SKETCH_MIX_ID,
+} from '../../lib/tagRoll/mix'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import {
   TAG_ROLL_METRONOME_VOLUME_MAX,
@@ -24,35 +29,67 @@ const emit = defineEmits<{
 const store = useTagRollStore()
 const prefs = usePreferencesStore()
 const project = computed(() => store.current)
-const rows = computed(() => {
+
+type MixRow = {
+  id: string
+  name: string
+  color: string
+  mix: { volume: number; pan: number; mute: boolean; solo: boolean }
+  /** Metronome has volume + M/S but no pan expand. */
+  metronome: boolean
+}
+
+const rows = computed((): MixRow[] => {
   const p = project.value
   if (!p) return []
   const mix = syncProjectMix(p.parts, p.mix)
-  const partRows = p.parts.map((part) => {
+  const out: MixRow[] = p.parts.map((part) => {
     const m = mix.find((x) => x.partId === part.id)!
-    return { id: part.id, name: part.name, color: part.color, mix: m, detected: false }
+    return {
+      id: part.id,
+      name: part.name,
+      color: part.color,
+      mix: m,
+      metronome: false,
+    }
   })
   const sketchMix = mix.find((x) => x.partId === TAG_ROLL_SKETCH_MIX_ID)
   if (sketchMix) {
-    partRows.push({
+    out.push({
       id: TAG_ROLL_SKETCH_MIX_ID,
       name: 'Sketch',
       color: '#6b7280',
       mix: sketchMix,
-      detected: false,
+      metronome: false,
     })
   }
   const detectMix = mix.find((x) => x.partId === TAG_ROLL_DETECTED_MIX_ID)
   if (detectMix) {
-    partRows.push({
+    out.push({
       id: TAG_ROLL_DETECTED_MIX_ID,
       name: 'Detected',
       color: '#9ca3af',
       mix: detectMix,
-      detected: true,
+      metronome: false,
     })
   }
-  return partRows
+  if (p.metronomeEnabled) {
+    const metroMix = mix.find((x) => x.partId === TAG_ROLL_METRONOME_MIX_ID)
+    if (metroMix) {
+      out.push({
+        id: TAG_ROLL_METRONOME_MIX_ID,
+        name: 'Metronome',
+        color: '#887f72',
+        mix: {
+          ...metroMix,
+          // Volume lives in prefs so it persists across projects.
+          volume: prefs.tagRollMetronomeVolume,
+        },
+        metronome: true,
+      })
+    }
+  }
+  return out
 })
 
 /** Row ids with pan revealed. */
@@ -163,29 +200,21 @@ function toggleExpanded(id: string): void {
   })
 }
 
-/** Independent mute (parts / Sketch). */
 function onMute(partId: string, mute: boolean): void {
   store.patchPartMix(partId, { mute })
 }
 
-/** Independent solo (parts / Sketch). */
 function onSolo(partId: string, solo: boolean): void {
   store.patchPartMix(partId, { solo })
-}
-
-/** Detected: one switch — on = solo+unmuted, off = muted. */
-function detectedAuditionOn(mix: { mute: boolean; solo: boolean }): boolean {
-  return mix.solo && !mix.mute
-}
-
-function onDetectedAudition(on: boolean): void {
-  if (on) store.patchPartMix(TAG_ROLL_DETECTED_MIX_ID, { solo: true, mute: false })
-  else store.patchPartMix(TAG_ROLL_DETECTED_MIX_ID, { solo: false, mute: true })
 }
 
 function onVolume(partId: string, e: Event): void {
   const v = Number((e.target as HTMLInputElement).value)
   if (!Number.isFinite(v)) return
+  if (partId === TAG_ROLL_METRONOME_MIX_ID) {
+    prefs.setTagRollMetronomeVolume(v)
+    return
+  }
   store.patchPartMix(partId, { volume: v }, { history: false })
 }
 
@@ -193,12 +222,6 @@ function onPan(partId: string, e: Event): void {
   const v = Number((e.target as HTMLInputElement).value)
   if (!Number.isFinite(v)) return
   store.patchPartMix(partId, { pan: v }, { history: false })
-}
-
-function onMetronomeVolume(e: Event): void {
-  const v = Number((e.target as HTMLInputElement).value)
-  if (!Number.isFinite(v)) return
-  prefs.setTagRollMetronomeVolume(v)
 }
 
 function panLabel(pan: number): string {
@@ -250,7 +273,7 @@ function panLabel(pan: number): string {
       </header>
 
       <p class="hint">
-        Expand a row for pan. <strong>Detected</strong> is a single audition switch (solo on / muted off).
+        Expand a row for pan. Mute / solo on parts, Sketch, and Detected; Metronome has mute only.
       </p>
 
       <ul class="list" role="list">
@@ -259,12 +282,13 @@ function panLabel(pan: number): string {
           :key="row.id"
           class="row"
           :class="{
-            expanded: isExpanded(row.id),
-            soloed: row.detected ? detectedAuditionOn(row.mix) : row.mix.solo,
-            'detect-row': row.detected,
+            expanded: !row.metronome && isExpanded(row.id),
+            soloed: row.mix.solo,
+            'metro-row': row.metronome,
           }"
         >
           <button
+            v-if="!row.metronome"
             type="button"
             class="expand"
             :aria-expanded="isExpanded(row.id)"
@@ -274,41 +298,19 @@ function panLabel(pan: number): string {
           >
             {{ isExpanded(row.id) ? '▾' : '▸' }}
           </button>
-          <span class="swatch" :style="{ background: row.color }" aria-hidden="true" />
+          <span v-else class="expand-spacer" aria-hidden="true" />
+          <span
+            class="swatch"
+            :class="{ 'metro-swatch': row.metronome }"
+            :style="row.metronome ? undefined : { background: row.color }"
+            aria-hidden="true"
+          />
           <span class="name">{{ row.name }}</span>
 
           <div
-            v-if="row.detected"
-            class="ms-tog detect-tog"
-            role="group"
-            aria-label="Detected audition"
-          >
-            <button
-              type="button"
-              class="ms-btn detect-off"
-              :class="{ on: !detectedAuditionOn(row.mix) }"
-              :aria-pressed="!detectedAuditionOn(row.mix)"
-              :title="tagRollTip('Detected off (muted)')"
-              @click="onDetectedAudition(false)"
-            >
-              Off
-            </button>
-            <button
-              type="button"
-              class="ms-btn detect-on"
-              :class="{ on: detectedAuditionOn(row.mix) }"
-              :aria-pressed="detectedAuditionOn(row.mix)"
-              :title="tagRollTip('Solo Detected chords')"
-              @click="onDetectedAudition(true)"
-            >
-              Solo
-            </button>
-          </div>
-          <div
-            v-else
             class="ms-tog"
             role="group"
-            :aria-label="`${row.name} mute and solo`"
+            :aria-label="row.metronome ? `${row.name} mute` : `${row.name} mute and solo`"
           >
             <button
               type="button"
@@ -321,6 +323,7 @@ function panLabel(pan: number): string {
               M
             </button>
             <button
+              v-if="!row.metronome"
               type="button"
               class="ms-btn solo"
               :class="{ on: row.mix.solo }"
@@ -337,7 +340,7 @@ function panLabel(pan: number): string {
             <input
               type="range"
               min="0"
-              max="1.5"
+              :max="row.metronome ? TAG_ROLL_METRONOME_VOLUME_MAX : 1.5"
               step="0.01"
               :value="row.mix.volume"
               :aria-label="`${row.name} volume`"
@@ -346,7 +349,7 @@ function panLabel(pan: number): string {
             <span class="val">{{ Math.round(row.mix.volume * 100) }}%</span>
           </label>
           <label
-            v-if="isExpanded(row.id)"
+            v-if="!row.metronome && isExpanded(row.id)"
             class="slider pan"
             :title="tagRollTip(`${row.name} pan`)"
           >
@@ -361,29 +364,6 @@ function panLabel(pan: number): string {
               @input="onPan(row.id, $event)"
             />
             <span class="val">{{ panLabel(row.mix.pan) }}</span>
-          </label>
-        </li>
-
-        <li class="row metro-row">
-          <span class="expand-spacer" aria-hidden="true" />
-          <span class="swatch metro-swatch" aria-hidden="true" />
-          <span class="name">Metronome</span>
-          <span class="ms-spacer" aria-hidden="true" />
-          <label
-            class="slider vol metro-vol"
-            :title="tagRollTip('Metronome click volume')"
-          >
-            <span class="lbl">Vol</span>
-            <input
-              type="range"
-              min="0"
-              :max="TAG_ROLL_METRONOME_VOLUME_MAX"
-              step="0.01"
-              :value="prefs.tagRollMetronomeVolume"
-              aria-label="Metronome volume"
-              @input="onMetronomeVolume"
-            />
-            <span class="val">{{ Math.round(prefs.tagRollMetronomeVolume * 100) }}%</span>
           </label>
         </li>
       </ul>
@@ -475,22 +455,7 @@ function panLabel(pan: number): string {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
-.ms-btn.detect-off.on {
-  background: color-mix(in srgb, var(--muted) 28%, var(--surface));
-  color: var(--text);
-}
-.ms-btn.detect-on.on {
-  background: color-mix(in srgb, var(--accent) 28%, var(--surface));
-  color: var(--accent);
-}
-.detect-tog .ms-btn {
-  min-width: 2.1rem;
-  font-size: 0.68rem;
-}
 .metro-row {
-  grid-template-areas:
-    'expand swatch name ms'
-    'vol vol vol vol';
   margin-top: 0.1rem;
 }
 .expand {
@@ -514,18 +479,10 @@ function panLabel(pan: number): string {
   color: var(--text);
   background: color-mix(in srgb, var(--border) 35%, transparent);
 }
-.expand-spacer,
-.ms-spacer {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-.ms-spacer {
-  grid-area: ms;
-  width: auto;
-  min-width: 4.4rem;
-}
 .expand-spacer {
   grid-area: expand;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 .swatch {
   grid-area: swatch;

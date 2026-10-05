@@ -99,6 +99,8 @@ export type SheetFormatSnapshot = Pick<
   | 'sheetLyricSize'
   | 'sheetLyricOffsets'
   | 'sheetPlaybackHighlight'
+  | 'sheetShowSketchChords'
+  | 'sheetShowDetectedChords'
   | 'sheetShowEngravedHeader'
   | 'sheetShowEngravedFooter'
   | 'sheetPadding'
@@ -136,6 +138,8 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
     sheetLyricSize: v.sheetLyricSize,
     sheetLyricOffsets: { ...v.sheetLyricOffsets },
     sheetPlaybackHighlight: v.sheetPlaybackHighlight,
+    sheetShowSketchChords: v.sheetShowSketchChords,
+    sheetShowDetectedChords: v.sheetShowDetectedChords,
     sheetShowEngravedHeader: v.sheetShowEngravedHeader,
     sheetShowEngravedFooter: v.sheetShowEngravedFooter,
     sheetPadding: v.sheetPadding,

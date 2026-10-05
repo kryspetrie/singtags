@@ -11,7 +11,13 @@ import {
 
 describe('GuidedSteps', () => {
   it('defines a single ordered path without Pillars / Note roles', () => {
-    expect(GUIDED_STEPS.map((s) => s.id)).toEqual(['home', 'chords', 'check', 'polish'])
+    expect(GUIDED_STEPS.map((s) => s.id)).toEqual([
+      'home',
+      'chords',
+      'check',
+      'auto',
+      'polish',
+    ])
   })
 
   it('normalizes legacy pillars/roles ids to home', () => {
@@ -44,15 +50,17 @@ describe('GuidedSteps', () => {
         ruleTags: [],
       },
     ]
-    expect(resolveGuidedStep(p)).toBe('polish')
+    expect(resolveGuidedStep(p)).toBe('auto')
   })
 
   it('maps steps to focus tabs, mode, and tips', () => {
     expect(focusTabForGuidedStep('home')).toBe('home')
     expect(focusTabForGuidedStep('chords')).toBe('choose')
     expect(focusTabForGuidedStep('check')).toBe('check')
+    expect(focusTabForGuidedStep('auto')).toBe('auto')
     expect(focusTabForGuidedStep('polish')).toBe('polish')
     expect(modeForGuidedStep('chords')).toBe('arrange')
+    expect(modeForGuidedStep('auto')).toBe('review')
     expect(modeForGuidedStep('polish')).toBe('review')
     expect(tipForGuidedStep('home')).toMatch(/workflow|coach/i)
     expect(GUIDED_STEPS.every((s) => s.buttonTip.length > 20)).toBe(true)

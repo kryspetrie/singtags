@@ -15,7 +15,6 @@ import TagRollHarmonizePanel from '../components/tagRoll/TagRollHarmonizePanel.v
 import TagRollKeyChangePanel from '../components/tagRoll/TagRollKeyChangePanel.vue'
 import TagRollDetectedTweaksPanel from '../components/tagRoll/TagRollDetectedTweaksPanel.vue'
 import TagRollSheetFormatPanel from '../components/tagRoll/TagRollSheetFormatPanel.vue'
-import TagRollSheetMetaPanel from '../components/tagRoll/TagRollSheetMetaPanel.vue'
 import TagRollSheetPrintPreview from '../components/tagRoll/TagRollSheetPrintPreview.vue'
 import TagRollChordEditDock from '../components/tagRoll/TagRollChordEditDock.vue'
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
@@ -39,7 +38,13 @@ import {
   type TagRollAudioApi,
 } from '../composables/useTagRollAudio'
 import { notesForColumnAudition } from '../lib/tagRoll/columnAudition'
-import { isPartAudible, mixForPart, syncProjectMix, TAG_ROLL_SKETCH_MIX_ID } from '../lib/tagRoll/mix'
+import {
+  isMetronomeAudible,
+  isPartAudible,
+  mixForPart,
+  syncProjectMix,
+  TAG_ROLL_SKETCH_MIX_ID,
+} from '../lib/tagRoll/mix'
 import { createTagRollScheduler, type TagRollScheduler } from '../lib/tagRoll/scheduler'
 import { followPlayheadScrollX } from '../lib/tagRoll/followPlayheadScroll'
 import { pageScrollToRevealTagNote } from '../lib/tagRoll/selectionPageScroll'
@@ -147,12 +152,14 @@ const stageViewportH = computed(() =>
 )
 const harmonizeRef = ref<InstanceType<typeof TagRollHarmonizePanel> | null>(null)
 const titleDraft = ref('')
-const titleEditing = ref(false)
-const titleInputRef = ref<HTMLInputElement | null>(null)
 const subtitleDraft = ref('')
 const composerDraft = ref('')
 const arrangerDraft = ref('')
 const sheetNoteDraft = ref('')
+const titleEditing = ref(false)
+/** Expand Additional details when any credit/footer field already has content. */
+const titleDetailsOpen = ref(false)
+const titleInputRef = ref<HTMLInputElement | null>(null)
 const importJsonInput = ref<HTMLInputElement | null>(null)
 const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importJsonBusy = ref(false)
@@ -163,7 +170,6 @@ const harmonizeOpen = ref(false)
 const keyChangeOpen = ref(false)
 const tweaksOpen = ref(false)
 const sheetFormatOpen = ref(false)
-const sheetMetaOpen = ref(false)
 const sheetPrintOpen = ref(false)
 /** Live chord preview (dock / Harmonize) — Sketch lane chrome + transport audition. */
 const harmonyPreview = ref<HarmonyPreviewDraft | null>(null)
@@ -506,6 +512,13 @@ function ensureMetronome(): MetronomeClicker {
   return metronome
 }
 
+/** Project metronome on and not muted/solo-gated out in the mixer. */
+function metronomeClicksAudible(): boolean {
+  const cur = store.current
+  if (!cur?.metronomeEnabled) return false
+  return isMetronomeAudible(syncProjectMix(cur.parts, cur.mix))
+}
+
 function cancelBlowPitchIntro(): void {
   blowPitchGen += 1
   if (blowPitchRaf) {
@@ -540,7 +553,7 @@ function rebuildScheduler(): void {
     getTimeSignature: () =>
       store.current?.timeSignature ?? { numerator: 4, denominator: 4 },
     getSwing: () => store.current?.swing ?? { enabled: false, unit: 'eighth', style: 'triplet', amount: 0 },
-    getMetronomeEnabled: () => !!store.current?.metronomeEnabled,
+    getMetronomeEnabled: () => metronomeClicksAudible(),
     getMetronomeSwing: () => store.current?.metronomeSwing !== false,
     getHarmonySketch: () =>
       sketchSpansForAudition(store.current?.harmonySketch ?? [], harmonyPreview.value),
@@ -564,6 +577,8 @@ function rebuildScheduler(): void {
       )
     },
     getLeadMidiAt: (tick) => harmonyLeadMidiAt(tick),
+    getSketchLockLead: () => prefs.tagRollSketchLockLeadVoicing,
+    getDetectedLockLead: () => prefs.tagRollDetectedLockLeadVoicing,
     getTonality: () => store.current?.tonality ?? 0,
     onMetronomeBeat: (hit) => {
       void ensureMetronome().click(hit.downbeat)
@@ -681,11 +696,7 @@ onMounted(async () => {
     return
   }
   applyEditorQueryFromRoute()
-  titleDraft.value = p.title
-  subtitleDraft.value = p.subtitle ?? ''
-  composerDraft.value = p.composer ?? ''
-  arrangerDraft.value = p.arranger ?? ''
-  sheetNoteDraft.value = p.sheetNote ?? ''
+  syncMetaDraftsFromProject()
   rebuildScheduler()
   unbindInspectHooks = installInspectEditorHooks({
     tryDeleteInspectRangeNotes: requestInspectRangeDelete,
@@ -725,12 +736,9 @@ watch(
       await router.replace({ name: 'tag-studio' })
       return
     }
-    titleDraft.value = p.title
-    subtitleDraft.value = p.subtitle ?? ''
-    composerDraft.value = p.composer ?? ''
-    arrangerDraft.value = p.arranger ?? ''
-    sheetNoteDraft.value = p.sheetNote ?? ''
+    syncMetaDraftsFromProject()
     titleEditing.value = false
+    titleDetailsOpen.value = false
     applyEditorQueryFromRoute()
     rebuildScheduler()
     syncEditorQueryToRoute()
@@ -760,6 +768,7 @@ watch(
   (mode) => {
     if (mode !== 'view') return
     titleEditing.value = false
+    titleDetailsOpen.value = false
     harmonizeOpen.value = false
     keyChangeOpen.value = false
     tweaksOpen.value = false
@@ -805,17 +814,29 @@ watch(
   },
 )
 
-function onTitleBlur(): void {
-  const t = titleDraft.value.trim() || 'Untitled tag'
-  titleDraft.value = t
-  if (project.value && t !== project.value.title) {
-    store.patchProject({ title: t })
-  }
+function syncMetaDraftsFromProject(): void {
+  const p = project.value
+  titleDraft.value = p?.title ?? ''
+  subtitleDraft.value = p?.subtitle ?? ''
+  composerDraft.value = p?.composer ?? ''
+  arrangerDraft.value = p?.arranger ?? ''
+  sheetNoteDraft.value = p?.sheetNote ?? ''
+}
+
+function projectHasAdditionalDetails(): boolean {
+  const p = project.value
+  return !!(
+    p?.subtitle?.trim() ||
+    p?.composer?.trim() ||
+    p?.arranger?.trim() ||
+    p?.sheetNote?.trim()
+  )
 }
 
 async function startTitleEdit(): Promise<void> {
   if (project.value?.view.mode === 'view') return
-  titleDraft.value = project.value?.title ?? titleDraft.value
+  syncMetaDraftsFromProject()
+  titleDetailsOpen.value = projectHasAdditionalDetails()
   titleEditing.value = true
   await nextTick()
   const el = titleInputRef.value
@@ -824,34 +845,28 @@ async function startTitleEdit(): Promise<void> {
 }
 
 function cancelTitleEdit(): void {
-  titleDraft.value = project.value?.title ?? titleDraft.value
+  syncMetaDraftsFromProject()
   titleEditing.value = false
+  titleDetailsOpen.value = false
 }
 
-function syncMetaDraftsFromProject(): void {
-  const p = project.value
-  if (!p) return
-  subtitleDraft.value = p.subtitle ?? ''
-  composerDraft.value = p.composer ?? ''
-  arrangerDraft.value = p.arranger ?? ''
-  sheetNoteDraft.value = p.sheetNote ?? ''
-}
-
-function commitMetaFields(): void {
-  const p = project.value
-  if (!p) return
+function commitTitleEdit(): void {
+  if (!project.value) {
+    titleEditing.value = false
+    titleDetailsOpen.value = false
+    return
+  }
+  const title = (titleDraft.value.trim() || 'Untitled tag').slice(0, 120)
+  titleDraft.value = title
   store.patchProject({
+    title,
     subtitle: subtitleDraft.value.trim().slice(0, 120),
     composer: composerDraft.value.trim().slice(0, 120),
     arranger: arrangerDraft.value.trim().slice(0, 120),
     sheetNote: sheetNoteDraft.value.trim().slice(0, 400),
   })
-  syncMetaDraftsFromProject()
-}
-
-function commitTitleEdit(): void {
-  onTitleBlur()
   titleEditing.value = false
+  titleDetailsOpen.value = false
 }
 
 function snapPlayheadToGrid(): void {
@@ -880,7 +895,7 @@ async function runBlowPitchIntro(): Promise<boolean> {
   let released = false
   let prevVirtual = plan.pitchStartTick
   // Opening downbeat of the pitch measure.
-  if (p.metronomeEnabled) void clicker.click(true)
+  if (metronomeClicksAudible()) void clicker.click(true)
   return new Promise((resolve) => {
     const tick = () => {
       if (gen !== blowPitchGen) {
@@ -891,7 +906,7 @@ async function runBlowPitchIntro(): Promise<boolean> {
       const elapsed = (performance.now() - t0) / 1000
       const frac = Math.min(1, elapsed / plan.measureSec)
       const virtual = plan.pitchStartTick + frac * plan.measureTicks
-      if (p.metronomeEnabled) {
+      if (metronomeClicksAudible()) {
         for (const h of beatsCrossedSigned(prevVirtual, virtual, p.timeSignature, p.ppq)) {
           void clicker.click(h.downbeat)
         }
@@ -1072,9 +1087,9 @@ function onHearStack(): void {
   void auditionTick(project.value?.view.playheadTick ?? 0)
 }
 
-function harmonyLeadMidiAt(tick: number): number {
+function harmonyLeadMidiAt(tick: number): number | null {
   const p = project.value
-  if (!p) return 60
+  if (!p) return null
   const leadId =
     p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
   const note = p.notes.find(
@@ -1083,7 +1098,7 @@ function harmonyLeadMidiAt(tick: number): number {
       n.startTick <= tick &&
       tick < n.startTick + n.durationTicks,
   )
-  return note?.midi ?? 60
+  return note?.midi ?? null
 }
 
 async function onHearHarmonySketch(
@@ -1106,7 +1121,13 @@ async function onHearHarmonySketch(
     (p.harmonySketch ?? []).find((s) => s.startTick === startTick) ??
     (seg ? (p.harmonySketch ?? []).find((s) => s.id === seg.id) : undefined)
 
-  type SeqItem = { startTick: number; rootPc: number; quality: string }
+  type SeqItem = {
+    startTick: number
+    rootPc: number
+    quality: string
+    /** Sketch wins over Detected at the same tick (matches mixer path). */
+    lane: 'sketch' | 'detected'
+  }
   const byTick = new Map<number, SeqItem>()
   for (const s of detectSegs) {
     if (s.rootPc == null) continue
@@ -1114,6 +1135,7 @@ async function onHearHarmonySketch(
       startTick: s.startTick,
       rootPc: s.rootPc,
       quality: natureToSketchQuality(s.quality ?? 'major'),
+      lane: 'detected',
     })
   }
   for (const s of declaredSegs) {
@@ -1122,14 +1144,23 @@ async function onHearHarmonySketch(
       startTick: s.startTick,
       rootPc: s.rootPc,
       quality: natureToSketchQuality(s.quality ?? 'major'),
+      lane: 'sketch',
     })
   }
   const sequence = [...byTick.values()]
     .sort((a, b) => a.startTick - b.startTick)
-    .map((s) => ({
-      ...s,
-      leadMidi: harmonyLeadMidiAt(s.startTick),
-    }))
+    .map((s) => {
+      const lock =
+        s.lane === 'sketch'
+          ? prefs.tagRollSketchLockLeadVoicing
+          : prefs.tagRollDetectedLockLeadVoicing
+      return {
+        startTick: s.startTick,
+        rootPc: s.rootPc,
+        quality: s.quality,
+        leadMidi: lock ? harmonyLeadMidiAt(s.startTick) : null,
+      }
+    })
 
   const rootPc = draft?.rootPc ?? stored?.rootPc ?? seg?.rootPc
   const quality =
@@ -1138,11 +1169,19 @@ async function onHearHarmonySketch(
     (seg?.quality && isHarmonySketchQuality(seg.quality) ? seg.quality : 'major')
   if (rootPc == null) return
 
+  // Dock / lane Hear: Detected uses its own Lead-lock pref; Sketch (default) uses Sketch's.
+  const hearFromDetected =
+    chordEditSession.value?.variant === 'detected' ||
+    (!stored && !!detectSegs.find((s) => s.startTick === startTick))
+  const targetLockLead = hearFromDetected
+    ? prefs.tagRollDetectedLockLeadVoicing
+    : prefs.tagRollSketchLockLeadVoicing
+  const targetLeadMidi = targetLockLead ? harmonyLeadMidiAt(startTick) : null
   const midis = resolveSketchHearMidis({
     startTick,
     rootPc,
     quality,
-    leadMidi: harmonyLeadMidiAt(startTick),
+    leadMidi: targetLeadMidi,
     mode: draft ? 'hold' : 'oneshot',
     sequence: sequence.length ? sequence : undefined,
     tonality: p.tonality,
@@ -1615,27 +1654,8 @@ function onSheetFormatClose(): void {
   sheetFormatOpen.value = false
 }
 
-function onSheetMetaClose(): void {
-  sheetMetaOpen.value = false
-  syncMetaDraftsFromProject()
-  if (project.value) titleDraft.value = project.value.title
-}
-
-function openSheetMetadata(): void {
-  sheetFormatOpen.value = false
-  sheetPrintOpen.value = false
-  closeChordEdit()
-  coachOpen.value = false
-  tweaksOpen.value = false
-  marksOpen.value = false
-  syncMetaDraftsFromProject()
-  titleDraft.value = project.value?.title ?? ''
-  sheetMetaOpen.value = true
-}
-
 function openSheetPrint(): void {
   sheetFormatOpen.value = false
-  sheetMetaOpen.value = false
   sheetPrintOpen.value = true
   if (project.value?.view.sheetLayout !== 'page') {
     store.setSheetLayout('page')
@@ -1658,7 +1678,6 @@ function toggleSheetFormat(): void {
   tweaksOpen.value = false
   marksOpen.value = false
   partsOpen.value = false
-  sheetMetaOpen.value = false
   store.assignNoteRolesActive = false
   sheetFormatOpen.value = true
 }
@@ -1717,7 +1736,6 @@ const sheetViewActive = computed(
 watch(sheetViewActive, (on) => {
   if (!on) {
     sheetFormatOpen.value = false
-    sheetMetaOpen.value = false
     sheetPrintOpen.value = false
   } else {
     marksOpen.value = false
@@ -1941,6 +1959,10 @@ function onKeyDown(e: KeyboardEvent): void {
       shortcutsOpen.value = false
       return
     }
+    if (titleEditing.value) {
+      cancelTitleEdit()
+      return
+    }
     if (harmonizeOpen.value) {
       onHarmonizeClose()
       return
@@ -2159,24 +2181,87 @@ function onKeyDown(e: KeyboardEvent): void {
       </RouterLink>
       <div class="title-row" :class="{ editing: titleEditing }">
         <template v-if="titleEditing">
-          <input
-            ref="titleInputRef"
-            v-model="titleDraft"
-            class="title-input"
-            aria-label="Project title"
-            :title="tagRollTip('Project title')"
-            @keydown.enter.prevent="commitTitleEdit"
-            @keydown.escape.prevent="cancelTitleEdit"
-          />
-          <label class="title-confirm" :title="tagRollTip('Apply title')">
-            <input
-              type="checkbox"
-              class="title-confirm-box"
-              aria-label="Apply title"
-              @change="commitTitleEdit"
-            />
-            <span class="title-confirm-mark" aria-hidden="true">✓</span>
-          </label>
+          <div class="title-edit-block">
+            <div class="title-edit-main">
+              <input
+                ref="titleInputRef"
+                v-model="titleDraft"
+                class="title-input"
+                maxlength="120"
+                aria-label="Arrangement name"
+                :title="tagRollTip('Arrangement name')"
+                @keydown.enter.prevent="commitTitleEdit"
+                @keydown.escape.prevent="cancelTitleEdit"
+              />
+              <label class="title-confirm" :title="tagRollTip('Apply title and details')">
+                <input
+                  type="checkbox"
+                  class="title-confirm-box"
+                  aria-label="Apply title and details"
+                  @change="commitTitleEdit"
+                />
+                <span class="title-confirm-mark" aria-hidden="true">✓</span>
+              </label>
+            </div>
+            <button
+              type="button"
+              class="title-details-toggle"
+              :aria-expanded="titleDetailsOpen"
+              :title="tagRollTip('Subtitle, composer, arranger, footer')"
+              @click="titleDetailsOpen = !titleDetailsOpen"
+            >
+              Additional details
+              <span class="title-details-chevron" aria-hidden="true">{{
+                titleDetailsOpen ? '▾' : '▸'
+              }}</span>
+            </button>
+            <div v-if="titleDetailsOpen" class="title-details">
+              <label class="title-detail-field">
+                <span>Subtitle</span>
+                <input
+                  v-model="subtitleDraft"
+                  type="text"
+                  maxlength="120"
+                  aria-label="Subtitle"
+                  @keydown.enter.prevent="commitTitleEdit"
+                  @keydown.escape.prevent="cancelTitleEdit"
+                />
+              </label>
+              <label class="title-detail-field">
+                <span>Composer</span>
+                <input
+                  v-model="composerDraft"
+                  type="text"
+                  maxlength="120"
+                  aria-label="Composer"
+                  @keydown.enter.prevent="commitTitleEdit"
+                  @keydown.escape.prevent="cancelTitleEdit"
+                />
+              </label>
+              <label class="title-detail-field">
+                <span>Arranger</span>
+                <input
+                  v-model="arrangerDraft"
+                  type="text"
+                  maxlength="120"
+                  aria-label="Arranger"
+                  @keydown.enter.prevent="commitTitleEdit"
+                  @keydown.escape.prevent="cancelTitleEdit"
+                />
+              </label>
+              <label class="title-detail-field">
+                <span>Footer note</span>
+                <input
+                  v-model="sheetNoteDraft"
+                  type="text"
+                  maxlength="400"
+                  aria-label="Footer note"
+                  @keydown.enter.prevent="commitTitleEdit"
+                  @keydown.escape.prevent="cancelTitleEdit"
+                />
+              </label>
+            </div>
+          </div>
         </template>
         <template v-else>
           <h1 class="title-text" :title="project.title">{{ project.title || 'Untitled tag' }}</h1>
@@ -2184,63 +2269,14 @@ function onKeyDown(e: KeyboardEvent): void {
             v-if="project.view.mode !== 'view'"
             type="button"
             class="title-edit"
-            :title="tagRollTip('Edit title')"
-            aria-label="Edit title"
+            :title="tagRollTip('Edit title and details')"
+            aria-label="Edit title and details"
             @click="startTitleEdit"
           >
             ✎
           </button>
         </template>
       </div>
-      <details class="meta-panel">
-        <summary :title="tagRollTip('Subtitle, composer, arranger, footer note')">Metadata</summary>
-        <div class="meta-grid">
-          <label class="meta-field">
-            <span>Subtitle</span>
-            <input
-              v-model="subtitleDraft"
-              type="text"
-              maxlength="120"
-              aria-label="Subtitle"
-              @change="commitMetaFields"
-              @keydown.enter.prevent="commitMetaFields"
-            />
-          </label>
-          <label class="meta-field">
-            <span>Composer</span>
-            <input
-              v-model="composerDraft"
-              type="text"
-              maxlength="120"
-              aria-label="Composer"
-              @change="commitMetaFields"
-              @keydown.enter.prevent="commitMetaFields"
-            />
-          </label>
-          <label class="meta-field">
-            <span>Arranger</span>
-            <input
-              v-model="arrangerDraft"
-              type="text"
-              maxlength="120"
-              aria-label="Arranger"
-              @change="commitMetaFields"
-              @keydown.enter.prevent="commitMetaFields"
-            />
-          </label>
-          <label class="meta-field meta-wide">
-            <span>Footer note</span>
-            <input
-              v-model="sheetNoteDraft"
-              type="text"
-              maxlength="400"
-              aria-label="Footer note"
-              @change="commitMetaFields"
-              @keydown.enter.prevent="commitMetaFields"
-            />
-          </label>
-        </div>
-      </details>
       <button
         type="button"
         class="shortcuts-btn"
@@ -2277,7 +2313,6 @@ function onKeyDown(e: KeyboardEvent): void {
       @open-coach="openCoachFromToolbar"
       @open-sheet-format="toggleSheetFormat"
       @open-sheet-print="openSheetPrint"
-      @open-sheet-metadata="openSheetMetadata"
       @export-sheet-png="onExportSheetPng"
       @export-sheet-webp="onExportSheetWebp"
       @export-sheet-pdf="onExportSheetPdf"
@@ -2347,6 +2382,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 ref="sheetViewportRef"
                 :project="project"
                 :playing="store.transportPlaying"
+                :detect-segments="chordDetectSegments"
                 @scroll="(x, y) => store.setSheetScroll(x, y)"
                 @playhead="onUserPlayhead"
                 @sheet-zoom="(z) => store.setSheetZoom(z)"
@@ -2489,13 +2525,6 @@ function onKeyDown(e: KeyboardEvent): void {
           <TagRollDetectedTweaksPanel @close="onTweaksClose" />
         </aside>
         <aside
-          v-else-if="sheetMetaOpen && sheetViewActive"
-          class="sheet-format-dock"
-          aria-label="Sheet metadata"
-        >
-          <TagRollSheetMetaPanel :project="project" @close="onSheetMetaClose" />
-        </aside>
-        <aside
           v-else-if="sheetFormatOpen && sheetViewActive"
           class="sheet-format-dock"
           aria-label="Sheet format"
@@ -2567,46 +2596,6 @@ function onKeyDown(e: KeyboardEvent): void {
   gap: 0.55rem;
   flex: 0 0 auto;
 }
-.meta-panel {
-  flex: 1 1 100%;
-  order: 5;
-  border: 1px solid var(--border, #ccc);
-  border-radius: 6px;
-  padding: 0.25rem 0.55rem 0.45rem;
-  background: var(--surface, #fff);
-}
-.meta-panel summary {
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--muted, #666);
-  user-select: none;
-}
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
-  gap: 0.4rem 0.65rem;
-  margin-top: 0.4rem;
-}
-.meta-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.72rem;
-  color: var(--muted, #666);
-}
-.meta-field.meta-wide {
-  grid-column: 1 / -1;
-}
-.meta-field input {
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--text);
-  padding: 0.25rem 0.4rem;
-  border: 1px solid var(--border, #ccc);
-  border-radius: 4px;
-  background: var(--bg, #fff);
-}
 .back {
   color: var(--accent);
   text-decoration: none;
@@ -2622,7 +2611,29 @@ function onKeyDown(e: KeyboardEvent): void {
   max-width: min(36rem, 70vw);
 }
 .title-row.editing {
-  max-width: none;
+  align-items: flex-start;
+  max-width: min(28rem, 100%);
+  flex: 1 1 18rem;
+  z-index: 5;
+}
+.title-edit-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  padding: 0.35rem 0.4rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px color-mix(in srgb, #000 12%, transparent);
+}
+.title-edit-main {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 .title-text {
   margin: 0;
@@ -2665,11 +2676,55 @@ function onKeyDown(e: KeyboardEvent): void {
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--bg, var(--surface));
   color: var(--text);
   font: inherit;
   font-weight: 650;
   font-size: 1.05rem;
+}
+.title-details-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.15rem 0.2rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.title-details-toggle:hover {
+  color: var(--text);
+}
+.title-details-chevron {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+.title-details {
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid var(--border);
+}
+.title-detail-field {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.title-detail-field input {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--text);
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg, var(--surface));
 }
 .title-confirm {
   position: relative;

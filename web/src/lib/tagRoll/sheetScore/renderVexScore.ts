@@ -97,6 +97,11 @@ export type VexScoreLayoutResult = {
   contentOriginX: number
   /** Approximate height of one system row (for page playhead). */
   systemBodyHeight: number
+  /**
+   * Unified Size factor applied as true SVG scale (notes, stems, barlines, clefs…).
+   * HTML overlays (title, expressions) should use the same factor.
+   */
+  sizeScale: number
   /** Applied page/strip margins in px (authoritative inch→dpi conversion). */
   marginsPx: {
     left: number
@@ -113,6 +118,25 @@ export type VexScoreLayoutResult = {
   tickToPoint: (tick: number) => { x: number; y: number }
   /** Inverse hit-test for playhead scrub. */
   pointToTick: (x: number, y: number) => number
+}
+
+/** Display-scale the VexFlow SVG so glyphs track stave geometry (viewBox zoom). */
+function applySvgSizeScale(
+  host: HTMLElement,
+  unitWidth: number,
+  unitHeight: number,
+  sizeScale: number,
+): void {
+  const svg = host.querySelector('svg')
+  if (!svg) return
+  const w = Math.max(1, unitWidth)
+  const h = Math.max(1, unitHeight)
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+  svg.setAttribute('width', String(Math.max(1, Math.round(w * sizeScale))))
+  svg.setAttribute('height', String(Math.max(1, Math.round(h * sizeScale))))
+  svg.style.width = `${Math.max(1, Math.round(w * sizeScale))}px`
+  svg.style.height = `${Math.max(1, Math.round(h * sizeScale))}px`
+  svg.style.display = 'block'
 }
 
 let fontsKey: string | null = null
@@ -482,7 +506,7 @@ export async function renderVexSheetScore(opts: {
   await ensureVexFonts(vexMusicFontName(musicId), vexTextFontName(textId))
   const { host, project, pxPerBeat } = opts
   const showLyrics = opts.showLyrics !== false
-  const noteColors = opts.noteColors !== false
+  const noteColors = opts.noteColors === true
   const staveGapPref: TagRollSheetStaveGap =
     opts.staveGap === 'tight' || opts.staveGap === 'wide' ? opts.staveGap : 'normal'
   const measureScale = opts.measureScale ?? 1
@@ -490,17 +514,20 @@ export async function renderVexSheetScore(opts: {
   const beatStretch = opts.beatStretch ?? 1
   const staveGapFine = opts.staveGapFine ?? 1
   const systemGapScale = opts.systemGap ?? 1
-  const scoreScale = Math.max(0.4, opts.scoreScale ?? 1)
-  const engravingScale = Math.max(0.4, opts.engravingScale ?? 1)
-  const lyricFontPx = Math.round(
-    (opts.lyricSize ?? DEFAULT_LYRIC_FONT_PX) * engravingScale * scoreScale,
+  // One proportional Size — store keeps Score + Notation locked.
+  // Layout + VexFlow draw in unit engraving space; SVG viewBox applies true scale
+  // so noteheads/clefs/barlines/stems grow with staves (not just line spacing).
+  const sizeScale = Math.max(
+    0.4,
+    opts.scoreScale ?? opts.engravingScale ?? 1,
   )
+  const lyricFontPx = Math.round(opts.lyricSize ?? DEFAULT_LYRIC_FONT_PX)
   const lyricOffsets = opts.lyricOffsets ?? {}
   const maxLyricOffset = Object.values(lyricOffsets).reduce(
     (m, v) => Math.max(m, typeof v === 'number' ? v : 0),
     0,
   )
-  const minBarPx = Math.round(SHEET_MEASURE_WIDTH_MIN * (opts.minBarWidth ?? 1) * scoreScale)
+  const minBarPx = Math.round(SHEET_MEASURE_WIDTH_MIN * (opts.minBarWidth ?? 1))
   const timeFactor = opts.timeFactor ?? 1
   const staffLineWidth = clampSheetFormat(
     opts.staffLineWeight,
@@ -509,33 +536,42 @@ export async function renderVexSheetScore(opts: {
     1,
   )
   const showPartNames = opts.showPartNames === true
-  const headerBandPx = Math.max(0, Math.round(opts.headerBandPx ?? 0))
+  const headerBandScreen = Math.max(0, Math.round(opts.headerBandPx ?? 0))
   const sheetLayout: TagRollSheetLayout =
     opts.sheetLayout === 'page' ? 'page' : 'continuous'
   const measureSizing: TagRollSheetMeasureSizing =
     opts.measureSizing === 'dynamic' ? 'dynamic' : 'equal'
   const pageDpi = opts.pageDpi ?? 96
-  const pageW = sheetPageWidthPx(opts.pageWidthIn ?? 8.5, pageDpi)
-  const pageH = sheetPageHeightPx(opts.pageHeightIn ?? 11, pageDpi)
-  /** Staff-line distance in px — drives VexFlow glyph/staff geometry. */
-  const linePx = Math.max(6, Math.round(10 * engravingScale * scoreScale))
-  const inchesToPx = (inches: number) => Math.max(0, Math.round(inches * pageDpi))
-  const leftPad = inchesToPx(opts.marginLeftIn ?? 0.3)
+  const pageWScreen = sheetPageWidthPx(opts.pageWidthIn ?? 8.5, pageDpi)
+  const pageHScreen = sheetPageHeightPx(opts.pageHeightIn ?? 11, pageDpi)
+  // Unit-space page / margins: inch margins stay fixed on screen after viewBox scale.
+  const pageW = pageWScreen / sizeScale
+  const pageH = pageHScreen / sizeScale
+  const headerBandPx = headerBandScreen / sizeScale
+  /** Staff-line distance in unit px — VexFlow default; display scale via viewBox. */
+  const linePx = 10
+  const inchesToPxScreen = (inches: number) => Math.max(0, Math.round(inches * pageDpi))
+  const inchesToPx = (inches: number) => inchesToPxScreen(inches) / sizeScale
+  // Extra gutter so StaveText LEFT part names are not clipped into the margin.
+  const partNameGutter = showPartNames ? 78 : 0
+  const leftPad = inchesToPx(opts.marginLeftIn ?? 0.3) + partNameGutter
   const rightPad = inchesToPx(opts.marginRightIn ?? 0.3)
   const topPad = inchesToPx(opts.marginTopIn ?? 0.3)
   const bottomPad = inchesToPx(opts.marginBottomIn ?? 0.3)
-  // Advanced multipliers: expression headroom / below-staff breathing inside the system.
-  const exprHeadroom = Math.round(8 * scoreScale * (opts.topMargin ?? 1))
-  const staffTailPad = Math.round(10 * scoreScale * (opts.bottomMargin ?? 1))
+  // Expression headroom / below-staff breathing inside the system.
+  const exprHeadroom = Math.round(8 * (opts.topMargin ?? 1))
+  const staffTailPad = Math.round(10 * (opts.bottomMargin ?? 1))
   const scoreTopPad = topPad + exprHeadroom
   const clefExtraPx = Math.round(
-    SHEET_FIRST_MEASURE_CLEF_EXTRA_PX * (opts.clefGutter ?? 1) * scoreScale,
+    SHEET_FIRST_MEASURE_CLEF_EXTRA_PX * (opts.clefGutter ?? 1),
   )
-  const systemGapPx = Math.round(SYSTEM_GAP_PX * systemGapScale * scoreScale)
-  // Tests may pass viewportWidth as an override for the line budget.
+  // Keep inter-page gap constant in screen px.
+  const systemGapPx = Math.round(SYSTEM_GAP_PX * systemGapScale)
+  const pageGapPx = SHEET_PAGE_GAP_PX / sizeScale
+  // Tests may pass viewportWidth as an override for the line budget (screen px).
   const lineBudgetOverride =
     typeof opts.viewportWidth === 'number' && opts.viewportWidth > 0
-      ? opts.viewportWidth
+      ? opts.viewportWidth / sizeScale
       : null
   host.replaceChildren()
 
@@ -567,10 +603,7 @@ export async function renderVexSheetScore(opts: {
   const systemBodyHeight =
     staveCount * (4 * linePx + staveGap * linePx) + staffTailPad
   const equalBody = scaledEqualMeasureBodyPx(
-    sheetMeasureWidthPx(pxPerBeat, project.timeSignature, ppq) *
-      timeFactor *
-      beatStretch *
-      scoreScale,
+    sheetMeasureWidthPx(pxPerBeat, project.timeSignature, ppq) * timeFactor * beatStretch,
     measureScale,
     minBarPx,
   )
@@ -667,7 +700,7 @@ export async function renderVexSheetScore(opts: {
     for (let pi = 0; pi < pageCount; pi++) {
       pages.push({
         index: pi,
-        y: pi * (pageH + SHEET_PAGE_GAP_PX),
+        y: pi * (pageH + pageGapPx),
         width: pageW,
         height: pageH,
       })
@@ -820,7 +853,10 @@ export async function renderVexSheetScore(opts: {
       if (showPartNames && pl.x === leftPad) {
         const partLabel = staff.labels.filter(Boolean).join(' · ')
         if (partLabel) {
-          stave.setStaveText(partLabel, StaveModifierPosition.LEFT, { shiftX: 6 })
+          // Sit in the reserved part-name gutter (left of clef), not into the page edge.
+          stave.setStaveText(partLabel, StaveModifierPosition.LEFT, {
+            shiftX: -Math.max(8, partNameGutter - 10),
+          })
         }
       }
       staveRefs.push(stave)
@@ -874,8 +910,11 @@ export async function renderVexSheetScore(opts: {
   }
 
   factory.draw()
+  applySvgSizeScale(host, totalWidth, totalHeight, sizeScale)
 
-  // Map musical time to engraved X: note-area bounds + sounding noteheads.
+  const sx = (n: number) => n * sizeScale
+
+  // Map musical time to engraved X: note-area bounds + sounding noteheads (unit space).
   type AnchorCand = { tick: number; x: number; weight: number }
   const anchorCands: AnchorCand[] = []
   for (let mi = 0; mi < measures.length; mi++) {
@@ -909,7 +948,22 @@ export async function renderVexSheetScore(opts: {
     }
   }
 
-  // One X per tick — prefer sounding-note anchors.
+  // Promote unit-space geometry + anchors to screen px (matches SVG display scale).
+  for (const m of measures) {
+    m.x = sx(m.x)
+    m.y = sx(m.y)
+    m.width = sx(m.width)
+    m.noteStartX = sx(m.noteStartX)
+    m.noteEndX = sx(m.noteEndX)
+  }
+  for (const pg of pages) {
+    pg.y = sx(pg.y)
+    pg.width = sx(pg.width)
+    pg.height = sx(pg.height)
+  }
+  for (const c of anchorCands) c.x = sx(c.x)
+
+  // One X per tick — prefer sounding-note anchors (screen space).
   const byTick = new Map<number, AnchorCand>()
   for (const c of anchorCands) {
     const prev = byTick.get(c.tick)
@@ -936,6 +990,8 @@ export async function renderVexSheetScore(opts: {
     if (!row.length) return tickToX(tick)
     const rowStart = row[0]!.startTick
     const rowEnd = row[row.length - 1]!.endTick
+    const rowLeft = Math.min(...row.map((m) => m.x))
+    const rowRight = Math.max(...row.map((m) => m.x + m.width))
     const seen = new Map<number, { x: number; weight: number }>()
     const consider = (t: number, ax: number, weight: number) => {
       const prev = seen.get(t)
@@ -947,15 +1003,21 @@ export async function renderVexSheetScore(opts: {
       consider(m.startTick, m.noteStartX, 0)
       consider(m.endTick, m.noteEndX, 0)
     }
+    // Noteheads at the exclusive row end belong to the *next* system. Including
+    // them here interpolates X backwards along the current line (CR before LF).
     for (const c of anchorCands) {
-      if (c.weight >= 1 && c.tick >= rowStart && c.tick <= rowEnd) {
-        consider(c.tick, c.x, c.weight)
-      }
+      if (c.weight < 1) continue
+      if (c.tick < rowStart || c.tick >= rowEnd) continue
+      if (c.x < rowLeft - 4 || c.x > rowRight + 4) continue
+      consider(c.tick, c.x, c.weight)
     }
     const map = buildTickToX(
       [...seen.entries()].map(([t, v]) => ({ tick: t, x: v.x })),
     )
-    return map(Math.max(rowStart, Math.min(rowEnd, tick)))
+    // Clamp to the half-open row so the exclusive end uses noteEndX, not the
+    // next system's first-note X.
+    const tClamp = Math.max(rowStart, Math.min(rowEnd - 1e-6, tick))
+    return map(tClamp)
   }
 
   const tickToPoint = (tick: number): { x: number; y: number } => {
@@ -963,13 +1025,15 @@ export async function renderVexSheetScore(opts: {
     return { x: tickToXInSystem(m.systemIndex, tick), y: m.y }
   }
 
+  const systemBodyHeightScreen = sx(systemBodyHeight)
+
   const pointToTick = (px: number, py: number): number => {
     let bestSi = 0
     let bestDy = Infinity
     for (let si = 0; si < systemCount; si++) {
       const row = measures.find((m) => m.systemIndex === si)
       if (!row) continue
-      const mid = row.y + systemBodyHeight / 2
+      const mid = row.y + systemBodyHeightScreen / 2
       const dy = Math.abs(py - mid)
       if (dy < bestDy) {
         bestDy = dy
@@ -993,10 +1057,13 @@ export async function renderVexSheetScore(opts: {
     }
     const rowStart = row[0]!.startTick
     const rowEnd = row[row.length - 1]!.endTick
+    const rowLeft = Math.min(...row.map((m) => m.x))
+    const rowRight = Math.max(...row.map((m) => m.x + m.width))
     for (const c of anchorCands) {
-      if (c.weight >= 1 && c.tick >= rowStart && c.tick <= rowEnd) {
-        consider(c.tick, c.x, c.weight)
-      }
+      if (c.weight < 1) continue
+      if (c.tick < rowStart || c.tick >= rowEnd) continue
+      if (c.x < rowLeft - 4 || c.x > rowRight + 4) continue
+      consider(c.tick, c.x, c.weight)
     }
     for (const [tick, v] of seen) pts.push({ tick, x: v.x })
     pts.sort((a, b) => (a.x !== b.x ? a.x - b.x : a.tick - b.tick))
@@ -1016,16 +1083,17 @@ export async function renderVexSheetScore(opts: {
   }
 
   return {
-    width: totalWidth,
-    height: totalHeight,
-    contentOriginY: (pageMode ? 0 : headerBandPx) + scoreTopPad,
-    contentOriginX: measures[0]?.noteStartX ?? leftPad,
-    systemBodyHeight,
+    width: sx(totalWidth),
+    height: sx(totalHeight),
+    contentOriginY: sx((pageMode ? 0 : headerBandPx) + scoreTopPad),
+    contentOriginX: measures[0]?.noteStartX ?? sx(leftPad),
+    systemBodyHeight: systemBodyHeightScreen,
+    sizeScale,
     marginsPx: {
-      left: leftPad,
-      right: rightPad,
-      top: topPad,
-      bottom: bottomPad,
+      left: sx(leftPad),
+      right: sx(rightPad),
+      top: sx(topPad),
+      bottom: sx(bottomPad),
     },
     measures,
     pages,

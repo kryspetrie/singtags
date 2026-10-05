@@ -82,8 +82,6 @@ import {
   SHEET_STAFF_LINE_MIN,
   SHEET_MARGIN_IN_MIN,
   SHEET_MARGIN_IN_MAX,
-  SHEET_ENGRAVING_SCALE_MIN,
-  SHEET_ENGRAVING_SCALE_MAX,
   SHEET_SCORE_SCALE_MIN,
   SHEET_SCORE_SCALE_MAX,
 } from './sheetFormat'
@@ -258,7 +256,10 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
     sheetShowLyrics: o.sheetShowLyrics === undefined ? true : Boolean(o.sheetShowLyrics),
     sheetLayout: normalizeSheetLayout(o.sheetLayout),
     sheetMeasureSizing: normalizeSheetMeasureSizing(o.sheetMeasureSizing, o.sheetLayout),
-    sheetNoteColors: o.sheetNoteColors === undefined ? true : Boolean(o.sheetNoteColors),
+    sheetNoteColors:
+      o.sheetNoteColors === undefined
+        ? TAG_ROLL_DEFAULT_VIEW.sheetNoteColors
+        : Boolean(o.sheetNoteColors),
     sheetStaveGap: normalizeSheetStaveGap(o.sheetStaveGap),
     sheetMeasureScale: clampSheetMeasureScale(
       o.sheetMeasureScale,
@@ -305,6 +306,14 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       o.sheetPlaybackHighlight === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetPlaybackHighlight
         : Boolean(o.sheetPlaybackHighlight),
+    sheetShowSketchChords:
+      o.sheetShowSketchChords === undefined
+        ? TAG_ROLL_DEFAULT_VIEW.sheetShowSketchChords
+        : Boolean(o.sheetShowSketchChords),
+    sheetShowDetectedChords:
+      o.sheetShowDetectedChords === undefined
+        ? TAG_ROLL_DEFAULT_VIEW.sheetShowDetectedChords
+        : Boolean(o.sheetShowDetectedChords),
     sheetShowEngravedHeader:
       o.sheetShowEngravedHeader === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetShowEngravedHeader
@@ -367,18 +376,20 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       SHEET_MARGIN_IN_MAX,
       TAG_ROLL_DEFAULT_VIEW.sheetMarginBottomIn,
     ),
-    sheetEngravingScale: clampSheetFormat(
-      o.sheetEngravingScale,
-      SHEET_ENGRAVING_SCALE_MIN,
-      SHEET_ENGRAVING_SCALE_MAX,
-      TAG_ROLL_DEFAULT_VIEW.sheetEngravingScale,
-    ),
-    sheetScoreScale: clampSheetFormat(
-      o.sheetScoreScale,
-      SHEET_SCORE_SCALE_MIN,
-      SHEET_SCORE_SCALE_MAX,
-      TAG_ROLL_DEFAULT_VIEW.sheetScoreScale,
-    ),
+    // Size is one control — keep Score + Notation locked (prefer score when both differ).
+    ...(() => {
+      const raw =
+        o.sheetScoreScale !== undefined && o.sheetScoreScale !== null
+          ? o.sheetScoreScale
+          : o.sheetEngravingScale
+      const size = clampSheetFormat(
+        raw,
+        SHEET_SCORE_SCALE_MIN,
+        SHEET_SCORE_SCALE_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetScoreScale,
+      )
+      return { sheetScoreScale: size, sheetEngravingScale: size }
+    })(),
     sheetPageWidthIn: clampSheetPageInches(
       o.sheetPageWidthIn,
       SHEET_PAGE_WIDTH_IN_MIN,
@@ -404,9 +415,25 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       o.sheetPartNames === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetPartNames
         : Boolean(o.sheetPartNames),
+    sheetFormatByLayout: normalizeSheetFormatByLayout(o.sheetFormatByLayout),
     sheetScrollX: Math.max(0, Number(o.sheetScrollX) || 0),
     sheetScrollY: Math.max(0, Number(o.sheetScrollY) || 0),
   }
+}
+
+function normalizeSheetFormatByLayout(
+  raw: unknown,
+): TagRollViewPrefs['sheetFormatByLayout'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const o = raw as Record<string, unknown>
+  const out: TagRollViewPrefs['sheetFormatByLayout'] = {}
+  for (const key of ['continuous', 'page'] as const) {
+    const slot = o[key]
+    if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
+      out[key] = { ...(slot as Record<string, unknown>) }
+    }
+  }
+  return out
 }
 
 export function createDefaultTagRollParts(): TagRollPart[] {

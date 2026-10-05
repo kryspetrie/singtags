@@ -44,8 +44,8 @@ const CLOSED_DEFAULTS: Record<string, string[]> = {
   aug: ['1351', '1153'],
   sixth: ['1361', '1365', '1163'],
   madd6: ['1563', '1356', '1653'],
-  /** Dom9: omit-root first (Prietto/BAM), then omit-5. */
-  ninth: ['5793', '5397', '1793', '1379'],
+  /** Dom9: omit-root first (Prietto/BAM), then omit-5; lead-on-5/3 shells for melody fit. */
+  ninth: ['5793', '5397', '1793', '1379', '1759', '5973', '1973', '3759'],
   add9: ['1593', '1395'],
 }
 
@@ -110,18 +110,38 @@ function coverageScore(
   for (const pc of pcs) {
     if (wanted.has(pc)) score += 3
   }
-  // Dom9 / add9: require the 9, and exactly one of root/5 omitted for Dom9
+  // Dom9 / add9: require the 9; Dom9 also wants b7 and a clear triad omit (1, 3, or 5).
   if (quality === 'ninth' || quality === 'add9') {
     const ninthPc = ((rootPc + 2) % 12 + 12) % 12
     if (pcs.includes(ninthPc)) score += 8
     else score -= 20
     if (quality === 'ninth') {
-      const root = rootPc
-      const fifth = ((rootPc + 7) % 12 + 12) % 12
-      const hasRoot = pcs.includes(root)
-      const hasFifth = pcs.includes(fifth)
-      if (hasRoot && hasFifth) score -= 12 // five-note dump / no omit
-      else if (hasRoot || hasFifth) score += 4
+      const seventhPc = ((rootPc + 10) % 12 + 12) % 12
+      const thirdPc = ((rootPc + 4) % 12 + 12) % 12
+      const fifthPc = ((rootPc + 7) % 12 + 12) % 12
+      if (pcs.includes(seventhPc)) score += 4
+      else score -= 8
+      const triadKept = [pcs.includes(rootPc), pcs.includes(thirdPc), pcs.includes(fifthPc)].filter(
+        Boolean,
+      ).length
+      // Four-note Dom9 must omit one tone — prefer omitting a triad member (not 7/9).
+      if (triadKept === 2) score += 5
+      else if (triadKept === 3) score -= 3
+      // Root+9 major-second cluster in adjacent voices sounds harsh.
+      const midis = [p.bass, p.bari, p.lead, p.tenor].sort((a, b) => a - b)
+      for (let i = 0; i < midis.length - 1; i++) {
+        const a = midis[i]!
+        const b = midis[i + 1]!
+        if (b - a !== 2) continue
+        const ap = ((a % 12) + 12) % 12
+        const bp = ((b % 12) + 12) % 12
+        if (
+          (ap === rootPc && bp === ninthPc) ||
+          (ap === ninthPc && bp === rootPc)
+        ) {
+          score -= 14
+        }
+      }
     }
   }
   // Prefer full 1–3–5–b7 when quality has a 7th (non-ninth)
@@ -153,6 +173,44 @@ function shiftToMidRange(p: VoicingPitches): VoicingPitches {
   return { bass, bari, lead, tenor }
 }
 
+/**
+ * Keep melody lead fixed; only octave-nudge bass/bari/tenor into a legal TTBB stack.
+ * Used when Lead-lock is on so mid-range shifting cannot yank the tune up an octave.
+ */
+function settleAroundLockedLead(p: VoicingPitches): VoicingPitches {
+  const lead = p.lead
+  let bass = p.bass
+  let bari = p.bari
+  let tenor = p.tenor
+  for (let guard = 0; guard < 16; guard++) {
+    const next = { bass, bari, lead, tenor }
+    if (pitchesLegal(next)) return next
+    if (tenor <= lead || tenor === bass || tenor === bari) {
+      tenor += 12
+      continue
+    }
+    if (bari >= tenor || bari === lead || bari === bass) {
+      bari -= 12
+      continue
+    }
+    if (bass > lead || bass === bari || bass === lead || bass === tenor) {
+      bass -= 12
+      continue
+    }
+    if (bass < SKETCH_HEAR_BASS_MIN - 7) {
+      bass += 12
+      continue
+    }
+    if (tenor > SKETCH_HEAR_TENOR_MAX + 7) {
+      tenor -= 12
+      continue
+    }
+    break
+  }
+  const out = { bass, bari, lead, tenor }
+  return pitchesLegal(out) ? out : p
+}
+
 function midisToPitches(midis: readonly number[]): VoicingPitches {
   return {
     bass: midis[0]!,
@@ -160,6 +218,76 @@ function midisToPitches(midis: readonly number[]): VoicingPitches {
     lead: midis[2]!,
     tenor: midis[3]!,
   }
+}
+
+/** True when every sounding pitch-class is a chord tone of the sketch quality. */
+function voicingUsesOnlyChordTones(
+  pitches: VoicingPitches,
+  chord: BarbershopChordNature,
+  rootPc: number,
+): boolean {
+  const wanted = chordTonePcs(chord, rootPc)
+  for (const m of [pitches.bass, pitches.bari, pitches.lead, pitches.tenor]) {
+    if (!wanted.has(((m % 12) + 12) % 12)) return false
+  }
+  return true
+}
+
+/**
+ * After path/local ranking, snap lead to the melody MIDI when it is a chord tone
+ * (Realize / Polish do the same). Prefer a fresh catalog placement that already
+ * carries that lead role — never invent non-chord tenor/bari by arithmetic shift.
+ */
+export function lockVoicingLeadToMelody(
+  pitches: VoicingPitches,
+  ref: SketchHearChordRef,
+): VoicingPitches {
+  const leadMidi = ref.leadMidi
+  if (leadMidi == null || !Number.isFinite(leadMidi)) return pitches
+  const chord = chordForQuality(ref.quality)
+  const rootPc = ((ref.rootPc % 12) + 12) % 12
+  const leadRole = leadRoleInChord(chord, rootPc, leadMidi)
+  if (leadRole == null) return pitches
+
+  const lead = Math.round(leadMidi)
+  if (pitches.lead === lead && voicingUsesOnlyChordTones(pitches, chord, rootPc)) {
+    return pitches
+  }
+
+  // Re-place with voicings that already put the melody role in the lead slot.
+  const fitting = orderedVoicings(ref.quality).filter((v) => voicingFitsLead(v, leadRole))
+  let best: VoicingPitches | null = null
+  let bestScore = Number.NEGATIVE_INFINITY
+  for (const voicing of fitting) {
+    const placed = placeVoicing({
+      chord,
+      rootPc,
+      leadMidi: lead,
+      voicing,
+      spread: false,
+    })
+    if (!placed) continue
+    const mid = settleAroundLockedLead(placed)
+    if (
+      !pitchesLegal(mid) ||
+      mid.lead !== lead ||
+      !voicingUsesOnlyChordTones(mid, chord, rootPc)
+    ) {
+      continue
+    }
+    // Prefer staying near the path's chosen bass (VL continuity) among legal fits.
+    const score =
+      coverageScore(mid, chord, rootPc, ref.quality) -
+      Math.abs(mid.bass - pitches.bass) * 0.35
+    if (score > bestScore) {
+      bestScore = score
+      best = mid
+    }
+  }
+  if (best) return best
+
+  // Last resort: keep original if it already has the lead MIDI; else leave unchanged.
+  return pitches.lead === lead ? pitches : pitches
 }
 
 /** Enumerate legal TTBB preview candidates for one sketch chord (no context ranking). */
@@ -176,7 +304,7 @@ export function enumerateSketchHearCandidates(opts: SketchHearChordRef): Voicing
   const out: VoicingPitches[] = []
   const seen = new Set<string>()
 
-  const tryPlace = (voicing: string, leadMidi: number) => {
+  const tryPlace = (voicing: string, leadMidi: number, lockLead: boolean) => {
     const placed = placeVoicing({
       chord,
       rootPc,
@@ -185,21 +313,26 @@ export function enumerateSketchHearCandidates(opts: SketchHearChordRef): Voicing
       spread: false,
     })
     if (!placed) return
-    const mid = shiftToMidRange(placed)
+    const mid = lockLead ? settleAroundLockedLead(placed) : shiftToMidRange(placed)
     if (!pitchesLegal(mid)) return
+    if (lockLead && mid.lead !== Math.round(leadMidi)) return
     const key = `${mid.bass},${mid.bari},${mid.lead},${mid.tenor}`
     if (seen.has(key)) return
     seen.add(key)
     out.push(mid)
   }
 
+  // Melody is a chord tone: only inversions that carry that lead (no synthetic rivals).
   if (rawLead != null && fitting.length) {
-    for (const v of fitting) tryPlace(v, rawLead)
+    for (const v of fitting) tryPlace(v, rawLead, true)
+    if (out.length) return out
   }
+
+  // No melody, melody ∉ chord, or no legal melody-fit placement — synthetic lead.
   for (const v of allVoicings) {
     const role = Number(v[2]) as ChordToneRole
     const synth = roleMidiNear(rootPc, chord, role, SKETCH_HEAR_DEFAULT_LEAD)
-    tryPlace(v, synth)
+    tryPlace(v, synth, false)
   }
   return out
 }
@@ -244,21 +377,44 @@ function nodeScore(
   pitches: VoicingPitches,
   ref: SketchHearChordRef,
   chord: BarbershopChordNature,
-  opts: { tonality: number; index: number; isStartSeed: boolean },
+  opts: {
+    tonality: number
+    index: number
+    isStartSeed: boolean
+    /** Soften cold mid-range / opening-home bias when polishing existing stacks. */
+    preserveRegister?: boolean
+  },
 ): number {
   const rootPc = ((ref.rootPc % 12) + 12) % 12
   let s = coverageScore(pitches, chord, rootPc, ref.quality)
   s += Math.max(0, 7 - ringTier(ref.quality)) * 2.25
+  const role = bassPcRole(pitches.bass, rootPc, chord)
   if (isIorV(rootPc, opts.tonality)) {
-    const role = bassPcRole(pitches.bass, rootPc, chord)
     const homeBass = role === 1 || role === 5
+    const isTonic = (((rootPc - opts.tonality) % 12) + 12) % 12 === 0
     if (opts.index === 0) {
-      // Multi-start: strongly prefer opening I/V in root or 2nd (bass 5).
-      s += homeBass ? 12 : -4
-      if (opts.isStartSeed && homeBass) s += 3
+      // Cold sketch paths: strongly prefer opening I/V in root or 2nd (bass 5).
+      // When polishing an existing chart, keep this light so VL can keep walking.
+      if (opts.preserveRegister) {
+        s += homeBass ? 3 : -1
+      } else {
+        s += homeBass ? 12 : -4
+        if (opts.isStartSeed && homeBass) s += 3
+      }
     } else if (homeBass) {
-      s += 3.5
+      // Mid-path: light preference so bass can still walk through I/V.
+      s += opts.preserveRegister ? 1.5 : 3.5
     }
+    // Settled home I: first inv is almost never sung — VL from a prior odd
+    // inversion must not stick (Bonnie m16). Penalize the bad option instead of
+    // heavily rewarding every root-position I/V (which made paths jumpy).
+    if (isTonic && ref.quality === 'major' && role === 3) s -= 18
+  }
+  // Dom7 / Dom9: discourage 3rd/7th/9th-bass shells (Bonnie V7(9)/V) without a
+  // large root/5 bonus that forces bass leaps on every dominant.
+  if (ref.quality === 'seventh' || ref.quality === 'ninth') {
+    if (role === 7 || role === 9) s -= 14
+    else if (role === 3) s -= 12
   }
   return s
 }
@@ -315,21 +471,70 @@ function startSeeds(
   return out
 }
 
+export type OptimizeSketchHearPathOpts = {
+  tonality?: number
+  /**
+   * Existing TTBB placements (e.g. Coach stacks). Injected as candidates and
+   * strongly preferred so polish cannot yank a smooth path into mid-range jumps.
+   */
+  seedPitches?: readonly (VoicingPitches | null | undefined)[]
+}
+
+function seedStayBonus(candidate: VoicingPitches, seed: VoicingPitches | null | undefined): number {
+  if (!seed) return 0
+  if (
+    candidate.bass === seed.bass &&
+    candidate.bari === seed.bari &&
+    candidate.lead === seed.lead &&
+    candidate.tenor === seed.tenor
+  ) {
+    return 32
+  }
+  // Prefer staying in the same register even when inversion changes.
+  const d =
+    Math.abs(candidate.bass - seed.bass) +
+    Math.abs(candidate.bari - seed.bari) +
+    Math.abs(candidate.tenor - seed.tenor)
+  return Math.max(0, 20 - d * 1.1)
+}
+
+function injectSeedCandidate(
+  cands: readonly VoicingPitches[],
+  seed: VoicingPitches | null | undefined,
+  ref: SketchHearChordRef,
+): VoicingPitches[] {
+  if (!seed) return [...cands]
+  const locked = lockVoicingLeadToMelody(seed, ref)
+  const out: VoicingPitches[] = []
+  const seen = new Set<string>()
+  for (const c of [locked, ...cands]) {
+    const k = pitchesKey(c)
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(c)
+  }
+  return out
+}
+
 /**
  * Global inversion path for a Detected / Sketch chord sequence.
  * Explores all legal inversions (preferring I/V openings with bass on 1 or 5),
  * then picks the path with best voice leading + ring + chord coverage.
+ * Pass {@link OptimizeSketchHearPathOpts.seedPitches} when polishing an existing chart.
  */
 export function optimizeSketchHearPath(
   chords: readonly SketchHearChordRef[],
-  opts?: { tonality?: number },
+  opts?: OptimizeSketchHearPathOpts,
 ): VoicingPitches[] {
   if (!chords.length) return []
   const tonality = opts?.tonality ?? 0
-  const layers = chords.map((c) => {
+  const seeds = opts?.seedPitches
+  const preserve = !!seeds?.some((s) => s != null)
+  const layers = chords.map((c, i) => {
     const ranked = rankedCandidates(c)
     // Put I/V home-bass inversions first so ties lean that way
-    return startSeeds(ranked, c, tonality)
+    const ordered = startSeeds(ranked, c, tonality)
+    return injectSeedCandidate(ordered, seeds?.[i], c)
   })
   if (layers.some((L) => !L.length)) {
     const out: VoicingPitches[] = []
@@ -353,7 +558,8 @@ export function optimizeSketchHearPath(
       tonality,
       index: 0,
       isStartSeed: true,
-    }),
+      preserveRegister: preserve,
+    }) + seedStayBonus(p, seeds?.[0]),
   )
   back[0] = layers[0]!.map(() => -1)
 
@@ -364,11 +570,13 @@ export function optimizeSketchHearPath(
     scores[i] = new Array(layer.length).fill(Number.NEGATIVE_INFINITY)
     back[i] = new Array(layer.length).fill(-1)
     for (let j = 0; j < layer.length; j++) {
-      const node = nodeScore(layer[j]!, chords[i]!, chord, {
-        tonality,
-        index: i,
-        isStartSeed: false,
-      })
+      const node =
+        nodeScore(layer[j]!, chords[i]!, chord, {
+          tonality,
+          index: i,
+          isStartSeed: false,
+          preserveRegister: preserve,
+        }) + seedStayBonus(layer[j]!, seeds?.[i])
       for (let k = 0; k < prevLayer.length; k++) {
         const total = scores[i - 1]![k]! + pathLinkScore(prevLayer[k]!, layer[j]!) + node
         if (total > scores[i]![j]!) {
@@ -391,7 +599,7 @@ export function optimizeSketchHearPath(
     if (i === 0) break
     j = back[i]![j]!
   }
-  return path
+  return path.map((p, i) => lockVoicingLeadToMelody(p, chords[i]!))
 }
 
 function contextBonus(
@@ -456,13 +664,13 @@ export function sketchHearVoicing(opts: SketchHearChordRef & {
       best = mid
     }
   }
-  return best
+  return best ? lockVoicingLeadToMelody(best, opts) : null
 }
 
 /**
  * Build a 4-note TTBB preview for a sketch chord (bass→tenor MIDI).
- * When lead PC is not in the chord (loose Declared map), uses a synthetic mid-range
- * chord-tone lead so placeVoicing can pick a closed stack — does not force the melody MIDI.
+ * Chord-tone melody locks the lead MIDI; non-chord melody uses a synthetic
+ * mid-range chord-tone lead (does not force the sung pitch into the stab).
  */
 export function sketchHearMidis(opts: SketchHearChordRef & {
   prev?: VoicingPitches | null

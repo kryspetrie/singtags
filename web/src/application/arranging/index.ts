@@ -13,7 +13,7 @@ export type { ExportMidiResult } from './ExportMidi'
 export { exportMusicXml } from './ExportMusicXml'
 export type { ExportMusicXmlResult } from './ExportMusicXml'
 export { autoLabelMelodyRoles } from './LabelMelodyRoles'
-export { strengthenArrangement } from './Strengthen'
+export { strengthenArrangement } from './strengthenArrangement'
 export { polishInversionPath } from './PolishInversionPath'
 export {
   explanationForWizardStep,

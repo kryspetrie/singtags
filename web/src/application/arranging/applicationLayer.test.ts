@@ -35,7 +35,7 @@ import {
   deleteProject,
 } from './ProjectCrud'
 import { upsertMelodyNote, removeMelodyNote, setProjectMeta } from './UpdateMelody'
-import { strengthenArrangement } from './Strengthen'
+import { strengthenArrangement } from './strengthenArrangement'
 import { autoLabelMelodyRoles } from './LabelMelodyRoles'
 import { createFixRegistry, lintArrangement } from '../../domain/arranging/qa'
 import { createArrangementMusicXmlExporter } from '../../adapters/arranging/musicxml/createMusicXmlExporter'

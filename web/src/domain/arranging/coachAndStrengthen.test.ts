@@ -5,7 +5,7 @@ import { tipForStep, tipForCoachUi } from './coachTips'
 import { strengthenStacks } from './strengthen'
 import { autoHarmonizeMelody } from './harmonize'
 import { snapTick } from './snap'
-import { strengthenArrangement } from '../../application/arranging/Strengthen'
+import { strengthenArrangement } from '../../application/arranging/strengthenArrangement'
 import { autoLabelMelodyRoles } from '../../application/arranging/LabelMelodyRoles'
 
 describe('coach tips + strengthen + snap', () => {

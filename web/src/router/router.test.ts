@@ -225,4 +225,38 @@ describe('router', () => {
     expect(result).toEqual({ left: 0, top: 2200 })
     expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
   })
+
+  it('scrollBehavior prefers URL at-tag over sessionStorage', async () => {
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/', scrollY: 9999, at: Date.now() }),
+    )
+    const behavior = router.options.scrollBehavior
+    const to = {
+      name: 'home',
+      path: '/',
+      fullPath: '/?at=1204',
+      hash: '',
+      query: { at: '1204' },
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    const from = {
+      name: undefined,
+      path: '/',
+      fullPath: '/',
+      hash: '',
+      query: {},
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    // @ts-expect-error minimal route stubs for scrollBehavior
+    const result = await behavior(to, from, null)
+    expect(browseScrollIntent).toBe('restore')
+    expect(browseReloadScrollY).toBeNull()
+    expect(result).toBe(false)
+    expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
+  })
 })

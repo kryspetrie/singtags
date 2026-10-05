@@ -27,7 +27,7 @@ import {
 import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { syncProjectMix, TAG_ROLL_DETECTED_MIX_ID, applyOpenMixDefaults } from '../lib/tagRoll/mix'
+import { syncProjectMix, applyOpenMixDefaults } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
 import { clipboardFromCopy, clipboardFromCut } from '../lib/tagRoll/noteClipboardActions'
 import {
@@ -535,11 +535,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     pushHistory()
     current.value = {
       ...p,
-      mix: syncProjectMix(p.parts, p.mix).map((m) =>
-        m.partId === TAG_ROLL_DETECTED_MIX_ID
-          ? { ...m, solo: false, mute: true }
-          : { ...m, solo: false },
-      ),
+      mix: syncProjectMix(p.parts, p.mix).map((m) => ({ ...m, solo: false })),
       updatedAt: now(),
     }
     scheduleSave()
@@ -623,8 +619,32 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   function setSheetLayout(sheetLayout: TagRollSheetLayout): void {
+    const p = current.value
+    if (!p) return
+    const next = sheetLayout === 'page' ? 'page' : 'continuous'
+    const from = sheetFormatViewKey(p.view.sheetLayout)
+    const to = sheetFormatViewKey(next)
+    if (from === to) {
+      patchView({ sheetLayout: next })
+      return
+    }
+    // Keep Continuous and Page Format settings independent.
+    const byLayout = {
+      continuous: p.view.sheetFormatByLayout?.continuous,
+      page: p.view.sheetFormatByLayout?.page,
+      [from]: { ...snapshotSheetFormat(p.view) },
+    }
+    const stashed = byLayout[to]
+    const incoming = stashed
+      ? snapshotSheetFormat({
+          ...defaultSheetFormat(),
+          ...stashed,
+        } as typeof p.view)
+      : effectiveSheetFormatDefault(to)
     patchView({
-      sheetLayout: sheetLayout === 'page' ? 'page' : 'continuous',
+      sheetLayout: next,
+      sheetFormatByLayout: byLayout,
+      ...incoming,
     })
   }
 
@@ -741,6 +761,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setSheetPlaybackHighlight(on: boolean): void {
     patchView({ sheetPlaybackHighlight: on })
+  }
+
+  function setSheetShowSketchChords(on: boolean): void {
+    patchView({ sheetShowSketchChords: on })
+  }
+
+  function setSheetShowDetectedChords(on: boolean): void {
+    patchView({ sheetShowDetectedChords: on })
   }
 
   function setSheetShowEngravedHeader(on: boolean): void {
@@ -897,25 +925,24 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   function setSheetEngravingScale(sheetEngravingScale: number): void {
-    patchView({
-      sheetEngravingScale: clampSheetFormat(
-        sheetEngravingScale,
-        SHEET_ENGRAVING_SCALE_MIN,
-        SHEET_ENGRAVING_SCALE_MAX,
-        TAG_ROLL_DEFAULT_VIEW.sheetEngravingScale,
-      ),
-    })
+    // Size is proportional: keep Score + Notation scales locked together.
+    const v = clampSheetFormat(
+      sheetEngravingScale,
+      SHEET_ENGRAVING_SCALE_MIN,
+      SHEET_ENGRAVING_SCALE_MAX,
+      TAG_ROLL_DEFAULT_VIEW.sheetEngravingScale,
+    )
+    patchView({ sheetEngravingScale: v, sheetScoreScale: v })
   }
 
   function setSheetScoreScale(sheetScoreScale: number): void {
-    patchView({
-      sheetScoreScale: clampSheetFormat(
-        sheetScoreScale,
-        SHEET_SCORE_SCALE_MIN,
-        SHEET_SCORE_SCALE_MAX,
-        TAG_ROLL_DEFAULT_VIEW.sheetScoreScale,
-      ),
-    })
+    const v = clampSheetFormat(
+      sheetScoreScale,
+      SHEET_SCORE_SCALE_MIN,
+      SHEET_SCORE_SCALE_MAX,
+      TAG_ROLL_DEFAULT_VIEW.sheetScoreScale,
+    )
+    patchView({ sheetScoreScale: v, sheetEngravingScale: v })
   }
 
   function setSheetMusicFont(sheetMusicFont: TagRollSheetMusicFont | string): void {
@@ -2291,6 +2318,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setSheetLyricOffset,
     resetSheetLyricOffsets,
     setSheetPlaybackHighlight,
+    setSheetShowSketchChords,
+    setSheetShowDetectedChords,
     setSheetShowEngravedHeader,
     setSheetShowEngravedFooter,
     setSheetPadding,

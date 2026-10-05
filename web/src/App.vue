@@ -33,6 +33,7 @@ import {
   armDeferredPwaUpdate,
   restoreScrollAfterPwaReload,
 } from './lib/deferredPwaUpdate'
+import { browseScrollIntent } from './router'
 import {
   PRIMARY_NAV_ITEMS,
   availablePrimaryNavOrder,
@@ -321,7 +322,10 @@ onMounted(() => {
   void favorites.ensureLoaded()
   void offlineLib.loadManifests()
   startPwaInstallListeners()
-  restoreScrollAfterPwaReload()
+  // Don't let a deferred-SW scroll snapshot fight Browse reload-at-top.
+  if (browseScrollIntent !== 'top') {
+    restoreScrollAfterPwaReload()
+  }
   document.addEventListener('pointerdown', blurTextFieldOnOutsidePointer, true)
   publishHeaderHeight()
   if (typeof ResizeObserver !== 'undefined') {

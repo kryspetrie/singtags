@@ -46,7 +46,7 @@ async function render(): Promise<void> {
       pxPerBeat: props.project.view.sheetZoom,
       showLyrics: props.project.view.sheetShowLyrics !== false,
       sheetLayout: 'page',
-      measureSizing: props.project.view.sheetMeasureSizing ?? 'equal',
+      measureSizing: props.project.view.sheetMeasureSizing ?? 'dynamic',
       pageWidthIn: props.project.view.sheetPageWidthIn ?? 8.5,
       pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
       pageDpi: props.project.view.sheetPageDpi ?? 96,
@@ -58,9 +58,9 @@ async function render(): Promise<void> {
           props.project.composer?.trim() ||
           props.project.arranger?.trim()
         )
-          ? 92
+          ? Math.round(92 * (props.project.view.sheetScoreScale ?? 1))
           : 0,
-      noteColors: props.project.view.sheetNoteColors !== false,
+      noteColors: props.project.view.sheetNoteColors === true,
       staveGap: props.project.view.sheetStaveGap ?? 'normal',
       measureScale: props.project.view.sheetMeasureScale ?? 1,
       noteSpacing: props.project.view.sheetNoteSpacing ?? 1,

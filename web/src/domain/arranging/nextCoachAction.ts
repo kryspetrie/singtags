@@ -11,7 +11,7 @@ import {
   knownStackCount,
 } from './coachEntryMode'
 
-export type CoachFocusTab = 'home' | 'now' | 'choose' | 'check' | 'polish'
+export type CoachFocusTab = 'home' | 'now' | 'choose' | 'check' | 'auto' | 'polish'
 
 export type CoachNextAction = {
   id: string
@@ -167,10 +167,10 @@ export function resolveCoachNextAction(opts: {
     id: 'done',
     title: 'Looking good',
     body: repair
-      ? 'No blockers — Strengthen or export when ready.'
-      : 'No blockers — keep polishing or export when ready.',
-    cta: 'Polish',
-    focus: 'polish',
+      ? 'No blockers — run Auto passes, then skim Polish.'
+      : 'No blockers — keep walking or open Auto for whole-chart tools.',
+    cta: 'Auto',
+    focus: 'auto',
     kind: 'done',
   }
 }

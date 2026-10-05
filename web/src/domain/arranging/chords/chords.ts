@@ -53,8 +53,12 @@ export const VOICINGS_BY_CHORD: Record<string, string[]> = {
   ],
   'half-dim': ['5317', '5713', '1537', '1735', '1357', '1753'],
   aug: ['1153', '1351'],
-  /** Dom9: omit-root (bass=5) first — Prietto/BAM preference; omit-5 (bass=1) also legal (Rylander). */
-  ninth: ['5793', '5397', '1793', '1379'],
+  /**
+   * Dom9: omit-root (bass=5) first — Prietto/BAM preference; omit-5 (bass=1) also legal (Rylander).
+   * Include lead-on-5 / lead-on-3 shells so melody on ^5 or ^3 of V7(9) can place without
+   * corrupting chord tones (Bonnie m14 V7(9)/V with Lead on the 5th).
+   */
+  ninth: ['5793', '5397', '1793', '1379', '1759', '5973', '1973', '3759'],
   sixth: ['1361', '1163', '1365'],
   maj7: ['1573', '1375'],
   minor: ['1513', '1531', '1153', '1351', '1355', '3515', '3151', '5135', '5153'],

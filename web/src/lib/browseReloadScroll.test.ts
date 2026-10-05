@@ -78,4 +78,16 @@ describe('browseReloadScroll', () => {
     })
     expect(consumeBrowseReloadScroll()).toBeNull()
   })
+
+  it('treats near-zero scroll as search top', () => {
+    window.history.replaceState({}, '', '/')
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/', scrollY: 12, at: Date.now() }),
+    )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'reload' }],
+    })
+    expect(consumeBrowseReloadScroll()).toBe(0)
+  })
 })

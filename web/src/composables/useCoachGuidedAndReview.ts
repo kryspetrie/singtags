@@ -76,7 +76,16 @@ export function useCoachGuidedAndReview(opts: {
     const tip = arrStore.orgTips[0]
     return tip ? tip.body : null
   })
-  const musicXmlAvailable = computed(() => true)
+  const autoStatus = ref<string | null>(null)
+  const canRunPathTools = computed(() => {
+    const p = arrStore.current
+    if (!p) return false
+    // Strengthen needs a pillar covering moments; locked ◆ preferred but any pillar works.
+    return p.pillars.length > 0 && p.stacks.some((s) => s.midi)
+  })
+  const swipeAvailable = computed(() =>
+    arrStore.listEmbellishmentSeeds().some((s) => s.kind === 'swipe' && !!s.suggestedStack),
+  )
 
   function selectMelodyNote(id: string): void {
     const note = arrStore.current?.melody.find((m) => m.id === id)
@@ -153,23 +162,48 @@ export function useCoachGuidedAndReview(opts: {
   }
 
   function onStrengthen(): void {
-    arrStore.strengthen()
+    if (!canRunPathTools.value) {
+      autoStatus.value = 'Strengthen needs locked Sketch pillars and stacks first.'
+      return
+    }
+    const n = arrStore.strengthen()
     arrStore.runQa()
     opts.pushToRoll()
+    autoStatus.value =
+      n > 0
+        ? `Strengthen updated ${n} stack${n === 1 ? '' : 's'}. Audition the chart.`
+        : 'Strengthen found no safer upgrades (already strong, or no gain ≥ threshold).'
   }
 
   function onPolish(): void {
-    arrStore.polishVoicing()
+    if (!canRunPathTools.value) {
+      autoStatus.value = 'Polish inversions needs locked Sketch pillars and stacks first.'
+      return
+    }
+    const n = arrStore.polishVoicing()
     arrStore.runQa()
     opts.pushToRoll()
+    autoStatus.value =
+      n > 0
+        ? `Polish inversions changed ${n} placement${n === 1 ? '' : 's'}. Audition the path.`
+        : 'Polish inversions left stacks unchanged (need ≥2 stacks, or path already optimal).'
   }
 
   function onApplySwipe(): void {
-    const seed = arrStore.listEmbellishmentSeeds()[0]
-    if (!seed) return
-    arrStore.applySwipeSeed(seed.id)
+    const seed = arrStore
+      .listEmbellishmentSeeds()
+      .find((s) => s.kind === 'swipe' && s.suggestedStack)
+    if (!seed) {
+      autoStatus.value =
+        'No swipe seed available — need a long held melody note that already has a TTBB stack.'
+      return
+    }
+    const ok = arrStore.applySwipeSeed(seed.id)
     arrStore.runQa()
     opts.pushToRoll()
+    autoStatus.value = ok
+      ? 'Inserted a swipe embellishment on a long hold. Audition that release.'
+      : 'Could not apply swipe seed.'
   }
 
   function setContestProfile(profile: ContestProfile): void {
@@ -186,14 +220,6 @@ export function useCoachGuidedAndReview(opts: {
     if (!p) return
     arrStore.setQaConfig(toggleQaGroup(p.qaConfig, groupId, enabled))
     arrStore.runQa()
-  }
-
-  function exportMidi(): void {
-    arrStore.downloadMidi(arrStore.current?.tuningMode === 'just')
-  }
-
-  function exportMusicXml(): void {
-    arrStore.downloadMusicXml()
   }
 
   function pulseHighlight(tick: number, kind: 'moment' | 'issue' | 'pillar' | 'gap'): void {
@@ -230,7 +256,9 @@ export function useCoachGuidedAndReview(opts: {
     checklist,
     howFactors,
     orgTip,
-    musicXmlAvailable,
+    autoStatus,
+    canRunPathTools,
+    swipeAvailable,
     selectGuidedStep,
     selectMelodyNote,
     stepMelodyNote,
@@ -242,8 +270,6 @@ export function useCoachGuidedAndReview(opts: {
     setContestProfile,
     setTuningMode,
     setQaGroup,
-    exportMidi,
-    exportMusicXml,
     pulseHighlight,
   }
 }

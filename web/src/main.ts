@@ -28,6 +28,7 @@ import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
 import { resolveInitialAppTheme, applyAppTheme } from './lib/theme'
 import { resolveInitialEmbolden, applyEmbolden } from './lib/embolden'
 import { getCatalogSnapshotIdb } from './offline/indexSnapshotDb'
+import { browseUrlLooksDefault } from './lib/catalogFirstPaint'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
@@ -80,8 +81,14 @@ async function bootstrap(): Promise<void> {
 
   offlineLib.restoreCatalogCached()
   // Sync mirror is legacy/tiny only — full library lives in IndexedDB.
-  // (First-paint viewport slice removed: it painted early then full catalog
-  // height landed and left the window mid-list on refresh.)
+  // Default Browse: paint a localStorage viewport slice before IDB returns.
+  // (HomeView pins to top / restores reload scroll when the full catalog swaps in.)
+  if (browseUrlLooksDefault()) {
+    catalog.hydrateFirstPaint()
+  } else if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('at')) {
+    // Mid-list restore: jump-rail keys only so chrome can size before tags arrive.
+    catalog.hydrateFirstPaintChrome()
+  }
   catalog.hydrateFromSnapshot()
   offlineLib.hydrateManifestSnapshots()
 
@@ -89,7 +96,8 @@ async function bootstrap(): Promise<void> {
 
   // Kick IDB/network warm-up immediately; do not block shell paint on it.
   const warmCatalog = (async () => {
-    if (!catalog.loaded) {
+    // First-paint slice still needs the full IDB catalog (jump rail, remaining tags).
+    if (!catalog.loaded || catalog.partialCatalog) {
       const snap = await catalogIdb
       await catalog.hydrateFromIndexedDb(
         snap?.tags?.length

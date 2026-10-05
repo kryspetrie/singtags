@@ -39,6 +39,12 @@ import {
   type DetectedInterestLevel,
 } from '../lib/tagRoll/detectedInterestPrefs'
 import {
+  loadDetectedLockLeadVoicing,
+  loadSketchLockLeadVoicing,
+  saveDetectedLockLeadVoicing,
+  saveSketchLockLeadVoicing,
+} from '../lib/tagRoll/leadLockVoicingPrefs'
+import {
   clearDetectedScoreTweaks,
   loadDetectedScoreTweaks,
   saveDetectedScoreTweaks,
@@ -745,6 +751,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const detectedInterest = ref<DetectedInterestLevel>(loadDetectedInterest('mild'))
   /** Detected scoring weight Tweaks (JSON). Default = shipped Mild/Bold table. */
   const detectedScoreTweaks = ref<DetectedScoreTweaks>(loadDetectedScoreTweaks())
+  /**
+   * Sketch audition: force melody into the lead slot of block-chord inversions.
+   * Off → closed catalog inversions (synthetic lead). Default on.
+   */
+  const tagRollSketchLockLeadVoicing = ref(loadSketchLockLeadVoicing(true))
+  /**
+   * Detected audition: same Lead-lock as Sketch. Off → closed catalog inversions.
+   * Default on.
+   */
+  const tagRollDetectedLockLeadVoicing = ref(loadDetectedLockLeadVoicing(true))
   /**
    * Preference order for chrome pins + More destinations.
    * The first five *available* ids (Labs gates) occupy top/bottom nav.
@@ -1694,6 +1710,16 @@ export const usePreferencesStore = defineStore('preferences', () => {
     saveDetectedInterest(level)
   }
 
+  function setTagRollSketchLockLeadVoicing(on: boolean): void {
+    tagRollSketchLockLeadVoicing.value = !!on
+    saveSketchLockLeadVoicing(!!on)
+  }
+
+  function setTagRollDetectedLockLeadVoicing(on: boolean): void {
+    tagRollDetectedLockLeadVoicing.value = !!on
+    saveDetectedLockLeadVoicing(!!on)
+  }
+
   /** Apply Detected scoring Tweaks (normalizes unknown keys). */
   function setDetectedScoreTweaks(raw: DetectedScoreTweaks | Record<string, unknown>): void {
     const next = normalizeDetectedScoreTweaks(raw)
@@ -1923,6 +1949,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollLyricsLaneCollapsed,
     detectedInterest,
     detectedScoreTweaks,
+    tagRollSketchLockLeadVoicing,
+    tagRollDetectedLockLeadVoicing,
     primaryNavOrder,
     primaryNavHidden,
     primaryNavPinOverride,
@@ -1982,6 +2010,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setDetectedInterest,
     setDetectedScoreTweaks,
     resetDetectedScoreTweaks,
+    setTagRollSketchLockLeadVoicing,
+    setTagRollDetectedLockLeadVoicing,
     setTagRollLaneCollapsed,
     toggleTagRollLane,
     openTagRollBottomLane,

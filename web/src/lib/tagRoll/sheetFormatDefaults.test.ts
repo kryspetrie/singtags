@@ -30,6 +30,7 @@ describe('sheetFormatDefaults', () => {
     const snap = {
       ...defaultSheetFormat(),
       sheetMeasureScale: 1.4,
+      sheetScoreScale: 1.1,
       sheetEngravingScale: 1.1,
       sheetLyricOffsets: { x: 2 },
     }
@@ -40,6 +41,7 @@ describe('sheetFormatDefaults', () => {
     const eff = effectiveSheetFormatDefault('continuous')
     expect(eff.sheetMeasureScale).toBe(1.4)
     expect(eff.sheetEngravingScale).toBe(1.1)
+    expect(eff.sheetScoreScale).toBe(1.1)
     expect(eff.sheetLyricOffsets).toEqual({})
     expect(eff.sheetLyricSize).toBe(defaultSheetFormat().sheetLyricSize)
 

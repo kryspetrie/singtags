@@ -7,7 +7,7 @@
  */
 
 import type { TagSummary } from '../types/tag'
-import { sortBrowseTags } from '../search/browse'
+import { buildBrowseRows, sortBrowseTags } from '../search/browse'
 import {
   clearPersistentSnapshot,
   loadPersistentSnapshot,
@@ -26,17 +26,26 @@ export interface CatalogFirstPaint {
   tags: TagSummary[]
   /** Full catalog size (for the count line while the slice is showing). */
   totalCount: number
+  /**
+   * Full-catalog collection jump keys (default View-by).
+   * Lets the jump rail paint at first-paint size before IDB returns.
+   */
+  jumpKeys?: string[]
   savedAt: string
 }
 
 function isFirstPaint(data: unknown): data is CatalogFirstPaint {
-  return (
-    typeof data === 'object' &&
-    data != null &&
-    (data as CatalogFirstPaint).v === 1 &&
-    Array.isArray((data as CatalogFirstPaint).tags) &&
-    typeof (data as CatalogFirstPaint).totalCount === 'number'
-  )
+  if (
+    typeof data !== 'object' ||
+    data == null ||
+    (data as CatalogFirstPaint).v !== 1 ||
+    !Array.isArray((data as CatalogFirstPaint).tags) ||
+    typeof (data as CatalogFirstPaint).totalCount !== 'number'
+  ) {
+    return false
+  }
+  const keys = (data as CatalogFirstPaint).jumpKeys
+  return keys == null || (Array.isArray(keys) && keys.every((k) => typeof k === 'string'))
 }
 
 /** Persist the top of default (collection) browse order. */
@@ -46,10 +55,12 @@ export function saveCatalogFirstPaint(allTags: readonly TagSummary[]): void {
     return
   }
   const sorted = sortBrowseTags([...allTags], 'collection', false)
+  const { jumpKeys } = buildBrowseRows(sorted, 'collection', sorted.length)
   const payload: CatalogFirstPaint = {
     v: 1,
     tags: sorted.slice(0, CATALOG_FIRST_PAINT_COUNT),
     totalCount: allTags.length,
+    jumpKeys,
     savedAt: new Date().toISOString(),
   }
   savePersistentSnapshot(CATALOG_FIRST_PAINT_KEY, payload)
@@ -70,7 +81,27 @@ export function clearCatalogFirstPaint(): void {
  */
 export function browseUrlLooksDefault(search = typeof location !== 'undefined' ? location.search : ''): boolean {
   const q = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
-  const keys = ['q', 'ft', 'sheet', 'audio', 'cache', 'rated', 'ymin', 'ymax', 'arr', 'type', 'col', 'tl', 'sort', 'rev']
+  const keys = [
+    'q',
+    'ft',
+    'sheet',
+    'audio',
+    'cache',
+    'rated',
+    'ymin',
+    'ymax',
+    'arr',
+    'type',
+    'col',
+    'tl',
+    'sort',
+    'rev',
+    // List position (beyond search top) — not a default Browse open.
+    'at',
+    'sec', // legacy
+    'scroll', // legacy
+    'sy', // legacy
+  ]
   return !keys.some((k) => {
     const v = q.get(k)
     return v != null && v !== ''

@@ -230,6 +230,25 @@ describe('renderVexSheetScore', () => {
     const lastPt = layout.tickToPoint(last.startTick + 20)
     expect(lastPt.y).toBe(last.y)
     expect(lastPt.x).toBeLessThan(layout.width * 0.85)
+
+    // Approaching a system wrap must not slide X backwards on the same line (CR-before-LF).
+    const wrapTo = layout.measures.find((m) => m.systemIndex > 0)
+    expect(wrapTo).toBeTruthy()
+    const prev = layout.measures.find((m) => m.endTick === wrapTo!.startTick)
+    expect(prev).toBeTruthy()
+    expect(prev!.systemIndex).toBe(wrapTo!.systemIndex - 1)
+    let prevX = -Infinity
+    const span = Math.max(1, prev!.endTick - prev!.startTick)
+    for (let i = 0; i < 8; i++) {
+      const t = prev!.startTick + Math.floor((span * i) / 8)
+      const pt = layout.tickToPoint(t)
+      expect(pt.y).toBe(prev!.y)
+      expect(pt.x).toBeGreaterThanOrEqual(prevX - 0.5)
+      prevX = pt.x
+    }
+    const after = layout.tickToPoint(wrapTo!.startTick + 1)
+    expect(after.y).toBe(wrapTo!.y)
+    expect(after.y).toBeGreaterThan(prev!.y)
     host.remove()
   }, 20000)
 
@@ -297,6 +316,7 @@ describe('renderVexSheetScore', () => {
       pxPerBeat: 40,
       marginLeftIn: 0.25,
       marginTopIn: 0.25,
+      // Size uses scoreScale (engravingScale ignored when both set — locked in the store).
       engravingScale: 1.4,
       scoreScale: 1.2,
       staveGapFine: 1.6,
@@ -304,6 +324,26 @@ describe('renderVexSheetScore', () => {
     })
     expect(scaled.systemBodyHeight).toBeGreaterThan(base.systemBodyHeight)
     expect(scaled.width).toBeGreaterThan(base.width)
+    expect(scaled.sizeScale).toBeCloseTo(1.2, 5)
+    // True Size: SVG display size is viewBox × sizeScale (glyphs scale with staves).
+    const svg = host.querySelector('svg')
+    expect(svg).toBeTruthy()
+    const vb = svg!.getAttribute('viewBox')?.split(/\s+/).map(Number) ?? []
+    expect(vb.length).toBe(4)
+    expect(Number(svg!.getAttribute('width'))).toBeCloseTo(vb[2]! * 1.2, 0)
+    expect(Number(svg!.getAttribute('height'))).toBeCloseTo(vb[3]! * 1.2, 0)
+
+    const withNames = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 40,
+      marginLeftIn: 0.25,
+      marginTopIn: 0.25,
+      scoreScale: 1,
+      showPartNames: true,
+    })
+    expect(withNames.marginsPx.left).toBeGreaterThan(base.marginsPx.left)
+    expect(withNames.measures[0]!.x).toBeGreaterThan(base.measures[0]!.x)
 
     const pageA = await renderVexSheetScore({
       host,

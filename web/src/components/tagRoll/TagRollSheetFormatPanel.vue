@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Sheet engraving format — collapsible groups; inch margins drive packing.
+ * Sheet engraving format — fields filtered by Continuous vs Page view.
+ * Format settings are stashed per layout when switching views.
  */
 import { computed, ref, watch } from 'vue'
 import type { TagRollProject } from '../../lib/tagRoll/types'
@@ -9,8 +10,6 @@ import {
   SHEET_BOTTOM_MARGIN_MIN,
   SHEET_CLEF_GUTTER_MAX,
   SHEET_CLEF_GUTTER_MIN,
-  SHEET_ENGRAVING_SCALE_MAX,
-  SHEET_ENGRAVING_SCALE_MIN,
   SHEET_LYRIC_SIZE_MAX,
   SHEET_LYRIC_SIZE_MIN,
   SHEET_LYRIC_LINE_OFFSET_MAX,
@@ -70,15 +69,17 @@ const open = ref({
   measures: true,
   lyrics: true,
   page: true,
-  advanced: false,
+  options: true,
 })
 
 const layout = computed(() => props.project.view.sheetLayout ?? 'continuous')
-const sizing = computed(() => props.project.view.sheetMeasureSizing ?? 'equal')
+const sizing = computed(() => props.project.view.sheetMeasureSizing ?? 'dynamic')
 const isPage = computed(() => layout.value === 'page')
 const isEqual = computed(() => sizing.value === 'equal')
 const isDynamic = computed(() => sizing.value === 'dynamic')
 const layoutLabel = computed(() => (isPage.value ? 'Page' : 'Continuous'))
+/** Unified Size — Score and Notation stay locked in the store. */
+const sizeScale = computed(() => props.project.view.sheetScoreScale ?? 1)
 /** Bumped when save/clear so the footer re-reads localStorage. */
 const defaultTick = ref(0)
 const hasCustomDefault = computed(() => {
@@ -218,10 +219,8 @@ function numInput(name: keyof ReturnType<typeof defaultSheetFormat>, e: Event): 
     case 'sheetPageHeightIn':
       store.setSheetPageHeightIn(v)
       break
-    case 'sheetEngravingScale':
-      store.setSheetEngravingScale(v)
-      break
     case 'sheetScoreScale':
+    case 'sheetEngravingScale':
       store.setSheetScoreScale(v)
       break
     default:
@@ -248,8 +247,9 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
       <div>
         <h3 class="title">Sheet format</h3>
         <p class="hint">
-          <strong>{{ layout }}</strong> · <strong>{{ sizing }}</strong>. Media-bar
-          <strong>W</strong> is viewport zoom; Score / Notation scales change engraving.
+          Settings for <strong>{{ layoutLabel }}</strong> only. Switch views to edit the other.
+          Media-bar <strong>W</strong> is viewport zoom; Size truly scales notation (notes, staves,
+          barlines, ornaments) together.
         </p>
       </div>
       <button type="button" class="close" title="Close" @click="$emit('close')">✕</button>
@@ -261,38 +261,22 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
         :open="open.scale"
         @toggle="onGroupToggle('scale', $event)"
       >
-        <summary class="group-title">Scale</summary>
+        <summary class="group-title">Size</summary>
         <div class="group-body">
           <label
             class="slider-row"
-            :title="tagRollTip('Overall size of score content inside the margins')"
+            :title="tagRollTip('True scale: notes, staves, barlines, lyrics, and ornaments')"
           >
-            <span class="slider-label">Score</span>
-            <span class="slider-val">{{ pct(project.view.sheetScoreScale ?? 1) }}</span>
+            <span class="slider-label">Size</span>
+            <span class="slider-val">{{ pct(sizeScale) }}</span>
             <input
               type="range"
               class="slider"
               :min="SHEET_SCORE_SCALE_MIN"
               :max="SHEET_SCORE_SCALE_MAX"
               step="0.05"
-              :value="project.view.sheetScoreScale ?? 1"
+              :value="sizeScale"
               @input="numInput('sheetScoreScale', $event)"
-            />
-          </label>
-          <label
-            class="slider-row"
-            :title="tagRollTip('Staff-line spacing and music glyphs')"
-          >
-            <span class="slider-label">Notation</span>
-            <span class="slider-val">{{ pct(project.view.sheetEngravingScale ?? 1) }}</span>
-            <input
-              type="range"
-              class="slider"
-              :min="SHEET_ENGRAVING_SCALE_MIN"
-              :max="SHEET_ENGRAVING_SCALE_MAX"
-              step="0.05"
-              :value="project.view.sheetEngravingScale ?? 1"
-              @input="numInput('sheetEngravingScale', $event)"
             />
           </label>
         </div>
@@ -306,7 +290,7 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
         <summary class="group-title">Margins</summary>
         <div class="group-body">
           <p class="page-hint">
-            Inches from the page/strip edge. Linked keeps all four equal.
+            Inches from the {{ isPage ? 'page' : 'strip' }} edge. Linked keeps all four equal.
           </p>
           <label class="toggle-row" :class="{ on: linkMargins }">
             <span class="toggle-title">Link all sides</span>
@@ -477,6 +461,7 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
             />
           </label>
           <label
+            v-if="isPage"
             class="slider-row"
             :title="tagRollTip('Vertical gap between wrapped grand-staff rows (systems)')"
           >
@@ -492,9 +477,6 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               @input="numInput('sheetSystemGap', $event)"
             />
           </label>
-          <p v-if="!isPage" class="page-hint">
-            System rows applies when measures wrap (Page layout).
-          </p>
         </div>
       </details>
 
@@ -534,7 +516,7 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
           </p>
           <label
             class="slider-row"
-            :title="tagRollTip('Scale all measure widths (complements score scale)')"
+            :title="tagRollTip('Scale all measure widths (complements Size)')"
           >
             <span class="slider-label">Bar width</span>
             <span class="slider-val">{{ pct(project.view.sheetMeasureScale ?? 1) }}</span>
@@ -546,6 +528,39 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               step="0.05"
               :value="project.view.sheetMeasureScale ?? 1"
               @input="numInput('sheetMeasureScale', $event)"
+            />
+          </label>
+          <label
+            v-if="isDynamic"
+            class="slider-row"
+            :title="tagRollTip('Extra room per rhythmic column')"
+          >
+            <span class="slider-label">Note spacing</span>
+            <span class="slider-val">{{ pct(project.view.sheetNoteSpacing ?? 1) }}</span>
+            <input
+              type="range"
+              class="slider"
+              :min="SHEET_MEASURE_SCALE_MIN"
+              :max="SHEET_MEASURE_SCALE_MAX"
+              step="0.05"
+              :value="project.view.sheetNoteSpacing ?? 1"
+              @input="numInput('sheetNoteSpacing', $event)"
+            />
+          </label>
+          <label
+            class="slider-row"
+            :title="tagRollTip('Floor width so short bars stay readable')"
+          >
+            <span class="slider-label">Min bar width</span>
+            <span class="slider-val">{{ pct(project.view.sheetMinBarWidth ?? 1) }}</span>
+            <input
+              type="range"
+              class="slider"
+              :min="SHEET_MIN_BAR_MIN"
+              :max="SHEET_MIN_BAR_MAX"
+              step="0.05"
+              :value="project.view.sheetMinBarWidth ?? 1"
+              @input="numInput('sheetMinBarWidth', $event)"
             />
           </label>
         </div>
@@ -707,41 +722,11 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
 
       <details
         class="group"
-        :open="open.advanced"
-        @toggle="onGroupToggle('advanced', $event)"
+        :open="open.options"
+        @toggle="onGroupToggle('options', $event)"
       >
-        <summary class="group-title">Advanced</summary>
+        <summary class="group-title">Options</summary>
         <div class="group-body">
-          <label
-            v-if="isDynamic"
-            class="slider-row"
-            :title="tagRollTip('Extra room per rhythmic column')"
-          >
-            <span class="slider-label">Note spacing</span>
-            <span class="slider-val">{{ pct(project.view.sheetNoteSpacing ?? 1) }}</span>
-            <input
-              type="range"
-              class="slider"
-              :min="SHEET_MEASURE_SCALE_MIN"
-              :max="SHEET_MEASURE_SCALE_MAX"
-              step="0.05"
-              :value="project.view.sheetNoteSpacing ?? 1"
-              @input="numInput('sheetNoteSpacing', $event)"
-            />
-          </label>
-          <label class="slider-row">
-            <span class="slider-label">Min bar width</span>
-            <span class="slider-val">{{ pct(project.view.sheetMinBarWidth ?? 1) }}</span>
-            <input
-              type="range"
-              class="slider"
-              :min="SHEET_MIN_BAR_MIN"
-              :max="SHEET_MIN_BAR_MAX"
-              step="0.05"
-              :value="project.view.sheetMinBarWidth ?? 1"
-              @input="numInput('sheetMinBarWidth', $event)"
-            />
-          </label>
           <label class="slider-row">
             <span class="slider-label">Clef area</span>
             <span class="slider-val">{{ pct(project.view.sheetClefGutter ?? 1) }}</span>
@@ -828,17 +813,21 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               @change="toggleChecked(store.setSheetPartNames, $event)"
             />
           </label>
-          <label class="toggle-row" :class="{ on: project.view.sheetNoteColors !== false }">
+          <label class="toggle-row" :class="{ on: project.view.sheetNoteColors === true }">
             <span class="toggle-title">Note role colors</span>
             <input
               type="checkbox"
               class="setting-switch"
               role="switch"
-              :checked="project.view.sheetNoteColors !== false"
+              :checked="project.view.sheetNoteColors === true"
               @change="toggleChecked(store.setSheetNoteColors, $event)"
             />
           </label>
-          <label class="toggle-row" :class="{ on: project.view.sheetPlaybackHighlight !== false }">
+          <label
+            class="toggle-row"
+            :class="{ on: project.view.sheetPlaybackHighlight !== false }"
+            :title="tagRollTip('Highlight the current measure while playing')"
+          >
             <span class="toggle-title">Playback highlight</span>
             <input
               type="checkbox"
@@ -846,6 +835,34 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               role="switch"
               :checked="project.view.sheetPlaybackHighlight !== false"
               @change="toggleChecked(store.setSheetPlaybackHighlight, $event)"
+            />
+          </label>
+          <label
+            class="toggle-row"
+            :class="{ on: project.view.sheetShowSketchChords === true }"
+            :title="tagRollTip('Chord boxes above the staff for Sketch chords')"
+          >
+            <span class="toggle-title">Sketch chords</span>
+            <input
+              type="checkbox"
+              class="setting-switch"
+              role="switch"
+              :checked="project.view.sheetShowSketchChords === true"
+              @change="toggleChecked(store.setSheetShowSketchChords, $event)"
+            />
+          </label>
+          <label
+            class="toggle-row"
+            :class="{ on: project.view.sheetShowDetectedChords === true }"
+            :title="tagRollTip('Chord boxes above the staff for Detected chords')"
+          >
+            <span class="toggle-title">Detected chords</span>
+            <input
+              type="checkbox"
+              class="setting-switch"
+              role="switch"
+              :checked="project.view.sheetShowDetectedChords === true"
+              @change="toggleChecked(store.setSheetShowDetectedChords, $event)"
             />
           </label>
         </div>

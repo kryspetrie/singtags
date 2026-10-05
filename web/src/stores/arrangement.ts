@@ -680,16 +680,28 @@ export const useArrangementStore = defineStore('arrangement', () => {
     refreshCandidates()
   }
 
-  function strengthen(): void {
+  function strengthen(): number {
     const p = current.value
-    if (!p) return
-    replaceCurrent(
-      strengthenArrangement(p, {
-        idGen: services.idGen,
-        rankerDeps: services.rankerDeps,
-      }),
+    if (!p) return 0
+    const before = new Map(
+      p.stacks.map((s) => [
+        s.id,
+        `${s.rootPc}:${s.natureId}:${s.voicing}:${s.midi?.bass},${s.midi?.bari},${s.midi?.lead},${s.midi?.tenor}`,
+      ]),
     )
+    const next = strengthenArrangement(p, {
+      idGen: services.idGen,
+      rankerDeps: services.rankerDeps,
+      // Coach default: allow moderate upgrades (domain default 1.5 is quite strict).
+      minScoreGain: 0.75,
+    })
+    const changed = next.stacks.filter((s) => {
+      const key = `${s.rootPc}:${s.natureId}:${s.voicing}:${s.midi?.bass},${s.midi?.bari},${s.midi?.lead},${s.midi?.tenor}`
+      return before.get(s.id) !== key
+    }).length
+    if (changed) replaceCurrent(next)
     refreshCandidates()
+    return changed
   }
 
   function polishVoicing(): number {
