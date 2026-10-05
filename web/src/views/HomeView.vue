@@ -862,7 +862,7 @@ let suppressUserScrollDisarmUntil = 0
  */
 let browseUserTookScroll = false
 /** Pending pinSearchTopIfArmed timeouts — cleared when the user takes over. */
-let pinSearchTopTimers: ReturnType<typeof setTimeout>[] = []
+let pinSearchTopTimers: number[] = []
 
 function shouldPinSearchTop(): boolean {
   return (
@@ -882,7 +882,7 @@ function disarmPinSearchTop(): void {
 }
 
 function clearPinSearchTopTimers(): void {
-  for (const t of pinSearchTopTimers) clearTimeout(t)
+  for (const t of pinSearchTopTimers) window.clearTimeout(t)
   pinSearchTopTimers = []
 }
 
