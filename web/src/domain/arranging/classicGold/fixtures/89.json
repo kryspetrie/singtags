@@ -1,0 +1,177 @@
+{
+  "tagId": 89,
+  "title": "Please Don't Leave Me, Never Go Away",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 65.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 15,
+  "pillarCount": 10,
+  "pillarRomans": [
+    "I",
+    "ii7",
+    "IV",
+    "I",
+    "I7",
+    "ii7",
+    "iv",
+    "I",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 3.617,
+      "leadMidi": 50,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.461,
+      "leadMidi": 60,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.209,
+      "leadMidi": 60,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.714,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 3,
+      "natureId": "ninth",
+      "dur": 0.186,
+      "leadMidi": 51,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.535,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.461,
+      "leadMidi": 50,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.462,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 1.846,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "minor",
+      "dur": 1.433,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.413,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "III",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.14,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.784,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "III",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.325,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.521,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    }
+  ],
+  "classic": "77",
+  "collection": "classic"
+}

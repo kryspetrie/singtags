@@ -1,0 +1,206 @@
+{
+  "tagId": 10,
+  "title": "Way Down South",
+  "tonality": 8,
+  "mode": "major",
+  "bpm": 90.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 21,
+  "tokenCount": 18,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "IV7",
+    "I",
+    "I7",
+    "ii7",
+    "I6",
+    "ii",
+    "I",
+    "II7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "IV7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 1.0,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "VII7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.625,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.65,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 0.667,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 10,
+      "natureId": "m7",
+      "dur": 0.344,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "ii",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.323,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "bV",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.48,
+      "leadMidi": 50,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I6",
+      "rootPc": 8,
+      "natureId": "sixth",
+      "dur": 0.358,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.139,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "ii",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.371,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.358,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "i7",
+      "rootPc": 8,
+      "natureId": "m7",
+      "dur": 0.603,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "II7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 1.552,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "IV",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 1.62,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 2.322,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "III",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.162,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4255
+    },
+    {
+      "roman": "V7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.333,
+      "leadMidi": 61,
+      "confidence": 0.4,
+      "role": "mid",
+      "medianDur": 0.4255
+    }
+  ],
+  "classic": "3",
+  "collection": "classic"
+}

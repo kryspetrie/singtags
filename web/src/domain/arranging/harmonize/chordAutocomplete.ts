@@ -26,6 +26,7 @@ export type AutocompleteInput = {
   prevRootPc: number | null
   prevNatureId?: string | null
   prevMidi?: VoicingPitches | null
+  prevPrevMidi?: VoicingPitches | null
   prevDominant?: { rootPc: number; natureId: string; midi: VoicingPitches } | null
   nextPillarRoot?: number | null
   preferScf?: boolean
@@ -105,6 +106,7 @@ export function autocompleteNextChord(input: AutocompleteInput): ChordSuggestion
     profile,
     nextPillarRoot,
     prevMidi: input.prevMidi ?? null,
+    prevPrevMidi: input.prevPrevMidi ?? null,
   })
 
   // Annotate with prevDominant for resolution scoring via ranker deps path:

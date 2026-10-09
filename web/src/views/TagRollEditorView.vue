@@ -21,6 +21,12 @@ import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
 import { tryCoachArrowStepMoment } from '../lib/arranging/coachArrowNav'
+import {
+  coachRollNavStepMoment,
+  coachRollNavStepSuggest,
+  coachRollNavState,
+} from '../lib/arranging/coachRollNav'
+import { matchChordWalkKey } from '../lib/arranging/chordWalkKeys'
 import { requestCoachUi, type CoachOpenChooseSeed } from '../lib/arranging/coachUiIntent'
 import TagRollLyricsLane from '../components/tagRoll/TagRollLyricsLane.vue'
 import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
@@ -41,6 +47,7 @@ import { notesForColumnAudition } from '../lib/tagRoll/columnAudition'
 import {
   isMetronomeAudible,
   isPartAudible,
+  isSketchAudible,
   mixForPart,
   syncProjectMix,
   TAG_ROLL_SKETCH_MIX_ID,
@@ -87,6 +94,9 @@ import {
   type ChordEditDockSession,
 } from '../composables/useTagRollChordEditDock'
 import {
+  coachRollTransportHear,
+  coachRollTransportPrimary,
+  coachRollTransportSecondary,
   publishCoachRollTransport,
   registerCoachRollTransport,
 } from '../lib/arranging/coachRollTransport'
@@ -934,12 +944,34 @@ async function runBlowPitchIntro(): Promise<boolean> {
   })
 }
 
+/** If every sounding strip is muted, unmute TTBB (and Sketch when it has locked spans). */
+function ensureMixCanSound(): void {
+  const cur = store.current
+  if (!cur) return
+  const mix = syncProjectMix(cur.parts, cur.mix)
+  const notesAudible = cur.notes.some((n) => isPartAudible(n.partId, mix))
+  const sketchHas = (cur.harmonySketch ?? []).some((s) => s.locked)
+  const sketchAudible = sketchHas && isSketchAudible(mix)
+  if (notesAudible || sketchAudible) return
+  for (const part of cur.parts) {
+    store.patchPartMix(part.id, { mute: false, solo: false }, { history: false })
+  }
+  if (sketchHas) {
+    store.patchPartMix(TAG_ROLL_SKETCH_MIX_ID, { mute: false, solo: false }, { history: false })
+  }
+}
+
 async function onPlay(): Promise<void> {
   // Keep compose/lyrics mode + selection; view-mode force was clearing edits mid-flow.
   const playhead = store.current?.view.playheadTick ?? 0
   const bounds = armInspectPlayback(playhead)
   playbackOriginTick.value = bounds?.rewindTick ?? playhead
   cancelBlowPitchIntro()
+  ensureMixCanSound()
+  // Resume the *main* engine on this user gesture before any awaited intro work.
+  // Blow-pitch uses a separate AudioContext; without this, content stays suspended.
+  const tone = ensurePlayer()
+  await tone.warmUp?.()
   void ensureMetronome().ensureLoaded(prefs.tagRollMetronomeSound)
   rebuildScheduler()
   const from = bounds?.fromTick ?? playbackOriginTick.value
@@ -1061,7 +1093,8 @@ async function auditionTick(tick: number): Promise<void> {
     melodyPartId,
   })
   const tone = ensurePlayer()
-  const mix = p.mix ?? []
+  await tone.warmUp?.()
+  const mix = syncProjectMix(p.parts, p.mix)
   const sounding = notes.filter((n) => !n.partId || isPartAudible(n.partId, mix))
   if (!sounding.length) return
   const batch = ++hearStackSeq
@@ -2014,6 +2047,57 @@ function onKeyDown(e: KeyboardEvent): void {
     store.setPlayheadTick(0)
     return
   }
+
+  // Chord Walk: Coach Chords or Harmonize — ←→ moments, ↑↓ suggests, F apply, H hear, Q next empty.
+  {
+    const chordWalkActive =
+      ((coachOpen.value || coachDetached.value) && coachRollNavState.value.chordMode) ||
+      harmonizeOpen.value
+    const walk = matchChordWalkKey({
+      chordWalkActive,
+      typingTarget: isTypingTarget(e.target),
+      rolesAssignActive: !!store.assignNoteRolesActive,
+      shiftKey: e.shiftKey,
+      key,
+    })
+    if (walk) {
+      e.preventDefault()
+      if (walk === 'prevMoment' || walk === 'nextMoment') {
+        const dir = walk === 'prevMoment' ? -1 : 1
+        if (harmonizeOpen.value) {
+          harmonizeRef.value?.step(dir)
+          ensureSelectedNoteInView()
+        } else {
+          coachRollNavStepMoment(dir)
+        }
+        return
+      }
+      if (walk === 'prevSuggest' || walk === 'nextSuggest') {
+        const dir = walk === 'prevSuggest' ? -1 : 1
+        if (harmonizeOpen.value) harmonizeRef.value?.stepSuggest?.(dir)
+        else coachRollNavStepSuggest(dir)
+        return
+      }
+      if (walk === 'apply') {
+        if (harmonizeOpen.value) harmonizeRef.value?.applySelectedSuggest?.()
+        else coachRollTransportPrimary()
+        return
+      }
+      if (walk === 'hear') {
+        if (coachOpen.value || coachDetached.value) coachRollTransportHear()
+        else if (harmonizeOpen.value) harmonizeRef.value?.hearSelectedSuggest?.()
+        else onHearStack()
+        return
+      }
+      if (walk === 'nextEmpty') {
+        if (harmonizeOpen.value) harmonizeRef.value?.stepNextEmpty?.()
+        else coachRollTransportSecondary()
+        return
+      }
+      return
+    }
+  }
+
   if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown') {
     e.preventDefault()
     const mode = project.value.view.mode

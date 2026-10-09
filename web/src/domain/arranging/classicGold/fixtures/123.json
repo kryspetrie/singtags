@@ -1,0 +1,219 @@
+{
+  "tagId": 123,
+  "title": "Just When I Thought I was Through",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 63.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 22,
+  "tokenCount": 19,
+  "pillarCount": 12,
+  "pillarRomans": [
+    "I",
+    "VI7",
+    "VI7",
+    "VI7",
+    "II7",
+    "II",
+    "II7",
+    "V7",
+    "ii7",
+    "V7",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "III",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.476,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.058,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "v",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.325,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "v7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.162,
+      "leadMidi": 58,
+      "confidence": 0.73,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "v",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.279,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.15,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "iii7",
+      "rootPc": 9,
+      "natureId": "m7",
+      "dur": 0.42,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.455,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "V6",
+      "rootPc": 0,
+      "natureId": "sixth",
+      "dur": 0.163,
+      "leadMidi": 55,
+      "confidence": 0.73,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "iii7",
+      "rootPc": 9,
+      "natureId": "m7",
+      "dur": 0.313,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.463,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "II7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.966,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "II",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.859,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "II7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.418,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.476,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.554,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.277,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 1.839,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.51,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    }
+  ],
+  "classic": "112",
+  "collection": "classic"
+}

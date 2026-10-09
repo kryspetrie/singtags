@@ -1,0 +1,197 @@
+{
+  "tagId": 112,
+  "title": "Sure, They Called it Ireland",
+  "tonality": 0,
+  "mode": "major",
+  "bpm": 82.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 20,
+  "tokenCount": 17,
+  "pillarCount": 10,
+  "pillarRomans": [
+    "V",
+    "I",
+    "I",
+    "IV",
+    "I",
+    "II7",
+    "ii7",
+    "V7",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "V",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.371,
+      "leadMidi": 59,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.72,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "VII7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 0.366,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.423,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "IV",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.675,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "III7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.366,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "ii",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.185,
+      "leadMidi": 59,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "IV",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.279,
+      "leadMidi": 60,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "II",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.266,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.464,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "II7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.463,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 0.732,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.408,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.425,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "II",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.307,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.732,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 2.921,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.423
+    }
+  ],
+  "classic": "100",
+  "collection": "classic"
+}

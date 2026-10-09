@@ -1,0 +1,520 @@
+{
+  "tag_id": 90006,
+  "id": 90006,
+  "title": "Let Me Call You Sweetheart",
+  "alt_title": null,
+  "common_name": "Let Me Call You Sweetheart",
+  "arranger": "Leo Friedman",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 6,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - 90006",
+  "identity": {
+    "title": "let me call you sweetheart",
+    "arranger": "leo friedman",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "let me call you sweetheart|leo friedman|bb major|polecat||",
+  "identity_hash": "1819ee811fe9f239",
+  "keywords": [
+    "let me call you sweetheart",
+    "let",
+    "me",
+    "call",
+    "you",
+    "sweetheart",
+    "leo friedman",
+    "leo",
+    "friedman",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90006",
+    "p6"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Sheet.pdf",
+      "bytes": 101091,
+      "sha256": "a20cc2c591507597c9c6a3e5ebf2e267503acf54de947d0616e6cf80d2026023",
+      "source_sha256": "975eb512e732ab75b22995a2690f8b69c183e992f07f55e09c0d8c279973a5ab",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Let Me Call You Sweetheart - PoleCats - Leo Friedman (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Lead.mp3",
+      "bytes": 1596398,
+      "sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71",
+      "source_sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Let Me Call You Sweetheart - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0585,
+        "correlation": 0.5745,
+        "side_mid": 0.521,
+        "analyzed_at": "2026-09-07T04:13:15.995890+00:00",
+        "source_sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 1.0,
+        "zero_corr": 1.0,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:17.267315+00:00",
+        "source_sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Lead - Playback.opus",
+          "sha256": "c2cd51b082c470478da3f69fc416904cd702ef18b82574c83232aa47592b3d3e",
+          "bytes": 537292,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:20.892074+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Lead - Solo.opus",
+          "sha256": "4bb2165eebcd0163700c37dc8018a0a4923d3d4add79fee9899a1c3cfc8a15ba",
+          "bytes": 138648,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "83465e22693590d174389b3019d35fbac1be2afd23f59ff0b0800fe7e93d4f71",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:24.300852+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Tenor.mp3",
+      "bytes": 1596398,
+      "sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9",
+      "source_sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Let Me Call You Sweetheart - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.1495,
+        "correlation": 0.6111,
+        "side_mid": 0.5313,
+        "analyzed_at": "2026-09-07T04:13:16.102971+00:00",
+        "source_sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.597,
+        "zero_corr": 0.597,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:18.275101+00:00",
+        "source_sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Tenor - Playback.opus",
+          "sha256": "ddbb5215befe90beefa1cba06c03695cf1dd6937baaae0203312f3d2b0330e5a",
+          "bytes": 537294,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.522696+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Tenor - Solo.opus",
+          "sha256": "834fa9f1c4f16c8bc386eb362d6c01307e9430fea3573f6ab0be18bbab71919c",
+          "bytes": 138650,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "2871ae91d212bca73606648010194f1879139a67f8857bba40a96b9b17e651d9",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:24.639558+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bari.mp3",
+      "bytes": 1596398,
+      "sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc",
+      "source_sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Let Me Call You Sweetheart - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": -0.0309,
+        "correlation": 0.62,
+        "side_mid": 0.4927,
+        "analyzed_at": "2026-09-07T04:13:16.295985+00:00",
+        "source_sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.661,
+        "zero_corr": 0.661,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:19.247666+00:00",
+        "source_sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bari - Playback.opus",
+          "sha256": "e4a342d0582f859f04c3e53e268389dca30a34cd8074fbcf94c7104721ce2be6",
+          "bytes": 537292,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:22.192272+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bari - Solo.opus",
+          "sha256": "00ce4e01d728b7dd5616b23d1de53ff93a694a29c8d31be4bbec69830e79abf6",
+          "bytes": 138648,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "26b652799bec012a93187dc1537c478936139ccf53921d8b32298dc187b922dc",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:25.077364+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bass.mp3",
+      "bytes": 1596398,
+      "sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa",
+      "source_sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Let Me Call You Sweetheart - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": -0.0826,
+        "correlation": 0.6753,
+        "side_mid": 0.4692,
+        "analyzed_at": "2026-09-07T04:13:16.468021+00:00",
+        "source_sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.611,
+        "zero_corr": 0.611,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:20.263886+00:00",
+        "source_sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bass - Playback.opus",
+          "sha256": "603e2ea21cab0d06bc658ebf249acc7d4d13158c203103dcf6d60b35ab6b1342",
+          "bytes": 537275,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.036416+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Bass - Solo.opus",
+          "sha256": "31040f70c975811ce3c35a42ea0ce7ca01c868131a69b9d9a4555ee92848347f",
+          "bytes": 138631,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "5bbcf2612340ddab9cd08e032de881c5bd120761ce81228e9aacabfe0005d4fa",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:25.533670+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Mix.mp3",
+      "bytes": 1501246,
+      "sha256": "8c9e3c4139aecc76eb55e0d77b524288d6831f439a79fc0f552208973d08bd53",
+      "source_sha256": "8c9e3c4139aecc76eb55e0d77b524288d6831f439a79fc0f552208973d08bd53",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Let Me Call You Sweetheart - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_right",
+        "solo_side": "right",
+        "channels": 2,
+        "balance": 0.0418,
+        "correlation": 0.8302,
+        "side_mid": 0.3085,
+        "analyzed_at": "2026-09-07T04:13:16.577290+00:00",
+        "source_sha256": "8c9e3c4139aecc76eb55e0d77b524288d6831f439a79fc0f552208973d08bd53"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Mix - Playback.opus",
+          "sha256": "2032c2c1293115f06c943d52ce36b3fdbdfc73c69fb415d34ee299a231e60d7c",
+          "bytes": 505287,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "8c9e3c4139aecc76eb55e0d77b524288d6831f439a79fc0f552208973d08bd53",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.877868+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Let Me Call You Sweetheart (Bb Major) - Leo Friedman - Mix - Ultra Mix.opus",
+          "sha256": "e53fba1ed7c6a4d990f48bf79bac486f7dd7b2dfffd683eb5ac8184ca9df12fc",
+          "bytes": 255367,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "8c9e3c4139aecc76eb55e0d77b524288d6831f439a79fc0f552208973d08bd53",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:26.511371+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Let Me Call You Sweetheart - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90006,
+    "Title": "Let Me Call You Sweetheart",
+    "AltTitle": null,
+    "CommonName": "Let Me Call You Sweetheart",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Leo Friedman",
+    "Collection": "polecats",
+    "Classic": 6,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Let Me Call You Sweetheart",
+      "learning": "Let Me Call You Sweetheart"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/let-me-call-you-sweetheart-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/let-me-call-you-sweetheart-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/let-me-call-you-sweetheart-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/let-me-call-you-sweetheart-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-09-07T04:13:16.746197+00:00",
+    "mix_correlation": 0.0094,
+    "mix_correlations": {
+      "lead": 0.0094,
+      "tenor": 0.0092,
+      "bari": 0.0064,
+      "bass": 0.0082
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-09-07T04:13:20.263917+00:00"
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": "ok",
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:26.511397+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 50,
+    "extracted_at": "2026-10-08T21:28:48.832548+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 73.5,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 9.149,
+    "coverage": 0.904,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 36.153,
+    "voiced": {
+      "lead": 0.852,
+      "tenor": 0.851,
+      "bari": 0.847,
+      "bass": 0.85
+    },
+    "midi_mad": {
+      "lead": 0.1203,
+      "tenor": 0.0984,
+      "bari": 0.0993,
+      "bass": 0.0905
+    }
+  }
+}

@@ -1,0 +1,453 @@
+{
+  "tag_id": 90012,
+  "id": 90012,
+  "title": "You Tell Me Your Dream",
+  "alt_title": null,
+  "common_name": "You Tell Me Your Dream",
+  "arranger": "Phil Embury",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 12,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "You Tell Me Your Dream (Ab Major) - Phil Embury - 90012",
+  "identity": {
+    "title": "you tell me your dream",
+    "arranger": "phil embury",
+    "key": "ab major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "you tell me your dream|phil embury|ab major|polecat||",
+  "identity_hash": "ca2ce77184390a67",
+  "keywords": [
+    "you tell me your dream",
+    "you",
+    "tell",
+    "me",
+    "your",
+    "dream",
+    "phil embury",
+    "phil",
+    "embury",
+    "ab major",
+    "ab",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90012",
+    "p12"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Sheet.pdf",
+      "bytes": 108624,
+      "sha256": "257bd7c2f407d72667e1e7418acb8a31ca2dec8434ab0b68e9e19c719254e73d",
+      "source_sha256": "05313d20e8d4eff1dacbfbcba42fae58c2d37fa035df11ee424bc1f3e4493fa6",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "You Tell Me Your Dream - PoleCats - Phil Embury (Ab).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Lead.mp3",
+      "bytes": 2021452,
+      "sha256": "90951a6a1420147f0f48045afa95580bddaf8d1c89e7e25d1970916e4d8a9d89",
+      "source_sha256": "90951a6a1420147f0f48045afa95580bddaf8d1c89e7e25d1970916e4d8a9d89",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/You Tell Me Your Dream - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_right",
+        "solo_side": "right",
+        "channels": 2,
+        "balance": 0.1172,
+        "correlation": 0.7711,
+        "side_mid": 0.3811,
+        "analyzed_at": "2026-09-07T04:13:40.345064+00:00",
+        "source_sha256": "90951a6a1420147f0f48045afa95580bddaf8d1c89e7e25d1970916e4d8a9d89"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Lead - Playback.opus",
+          "sha256": "558dcba0a5ad7859f811d6169920c127b2c986b20c388dbaab0864699792af22",
+          "bytes": 680577,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "90951a6a1420147f0f48045afa95580bddaf8d1c89e7e25d1970916e4d8a9d89",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:41.362254+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Lead - Downmix.opus",
+          "sha256": "555b21283e5257fbc97722fe1190198ac8fb3ea9831bec0a0d7f207380a2ba75",
+          "bytes": 175493,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "90951a6a1420147f0f48045afa95580bddaf8d1c89e7e25d1970916e4d8a9d89",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:44.993604+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Tenor.mp3",
+      "bytes": 2021452,
+      "sha256": "278ade347fa788e8976bc9df5ab2ad1a9b2a521d89c1f3aaab7ceeb16167122d",
+      "source_sha256": "278ade347fa788e8976bc9df5ab2ad1a9b2a521d89c1f3aaab7ceeb16167122d",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/You Tell Me Your Dream - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0275,
+        "correlation": 0.8899,
+        "side_mid": 0.2499,
+        "analyzed_at": "2026-09-07T04:13:40.384624+00:00",
+        "source_sha256": "278ade347fa788e8976bc9df5ab2ad1a9b2a521d89c1f3aaab7ceeb16167122d"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Tenor - Playback.opus",
+          "sha256": "684f98c13274ace02747c72dd9ff664da0bf987fbae016257494e5ad7531ce80",
+          "bytes": 680579,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "278ade347fa788e8976bc9df5ab2ad1a9b2a521d89c1f3aaab7ceeb16167122d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.135953+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Tenor - Downmix.opus",
+          "sha256": "41cf48ec98eaa87b20b1c586d204bd017586092fa57537adfe272eb0ef0128f9",
+          "bytes": 175495,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "278ade347fa788e8976bc9df5ab2ad1a9b2a521d89c1f3aaab7ceeb16167122d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:45.461382+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bari.mp3",
+      "bytes": 2021452,
+      "sha256": "c040bed3f1b594c0417c245ce6179f8a093784efcf62c771674d4a0215943363",
+      "source_sha256": "c040bed3f1b594c0417c245ce6179f8a093784efcf62c771674d4a0215943363",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/You Tell Me Your Dream - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0187,
+        "correlation": 0.8774,
+        "side_mid": 0.2544,
+        "analyzed_at": "2026-09-07T04:13:40.424179+00:00",
+        "source_sha256": "c040bed3f1b594c0417c245ce6179f8a093784efcf62c771674d4a0215943363"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bari - Playback.opus",
+          "sha256": "e5164b9b5f1773a5f1d9526f0069771e2c7117092e5505a501c3d61d4b0241dd",
+          "bytes": 680577,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "c040bed3f1b594c0417c245ce6179f8a093784efcf62c771674d4a0215943363",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.845811+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bari - Downmix.opus",
+          "sha256": "60e1c98b631850bdb7c09d0644901a9f2651c74c67e7e42ed5e684bb1d3c17c3",
+          "bytes": 175493,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "c040bed3f1b594c0417c245ce6179f8a093784efcf62c771674d4a0215943363",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:46.023667+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bass.mp3",
+      "bytes": 2021452,
+      "sha256": "6afa885f6659ff66bbab10656586d7f90d90f8831b4d60d882bf4e53df65d25a",
+      "source_sha256": "6afa885f6659ff66bbab10656586d7f90d90f8831b4d60d882bf4e53df65d25a",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/You Tell Me Your Dream - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0192,
+        "correlation": 0.9077,
+        "side_mid": 0.2276,
+        "analyzed_at": "2026-09-07T04:13:40.463258+00:00",
+        "source_sha256": "6afa885f6659ff66bbab10656586d7f90d90f8831b4d60d882bf4e53df65d25a"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bass - Playback.opus",
+          "sha256": "f2ee61b5837198ccb49d11d3d55a530e260e13bf61aeb0cb2a5c363bf2f2e8c1",
+          "bytes": 680560,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "6afa885f6659ff66bbab10656586d7f90d90f8831b4d60d882bf4e53df65d25a",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:43.633179+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Bass - Downmix.opus",
+          "sha256": "2b916ad03e50552ffd441d28d885362d550dca2b9221300fa706bd21507b02ca",
+          "bytes": 175476,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "6afa885f6659ff66bbab10656586d7f90d90f8831b4d60d882bf4e53df65d25a",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:46.531120+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Mix.mp3",
+      "bytes": 1852432,
+      "sha256": "f09fc35c31efb749f340585f2d00def2cdba917965eba79a8dc730536228bc10",
+      "source_sha256": "f09fc35c31efb749f340585f2d00def2cdba917965eba79a8dc730536228bc10",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/You Tell Me Your Dream - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0483,
+        "correlation": 0.8953,
+        "side_mid": 0.2397,
+        "analyzed_at": "2026-09-07T04:13:40.502608+00:00",
+        "source_sha256": "f09fc35c31efb749f340585f2d00def2cdba917965eba79a8dc730536228bc10"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Mix - Playback.opus",
+          "sha256": "2f3cf4198bb7fe23abaecd37c5411b962158c4c7303da5e66ec324e12e1b0ec4",
+          "bytes": 623536,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "f09fc35c31efb749f340585f2d00def2cdba917965eba79a8dc730536228bc10",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:44.416401+00:00"
+        },
+        "ultra_mix": {
+          "filename": "You Tell Me Your Dream (Ab Major) - Phil Embury - Mix - Ultra Mix.opus",
+          "sha256": "76cf10228c1fb91990ef74cdbd2433a24a8a2c15ca5fc0546a68277d4407f39f",
+          "bytes": 315056,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "f09fc35c31efb749f340585f2d00def2cdba917965eba79a8dc730536228bc10",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:49.182666+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "You Tell Me Your Dream - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90012,
+    "Title": "You Tell Me Your Dream",
+    "AltTitle": null,
+    "CommonName": "You Tell Me Your Dream",
+    "WritKey": "Major:Ab",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Phil Embury",
+    "Collection": "polecats",
+    "Classic": 12,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "You Tell Me Your Dream",
+      "learning": "You Tell Me Your Dream"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/you-tell-me-your-dream-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/you-tell-me-your-dream-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/you-tell-me-your-dream-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/you-tell-me-your-dream-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "near_mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:40.542312+00:00",
+    "mix_correlation": 0.0174,
+    "mix_correlations": {
+      "lead": 0.0174,
+      "tenor": 0.0072,
+      "bari": 0.0082,
+      "bass": 0.006
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:49.182701+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 48,
+    "extracted_at": "2026-10-08T21:30:00.497187+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 78.0,
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 7.941,
+    "coverage": 0.92,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 60.217,
+    "voiced": {
+      "lead": 0.889,
+      "tenor": 0.883,
+      "bari": 0.886,
+      "bass": 0.888
+    },
+    "midi_mad": {
+      "lead": 0.0841,
+      "tenor": 0.0862,
+      "bari": 0.0807,
+      "bass": 0.0651
+    }
+  }
+}

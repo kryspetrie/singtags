@@ -1,0 +1,216 @@
+{
+  "tagId": 79,
+  "title": "Sonny Boy",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 63.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 19,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "I",
+    "II7",
+    "ii7",
+    "I",
+    "I7",
+    "IV",
+    "I",
+    "ii7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.848,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "II7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 1.428,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.492,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 0.46,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.953,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.732,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.71,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.209,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.186,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.186,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.638,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 0.439,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.952,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.163,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.268,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 0.186,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.162,
+      "leadMidi": 58,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.38,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.46
+    },
+    {
+      "roman": "vi",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.164,
+      "leadMidi": 57,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.46
+    }
+  ],
+  "classic": "67",
+  "collection": "classic"
+}

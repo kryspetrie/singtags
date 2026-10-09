@@ -1,0 +1,456 @@
+{
+  "tag_id": 90010,
+  "id": 90010,
+  "title": "You're The Flower Of My Heart, Sweet Adeline",
+  "alt_title": "Sweet Adeline",
+  "common_name": "Sweet Adeline",
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 10,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - 90010",
+  "identity": {
+    "title": "you're the flower of my heart, sweet adeline",
+    "arranger": "",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "sweet adeline",
+    "posted": ""
+  },
+  "identity_key": "you're the flower of my heart, sweet adeline||bb major|polecat|sweet adeline|",
+  "identity_hash": "c9181e05de2116a8",
+  "keywords": [
+    "youre the flower of my heart, sweet adeline",
+    "youre",
+    "the",
+    "flower",
+    "of",
+    "my",
+    "heart",
+    "sweet",
+    "adeline",
+    "sweet adeline",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90010",
+    "p10"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Sheet.pdf",
+      "bytes": 103861,
+      "sha256": "b76a6a55b16fc9ccff05652c63f6293c706199699df39b3ce95338fe79d9f8eb",
+      "source_sha256": "7cef573aef9872ae4c43034bb960a406e35527b616ece757dc18c18e0985e335",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Sweet Adeline - Polecat (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Lead.mp3",
+      "bytes": 1987648,
+      "sha256": "8e401c28994f85eaf0f67499690b060363bd122b99037542909757265ca05348",
+      "source_sha256": "8e401c28994f85eaf0f67499690b060363bd122b99037542909757265ca05348",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Youre the Flower of My Heart Sweet Adeline - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:43.246249+00:00",
+        "source_sha256": "8e401c28994f85eaf0f67499690b060363bd122b99037542909757265ca05348"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Lead - Playback.opus",
+          "sha256": "052338ad0c81a989f4ba2a37a6f654a624009f23c567dd712a493db39002718c",
+          "bytes": 669294,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "8e401c28994f85eaf0f67499690b060363bd122b99037542909757265ca05348",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:44.426789+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Lead - Downmix.opus",
+          "sha256": "bd7273495b5e3efb8cb9aaba36ac4cda1bdce3050e4f7c98814f9dbf0ca77054",
+          "bytes": 172610,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "8e401c28994f85eaf0f67499690b060363bd122b99037542909757265ca05348",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:48.200374+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Tenor.mp3",
+      "bytes": 1987648,
+      "sha256": "11536fd0ba18f5e2583a60e2a3ea2bab1c6c5fd663683ef5f56a89c24870e494",
+      "source_sha256": "11536fd0ba18f5e2583a60e2a3ea2bab1c6c5fd663683ef5f56a89c24870e494",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Youre the Flower of My Heart Sweet Adeline - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:43.286699+00:00",
+        "source_sha256": "11536fd0ba18f5e2583a60e2a3ea2bab1c6c5fd663683ef5f56a89c24870e494"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Tenor - Playback.opus",
+          "sha256": "5be024995a75ca9c12b5f4b99fa722b99db75aa2092738462aaa51c98f72c6b8",
+          "bytes": 669299,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "11536fd0ba18f5e2583a60e2a3ea2bab1c6c5fd663683ef5f56a89c24870e494",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:45.279680+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Tenor - Downmix.opus",
+          "sha256": "3d628a6138b583590c892c19828e754a45aa83ec977b72bc9c6ecdb470b8ca35",
+          "bytes": 172615,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "11536fd0ba18f5e2583a60e2a3ea2bab1c6c5fd663683ef5f56a89c24870e494",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:48.783133+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bari.mp3",
+      "bytes": 1987648,
+      "sha256": "589d6bf1a8ed6672e9eb23eca3e4dd5d0336e86cd2871cd3f2dce047a9e63e04",
+      "source_sha256": "589d6bf1a8ed6672e9eb23eca3e4dd5d0336e86cd2871cd3f2dce047a9e63e04",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Youre the Flower of My Heart Sweet Adeline - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:43.325571+00:00",
+        "source_sha256": "589d6bf1a8ed6672e9eb23eca3e4dd5d0336e86cd2871cd3f2dce047a9e63e04"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bari - Playback.opus",
+          "sha256": "aa17ebf1679b03f40b9c9998d2ae4c5a3cf286acf4897562019162797ac1c1cc",
+          "bytes": 669297,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "589d6bf1a8ed6672e9eb23eca3e4dd5d0336e86cd2871cd3f2dce047a9e63e04",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:46.099653+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bari - Downmix.opus",
+          "sha256": "aa197f59cf34525bc40e8b6ab44a4d7fe786037b475be572f6e000010d43bab4",
+          "bytes": 172613,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "589d6bf1a8ed6672e9eb23eca3e4dd5d0336e86cd2871cd3f2dce047a9e63e04",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:49.374820+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bass.mp3",
+      "bytes": 1987648,
+      "sha256": "3e6ea455a4021f0e8371b5e5711ce44b9f6316e483d0fb8ca87f159c049d2e26",
+      "source_sha256": "3e6ea455a4021f0e8371b5e5711ce44b9f6316e483d0fb8ca87f159c049d2e26",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Youre the Flower of My Heart Sweet Adeline - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:43.365309+00:00",
+        "source_sha256": "3e6ea455a4021f0e8371b5e5711ce44b9f6316e483d0fb8ca87f159c049d2e26"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bass - Playback.opus",
+          "sha256": "4070b26808d6354235fb0ab3c9cd863e80e5167273feecd0672d64c9249f74cf",
+          "bytes": 669280,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "3e6ea455a4021f0e8371b5e5711ce44b9f6316e483d0fb8ca87f159c049d2e26",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:46.882239+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Bass - Downmix.opus",
+          "sha256": "065211dd3f4cac610da21926fa1beb8fe55fb91cfbdd3882fe89336172346eee",
+          "bytes": 172596,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "3e6ea455a4021f0e8371b5e5711ce44b9f6316e483d0fb8ca87f159c049d2e26",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:49.864535+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Mix.mp3",
+      "bytes": 1891244,
+      "sha256": "e1da04a4fa32b8cd2dd5b42bf2cb20a1bc5b946768074eb8d9c2b8e225cddc9c",
+      "source_sha256": "e1da04a4fa32b8cd2dd5b42bf2cb20a1bc5b946768074eb8d9c2b8e225cddc9c",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Youre the Flower of My Heart Sweet Adeline - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0363,
+        "correlation": 0.9033,
+        "side_mid": 0.2308,
+        "analyzed_at": "2026-09-07T04:13:43.404135+00:00",
+        "source_sha256": "e1da04a4fa32b8cd2dd5b42bf2cb20a1bc5b946768074eb8d9c2b8e225cddc9c"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Mix - Playback.opus",
+          "sha256": "08797deb6bdc3529fc2c383c728c5bf1cf76cfb6d374b445c40e3a501a773468",
+          "bytes": 636648,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "e1da04a4fa32b8cd2dd5b42bf2cb20a1bc5b946768074eb8d9c2b8e225cddc9c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:47.676160+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Youre The Flower Of My Heart Sweet Adeline (Bb Major) - Mix - Ultra Mix.opus",
+          "sha256": "10454cb0ca4cf06f9d7351d15808ab10ecbe55307643834b9e7bdeeaed31c3a2",
+          "bytes": 321688,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "e1da04a4fa32b8cd2dd5b42bf2cb20a1bc5b946768074eb8d9c2b8e225cddc9c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:52.412967+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Youre the Flower of My Heart Sweet Adeline - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90010,
+    "Title": "You're The Flower Of My Heart, Sweet Adeline",
+    "AltTitle": "Sweet Adeline",
+    "CommonName": "Sweet Adeline",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": null,
+    "Collection": "polecats",
+    "Classic": 10,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "You're the Flower of My Heart SweetAdelinemix",
+      "learning": "You're The Flower Of My Heart, Sweet Adeline"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/youre-the-flower-of-my-heart-1",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/youre-the-flower-of-my-heart",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/youre-the-flower-of-my-heart-2",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/youre-the-flower-of-my-heart-3"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:43.442559+00:00",
+    "mix_correlation": 0.0122,
+    "mix_correlations": {
+      "lead": 0.0122,
+      "tenor": 0.0122,
+      "bari": 0.0122,
+      "bass": 0.0122
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:52.412988+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 56,
+    "extracted_at": "2026-10-08T21:30:14.106715+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 63.0,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 10.356,
+    "coverage": 0.951,
+    "avg_voices": 3.893,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 43.264,
+    "voiced": {
+      "lead": 0.884,
+      "tenor": 0.807,
+      "bari": 0.814,
+      "bass": 0.805
+    },
+    "midi_mad": {
+      "lead": 0.1044,
+      "tenor": 0.0788,
+      "bari": 0.0842,
+      "bass": 0.1066
+    }
+  }
+}

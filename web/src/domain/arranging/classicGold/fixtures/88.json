@@ -1,0 +1,164 @@
+{
+  "tagId": 88,
+  "title": "For Me and My Gal",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 105.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 18,
+  "tokenCount": 14,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "II7",
+    "II7",
+    "V7",
+    "II7",
+    "V7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.558,
+      "leadMidi": 50,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "II7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.858,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "VI",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.572,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "II7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.843,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.157,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "II7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.557,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.154,
+      "leadMidi": 54,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.332,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 0.232,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "VII",
+      "rootPc": 6,
+      "natureId": "unknown",
+      "dur": 0.325,
+      "leadMidi": 54,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.311,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 0.285,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.263,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.5575
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 3.143,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5575
+    }
+  ],
+  "classic": "76",
+  "collection": "classic"
+}

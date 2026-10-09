@@ -1,4 +1,6 @@
 /** Ranking weights live in domain so scorers stay free of adapter deps. */
+import defaults from '../defaultWeights.json'
+
 export type RankingWeights = {
   motion: number
   primaryLayer: number
@@ -46,28 +48,50 @@ export type RankingWeights = {
    * Separate from coarse tensionRelease so Why? can name the pattern.
    */
   cadenceFit: number
+  /**
+   * Soft demotion of minor / m7 / madd6 in major mode when Lead is not the ♭3
+   * (unforced color). Zero when Lead forces the minor third.
+   */
+  unforcedMinorPenalty: number
+  /**
+   * At phrase cadence/tag tonic arrivals: prefer major/minor home (Rylander
+   * ~99% major endings) unless Lead is on ♭7 (forces I7 / i7).
+   */
+  finalComplete: number
+  /**
+   * Classical function gravity toward I / V(7) / IV / ii(7) / vi — mirrors the
+   * Detected-chord highway so Coach Basic doesn’t wander into exotic roots.
+   */
+  diatonicFunction: number
+  /**
+   * True song/phrase final (no next melody): prefer tonic home, heavily demote
+   * hanging V7 / ii7 / non-tonic endings.
+   */
+  songFinalHome: number
+  /**
+   * Prefer 4 distinct pitch classes (true 4-part). When a triad must double,
+   * prefer the root (Flinn/BAM/Prietto); heavily demote doubled major 3rds.
+   */
+  completeFourPart: number
+  /**
+   * Keep stacks near a singable home register: bass ~C3–G3, tenor close above
+   * Lead, and resist upward inversion climb vs the previous stack.
+   */
+  registerHome: number
+  /**
+   * Ades close voicing: bari/lead/tenor within an octave (separate from
+   * bass–tenor outer span / `closedVoicing`).
+   */
+  upperTrioClose: number
+  /**
+   * After a leap > 3rd, prefer change of direction in bass/bari/tenor (Ades).
+   */
+  postLeapDirection: number
+  /**
+   * Soft demotion of ↑A4 / ↓d5 melodic leaps in non-Lead parts (Ades).
+   */
+  hazardousLeap: number
 }
 
-export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
-  motion: 1,
-  primaryLayer: 3,
-  seventh: 2,
-  closedVoicing: 0.5,
-  ring: 1,
-  secondaryDominant: 3,
-  augDimPrimaryPenalty: 4,
-  harmonicity: 2.5,
-  voiceLead: 1.5,
-  strongVoice: 1.25,
-  dim5Down: 1.25,
-  tensionRelease: 2,
-  resolution: 1.75,
-  spacing: 1.25,
-  contrary: 1,
-  commonTone: 1,
-  parallelPenalty: 1.5,
-  homeTriad: 3.25,
-  colorChordPenalty: 2.5,
-  passingSoftPenalty: 2,
-  cadenceFit: 1,
-}
+/** Edit numbers in `../defaultWeights.json` — this is just the typed view. */
+export const DEFAULT_RANKING_WEIGHTS: RankingWeights = defaults.ranking

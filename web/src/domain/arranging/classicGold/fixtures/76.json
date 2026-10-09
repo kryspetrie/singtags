@@ -1,0 +1,205 @@
+{
+  "tagId": 76,
+  "title": "The Old Dominion Line",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 84.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 18,
+  "pillarCount": 8,
+  "pillarRomans": [
+    "I",
+    "VI7",
+    "IV",
+    "I9",
+    "I",
+    "ii7",
+    "bII7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.853,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "III7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.358,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "iii",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 1.102,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.714,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "bii",
+      "rootPc": 6,
+      "natureId": "madd6",
+      "dur": 0.302,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "bII",
+      "rootPc": 6,
+      "natureId": "unknown",
+      "dur": 0.357,
+      "leadMidi": 54,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.711,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "VII7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.392,
+      "leadMidi": 52,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I9",
+      "rootPc": 5,
+      "natureId": "ninth",
+      "dur": 0.418,
+      "leadMidi": 55,
+      "confidence": 0.92,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.186,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.139,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 0.255,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.909,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 0.279,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I+",
+      "rootPc": 5,
+      "natureId": "aug",
+      "dur": 0.357,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.411,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 1.676,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4015
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.827,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4015
+    }
+  ],
+  "classic": "64",
+  "collection": "classic"
+}

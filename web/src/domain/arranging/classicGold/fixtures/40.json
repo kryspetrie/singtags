@@ -1,0 +1,183 @@
+{
+  "tagId": 40,
+  "title": "Drink to Me Only with Thine Eyes",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 90.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 30,
+  "tokenCount": 16,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "I",
+    "I",
+    "I7",
+    "II7",
+    "bII7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "bVII",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.72,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.928,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.391,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.276,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 0.351,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "bVI\u00b07",
+      "rootPc": 1,
+      "natureId": "dim7",
+      "dur": 0.14,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.509,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.667,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 5,
+      "natureId": "dim7",
+      "dur": 0.811,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "VII7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.189,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.645,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "i",
+      "rootPc": 5,
+      "natureId": "minor",
+      "dur": 0.649,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.852,
+      "leadMidi": 60,
+      "confidence": 0.46,
+      "role": "pillar",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "II7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 1.148,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 1.333,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7655
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 3.256,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7655
+    }
+  ],
+  "classic": "28",
+  "collection": "classic"
+}

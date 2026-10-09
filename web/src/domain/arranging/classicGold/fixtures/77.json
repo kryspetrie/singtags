@@ -1,0 +1,152 @@
+{
+  "tagId": 77,
+  "title": "Spring Brought Me Flowers",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 112.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 13,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "IV",
+    "I",
+    "I7",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 2.182,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.048,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 1.381,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 1.071,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 1.089,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.339,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.23,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.573,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.297,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.804,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.163,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.372,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.048
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 3.45,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 1.048
+    }
+  ],
+  "classic": "65",
+  "collection": "classic"
+}

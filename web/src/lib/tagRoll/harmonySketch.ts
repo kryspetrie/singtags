@@ -36,6 +36,7 @@ export function isHarmonySketchQuality(q: string): q is HarmonySketchQuality {
 /** Map stack/detect nature → sketch quality (unknown → major). */
 export function natureToSketchQuality(natureId: string): HarmonySketchQuality {
   if (isHarmonySketchQuality(natureId)) return natureId
+  if (natureId === 'halfdim' || natureId === 'half_dim') return 'half-dim'
   if (natureId === 'unknown' || !natureId) return 'major'
   return 'major'
 }

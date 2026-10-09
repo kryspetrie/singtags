@@ -1,0 +1,193 @@
+{
+  "tagId": 106,
+  "title": "Show Me Where the Good Times Are",
+  "tonality": 2,
+  "mode": "major",
+  "bpm": 65.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 25,
+  "tokenCount": 17,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "V7",
+    "ii",
+    "V7",
+    "I",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "V7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.923,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "ii",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.395,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.511,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "V7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 1.271,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "iii",
+      "rootPc": 6,
+      "natureId": "minor",
+      "dur": 0.232,
+      "leadMidi": 54,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.624,
+      "leadMidi": 54,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "IV",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 0.162,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "V7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 0.299,
+      "leadMidi": 55,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "IV",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 1.11,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 1.493,
+      "leadMidi": 54,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.462,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.14,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.395,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.35,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.558,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I+",
+      "rootPc": 2,
+      "natureId": "aug",
+      "dur": 0.403,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.462
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 2.555,
+      "leadMidi": 54,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.462
+    }
+  ],
+  "classic": "94",
+  "collection": "classic"
+}

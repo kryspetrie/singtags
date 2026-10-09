@@ -1,0 +1,208 @@
+{
+  "tagId": 20,
+  "title": "When I Leave the World Behind",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 101.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 18,
+  "pillarCount": 11,
+  "pillarRomans": [
+    "I",
+    "I7",
+    "bVII9",
+    "I7",
+    "ii7",
+    "vi",
+    "ii7",
+    "I",
+    "I",
+    "I6",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 2.066,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.31,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.348,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 1,
+      "natureId": "ninth",
+      "dur": 0.55,
+      "leadMidi": 51,
+      "confidence": 0.44,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.319,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 0.615,
+      "leadMidi": 51,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "vi",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.534,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.322,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 0.862,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.326,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "minor",
+      "dur": 0.209,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 0.297,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.288,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.162,
+      "leadMidi": 51,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.748,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I6",
+      "rootPc": 3,
+      "natureId": "sixth",
+      "dur": 0.3,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.3205
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.297,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3205
+    }
+  ],
+  "classic": "11",
+  "collection": "classic"
+}

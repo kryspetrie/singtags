@@ -1,0 +1,174 @@
+{
+  "tagId": 133,
+  "title": "If Happy Little Bluebirds Fly",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 87.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 15,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "I6",
+    "V7",
+    "II7",
+    "V7",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 1.379,
+      "leadMidi": 58,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "iii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.308,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "I6",
+      "rootPc": 3,
+      "natureId": "sixth",
+      "dur": 0.645,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "V\u00b07",
+      "rootPc": 10,
+      "natureId": "dim7",
+      "dur": 0.979,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.348,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "v\u00f87",
+      "rootPc": 10,
+      "natureId": "halfdim",
+      "dur": 0.727,
+      "leadMidi": 56,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "V\u00b07",
+      "rootPc": 10,
+      "natureId": "dim7",
+      "dur": 1.014,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "II",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.349,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.766,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "II7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.952,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.786,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 11,
+      "natureId": "major",
+      "dur": 1.034,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.742,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 2.01,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.786
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 2.414,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.786
+    }
+  ],
+  "classic": "122",
+  "collection": "classic"
+}

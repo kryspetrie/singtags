@@ -171,6 +171,15 @@ describe('cadence catalog', () => {
     expect(r.boost).toBe(0)
     expect(scaleForBias('moderate')).toBeCloseTo(0.55)
   })
+
+  it('tag_penult does not fire on true final (no next melody)', () => {
+    const def = cadenceById('tag_penult')!
+    const final = ctx({ melodyMidi: 67, phraseRole: 'tag' }) // no nextMelodyMidi
+    expect(def.matchContext(final).hit).toBe(false)
+    const penult = ctx({ melodyMidi: 67, nextMelodyMidi: 60, phraseRole: 'tag' })
+    expect(def.matchContext(penult).hit).toBe(true)
+    expect(def.boostCandidate({ rootPc: 7, natureId: 'seventh' }, penult)).toBeGreaterThan(5)
+  })
 })
 
 describe('phraseRole', () => {

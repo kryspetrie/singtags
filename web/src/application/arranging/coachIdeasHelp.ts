@@ -180,7 +180,7 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
   },
   auto: {
     ideasIntro:
-      'Auto is path thinking across the whole chart: one inversion story and safer approaches, not a greedy pick per chord.',
+      'Optimize thinks in paths: fill empties, revoice placements, or rechord natures — then audition.',
     ideas: [
       {
         title: 'Bass on 1 or 5 at openings',
@@ -195,33 +195,45 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
         glossaryIds: ['contrary_motion', 'common_tone', 'parallel_5_8'],
       },
       {
-        title: 'Strengthen approaches',
+        title: 'Fill / Revoice / Rechord',
         body:
-          'Strengthening looks for weak approaches into the next home and may insert or prefer secondary-dominant BS7 drive when safe. Still audition - software suggests highways; your ear keeps the lyric story.',
-        glossaryIds: ['secondary_dom', 'bs7', 'circle_fifths'],
+          'Fill empty writes stacks where Lead has no chord. Revoice keeps root and nature but moves TTBB. Rechord may change nature when the ranker finds a clearer highway. Full path does fill then rechord then revoice across overlapping windows so the middle of the form is not sacrificed.',
+        glossaryIds: ['strong_voicing', 'classic_cadences'],
       },
       {
-        title: 'Swipe seeds',
+        title: 'Cadence highways',
         body:
-          'A swipe is a short embellishment stacked near the end of a long hold. Try swipe seed only when a held melody note already has a TTBB stack.',
+          'With cadence bias on, Optimize seeds windows with catalog patterns (V7→I, II–V–I, …) when the Lead supports them. Audition after Run — software suggests highways; your ear keeps the lyric story.',
+        glossaryIds: ['classic_cadences', 'circle_fifths', 'bs7'],
+      },
+      {
+        title: 'Try again',
+        body:
+          'After a successful Run, Try again samples another high-scoring path with the same mode and weights. Undo restores the previous apply.',
+        glossaryIds: ['strong_voicing'],
+      },
+      {
+        title: 'Chord Walk keys',
+        body:
+          'On Chords (or Harmonize): ← → moments, ↑ ↓ cycle Suggest, F apply, H hear, Q next empty. Optional auto-advance after Apply lives under Optimize → Advanced.',
         glossaryIds: ['strong_voicing'],
       },
     ],
-    helpIntro: 'Whole-chart tools — then audition before you call it done.',
+    helpIntro: 'Path Optimizer — then audition before you call it done.',
     help: [
       {
-        title: 'Strengthen / Polish inversions',
-        body: 'These rewrite many stacks at once. Polish keeps your current register and only moves when voice leading improves — if a pass leaves stacks unchanged, the path was already smooth.',
+        title: 'Run optimize',
+        body: 'Pick mode and scope, set VL↔Ring and cadence bias, then Run. Multi-pass overlapping windows refine the path; rejected passes leave the chart unchanged when motion or leaps would worsen.',
       },
       {
-        title: 'Try swipe seed',
-        body: 'Needs a long held Lead note with a stack. If the button is disabled, there is no eligible hold yet.',
+        title: 'Export',
+        body: 'MIDI and MusicXML stay on the Tag Studio toolbar — not inside Coach.',
       },
     ],
   },
   polish: {
     ideasIntro:
-      'Polish is the final craft skim: checklist and style factors after Auto passes.',
+      'Polish is the final craft skim: checklist and style factors after Optimize.',
     ideas: [
       {
         title: 'Checklist is a reminder, not a gate',
@@ -240,11 +252,11 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
     help: [
       {
         title: 'Checklist',
-        body: 'Expand items when you want a final craft skim. Residuals often mean return to Chords or Auto.',
+        body: 'Expand items when you want a final craft skim. Residuals often mean return to Chords or Optimize (Auto).',
       },
       {
-        title: 'Back to Auto / Chords',
-        body: 'Whole-chart tools are on Auto. Local voicing fixes stay on Chords.',
+        title: 'Back to Optimize / Chords',
+        body: 'Whole-chart Path Optimizer is on Auto. Local voicing fixes stay on Chords.',
       },
     ],
   },

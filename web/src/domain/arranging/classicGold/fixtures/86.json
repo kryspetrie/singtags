@@ -1,0 +1,260 @@
+{
+  "tagId": 86,
+  "title": "Pal of My Dreams",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 93.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 26,
+  "tokenCount": 23,
+  "pillarCount": 13,
+  "pillarRomans": [
+    "I",
+    "V",
+    "I",
+    "V9",
+    "V7",
+    "V7",
+    "ii7",
+    "ii",
+    "ii7",
+    "V7",
+    "I",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.627,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.348,
+      "leadMidi": 52,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.312,
+      "leadMidi": 50,
+      "confidence": 0.173,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I6",
+      "rootPc": 5,
+      "natureId": "sixth",
+      "dur": 0.163,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.183,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V\u00b07",
+      "rootPc": 0,
+      "natureId": "dim7",
+      "dur": 1.565,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "v7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.323,
+      "leadMidi": 58,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.323,
+      "leadMidi": 58,
+      "confidence": 0.86,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.321,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "iii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.323,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.605,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.285,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.348,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "vi",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.335,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.968,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.323,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "iii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.374,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.329,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.32,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.971,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.615,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "III",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.255,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.163,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    }
+  ],
+  "classic": "74",
+  "collection": "classic"
+}

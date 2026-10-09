@@ -1,0 +1,142 @@
+{
+  "tagId": 11,
+  "title": "Danny My Boy",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 90.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 19,
+  "tokenCount": 12,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "I",
+    "II7",
+    "I",
+    "i7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.333,
+      "leadMidi": 58,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "bII",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.318,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 2.256,
+      "leadMidi": 50,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "vi",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 1.61,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 2.723,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.699,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "III",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.14,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.889,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 2.306,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "i7",
+      "rootPc": 10,
+      "natureId": "m7",
+      "dur": 2.378,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "V",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.278,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.2495
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 4.335,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.2495
+    }
+  ],
+  "classic": "4",
+  "collection": "classic"
+}

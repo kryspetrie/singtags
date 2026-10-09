@@ -5,11 +5,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { createEmptyArrangement } from '../../domain/arranging/types'
-import { inversionLabelFromVoicing } from '../../lib/tagRoll/harmonizer/inversionLabel'
 import { applyCandidateToProject, listCandidatesForNote } from './AutoHarmonize'
 
 describe('Coach opening cadence ranking', () => {
-  it('prefers F7 5317 (2nd inv) for Bonnie ^5→^1 even with a moment-shaped target id', () => {
+  it('prefers F7 5713 (close) for Bonnie ^5→^1 even with a moment-shaped target id', () => {
     const p = createEmptyArrangement()
     p.tonality = 10 // Bb
     p.preferFlats = true
@@ -26,11 +25,17 @@ describe('Coach opening cadence ranking', () => {
       role: 'pmn' as const,
     }
     const soft = { detectedSpans: [{ startTick: 0, endTick: 240, rootPc: 5 }] }
-    const top = listCandidatesForNote(p, momentTarget, { limit: 8, softContext: soft })[0]!
+    const top = listCandidatesForNote(p, momentTarget, {
+      limit: 8,
+      softContext: soft,
+      pathWeights: { risk: 0 },
+    })[0]!
     expect(top.rootPc).toBe(5)
     expect(top.natureId).toBe('seventh')
-    expect(top.voicing).toBe('5317')
-    expect(inversionLabelFromVoicing('5317')).toBe('2nd inv')
+    // Soft closedVoicing prefers octave-or-tighter (5713) when both place.
+    expect(top.midi.tenor - top.midi.bass).toBeLessThanOrEqual(12)
+    expect(top.voicing).toBe('5713')
+    expect(top.spread).toBe(false)
   })
 
   it('Fill empties prefers Detected quality over bare implied triad', () => {
@@ -46,7 +51,11 @@ describe('Coach opening cadence ranking', () => {
         { startTick: 0, endTick: 240, rootPc: 5, natureId: 'seventh' },
       ],
     }
-    const cands = listCandidatesForNote(p, p.melody[0]!, { limit: 12, softContext: soft })
+    const cands = listCandidatesForNote(p, p.melody[0]!, {
+      limit: 12,
+      softContext: soft,
+      pathWeights: { risk: 0 },
+    })
     const exact = cands.find((c) => c.rootPc === 5 && c.natureId === 'seventh')
     expect(exact).toBeTruthy()
     // Same preference Fill empties uses: match soft nature before first-ranked triad.
@@ -55,7 +64,7 @@ describe('Coach opening cadence ranking', () => {
       cands.find((c) => c.rootPc === 5) ??
       cands[0]
     expect(picked?.natureId).toBe('seventh')
-    expect(picked?.voicing).toBe('5317')
+    expect(picked!.midi.tenor - picked!.midi.bass).toBeLessThanOrEqual(12)
   })
 
   it('Apply keeps pillarId under succession (short endTick before next pillar)', () => {

@@ -1,0 +1,457 @@
+{
+  "tag_id": 90003,
+  "id": 90003,
+  "title": "Sweet And Lovely (That's What You Are To Me)",
+  "alt_title": "Sweet and Lovely",
+  "common_name": "Sweet and Lovely",
+  "arranger": "Mac Huff",
+  "key": "F Major",
+  "writ_key": "Major:F",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 3,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - 90003",
+  "identity": {
+    "title": "sweet and lovely (that's what you are to me)",
+    "arranger": "mac huff",
+    "key": "f major",
+    "version": "polecat",
+    "alt_title": "sweet and lovely",
+    "posted": ""
+  },
+  "identity_key": "sweet and lovely (that's what you are to me)|mac huff|f major|polecat|sweet and lovely|",
+  "identity_hash": "364deb5e2a58861d",
+  "keywords": [
+    "sweet and lovely (thats what you are to me)",
+    "sweet",
+    "and",
+    "lovely",
+    "thats",
+    "what",
+    "you",
+    "are",
+    "to",
+    "me",
+    "sweet and lovely",
+    "mac huff",
+    "mac",
+    "huff",
+    "f major",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90003",
+    "p3"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Sheet.pdf",
+      "bytes": 237975,
+      "sha256": "af20d90b6bb9d517608064305080ddde32f874c218d2cefb96321e8ee32c7347",
+      "source_sha256": "ac7293195d99f13a4b17f9d3ed0fb5155f3df339fcee4eaaf884209153536ec5",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Sweet and Lovely - PoleCats - Mac Huff (F).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Lead.mp3",
+      "bytes": 3079392,
+      "sha256": "3145c42975aefbad1059cd17d47576d67706bf6ea666a8a859a4de75591f5858",
+      "source_sha256": "3145c42975aefbad1059cd17d47576d67706bf6ea666a8a859a4de75591f5858",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet and Lovely - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0363,
+        "correlation": 0.9045,
+        "side_mid": 0.2395,
+        "analyzed_at": "2026-09-07T04:13:27.366875+00:00",
+        "source_sha256": "3145c42975aefbad1059cd17d47576d67706bf6ea666a8a859a4de75591f5858"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Lead - Playback.opus",
+          "sha256": "fd8bc7e0366714b66d0efd4737c2ef890089c1479976b9fb026ee73c142bb483",
+          "bytes": 1037080,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "3145c42975aefbad1059cd17d47576d67706bf6ea666a8a859a4de75591f5858",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:28.754484+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Lead - Downmix.opus",
+          "sha256": "9851b40b68c0087ef43dc7c480aaf5a34e438a4c941a9f722fbb294ece69bd18",
+          "bytes": 267156,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "3145c42975aefbad1059cd17d47576d67706bf6ea666a8a859a4de75591f5858",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.004802+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Tenor.mp3",
+      "bytes": 3079392,
+      "sha256": "9b6ba978855618665bb7fcb562f21b436a5151e1500449d8e17c1211bf82d10d",
+      "source_sha256": "9b6ba978855618665bb7fcb562f21b436a5151e1500449d8e17c1211bf82d10d",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet and Lovely - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0006,
+        "correlation": 0.9356,
+        "side_mid": 0.1826,
+        "analyzed_at": "2026-09-07T04:13:27.407370+00:00",
+        "source_sha256": "9b6ba978855618665bb7fcb562f21b436a5151e1500449d8e17c1211bf82d10d"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Tenor - Playback.opus",
+          "sha256": "d509764c2a158721fd65dd9435f75fe84ad80f04a2c91e3d2d2d9ac3b52dd679",
+          "bytes": 1037082,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "9b6ba978855618665bb7fcb562f21b436a5151e1500449d8e17c1211bf82d10d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:29.847507+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Tenor - Downmix.opus",
+          "sha256": "56456157ad93d0e89e3f482d5091c2ea159608639aa6d84cf8cae6085de926de",
+          "bytes": 267158,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "9b6ba978855618665bb7fcb562f21b436a5151e1500449d8e17c1211bf82d10d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.707241+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bari.mp3",
+      "bytes": 3079392,
+      "sha256": "744014c041ed95bb680ce8bbccdc0d9d6774a3de156783ca80068f08f0a06b55",
+      "source_sha256": "744014c041ed95bb680ce8bbccdc0d9d6774a3de156783ca80068f08f0a06b55",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet and Lovely - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0019,
+        "correlation": 0.94,
+        "side_mid": 0.1758,
+        "analyzed_at": "2026-09-07T04:13:27.448164+00:00",
+        "source_sha256": "744014c041ed95bb680ce8bbccdc0d9d6774a3de156783ca80068f08f0a06b55"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bari - Playback.opus",
+          "sha256": "a27b327d4ceba316694137fa37b1dc93dca53d0439a59bbd6f7048ae6d6e8f5c",
+          "bytes": 1037080,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "744014c041ed95bb680ce8bbccdc0d9d6774a3de156783ca80068f08f0a06b55",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:30.967096+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bari - Downmix.opus",
+          "sha256": "8ec61932afc0eafa288857559e73f58065a78666aaef5132ee4f965690aa869b",
+          "bytes": 267156,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "744014c041ed95bb680ce8bbccdc0d9d6774a3de156783ca80068f08f0a06b55",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:35.454839+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bass.mp3",
+      "bytes": 3079392,
+      "sha256": "b8ba093f5b4ff9491425682319ce9a1144c22a6acfa62290ce288a13b62c28b3",
+      "source_sha256": "b8ba093f5b4ff9491425682319ce9a1144c22a6acfa62290ce288a13b62c28b3",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet And Lovely - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet And Lovely - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0103,
+        "correlation": 0.9329,
+        "side_mid": 0.1922,
+        "analyzed_at": "2026-09-07T04:13:27.488195+00:00",
+        "source_sha256": "b8ba093f5b4ff9491425682319ce9a1144c22a6acfa62290ce288a13b62c28b3"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bass - Playback.opus",
+          "sha256": "ddeecf371cdacdc9f85069ca60eb16602f6df5bd422b74b6665dffe533c9b16e",
+          "bytes": 1037063,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "b8ba093f5b4ff9491425682319ce9a1144c22a6acfa62290ce288a13b62c28b3",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:32.174449+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Bass - Downmix.opus",
+          "sha256": "8d3db830854dc66da22820f2a06db7d825a7c263628ddfcf9147a9de83fbdc19",
+          "bytes": 267139,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "b8ba093f5b4ff9491425682319ce9a1144c22a6acfa62290ce288a13b62c28b3",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:36.127495+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Mix.mp3",
+      "bytes": 2983614,
+      "sha256": "180c880d3b285ae338757bed5b33d6bddd232396f055a855fb2249962d1bb05e",
+      "source_sha256": "180c880d3b285ae338757bed5b33d6bddd232396f055a855fb2249962d1bb05e",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet And Lovely - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet And Lovely - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0056,
+        "correlation": 0.8596,
+        "side_mid": 0.2751,
+        "analyzed_at": "2026-09-07T04:13:27.529130+00:00",
+        "source_sha256": "180c880d3b285ae338757bed5b33d6bddd232396f055a855fb2249962d1bb05e"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Mix - Playback.opus",
+          "sha256": "fc7171717b1126da1c70f9c5830e7fc9408b611cfbb34e2af6907d1322a84f1f",
+          "bytes": 1004914,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "180c880d3b285ae338757bed5b33d6bddd232396f055a855fb2249962d1bb05e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:33.348618+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - Mix - Ultra Mix.opus",
+          "sha256": "9c5113421ec8f8f6999e417e3cf1df3e0a3b53d1b25294e1f3d7b2e8e227f407",
+          "bytes": 507554,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "180c880d3b285ae338757bed5b33d6bddd232396f055a855fb2249962d1bb05e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:39.778999+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet And Lovely - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet and Lovely - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet And Lovely - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90003,
+    "Title": "Sweet And Lovely (That's What You Are To Me)",
+    "AltTitle": "Sweet and Lovely",
+    "CommonName": "Sweet and Lovely",
+    "WritKey": "Major:F",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Mac Huff",
+    "Collection": "polecats",
+    "Classic": 3,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Sweet and Lovely",
+      "learning": "Sweet And Lovely (That's What You Are To Me)"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/sweet-and-lovely-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/sweet-and-lovely-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/sweet-and-lovely-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/sweet-and-lovely-thats-what"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:27.569330+00:00",
+    "mix_correlation": 0.013,
+    "mix_correlations": {
+      "lead": 0.013,
+      "tenor": 0.0116,
+      "bari": 0.0113,
+      "bass": 0.0113
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:39.779030+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 86,
+    "extracted_at": "2026-10-08T21:29:22.334576+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 63.0,
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 4.714,
+    "coverage": 0.917,
+    "avg_voices": 3.977,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 79.642,
+    "voiced": {
+      "lead": 0.933,
+      "tenor": 0.949,
+      "bari": 0.949,
+      "bass": 0.947
+    },
+    "midi_mad": {
+      "lead": 0.067,
+      "tenor": 0.0882,
+      "bari": 0.0843,
+      "bass": 0.1044
+    }
+  }
+}

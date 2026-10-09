@@ -41,10 +41,17 @@ export type CandidatesForNoteOpts = {
   prevRootPc: number | null
   prevNatureId?: string | null
   preferScf?: boolean
+  allowPassing?: boolean
+  allowScf?: boolean
+  allowSpread?: boolean
+  /** Basic: only emit sec-dom of the next pillar (not of the current root). */
+  secDomNextOnly?: boolean
+  natureAllowlist?: readonly string[] | null
   limit?: number
   profile?: ContestProfile
   nextPillarRoot?: number | null
   prevMidi?: VoicingPitches | null
+  prevPrevMidi?: VoicingPitches | null
   prevDominant?: { rootPc: number; natureId: string; midi: VoicingPitches } | null
   rankerDeps?: RankerDeps
   /** Next Lead pitch for cadence ranking (V7→I, etc.). */
@@ -64,9 +71,15 @@ export function candidatesForMelodyNote(opts: CandidatesForNoteOpts): HarmonizeC
     prevRootPc: opts.prevRootPc,
     prevNatureId: opts.prevNatureId ?? null,
     preferScf: opts.preferScf,
+    allowPassing: opts.allowPassing,
+    allowScf: opts.allowScf,
+    allowSpread: opts.allowSpread,
+    secDomNextOnly: opts.secDomNextOnly,
+    natureAllowlist: opts.natureAllowlist,
     profile: opts.profile,
     nextPillarRoot: opts.nextPillarRoot,
     prevMidi: opts.prevMidi,
+    prevPrevMidi: opts.prevPrevMidi,
     prevDominant: opts.prevDominant,
   })
   const cadenceContext = {
@@ -95,6 +108,7 @@ type BeamState = {
   prevRoot: number | null
   prevNature: string | null
   prevMidi: VoicingPitches | null
+  prevPrevMidi: VoicingPitches | null
   prevDominant: { rootPc: number; natureId: string; midi: VoicingPitches } | null
 }
 
@@ -129,6 +143,7 @@ export function autoHarmonizeMelody(opts: {
       prevRoot: null,
       prevNature: null,
       prevMidi: null,
+      prevPrevMidi: null,
       prevDominant: null,
     },
   ]
@@ -161,6 +176,7 @@ export function autoHarmonizeMelody(opts: {
         profile,
         nextPillarRoot: nextPillar?.rootPc ?? null,
         prevMidi: beam.prevMidi,
+        prevPrevMidi: beam.prevPrevMidi,
         prevDominant: beam.prevDominant,
         rankerDeps: opts.rankerDeps,
         nextMelodyMidi: nextNote?.midi ?? null,
@@ -187,6 +203,7 @@ export function autoHarmonizeMelody(opts: {
             profile,
             nextPillarRoot: nextPillar.rootPc,
             prevMidi: cand.midi,
+            prevPrevMidi: beam.prevMidi,
             prevDominant:
               cand.natureId === 'seventh' || cand.natureId === 'ninth'
                 ? { rootPc: cand.rootPc, natureId: cand.natureId, midi: cand.midi }
@@ -208,6 +225,7 @@ export function autoHarmonizeMelody(opts: {
           prevRoot: cand.rootPc,
           prevNature: cand.natureId,
           prevMidi: cand.midi,
+          prevPrevMidi: beam.prevMidi,
           prevDominant:
             cand.natureId === 'seventh' || cand.natureId === 'ninth'
               ? { rootPc: cand.rootPc, natureId: cand.natureId, midi: cand.midi }

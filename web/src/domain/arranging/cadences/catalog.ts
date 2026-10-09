@@ -327,11 +327,15 @@ const tagPenult: CadenceDef = {
   priority: 2,
   matchContext(ctx) {
     if (ctx.phraseRole !== 'tag') return miss()
+    // True song/phrase final (no next onset) must land home — never boost V7 here.
+    if (ctx.nextMelodyMidi == null && ctx.nextPillarRoot == null) return miss()
     const n = nextDeg(ctx)
     if (n === 0 || (ctx.nextPillarRoot != null && pc(ctx.nextPillarRoot) === tonicPc(ctx))) {
       return hit(0.8)
     }
-    return hit(0.4)
+    // Next exists but is not clearly tonic — soft penult only when next is I chord-tone-ish.
+    if (n === 4 || n === 7) return hit(0.45)
+    return miss()
   },
   boostCandidate(cand, ctx) {
     const m = this.matchContext(ctx)

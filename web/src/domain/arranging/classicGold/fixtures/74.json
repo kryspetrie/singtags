@@ -1,0 +1,185 @@
+{
+  "tagId": 74,
+  "title": "She Stole My Heart Away",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 69.5,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 26,
+  "tokenCount": 16,
+  "pillarCount": 8,
+  "pillarRomans": [
+    "I",
+    "VI7",
+    "ii",
+    "V7",
+    "IV",
+    "iv",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.465,
+      "leadMidi": 55,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "V",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.398,
+      "leadMidi": 57,
+      "confidence": 0.233,
+      "role": "mid",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 1.727,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "v7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 0.431,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.889,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.701,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.432,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "ii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 2.666,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.863,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 2.395,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.139,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.547,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 2.631,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 1.71,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "I+",
+      "rootPc": 7,
+      "natureId": "aug",
+      "dur": 0.209,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.784
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.705,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.784
+    }
+  ],
+  "classic": "62",
+  "collection": "classic"
+}

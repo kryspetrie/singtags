@@ -3,14 +3,19 @@
  */
 import {
   listCandidatesForNote,
+  type ListCandidatesOpts,
   type SoftSuggestContext,
 } from './AutoHarmonize'
-import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
-import type { RankerDeps } from '../../domain/arranging/harmonize'
+import {
+  candidateToStack,
+  type HarmonizeCandidate,
+  type RankerDeps,
+} from '../../domain/arranging/harmonize'
 import {
   momentToMelodyEvent,
   type HarmonicMoment,
 } from '../../domain/arranging/harmonicMoments'
+import { pillarAtTick } from '../../domain/arranging/pillars'
 import type { ArrangementProject, MelodyEvent } from '../../domain/arranging/types'
 import type { IdGenerator } from '../../ports/IdGenerator'
 
@@ -56,6 +61,7 @@ export type FillEmptyApply = {
 /**
  * Build Apply ops for Lead onsets that still lack a real stack.
  * Held posts are skipped (they follow Sketch/Detected spans).
+ * Applies fills into a working copy so each next pick sees prior MIDI (Basic leap caps).
  */
 export function planFillEmptyWithBest(opts: {
   project: ArrangementProject
@@ -64,25 +70,32 @@ export function planFillEmptyWithBest(opts: {
   rankerDeps: RankerDeps
   idGen: IdGenerator
   limit?: number
+  /** Basic→Risky taste from Path Optimize panel. */
+  pathWeights?: ListCandidatesOpts['pathWeights']
 }): FillEmptyApply[] {
   const out: FillEmptyApply[] = []
   const limit = opts.limit ?? 16
-  for (const m of opts.moments) {
+  let working: ArrangementProject = opts.project
+  const moments = [...opts.moments].sort((a, b) => a.startTick - b.startTick)
+  for (const m of moments) {
     if (m.heldLead) continue
-    if (opts.project.stacks.some((s) => s.startTick === m.startTick && s.natureId !== 'unknown')) {
+    if (working.stacks.some((s) => s.startTick === m.startTick && s.natureId !== 'unknown')) {
       continue
     }
     const note = momentToMelodyEvent(m)
     const cands = listCandidatesForNote(
-      opts.project,
+      working,
       note,
-      { softContext: opts.soft, limit },
+      { softContext: opts.soft, limit, pathWeights: opts.pathWeights },
       { rankerDeps: opts.rankerDeps, idGen: opts.idGen },
     )
     const softChord = opts.soft ? softChordAtTick(opts.soft, m.startTick) : null
     const top = pickFillCandidate(cands, softChord)
     if (!top) continue
     out.push({ note, candidate: top })
+    const pillar = pillarAtTick(working.pillars, note.startTick)
+    const stack = candidateToStack(note, top, pillar?.id ?? null, opts.idGen)
+    working = { ...working, stacks: [...working.stacks, stack] }
   }
   return out
 }

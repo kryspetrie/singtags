@@ -202,6 +202,14 @@ function onClick(o: HarmonizeChordOption): void {
 function onPointerDown(o: HarmonizeChordOption, e: PointerEvent): void {
   if (props.interaction !== 'hold' || e.button !== 0) return
   e.preventDefault()
+  // Capture so pointerup still fires if the chip reflows (selection) or the
+  // cursor leaves the button before release — otherwise hold playback sticks.
+  const el = e.currentTarget as HTMLElement | null
+  try {
+    el?.setPointerCapture?.(e.pointerId)
+  } catch {
+    /* ignore */
+  }
   emit('pick', o)
   emit('holdStart', o, e)
 }

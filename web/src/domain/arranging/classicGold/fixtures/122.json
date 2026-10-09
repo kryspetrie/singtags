@@ -1,0 +1,207 @@
+{
+  "tagId": 122,
+  "title": "Cheer Up, Charlie",
+  "tonality": 9,
+  "mode": "major",
+  "bpm": 70.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 20,
+  "tokenCount": 18,
+  "pillarCount": 10,
+  "pillarRomans": [
+    "ii",
+    "V7",
+    "I",
+    "ii7",
+    "I",
+    "IV9",
+    "I",
+    "IV",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "ii",
+      "rootPc": 11,
+      "natureId": "minor",
+      "dur": 0.394,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "III",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "vi",
+      "rootPc": 6,
+      "natureId": "minor",
+      "dur": 0.429,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.328,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "iv",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.891,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "V7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.286,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.857,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 11,
+      "natureId": "m7",
+      "dur": 0.429,
+      "leadMidi": 50,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.286,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 2,
+      "natureId": "ninth",
+      "dur": 0.348,
+      "leadMidi": 57,
+      "confidence": 0.44,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.476,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "IV",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.42,
+      "leadMidi": 50,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "IV",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 1.295,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.429,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "iv",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.395,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "bII",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.461,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.429
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 2.871,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.429
+    }
+  ],
+  "classic": "111",
+  "collection": "classic"
+}

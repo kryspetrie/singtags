@@ -78,6 +78,27 @@ export function scoreRootsForNotes(
   }
   for (const n of notes) candidates.add(((n.midi % 12) + 12) % 12)
 
+  // Duration-weighted melody scale-degree mass (major map; minor uses same pcs).
+  let massTon = 0
+  let mass2 = 0
+  let mass3 = 0
+  let mass4 = 0
+  let mass5 = 0
+  let mass6 = 0
+  let massLt = 0
+  for (const n of notes) {
+    const sd = (((n.midi % 12) - tonality) % 12 + 12) % 12
+    const w = Math.max(1, n.durationTicks / 240)
+    if (sd === 0) massTon += w
+    else if (sd === 2) mass2 += w
+    else if (sd === 3 || sd === 4) mass3 += w
+    else if (sd === 5) mass4 += w
+    else if (sd === 7) mass5 += w
+    else if (sd === 8 || sd === 9) mass6 += w
+    else if (sd === 10 || sd === 11) massLt += w
+  }
+  const massSum = massTon + mass2 + mass3 + mass4 + mass5 + mass6 + massLt || 1
+
   const results: { rootPc: number; score: number; reason: string }[] = []
   for (const rootPc of candidates) {
     let score = 0
@@ -97,6 +118,36 @@ export function scoreRootsForNotes(
     if (deg === 0) score += 2.5
     else if (deg === 5 || deg === 7) score += 1.75
     else if (mode === 'minor' && (deg === 3 || deg === 8)) score += 0.75
+
+    // Honest polecat miss: V stolen by I/II; I stolen by vi/iii.
+    // Cue V when melody is heavy on LT / ^2; protect I when tonic is present.
+    if (mode !== 'minor') {
+      if (deg === 7) {
+        score += 1.35 * massLt + 1.0 * mass2 + 0.35 * mass5
+        // Sweet Roses: V was stealing I when tonic is present in the span.
+        if (massTon > 0.3 * massSum) score -= 2.4
+      } else if (deg === 0) {
+        score += 0.85 * massTon
+        // Bare LT/^2 without tonic → not I
+        if (massLt + mass2 > massTon + 0.25 * massSum && massTon < 0.35 * massSum) {
+          score -= 2.2
+        }
+        // Single-note (or tonic-dominated) spans: prefer I home.
+        if (massTon >= 0.6 * massSum) score += 1.5
+      } else if (deg === 5) {
+        // IV when melody sits on ^4 / ^6 / ^1 (subdominant)
+        score += 0.9 * mass4 + 0.45 * mass6 + 0.25 * massTon
+      } else if (deg === 2) {
+        // II often steals V under LT; keep II when ^2/^4 dominate without LT
+        if (massLt > 0.2 * massSum) score -= 1.8
+        else score += 0.45 * mass2 + 0.35 * mass4
+      } else if (deg === 9) {
+        // vi steals I under ^3; demote when tonic is clear
+        if (massTon > 0.25 * massSum) score -= 1.2
+      } else if (deg === 4) {
+        if (massTon > 0.3 * massSum) score -= 0.8
+      }
+    }
 
     const coverage = hits / notes.length
     score *= 0.5 + coverage
@@ -120,6 +171,34 @@ export function proposeRootForSpan(opts: {
   const notes = opts.melody.filter(
     (n) => n.startTick < opts.endTick && n.startTick + n.durationTicks > opts.startTick,
   )
+  // Single-tone spans (common at eighth-note inference): map scale degree → home.
+  // Multi-note spans keep the coverage scorer.
+  // 1–2 note spans: use (arrival) tone scale-degree → I/IV/V prior.
+  if (mode !== 'minor' && notes.length >= 1 && notes.length <= 2) {
+    const tone = notes.length === 1 ? notes[0]! : notes.reduce((a, b) =>
+      b.startTick >= a.startTick ? b : a,
+    )
+    const sd = (((tone.midi % 12) - opts.tonality) % 12 + 12) % 12
+    // ^1/^3/^5→I, ^4/^6→IV, ^2/^7→V (barbershop melody-harmonization prior)
+    const homeDeg =
+      sd === 0 || sd === 4 || sd === 7
+        ? 0
+        : sd === 5 || sd === 9
+          ? 5
+          : sd === 2 || sd === 11
+            ? 7
+            : sd === 3 || sd === 8
+              ? 0
+              : null
+    if (homeDeg != null) {
+      const rootPc = ((opts.tonality + homeDeg) % 12 + 12) % 12
+      return {
+        rootPc,
+        confidence: 2,
+        reason: 'single-tone scale-degree home',
+      }
+    }
+  }
   const best = scoreRootsForNotes(notes, opts.tonality, mode)[0]
   if (!best) return null
   return { rootPc: best.rootPc, confidence: best.score, reason: best.reason }

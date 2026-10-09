@@ -1,0 +1,253 @@
+{
+  "tagId": 29,
+  "title": "Who'll Take My Place When I'm Gone?",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 89.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 29,
+  "tokenCount": 23,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "II7",
+    "V7",
+    "I",
+    "II7",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.626,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "vi",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 0.675,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 0.209,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 0.209,
+      "leadMidi": 60,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.543,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "iii",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.623,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.388,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.011,
+      "leadMidi": 58,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.32,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.337,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "i7",
+      "rootPc": 10,
+      "natureId": "m7",
+      "dur": 0.209,
+      "leadMidi": 58,
+      "confidence": 0.79,
+      "role": "passing",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.802,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.674,
+      "leadMidi": 58,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 10,
+      "natureId": "dim7",
+      "dur": 0.948,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "bII",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.314,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.022,
+      "leadMidi": 58,
+      "confidence": 0.34,
+      "role": "pillar",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 1.024,
+      "leadMidi": 58,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 1.135,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.364,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I6",
+      "rootPc": 10,
+      "natureId": "sixth",
+      "dur": 0.356,
+      "leadMidi": 58,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.673,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I6",
+      "rootPc": 10,
+      "natureId": "sixth",
+      "dur": 0.302,
+      "leadMidi": 58,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.623
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.675,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.623
+    }
+  ],
+  "classic": "19",
+  "collection": "classic"
+}

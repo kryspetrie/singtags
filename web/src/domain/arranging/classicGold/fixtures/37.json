@@ -1,0 +1,144 @@
+{
+  "tagId": 37,
+  "title": "Back in My Home Town",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 70.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 19,
+  "tokenCount": 12,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "V",
+    "IV",
+    "I",
+    "bVII7",
+    "V7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.429,
+      "leadMidi": 58,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "V",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.477,
+      "leadMidi": 60,
+      "confidence": 0.647,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.46,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 0.422,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.777,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "V",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.472,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "iv",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 0.385,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 1.285,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.661,
+      "leadMidi": 61,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 1.676,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "I7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.14,
+      "leadMidi": 50,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.4745
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 2.458,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4745
+    }
+  ],
+  "classic": "25",
+  "collection": "classic"
+}

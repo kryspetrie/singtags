@@ -1,0 +1,202 @@
+{
+  "tagId": 44,
+  "title": "Lullaby and Goodnight",
+  "tonality": 0,
+  "mode": "major",
+  "bpm": 93.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 18,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "I",
+    "I",
+    "V9",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.29,
+      "leadMidi": 52,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "V6",
+      "rootPc": 7,
+      "natureId": "sixth",
+      "dur": 1.291,
+      "leadMidi": 50,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.29,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "iii",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.286,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "V6",
+      "rootPc": 7,
+      "natureId": "sixth",
+      "dur": 0.322,
+      "leadMidi": 50,
+      "confidence": 0.73,
+      "role": "passing",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "II",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.267,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 1.881,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.36,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.995,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "V9",
+      "rootPc": 7,
+      "natureId": "ninth",
+      "dur": 1.29,
+      "leadMidi": 57,
+      "confidence": 0.86,
+      "role": "pillar",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "VII",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 1.663,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.563,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I6",
+      "rootPc": 0,
+      "natureId": "sixth",
+      "dur": 0.322,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.208,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I6",
+      "rootPc": 0,
+      "natureId": "sixth",
+      "dur": 0.14,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.139,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "vi",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.992,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.9935
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 2.637,
+      "leadMidi": 52,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.9935
+    }
+  ],
+  "classic": "32",
+  "collection": "classic"
+}

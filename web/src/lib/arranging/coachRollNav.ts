@@ -23,6 +23,8 @@ export type CoachRollNavHandlers = {
   stepNextIssue: () => void
   /** Next empty → unrecognized → issue (repair tour). */
   stepNextProblem: () => void
+  /** Cycle ranked Suggest candidates (±1). */
+  stepSuggest?: (dir: -1 | 1) => void
 }
 
 const emptyState = (): CoachRollNavState => ({
@@ -69,6 +71,10 @@ export function coachRollNavStepNextIssue(): void {
 
 export function coachRollNavStepNextProblem(): void {
   handlers?.stepNextProblem()
+}
+
+export function coachRollNavStepSuggest(dir: -1 | 1): void {
+  handlers?.stepSuggest?.(dir)
 }
 
 export function clearCoachRollNavState(): void {

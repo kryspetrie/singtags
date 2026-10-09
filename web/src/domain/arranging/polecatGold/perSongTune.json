@@ -1,0 +1,1048 @@
+{
+  "updatedAt": "2026-10-09T02:25:40.046Z",
+  "note": "Per-song coordinate tune + coarse clusters. Presets are diagnostic; do not ship without gold gate.",
+  "results": [
+    {
+      "tagId": 90001,
+      "title": "My Wild Irish Rose",
+      "role": "gold",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8076923076923077
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8076923076923077
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "V7",
+        "I",
+        "iii",
+        "I",
+        "I7",
+        "IV",
+        "VII7",
+        "I",
+        "V7",
+        "I",
+        "V7",
+        "I",
+        "II7",
+        "V7",
+        "I",
+        "I7",
+        "IV",
+        "VII7",
+        "I",
+        "V7"
+      ],
+      "predHighway": [
+        "V7",
+        "I",
+        "III7",
+        "V",
+        "I",
+        "IV",
+        "VII7",
+        "I",
+        "V7",
+        "V7(9)",
+        "I",
+        "V7",
+        "II7",
+        "I",
+        "vii",
+        "ii",
+        "VI7(9)",
+        "II7",
+        "V7",
+        "I"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "dom@5×6",
+        "triad7@10×4",
+        "supertonic@0×3",
+        "seventh@7×2",
+        "major@9",
+        "mediant@2",
+        "minor@7",
+        "seventh@9"
+      ],
+      "styleFlags": [
+        "mediant",
+        "circle",
+        "supertonic-minor"
+      ]
+    },
+    {
+      "tagId": 90003,
+      "title": "Sweet And Lovely (That's What You Are To Me)",
+      "role": "gold",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8181818181818182
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8484848484848485
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "completeFourPart": 0.25
+      },
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "II7",
+        "V7",
+        "I",
+        "V7",
+        "VI7",
+        "II7",
+        "V",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "VI7",
+        "II7",
+        "ii7",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "IV"
+      ],
+      "predHighway": [
+        "II7(9)",
+        "II7",
+        "II7(9)",
+        "V7",
+        "II7",
+        "V7",
+        "II7(9)",
+        "I7",
+        "V7",
+        "I",
+        "VI7",
+        "♭III7",
+        "VI7",
+        "II7",
+        "VI7",
+        "II7(9)",
+        "VI7(9)",
+        "V7",
+        "iii",
+        "V7"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "supertonic@7×7",
+        "seventh@2×5",
+        "dom@0×5",
+        "triad7@5×2",
+        "seventh@8",
+        "mediant@9",
+        "minor@5",
+        "minor@10"
+      ],
+      "styleFlags": [
+        "circle",
+        "supertonic-minor",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90006,
+      "title": "Let Me Call You Sweetheart",
+      "role": "gold",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.85
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.85
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "I",
+        "IV",
+        "VI7",
+        "II7",
+        "V7",
+        "II7",
+        "I",
+        "V7",
+        "I",
+        "IV",
+        "VI7",
+        "II7",
+        "ii",
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "I",
+        "IV7",
+        "I"
+      ],
+      "predHighway": [
+        "I7",
+        "V7",
+        "I",
+        "V7",
+        "I",
+        "vii",
+        "I7",
+        "IV",
+        "VI7",
+        "ii",
+        "VI7",
+        "II7",
+        "V7",
+        "v",
+        "V7",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "I"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "dom@5×8",
+        "triad7@10×5",
+        "supertonic@0×4",
+        "triad7@3×3",
+        "major@9×2",
+        "minor@5",
+        "major@11",
+        "minor@10"
+      ],
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90009,
+      "title": "The Story of the Rose",
+      "role": "gold",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8333333333333334
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.9444444444444444
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "diatonicFunction": 3,
+        "strongVoice": 0.25
+      },
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "I",
+        "II7",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "I",
+        "V7",
+        "I",
+        "IV",
+        "VII7",
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "IV7",
+        "I"
+      ],
+      "predHighway": [
+        "I",
+        "III7",
+        "I7(9)",
+        "VI7",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "I",
+        "VI7",
+        "ii",
+        "VI7",
+        "ii",
+        "IV7",
+        "V7",
+        "I",
+        "V7",
+        "I",
+        "VI7",
+        "II7"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "supertonic@10×4",
+        "dom@3×4",
+        "seventh@5×3",
+        "triad7@8×3",
+        "mediant@0×2",
+        "major@0×2",
+        "triad7@1×2",
+        "minor@8"
+      ],
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90002,
+      "title": "Wait 'Til The Sun Shines, Nellie",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.8909090909090909,
+        "strict": 0.7796610169491526
+      },
+      "best": {
+        "hwy": 0.9454545454545454,
+        "strict": 0.864406779661017
+      },
+      "deltaHwy": 0.054545454545454564,
+      "rankingBase": {
+        "diatonicFunction": 3,
+        "passingSoftPenalty": 3
+      },
+      "cadenceBias": "off",
+      "goldHighway": [
+        "V7",
+        "iii",
+        "bV7",
+        "V7",
+        "I",
+        "IV7",
+        "I",
+        "V7",
+        "ii7",
+        "V7",
+        "I",
+        "IV",
+        "I",
+        "V7",
+        "bV7",
+        "V7",
+        "I7",
+        "IV",
+        "VI7",
+        "ii"
+      ],
+      "predHighway": [
+        "VII7(9)",
+        "V7",
+        "iii",
+        "♯IV",
+        "V7",
+        "II7(9)",
+        "III7",
+        "V7",
+        "I",
+        "IV7",
+        "VI7",
+        "II7",
+        "V7",
+        "II7",
+        "ii",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "VI7"
+      ],
+      "missingInPred": [
+        "seventh@2×2"
+      ],
+      "extraInPred": [
+        "dom@3×10",
+        "supertonic@10×9",
+        "triad7@1×6",
+        "major@2×4",
+        "minor@8×4",
+        "mediant@0×4",
+        "seventh@5×4",
+        "major@0×3"
+      ],
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90004,
+      "title": "Down Our Way",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.9444444444444444,
+        "strict": 0.7368421052631579
+      },
+      "best": {
+        "hwy": 0.9444444444444444,
+        "strict": 0.7368421052631579
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "II7",
+        "ii7",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "bVI7",
+        "I",
+        "VI7",
+        "II7",
+        "I",
+        "VI7",
+        "II7",
+        "bII7",
+        "I"
+      ],
+      "predHighway": [
+        "I7",
+        "III7",
+        "VI7",
+        "II7",
+        "VI7(9)",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "ii",
+        "VI7",
+        "II7",
+        "ii",
+        "VI7(9)",
+        "II7",
+        "V7",
+        "II7",
+        "♯IV",
+        "V7",
+        "♭III"
+      ],
+      "missingInPred": [
+        "seventh@11"
+      ],
+      "extraInPred": [
+        "supertonic@0×7",
+        "mediant@2×4",
+        "seventh@7×4",
+        "dom@5×3",
+        "major@4",
+        "major@1",
+        "triad7@3",
+        "major@11"
+      ],
+      "styleFlags": [
+        "chromatic",
+        "circle",
+        "supertonic-minor",
+        "dense-7ths",
+        "chromatic-roots"
+      ]
+    },
+    {
+      "tagId": 90005,
+      "title": "Honey - Little 'Lize Medley",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.5833333333333334
+      },
+      "best": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.5833333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "V7",
+        "I",
+        "III7",
+        "IV",
+        "IV7",
+        "I",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "I",
+        "III7",
+        "IV",
+        "II7",
+        "V7",
+        "I",
+        "IV",
+        "I",
+        "IV",
+        "I"
+      ],
+      "predHighway": [
+        "V7",
+        "I",
+        "iii",
+        "IV7",
+        "IV",
+        "I",
+        "vii",
+        "ii",
+        "V7",
+        "II7",
+        "V7",
+        "I",
+        "iii",
+        "IV7",
+        "I",
+        "VI7(9)",
+        "VI7",
+        "I",
+        "I7(9)",
+        "I"
+      ],
+      "missingInPred": [
+        "sixth@10×2"
+      ],
+      "extraInPred": [
+        "dom@5×8",
+        "supertonic@0×6",
+        "seventh@7×3",
+        "triad7@10×3",
+        "major@2×2",
+        "triad7@3×2",
+        "mediant@2×2",
+        "major@9"
+      ],
+      "styleFlags": [
+        "mediant",
+        "I7-IV",
+        "added6"
+      ]
+    },
+    {
+      "tagId": 90007,
+      "title": "Sweet, Sweet Roses Of Morn",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.8717948717948718,
+        "strict": 0.7948717948717948
+      },
+      "best": {
+        "hwy": 0.9487179487179487,
+        "strict": 0.8205128205128205
+      },
+      "deltaHwy": 0.07692307692307687,
+      "rankingBase": {
+        "colorChordPenalty": 3,
+        "passingSoftPenalty": 3
+      },
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "I",
+        "IV7",
+        "I",
+        "VI7",
+        "V7",
+        "I",
+        "IV7",
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "II7",
+        "V7",
+        "I",
+        "VI",
+        "I7",
+        "IV",
+        "ii7",
+        "III",
+        "V7"
+      ],
+      "predHighway": [
+        "I",
+        "IV7",
+        "I",
+        "VI7",
+        "I7",
+        "IV7",
+        "IV7(9)",
+        "iv",
+        "IV",
+        "IV7",
+        "II7",
+        "V7",
+        "IV",
+        "I",
+        "♭II",
+        "I",
+        "IV7",
+        "I",
+        "VI7",
+        "ii"
+      ],
+      "missingInPred": [
+        "major@7×2",
+        "major@2×2",
+        "seventh@11"
+      ],
+      "extraInPred": [
+        "triad7@10×7",
+        "triad7@3×6",
+        "dom@5×5",
+        "mediant@2×4",
+        "seventh@6×4",
+        "minor@3×3",
+        "supertonic@0×3",
+        "seventh@7×2"
+      ],
+      "styleFlags": [
+        "chromatic",
+        "circle",
+        "I7-IV",
+        "supertonic-minor"
+      ]
+    },
+    {
+      "tagId": 90008,
+      "title": "Shine On Me",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "unforcedMinorPenalty": 0.25
+      },
+      "cadenceBias": "off",
+      "goldHighway": [
+        "I",
+        "I7",
+        "IV7",
+        "V7",
+        "I",
+        "VI7",
+        "bVI7",
+        "V7",
+        "ii7",
+        "V7",
+        "I",
+        "I7",
+        "IV7",
+        "V7",
+        "I",
+        "VI7",
+        "I",
+        "V7",
+        "IV7",
+        "I"
+      ],
+      "predHighway": [
+        "I",
+        "V7",
+        "I",
+        "IV",
+        "II7",
+        "V7",
+        "I",
+        "V7",
+        "I",
+        "III7",
+        "VI7(9)",
+        "♭VI7",
+        "V7",
+        "II7",
+        "V7",
+        "♭III",
+        "I",
+        "III7",
+        "I",
+        "V7"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "triad7@10×5",
+        "dom@5×4",
+        "mediant@2×3",
+        "supertonic@0×2",
+        "major@1",
+        "minor@7",
+        "seventh@6",
+        "minor@10"
+      ],
+      "styleFlags": [
+        "chromatic",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90010,
+      "title": "You're The Flower Of My Heart, Sweet Adeline",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.7222222222222222
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7222222222222222
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "goldHighway": [
+        "I7",
+        "I",
+        "IV",
+        "VI7",
+        "II7",
+        "V7",
+        "V9",
+        "I",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "VI7",
+        "II7",
+        "V7",
+        "I",
+        "I7",
+        "I"
+      ],
+      "predHighway": [
+        "I",
+        "vii",
+        "VII7",
+        "IV7",
+        "VI7",
+        "II7",
+        "V7",
+        "v",
+        "V7",
+        "V7(9)",
+        "V7",
+        "I",
+        "V7",
+        "III7",
+        "V7",
+        "I",
+        "vii",
+        "III7",
+        "VII7",
+        "VI7"
+      ],
+      "missingInPred": [],
+      "extraInPred": [
+        "major@9×3",
+        "seventh@9×3",
+        "mediant@2×2",
+        "dom@5×2",
+        "minor@5"
+      ],
+      "styleFlags": [
+        "circle",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90011,
+      "title": "Down By The Old Mill Stream",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.9230769230769231,
+        "strict": 0.7857142857142857
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8928571428571429
+      },
+      "deltaHwy": 0.07692307692307687,
+      "rankingBase": {
+        "diatonicFunction": 3,
+        "seventh": 1.5,
+        "passingSoftPenalty": 3
+      },
+      "cadenceBias": "off",
+      "goldHighway": [
+        "I",
+        "V7",
+        "I",
+        "IV",
+        "VI7",
+        "II7",
+        "V7",
+        "IV7",
+        "I",
+        "V7",
+        "I",
+        "ii7",
+        "V7",
+        "I",
+        "I7",
+        "IV7",
+        "IV",
+        "I",
+        "VI7",
+        "II7"
+      ],
+      "predHighway": [
+        "V7",
+        "II7",
+        "V7",
+        "ii7",
+        "V7",
+        "♭VI7",
+        "II7",
+        "II7(9)",
+        "V7",
+        "I",
+        "IV",
+        "I7",
+        "iii",
+        "IV7",
+        "VI7",
+        "ii",
+        "♭VI7",
+        "II7",
+        "V7",
+        "IV7"
+      ],
+      "missingInPred": [
+        "mediant@0"
+      ],
+      "extraInPred": [
+        "supertonic@10×5",
+        "dom@3×5",
+        "seventh@4×3",
+        "major@0×3",
+        "seventh@7×3",
+        "triad7@1×3",
+        "triad7@8×2",
+        "seventh@5"
+      ],
+      "styleFlags": [
+        "mediant",
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ]
+    },
+    {
+      "tagId": 90012,
+      "title": "You Tell Me Your Dream",
+      "role": "holdout",
+      "baseline": {
+        "hwy": 0.9444444444444444,
+        "strict": 0.7368421052631579
+      },
+      "best": {
+        "hwy": 0.9444444444444444,
+        "strict": 0.7894736842105263
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "goldHighway": [
+        "I",
+        "VI7",
+        "II7",
+        "V7",
+        "I6",
+        "V7",
+        "I",
+        "VI7",
+        "II7",
+        "VI7",
+        "II7",
+        "ii7",
+        "I",
+        "IV",
+        "I7",
+        "VI7",
+        "II7",
+        "IV7",
+        "I"
+      ],
+      "predHighway": [
+        "I",
+        "VII7",
+        "I",
+        "VI7",
+        "II7",
+        "♭II7",
+        "II7",
+        "V7",
+        "v",
+        "V7",
+        "II7(9)",
+        "V7",
+        "♭VI7",
+        "V7",
+        "♭ii",
+        "I7(9)",
+        "VII7",
+        "I7(9)",
+        "VI7",
+        "II7"
+      ],
+      "missingInPred": [
+        "sixth@8"
+      ],
+      "extraInPred": [
+        "dom@3×5",
+        "supertonic@10×3",
+        "seventh@7×2",
+        "seventh@9×2",
+        "triad7@1×2",
+        "triad7@8×2",
+        "minor@3",
+        "seventh@4"
+      ],
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "added6",
+        "dense-7ths"
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "name": "A — already fits Basic",
+      "members": [
+        90001,
+        90006,
+        90004,
+        90005,
+        90010,
+        90012
+      ],
+      "signature": "baseline-ok",
+      "meanDelta": 0
+    },
+    {
+      "name": "E — completeFourPart↓",
+      "members": [
+        90003
+      ],
+      "signature": "completeFourPart↓",
+      "meanDelta": 0
+    },
+    {
+      "name": "C — denser highway / sevenths",
+      "members": [
+        90009
+      ],
+      "signature": "diatonicFunction↑|strongVoice↓",
+      "meanDelta": 0
+    },
+    {
+      "name": "C — denser highway / sevenths",
+      "members": [
+        90002
+      ],
+      "signature": "cadence=off|diatonicFunction↑|passingSoftPenalty↑",
+      "meanDelta": 0.054545454545454564
+    },
+    {
+      "name": "E — colorChordPenalty↑|passingSoftPenalty↑",
+      "members": [
+        90007
+      ],
+      "signature": "colorChordPenalty↑|passingSoftPenalty↑",
+      "meanDelta": 0.07692307692307687
+    },
+    {
+      "name": "D — cadence-off",
+      "members": [
+        90008
+      ],
+      "signature": "cadence=off|unforcedMinorPenalty↓",
+      "meanDelta": 0
+    },
+    {
+      "name": "C — denser highway / sevenths",
+      "members": [
+        90011
+      ],
+      "signature": "cadence=off|diatonicFunction↑|passingSoftPenalty↑|seventh↑",
+      "meanDelta": 0.07692307692307687
+    }
+  ],
+  "crossApply": [
+    {
+      "preset": "Basic (current)",
+      "goldMicro": 1,
+      "holdMicro": 0.928976578976579
+    },
+    {
+      "preset": "minor-soft",
+      "goldMicro": 0.9787775891341256,
+      "holdMicro": 0.9337842712842713
+    },
+    {
+      "preset": "highway-dense",
+      "goldMicro": 0.9701963534361852,
+      "holdMicro": 0.9335220335220336
+    },
+    {
+      "preset": "cadence-off",
+      "goldMicro": 0.9919354838709677,
+      "holdMicro": 0.9360569985569986
+    },
+    {
+      "preset": "circle-up",
+      "goldMicro": 0.9782608695652174,
+      "holdMicro": 0.928976578976579
+    },
+    {
+      "preset": "home-soft",
+      "goldMicro": 1,
+      "holdMicro": 0.9118825618825619
+    }
+  ],
+  "holdoutMissTop": "seventh@11(2), seventh@2(1), sixth@10(1), major@7(1), major@2(1), mediant@0(1), sixth@8(1)",
+  "holdoutExtraTop": "seventh@7(5), dom@3(3), supertonic@10(3), triad7@1(3), supertonic@0(3), mediant@2(3), dom@5(3), triad7@3(3), major@2(2), seventh@5(2), major@0(2), triad7@10(2)"
+}

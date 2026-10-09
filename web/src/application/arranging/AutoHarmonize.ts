@@ -6,7 +6,17 @@ import {
   type RankerDeps,
 } from '../../domain/arranging/harmonize'
 import { phraseRoleAtMelodyIndex } from '../../domain/arranging/cadences'
+import {
+  natureAllowlistForRisk,
+  rankerDepsForWeights,
+} from '../../domain/arranging/pathOptimize/candidates'
+import { leapsWithinCaps, partJumpCost } from '../../domain/arranging/pathOptimize/partLeaps'
+import {
+  weightsFromRisk,
+  type PathOptimizeWeights,
+} from '../../domain/arranging/pathOptimize/types'
 import { pillarAtTick } from '../../domain/arranging/pillars'
+import { degreeOf } from '../../domain/arranging/secondaryDominant'
 import type { ArrangementProject, ChordStack, MelodyEvent } from '../../domain/arranging/types'
 import type { IdGenerator } from '../../ports/IdGenerator'
 import {
@@ -53,6 +63,11 @@ export type ListCandidatesOpts = {
   limit?: number
   /** Sketch / Detected spans for mid-arrangement Suggest without pillars. */
   softContext?: SoftSuggestContext | null
+  /**
+   * Basic→Risky + cadence from Path Optimize. When omitted, uses Basic-leaning
+   * defaults so Coach Suggest matches the Optimize taste panel.
+   */
+  pathWeights?: Partial<PathOptimizeWeights>
 }
 
 export function autoHarmonize(
@@ -82,9 +97,11 @@ export function listCandidatesForNote(
   opts: ListCandidatesOpts = {},
   deps: AutoHarmonizeDeps = {},
 ): HarmonizeCandidate[] {
-  const prev = [...project.stacks]
+  const priorStacks = [...project.stacks]
     .filter((s) => s.startTick < note.startTick)
-    .sort((a, b) => b.startTick - a.startTick)[0]
+    .sort((a, b) => b.startTick - a.startTick)
+  const prev = priorStacks[0]
+  const prevPrev = priorStacks[1]
   const melodySorted = [...project.melody].sort((a, b) => a.startTick - b.startTick)
   const noteIdx = melodyIndexForCandidateTarget(melodySorted, note)
   const nextMel = noteIdx >= 0 ? melodySorted[noteIdx + 1] ?? null : null
@@ -115,26 +132,72 @@ export function listCandidatesForNote(
   const nextPillar = [...project.pillars]
     .filter((x) => x.startTick > pillar.startTick)
     .sort((a, b) => a.startTick - b.startTick)[0]
-  const ranked = candidatesForMelodyNote({
+  const nextPillarRoot = nextPillar?.rootPc ?? null
+  const weights = weightsFromRisk(opts.pathWeights?.risk ?? 0.2, opts.pathWeights)
+  const risk = weights.risk
+  // Sec-dom of pillar (= key V7 when pillar is I) must stay available at Basic.
+  const allowPassing = true
+  const allowScf = risk > 0.5 && !!opts.preferScf
+  const allowSpread = risk > 0.4
+  let ranked = candidatesForMelodyNote({
     note,
     pillar,
     tonality: project.tonality,
     mode: project.tonalityMode ?? 'major',
     prevRootPc: prev?.rootPc ?? null,
     prevNatureId: prev?.natureId ?? null,
-    preferScf: opts.preferScf,
+    preferScf: allowScf,
+    allowPassing,
+    allowScf,
+    allowSpread,
+    natureAllowlist: natureAllowlistForRisk(risk),
     limit: opts.limit ?? 16,
     profile: project.contestProfile,
-    nextPillarRoot: nextPillar?.rootPc ?? null,
+    nextPillarRoot,
     prevMidi: prev?.midi ?? null,
-    rankerDeps: deps.rankerDeps,
+    prevPrevMidi: prevPrev?.midi ?? null,
+    rankerDeps: rankerDepsForWeights(weights, deps.rankerDeps),
     nextMelodyMidi: nextMel?.midi ?? null,
     prevMelodyMidi: prevMel?.midi ?? null,
     phraseRole,
   })
+  // Hard leap filter (same caps as Path Optimize) so Basic Fill doesn’t thrash register.
+  if (prev?.midi) {
+    const safe = ranked.filter((c) => leapsWithinCaps(prev.midi, c.midi, risk))
+    if (safe.length) {
+      ranked = [...safe].sort(
+        (a, b) => partJumpCost(prev.midi!, a.midi) - partJumpCost(prev.midi!, b.midi),
+      )
+    } else if (risk <= 0.35) {
+      const loosened = ranked.filter((c) =>
+        leapsWithinCaps(prev.midi, c.midi, Math.min(1, risk + 0.35), null, true),
+      )
+      ranked = loosened.length
+        ? [...loosened].sort(
+            (a, b) => partJumpCost(prev.midi!, a.midi) - partJumpCost(prev.midi!, b.midi),
+          )
+        : ranked
+            .filter((c) => {
+              const t = Math.abs(c.midi.tenor - prev.midi!.tenor)
+              const b = Math.abs(c.midi.bass - prev.midi!.bass)
+              return t <= 12 && (b === 12 || b <= 12)
+            })
+            .sort(
+              (a, b) => partJumpCost(prev.midi!, a.midi) - partJumpCost(prev.midi!, b.midi),
+            )
+    }
+  }
   // Prefer Sketch/Detected quality when soft map names it (Fill empties + Choose).
+  // Never soft-promote a non-tonic onto a true song/phrase final.
   const softNature = softNatureAtTick(opts.softContext, note.startTick)
   if (!softNature?.natureId) return ranked
+  const trueFinal =
+    (phraseRole === 'cadence' || phraseRole === 'tag') &&
+    nextMel == null &&
+    nextPillarRoot == null
+  if (trueFinal && degreeOf(softNature.rootPc, project.tonality) !== 0) {
+    return ranked
+  }
   const match = ranked.find(
     (c) => c.rootPc === softNature.rootPc && c.natureId === softNature.natureId,
   )

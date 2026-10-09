@@ -93,8 +93,13 @@ async function onImportMusicXmlFile(e: Event): Promise<void> {
 }
 
 async function onDelete(id: string, title: string): Promise<void> {
-  snackbar.show(`"${title}" deleted`, { title: 'Project deleted', tone: 'ok', ms: 2000 })
-  await store.removeProject(id)
+  try {
+    await store.removeProject(id)
+    snackbar.show(`"${title}" deleted`, { title: 'Project deleted', tone: 'ok', ms: 2000 })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to delete project'
+    snackbar.show(msg, { title: 'Error', tone: 'error', ms: 4000 })
+  }
 }
 
 async function onDuplicate(id: string, title: string): Promise<void> {

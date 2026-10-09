@@ -45,10 +45,11 @@ defineEmits<{
         </span>
       </li>
       <li>
-        <strong>Auto</strong>
+        <strong>Optimize</strong>
         <span>
-          Whole-chart passes: strengthen approaches, polish the inversion path, try a swipe
-          seed. Audition after each pass.
+          Path Optimizer: fill empties, revoice, or rechord for the whole song, a selection, or
+          the current chord. Tune VL↔Ring, Run, audition — Try again for alternates. Chord Walk
+          keys on Chords: ←→ ↑↓ F H Q.
         </span>
       </li>
       <li>

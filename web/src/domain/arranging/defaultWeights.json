@@ -1,0 +1,43 @@
+{
+  "ranking": {
+    "motion": 1,
+    "primaryLayer": 3,
+    "seventh": 2,
+    "closedVoicing": 0.5,
+    "ring": 1,
+    "secondaryDominant": 3,
+    "augDimPrimaryPenalty": 4,
+    "harmonicity": 2.5,
+    "voiceLead": 1.5,
+    "strongVoice": 1.25,
+    "dim5Down": 1.25,
+    "tensionRelease": 2,
+    "resolution": 1.75,
+    "spacing": 1.25,
+    "contrary": 1,
+    "commonTone": 1,
+    "parallelPenalty": 1.5,
+    "homeTriad": 3.5,
+    "colorChordPenalty": 3.25,
+    "passingSoftPenalty": 2,
+    "cadenceFit": 1.2,
+    "unforcedMinorPenalty": 3.5,
+    "finalComplete": 5.5,
+    "diatonicFunction": 2.5,
+    "songFinalHome": 6,
+    "completeFourPart": 4.5,
+    "registerHome": 2.75,
+    "upperTrioClose": 1.75,
+    "postLeapDirection": 1.5,
+    "hazardousLeap": 1.75
+  },
+  "pathOptimize": {
+    "risk": 0.2,
+    "voiceLeading": 0.7,
+    "ring": 0.3,
+    "cadenceBias": "moderate",
+    "issuePenalty": 0.55,
+    "stayPutEpsilon": 0.2,
+    "taste": "classic"
+  }
+}

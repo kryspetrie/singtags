@@ -128,9 +128,10 @@ export function useCoachTransport(opts: {
     if (step === 'auto') {
       return {
         ...empty,
-        status: 'Whole-chart passes — strengthen, polish inversions, then audition',
-        primaryLabel: 'Polish inversions',
-        primaryTitle: 'Revoice stacks along a global inversion path',
+        status: 'Path Optimizer — mode, scope, Basic→Risky, then Run / Run again',
+        primaryLabel: 'Run optimize',
+        primaryTitle:
+          'Run Path Optimizer (same mode repeats as Run again with a new seed)',
         primaryDisabled: false,
       }
     }

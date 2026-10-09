@@ -1,0 +1,237 @@
+{
+  "tagId": 136,
+  "title": "When You've Wandered Alone",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 112.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 28,
+  "tokenCount": 21,
+  "pillarCount": 10,
+  "pillarRomans": [
+    "I",
+    "V",
+    "I",
+    "I",
+    "V7",
+    "I",
+    "ii",
+    "ii7",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.536,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "V",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.535,
+      "leadMidi": 55,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.308,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.579,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.185,
+      "leadMidi": 55,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.233,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.255,
+      "leadMidi": 55,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.556,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.247,
+      "leadMidi": 55,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.122,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.825,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.488,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "V",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.312,
+      "leadMidi": 55,
+      "confidence": 0.233,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.221,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "iii7",
+      "rootPc": 9,
+      "natureId": "m7",
+      "dur": 0.545,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "vi",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.232,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.781,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.804,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.535,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 1.33,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.536
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.125,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.536
+    }
+  ],
+  "classic": "125",
+  "collection": "classic"
+}

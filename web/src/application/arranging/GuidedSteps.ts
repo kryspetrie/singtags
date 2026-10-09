@@ -56,11 +56,11 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
   },
   {
     id: 'auto',
-    label: 'Auto',
-    tip: 'Whole-chart passes: strengthen approaches, polish the inversion path, try a swipe seed.',
+    label: 'Optimize',
+    tip: 'Path Optimizer: fill, revoice, or rechord for the whole song, a selection, or the current chord.',
     buttonTip:
-      'Run tools that rewrite many stacks at once. Audition after each pass. Local chord picks stay on Chords.',
-    glossaryIds: ['strong_voicing', 'secondary_dom'],
+      'Run Optimize with VL↔Ring weights, then audition. Local chord picks stay on Chords. Export is on the main toolbar.',
+    glossaryIds: ['strong_voicing', 'classic_cadences'],
     wizardSteps: ['step8_voicing'],
   },
   {
@@ -68,7 +68,7 @@ export const GUIDED_STEPS: readonly GuidedStepDef[] = [
     label: 'Polish',
     tip: 'Skim the checklist and style factors — export from the Tag Studio toolbar.',
     buttonTip:
-      'Final craft skim. Whole-chart tools live on Auto; MIDI/MusicXML export is on the main toolbar.',
+      'Final craft skim. Whole-chart Optimize lives on Auto; MIDI/MusicXML export is on the main toolbar.',
     glossaryIds: ['strong_voicing', 'classic_cadences'],
     wizardSteps: ['done'],
   },

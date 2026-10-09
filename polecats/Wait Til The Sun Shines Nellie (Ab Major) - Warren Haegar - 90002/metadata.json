@@ -1,0 +1,455 @@
+{
+  "tag_id": 90002,
+  "id": 90002,
+  "title": "Wait 'Til The Sun Shines, Nellie",
+  "alt_title": "Wait Til the Sun Shines Nellie",
+  "common_name": "Wait Til the Sun Shines Nellie",
+  "arranger": "Warren Haegar",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 2,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - 90002",
+  "identity": {
+    "title": "wait 'til the sun shines, nellie",
+    "arranger": "warren haegar",
+    "key": "ab major",
+    "version": "polecat",
+    "alt_title": "wait til the sun shines nellie",
+    "posted": ""
+  },
+  "identity_key": "wait 'til the sun shines, nellie|warren haegar|ab major|polecat|wait til the sun shines nellie|",
+  "identity_hash": "2cb80cfdcd5ba214",
+  "keywords": [
+    "wait til the sun shines, nellie",
+    "wait",
+    "til",
+    "the",
+    "sun",
+    "shines",
+    "nellie",
+    "wait til the sun shines nellie",
+    "warren haegar",
+    "warren",
+    "haegar",
+    "ab major",
+    "ab",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90002",
+    "p2"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Sheet.pdf",
+      "bytes": 341861,
+      "sha256": "feb80e0e375e8a5a5b0abf482faea135932abde4de1966c5de4fbd4a83cc3940",
+      "source_sha256": "3f34500164f4f53946fbd929d340a32bb3dbef73cddf45922bf003e48bde4dae",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Wait Til the Sun Shines Nellie - PoleCats 1 - Warren Haegar (Ab).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Lead.mp3",
+      "bytes": 3446854,
+      "sha256": "90c1fb55a1862af8880461eea3fdb532ab51dabe8360df3ddbd603ab1ae478f7",
+      "source_sha256": "90c1fb55a1862af8880461eea3fdb532ab51dabe8360df3ddbd603ab1ae478f7",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Wait _Til the Sun Shines Nellie - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0091,
+        "correlation": 0.9529,
+        "side_mid": 0.1554,
+        "analyzed_at": "2026-09-07T04:13:39.896422+00:00",
+        "source_sha256": "90c1fb55a1862af8880461eea3fdb532ab51dabe8360df3ddbd603ab1ae478f7"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Lead - Playback.opus",
+          "sha256": "1f42a397a340d24732181639ceedd736cc95945009bc26a2b5ab246679d7f198",
+          "bytes": 1161004,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "90c1fb55a1862af8880461eea3fdb532ab51dabe8360df3ddbd603ab1ae478f7",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:41.377160+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Lead - Downmix.opus",
+          "sha256": "d68eb501791da0616d4fe74ca4e3ad7e539f32314409e2d1dc4118af798300b3",
+          "bytes": 299040,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "90c1fb55a1862af8880461eea3fdb532ab51dabe8360df3ddbd603ab1ae478f7",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:47.280128+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Tenor.mp3",
+      "bytes": 3446854,
+      "sha256": "fd1cd8e1513afa0e7854227041f5726410476ab30502b18064e734fec6fd3556",
+      "source_sha256": "fd1cd8e1513afa0e7854227041f5726410476ab30502b18064e734fec6fd3556",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Wait _Til the Sun Shines Nellie - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0091,
+        "correlation": 0.9529,
+        "side_mid": 0.1554,
+        "analyzed_at": "2026-09-07T04:13:39.938373+00:00",
+        "source_sha256": "fd1cd8e1513afa0e7854227041f5726410476ab30502b18064e734fec6fd3556"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Tenor - Playback.opus",
+          "sha256": "bffb63c3e746c78d59ae1fcfe3e42414c6821683c10b4e3ec756ebc875bcbf4a",
+          "bytes": 1161006,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "fd1cd8e1513afa0e7854227041f5726410476ab30502b18064e734fec6fd3556",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.664995+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Tenor - Downmix.opus",
+          "sha256": "715a70c0b07af59016cc191a15c30e936b70a015cf7c5a3216c830186587418e",
+          "bytes": 299042,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "fd1cd8e1513afa0e7854227041f5726410476ab30502b18064e734fec6fd3556",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:48.111995+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bari.mp3",
+      "bytes": 3446854,
+      "sha256": "c4291f9fe1dc683700acb7a0bab3aefa3fbaec62840a71d03a86fede071a7d75",
+      "source_sha256": "c4291f9fe1dc683700acb7a0bab3aefa3fbaec62840a71d03a86fede071a7d75",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Wait _Til the Sun Shines Nellie - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0091,
+        "correlation": 0.9529,
+        "side_mid": 0.1554,
+        "analyzed_at": "2026-09-07T04:13:39.979384+00:00",
+        "source_sha256": "c4291f9fe1dc683700acb7a0bab3aefa3fbaec62840a71d03a86fede071a7d75"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bari - Playback.opus",
+          "sha256": "641a10d9ed29760c191dd483444864cd63752ef80bc6a625fd2faafa033acadf",
+          "bytes": 1161004,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "c4291f9fe1dc683700acb7a0bab3aefa3fbaec62840a71d03a86fede071a7d75",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:43.887161+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bari - Downmix.opus",
+          "sha256": "b72878bb96d50114bbf128cc915fd580739875beea022da77a3a4c0026efb516",
+          "bytes": 299040,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "c4291f9fe1dc683700acb7a0bab3aefa3fbaec62840a71d03a86fede071a7d75",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:49.046770+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bass.mp3",
+      "bytes": 3446854,
+      "sha256": "268acc74dcc3065d07767e33d0ae341b4ff91b5e6f6daf09826979bd894b872e",
+      "source_sha256": "268acc74dcc3065d07767e33d0ae341b4ff91b5e6f6daf09826979bd894b872e",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Wait _Til the Sun Shines Nellie - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0091,
+        "correlation": 0.9529,
+        "side_mid": 0.1554,
+        "analyzed_at": "2026-09-07T04:13:40.019918+00:00",
+        "source_sha256": "268acc74dcc3065d07767e33d0ae341b4ff91b5e6f6daf09826979bd894b872e"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bass - Playback.opus",
+          "sha256": "f94ebb63d46ed533981a64caf92103c5a06733ff8eb877231bdced79662f08c7",
+          "bytes": 1160987,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "268acc74dcc3065d07767e33d0ae341b4ff91b5e6f6daf09826979bd894b872e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:45.147792+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Bass - Downmix.opus",
+          "sha256": "a8bda06c85b2aa6cd33a7a911550dffd97d603cf853b582b46305618f05b6255",
+          "bytes": 299023,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "268acc74dcc3065d07767e33d0ae341b4ff91b5e6f6daf09826979bd894b872e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:49.787817+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Mix.mp3",
+      "bytes": 3351076,
+      "sha256": "e011a42c49ebb6cafcae88241abcfd5b71841424c40f4b53c32c88fc91d58151",
+      "source_sha256": "e011a42c49ebb6cafcae88241abcfd5b71841424c40f4b53c32c88fc91d58151",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Wait _Til the Sun Shines Nellie - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0001,
+        "correlation": 0.8557,
+        "side_mid": 0.2817,
+        "analyzed_at": "2026-09-07T04:13:40.062374+00:00",
+        "source_sha256": "e011a42c49ebb6cafcae88241abcfd5b71841424c40f4b53c32c88fc91d58151"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Mix - Playback.opus",
+          "sha256": "a48407fe91e605c8443c38831a860f79f609092558b50e2315c49bea9cc0e002",
+          "bytes": 1128677,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "e011a42c49ebb6cafcae88241abcfd5b71841424c40f4b53c32c88fc91d58151",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:46.491436+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - Mix - Ultra Mix.opus",
+          "sha256": "5b4f11d2425b90334c1b5aff6285217fdc3fc689bc093d4a1b4986e952f08820",
+          "bytes": 570037,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "e011a42c49ebb6cafcae88241abcfd5b71841424c40f4b53c32c88fc91d58151",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:53.731367+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Wait _Til the Sun Shines Nellie - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90002,
+    "Title": "Wait 'Til The Sun Shines, Nellie",
+    "AltTitle": "Wait Til the Sun Shines Nellie",
+    "CommonName": "Wait Til the Sun Shines Nellie",
+    "WritKey": "Major:Ab",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Warren Haegar",
+    "Collection": "polecats",
+    "Classic": 2,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Wait Til the Sun Shines Nellie",
+      "learning": "Wait 'Til The Sun Shines, Nellie"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/wait-til-the-sun-shines-1",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/wait-till-the-sun-shines",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/wait-til-the-sun-shines-2",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/wait-til-the-sun-shines-3"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:40.103229+00:00",
+    "mix_correlation": 0.0061,
+    "mix_correlations": {
+      "lead": 0.0061,
+      "tenor": 0.0061,
+      "bari": 0.0061,
+      "bass": 0.0061
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:53.731387+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 130,
+    "extracted_at": "2026-10-08T21:30:05.368872+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 90.0,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 7.477,
+    "coverage": 0.908,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 89.674,
+    "voiced": {
+      "lead": 0.924,
+      "tenor": 0.935,
+      "bari": 0.936,
+      "bass": 0.935
+    },
+    "midi_mad": {
+      "lead": 0.0979,
+      "tenor": 0.096,
+      "bari": 0.0808,
+      "bass": 0.0763
+    }
+  }
+}

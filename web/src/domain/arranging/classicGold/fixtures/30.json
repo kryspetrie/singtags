@@ -1,0 +1,152 @@
+{
+  "tagId": 30,
+  "title": "Sunshine is Bidding the Day Goodbye",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 89.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 20,
+  "tokenCount": 13,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "IV",
+    "VI7",
+    "ii",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.625,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.335,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I6",
+      "rootPc": 5,
+      "natureId": "sixth",
+      "dur": 0.209,
+      "leadMidi": 50,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 2.342,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "i",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.673,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "i",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.337,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.674,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.325,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.232,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.163,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "VII",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.281,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.335
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 3.043,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.335
+    }
+  ],
+  "classic": "20",
+  "collection": "classic"
+}

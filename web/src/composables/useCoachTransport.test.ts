@@ -46,7 +46,7 @@ describe('useCoachTransport', () => {
     expect(view.value.secondaryDisabled).toBe(false)
   })
 
-  it('auto step primaries Polish inversions; polish has no primary CTA', () => {
+  it('auto step primaries Run optimize; polish has no primary CTA', () => {
     const auto = useCoachTransport({
       ...base,
       guidedStep: computed(() => 'auto' as const),
@@ -54,7 +54,7 @@ describe('useCoachTransport', () => {
       repairTour: computed(() => false),
       selectedPil: computed(() => null),
     })
-    expect(auto.value.primaryLabel).toBe('Polish inversions')
+    expect(auto.value.primaryLabel).toBe('Run optimize')
 
     const polish = useCoachTransport({
       ...base,

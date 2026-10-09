@@ -218,6 +218,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
                 role="option"
                 :aria-selected="i === selectedIndex"
                 :title="`#${i + 1} · ${identity(c)} · ${g.label} · Hold to hear`"
+                @mousedown.prevent
                 @pointerdown="onHoldStart(i, c, $event)"
                 @pointerup="onHoldStop"
                 @pointercancel="onHoldStop"
@@ -231,6 +232,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
                 class="apply"
                 :title="hasStack ? 'Replace with this voicing' : 'Apply this voicing'"
                 :aria-label="hasStack ? `Replace with ${identity(c)}` : `Apply ${identity(c)}`"
+                @mousedown.prevent
                 @click="onApplyToggle(i, c, $event)"
               >
                 ✓

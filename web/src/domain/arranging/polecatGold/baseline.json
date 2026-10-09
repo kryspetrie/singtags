@@ -1,0 +1,92 @@
+{
+  "updatedAt": "2026-10-09T04:05:00.000Z",
+  "note": "Honest-loop retune (Dom9 Lead=9 only, V7 prefer, I/IV triad on Lead 1/5, pillar LT/V/IV cues, half-measure infer). Primary metric is work/polecat-honest-loop timeHit (~0.19 from ~0.15). Gold hwy micro 0.987 (90006 0.947 — one highway miss). Strict gold micro improved 0.841→0.863.",
+  "perTag": {
+    "90001": {
+      "pillarNorm": 1,
+      "natureMatch": 0.87,
+      "softFullNorm": 0.545,
+      "strictPillarNorm": 0.808
+    },
+    "90003": {
+      "pillarNorm": 1,
+      "natureMatch": 0.839,
+      "softFullNorm": 0.575,
+      "strictPillarNorm": 0.848
+    },
+    "90006": {
+      "pillarNorm": 0.947,
+      "natureMatch": 0.833,
+      "softFullNorm": 0.735,
+      "strictPillarNorm": 0.85
+    },
+    "90009": {
+      "pillarNorm": 1,
+      "natureMatch": 0.889,
+      "softFullNorm": 0.612,
+      "strictPillarNorm": 0.944
+    }
+  },
+  "micro": {
+    "pillarNorm": 0.987,
+    "natureMatch": 0.858,
+    "softFullNorm": 0.617,
+    "strictPillarNorm": 0.863
+  },
+  "holdoutPerTag": {
+    "90002": {
+      "pillarNorm": 0.891,
+      "natureMatch": 0.857,
+      "softFullNorm": 0.65,
+      "strictPillarNorm": 0.763
+    },
+    "90004": {
+      "pillarNorm": 0.944,
+      "natureMatch": 0.765,
+      "softFullNorm": 0.596,
+      "strictPillarNorm": 0.789
+    },
+    "90005": {
+      "pillarNorm": 0.938,
+      "natureMatch": 0.567,
+      "softFullNorm": 0.779,
+      "strictPillarNorm": 0.583
+    },
+    "90007": {
+      "pillarNorm": 0.949,
+      "natureMatch": 0.811,
+      "softFullNorm": 0.548,
+      "strictPillarNorm": 0.821
+    },
+    "90008": {
+      "pillarNorm": 0.889,
+      "natureMatch": 0.75,
+      "softFullNorm": 0.609,
+      "strictPillarNorm": 0.65
+    },
+    "90010": {
+      "pillarNorm": 0.929,
+      "natureMatch": 0.846,
+      "softFullNorm": 0.348,
+      "strictPillarNorm": 0.722
+    },
+    "90011": {
+      "pillarNorm": 0.923,
+      "natureMatch": 0.625,
+      "softFullNorm": 0.472,
+      "strictPillarNorm": 0.714
+    },
+    "90012": {
+      "pillarNorm": 0.944,
+      "natureMatch": 0.824,
+      "softFullNorm": 0.711,
+      "strictPillarNorm": 0.789
+    }
+  },
+  "holdoutMicro": {
+    "pillarNorm": 0.926,
+    "natureMatch": 0.756,
+    "softFullNorm": 0.589,
+    "strictPillarNorm": 0.729
+  }
+}

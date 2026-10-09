@@ -15,9 +15,11 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-studio-sheet-view.md](tag-studio-sheet-view.md) | In progress — View Roll/Sheet toggle; sheet via VexFlow/Bravura |
 | [tag-studio-ports-readiness.md](tag-studio-ports-readiness.md) | In progress — hygiene done; arranging package port next |
 | [tag-studio-swing.md](tag-studio-swing.md) | Implemented — swing playback + MIDI/MP3 bake; metronome swing |
+| [tag-audio-pitch-import.md](tag-audio-pitch-import.md) | MVP — Tag page “Import into Tag Studio” from learning-track pitch |
 | [arranging-labs-dock.md](arranging-labs-dock.md) | In progress — timeline pillars + Arrange/Review walk |
 | [arranging-coach-full-surface.md](arranging-coach-full-surface.md) | Planned — Coach theory surface + chrome/pop-out + harmonic moments (posts) |
-| [coach-path-optimize-and-chord-walk.md](coach-path-optimize-and-chord-walk.md) | Planned — Retire Strengthen/Polish/Swipe; Path Optimizer + Chord Walk keys |
+| [coach-path-optimize-and-chord-walk.md](coach-path-optimize-and-chord-walk.md) | Implemented — Path Optimizer + Chord Walk; cadence windows + prefs |
+| [../arranging/coach-next-steps-2026-10.md](../arranging/coach-next-steps-2026-10.md) | Planned — strong/passing replaces manual pillars; honest polecat next steps |
 | [catalog-split-and-s3-pull.md](catalog-split-and-s3-pull.md) | Planned — Slim core + catalog-media.json.gz; S3→local library pull |
 | [local-library-ux.md](local-library-ux.md) | Proposed — Browse-like search options + Browse-lite query |
 | [non-recombinable-tracks.md](non-recombinable-tracks.md) | Mostly implemented — residual spot-listen ops |

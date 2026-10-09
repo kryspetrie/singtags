@@ -1,0 +1,453 @@
+{
+  "tag_id": 90008,
+  "id": 90008,
+  "title": "Shine On Me",
+  "alt_title": null,
+  "common_name": "Shine On Me",
+  "arranger": "Floyd Connett",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 8,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Shine On Me (Bb Major) - Floyd Connett - 90008",
+  "identity": {
+    "title": "shine on me",
+    "arranger": "floyd connett",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "shine on me|floyd connett|bb major|polecat||",
+  "identity_hash": "57f4573cef25564f",
+  "keywords": [
+    "shine on me",
+    "shine",
+    "on",
+    "me",
+    "floyd connett",
+    "floyd",
+    "connett",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90008",
+    "p8"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Sheet.pdf",
+      "bytes": 77683,
+      "sha256": "a648071cce2b976b87f2e48e68f7c00424fb5c756bcff3dbd7ba581a4337139b",
+      "source_sha256": "de32a70ad067074ca7a6cafca22779ec5f0f31bdc85610f841ba7777c1419eb6",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Shine On Me - PoleCats - Floyd Connett (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Lead.mp3",
+      "bytes": 2214886,
+      "sha256": "b8db315202c07114b463985c62f3a1a1860bb470d1595f3c4483f8a8b513d05a",
+      "source_sha256": "b8db315202c07114b463985c62f3a1a1860bb470d1595f3c4483f8a8b513d05a",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Shine On Me - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.009,
+        "correlation": 0.9595,
+        "side_mid": 0.1435,
+        "analyzed_at": "2026-09-07T04:13:26.891157+00:00",
+        "source_sha256": "b8db315202c07114b463985c62f3a1a1860bb470d1595f3c4483f8a8b513d05a"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Lead - Playback.opus",
+          "sha256": "68eec5bdcc4504c8ffd37290ff9f6f9748c59f22f63b9b071a38707a34eaa5f7",
+          "bytes": 745812,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "b8db315202c07114b463985c62f3a1a1860bb470d1595f3c4483f8a8b513d05a",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:28.152807+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Lead - Downmix.opus",
+          "sha256": "577a7984d97a878f90c79760f99b96fa1eb61bf89dd5ba15dbcc69c419d17e58",
+          "bytes": 192248,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "b8db315202c07114b463985c62f3a1a1860bb470d1595f3c4483f8a8b513d05a",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:32.719629+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Tenor.mp3",
+      "bytes": 2214886,
+      "sha256": "0690c08e5e6fedb0bf7fe11ce6d63e097641da3993110d20dd56e79798ee79bb",
+      "source_sha256": "0690c08e5e6fedb0bf7fe11ce6d63e097641da3993110d20dd56e79798ee79bb",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Shine On Me - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0091,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:26.936624+00:00",
+        "source_sha256": "0690c08e5e6fedb0bf7fe11ce6d63e097641da3993110d20dd56e79798ee79bb"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Tenor - Playback.opus",
+          "sha256": "f22cb4b1fde0467e5a3a23c677080beea4ebf093f2e6ec6a7e6b95b5f7268def",
+          "bytes": 745817,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "0690c08e5e6fedb0bf7fe11ce6d63e097641da3993110d20dd56e79798ee79bb",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:29.124319+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Tenor - Downmix.opus",
+          "sha256": "c721ce62dd7f81ffbf0d6b2ecb3b762aaab0d2817056827b00ec0dc5b25a0d35",
+          "bytes": 192253,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "0690c08e5e6fedb0bf7fe11ce6d63e097641da3993110d20dd56e79798ee79bb",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:33.413129+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Bari.mp3",
+      "bytes": 2214886,
+      "sha256": "21cdccc9839d070ef99aa5b4d009340470ae8234042d6632c8d234fa111cd014",
+      "source_sha256": "21cdccc9839d070ef99aa5b4d009340470ae8234042d6632c8d234fa111cd014",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Shine On Me - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0089,
+        "correlation": 0.9594,
+        "side_mid": 0.1435,
+        "analyzed_at": "2026-09-07T04:13:26.980630+00:00",
+        "source_sha256": "21cdccc9839d070ef99aa5b4d009340470ae8234042d6632c8d234fa111cd014"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Bari - Playback.opus",
+          "sha256": "d4a9b97a63d3577d8df5930c7fcd53d1a4fd313f183c20236914b6a4f602d8de",
+          "bytes": 745815,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "21cdccc9839d070ef99aa5b4d009340470ae8234042d6632c8d234fa111cd014",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:30.213008+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Bari - Downmix.opus",
+          "sha256": "8f54c509370424af3c1fc97e0d1411cbb1f1fceb3ba2bca8e4a0d443b5314f35",
+          "bytes": 192251,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "21cdccc9839d070ef99aa5b4d009340470ae8234042d6632c8d234fa111cd014",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.018782+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Bass.mp3",
+      "bytes": 2214886,
+      "sha256": "5499d07bd30fdc39dc88ec6bca7cab46eb4d9510700d310bf6735efcea46950b",
+      "source_sha256": "5499d07bd30fdc39dc88ec6bca7cab46eb4d9510700d310bf6735efcea46950b",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Shine On Me - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.009,
+        "correlation": 0.9595,
+        "side_mid": 0.1436,
+        "analyzed_at": "2026-09-07T04:13:27.025867+00:00",
+        "source_sha256": "5499d07bd30fdc39dc88ec6bca7cab46eb4d9510700d310bf6735efcea46950b"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Bass - Playback.opus",
+          "sha256": "f55ee565cd99076690fabcb6113f4068137d4d873e30fe91ce05c7e62a92cfbd",
+          "bytes": 745798,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "5499d07bd30fdc39dc88ec6bca7cab46eb4d9510700d310bf6735efcea46950b",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:31.232180+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Bass - Downmix.opus",
+          "sha256": "e8b05dcb4d1470820798dfc976379f6b39c0ccd3d8f45b6c8cfb9d18a0b8fe39",
+          "bytes": 192234,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "5499d07bd30fdc39dc88ec6bca7cab46eb4d9510700d310bf6735efcea46950b",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.624943+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Shine On Me (Bb Major) - Floyd Connett - Mix.mp3",
+      "bytes": 2048370,
+      "sha256": "d736bab931aff0e3d0eaaffd53d9952fb9fb30d1955579f35a869c4fc2f6f07e",
+      "source_sha256": "d736bab931aff0e3d0eaaffd53d9952fb9fb30d1955579f35a869c4fc2f6f07e",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Shine On Me - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0075,
+        "correlation": 0.9442,
+        "side_mid": 0.168,
+        "analyzed_at": "2026-09-07T04:13:27.070500+00:00",
+        "source_sha256": "d736bab931aff0e3d0eaaffd53d9952fb9fb30d1955579f35a869c4fc2f6f07e"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Mix - Playback.opus",
+          "sha256": "553b5ceeca6502dbf4e0be5c77ab3ce7f57da7a84fef35cd1e0523039207ec69",
+          "bytes": 689579,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "d736bab931aff0e3d0eaaffd53d9952fb9fb30d1955579f35a869c4fc2f6f07e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:32.109744+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Shine On Me (Bb Major) - Floyd Connett - Mix - Ultra Mix.opus",
+          "sha256": "92e31681ed733f99061276926e8613d474843c1a79117258c6d9a5e9ce00894a",
+          "bytes": 348379,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "d736bab931aff0e3d0eaaffd53d9952fb9fb30d1955579f35a869c4fc2f6f07e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:36.745156+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Shine On Me - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90008,
+    "Title": "Shine On Me",
+    "AltTitle": null,
+    "CommonName": "Shine On Me",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Floyd Connett",
+    "Collection": "polecats",
+    "Classic": 8,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Shine on Me",
+      "learning": "Shine On Me"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/shine-on-me-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/shine-on-me-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/shine-on-me-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/shine-on-me-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:27.113026+00:00",
+    "mix_correlation": 0.0534,
+    "mix_correlations": {
+      "lead": 0.0533,
+      "tenor": 0.0534,
+      "bari": 0.053,
+      "bass": 0.0534
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:36.745185+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 48,
+    "extracted_at": "2026-10-08T21:29:02.754392+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 63.0,
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 7.918,
+    "coverage": 0.931,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 52.911,
+    "voiced": {
+      "lead": 0.873,
+      "tenor": 0.884,
+      "bari": 0.884,
+      "bass": 0.881
+    },
+    "midi_mad": {
+      "lead": 0.097,
+      "tenor": 0.0751,
+      "bari": 0.0997,
+      "bass": 0.0648
+    }
+  }
+}

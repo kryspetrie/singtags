@@ -12,6 +12,11 @@ import {
   wizardStepForGuided,
   type GuidedStepId,
 } from '../application/arranging/GuidedSteps'
+import type {
+  PathOptimizeMode,
+  PathOptimizeReport,
+  PathOptimizeScope,
+} from '../application/arranging/PathOptimize'
 import {
   bindCoachHighlightChannel,
   setCoachHighlight,
@@ -35,6 +40,10 @@ export function useCoachGuidedAndReview(opts: {
   pushToRoll: () => void
   /** Prefer harmonic-moment count when available (held-post aware). */
   momentsLen?: { value: number }
+  /** Selected Tag Studio notes → Optimize selection scope. */
+  selectionTickRange?: { value: { startTick: number; endTick: number } | null }
+  /** Active Coach / Harmonize moment tick. */
+  currentMomentTick?: { value: number | null }
 }) {
   const arrStore = useArrangementStore()
   const tagStore = useTagRollStore()
@@ -77,15 +86,47 @@ export function useCoachGuidedAndReview(opts: {
     return tip ? tip.body : null
   })
   const autoStatus = ref<string | null>(null)
-  const canRunPathTools = computed(() => {
+  const lastPathReport = ref<PathOptimizeReport | null>(null)
+  const optimizeBusy = ref(false)
+  const optimizeProgressFraction = ref(0)
+  const optimizeProgressLabel = ref<string | null>(null)
+  const lastOptimizeArgs = ref<{
+    mode: PathOptimizeMode
+    risk: number
+    cadenceBias: 'off' | 'moderate' | 'strong'
+    taste: 'classic' | 'circle' | 'busy'
+    maxPasses: number
+    stopEarly: boolean
+    allowWorsen: boolean
+  }>({
+    mode: 'full',
+    risk: 0.2,
+    cadenceBias: 'moderate',
+    taste: 'classic',
+    maxPasses: 12,
+    stopEarly: true,
+    allowWorsen: false,
+  })
+  const canRunPathOptimize = computed(() => {
     const p = arrStore.current
     if (!p) return false
-    // Strengthen needs a pillar covering moments; locked ◆ preferred but any pillar works.
-    return p.pillars.length > 0 && p.stacks.some((s) => s.midi)
+    return p.melody.length > 0 && p.pillars.length > 0
   })
-  const swipeAvailable = computed(() =>
-    arrStore.listEmbellishmentSeeds().some((s) => s.kind === 'swipe' && !!s.suggestedStack),
-  )
+  const hasOptimizeSelection = computed(() => !!opts.selectionTickRange?.value)
+
+  function resolveOptimizeScope(): PathOptimizeScope {
+    const r = opts.selectionTickRange?.value
+    if (r) return { kind: 'range', startTick: r.startTick, endTick: r.endTick }
+    return { kind: 'whole' }
+  }
+
+  function stageTitle(stage: string): string {
+    if (stage === 'fill') return 'Fill'
+    if (stage === 'rechord') return 'Rechord'
+    if (stage === 'revoice') return 'Revoice'
+    if (stage === 'probe') return 'Checking alternates'
+    return stage
+  }
 
   function selectMelodyNote(id: string): void {
     const note = arrStore.current?.melody.find((m) => m.id === id)
@@ -161,49 +202,88 @@ export function useCoachGuidedAndReview(opts: {
     if (pick) selectMelodyNote(pick.id)
   }
 
-  function onStrengthen(): void {
-    if (!canRunPathTools.value) {
-      autoStatus.value = 'Strengthen needs locked Sketch pillars and stacks first.'
+  async function onPathOptimize(args: {
+    mode: PathOptimizeMode
+    risk: number
+    cadenceBias: 'off' | 'moderate' | 'strong'
+    taste?: 'classic' | 'circle' | 'busy'
+    maxPasses?: number
+    stopEarly?: boolean
+    allowWorsen?: boolean
+    explore?: boolean
+  }): Promise<void> {
+    if (optimizeBusy.value) return
+    if (!canRunPathOptimize.value) {
+      autoStatus.value = 'Optimize needs melody and Sketch pillars first.'
       return
     }
-    const n = arrStore.strengthen()
-    arrStore.runQa()
-    opts.pushToRoll()
-    autoStatus.value =
-      n > 0
-        ? `Strengthen updated ${n} stack${n === 1 ? '' : 's'}. Audition the chart.`
-        : 'Strengthen found no safer upgrades (already strong, or no gain ≥ threshold).'
+    // Transport / repeat same mode → Run again (reseed). Explicit explore from panel wins.
+    const runAgain =
+      args.explore === true ||
+      (args.explore !== false &&
+        !!lastPathReport.value &&
+        lastPathReport.value.mode === args.mode)
+    const taste = args.taste ?? 'classic'
+    lastOptimizeArgs.value = {
+      mode: args.mode,
+      risk: args.risk,
+      cadenceBias: args.cadenceBias,
+      taste,
+      maxPasses: args.maxPasses ?? 12,
+      stopEarly: args.stopEarly !== false,
+      allowWorsen: args.allowWorsen === true,
+    }
+    const scope = resolveOptimizeScope()
+    optimizeBusy.value = true
+    optimizeProgressFraction.value = 0
+    optimizeProgressLabel.value = 'Starting…'
+    autoStatus.value = scope.kind === 'range' ? 'Optimizing selection…' : 'Optimizing whole song…'
+    try {
+      const report = await arrStore.pathOptimize({
+        mode: args.mode,
+        scope,
+        weights: {
+          risk: args.risk,
+          cadenceBias: args.cadenceBias,
+          taste,
+        },
+        maxPasses: args.maxPasses ?? 12,
+        stopEarly: args.stopEarly !== false,
+        allowWorsen: args.allowWorsen === true,
+        explore: runAgain,
+        seed: runAgain ? Date.now() : undefined,
+        onProgress: (p) => {
+          const within = p.maxPasses > 0 ? p.pass / p.maxPasses : 1
+          optimizeProgressFraction.value = Math.min(
+            1,
+            (p.stageIndex + within) / Math.max(1, p.stageCount),
+          )
+          optimizeProgressLabel.value =
+            p.stage === 'probe'
+              ? 'Checking alternates…'
+              : p.stage === 'revoice'
+                ? 'Revoice'
+                : `${stageTitle(p.stage)} · pass ${p.pass}/${p.maxPasses}`
+        },
+      })
+      if (!report) {
+        autoStatus.value = 'No arrangement loaded.'
+        return
+      }
+      lastPathReport.value = report
+      arrStore.runQa()
+      if (report.applied) opts.pushToRoll()
+      autoStatus.value = runAgain ? `Run again: ${report.message}` : report.message
+    } finally {
+      optimizeBusy.value = false
+      optimizeProgressFraction.value = 0
+      optimizeProgressLabel.value = null
+    }
   }
 
-  function onPolish(): void {
-    if (!canRunPathTools.value) {
-      autoStatus.value = 'Polish inversions needs locked Sketch pillars and stacks first.'
-      return
-    }
-    const n = arrStore.polishVoicing()
-    arrStore.runQa()
-    opts.pushToRoll()
-    autoStatus.value =
-      n > 0
-        ? `Polish inversions changed ${n} placement${n === 1 ? '' : 's'}. Audition the path.`
-        : 'Polish inversions left stacks unchanged (need ≥2 stacks, or path already optimal).'
-  }
-
-  function onApplySwipe(): void {
-    const seed = arrStore
-      .listEmbellishmentSeeds()
-      .find((s) => s.kind === 'swipe' && s.suggestedStack)
-    if (!seed) {
-      autoStatus.value =
-        'No swipe seed available — need a long held melody note that already has a TTBB stack.'
-      return
-    }
-    const ok = arrStore.applySwipeSeed(seed.id)
-    arrStore.runQa()
-    opts.pushToRoll()
-    autoStatus.value = ok
-      ? 'Inserted a swipe embellishment on a long hold. Audition that release.'
-      : 'Could not apply swipe seed.'
+  /** Transport primary — reuse last panel settings (Run again if same mode). */
+  function onPathOptimizeTransport(): void {
+    onPathOptimize({ ...lastOptimizeArgs.value })
   }
 
   function setContestProfile(profile: ContestProfile): void {
@@ -257,16 +337,19 @@ export function useCoachGuidedAndReview(opts: {
     howFactors,
     orgTip,
     autoStatus,
-    canRunPathTools,
-    swipeAvailable,
+    lastPathReport,
+    canRunPathOptimize,
+    hasOptimizeSelection,
+    optimizeBusy,
+    optimizeProgressFraction,
+    optimizeProgressLabel,
     selectGuidedStep,
     selectMelodyNote,
     stepMelodyNote,
     setMelodyNoteRole,
     onLabelRoles,
-    onStrengthen,
-    onPolish,
-    onApplySwipe,
+    onPathOptimize,
+    onPathOptimizeTransport,
     setContestProfile,
     setTuningMode,
     setQaGroup,

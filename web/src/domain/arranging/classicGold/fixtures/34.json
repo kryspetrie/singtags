@@ -1,0 +1,163 @@
+{
+  "tagId": 34,
+  "title": "Nobody's Waiting There with a Smile",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 70.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 17,
+  "tokenCount": 14,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "I",
+    "VI7",
+    "VI7",
+    "ii7",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.534,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "VII",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.371,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.802,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "VI+",
+      "rootPc": 2,
+      "natureId": "aug",
+      "dur": 0.452,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.881,
+      "leadMidi": 60,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 1.533,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "bII",
+      "rootPc": 6,
+      "natureId": "unknown",
+      "dur": 0.185,
+      "leadMidi": 54,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.279,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.348,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 0.395,
+      "leadMidi": 55,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.572,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.232,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.4235
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.585,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4235
+    }
+  ],
+  "classic": "22",
+  "collection": "classic"
+}

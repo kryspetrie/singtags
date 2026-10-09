@@ -1,0 +1,196 @@
+{
+  "tagId": 81,
+  "title": "To Reach the Unreachable Star",
+  "tonality": 9,
+  "mode": "major",
+  "bpm": 109.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 17,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "I",
+    "I",
+    "V",
+    "I",
+    "V",
+    "I",
+    "bVII7",
+    "I",
+    "I6"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.651,
+      "leadMidi": 61,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I+",
+      "rootPc": 9,
+      "natureId": "aug",
+      "dur": 0.826,
+      "leadMidi": 61,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "IV",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.275,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "vi",
+      "rootPc": 6,
+      "natureId": "minor",
+      "dur": 0.276,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.55,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "V",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 0.303,
+      "leadMidi": 59,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.256,
+      "leadMidi": 61,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "V",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 0.301,
+      "leadMidi": 59,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.632,
+      "leadMidi": 52,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I+",
+      "rootPc": 9,
+      "natureId": "aug",
+      "dur": 0.825,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.826,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "iv",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.291,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.251,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "bII",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.299,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.519,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I6",
+      "rootPc": 9,
+      "natureId": "sixth",
+      "dur": 0.395,
+      "leadMidi": 52,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.303
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.186,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 0.303
+    }
+  ],
+  "classic": "69",
+  "collection": "classic"
+}

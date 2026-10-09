@@ -23,8 +23,12 @@ export type UnscoredCandidate = Omit<HarmonizeCandidate, 'score' | 'harmonicity'
   nextPillarRoot: number | null
   /** Previous stack MIDI for voice-leading distance (optional). */
   prevMidi?: VoicingPitches | null
+  /** Stack before prev — post-leap direction (Ades). */
+  prevPrevMidi?: VoicingPitches | null
   /** Previous root for motion / Szabo dim5-down soft bonus. */
   prevRootPc?: number | null
+  /** Previous nature for same-chord leap exceptions. */
+  prevNatureId?: string | null
   /** Previous dominant stack for resolution scoring (optional). */
   prevDominant?: { rootPc: number; natureId: string; midi: VoicingPitches } | null
 }

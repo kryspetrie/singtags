@@ -1,0 +1,142 @@
+{
+  "tagId": 97,
+  "title": "My Love is Your Love",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 73.5,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 20,
+  "tokenCount": 12,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "I",
+    "I",
+    "bVI7",
+    "ii7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.816,
+      "leadMidi": 51,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.326,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 8,
+      "natureId": "m7",
+      "dur": 0.448,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 1.27,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 0.664,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 3,
+      "natureId": "dim7",
+      "dur": 0.163,
+      "leadMidi": 51,
+      "confidence": 0.46,
+      "role": "passing",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 2.091,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 1.077,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "vi",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.945,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 0.743,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.372,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.7795
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 2.498,
+      "leadMidi": 51,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.7795
+    }
+  ],
+  "classic": "85",
+  "collection": "classic"
+}

@@ -1,0 +1,186 @@
+{
+  "tagId": 33,
+  "title": "We'll Just be the Same Old Friends",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 82.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 29,
+  "tokenCount": 16,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "VI7",
+    "V9",
+    "iii",
+    "V7",
+    "IV",
+    "I",
+    "I",
+    "ii7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "unknown",
+      "dur": 0.301,
+      "leadMidi": 56,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.162,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "unknown",
+      "dur": 0.255,
+      "leadMidi": 56,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "I6",
+      "rootPc": 3,
+      "natureId": "sixth",
+      "dur": 0.279,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "III9",
+      "rootPc": 7,
+      "natureId": "ninth",
+      "dur": 0.371,
+      "leadMidi": 50,
+      "confidence": 0.44,
+      "role": "passing",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "vi",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.42,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "V9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.904,
+      "leadMidi": 56,
+      "confidence": 0.86,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "iii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 1.344,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.671,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.42,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.745,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.352,
+      "leadMidi": 51,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.717,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 1.613,
+      "leadMidi": 56,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 2.567,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.695
+    },
+    {
+      "roman": "III",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 0.673,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.695
+    }
+  ],
+  "classic": "21",
+  "collection": "classic"
+}

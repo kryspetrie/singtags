@@ -37,7 +37,7 @@ export function saveHarmonizeApplyMode(mode: HarmonizeApplyMode): void {
   }
 }
 
-export function loadHarmonizeWorkspace(fallback: HarmonizeWorkspace = 'pick'): HarmonizeWorkspace {
+export function loadHarmonizeWorkspace(fallback: HarmonizeWorkspace = 'suggest'): HarmonizeWorkspace {
   try {
     const v = localStorage.getItem(WORKSPACE_KEY)
     if (v === 'pick' || v === 'suggest') return v

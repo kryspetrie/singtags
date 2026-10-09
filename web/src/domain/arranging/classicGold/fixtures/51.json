@@ -1,0 +1,223 @@
+{
+  "tagId": 51,
+  "title": "Who'll Dry Your Tears When You Cry?",
+  "tonality": 0,
+  "mode": "major",
+  "bpm": 93.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 24,
+  "tokenCount": 20,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "ii",
+    "ii7",
+    "bVI",
+    "bVI7",
+    "I6",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "ii",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.674,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 0.604,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.661,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.256,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "VII",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.968,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.186,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "iii",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.232,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "III",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.255,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.163,
+      "leadMidi": 50,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.139,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.613,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "i7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.645,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.604,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "i",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.637,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.932,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 0.323,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 1.001,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "IV",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.322,
+      "leadMidi": 60,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "I6",
+      "rootPc": 0,
+      "natureId": "sixth",
+      "dur": 1.291,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.6205
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.931,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.6205
+    }
+  ],
+  "classic": "40",
+  "collection": "classic"
+}

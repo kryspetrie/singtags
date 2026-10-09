@@ -1,0 +1,43 @@
+{
+  "projects": [
+    {
+      "id": "seed-polecat-pitch-90001",
+      "tagId": 90001,
+      "title": "Polecat pitch \u00b7 My Wild Irish Rose",
+      "file": "90001.json",
+      "notes": 300,
+      "stacks": 73
+    },
+    {
+      "id": "seed-polecat-pitch-90003",
+      "tagId": 90003,
+      "title": "Polecat pitch \u00b7 Sweet And Lovely (That's What You Are To Me)",
+      "file": "90003.json",
+      "notes": 342,
+      "stacks": 80
+    },
+    {
+      "id": "seed-polecat-pitch-90006",
+      "tagId": 90006,
+      "title": "Polecat pitch \u00b7 Let Me Call You Sweetheart",
+      "file": "90006.json",
+      "notes": 200,
+      "stacks": 49
+    },
+    {
+      "id": "seed-polecat-pitch-90009",
+      "tagId": 90009,
+      "title": "Polecat pitch \u00b7 The Story of the Rose",
+      "file": "90009.json",
+      "notes": 216,
+      "stacks": 50
+    }
+  ],
+  "count": 4,
+  "gold": [
+    90001,
+    90003,
+    90006,
+    90009
+  ]
+}

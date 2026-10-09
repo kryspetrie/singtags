@@ -1,0 +1,185 @@
+{
+  "tagId": 63,
+  "title": "For Life is Interwoven",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 69.5,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 21,
+  "tokenCount": 16,
+  "pillarCount": 8,
+  "pillarRomans": [
+    "I",
+    "I",
+    "IV7",
+    "I",
+    "I7",
+    "IV9",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.418,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "III",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.14,
+      "leadMidi": 57,
+      "confidence": 0.587,
+      "role": "passing",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.494,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.882,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.055,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "V",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.671,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "v",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.432,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.864,
+      "leadMidi": 57,
+      "confidence": 0.79,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.14,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "V9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.312,
+      "leadMidi": 60,
+      "confidence": 0.5,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.581,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.431,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.324,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "bII",
+      "rootPc": 6,
+      "natureId": "unknown",
+      "dur": 0.474,
+      "leadMidi": 54,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "madd6",
+      "dur": 0.813,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.484
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.183,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.484
+    }
+  ],
+  "classic": "51",
+  "collection": "classic"
+}

@@ -1,0 +1,519 @@
+{
+  "tag_id": 90001,
+  "id": 90001,
+  "title": "My Wild Irish Rose",
+  "alt_title": null,
+  "common_name": "My Wild Irish Rose",
+  "arranger": "Floyd Connett",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 1,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "My Wild Irish Rose (Bb Major) - Floyd Connett - 90001",
+  "identity": {
+    "title": "my wild irish rose",
+    "arranger": "floyd connett",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "my wild irish rose|floyd connett|bb major|polecat||",
+  "identity_hash": "4d65c4134e7581d1",
+  "keywords": [
+    "my wild irish rose",
+    "my",
+    "wild",
+    "irish",
+    "rose",
+    "floyd connett",
+    "floyd",
+    "connett",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90001",
+    "p1"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Sheet.pdf",
+      "bytes": 124550,
+      "sha256": "2f1c51d1e55dff6a6c5cddc4dc23a094259f6fa195d0ab0418dd4ba650d83f5b",
+      "source_sha256": "bbc5a9a3cb68cc52785188bfcc3767dd16766e53db14cbaa3db1fc30d7e16f31",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "My Wild Irish Rose - PoleCats 1 - Floyd Connett (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Lead.mp3",
+      "bytes": 4013440,
+      "sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c",
+      "source_sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/My Wild Irish Rose - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0487,
+        "correlation": 0.3846,
+        "side_mid": 0.6182,
+        "analyzed_at": "2026-09-07T04:13:23.592283+00:00",
+        "source_sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 1.0,
+        "zero_corr": 1.0,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:24.146432+00:00",
+        "source_sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Lead - Playback.opus",
+          "sha256": "1c33b1444814d7748f083919edd360919bce6168af1bb1ef0aed719650b44ca1",
+          "bytes": 810889,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:28.390756+00:00"
+        },
+        "ultra_solo": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Lead - Solo.opus",
+          "sha256": "2705673a231778f30e11621fc6b7ab8adcf112088047efed467efc0ad9e74f5a",
+          "bytes": 208965,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "040f4b821c8f11f82f377a3e08f1be4e3e8ea846466dc2931fa22e8bb108d41c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:33.798681+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Tenor.mp3",
+      "bytes": 4013440,
+      "sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c",
+      "source_sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/My Wild Irish Rose - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0099,
+        "correlation": 0.4152,
+        "side_mid": 0.6287,
+        "analyzed_at": "2026-09-07T04:13:23.635135+00:00",
+        "source_sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.78,
+        "zero_corr": 0.78,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:25.140993+00:00",
+        "source_sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Tenor - Playback.opus",
+          "sha256": "c604ccce1e6ad9b498833ff78a446092cc34952d0437e9992f9c98ef4831b3d2",
+          "bytes": 810890,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:29.766426+00:00"
+        },
+        "ultra_solo": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Tenor - Solo.opus",
+          "sha256": "f9cdba26a8374e8d843baf807bd468533a749e77827494472b17fc815a937182",
+          "bytes": 208966,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "78f8e7b7bae1820ff1bb5a757c3edea243c25887f9adf7fe71346fedfaf5f29c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.686192+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bari": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bari.mp3",
+      "bytes": 4013440,
+      "sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6",
+      "source_sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/My Wild Irish Rose - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0891,
+        "correlation": 0.4851,
+        "side_mid": 0.5883,
+        "analyzed_at": "2026-09-07T04:13:23.676831+00:00",
+        "source_sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.64,
+        "zero_corr": 0.64,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:26.114208+00:00",
+        "source_sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bari - Playback.opus",
+          "sha256": "5c988b112c472424e42c8ce54ddd2492c5644862e311c2bfc612c5953f3bef7e",
+          "bytes": 810889,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:30.803236+00:00"
+        },
+        "ultra_solo": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bari - Solo.opus",
+          "sha256": "6a177c3e5e1e77621bbc079b6f0d19f1feb904d751e8636a31a43f9f83088226",
+          "bytes": 208965,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "16d1b887c2d6e0534043f5916692b4d9dce484471dd678709c69d7ec580e70e6",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:35.299970+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bass": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bass.mp3",
+      "bytes": 4013440,
+      "sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46",
+      "source_sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/My Wild Irish Rose - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": -0.0608,
+        "correlation": 0.5007,
+        "side_mid": 0.5913,
+        "analyzed_at": "2026-09-07T04:13:23.721684+00:00",
+        "source_sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.641,
+        "zero_corr": 0.641,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:27.182599+00:00",
+        "source_sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bass - Playback.opus",
+          "sha256": "6b1b90c9325896280f79ad785a36907974807749bebc8d3f1aa7f7756cb73e7a",
+          "bytes": 810889,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:31.930254+00:00"
+        },
+        "ultra_solo": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Bass - Solo.opus",
+          "sha256": "d6469be7e56fdf2ee8c4faedaafc37abafe8837d64ce179f85bfb3588b25406e",
+          "bytes": 208965,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "b12940b0c13dbbc8e6e7f57ec9e0c8ff99b98b0824dd05c0ab07d95eb42e9b46",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:35.989321+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "mix": {
+      "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Mix.mp3",
+      "bytes": 3852664,
+      "sha256": "53a6f8452528590fc5a0018e2b3ff07b026669a4c8315bfee6f34583898bc39b",
+      "source_sha256": "53a6f8452528590fc5a0018e2b3ff07b026669a4c8315bfee6f34583898bc39b",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/My Wild Irish Rose - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_right",
+        "solo_side": "right",
+        "channels": 2,
+        "balance": 0.0477,
+        "correlation": 0.6776,
+        "side_mid": 0.4484,
+        "analyzed_at": "2026-09-07T04:13:23.764042+00:00",
+        "source_sha256": "53a6f8452528590fc5a0018e2b3ff07b026669a4c8315bfee6f34583898bc39b"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Mix - Playback.opus",
+          "sha256": "69538010bd488f7cd7ae95487c4a8d68b32dc262a2f6c4ca5b02f5239899598e",
+          "bytes": 778418,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "53a6f8452528590fc5a0018e2b3ff07b026669a4c8315bfee6f34583898bc39b",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:33.170091+00:00"
+        },
+        "ultra_mix": {
+          "filename": "My Wild Irish Rose (Bb Major) - Floyd Connett - Mix - Ultra Mix.opus",
+          "sha256": "09ea2db05566099e5d295ac3b6339ba0e3913af6effa93138df4b9b61a73ff43",
+          "bytes": 393218,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "53a6f8452528590fc5a0018e2b3ff07b026669a4c8315bfee6f34583898bc39b",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:39.530141+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "My Wild Irish Rose - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90001,
+    "Title": "My Wild Irish Rose",
+    "AltTitle": null,
+    "CommonName": "My Wild Irish Rose",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Floyd Connett",
+    "Collection": "polecats",
+    "Classic": 1,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "My Wild Irish Rose",
+      "learning": "My Wild Irish Rose"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/my-wild-irish-rose-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/my-wild-irish-rose-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/my-wild-irish-rose-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/my-wild-irish-rose-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_right",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-09-07T04:13:23.805449+00:00",
+    "mix_correlation": 0.0357,
+    "mix_correlations": {
+      "lead": 0.0337,
+      "tenor": 0.0357,
+      "bari": 0.0313,
+      "bass": 0.0338
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-09-07T04:13:27.182637+00:00"
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": "ok",
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:39.530164+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 75,
+    "extracted_at": "2026-10-08T21:29:24.280920+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 60.0,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 4.644,
+    "coverage": 0.924,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 59.931,
+    "voiced": {
+      "lead": 0.916,
+      "tenor": 0.933,
+      "bari": 0.941,
+      "bass": 0.941
+    },
+    "midi_mad": {
+      "lead": 0.1185,
+      "tenor": 0.0691,
+      "bari": 0.1068,
+      "bass": 0.0893
+    }
+  }
+}

@@ -22,8 +22,7 @@ export type CoachTransportActionCtx = {
   goChords: () => void
   applyBest: () => void
   fixAllSafe: () => void
-  onStrengthen: () => void
-  onPolish: () => void
+  onPathOptimize: () => void
   hearPillarRoot: () => void
   hearCurrentStack: () => void
   hearCand: (c: HarmonizeCandidate) => void
@@ -69,7 +68,7 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
         ctx.fixAllSafe()
         break
       case 'auto':
-        ctx.onPolish()
+        ctx.onPathOptimize()
         break
       default:
         break

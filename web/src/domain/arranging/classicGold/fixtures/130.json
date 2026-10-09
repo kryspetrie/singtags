@@ -1,0 +1,213 @@
+{
+  "tagId": 130,
+  "title": "Though I'm Gone for a Long, Long Time",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 97.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 19,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "II7",
+    "V",
+    "II7",
+    "V7",
+    "I6",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "vi",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.309,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "iii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.633,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "II7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.888,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 3,
+      "natureId": "dim7",
+      "dur": 0.268,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.591,
+      "leadMidi": 50,
+      "confidence": 0.647,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "II7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.441,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.309,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "iii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.619,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.618,
+      "leadMidi": 50,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "VII",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.283,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "III",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.618,
+      "leadMidi": 50,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.309,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I6",
+      "rootPc": 3,
+      "natureId": "sixth",
+      "dur": 0.928,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "i",
+      "rootPc": 3,
+      "natureId": "madd6",
+      "dur": 0.31,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 1.271,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 8,
+      "natureId": "ninth",
+      "dur": 0.163,
+      "leadMidi": 51,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.255,
+      "leadMidi": 51,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I6",
+      "rootPc": 3,
+      "natureId": "sixth",
+      "dur": 0.163,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 1.546,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.441
+    }
+  ],
+  "classic": "119",
+  "collection": "classic"
+}

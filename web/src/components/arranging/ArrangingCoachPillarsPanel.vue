@@ -1,3 +1,4 @@
+<script setup lang="ts">
 /**
  * Orphan — Coach no longer has a Pillars page. Kept as copy reference only.
  * Pillars are defined on Sketch (Alt+click / ◆ / dock Pillar).

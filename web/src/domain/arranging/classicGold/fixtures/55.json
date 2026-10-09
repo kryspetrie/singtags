@@ -1,0 +1,152 @@
+{
+  "tagId": 55,
+  "title": "Ireland, My Ireland",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 79.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 19,
+  "tokenCount": 13,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "I",
+    "bVII7",
+    "II7",
+    "V7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 2.279,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "VII",
+      "rootPc": 6,
+      "natureId": "unknown",
+      "dur": 0.38,
+      "leadMidi": 54,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "vi",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.33,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "VI",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.38,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "vi",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.379,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.209,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.256,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.674,
+      "leadMidi": 51,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "VII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 0.38,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.209,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "II7",
+      "rootPc": 9,
+      "natureId": "seventh",
+      "dur": 1.195,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.395,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.38
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 2.284,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.38
+    }
+  ],
+  "classic": "43",
+  "collection": "classic"
+}

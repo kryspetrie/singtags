@@ -191,11 +191,12 @@ describe('Chord tables and placeVoicing invariants', () => {
     }
   })
 
-  it('Dom9 omit strategies: bass-on-1 omit5, bass-on-5 omitRoot', () => {
+  it('Dom9 omit strategies: bass-on-1 omit5, bass-on-5/3 omitRoot', () => {
     expect(dom9OmitStrategy('1793')).toBe('omit5')
     expect(dom9OmitStrategy('1379')).toBe('omit5')
     expect(dom9OmitStrategy('5793')).toBe('omitRoot')
     expect(dom9OmitStrategy('5397')).toBe('omitRoot')
+    expect(dom9OmitStrategy('3759')).toBe('omitRoot')
     expect(VOICINGS_BY_CHORD.ninth![0]!.startsWith('5')).toBe(true)
   })
 

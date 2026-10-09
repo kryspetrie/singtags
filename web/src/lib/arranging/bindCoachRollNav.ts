@@ -25,12 +25,14 @@ export function bindCoachRollNav(opts: {
   stepNextGap: () => void
   stepNextIssue: () => void
   stepNextProblem: () => void
+  stepSuggest?: (dir: -1 | 1) => void
 }): () => void {
   const unregister = registerCoachRollNav({
     stepMoment: opts.stepMoment,
     stepNextGap: opts.stepNextGap,
     stepNextIssue: opts.stepNextIssue,
     stepNextProblem: opts.stepNextProblem,
+    stepSuggest: opts.stepSuggest,
   })
   const stop = watch(
     [

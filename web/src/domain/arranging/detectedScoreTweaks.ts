@@ -14,7 +14,10 @@ export type DetectedScoreTweaks = {
   v7LeadOn3Or7Boost: number
   /** Light I7 color when Lead sits on 3 or 7 of I. */
   i7LeadOn3Or7Boost: number
-  /** Demote springboard I7 at phrase end / tag. */
+  /**
+   * Phrase-end / tag tonic home magnitude (field name kept for Tweaks JSON).
+   * Now boosts major/minor endings (Rylander); I7 only when Lead is on ♭7.
+   */
   phraseEndI7Penalty: number
   mild: {
     /** Prefer V7 over plain V when Lead is 5 of V and next supports tonic. */

@@ -1,0 +1,520 @@
+{
+  "tag_id": 90005,
+  "id": 90005,
+  "title": "Honey - Little 'Lize Medley",
+  "alt_title": "Honey Little Lize Medley",
+  "common_name": "Honey Little Lize Medley",
+  "arranger": "Floyd Connett",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 5,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - 90005",
+  "identity": {
+    "title": "honey - little 'lize medley",
+    "arranger": "floyd connett",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "honey little lize medley",
+    "posted": ""
+  },
+  "identity_key": "honey - little 'lize medley|floyd connett|bb major|polecat|honey little lize medley|",
+  "identity_hash": "bfdd1ce4fb789ab5",
+  "keywords": [
+    "honey - little lize medley",
+    "honey",
+    "little",
+    "lize",
+    "medley",
+    "honey little lize medley",
+    "floyd connett",
+    "floyd",
+    "connett",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90005",
+    "p5"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Sheet.pdf",
+      "bytes": 113403,
+      "sha256": "ae56ceaef3589895e55a5161fc0b9b4496a6dd4319bc428dd4bfa2e3af850064",
+      "source_sha256": "a38049368add206d3352286556d08bcd919a1f386c2f50612096ae44b1ab6703",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Honey Little Lize Medley - Floyd Connett (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Lead.mp3",
+      "bytes": 2047744,
+      "sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe",
+      "source_sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Honey-Little Lize Medley - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0929,
+        "correlation": 0.3338,
+        "side_mid": 0.7264,
+        "analyzed_at": "2026-09-07T04:13:15.975053+00:00",
+        "source_sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 1.0,
+        "zero_corr": 1.0,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:17.271251+00:00",
+        "source_sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Lead - Playback.opus",
+          "sha256": "77814879332b1cacda8789a213abc3d8b2b0581edf5d9a777add2c484de75aa8",
+          "bytes": 689462,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.037588+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Lead - Solo.opus",
+          "sha256": "2f122eb863fddcac1b5b656171101900f9d27de7cae3db923cd49c7afdd86cc6",
+          "bytes": 177778,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "0c512b8b75023ff265079bf82dbc1a3155d4c700086501be6e146d5ef0fdf4fe",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:24.623355+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Tenor.mp3",
+      "bytes": 2047744,
+      "sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0",
+      "source_sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Honey-Little Lize Medley - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0078,
+        "correlation": 0.2728,
+        "side_mid": 0.7639,
+        "analyzed_at": "2026-09-07T04:13:16.058674+00:00",
+        "source_sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.69,
+        "zero_corr": 0.69,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:18.284706+00:00",
+        "source_sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Tenor - Playback.opus",
+          "sha256": "6d15d384bd4f754568bf2901bb275f4057584f91375deeb534d28d3d334ba2a0",
+          "bytes": 689464,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.747350+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Tenor - Solo.opus",
+          "sha256": "6f4f4e8fccd7833beb686e620653cd5eeacc632500f874df905383924a658373",
+          "bytes": 177780,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "b0004e1e417dfc702130477229772f6e5cc327fb7e93f9c15862a357c03dc7d0",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:25.068967+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bari.mp3",
+      "bytes": 2047744,
+      "sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776",
+      "source_sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medlay - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Honey-Little Lize Medlay - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.138,
+        "correlation": 0.2067,
+        "side_mid": 0.8064,
+        "analyzed_at": "2026-09-07T04:13:16.252607+00:00",
+        "source_sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.655,
+        "zero_corr": 0.655,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:19.284455+00:00",
+        "source_sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bari - Playback.opus",
+          "sha256": "4aec09837c5a2f6b4fcbeabedb75c1f776fcd10df255a29c033b98139d3df8a4",
+          "bytes": 689462,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:22.466870+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bari - Solo.opus",
+          "sha256": "6273a295617810d5a6628be7b97f5f5a626ec1c7ea1e070865ab8ff868e206d0",
+          "bytes": 177778,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "65794e7feea977d313af90f79e188f5f1802e1eca17f92d2f7c349b295492776",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:25.495426+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bass.mp3",
+      "bytes": 2047744,
+      "sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d",
+      "source_sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Honey-Little Lize Medley - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": 0.0196,
+        "correlation": 0.2888,
+        "side_mid": 0.7707,
+        "analyzed_at": "2026-09-07T04:13:16.446807+00:00",
+        "source_sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d"
+      },
+      "audio_align": {
+        "ref_part": "lead",
+        "offset_ms": 0.0,
+        "corr": 0.612,
+        "zero_corr": 0.612,
+        "trusted": true,
+        "applied_ms": 0.0,
+        "method": "accomp_xcorr",
+        "min_offset_ms": 50,
+        "analyzed_at": "2026-09-07T04:13:20.302036+00:00",
+        "source_sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bass - Playback.opus",
+          "sha256": "6ac441287432d80ac73038879638c994457955f237318f009e33d4c62ec77cf9",
+          "bytes": 689445,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.363858+00:00"
+        },
+        "ultra_solo": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Bass - Solo.opus",
+          "sha256": "a22b25ca495076bee62212bb1f469f8d0e8f854bf8ccb3af521c0539c6fbbf26",
+          "bytes": 177761,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "e8f1d41be0ae237e4d8be7a7e0433a9e5f819c8efe4b633cab6dc8d2cfb45b3d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:26.034377+00:00",
+          "tier_role": "ultra_solo",
+          "solo_side": "left"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Mix.mp3",
+      "bytes": 1950714,
+      "sha256": "721d677c940e2b7ed32eceebf436e5cf6f6ee8766c1a38ba6cf11b85fa68b592",
+      "source_sha256": "721d677c940e2b7ed32eceebf436e5cf6f6ee8766c1a38ba6cf11b85fa68b592",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Honey-Little Lize Medley - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_left",
+        "solo_side": "left",
+        "channels": 2,
+        "balance": -0.0155,
+        "correlation": 0.8436,
+        "side_mid": 0.2901,
+        "analyzed_at": "2026-09-07T04:13:16.593279+00:00",
+        "source_sha256": "721d677c940e2b7ed32eceebf436e5cf6f6ee8766c1a38ba6cf11b85fa68b592"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Mix - Playback.opus",
+          "sha256": "b4616886cd671ba1b944b18946301a7f18dd6b53623d84581a5b251e30f34178",
+          "bytes": 656814,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "721d677c940e2b7ed32eceebf436e5cf6f6ee8766c1a38ba6cf11b85fa68b592",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:24.202817+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Honey - Little Lize Medley (Bb Major) - Floyd Connett - Mix - Ultra Mix.opus",
+          "sha256": "f4cfe480689b78d106336f715cb8ffecd645adb56a5d6f27060dff49639e8479",
+          "bytes": 331854,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "721d677c940e2b7ed32eceebf436e5cf6f6ee8766c1a38ba6cf11b85fa68b592",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:28.733871+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medlay - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Honey-Little Lize Medley - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90005,
+    "Title": "Honey - Little 'Lize Medley",
+    "AltTitle": "Honey Little Lize Medley",
+    "CommonName": "Honey Little Lize Medley",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Floyd Connett",
+    "Collection": "polecats",
+    "Classic": 5,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Honey / Lil' Lize Medley",
+      "learning": "Honey - Little 'Lize Medley"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/honey-little-lize-medley-1",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/honey-little-lize-medley",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/honey-little-lize-medley-2",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/honey-little-lize-medley-3"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "part_left",
+    "mix": "part_left",
+    "ultra_low": "mono_solos",
+    "solo_side": "left",
+    "analyzed_at": "2026-09-07T04:13:16.669775+00:00",
+    "mix_correlation": -0.0111,
+    "mix_correlations": {
+      "lead": -0.0135,
+      "tenor": -0.0111,
+      "bari": -0.0121,
+      "bass": -0.0132
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_align_summary": {
+    "status": "ok",
+    "ref_part": "lead",
+    "min_offset_ms": 50,
+    "trusted_parts": [
+      "bari",
+      "bass",
+      "lead",
+      "tenor"
+    ],
+    "applied_ms": {},
+    "analyzed_at": "2026-09-07T04:13:20.302062+00:00"
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_solos",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": "ok",
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:28.733901+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 75,
+    "extracted_at": "2026-10-08T21:28:47.517498+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 73.5,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 5.619,
+    "coverage": 0.946,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 50.114,
+    "voiced": {
+      "lead": 0.918,
+      "tenor": 0.922,
+      "bari": 0.92,
+      "bass": 0.92
+    },
+    "midi_mad": {
+      "lead": 0.0824,
+      "tenor": 0.1064,
+      "bari": 0.1004,
+      "bass": 0.0841
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getArrangingServices } from '../composition/arranging'
+import { usePreferencesStore } from './preferences'
 import {
   applyAllSafeFixes,
   applyCandidateToProject,
@@ -20,7 +21,10 @@ import {
   polishArrangementVoicing,
   runQa,
   strengthenArrangement,
+  pathOptimize as pathOptimizeUc,
   type SoftSuggestContext,
+  type PathOptimizeOpts,
+  type PathOptimizeReport,
 } from '../application/arranging'
 import type { HarmonizeCandidate } from '../domain/arranging/harmonize'
 import type { ArrangementLint } from '../domain/arranging/qa'
@@ -579,6 +583,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
       candidates.value = []
       return
     }
+    const pathPrefs = usePreferencesStore().tagRollPathOptimizePrefs
     candidates.value = listCandidatesForNote(
       p,
       note,
@@ -586,6 +591,10 @@ export const useArrangementStore = defineStore('arrangement', () => {
         preferScf: p.wizardStep === 'step5_smn_scf' || note.role === 'smn',
         limit: 16,
         softContext: softSuggestContext.value,
+        pathWeights: {
+          risk: pathPrefs.risk,
+          cadenceBias: pathPrefs.cadenceBias,
+        },
       },
       { rankerDeps: services.rankerDeps, idGen: services.idGen },
     )
@@ -712,6 +721,21 @@ export const useArrangementStore = defineStore('arrangement', () => {
     refreshCandidates()
     return applied.length
   }
+
+  async function pathOptimize(opts: PathOptimizeOpts): Promise<PathOptimizeReport | null> {
+    const p = current.value
+    if (!p) return null
+    const { project, report } = await pathOptimizeUc(p, opts, {
+      idGen: services.idGen,
+      rankerDeps: services.rankerDeps,
+    })
+    if (report.applied) {
+      replaceCurrent(project)
+      refreshCandidates()
+    }
+    return report
+  }
+
   function finalChecklist() {
     return current.value ? assessFinal(current.value) : { ready: false, items: [] }
   }
@@ -896,6 +920,7 @@ export const useArrangementStore = defineStore('arrangement', () => {
     labelRoles,
     strengthen,
     polishVoicing,
+    pathOptimize,
     finalChecklist,
     howBarbershopFactors,
     setLyric,

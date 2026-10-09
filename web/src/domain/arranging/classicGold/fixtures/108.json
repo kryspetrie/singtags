@@ -1,0 +1,305 @@
+{
+  "tagId": 108,
+  "title": "Hush, Little Baby",
+  "tonality": 9,
+  "mode": "minor",
+  "bpm": 68.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 34,
+  "tokenCount": 28,
+  "pillarCount": 8,
+  "pillarRomans": [
+    "V",
+    "I",
+    "i",
+    "V7",
+    "V7",
+    "I",
+    "I6",
+    "I6"
+  ],
+  "tokens": [
+    {
+      "roman": "V",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 0.441,
+      "leadMidi": 59,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.882,
+      "leadMidi": 52,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 1.324,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.394,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "v7",
+      "rootPc": 4,
+      "natureId": "m7",
+      "dur": 0.442,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "i",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 1.393,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 9,
+      "natureId": "dim7",
+      "dur": 0.812,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.256,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bIII",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.185,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.395,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bIII",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.371,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "III",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.807,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V+",
+      "rootPc": 4,
+      "natureId": "aug",
+      "dur": 0.401,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "V7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.16,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.516,
+      "leadMidi": 50,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bii",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.441,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.233,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bII",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.441,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "IV",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.883,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "bV9",
+      "rootPc": 3,
+      "natureId": "ninth",
+      "dur": 0.441,
+      "leadMidi": 51,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "IV",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.441,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "III",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.377,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.388,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "III",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.882,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I6",
+      "rootPc": 9,
+      "natureId": "sixth",
+      "dur": 1.231,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.209,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.441
+    },
+    {
+      "roman": "I6",
+      "rootPc": 9,
+      "natureId": "sixth",
+      "dur": 1.648,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.441
+    }
+  ],
+  "classic": "96",
+  "collection": "classic"
+}

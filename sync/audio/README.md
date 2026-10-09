@@ -17,6 +17,23 @@ cd sync && source ./.venv/bin/activate
 
 ## Scripts
 
+### `extract_pitch_stacks.py`
+
+Precompute TTBB pitch → `pitch_stacks.json` + `pitch_studio.json` in each tag folder
+(also updates `metadata.json` → `pitch_extract`). Used by Tag page **Import into Tag Studio**.
+
+```bash
+python audio/extract_pitch_stacks.py --source ../polecats --force
+python audio/extract_pitch_stacks.py --id 31 --force
+python audio/extract_pitch_stacks.py --limit 50 --workers 4
+```
+
+Rebuild SPA indexes afterward so slim `tags/{id}/metadata.json` includes `pitch_studio`:
+
+```bash
+python ../build/build_indexes.py
+```
+
 ### `analyze_audio_layouts.py`
 
 ```bash

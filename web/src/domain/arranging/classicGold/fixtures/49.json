@@ -1,0 +1,239 @@
+{
+  "tagId": 49,
+  "title": "Roses I Bring to You",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 73.5,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 32,
+  "tokenCount": 21,
+  "pillarCount": 12,
+  "pillarRomans": [
+    "ii",
+    "VI7",
+    "iii",
+    "I",
+    "IV",
+    "I",
+    "bVI7",
+    "I9",
+    "I",
+    "IV",
+    "I",
+    "IV"
+  ],
+  "tokens": [
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.408,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.498,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.326,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "VII",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.139,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "iii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 1.609,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.677,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.363,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.696,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 0.794,
+      "leadMidi": 59,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.419,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I9",
+      "rootPc": 5,
+      "natureId": "ninth",
+      "dur": 0.397,
+      "leadMidi": 53,
+      "confidence": 0.56,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.571,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.508,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "bV",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.232,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.408,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.633,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.408,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.408
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.632,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.408
+    }
+  ],
+  "classic": "38",
+  "collection": "classic"
+}

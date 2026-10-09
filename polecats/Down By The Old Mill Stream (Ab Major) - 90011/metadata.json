@@ -1,0 +1,451 @@
+{
+  "tag_id": 90011,
+  "id": 90011,
+  "title": "Down By The Old Mill Stream",
+  "alt_title": null,
+  "common_name": "Down By The Old Mill Stream",
+  "arranger": null,
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 11,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Down By The Old Mill Stream (Ab Major) - 90011",
+  "identity": {
+    "title": "down by the old mill stream",
+    "arranger": "",
+    "key": "ab major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "down by the old mill stream||ab major|polecat||",
+  "identity_hash": "633468cbf3d5f8b7",
+  "keywords": [
+    "down by the old mill stream",
+    "down",
+    "by",
+    "the",
+    "old",
+    "mill",
+    "stream",
+    "ab major",
+    "ab",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90011",
+    "p11"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Sheet.pdf",
+      "bytes": 114547,
+      "sha256": "bb805bc32680860a0d2a6a8c4f80eac69067450e7cb3b8605685ef65430125b0",
+      "source_sha256": "c329132d332d5073b9339178ae0f6af4b6c115bb6f80f7f9ee288cd4c72bc391",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Down By The Old Mill Stream (Ab).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Lead.mp3",
+      "bytes": 2539780,
+      "sha256": "3847f143bff0f2b8604a8d0b2a90f08153223e811a181f0e26e34ddd676376d7",
+      "source_sha256": "3847f143bff0f2b8604a8d0b2a90f08153223e811a181f0e26e34ddd676376d7",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down By The Old Mill Stream - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0184,
+        "correlation": 0.9367,
+        "side_mid": 0.1837,
+        "analyzed_at": "2026-09-07T04:13:16.027523+00:00",
+        "source_sha256": "3847f143bff0f2b8604a8d0b2a90f08153223e811a181f0e26e34ddd676376d7"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Lead - Playback.opus",
+          "sha256": "cb8f650c16aa5beabe15b497b87cdacfdeaaf365c5ff070e2aaec2cada9efa0b",
+          "bytes": 855357,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "3847f143bff0f2b8604a8d0b2a90f08153223e811a181f0e26e34ddd676376d7",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:18.000082+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Lead - Downmix.opus",
+          "sha256": "130cae72a200ad17c4abddae266ca37a3fc12f57abe35a3e2ab3aeee60702316",
+          "bytes": 220433,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "3847f143bff0f2b8604a8d0b2a90f08153223e811a181f0e26e34ddd676376d7",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:22.136418+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Tenor.mp3",
+      "bytes": 2539780,
+      "sha256": "7e33ebb03a8be66311021a84ea233b92697d3c026a358ceb5abbcc6486d113e5",
+      "source_sha256": "7e33ebb03a8be66311021a84ea233b92697d3c026a358ceb5abbcc6486d113e5",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down By The Old Mill Stream - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0068,
+        "correlation": 0.9489,
+        "side_mid": 0.1625,
+        "analyzed_at": "2026-09-07T04:13:16.128119+00:00",
+        "source_sha256": "7e33ebb03a8be66311021a84ea233b92697d3c026a358ceb5abbcc6486d113e5"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Tenor - Playback.opus",
+          "sha256": "1c1363a3499db201f237bb46386276f77e093dfcbe9e6037a2166635bb142e54",
+          "bytes": 855359,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "7e33ebb03a8be66311021a84ea233b92697d3c026a358ceb5abbcc6486d113e5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:18.884551+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Tenor - Downmix.opus",
+          "sha256": "cb39537c0eb866a77c7e7378554872249c849f7f7121354c530f4a3fd9926380",
+          "bytes": 220435,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "7e33ebb03a8be66311021a84ea233b92697d3c026a358ceb5abbcc6486d113e5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:22.637896+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Bari.mp3",
+      "bytes": 2539780,
+      "sha256": "ab6a8f7ab99258587e1f7444e7443adfcd5b052329232f7af1be3d6fca3d6329",
+      "source_sha256": "ab6a8f7ab99258587e1f7444e7443adfcd5b052329232f7af1be3d6fca3d6329",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down By The Old Mill Stream - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.006,
+        "correlation": 0.9476,
+        "side_mid": 0.1647,
+        "analyzed_at": "2026-09-07T04:13:16.211276+00:00",
+        "source_sha256": "ab6a8f7ab99258587e1f7444e7443adfcd5b052329232f7af1be3d6fca3d6329"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Bari - Playback.opus",
+          "sha256": "6b8f702148da03c160cff53e24afcf42590d86c41e0a26273a2ddd7c4ca885da",
+          "bytes": 855357,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "ab6a8f7ab99258587e1f7444e7443adfcd5b052329232f7af1be3d6fca3d6329",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:19.835903+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Bari - Downmix.opus",
+          "sha256": "89170320d6f81a936a62491172227218bd44ae556793a7d394e15a8a5a474b40",
+          "bytes": 220433,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "ab6a8f7ab99258587e1f7444e7443adfcd5b052329232f7af1be3d6fca3d6329",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.210704+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Bass.mp3",
+      "bytes": 2539780,
+      "sha256": "57c48a79290767eff8308bf78b98f055e7313d0a1d4535523fbff2378a736561",
+      "source_sha256": "57c48a79290767eff8308bf78b98f055e7313d0a1d4535523fbff2378a736561",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down By The Old Mill Stream - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0062,
+        "correlation": 0.9479,
+        "side_mid": 0.1643,
+        "analyzed_at": "2026-09-07T04:13:16.334107+00:00",
+        "source_sha256": "57c48a79290767eff8308bf78b98f055e7313d0a1d4535523fbff2378a736561"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Bass - Playback.opus",
+          "sha256": "c49585609aae35acc34ef316d37b6bfcde3651a7247cbe1e5ae60bc62d917362",
+          "bytes": 855337,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "57c48a79290767eff8308bf78b98f055e7313d0a1d4535523fbff2378a736561",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:20.758264+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Bass - Downmix.opus",
+          "sha256": "d57f07ebe2dd1e654c9ab127a5d498124256e7990a2e2cd160447dd52622a5ef",
+          "bytes": 220413,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "57c48a79290767eff8308bf78b98f055e7313d0a1d4535523fbff2378a736561",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.762399+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Down By The Old Mill Stream (Ab Major) - Mix.mp3",
+      "bytes": 2443376,
+      "sha256": "1716e04ed1f37d353307b6b236ea640d80c8dd10acb485a6ffcbb05d796afd1e",
+      "source_sha256": "1716e04ed1f37d353307b6b236ea640d80c8dd10acb485a6ffcbb05d796afd1e",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down By The Old Mill Stream - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": -0.0006,
+        "correlation": 0.8812,
+        "side_mid": 0.2523,
+        "analyzed_at": "2026-09-07T04:13:16.471067+00:00",
+        "source_sha256": "1716e04ed1f37d353307b6b236ea640d80c8dd10acb485a6ffcbb05d796afd1e"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Mix - Playback.opus",
+          "sha256": "5913d31ac68cb3c697baeecacbf4dc266033c9363e9df7297c827232b540ddd0",
+          "bytes": 822708,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "1716e04ed1f37d353307b6b236ea640d80c8dd10acb485a6ffcbb05d796afd1e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.602766+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Down By The Old Mill Stream (Ab Major) - Mix - Ultra Mix.opus",
+          "sha256": "f7f8cdd79ca5a9c16f87d22a1876095932d78bbb90a1d8ca58f2bb0c6059b249",
+          "bytes": 415588,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "1716e04ed1f37d353307b6b236ea640d80c8dd10acb485a6ffcbb05d796afd1e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:26.751105+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down By The Old Mill Stream - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90011,
+    "Title": "Down By The Old Mill Stream",
+    "AltTitle": null,
+    "CommonName": "Down By The Old Mill Stream",
+    "WritKey": "Major:Ab",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": null,
+    "Collection": "polecats",
+    "Classic": 11,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Down by the Old Mill Stream",
+      "learning": "Down By The Old Mill Stream"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/down-by-the-old-mill-stream-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/down-by-the-old-mill-stream-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/down-by-the-old-mill-stream-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/down-by-the-old-mill-stream-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:16.620651+00:00",
+    "mix_correlation": -0.0598,
+    "mix_correlations": {
+      "lead": -0.0598,
+      "tenor": -0.0599,
+      "bari": -0.0599,
+      "bass": -0.0599
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:26.751138+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 76,
+    "extracted_at": "2026-10-08T21:28:35.769064+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 78.0,
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 9.125,
+    "coverage": 0.916,
+    "avg_voices": 3.961,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 61.213,
+    "voiced": {
+      "lead": 0.907,
+      "tenor": 0.88,
+      "bari": 0.881,
+      "bass": 0.873
+    },
+    "midi_mad": {
+      "lead": 0.0927,
+      "tenor": 0.0906,
+      "bari": 0.0921,
+      "bass": 0.0762
+    }
+  }
+}

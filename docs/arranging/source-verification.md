@@ -1,8 +1,9 @@
 # Source verification — knowledge/code vs BAM / Szabo / Rylander / Prietto
 
-**Date:** 2026-09-19  
-**Sources:** `work/ocr/` (BAM 1980), `work/ocr_extra/szabo*`, `rylander_11_chords.txt`, `prietto_arranging.txt`  
-**Focus:** Recent theory fixes + core highway claims.
+**Date:** 2026-10-07 (re-OCR + finals/doubling sync)  
+**Sources:** BAM 1980 (`arranging/work/ocr/` + re-OCR `work/ocr-verify/bam-*`), Flinn `11-chords.pdf`, Rylander, Prietto, Szabo  
+**Focus:** Finals / doubling / Dom9 Basic + core highway claims.  
+**Weight audit:** [theory-weight-audit-2026-10.md](theory-weight-audit-2026-10.md)
 
 **Full claim-by-claim audit:** [source-claim-audit.md](source-claim-audit.md) (all teachable chapters; **0 FAIL**).
 
@@ -28,10 +29,14 @@ OCR quotes are abbreviated; page paths are the evidence anchors.
 | Dom9: omit one tone; keep 3/♭7/9 | Prietto ~L896–900 | **PASS** |
 | Dom9: which omit is “most common”? | **Prietto:** omit **root** most common; **Rylander:** normally omit **5th** | **SOURCE SPLIT** — both legal; preference order is editorial |
 | Maj7 allowed m2 (S13 exception) | Rylander: maj7 *only* allowed chord with m2; BAM style def bans m2 chords without naming maj7 carve-out | **PASS vs Rylander**; BAM official def is stricter/absolute |
+| Song/phrase finals prefer **major** triad (I7 only if Lead on ♭7) | Rylander: “99% … end with a major chord”; Flinn/BAM tonic triad home | **PASS** (2026-10-07) |
+| Major triad doubles **root** (not 3rd / not “Lead PC”) | Flinn; BAM p24; Prietto doubling; Rylander “ugly” 3rd | **PASS** (`triadDoubleKind`) |
+| Basic allows Dom9 when Lead is 9 | Flinn predominant Dom9; BAM melody-forced 9ths | **PASS** (allowlist + `colorChordPenalty`) |
 | Dim7: drop a tone → BS7 on that pitch | Rylander ~L228–229 | **PASS** |
 | Harmonic ♭7 = 7/4 (≈ −31¢ vs ET) | Rylander f.not 7/4 | **PASS** (cents are derived) |
 | Stevens distance: G7=1 … E7=4 | Prietto Circle / Stevens list | **PASS** |
 | m7 ≠ V7 / secondary-dominant label | Szabo separates m7 from Mm7 secondary dominants | **PASS** |
+| Soft part-writing: upper-trio close; change direction after leap > 3rd; demote ↑A4/↓d5 in harmony parts | Ades *Choral Arranging* Ch.1 (OCR `mbl_vok2`) | **PASS** (soft costs in `partWritingCosts.ts`; Lead exempt; parallels stay soft) |
 
 ---
 

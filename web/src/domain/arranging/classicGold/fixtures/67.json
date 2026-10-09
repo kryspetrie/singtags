@@ -1,0 +1,184 @@
+{
+  "tagId": 67,
+  "title": "Rhapsody of New York",
+  "tonality": 2,
+  "mode": "major",
+  "bpm": 68.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 20,
+  "tokenCount": 16,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "I",
+    "I",
+    "I9",
+    "I",
+    "ii7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.882,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "vi",
+      "rootPc": 11,
+      "natureId": "minor",
+      "dur": 0.441,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.348,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.209,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "passing",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.279,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "passing",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.441,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.418,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.696,
+      "leadMidi": 57,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "vi",
+      "rootPc": 11,
+      "natureId": "minor",
+      "dur": 0.326,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.278,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I9",
+      "rootPc": 2,
+      "natureId": "ninth",
+      "dur": 0.349,
+      "leadMidi": 60,
+      "confidence": 0.56,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.441,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.441,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 4,
+      "natureId": "m7",
+      "dur": 0.791,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4295
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 2.647,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4295
+    }
+  ],
+  "classic": "55",
+  "collection": "classic"
+}

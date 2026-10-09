@@ -1,0 +1,173 @@
+{
+  "tagId": 85,
+  "title": "As Time Goes By",
+  "tonality": 2,
+  "mode": "major",
+  "bpm": 84.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 16,
+  "tokenCount": 15,
+  "pillarCount": 6,
+  "pillarRomans": [
+    "II7",
+    "I",
+    "VI7",
+    "V",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "V",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.743,
+      "leadMidi": 61,
+      "confidence": 0.233,
+      "role": "mid",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "II7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.072,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.319,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.256,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.278,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "bIII",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.233,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "V6",
+      "rootPc": 9,
+      "natureId": "sixth",
+      "dur": 1.071,
+      "leadMidi": 52,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 1.061,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 1.082,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "bII",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.737,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 0.715,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 1.451,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "V",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 1.072,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 1.071,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 1.061
+    },
+    {
+      "roman": "I",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 2.884,
+      "leadMidi": 54,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 1.061
+    }
+  ],
+  "classic": "73",
+  "collection": "classic"
+}

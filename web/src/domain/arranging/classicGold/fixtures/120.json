@@ -1,0 +1,211 @@
+{
+  "tagId": 120,
+  "title": "Happy Trails to You",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 66.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 19,
+  "pillarCount": 4,
+  "pillarRomans": [
+    "I",
+    "VI7",
+    "bVI7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.977,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "v",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.684,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "v7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.593,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "v",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.445,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 1.818,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.389,
+      "leadMidi": 58,
+      "confidence": 0.173,
+      "role": "passing",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.381,
+      "leadMidi": 60,
+      "confidence": 0.293,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.909,
+      "leadMidi": 50,
+      "confidence": 0.173,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.455,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.455,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 0.455,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "VI",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.978,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.455,
+      "leadMidi": 52,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "I+",
+      "rootPc": 5,
+      "natureId": "aug",
+      "dur": 1.306,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.348,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "I+",
+      "rootPc": 5,
+      "natureId": "aug",
+      "dur": 0.598,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.872,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 1,
+      "natureId": "seventh",
+      "dur": 1.364,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.598
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.792,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.598
+    }
+  ],
+  "classic": "108",
+  "collection": "classic"
+}

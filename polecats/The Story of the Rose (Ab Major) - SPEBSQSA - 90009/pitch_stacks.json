@@ -1,0 +1,1914 @@
+{
+  "id": 90009,
+  "title": "The Story of the Rose",
+  "arranger": "SPEBSQSA",
+  "key": "Ab Major",
+  "tonality": 8,
+  "mode": "major",
+  "folder": "The Story of the Rose (Ab Major) - SPEBSQSA - 90009",
+  "extracted_at": "2026-10-08T21:29:41.504641+00:00",
+  "method": "yin_part_left+norm_progressive_v6",
+  "hop_s": 0.023219954648526078,
+  "bpm": 79.0,
+  "timeSignature": {
+    "numerator": 3,
+    "denominator": 4
+  },
+  "snap": "eighth_offgrid",
+  "snapTicks": 240,
+  "preprocess": {
+    "blown_pitch": {
+      "stripped": true,
+      "start_frame": 210,
+      "start_s": 4.876,
+      "blown_dur_s": 4.087,
+      "blown_pc": 8
+    },
+    "gap_compress": {
+      "compressed": true,
+      "frames_removed": 272,
+      "seconds_removed": 6.316,
+      "frames_before": 4064,
+      "frames_after": 3792,
+      "protect_tail_s": 10.0
+    },
+    "tempo": {
+      "bpm": 79.0,
+      "numerator": 3,
+      "denominator": 4,
+      "tempo_source": "onset_autocorr",
+      "meter_source": "polecat_prior",
+      "tempo_score": 0.1217,
+      "meter_scores": {
+        "3": 0.0149,
+        "4": 0.0221
+      }
+    },
+    "min_voices": 3,
+    "ritardando": {
+      "detected": true,
+      "start_s": 60.103,
+      "body_med_s": 0.964,
+      "tail_med_s": 2.879,
+      "reason": "hold_lengthen"
+    },
+    "align": {
+      "phase_s": 0.0,
+      "shifted": false,
+      "first_pull_s": 0.0,
+      "eighth_s": 0.3797,
+      "bar_s": 2.2785
+    },
+    "density": {
+      "coverage": 0.949,
+      "sparse": false,
+      "max_gap_s": 0.76,
+      "mean_gap_s": 0.407,
+      "avg_voices": 4.0,
+      "trio_frac": 1.0,
+      "stack_count": 54,
+      "duration_s": 86.962,
+      "stacks_per_min": 37.26
+    },
+    "loudness_stage": "normalize",
+    "loudness_passes": [
+      {
+        "stage": "normalize",
+        "stage_i": 0,
+        "min_voices": 3,
+        "density": {
+          "coverage": 0.949,
+          "sparse": false,
+          "max_gap_s": 0.76,
+          "mean_gap_s": 0.407,
+          "avg_voices": 4.0,
+          "trio_frac": 1.0,
+          "stack_count": 54,
+          "duration_s": 86.962,
+          "stacks_per_min": 37.26
+        },
+        "voiced": {
+          "lead": 0.914,
+          "tenor": 0.918,
+          "bari": 0.919,
+          "bass": 0.923
+        },
+        "bpm": 79.0,
+        "meter": 3
+      }
+    ]
+  },
+  "sources": {
+    "lead": {
+      "file": "The Story of the Rose (Ab Major) - SPEBSQSA - Lead.mp3",
+      "kind": "mp3",
+      "solo_side": "left",
+      "offset_ms": 0.0,
+      "voiced_frac": 0.913664014974263,
+      "midi_mad": 0.1185,
+      "sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e",
+      "loudness_stage": "normalize"
+    },
+    "tenor": {
+      "file": "The Story of the Rose (Ab Major) - SPEBSQSA - Tenor.mp3",
+      "kind": "mp3",
+      "solo_side": "left",
+      "offset_ms": 0.0,
+      "voiced_frac": 0.9183434721572298,
+      "midi_mad": 0.093,
+      "sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5",
+      "loudness_stage": "normalize"
+    },
+    "bari": {
+      "file": "The Story of the Rose (Ab Major) - SPEBSQSA - Bari.mp3",
+      "kind": "mp3",
+      "solo_side": "left",
+      "offset_ms": 0.0,
+      "voiced_frac": 0.9192793635938231,
+      "midi_mad": 0.0781,
+      "sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132",
+      "loudness_stage": "normalize"
+    },
+    "bass": {
+      "file": "The Story of the Rose (Ab Major) - SPEBSQSA - Bass.mp3",
+      "kind": "mp3",
+      "solo_side": "left",
+      "offset_ms": 0.0,
+      "voiced_frac": 0.9227889564810482,
+      "midi_mad": 0.0807,
+      "sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d",
+      "loudness_stage": "normalize"
+    }
+  },
+  "stack_count": 54,
+  "stacks": [
+    {
+      "t0": 0.0,
+      "t1": 0.812,
+      "dur": 0.812,
+      "midi": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "C4",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 0.812,
+      "t1": 1.091,
+      "dur": 0.279,
+      "midi": {
+        "lead": 55,
+        "tenor": 59,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 55,
+        "tenor": 59,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "G3",
+        "tenor": "B3",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "unknown",
+      "rootPc": 7,
+      "confidence": 0.0,
+      "roman": "VII",
+      "pcs": [
+        3,
+        7,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 1.091,
+      "t1": 2.658,
+      "dur": 1.567,
+      "midi": {
+        "lead": 51,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 51,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Eb3",
+        "tenor": "C4",
+        "bari": "Ab3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 2.658,
+      "t1": 3.418,
+      "dur": 0.76,
+      "midi": {
+        "lead": 53,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 53,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "names": {
+        "lead": "F3",
+        "tenor": "C4",
+        "bari": "Ab3",
+        "bass": "Ab2"
+      },
+      "natureId": "minor",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "vi",
+      "pcs": [
+        0,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 3.418,
+      "t1": 5.316,
+      "dur": 1.898,
+      "midi": {
+        "lead": 56,
+        "tenor": 62,
+        "bari": 46,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 62,
+        "bari": 58,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "D4",
+        "bari": "Bb2",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 5.316,
+      "t1": 8.354,
+      "dur": 3.038,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 8.354,
+      "t1": 8.734,
+      "dur": 0.38,
+      "midi": {
+        "lead": 57,
+        "tenor": 60,
+        "bari": 54,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 57,
+        "tenor": 60,
+        "bari": 54,
+        "bass": 51
+      },
+      "names": {
+        "lead": "A3",
+        "tenor": "C4",
+        "bari": "Gb3",
+        "bass": "Eb2"
+      },
+      "natureId": "dim7",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V\u00b07",
+      "pcs": [
+        0,
+        3,
+        6,
+        9
+      ]
+    },
+    {
+      "t0": 8.734,
+      "t1": 11.772,
+      "dur": 3.038,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 11.772,
+      "t1": 12.532,
+      "dur": 0.76,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 12.532,
+      "t1": 12.912,
+      "dur": 0.38,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 12.912,
+      "t1": 14.81,
+      "dur": 1.898,
+      "midi": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "C4",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 15.209,
+      "t1": 15.949,
+      "dur": 0.74,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "A3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "VI7",
+      "pcs": [
+        0,
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 15.949,
+      "t1": 17.468,
+      "dur": 1.519,
+      "midi": {
+        "lead": 53,
+        "tenor": 63,
+        "bari": 45,
+        "bass": 36
+      },
+      "midi_raw": {
+        "lead": 53,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 48
+      },
+      "names": {
+        "lead": "F3",
+        "tenor": "Eb4",
+        "bari": "A2",
+        "bass": "C2"
+      },
+      "natureId": "seventh",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "VI7",
+      "pcs": [
+        0,
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 17.848,
+      "t1": 18.228,
+      "dur": 0.38,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "A3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "VI7",
+      "pcs": [
+        0,
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 18.228,
+      "t1": 18.608,
+      "dur": 0.38,
+      "midi": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 57,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 57,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "D4",
+        "bari": "A3",
+        "bass": "F2"
+      },
+      "natureId": "m7",
+      "rootPc": 2,
+      "confidence": 1.0,
+      "roman": "bv7",
+      "pcs": [
+        0,
+        2,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 18.608,
+      "t1": 20.127,
+      "dur": 1.519,
+      "midi": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "madd6",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "vi",
+      "pcs": [
+        0,
+        2,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 20.127,
+      "t1": 22.025,
+      "dur": 1.898,
+      "midi": {
+        "lead": 53,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "midi_raw": {
+        "lead": 53,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "names": {
+        "lead": "F3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "Bb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 22.025,
+      "t1": 23.544,
+      "dur": 1.519,
+      "midi": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "madd6",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "vi",
+      "pcs": [
+        0,
+        2,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 23.544,
+      "t1": 26.582,
+      "dur": 3.038,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 26.962,
+      "t1": 28.101,
+      "dur": 1.139,
+      "midi": {
+        "lead": 53,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "midi_raw": {
+        "lead": 53,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "names": {
+        "lead": "F3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "Bb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 28.101,
+      "t1": 29.981,
+      "dur": 1.88,
+      "midi": {
+        "lead": 56,
+        "tenor": 61,
+        "bari": 46,
+        "bass": 40
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 61,
+        "bari": 58,
+        "bass": 52
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "Db4",
+        "bari": "Bb2",
+        "bass": "E2"
+      },
+      "natureId": "madd6",
+      "rootPc": 1,
+      "confidence": 1.0,
+      "roman": "iv",
+      "pcs": [
+        1,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 30.329,
+      "t1": 33.797,
+      "dur": 3.468,
+      "midi": {
+        "lead": 55,
+        "tenor": 61,
+        "bari": 46,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 55,
+        "tenor": 61,
+        "bari": 58,
+        "bass": 51
+      },
+      "names": {
+        "lead": "G3",
+        "tenor": "Db4",
+        "bari": "Bb2",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 34.177,
+      "t1": 34.557,
+      "dur": 0.38,
+      "midi": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "C4",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 34.557,
+      "t1": 34.955,
+      "dur": 0.398,
+      "midi": {
+        "lead": 55,
+        "tenor": 59,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 55,
+        "tenor": 59,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "G3",
+        "tenor": "B3",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "unknown",
+      "rootPc": 7,
+      "confidence": 0.0,
+      "roman": "VII",
+      "pcs": [
+        3,
+        7,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 34.955,
+      "t1": 36.835,
+      "dur": 1.88,
+      "midi": {
+        "lead": 51,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 51,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Eb3",
+        "tenor": "C4",
+        "bari": "Ab3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 36.835,
+      "t1": 37.595,
+      "dur": 0.76,
+      "midi": {
+        "lead": 53,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 53,
+        "tenor": 60,
+        "bari": 56,
+        "bass": 44
+      },
+      "names": {
+        "lead": "F3",
+        "tenor": "C4",
+        "bari": "Ab3",
+        "bass": "Ab2"
+      },
+      "natureId": "minor",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "vi",
+      "pcs": [
+        0,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 37.595,
+      "t1": 38.734,
+      "dur": 1.139,
+      "midi": {
+        "lead": 56,
+        "tenor": 62,
+        "bari": 46,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 62,
+        "bari": 58,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "D4",
+        "bari": "Bb2",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 38.734,
+      "t1": 41.392,
+      "dur": 2.658,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 41.392,
+      "t1": 42.152,
+      "dur": 0.76,
+      "midi": {
+        "lead": 57,
+        "tenor": 60,
+        "bari": 54,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 57,
+        "tenor": 60,
+        "bari": 54,
+        "bass": 51
+      },
+      "names": {
+        "lead": "A3",
+        "tenor": "C4",
+        "bari": "Gb3",
+        "bass": "Eb2"
+      },
+      "natureId": "dim7",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V\u00b07",
+      "pcs": [
+        0,
+        3,
+        6,
+        9
+      ]
+    },
+    {
+      "t0": 42.152,
+      "t1": 43.64,
+      "dur": 1.488,
+      "midi": {
+        "lead": 51,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 46
+      },
+      "midi_raw": {
+        "lead": 51,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 46
+      },
+      "names": {
+        "lead": "Eb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Bb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 43.64,
+      "t1": 43.849,
+      "dur": 0.209,
+      "midi": {
+        "lead": 58,
+        "tenor": 60,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 60,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "C4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "m7",
+      "rootPc": 0,
+      "confidence": 1.0,
+      "roman": "iii7",
+      "pcs": [
+        0,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 43.849,
+      "t1": 45.195,
+      "dur": 1.346,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 45.195,
+      "t1": 45.949,
+      "dur": 0.754,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 45.949,
+      "t1": 46.38,
+      "dur": 0.431,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 46.38,
+      "t1": 48.632,
+      "dur": 2.252,
+      "midi": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "C4",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 48.987,
+      "t1": 49.367,
+      "dur": 0.38,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 56,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 56,
+        "bass": 44
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "Ab3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 49.367,
+      "t1": 50.513,
+      "dur": 1.146,
+      "midi": {
+        "lead": 60,
+        "tenor": 64,
+        "bari": 58,
+        "bass": 43
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 64,
+        "bari": 58,
+        "bass": 55
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "E4",
+        "bari": "Bb3",
+        "bass": "G2"
+      },
+      "natureId": "seventh",
+      "rootPc": 0,
+      "confidence": 1.0,
+      "roman": "III7",
+      "pcs": [
+        0,
+        4,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 50.513,
+      "t1": 52.463,
+      "dur": 1.95,
+      "midi": {
+        "lead": 60,
+        "tenor": 65,
+        "bari": 57,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 65,
+        "bari": 57,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "F4",
+        "bari": "A3",
+        "bass": "F2"
+      },
+      "natureId": "major",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "VI",
+      "pcs": [
+        0,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 52.463,
+      "t1": 53.544,
+      "dur": 1.081,
+      "midi": {
+        "lead": 60,
+        "tenor": 66,
+        "bari": 56,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 66,
+        "bari": 56,
+        "bass": 51
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Gb4",
+        "bari": "Ab3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I7",
+      "pcs": [
+        0,
+        3,
+        6,
+        8
+      ]
+    },
+    {
+      "t0": 53.544,
+      "t1": 55.087,
+      "dur": 1.543,
+      "midi": {
+        "lead": 61,
+        "tenor": 65,
+        "bari": 56,
+        "bass": 37
+      },
+      "midi_raw": {
+        "lead": 61,
+        "tenor": 65,
+        "bari": 56,
+        "bass": 49
+      },
+      "names": {
+        "lead": "Db4",
+        "tenor": "F4",
+        "bari": "Ab3",
+        "bass": "Db2"
+      },
+      "natureId": "major",
+      "rootPc": 1,
+      "confidence": 1.0,
+      "roman": "IV",
+      "pcs": [
+        1,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 55.087,
+      "t1": 55.823,
+      "dur": 0.736,
+      "midi": {
+        "lead": 60,
+        "tenor": 65,
+        "bari": 56,
+        "bass": 37
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 65,
+        "bari": 56,
+        "bass": 49
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "F4",
+        "bari": "Ab3",
+        "bass": "Db2"
+      },
+      "natureId": "unknown",
+      "rootPc": 0,
+      "confidence": 0.0,
+      "roman": "III",
+      "pcs": [
+        0,
+        1,
+        5,
+        8
+      ]
+    },
+    {
+      "t0": 56.203,
+      "t1": 59.62,
+      "dur": 3.417,
+      "midi": {
+        "lead": 59,
+        "tenor": 65,
+        "bari": 55,
+        "bass": 38
+      },
+      "midi_raw": {
+        "lead": 59,
+        "tenor": 65,
+        "bari": 55,
+        "bass": 50
+      },
+      "names": {
+        "lead": "B3",
+        "tenor": "F4",
+        "bari": "G3",
+        "bass": "D2"
+      },
+      "natureId": "seventh",
+      "rootPc": 7,
+      "confidence": 1.0,
+      "roman": "VII7",
+      "pcs": [
+        2,
+        5,
+        7,
+        11
+      ]
+    },
+    {
+      "t0": 59.94,
+      "t1": 60.103,
+      "dur": 0.163,
+      "midi": {
+        "lead": 59,
+        "tenor": 63,
+        "bari": 54,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 59,
+        "tenor": 63,
+        "bari": 54,
+        "bass": 44
+      },
+      "names": {
+        "lead": "B3",
+        "tenor": "Eb4",
+        "bari": "Gb3",
+        "bass": "Ab2"
+      },
+      "natureId": "m7",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "i7",
+      "pcs": [
+        3,
+        6,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 60.103,
+      "t1": 61.519,
+      "dur": 1.416,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 56,
+        "bass": 36
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 56,
+        "bass": 48
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "Ab3",
+        "bass": "C2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    },
+    {
+      "t0": 61.519,
+      "t1": 62.658,
+      "dur": 1.139,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 58,
+        "bass": 43
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 58,
+        "bass": 55
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "Bb3",
+        "bass": "G2"
+      },
+      "natureId": "m7",
+      "rootPc": 0,
+      "confidence": 1.0,
+      "roman": "iii7",
+      "pcs": [
+        0,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 62.658,
+      "t1": 64.937,
+      "dur": 2.279,
+      "midi": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 60,
+        "tenor": 63,
+        "bari": 57,
+        "bass": 53
+      },
+      "names": {
+        "lead": "C4",
+        "tenor": "Eb4",
+        "bari": "A3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 5,
+      "confidence": 1.0,
+      "roman": "VI7",
+      "pcs": [
+        0,
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "t0": 65.317,
+      "t1": 66.076,
+      "dur": 0.759,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 46
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "Bb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 0.67,
+      "roman": "II7",
+      "pcs": [
+        2,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 66.076,
+      "t1": 66.835,
+      "dur": 0.759,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 41
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 53
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "F2"
+      },
+      "natureId": "seventh",
+      "rootPc": 10,
+      "confidence": 1.0,
+      "roman": "II7",
+      "pcs": [
+        2,
+        5,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 66.835,
+      "t1": 68.299,
+      "dur": 1.464,
+      "midi": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 40
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 62,
+        "bari": 56,
+        "bass": 52
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "D4",
+        "bari": "Ab3",
+        "bass": "E2"
+      },
+      "natureId": "unknown",
+      "rootPc": 10,
+      "confidence": 0.0,
+      "roman": "II",
+      "pcs": [
+        2,
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "t0": 68.299,
+      "t1": 71.772,
+      "dur": 3.473,
+      "midi": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 58,
+        "tenor": 61,
+        "bari": 55,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Bb3",
+        "tenor": "Db4",
+        "bari": "G3",
+        "bass": "Eb2"
+      },
+      "natureId": "seventh",
+      "rootPc": 3,
+      "confidence": 1.0,
+      "roman": "V7",
+      "pcs": [
+        1,
+        3,
+        7,
+        10
+      ]
+    },
+    {
+      "t0": 72.532,
+      "t1": 74.383,
+      "dur": 1.851,
+      "midi": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 37
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 49
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "B3",
+        "bari": "F3",
+        "bass": "Db2"
+      },
+      "natureId": "seventh",
+      "rootPc": 1,
+      "confidence": 1.0,
+      "roman": "IV7",
+      "pcs": [
+        1,
+        5,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 74.383,
+      "t1": 75.19,
+      "dur": 0.807,
+      "midi": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 39
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 51
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "B3",
+        "bari": "F3",
+        "bass": "Eb2"
+      },
+      "natureId": "madd6",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "i",
+      "pcs": [
+        3,
+        5,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 75.19,
+      "t1": 78.214,
+      "dur": 3.024,
+      "midi": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 37
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 59,
+        "bari": 53,
+        "bass": 49
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "B3",
+        "bari": "F3",
+        "bass": "Db2"
+      },
+      "natureId": "seventh",
+      "rootPc": 1,
+      "confidence": 1.0,
+      "roman": "IV7",
+      "pcs": [
+        1,
+        5,
+        8,
+        11
+      ]
+    },
+    {
+      "t0": 78.608,
+      "t1": 86.962,
+      "dur": 8.354,
+      "midi": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "midi_raw": {
+        "lead": 56,
+        "tenor": 60,
+        "bari": 51,
+        "bass": 44
+      },
+      "names": {
+        "lead": "Ab3",
+        "tenor": "C4",
+        "bari": "Eb3",
+        "bass": "Ab2"
+      },
+      "natureId": "major",
+      "rootPc": 8,
+      "confidence": 1.0,
+      "roman": "I",
+      "pcs": [
+        0,
+        3,
+        8
+      ]
+    }
+  ]
+}

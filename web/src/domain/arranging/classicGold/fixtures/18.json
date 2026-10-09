@@ -1,0 +1,152 @@
+{
+  "tagId": 18,
+  "title": "Lonesome Rose",
+  "tonality": 0,
+  "mode": "major",
+  "bpm": 66.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 16,
+  "tokenCount": 13,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "ii7",
+    "V7",
+    "bVI",
+    "bVII7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "ii7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 0.455,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "ii",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.14,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "vi",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.348,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "iv",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.845,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 1.837,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.416,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 0.488,
+      "leadMidi": 53,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.928,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.571,
+      "leadMidi": 60,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "iv",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.518,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "iv",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.369,
+      "leadMidi": 60,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.518
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 2.272,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.518
+    }
+  ],
+  "classic": "9",
+  "collection": "classic"
+}

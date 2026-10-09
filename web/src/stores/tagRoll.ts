@@ -27,7 +27,7 @@ import {
 import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
 import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { syncProjectMix, applyOpenMixDefaults } from '../lib/tagRoll/mix'
+import { syncProjectMix, hydrateProjectMix } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
 import { clipboardFromCopy, clipboardFromCut } from '../lib/tagRoll/noteClipboardActions'
 import {
@@ -155,6 +155,13 @@ import {
   SHEET_PAGE_WIDTH_IN_MIN,
 } from '../lib/tagRoll/sheetPage'
 import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects'
+import { ensurePolecatPitchReviewProjects } from '../application/tagRoll/ensurePolecatPitchReviews'
+import { ensureCoachTrialProjects } from '../application/tagRoll/ensureCoachTrials'
+import {
+  dismissTagRollSeed,
+  isTagRollLibraryInitialized,
+  markTagRollLibraryInitialized,
+} from '../lib/tagRoll/seedLibraryPrefs'
 import type { TagRollProjectSummary } from '../ports/TagRollRepository'
 import { usePreferencesStore } from './preferences'
 
@@ -267,13 +274,36 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     try {
       const { repository, clock } = svc()
       let list = await listTagRolls(repository)
-      if (!list.length) {
+      // Starter demos only on a never-used library — not after the user emptied it.
+      if (!list.length && !isTagRollLibraryInitialized()) {
         const seeded = createTagRollDefaultProjects(clock.now())
         for (const p of seeded) {
           await putNewTagRoll(repository, p, clock)
         }
-        if (seeded.length) list = await listTagRolls(repository)
+        if (seeded.length) {
+          markTagRollLibraryInitialized()
+          list = await listTagRolls(repository)
+        }
       }
+      // Coach gold set: polecat pitch extracts (import missing; prune dropped seeds).
+      try {
+        const pitch = await ensurePolecatPitchReviewProjects(repository, clock)
+        if (pitch.imported > 0 || pitch.removed > 0 || pitch.refreshed > 0) {
+          list = await listTagRolls(repository)
+        }
+      } catch {
+        /* optional bundle — ignore offline / missing public files */
+      }
+      // Coach trial seeds (e.g. My Bonnie Classic Path Optimize).
+      try {
+        const trials = await ensureCoachTrialProjects(repository, clock)
+        if (trials.imported > 0 || trials.removed > 0 || trials.refreshed > 0) {
+          list = await listTagRolls(repository)
+        }
+      } catch {
+        /* optional bundle — ignore offline / missing public files */
+      }
+      if (list.length) markTagRollLibraryInitialized()
       summaries.value = list
       loaded.value = true
       error.value = null
@@ -289,7 +319,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       const { repository } = svc()
       const p = await openTagRoll(repository, id)
       current.value = p
-        ? { ...p, mix: applyOpenMixDefaults(p.parts, p.mix, p) }
+        ? { ...p, mix: hydrateProjectMix(p.parts, p.mix) }
         : null
       clearNoteSelection()
       selectedExpressionId.value = null
@@ -355,7 +385,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       if (!p) throw new Error('Invalid project')
       const withMix = {
         ...p,
-        mix: applyOpenMixDefaults(p.parts, p.mix, p),
+        mix: hydrateProjectMix(p.parts, p.mix),
       }
       const saved = await putNewTagRoll(svc().repository, withMix, svc().clock)
       current.value = saved
@@ -386,7 +416,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p) return
     try {
       const next = await persistTagRoll(svc().repository, p, svc().clock)
-      current.value = normalizeTagRollProject(next)
+      const normalized = normalizeTagRollProject(next)
+      // Keep the live project if normalize fails — never wipe the open editor.
+      if (normalized) current.value = normalized
       await refreshList()
       error.value = null
     } catch (e) {
@@ -2218,8 +2250,13 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   async function removeProject(id: string): Promise<void> {
+    // Bundled seeds re-import on refresh unless dismissed; mark library used so
+    // deleting the last project does not resurrect starter demos.
+    dismissTagRollSeed(id)
+    markTagRollLibraryInitialized()
     await deleteTagRoll(svc().repository, id)
     if (current.value?.id === id) current.value = null
+    summaries.value = summaries.value.filter((s) => s.id !== id)
     await refreshList()
   }
 

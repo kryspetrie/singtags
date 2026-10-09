@@ -1,0 +1,237 @@
+{
+  "extracted_at": "2026-10-08T21:30:14.114332+00:00",
+  "source": "/home/kpetrie/dev/krys/barbershop-website/polecats",
+  "counts": {
+    "ok": 12
+  },
+  "results": [
+    {
+      "id": 90004,
+      "title": "Down Our Way",
+      "stacks": 51,
+      "voiced": {
+        "lead": 0.896,
+        "tenor": 0.908,
+        "bari": 0.907,
+        "bass": 0.905
+      },
+      "midi_mad": {
+        "lead": 0.0799,
+        "tenor": 0.1023,
+        "bari": 0.1084,
+        "bass": 0.1177
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Down Our Way (Bb Major) - Floyd Connett - 90004",
+      "skipped": false
+    },
+    {
+      "id": 90011,
+      "title": "Down By The Old Mill Stream",
+      "stacks": 76,
+      "voiced": {
+        "lead": 0.907,
+        "tenor": 0.88,
+        "bari": 0.881,
+        "bass": 0.873
+      },
+      "midi_mad": {
+        "lead": 0.0927,
+        "tenor": 0.0906,
+        "bari": 0.0921,
+        "bass": 0.0762
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Down By The Old Mill Stream (Ab Major) - 90011",
+      "skipped": false
+    },
+    {
+      "id": 90005,
+      "title": "Honey - Little 'Lize Medley",
+      "stacks": 75,
+      "voiced": {
+        "lead": 0.918,
+        "tenor": 0.922,
+        "bari": 0.92,
+        "bass": 0.92
+      },
+      "midi_mad": {
+        "lead": 0.0824,
+        "tenor": 0.1064,
+        "bari": 0.1004,
+        "bass": 0.0841
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Honey - Little Lize Medley (Bb Major) - Floyd Connett - 90005",
+      "skipped": false
+    },
+    {
+      "id": 90006,
+      "title": "Let Me Call You Sweetheart",
+      "stacks": 50,
+      "voiced": {
+        "lead": 0.852,
+        "tenor": 0.851,
+        "bari": 0.847,
+        "bass": 0.85
+      },
+      "midi_mad": {
+        "lead": 0.1203,
+        "tenor": 0.0984,
+        "bari": 0.0993,
+        "bass": 0.0905
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Let Me Call You Sweetheart (Bb Major) - Leo Friedman - 90006",
+      "skipped": false
+    },
+    {
+      "id": 90008,
+      "title": "Shine On Me",
+      "stacks": 48,
+      "voiced": {
+        "lead": 0.873,
+        "tenor": 0.884,
+        "bari": 0.884,
+        "bass": 0.881
+      },
+      "midi_mad": {
+        "lead": 0.097,
+        "tenor": 0.0751,
+        "bari": 0.0997,
+        "bass": 0.0648
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Shine On Me (Bb Major) - Floyd Connett - 90008",
+      "skipped": false
+    },
+    {
+      "id": 90003,
+      "title": "Sweet And Lovely (That's What You Are To Me)",
+      "stacks": 86,
+      "voiced": {
+        "lead": 0.933,
+        "tenor": 0.949,
+        "bari": 0.949,
+        "bass": 0.947
+      },
+      "midi_mad": {
+        "lead": 0.067,
+        "tenor": 0.0882,
+        "bari": 0.0843,
+        "bass": 0.1044
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Sweet And Lovely (Thats What You Are To Me) (F Major) - Mac Huff - 90003",
+      "skipped": false
+    },
+    {
+      "id": 90001,
+      "title": "My Wild Irish Rose",
+      "stacks": 75,
+      "voiced": {
+        "lead": 0.916,
+        "tenor": 0.933,
+        "bari": 0.941,
+        "bass": 0.941
+      },
+      "midi_mad": {
+        "lead": 0.1185,
+        "tenor": 0.0691,
+        "bari": 0.1068,
+        "bass": 0.0893
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/My Wild Irish Rose (Bb Major) - Floyd Connett - 90001",
+      "skipped": false
+    },
+    {
+      "id": 90009,
+      "title": "The Story of the Rose",
+      "stacks": 54,
+      "voiced": {
+        "lead": 0.914,
+        "tenor": 0.918,
+        "bari": 0.919,
+        "bass": 0.923
+      },
+      "midi_mad": {
+        "lead": 0.1185,
+        "tenor": 0.093,
+        "bari": 0.0781,
+        "bass": 0.0807
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/The Story of the Rose (Ab Major) - SPEBSQSA - 90009",
+      "skipped": false
+    },
+    {
+      "id": 90007,
+      "title": "Sweet, Sweet Roses Of Morn",
+      "stacks": 100,
+      "voiced": {
+        "lead": 0.948,
+        "tenor": 0.958,
+        "bari": 0.955,
+        "bass": 0.956
+      },
+      "midi_mad": {
+        "lead": 0.0631,
+        "tenor": 0.1222,
+        "bari": 0.0979,
+        "bass": 0.0959
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Sweet Sweet Roses Of Morn (Bb Major) - 90007",
+      "skipped": false
+    },
+    {
+      "id": 90012,
+      "title": "You Tell Me Your Dream",
+      "stacks": 48,
+      "voiced": {
+        "lead": 0.889,
+        "tenor": 0.883,
+        "bari": 0.886,
+        "bass": 0.888
+      },
+      "midi_mad": {
+        "lead": 0.0841,
+        "tenor": 0.0862,
+        "bari": 0.0807,
+        "bass": 0.0651
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/You Tell Me Your Dream (Ab Major) - Phil Embury - 90012",
+      "skipped": false
+    },
+    {
+      "id": 90002,
+      "title": "Wait 'Til The Sun Shines, Nellie",
+      "stacks": 130,
+      "voiced": {
+        "lead": 0.924,
+        "tenor": 0.935,
+        "bari": 0.936,
+        "bass": 0.935
+      },
+      "midi_mad": {
+        "lead": 0.0979,
+        "tenor": 0.096,
+        "bari": 0.0808,
+        "bass": 0.0763
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Wait Til The Sun Shines Nellie (Ab Major) - Warren Haegar - 90002",
+      "skipped": false
+    },
+    {
+      "id": 90010,
+      "title": "You're The Flower Of My Heart, Sweet Adeline",
+      "stacks": 56,
+      "voiced": {
+        "lead": 0.884,
+        "tenor": 0.807,
+        "bari": 0.814,
+        "bass": 0.805
+      },
+      "midi_mad": {
+        "lead": 0.1044,
+        "tenor": 0.0788,
+        "bari": 0.0842,
+        "bass": 0.1066
+      },
+      "out": "/home/kpetrie/dev/krys/barbershop-website/polecats/Youre The Flower Of My Heart Sweet Adeline (Bb Major) - 90010",
+      "skipped": false
+    }
+  ]
+}

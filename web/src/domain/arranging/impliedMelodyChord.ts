@@ -81,6 +81,7 @@ function interestAtLeastMild(interest?: DetectedInterestLevel | null): boolean {
 /** Reorder implied chords: Strong → home triads; Passing → color / sevenths.
  * Keeps a protected cadence top-pick pinned (Bonnie openings stay V7 under Strong).
  * Mild/Bold: also pin ii7 / V7 when they prepare the next dominant or tonic.
+ * Cadence/tag: keep score order so complete I7 finals are not rewritten to bare I.
  */
 export function reorderImpliedByMelodyRole<
   T extends { natureId: string; cadenceHint?: CadenceHint; rootPc?: number },
@@ -88,6 +89,7 @@ export function reorderImpliedByMelodyRole<
   inferred: readonly T[],
   melodyRole?: MelodyRoleBias,
   interest?: DetectedInterestLevel | null,
+  phraseRole?: PhraseRole | null,
 ): T[] {
   if (!inferred.length) return []
   const mildPlus = interestAtLeastMild(interest)
@@ -99,6 +101,11 @@ export function reorderImpliedByMelodyRole<
       (inferred[0]!.cadenceHint != null || inferred[0]!.natureId === 'm7'))
   const head = pinCadence ? inferred[0]! : null
   const rest = pinCadence ? inferred.slice(1) : [...inferred]
+
+  // Final/cadence arrivals already bias toward 4-PC tonics in scoreCandidate.
+  if (phraseRole === 'cadence' || phraseRole === 'tag') {
+    return head ? [head, ...rest] : rest
+  }
 
   let ordered: T[]
   if (melodyRole === 'smn') {
@@ -123,8 +130,9 @@ function pickImpliedByMelodyRole(
   pool: readonly ImpliedMelodyChord[],
   melodyRole?: MelodyRoleBias,
   interest?: DetectedInterestLevel | null,
+  phraseRole?: PhraseRole | null,
 ): ImpliedMelodyChord | undefined {
-  return reorderImpliedByMelodyRole(pool, melodyRole, interest)[0]
+  return reorderImpliedByMelodyRole(pool, melodyRole, interest, phraseRole)[0]
 }
 
 const ROLE_SCORE: Partial<Record<ChordToneRole, number>> = {
@@ -216,26 +224,42 @@ function scoreCandidate(
   const bold = interest === 'bold'
   const tw = tweaks
 
-  // Prefer plain I / IV / V majors when the melody is the root (or fifth).
-  if ((natureId === 'major' || natureId === 'minor') && (leadRole === 1 || leadRole === 5)) {
+  const finalTonic =
+    (cadenceCtx.phraseRole === 'cadence' || cadenceCtx.phraseRole === 'tag') && deg === 0
+
+  // Prefer plain I / IV / V majors when the melody is the root, third, or fifth.
+  // Includes finals — Rylander: ~99% of arrangements end on a major triad.
+  if (
+    (natureId === 'major' || natureId === 'minor') &&
+    (leadRole === 1 || leadRole === 5 || (finalTonic && leadRole === 3))
+  ) {
     if (deg === 0 || deg === 5 || deg === 7) score += tw.triadHomeBoost
   }
-  // Strongly prefer triad over I7 / IV7 when melody is the chord root.
-  if (natureId === 'seventh' && leadRole === 1 && (deg === 0 || deg === 5)) {
+  // Prefer triad over I7 / IV7 when melody is the chord root or fifth.
+  if (
+    natureId === 'seventh' &&
+    (leadRole === 1 || leadRole === 5) &&
+    (deg === 0 || deg === 5)
+  ) {
     score -= tw.seventhOnIOrIvRootPenalty
   }
-  // Barbershop color: V7 (and light I7) when lead sits on 3 or 7 — not as the default home.
+  // Barbershop color: V7 (and light I7) when lead sits on 3 or 7 — not default home.
+  // At phrase-end tonic, only Lead-on-♭7 keeps the I7 boost (melody-forced).
   if (natureId === 'seventh' && (leadRole === 3 || leadRole === 7)) {
     if (deg === 7) score += tw.v7LeadOn3Or7Boost
-    if (deg === 0) score += tw.i7LeadOn3Or7Boost
+    if (deg === 0 && (!finalTonic || leadRole === 7)) score += tw.i7LeadOn3Or7Boost
   }
-  // Phrase-end / tag: prefer plain tonic over springboard I7 (next phrase's ^4 is not IV here).
-  if (
-    (cadenceCtx.phraseRole === 'cadence' || cadenceCtx.phraseRole === 'tag') &&
-    natureId === 'seventh' &&
-    deg === 0
-  ) {
-    score -= tw.phraseEndI7Penalty
+  // Phrase-end / tag tonic: prefer major/minor home unless Lead is on ♭7.
+  // (Tweak key `phraseEndI7Penalty` kept for prefs compat; magnitude = home boost.)
+  if (finalTonic) {
+    if (leadRole === 7) {
+      if (natureId === 'seventh' || natureId === 'm7') score += tw.phraseEndI7Penalty
+      else if (natureId === 'major' || natureId === 'minor') score -= tw.phraseEndI7Penalty * 0.5
+    } else if (natureId === 'major' || natureId === 'minor') {
+      score += tw.phraseEndI7Penalty
+    } else if (natureId === 'seventh' || natureId === 'm7') {
+      score -= tw.phraseEndI7Penalty * 0.85
+    }
   }
 
   // Classic cadences (V7→I, ^7→^1, II7→V7→I, I7→IV, …) — shared with Coach.
@@ -641,7 +665,7 @@ export function impliedStacksForBareMelody(opts: {
       interest,
       tweaks,
     })
-    return pickImpliedByMelodyRole(pool, m.melodyRole, interest)
+    return pickImpliedByMelodyRole(pool, m.melodyRole, interest, phraseRole)
   }
 
   const tonic = ((opts.tonality % 12) + 12) % 12
@@ -692,7 +716,7 @@ export function impliedStacksForBareMelody(opts: {
       interest,
       tweaks,
     })
-    let best = pickImpliedByMelodyRole(pool, m.melodyRole, interest)
+    let best = pickImpliedByMelodyRole(pool, m.melodyRole, interest, phraseRole)
     if (!best) continue
 
     // Mild+: first of consecutive I–I → V7 when Lead is a V7 common tone (^5).

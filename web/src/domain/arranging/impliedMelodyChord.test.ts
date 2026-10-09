@@ -114,8 +114,8 @@ describe('impliedMelodyChord', () => {
     expect(cands[0]!.cadenceHint?.id).toBe('primary_dom7')
   })
 
-  it('does not springboard I7 at phrase end when next note is ^4 across a rest', () => {
-    // Bonnie-style: phrase lands on ^1; next phrase starts on ^4 — want I, not I7→IV.
+  it('phrase-end tonic prefers major home over springboard I7→IV', () => {
+    // Phrase lands on ^1; next phrase starts on ^4 — close on I major (Rylander), not I7→IV.
     const cands = inferImpliedChordsFromMelody({
       melodyMidi: 60,
       tonality: 0,
@@ -159,7 +159,7 @@ describe('impliedMelodyChord', () => {
     expect(ranked[0]!.cadenceHint?.id).toBe('auth_v7_i')
   })
 
-  it('Bonnie-style phrase: opening V7 then closing I (not I7)', () => {
+  it('Bonnie-style phrase: opening V7 then closing major tonic home', () => {
     // "My"(^5) "Bon"(^1) … gap … land(^1) then next phrase ^4
     const moments = [
       { startTick: 0, durationTicks: 240, midi: 67, melodyRole: 'pmn' as const },
@@ -191,17 +191,23 @@ describe('impliedMelodyChord', () => {
     expect(reorderImpliedByMelodyRole(pool, 'smn')[0]!.natureId).toBe('seventh')
   })
 
-  it('biases Detected top pick toward home triads on Strong notes', () => {
+  it('biases Detected top pick toward home triads on Strong mid-phrase notes', () => {
+    // Two mid notes so neither is tagged as a final/cadence tonic.
     const moments = [
-      { startTick: 0, durationTicks: 480, midi: 64, melodyRole: 'pmn' as const },
+      { startTick: 480, durationTicks: 480, midi: 64, melodyRole: 'pmn' as const },
+      { startTick: 960, durationTicks: 480, midi: 65, melodyRole: 'pmn' as const },
+      { startTick: 1440, durationTicks: 480, midi: 67, melodyRole: 'pmn' as const },
+      { startTick: 1920, durationTicks: 480, midi: 60, melodyRole: 'pmn' as const },
     ]
     const implied = impliedStacksForBareMelody({
       moments,
       existingStacks: [],
       tonality: 0,
       mode: 'major',
+      songEndTick: 4000,
     })
-    expect(implied[0]?.natureId).toMatch(/major|minor|sixth/)
+    const mid = implied.find((s) => s.startTick === 480)
+    expect(mid?.natureId).toMatch(/major|minor|sixth/)
   })
 
   it('builds analysis stacks only for uncovered bare moments', () => {
@@ -425,7 +431,7 @@ describe('detected interest levels', () => {
     expect(bold[1]!.rootPc).toBe(5) // F7
   })
 
-  it('Mild/Bold rewrite first of I–I under ^5→^3 as V7→I', () => {
+  it('Mild/Bold rewrite first of I–I under ^5→^3 as V7→I7', () => {
     // Bb: F (^5) then D (^3) — both would greedily pick I without cadence widen / look-ahead.
     const moments = [
       { startTick: 0, durationTicks: 480, midi: 65, melodyRole: 'pmn' as const },
@@ -443,6 +449,7 @@ describe('detected interest levels', () => {
     expect(mild[0]!.rootPc).toBe(5)
     expect(mild[0]!.natureId).toBe('seventh')
     expect(mild[1]!.rootPc).toBe(BB)
+    // Final tonic prefers major triad home (Rylander ~99% major endings).
     expect(mild[1]!.natureId).toBe('major')
   })
 

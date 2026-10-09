@@ -1,0 +1,204 @@
+{
+  "tagId": 113,
+  "title": "Till Love Comes My Way",
+  "tonality": 3,
+  "mode": "major",
+  "bpm": 67.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 25,
+  "tokenCount": 18,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "V7",
+    "I7",
+    "IV",
+    "I",
+    "iv7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.895,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.233,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "V7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.391,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "I7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 1.343,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "VII",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.428,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.467,
+      "leadMidi": 51,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.896,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 11,
+      "natureId": "major",
+      "dur": 0.448,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "i7",
+      "rootPc": 3,
+      "natureId": "m7",
+      "dur": 0.448,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "iv7",
+      "rootPc": 8,
+      "natureId": "m7",
+      "dur": 0.895,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 0.634,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 11,
+      "natureId": "major",
+      "dur": 0.709,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "minor",
+      "dur": 0.14,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "I+",
+      "rootPc": 3,
+      "natureId": "aug",
+      "dur": 0.325,
+      "leadMidi": 59,
+      "confidence": 0.707,
+      "role": "passing",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 1.426,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "iv",
+      "rootPc": 8,
+      "natureId": "minor",
+      "dur": 0.448,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "IV",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.325,
+      "leadMidi": 51,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.4575
+    },
+    {
+      "roman": "I",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 1.044,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.4575
+    }
+  ],
+  "classic": "101",
+  "collection": "classic"
+}

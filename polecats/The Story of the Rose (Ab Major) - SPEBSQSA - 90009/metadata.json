@@ -1,0 +1,453 @@
+{
+  "tag_id": 90009,
+  "id": 90009,
+  "title": "The Story of the Rose",
+  "alt_title": "Heart of My Heart",
+  "common_name": "Heart of My Heart",
+  "arranger": "SPEBSQSA",
+  "key": "Ab Major",
+  "writ_key": "Major:Ab",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 9,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "The Story of the Rose (Ab Major) - SPEBSQSA - 90009",
+  "identity": {
+    "title": "the story of the rose",
+    "arranger": "spebsqsa",
+    "key": "ab major",
+    "version": "polecat",
+    "alt_title": "heart of my heart",
+    "posted": ""
+  },
+  "identity_key": "the story of the rose|spebsqsa|ab major|polecat|heart of my heart|",
+  "identity_hash": "2432b9ec4fb6e6c7",
+  "keywords": [
+    "the story of the rose",
+    "the",
+    "story",
+    "of",
+    "rose",
+    "heart of my heart",
+    "heart",
+    "my",
+    "spebsqsa",
+    "ab major",
+    "ab",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90009",
+    "p9"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Sheet.pdf",
+      "bytes": 102965,
+      "sha256": "579e513924278f0a487a492fb03d43a7dab9ed55253182ec51bbf70cc0090f4d",
+      "source_sha256": "39fb88e20ccae32adbc3c88429445f15454b1ba294165a478c5c90b182496fdf",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Heart of My Heart - SPEBSQSA (Ab).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Lead.mp3",
+      "bytes": 2384532,
+      "sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e",
+      "source_sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/The Story of the Rose (Heart of My Heart) - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0135,
+        "correlation": 0.9439,
+        "side_mid": 0.1706,
+        "analyzed_at": "2026-09-07T04:13:37.127603+00:00",
+        "source_sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Lead - Playback.opus",
+          "sha256": "cc97933eb935128812e7ea0c138f0e62e0a48669d1111d2442c5c48a2344372c",
+          "bytes": 803058,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:38.270768+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Lead - Downmix.opus",
+          "sha256": "41b2ac946b0ca9ca840bb7fafe027dedcf0872b1b2ad89fc0d8a8c2661871756",
+          "bytes": 207014,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "078ba7fe5070faba8ecda0c084bfba4ffc2679ce1a2a0f4b245831e9f526582e",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.026782+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Tenor.mp3",
+      "bytes": 2384532,
+      "sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5",
+      "source_sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/The Story of the Rose (Heart of My Heart) - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0075,
+        "correlation": 0.9497,
+        "side_mid": 0.1604,
+        "analyzed_at": "2026-09-07T04:13:37.170710+00:00",
+        "source_sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Tenor - Playback.opus",
+          "sha256": "36af17f170c7dda6de774cf49b8164953977ba37782ed04bfd1614672f20a127",
+          "bytes": 803060,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:39.046823+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Tenor - Downmix.opus",
+          "sha256": "17a662267a78346ead95f3fb05c786e107317fe694192378f7e2f81d29b93a2f",
+          "bytes": 207016,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "8ef1025c62eaaf482a18f7e5d0c8273d02772b0b1c84cecec6c77de56c9713d5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.537319+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bari.mp3",
+      "bytes": 2384532,
+      "sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132",
+      "source_sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/The Story of the Rose (Heart of My Heart) - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0073,
+        "correlation": 0.9494,
+        "side_mid": 0.1609,
+        "analyzed_at": "2026-09-07T04:13:37.216101+00:00",
+        "source_sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bari - Playback.opus",
+          "sha256": "943bb6f460180f8e6ee172bd754021139268cfb78c6cd04bcae24c92de40399c",
+          "bytes": 803058,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:39.871620+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bari - Downmix.opus",
+          "sha256": "93c46a5536fd63e1548f74399c8f5715ee83e583af18b96bdbec4e546e726c56",
+          "bytes": 207014,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "6d3cbde1e3903f83672cda60b58e3ab982bffb91328222f333d04c4b72aa6132",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:43.052727+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bass.mp3",
+      "bytes": 2384532,
+      "sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d",
+      "source_sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/The Story of the Rose (Heart of My Heart) - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0088,
+        "correlation": 0.9487,
+        "side_mid": 0.1622,
+        "analyzed_at": "2026-09-07T04:13:37.260415+00:00",
+        "source_sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bass - Playback.opus",
+          "sha256": "50c5f87f64506991d17badae05c8a1b7a0f0803f983ffda5cb468aaf018b6c4d",
+          "bytes": 803041,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:40.733911+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Bass - Downmix.opus",
+          "sha256": "8ffd331c62210da660e7032f57f7f79213101245d79d1ccbebf00ab7b9c6e2d3",
+          "bytes": 206997,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "73e1223f77defb32700d6e8bef980986501d33d125f0bc1eba8290adc21faa7d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:43.519529+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Mix.mp3",
+      "bytes": 3814036,
+      "sha256": "bd861288015b8b33770d7c93f40907ffd8b0a9bb78a352d5e907faef11ce89f5",
+      "source_sha256": "bd861288015b8b33770d7c93f40907ffd8b0a9bb78a352d5e907faef11ce89f5",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/The Story of the Rose (Heart of My Heart) - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0506,
+        "correlation": 0.8596,
+        "side_mid": 0.2804,
+        "analyzed_at": "2026-09-07T04:13:37.297101+00:00",
+        "source_sha256": "bd861288015b8b33770d7c93f40907ffd8b0a9bb78a352d5e907faef11ce89f5"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Mix - Playback.opus",
+          "sha256": "f9a08998259f5b9b83201c22801dc901b1ec2ad7de71e27fdfc2174f815a6cb8",
+          "bytes": 770717,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "bd861288015b8b33770d7c93f40907ffd8b0a9bb78a352d5e907faef11ce89f5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:41.556793+00:00"
+        },
+        "ultra_mix": {
+          "filename": "The Story of the Rose (Ab Major) - SPEBSQSA - Mix - Ultra Mix.opus",
+          "sha256": "36f857144c567667cb216c2f2a8887141168d10c2954a119fe298be7e5ff594e",
+          "bytes": 389357,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "bd861288015b8b33770d7c93f40907ffd8b0a9bb78a352d5e907faef11ce89f5",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:45.899766+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "The Story of the Rose (Heart of My Heart) - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90009,
+    "Title": "The Story of the Rose",
+    "AltTitle": "Heart of My Heart",
+    "CommonName": "Heart of My Heart",
+    "WritKey": "Major:Ab",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "SPEBSQSA",
+    "Collection": "polecats",
+    "Classic": 9,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Story of the Rose",
+      "learning": "The Story Of The Rose (Heart Of My Heart)"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/the-story-of-the-rose-heart-1",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/the-story-of-the-rose-heart-of",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/the-story-of-the-rose-heart-2",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/the-story-of-the-rose-heart-3"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:37.332897+00:00",
+    "mix_correlation": 0.0351,
+    "mix_correlations": {
+      "lead": 0.0351,
+      "tenor": 0.035,
+      "bari": 0.035,
+      "bass": 0.0351
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:45.899790+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 54,
+    "extracted_at": "2026-10-08T21:29:41.504641+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 79.0,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 6.316,
+    "coverage": 0.949,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 60.103,
+    "voiced": {
+      "lead": 0.914,
+      "tenor": 0.918,
+      "bari": 0.919,
+      "bass": 0.923
+    },
+    "midi_mad": {
+      "lead": 0.1185,
+      "tenor": 0.093,
+      "bari": 0.0781,
+      "bass": 0.0807
+    }
+  }
+}

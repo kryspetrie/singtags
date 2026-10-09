@@ -14,7 +14,8 @@ describe('harmonyHowTo', () => {
     const text = formatHowToPlain(HARMONIZE_HOWTO)
     expect(text).toMatch(/\bSketch\b/)
     expect(text).toMatch(/\bStack\b/)
-    expect(text).toMatch(/Suggest/i)
+    expect(text).toMatch(/\bCatalog\b/)
+    expect(text).toMatch(/\bCoach\b/)
     expect(text).toMatch(/Roles/)
   })
 

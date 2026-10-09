@@ -22,8 +22,7 @@ function baseCtx(overrides: Record<string, unknown> = {}) {
     goChords: vi.fn(),
     applyBest: vi.fn(),
     fixAllSafe: vi.fn(),
-    onStrengthen: vi.fn(),
-    onPolish: vi.fn(),
+    onPathOptimize: vi.fn(),
     hearPillarRoot: vi.fn(),
     hearCurrentStack: vi.fn(),
     hearCand: vi.fn(),
@@ -55,16 +54,16 @@ describe('createCoachTransportActions', () => {
     expect(goChords).toHaveBeenCalled()
   })
 
-  it('auto step primary runs Polish inversions', () => {
-    const onPolish = vi.fn()
+  it('auto step primary runs Path Optimize', () => {
+    const onPathOptimize = vi.fn()
     const actions = createCoachTransportActions(
       baseCtx({
         guidedStep: ref('auto'),
         focusTab: ref('auto'),
-        onPolish,
+        onPathOptimize,
       }),
     )
     actions.primary()
-    expect(onPolish).toHaveBeenCalled()
+    expect(onPathOptimize).toHaveBeenCalled()
   })
 })

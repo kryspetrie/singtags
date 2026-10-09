@@ -7,7 +7,7 @@ import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingCoachSuggestPanel from './ArrangingCoachSuggestPanel.vue'
 import ArrangingCoachWhyDock from './ArrangingCoachWhyDock.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
-import ArrangingChartAuto from './ArrangingChartAuto.vue'
+import ArrangingPathOptimize from './ArrangingPathOptimize.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
@@ -142,6 +142,20 @@ const {
   pushToRoll,
 } = api
 
+const guided = useCoachGuidedAndReview({
+  mode,
+  focusTab,
+  phase,
+  pushToRoll,
+  momentsLen: computed(() => api.moments.value.length),
+  selectionTickRange: computed(() => {
+    const r = props.inspectRange
+    if (!r || r.endTick <= r.startTick) return null
+    return { startTick: r.startTick, endTick: r.endTick }
+  }),
+  currentMomentTick: computed(() => selectedMoment.value?.startTick ?? null),
+})
+
 const {
   guidedStep,
   guidedStepLabel,
@@ -152,21 +166,18 @@ const {
   howFactors,
   orgTip,
   autoStatus,
-  canRunPathTools,
-  swipeAvailable,
-  onStrengthen,
-  onPolish,
-  onApplySwipe,
+  lastPathReport,
+  canRunPathOptimize,
+  hasOptimizeSelection,
+  optimizeBusy,
+  optimizeProgressFraction,
+  optimizeProgressLabel,
+  onPathOptimize,
+  onPathOptimizeTransport,
   setContestProfile,
   setTuningMode,
   setQaGroup,
-} = useCoachGuidedAndReview({
-  mode,
-  focusTab,
-  phase,
-  pushToRoll,
-  momentsLen: computed(() => api.moments.value.length),
-})
+} = guided
 
 const ideasHelp = computed(() => coachIdeasHelpForStep(guidedStep.value))
 
@@ -264,8 +275,7 @@ const transportActions = createCoachTransportActions({
   goChords: () => selectGuidedStep('chords'),
   applyBest: applySelectedSuggest,
   fixAllSafe,
-  onStrengthen,
-  onPolish,
+  onPathOptimize: onPathOptimizeTransport,
   hearPillarRoot,
   hearCurrentStack,
   hearCand,
@@ -599,15 +609,17 @@ onUnmounted(() => {
             </aside>
           </section>
 
-          <!-- AUTO — whole-chart tools -->
+          <!-- OPTIMIZE — Path Optimizer -->
           <section v-else-if="focusTab === 'auto'" class="panel">
-            <ArrangingChartAuto
+            <ArrangingPathOptimize
               :status="autoStatus"
-              :swipe-available="swipeAvailable"
-              :can-run-path-tools="canRunPathTools"
-              @strengthen="onStrengthen"
-              @polish="onPolish"
-              @apply-swipe="onApplySwipe"
+              :can-run="canRunPathOptimize"
+              :last-report="lastPathReport"
+              :has-selection="hasOptimizeSelection"
+              :busy="optimizeBusy"
+              :progress-fraction="optimizeProgressFraction"
+              :progress-label="optimizeProgressLabel"
+              @run="onPathOptimize"
             />
           </section>
 

@@ -85,7 +85,8 @@ describe('Dom9 omit matrix', () => {
       const s = dom9OmitStrategy(v)
       expect(['omit5', 'omitRoot']).toContain(s)
       if (s === 'omit5') expect(v.startsWith('1')).toBe(true)
-      if (s === 'omitRoot') expect(v.startsWith('5')).toBe(true)
+      // Omit-root: bass on 5 (usual) or 3/7 in passing (Flinn).
+      if (s === 'omitRoot') expect(['3', '5', '7']).toContain(v[0]!)
     },
   )
 })

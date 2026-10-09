@@ -1,0 +1,101 @@
+{
+  "tagId": 128,
+  "title": "When Nobody Else Wants You",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 93.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 14,
+  "tokenCount": 8,
+  "pillarCount": 4,
+  "pillarRomans": [
+    "VI7",
+    "ii7",
+    "V7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "VI7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.968,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 1.124,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "III",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.651,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.645,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "i7",
+      "rootPc": 10,
+      "natureId": "m7",
+      "dur": 0.968,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 1.668,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 3.579,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.968
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.349,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "passing",
+      "medianDur": 0.968
+    }
+  ],
+  "classic": "117",
+  "collection": "classic"
+}

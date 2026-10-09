@@ -719,6 +719,7 @@ export function useArrangingCoachDock(
     stepNextGap,
     stepNextIssue,
     stepNextProblem,
+    stepSuggest,
   })
 
   function focusPillar(id: string): void {
@@ -983,6 +984,12 @@ export function useArrangingCoachDock(
     arrStore.runQa()
     pushToRoll()
     syncCoachChordPreview()
+    if (prefs.tagRollChordWalkAutoAdvance) {
+      // After Apply: next empty, else next moment.
+      const before = selectedMomentId.value
+      stepNextGap()
+      if (selectedMomentId.value === before) stepMoment(1)
+    }
   }
 
   function applyBest(): void {
@@ -993,6 +1000,16 @@ export function useArrangingCoachDock(
     const list = filteredCandidates.value
     const c = list[suggestIndex.value] ?? list[0] ?? candidates.value[0]
     if (c) applyCand(c)
+  }
+
+  function stepSuggest(dir: -1 | 1): void {
+    const list = filteredCandidates.value
+    const n = list.length
+    if (!n) return
+    const next = (suggestIndex.value + dir + n) % n
+    suggestIndex.value = next
+    const c = list[next]
+    if (c) previewCand(c)
   }
 
   function hearSelectedSuggest(): void {
@@ -1033,12 +1050,18 @@ export function useArrangingCoachDock(
     arrStore.setSoftSuggestContext(soft)
     const cur = arrStore.current
     if (!cur) return
+    const pathPrefs = prefs.tagRollPathOptimizePrefs
     const ops = planFillEmptyWithBest({
       project: cur,
       moments: moments.value,
       soft,
       rankerDeps: services.rankerDeps,
       idGen: services.idGen,
+      pathWeights: {
+        risk: pathPrefs.risk,
+        cadenceBias: pathPrefs.cadenceBias,
+        taste: pathPrefs.taste ?? 'classic',
+      },
     })
     for (const op of ops) {
       arrStore.setCandidateTarget(op.note)
@@ -1371,6 +1394,7 @@ export function useArrangingCoachDock(
     stepNextGap,
     stepNextIssue,
     stepNextProblem,
+    stepSuggest,
     stepLint,
     focusPillar,
     stepPillar,

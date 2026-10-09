@@ -1,0 +1,249 @@
+{
+  "tagId": 99,
+  "title": "Where is Love?",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 90.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 27,
+  "tokenCount": 22,
+  "pillarCount": 12,
+  "pillarRomans": [
+    "I7",
+    "V7",
+    "V9",
+    "I",
+    "IV",
+    "I",
+    "ii7",
+    "I",
+    "IV",
+    "iv",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.929,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.185,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.333,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I+",
+      "rootPc": 5,
+      "natureId": "aug",
+      "dur": 0.647,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "vi",
+      "rootPc": 2,
+      "natureId": "madd6",
+      "dur": 0.653,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I9",
+      "rootPc": 5,
+      "natureId": "ninth",
+      "dur": 0.163,
+      "leadMidi": 55,
+      "confidence": 0.92,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.333,
+      "leadMidi": 55,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "V9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.6,
+      "leadMidi": 50,
+      "confidence": 0.86,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.0,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.334,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.281,
+      "leadMidi": 55,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.899,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.434,
+      "leadMidi": 58,
+      "confidence": 0.67,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.279,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.726,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "III",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.329,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.232,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.761,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 1.007,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.333,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 3.0,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.384
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.185,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.384
+    }
+  ],
+  "classic": "87",
+  "collection": "classic"
+}

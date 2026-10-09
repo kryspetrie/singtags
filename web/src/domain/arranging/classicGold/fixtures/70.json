@@ -1,0 +1,174 @@
+{
+  "tagId": 70,
+  "title": "I Know We'll Meet Again Someday",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 79.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 23,
+  "tokenCount": 15,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "ii7",
+    "I",
+    "IV",
+    "bVII9",
+    "I",
+    "IV9"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.759,
+      "leadMidi": 60,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.163,
+      "leadMidi": 50,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.163,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.422,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "VII",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 1.969,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "III",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.394,
+      "leadMidi": 52,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.744,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.425,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.279,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "bVI9",
+      "rootPc": 1,
+      "natureId": "ninth",
+      "dur": 0.371,
+      "leadMidi": 53,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.824,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.379,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 3,
+      "natureId": "ninth",
+      "dur": 1.625,
+      "leadMidi": 61,
+      "confidence": 0.8,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.96,
+      "leadMidi": 60,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.425
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.542,
+      "leadMidi": 60,
+      "confidence": 0.44,
+      "role": "pillar",
+      "medianDur": 0.425
+    }
+  ],
+  "classic": "58",
+  "collection": "classic"
+}

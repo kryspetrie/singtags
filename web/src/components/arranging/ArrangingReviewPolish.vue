@@ -16,8 +16,8 @@ defineProps<{
   <section class="polish" aria-label="Review polish">
     <h3 class="subh">Polish</h3>
     <p class="hint">
-      Final craft skim after Auto passes. Whole-chart tools (Strengthen, Polish inversions, swipe)
-      live on the <strong>Auto</strong> step. Export MIDI / MusicXML from the Tag Studio toolbar.
+      Final craft skim after Optimize. Whole-chart Path Optimizer lives on the
+      <strong>Optimize</strong> step. Export MIDI / MusicXML from the Tag Studio toolbar.
     </p>
 
     <details class="check" open>

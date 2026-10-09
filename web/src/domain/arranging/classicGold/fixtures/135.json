@@ -1,0 +1,154 @@
+{
+  "tagId": 135,
+  "title": "When I was the Kid Next Door",
+  "tonality": 4,
+  "mode": "major",
+  "bpm": 101.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 16,
+  "tokenCount": 13,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "I7",
+    "ii7",
+    "I",
+    "bVI7",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 3.227,
+      "leadMidi": 52,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "I7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 1.228,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 6,
+      "natureId": "m7",
+      "dur": 0.302,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "vi",
+      "rootPc": 1,
+      "natureId": "minor",
+      "dur": 0.337,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "iv",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 0.558,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "I",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.293,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "iv",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 0.233,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "I",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 0.297,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.626,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 6,
+      "natureId": "m7",
+      "dur": 0.246,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "iv",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 0.6,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "IV",
+      "rootPc": 9,
+      "natureId": "major",
+      "dur": 0.291,
+      "leadMidi": 52,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.337
+    },
+    {
+      "roman": "I",
+      "rootPc": 4,
+      "natureId": "major",
+      "dur": 1.485,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.337
+    }
+  ],
+  "classic": "124",
+  "collection": "classic"
+}

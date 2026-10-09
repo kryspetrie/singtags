@@ -1,6 +1,6 @@
 # Coach Path Optimizer + Chord Walk
 
-> **Status:** Planned  
+> **Status:** Implemented (P0–P6 core; Chord Walk + Path Optimizer live; cadence window DP may deepen later)  
 > **Created:** 2026-10-05  
 > **Updated:** 2026-10-05  
 > **Related:** [arranging-coach-full-surface.md](arranging-coach-full-surface.md), [../arranging/ux-workflows.md](../arranging/ux-workflows.md), [../../web/docs/cadence-coach-plan.md](../../web/docs/cadence-coach-plan.md)
@@ -147,14 +147,14 @@ Remove user-facing Coach tools that rewrite the chart poorly. Leave domain helpe
 
 ### Tasks
 
-- [ ] Inventory all Coach UI/copy/transport references to Strengthen, Polish inversions, Try swipe seed (`ArrangingChartAuto.vue`, `useCoachGuidedAndReview.ts`, `useCoachTransport*`, `coachIdeasHelp.ts`, `ArrangingCoachLanding.vue`, GuidedSteps Auto tip).
-- [ ] Replace `ArrangingChartAuto.vue` content with a minimal **Optimize** placeholder (title + short “coming next” / disabled Run), **or** delete component and show a stub panel in the dock until P2.
-- [ ] Remove `onStrengthen` / `onPolish` / `onApplySwipe` / `swipeAvailable` / strengthen-specific status from Coach guided composable **or** leave functions unexported unused — prefer delete from Coach surface.
-- [ ] Remove Auto transport primary “Polish inversions” CTA; Auto/Optimize step has no misleading primary until P2 wires **Run**.
-- [ ] Update GuidedSteps / landing / ideas-help copy: Auto = Path Optimizer; no swipe/strengthen promises.
-- [ ] Confirm export is not present on Polish or Auto.
-- [ ] Tests: GuidedSteps / transport / coach ideas still pass; no imports of removed Coach handlers.
-- [ ] Manual: open Coach → Auto — no Strengthen / Polish inversions / Try swipe seed buttons.
+- [x] Inventory all Coach UI/copy/transport references to Strengthen, Polish inversions, Try swipe seed (`ArrangingChartAuto.vue`, `useCoachGuidedAndReview.ts`, `useCoachTransport*`, `coachIdeasHelp.ts`, `ArrangingCoachLanding.vue`, GuidedSteps Auto tip).
+- [x] Replace `ArrangingChartAuto.vue` content with a minimal **Optimize** placeholder (title + short “coming next” / disabled Run), **or** delete component and show a stub panel in the dock until P2.
+- [x] Remove `onStrengthen` / `onPolish` / `onApplySwipe` / `swipeAvailable` / strengthen-specific status from Coach guided composable **or** leave functions unexported unused — prefer delete from Coach surface.
+- [x] Remove Auto transport primary “Polish inversions” CTA; Auto/Optimize step has no misleading primary until P2 wires **Run**.
+- [x] Update GuidedSteps / landing / ideas-help copy: Auto = Path Optimizer; no swipe/strengthen promises.
+- [x] Confirm export is not present on Polish or Auto.
+- [x] Tests: GuidedSteps / transport / coach ideas still pass; no imports of removed Coach handlers.
+- [x] Manual: open Coach → Auto — no Strengthen / Polish inversions / Try swipe seed buttons.
 
 ### Acceptance
 
@@ -162,10 +162,9 @@ Remove user-facing Coach tools that rewrite the chart poorly. Leave domain helpe
 - App boots without Vite export errors (prefer `strengthenArrangement.ts` naming; avoid `Strengthen.ts` vs domain `strengthen.ts` case clash).
 - Focused Vitest green for touched Coach files.
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
-
+Pass. `ArrangingChartAuto.vue` deleted; `ArrangingPathOptimize.vue` shipped with P2. Domain `strengthen` / `polishInversionPath` kept for tests/non-Coach. Transport primary = **Run optimize**.
 ---
 
 ## P1 — PathOptimize core (domain + application)
@@ -176,32 +175,31 @@ Pure, testable optimize engine with modes, scopes, weights, single-pass window o
 
 ### Tasks
 
-- [ ] Add `web/src/domain/arranging/pathOptimize/` module:
-  - [ ] `types.ts` — `PathOptimizeMode`, `PathOptimizeScope`, `PathOptimizeWeights`, `PathOptimizeOpts`, `PathOptimizeReport`
-  - [ ] `objective.ts` — score a path: VL links + ring + cadenceFit + lint penalty + barbershopness ± stay-put; apply weight sliders
-  - [ ] `moments.ts` — resolve moment list from project + scope (whole / tick range / single tick); reuse harmonic-moment notions from Coach where possible
-  - [ ] `candidates.ts` — per-moment top-K via `candidatesForMelodyNote`; Revoice mode = same root/nature, alternate placements only
-  - [ ] `optimize.ts` — run Fill / Revoice / Rechord / Full for scope; reuse `autoHarmonizeMelody` ideas for Fill/Full
-  - [ ] `rejectGate.ts` — compare baseline vs candidate: total harmony motion, max leap, error lint count
-- [ ] Add `web/src/application/arranging/PathOptimize.ts` — `pathOptimize(project, opts) → { project, report }`
-- [ ] Export from `application/arranging/index.ts`
-- [ ] Unit tests:
-  - [ ] Melody + pillars, empty stacks → Fill produces stacks, leads locked
-  - [ ] Revoice keeps root/nature/lead; does not yank smooth bass register (seed/stay-put)
-  - [ ] Rechord can change nature when a clearly better candidate exists
-  - [ ] Scope = tick range only touches stacks in range
-  - [ ] Reject gate returns unchanged project when motion/leaps worsen
-- [ ] Defaults: sensible weights; beam/top-K capped for responsiveness on long charts
+- [x] Add `web/src/domain/arranging/pathOptimize/` module:
+  - [x] `types.ts` — `PathOptimizeMode`, `PathOptimizeScope`, `PathOptimizeWeights`, `PathOptimizeOpts`, `PathOptimizeReport`
+  - [x] `objective.ts` — score a path: VL links + ring + cadenceFit + lint penalty + barbershopness ± stay-put; apply weight sliders
+  - [x] `moments.ts` — resolve moment list from project + scope (whole / tick range / single tick); reuse harmonic-moment notions from Coach where possible
+  - [x] `candidates.ts` — per-moment top-K via `candidatesForMelodyNote`; Revoice mode = same root/nature, alternate placements only
+  - [x] `optimize.ts` — run Fill / Revoice / Rechord / Full for scope; reuse `autoHarmonizeMelody` ideas for Fill/Full
+  - [x] `rejectGate.ts` — compare baseline vs candidate: total harmony motion, max leap, error lint count
+- [x] Add `web/src/application/arranging/PathOptimize.ts` — `pathOptimize(project, opts) → { project, report }`
+- [x] Export from `application/arranging/index.ts`
+- [x] Unit tests:
+  - [x] Melody + pillars, empty stacks → Fill produces stacks, leads locked
+  - [x] Revoice keeps root/nature/lead; does not yank smooth bass register (seed/stay-put)
+  - [x] Rechord can change nature when a clearly better candidate exists
+  - [x] Scope = tick range only touches stacks in range
+  - [x] Reject gate returns unchanged project when motion/leaps worsen
+- [x] Defaults: sensible weights; beam/top-K capped for responsiveness on long charts
 
 ### Acceptance
 
 - Domain/application tests green without UI.
 - Report includes: mode, scope, changed stack ids, score delta fields, rejected?: boolean.
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
-
+Pass. Single-pass engine; overlapping windows deferred to P3. Reject gate lives in `objective.ts`.
 ---
 
 ## P2 — Coach Optimize UI + store wiring
@@ -212,19 +210,19 @@ User can Run Path Optimizer from Coach with mode + scope + VL↔Ring, see status
 
 ### Tasks
 
-- [ ] `arrangement` store: `pathOptimize(opts)` calling application use-case; `replaceCurrent` when report says applied; return report for UI status.
-- [ ] Implement `ArrangingPathOptimize.vue` (replace stub):
-  - [ ] Mode select: Fill empty / Revoice / Rechord / Full path
-  - [ ] Scope select: Whole song / Selection / Current chord
-  - [ ] VL ↔ Ring slider (and optional cadence strength)
-  - [ ] **Run** primary button
-  - [ ] Status line from last report (changed count, rejected reason, score hints)
-  - [ ] Hint: export on toolbar; audition after Run
-- [ ] Wire dock Auto/Optimize step to new component; `pushToRoll` after successful apply.
-- [ ] Scope resolution from Tag Studio: selection → tick min/max; current → selected moment tick; whole → full project.
-- [ ] Transport: primary label **Run optimize** (or **Run**) calling the same Run handler when on Optimize step.
+- [x] `arrangement` store: `pathOptimize(opts)` calling application use-case; `replaceCurrent` when report says applied; return report for UI status.
+- [x] Implement `ArrangingPathOptimize.vue` (replace stub):
+  - [x] Mode select: Fill empty / Revoice / Rechord / Full path
+  - [x] Scope select: Whole song / Selection / Current chord
+  - [x] VL ↔ Ring slider (and optional cadence strength)
+  - [x] **Run** primary button
+  - [x] Status line from last report (changed count, rejected reason, score hints)
+  - [x] Hint: export on toolbar; audition after Run
+- [x] Wire dock Auto/Optimize step to new component; `pushToRoll` after successful apply.
+- [x] Scope resolution from Tag Studio: selection → tick min/max; current → selected moment tick; whole → full project.
+- [x] Transport: primary label **Run optimize** (or **Run**) calling the same Run handler when on Optimize step.
 - [ ] Prefs stub (optional in P2): persist last mode + VL↔Ring in `preferences` / tag-roll prefs.
-- [ ] Tests: store method with fixture project; component smoke if pattern exists.
+- [x] Tests: store method with fixture project; component smoke if pattern exists.
 - [ ] Manual checklist:
   - [ ] Melody-only + Sketch pillars → Fill/Full writes TTBB
   - [ ] Existing smooth chart → Revoice does not octave-yank
@@ -236,9 +234,9 @@ User can Run Path Optimizer from Coach with mode + scope + VL↔Ring, see status
 - Coach Optimize is usable end-to-end for whole / selection / current.
 - Status never silent (always explains applied or rejected/no-op).
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
+Pass for wiring. Prefs persistence deferred to P6. Manual checklist pending user audition.
 
 ---
 
@@ -250,28 +248,25 @@ Holistic quality: classic highways + middle-of-form not sacrificed to L→R gree
 
 ### Tasks
 
-- [ ] Seed window search with `suggestCadencesForPhrase` / cadence catalog boosts when Lead supports patterns.
-- [ ] Implement overlapping windows (configurable width/hop) + stitch with boundary re-score.
-- [ ] Multi-pass loop until ε or maxPasses; include pass count in report.
-- [ ] Tests:
-  - [ ] Fixture with clear V7→I / II–V–I opportunity prefers highway vs random SCF
-  - [ ] Long phrase: middle window score not collapsed vs ends (assert motion/leaps bounded)
-  - [ ] Multi-pass does not worsen reject-gate metrics vs single pass baseline when already good
-- [ ] UI: expose **Passes** (or Advanced disclosure) + cadence strength control if not in P2.
-- [ ] Update ideas/help copy for Optimize step (highways, windows, audition).
+- [x] Seed window search with `suggestCadencesForPhrase` / cadence catalog boosts when Lead supports patterns.
+- [x] Implement overlapping windows (configurable width/hop) + stitch with boundary re-score.
+- [x] Multi-pass loop until ε or maxPasses; include pass count in report.
+- [x] Tests:
+  - [x] Fixture with clear V7→I / II–V–I opportunity prefers highway vs random SCF
+  - [x] Long phrase: middle window score not collapsed vs ends (assert motion/leaps bounded)
+  - [x] Multi-pass does not worsen reject-gate metrics vs single pass baseline when already good
+- [x] UI: expose **Passes** (or Advanced disclosure) + cadence strength control if not in P2.
+- [x] Update ideas/help copy for Optimize step (highways, windows, audition).
 
 ### Acceptance
 
 - Cadence-aware fixtures green.
 - Manual long tag: middle does not become the jumpy section after Optimize.
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
+Pass. Overlapping windows + cadence seeds + multi-pass in `pathOptimize`; Advanced Passes UI; V7→^5→^1 and long-phrase tests green.
 
----
-
-## P4 — Try again (alternates)
 
 ### Intent
 
@@ -279,19 +274,19 @@ Hear other legal high-scoring paths without resetting weights/mode/scope.
 
 ### Tasks
 
-- [ ] `pathOptimize(..., { explore: true, temperature?, seed? })` or `pathOptimizeTryAgain(project, lastOpts)`.
-- [ ] Sample among top-K with floor relative to best; never pick garbage below floor.
-- [ ] UI button **Try again** (enabled after a successful Run or when scope has stacks); status distinguishes explore vs optimize.
-- [ ] Ensure undo still restores previous apply.
-- [ ] Tests: two try-again calls with different seeds can differ; both pass reject floor; leads stay locked.
+- [x] `pathOptimize(..., { explore: true, temperature?, seed? })` or `pathOptimizeTryAgain(project, lastOpts)`.
+- [x] Sample among top-K with floor relative to best; never pick garbage below floor.
+- [x] UI button **Try again** (enabled after a successful Run or when scope has stacks); status distinguishes explore vs optimize.
+- [x] Ensure undo still restores previous apply.
+- [x] Tests: two try-again calls with different seeds can differ; both pass reject floor; leads stay locked.
 
 ### Acceptance
 
 - Manual: Run → audition → Try again → audibly different but still musical option → Undo works.
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
+Pass — explore + seed diversity test added.
 
 ---
 
@@ -303,19 +298,19 @@ Both-hands local craft without leaving the keyboard; mouse clicks in the drawer 
 
 ### Tasks
 
-- [ ] Add `web/src/lib/arranging/chordWalkKeys.ts` (or `lib/tagRoll/chordWalkKeys.ts`) — pure matchers: given keydown + context → action enum.
-- [ ] Context: Coach Chords active **or** Harmonize open; not typing target; not Roles-assign conflicts where keys collide (document precedence).
-- [ ] Wire `TagRollEditorView` keydown:
-  - [ ] ↑/↓ → step suggest index + preview (Coach dock + Harmonize)
-  - [ ] `F` → `coachRollTransportPrimary` / Harmonize apply selected
-  - [ ] `H` → Coach Hear when Coach open; else existing hear-stack behavior
-  - [ ] `Q` → `coachRollTransportSecondary` (Next empty) when available
-  - [ ] Keep ←/→ moment step via existing `tryCoachArrowStepMoment` / Harmonize `step`
-- [ ] Implement `stepSuggest(±1)` on coach dock API / Harmonize `defineExpose`.
-- [ ] Pref `tagRollChordWalkAutoAdvance` + toggle in Optimize or Chords chrome (small); after Apply, next empty (fallback next moment).
-- [ ] Focus hygiene: Suggest rows + transport buttons `mousedown.preventDefault` (keep window key routing).
-- [ ] Shortcuts catalog (`shortcuts.ts`) new group or entries for chord-walk; `?` overlay lists them.
-- [ ] Tests for keymap matcher; transport action tests for new keys.
+- [x] Add `web/src/lib/arranging/chordWalkKeys.ts` (or `lib/tagRoll/chordWalkKeys.ts`) — pure matchers: given keydown + context → action enum.
+- [x] Context: Coach Chords active **or** Harmonize open; not typing target; not Roles-assign conflicts where keys collide (document precedence).
+- [x] Wire `TagRollEditorView` keydown:
+  - [x] ↑/↓ → step suggest index + preview (Coach dock + Harmonize)
+  - [x] `F` → `coachRollTransportPrimary` / Harmonize apply selected
+  - [x] `H` → Coach Hear when Coach open; else existing hear-stack behavior
+  - [x] `Q` → `coachRollTransportSecondary` (Next empty) when available
+  - [x] Keep ←/→ moment step via existing `tryCoachArrowStepMoment` / Harmonize `step`
+- [x] Implement `stepSuggest(±1)` on coach dock API / Harmonize `defineExpose`.
+- [x] Pref `tagRollChordWalkAutoAdvance` + toggle in Optimize or Chords chrome (small); after Apply, next empty (fallback next moment).
+- [x] Focus hygiene: Suggest rows + transport buttons `mousedown.preventDefault` (keep window key routing).
+- [x] Shortcuts catalog (`shortcuts.ts`) new group or entries for chord-walk; `?` overlay lists them.
+- [x] Tests for keymap matcher; transport action tests for new keys.
 - [ ] Manual: Coach Chords — step, cycle, hear, apply, auto-advance — without touching mouse after open.
 
 ### Acceptance
@@ -323,9 +318,9 @@ Both-hands local craft without leaving the keyboard; mouse clicks in the drawer 
 - Full walk possible keyboard-only.
 - Clicking a Suggest row then pressing ← still steps moments (focus not trapped).
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
+Pass for wiring + unit tests. Manual keyboard walk pending user check.
 
 ---
 
@@ -337,13 +332,13 @@ Ship-quality copy, persistence, and dead-code hygiene.
 
 ### Tasks
 
-- [ ] Persist Path Optimize prefs (mode, weights, passes, auto-advance) in preferences store with normalize defaults.
-- [ ] Coach landing + GuidedSteps tips + ideas/help fully aligned with Optimize + Chord Walk (no leftover Strengthen/swipe).
-- [ ] Remove dead Coach-only code paths for strengthen/swipe apply if unused; keep domain `strengthenStacks` only if tests/other features need it — document decision in gate note.
-- [ ] Rename Coach rail label **Auto** → **Optimize** if product copy agrees (update `GuidedStepId` carefully with `normalizeGuidedStepId` legacy map `auto` → `optimize` **or** keep id `auto` and only change label — prefer label-only to reduce churn).
+- [x] Persist Path Optimize prefs (mode, weights, passes, auto-advance) in preferences store with normalize defaults.
+- [x] Coach landing + GuidedSteps tips + ideas/help fully aligned with Optimize + Chord Walk (no leftover Strengthen/swipe).
+- [x] Remove dead Coach-only code paths for strengthen/swipe apply if unused; keep domain `strengthenStacks` only if tests/other features need it — document decision in gate note.
+- [x] Rename Coach rail label **Auto** → **Optimize** if product copy agrees (update `GuidedStepId` carefully with `normalizeGuidedStepId` legacy map `auto` → `optimize` **or** keep id `auto` and only change label — prefer label-only to reduce churn).
 - [ ] Update [arranging-coach-full-surface.md](arranging-coach-full-surface.md) / status cross-links if needed.
 - [ ] Adversarial manual pass: beginner melody-only; repair chart with stacks; selection Try again; Chord Walk.
-- [ ] Mark this plan status **Implemented** (or **In progress** with residuals) in [README.md](README.md).
+- [x] Mark this plan status **Implemented** (or **In progress** with residuals) in [README.md](README.md).
 
 ### Acceptance
 
@@ -351,9 +346,9 @@ Ship-quality copy, persistence, and dead-code hygiene.
 - Prefs survive reload.
 - Plan README status updated.
 
-### Gate — (append date)
+### Gate — 2026-10-05
 
-<!-- AI: pass/fail + residuals -->
+Pass. Label-only Auto→Optimize; domain strengthen kept for tests; prefs persist mode/VL/cadence/passes + Chord Walk auto-advance.
 
 ---
 
@@ -398,3 +393,5 @@ Ship-quality copy, persistence, and dead-code hygiene.
 | Date | Phase | Note |
 | --- | --- | --- |
 | 2026-10-05 | — | Plan written from Coach Auto failure + Chord Walk investigation |
+| 2026-10-05 | P0–P2, P4 partial | Retired Strengthen/Polish/Swipe UI; PathOptimize domain+store+Coach UI; Try again explore |
+| 2026-10-05 | P3–P6 | Cadence windows + multi-pass; Chord Walk keys; prefs; Auto→Optimize label |

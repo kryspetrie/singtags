@@ -1,0 +1,267 @@
+{
+  "tagId": 41,
+  "title": "Gone are the Memories",
+  "tonality": 0,
+  "mode": "major",
+  "bpm": 87.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 30,
+  "tokenCount": 24,
+  "pillarCount": 10,
+  "pillarRomans": [
+    "I",
+    "ii7",
+    "II",
+    "ii",
+    "I",
+    "V7",
+    "V7",
+    "ii7",
+    "bVII9",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 1.324,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "VII",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.345,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.346,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "VI",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.344,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 0.33,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "II",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.311,
+      "leadMidi": 57,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "ii",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 0.379,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "iv",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.69,
+      "leadMidi": 56,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.356,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "III7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.33,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "II",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.345,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "vi",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 0.325,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "bVI7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 0.185,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.69,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "iii",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.345,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "V+",
+      "rootPc": 7,
+      "natureId": "aug",
+      "dur": 0.321,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "iii",
+      "rootPc": 4,
+      "natureId": "minor",
+      "dur": 0.163,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "V7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.69,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.345,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 2,
+      "natureId": "m7",
+      "dur": 2.107,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "v",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.335,
+      "leadMidi": 50,
+      "confidence": 0.647,
+      "role": "mid",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 0.232,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 10,
+      "natureId": "ninth",
+      "dur": 0.743,
+      "leadMidi": 50,
+      "confidence": 0.8,
+      "role": "pillar",
+      "medianDur": 0.345
+    },
+    {
+      "roman": "I",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 3.072,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.345
+    }
+  ],
+  "classic": "29",
+  "collection": "classic"
+}

@@ -1,0 +1,122 @@
+{
+  "tagId": 53,
+  "title": "So Tired of Waiting for You",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 105.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 13,
+  "tokenCount": 10,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "I",
+    "I7",
+    "VI7",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.857,
+      "leadMidi": 55,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "I7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 0.572,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 4,
+      "natureId": "seventh",
+      "dur": 0.537,
+      "leadMidi": 56,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "II",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.186,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 9,
+      "natureId": "m7",
+      "dur": 0.278,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "II",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.073,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.857,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 3.692,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.5545
+    },
+    {
+      "roman": "III",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.522,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.5545
+    }
+  ],
+  "classic": "41",
+  "collection": "classic"
+}

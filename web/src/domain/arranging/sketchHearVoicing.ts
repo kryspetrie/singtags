@@ -21,6 +21,7 @@ import {
   parallelPerfectPenalty,
   voiceLeadScore,
 } from './theoryScores'
+import { leapsWithinCaps, partJumpCost } from './pathOptimize/partLeaps'
 
 /** Chord quality / nature id (matches BARBERSHOP_CHORDS and Tag Studio sketch qualities). */
 export type SketchHearQuality = string
@@ -152,7 +153,10 @@ function coverageScore(
   if (p.bass >= SKETCH_HEAR_BASS_MIN && p.bass <= 60) score += 2
   if (p.tenor <= SKETCH_HEAR_TENOR_MAX && p.tenor >= 64) score += 2
   const span = p.tenor - p.bass
-  if (span >= 12 && span <= 28) score += 2
+  // Mild preference for singable outer span; close (≤12) beats divorced.
+  if (span <= 12) score += 3
+  else if (span <= 19) score += 1
+  else score -= 4
   return score
 }
 
@@ -350,8 +354,27 @@ function linkScore(from: VoicingPitches, to: VoicingPitches): number {
   )
 }
 
-/** Heavier VL weighting for full-path search (Detected / Realize sequences). */
-function pathLinkScore(from: VoicingPitches, to: VoicingPitches): number {
+/**
+ * Heavier VL weighting for full-path search (Detected / Realize / Revoice).
+ * Part-aware: tenor/bass jump cost dominates; illegal leaps are −∞.
+ */
+function pathLinkScore(
+  from: VoicingPitches,
+  to: VoicingPitches,
+  opts?: { partAware?: boolean; risk?: number },
+): number {
+  if (opts?.partAware) {
+    const risk = opts.risk ?? 0.35
+    if (!leapsWithinCaps(from, to, risk)) return Number.NEGATIVE_INFINITY
+    const jump = partJumpCost(from, to)
+    return (
+      voiceLeadScore(from, to) * 14 +
+      commonToneScore(from, to) * 10 +
+      contraryMotionScore(from, to) * 4 -
+      parallelPerfectPenalty(from, to) * 12 -
+      jump * 2.4
+    )
+  }
   return (
     voiceLeadScore(from, to) * 22 +
     commonToneScore(from, to) * 12 +
@@ -478,9 +501,20 @@ export type OptimizeSketchHearPathOpts = {
    * strongly preferred so polish cannot yank a smooth path into mid-range jumps.
    */
   seedPitches?: readonly (VoicingPitches | null | undefined)[]
+  /**
+   * Path Optimize Revoice: weight tenor/bass leaps and cap seed-stay so smooth
+   * T/B motion beats snapping to a far “home” inversion.
+   */
+  partAware?: boolean
+  /** Risk for leap caps when partAware (default 0.35). */
+  risk?: number
 }
 
-function seedStayBonus(candidate: VoicingPitches, seed: VoicingPitches | null | undefined): number {
+function seedStayBonus(
+  candidate: VoicingPitches,
+  seed: VoicingPitches | null | undefined,
+  opts?: { partAware?: boolean },
+): number {
   if (!seed) return 0
   if (
     candidate.bass === seed.bass &&
@@ -488,14 +522,16 @@ function seedStayBonus(candidate: VoicingPitches, seed: VoicingPitches | null | 
     candidate.lead === seed.lead &&
     candidate.tenor === seed.tenor
   ) {
-    return 32
+    // Exact stay — still capped so a large T/B leap elsewhere can win.
+    return opts?.partAware ? 14 : 32
   }
   // Prefer staying in the same register even when inversion changes.
   const d =
     Math.abs(candidate.bass - seed.bass) +
     Math.abs(candidate.bari - seed.bari) +
     Math.abs(candidate.tenor - seed.tenor)
-  return Math.max(0, 20 - d * 1.1)
+  const raw = Math.max(0, 20 - d * 1.1)
+  return opts?.partAware ? Math.min(10, raw * 0.55) : raw
 }
 
 function injectSeedCandidate(
@@ -530,6 +566,8 @@ export function optimizeSketchHearPath(
   const tonality = opts?.tonality ?? 0
   const seeds = opts?.seedPitches
   const preserve = !!seeds?.some((s) => s != null)
+  const partAware = !!opts?.partAware
+  const risk = opts?.risk ?? 0.35
   const layers = chords.map((c, i) => {
     const ranked = rankedCandidates(c)
     // Put I/V home-bass inversions first so ties lean that way
@@ -559,7 +597,7 @@ export function optimizeSketchHearPath(
       index: 0,
       isStartSeed: true,
       preserveRegister: preserve,
-    }) + seedStayBonus(p, seeds?.[0]),
+    }) + seedStayBonus(p, seeds?.[0], { partAware }),
   )
   back[0] = layers[0]!.map(() => -1)
 
@@ -576,9 +614,12 @@ export function optimizeSketchHearPath(
           index: i,
           isStartSeed: false,
           preserveRegister: preserve,
-        }) + seedStayBonus(layer[j]!, seeds?.[i])
+        }) + seedStayBonus(layer[j]!, seeds?.[i], { partAware })
       for (let k = 0; k < prevLayer.length; k++) {
-        const total = scores[i - 1]![k]! + pathLinkScore(prevLayer[k]!, layer[j]!) + node
+        const link = pathLinkScore(prevLayer[k]!, layer[j]!, { partAware, risk })
+        // No soft fallback for illegal leaps — prefer keeping seeds below.
+        if (!Number.isFinite(link) || !Number.isFinite(scores[i - 1]![k]!)) continue
+        const total = scores[i - 1]![k]! + link + node
         if (total > scores[i]![j]!) {
           scores[i]![j] = total
           back[i]![j] = k
@@ -592,12 +633,22 @@ export function optimizeSketchHearPath(
   for (let j = 1; j < last.length; j++) {
     if (last[j]! > last[endJ]!) endJ = j
   }
+  // No legal part-aware path: keep seeds (or first catalog pick) — do not force jumps.
+  if (!Number.isFinite(last[endJ]!)) {
+    return layers.map((L, i) => {
+      const seed = seeds?.[i]
+      const pick = seed ?? L[0]!
+      return lockVoicingLeadToMelody(pick, chords[i]!)
+    })
+  }
   const path: VoicingPitches[] = new Array(T)
   let j = endJ
   for (let i = T - 1; i >= 0; i--) {
-    path[i] = layers[i]![j]!
+    const node = layers[i]![j] ?? seeds?.[i] ?? layers[i]![0]!
+    path[i] = node
     if (i === 0) break
-    j = back[i]![j]!
+    const prevJ = back[i]![j]!
+    j = prevJ >= 0 ? prevJ : 0
   }
   return path.map((p, i) => lockVoicingLeadToMelody(p, chords[i]!))
 }

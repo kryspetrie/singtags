@@ -1,0 +1,453 @@
+{
+  "tag_id": 90004,
+  "id": 90004,
+  "title": "Down Our Way",
+  "alt_title": null,
+  "common_name": "Down Our Way",
+  "arranger": "Floyd Connett",
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 4,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Down Our Way (Bb Major) - Floyd Connett - 90004",
+  "identity": {
+    "title": "down our way",
+    "arranger": "floyd connett",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "",
+    "posted": ""
+  },
+  "identity_key": "down our way|floyd connett|bb major|polecat||",
+  "identity_hash": "e017f4bfa44c0673",
+  "keywords": [
+    "down our way",
+    "down",
+    "our",
+    "way",
+    "floyd connett",
+    "floyd",
+    "connett",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90004",
+    "p4"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Sheet.pdf",
+      "bytes": 97871,
+      "sha256": "27ce3c06d87fb6db768c21baae2ee51404926ee4be4a65dc40968a7dcb6629ab",
+      "source_sha256": "36359529fd86c246db14c1fdf080db900a266027e994570cb2a1f2d06acc9149",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Down Our Way - PoleCats 1 - Floyd Connett (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Lead.mp3",
+      "bytes": 1887488,
+      "sha256": "960e78b9a6ef7c17daae389fc1bb49834cf77ada450a86597476deec48cd2f8d",
+      "source_sha256": "960e78b9a6ef7c17daae389fc1bb49834cf77ada450a86597476deec48cd2f8d",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down Our Way - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:16.192360+00:00",
+        "source_sha256": "960e78b9a6ef7c17daae389fc1bb49834cf77ada450a86597476deec48cd2f8d"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Lead - Playback.opus",
+          "sha256": "f0f284e6cc6451c206d105be89d9f7783949e21e5a1a29a5b98a70f223ff199e",
+          "bytes": 635472,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "960e78b9a6ef7c17daae389fc1bb49834cf77ada450a86597476deec48cd2f8d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:17.764240+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Lead - Downmix.opus",
+          "sha256": "92062069a04d19a20b236c0d7bf09ed01f8044ba06d7982530182c01d111687e",
+          "bytes": 163868,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "960e78b9a6ef7c17daae389fc1bb49834cf77ada450a86597476deec48cd2f8d",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:20.884413+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Tenor.mp3",
+      "bytes": 1887488,
+      "sha256": "3323e2a4bf2ea16d29a04e4399125f486815f6d42cf77cd3f78c5eb96c9a8028",
+      "source_sha256": "3323e2a4bf2ea16d29a04e4399125f486815f6d42cf77cd3f78c5eb96c9a8028",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down Our Way - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:16.307230+00:00",
+        "source_sha256": "3323e2a4bf2ea16d29a04e4399125f486815f6d42cf77cd3f78c5eb96c9a8028"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Tenor - Playback.opus",
+          "sha256": "295ea80684bc08bab20e4c0b4800eaea4b22087f444a69cb9ec66af233d75d27",
+          "bytes": 635477,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "3323e2a4bf2ea16d29a04e4399125f486815f6d42cf77cd3f78c5eb96c9a8028",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:18.440456+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Tenor - Downmix.opus",
+          "sha256": "ec5582deb12c5f822e0e8120974de01bc4e9ba6fdd92851c372b036c455a52f8",
+          "bytes": 163873,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "3323e2a4bf2ea16d29a04e4399125f486815f6d42cf77cd3f78c5eb96c9a8028",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.289046+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Bari.mp3",
+      "bytes": 1887488,
+      "sha256": "4af8499230d7885f413b04ec2e2d292134810d50ff9161675689f6d68e9a7f8c",
+      "source_sha256": "4af8499230d7885f413b04ec2e2d292134810d50ff9161675689f6d68e9a7f8c",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down Our Way - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:16.425307+00:00",
+        "source_sha256": "4af8499230d7885f413b04ec2e2d292134810d50ff9161675689f6d68e9a7f8c"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Bari - Playback.opus",
+          "sha256": "1bb935d586ba5397fef2796cc20df7c1da0779df142023f0a031266161e04339",
+          "bytes": 635475,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "4af8499230d7885f413b04ec2e2d292134810d50ff9161675689f6d68e9a7f8c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:19.113525+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Bari - Downmix.opus",
+          "sha256": "5d0f68aa3d212c6f06835c203870dd361584be89c7dfcd79640315fc37e458b2",
+          "bytes": 163871,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "4af8499230d7885f413b04ec2e2d292134810d50ff9161675689f6d68e9a7f8c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:21.684950+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Bass.mp3",
+      "bytes": 1887488,
+      "sha256": "408330f8bcef0264b0998385d6636b0df677a4aea81c72c72be7a827fd2d7f24",
+      "source_sha256": "408330f8bcef0264b0998385d6636b0df677a4aea81c72c72be7a827fd2d7f24",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down Our Way - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:16.673954+00:00",
+        "source_sha256": "408330f8bcef0264b0998385d6636b0df677a4aea81c72c72be7a827fd2d7f24"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Bass - Playback.opus",
+          "sha256": "249ea11b7a918e8e8c734b5061cde0701848feb7f04d80701f1146d3640c8f44",
+          "bytes": 635455,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "408330f8bcef0264b0998385d6636b0df677a4aea81c72c72be7a827fd2d7f24",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:19.800617+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Bass - Downmix.opus",
+          "sha256": "916f5867e9164ea5af64bd8fb3d214e03266d51db7b39984f2d10523c3cef6bc",
+          "bytes": 163851,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "408330f8bcef0264b0998385d6636b0df677a4aea81c72c72be7a827fd2d7f24",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:22.074628+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Down Our Way (Bb Major) - Floyd Connett - Mix.mp3",
+      "bytes": 1792336,
+      "sha256": "a313467adbb66df926e40beaea7193d49cd966e26d2a1192b04f8795ca310760",
+      "source_sha256": "a313467adbb66df926e40beaea7193d49cd966e26d2a1192b04f8795ca310760",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Down Our Way - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "near_mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0298,
+        "correlation": 0.8741,
+        "side_mid": 0.2576,
+        "analyzed_at": "2026-09-07T04:13:16.846041+00:00",
+        "source_sha256": "a313467adbb66df926e40beaea7193d49cd966e26d2a1192b04f8795ca310760"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Mix - Playback.opus",
+          "sha256": "abcde6609b5b0ff005d8ab640dcb643ff6f28be9b7cd6aa6353de17da31ac18a",
+          "bytes": 603309,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "a313467adbb66df926e40beaea7193d49cd966e26d2a1192b04f8795ca310760",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:20.477947+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Down Our Way (Bb Major) - Floyd Connett - Mix - Ultra Mix.opus",
+          "sha256": "acb75416e2703e294a2dec452bc46ccddf7a00755571780ac3c3e783b94243f1",
+          "bytes": 304829,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "a313467adbb66df926e40beaea7193d49cd966e26d2a1192b04f8795ca310760",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:23.201043+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Down Our Way - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90004,
+    "Title": "Down Our Way",
+    "AltTitle": null,
+    "CommonName": "Down Our Way",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": "Floyd Connett",
+    "Collection": "polecats",
+    "Classic": 4,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Down Our Way",
+      "learning": "Down Our Way"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/down-our-way-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/down-our-way-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/down-our-way-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/down-our-way-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "near_mono",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:16.988238+00:00",
+    "mix_correlation": -0.0117,
+    "mix_correlations": {
+      "lead": -0.0117,
+      "tenor": -0.0117,
+      "bari": -0.0117,
+      "bass": -0.0117
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:23.201076+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 51,
+    "extracted_at": "2026-10-08T21:28:32.443018+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 112.0,
+    "timeSignature": {
+      "numerator": 4,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 5.782,
+    "coverage": 0.932,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 48.692,
+    "voiced": {
+      "lead": 0.896,
+      "tenor": 0.908,
+      "bari": 0.907,
+      "bass": 0.905
+    },
+    "midi_mad": {
+      "lead": 0.0799,
+      "tenor": 0.1023,
+      "bari": 0.1084,
+      "bass": 0.1177
+    }
+  }
+}

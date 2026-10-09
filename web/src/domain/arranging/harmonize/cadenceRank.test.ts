@@ -87,7 +87,7 @@ describe('coach cadenceFit ranking', () => {
     expect(top.natureId === 'seventh' || top.natureId === 'ninth').toBe(true)
   })
 
-  it('still prefers home triad when no cadence fires', () => {
+  it('still prefers tonic major home when no cadence fires (Lead on ^1)', () => {
     const raw = generateCandidates({
       note: note(60),
       pillar: pillar(0),
@@ -99,7 +99,8 @@ describe('coach cadenceFit ranking', () => {
     const ranked = rankCandidates(raw, {
       cadenceContext: ctx({ melodyMidi: 60, pillarRoot: 0, nextPillarRoot: 5 }),
     })
-    expect(ranked[0]!.natureId).toBe('major')
     expect(ranked[0]!.rootPc).toBe(0)
+    // Lead on ^1 → major triad home (not automatic I7→IV).
+    expect(ranked[0]!.natureId).toBe('major')
   })
 })

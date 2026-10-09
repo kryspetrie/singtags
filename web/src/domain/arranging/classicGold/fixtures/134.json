@@ -1,0 +1,186 @@
+{
+  "tagId": 134,
+  "title": "The Gang that Sang Heart of My Heart",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 101.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 19,
+  "tokenCount": 16,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "II7",
+    "II7",
+    "ii7",
+    "V7",
+    "II7",
+    "V7",
+    "I",
+    "I",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.297,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "bII7",
+      "rootPc": 11,
+      "natureId": "seventh",
+      "dur": 0.33,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "I\u00b07",
+      "rootPc": 10,
+      "natureId": "dim7",
+      "dur": 0.139,
+      "leadMidi": 58,
+      "confidence": 0.79,
+      "role": "passing",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.049,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 1.099,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "unknown",
+      "dur": 0.21,
+      "leadMidi": 58,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.495,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "II7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.275,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.884,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.975,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "VII",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.287,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.297,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "i",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.345,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "mid",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.249,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.782,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3135
+    },
+    {
+      "roman": "vi",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 0.249,
+      "leadMidi": 52,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.3135
+    }
+  ],
+  "classic": "123",
+  "collection": "classic"
+}

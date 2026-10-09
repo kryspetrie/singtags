@@ -16,6 +16,24 @@ export { autoLabelMelodyRoles } from './LabelMelodyRoles'
 export { strengthenArrangement } from './strengthenArrangement'
 export { polishInversionPath } from './PolishInversionPath'
 export {
+  pathOptimize,
+  DEFAULT_PATH_OPTIMIZE_WEIGHTS,
+  PATH_OPTIMIZE_MAX_PASSES,
+  PATH_OPTIMIZE_DEFAULT_PASSES,
+  clampPathOptimizePasses,
+  clampRisk,
+  weightsFromRisk,
+} from './PathOptimize'
+export type {
+  PathOptimizeOpts,
+  PathOptimizeResult,
+  PathOptimizeDeps,
+  PathOptimizeMode,
+  PathOptimizeScope,
+  PathOptimizeWeights,
+  PathOptimizeReport,
+} from './PathOptimize'
+export {
   explanationForWizardStep,
   explanationForLint,
   explanationForCandidate,

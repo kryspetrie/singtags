@@ -1,0 +1,268 @@
+{
+  "tagId": 35,
+  "title": "Foolish Over You",
+  "tonality": 8,
+  "mode": "major",
+  "bpm": 89.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 34,
+  "tokenCount": 24,
+  "pillarCount": 11,
+  "pillarRomans": [
+    "I",
+    "I7",
+    "I7",
+    "V7",
+    "I",
+    "IV9",
+    "I",
+    "I",
+    "IV",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.765,
+      "leadMidi": 56,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 0.326,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "i",
+      "rootPc": 8,
+      "natureId": "madd6",
+      "dur": 0.305,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I7",
+      "rootPc": 8,
+      "natureId": "seventh",
+      "dur": 0.674,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "iv",
+      "rootPc": 1,
+      "natureId": "madd6",
+      "dur": 1.685,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 6,
+      "natureId": "major",
+      "dur": 0.337,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "iv",
+      "rootPc": 1,
+      "natureId": "madd6",
+      "dur": 0.295,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "bVII7",
+      "rootPc": 6,
+      "natureId": "seventh",
+      "dur": 0.38,
+      "leadMidi": 61,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "V7",
+      "rootPc": 3,
+      "natureId": "seventh",
+      "dur": 1.409,
+      "leadMidi": 61,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "IV",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.372,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "iv",
+      "rootPc": 1,
+      "natureId": "madd6",
+      "dur": 2.335,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.348,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 1,
+      "natureId": "ninth",
+      "dur": 0.34,
+      "leadMidi": 51,
+      "confidence": 0.44,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.092,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 1,
+      "natureId": "ninth",
+      "dur": 0.256,
+      "leadMidi": 51,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "V",
+      "rootPc": 3,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 51,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.888,
+      "leadMidi": 51,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "IV",
+      "rootPc": 1,
+      "natureId": "major",
+      "dur": 0.646,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 0.186,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I6",
+      "rootPc": 8,
+      "natureId": "sixth",
+      "dur": 0.209,
+      "leadMidi": 51,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "IV",
+      "rootPc": 1,
+      "natureId": "major",
+      "dur": 0.975,
+      "leadMidi": 61,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I+",
+      "rootPc": 8,
+      "natureId": "aug",
+      "dur": 0.674,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I",
+      "rootPc": 8,
+      "natureId": "major",
+      "dur": 1.035,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.376
+    },
+    {
+      "roman": "I+",
+      "rootPc": 8,
+      "natureId": "aug",
+      "dur": 0.314,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.376
+    }
+  ],
+  "classic": "23",
+  "collection": "classic"
+}

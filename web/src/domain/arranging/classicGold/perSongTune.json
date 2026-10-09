@@ -1,0 +1,3173 @@
+{
+  "updatedAt": "2026-10-09T02:48:17.244Z",
+  "methodology": "docs/arranging/sequence-corpus-methodology.md",
+  "n": 120,
+  "microHwy": 0.928352688977689,
+  "softCount": 42,
+  "weightHelpedCount": 15,
+  "clusters": [
+    {
+      "name": "A-fits-Basic",
+      "n": 69,
+      "meanHwy": 1,
+      "meanDelta": 0,
+      "members": [
+        1,
+        2,
+        10,
+        13,
+        14,
+        19,
+        22,
+        25,
+        26,
+        27,
+        29,
+        30,
+        31,
+        33,
+        34,
+        35,
+        36,
+        40,
+        41,
+        43,
+        44,
+        46,
+        51,
+        53,
+        55,
+        56,
+        57,
+        59,
+        62,
+        63,
+        65,
+        67,
+        69,
+        70,
+        76,
+        77,
+        78,
+        80,
+        81,
+        84
+      ],
+      "styles": [
+        "I7-IV",
+        "added6",
+        "chromatic",
+        "chromatic-roots",
+        "circle",
+        "dense-7ths",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/triad-leaning",
+      "n": 5,
+      "meanHwy": 0.775,
+      "meanDelta": 0,
+      "members": [
+        11,
+        28,
+        38,
+        105,
+        110
+      ],
+      "styles": [
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/cadence=off",
+      "n": 4,
+      "meanHwy": 0.8642857142857143,
+      "meanDelta": 0.11071428571428571,
+      "members": [
+        12,
+        54,
+        98,
+        113
+      ],
+      "styles": [
+        "I7-IV",
+        "added6",
+        "chromatic",
+        "chromatic-roots",
+        "circle",
+        "dense-7ths",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/supertonic-minor+triad-leaning",
+      "n": 4,
+      "meanHwy": 0.8414502164502164,
+      "meanDelta": 0,
+      "members": [
+        72,
+        74,
+        89,
+        99
+      ],
+      "styles": [
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+supertonic-minor+added6",
+      "n": 3,
+      "meanHwy": 0.8164428164428165,
+      "meanDelta": 0,
+      "members": [
+        20,
+        58,
+        119
+      ],
+      "styles": [
+        "added6",
+        "chromatic",
+        "chromatic-roots",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+supertonic-minor+triad-leaning",
+      "n": 3,
+      "meanHwy": 0.8703703703703703,
+      "meanDelta": 0,
+      "members": [
+        45,
+        92,
+        118
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+I7-IV+supertonic-minor",
+      "n": 2,
+      "meanHwy": 0.9,
+      "meanDelta": 0,
+      "members": [
+        17,
+        131
+      ],
+      "styles": [
+        "I7-IV",
+        "added6",
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/cadence=strong",
+      "n": 2,
+      "meanHwy": 0.6785714285714286,
+      "meanDelta": 0.19642857142857145,
+      "members": [
+        37,
+        125
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/diatonicFunction↑",
+      "n": 2,
+      "meanHwy": 0.8809523809523809,
+      "meanDelta": 0.11904761904761901,
+      "members": [
+        50,
+        83
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/unforcedMinorPenalty↑",
+      "n": 2,
+      "meanHwy": 0.8452380952380952,
+      "meanDelta": 0.15476190476190477,
+      "members": [
+        64,
+        85
+      ],
+      "styles": [
+        "I7-IV",
+        "added6",
+        "chromatic",
+        "circle",
+        "supertonic-minor"
+      ]
+    },
+    {
+      "name": "B-rule-gap/supertonic-minor",
+      "n": 2,
+      "meanHwy": 0.8660714285714286,
+      "meanDelta": 0,
+      "members": [
+        94,
+        114
+      ],
+      "styles": [
+        "supertonic-minor"
+      ]
+    },
+    {
+      "name": "B-rule-gap/plain",
+      "n": 2,
+      "meanHwy": 0.8611111111111112,
+      "meanDelta": 0,
+      "members": [
+        107,
+        109
+      ],
+      "styles": []
+    },
+    {
+      "name": "B-rule-gap/chromatic+dense-7ths+chromatic-roots",
+      "n": 1,
+      "meanHwy": 0.8333333333333334,
+      "meanDelta": 0,
+      "members": [
+        9
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "dense-7ths"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+supertonic-minor+chromatic-roots",
+      "n": 1,
+      "meanHwy": 0.8,
+      "meanDelta": 0,
+      "members": [
+        18
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "supertonic-minor"
+      ]
+    },
+    {
+      "name": "B-rule-gap/added6",
+      "n": 1,
+      "meanHwy": 0.8,
+      "meanDelta": 0,
+      "members": [
+        21
+      ],
+      "styles": [
+        "added6"
+      ]
+    },
+    {
+      "name": "B-rule-gap/I7-IV+supertonic-minor+added6",
+      "n": 1,
+      "meanHwy": 0.8,
+      "meanDelta": 0,
+      "members": [
+        39
+      ],
+      "styles": [
+        "I7-IV",
+        "added6",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/supertonic-minor+added6+triad-leaning",
+      "n": 1,
+      "meanHwy": 0.8333333333333334,
+      "meanDelta": 0,
+      "members": [
+        42
+      ],
+      "styles": [
+        "added6",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+chromatic-roots",
+      "n": 1,
+      "meanHwy": 0.875,
+      "meanDelta": 0,
+      "members": [
+        47
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+mediant+supertonic-minor",
+      "n": 1,
+      "meanHwy": 0.9090909090909091,
+      "meanDelta": 0,
+      "members": [
+        49
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+triad-leaning+chromatic-roots",
+      "n": 1,
+      "meanHwy": 0.7142857142857143,
+      "meanDelta": 0,
+      "members": [
+        66
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/mediant+supertonic-minor+added6",
+      "n": 1,
+      "meanHwy": 0.8888888888888888,
+      "meanDelta": 0,
+      "members": [
+        68
+      ],
+      "styles": [
+        "added6",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/circle+supertonic-minor+triad-leaning",
+      "n": 1,
+      "meanHwy": 0.9090909090909091,
+      "meanDelta": 0,
+      "members": [
+        71
+      ],
+      "styles": [
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/supertonic-minor+added6",
+      "n": 1,
+      "meanHwy": 0.8888888888888888,
+      "meanDelta": 0,
+      "members": [
+        73
+      ],
+      "styles": [
+        "added6",
+        "supertonic-minor"
+      ]
+    },
+    {
+      "name": "C-weight/cadence=off|diatonicFunction↑|homeTriad↑",
+      "n": 1,
+      "meanHwy": 0.7142857142857143,
+      "meanDelta": 0.2857142857142857,
+      "members": [
+        79
+      ],
+      "styles": [
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/cadence=off|diatonicFunction↑",
+      "n": 1,
+      "meanHwy": 0.8571428571428571,
+      "meanDelta": 0.1428571428571429,
+      "members": [
+        82
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots"
+      ]
+    },
+    {
+      "name": "B-rule-gap/mediant+triad-leaning",
+      "n": 1,
+      "meanHwy": 0.6666666666666666,
+      "meanDelta": 0,
+      "members": [
+        93
+      ],
+      "styles": [
+        "mediant",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/cadence=strong|secondaryDominant↓",
+      "n": 1,
+      "meanHwy": 0.9166666666666666,
+      "meanDelta": 0.08333333333333337,
+      "members": [
+        102
+      ],
+      "styles": [
+        "added6",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/circle+supertonic-minor+added6",
+      "n": 1,
+      "meanHwy": 0.9090909090909091,
+      "meanDelta": 0,
+      "members": [
+        103
+      ],
+      "styles": [
+        "added6",
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/seventh↑",
+      "n": 1,
+      "meanHwy": 0.8571428571428571,
+      "meanDelta": 0.07142857142857151,
+      "members": [
+        104
+      ],
+      "styles": [
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "B-rule-gap/added6+triad-leaning",
+      "n": 1,
+      "meanHwy": 0.8,
+      "meanDelta": 0,
+      "members": [
+        108
+      ],
+      "styles": [
+        "added6",
+        "triad-leaning"
+      ]
+    },
+    {
+      "name": "C-weight/colorChordPenalty↑|diatonicFunction↑",
+      "n": 1,
+      "meanHwy": 0.75,
+      "meanDelta": 0.25,
+      "members": [
+        120
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots"
+      ]
+    },
+    {
+      "name": "B-rule-gap/chromatic+mediant+triad-leaning",
+      "n": 1,
+      "meanHwy": 0.8571428571428571,
+      "meanDelta": 0,
+      "members": [
+        129
+      ],
+      "styles": [
+        "chromatic",
+        "chromatic-roots",
+        "mediant",
+        "triad-leaning"
+      ]
+    }
+  ],
+  "crossApply": [
+    {
+      "preset": "Basic",
+      "softMicro": 0.8149955203526632,
+      "allMicro": 0.928352688977689
+    },
+    {
+      "preset": "cadence-off",
+      "softMicro": 0.8068998461855604,
+      "allMicro": 0.9264282939282936
+    },
+    {
+      "preset": "passingSoft↑",
+      "softMicro": 0.8173764727336157,
+      "allMicro": 0.9298804667554668
+    },
+    {
+      "preset": "diatonic↑",
+      "softMicro": 0.8236406450692164,
+      "allMicro": 0.9167254042254039
+    },
+    {
+      "preset": "minor-soft",
+      "softMicro": 0.7960698692841551,
+      "allMicro": 0.8941120684870681
+    },
+    {
+      "preset": "circle-up",
+      "softMicro": 0.8266168355454069,
+      "allMicro": 0.9177670708920705
+    }
+  ],
+  "results": [
+    {
+      "tagId": 2,
+      "classic": "1",
+      "title": "I Love to Sing 'Em",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5833333333333334
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5833333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 9,
+      "classic": "2",
+      "title": "Lonely for You Am I",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "dense-7ths",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 10,
+      "classic": "3",
+      "title": "Way Down South",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5555555555555556
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5555555555555556
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 11,
+      "classic": "4",
+      "title": "Danny My Boy",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 12,
+      "classic": "5",
+      "title": "My Heart is Free",
+      "baseline": {
+        "hwy": 0.9,
+        "strict": 0.8181818181818182
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8181818181818182
+      },
+      "deltaHwy": 0.09999999999999998,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "added6",
+        "dense-7ths"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 13,
+      "classic": "6",
+      "title": "Flower from an Old Bouquet",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "dense-7ths",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 14,
+      "classic": "7",
+      "title": "I'll be Seeing You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 17,
+      "classic": "8",
+      "title": "Wedding Bells",
+      "baseline": {
+        "hwy": 0.9,
+        "strict": 0.5625
+      },
+      "best": {
+        "hwy": 0.9,
+        "strict": 0.5625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "I7-IV",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 18,
+      "classic": "9",
+      "title": "Lonesome Rose",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.8
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 19,
+      "classic": "10",
+      "title": "The Sunshine of Your Smile",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 20,
+      "classic": "11",
+      "title": "When I Leave the World Behind",
+      "baseline": {
+        "hwy": 0.7142857142857143,
+        "strict": 0.2
+      },
+      "best": {
+        "hwy": 0.7142857142857143,
+        "strict": 0.2
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 21,
+      "classic": "12",
+      "title": "My Diane",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "added6"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 1,
+      "classic": "13",
+      "title": "Smile",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 22,
+      "classic": "14",
+      "title": "Cry",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.3333333333333333
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.3333333333333333
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [],
+      "tuned": false
+    },
+    {
+      "tagId": 25,
+      "classic": "15",
+      "title": "Heart of a Clown",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 26,
+      "classic": "16",
+      "title": "No More Wine",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 27,
+      "classic": "17",
+      "title": "Lida Rose",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 28,
+      "classic": "18",
+      "title": "Darkness on the Delta",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 29,
+      "classic": "19",
+      "title": "Who'll Take My Place When I'm Gone?",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [],
+      "tuned": false
+    },
+    {
+      "tagId": 30,
+      "classic": "20",
+      "title": "Sunshine is Bidding the Day Goodbye",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 33,
+      "classic": "21",
+      "title": "We'll Just be the Same Old Friends",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.375
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.375
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 34,
+      "classic": "22",
+      "title": "Nobody's Waiting There with a Smile",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 35,
+      "classic": "23",
+      "title": "Foolish Over You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [],
+      "tuned": false
+    },
+    {
+      "tagId": 36,
+      "classic": "24",
+      "title": "Last Night was the End of the World",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 37,
+      "classic": "25",
+      "title": "Back in My Home Town",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.42857142857142855
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8571428571428571
+      },
+      "deltaHwy": 0.1428571428571429,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "chromatic",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 38,
+      "classic": "26",
+      "title": "Friendship and Love",
+      "baseline": {
+        "hwy": 0.6,
+        "strict": 0.2
+      },
+      "best": {
+        "hwy": 0.6,
+        "strict": 0.2
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 39,
+      "classic": "27",
+      "title": "Run, Run, Run",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.26666666666666666
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.4
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "diatonicFunction": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 40,
+      "classic": "28",
+      "title": "Drink to Me Only with Thine Eyes",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 41,
+      "classic": "29",
+      "title": "Gone are the Memories",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5555555555555556
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5555555555555556
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 42,
+      "classic": "30",
+      "title": "Goodbye Forever, It's Over I Know",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.2727272727272727
+      },
+      "best": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.36363636363636365
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 43,
+      "classic": "31",
+      "title": "Melancholy Baby",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 44,
+      "classic": "32",
+      "title": "Lullaby and Goodnight",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 45,
+      "classic": "34",
+      "title": "Give Me Your Hand to Hold in Mine",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 46,
+      "classic": "35",
+      "title": "Don't Leave Me, Dear Old Mammy",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 47,
+      "classic": "36",
+      "title": "Annie Doesn't Live Here Anymore",
+      "baseline": {
+        "hwy": 0.875,
+        "strict": 0.625
+      },
+      "best": {
+        "hwy": 0.875,
+        "strict": 0.625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 49,
+      "classic": "38",
+      "title": "Roses I Bring to You",
+      "baseline": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "diatonicFunction": 2,
+        "colorChordPenalty": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 50,
+      "classic": "39",
+      "title": "Snowflakes",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.42857142857142855
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.42857142857142855
+      },
+      "deltaHwy": 0.16666666666666663,
+      "rankingBase": {
+        "diatonicFunction": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "supertonic-minor",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 51,
+      "classic": "40",
+      "title": "Who'll Dry Your Tears When You Cry?",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 53,
+      "classic": "41",
+      "title": "So Tired of Waiting for You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 54,
+      "classic": "42",
+      "title": "Darling, That Someone is You",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.6153846153846154
+      },
+      "best": {
+        "hwy": 0.9,
+        "strict": 0.6153846153846154
+      },
+      "deltaHwy": 0.09999999999999998,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "chromatic",
+        "circle",
+        "supertonic-minor",
+        "added6"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 55,
+      "classic": "43",
+      "title": "Ireland, My Ireland",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "dense-7ths",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 56,
+      "classic": "44",
+      "title": "Jean",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 57,
+      "classic": "45",
+      "title": "Irish Mother",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.7777777777777778
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7777777777777778
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 58,
+      "classic": "46",
+      "title": "Silvery Moonlight",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "diatonicFunction": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 59,
+      "classic": "47",
+      "title": "Friends",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 62,
+      "classic": "50",
+      "title": "Back in the Old Routine",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.45454545454545453
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.45454545454545453
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 63,
+      "classic": "51",
+      "title": "For Life is Interwoven",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8571428571428571
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8571428571428571
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 64,
+      "classic": "52",
+      "title": "Love Letters Straight From Your Heart",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.36363636363636365
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.45454545454545453
+      },
+      "deltaHwy": 0.1428571428571429,
+      "rankingBase": {
+        "unforcedMinorPenalty": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "added6"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 65,
+      "classic": "53",
+      "title": "When I Lost You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "circle",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 66,
+      "classic": "54",
+      "title": "Autumn Leaves",
+      "baseline": {
+        "hwy": 0.7142857142857143,
+        "strict": 0.42857142857142855
+      },
+      "best": {
+        "hwy": 0.7142857142857143,
+        "strict": 0.42857142857142855
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 67,
+      "classic": "55",
+      "title": "Rhapsody of New York",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 68,
+      "classic": "56",
+      "title": "Lone Prairie",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.5555555555555556
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.5555555555555556
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "mediant",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 69,
+      "classic": "57",
+      "title": "Johnny Doughboy Found a Rose",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7142857142857143
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 70,
+      "classic": "58",
+      "title": "I Know We'll Meet Again Someday",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7142857142857143
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 71,
+      "classic": "59",
+      "title": "Old Bones",
+      "baseline": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.6428571428571429
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 72,
+      "classic": "60",
+      "title": "Through the Years",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 73,
+      "classic": "61",
+      "title": "I'm So Alone with the Crowd",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6363636363636364
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6363636363636364
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "added6"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 74,
+      "classic": "62",
+      "title": "She Stole My Heart Away",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.7142857142857143
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 76,
+      "classic": "64",
+      "title": "The Old Dominion Line",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 77,
+      "classic": "65",
+      "title": "Spring Brought Me Flowers",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 78,
+      "classic": "66",
+      "title": "New York ain't New York Anymore",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 79,
+      "classic": "67",
+      "title": "Sonny Boy",
+      "baseline": {
+        "hwy": 0.7142857142857143,
+        "strict": 0.4444444444444444
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7777777777777778
+      },
+      "deltaHwy": 0.2857142857142857,
+      "rankingBase": {
+        "diatonicFunction": 2,
+        "homeTriad": 2
+      },
+      "cadenceBias": "off",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 80,
+      "classic": "68",
+      "title": "What Miracle has Made You the Way You Are",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6363636363636364
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 81,
+      "classic": "69",
+      "title": "To Reach the Unreachable Star",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 82,
+      "classic": "70",
+      "title": "My Old Kentucky Home",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0.1428571428571429,
+      "rankingBase": {
+        "diatonicFunction": 2
+      },
+      "cadenceBias": "off",
+      "styleFlags": [
+        "chromatic",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 83,
+      "classic": "71",
+      "title": "Their Hearts were Full of Spring",
+      "baseline": {
+        "hwy": 0.9285714285714286,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0.0714285714285714,
+      "rankingBase": {
+        "diatonicFunction": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 84,
+      "classic": "72",
+      "title": "Bye Oh Bye Oh",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.875
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.875
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 85,
+      "classic": "73",
+      "title": "As Time Goes By",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0.16666666666666663,
+      "rankingBase": {
+        "unforcedMinorPenalty": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "I7-IV"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 86,
+      "classic": "74",
+      "title": "Pal of My Dreams",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 87,
+      "classic": "75",
+      "title": "I Close My Eyes",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 88,
+      "classic": "76",
+      "title": "For Me and My Gal",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 89,
+      "classic": "77",
+      "title": "Please Don't Leave Me, Never Go Away",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.25
+      },
+      "best": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.375
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 90,
+      "classic": "78",
+      "title": "There's No Place Like Home",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5384615384615384
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5384615384615384
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "I7-IV",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 91,
+      "classic": "79",
+      "title": "Mother's Boy",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 92,
+      "classic": "80",
+      "title": "When Raindrops Come Along",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 93,
+      "classic": "81",
+      "title": "Midnight Rose",
+      "baseline": {
+        "hwy": 0.6666666666666666,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.6666666666666666,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "mediant",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 94,
+      "classic": "82",
+      "title": "Somewhere",
+      "baseline": {
+        "hwy": 0.875,
+        "strict": 0.8
+      },
+      "best": {
+        "hwy": 0.875,
+        "strict": 0.8
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 95,
+      "classic": "83",
+      "title": "Bright was the Night",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "I7-IV",
+        "added6",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 96,
+      "classic": "84",
+      "title": "Where is the Boy",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 97,
+      "classic": "85",
+      "title": "My Love is Your Love",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.25
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 98,
+      "classic": "86",
+      "title": "Left Me Lonely Nights",
+      "baseline": {
+        "hwy": 0.9,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0.09999999999999998,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "chromatic",
+        "circle",
+        "supertonic-minor",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 99,
+      "classic": "87",
+      "title": "Where is Love?",
+      "baseline": {
+        "hwy": 0.8181818181818182,
+        "strict": 0.5833333333333334
+      },
+      "best": {
+        "hwy": 0.8181818181818182,
+        "strict": 0.5833333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 100,
+      "classic": "88",
+      "title": "Now There's No Time for Toys",
+      "baseline": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 101,
+      "classic": "89",
+      "title": "Over Troubled Waters",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 102,
+      "classic": "90",
+      "title": "Foggy London Town",
+      "baseline": {
+        "hwy": 0.9166666666666666,
+        "strict": 0.4666666666666667
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0.08333333333333337,
+      "rankingBase": {
+        "secondaryDominant": 0.5
+      },
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "mediant",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 103,
+      "classic": "91",
+      "title": "Little Pal",
+      "baseline": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.5714285714285714
+      },
+      "best": {
+        "hwy": 0.9090909090909091,
+        "strict": 0.5714285714285714
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 104,
+      "classic": "92",
+      "title": "Every Time I See You Cry",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.3333333333333333
+      },
+      "best": {
+        "hwy": 0.9285714285714286,
+        "strict": 0.4
+      },
+      "deltaHwy": 0.07142857142857151,
+      "rankingBase": {
+        "seventh": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 105,
+      "classic": "93",
+      "title": "The Shadow of Your Smile",
+      "baseline": {
+        "hwy": 0.875,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.875,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 106,
+      "classic": "94",
+      "title": "Show Me Where the Good Times Are",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 107,
+      "classic": "95",
+      "title": "Tammy",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [],
+      "tuned": true
+    },
+    {
+      "tagId": 108,
+      "classic": "96",
+      "title": "Hush, Little Baby",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.3333333333333333
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.3333333333333333
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "added6",
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 109,
+      "classic": "97",
+      "title": "Mickey Mouse",
+      "baseline": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 0.8333333333333334,
+        "strict": 0.8571428571428571
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [],
+      "tuned": true
+    },
+    {
+      "tagId": 110,
+      "classic": "98",
+      "title": "Lord, You Made the Night Too Long",
+      "baseline": {
+        "hwy": 0.8,
+        "strict": 0.2
+      },
+      "best": {
+        "hwy": 0.8,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {
+        "diatonicFunction": 0.5
+      },
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 111,
+      "classic": "99",
+      "title": "Baby, You're the One I Love",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 112,
+      "classic": "100",
+      "title": "Sure, They Called it Ireland",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.4444444444444444
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.4444444444444444
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 113,
+      "classic": "101",
+      "title": "Till Love Comes My Way",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.5714285714285714
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7142857142857143
+      },
+      "deltaHwy": 0.1428571428571429,
+      "rankingBase": {},
+      "cadenceBias": "off",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 114,
+      "classic": "102",
+      "title": "You're the One Who Made Me Cry",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.42857142857142855
+      },
+      "best": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.5714285714285714
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "supertonic-minor"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 115,
+      "classic": "103",
+      "title": "I'll Take Care of Your Cares",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6428571428571429
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6428571428571429
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 116,
+      "classic": "104",
+      "title": "Drop Me a Line, Say That You're Fine",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.125
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.125
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 117,
+      "classic": "105",
+      "title": "While Sweet Dreams Rest You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8333333333333334
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8333333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 118,
+      "classic": "106",
+      "title": "First You Gotta Have Heart",
+      "baseline": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.7777777777777778
+      },
+      "best": {
+        "hwy": 0.8888888888888888,
+        "strict": 0.7777777777777778
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 119,
+      "classic": "107",
+      "title": "Mam'selle",
+      "baseline": {
+        "hwy": 0.8461538461538461,
+        "strict": 0.7142857142857143
+      },
+      "best": {
+        "hwy": 0.8461538461538461,
+        "strict": 0.7142857142857143
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "added6",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 120,
+      "classic": "108",
+      "title": "Happy Trails to You",
+      "baseline": {
+        "hwy": 0.75,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 1
+      },
+      "deltaHwy": 0.25,
+      "rankingBase": {
+        "diatonicFunction": 2,
+        "colorChordPenalty": 2
+      },
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 121,
+      "classic": "109",
+      "title": "Please Don't Take My Sunshine Away",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 31,
+      "classic": "110",
+      "title": "After Today",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5714285714285714
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 122,
+      "classic": "111",
+      "title": "Cheer Up, Charlie",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.7777777777777778
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.7777777777777778
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 123,
+      "classic": "112",
+      "title": "Just When I Thought I was Through",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "circle",
+        "I7-IV",
+        "supertonic-minor",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 124,
+      "classic": "113",
+      "title": "No More Hurrying, Worrying",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 125,
+      "classic": "114",
+      "title": "To My Beautiful Lifelong Friends",
+      "baseline": {
+        "hwy": 0.5,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.75,
+        "strict": 0.75
+      },
+      "deltaHwy": 0.25,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "chromatic",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 126,
+      "classic": "115",
+      "title": "My Romance",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 127,
+      "classic": "116",
+      "title": "Dixie",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6153846153846154
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6153846153846154
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 128,
+      "classic": "117",
+      "title": "When Nobody Else Wants You",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.75
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 129,
+      "classic": "118",
+      "title": "I Will Sail No More",
+      "baseline": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.8571428571428571
+      },
+      "best": {
+        "hwy": 0.8571428571428571,
+        "strict": 0.8571428571428571
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "mediant",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 130,
+      "classic": "119",
+      "title": "Though I'm Gone for a Long, Long Time",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.5
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "added6"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 131,
+      "classic": "120",
+      "title": "London By Night",
+      "baseline": {
+        "hwy": 0.9,
+        "strict": 0.5
+      },
+      "best": {
+        "hwy": 0.9,
+        "strict": 0.5833333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "strong",
+      "styleFlags": [
+        "chromatic",
+        "I7-IV",
+        "supertonic-minor"
+      ],
+      "tuned": true
+    },
+    {
+      "tagId": 132,
+      "classic": "121",
+      "title": "Where the Southern Roses Grow",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.625
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 133,
+      "classic": "122",
+      "title": "If Happy Little Bluebirds Fly",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.6666666666666666
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "added6"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 134,
+      "classic": "123",
+      "title": "The Gang that Sang Heart of My Heart",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.8333333333333334
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.8333333333333334
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "supertonic-minor",
+        "dense-7ths"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 135,
+      "classic": "124",
+      "title": "When I was the Kid Next Door",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.42857142857142855
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.42857142857142855
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "chromatic",
+        "supertonic-minor",
+        "triad-leaning",
+        "chromatic-roots"
+      ],
+      "tuned": false
+    },
+    {
+      "tagId": 136,
+      "classic": "125",
+      "title": "When You've Wandered Alone",
+      "baseline": {
+        "hwy": 1,
+        "strict": 0.4444444444444444
+      },
+      "best": {
+        "hwy": 1,
+        "strict": 0.4444444444444444
+      },
+      "deltaHwy": 0,
+      "rankingBase": {},
+      "cadenceBias": "moderate",
+      "styleFlags": [
+        "I7-IV",
+        "supertonic-minor",
+        "triad-leaning"
+      ],
+      "tuned": false
+    }
+  ]
+}

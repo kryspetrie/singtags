@@ -1,0 +1,273 @@
+{
+  "tagId": 83,
+  "title": "Their Hearts were Full of Spring",
+  "tonality": 10,
+  "mode": "major",
+  "bpm": 89.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 28,
+  "tokenCount": 24,
+  "pillarCount": 16,
+  "pillarRomans": [
+    "I",
+    "IV",
+    "I",
+    "VI7",
+    "I",
+    "ii7",
+    "ii",
+    "V7",
+    "I",
+    "IV",
+    "I",
+    "IV",
+    "IV",
+    "I",
+    "IV",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.337,
+      "leadMidi": 50,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.615,
+      "leadMidi": 51,
+      "confidence": 0.173,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.045,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "bIII",
+      "rootPc": 1,
+      "natureId": "unknown",
+      "dur": 0.337,
+      "leadMidi": 61,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "bIII9",
+      "rootPc": 1,
+      "natureId": "ninth",
+      "dur": 0.186,
+      "leadMidi": 53,
+      "confidence": 0.44,
+      "role": "passing",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "v7",
+      "rootPc": 5,
+      "natureId": "m7",
+      "dur": 0.325,
+      "leadMidi": 53,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "V",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.302,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "VI7",
+      "rootPc": 7,
+      "natureId": "seventh",
+      "dur": 1.586,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.055,
+      "leadMidi": 58,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 0,
+      "natureId": "m7",
+      "dur": 0.968,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "ii",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 0.337,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "V7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 1.696,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.021,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.665,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.337,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.337,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "VII",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.674,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.337,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "VII",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.355,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.256,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.418,
+      "leadMidi": 58,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "VII",
+      "rootPc": 9,
+      "natureId": "unknown",
+      "dur": 0.141,
+      "leadMidi": 57,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "IV",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.674,
+      "leadMidi": 55,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.3865
+    },
+    {
+      "roman": "I",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 1.664,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3865
+    }
+  ],
+  "classic": "71",
+  "collection": "classic"
+}

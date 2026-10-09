@@ -52,8 +52,11 @@ export function phraseRoleAtMelodyIndex(
   const beforeRest =
     !next ||
     cur.startTick + Math.max(1, cur.durationTicks) + gapTicks < next.startTick
+  // Only the true last onset (or last ~8% by tick) is "near end".
+  // Using length-2 made every note of a 2-beat pickup/tag read as `tag`, so
+  // Lead-on-^3 openings were scored as song-final major homes instead of I7.
   const nearEnd =
-    index >= onsets.length - 2 || cur.startTick >= songEndTick * 0.9
+    index === onsets.length - 1 || cur.startTick >= songEndTick * 0.92
   return inferPhraseRole({
     startTick: cur.startTick,
     endTick: songEndTick,

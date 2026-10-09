@@ -1,0 +1,452 @@
+{
+  "tag_id": 90007,
+  "id": 90007,
+  "title": "Sweet, Sweet Roses Of Morn",
+  "alt_title": "Sweet Sweet Roses of Morn",
+  "common_name": "Sweet Sweet Roses of Morn",
+  "arranger": null,
+  "key": "Bb Major",
+  "writ_key": "Major:Bb",
+  "type": "SATB",
+  "parts_count": 4,
+  "collection": "polecats",
+  "classic": 7,
+  "program": "Barber Pole Cat Program",
+  "program_aliases": [
+    "Polecats",
+    "Barberpole Cats",
+    "Barber Pole Cats"
+  ],
+  "status": "ok",
+  "folder_name": "Sweet Sweet Roses Of Morn (Bb Major) - 90007",
+  "identity": {
+    "title": "sweet, sweet roses of morn",
+    "arranger": "",
+    "key": "bb major",
+    "version": "polecat",
+    "alt_title": "sweet sweet roses of morn",
+    "posted": ""
+  },
+  "identity_key": "sweet, sweet roses of morn||bb major|polecat|sweet sweet roses of morn|",
+  "identity_hash": "292e441146734056",
+  "keywords": [
+    "sweet, sweet roses of morn",
+    "sweet",
+    "roses",
+    "of",
+    "morn",
+    "sweet sweet roses of morn",
+    "bb major",
+    "bb",
+    "b flat",
+    "bflat",
+    "major",
+    "polecats",
+    "polecat",
+    "barber pole cat",
+    "barber",
+    "pole",
+    "cat",
+    "barberpole",
+    "satb",
+    "90007",
+    "p7"
+  ],
+  "metadata_source": "polecats_import",
+  "enriched_at": "2026-09-07T03:24:21.235078+00:00",
+  "learning_tracks_by": "Barbershop Harmony Society",
+  "learning_tracks_source": "local_other_library",
+  "sheet_format": "pdf",
+  "sheet_cropped": true,
+  "parts": {
+    "sheet": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Sheet.pdf",
+      "bytes": 2100186,
+      "sha256": "53fdbcc997cc513407951d30fcd4e8b8fa12596bc598ea34a9bafcf7bf597449",
+      "source_sha256": "47e04e5899c8771937ecdc311c89abbd7eb4424ee35e4fbdcbaadda8a5daefd1",
+      "mime_guess": "pdf",
+      "cropped": true,
+      "original_filename": "Sweet Sweet Roses of Morn (Bb).pdf",
+      "crop_method": "cropbox"
+    },
+    "sheet_preview": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Sheet Preview.webp"
+    },
+    "lead": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Lead.mp3",
+      "bytes": 3632776,
+      "sha256": "4a5578728fcdfbc8aa0cbcdb6738a73bcd58dcb73561475d4063584fccd1f579",
+      "source_sha256": "4a5578728fcdfbc8aa0cbcdb6738a73bcd58dcb73561475d4063584fccd1f579",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Lead.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet Sweet Roses of Morn - Lead.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:29.066414+00:00",
+        "source_sha256": "4a5578728fcdfbc8aa0cbcdb6738a73bcd58dcb73561475d4063584fccd1f579"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Lead - Playback.opus",
+          "sha256": "8422411c4703d1ba8d0fc7e502608f9deb71049c9e6c7e746cdcaad04d6560e7",
+          "bytes": 1223677,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "4a5578728fcdfbc8aa0cbcdb6738a73bcd58dcb73561475d4063584fccd1f579",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:30.809010+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Lead - Downmix.opus",
+          "sha256": "e8801be61d3bef611a40f4111344c901a2f7355def9c32f6d0de17493429a2ca",
+          "bytes": 315153,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "4a5578728fcdfbc8aa0cbcdb6738a73bcd58dcb73561475d4063584fccd1f579",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:37.110529+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "tenor": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Tenor.mp3",
+      "bytes": 3632776,
+      "sha256": "31cbb1d7916c0fc46854a890393265bf334604d5d7a02302b3313988deab0210",
+      "source_sha256": "31cbb1d7916c0fc46854a890393265bf334604d5d7a02302b3313988deab0210",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Tenor.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet Sweet Roses of Morn - Tenor.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:29.106943+00:00",
+        "source_sha256": "31cbb1d7916c0fc46854a890393265bf334604d5d7a02302b3313988deab0210"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Tenor - Playback.opus",
+          "sha256": "a25a76f9f5cc233d2e09fee4de56be6246b5253e8b4b169705ad0e95639d3253",
+          "bytes": 1223679,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "31cbb1d7916c0fc46854a890393265bf334604d5d7a02302b3313988deab0210",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:32.140707+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Tenor - Downmix.opus",
+          "sha256": "19aa23801cd6e06db9b99bbe2556f04bb3f95cd94c6ee17fe9d1aa9294052d69",
+          "bytes": 315155,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "31cbb1d7916c0fc46854a890393265bf334604d5d7a02302b3313988deab0210",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:37.930711+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bari": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bari.mp3",
+      "bytes": 3632776,
+      "sha256": "fa5fc774f748025b5f67a7a8800114d1ee4da64108f79d1a954ad7e5151005eb",
+      "source_sha256": "fa5fc774f748025b5f67a7a8800114d1ee4da64108f79d1a954ad7e5151005eb",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Bari.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet Sweet Roses of Morn - Bari.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:29.145232+00:00",
+        "source_sha256": "fa5fc774f748025b5f67a7a8800114d1ee4da64108f79d1a954ad7e5151005eb"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bari - Playback.opus",
+          "sha256": "cef4136f570e7a0e0ae3a96247afa77d0792b0ac30d8949e5cd6bb83cfb12092",
+          "bytes": 1223677,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "fa5fc774f748025b5f67a7a8800114d1ee4da64108f79d1a954ad7e5151005eb",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:33.498233+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bari - Downmix.opus",
+          "sha256": "e0b8579cfffd03fa95b666ad1a8eabf135fa616029e29c9a1b099f43a4788e3d",
+          "bytes": 315153,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "fa5fc774f748025b5f67a7a8800114d1ee4da64108f79d1a954ad7e5151005eb",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:38.736709+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "bass": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bass.mp3",
+      "bytes": 3632776,
+      "sha256": "e5ebd166b6cfa1f5d26dbba78103e3d39eaed31c7db10bb1cbc1860d36d23198",
+      "source_sha256": "e5ebd166b6cfa1f5d26dbba78103e3d39eaed31c7db10bb1cbc1860d36d23198",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Bass.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet Sweet Roses of Morn - Bass.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "mono",
+        "solo_side": null,
+        "channels": 2,
+        "balance": 0.0087,
+        "correlation": 0.9596,
+        "side_mid": 0.1433,
+        "analyzed_at": "2026-09-07T04:13:29.185205+00:00",
+        "source_sha256": "e5ebd166b6cfa1f5d26dbba78103e3d39eaed31c7db10bb1cbc1860d36d23198"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bass - Playback.opus",
+          "sha256": "d4480866f6845b5f0e263b1f0f6d06b88bb1ca23f86f3f9713ebc987bb30c830",
+          "bytes": 1223660,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "e5ebd166b6cfa1f5d26dbba78103e3d39eaed31c7db10bb1cbc1860d36d23198",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:34.926183+00:00"
+        },
+        "ultra_downmix": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Bass - Downmix.opus",
+          "sha256": "020d723cb8c2e4267cb6e294cbbff1c684520282e20227f3cab4736d7af1914a",
+          "bytes": 315136,
+          "codec": "opus",
+          "bitrate_kbps": 16,
+          "channels": 1,
+          "source_sha256": "e5ebd166b6cfa1f5d26dbba78103e3d39eaed31c7db10bb1cbc1860d36d23198",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:39.562303+00:00",
+          "tier_role": "ultra_downmix"
+        }
+      }
+    },
+    "mix": {
+      "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Mix.mp3",
+      "bytes": 3536372,
+      "sha256": "bcdda0aae5b8ebd9f7d6773301b79c3b357ce68c3ef51db21c8703142a232b9c",
+      "source_sha256": "bcdda0aae5b8ebd9f7d6773301b79c3b357ce68c3ef51db21c8703142a232b9c",
+      "mime_guess": "mp3",
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Mix.mp3",
+      "source_path": "/media/kpetrie/extradrive1/Barbershop/other/Sweet Sweet Roses of Morn - Mix.mp3",
+      "imported_at": "2026-09-07T04:13:08.573201+00:00",
+      "audio_layout": {
+        "kind": "part_right",
+        "solo_side": "right",
+        "channels": 2,
+        "balance": 0.0073,
+        "correlation": 0.8316,
+        "side_mid": 0.3044,
+        "analyzed_at": "2026-09-07T04:13:29.225822+00:00",
+        "source_sha256": "bcdda0aae5b8ebd9f7d6773301b79c3b357ce68c3ef51db21c8703142a232b9c"
+      },
+      "audio_tiers": {
+        "playback": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Mix - Playback.opus",
+          "sha256": "f65c019df3073902adbe0649b1f6b9d7c216a164a646f26b1b30c40e4314c70b",
+          "bytes": 1191189,
+          "codec": "opus",
+          "bitrate_kbps": 64,
+          "channels": 2,
+          "source_sha256": "bcdda0aae5b8ebd9f7d6773301b79c3b357ce68c3ef51db21c8703142a232b9c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:36.303020+00:00"
+        },
+        "ultra_mix": {
+          "filename": "Sweet Sweet Roses Of Morn (Bb Major) - Mix - Ultra Mix.opus",
+          "sha256": "54429d8018e9f0577f130c0c678e8f7cf404ec1d0d37bd696e231e184839775a",
+          "bytes": 601589,
+          "codec": "opus",
+          "bitrate_kbps": 32,
+          "channels": 2,
+          "source_sha256": "bcdda0aae5b8ebd9f7d6773301b79c3b357ce68c3ef51db21c8703142a232b9c",
+          "align_applied_ms": 0.0,
+          "encoded_at": "2026-09-07T04:13:42.890149+00:00",
+          "tier_role": "ultra_mix",
+          "mix_disjoint": true,
+          "parts_recombinable": true
+        }
+      }
+    },
+    "pitch_stacks": {
+      "filename": "pitch_stacks.json"
+    },
+    "pitch_studio": {
+      "filename": "pitch_studio.json"
+    }
+  },
+  "discovered_assets": {
+    "sheet": {
+      "kind": "sheet",
+      "type": "pdf",
+      "preferred": true
+    },
+    "mix": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Mix.mp3"
+    },
+    "lead": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Lead.mp3"
+    },
+    "tenor": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Tenor.mp3"
+    },
+    "bari": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Bari.mp3"
+    },
+    "bass": {
+      "kind": "audio",
+      "type": "mp3",
+      "preferred": true,
+      "source": "local_other_library",
+      "original_filename": "Sweet Sweet Roses of Morn - Bass.mp3"
+    }
+  },
+  "remote": {
+    "id": 90007,
+    "Title": "Sweet, Sweet Roses Of Morn",
+    "AltTitle": "Sweet Sweet Roses of Morn",
+    "CommonName": "Sweet Sweet Roses of Morn",
+    "WritKey": "Major:Bb",
+    "Parts": 4,
+    "Type": "SATB",
+    "Arranger": null,
+    "Collection": "polecats",
+    "Classic": 7,
+    "Program": "Barber Pole Cat Program",
+    "Provider": "Barbershop Harmony Society",
+    "SoundCloudTitles": {
+      "fullmix": "Sweet Sweet Roses of Morn",
+      "learning": "Sweet, Sweet Roses Of Morn"
+    },
+    "SoundCloudUrls": {
+      "bass": "https://soundcloud.com/barbershopharmonysociety/sweet-sweet-roses-of-morn-2",
+      "bari": "https://soundcloud.com/barbershopharmonysociety/sweet-sweet-roses-of-morn-1",
+      "lead": "https://soundcloud.com/barbershopharmonysociety/sweet-sweet-roses-of-morn-3",
+      "tenor": "https://soundcloud.com/barbershopharmonysociety/sweet-sweet-roses-of-morn-4"
+    }
+  },
+  "notes": "Learning tracks imported from /media/kpetrie/extradrive1/Barbershop/other (real part-isolated stems). SoundCloud playlist uploads were duplicate mixes and discarded.",
+  "cache_group": "polecats",
+  "sheet_crop_method": "cropbox",
+  "mix_source": "local_other_library",
+  "audio_layout_summary": {
+    "parts": "mono",
+    "mix": "part_right",
+    "ultra_low": "mono_downmix",
+    "solo_side": null,
+    "analyzed_at": "2026-09-07T04:13:29.265843+00:00",
+    "mix_correlation": 0.0001,
+    "mix_correlations": {
+      "lead": 0.0001,
+      "tenor": 0.0001,
+      "bari": 0.0001,
+      "bass": 0.0001
+    },
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true
+  },
+  "audio_tiers_summary": {
+    "ultra_policy": "mono_downmix",
+    "mix_only": false,
+    "mix_disjoint": true,
+    "mix_cache": "hosted",
+    "parts_recombinable": true,
+    "recombine_reason": null,
+    "playback_kbps": 64,
+    "parts": [
+      "lead",
+      "tenor",
+      "bari",
+      "bass",
+      "mix"
+    ],
+    "align_status": null,
+    "align_applied_ms": {},
+    "align_min_offset_ms": 50,
+    "encoded_at": "2026-09-07T04:13:42.890185+00:00"
+  },
+  "pitch_extract": {
+    "method": "yin_part_left+norm_progressive_v6",
+    "stack_count": 100,
+    "extracted_at": "2026-10-08T21:29:46.650187+00:00",
+    "stacks_filename": "pitch_stacks.json",
+    "studio_filename": "pitch_studio.json",
+    "bpm": 74.0,
+    "timeSignature": {
+      "numerator": 3,
+      "denominator": 4
+    },
+    "blown_pitch_stripped": true,
+    "gap_seconds_removed": 4.644,
+    "coverage": 0.914,
+    "avg_voices": 4.0,
+    "sparse": false,
+    "snap": "eighth",
+    "ritardando_start_s": 93.224,
+    "voiced": {
+      "lead": 0.948,
+      "tenor": 0.958,
+      "bari": 0.955,
+      "bass": 0.956
+    },
+    "midi_mad": {
+      "lead": 0.0631,
+      "tenor": 0.1222,
+      "bari": 0.0979,
+      "bass": 0.0959
+    }
+  }
+}

@@ -1,0 +1,186 @@
+{
+  "tagId": 118,
+  "title": "First You Gotta Have Heart",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 97.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 17,
+  "tokenCount": 16,
+  "pillarCount": 9,
+  "pillarRomans": [
+    "IV",
+    "I",
+    "bVII",
+    "ii",
+    "V7",
+    "I",
+    "IV",
+    "bVII9",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.627,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.301,
+      "leadMidi": 57,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "bVII",
+      "rootPc": 3,
+      "natureId": "major",
+      "dur": 0.558,
+      "leadMidi": 55,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "minor",
+      "dur": 0.618,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.209,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "II9",
+      "rootPc": 7,
+      "natureId": "ninth",
+      "dur": 0.186,
+      "leadMidi": 53,
+      "confidence": 0.8,
+      "role": "mid",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.31,
+      "leadMidi": 52,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.58,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "I+",
+      "rootPc": 5,
+      "natureId": "aug",
+      "dur": 0.139,
+      "leadMidi": 53,
+      "confidence": 0.707,
+      "role": "passing",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "bVI",
+      "rootPc": 1,
+      "natureId": "major",
+      "dur": 0.171,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.14,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "unknown",
+      "dur": 0.276,
+      "leadMidi": 53,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.351,
+      "leadMidi": 53,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "iv",
+      "rootPc": 10,
+      "natureId": "minor",
+      "dur": 0.268,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "bVII9",
+      "rootPc": 3,
+      "natureId": "ninth",
+      "dur": 0.928,
+      "leadMidi": 53,
+      "confidence": 0.8,
+      "role": "pillar",
+      "medianDur": 0.3055
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 1.511,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.3055
+    }
+  ],
+  "classic": "106",
+  "collection": "classic"
+}

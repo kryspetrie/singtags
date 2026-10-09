@@ -1,0 +1,240 @@
+{
+  "tagId": 14,
+  "title": "I'll be Seeing You",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 69.5,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 22,
+  "tokenCount": 21,
+  "pillarCount": 13,
+  "pillarRomans": [
+    "ii",
+    "ii",
+    "IV",
+    "V9",
+    "V",
+    "V7",
+    "V7",
+    "IV",
+    "I",
+    "IV",
+    "ii7",
+    "iv",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "ii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.395,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "I6",
+      "rootPc": 7,
+      "natureId": "sixth",
+      "dur": 0.256,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "ii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.421,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "I9",
+      "rootPc": 7,
+      "natureId": "ninth",
+      "dur": 0.139,
+      "leadMidi": 53,
+      "confidence": 0.92,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "ii",
+      "rootPc": 9,
+      "natureId": "madd6",
+      "dur": 0.302,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "passing",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.432,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "V9",
+      "rootPc": 2,
+      "natureId": "ninth",
+      "dur": 1.353,
+      "leadMidi": 60,
+      "confidence": 0.86,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "V",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.795,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "I6",
+      "rootPc": 7,
+      "natureId": "sixth",
+      "dur": 0.163,
+      "leadMidi": 50,
+      "confidence": 0.46,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "iii",
+      "rootPc": 11,
+      "natureId": "minor",
+      "dur": 0.442,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.864,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.432,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.431,
+      "leadMidi": 60,
+      "confidence": 0.4,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.432,
+      "leadMidi": 60,
+      "confidence": 0.587,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 0.863,
+      "leadMidi": 55,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "major",
+      "dur": 0.432,
+      "leadMidi": 52,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "V",
+      "rootPc": 2,
+      "natureId": "unknown",
+      "dur": 0.432,
+      "leadMidi": 50,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 9,
+      "natureId": "m7",
+      "dur": 0.863,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "minor",
+      "dur": 1.726,
+      "leadMidi": 51,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 2.159,
+      "leadMidi": 59,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.432
+    },
+    {
+      "roman": "vi",
+      "rootPc": 4,
+      "natureId": "madd6",
+      "dur": 0.431,
+      "leadMidi": 59,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.432
+    }
+  ],
+  "classic": "7",
+  "collection": "classic"
+}

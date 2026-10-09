@@ -49,9 +49,11 @@ export function autocompleteChordAtNote(
 ): ChordSuggestion[] {
   const pillar = pillarAtTick(project.pillars, note.startTick)
   if (!pillar) return []
-  const prev = [...project.stacks]
+  const priorStacks = [...project.stacks]
     .filter((s) => s.startTick < note.startTick)
-    .sort((a, b) => b.startTick - a.startTick)[0]
+    .sort((a, b) => b.startTick - a.startTick)
+  const prev = priorStacks[0]
+  const prevPrev = priorStacks[1]
   const nextPillar = [...project.pillars]
     .filter((p) => p.startTick > pillar.startTick)
     .sort((a, b) => a.startTick - b.startTick)[0]
@@ -63,6 +65,7 @@ export function autocompleteChordAtNote(
     profile: project.contestProfile,
     prevRootPc: prev?.rootPc ?? null,
     prevMidi: prev?.midi ?? null,
+    prevPrevMidi: prevPrev?.midi ?? null,
     prevDominant: prevDominantOf(project, note.startTick),
     nextPillarRoot: nextPillar?.rootPc ?? null,
     preferScf: opts.preferScf ?? note.role === 'smn',

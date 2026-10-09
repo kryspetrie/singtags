@@ -1,0 +1,204 @@
+{
+  "tagId": 117,
+  "title": "While Sweet Dreams Rest You",
+  "tonality": 5,
+  "mode": "major",
+  "bpm": 97.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 28,
+  "tokenCount": 18,
+  "pillarCount": 7,
+  "pillarRomans": [
+    "I",
+    "ii7",
+    "V7",
+    "V7",
+    "vi",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 0.928,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "I6",
+      "rootPc": 5,
+      "natureId": "sixth",
+      "dur": 0.309,
+      "leadMidi": 60,
+      "confidence": 0.79,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "bV",
+      "rootPc": 11,
+      "natureId": "unknown",
+      "dur": 0.266,
+      "leadMidi": 59,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.804,
+      "leadMidi": 58,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.596,
+      "leadMidi": 58,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "ii7",
+      "rootPc": 7,
+      "natureId": "m7",
+      "dur": 0.162,
+      "leadMidi": 58,
+      "confidence": 0.67,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "IV",
+      "rootPc": 10,
+      "natureId": "major",
+      "dur": 0.441,
+      "leadMidi": 58,
+      "confidence": 0.587,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "V7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 1.874,
+      "leadMidi": 60,
+      "confidence": 0.73,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "iii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.618,
+      "leadMidi": 57,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "bVI\u00b07",
+      "rootPc": 1,
+      "natureId": "dim7",
+      "dur": 0.619,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "vi",
+      "rootPc": 2,
+      "natureId": "minor",
+      "dur": 1.856,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "I7",
+      "rootPc": 5,
+      "natureId": "seventh",
+      "dur": 0.309,
+      "leadMidi": 53,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "VII",
+      "rootPc": 4,
+      "natureId": "unknown",
+      "dur": 0.928,
+      "leadMidi": 52,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "bIII",
+      "rootPc": 8,
+      "natureId": "unknown",
+      "dur": 0.894,
+      "leadMidi": 56,
+      "confidence": 0.0,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 10,
+      "natureId": "seventh",
+      "dur": 2.423,
+      "leadMidi": 50,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "i",
+      "rootPc": 5,
+      "natureId": "madd6",
+      "dur": 0.619,
+      "leadMidi": 50,
+      "confidence": 0.46,
+      "role": "mid",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "ii",
+      "rootPc": 7,
+      "natureId": "madd6",
+      "dur": 0.309,
+      "leadMidi": 50,
+      "confidence": 0.67,
+      "role": "passing",
+      "medianDur": 0.619
+    },
+    {
+      "roman": "I",
+      "rootPc": 5,
+      "natureId": "major",
+      "dur": 2.927,
+      "leadMidi": 53,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.619
+    }
+  ],
+  "classic": "105",
+  "collection": "classic"
+}

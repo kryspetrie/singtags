@@ -187,8 +187,13 @@ export function romanForChordDetailed(opts: RomanLabelOpts): RomanLabelResult {
     // IV7 is never a secondary of a diatonic triad by itself
     if (rootDeg === 5) return { roman: `${mode === 'minor' ? 'iv' : 'IV'}7` }
     let roman = `${base}7`
+    // Circle Mm7s use major-quality numerals (polecat II7 / VI7 / III7 / VII7).
     if (roman === 'ii7') roman = 'II7'
+    if (roman === 'vi7') roman = 'VI7'
+    if (roman === 'iii7') roman = 'III7'
+    if (roman === 'vii7') roman = 'VII7'
     if (roman === 'II7') return { roman: 'II7', altRoman: 'V7/V' }
+    if (roman === 'VI7') return { roman: 'VI7', altRoman: 'V7/ii' }
     return { roman }
   }
 

@@ -1,0 +1,132 @@
+{
+  "tagId": 111,
+  "title": "Baby, You're the One I Love",
+  "tonality": 7,
+  "mode": "major",
+  "bpm": 63.0,
+  "sourceMethod": "yin_part_left+norm_progressive_v6",
+  "stackCountRaw": 12,
+  "tokenCount": 11,
+  "pillarCount": 5,
+  "pillarRomans": [
+    "V",
+    "ii",
+    "V7",
+    "IV7",
+    "I"
+  ],
+  "tokens": [
+    {
+      "roman": "V",
+      "rootPc": 2,
+      "natureId": "major",
+      "dur": 0.476,
+      "leadMidi": 57,
+      "confidence": 0.233,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "ii",
+      "rootPc": 9,
+      "natureId": "minor",
+      "dur": 0.894,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.535,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.476,
+      "leadMidi": 60,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "IV",
+      "rootPc": 0,
+      "natureId": "unknown",
+      "dur": 0.302,
+      "leadMidi": 60,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "IV9",
+      "rootPc": 0,
+      "natureId": "ninth",
+      "dur": 0.186,
+      "leadMidi": 60,
+      "confidence": 0.44,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "V7",
+      "rootPc": 2,
+      "natureId": "seventh",
+      "dur": 0.371,
+      "leadMidi": 60,
+      "confidence": 0.73,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "IV7",
+      "rootPc": 0,
+      "natureId": "seventh",
+      "dur": 0.568,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "pillar",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "unknown",
+      "dur": 0.163,
+      "leadMidi": 55,
+      "confidence": 0.0,
+      "role": "passing",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "iv",
+      "rootPc": 0,
+      "natureId": "madd6",
+      "dur": 0.791,
+      "leadMidi": 55,
+      "confidence": 1.0,
+      "role": "mid",
+      "medianDur": 0.476
+    },
+    {
+      "roman": "I",
+      "rootPc": 7,
+      "natureId": "major",
+      "dur": 3.376,
+      "leadMidi": 55,
+      "confidence": 0.293,
+      "role": "pillar",
+      "medianDur": 0.476
+    }
+  ],
+  "classic": "99",
+  "collection": "classic"
+}

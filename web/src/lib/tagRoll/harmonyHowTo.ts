@@ -25,12 +25,12 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Sketch vs Stack',
     body:
-      'Sketch writes the harmony map only. Stack also realizes a TTBB voicing for this melody note.',
+      'Same chord list and layout. Sketch writes the harmony map only (inversion/spread disabled). Stack also places a TTBB voicing for this melody note.',
   },
   {
-    title: 'Pick vs Suggest',
+    title: 'Catalog vs Coach',
     body:
-      'Pick is a free chord catalog. Suggest ranks the same chips with Coach for the moment under the playhead.',
+      'Catalog is the full chord list with no ranking. Coach is the same list with ranked highlights for the moment under the playhead. Apply always writes the chord and inversion you selected — not a different Coach MIDI stack.',
   },
   {
     title: 'Workflow',

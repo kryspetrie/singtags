@@ -25,7 +25,7 @@ defineEmits<{
       <strong>{{ model.stepLabel }}</strong>
       <span v-if="model.status" class="status">{{ model.status }}</span>
     </div>
-    <div class="transport-actions">
+    <div class="transport-actions" @mousedown.prevent>
       <template v-if="model.showNav">
         <button
           type="button"

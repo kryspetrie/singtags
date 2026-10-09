@@ -76,7 +76,8 @@ export function dom9OmitStrategy(voicing: string): Dom9Omit {
   if (voicing.length < 1) return 'unknown'
   const bass = Number(voicing[0])
   if (bass === 1) return 'omit5'
-  if (bass === 5) return 'omitRoot'
+  // Omit-root shells: bass on 5 (usual), or 3/7 in passing (Flinn).
+  if (bass === 5 || bass === 3 || bass === 7) return 'omitRoot'
   return 'unknown'
 }
 
@@ -132,6 +133,170 @@ export type VoicingPitches = {
   tenor: number
 }
 
+/** Concert floor — below this bass is muddy for typical TTBB tags (A2). */
+export const TTBB_BASS_MIN = 45
+/** Preferred bass floor (C3). */
+export const TTBB_BASS_PREF_MIN = 48
+/** Preferred bass ceiling (G3) — above this the stack is climbing into lead space. */
+export const TTBB_BASS_PREF_MAX = 55
+/**
+ * Basic outer-span cap when spread is disallowed (tenor−bass).
+ * V7 with Lead on the root needs bass on the 5th (e.g. D3 under G4) with tenor
+ * on the 3rd (B4) → outer span 21. Tighter caps rejected that shell, left only
+ * high-bass V7 (leap-illegal from low I), and Path Optimize picked V major.
+ * Soft closedVoicing still prefers tighter; spread/divorced waits for risk > 0.4.
+ */
+export const TTBB_CLOSE_SPAN_MAX = 21
+
+/**
+ * Lift muddy bass toward C3; drop a high bass/bari pair back toward G3.
+ * When bari sits too low to allow a solo bass octave lift (common with spread),
+ * raise bari+bass together while keeping bari under lead/tenor.
+ * Never introduces bass/lead or bass/bari unisons.
+ */
+export function clampBassRegister(midi: VoicingPitches): VoicingPitches {
+  let bass = midi.bass
+  let bari = midi.bari
+  const { lead, tenor } = midi
+  // Spread / low bari can pin bass below the floor — lift the lower pair together.
+  while (
+    bass < TTBB_BASS_MIN &&
+    bari + 12 < lead &&
+    bari + 12 < tenor &&
+    bari + 12 !== lead &&
+    bari + 12 !== tenor
+  ) {
+    bari += 12
+    bass += 12
+  }
+  while (bass < TTBB_BASS_PREF_MIN && bass + 12 < bari && bass + 12 < lead) bass += 12
+  while (bass < TTBB_BASS_MIN && bass + 12 < bari && bass + 12 < lead) bass += 12
+  while (
+    (bass >= bari || bass >= lead || bass === bari || bass === lead || bass === tenor) &&
+    bass - 12 >= TTBB_BASS_MIN - 5
+  ) {
+    bass -= 12
+  }
+  // High bari pinned the bass into lead space — drop the lower pair an octave
+  // only when the result stays a true close shell (≤ octave). Using the hard
+  // Basic cap (21) here flattened Bonnie F7 5713 (span 9) into span-21.
+  while (
+    bass > TTBB_BASS_PREF_MAX &&
+    bari - 12 > bass - 12 &&
+    bass - 12 >= TTBB_BASS_MIN - 5 &&
+    bari - 12 !== lead &&
+    bari - 12 !== tenor &&
+    bass - 12 !== lead &&
+    bass - 12 !== tenor &&
+    bari - 12 < lead &&
+    tenor - (bass - 12) <= 12
+  ) {
+    bari -= 12
+    bass -= 12
+  }
+  if (bass === midi.bass && bari === midi.bari) return midi
+  return { ...midi, bass, bari }
+}
+
+/**
+ * Four distinct MIDI pitches; tenor above lead; bass not above bari/lead.
+ * Octave doubles (same PC, different octave) are fine — unisons are not.
+ */
+export function ttbbPartsDistinct(midi: VoicingPitches): boolean {
+  const { bass, bari, lead, tenor } = midi
+  if (new Set([bass, bari, lead, tenor]).size < 4) return false
+  if (!(tenor > lead)) return false
+  if (!(bass < bari && bass < lead)) return false
+  if (bari === tenor) return false
+  return true
+}
+
+/**
+ * Nudge bass/bari/tenor to clear unisons while keeping a legal TTBB stack.
+ * Returns null when the voicing cannot be settled (caller should skip it).
+ */
+export function settleDistinctTtbb(midi: VoicingPitches): VoicingPitches | null {
+  let { bass, bari, lead, tenor } = midi
+  const leadFixed = lead
+
+  for (let guard = 0; guard < 24; guard++) {
+    // Tenor must sit above lead — prefer within an octave for close stacks.
+    while (tenor <= leadFixed) tenor += 12
+    while (tenor > leadFixed + 12 && tenor - 12 > leadFixed) tenor -= 12
+
+    // Bari: not on lead/tenor/bass; prefer below lead, else between lead and tenor.
+    if (bari === leadFixed || bari === tenor || bari === bass) {
+      const below = bari > leadFixed - 24 ? bari - 12 : bari + 12
+      const above = bari + 12
+      if (below !== leadFixed && below !== tenor && below < leadFixed && below > bass) {
+        bari = below
+      } else if (above !== leadFixed && above !== tenor && above < tenor) {
+        bari = above
+      } else if (bari - 12 !== leadFixed && bari - 12 !== tenor) {
+        bari -= 12
+      } else {
+        bari += 12
+      }
+      continue
+    }
+    // Prefer bari below lead when the stack is not spread-open above.
+    if (bari > leadFixed && bari - 12 > bass && bari - 12 !== leadFixed && bari - 12 !== tenor) {
+      // Keep one try at dropping bari under lead (classic TTBB).
+      if (bari - leadFixed <= 7) {
+        /* stay between lead and tenor for tight upper trio */
+      } else if (bari - 12 < leadFixed) {
+        bari -= 12
+        continue
+      }
+    }
+    if (bari >= tenor) {
+      bari -= 12
+      continue
+    }
+
+    // Bass: strictly below bari and lead; never unison with any part.
+    if (bass >= bari || bass >= leadFixed || bass === bari || bass === leadFixed || bass === tenor) {
+      if (bass - 12 >= TTBB_BASS_MIN - 5) {
+        bass -= 12
+        continue
+      }
+      return null
+    }
+    if (bass < bari - 24 && bass + 12 < bari && bass + 12 < leadFixed) {
+      bass += 12
+      continue
+    }
+
+    const clamped = clampBassRegister({ bass, bari, lead: leadFixed, tenor })
+    bass = clamped.bass
+    bari = clamped.bari
+    if (ttbbPartsDistinct({ bass, bari, lead: leadFixed, tenor })) {
+      return { bass, bari, lead: leadFixed, tenor }
+    }
+    // Last nudge: drop bass again if clamp reintroduced a collision.
+    if (bass === bari || bass === leadFixed || bass === tenor) {
+      bass -= 12
+      continue
+    }
+    if (bari === leadFixed || bari === tenor) {
+      bari -= 12
+      continue
+    }
+    if (tenor === bari || tenor === leadFixed) {
+      tenor += 12
+      continue
+    }
+    break
+  }
+  const out = { bass, bari, lead: leadFixed, tenor }
+  return ttbbPartsDistinct(out) ? out : null
+}
+
+/**
+ * Place TTBB in a single pitch space.
+ * `leadMidi` must be in the same space as the returned parts (written or concert).
+ * Prefer {@link placeVoicingConcert} when the lead is concert MIDI under TTBB.
+ */
 export function placeVoicing(opts: {
   chord: BarbershopChordNature
   rootPc: number
@@ -152,20 +317,48 @@ export function placeVoicing(opts: {
   const lead = leadMidi
   let tenor = rootPc + tenorOff
   while (tenor <= lead) tenor += 12
-  while (tenor > lead + 18) tenor -= 12
+  // Keep tenor close above lead (≤ octave) — reduces inversion climb.
+  while (tenor > lead + 12) tenor -= 12
 
   let bari = rootPc + bariOff
-  while (bari < lead) bari += 12
-  if (bari >= tenor) bari -= 12
+  // Prefer bari just below lead (TTBB), else nest under tenor.
+  while (bari > lead) bari -= 12
+  while (bari < lead - 12) bari += 12
+  if (bari === lead) bari -= 12
   if (spread) bari -= 12
+  if (bari >= tenor) bari -= 12
 
   let bass = rootPc + bassOff
-  while (bass < bari && bass < lead) bass += 12
-  bass -= 12
-  while (bass > bari) bass -= 12
+  while (bass >= bari || bass >= lead) bass -= 12
   while (bass < bari - 24) bass += 12
 
-  return { bass, bari, lead, tenor }
+  return settleDistinctTtbb({ bass, bari, lead, tenor })
+}
+
+/**
+ * Place a voicing for concert MIDI (Tag Studio piano roll / Optimize).
+ * TTBB Lead/Tenor are written an octave above concert — anchoring on concert
+ * lead without this offset drops bari/bass an octave (muddy bass).
+ */
+export function placeVoicingConcert(opts: {
+  chord: BarbershopChordNature
+  rootPc: number
+  leadMidi: number
+  voicing: string
+  spread?: boolean
+}): VoicingPitches | null {
+  // TTBB upper: written = concert + 12. Lower staff is concert == written.
+  const leadWritten = opts.leadMidi + 12
+  const placed = placeVoicing({ ...opts, leadMidi: leadWritten })
+  if (!placed) return null
+  // Drop upper staff to concert, then re-settle — conversion often creates
+  // bass/lead or bari/lead unisons that written-space placement did not have.
+  return settleDistinctTtbb({
+    bass: placed.bass,
+    bari: placed.bari,
+    lead: placed.lead - 12,
+    tenor: placed.tenor - 12,
+  })
 }
 
 export function pcName(pc: number, flats: boolean): string {
