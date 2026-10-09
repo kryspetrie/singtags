@@ -11,23 +11,26 @@ defineEmits<{
   <section class="landing" aria-label="Coach workflow">
     <h3 class="title">How to use Coach</h3>
     <p class="lead">
-      Coach walks the chart after the roll owns melody and the harmony map. Use the step rail
-      (Home > Chords > Check > Auto > Polish); we remember where you left off.
+      Auto Coach needs Lead + key + Strong/Passing (defaults if unlabeled). High-confidence
+      homes lock automatically; amber homes need a one-tap ◆ lock (Home transport:
+      <strong>Next review</strong>). Full pillar maps stay optional / advanced. Use the step
+      rail (Home > Chords > Check > Auto > Polish).
     </p>
 
     <ol class="steps">
       <li>
-        <strong>Melody &amp; roles on the roll</strong>
+        <strong>Melody &amp; Strong / Passing</strong>
         <span>
-          Toolbar > Roles: set the Melody part (M), then mark Strong / Passing (S / P). Those
-          labels feed Detected, Harmonize, and Coach suggestions.
+          Toolbar > Roles: set the Melody part (M). Mark Strong (structural homes) vs Passing
+          (connective) with S / P, or leave blank — Auto assigns from duration, beat, and phrase
+          edges. Path Optimize Classic runs from those labels without confirmed pillars.
         </span>
       </li>
       <li>
-        <strong>Sketch the harmony map</strong>
+        <strong>Sketch map (optional / advanced)</strong>
         <span>
-          Lock phrase chords in the Sketch lane, or mark pillars directly on Detected
-          (pillar badge / Alt+click locks that hole as a home root). Dock Pillar works on either lane.
+          Amber Coach-lane homes are low-confidence Auto guesses — lock with ◆ or change the
+          root. Optional: paint a full Sketch pillar map. Not required for Auto Path Optimize.
         </span>
       </li>
       <li>

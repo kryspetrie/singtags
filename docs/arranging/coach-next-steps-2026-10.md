@@ -207,3 +207,20 @@ Ordered so each slice is shippable and measurable. Do not start 5.5 until 5.4 cl
 | Stretch | timeHit / roman match “chart-recognizable” on most polecats; holdouts not embarrassing |
 
 If roots on **strong** notes are right, natures and voicing can follow. If we keep tuning voicing while strong-note roots are wrong, we will hypertune for badness again.
+
+---
+
+## Progress log (2026-10)
+
+| Slice | Status | Notes |
+| --- | --- | --- |
+| **5.1** | done | `ROLES_HOWTO`, glossary, Coach Roles/Landing, AssignRolesHud tooltips |
+| **5.2** | done | `assignMelodyRoles(melody, meter)` + tests; Auto Path Optimize force-defaults (seed extracts mark every Lead Strong) |
+| **5.3** | done | `polecatHonestScore.mjs` prints timeHit + **pmnRootHit** + strong-note chart/coach dump; no gold pillars |
+| **5.4** | done | `proposeStrongRoots` / `ensureHomesFromStrongNotes`; `prepareAutoPathOptimize`; candidates fall back to Strong-derived homes |
+| **5.5** | M3g + M2b/c | Keep **`m2b-keep`**: pmn **0.498** · time **0.296** · **pmnConf 0.829**@0.063 (thr 0.75). Selective Co5 + auth-V + I→vi; Guided amber. Full-micro stalled — [polecat-iterative-accuracy-plan-2026-10.md](polecat-iterative-accuracy-plan-2026-10.md). |
+| **5.6–5.7** | R4 floor | `honestAutoFloor` **0.48/0.28**; stretch 0.55/0.5 not CI. Guided Next review + listen checklist — [polecat-next-and-leaps-2026-10.md](polecat-next-and-leaps-2026-10.md). |
+| **5.8** | checklist | Listen: 90001, 90006, 90008-class, 90011 — human ear; oracle upper bound script |
+| **Leaps** | parallel | C1 top-2 / C6 underLocks spikes; corpus inventory — same next-and-leaps doc |
+
+Harness: `node scripts/arranging/polecatHonestScore.mjs --label NAME --save` → `work/polecat-honest-loop/` · Refit priors: `node scripts/arranging/fitStrongRootPriors.mjs`.

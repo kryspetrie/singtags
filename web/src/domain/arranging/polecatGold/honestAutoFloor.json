@@ -1,0 +1,19 @@
+{
+  "note": "R4 honest Auto floor (Lead+key+roles; no gold pillars). Achievable full-micro ~0.50 after m2b-keep (pmn 0.498 / time 0.296). Stretch 0.55/0.5 is product+corpus, not CI. See docs/arranging/polecat-next-and-leaps-2026-10.md.",
+  "updatedAt": "2026-10-09",
+  "keepLabel": "m2b-keep",
+  "micro": {
+    "pmnRootHit": 0.48,
+    "timeHit": 0.28
+  },
+  "eps": 0.02,
+  "stretch": {
+    "pmnRootHit": 0.55,
+    "timeHit": 0.5
+  },
+  "confident": {
+    "pmnRootHit": 0.65,
+    "thr": 0.75,
+    "note": "pmnConf @ STRONG_HOME_CONF_LOCK; coverage may be low (~0.06)"
+  }
+}

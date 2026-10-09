@@ -265,12 +265,14 @@ export function useArrangingCoachDock(
     }
     const i = pilIndex.value
     const locked = pillars.value.filter((p) => p.confirmed).length
+    const review = pillars.value.filter((p) => !p.confirmed).length
     const at = i >= 0 ? `${i + 1}/${n}` : `-/${n}`
     const root =
       selectedPil.value != null ? pcName(selectedPil.value.rootPc, preferFlats.value) : '-'
     const skipped = arrStore.skippedHomeRootCount
     const skipBit = skipped > 0 ? ` | ${skipped} skipped` : ''
-    return `Pillar ${at} | ${root} | ${locked}/${n} locked${skipBit}`
+    const reviewBit = review > 0 ? ` | ${review} review` : ''
+    return `Pillar ${at} | ${root} | ${locked}/${n} locked${reviewBit}${skipBit}`
   })
 
   /** Roll-bar status for Chords — cadence cue only (no Moment X/Y counts). */
@@ -746,6 +748,16 @@ export function useArrangingCoachDock(
     )
     if (next < 0) return
     focusPillar(sorted[next]!.id)
+  }
+
+  /** Guided: jump to next amber (unconfirmed) home for ◆ lock. */
+  function stepNextReview(): void {
+    const sorted = sortPillarsByTime(pillars.value).filter((p) => !p.confirmed)
+    if (!sorted.length) return
+    const cur = arrStore.selectedPillarId
+    const idx = cur ? sorted.findIndex((p) => p.id === cur) : -1
+    const next = sorted[(idx + 1) % sorted.length]!
+    focusPillar(next.id)
   }
 
   function onInfer(): void {
@@ -1398,6 +1410,7 @@ export function useArrangingCoachDock(
     stepLint,
     focusPillar,
     stepPillar,
+    stepNextReview,
     onInfer,
     onProposeNext,
     onSkipProposed,

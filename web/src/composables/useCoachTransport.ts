@@ -41,6 +41,8 @@ export function useCoachTransport(opts: {
   momentsLen: ComputedRef<number>
   lintCount: ComputedRef<number>
   emptyMomentCount: ComputedRef<number>
+  /** Amber Guided homes still needing ◆ lock. */
+  reviewCount?: ComputedRef<number>
   selectedPil: ComputedRef<{ confirmed: boolean } | null>
   canApplyChord: ComputedRef<boolean>
   hasStackMidi: ComputedRef<boolean>
@@ -71,12 +73,21 @@ export function useCoachTransport(opts: {
     }
 
     if (step === 'home') {
+      const review = opts.reviewCount?.value ?? 0
       return {
         ...empty,
-        status: 'Workflow overview - then Chords > Check > Polish',
+        status:
+          review > 0
+            ? `${review} amber home${review === 1 ? '' : 's'} need ◆ lock — then Chords`
+            : 'Workflow overview - then Chords > Check > Polish',
         primaryLabel: 'Start Chords',
         primaryTitle: 'Begin walking Lead moments',
         primaryDisabled: false,
+        secondaryLabel: review > 0 ? 'Next review' : null,
+        secondaryTitle: 'Jump to the next low-confidence home for ◆ lock',
+        secondaryDisabled: review < 1,
+        showLock: review > 0,
+        lockDisabled: !opts.selectedPil.value || opts.selectedPil.value.confirmed,
       }
     }
 

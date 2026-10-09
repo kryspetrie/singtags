@@ -216,14 +216,22 @@ function draw(): void {
     const x = ticksToPx(b.startTick, cellW) - scrollX
     const bw = Math.max(4, ticksToPx(b.endTick - b.startTick, cellW) - 1)
     if (x + bw < 0 || x > w) continue
-    ctx.fillStyle = b.confirmed ? 'rgba(42, 140, 90, 0.38)' : 'rgba(120,120,120,0.22)'
+    ctx.fillStyle = b.confirmed
+      ? 'rgba(42, 140, 90, 0.38)'
+      : b.needsReview
+        ? 'rgba(200, 140, 40, 0.32)'
+        : 'rgba(120,120,120,0.22)'
     ctx.fillRect(x, 1, bw, BAND_H - 1)
     if (selPil === b.pillarId) {
-      ctx.strokeStyle = 'rgba(42, 140, 90, 0.95)'
+      ctx.strokeStyle = b.needsReview ? 'rgba(180, 110, 20, 0.95)' : 'rgba(42, 140, 90, 0.95)'
       ctx.lineWidth = 1.5
       ctx.strokeRect(x + 0.5, 1.5, bw - 1, BAND_H - 2)
     }
-    ctx.fillStyle = b.confirmed ? 'rgba(20,80,50,0.95)' : 'rgba(60,60,60,0.85)'
+    ctx.fillStyle = b.confirmed
+      ? 'rgba(20,80,50,0.95)'
+      : b.needsReview
+        ? 'rgba(120,70,10,0.95)'
+        : 'rgba(60,60,60,0.85)'
     ctx.font = '600 9px system-ui, sans-serif'
     ctx.fillText(pcName(b.rootPc, preferFlats.value), x + 3, 10)
   }
@@ -366,7 +374,11 @@ function onMove(e: PointerEvent): void {
   const pil = hitPillar(x, y)
   if (pil) {
     const root = pcName(pil.rootPc, preferFlats.value)
-    hoverLabel.value = pil.confirmed ? `Home ${root}` : `Draft home ${root}`
+    hoverLabel.value = pil.confirmed
+      ? `Home ${root}`
+      : pil.needsReview
+        ? `Review home ${root} (tap ◆ to lock)`
+        : `Draft home ${root}`
     return
   }
   const m = hitMarker(x)

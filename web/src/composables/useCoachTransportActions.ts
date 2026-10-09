@@ -16,6 +16,8 @@ export type CoachTransportActionCtx = {
   stepLint: (dir: -1 | 1) => void
   stepNextGap: () => void
   stepNextProblem: () => void
+  /** Guided: next amber (unconfirmed) home. */
+  stepNextReview?: () => void
   onProposeNext: () => void
   onLabelRoles: () => void
   /** Home → Chords (or other continue). */
@@ -88,6 +90,10 @@ export function createCoachTransportActions(ctx: CoachTransportActionCtx) {
   }
 
   function secondary(): void {
+    if (ctx.guidedStep.value === 'home') {
+      ctx.stepNextReview?.()
+      return
+    }
     if (ctx.guidedStep.value === 'chords') {
       ctx.focusTab.value = 'choose'
       ctx.stepNextGap()

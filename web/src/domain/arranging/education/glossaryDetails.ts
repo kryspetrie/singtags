@@ -24,11 +24,11 @@ export const GLOSSARY_DETAILS: Readonly<Record<string, GlossaryDetail>> = {
   },
   pmn: {
     detail:
-      'Strong (home) Lead tones sit on the pillar story. Prefer primary-family chords under them so the ear hears the structural progression, not a constant parade of secondaries. Approach Two called these primary melody notes (PMN).',
+      'Strong = a Lead tone that carries a structural harmony (home). Longer, metrically strong, phrase start/end, or lyric stress — the places you would write a chord-symbol change. Coach chooses a root + nature here. Approach Two called these primary melody notes (PMN).',
   },
   smn: {
     detail:
-      'Passing Lead tones connect Strong notes. They may wear secondary-family color (SCF) without overturning the pillar. Approach Two called these secondary melody notes (SMN).',
+      'Passing = a Lead tone that connects Strong notes. Shorter / weaker beat / stepwise filler. It does not invent a new home; the chord approaches or holds the neighboring Strong harmony (approach color, not a fresh I/IV). Approach Two called these secondary melody notes (SMN).',
   },
   pcf: {
     detail:

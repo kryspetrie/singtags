@@ -17,6 +17,8 @@ export { strengthenArrangement } from './strengthenArrangement'
 export { polishInversionPath } from './PolishInversionPath'
 export {
   pathOptimize,
+  ensureMelodyRoles,
+  prepareAutoPathOptimize,
   DEFAULT_PATH_OPTIMIZE_WEIGHTS,
   PATH_OPTIMIZE_MAX_PASSES,
   PATH_OPTIMIZE_DEFAULT_PASSES,

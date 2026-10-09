@@ -127,6 +127,8 @@ describe('buildCoachLanePillarBands', () => {
         rootPc: 0,
         confirmed: false,
         reason: 'strong coverage',
+        confidence: undefined,
+        needsReview: true,
       },
     ])
   })

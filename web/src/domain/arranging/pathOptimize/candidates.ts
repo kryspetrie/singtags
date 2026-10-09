@@ -15,6 +15,7 @@ import {
 } from '../harmonize'
 import type { RankerDeps } from '../harmonize'
 import { pillarAtTick } from '../pillars'
+import { ensureHomesFromStrongNotes } from '../proposeStrongRoots'
 import {
   optimizeSketchHearPath,
   type SketchHearChordRef,
@@ -185,7 +186,7 @@ function degreeOf(rootPc: number, tonality: number): number {
   return (((rootPc - tonality) % 12) + 12) % 12
 }
 
-/** Top-K ranked choices for one melody note (needs a covering pillar). */
+/** Top-K ranked choices for one melody note (pillar or Strong-derived home). */
 export function candidatesForMoment(
   project: ArrangementProject,
   note: MelodyEvent,
@@ -197,8 +198,14 @@ export function candidatesForMoment(
     lockRootNature?: { rootPc: number; natureId: string }
   },
 ): HarmonizeCandidate[] {
-  const pillar = pillarAtTick(project.pillars, note.startTick)
+  let working = project
+  let pillar = pillarAtTick(working.pillars, note.startTick)
+  if (!pillar) {
+    working = ensureHomesFromStrongNotes(working, { idGen: opts.deps?.idGen })
+    pillar = pillarAtTick(working.pillars, note.startTick)
+  }
   if (!pillar) return []
+  project = working
   const priorStacks = [...project.stacks]
     .filter((s) => s.startTick < note.startTick)
     .sort((a, b) => b.startTick - a.startTick)
@@ -243,12 +250,16 @@ export function candidatesForMoment(
         ).length
   const nearNextPillar = notesToNextPillar <= 2
   const freerPassing = taste === 'circle' || taste === 'busy' || risk > 0.35
+  const isPassingNote = note.role === 'smn'
+  const isStrongNote = note.role === 'pmn'
   let allowPassing = true
   if (chromaticPillar && risk <= 0.35) {
     allowPassing = false
+  } else if (isPassingNote && taste === 'classic' && risk <= 0.35) {
+    // Passing: allow approach into next home only (near next pillar / next strong).
+    allowPassing = nearNextPillar || freerPassing
   } else if (risk <= 0.25 && midOpen && !freerPassing && !nearNextPillar) {
     // Classic: stay on pillar roots mid-phrase (sparse triad charts).
-    // (Wide “approach dominant” windows regressed Classic mid-phrase discipline.)
     allowPassing = false
   }
   const allowScf = risk > 0.5
@@ -256,9 +267,18 @@ export function candidatesForMoment(
   // Busy: allow V7-of-current as well as next-pillar approaches.
   const secDomNextOnly = risk <= 0.25 && taste !== 'busy'
 
+  // Passing: hold previous root only while still under the same home pillar.
+  // When the covering pillar changes, use the new home (do not smear V under I).
+  const homePillar =
+    isPassingNote &&
+    prev?.rootPc != null &&
+    prev.rootPc === pillar.rootPc
+      ? { ...pillar, rootPc: prev.rootPc }
+      : pillar
+
   let ranked = candidatesForMelodyNote({
     note,
-    pillar,
+    pillar: homePillar,
     tonality: project.tonality,
     mode: project.tonalityMode ?? 'major',
     prevRootPc: prev?.rootPc ?? null,
@@ -293,6 +313,38 @@ export function candidatesForMoment(
       return leadRoleFromMidi(note.midi, c.rootPc) === 9
     })
   }
+  // B1: Classic Strong allowlist — I / IV / V / II / vi (+ natures). Demote III / chromatic roots.
+  if (taste === 'classic' && risk <= 0.35 && isStrongNote && tonality != null) {
+    const allowed = new Set([0, 2, 5, 7, 9])
+    const filtered = ranked.filter((c) => allowed.has(degreeOf(c.rootPc, tonality)))
+    if (filtered.length) ranked = filtered
+  }
+  // Auto Strong homes: lock root to inferred home; guided/user pillars stay free to re-root.
+  if (
+    taste === 'classic' &&
+    risk <= 0.35 &&
+    isStrongNote &&
+    homePillar.source === 'inferred'
+  ) {
+    const locked = ranked.filter((c) => c.rootPc === homePillar.rootPc)
+    if (locked.length) ranked = locked
+  }
+  // A4: Passing — prefer current home pillar root; approach next only when near it.
+  if (isPassingNote && ranked.length >= 2) {
+    const holdRoot = homePillar.rootPc
+    const approachRoot = nearNextPillar ? (nextPillar?.rootPc ?? null) : null
+    ranked = [...ranked].sort((a, b) => {
+      const ah = a.rootPc === holdRoot ? 1 : 0
+      const bh = b.rootPc === holdRoot ? 1 : 0
+      if (ah !== bh) return bh - ah
+      if (approachRoot != null) {
+        const aa = a.rootPc === approachRoot ? 1 : 0
+        const ba = b.rootPc === approachRoot ? 1 : 0
+        if (aa !== ba) return ba - aa
+      }
+      return (b.score ?? 0) - (a.score ?? 0)
+    })
+  }
   // Prefer smoother tenor/bass among near-tied ranker scores (Basic amplifies).
   const jumpTie = 0.35 + (1 - risk) * 0.55
   ranked = [...ranked].sort((a, b) => {
@@ -314,7 +366,7 @@ export function candidatesForMoment(
     // Chromatic approach pillars: prefer Mm7 (bII7 / bV7 / bVI7 chains).
     if (chromaticPillar) {
       const mm7 = ranked.find(
-        (c) => c.rootPc === pillar.rootPc && c.natureId === 'seventh',
+        (c) => c.rootPc === homePillar.rootPc && c.natureId === 'seventh',
       )
       if (mm7) ranked = [mm7, ...ranked.filter((c) => c !== mm7)]
     }

@@ -32,6 +32,10 @@ export type CoachLanePillarBand = {
   rootPc: number
   confirmed: boolean
   reason?: string
+  /** Present when inferred from Strong homes. */
+  confidence?: number
+  /** True when Auto left this home unlocked for Guided review. */
+  needsReview: boolean
 }
 
 const harm = createHarmonicityScorer()
@@ -166,5 +170,7 @@ export function buildCoachLanePillarBands(
       rootPc: p.rootPc,
       confirmed: p.confirmed,
       reason: p.reason,
+      confidence: p.confidence,
+      needsReview: !p.confirmed,
     }))
 }

@@ -86,6 +86,10 @@ export function collapseTokens(
  * Build an ArrangementProject from gold sequence.
  * Melody follows every gold token (Lead contour); Coach pillars are gold
  * pillar roots only (mid/passing roots omitted — they smeared the highway).
+ *
+ * QUARANTINE: Do not use for product-quality / Auto Coach gates — gold pillars
+ * cheat the Auto path. Prefer scripts/arranging/polecatHonestScore.mjs
+ * (Lead + key + roles only). Highway LCS via this helper is advisory only.
  */
 export function projectFromGold(gold: PolecatGoldSequence): ArrangementProject {
   const p = createEmptyArrangement(`polecat-gold-${gold.tagId}`)

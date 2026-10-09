@@ -10,8 +10,10 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> - one place for
-      Harmonize, Detected, and Coach. Open Roles to label notes on the roll
+      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> — one place for
+      Harmonize, Detected, and Coach. <strong>Strong</strong> = structural home (chord-symbol
+      change); <strong>Passing</strong> = connective tone under the neighboring home. Auto
+      defaults unlabeled notes from duration, beat, and phrase edges. Open Roles to override
       (<kbd>S</kbd> / <kbd>P</kbd> / <kbd>M</kbd>).
     </p>
     <button type="button" class="primary" @click="$emit('openAssign')">
