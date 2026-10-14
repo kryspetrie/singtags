@@ -316,6 +316,12 @@ class ReviewApp:
         reason = item.get("reason") or "review"
         collection = item.get("collection") or meta.get("collection")
         classic = item.get("classic") if "classic" in item else meta.get("classic")
+        rating = item.get("rating") if "rating" in item else meta.get("rating")
+        downloads = (
+            item.get("download_count")
+            if "download_count" in item
+            else meta.get("download_count")
+        )
         if collection:
             coll_bit = f"{collection}"
             if classic not in (None, ""):
@@ -323,6 +329,15 @@ class ReviewApp:
             coll_bit = f"collection:{coll_bit}    ·    "
         else:
             coll_bit = ""
+        pop_bits = []
+        if rating not in (None, ""):
+            try:
+                pop_bits.append(f"★{float(rating):.2f}")
+            except (TypeError, ValueError):
+                pop_bits.append(f"★{rating}")
+        if downloads not in (None, ""):
+            pop_bits.append(f"↓{downloads}")
+        pop_bit = ("    ·    ".join(pop_bits) + "    ·    ") if pop_bits else ""
         phase = (
             f"collections {min(n, self._collection_pending)}/{self._collection_pending}"
             if collection and self._collection_pending
@@ -332,7 +347,7 @@ class ReviewApp:
         self.header.config(
             text=f"{phase}    #{item.get('tag_id')}    {title}"
         )
-        self.subhead.config(text=f"{coll_bit}{arranger}    ·    {reason}")
+        self.subhead.config(text=f"{coll_bit}{pop_bit}{arranger}    ·    {reason}")
         self.text.delete("1.0", "end")
         if guess:
             self.text.insert("1.0", guess)

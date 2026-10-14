@@ -40,6 +40,7 @@ const props = defineProps<{
   coachOpen?: boolean
   sheetFormatOpen?: boolean
   arrangingEnabled?: boolean
+  voicingRangesOpen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -57,6 +58,7 @@ const emit = defineEmits<{
   openMarks: []
   openParts: []
   openCoach: []
+  toggleVoicingRanges: []
   openSheetFormat: []
   openSheetPrint: []
   exportSheetPng: []
@@ -657,6 +659,18 @@ onUnmounted(() => {
         @click="emit('openCoach')"
       >
         Coach
+      </button>
+
+      <button
+        v-if="!isSheet"
+        type="button"
+        class="btn sm"
+        :class="{ on: voicingRangesOpen }"
+        :aria-pressed="!!voicingRangesOpen"
+        :title="tagRollTip('Show ensemble Ranges strip beside the piano — presets via ⚙ on the strip')"
+        @click="emit('toggleVoicingRanges')"
+      >
+        Ranges
       </button>
 
       <button

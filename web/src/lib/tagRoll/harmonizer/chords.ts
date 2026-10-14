@@ -1,12 +1,16 @@
 /**
- * Barbershop chord vocabulary + voicing tables.
- * Inspired by znarf94/MuseScore_Barbershop_Harmonizer (reimplemented in TS).
+ * Barbershop chord vocabulary + voicing tables for Tag Studio Harmonize.
+ * Placement prefers closed, mid–high TTBB shells (less muddy bass).
+ * Catalog inspired by znarf94/MuseScore_Barbershop_Harmonizer (reimplemented in TS).
  */
 import type { TagRollClefFamily, TagRollMidiGroup } from '../types'
 import {
-  concertToWrittenMidi,
-  writtenToConcertMidi,
-} from '../sheetScore/writtenPitch'
+  placeVoicing as placeVoicingDomain,
+  placeVoicingConcert as placeVoicingConcertDomain,
+  settleDistinctTtbb,
+  type BarbershopChordNature as DomainChordNature,
+  type VoicingPitches as DomainVoicingPitches,
+} from '../../../domain/arranging/chords/chords'
 
 export type ChordToneRole = 1 | 3 | 5 | 6 | 7 | 9
 
@@ -58,10 +62,15 @@ export const VOICINGS_BY_CHORD: Record<string, string[]> = {
   ],
   'half-dim': ['5317', '5713', '1537', '1735', '1357', '1753'],
   aug: ['1153', '1351'],
-  ninth: ['5793', '5397', '1793', '1379'],
+  /**
+   * Dom9: omit-root (bass=5) first — Prietto/BAM; omit-5 (bass=1) also legal.
+   * Keep in sync with domain/arranging/chords/chords.ts.
+   */
+  ninth: ['5793', '5397', '1793', '1379', '1759', '5973', '1973', '3759'],
   sixth: ['1361', '1163', '1365'],
   maj7: ['1573', '1375'],
-  minor: ['1513', '1531', '1153', '1351', '1355', '3515', '3151', '5135', '5153'],
+  // Same triad shells as major / MuseScore plugin (incl. 3155, 5351).
+  minor: ['1513', '1531', '1153', '1351', '1355', '3515', '3151', '3155', '5135', '5153', '5351'],
   m7: ['5317', '5713', '1537', '1735', '1357', '1753'],
   dim7: ['1375', '1735', '3715', '5713'],
   dim: ['1351'],
@@ -121,9 +130,13 @@ export type VoicingPitches = {
   tenor: number
 }
 
+function asDomainChord(chord: BarbershopChordNature): DomainChordNature {
+  return chord as unknown as DomainChordNature
+}
+
 /**
- * Place TTBB octaves in a single pitch space (MuseScore's written-pitch space):
- * tenor above lead; bari below tenor (spread drops bari octave); bass below bari/lead.
+ * Place TTBB in one pitch space — closed shell: bari under lead, tenor ≤ octave above.
+ * Delegates to arranging placement so Harmonize matches Coach / Path Optimize.
  */
 export function placeVoicing(opts: {
   chord: BarbershopChordNature
@@ -132,42 +145,19 @@ export function placeVoicing(opts: {
   voicing: string
   spread?: boolean
 }): VoicingPitches | null {
-  const { chord, rootPc, leadMidi, voicing, spread } = opts
-  if (voicing.length < 4) return null
-  const roleAt = (i: number): ChordToneRole => Number(voicing[i]) as ChordToneRole
-  const off = (role: ChordToneRole): number | undefined => chord.offsets[role]
-  const bassOff = off(roleAt(0))
-  const bariOff = off(roleAt(1))
-  const leadOff = off(roleAt(2))
-  const tenorOff = off(roleAt(3))
-  if (bassOff == null || bariOff == null || leadOff == null || tenorOff == null) return null
-
-  const lead = leadMidi
-  let tenor = rootPc + tenorOff
-  while (tenor <= lead) tenor += 12
-  // match octave neighborhood of lead
-  while (tenor > lead + 18) tenor -= 12
-
-  let bari = rootPc + bariOff
-  while (bari < lead) bari += 12
-  if (bari >= tenor) bari -= 12
-  if (spread) bari -= 12
-
-  let bass = rootPc + bassOff
-  while (bass < bari && bass < lead) bass += 12
-  bass -= 12
-  while (bass > bari) bass -= 12
-  while (bass < bari - 24) bass += 12
-
-  return { bass, bari, lead, tenor }
+  return placeVoicingDomain({
+    chord: asDomainChord(opts.chord),
+    rootPc: opts.rootPc,
+    leadMidi: opts.leadMidi,
+    voicing: opts.voicing,
+    spread: opts.spread,
+  }) as DomainVoicingPitches | null
 }
 
 /**
  * Place a voicing and return concert MIDI for Tag Studio's piano roll.
- *
- * MuseScore's harmonizer anchors on written lead pitch (TTBB treble-8vb = concert+12).
- * Anchoring on concert lead without that offset drops bari/bass an octave relative to
- * the sheet / MuseScore register. Tenor stays in the lead's concert neighborhood.
+ * TTBB Lead/Tenor use written = concert+12 so bari/bass sit in a ringing register
+ * (not an octave too low / muddy).
  */
 export function placeVoicingConcert(opts: {
   chord: BarbershopChordNature
@@ -183,21 +173,72 @@ export function placeVoicingConcert(opts: {
   const clefFamily = opts.clefFamily ?? 'ttbb'
   const melodyStaff = opts.melodyStaff ?? 'upper'
 
-  // Only TTBB upper (Lead/Tenor) uses an octave-transposing written pitch.
-  if (!(clefFamily === 'ttbb' && melodyStaff === 'upper')) {
-    return placeVoicing(opts)
+  // TTBB upper melody: same written-space path as arranging (clears mud + unisons).
+  if (clefFamily === 'ttbb' && melodyStaff === 'upper') {
+    return placeVoicingConcertDomain({
+      chord: asDomainChord(opts.chord),
+      rootPc: opts.rootPc,
+      leadMidi: opts.leadMidi,
+      voicing: opts.voicing,
+      spread: opts.spread,
+    }) as DomainVoicingPitches | null
   }
 
-  const leadWritten = concertToWrittenMidi(opts.leadMidi, clefFamily, 'upper')
-  const placed = placeVoicing({ ...opts, leadMidi: leadWritten })
+  // SSAA / lower-staff melody: place in concert space, then settle.
+  const placed = placeVoicing(opts)
   if (!placed) return null
+  return settleDistinctTtbb(placed)
+}
 
-  return {
-    bass: writtenToConcertMidi(placed.bass, clefFamily, 'lower'),
-    bari: writtenToConcertMidi(placed.bari, clefFamily, 'lower'),
-    lead: writtenToConcertMidi(placed.lead, clefFamily, 'upper'),
-    tenor: writtenToConcertMidi(placed.tenor, clefFamily, 'upper'),
-  }
+/** Soft score for Harmonize defaults: closed outer span + higher register (ring). */
+export function closedHighRingScore(midi: VoicingPitches): number {
+  const outer = midi.tenor - midi.bass
+  const upperTrio =
+    Math.max(midi.bari, midi.lead, midi.tenor) - Math.min(midi.bari, midi.lead, midi.tenor)
+  let score = 0
+  if (outer <= 12) score += 4
+  else if (outer <= 16) score += 1.5
+  else if (outer <= 21) score -= 1
+  else score -= 3
+  if (upperTrio <= 12) score += 2.5
+  else if (upperTrio <= 16) score += 0.5
+  else score -= 1.5
+  // Prefer bass out of the mud and toward a brighter mid register.
+  if (midi.bass >= 48 && midi.bass <= 58) score += 2
+  else if (midi.bass >= 45 && midi.bass < 48) score += 0.5
+  else if (midi.bass < 45) score -= (45 - midi.bass) * 0.35
+  const mean = (midi.bass + midi.bari + midi.lead + midi.tenor) / 4
+  if (mean >= 58) score += 1.2
+  else if (mean >= 54) score += 0.5
+  else if (mean < 50) score -= 0.8
+  return score
+}
+
+/** Sort voicing strings so Harmonize defaults / ↑↓ prefer closed high-ring shells. */
+export function orderVoicingsClosedHighRing(opts: {
+  chord: BarbershopChordNature
+  rootPc: number
+  leadMidi: number
+  voicings: readonly string[]
+  spread?: boolean
+  clefFamily?: TagRollClefFamily
+  melodyStaff?: TagRollMidiGroup
+}): string[] {
+  const scored = opts.voicings.map((v, i) => {
+    const midi = placeVoicingConcert({
+      chord: opts.chord,
+      rootPc: opts.rootPc,
+      leadMidi: opts.leadMidi,
+      voicing: v,
+      spread: opts.spread,
+      clefFamily: opts.clefFamily,
+      melodyStaff: opts.melodyStaff,
+    })
+    const score = midi ? closedHighRingScore(midi) : -999
+    return { v, score, i }
+  })
+  scored.sort((a, b) => b.score - a.score || a.i - b.i)
+  return scored.map((s) => s.v)
 }
 
 export function pcName(pc: number, flats: boolean): string {

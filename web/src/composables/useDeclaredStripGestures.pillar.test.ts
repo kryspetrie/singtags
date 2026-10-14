@@ -17,61 +17,6 @@ function makeTrack() {
   return track
 }
 
-describe('useDeclaredStripGestures pillar toggle', () => {
-  it('Alt+click on a span calls onTogglePillar without starting a drag', () => {
-    const trackEl = ref<HTMLElement | null>(makeTrack())
-    const onTogglePillar = vi.fn()
-    const onSelect = vi.fn()
-    const onBeginGesture = vi.fn()
-
-    const { onPointerDown, gesture } = useDeclaredStripGestures({
-      trackEl,
-      declared: ref([
-        {
-          id: 's1',
-          startTick: 0,
-          endTick: 480,
-          rootPc: 0,
-          quality: 'major',
-          displayName: 'C',
-          displayRoman: 'I',
-        },
-      ]),
-      selectedIds: ref([]),
-      scrollX: ref(0),
-      cellW: ref(24),
-      ppq: ref(480),
-      snapTicks: ref(120),
-      lengthTicks: ref(1920),
-      onBeginGesture,
-      onSelect,
-      onClearSelection: vi.fn(),
-      onPlaceRange: vi.fn(),
-      onEdit: vi.fn(),
-      onTogglePillar,
-      onGeometry: vi.fn(),
-      onGeometryMany: vi.fn(),
-      onFocusRange: vi.fn(),
-    })
-
-    onPointerDown(
-      new PointerEvent('pointerdown', {
-        button: 0,
-        clientX: 12,
-        clientY: 10,
-        altKey: true,
-        pointerId: 1,
-      }),
-    )
-
-    expect(onTogglePillar).toHaveBeenCalledTimes(1)
-    expect(onTogglePillar.mock.calls[0]![0].id).toBe('s1')
-    expect(onSelect).toHaveBeenCalledWith(['s1'])
-    expect(onBeginGesture).not.toHaveBeenCalled()
-    expect(gesture.value).toBeNull()
-  })
-})
-
 describe('useDeclaredStripGestures drag-select', () => {
   it('drag across empty that covers chords selects those sketch spans (not place)', () => {
     const trackEl = ref<HTMLElement | null>(makeTrack())
@@ -112,7 +57,6 @@ describe('useDeclaredStripGestures drag-select', () => {
       onClearSelection: vi.fn(),
       onPlaceRange,
       onEdit: vi.fn(),
-      onTogglePillar: vi.fn(),
       onGeometry: vi.fn(),
       onGeometryMany: vi.fn(),
       onFocusRange,
@@ -174,6 +118,42 @@ describe('useDeclaredStripGestures shift-click range', () => {
     expect(sketchSpanIdsBetween(spans, 's2', 's2')).toEqual(['s2'])
   })
 
+  it('click without drag focuses the chord range (playhead at start)', () => {
+    const trackEl = ref<HTMLElement | null>(makeTrack())
+    const selectedIds = ref<string[]>([])
+    const onFocusRange = vi.fn()
+    const onSelect = vi.fn((ids: string[]) => {
+      selectedIds.value = ids
+    })
+
+    const { onPointerDown, onPointerUp } = useDeclaredStripGestures({
+      trackEl,
+      declared: ref(spans),
+      selectedIds,
+      scrollX: ref(0),
+      cellW: ref(24),
+      ppq: ref(480),
+      snapTicks: ref(120),
+      lengthTicks: ref(1920),
+      onBeginGesture: vi.fn(),
+      onSelect,
+      onClearSelection: vi.fn(),
+      onPlaceRange: vi.fn(),
+      onEdit: vi.fn(),
+      onGeometry: vi.fn(),
+      onGeometryMany: vi.fn(),
+      onFocusRange,
+    })
+
+    // Click s2 (x≈36 → tick 720, inside 480–960)
+    onPointerDown(
+      new PointerEvent('pointerdown', { button: 0, clientX: 36, clientY: 10, pointerId: 1 }),
+    )
+    onPointerUp(new PointerEvent('pointerup', { pointerId: 1 }))
+    expect(onSelect).toHaveBeenLastCalledWith(['s2'])
+    expect(onFocusRange).toHaveBeenCalledWith(480, 960)
+  })
+
   it('click then Shift+click selects the inclusive range', () => {
     const trackEl = ref<HTMLElement | null>(makeTrack())
     const selectedIds = ref<string[]>([])
@@ -195,7 +175,6 @@ describe('useDeclaredStripGestures shift-click range', () => {
       onClearSelection: vi.fn(),
       onPlaceRange: vi.fn(),
       onEdit: vi.fn(),
-      onTogglePillar: vi.fn(),
       onGeometry: vi.fn(),
       onGeometryMany: vi.fn(),
       onFocusRange: vi.fn(),
@@ -243,7 +222,6 @@ describe('useDeclaredStripGestures shift-click range', () => {
       onClearSelection: vi.fn(),
       onPlaceRange: vi.fn(),
       onEdit: vi.fn(),
-      onTogglePillar: vi.fn(),
       onGeometry: vi.fn(),
       onGeometryMany: vi.fn(),
       onFocusRange: vi.fn(),

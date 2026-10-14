@@ -66,4 +66,52 @@ describe('decodeLock', () => {
     expect(maxInflight).toBe(1)
     expect(decodeAudioData).toHaveBeenCalledTimes(3)
   })
+
+  it('runs priority decodes ahead of queued background work', async () => {
+    const finished: string[] = []
+
+    vi.stubGlobal(
+      'OfflineAudioContext',
+      class {
+        constructor(_c: number, _l: number, _sr: number) {}
+        decodeAudioData = async () => {
+          await new Promise((r) => setTimeout(r, 25))
+          return {
+            length: 1,
+            numberOfChannels: 1,
+            sampleRate: 48_000,
+            getChannelData: () => new Float32Array(1),
+          } as unknown as AudioBuffer
+        }
+      },
+    )
+
+    const bytes = new ArrayBuffer(8)
+    new Uint8Array(bytes).set([0xff, 0xfb, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
+
+    const track = (id: string, p: Promise<AudioBuffer>) =>
+      p.then((buf) => {
+        finished.push(id)
+        return buf
+      })
+
+    const bg1 = track('bg1', decodeAudioDataExclusive(bytes, { offlineSampleRate: 48_000 }))
+    // Let bg1 claim the pump before enqueueing the rest.
+    await new Promise((r) => setTimeout(r, 5))
+    const bg2 = track(
+      'bg2',
+      decodeAudioDataExclusive(bytes.slice(0), { offlineSampleRate: 48_000 }),
+    )
+    const live = track(
+      'live',
+      decodeAudioDataExclusive(bytes.slice(0), {
+        offlineSampleRate: 48_000,
+        priority: true,
+      }),
+    )
+
+    await Promise.all([bg1, bg2, live])
+    // bg1 already running; live jumps the queue ahead of bg2.
+    expect(finished).toEqual(['bg1', 'live', 'bg2'])
+  })
 })

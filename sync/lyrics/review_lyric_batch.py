@@ -462,7 +462,7 @@ def main() -> int:
     parser.add_argument(
         "--collections-first",
         action="store_true",
-        help="Reorder review queue + suggestions so catalog collection tags come first (also default on review/analyze)",
+        help="Reorder review queue + suggestions: collections first, then by rating/downloads (also default on review/analyze)",
     )
     args = parser.parse_args()
 
@@ -476,10 +476,28 @@ def main() -> int:
         rows = load_suggestions(folders=folders)
         save_suggestions(rows)
         save_batch_cursor({"next_index": 0, "accepted": 0, "disputed": 0, "pages": 0})
-        print(
-            f"Reordered review queue: {coll_n} collection tags first "
-            f"({len(pending)} pending). Suggestions re-sorted; cursors reset to 0."
+        top = pending[coll_n : coll_n + 3] if coll_n < len(pending) else pending[:3]
+        top_bits = ", ".join(
+            f"#{it.get('tag_id')}★{it.get('rating')}↓{it.get('download_count')}"
+            for it in top
         )
+        print(
+            f"Reordered review queue: {coll_n} collection tags first, "
+            f"then missing-lyrics, then by rating/downloads ({len(pending)} pending). "
+            f"Suggestions re-sorted; cursors reset to 0."
+        )
+        missing_n = sum(
+            1
+            for it in pending
+            if not it.get("collection")
+            and (
+                it.get("reason") == "no_usable_lyrics"
+                or not (it.get("suggested_lyrics") or "").strip()
+            )
+        )
+        print(f"Missing-lyrics pending: {missing_n}")
+        if top_bits:
+            print(f"Next after collections: {top_bits}")
         return 0
 
     if args.review:

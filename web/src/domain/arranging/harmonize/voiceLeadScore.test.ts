@@ -19,6 +19,7 @@ const VL_ONLY = {
   seventh: 0,
   closedVoicing: 0,
   ring: 0,
+  stackRing: 0,
   secondaryDominant: 0,
   augDimPrimaryPenalty: 0,
   harmonicity: 0,

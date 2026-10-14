@@ -38,6 +38,11 @@ export type PitchTonePlayer = {
   setEnvelope?(env: TagRollSoundEnvelope): void
   /** Ease-in-out pitch glide without re-attack (synth / samples). */
   glideTo?(voiceKey: string, targetNote: string, durationSec: number): void
+  /**
+   * Create/resume the AudioContext on a user gesture before any awaited work
+   * (e.g. blow-pitch intro) so later noteOns are not stuck suspended.
+   */
+  warmUp?(): Promise<void>
   restartIfPlaying(): Promise<void>
   dispose(): void
   preloadForNote?(note: string): Promise<void>
@@ -60,6 +65,7 @@ function wrapPolySynth(synth: PolySynthPlayer): PitchTonePlayer {
     setVoice: (voice) => synth.setVoice(voice),
     setEnvelope: (env) => synth.setEnvelope(env),
     glideTo: (key, note, dur) => synth.glideTo(key, note, dur),
+    warmUp: () => synth.warmUp(),
     restartIfPlaying: () => synth.restartIfPlaying(),
     dispose: () => synth.dispose(),
   }
@@ -80,6 +86,7 @@ function wrapSamples(sample: SamplePianoPlayer): PitchTonePlayer {
     setVoice: () => undefined,
     setEnvelope: (env) => sample.setEnvelope(env),
     glideTo: (key, note, dur) => sample.glideTo(key, note, dur),
+    warmUp: () => sample.warmUp(),
     restartIfPlaying: () => sample.restartIfPlaying(),
     dispose: () => sample.dispose(),
     preloadForNote: (note) => sample.preloadForNote(note),
@@ -117,6 +124,7 @@ function wrapMono(synth: PitchPlayer): PitchTonePlayer {
       synth.stop(fade !== false)
     },
     setVoice: (voice) => synth.setVoice(voice),
+    warmUp: () => synth.warmUp(),
     restartIfPlaying: () => synth.restartIfPlaying(),
     dispose: () => synth.dispose(),
   }

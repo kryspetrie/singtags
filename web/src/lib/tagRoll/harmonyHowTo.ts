@@ -47,7 +47,17 @@ export const ROLES_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'What Roles is for',
     body:
-      'Choose which part carries the tune and mark Strong vs Passing melody notes. Those labels feed Harmonize, Detected, Coach, and sheet cues.',
+      'Choose which part carries the tune and mark Strong vs Passing melody notes. Those labels feed Harmonize, Detected, Coach, and Auto Path Optimize. Unlabeled notes get a duration / beat / phrase-edge default before Auto runs.',
+  },
+  {
+    title: 'Strong',
+    body:
+      'A melody tone that carries a structural harmony (home). Longer, metrically strong, phrase start/end, or lyric stress. If you would write a chord-symbol change above that note → Strong. Gets its own chord decision.',
+  },
+  {
+    title: 'Passing',
+    body:
+      'A melody tone that connects Strong tones. Shorter / weaker beat / stepwise filler. Does not invent a new home — the chord approaches or holds the neighboring Strong harmony.',
   },
   {
     title: 'Quick keys',
@@ -61,7 +71,7 @@ export const SKETCH_LANE_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Sketch map',
     body:
-      'Paint chords on the timeline, edit spans in the dock, mark pillars with Alt+click or ◆. Realize writes TTBB under the melody.',
+      'Paint chords on the timeline and edit spans in the dock. Enter on empty text leaves a blank (—) slot; Tab walks left-to-right to fill them. Strong vs passing melody roles guide Coach homes — Realize writes TTBB under the melody.',
   },
 ]
 

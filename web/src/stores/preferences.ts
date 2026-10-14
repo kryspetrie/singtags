@@ -22,6 +22,8 @@ import {
 import {
   clearActivePitchPipeVoice,
   isPitchPipeSoundId,
+  normalizePitchPipeAttackSec,
+  PITCH_PIPE_ATTACK_SEC_DEFAULT,
   type PitchPipeSoundId,
 } from '../audio/pitchPipeVoice'
 import {
@@ -44,6 +46,11 @@ import {
   saveDetectedLockLeadVoicing,
   saveSketchLockLeadVoicing,
 } from '../lib/tagRoll/leadLockVoicingPrefs'
+import {
+  defaultVoicingProfile,
+  normalizeVoicingProfile,
+  type VoicingProfile,
+} from '../domain/arranging/voicingProfile'
 import {
   clearDetectedScoreTweaks,
   loadDetectedScoreTweaks,
@@ -164,6 +171,11 @@ export type PitchPipePrefs = {
    * Default on; turn off on mobile if the highlight is distracting.
    */
   showPcKeyRange: boolean
+  /**
+   * Synth note-on fade-in (seconds). Starts at 25% level, ramps to full.
+   * 0 = instant. Acoustic samples ignore this.
+   */
+  attackSec: number
 }
 
 const SOLO_IN_FILE_KEY = 'singtags.partSoloInFile.v1'
@@ -208,6 +220,10 @@ const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
 const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
 const TAG_ROLL_COACH_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.coachLaneCollapsed.v1'
 const TAG_ROLL_COACH_GUIDED_STEP_KEY = 'singtags.labs.tagRoll.coachGuidedStep.v1'
+const TAG_ROLL_CHORD_WALK_AUTO_ADVANCE_KEY = 'singtags.labs.tagRoll.chordWalkAutoAdvance.v1'
+const TAG_ROLL_VOICING_RANGES_OPEN_KEY = 'singtags.labs.tagRoll.voicingRangesOpen.v1'
+const TAG_ROLL_VOICING_RANGE_FILTER_KEY = 'singtags.labs.tagRoll.voicingRangeFilter.v1'
+const TAG_ROLL_PATH_OPTIMIZE_PREFS_KEY = 'singtags.labs.tagRoll.pathOptimize.v1'
 /** @deprecated migrated to chordsLaneCollapsed */
 const TAG_ROLL_DECLARED_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.declaredLaneCollapsed.v1'
 const TAG_ROLL_CHORDS_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.chordsLaneCollapsed.v1'
@@ -268,6 +284,7 @@ export function defaultPitchPipePrefs(): PitchPipePrefs {
     pianoEngine: 'synth',
     pianoLockPosition: false,
     showPcKeyRange: true,
+    attackSec: PITCH_PIPE_ATTACK_SEC_DEFAULT,
   }
 }
 
@@ -314,6 +331,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   const pianoLockPosition = o.pianoLockPosition === true
   /** Missing key → true (legacy prefs keep highlighting). */
   const showPcKeyRange = o.showPcKeyRange !== false
+  const attackSec =
+    o.attackSec === undefined ? PITCH_PIPE_ATTACK_SEC_DEFAULT : normalizePitchPipeAttackSec(o.attackSec)
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -337,6 +356,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
       pianoEngine,
       pianoLockPosition,
       showPcKeyRange,
+      attackSec,
     }
   }
 
@@ -358,6 +378,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     pianoEngine,
     pianoLockPosition,
     showPcKeyRange,
+    attackSec,
   }
 }
 
@@ -410,6 +431,7 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     pianoEngine: 'synth',
     pianoLockPosition: false,
     showPcKeyRange: true,
+    attackSec: PITCH_PIPE_ATTACK_SEC_DEFAULT,
   }
 }
 
@@ -469,6 +491,74 @@ function loadString(key: string, fallback: string): string {
     return raw == null || raw === '' ? fallback : raw
   } catch {
     return fallback
+  }
+}
+
+export type TagRollPathOptimizeTaste = 'classic' | 'circle' | 'busy'
+
+export type TagRollPathOptimizePrefs = {
+  mode: 'fill' | 'revoice' | 'rechord' | 'full'
+  /** 0 = Basic (simple/obvious), 1 = Risky. */
+  risk: number
+  /** @deprecated Kept for older localStorage; mapped to risk when risk missing. */
+  voiceLeading?: number
+  cadenceBias: 'off' | 'moderate' | 'strong'
+  /** Classic / Circle / Busy candidate-gate profile. */
+  taste: TagRollPathOptimizeTaste
+  maxPasses: number
+  /** Stop a stage when pass-to-pass score gain is below ε. */
+  stopEarly: boolean
+  /** Skip reject gate so optimize may worsen jumpiness / motion / lint. */
+  allowWorsen: boolean
+  /** Ensemble ranges / pitch center for Revoice. */
+  voicingProfile: VoicingProfile
+}
+
+export function defaultPathOptimizePrefs(): TagRollPathOptimizePrefs {
+  return {
+    mode: 'full',
+    risk: 0.2,
+    cadenceBias: 'moderate',
+    taste: 'classic',
+    maxPasses: 12,
+    stopEarly: true,
+    allowWorsen: false,
+    voicingProfile: defaultVoicingProfile(),
+  }
+}
+
+function loadPathOptimizePrefs(): TagRollPathOptimizePrefs {
+  const d = defaultPathOptimizePrefs()
+  try {
+    const raw = localStorage.getItem(TAG_ROLL_PATH_OPTIMIZE_PREFS_KEY)
+    if (!raw) return d
+    const j = JSON.parse(raw) as Partial<TagRollPathOptimizePrefs>
+    const mode =
+      j.mode === 'fill' || j.mode === 'revoice' || j.mode === 'rechord' || j.mode === 'full'
+        ? j.mode
+        : d.mode
+    const cadenceBias =
+      j.cadenceBias === 'off' || j.cadenceBias === 'moderate' || j.cadenceBias === 'strong'
+        ? j.cadenceBias
+        : d.cadenceBias
+    const risk =
+      typeof j.risk === 'number' && Number.isFinite(j.risk)
+        ? Math.min(1, Math.max(0, j.risk))
+        : typeof j.voiceLeading === 'number' && Number.isFinite(j.voiceLeading)
+          ? Math.min(1, Math.max(0, 1 - j.voiceLeading))
+          : d.risk
+    const maxPasses =
+      typeof j.maxPasses === 'number' && Number.isFinite(j.maxPasses)
+        ? Math.min(500, Math.max(1, Math.round(j.maxPasses)))
+        : d.maxPasses
+    const stopEarly = typeof j.stopEarly === 'boolean' ? j.stopEarly : d.stopEarly
+    const allowWorsen = typeof j.allowWorsen === 'boolean' ? j.allowWorsen : d.allowWorsen
+    const taste: TagRollPathOptimizeTaste =
+      j.taste === 'circle' || j.taste === 'busy' || j.taste === 'classic' ? j.taste : d.taste
+    const voicingProfile = normalizeVoicingProfile(j.voicingProfile)
+    return { mode, risk, cadenceBias, taste, maxPasses, stopEarly, allowWorsen, voicingProfile }
+  } catch {
+    return d
   }
 }
 
@@ -629,6 +719,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const pitchPipePianoEngine = ref<PianoSoundEngineId>(initialPipe.pianoEngine)
   const pitchPipePianoLockPosition = ref(initialPipe.pianoLockPosition)
   const pitchPipeShowPcKeyRange = ref(initialPipe.showPcKeyRange)
+  const pitchPipeAttackSec = ref(initialPipe.attackSec)
   /** App-wide Display size (70–130%, step 5). */
   const uiScalePercent = ref(resolveInitialUiScale())
   /** App color theme (light / dark / high-contrast). */
@@ -731,6 +822,14 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const tagRollCoachGuidedStep = ref(
     loadString(TAG_ROLL_COACH_GUIDED_STEP_KEY, 'home') || 'home',
   )
+  /** After Chord Walk Apply, step to next empty (else next moment). */
+  const tagRollChordWalkAutoAdvance = ref(loadBool(TAG_ROLL_CHORD_WALK_AUTO_ADVANCE_KEY, false))
+  /** Piano-side ensemble Ranges strip (global arranging tool). */
+  const tagRollVoicingRangesOpen = ref(loadBool(TAG_ROLL_VOICING_RANGES_OPEN_KEY, false))
+  /** When on, Coach/Harmonize Suggest filters to part bands + max span. */
+  const tagRollVoicingRangeFilter = ref(loadBool(TAG_ROLL_VOICING_RANGE_FILTER_KEY, false))
+  /** Last Path Optimizer UI settings. */
+  const tagRollPathOptimizePrefs = ref(loadPathOptimizePrefs())
   /** Chords lane (locked harmony map). Migrates legacy Declared collapse pref. */
   const tagRollChordsLaneCollapsed = ref(
     (() => {
@@ -853,6 +952,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       pianoEngine: pitchPipePianoEngine.value,
       pianoLockPosition: pitchPipePianoLockPosition.value,
       showPcKeyRange: pitchPipeShowPcKeyRange.value,
+      attackSec: normalizePitchPipeAttackSec(pitchPipeAttackSec.value),
     })
   }
 
@@ -931,6 +1031,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
       pitchPipePianoEngine,
       pitchPipePianoLockPosition,
       pitchPipeShowPcKeyRange,
+      pitchPipeAttackSec,
     ],
     () => persistPitchPipe(),
     { flush: 'sync' },
@@ -1517,6 +1618,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipeShowPcKeyRange.value = on
   }
 
+  function setPitchPipeAttackSec(sec: number): void {
+    pitchPipeAttackSec.value = normalizePitchPipeAttackSec(sec)
+  }
+
   /** Set absolute UI scale percent (snapped to 5% steps, clamped 70–130). */
   function setUiScalePercent(percent: number): void {
     uiScalePercent.value = normalizeUiScalePercent(percent)
@@ -1587,6 +1692,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipePianoEngine.value = p.pianoEngine
     pitchPipePianoLockPosition.value = p.pianoLockPosition
     pitchPipeShowPcKeyRange.value = p.showPcKeyRange
+    pitchPipeAttackSec.value = p.attackSec
   }
 
   /** Absolute cents to add to tag pay-the-key when global tuning is enabled. */
@@ -1682,6 +1788,74 @@ export const usePreferencesStore = defineStore('preferences', () => {
     const id = String(step || 'home')
     tagRollCoachGuidedStep.value = id
     localStorage.setItem(TAG_ROLL_COACH_GUIDED_STEP_KEY, id)
+  }
+
+  function setTagRollChordWalkAutoAdvance(on: boolean): void {
+    tagRollChordWalkAutoAdvance.value = !!on
+    localStorage.setItem(TAG_ROLL_CHORD_WALK_AUTO_ADVANCE_KEY, on ? '1' : '0')
+  }
+
+  function setTagRollVoicingRangesOpen(on: boolean): void {
+    tagRollVoicingRangesOpen.value = !!on
+    localStorage.setItem(TAG_ROLL_VOICING_RANGES_OPEN_KEY, on ? '1' : '0')
+  }
+
+  function toggleTagRollVoicingRangesOpen(): void {
+    setTagRollVoicingRangesOpen(!tagRollVoicingRangesOpen.value)
+  }
+
+  function setTagRollVoicingRangeFilter(on: boolean): void {
+    tagRollVoicingRangeFilter.value = !!on
+    localStorage.setItem(TAG_ROLL_VOICING_RANGE_FILTER_KEY, on ? '1' : '0')
+  }
+
+  function setTagRollPathOptimizePrefs(patch: Partial<TagRollPathOptimizePrefs>): void {
+    const next = { ...tagRollPathOptimizePrefs.value, ...patch }
+    const normalized = loadPathOptimizePrefs()
+    // Re-normalize through the same clamps by round-tripping JSON shape.
+    const mode =
+      next.mode === 'fill' ||
+      next.mode === 'revoice' ||
+      next.mode === 'rechord' ||
+      next.mode === 'full'
+        ? next.mode
+        : normalized.mode
+    const cadenceBias =
+      next.cadenceBias === 'off' ||
+      next.cadenceBias === 'moderate' ||
+      next.cadenceBias === 'strong'
+        ? next.cadenceBias
+        : normalized.cadenceBias
+    const taste: TagRollPathOptimizeTaste =
+      next.taste === 'circle' || next.taste === 'busy' || next.taste === 'classic'
+        ? next.taste
+        : normalized.taste
+    const risk =
+      typeof next.risk === 'number' && Number.isFinite(next.risk)
+        ? Math.min(1, Math.max(0, next.risk))
+        : typeof next.voiceLeading === 'number' && Number.isFinite(next.voiceLeading)
+          ? Math.min(1, Math.max(0, 1 - next.voiceLeading))
+          : 0.3
+    const maxPasses = Math.min(500, Math.max(1, Math.round(Number(next.maxPasses) || 12)))
+    const stopEarly = next.stopEarly !== false
+    const allowWorsen = next.allowWorsen === true
+    const voicingProfile = normalizeVoicingProfile(
+      next.voicingProfile ?? normalized.voicingProfile,
+    )
+    tagRollPathOptimizePrefs.value = {
+      mode,
+      risk,
+      cadenceBias,
+      taste,
+      maxPasses,
+      stopEarly,
+      allowWorsen,
+      voicingProfile,
+    }
+    localStorage.setItem(
+      TAG_ROLL_PATH_OPTIMIZE_PREFS_KEY,
+      JSON.stringify(tagRollPathOptimizePrefs.value),
+    )
   }
 
   function setTagRollChordsLaneCollapsed(on: boolean): void {
@@ -1942,6 +2116,10 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollExpressionLaneCollapsed,
     tagRollCoachLaneCollapsed,
     tagRollCoachGuidedStep,
+    tagRollChordWalkAutoAdvance,
+    tagRollVoicingRangesOpen,
+    tagRollVoicingRangeFilter,
+    tagRollPathOptimizePrefs,
     tagRollChordsLaneCollapsed,
     /** @deprecated Prefer tagRollChordsLaneCollapsed */
     tagRollDeclaredLaneCollapsed: tagRollChordsLaneCollapsed,
@@ -1981,6 +2159,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     pitchPipePianoEngine,
     pitchPipePianoLockPosition,
     pitchPipeShowPcKeyRange,
+    pitchPipeAttackSec,
     uiScalePercent,
     appTheme,
     emboldenText,
@@ -2003,6 +2182,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollExpressionLaneCollapsed,
     setTagRollCoachLaneCollapsed,
     setTagRollCoachGuidedStep,
+    setTagRollChordWalkAutoAdvance,
+    setTagRollVoicingRangesOpen,
+    toggleTagRollVoicingRangesOpen,
+    setTagRollVoicingRangeFilter,
+    setTagRollPathOptimizePrefs,
     setTagRollChordsLaneCollapsed,
     setTagRollDeclaredLaneCollapsed,
     setTagRollDetectedLaneCollapsed,
@@ -2059,6 +2243,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setPitchPipePianoEngine,
     setPitchPipePianoLockPosition,
     setPitchPipeShowPcKeyRange,
+    setPitchPipeAttackSec,
     setUiScalePercent,
     nudgeUiScale,
     resetUiScale,

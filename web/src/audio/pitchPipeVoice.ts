@@ -82,6 +82,25 @@ export const PITCH_PIPE_SOUND_OPTIONS: Array<{ value: PitchPipeSoundId; label: s
   { value: 'bright', label: 'Bright' },
 ]
 
+/** Note-on starts at this fraction of target gain, then ramps over attackSec. */
+export const PITCH_PIPE_ATTACK_START_GAIN = 0.25
+export const PITCH_PIPE_ATTACK_SEC_MIN = 0
+export const PITCH_PIPE_ATTACK_SEC_MAX = 2
+/** Soft swell default — helps Bluetooth / soft reference tones. */
+export const PITCH_PIPE_ATTACK_SEC_DEFAULT = 0.25
+export const PITCH_PIPE_ATTACK_SEC_STEP = 0.05
+
+/** Clamp pitch-pipe attack duration (seconds). */
+export function normalizePitchPipeAttackSec(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return PITCH_PIPE_ATTACK_SEC_DEFAULT
+  const stepped = Math.round(n / PITCH_PIPE_ATTACK_SEC_STEP) * PITCH_PIPE_ATTACK_SEC_STEP
+  return Math.min(
+    PITCH_PIPE_ATTACK_SEC_MAX,
+    Math.max(PITCH_PIPE_ATTACK_SEC_MIN, Math.round(stepped * 1000) / 1000),
+  )
+}
+
 export function isPitchPipeSoundId(v: unknown): v is PitchPipeSoundId {
   return v === 'mellow' || v === 'bright'
 }
@@ -91,9 +110,9 @@ export const MELLOW_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
   schema: PITCH_PIPE_VOICE_SCHEMA,
   id: 'mellow',
   label: 'Mellow',
-  notes: 'Built-in default: 40% sawtooth + 60% sine, master 0.3, 50ms attack, 1s release.',
+  notes: 'Built-in default: 40% sawtooth + 60% sine, master 0.3, instant attack, 1s release.',
   masterGain: 0.3,
-  attackSec: 0.05,
+  attackSec: 0,
   releaseSec: 1,
   partials: [
     { type: 'sawtooth', gain: 0.4, semitones: 0, detuneCents: 0 },
@@ -107,9 +126,9 @@ export const BRIGHT_PITCH_PIPE_VOICE: PitchPipeVoiceConfig = {
   schema: PITCH_PIPE_VOICE_SCHEMA,
   id: 'bright',
   label: 'Bright',
-  notes: 'Built-in alternate: 40% square + 60% sine, master 0.3, 50ms attack, 1s release.',
+  notes: 'Built-in alternate: 40% square + 60% sine, master 0.3, instant attack, 1s release.',
   masterGain: 0.3,
-  attackSec: 0.05,
+  attackSec: 0,
   releaseSec: 1,
   partials: [
     { type: 'square', gain: 0.4, semitones: 0, detuneCents: 0 },
@@ -270,7 +289,7 @@ export function parsePitchPipeVoice(raw: unknown): PitchPipeVoiceConfig | null {
     label,
     notes: typeof o.notes === 'string' && o.notes.trim() ? o.notes.trim().slice(0, 500) : undefined,
     masterGain: clamp(typeof o.masterGain === 'number' ? o.masterGain : 0.3, 0.01, 1),
-    attackSec: clamp(typeof o.attackSec === 'number' ? o.attackSec : 0.05, 0.005, 2),
+    attackSec: clamp(typeof o.attackSec === 'number' ? o.attackSec : 0, 0, 2),
     releaseSec: clamp(typeof o.releaseSec === 'number' ? o.releaseSec : 1, 0.02, 4),
     partials,
     filter: parseFilter(o.filter),

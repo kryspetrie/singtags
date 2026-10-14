@@ -3,6 +3,10 @@
  */
 import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { bindCoachRollNav } from '../../lib/arranging/bindCoachRollNav'
+import {
+  indexAfterSpreadToggle,
+  indexAfterVoicingStep,
+} from '../../lib/arranging/chordWalkCandidateNav'
 import { midiToNote } from '../../audio/pianoSamples'
 import {
   migratePillarsToSketchIfEmpty,
@@ -13,6 +17,7 @@ import { tipForCoachUi, type CoachUiMode } from '../../domain/arranging/coachTip
 import { cadenceHintForCoachMoment } from '../../domain/arranging/cadenceCoachTip'
 import { pcName } from '../../domain/arranging/chords/chords'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
+import { midiFitsPartBands } from '../../domain/arranging/voicingProfile'
 import { voicingDisplayLabel } from '../../lib/tagRoll/harmonizer/inversionLabel'
 import {
   buildHarmonicMoments,
@@ -45,20 +50,37 @@ import { createCoachStackHear } from '../../application/arranging/CoachStackHear
 import {
   planFillEmptyWithBest,
 } from '../../application/arranging/CoachFillEmpty'
+import {
+  countPassingUnderSoftSketch,
+  planResolvePassingUnderSketch,
+} from '../../application/arranging/CoachResolvePassing'
 import { groupIssues } from '../../application/arranging/IssueBoard'
 import { explanationForLint } from '../../application/arranging/ExplainCoach'
 import {
   mergeArrangementIntoTagRoll,
   tagStudioToArrangement,
 } from '../../application/arranging/syncTagRoll'
-import { replaceSketchFromPillars } from '../../lib/tagRoll/harmonySketch'
+import {
+  natureToSketchQuality,
+  replaceSketchFromPillars,
+  resolveSketchApplyTarget,
+} from '../../lib/tagRoll/harmonySketch'
+import { measureTicks } from '../../lib/tagRoll/tempoMap'
 import { contextForSelectedMoment } from '../../application/arranging/CoachContext'
 import {
   resolveSuggestHomeRoot,
   type SoftSuggestContext,
   type SuggestHomeRootSource,
 } from '../../application/arranging/suggestHomeRoot'
-import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import {
+  absoluteChordLabel,
+  type ChordAnalysisSegment,
+} from '../../domain/arranging/chordAnalysisBar'
+import {
+  formatRomanWithAlt,
+  romanForChordDetailed,
+} from '../../domain/arranging/secondaryDominant'
+import { useChordPickLabelMode } from '../../composables/useChordPickLabelMode'
 import {
   coachGhostsForVoicing,
   coachPreviewFromCandidate,
@@ -82,7 +104,7 @@ import {
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
 import { gapRowLabel } from '../../lib/arranging/gapRowLabel'
 import { nextPillarIndex, sortPillarsByTime } from '../../lib/arranging/coachPillarNav'
-import { TAG_ROLL_DEFAULT_TIME_SIGNATURE } from '../../lib/tagRoll/types'
+import { TAG_ROLL_DEFAULT_TIME_SIGNATURE, TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
 import { getArrangingServices } from '../../composition/arranging'
 import { useTagRollAudio } from '../../composables/useTagRollAudio'
 import { useCoachCadencePlans } from './useCoachCadencePlans'
@@ -139,6 +161,7 @@ export function useArrangingCoachDock(
   /** Selected row in the Harmonize-style suggest list (Choose). */
   const suggestIndex = ref(0)
   const candFilter = ref<CandFilterId>('all')
+  const { chordLabelMode, setChordLabelMode } = useChordPickLabelMode()
   const altsOpen = ref(false)
   const pillarTouched = ref(false)
   const selectedMomentId = ref<string | null>(null)
@@ -149,7 +172,14 @@ export function useArrangingCoachDock(
   const selectedMel = computed(() => arrStore.selectedMelody)
   const selectedPil = computed(() => arrStore.selectedPillar)
   const candidates = computed(() => arrStore.candidates)
-  const filteredCandidates = computed(() => filterCandidates(candidates.value, candFilter.value))
+  const filteredCandidates = computed(() => {
+    let list = filterCandidates(candidates.value, candFilter.value)
+    if (prefs.tagRollVoicingRangeFilter) {
+      const profile = prefs.tagRollPathOptimizePrefs.voicingProfile
+      if (profile) list = list.filter((c) => c.midi && midiFitsPartBands(c.midi, profile))
+    }
+    return list
+  })
   const candidateGroups = computed((): ChordCandidateGroup[] =>
     groupCandidatesByChord(filteredCandidates.value, preferFlats.value),
   )
@@ -230,6 +260,16 @@ export function useArrangingCoachDock(
     return (opts?.detectSegments?.value ?? []).some((s) => s.rootPc != null)
   })
 
+  const passingMismatchCount = computed(() => {
+    const cur = arrStore.current
+    if (!cur?.melody.length) return 0
+    return countPassingUnderSoftSketch({
+      melody: cur.melody,
+      soft: buildSoftSuggestContext(),
+      stacks: cur.stacks,
+    })
+  })
+
   function syncSoftSuggestContext(): void {
     arrStore.setSoftSuggestContext(buildSoftSuggestContext())
   }
@@ -241,6 +281,7 @@ export function useArrangingCoachDock(
       lints: arrStore.lints,
       momentsLen: moments.value.length,
       hasSoftHarmonyMap: hasSoftHarmonyMap.value,
+      passingMismatchCount: passingMismatchCount.value,
     }),
   )
 
@@ -435,20 +476,28 @@ export function useArrangingCoachDock(
   /** Persist Coach chord as ghost + sketch preview (Play hears it; playhead stays free). */
   function syncCoachChordPreview(): void {
     const m = selectedMoment.value
-    if (!m) {
+    const sketchTarget = resolveCoachSketchTarget()
+    if (!m && !sketchTarget) {
       emit('clearGhost')
       emit('update:preview', null)
       return
     }
+    const previewStart = sketchTarget?.startTick ?? m!.startTick
+    const previewDur =
+      sketchTarget?.durationTicks ?? Math.max(1, m!.durationTicks)
+    const ghostStart = m?.startTick ?? previewStart
+    const ghostDur = m ? Math.max(1, m.durationTicks) : previewDur
     const list = filteredCandidates.value
     const cand = list[suggestIndex.value] ?? list[0]
     if (cand) {
-      const { draft, ghosts } = coachPreviewFromCandidate(
-        cand,
-        m.startTick,
-        m.durationTicks,
-        partColor,
+      const { ghosts } = coachPreviewFromCandidate(cand, ghostStart, ghostDur, partColor)
+      const draft = coachSketchPreviewDraft(
+        previewStart,
+        previewDur,
+        cand.rootPc,
+        cand.natureId,
       )
+      if (sketchTarget?.spanId) draft.id = sketchTarget.spanId
       emit('previewGhost', ghosts as CoachGhostNote[])
       emit('update:preview', draft)
       return
@@ -459,15 +508,19 @@ export function useArrangingCoachDock(
         'previewGhost',
         coachGhostsForVoicing(
           { rootPc: stack.rootPc, natureId: stack.natureId, midi: stack.midi },
-          m.startTick,
-          m.durationTicks,
+          ghostStart,
+          ghostDur,
           partColor,
         ) as CoachGhostNote[],
       )
-      emit(
-        'update:preview',
-        coachSketchPreviewDraft(m.startTick, m.durationTicks, stack.rootPc, stack.natureId),
+      const draft = coachSketchPreviewDraft(
+        previewStart,
+        previewDur,
+        stack.rootPc,
+        stack.natureId,
       )
+      if (sketchTarget?.spanId) draft.id = sketchTarget.spanId
+      emit('update:preview', draft)
       return
     }
     emit('clearGhost')
@@ -490,8 +543,7 @@ export function useArrangingCoachDock(
       kind: m.heldLead ? 'gap' : 'moment',
       projectId: tagStore.current?.id,
     })
-    // Highlight + preview only — do not own L/R inspect bounds or the playhead.
-    emit('releaseInspect')
+    // Highlight + preview only — keep any user L/R / Sketch selection for Apply.
     syncCoachChordPreview()
   }
 
@@ -722,6 +774,8 @@ export function useArrangingCoachDock(
     stepNextIssue,
     stepNextProblem,
     stepSuggest,
+    stepVoicing,
+    toggleSpread,
   })
 
   function focusPillar(id: string): void {
@@ -931,13 +985,21 @@ export function useArrangingCoachDock(
 
   function previewCand(c: HarmonizeCandidate): void {
     const moment = selectedMoment.value
-    if (!moment) return
-    const { draft, ghosts } = coachPreviewFromCandidate(
-      c,
-      moment.startTick,
-      moment.durationTicks,
-      partColor,
+    const sketchTarget = resolveCoachSketchTarget()
+    if (!moment && !sketchTarget) return
+    const previewStart = sketchTarget?.startTick ?? moment!.startTick
+    const previewDur =
+      sketchTarget?.durationTicks ?? Math.max(1, moment!.durationTicks)
+    const ghostStart = moment?.startTick ?? previewStart
+    const ghostDur = moment ? Math.max(1, moment.durationTicks) : previewDur
+    const { ghosts } = coachPreviewFromCandidate(c, ghostStart, ghostDur, partColor)
+    const draft = coachSketchPreviewDraft(
+      previewStart,
+      previewDur,
+      c.rootPc,
+      c.natureId,
     )
+    if (sketchTarget?.spanId) draft.id = sketchTarget.spanId
     emit('previewGhost', ghosts as CoachGhostNote[])
     emit('update:preview', draft)
   }
@@ -991,10 +1053,50 @@ export function useArrangingCoachDock(
     }, 600)
   }
 
+  function resolveCoachSketchTarget() {
+    const tag = tagStore.current
+    if (!tag) return null
+    const m = selectedMoment.value
+    return resolveSketchApplyTarget({
+      playheadTick: tag.view.playheadTick,
+      measureTicks: measureTicks(tag.timeSignature, tag.ppq || TAG_ROLL_PPQ),
+      selectedSpans: tagStore.selectedSketchSpans.map((s) => ({
+        id: s.id,
+        startTick: s.startTick,
+        endTick: s.endTick,
+      })),
+      inspectRange: opts?.inspectRange?.value,
+      momentWindow: m
+        ? { startTick: m.startTick, durationTicks: Math.max(1, m.durationTicks) }
+        : null,
+      melodyNote: selectedMel.value
+        ? {
+            startTick: selectedMel.value.startTick,
+            durationTicks: selectedMel.value.durationTicks,
+          }
+        : null,
+    })
+  }
+
+  /** Write / replace Sketch for the highlighted range, selected span, or moment. */
+  function declareSketchFromCandidate(c: HarmonizeCandidate): void {
+    const target = resolveCoachSketchTarget()
+    if (!target) return
+    tagStore.declareHarmonySpan({
+      startTick: target.startTick,
+      endTick: target.endTick,
+      rootPc: c.rootPc,
+      quality: natureToSketchQuality(c.natureId),
+      id: target.spanId,
+      windowKind: 'freeSpan',
+    })
+  }
+
   function applyCand(c: HarmonizeCandidate): void {
     arrStore.applyCandidate(c)
     arrStore.runQa()
     pushToRoll()
+    declareSketchFromCandidate(c)
     syncCoachChordPreview()
     if (prefs.tagRollChordWalkAutoAdvance) {
       // After Apply: next empty, else next moment.
@@ -1021,7 +1123,35 @@ export function useArrangingCoachDock(
     const next = (suggestIndex.value + dir + n) % n
     suggestIndex.value = next
     const c = list[next]
-    if (c) previewCand(c)
+    if (c) void hearCand(c)
+  }
+
+  function stepVoicing(dir: -1 | 1): void {
+    const list = filteredCandidates.value
+    if (!list.length) return
+    const idx = indexAfterVoicingStep(list, suggestIndex.value, dir)
+    if (idx == null) {
+      const cur = list[suggestIndex.value] ?? list[0]
+      if (cur) void hearCand(cur)
+      return
+    }
+    suggestIndex.value = idx
+    const c = list[idx]
+    if (c) void hearCand(c)
+  }
+
+  function toggleSpread(): void {
+    const list = filteredCandidates.value
+    if (!list.length) return
+    const idx = indexAfterSpreadToggle(list, suggestIndex.value)
+    if (idx == null) {
+      const cur = list[suggestIndex.value] ?? list[0]
+      if (cur) void hearCand(cur)
+      return
+    }
+    suggestIndex.value = idx
+    const c = list[idx]
+    if (c) void hearCand(c)
   }
 
   function hearSelectedSuggest(): void {
@@ -1078,6 +1208,38 @@ export function useArrangingCoachDock(
     for (const op of ops) {
       arrStore.setCandidateTarget(op.note)
       arrStore.applyCandidate(op.candidate)
+    }
+    arrStore.runQa()
+    pushToRoll()
+    if (selectedMoment.value) selectMoment(selectedMoment.value)
+  }
+
+  /** Carve Sketch + realize stacks for Lead that doesn’t fit covering Sketch. */
+  function resolvePassingUnderSketch(): void {
+    const soft = buildSoftSuggestContext()
+    arrStore.setSoftSuggestContext(soft)
+    const cur = arrStore.current
+    if (!cur) return
+    const ops = planResolvePassingUnderSketch({
+      project: cur,
+      soft,
+      rankerDeps: services.rankerDeps,
+      idGen: services.idGen,
+    })
+    for (const op of ops) {
+      arrStore.setCandidateTarget(op.note)
+      arrStore.applyCandidate(op.candidate)
+    }
+    // Carve Tag Studio Sketch (stacks sync via pushToRoll).
+    if (ops.length && tagStore.current) {
+      tagStore.carvePassingSketchSpans(
+        ops.map((op) => ({
+          startTick: op.note.startTick,
+          endTick: op.note.startTick + Math.max(1, op.note.durationTicks),
+          rootPc: op.candidate.rootPc,
+          natureId: op.candidate.natureId,
+        })),
+      )
     }
     arrStore.runQa()
     pushToRoll()
@@ -1154,16 +1316,41 @@ export function useArrangingCoachDock(
     lintDetail.value = null
   }
 
+  function candNameLabel(c: HarmonizeCandidate): string {
+    const p = arrStore.current
+    return absoluteChordLabel(c.rootPc, c.natureId, preferFlats.value, {
+      tonality: p?.tonality,
+      tonalityMode: p?.tonalityMode ?? 'major',
+    })
+  }
+
+  function candRomanLabel(c: HarmonizeCandidate): string {
+    const p = arrStore.current
+    if (!p) return candNameLabel(c)
+    const detailed = romanForChordDetailed({
+      rootPc: c.rootPc,
+      natureId: c.natureId,
+      tonality: p.tonality,
+      mode: p.tonalityMode ?? 'major',
+      resolvesToRoot: c.nextPillarRoot ?? null,
+    })
+    return formatRomanWithAlt(detailed.roman, detailed.altRoman)
+  }
+
   function candLabel(c: HarmonizeCandidate): string {
-    const root = pcName(c.rootPc, preferFlats.value)
-    const nat = c.natureId === 'major' ? '' : c.natureId === 'seventh' ? '7' : c.natureId
-    return `${root}${nat}`
+    return chordLabelMode.value === 'roman' ? candRomanLabel(c) : candNameLabel(c)
+  }
+
+  function candAltLabel(c: HarmonizeCandidate): string {
+    return chordLabelMode.value === 'roman' ? candNameLabel(c) : candRomanLabel(c)
   }
 
   function candIdentity(c: HarmonizeCandidate): string {
     const v = c.voicing?.trim()
-    const base = v ? `${candLabel(c)} · ${voicingDisplayLabel(v)}` : candLabel(c)
-    return c.spread ? `${base} · spread` : base
+    const bits = [candLabel(c), candAltLabel(c)]
+    if (v) bits.push(voicingDisplayLabel(v))
+    if (c.spread) bits.push('spread')
+    return bits.join(' · ')
   }
 
   function whyFor(i: number) {
@@ -1198,6 +1385,10 @@ export function useArrangingCoachDock(
         break
       }
       case 'walk_choose':
+        enterWalk()
+        break
+      case 'resolve_passing':
+        resolvePassingUnderSketch()
         enterWalk()
         break
       case 'fix_issues':
@@ -1407,6 +1598,8 @@ export function useArrangingCoachDock(
     stepNextIssue,
     stepNextProblem,
     stepSuggest,
+    stepVoicing,
+    toggleSpread,
     stepLint,
     focusPillar,
     stepPillar,
@@ -1435,6 +1628,24 @@ export function useArrangingCoachDock(
     applyBest,
     applySelectedSuggest,
     hearSelectedSuggest,
+    hearVoicingMidi: (midi: { bass: number; bari: number; lead: number; tenor: number }) =>
+      void stackHear.playTimed(midi, 700),
+    previewVoicingGhosts: (
+      midi: { bass: number; bari: number; lead: number; tenor: number },
+      startTick: number,
+      durationTicks: number,
+    ) => {
+      emit(
+        'previewGhost',
+        coachGhostsForVoicing(
+          { rootPc: 0, natureId: 'major', midi },
+          startTick,
+          durationTicks,
+          partColor,
+        ) as CoachGhostNote[],
+      )
+    },
+    clearVoicingGhosts: () => emit('clearGhost'),
     applyAltChip,
     previewAltChip,
     holdStartAltChip,
@@ -1442,6 +1653,7 @@ export function useArrangingCoachDock(
     holdStartCounterpartCand,
     applyCounterpartNow,
     fillEmptyWithBest,
+    resolvePassingUnderSketch,
     fixAllSafe,
     fixItem,
     cadencePlans,
@@ -1459,7 +1671,10 @@ export function useArrangingCoachDock(
     canFix,
     learnLint,
     jumpToLint,
+    chordLabelMode,
+    setChordLabelMode,
     candLabel,
+    candAltLabel,
     candIdentity,
     layerHint,
     whyFor,

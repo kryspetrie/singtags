@@ -107,10 +107,11 @@ export function useCoachGuidedAndReview(opts: {
     stopEarly: true,
     allowWorsen: false,
   })
+  /** Auto Path Optimize builds homes from Strong notes — Sketch pillars optional. */
   const canRunPathOptimize = computed(() => {
     const p = arrStore.current
     if (!p) return false
-    return p.melody.length > 0 && p.pillars.length > 0
+    return p.melody.length > 0
   })
   const hasOptimizeSelection = computed(() => !!opts.selectionTickRange?.value)
 
@@ -214,7 +215,7 @@ export function useCoachGuidedAndReview(opts: {
   }): Promise<void> {
     if (optimizeBusy.value) return
     if (!canRunPathOptimize.value) {
-      autoStatus.value = 'Optimize needs melody and Sketch pillars first.'
+      autoStatus.value = 'Optimize needs melody first.'
       return
     }
     // Transport / repeat same mode → Run again (reseed). Explicit explore from panel wins.
@@ -252,6 +253,7 @@ export function useCoachGuidedAndReview(opts: {
         allowWorsen: args.allowWorsen === true,
         explore: runAgain,
         seed: runAgain ? Date.now() : undefined,
+        voicingProfile: usePreferencesStore().tagRollPathOptimizePrefs.voicingProfile,
         onProgress: (p) => {
           const within = p.maxPasses > 0 ? p.pass / p.maxPasses : 1
           optimizeProgressFraction.value = Math.min(

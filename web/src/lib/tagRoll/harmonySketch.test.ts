@@ -3,13 +3,21 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  BARBERSHOP_CHORDS,
+  chordContainsLead,
+} from '../../domain/arranging/chords/chords'
+import {
+  absorbHarmonySpanRemoval,
   authoritativeSketch,
   blockChordMidis,
+  carveInsertSketchSpan,
   mergeDetectIntoSketchHoles,
   pillarsFromHarmonySketch,
   parseHarmonyEntry,
   replaceSketchFromPillars,
+  resolveSketchApplyTarget,
   sketchWindowAtPlayhead,
+  stepAuthoritativeSketchSpan,
   suggestHarmonyEntries,
   upsertSketchSpan,
 } from './harmonySketch'
@@ -43,6 +51,45 @@ describe('harmonySketch', () => {
       quality: 'dim7',
     })
     expect(parseHarmonyEntry('Gsus', { tonality: 0, mode: 'major', preferFlats: false, entryMode: 'name' })).toBeNull()
+  })
+
+  it('stepAuthoritativeSketchSpan walks locked spans by id, tick, and holes', () => {
+    const a = {
+      id: 'a',
+      startTick: 0,
+      endTick: 480,
+      rootPc: 0,
+      quality: 'major' as const,
+      source: 'user' as const,
+      locked: true,
+    }
+    const b = {
+      id: 'b',
+      startTick: 960,
+      endTick: 1440,
+      rootPc: 7,
+      quality: 'seventh' as const,
+      source: 'user' as const,
+      locked: true,
+    }
+    const draft = {
+      id: 'draft',
+      startTick: 480,
+      endTick: 960,
+      rootPc: 5,
+      quality: 'major' as const,
+      source: 'detect' as const,
+      locked: false,
+    }
+    const sketch = [a, draft, b]
+    expect(stepAuthoritativeSketchSpan(sketch, { spanId: 'a', tick: 0 }, 1)?.id).toBe('b')
+    expect(stepAuthoritativeSketchSpan(sketch, { spanId: 'b', tick: 960 }, -1)?.id).toBe('a')
+    expect(stepAuthoritativeSketchSpan(sketch, { spanId: 'a', tick: 0 }, -1)).toBeNull()
+    expect(stepAuthoritativeSketchSpan(sketch, { tick: 100 }, 1)?.id).toBe('b')
+    expect(stepAuthoritativeSketchSpan(sketch, { tick: 500 }, 1)?.id).toBe('b')
+    expect(stepAuthoritativeSketchSpan(sketch, { tick: 500 }, -1)?.id).toBe('a')
+    expect(stepAuthoritativeSketchSpan(sketch, { tick: 2000 }, 1)).toBeNull()
+    expect(stepAuthoritativeSketchSpan(sketch, { tick: 2000 }, -1)?.id).toBe('b')
   })
 
   it('authoritativeSketch is locked-only; unconfirmed pillars do not write Declared', () => {
@@ -86,6 +133,43 @@ describe('harmonySketch', () => {
     expect(sketchWindowAtPlayhead({ playheadTick: 500, measureTicks: 480 })).toEqual({
       startTick: 480,
       endTick: 960,
+    })
+  })
+
+  it('resolveSketchApplyTarget prefers selected Sketch, then inspect, then moment', () => {
+    expect(
+      resolveSketchApplyTarget({
+        playheadTick: 0,
+        measureTicks: 480,
+        selectedSpans: [{ id: 'hs1', startTick: 480, endTick: 960 }],
+        inspectRange: { startTick: 0, endTick: 240 },
+        momentWindow: { startTick: 100, durationTicks: 50 },
+        melodyNote: { startTick: 80, durationTicks: 40 },
+      }),
+    ).toMatchObject({
+      startTick: 480,
+      endTick: 960,
+      spanId: 'hs1',
+      source: 'selectedSketch',
+    })
+    expect(
+      resolveSketchApplyTarget({
+        playheadTick: 0,
+        measureTicks: 480,
+        inspectRange: { startTick: 0, endTick: 240 },
+        momentWindow: { startTick: 100, durationTicks: 50 },
+      }),
+    ).toMatchObject({ startTick: 0, endTick: 240, source: 'inspect' })
+    expect(
+      resolveSketchApplyTarget({
+        playheadTick: 0,
+        measureTicks: 480,
+        momentWindow: { startTick: 100, durationTicks: 50 },
+      }),
+    ).toMatchObject({
+      startTick: 100,
+      durationTicks: 50,
+      source: 'moment',
     })
   })
 
@@ -150,6 +234,117 @@ describe('harmonySketch', () => {
     ])
     expect(sketch).toHaveLength(1)
     expect(sketch[0]).toMatchObject({ rootPc: 7, quality: 'seventh', locked: true })
+  })
+})
+
+describe('carveInsertSketchSpan', () => {
+  it('splits a covering pillar and inserts a non-pillar passing chord', () => {
+    const base = upsertSketchSpan([], {
+      id: 'home',
+      startTick: 0,
+      endTick: 1920,
+      rootPc: 0,
+      quality: 'major',
+      source: 'user',
+      locked: true,
+      pillar: true,
+    })
+    const out = carveInsertSketchSpan(base, {
+      startTick: 480,
+      endTick: 720,
+      rootPc: 7,
+      quality: 'seventh',
+      pillar: false,
+      source: 'coach',
+    })
+    expect(out).toHaveLength(3)
+    expect(out[0]).toMatchObject({
+      id: 'home',
+      startTick: 0,
+      endTick: 480,
+      rootPc: 0,
+      quality: 'major',
+      pillar: true,
+    })
+    expect(out[1]).toMatchObject({
+      startTick: 480,
+      endTick: 720,
+      rootPc: 7,
+      quality: 'seventh',
+      locked: true,
+      pillar: false,
+      source: 'coach',
+    })
+    expect(out[2]).toMatchObject({
+      startTick: 720,
+      endTick: 1920,
+      rootPc: 0,
+      quality: 'major',
+      pillar: true,
+    })
+    expect(out[2]!.id).not.toBe('home')
+  })
+})
+
+describe('absorbHarmonySpanRemoval', () => {
+  it('removes the span and leaves neighbors at their original widths', () => {
+    let sketch: ReturnType<typeof upsertSketchSpan> = []
+    sketch = upsertSketchSpan(sketch, {
+      id: 'left',
+      startTick: 0,
+      endTick: 480,
+      rootPc: 0,
+      quality: 'major',
+      source: 'user',
+      locked: true,
+    })
+    sketch = upsertSketchSpan(sketch, {
+      id: 'mid',
+      startTick: 480,
+      endTick: 960,
+      rootPc: 7,
+      quality: 'seventh',
+      source: 'user',
+      locked: true,
+    })
+    sketch = upsertSketchSpan(sketch, {
+      id: 'right',
+      startTick: 960,
+      endTick: 1440,
+      rootPc: 0,
+      quality: 'major',
+      source: 'user',
+      locked: true,
+    })
+    const out = absorbHarmonySpanRemoval(
+      sketch,
+      { id: 'mid', startTick: 480, endTick: 960 },
+      {
+        left: { id: 'left', startTick: 0, endTick: 480, rootPc: 0, quality: 'major' },
+        right: { id: 'right', startTick: 960, endTick: 1440, rootPc: 0, quality: 'major' },
+      },
+    )
+    expect(out).toHaveLength(2)
+    expect(out.find((s) => s.id === 'left')).toMatchObject({ startTick: 0, endTick: 480 })
+    expect(out.find((s) => s.id === 'right')).toMatchObject({ startTick: 960, endTick: 1440 })
+    expect(out.some((s) => s.id === 'mid')).toBe(false)
+  })
+
+  it('does not invent a neighbor span when deleting a synthetic detect window', () => {
+    const out = absorbHarmonySpanRemoval(
+      [],
+      { id: 'det:0:480:7:seventh', startTick: 0, endTick: 480 },
+      {
+        right: {
+          id: 'det:480:960:0:major',
+          startTick: 480,
+          endTick: 960,
+          rootPc: 0,
+          quality: 'major',
+        },
+      },
+    )
+    expect(out).toHaveLength(0)
   })
 })
 
@@ -338,6 +533,17 @@ describe('harmonyStrip', () => {
     expect(right!.name).toMatch(/^C/)
   })
 
+  it('parseHarmonyEntry treats empty / dash as blank placeholder', () => {
+    expect(parseHarmonyEntry('', { tonality: 0, mode: 'major', preferFlats: false, entryMode: 'name' })).toEqual({
+      rootPc: 0,
+      quality: 'blank',
+    })
+    expect(parseHarmonyEntry('—', { tonality: 7, mode: 'major', preferFlats: false, entryMode: 'name' })).toEqual({
+      rootPc: 7,
+      quality: 'blank',
+    })
+  })
+
   it('suggestHarmonyEntries offers symbol-friendly completions', () => {
     const sug = suggestHarmonyEntries('Bb', {
       tonality: 0,
@@ -347,5 +553,42 @@ describe('harmonyStrip', () => {
     })
     expect(sug.length).toBeGreaterThan(0)
     expect(sug.some((s) => s.rootPc === 10)).toBe(true)
+  })
+
+  it('empty suggestHarmonyEntries prefers chords containing the melody note', () => {
+    // C4 (midi 60) → C / Am / F / … rather than the generic C-major starter list
+    const sug = suggestHarmonyEntries('', {
+      tonality: 0,
+      mode: 'major',
+      preferFlats: false,
+      entryMode: 'name',
+      leadMidi: 60,
+    })
+    expect(sug.length).toBeGreaterThan(8)
+    expect(sug[0]?.quality).toBe('blank')
+    expect(sug.some((s) => s.rootPc === 0 && s.quality === 'major')).toBe(true)
+    const sounding = sug.filter((s) => s.quality !== 'blank')
+    expect(sounding.every((s) => {
+      const chord = BARBERSHOP_CHORDS.find((c) => c.id === s.quality)
+      if (!chord) return false
+      return chordContainsLead(chord, s.rootPc, 60)
+    })).toBe(true)
+  })
+
+  it('empty suggestHarmonyEntries without melody lists in-key chords', () => {
+    const sug = suggestHarmonyEntries('', {
+      tonality: 0,
+      mode: 'major',
+      preferFlats: false,
+      entryMode: 'name',
+      leadMidi: null,
+    })
+    expect(sug.length).toBeGreaterThan(8)
+    expect(sug[0]?.quality).toBe('blank')
+    // Diatonic C major roots only (no ♯I / ♭II, etc.) after the blank row.
+    const diatonic = new Set([0, 2, 4, 5, 7, 9, 11])
+    expect(sug.slice(1).every((s) => diatonic.has(s.rootPc))).toBe(true)
+    expect(sug.some((s) => s.rootPc === 0 && s.quality === 'major')).toBe(true)
+    expect(sug.some((s) => s.rootPc === 7 && s.quality === 'seventh')).toBe(true)
   })
 })

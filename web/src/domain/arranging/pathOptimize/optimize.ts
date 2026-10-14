@@ -687,6 +687,9 @@ export async function pathOptimize(
     await yieldToUi()
     const { project: out, changedIds } = revoiceStacksForMoments(next, moments, {
       risk: weights.risk ?? 0.2,
+      profile: opts.voicingProfile,
+      exploreSeed: opts.explore ? (opts.seed ?? 1) : undefined,
+      allowSingle: moments.length === 1,
     })
     next = out
     revoiceChanged = changedIds

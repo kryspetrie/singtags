@@ -162,6 +162,17 @@ export interface TagDetail {
    * Fallback freshness signal when `downloaded_at` is absent.
    */
   last_updated_remote?: string | null
+  /**
+   * Precomputed Tag Studio project JSON (library-relative path), from
+   * ``sync/audio/extract_pitch_stacks.py`` → ``pitch_studio.json``.
+   */
+  pitch_studio?: string | null
+  /** Slim pitch-extract summary (stack count / method / timestamp). */
+  pitch_extract?: {
+    method?: string | null
+    stack_count?: number | null
+    extracted_at?: string | null
+  } | null
 }
 
 /** Sample / dev catalog manifest (`tags.json` subset). */

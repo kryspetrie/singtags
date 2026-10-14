@@ -13,6 +13,7 @@
     "typecheck": "vue-tsc -b --pretty false",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
+    "stories:generate": "node scripts/generate-component-stories.mjs",
     "lighthouse": "node scripts/lighthouse.mjs"
   },
   "dependencies": {

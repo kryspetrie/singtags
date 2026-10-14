@@ -52,8 +52,16 @@ function setRoles(on: boolean): void {
       <span class="sep">·</span>
       <span>Shift+arrows move</span>
       <span class="sep">·</span>
-      <kbd>S</kbd> Strong
-      <kbd>P</kbd> Passing
+      <kbd
+        title="Strong: structural home — chord-symbol change; gets its own chord decision"
+        >S</kbd
+      >
+      Strong
+      <kbd
+        title="Passing: connects Strong tones; approaches or holds the neighboring home"
+        >P</kbd
+      >
+      Passing
       <kbd>C</kbd> Clear
       <kbd>M</kbd> Melody
       <span v-if="melodyPartName" class="mel">Melody: {{ melodyPartName }}</span>

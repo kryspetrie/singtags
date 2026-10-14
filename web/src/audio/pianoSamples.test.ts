@@ -6,6 +6,7 @@ import {
   leethringStemForMidi,
   midiToNote,
   noteToMidi,
+  pianoSampleOnsetSec,
   pianoSampleUrl,
 } from './pianoSamples'
 
@@ -36,5 +37,20 @@ describe('pianoSamples map', () => {
 
   it('builds app-static sample URLs', () => {
     expect(pianoSampleUrl(60)).toMatch(/instruments\/piano\/m60\.opus$/)
+  })
+
+  it('skips leading silence for onsetSec (keeps 2ms pad)', () => {
+    const sr = 48_000
+    const silent = Math.floor(0.05 * sr) // 50ms pre-roll like Leethring
+    const data = new Float32Array(silent + 100)
+    data[silent] = 0.5
+    const buf = {
+      length: data.length,
+      numberOfChannels: 1,
+      sampleRate: sr,
+      getChannelData: () => data,
+    } as unknown as AudioBuffer
+    const onset = pianoSampleOnsetSec(buf)
+    expect(onset).toBeCloseTo(0.05 - 0.002, 4)
   })
 })

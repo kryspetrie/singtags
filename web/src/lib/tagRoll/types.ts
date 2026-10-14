@@ -75,7 +75,7 @@ export type TagRollMelodyPass = {
   toNoteId: string
 }
 
-/** Closed set for lead-sheet harmony sketch qualities (matches BARBERSHOP_CHORDS). */
+/** Closed set for lead-sheet harmony sketch qualities (matches BARBERSHOP_CHORDS + blank). */
 export const HARMONY_SKETCH_QUALITIES = [
   'major',
   'minor',
@@ -90,6 +90,8 @@ export const HARMONY_SKETCH_QUALITIES = [
   'ninth',
   'add9',
   'maj7',
+  /** Placeholder span — timing only; fill later via Tab. */
+  'blank',
 ] as const
 
 export type HarmonySketchQuality = (typeof HARMONY_SKETCH_QUALITIES)[number]

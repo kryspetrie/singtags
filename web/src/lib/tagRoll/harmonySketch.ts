@@ -3,7 +3,13 @@
  * Locked user spans are authoritative; detect only fills holes.
  */
 import { absoluteChordLabel, natureSuffix } from '../../domain/arranging/chordAnalysisBar'
-import { BARBERSHOP_CHORDS, pcName } from '../../domain/arranging/chords/chords'
+import {
+  BARBERSHOP_CHORDS,
+  ROOT_OFFSETS,
+  chordContainsLead,
+  pcName,
+} from '../../domain/arranging/chords/chords'
+import { CHORDS_SAI11, RING_TIER } from '../../domain/arranging/contestProfile'
 import {
   degreeOf,
   formatRomanWithAlt,
@@ -39,6 +45,17 @@ export function natureToSketchQuality(natureId: string): HarmonySketchQuality {
   if (natureId === 'halfdim' || natureId === 'half_dim') return 'half-dim'
   if (natureId === 'unknown' || !natureId) return 'major'
   return 'major'
+}
+
+/** Timing placeholder — no sounding chord yet. */
+export function isBlankSketchQuality(quality: string): boolean {
+  return quality === 'blank'
+}
+
+/** Empty / dash / ? → blank placeholder chord. */
+export function isBlankHarmonyEntry(raw: string): boolean {
+  const t = raw.trim()
+  return !t || /^(—|-|–|−|\?|blank)$/i.test(t)
 }
 
 /** Melody-note window → locked sketch span fields for Harmonize commits. */
@@ -108,6 +125,35 @@ export function authoritativeSketch(spans: readonly HarmonySketchSpan[]): Harmon
   return sortSpans(spans.filter((s) => s.locked))
 }
 
+/**
+ * Next / previous locked Sketch span for Harmonize Tab / Shift+Tab walk.
+ * Prefers `spanId` when present; otherwise the span covering `tick`; holes jump
+ * to the nearest neighbor in `dir`.
+ */
+export function stepAuthoritativeSketchSpan(
+  sketch: readonly HarmonySketchSpan[],
+  from: { spanId?: string | null; tick: number },
+  dir: -1 | 1,
+): HarmonySketchSpan | null {
+  const list = authoritativeSketch(sketch)
+  if (!list.length) return null
+
+  let idx = -1
+  if (from.spanId) idx = list.findIndex((s) => s.id === from.spanId)
+  if (idx < 0) {
+    idx = list.findIndex((s) => s.startTick <= from.tick && from.tick < s.endTick)
+  }
+  if (idx >= 0) return list[idx + dir] ?? null
+
+  if (dir > 0) {
+    return list.find((s) => s.startTick >= from.tick) ?? null
+  }
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i]!.startTick <= from.tick) return list[i]!
+  }
+  return null
+}
+
 /** Locked spans marked as structural home-roots for Coach. */
 export function isPillarSketchSpan(s: Pick<HarmonySketchSpan, 'locked' | 'pillar'>): boolean {
   return s.locked && s.pillar !== false
@@ -167,15 +213,17 @@ export function upsertSketchSpan(
   patch: Omit<HarmonySketchSpan, 'id'> & { id?: string },
 ): HarmonySketchSpan[] {
   const id = patch.id ?? allocatePrefixedId('hs')
+  const quality = natureToSketchQuality(patch.quality)
   const next: HarmonySketchSpan = {
     id,
     startTick: patch.startTick,
     endTick: Math.max(patch.startTick + 1, patch.endTick),
     rootPc: ((patch.rootPc % 12) + 12) % 12,
-    quality: patch.quality,
+    quality,
     source: patch.source,
     locked: patch.locked,
-    pillar: patch.locked ? patch.pillar !== false : false,
+    // Blank placeholders are never structural homes.
+    pillar: patch.locked && !isBlankSketchQuality(quality) ? patch.pillar !== false : false,
   }
   // Replace overlapping authoritative spans when writing a locked user span.
   const kept = spans.filter((s) => {
@@ -192,11 +240,110 @@ export function upsertSketchSpan(
   return sortSpans([...kept, next])
 }
 
+/**
+ * Insert a locked Sketch chord by carving through overlapping spans (left/right
+ * remnants keep the prior root/quality). Used for passing / NCT fills so the
+ * covering pillar is not deleted wholesale.
+ */
+export function carveInsertSketchSpan(
+  spans: readonly HarmonySketchSpan[],
+  patch: {
+    startTick: number
+    endTick: number
+    rootPc: number
+    quality: string
+    id?: string
+    source?: HarmonySketchSpan['source']
+    locked?: boolean
+    /** Passing inserts default to non-pillar; structural homes stay on remnants. */
+    pillar?: boolean
+  },
+): HarmonySketchSpan[] {
+  const start = Math.max(0, Math.round(patch.startTick))
+  const end = Math.max(start + 1, Math.round(patch.endTick))
+  const locked = patch.locked !== false
+  const insert: HarmonySketchSpan = {
+    id: patch.id ?? allocatePrefixedId('hs'),
+    startTick: start,
+    endTick: end,
+    rootPc: ((patch.rootPc % 12) + 12) % 12,
+    quality: natureToSketchQuality(patch.quality),
+    source: patch.source ?? 'coach',
+    locked,
+    pillar: locked ? patch.pillar === true : false,
+  }
+
+  const out: HarmonySketchSpan[] = []
+  for (const s of spans) {
+    if (s.id === insert.id) continue
+    // No overlap
+    if (s.endTick <= start || s.startTick >= end) {
+      out.push(s)
+      continue
+    }
+    // Drop unlocked detect that sits under the insert window.
+    if (s.source === 'detect' && !s.locked) {
+      if (s.startTick < start) {
+        out.push({ ...s, endTick: Math.min(s.endTick, start) })
+      }
+      if (s.endTick > end) {
+        out.push({
+          ...s,
+          id: allocatePrefixedId('hs'),
+          startTick: Math.max(s.startTick, end),
+        })
+      }
+      continue
+    }
+    // Carve locked / user / coach spans into remnants around the insert.
+    if (s.startTick < start) {
+      out.push({ ...s, endTick: start })
+    }
+    if (s.endTick > end) {
+      out.push({
+        ...s,
+        id: allocatePrefixedId('hs'),
+        startTick: end,
+      })
+    }
+  }
+  out.push(insert)
+  return sortSpans(out)
+}
+
 export function removeSketchSpan(
   spans: readonly HarmonySketchSpan[],
   id: string,
 ): HarmonySketchSpan[] {
   return spans.filter((s) => s.id !== id)
+}
+
+export type HarmonyAbsorbNeighbor = {
+  id?: string
+  startTick: number
+  endTick: number
+  rootPc: number
+  quality: HarmonySketchQuality
+}
+
+/**
+ * Remove a Sketch/Detected span and leave empty time (do not stretch neighbors).
+ * Neighbors are accepted for call-site compatibility but unused.
+ * Detected-row analysis may still propose chords in the hole; Declared stays empty.
+ */
+export function absorbHarmonySpanRemoval(
+  sketch: readonly HarmonySketchSpan[],
+  removal: { id: string; startTick: number; endTick: number },
+  _adjacent?: { left?: HarmonyAbsorbNeighbor | null; right?: HarmonyAbsorbNeighbor | null },
+): HarmonySketchSpan[] {
+  const start = Math.max(0, Math.round(removal.startTick))
+  const end = Math.max(start + 1, Math.round(removal.endTick))
+  return sketch.filter((s) => {
+    if (s.id === removal.id) return false
+    // Synthetic Detect ids may not match persisted sketch ids — drop exact window.
+    if (s.startTick === start && s.endTick === end) return false
+    return true
+  })
 }
 
 export function sketchSpanAtTick(
@@ -214,6 +361,7 @@ export function sketchLabel(
   tonality: number,
   tonalityMode: TonalityMode,
 ): string {
+  if (isBlankSketchQuality(span.quality)) return '—'
   return absoluteChordLabel(span.rootPc, span.quality, preferFlats, {
     tonality,
     tonalityMode,
@@ -226,6 +374,7 @@ export function sketchRoman(
   tonalityMode: TonalityMode,
   nextRootPc?: number | null,
 ): string {
+  if (isBlankSketchQuality(span.quality)) return '—'
   return romanForChordDetailed({
     rootPc: span.rootPc,
     natureId: span.quality,
@@ -242,6 +391,7 @@ export function sketchRomanDisplay(
   tonalityMode: TonalityMode,
   nextRootPc?: number | null,
 ): string {
+  if (isBlankSketchQuality(span.quality)) return '—'
   const d = romanForChordDetailed({
     rootPc: span.rootPc,
     natureId: span.quality,
@@ -253,6 +403,7 @@ export function sketchRomanDisplay(
 }
 
 export function qualityChipLabel(quality: HarmonySketchQuality): string {
+  if (quality === 'blank') return '—'
   if (quality === 'major') return 'maj'
   if (quality === 'minor') return 'm'
   if (quality === 'seventh') return '7'
@@ -432,6 +583,12 @@ export function parseHarmonyEntry(
   raw: string,
   opts: { tonality: number; mode: TonalityMode; preferFlats: boolean; entryMode: 'name' | 'roman' },
 ): { rootPc: number; quality: HarmonySketchQuality } | null {
+  if (isBlankHarmonyEntry(raw)) {
+    return {
+      rootPc: ((opts.tonality % 12) + 12) % 12,
+      quality: 'blank',
+    }
+  }
   if (opts.entryMode === 'roman') {
     return parseRomanToSketch(raw, opts.tonality, opts.mode) ?? parseChordNameToSketch(raw, opts.preferFlats)
   }
@@ -559,6 +716,88 @@ export function degreeHint(rootPc: number, tonality: number): number {
   return degreeOf(rootPc, tonality)
 }
 
+export type SketchApplyTarget = {
+  startTick: number
+  endTick: number
+  durationTicks: number
+  /** When replacing a selected Sketch span, keep its id. */
+  spanId?: string
+  source: 'selectedSketch' | 'inspect' | 'moment' | 'melody' | 'measure'
+}
+
+/**
+ * Where Harmonize / Coach Apply should write Sketch:
+ * selected Sketch span(s) → inspect/chord-cursor range → Suggest moment →
+ * melody note → +1 measure at playhead.
+ */
+export function resolveSketchApplyTarget(opts: {
+  playheadTick: number
+  measureTicks: number
+  selectedSpans?: readonly { id: string; startTick: number; endTick: number }[] | null
+  inspectRange?: { startTick: number; endTick: number } | null
+  momentWindow?: { startTick: number; durationTicks: number } | null
+  melodyNote?: { startTick: number; durationTicks: number } | null
+}): SketchApplyTarget {
+  const selected = (opts.selectedSpans ?? []).filter((s) => s.endTick > s.startTick)
+  if (selected.length === 1) {
+    const s = selected[0]!
+    return {
+      startTick: s.startTick,
+      endTick: s.endTick,
+      durationTicks: s.endTick - s.startTick,
+      spanId: s.id,
+      source: 'selectedSketch',
+    }
+  }
+  if (selected.length > 1) {
+    const startTick = Math.min(...selected.map((s) => s.startTick))
+    const endTick = Math.max(...selected.map((s) => s.endTick))
+    return {
+      startTick,
+      endTick,
+      durationTicks: Math.max(1, endTick - startTick),
+      source: 'selectedSketch',
+    }
+  }
+  const inspect = opts.inspectRange
+  if (inspect && inspect.endTick > inspect.startTick) {
+    return {
+      startTick: inspect.startTick,
+      endTick: inspect.endTick,
+      durationTicks: inspect.endTick - inspect.startTick,
+      source: 'inspect',
+    }
+  }
+  const moment = opts.momentWindow
+  if (moment && moment.durationTicks > 0) {
+    const startTick = Math.max(0, Math.round(moment.startTick))
+    const durationTicks = Math.max(1, Math.round(moment.durationTicks))
+    return {
+      startTick,
+      endTick: startTick + durationTicks,
+      durationTicks,
+      source: 'moment',
+    }
+  }
+  const mel = opts.melodyNote
+  if (mel && mel.durationTicks > 0) {
+    return {
+      startTick: mel.startTick,
+      endTick: mel.startTick + mel.durationTicks,
+      durationTicks: mel.durationTicks,
+      source: 'melody',
+    }
+  }
+  const m = Math.max(1, opts.measureTicks)
+  const start = Math.floor(Math.max(0, opts.playheadTick) / m) * m
+  return {
+    startTick: start,
+    endTick: start + m,
+    durationTicks: m,
+    source: 'measure',
+  }
+}
+
 /**
  * Shared declare window: inspect range → melody note under playhead → +1 measure.
  * Keeps strip typeahead and Harmonize melody windows aligned.
@@ -566,23 +805,13 @@ export function degreeHint(rootPc: number, tonality: number): number {
 export function sketchWindowAtPlayhead(opts: {
   playheadTick: number
   measureTicks: number
+  selectedSpans?: readonly { id: string; startTick: number; endTick: number }[] | null
   inspectRange?: { startTick: number; endTick: number } | null
+  momentWindow?: { startTick: number; durationTicks: number } | null
   melodyNote?: { startTick: number; durationTicks: number } | null
 }): { startTick: number; endTick: number } {
-  const inspect = opts.inspectRange
-  if (inspect && inspect.endTick > inspect.startTick) {
-    return { startTick: inspect.startTick, endTick: inspect.endTick }
-  }
-  const mel = opts.melodyNote
-  if (mel && mel.durationTicks > 0) {
-    return {
-      startTick: mel.startTick,
-      endTick: mel.startTick + mel.durationTicks,
-    }
-  }
-  const m = Math.max(1, opts.measureTicks)
-  const start = Math.floor(Math.max(0, opts.playheadTick) / m) * m
-  return { startTick: start, endTick: start + m }
+  const t = resolveSketchApplyTarget(opts)
+  return { startTick: t.startTick, endTick: t.endTick }
 }
 
 export function formatSketchOption(
@@ -600,10 +829,77 @@ export type HarmonyEntrySuggestion = {
   quality: HarmonySketchQuality
 }
 
+type BrowseCand = {
+  rootPc: number
+  quality: HarmonySketchQuality
+  diatonic: boolean
+  sai: boolean
+}
+
+/**
+ * Browse catalog for the empty Sketch typeahead:
+ * - with Lead: chords that contain the melody pitch (diatonic / SAI first)
+ * - without Lead: in-key (diatonic) sketch chords
+ */
+function browseSketchChordCatalog(opts: {
+  tonality: number
+  mode: TonalityMode
+  leadMidi?: number | null
+}): BrowseCand[] {
+  const tonality = ((opts.tonality % 12) + 12) % 12
+  const diatonicDeg =
+    opts.mode === 'minor'
+      ? new Set([0, 2, 3, 5, 7, 8, 10])
+      : new Set([0, 2, 4, 5, 7, 9, 11])
+  const sai = new Set<string>(CHORDS_SAI11)
+  const leadMidi =
+    opts.leadMidi != null && Number.isFinite(opts.leadMidi) ? opts.leadMidi : null
+  const cands: BrowseCand[] = []
+  for (const r of ROOT_OFFSETS) {
+    const rootPc = (((tonality + r.offset) % 12) + 12) % 12
+    const deg = (((rootPc - tonality) % 12) + 12) % 12
+    const diatonic = diatonicDeg.has(deg)
+    // No melody → only in-key roots; with melody → any root that contains Lead.
+    if (leadMidi == null && !diatonic) continue
+    for (const chord of BARBERSHOP_CHORDS) {
+      if (!isHarmonySketchQuality(chord.id) || isBlankSketchQuality(chord.id)) continue
+      if (leadMidi != null && !chordContainsLead(chord, rootPc, leadMidi)) continue
+      cands.push({
+        rootPc,
+        quality: chord.id,
+        diatonic,
+        sai: sai.has(chord.id),
+      })
+    }
+  }
+  cands.sort((a, b) => {
+    if (a.diatonic !== b.diatonic) return a.diatonic ? -1 : 1
+    if (a.sai !== b.sai) return a.sai ? -1 : 1
+    const ao = (((a.rootPc - tonality) % 12) + 12) % 12
+    const bo = (((b.rootPc - tonality) % 12) + 12) % 12
+    if (ao !== bo) return ao - bo
+    const at = RING_TIER[a.quality] ?? 99
+    const bt = RING_TIER[b.quality] ?? 99
+    if (at !== bt) return at - bt
+    return a.quality.localeCompare(b.quality)
+  })
+  return cands
+}
+
+/** Default empty-browse size — UI scrolls; keep larger than a short chip row. */
+export const HARMONY_ENTRY_BROWSE_LIMIT = 72
+
 /** Code-completion style suggestions for the harmony entry field. */
 export function suggestHarmonyEntries(
   raw: string,
-  opts: { tonality: number; mode: TonalityMode; preferFlats: boolean; entryMode: 'name' | 'roman' },
+  opts: {
+    tonality: number
+    mode: TonalityMode
+    preferFlats: boolean
+    entryMode: 'name' | 'roman'
+    /** When set and the field is empty, prefer chords that contain this melody pitch. */
+    leadMidi?: number | null
+  },
   limit = 8,
 ): HarmonyEntrySuggestion[] {
   const q = raw.trim()
@@ -620,12 +916,32 @@ export function suggestHarmonyEntries(
   }
 
   if (!q) {
-    if (opts.entryMode === 'roman') {
-      for (const s of ['I', 'ii', 'IV', 'V', 'V7', 'vi', '♭VII']) pushParsed(s)
-    } else {
-      for (const s of ['C', 'Dm', 'F', 'G', 'G7', 'Am', 'Bb']) pushParsed(s)
+    const browseLimit = Math.max(limit, HARMONY_ENTRY_BROWSE_LIMIT)
+    const tonality = ((opts.tonality % 12) + 12) % 12
+    // First row: blank placeholder (Enter on empty also commits blank).
+    out.push({
+      label: '—',
+      insert: '—',
+      rootPc: tonality,
+      quality: 'blank',
+    })
+    const cands = browseSketchChordCatalog({
+      tonality: opts.tonality,
+      mode: opts.mode,
+      leadMidi: opts.leadMidi,
+    })
+    for (const c of cands) {
+      const insert =
+        opts.entryMode === 'roman'
+          ? sketchRoman(c, opts.tonality, opts.mode)
+          : absoluteChordLabel(c.rootPc, c.quality, opts.preferFlats, {
+              tonality: opts.tonality,
+              tonalityMode: opts.mode,
+            })
+      pushParsed(insert)
+      if (out.length >= browseLimit) break
     }
-    return out.slice(0, limit)
+    return out.slice(0, browseLimit)
   }
 
   // Normalize ASCII accidentals toward symbols for suggestions.
@@ -661,5 +977,34 @@ export function suggestHarmonyEntries(
     }
   }
 
-  return out.slice(0, limit)
+  // Also surface browse-catalog matches (melody / in-key) that start with the typed text.
+  const typedLimit = Math.max(limit, HARMONY_ENTRY_BROWSE_LIMIT)
+  const qLower = q.toLowerCase()
+  const nLower = normalized.toLowerCase()
+  for (const c of browseSketchChordCatalog({
+    tonality: opts.tonality,
+    mode: opts.mode,
+    leadMidi: opts.leadMidi,
+  })) {
+    if (out.length >= typedLimit) break
+    const insert =
+      opts.entryMode === 'roman'
+        ? sketchRoman(c, opts.tonality, opts.mode)
+        : absoluteChordLabel(c.rootPc, c.quality, opts.preferFlats, {
+            tonality: opts.tonality,
+            tonalityMode: opts.mode,
+          })
+    const label =
+      opts.entryMode === 'roman'
+        ? sketchRoman(c, opts.tonality, opts.mode)
+        : sketchLabel(c, opts.preferFlats, opts.tonality, opts.mode)
+    const hit =
+      insert.toLowerCase().startsWith(qLower) ||
+      insert.toLowerCase().startsWith(nLower) ||
+      label.toLowerCase().startsWith(qLower) ||
+      label.toLowerCase().startsWith(nLower)
+    if (hit) pushParsed(insert)
+  }
+
+  return out.slice(0, typedLimit)
 }

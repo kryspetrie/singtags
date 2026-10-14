@@ -1,12 +1,19 @@
 /**
  * Polyphonic partials synth — same voice graph as PitchPlayer, one voice per note.
  */
+import {
+  createInteractiveAudioContext,
+  ensureAudioKeepalive,
+  stopAudioKeepalive,
+  type AudioKeepalive,
+} from './interactiveAudioContext'
 import { noteToFrequency } from './pitchPlayer'
 import { noteToMidi } from './pianoSamples'
 import {
   clonePitchPipeVoice,
   DEFAULT_PITCH_PIPE_VOICE,
   getActivePitchPipeVoice,
+  PITCH_PIPE_ATTACK_START_GAIN,
   type PitchPipeVoiceConfig,
 } from './pitchPipeVoice'
 import { frequencyEaseInOutCurve, midiToHz } from '../lib/tagRoll/portamento'
@@ -37,6 +44,7 @@ export class PolySynthPlayer {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
   private filter: BiquadFilterNode | null = null
+  private keepalive: AudioKeepalive | null = null
   private voices = new Map<string, SynthVoice>()
   private voice: PitchPipeVoiceConfig = clonePitchPipeVoice(DEFAULT_PITCH_PIPE_VOICE)
   private lastDetuneCents = 0
@@ -79,13 +87,21 @@ export class PolySynthPlayer {
   }
 
   private ensure(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext()
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.ctx = createInteractiveAudioContext()
       this.master = this.ctx.createGain()
       this.master.gain.value = this.voice.masterGain
       this.master.connect(this.ctx.destination)
+      this.filter = null
     }
     return this.ctx
+  }
+
+  /** Create/resume context on a user gesture (Tag Studio Play before blow-pitch await). */
+  async warmUp(): Promise<void> {
+    const ctx = this.ensure()
+    if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
   }
 
   private mixBus(ctx: AudioContext): AudioNode {
@@ -117,7 +133,9 @@ export class PolySynthPlayer {
     mix?: NoteMixOpts,
   ): Promise<void> {
     const ctx = this.ensure()
+    // Only await when suspended — a no-op resume() can still add a frame of latency.
     if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
     this.lastDetuneCents = detuneCents
     const key = mix?.voiceKey ?? note
     this.noteOff(key, false)
@@ -127,9 +145,15 @@ export class PolySynthPlayer {
     const mixBus = this.mixBus(ctx)
     const voiceGain = ctx.createGain()
     voiceGain.gain.value = mix?.gain ?? 1
-    const panner = createPanner(ctx, mix?.pan ?? 0)
-    voiceGain.connect(panner.node)
-    panner.node.connect(mixBus)
+    const pan = mix?.pan ?? 0
+    const pannerNode =
+      Math.abs(pan) > 0.001 ? createPanner(ctx, pan).node : null
+    if (pannerNode) {
+      voiceGain.connect(pannerNode)
+      pannerNode.connect(mixBus)
+    } else {
+      voiceGain.connect(mixBus)
+    }
 
     const base = noteToFrequency(note)
     const freq = base * 2 ** (detuneCents / 1200)
@@ -144,11 +168,17 @@ export class PolySynthPlayer {
       osc.type = partial.type
       osc.frequency.value = freq * 2 ** (partial.semitones / 12)
       osc.detune.value = partial.detuneCents
-      g.gain.value = 0
+      if (attack > 0.002) {
+        // Pitch-pipe: swell from 25%. Tag Studio envelopes still fade up from silence.
+        const startRatio = this.envelopeOverride ? 0 : PITCH_PIPE_ATTACK_START_GAIN
+        g.gain.setValueAtTime(Math.max(0.0001, partial.gain * startRatio), now)
+        g.gain.linearRampToValueAtTime(partial.gain, now + attack)
+      } else {
+        g.gain.value = partial.gain
+      }
       osc.connect(g)
       g.connect(voiceGain)
-      g.gain.linearRampToValueAtTime(partial.gain, now + attack)
-      osc.start()
+      osc.start(now)
       oscs.push(osc)
       gains.push(g)
       partialSemitones.push(partial.semitones)
@@ -161,7 +191,7 @@ export class PolySynthPlayer {
       gains,
       partialSemitones,
       voiceGain,
-      panner: panner.node,
+      panner: pannerNode ?? voiceGain,
       startedAt: now,
     })
   }
@@ -244,7 +274,7 @@ export class PolySynthPlayer {
       }
       try {
         voiceGain.disconnect()
-        panner.disconnect()
+        if (panner !== voiceGain) panner.disconnect()
       } catch {
         /* ignore */
       }
@@ -273,6 +303,8 @@ export class PolySynthPlayer {
 
   dispose(): void {
     this.allNotesOff(false)
+    stopAudioKeepalive(this.keepalive)
+    this.keepalive = null
     if (this.filter) {
       try {
         this.filter.disconnect()

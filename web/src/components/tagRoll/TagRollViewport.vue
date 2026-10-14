@@ -80,6 +80,8 @@ type ChordCursorHighlight = {
 const props = defineProps<{
   project: TagRollProject
   selectedNoteIds: string[]
+  /** Sketch spans selected in the Declared lane — empty click deselects these too. */
+  selectedSketchSpanIds?: readonly string[]
   ghostNotes?: GhostNote[]
   /** Vertical stack highlight for the chord currently under coach focus. */
   chordCursor?: ChordCursorHighlight | null
@@ -282,7 +284,8 @@ const marqueeUi = ref(false)
 const cursorEdgeHover = ref(false)
 
 function maxScrollX(): number {
-  return Math.max(0, gridW.value - cssW.value)
+  const w = ticksToPx(timelineLengthTicks(), cellW.value)
+  return Math.max(0, w - cssW.value)
 }
 function maxScrollY(): number {
   // Pitch plane sits below the header band; scroll range is pitch-grid vs pitch viewport.
@@ -290,7 +293,22 @@ function maxScrollY(): number {
   return Math.max(0, gridH.value - pitchH)
 }
 
+function timelineLengthTicks(): number {
+  // Prefer live store so extendLengthToTick grows scroll room in the same turn.
+  return store.current?.lengthTicks ?? props.project.lengthTicks
+}
+
+function requestLengthForScroll(desiredX: number): void {
+  // When the user pans near/past the right edge, grow the timeline.
+  const needPx = desiredX + cssW.value + Math.max(120, cssW.value * 0.35)
+  const needTick = pxToTicks(needPx, cellW.value)
+  if (needTick > timelineLengthTicks()) {
+    store.extendLengthToTick(needTick)
+  }
+}
+
 function clampScroll(x: number, y: number): { x: number; y: number } {
+  if (x > maxScrollX() - 8) requestLengthForScroll(x)
   return {
     x: Math.max(0, Math.min(maxScrollX(), x)),
     y: lockPiano.value ? scrollY.value : Math.max(0, Math.min(maxScrollY(), y)),
@@ -957,7 +975,12 @@ function onPointerDown(e: PointerEvent): void {
       startClientY: e.clientY,
       moved: false,
     }
-    if (props.selectedNoteIds.length) emit('select', null)
+    if (
+      props.selectedNoteIds.length ||
+      (props.selectedSketchSpanIds?.length ?? 0) > 0
+    ) {
+      emit('select', null)
+    }
     emit('playhead', tick)
     return
   }
@@ -973,7 +996,12 @@ function onPointerDown(e: PointerEvent): void {
       startClientY: e.clientY,
       moved: false,
     }
-    if (props.selectedNoteIds.length) emit('select', null)
+    if (
+      props.selectedNoteIds.length ||
+      (props.selectedSketchSpanIds?.length ?? 0) > 0
+    ) {
+      emit('select', null)
+    }
     return
   }
 
@@ -1361,7 +1389,8 @@ function onPointerUp(e: PointerEvent): void {
     emit('marqueeActive', false)
     draw()
     if (!g.moved) {
-      const hasSel = props.selectedNoteIds.length > 0
+      const hasSel =
+        props.selectedNoteIds.length > 0 || (props.selectedSketchSpanIds?.length ?? 0) > 0
       if (composeEmptyClickAction(hasSel, { forcePlace: g.additive }) === 'deselect') {
         emit('select', null)
         return
@@ -1406,7 +1435,9 @@ function onWheel(e: WheelEvent): void {
     return
   }
   if (e.altKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-    const next = clampScroll(scrollX.value + (e.deltaX || e.deltaY), scrollY.value)
+    const rawX = scrollX.value + (e.deltaX || e.deltaY)
+    requestLengthForScroll(rawX)
+    const next = clampScroll(rawX, scrollY.value)
     emit('scroll', next.x, next.y)
     return
   }

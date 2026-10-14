@@ -122,6 +122,8 @@ export type PathOptimizeOpts = {
   explore?: boolean
   temperature?: number
   seed?: number
+  /** Ensemble voicing profile for Revoice (ranges / pitch center / outer span). */
+  voicingProfile?: import('../voicingProfile').VoicingProfile
   /** Multi-pass overlapping windows (default 12, max 500). */
   maxPasses?: number
   /** Window width in moments (default 8). */

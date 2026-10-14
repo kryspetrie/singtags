@@ -13,10 +13,8 @@ import { usePreferencesStore } from '../../stores/preferences'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
 
 const TRACK_H = 44
-/** Hide ◆ when the cell is narrower than this (px). */
-const PILLAR_BADGE_MIN_W = 36
-/** Hide alt when the cell can't fit alt + ◆ (px). */
-const ALT_BADGE_MIN_W = 52
+/** Hide alt badge when the cell is narrower than this (px). */
+const ALT_BADGE_MIN_W = 40
 
 const INTEREST_CYCLE: readonly DetectedInterestLevel[] = ['basic', 'mild', 'bold']
 const INTEREST_LABEL: Record<DetectedInterestLevel, string> = {
@@ -40,8 +38,6 @@ const emit = defineEmits<{
   lockAll: []
   /** Open / toggle Detected chord in the right dock. */
   edit: [seg: ChordAnalysisSegment]
-  /** Lock this detection into Sketch as a structural pillar. */
-  togglePillar: [seg: ChordAnalysisSegment]
   /** Cycle ranked Detected picks for this hole (top 5). */
   cycleAlt: [seg: ChordAnalysisSegment]
 }>()
@@ -87,10 +83,6 @@ function segWidthPx(seg: ChordAnalysisSegment): number {
   return stripSegW(seg.startTick, seg.endTick, cellW.value, ppq.value)
 }
 
-function showPillarBadge(seg: ChordAnalysisSegment): boolean {
-  return segWidthPx(seg) >= PILLAR_BADGE_MIN_W
-}
-
 function showAltBadge(seg: ChordAnalysisSegment): boolean {
   return (seg.altCount ?? 0) > 1 && segWidthPx(seg) >= ALT_BADGE_MIN_W
 }
@@ -105,21 +97,9 @@ function setMode(m: ChordAnalysisMode): void {
   emit('update:mode', m)
 }
 
-function onDetectClick(seg: ChordAnalysisSegment, e?: MouseEvent): void {
-  if (e?.altKey) {
-    onPillarBadge(seg, e)
-    return
-  }
+function onDetectClick(seg: ChordAnalysisSegment): void {
   emit('focusRange', seg.startTick, seg.endTick)
   emit('edit', seg)
-}
-
-function onPillarBadge(seg: ChordAnalysisSegment, e: Event): void {
-  e.stopPropagation()
-  e.preventDefault()
-  if (seg.rootPc == null) return
-  emit('focusRange', seg.startTick, seg.endTick)
-  emit('togglePillar', seg)
 }
 
 function onAltBadge(seg: ChordAnalysisSegment, e: Event): void {
@@ -243,10 +223,10 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
               :aria-label="`Detected: ${labelOf(seg)}`"
               :title="
                 seg.cadenceLabel
-                  ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit; ◆ / Alt+click = pillar`
-                  : `Detected: ${labelOf(seg)} — click to edit; ◆ / Alt+click = pillar`
+                  ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit`
+                  : `Detected: ${labelOf(seg)} — click to edit`
               "
-              @click="onDetectClick(seg, $event)"
+              @click="onDetectClick(seg)"
             />
             <span class="txt" aria-hidden="true">{{ labelOf(seg) }}</span>
             <button
@@ -259,17 +239,6 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
               @click="onAltBadge(seg, $event)"
             >
               {{ altLabel(seg) }}
-            </button>
-            <button
-              v-if="showPillarBadge(seg)"
-              type="button"
-              class="pillar-badge"
-              title="Lock as pillar into Sketch (Alt+click)"
-              aria-label="Lock as pillar"
-              :disabled="seg.rootPc == null"
-              @click="onPillarBadge(seg, $event)"
-            >
-              ◆
             </button>
           </div>
         </div>
@@ -444,35 +413,5 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
   opacity: 1;
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.pillar-badge {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
-  color: #1f6b45;
-  font: inherit;
-  font-size: 0.55rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.85;
-}
-.pillar-badge:hover:not(:disabled),
-.cell.menu .pillar-badge {
-  opacity: 1;
-  background: color-mix(in srgb, #2a8c5a 22%, transparent);
-}
-.pillar-badge:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
 }
 </style>

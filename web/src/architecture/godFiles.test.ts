@@ -53,7 +53,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/tagRoll/TagRollExpressionLane.vue': 970, // bottom-lane shell + shared time grid
   'components/tagRoll/TagRollMediaBar.vue': 1230, // lane toggles beside W/H + major/minor key optgroups
   'components/tagRoll/TagRollHarmonizePanel.vue': 1665, // Suggest measure-anchor + moment window apply
-  'components/tagRoll/TagRollDeclaredLane.vue': 840, // Sketch-lane pillar badge + Alt+click + Realize emit
+  'components/tagRoll/TagRollDeclaredLane.vue': 840, // Sketch-lane typeahead + Realize emit
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,

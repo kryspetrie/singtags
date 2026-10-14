@@ -43,4 +43,9 @@ export type PitchPipePrefs = {
    * Default on; turn off on mobile if the highlight is distracting.
    */
   showPcKeyRange: boolean
+  /**
+   * Synth note-on fade-in (seconds). Starts at 25% level, ramps to full.
+   * 0 = instant. Acoustic samples ignore this.
+   */
+  attackSec: number
 }

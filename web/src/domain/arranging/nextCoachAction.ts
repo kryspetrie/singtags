@@ -26,6 +26,7 @@ export type CoachNextAction = {
     | 'lock_pillars'
     | 'cover_gaps'
     | 'walk_choose'
+    | 'resolve_passing'
     | 'fix_issues'
     | 'done'
 }
@@ -40,6 +41,10 @@ export function resolveCoachNextAction(opts: {
    * skip “mark pillars first” and go to Choose chords.
    */
   hasSoftHarmonyMap?: boolean
+  /**
+   * Lead onsets under Sketch that are not chord tones (Approach One leftovers).
+   */
+  passingMismatchCount?: number
 }): CoachNextAction {
   const p = opts.project
   if (!p || !p.melody.length) {
@@ -64,7 +69,7 @@ export function resolveCoachNextAction(opts: {
       return {
         id: 'walk_choose',
         title: 'Choose chords',
-        body: 'Sketch/Detected already map the phrase — step moments and Apply voicings. ◆ on Sketch is optional for structural home roots.',
+        body: 'Sketch/Detected already map the phrase — step moments and Apply voicings. Strong vs passing Lead roles guide home roots.',
         cta: 'Choose chords',
         focus: 'choose',
         kind: 'walk_choose',
@@ -72,10 +77,10 @@ export function resolveCoachNextAction(opts: {
     }
     return {
       id: 'suggest_pillars',
-      title: 'Mark home roots on Sketch',
+      title: 'Paint phrase chords on Sketch',
       body: repair
-        ? 'Harmony is already on the roll. Lock phrase chords in Sketch, then Alt+click (or ◆) to mark structural home roots — stacks stay put.'
-        : 'Open Sketch, lock phrase chords, then Alt+click (or ◆) to mark pillars. Coach reads those home roots when ranking.',
+        ? 'Harmony is already on the roll. Lock phrase chords in Sketch (stacks stay put). Mark Strong vs passing Lead notes so Coach knows the homes.'
+        : 'Open Sketch and lock phrase chords. Coach homes come from Strong vs passing Lead notes — not manual pillar tags.',
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'suggest_pillars',
@@ -87,7 +92,7 @@ export function resolveCoachNextAction(opts: {
     return {
       id: 'cover_gaps',
       title: 'Cover uncovered melody',
-      body: `${gaps.length} Lead onset(s) sit before the first home-root pillar — add or move a Sketch pillar earlier.`,
+      body: `${gaps.length} Lead onset(s) sit before the first Sketch chord — extend Sketch earlier, or mark an earlier Strong melody note.`,
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'cover_gaps',
@@ -98,11 +103,11 @@ export function resolveCoachNextAction(opts: {
   if (unconfirmed) {
     return {
       id: 'lock_pillars',
-      title: repair && known > 0 ? 'Confirm Sketch pillars' : 'Confirm Sketch pillars',
+      title: repair && known > 0 ? 'Confirm draft homes' : 'Confirm draft homes',
       body:
         repair && known > 0
-          ? `${unconfirmed} draft home root(s) still on the Coach lane. Prefer marking pillars on Sketch; Lock only if you used Propose.`
-          : `${unconfirmed} draft home root(s) — mark pillars on Sketch, or Lock a Coach draft if you Proposed one.`,
+          ? `${unconfirmed} draft home root(s) still on the Coach lane. Prefer Strong/passing roles + Sketch chords; Lock only if you used Propose.`
+          : `${unconfirmed} draft home root(s) — paint Sketch chords and check Strong/passing roles, or Lock a Coach draft if you Proposed one.`,
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'lock_pillars',
@@ -149,6 +154,18 @@ export function resolveCoachNextAction(opts: {
       cta: repair ? 'Fill gaps' : 'Choose chords',
       focus: 'choose',
       kind: 'walk_choose',
+    }
+  }
+
+  const passingN = opts.passingMismatchCount ?? 0
+  if (passingN > 0) {
+    return {
+      id: 'resolve_passing',
+      title: 'Resolve passing tones',
+      body: `${passingN} Lead note(s) don’t fit the covering Sketch chord — Apply carves short Sketch chords and stacks.`,
+      cta: 'Resolve passing',
+      focus: 'choose',
+      kind: 'resolve_passing',
     }
   }
 

@@ -7,6 +7,11 @@ export type RankingWeights = {
   seventh: number
   closedVoicing: number
   ring: number
+  /**
+   * Secondary ring driver from measured JI stack priors (`nature:voicing`).
+   * Prefers catalog shells that FFT-ranked as stronger lock (esp. among same nature).
+   */
+  stackRing: number
   secondaryDominant: number
   augDimPrimaryPenalty: number
   harmonicity: number

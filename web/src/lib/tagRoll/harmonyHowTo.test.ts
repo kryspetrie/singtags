@@ -6,6 +6,7 @@ import {
   formatHowToPlain,
   HARMONIZE_HOWTO,
   HARMONY_STRIP_HOWTO,
+  ROLES_HOWTO,
   SKETCH_LANE_HOWTO,
 } from './harmonyHowTo'
 
@@ -34,5 +35,13 @@ describe('harmonyHowTo', () => {
     const text = formatHowToPlain(SKETCH_LANE_HOWTO)
     expect(text).toMatch(/paint|map/i)
     expect(text).toMatch(/Realize/)
+  })
+
+  it('defines Strong vs Passing for Roles', () => {
+    const text = formatHowToPlain(ROLES_HOWTO)
+    expect(text).toMatch(/^Strong\n/m)
+    expect(text).toMatch(/^Passing\n/m)
+    expect(text).toMatch(/structural harmony/i)
+    expect(text).toMatch(/connect/i)
   })
 })

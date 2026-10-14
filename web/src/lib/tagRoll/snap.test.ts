@@ -3,6 +3,7 @@ import {
   dottedDurationTicks,
   durationTicksForId,
   ensureLengthForNote,
+  ensureLengthForTick,
   nearestDurationId,
   snapTick,
   stepDurationTicks,
@@ -49,5 +50,7 @@ describe('tagRoll snap', () => {
     expect(ensureLengthForNote(measure * 2, 0, TAG_ROLL_PPQ)).toBe(measure * 2)
     expect(ensureLengthForNote(measure, measure - 10, TAG_ROLL_PPQ)).toBeGreaterThan(measure)
     expect(ensureLengthForNote(measure, measure - 10, TAG_ROLL_PPQ) % measure).toBe(0)
+    expect(ensureLengthForTick(measure, measure + 10, measure, 2)).toBeGreaterThan(measure)
+    expect(ensureLengthForTick(measure * 4, measure, measure, 2)).toBe(measure * 4)
   })
 })

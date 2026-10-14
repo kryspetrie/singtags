@@ -561,6 +561,15 @@ export const LESSONS: readonly LessonCard[] = [
     citations: [ryl('JI model')],
   },
   {
+    id: 'L-f-stackRing',
+    factorId: 'stackRing',
+    title: 'Stack ring (measured)',
+    body:
+      'Secondary preference for catalog voicings that measured stronger under just-intonation FFT lock analysis. Helps pick the ringing inversion of the same chord; Coach Ring % blends this with analytical harmonicity. Song/phrase endings still prefer a major tonic home.',
+    glossaryIds: ['ji', 'lock_ring'],
+    citations: [ryl('lock & ring')],
+  },
+  {
     id: 'L-f-vl',
     factorId: 'voiceLead',
     title: 'Voice-leading distance',

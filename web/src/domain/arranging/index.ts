@@ -47,6 +47,7 @@ export {
 export * from './justIntonation'
 export * from './harmonize'
 export * from './harmonicity/harmonicityScore'
+export * from './harmonicity/stackRingScore'
 export * from './qa'
 export * from './voiceLeading'
 export * from './songEligibility'
@@ -88,6 +89,7 @@ export * from './progressionAnalyze'
 export * from './keyChange'
 export * from './keyChangeForm'
 export * from './dim7Hints'
+export * from './passingUnderSketch'
 export {
   autocompleteNextChord,
   autocompleteSubstitutionChips,

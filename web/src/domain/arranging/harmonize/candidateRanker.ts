@@ -4,6 +4,7 @@
 import { ringTier } from '../contestProfile'
 import type { HarmonicityScorer } from '../harmonicity/harmonicityScore'
 import { createHarmonicityScorer } from '../harmonicity/harmonicityScore'
+import { stackRingPrior } from '../harmonicity/stackRingScore'
 import { theoryRankBonuses, voiceLeadScore } from '../theoryScores'
 import {
   scoreCadenceFit,
@@ -209,11 +210,14 @@ function songFinalHomeBias(
       if (c.natureId === 'm7') return w.songFinalHome * 0.4
       return w.songFinalHome * 0.25
     }
-    if (c.natureId === 'major') return w.songFinalHome
-    if (c.natureId === 'seventh') return w.songFinalHome * 0.4
+    if (c.natureId === 'major') {
+      // Prefer the ringing major shell on the held final (stack prior secondary).
+      return w.songFinalHome * (1 + 0.45 * stackRingPrior(c.natureId, c.voicing))
+    }
+    if (c.natureId === 'seventh') return w.songFinalHome * 0.35
     // Unforced i / i7 under a major tonic close — not a legal home.
     if (c.natureId === 'minor' || c.natureId === 'm7') return -w.songFinalHome * 0.55
-    return w.songFinalHome * 0.15
+    return w.songFinalHome * 0.12
   }
   // Non-tonic ending — especially hanging dominants — are junk for a close.
   const deg = degreeOf(c.rootPc, tonality)
@@ -383,9 +387,10 @@ function finalCompleteBias(
     if (c.natureId === 'minor') score += w.finalComplete
     else if (c.natureId === 'm7') score -= w.finalComplete * 0.85
   } else if (c.natureId === 'major') {
-    score += w.finalComplete
+    // Cadence/tag tonic: major triad home, prefer higher-ring inversions.
+    score += w.finalComplete * (1 + 0.4 * stackRingPrior(c.natureId, c.voicing))
   } else if (c.natureId === 'seventh') {
-    score -= w.finalComplete * 0.9
+    score -= w.finalComplete * 0.95
   }
 
   if (kind === 'root') score += w.finalComplete * 0.35
@@ -477,13 +482,19 @@ function registerHomeBias(c: UnscoredCandidate, w: RankingWeights): number {
   const { bass, bari, lead, tenor } = c.midi
   let score = 0
   const outer = tenor - bass
-  // Comfort bass band (concert): about A2–G3 — but not by divorcing the stack.
-  // Mid-register V7 variants (span 21) must not outrank close shells on bass alone.
-  if (bass >= 45 && bass <= 55 && outer <= 16) score += 1.1
-  else if (bass >= 45 && bass <= 55) score += 0.15
-  else if (bass > 55 && bass <= 62 && outer <= 12) score -= (bass - 55) * 0.05
-  else if (bass > 55) score -= (bass - 55) * 0.18
-  else if (bass < 45) score -= (45 - bass) * 0.12
+  // Prefer closed mid–high shells (C3–E3 bass) — brighter ring, less mud.
+  // Wide/low stacks are demoted even when bass alone looks “comfortable”.
+  if (bass >= 48 && bass <= 58 && outer <= 12) score += 1.45
+  else if (bass >= 45 && bass <= 55 && outer <= 16) score += 0.85
+  else if (bass >= 45 && bass <= 55) score += 0.1
+  else if (bass > 58 && bass <= 64 && outer <= 12) score += 0.35
+  else if (bass > 58) score -= (bass - 58) * 0.12
+  if (bass < 48) score -= (48 - bass) * 0.2
+  if (bass < 45) score -= (45 - bass) * 0.15
+  const mean = (bass + bari + lead + tenor) / 4
+  if (outer <= 12 && mean >= 58) score += 0.55
+  else if (outer <= 12 && mean >= 54) score += 0.25
+  else if (mean < 50) score -= 0.45
   // Prefer bass on chord root or 5th (Prietto/BAM) — inferred from voicing string.
   const bassRole = Number(c.voicing[0])
   if (bassRole === 1) score += 0.55
@@ -568,10 +579,13 @@ export function rankCandidates(
       const outer = c.midi.tenor - c.midi.bass
       // Hard cap allows ≤21 so mid-register V7 can place; still strongly prefer
       // octave-or-tighter shells when both exist (Bonnie F7 5713 over span-21).
-      if (outer <= 12) score += w.closedVoicing * 0.7
-      else if (outer <= 16) score += w.closedVoicing * 0.05
-      else if (outer <= 21) score -= w.closedVoicing * 0.35
-      else score -= w.closedVoicing * 0.55
+      if (outer <= 12) score += w.closedVoicing * 1.1
+      else if (outer <= 16) score += w.closedVoicing * 0.15
+      else if (outer <= 21) score -= w.closedVoicing * 0.55
+      else score -= w.closedVoicing * 0.85
+    } else {
+      // Spread is allowed for risk paths but Harmonize should rarely prefer it.
+      score -= w.closedVoicing * 0.85
     }
     // Ades: close = upper three within an octave (independent of bass–tenor span).
     score += w.upperTrioClose * upperTrioCloseBias(c.midi)
@@ -581,6 +595,9 @@ export function rankCandidates(
       w.postLeapDirection *
       postLeapDirectionPenalty(c.prevPrevMidi, c.prevMidi, c.midi, { sameChord })
     score += w.ring * Math.max(0, 7 - ringTier(c.natureId))
+    // Secondary: prefer catalog shells with stronger measured JI lock.
+    const stackRing = stackRingPrior(c.natureId, c.voicing)
+    score += w.stackRing * stackRing
 
     const tags = [...c.ruleTags] as RuleTag[]
     const isSecDom =
@@ -795,6 +812,11 @@ export function explainRankingBreakdown(
         }),
     },
     { label: 'ring', value: w.ring * Math.max(0, 7 - ringTier(c.natureId)) },
+    {
+      label: 'stackRing',
+      value: w.stackRing * stackRingPrior(c.natureId, c.voicing),
+      teachingId: 'lock_ring',
+    },
     { label: 'secondaryDominant', value: secDom, teachingId: 'secondary_dom' },
     {
       label: 'voiceLead',

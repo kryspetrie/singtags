@@ -39,7 +39,13 @@ describe('notesAtTick', () => {
   it('finds last note end and playback stop tick', () => {
     expect(lastNoteEndTick(notes)).toBe(720)
     expect(playbackEndTick(notes, TAG_ROLL_PPQ * 8)).toBe(720)
-    expect(playbackEndTick([], TAG_ROLL_PPQ * 8)).toBe(TAG_ROLL_PPQ * 8)
+    // No notes and no sketch → stop immediately (timeline length is for scrolling).
+    expect(playbackEndTick([], TAG_ROLL_PPQ * 8)).toBe(0)
     expect(playbackEndTick(notes, 100)).toBe(100)
+    expect(
+      playbackEndTick([], TAG_ROLL_PPQ * 8, {
+        sketchSpans: [{ endTick: 960, locked: true }],
+      }),
+    ).toBe(960)
   })
 })

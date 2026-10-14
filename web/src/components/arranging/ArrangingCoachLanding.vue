@@ -12,9 +12,9 @@ defineEmits<{
     <h3 class="title">How to use Coach</h3>
     <p class="lead">
       Auto Coach needs Lead + key + Strong/Passing (defaults if unlabeled). High-confidence
-      homes lock automatically; amber homes need a one-tap ◆ lock (Home transport:
-      <strong>Next review</strong>). Full pillar maps stay optional / advanced. Use the step
-      rail (Home > Chords > Check > Auto > Polish).
+      homes lock automatically; amber Coach-lane homes need a one-tap ◆ confirm (Home
+      transport: <strong>Next review</strong>). Sketch is a chord map — not a place to tag
+      pillars. Use the step rail (Home > Chords > Check > Auto > Polish).
     </p>
 
     <ol class="steps">
@@ -23,14 +23,15 @@ defineEmits<{
         <span>
           Toolbar > Roles: set the Melody part (M). Mark Strong (structural homes) vs Passing
           (connective) with S / P, or leave blank — Auto assigns from duration, beat, and phrase
-          edges. Path Optimize Classic runs from those labels without confirmed pillars.
+          edges. Path Optimize Classic runs from those labels.
         </span>
       </li>
       <li>
-        <strong>Sketch map (optional / advanced)</strong>
+        <strong>Sketch map (optional)</strong>
         <span>
-          Amber Coach-lane homes are low-confidence Auto guesses — lock with ◆ or change the
-          root. Optional: paint a full Sketch pillar map. Not required for Auto Path Optimize.
+          Paint phrase chords on Sketch when you want a harmony map. Amber Coach-lane homes are
+          low-confidence Auto guesses — confirm with ◆ or change the root. Not required for Auto
+          Path Optimize.
         </span>
       </li>
       <li>
@@ -52,7 +53,8 @@ defineEmits<{
         <span>
           Path Optimizer: fill empties, revoice, or rechord for the whole song, a selection, or
           the current chord. Tune VL↔Ring, Run, audition — Try again for alternates. Chord Walk
-          keys on Chords: ←→ ↑↓ F H Q.
+          keys on Chords: ↑↓ suggests, [/] inversion, W closed/wide, F/Enter apply, H hear, Q
+          empty (←→ notes).
         </span>
       </li>
       <li>

@@ -10,6 +10,7 @@ import {
 import type { HarmonyPreviewDraft } from '../lib/tagRoll/harmonyPreviewDraft'
 import {
   isHarmonySketchQuality,
+  type HarmonyAbsorbNeighbor,
   type HarmonySketchQuality,
 } from '../lib/tagRoll/harmonySketch'
 import type { TagRollProject } from '../lib/tagRoll/types'
@@ -44,6 +45,11 @@ export function useTagRollChordEditDock(opts: {
   ) => void
   applyDraft: (id: string, draft: { rootPc: number; quality: HarmonySketchQuality }) => void
   removeSketch: (id: string) => void
+  /** Prefer over removeSketch — removes the cell and leaves empty time. */
+  absorbSketch?: (
+    removal: { id: string; startTick: number; endTick: number },
+    adjacent: { left?: HarmonyAbsorbNeighbor | null; right?: HarmonyAbsorbNeighbor | null },
+  ) => void
   hearSketch: (
     startTick: number,
     endTick: number,
@@ -162,10 +168,35 @@ export function useTagRollChordEditDock(opts: {
     opts.selectSketchSpans([session.segId])
   }
 
+  function neighborFromSeg(x: ChordAnalysisSegment): HarmonyAbsorbNeighbor | null {
+    if (x.rootPc == null) return null
+    const quality = isHarmonySketchQuality(x.natureId) ? x.natureId : 'major'
+    return {
+      id: x.id,
+      startTick: x.startTick,
+      endTick: x.endTick,
+      rootPc: x.rootPc,
+      quality,
+    }
+  }
+
   function onRemove(): void {
     const s = seg.value
-    if (!s || opts.session.value?.variant !== 'declared') return
-    opts.removeSketch(s.id)
+    const session = opts.session.value
+    if (!s || !session) return
+    const list =
+      session.variant === 'declared' ? opts.declaredSegments.value : opts.detectSegments.value
+    const idx = list.findIndex((x) => x.id === s.id)
+    const left = idx > 0 ? neighborFromSeg(list[idx - 1]!) : null
+    const right = idx >= 0 && idx < list.length - 1 ? neighborFromSeg(list[idx + 1]!) : null
+    if (opts.absorbSketch) {
+      opts.absorbSketch(
+        { id: s.id, startTick: s.startTick, endTick: s.endTick },
+        { left, right },
+      )
+    } else {
+      opts.removeSketch(s.id)
+    }
     close()
   }
 

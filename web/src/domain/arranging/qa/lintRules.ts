@@ -3,6 +3,7 @@ import { isNatureAllowed } from '../contestProfile'
 import { analyzeVoiceLeading } from '../voiceLeading'
 import { assessSongEligibility, phraseLengthHint } from '../songEligibility'
 import { strongVoicingLints } from '../strongVoicing'
+import { VOICING_PART_IDS } from '../voicingProfile'
 import {
   keySuggestionLints,
   missingPillarCoverageLints,
@@ -85,6 +86,47 @@ export const leadRangeRule: LintRule = {
           severity: 'warn',
           message: `Lead note MIDI ${n.midi} may be outside average TTBB lead range — check key.`,
           noteId: n.id,
+        })
+      }
+    }
+    return out
+  },
+}
+
+/** Parts vs the arranger’s Ranges strip (presets / custom bands + max span). */
+export const ensemblePartRangeRule: LintRule = {
+  id: 'ensemble-part-range',
+  check(project, ctx) {
+    const vp = ctx.voicingProfile
+    if (!vp) return []
+    const out: ArrangementLint[] = []
+    for (const s of project.stacks) {
+      if (!s.midi || s.layer === 'embellishment') continue
+      const midi = s.midi
+      for (const part of VOICING_PART_IDS) {
+        const band = vp.parts[part]
+        const m = midi[part]
+        if (m < band.min || m > band.max) {
+          const label = part.charAt(0).toUpperCase() + part.slice(1)
+          out.push({
+            id: `ensemble-range-${s.id}-${part}`,
+            ruleId: 'ensemble-part-range',
+            severity: 'warn',
+            message: `${label} MIDI ${m} is outside the Ranges band ${band.min}–${band.max}.`,
+            stackId: s.id,
+            data: { part, midi: m, min: band.min, max: band.max },
+          })
+        }
+      }
+      const span = midi.tenor - midi.bass
+      if (span > vp.maxOuterSpan) {
+        out.push({
+          id: `ensemble-span-${s.id}`,
+          ruleId: 'ensemble-part-range',
+          severity: 'warn',
+          message: `Outer span ${span} semitones exceeds max ${vp.maxOuterSpan} (Ranges).`,
+          stackId: s.id,
+          data: { span, maxOuterSpan: vp.maxOuterSpan },
         })
       }
     }
@@ -357,6 +399,7 @@ export const DEFAULT_LINT_RULES: LintRule[] = [
   noMelodyRule,
   pillarsRule,
   leadRangeRule,
+  ensemblePartRangeRule,
   illegalNatureRule,
   unrecognizedNatureRule,
   augUsageRule,

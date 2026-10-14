@@ -3,7 +3,7 @@
  * Tag Studio project list.
  */
 import { onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
 import { readTagRollMusicXmlFile } from '../lib/tagRoll/musicxmlImport'
 import { tagRollTip } from '../lib/tagRoll/shortcuts'
@@ -11,6 +11,7 @@ import { useTagRollStore } from '../stores/tagRoll'
 import { useSnackbarStore } from '../stores/snackbar'
 
 const store = useTagRollStore()
+const route = useRoute()
 const router = useRouter()
 const snackbar = useSnackbarStore()
 const importInput = ref<HTMLInputElement | null>(null)
@@ -18,7 +19,27 @@ const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
 
 onMounted(() => {
-  void store.refreshList()
+  void (async () => {
+    const resync =
+      route.query.resyncSeeds === '1' ||
+      route.query.resyncSeeds === 'true' ||
+      route.query.resyncPolecat === '1'
+    if (resync) {
+      const { clearedDismissals } = await store.resyncPolecatPitchSeeds()
+      const n = store.summaries.filter((s) => s.id.startsWith('seed-polecat-pitch-')).length
+      snackbar.show(
+        `Polecat seeds: ${n} in library` +
+          (clearedDismissals ? ` (cleared ${clearedDismissals} dismissals)` : ''),
+        { title: 'Tag Studio', tone: 'success', ms: 4500 },
+      )
+      const q = { ...route.query }
+      delete q.resyncSeeds
+      delete q.resyncPolecat
+      await router.replace({ query: q })
+      return
+    }
+    await store.refreshList()
+  })()
 })
 
 async function onCreate(): Promise<void> {

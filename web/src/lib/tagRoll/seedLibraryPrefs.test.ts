@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearPolecatPitchSeedDismissals,
   dismissTagRollSeed,
   isTagRollLibraryInitialized,
   isTagRollSeedDismissed,
@@ -44,6 +45,15 @@ describe('seedLibraryPrefs', () => {
     dismissTagRollSeed('seed-coach-trial-bonnie-classic')
     expect(isTagRollSeedDismissed('seed-coach-trial-bonnie-classic')).toBe(true)
     expect(isTagRollSeedDismissed('seed-polecat-pitch-90001')).toBe(false)
+  })
+
+  it('clears polecat pitch dismissals only', () => {
+    stubLocalStorage()
+    dismissTagRollSeed('seed-polecat-pitch-90001')
+    dismissTagRollSeed('seed-coach-trial-bonnie-classic')
+    expect(clearPolecatPitchSeedDismissals()).toBe(1)
+    expect(isTagRollSeedDismissed('seed-polecat-pitch-90001')).toBe(false)
+    expect(isTagRollSeedDismissed('seed-coach-trial-bonnie-classic')).toBe(true)
   })
 
   it('marks library initialized', () => {

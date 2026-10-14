@@ -201,11 +201,15 @@ function toggleExpanded(id: string): void {
 }
 
 function onMute(partId: string, mute: boolean): void {
-  store.patchPartMix(partId, { mute })
+  // Muting a soloed strip must drop solo, or the solo bus stays armed with nothing audible.
+  if (mute) store.patchPartMix(partId, { mute: true, solo: false })
+  else store.patchPartMix(partId, { mute: false })
 }
 
 function onSolo(partId: string, solo: boolean): void {
-  store.patchPartMix(partId, { solo })
+  // Solo implies audible — Sketch/Detected often start muted, so solo alone was silence.
+  if (solo) store.patchPartMix(partId, { solo: true, mute: false })
+  else store.patchPartMix(partId, { solo: false })
 }
 
 function onVolume(partId: string, e: Event): void {

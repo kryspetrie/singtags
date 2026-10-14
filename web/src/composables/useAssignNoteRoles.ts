@@ -13,9 +13,7 @@ import {
   neighborNoteInStack,
   neighborNoteSamePart,
 } from '../lib/tagRoll/noteSelectionNav'
-import { natureToSketchQuality } from '../lib/tagRoll/harmonySketch'
 import type { TagRollProject } from '../lib/tagRoll/types'
-import type { ChordAnalysisSegment } from '../domain/arranging/chordAnalysisBar'
 import { useArrangementStore } from '../stores/arrangement'
 import { useSnackbarStore } from '../stores/snackbar'
 import { useTagRollStore } from '../stores/tagRoll'
@@ -24,10 +22,6 @@ export function useAssignNoteRoles(opts: {
   project: ComputedRef<TagRollProject | null | undefined>
   arrangingEnabled: ComputedRef<boolean>
   auditionMidi: (midi: number) => void | Promise<void>
-  chordEditSeg: ComputedRef<ChordAnalysisSegment | null>
-  chordEditVariant: ComputedRef<'declared' | 'detected' | null>
-  promoteToDeclared: (segId: string) => void
-  syncSketchToCoachPillars: () => void
 }) {
   const store = useTagRollStore()
   const arrStore = useArrangementStore()
@@ -136,44 +130,6 @@ export function useAssignNoteRoles(opts: {
     return roleForTagNote(p, id)
   })
 
-  function togglePillarForSeg(
-    seg: ChordAnalysisSegment,
-    optsExtra?: { promoteDetected?: boolean },
-  ): void {
-    if (seg.rootPc == null) return
-    const quality = natureToSketchQuality(seg.quality ?? 'major')
-    store.toggleSketchPillar({
-      id: seg.id,
-      startTick: seg.startTick,
-      endTick: seg.endTick,
-      rootPc: seg.rootPc,
-      quality,
-    })
-    opts.syncSketchToCoachPillars()
-    if (optsExtra?.promoteDetected) opts.promoteToDeclared(seg.id)
-  }
-
-  function onToggleChordPillar(): void {
-    const seg = opts.chordEditSeg.value
-    if (!seg) return
-    togglePillarForSeg(seg, {
-      promoteDetected: opts.chordEditVariant.value === 'detected',
-    })
-  }
-
-  /** Sketch-lane Alt+click / badge — toggle pillar without requiring the dock. */
-  function onToggleLanePillar(seg: ChordAnalysisSegment): void {
-    togglePillarForSeg(seg)
-  }
-
-  /**
-   * Detected-lane Alt+click / badge — lock that hole into Sketch as a pillar
-   * (no need to open Sketch first).
-   */
-  function onToggleDetectedPillar(seg: ChordAnalysisSegment): void {
-    togglePillarForSeg(seg, { promoteDetected: true })
-  }
-
   return {
     navigateSelectedNote,
     onSetSelectedMelodyRole,
@@ -182,8 +138,5 @@ export function useAssignNoteRoles(opts: {
     noteRolesMap,
     assignRolesMelodyName,
     assignRolesSelectedRole,
-    onToggleChordPillar,
-    onToggleLanePillar,
-    onToggleDetectedPillar,
   }
 }

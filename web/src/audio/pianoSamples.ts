@@ -103,9 +103,22 @@ export function pianoSampleUrl(midi: number): string {
   return `${root}instruments/piano/m${midi}.opus`
 }
 
-const bufferCache = new Map<number, AudioBuffer>()
+/** Decoded sample + seconds to skip before the hammer onset (file pre-roll). */
+export type PianoSampleHit = {
+  buffer: AudioBuffer
+  /** Pass as `AudioBufferSourceNode.start(when, onsetSec)`. */
+  onsetSec: number
+}
+
+const bufferCache = new Map<number, PianoSampleHit>()
+const inflight = new Map<number, Promise<PianoSampleHit>>()
 const octaveLoads = new Map<number, Promise<void>>()
 let lastError: string | null = null
+
+/** Absolute peak threshold for “sound has started” in Leethring piano files. */
+const ONSET_THRESHOLD = 0.001
+/** Keep a hair of pre-roll so the transient isn’t clipped. */
+const ONSET_PAD_SEC = 0.002
 
 export function getPianoSampleLoadError(): string | null {
   return lastError
@@ -113,12 +126,36 @@ export function getPianoSampleLoadError(): string | null {
 
 export function clearPianoSampleCache(): void {
   bufferCache.clear()
+  inflight.clear()
   octaveLoads.clear()
   lastError = null
 }
 
-export function getCachedPianoSample(midi: number): AudioBuffer | null {
+export function getCachedPianoSample(midi: number): PianoSampleHit | null {
   return bufferCache.get(midi) ?? null
+}
+
+/**
+ * First audible frame in a buffer (any channel), minus a short pad.
+ * Leethring Opus files ship ~45–50ms of leading silence.
+ */
+export function pianoSampleOnsetSec(buf: AudioBuffer): number {
+  const n = buf.length
+  if (n <= 0) return 0
+  const channels = buf.numberOfChannels
+  let first = n
+  for (let c = 0; c < channels; c++) {
+    const data = buf.getChannelData(c)
+    for (let i = 0; i < first; i++) {
+      if (Math.abs(data[i]!) >= ONSET_THRESHOLD) {
+        first = i
+        break
+      }
+    }
+  }
+  if (first >= n) return 0
+  const pad = Math.floor(ONSET_PAD_SEC * buf.sampleRate)
+  return Math.max(0, first - pad) / buf.sampleRate
 }
 
 /** Scientific octave for a MIDI note (C4 → 4). */
@@ -126,18 +163,56 @@ export function midiOctave(midi: number): number {
   return Math.floor(midi / 12) - 1
 }
 
-async function fetchAndDecode(midi: number): Promise<AudioBuffer> {
+async function fetchAndDecode(
+  midi: number,
+  opts?: { priority?: boolean },
+): Promise<PianoSampleHit> {
   const hit = bufferCache.get(midi)
   if (hit) return hit
-  const url = pianoSampleUrl(midi)
-  const res = await fetch(url)
-  if (!res.ok) {
-    throw new Error(`Piano sample missing (${midi}): ${res.status}`)
+  const pending = inflight.get(midi)
+  if (pending) return pending
+
+  const run = (async (): Promise<PianoSampleHit> => {
+    const url = pianoSampleUrl(midi)
+    const res = await fetch(url)
+    if (!res.ok) {
+      throw new Error(`Piano sample missing (${midi}): ${res.status}`)
+    }
+    const data = await res.arrayBuffer()
+    const buf = await decodeAudioDataExclusive(data, { priority: opts?.priority })
+    const sample: PianoSampleHit = { buffer: buf, onsetSec: pianoSampleOnsetSec(buf) }
+    bufferCache.set(midi, sample)
+    return sample
+  })()
+
+  inflight.set(midi, run)
+  try {
+    return await run
+  } finally {
+    if (inflight.get(midi) === run) inflight.delete(midi)
   }
-  const data = await res.arrayBuffer()
-  const buf = await decodeAudioDataExclusive(data)
-  bufferCache.set(midi, buf)
-  return buf
+}
+
+/**
+ * Load a single MIDI sample (for low-latency first strike).
+ * Pass `{ priority: true }` from a live key press so decode jumps the background queue.
+ */
+export async function ensurePianoSample(
+  midi: number,
+  opts?: { priority?: boolean },
+): Promise<PianoSampleHit> {
+  const n = Math.round(midi)
+  if (n < PIANO_SAMPLE_MIDI_MIN || n > PIANO_SAMPLE_MIDI_MAX) {
+    throw new Error(`Piano sample out of range (${n})`)
+  }
+  try {
+    const sample = await fetchAndDecode(n, opts)
+    lastError = null
+    return sample
+  } catch (err) {
+    lastError = err instanceof Error ? err.message : String(err)
+    throw err
+  }
 }
 
 /**

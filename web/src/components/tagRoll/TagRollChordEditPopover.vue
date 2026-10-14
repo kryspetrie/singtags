@@ -360,6 +360,24 @@ function onCancel(): void {
   emit('cancel')
 }
 
+/** Chord Walk F / Enter — same commit path as the ✓ Apply button. */
+function applySelected(): void {
+  onApply()
+}
+
+/** Chord Walk H — brief hear of the current draft (if any). */
+function hearSelected(): void {
+  const d = draft.value
+  if (!d) return
+  emit('hear', d)
+  window.setTimeout(() => emit('hearStop'), 700)
+}
+
+defineExpose({
+  applySelected,
+  hearSelected,
+})
+
 onUnmounted(() => {
   stopHold()
   emit('update:draft', null)
@@ -441,10 +459,15 @@ onUnmounted(() => {
           ✓
         </button>
         <button
-          v-if="variant === 'declared'"
           type="button"
           class="icon danger"
-          :title="tagRollTip('Delete chord from Sketch')"
+          :title="
+            tagRollTip(
+              variant === 'detected'
+                ? 'Delete Detected chord — leave empty space'
+                : 'Delete chord from Sketch — leave empty space',
+            )
+          "
           aria-label="Delete"
           @click="emit('remove')"
         >

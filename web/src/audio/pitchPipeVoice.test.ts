@@ -14,6 +14,7 @@ import {
   listPitchPipeSoundChoices,
   loadPitchPipeSoundId,
   loadPitchPipeVoiceLibrary,
+  normalizePitchPipeAttackSec,
   parsePitchPipeVoice,
   pitchPipeVoiceShareMailto,
   PITCH_PIPE_ACTIVE_VOICE_KEY,
@@ -29,6 +30,14 @@ import {
 describe('pitchPipeVoice', () => {
   beforeEach(() => {
     localStorage.clear()
+  })
+
+  it('normalizes pitch-pipe attack duration', () => {
+    expect(normalizePitchPipeAttackSec(0.25)).toBe(0.25)
+    expect(normalizePitchPipeAttackSec(0)).toBe(0)
+    expect(normalizePitchPipeAttackSec(9)).toBe(2)
+    expect(normalizePitchPipeAttackSec(-1)).toBe(0)
+    expect(normalizePitchPipeAttackSec(0.12)).toBe(0.1)
   })
 
   it('round-trips the mellow default', () => {

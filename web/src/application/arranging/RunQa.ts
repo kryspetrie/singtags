@@ -6,16 +6,22 @@ import {
 } from '../../domain/arranging/qa'
 import { checkLeadRangeEnabled } from '../../domain/arranging/coachConfig'
 import type { ArrangementProject } from '../../domain/arranging/types'
+import type { VoicingProfile } from '../../domain/arranging/voicingProfile'
 
 export function runQa(
   project: ArrangementProject,
-  opts?: { rules?: readonly LintRule[]; checkLeadRange?: boolean },
+  opts?: {
+    rules?: readonly LintRule[]
+    checkLeadRange?: boolean
+    voicingProfile?: VoicingProfile | null
+  },
 ): ArrangementLint[] {
   const rules = opts?.rules ?? lintRulesForQaConfig(project.qaConfig)
   const linter = createArrangementLinter(rules)
   return linter.lint(project, {
     profile: project.contestProfile,
     checkLeadRange: opts?.checkLeadRange ?? checkLeadRangeEnabled(project.qaConfig),
+    voicingProfile: opts?.voicingProfile ?? null,
   })
 }
 

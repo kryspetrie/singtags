@@ -9,7 +9,12 @@ import {
   type PitchPipeLayout,
   type PitchPipeRange,
 } from '../../audio/pitchUiLabels'
-import { isPitchPipeSoundId, type PitchPipeSoundId } from '../../audio/pitchPipeVoice'
+import {
+  isPitchPipeSoundId,
+  normalizePitchPipeAttackSec,
+  PITCH_PIPE_ATTACK_SEC_DEFAULT,
+  type PitchPipeSoundId,
+} from '../../audio/pitchPipeVoice'
 import { isPianoSoundEngineId, type PianoSoundEngineId } from '../../audio/pianoSamples'
 import {
   PITCH_PIPE_LAYOUT_KEY,
@@ -35,6 +40,7 @@ export function defaultPitchPipePrefs(): PitchPipePrefs {
     pianoEngine: 'synth',
     pianoLockPosition: false,
     showPcKeyRange: true,
+    attackSec: PITCH_PIPE_ATTACK_SEC_DEFAULT,
   }
 }
 
@@ -81,6 +87,8 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   const pianoLockPosition = o.pianoLockPosition === true
   /** Missing key → true (legacy prefs keep highlighting). */
   const showPcKeyRange = o.showPcKeyRange !== false
+  const attackSec =
+    o.attackSec === undefined ? PITCH_PIPE_ATTACK_SEC_DEFAULT : normalizePitchPipeAttackSec(o.attackSec)
 
   // New format: absolute detuneCents; aHz may be null (custom).
   if (typeof o.detuneCents === 'number') {
@@ -104,6 +112,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
       pianoEngine,
       pianoLockPosition,
       showPcKeyRange,
+      attackSec,
     }
   }
 
@@ -125,6 +134,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
     pianoEngine,
     pianoLockPosition,
     showPcKeyRange,
+    attackSec,
   }
 }
 
@@ -177,6 +187,7 @@ export function loadPitchPipePrefs(): PitchPipePrefs {
     pianoEngine: 'synth',
     pianoLockPosition: false,
     showPcKeyRange: true,
+    attackSec: PITCH_PIPE_ATTACK_SEC_DEFAULT,
   }
 }
 

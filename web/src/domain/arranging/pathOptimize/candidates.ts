@@ -7,6 +7,7 @@ import {
   TTBB_CLOSE_SPAN_MAX,
   type VoicingPitches,
 } from '../chords'
+import { defaultVoicingProfile, type VoicingProfile } from '../voicingProfile'
 import { phraseRoleAtMelodyIndex } from '../cadences'
 import {
   candidatesForMelodyNote,
@@ -489,6 +490,12 @@ export function hasKnownStack(project: ArrangementProject, tick: number): boolea
 export type RevoiceOpts = {
   /** Basic→Risky — Basic keeps near-home outer spans (≤ TTBB_CLOSE_SPAN_MAX). */
   risk?: number
+  /** Ensemble bands / outer-span / pitch center (defaults to TTBB). */
+  profile?: VoicingProfile
+  /** Run-again diversity seed for sketch-hear candidate order. */
+  exploreSeed?: number
+  /** Allow single-stack revoice (Coach walk / one chord). */
+  allowSingle?: boolean
 }
 
 /**
@@ -500,12 +507,18 @@ export function revoiceStackList(
   sorted: readonly ChordStack[],
   opts: RevoiceOpts = {},
 ): { project: ArrangementProject; changedIds: string[] } {
-  if (sorted.length < 2) {
+  if (sorted.length < 1) {
+    return { project, changedIds: [] }
+  }
+  if (sorted.length < 2 && !opts.allowSingle) {
     return { project, changedIds: [] }
   }
 
   const risk = opts.risk ?? 0.35
-  const preferClose = risk <= 0.4
+  const profile = opts.profile ?? defaultVoicingProfile()
+  const spanCap = profile.allowSpread
+    ? Math.max(profile.maxOuterSpan, TTBB_CLOSE_SPAN_MAX + 7)
+    : profile.maxOuterSpan
 
   const refs: SketchHearChordRef[] = sorted.map((s) => {
     const mel = project.melody.find((m) => m.startTick === s.startTick)
@@ -521,6 +534,8 @@ export function revoiceStackList(
     seedPitches: seeds,
     partAware: true,
     risk,
+    profile,
+    exploreSeed: opts.exploreSeed,
   })
   if (path.length !== sorted.length) {
     return { project, changedIds: [] }
@@ -541,8 +556,8 @@ export function revoiceStackList(
     if (midi.tenor <= midi.lead) {
       midi.tenor = midi.lead + Math.max(1, nextMidi.tenor - nextMidi.lead)
     }
-    // Basic: never let revoice widen past BAM-close — keep the seed instead.
-    if (preferClose && midi.tenor - midi.bass > TTBB_CLOSE_SPAN_MAX) {
+    // Reject only when wider than the active ensemble profile allows.
+    if (midi.tenor - midi.bass > spanCap) {
       byId.set(prev.id, prev)
       continue
     }
@@ -560,6 +575,8 @@ export function revoiceStackList(
       ...prev,
       midi,
       voicing: voicingStringFromMidi(prev.rootPc, prev.natureId, midi),
+      // Keep close unless the ensemble profile explicitly allows spread shells.
+      spread: profile.allowSpread && midi.tenor - midi.bass > 19 ? true : false,
     })
   }
   if (!changedIds.length) return { project, changedIds: [] }

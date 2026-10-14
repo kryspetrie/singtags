@@ -5,7 +5,7 @@
 import type { IdGenerator } from '../../ports/IdGenerator'
 import type { VoicingPitches } from '../../domain/arranging/chords/chords'
 import { applyHarmonyToNotes } from './harmonizer/applyHarmony'
-import { authoritativeSketch, natureToSketchQuality } from './harmonySketch'
+import { authoritativeSketch, isBlankSketchQuality, natureToSketchQuality } from './harmonySketch'
 import { optimizeSketchHearPath, sketchHearVoicing } from './sketchHearVoicing'
 import type {
   HarmonySketchQuality,
@@ -66,7 +66,7 @@ export function realizeSketchStacksToNotes(opts: {
   const steps: Step[] = []
   for (const melody of melodyNotes) {
     const span = sketchCoveringTick(locked, melody.startTick)
-    if (!span) continue
+    if (!span || isBlankSketchQuality(span.quality)) continue
     steps.push({
       melody,
       span,

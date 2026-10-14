@@ -20,10 +20,10 @@ import TagRollChordEditDock from '../components/tagRoll/TagRollChordEditDock.vue
 import ArrangingCoachDock from '../components/arranging/ArrangingCoachDock.vue'
 import ArrangingCoachLane from '../components/arranging/ArrangingCoachLane.vue'
 import ArrangingCoachRollNav from '../components/arranging/ArrangingCoachRollNav.vue'
-import { tryCoachArrowStepMoment } from '../lib/arranging/coachArrowNav'
 import {
-  coachRollNavStepMoment,
   coachRollNavStepSuggest,
+  coachRollNavStepVoicing,
+  coachRollNavToggleSpread,
   coachRollNavState,
 } from '../lib/arranging/coachRollNav'
 import { matchChordWalkKey } from '../lib/arranging/chordWalkKeys'
@@ -34,6 +34,8 @@ import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
 import TagRollMixerPanel from '../components/tagRoll/TagRollMixerPanel.vue'
 import TagRollShortcutsOverlay from '../components/tagRoll/TagRollShortcutsOverlay.vue'
 import TagRollTote from '../components/tagRoll/TagRollTote.vue'
+import TagRollVoicingRangePanel from '../components/tagRoll/TagRollVoicingRangePanel.vue'
+import { VOICING_RANGE_PANEL_W } from '../lib/arranging/voicingRangeUi'
 import TagRollToolbar from '../components/tagRoll/TagRollToolbar.vue'
 import TagRollViewport from '../components/tagRoll/TagRollViewport.vue'
 import TagRollSheetViewport from '../components/tagRoll/TagRollSheetViewport.vue'
@@ -161,6 +163,7 @@ const stageViewportH = computed(() =>
   readExposedCssSize(viewportRef.value?.cssH ?? sheetViewportRef.value?.cssH, stageH.value),
 )
 const harmonizeRef = ref<InstanceType<typeof TagRollHarmonizePanel> | null>(null)
+const chordEditRef = ref<InstanceType<typeof TagRollChordEditDock> | null>(null)
 const titleDraft = ref('')
 const subtitleDraft = ref('')
 const composerDraft = ref('')
@@ -356,6 +359,10 @@ const chordEdit = useTagRollChordEditDock({
   setChordCursor,
   applyDraft: (id, draft) => onApplyHarmonyDraft(id, draft),
   removeSketch: (id) => onRemoveHarmonySketch(id),
+  absorbSketch: (removal, adjacent) => {
+    store.absorbHarmonySpan(removal, adjacent)
+    syncSketchToCoachPillars()
+  },
   hearSketch: (a, b, d) => void onHearHarmonySketch(a, b, d),
 })
 const {
@@ -421,6 +428,9 @@ const headerBandH = computed(() => rulerH.value)
 const toteViewportH = computed(() => Math.max(0, stageViewportH.value - headerBandH.value))
 
 const TOTE_W = 112
+const leftGutterPx = computed(
+  () => TOTE_W + (prefs.tagRollVoicingRangesOpen ? VOICING_RANGE_PANEL_W : 0),
+)
 
 const activePartName = computed(() => {
   const p = project.value
@@ -731,8 +741,7 @@ onUnmounted(() => {
   player = null
   blowPitchPlayer = null
   metronome = null
-  void store.persistNow()
-  store.clearCurrent()
+  void store.clearCurrent()
 })
 
 watch(
@@ -1008,17 +1017,38 @@ function onStopToOrigin(): void {
 }
 
 function onStop(): void {
+  clearRollSelection()
   onStopToOrigin()
+}
+
+/**
+ * Clear note / Sketch / inspect / expression selection.
+ * Returns true when something was cleared (Escape can stop before closing docks).
+ */
+function clearRollSelection(): boolean {
+  const had =
+    store.selectedNoteIds.length > 0 ||
+    store.selectedSketchSpanIds.length > 0 ||
+    !!chordCursor.value ||
+    !!store.selectedExpressionId
+  if (!had) return false
+  store.clearNoteSelection()
+  store.clearSketchSelection()
+  releaseInspectRange()
+  if (store.selectedExpressionId) store.selectExpression(null)
+  return true
 }
 
 function onReturnToZero(): void {
   if (store.transportPlaying) onPauseInPlace()
+  clearRollSelection()
   store.setPlayheadTick(0, { snap: false })
   followTransportPlayhead(0)
 }
 
 function onReturnToOrigin(): void {
   if (store.transportPlaying) onPauseInPlace()
+  clearRollSelection()
   const tick = playbackOriginTick.value
   store.setPlayheadTick(tick, { snap: true })
   followTransportPlayhead(tick)
@@ -1028,6 +1058,7 @@ function onPrevMeasure(): void {
   const p = project.value
   if (!p) return
   if (store.transportPlaying) onPauseInPlace()
+  clearRollSelection()
   const tick = prevMeasureTick(p.view.playheadTick, p.timeSignature, p.ppq)
   store.setPlayheadTick(tick, { snap: false })
   followTransportPlayhead(tick)
@@ -1037,6 +1068,7 @@ function onNextMeasure(): void {
   const p = project.value
   if (!p) return
   if (store.transportPlaying) onPauseInPlace()
+  clearRollSelection()
   const tick = nextMeasureTick(p.view.playheadTick, p.timeSignature, p.lengthTicks, p.ppq)
   store.setPlayheadTick(tick, { snap: false })
   followTransportPlayhead(tick)
@@ -1044,6 +1076,7 @@ function onNextMeasure(): void {
 
 /** Transport ▶ / ⏸: play or pause in place. */
 function onPlayPause(): void {
+  clearRollSelection()
   if (store.transportPlaying) onPauseInPlace()
   else onPlay()
 }
@@ -1292,17 +1325,10 @@ const {
   noteRolesMap,
   assignRolesMelodyName,
   assignRolesSelectedRole,
-  onToggleChordPillar,
-  onToggleLanePillar,
-  onToggleDetectedPillar,
 } = useAssignNoteRoles({
   project,
   arrangingEnabled,
   auditionMidi,
-  chordEditSeg,
-  chordEditVariant: computed(() => chordEditSession.value?.variant ?? null),
-  promoteToDeclared,
-  syncSketchToCoachPillars,
 })
 
 function onRemoveHarmonySketch(id: string): void {
@@ -1374,6 +1400,7 @@ function onHarmonyCommitAt(payload: {
   startTick: number
   endTick: number
   id?: string
+  keepEditing?: boolean
 }): void {
   const p = project.value
   if (!p) return
@@ -1387,9 +1414,6 @@ function onHarmonyCommitAt(payload: {
     snackbar.show('Could not parse chord', { tone: 'info', ms: 2000 })
     return
   }
-  const existing = payload.id
-    ? (p.harmonySketch ?? []).find((s) => s.id === payload.id)
-    : undefined
   const id = store.upsertHarmonySketchSpan({
     id: payload.id,
     startTick: payload.startTick,
@@ -1398,15 +1422,17 @@ function onHarmonyCommitAt(payload: {
     quality: parsed.quality,
     source: 'user',
     locked: true,
-    ...(existing ? {} : {}),
   })
   syncSketchToCoachPillars()
-  // New paint (no existing id): select the span and open the Sketch chord dock.
-  if (!payload.id && id) {
+  // New paint (no existing id): select + open dock unless Tab-chaining inline edit.
+  // Blank placeholders stay in the lane typeahead flow (no Harmonize dock).
+  if (!payload.id && id && !payload.keepEditing && parsed.quality !== 'blank') {
     void nextTick(() => {
       const seg = chordDeclaredSegments.value.find((s) => s.id === id)
       if (seg) onLaneChordEdit('declared', seg)
     })
+  } else if (id) {
+    store.selectSketchSpans([id])
   }
 }
 
@@ -1598,6 +1624,11 @@ function onResize(payload: { id: string; startTick: number; durationTicks: numbe
 }
 
 function onSelect(id: string | null, opts?: { additive?: boolean }): void {
+  if (id == null) {
+    // Empty piano-roll click — clear notes + Sketch (inspect already cleared by viewport).
+    clearRollSelection()
+    return
+  }
   store.selectNote(id, opts)
 }
 
@@ -1977,6 +2008,26 @@ function onKeyDown(e: KeyboardEvent): void {
     return
   }
   if (key === 'Enter') {
+    // Harmonize / Sketch dock / Coach Chords: Enter = Apply. Else pause transport.
+    const chordWalkActive =
+      ((coachOpen.value || coachDetached.value) && coachRollNavState.value.chordMode) ||
+      harmonizeOpen.value ||
+      chordEditOpen.value
+    if (
+      matchChordWalkKey({
+        chordWalkActive,
+        typingTarget: false,
+        rolesAssignActive: !!store.assignNoteRolesActive,
+        shiftKey: e.shiftKey,
+        key,
+      }) === 'apply'
+    ) {
+      e.preventDefault()
+      if (harmonizeOpen.value) harmonizeRef.value?.applySelectedSuggest?.()
+      else if (chordEditOpen.value) chordEditRef.value?.applySelected?.()
+      else coachRollTransportPrimary()
+      return
+    }
     e.preventDefault()
     onEnterTransport()
     return
@@ -1996,8 +2047,14 @@ function onKeyDown(e: KeyboardEvent): void {
       cancelTitleEdit()
       return
     }
+    // Selection first — keep Harmonize / Coach open until Esc with nothing selected.
+    if (clearRollSelection()) return
     if (harmonizeOpen.value) {
       onHarmonizeClose()
+      return
+    }
+    if (coachOpen.value || coachDetached.value) {
+      onCoachClose()
       return
     }
     if (chordEditOpen.value) {
@@ -2020,21 +2077,10 @@ function onKeyDown(e: KeyboardEvent): void {
       store.setExpressionTool(null)
       return
     }
-    if (store.selectedExpressionId) {
-      store.selectExpression(null)
-      return
-    }
     if (!prefs.tagRollLyricsLaneCollapsed) {
       prefs.setTagRollLaneCollapsed('lyrics', true)
       return
     }
-    // Measure / inspect range limits play-until — clear it so Space plays from the cursor freely.
-    if (chordCursor.value) {
-      releaseInspectRange()
-      store.selectNote(null)
-      return
-    }
-    store.selectNote(null)
     return
   }
   if (key === '?' || (key === '/' && e.shiftKey)) {
@@ -2044,15 +2090,18 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (key === 'Home') {
     e.preventDefault()
-    store.setPlayheadTick(0)
+    onReturnToZero()
     return
   }
 
-  // Chord Walk: Coach Chords or Harmonize — ←→ moments, ↑↓ suggests, F apply, H hear, Q next empty.
+  // Chord Walk: ↑↓ suggests, [/] inversion, W closed/wide, F/Enter apply,
+  // Tab apply+next Sketch / Shift+Tab previous Sketch, H hear, Q empty.
+  // ←→ move notes on the selected part (like a note click) and sync the edit chord below.
   {
     const chordWalkActive =
       ((coachOpen.value || coachDetached.value) && coachRollNavState.value.chordMode) ||
-      harmonizeOpen.value
+      harmonizeOpen.value ||
+      chordEditOpen.value
     const walk = matchChordWalkKey({
       chordWalkActive,
       typingTarget: isTypingTarget(e.target),
@@ -2061,40 +2110,59 @@ function onKeyDown(e: KeyboardEvent): void {
       key,
     })
     if (walk) {
-      e.preventDefault()
-      if (walk === 'prevMoment' || walk === 'nextMoment') {
-        const dir = walk === 'prevMoment' ? -1 : 1
-        if (harmonizeOpen.value) {
-          harmonizeRef.value?.step(dir)
-          ensureSelectedNoteInView()
-        } else {
-          coachRollNavStepMoment(dir)
+      // Sketch Tab walk is Harmonize-only — do not steal Tab from Coach / browser focus.
+      if (
+        (walk === 'applyNextSketch' || walk === 'prevSketch') &&
+        !harmonizeOpen.value
+      ) {
+        // fall through
+      } else {
+        e.preventDefault()
+        if (walk === 'prevSuggest' || walk === 'nextSuggest') {
+          const dir = walk === 'prevSuggest' ? -1 : 1
+          if (harmonizeOpen.value) harmonizeRef.value?.stepSuggest?.(dir)
+          else if (!chordEditOpen.value) coachRollNavStepSuggest(dir)
+          return
+        }
+        if (walk === 'prevVoicing' || walk === 'nextVoicing') {
+          const dir = walk === 'prevVoicing' ? -1 : 1
+          if (harmonizeOpen.value) harmonizeRef.value?.stepVoicing?.(dir)
+          else if (!chordEditOpen.value) coachRollNavStepVoicing(dir)
+          return
+        }
+        if (walk === 'toggleSpread') {
+          if (harmonizeOpen.value) harmonizeRef.value?.toggleSpread?.()
+          else if (!chordEditOpen.value) coachRollNavToggleSpread()
+          return
+        }
+        if (walk === 'apply') {
+          if (harmonizeOpen.value) harmonizeRef.value?.applySelectedSuggest?.()
+          else if (chordEditOpen.value) chordEditRef.value?.applySelected?.()
+          else coachRollTransportPrimary()
+          return
+        }
+        if (walk === 'applyNextSketch') {
+          harmonizeRef.value?.applyNextSketch?.()
+          return
+        }
+        if (walk === 'prevSketch') {
+          harmonizeRef.value?.prevSketch?.()
+          return
+        }
+        if (walk === 'hear') {
+          if (coachOpen.value || coachDetached.value) coachRollTransportHear()
+          else if (harmonizeOpen.value) harmonizeRef.value?.hearSelectedSuggest?.()
+          else if (chordEditOpen.value) chordEditRef.value?.hearSelected?.()
+          else onHearStack()
+          return
+        }
+        if (walk === 'nextEmpty') {
+          if (harmonizeOpen.value) harmonizeRef.value?.stepNextEmpty?.()
+          else if (!chordEditOpen.value) coachRollTransportSecondary()
+          return
         }
         return
       }
-      if (walk === 'prevSuggest' || walk === 'nextSuggest') {
-        const dir = walk === 'prevSuggest' ? -1 : 1
-        if (harmonizeOpen.value) harmonizeRef.value?.stepSuggest?.(dir)
-        else coachRollNavStepSuggest(dir)
-        return
-      }
-      if (walk === 'apply') {
-        if (harmonizeOpen.value) harmonizeRef.value?.applySelectedSuggest?.()
-        else coachRollTransportPrimary()
-        return
-      }
-      if (walk === 'hear') {
-        if (coachOpen.value || coachDetached.value) coachRollTransportHear()
-        else if (harmonizeOpen.value) harmonizeRef.value?.hearSelectedSuggest?.()
-        else onHearStack()
-        return
-      }
-      if (walk === 'nextEmpty') {
-        if (harmonizeOpen.value) harmonizeRef.value?.stepNextEmpty?.()
-        else coachRollTransportSecondary()
-        return
-      }
-      return
     }
   }
 
@@ -2102,16 +2170,6 @@ function onKeyDown(e: KeyboardEvent): void {
     e.preventDefault()
     const mode = project.value.view.mode
     const hasSel = store.selectedNoteIds.length > 0
-    if (tryCoachArrowStepMoment(key, coachOpen.value || coachDetached.value, e.shiftKey)) return
-    if (
-      harmonizeOpen.value &&
-      !e.shiftKey &&
-      (key === 'ArrowLeft' || key === 'ArrowRight')
-    ) {
-      harmonizeRef.value?.step(key === 'ArrowLeft' ? -1 : 1)
-      ensureSelectedNoteInView()
-      return
-    }
     if (hasSel && e.shiftKey && mode !== 'view') {
       const snap = project.value.snapTicks || 120
       if (key === 'ArrowLeft') nudgeSelectedNotes(0, -snap)
@@ -2120,6 +2178,8 @@ function onKeyDown(e: KeyboardEvent): void {
       else nudgeSelectedNotes(-1, 0)
       return
     }
+    // Same-part note nav (including while Coach/Harmonize are open). Selection syncs
+    // the edit chord; playhead-only moves below do not.
     if (hasSel && navigateSelectedNote(key)) {
       ensureSelectedNoteInView()
       return
@@ -2151,7 +2211,53 @@ function onKeyDown(e: KeyboardEvent): void {
     }
     if (store.selectedSketchSpanIds.length) {
       e.preventDefault()
-      store.deleteSelectedSketchSpans()
+      const toNeighbor = (
+        x: (typeof chordDetectSegments.value)[number],
+      ): import('../lib/tagRoll/harmonySketch').HarmonyAbsorbNeighbor | null => {
+        if (x.rootPc == null) return null
+        const q = x.natureId
+        const quality =
+          q === 'major' ||
+          q === 'minor' ||
+          q === 'seventh' ||
+          q === 'm7' ||
+          q === 'dim' ||
+          q === 'half-dim' ||
+          q === 'aug' ||
+          q === 'sixth' ||
+          q === 'ninth' ||
+          q === 'major7'
+            ? q
+            : 'major'
+        return {
+          id: x.id,
+          startTick: x.startTick,
+          endTick: x.endTick,
+          rootPc: x.rootPc,
+          quality,
+        }
+      }
+      const removals: Array<{
+        id: string
+        startTick: number
+        endTick: number
+        left?: import('../lib/tagRoll/harmonySketch').HarmonyAbsorbNeighbor | null
+        right?: import('../lib/tagRoll/harmonySketch').HarmonyAbsorbNeighbor | null
+      }> = []
+      for (const list of [chordDeclaredSegments.value, chordDetectSegments.value]) {
+        for (let i = 0; i < list.length; i++) {
+          const cur = list[i]!
+          if (!store.selectedSketchSpanIds.includes(cur.id)) continue
+          removals.push({
+            id: cur.id,
+            startTick: cur.startTick,
+            endTick: cur.endTick,
+            left: i > 0 ? toNeighbor(list[i - 1]!) : null,
+            right: i < list.length - 1 ? toNeighbor(list[i + 1]!) : null,
+          })
+        }
+      }
+      store.deleteSelectedSketchSpans({ removals })
       syncSketchToCoachPillars()
       return
     }
@@ -2161,23 +2267,16 @@ function onKeyDown(e: KeyboardEvent): void {
     }
     return
   }
+  // [/] while Chord Walk (Coach/Harmonize) cycle inversion — handled above.
   if (key === '[') {
     if (readOnly) return
     e.preventDefault()
-    if (harmonizeOpen.value) {
-      harmonizeRef.value?.step(-1)
-      return
-    }
     nudgeDuration(-1)
     return
   }
   if (key === ']') {
     if (readOnly) return
     e.preventDefault()
-    if (harmonizeOpen.value) {
-      harmonizeRef.value?.step(1)
-      return
-    }
     nudgeDuration(1)
     return
   }
@@ -2381,6 +2480,7 @@ function onKeyDown(e: KeyboardEvent): void {
       :coach-open="coachOpen"
       :sheet-format-open="sheetFormatOpen"
       :arranging-enabled="arrangingEnabled"
+      :voicing-ranges-open="prefs.tagRollVoicingRangesOpen"
       @export-midi="onExportMidi"
       @export-music-xml="onExportMusicXml"
       @export-audio="onExportAudio"
@@ -2395,6 +2495,7 @@ function onKeyDown(e: KeyboardEvent): void {
       @open-marks="toggleMarks"
       @open-parts="toggleParts"
       @open-coach="openCoachFromToolbar"
+      @toggle-voicing-ranges="prefs.toggleTagRollVoicingRangesOpen()"
       @open-sheet-format="toggleSheetFormat"
       @open-sheet-print="openSheetPrint"
       @export-sheet-png="onExportSheetPng"
@@ -2451,6 +2552,12 @@ function onKeyDown(e: KeyboardEvent): void {
                 @scroll-y="(y) => project && store.setScroll(project.view.scrollX, y)"
               />
             </div>
+            <TagRollVoicingRangePanel
+              v-if="prefs.tagRollVoicingRangesOpen"
+              :project="project"
+              :viewport-height="toteViewportH"
+              :header-band-h="headerBandH"
+            />
             <div class="roll-col">
               <TagRollAssignRolesHud
                 :active="store.assignNoteRolesActive"
@@ -2476,6 +2583,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 ref="viewportRef"
                 :project="project"
                 :selected-note-ids="store.selectedNoteIds"
+                :selected-sketch-span-ids="store.selectedSketchSpanIds"
                 :ghost-notes="ghostNotes"
                 :chord-cursor="chordCursor"
                 :header-extra-h="0"
@@ -2512,7 +2620,7 @@ function onKeyDown(e: KeyboardEvent): void {
             :detect-segments="chordDetectSegments"
             :mode="chordDeclaredMode"
             :read-only="project.view.mode === 'view'"
-            :left-gutter-px="TOTE_W"
+            :left-gutter-px="leftGutterPx"
             :preview-draft="harmonyPreview"
             :edit-seg-id="
               chordEditSession?.variant === 'declared' ? chordEditSession.segId : null
@@ -2523,7 +2631,6 @@ function onKeyDown(e: KeyboardEvent): void {
             @hear-stop="onStopHearHarmonySketch"
             @remove="onRemoveHarmonySketch"
             @edit="(seg) => onLaneChordEdit('declared', seg)"
-            @toggle-pillar="onToggleLanePillar"
             @commit-at="onHarmonyCommitAt"
             @geometry="onHarmonyGeometry"
             @geometry-many="onHarmonyGeometryMany"
@@ -2535,14 +2642,13 @@ function onKeyDown(e: KeyboardEvent): void {
             :project="project"
             :segments="chordDetectSegments"
             :mode="chordDetectedMode"
-            :left-gutter-px="TOTE_W"
+            :left-gutter-px="leftGutterPx"
             :edit-seg-id="
               chordEditSession?.variant === 'detected' ? chordEditSession.segId : null
             "
             @update:mode="setChordDetectedMode"
             @focus-range="relayCoachFocusRange"
             @edit="(seg) => onLaneChordEdit('detected', seg)"
-            @toggle-pillar="onToggleDetectedPillar"
             @cycle-alt="onCycleDetectedAlt"
             @lock-all="onLockAllDetected"
           />
@@ -2550,19 +2656,19 @@ function onKeyDown(e: KeyboardEvent): void {
             v-if="showPianoTote && !prefs.tagRollExpressionLaneCollapsed"
             :project="project"
             :read-only="project.view.mode === 'view'"
-            :left-gutter-px="TOTE_W"
+            :left-gutter-px="leftGutterPx"
           />
           <ArrangingCoachLane
             v-if="showPianoTote && !prefs.tagRollCoachLaneCollapsed"
             :project="project"
-            :left-gutter-px="TOTE_W"
+            :left-gutter-px="leftGutterPx"
             @select-tick="relayCoachFocusTick"
             @focus-range="relayCoachFocusRange"
             @open-panel="onCoachLaneOpenPanel"
           />
           <TagRollLyricsLane
             v-if="showPianoTote && !prefs.tagRollLyricsLaneCollapsed"
-            :left-gutter-px="TOTE_W"
+            :left-gutter-px="leftGutterPx"
           />
           </div>
           <TagRollMediaBar
@@ -2593,6 +2699,7 @@ function onKeyDown(e: KeyboardEvent): void {
           @open-in-coach="onHarmonizeOpenInCoach"
           @preview-ghost="onGhost" @clear-ghost="ghostNotes = []"
           @update:preview="onHarmonyPreview" @declared="syncSketchToCoachPillars"
+          @focus-range="(a, b) => relayCoachFocusRange(a, b, 'none')"
         />
         <aside
           v-else-if="keyChangeOpen && project.view.mode !== 'view'"
@@ -2620,12 +2727,12 @@ function onKeyDown(e: KeyboardEvent): void {
         </aside>
         <TagRollChordEditDock
           v-else-if="chordEditOpen && project.view.mode !== 'view' && chordEditSession"
+          ref="chordEditRef"
           :variant="chordEditSession.variant" :seg="chordEditSeg" :mode="chordEditMode"
           :project="project" :lead-midi="chordEditLeadMidi" :rank-hints="chordEditRankHints"
           :allow-pop-out="!isPopoutWindow" @close="onChordEditDockClose" @pop-out="onChordEditPopOut"
           @apply="onChordEditApply" @update:draft="onChordEditDraft" @hear="onChordEditHear"
           @hear-stop="onStopHearHarmonySketch" @remove="onChordEditRemove"
-          @toggle-pillar="onToggleChordPillar"
         />
       </div>
     </div>

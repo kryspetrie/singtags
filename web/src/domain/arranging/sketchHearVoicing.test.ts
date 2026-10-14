@@ -9,6 +9,7 @@ import {
   sketchHearMidis,
   sketchHearVoicing,
 } from './sketchHearVoicing'
+import { leapsWithinCaps, pathJumpiness } from './pathOptimize/partLeaps'
 
 function pcs(midis: number[]): number[] {
   return [...new Set(midis.map((m) => ((m % 12) + 12) % 12))].sort((a, b) => a - b)
@@ -257,5 +258,31 @@ describe('optimizeSketchHearPath', () => {
     expect(Math.abs(seeded[0]!.bass - seeds[0]!.bass)).toBeLessThanOrEqual(
       Math.abs(cold[0]!.bass - seeds[0]!.bass),
     )
+  })
+
+  it('partAware (Path Optimize Revoice) keeps multi-chord T/B leaps in caps', () => {
+    // I → IV → V7 → I — same Lead; partAware must optimize the whole path.
+    const chords = [
+      { rootPc: 0, quality: 'major' as const, leadMidi: 60 },
+      { rootPc: 5, quality: 'major' as const, leadMidi: 60 },
+      { rootPc: 7, quality: 'seventh' as const, leadMidi: 62 },
+      { rootPc: 0, quality: 'major' as const, leadMidi: 60 },
+    ]
+    const risk = 0.25
+    const path = optimizeSketchHearPath(chords, {
+      tonality: 0,
+      partAware: true,
+      risk,
+    })
+    expect(path).toHaveLength(4)
+    for (let i = 1; i < path.length; i++) {
+      expect(leapsWithinCaps(path[i - 1]!, path[i]!, risk)).toBe(true)
+      const bass = Math.abs(path[i]!.bass - path[i - 1]!.bass)
+      // Non-octave bass leaps stay bounded; octave (inversion) is always legal.
+      if (bass !== 12) expect(bass).toBeLessThanOrEqual(16)
+    }
+    // Prefer smoother than a cold (non–part-aware) path when both succeed.
+    const cold = optimizeSketchHearPath(chords, { tonality: 0 })
+    expect(pathJumpiness(path)).toBeLessThanOrEqual(pathJumpiness(cold) + 4)
   })
 })

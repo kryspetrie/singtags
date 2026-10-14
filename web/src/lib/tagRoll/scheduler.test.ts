@@ -368,6 +368,39 @@ describe('createTagRollScheduler', () => {
     sched.dispose()
   })
 
+  it('starts a note after unmute mid-play (does not permanently schedule silence)', () => {
+    const clock = installClock()
+    const player = fakePlayer()
+    let leadMute = true
+    const sched = createTagRollScheduler({
+      getNotes: () => [
+        {
+          id: 'lead',
+          partId: 'lead',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ * 4,
+        },
+      ],
+      getBpm: () => 120,
+      getLengthTicks: () => TAG_ROLL_PPQ * 8,
+      getMix: () => [
+        { partId: 'lead', volume: 1, pan: 0, mute: leadMute, solo: false },
+      ],
+      player: player as never,
+      onPlayhead: () => undefined,
+    })
+    sched.play(0)
+    clock.setNow(20)
+    clock.tick()
+    expect(player.noteOn).not.toHaveBeenCalled()
+    leadMute = false
+    clock.setNow(40)
+    clock.tick()
+    expect(player.noteOn).toHaveBeenCalled()
+    sched.dispose()
+  })
+
   it('glides on same-part overlap instead of a second attack', () => {
     const clock = installClock()
     const player = {

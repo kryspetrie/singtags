@@ -2,7 +2,6 @@
  * Procedural + optional decoded peaks for waveform display (music-website style).
  */
 
-import { getSharedAudioContext, resumeAudioContextBestEffort } from './channelSolo'
 import { assertDecodableAudioBytes } from './audioBytes'
 
 /** Seeded pseudo-random in [0,1). */
@@ -74,7 +73,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 
 /**
  * Decode audio (or synthesize on failure) into normalized peak bars for waveform UI.
- * Uses the shared audio context; abort via `signal` during fetch/decode.
+ * Must not touch the playback AudioContext — creating/resuming it on page load
+ * leaves a suspended context that silences tracks / pitch pipe / Tag Studio.
  */
 export async function loadWaveformPeaks(
   url: string,
@@ -83,14 +83,12 @@ export async function loadWaveformPeaks(
 ): Promise<{ peaks: number[]; channels: number }> {
   try {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
-    // Reuse one shared context — creating/closing a context per load exhausts the browser limit.
-    const ctx = getSharedAudioContext()
-    await resumeAudioContextBestEffort(ctx)
     const res = await withTimeout(fetch(url, { signal }), 15_000, 'Waveform fetch')
     if (!res.ok) throw new Error(String(res.status))
     const buf = await res.arrayBuffer()
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
     assertDecodableAudioBytes(buf)
+    // decodeLock uses a short-lived decode context (or OfflineAudioContext) — not playback.
     const { decodeAudioDataExclusive } = await import('./decodeLock')
     const decoded = await withTimeout(decodeAudioDataExclusive(buf), 20_000, 'Waveform decode')
     return {

@@ -1,0 +1,3170 @@
+[
+  {
+    "nature": "major",
+    "voicing": "1513",
+    "source": "voice",
+    "fft_score": -0.024769478958971462,
+    "app_harmonicity": 1.3617032282419843,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      195.9977,
+      293.9966,
+      391.9954,
+      489.9943
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1513"
+  },
+  {
+    "nature": "major",
+    "voicing": "1513",
+    "source": "synth",
+    "fft_score": 0.04949148945588861,
+    "app_harmonicity": 1.3617032282419843,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      195.9977,
+      293.9966,
+      391.9954,
+      489.9943
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1513"
+  },
+  {
+    "nature": "major",
+    "voicing": "1531",
+    "source": "voice",
+    "fft_score": -0.25936862966886354,
+    "app_harmonicity": 0.8458730328738379,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      155.5635,
+      233.3452,
+      388.9087,
+      622.254
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1531"
+  },
+  {
+    "nature": "major",
+    "voicing": "1531",
+    "source": "synth",
+    "fft_score": -0.19716603733361424,
+    "app_harmonicity": 0.8458730328738379,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      155.5635,
+      233.3452,
+      388.9087,
+      622.254
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1531"
+  },
+  {
+    "nature": "major",
+    "voicing": "1153",
+    "source": "voice",
+    "fft_score": 0.06180753818298765,
+    "app_harmonicity": 1.9147076418790299,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 48,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      130.8128,
+      261.6256,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1153"
+  },
+  {
+    "nature": "major",
+    "voicing": "1153",
+    "source": "synth",
+    "fft_score": 0.0028995089779651085,
+    "app_harmonicity": 1.9147076418790299,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 48,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      130.8128,
+      261.6256,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1153"
+  },
+  {
+    "nature": "major",
+    "voicing": "1351",
+    "source": "voice",
+    "fft_score": 0.050473884277188574,
+    "app_harmonicity": 1.2114726748892868,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1351"
+  },
+  {
+    "nature": "major",
+    "voicing": "1351",
+    "source": "synth",
+    "fft_score": 0.06766301323778906,
+    "app_harmonicity": 1.2114726748892868,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1351"
+  },
+  {
+    "nature": "major",
+    "voicing": "1355",
+    "source": "voice",
+    "fft_score": -0.05664658019509522,
+    "app_harmonicity": 1.5647829418737762,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1355"
+  },
+  {
+    "nature": "major",
+    "voicing": "1355",
+    "source": "synth",
+    "fft_score": 0.08893857694123018,
+    "app_harmonicity": 1.5647829418737762,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:1355"
+  },
+  {
+    "nature": "major",
+    "voicing": "3515",
+    "source": "voice",
+    "fft_score": -0.04728562587687621,
+    "app_harmonicity": 1.1647339778982881,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 59,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      244.9971,
+      293.9966,
+      391.9954,
+      587.9932
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3515"
+  },
+  {
+    "nature": "major",
+    "voicing": "3515",
+    "source": "synth",
+    "fft_score": 0.007252339589770439,
+    "app_harmonicity": 1.1647339778982881,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 59,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      244.9971,
+      293.9966,
+      391.9954,
+      587.9932
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3515"
+  },
+  {
+    "nature": "major",
+    "voicing": "3151",
+    "source": "voice",
+    "fft_score": 0.11901678348737012,
+    "app_harmonicity": 1.1285175347144374,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      163.516,
+      261.6256,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3151"
+  },
+  {
+    "nature": "major",
+    "voicing": "3151",
+    "source": "synth",
+    "fft_score": 0.5117221096338271,
+    "app_harmonicity": 1.1285175347144374,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      163.516,
+      261.6256,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3151"
+  },
+  {
+    "nature": "major",
+    "voicing": "3155",
+    "source": "voice",
+    "fft_score": 0.012230857197595502,
+    "app_harmonicity": 1.490424546191948,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      163.516,
+      261.6256,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3155"
+  },
+  {
+    "nature": "major",
+    "voicing": "3155",
+    "source": "synth",
+    "fft_score": 0.5333549868059381,
+    "app_harmonicity": 1.490424546191948,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      163.516,
+      261.6256,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:3155"
+  },
+  {
+    "nature": "major",
+    "voicing": "5135",
+    "source": "voice",
+    "fft_score": -0.20845151832046988,
+    "app_harmonicity": 1.2729196714258366,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      233.3452,
+      311.127,
+      388.9087,
+      466.6905
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5135"
+  },
+  {
+    "nature": "major",
+    "voicing": "5135",
+    "source": "synth",
+    "fft_score": -0.09993861683676507,
+    "app_harmonicity": 1.2729196714258366,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      233.3452,
+      311.127,
+      388.9087,
+      466.6905
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5135"
+  },
+  {
+    "nature": "major",
+    "voicing": "5153",
+    "source": "voice",
+    "fft_score": -0.03474773470865414,
+    "app_harmonicity": 1.3361339637348522,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      196.2192,
+      261.6256,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5153"
+  },
+  {
+    "nature": "major",
+    "voicing": "5153",
+    "source": "synth",
+    "fft_score": -0.00836180877748062,
+    "app_harmonicity": 1.3361339637348522,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      196.2192,
+      261.6256,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5153"
+  },
+  {
+    "nature": "major",
+    "voicing": "5351",
+    "source": "voice",
+    "fft_score": 0.10072987091172958,
+    "app_harmonicity": 1.0378676497653592,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      196.2192,
+      327.032,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5351"
+  },
+  {
+    "nature": "major",
+    "voicing": "5351",
+    "source": "synth",
+    "fft_score": 0.09135582637491844,
+    "app_harmonicity": 1.0378676497653592,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 55,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      196.2192,
+      327.032,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "major:5351"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5317",
+    "source": "voice",
+    "fft_score": -0.20506596810583372,
+    "app_harmonicity": 0.1660035968994707,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 50,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      146.9983,
+      244.9971,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5317"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5317",
+    "source": "synth",
+    "fft_score": -0.02410164570040159,
+    "app_harmonicity": 0.1660035968994707,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 50,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      146.9983,
+      244.9971,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5317"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5713",
+    "source": "voice",
+    "fft_score": -0.2745705065121456,
+    "app_harmonicity": 0.2808767466500592,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 62,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      293.9966,
+      342.996,
+      391.9954,
+      489.9943
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5713"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5713",
+    "source": "synth",
+    "fft_score": -0.10611175037119912,
+    "app_harmonicity": 0.2808767466500592,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 62,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      293.9966,
+      342.996,
+      391.9954,
+      489.9943
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5713"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1537",
+    "source": "voice",
+    "fft_score": -0.18982233735289797,
+    "app_harmonicity": 0.582778981401989,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      155.5635,
+      233.3452,
+      388.9087,
+      544.4722
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1537"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1537",
+    "source": "synth",
+    "fft_score": -0.1806137550329796,
+    "app_harmonicity": 0.582778981401989,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      155.5635,
+      233.3452,
+      388.9087,
+      544.4722
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1537"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1735",
+    "source": "voice",
+    "fft_score": -0.13983933866422432,
+    "app_harmonicity": 0.6680033466409446,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      155.5635,
+      272.2361,
+      388.9087,
+      466.6905
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1735"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1735",
+    "source": "synth",
+    "fft_score": -0.18935447804503208,
+    "app_harmonicity": 0.6680033466409446,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 51,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      155.5635,
+      272.2361,
+      388.9087,
+      466.6905
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1735"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5137",
+    "source": "voice",
+    "fft_score": -0.17589477005533158,
+    "app_harmonicity": 0.3512065168162432,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      233.3452,
+      311.127,
+      388.9087,
+      544.4722
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5137"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5137",
+    "source": "synth",
+    "fft_score": -0.07484541109431711,
+    "app_harmonicity": 0.3512065168162432,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      233.3452,
+      311.127,
+      388.9087,
+      544.4722
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5137"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5731",
+    "source": "voice",
+    "fft_score": -0.07977868779763463,
+    "app_harmonicity": 0.14207673605634266,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      233.3452,
+      272.2361,
+      388.9087,
+      622.254
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5731"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5731",
+    "source": "synth",
+    "fft_score": -0.032333053186765805,
+    "app_harmonicity": 0.14207673605634266,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 58,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      233.3452,
+      272.2361,
+      388.9087,
+      622.254
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5731"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1357",
+    "source": "voice",
+    "fft_score": 0.12184189125505336,
+    "app_harmonicity": 0.3992729134063371,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      457.8447
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1357"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1357",
+    "source": "synth",
+    "fft_score": 0.11666982614427969,
+    "app_harmonicity": 0.3992729134063371,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 60,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      261.6256,
+      327.032,
+      392.4383,
+      457.8447
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1357"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1753",
+    "source": "voice",
+    "fft_score": 0.10093583189239905,
+    "app_harmonicity": 0.8322497896489456,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1753"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1753",
+    "source": "synth",
+    "fft_score": 0.021855394539163235,
+    "app_harmonicity": 0.8322497896489456,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      654.0639
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1753"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1375",
+    "source": "voice",
+    "fft_score": 0.3774776707116729,
+    "app_harmonicity": 0.5922367857854953,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 57,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      220.0,
+      275.0,
+      385.0,
+      660.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1375"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1375",
+    "source": "synth",
+    "fft_score": 0.07688695414992791,
+    "app_harmonicity": 0.5922367857854953,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 57,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      220.0,
+      275.0,
+      385.0,
+      660.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1375"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1573",
+    "source": "voice",
+    "fft_score": 0.3925630436893257,
+    "app_harmonicity": 0.4969781306225858,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 57,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      220.0,
+      330.0,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1573"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "1573",
+    "source": "synth",
+    "fft_score": 0.19625653926010764,
+    "app_harmonicity": 0.4969781306225858,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 57,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      220.0,
+      330.0,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:1573"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5173",
+    "source": "voice",
+    "fft_score": 0.48256553847244965,
+    "app_harmonicity": 0.3540462267916116,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      165.0,
+      220.0,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5173"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5173",
+    "source": "synth",
+    "fft_score": 0.7648061271385717,
+    "app_harmonicity": 0.3540462267916116,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      165.0,
+      220.0,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5173"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5371",
+    "source": "voice",
+    "fft_score": 0.4904983221688352,
+    "app_harmonicity": 0.21542749926076812,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      165.0,
+      275.0,
+      385.0,
+      440.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5371"
+  },
+  {
+    "nature": "seventh",
+    "voicing": "5371",
+    "source": "synth",
+    "fft_score": 0.7643012999870762,
+    "app_harmonicity": 0.21542749926076812,
+    "ring_tier": 1,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      165.0,
+      275.0,
+      385.0,
+      440.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "seventh:5371"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "5317",
+    "source": "voice",
+    "fft_score": -0.31292143782466153,
+    "app_harmonicity": 0.8322497896489331,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 49,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      137.1984,
+      228.664,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:5317"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "5317",
+    "source": "synth",
+    "fft_score": -0.07574483572838728,
+    "app_harmonicity": 0.8322497896489331,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 49,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      137.1984,
+      228.664,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:5317"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "5713",
+    "source": "voice",
+    "fft_score": -0.322952304559363,
+    "app_harmonicity": 0.2808767466500521,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      274.3968,
+      342.996,
+      391.9954,
+      457.328
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:5713"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "5713",
+    "source": "synth",
+    "fft_score": -0.17736724313477245,
+    "app_harmonicity": 0.2808767466500521,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      274.3968,
+      342.996,
+      391.9954,
+      457.328
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:5713"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1537",
+    "source": "voice",
+    "fft_score": 0.3817584425775433,
+    "app_harmonicity": 0.5827789814019788,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      230.7393,
+      384.5655,
+      576.8482
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1537"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1537",
+    "source": "synth",
+    "fft_score": 0.7507822375737083,
+    "app_harmonicity": 0.5827789814019788,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      230.7393,
+      384.5655,
+      576.8482
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1537"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1735",
+    "source": "voice",
+    "fft_score": 0.37164854183845064,
+    "app_harmonicity": 0.2385751894852004,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      164.8138,
+      288.4241,
+      384.5655,
+      461.4786
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1735"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1735",
+    "source": "synth",
+    "fft_score": 0.7477496193179812,
+    "app_harmonicity": 0.2385751894852004,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      164.8138,
+      288.4241,
+      384.5655,
+      461.4786
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1735"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1357",
+    "source": "voice",
+    "fft_score": -0.3394250958169227,
+    "app_harmonicity": 0.39927291340633936,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      277.1826,
+      323.3797,
+      388.0557,
+      485.0696
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1357"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1357",
+    "source": "synth",
+    "fft_score": -0.2260848862701307,
+    "app_harmonicity": 0.39927291340633936,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      277.1826,
+      323.3797,
+      388.0557,
+      485.0696
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1357"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1753",
+    "source": "voice",
+    "fft_score": -0.2245526012502946,
+    "app_harmonicity": 0.16600359689947056,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 49,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      138.5913,
+      242.5348,
+      388.0557,
+      646.7595
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1753"
+  },
+  {
+    "nature": "half-dim",
+    "voicing": "1753",
+    "source": "synth",
+    "fft_score": -0.08466846823649211,
+    "app_harmonicity": 0.16600359689947056,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 49,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      138.5913,
+      242.5348,
+      388.0557,
+      646.7595
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "half-dim:1753"
+  },
+  {
+    "nature": "aug",
+    "voicing": "1153",
+    "source": "voice",
+    "fft_score": 0.06267595689938277,
+    "app_harmonicity": 1.1266534351712145,
+    "ring_tier": 6,
+    "midis": {
+      "bass": 47,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      123.4708,
+      246.9417,
+      385.8463,
+      617.3541
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "aug:1153"
+  },
+  {
+    "nature": "aug",
+    "voicing": "1153",
+    "source": "synth",
+    "fft_score": 0.05602487798831054,
+    "app_harmonicity": 1.1266534351712145,
+    "ring_tier": 6,
+    "midis": {
+      "bass": 47,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      123.4708,
+      246.9417,
+      385.8463,
+      617.3541
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "aug:1153"
+  },
+  {
+    "nature": "aug",
+    "voicing": "1351",
+    "source": "voice",
+    "fft_score": 0.21990854961747952,
+    "app_harmonicity": 0.8447134861416828,
+    "ring_tier": 6,
+    "midis": {
+      "bass": 59,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      246.9417,
+      308.6771,
+      385.8463,
+      493.8833
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "aug:1351"
+  },
+  {
+    "nature": "aug",
+    "voicing": "1351",
+    "source": "synth",
+    "fft_score": 0.1474177673762433,
+    "app_harmonicity": 0.8447134861416828,
+    "ring_tier": 6,
+    "midis": {
+      "bass": 59,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      246.9417,
+      308.6771,
+      385.8463,
+      493.8833
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "aug:1351"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5793",
+    "source": "voice",
+    "fft_score": -0.27291736658070836,
+    "app_harmonicity": 0.3447150399206705,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      436.0426
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5793"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5793",
+    "source": "synth",
+    "fft_score": -0.06130632794252161,
+    "app_harmonicity": 0.3447150399206705,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      436.0426
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5793"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5397",
+    "source": "voice",
+    "fft_score": -0.08802998336209002,
+    "app_harmonicity": 0.5505769148697001,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 48,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      218.0213,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5397"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5397",
+    "source": "synth",
+    "fft_score": -0.024551682011133683,
+    "app_harmonicity": 0.5505769148697001,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 48,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      218.0213,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5397"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1793",
+    "source": "voice",
+    "fft_score": -0.38639001065666895,
+    "app_harmonicity": 0.18919557331725018,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      174.6141,
+      305.5747,
+      392.8818,
+      436.5353
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1793"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1793",
+    "source": "synth",
+    "fft_score": -0.5092266050383879,
+    "app_harmonicity": 0.18919557331725018,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      174.6141,
+      305.5747,
+      392.8818,
+      436.5353
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1793"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1379",
+    "source": "voice",
+    "fft_score": 0.24312253166782047,
+    "app_harmonicity": 0.15714944633726927,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 57,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      220.0,
+      275.0,
+      385.0,
+      495.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1379"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1379",
+    "source": "synth",
+    "fft_score": 0.09985769824269329,
+    "app_harmonicity": 0.15714944633726927,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 57,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      220.0,
+      275.0,
+      385.0,
+      495.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1379"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1759",
+    "source": "voice",
+    "fft_score": -0.16025787950468157,
+    "app_harmonicity": 0.7807230921706739,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      588.6575
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1759"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1759",
+    "source": "synth",
+    "fft_score": -0.045321646124428724,
+    "app_harmonicity": 0.7807230921706739,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      588.6575
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1759"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5973",
+    "source": "voice",
+    "fft_score": 0.4823419440389345,
+    "app_harmonicity": 0.2855043123001351,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      384.5655,
+      549.3793
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5973"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "5973",
+    "source": "synth",
+    "fft_score": 0.7931463730525746,
+    "app_harmonicity": 0.2855043123001351,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      384.5655,
+      549.3793
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:5973"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1973",
+    "source": "voice",
+    "fft_score": 0.11034280546320042,
+    "app_harmonicity": 0.12324906117217627,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 57,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      220.0,
+      247.5,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1973"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "1973",
+    "source": "synth",
+    "fft_score": 0.047009358487802064,
+    "app_harmonicity": 0.12324906117217627,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 57,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      220.0,
+      247.5,
+      385.0,
+      550.0
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:1973"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "3759",
+    "source": "voice",
+    "fft_score": 0.28253560711675935,
+    "app_harmonicity": 0.23693103350497155,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 52,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      230.7393,
+      395.5531,
+      593.3296
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:3759"
+  },
+  {
+    "nature": "ninth",
+    "voicing": "3759",
+    "source": "synth",
+    "fft_score": 0.7207877939602474,
+    "app_harmonicity": 0.23693103350497155,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 52,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      230.7393,
+      395.5531,
+      593.3296
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "ninth:3759"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1361",
+    "source": "voice",
+    "fft_score": -0.05647742510107673,
+    "app_harmonicity": 1.056411798249789,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      233.0819,
+      291.3524,
+      388.4698,
+      466.1638
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1361"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1361",
+    "source": "synth",
+    "fft_score": -0.02954485946808244,
+    "app_harmonicity": 1.056411798249789,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      233.0819,
+      291.3524,
+      388.4698,
+      466.1638
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1361"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1163",
+    "source": "voice",
+    "fft_score": -0.001480036007240069,
+    "app_harmonicity": 1.4735039381753094,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 46,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      116.5409,
+      233.0819,
+      388.4698,
+      582.7047
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1163"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1163",
+    "source": "synth",
+    "fft_score": -0.007459831702291348,
+    "app_harmonicity": 1.4735039381753094,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 46,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      116.5409,
+      233.0819,
+      388.4698,
+      582.7047
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1163"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1365",
+    "source": "voice",
+    "fft_score": -0.029556914111986892,
+    "app_harmonicity": 0.7544880901635079,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      233.0819,
+      291.3524,
+      388.4698,
+      699.2456
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1365"
+  },
+  {
+    "nature": "sixth",
+    "voicing": "1365",
+    "source": "synth",
+    "fft_score": -0.008458590393853925,
+    "app_harmonicity": 0.7544880901635079,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      233.0819,
+      291.3524,
+      388.4698,
+      699.2456
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "sixth:1365"
+  },
+  {
+    "nature": "maj7",
+    "voicing": "1573",
+    "source": "voice",
+    "fft_score": -0.47516509035104415,
+    "app_harmonicity": 0.6128640634668228,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 56,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      207.6523,
+      311.4785,
+      389.3482,
+      519.1309
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "maj7:1573"
+  },
+  {
+    "nature": "maj7",
+    "voicing": "1573",
+    "source": "synth",
+    "fft_score": -0.24406462911586368,
+    "app_harmonicity": 0.6128640634668228,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 56,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      207.6523,
+      311.4785,
+      389.3482,
+      519.1309
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "maj7:1573"
+  },
+  {
+    "nature": "maj7",
+    "voicing": "1375",
+    "source": "voice",
+    "fft_score": -0.363017589135435,
+    "app_harmonicity": 0.8004879792572505,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 56,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      207.6523,
+      259.5654,
+      389.3482,
+      622.957
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "maj7:1375"
+  },
+  {
+    "nature": "maj7",
+    "voicing": "1375",
+    "source": "synth",
+    "fft_score": -0.10474396911498941,
+    "app_harmonicity": 0.8004879792572505,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 56,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      207.6523,
+      259.5654,
+      389.3482,
+      622.957
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "maj7:1375"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1513",
+    "source": "voice",
+    "fft_score": -0.24415349233094283,
+    "app_harmonicity": 1.1647339778982877,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      195.9977,
+      293.9966,
+      391.9954,
+      470.3945
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1513"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1513",
+    "source": "synth",
+    "fft_score": -0.09951388276953455,
+    "app_harmonicity": 1.1647339778982877,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      195.9977,
+      293.9966,
+      391.9954,
+      470.3945
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1513"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1531",
+    "source": "voice",
+    "fft_score": 0.6589575245458721,
+    "app_harmonicity": 0.7330369337233018,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      395.5531,
+      659.2551
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1531"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1531",
+    "source": "synth",
+    "fft_score": 0.8407964728518826,
+    "app_harmonicity": 0.7330369337233018,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      395.5531,
+      659.2551
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1531"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1153",
+    "source": "voice",
+    "fft_score": -0.35802643959357483,
+    "app_harmonicity": 1.490424546191947,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 48,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      261.6256,
+      392.4383,
+      627.9014
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1153"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1153",
+    "source": "synth",
+    "fft_score": -0.0974955393321963,
+    "app_harmonicity": 1.490424546191947,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 48,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      261.6256,
+      392.4383,
+      627.9014
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1153"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1351",
+    "source": "voice",
+    "fft_score": -0.5496324877325509,
+    "app_harmonicity": 1.2729196714258286,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      261.6256,
+      313.9507,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1351"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1351",
+    "source": "synth",
+    "fft_score": -0.2608686452294154,
+    "app_harmonicity": 1.2729196714258286,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      261.6256,
+      313.9507,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1351"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1355",
+    "source": "voice",
+    "fft_score": -0.657353280722339,
+    "app_harmonicity": 1.6776190410243044,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      261.6256,
+      313.9507,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1355"
+  },
+  {
+    "nature": "minor",
+    "voicing": "1355",
+    "source": "synth",
+    "fft_score": -0.23945598284990027,
+    "app_harmonicity": 1.6776190410243044,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      261.6256,
+      313.9507,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:1355"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3515",
+    "source": "voice",
+    "fft_score": -0.15464333300505353,
+    "app_harmonicity": 1.3617032282419848,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      235.1973,
+      293.9966,
+      391.9954,
+      587.9932
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3515"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3515",
+    "source": "synth",
+    "fft_score": -0.06630241035439337,
+    "app_harmonicity": 1.3617032282419848,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 58,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      235.1973,
+      293.9966,
+      391.9954,
+      587.9932
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3515"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3151",
+    "source": "voice",
+    "fft_score": -0.6054519369298802,
+    "app_harmonicity": 1.3361339637348457,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 51,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      156.9753,
+      261.6256,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3151"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3151",
+    "source": "synth",
+    "fft_score": -0.6802807029606973,
+    "app_harmonicity": 1.3361339637348457,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 51,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      156.9753,
+      261.6256,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3151"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3155",
+    "source": "voice",
+    "fft_score": -0.7134374076259026,
+    "app_harmonicity": 1.9147076418790137,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 51,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      156.9753,
+      261.6256,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3155"
+  },
+  {
+    "nature": "minor",
+    "voicing": "3155",
+    "source": "synth",
+    "fft_score": -0.6593444568594458,
+    "app_harmonicity": 1.9147076418790137,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 51,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 79
+    },
+    "fundamentals_hz": [
+      156.9753,
+      261.6256,
+      392.4383,
+      784.8767
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:3155"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5135",
+    "source": "voice",
+    "fft_score": 0.473463028865606,
+    "app_harmonicity": 1.2114726748892886,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 59,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      247.2207,
+      329.6276,
+      395.5531,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5135"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5135",
+    "source": "synth",
+    "fft_score": 0.3195905240360321,
+    "app_harmonicity": 1.2114726748892886,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 59,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      247.2207,
+      329.6276,
+      395.5531,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5135"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5153",
+    "source": "voice",
+    "fft_score": -0.3914161338436691,
+    "app_harmonicity": 1.128517534714437,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      196.2192,
+      261.6256,
+      392.4383,
+      627.9014
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5153"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5153",
+    "source": "synth",
+    "fft_score": -0.09540438025980578,
+    "app_harmonicity": 1.128517534714437,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      196.2192,
+      261.6256,
+      392.4383,
+      627.9014
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5153"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5351",
+    "source": "voice",
+    "fft_score": -0.4995649674688871,
+    "app_harmonicity": 1.060553804421969,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      196.2192,
+      313.9507,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5351"
+  },
+  {
+    "nature": "minor",
+    "voicing": "5351",
+    "source": "synth",
+    "fft_score": -0.23721045980507025,
+    "app_harmonicity": 1.060553804421969,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 55,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      196.2192,
+      313.9507,
+      392.4383,
+      523.2511
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "minor:5351"
+  },
+  {
+    "nature": "m7",
+    "voicing": "5317",
+    "source": "voice",
+    "fft_score": -0.3127553991811937,
+    "app_harmonicity": 0.5276536505706475,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 50,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      146.9983,
+      228.664,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:5317"
+  },
+  {
+    "nature": "m7",
+    "voicing": "5317",
+    "source": "synth",
+    "fft_score": -0.0713349832859574,
+    "app_harmonicity": 0.5276536505706475,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 50,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 77
+    },
+    "fundamentals_hz": [
+      146.9983,
+      228.664,
+      391.9954,
+      685.992
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:5317"
+  },
+  {
+    "nature": "m7",
+    "voicing": "5713",
+    "source": "voice",
+    "fft_score": -0.3878120136206148,
+    "app_harmonicity": 0.24861514765131387,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 62,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      293.9966,
+      342.996,
+      391.9954,
+      457.328
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:5713"
+  },
+  {
+    "nature": "m7",
+    "voicing": "5713",
+    "source": "synth",
+    "fft_score": -0.18406496277800652,
+    "app_harmonicity": 0.24861514765131387,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 62,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      293.9966,
+      342.996,
+      391.9954,
+      457.328
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:5713"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1537",
+    "source": "voice",
+    "fft_score": 0.49455197289949376,
+    "app_harmonicity": 0.6252559872379446,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      384.5655,
+      576.8482
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1537"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1537",
+    "source": "synth",
+    "fft_score": 0.8023909743154404,
+    "app_harmonicity": 0.6252559872379446,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 52,
+      "bari": 59,
+      "lead": 67,
+      "tenor": 74
+    },
+    "fundamentals_hz": [
+      164.8138,
+      247.2207,
+      384.5655,
+      576.8482
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1537"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1735",
+    "source": "voice",
+    "fft_score": 0.5348840999227849,
+    "app_harmonicity": 0.6674658670590289,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 52,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      164.8138,
+      288.4241,
+      384.5655,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1735"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1735",
+    "source": "synth",
+    "fft_score": 0.858974273703641,
+    "app_harmonicity": 0.6674658670590289,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 52,
+      "bari": 62,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      164.8138,
+      288.4241,
+      384.5655,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1735"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1357",
+    "source": "voice",
+    "fft_score": -0.18766328452985112,
+    "app_harmonicity": 0.5445070476307414,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      457.8447
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1357"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1357",
+    "source": "synth",
+    "fft_score": -0.05177810489534832,
+    "app_harmonicity": 0.5445070476307414,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      457.8447
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1357"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1753",
+    "source": "voice",
+    "fft_score": -0.159163093124395,
+    "app_harmonicity": 0.5276536505706438,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1753"
+  },
+  {
+    "nature": "m7",
+    "voicing": "1753",
+    "source": "synth",
+    "fft_score": -0.041009092114115485,
+    "app_harmonicity": 0.5276536505706438,
+    "ring_tier": 4,
+    "midis": {
+      "bass": 48,
+      "bari": 58,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      228.9224,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "m7:1753"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "1375",
+    "source": "voice",
+    "fft_score": 0.10168488924626828,
+    "app_harmonicity": 0.06784544154987518,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 58,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      233.0819,
+      279.6983,
+      388.4698,
+      652.6293
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:1375"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "1375",
+    "source": "synth",
+    "fft_score": 0.02510897203661915,
+    "app_harmonicity": 0.06784544154987518,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 58,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 76
+    },
+    "fundamentals_hz": [
+      233.0819,
+      279.6983,
+      388.4698,
+      652.6293
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:1375"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "1735",
+    "source": "voice",
+    "fft_score": 0.40225119025726774,
+    "app_harmonicity": 0.028649078834619257,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      164.8138,
+      274.6896,
+      395.5531,
+      461.4786
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:1735"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "1735",
+    "source": "synth",
+    "fft_score": 0.7410964613595591,
+    "app_harmonicity": 0.028649078834619257,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      164.8138,
+      274.6896,
+      395.5531,
+      461.4786
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:1735"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "3715",
+    "source": "voice",
+    "fft_score": 0.15387487872328523,
+    "app_harmonicity": 0.09634361768775708,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 58,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      235.1973,
+      326.6629,
+      391.9954,
+      548.7936
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:3715"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "3715",
+    "source": "synth",
+    "fft_score": 0.10531737334189807,
+    "app_harmonicity": 0.09634361768775708,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 58,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      235.1973,
+      326.6629,
+      391.9954,
+      548.7936
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:3715"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "5713",
+    "source": "voice",
+    "fft_score": 0.16983960544960042,
+    "app_harmonicity": 0.025023941468039615,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      274.3968,
+      326.6629,
+      391.9954,
+      470.3945
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:5713"
+  },
+  {
+    "nature": "dim7",
+    "voicing": "5713",
+    "source": "synth",
+    "fft_score": 0.07914676698444967,
+    "app_harmonicity": 0.025023941468039615,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 70
+    },
+    "fundamentals_hz": [
+      274.3968,
+      326.6629,
+      391.9954,
+      470.3945
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim7:5713"
+  },
+  {
+    "nature": "dim",
+    "voicing": "1351",
+    "source": "voice",
+    "fft_score": 0.259346923240702,
+    "app_harmonicity": 0.9071078032582314,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      277.1826,
+      332.6192,
+      388.0557,
+      554.3653
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim:1351"
+  },
+  {
+    "nature": "dim",
+    "voicing": "1351",
+    "source": "synth",
+    "fft_score": 0.10220422448056103,
+    "app_harmonicity": 0.9071078032582314,
+    "ring_tier": 5,
+    "midis": {
+      "bass": 61,
+      "bari": 64,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      277.1826,
+      332.6192,
+      388.0557,
+      554.3653
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "dim:1351"
+  },
+  {
+    "nature": "add9",
+    "voicing": "1593",
+    "source": "voice",
+    "fft_score": -0.47572811497608797,
+    "app_harmonicity": 0.6997024126206852,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      174.6141,
+      261.9212,
+      392.8818,
+      436.5353
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "add9:1593"
+  },
+  {
+    "nature": "add9",
+    "voicing": "1593",
+    "source": "synth",
+    "fft_score": -0.5357926497485436,
+    "app_harmonicity": 0.6997024126206852,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 60,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      174.6141,
+      261.9212,
+      392.8818,
+      436.5353
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "add9:1593"
+  },
+  {
+    "nature": "add9",
+    "voicing": "1395",
+    "source": "voice",
+    "fft_score": -0.3724733622834453,
+    "app_harmonicity": 0.6958591865321874,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      174.6141,
+      218.2676,
+      392.8818,
+      523.8423
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "add9:1395"
+  },
+  {
+    "nature": "add9",
+    "voicing": "1395",
+    "source": "synth",
+    "fft_score": -0.5409835038271708,
+    "app_harmonicity": 0.6958591865321874,
+    "ring_tier": 3,
+    "midis": {
+      "bass": 53,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 72
+    },
+    "fundamentals_hz": [
+      174.6141,
+      218.2676,
+      392.8818,
+      523.8423
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "add9:1395"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1563",
+    "source": "voice",
+    "fft_score": -0.04294322366661744,
+    "app_harmonicity": 0.36842989602538967,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 58,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      233.0819,
+      349.6228,
+      388.4698,
+      543.8577
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1563"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1563",
+    "source": "synth",
+    "fft_score": -0.018743362778223742,
+    "app_harmonicity": 0.36842989602538967,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 58,
+      "bari": 65,
+      "lead": 67,
+      "tenor": 73
+    },
+    "fundamentals_hz": [
+      233.0819,
+      349.6228,
+      388.4698,
+      543.8577
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1563"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1356",
+    "source": "voice",
+    "fft_score": -0.27291736658070836,
+    "app_harmonicity": 0.3447150399206705,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      436.0426
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1356"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1356",
+    "source": "synth",
+    "fft_score": -0.06130632794252161,
+    "app_harmonicity": 0.3447150399206705,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 60,
+      "bari": 63,
+      "lead": 67,
+      "tenor": 69
+    },
+    "fundamentals_hz": [
+      261.6256,
+      305.2298,
+      392.4383,
+      436.0426
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1356"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1653",
+    "source": "voice",
+    "fft_score": -0.08802998336209002,
+    "app_harmonicity": 0.5505769148697001,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 48,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      218.0213,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1653"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1653",
+    "source": "synth",
+    "fft_score": -0.024551682011133683,
+    "app_harmonicity": 0.5505769148697001,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 48,
+      "bari": 57,
+      "lead": 67,
+      "tenor": 75
+    },
+    "fundamentals_hz": [
+      130.8128,
+      218.0213,
+      392.4383,
+      610.4597
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1653"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1635",
+    "source": "voice",
+    "fft_score": 0.6542347146859852,
+    "app_harmonicity": 0.6466157312924616,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      164.8138,
+      274.6896,
+      384.5655,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1635"
+  },
+  {
+    "nature": "madd6",
+    "voicing": "1635",
+    "source": "synth",
+    "fft_score": 0.8703057019312345,
+    "app_harmonicity": 0.6466157312924616,
+    "ring_tier": 2,
+    "midis": {
+      "bass": 52,
+      "bari": 61,
+      "lead": 67,
+      "tenor": 71
+    },
+    "fundamentals_hz": [
+      164.8138,
+      274.6896,
+      384.5655,
+      494.4413
+    ],
+    "ji_max_cents_err": 0.0,
+    "stack_id": "madd6:1635"
+  }
+]

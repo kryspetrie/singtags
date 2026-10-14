@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   applyOpenMixDefaults,
   defaultMixForPart,
+  hydrateProjectMix,
   isDetectedAudible,
   isPartAudible,
   isSketchAudible,
@@ -30,6 +31,16 @@ describe('tagRoll mix', () => {
     expect(isPartAudible('a', mix)).toBe(true)
     expect(isPartAudible('b', mix)).toBe(false)
     expect(isPartAudible('c', mix)).toBe(false)
+  })
+
+  it('muted+soloed strip does not silence the whole mix', () => {
+    // Stuck solo on a muted channel used to arm the solo bus with nothing audible.
+    const mix = [
+      { partId: 'a', volume: 1, pan: 0, mute: false, solo: false },
+      { partId: 'b', volume: 1, pan: 0, mute: true, solo: true },
+    ]
+    expect(isPartAudible('a', mix)).toBe(true)
+    expect(isPartAudible('b', mix)).toBe(false)
   })
 
   it('syncs mix rows to parts', () => {
@@ -78,6 +89,18 @@ describe('tagRoll mix', () => {
     expect(isPartAudible('1', withSolo)).toBe(false)
   })
 
+  it('Sketch + Detected both soloed (unmuted) are audible together', () => {
+    const parts = [{ id: '1', name: 'Lead', color: '#000', midiGroup: 'upper' as const }]
+    const both = syncProjectMix(parts, null).map((m) =>
+      m.partId === 'mix:harmony-detected' || m.partId === 'mix:harmony-sketch'
+        ? { ...m, mute: false, solo: true }
+        : m,
+    )
+    expect(isSketchAudible(both)).toBe(true)
+    expect(isDetectedAudible(both)).toBe(true)
+    expect(isPartAudible('1', both)).toBe(false)
+  })
+
   it('projectHasDefinedChords detects locked sketch or non-melody notes', () => {
     const parts = [
       { id: 'lead', name: 'Lead' },
@@ -107,6 +130,26 @@ describe('tagRoll mix', () => {
         harmonySketch: [],
       }),
     ).toBe(true)
+  })
+
+  it('hydrateProjectMix keeps mute/solo/volume', () => {
+    const parts = [
+      { id: 'lead', name: 'Lead', color: '#000', midiGroup: 'upper' as const },
+    ]
+    const saved = [
+      { partId: 'lead', volume: 0.8, pan: -0.2, mute: true, solo: true },
+      { partId: 'mix:harmony-detected', volume: 0.4, pan: 0, mute: false, solo: true },
+    ]
+    const hydrated = hydrateProjectMix(parts, saved)
+    expect(hydrated.find((m) => m.partId === 'lead')).toMatchObject({
+      volume: 0.8,
+      mute: true,
+      solo: true,
+    })
+    expect(hydrated.find((m) => m.partId === 'mix:harmony-detected')).toMatchObject({
+      mute: false,
+      solo: true,
+    })
   })
 
   it('applyOpenMixDefaults mutes Sketch+Detected when chords exist', () => {

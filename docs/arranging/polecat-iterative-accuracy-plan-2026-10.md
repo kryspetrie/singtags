@@ -4,8 +4,8 @@
 **Research basis:** [polecat-alt-methods-2026-10.md](polecat-alt-methods-2026-10.md)  
 **Prior loops:** [polecat-orphan-coverage-plan-2026-10.md](polecat-orphan-coverage-plan-2026-10.md) (stopped; cover-orphan OK)  
 **Baseline keep:** `orphan-keep` — **pmnRootHit 0.488**, **timeHit 0.287**, **orphanRate 0.326**  
-**Working keep:** `m2b-keep` / `m3g-keep` — **pmn 0.498**, **time 0.296**, **orphan 0.326**, **pmnEdge 0.600**, **pmnMid 0.456**, **pmnConf 0.829** @cov **0.063** (thr 0.75)  
-**Prior keep:** `m1d-keep` — pmn 0.486 / time 0.292  
+**Working keep:** `c2-add-keep` — **pmn 0.515**, **time 0.307**, **orphan 0.326**, **pmnEdge 0.612**, **pmnMid 0.475**, **pmnConf 0.717** @cov **0.083** (thr 0.75)  
+**Prior keep:** `m2b-keep` / `m3g-keep` — pmn 0.498 / time 0.296 / pmnConf 0.829 @0.063  
 **Stretch goals (unchanged):** pmnRootHit ≥ **0.55** (stretch 0.6), timeHit ≥ **0.45** then **0.5**, weak **90003 / 90004 / 90011** each ≥ **0.40**
 
 ---
@@ -342,6 +342,24 @@ Cadence / before–after lists belong in **M0 dumps** and teaching UX, not in th
 - Score: still pmn **0.498** flat; 90001 **−0.063**, 90006 **−0.033**, 90012 **−0.084**; weak hit 0.40 via cascade.
 - Decision: **revert**. JSON: `m3p2-ii-iv-only.json`.
 
+### Cycle C2 — classic corpus + additive distill
+
+- Phase: B / C2 (teacher–student)
+- Hypothesis: 125 Classic Tags (`library/`, part-left stacks already extracted) + 12 polecats yield LOO ≥0.55; freezing the table into Auto lifts full pmn.
+- Detect: `extract_pitch_stacks` over classic IDs — **125/125** already had `pitch_stacks.json` + `pitch_studio.json` (skip). Fit: `fitStrongRootPriors.mjs --corpus both --loo` → LOO **0.573** (n=2292, 132 tags).
+- Score:
+  - Raw swap `c2-classic-both` / `c2-classic-only`: Auto pmn **0.463 / 0.462** (Δ **−0.035 / −0.036**) — **do not ship**.
+  - Transitions-only: Δpmn **−0.002** (neutral).
+  - **Additive blend** (`--blend-keep` m2b priors, `--keep-transitions`): pmn **0.515** (Δ**+0.017**), time **0.307** (Δ**+0.011**); no winner_reg >0.05; **90011 0.380→0.500**, **90001 +0.086**. pmnConf **0.829→0.717** (cov 0.063→0.083) — acceptable for Path A locks.
+- Decision: **keep** as `c2-add-keep`. Reproduce:
+  ```bash
+  node scripts/arranging/fitStrongRootPriors.mjs --corpus both --loo \
+    --blend-keep work/polecat-honest-loop/strongRootPriors.m2b-keep.ts \
+    --keep-transitions
+  node scripts/arranging/polecatHonestScore.mjs --label c2-add-keep --save
+  ```
+- JSON: `c2-add-keep.json`, `c2-fit-report.json`, `c2-classic-both.json`, `c2-classic-only.json`.
+
 ---
 
 ## Do-not-retry registry (Auto accuracy)
@@ -370,6 +388,8 @@ Re-open only with a **new hypothesis + new metric slice**, not “try again soft
 | **m4a** half-bar medium homes | −0.002 time flat | Density ≠ root accuracy | Half-bar medium promote as accuracy lever |
 | Margin-as-confidence (thr 0.45) | confHit ≈0.50 | Uncalibrated | Expect pmnConf≥0.65 from base/seg margin |
 | Gold neighbor oracles (alt-methods) | LOO ≤0.47 | Ambiguity irreducible on 12 | Bigger before/after chart catalogs for Auto |
+| **c2-classic-both** / **c2-classic-only** raw table swap | LOO 0.573 / 0.540; Auto pmn **−0.035 / −0.036** | Table LOO ≠ full propose; overwrites m2b keys | Ship raw fitted priors without `--blend-keep` |
+| **c2-blend-override** (classic wins conflicts) | pmn **−0.040** | Conflicts were m2b-tuned | Let classic overwrite m2b keys |
 | CADENCE_CATALOG growth for Auto | low leverage | ~25% miss mass | Catalog essays as keep criteria |
 | Viterbi always-apply / emission flatten | prior loops | Preferred emission dominates | Flatten emission to force transitions |
 | Highway LCS / gold pillars as gate | lies | Measures wrong thing | Merge on pillarNorm |
@@ -382,6 +402,7 @@ Re-open only with a **new hypothesis + new metric slice**, not “try again soft
 | `m1d-keep` | safe I/II segment only | 0.486 / 0.292 |
 | `m3g-keep` | selective Co5 + auth-V + I→vi | **0.498** / 0.296 |
 | `m2b-keep` / `m2c-*` | empirical conf thr 0.75 + Guided amber | pmnConf **0.829** @0.063 |
+| `c2-add-keep` | classic+polecat fit + **additive** blend (m2b keys win) | pmn **0.515** / time **0.307**; 90011 **0.500** |
 
 ### Structural lesson (read before next Auto tweak)
 
@@ -421,10 +442,10 @@ Grow labeled Strong ticks (**M4b**): Classic Tags / more polecats, same Lead+key
 
 ### Suggested sequence
 
-1. **A** — Guided listen checklist + R4 floor doc (this week).  
+1. **A** — Guided listen checklist + R4 floor (in progress; human listen still open).  
 2. **C6 / M2p** — locks + phrase copy (listen leap).  
-3. **B / C2** — corpus then distill (only path to Auto ≥0.55).  
-4. **C1 or C3** if still hungry after corpus.
+3. **C2 done** — `c2-add-keep` (additive classic blend); next Auto ≥0.55 needs richer distill or C1/C6, not raw refit.  
+4. **C1 or C3** if still hungry after Guided listen.
 
 **Executable ship + leap track:** [polecat-next-and-leaps-2026-10.md](polecat-next-and-leaps-2026-10.md)
 

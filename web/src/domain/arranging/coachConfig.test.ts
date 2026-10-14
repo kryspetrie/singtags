@@ -9,6 +9,7 @@ import {
   toggleQaGroup,
 } from './coachConfig'
 import { createEmptyArrangement } from './types'
+import { voicingProfileFromPreset } from './voicingProfile'
 import { lintArrangement, lintRulesForQaConfig } from './qa'
 
 describe('coachConfig', () => {
@@ -55,5 +56,41 @@ describe('coachConfig', () => {
     expect(lintArrangement(p).some((l) => l.ruleId === 'illegal-nature')).toBe(true)
     p.qaConfig = toggleQaGroup(p.qaConfig, 'vocabulary', false)
     expect(lintArrangement(p).some((l) => l.ruleId === 'illegal-nature')).toBe(false)
+  })
+
+  it('disabling ensembleRanges suppresses ensemble-part-range', () => {
+    const p = createEmptyArrangement()
+    p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
+    p.stacks = [
+      {
+        id: 's',
+        startTick: 0,
+        durationTicks: 480,
+        rootPc: 0,
+        natureId: 'maj',
+        voicing: '0413',
+        spread: false,
+        layer: 'primary',
+        scfGroup: null,
+        pillarId: null,
+        midi: { bass: 36, bari: 55, lead: 60, tenor: 72 },
+        ruleTags: [],
+      },
+    ]
+    const profile = voicingProfileFromPreset('ttbb')
+    expect(
+      lintArrangement(p, { voicingProfile: profile }).some(
+        (l) => l.ruleId === 'ensemble-part-range',
+      ),
+    ).toBe(true)
+    p.qaConfig = toggleQaGroup(p.qaConfig, 'ensembleRanges', false)
+    expect(lintRulesForQaConfig(p.qaConfig).some((r) => r.id === 'ensemble-part-range')).toBe(
+      false,
+    )
+    expect(
+      lintArrangement(p, { voicingProfile: profile }).some(
+        (l) => l.ruleId === 'ensemble-part-range',
+      ),
+    ).toBe(false)
   })
 })

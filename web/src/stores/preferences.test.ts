@@ -85,6 +85,7 @@ describe('preferences store', () => {
       pianoEngine: 'synth',
       pianoLockPosition: false,
       showPcKeyRange: true,
+      attackSec: 0.25,
     })
     prefs.setPitchPipeDetuneCents(-7, { clearConcertA: true })
     expect(JSON.parse(localStorage.getItem('singtags.pitchPipe.v1')!)).toEqual({
@@ -100,6 +101,7 @@ describe('preferences store', () => {
       pianoEngine: 'synth',
       pianoLockPosition: false,
       showPcKeyRange: true,
+      attackSec: 0.25,
     })
     setActivePinia(createPinia())
     const again = usePreferencesStore()

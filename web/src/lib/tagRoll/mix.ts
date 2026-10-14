@@ -114,7 +114,10 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n))
 }
 
-/** Solo wins: if any part is soloed, only soloed (and unmuted) parts sound. */
+/**
+ * Solo wins: if any *unmuted* part is soloed, only soloed parts sound.
+ * Muted+soloed rows must not engage the solo bus (that used to silence everything).
+ */
 export function isPartAudible(
   partId: string,
   mix: readonly TagRollPartMix[],
@@ -123,7 +126,9 @@ export function isPartAudible(
   if (!row) return true
   if (row.mute) return false
   // Metronome never contributes to / participates in the solo bus.
-  const anySolo = mix.some((m) => m.solo && m.partId !== TAG_ROLL_METRONOME_MIX_ID)
+  const anySolo = mix.some(
+    (m) => m.solo && !m.mute && m.partId !== TAG_ROLL_METRONOME_MIX_ID,
+  )
   if (anySolo) return row.solo
   return true
 }
@@ -193,8 +198,20 @@ export function muteSketchAndDetectedMix(
 }
 
 /**
- * When opening a project that already has chords, Sketch + Detected start muted
- * so written TTBB (or the arrangement bed) is the default listen path.
+ * Open/import hydrate: keep saved mute/solo/volume/pan.
+ * Mixer state is part of the project document — do not rewrite mute/solo on open.
+ */
+export function hydrateProjectMix(
+  parts: readonly TagRollPart[],
+  mix: readonly TagRollPartMix[] | undefined | null,
+): TagRollPartMix[] {
+  return syncProjectMix(parts, mix)
+}
+
+/**
+ * Force Sketch + Detected muted when a project has defined chords.
+ * Prefer {@link hydrateProjectMix} on open/import so user mixer prefs persist;
+ * keep this for an explicit “reset listen path” if the UI needs it.
  */
 export function applyOpenMixDefaults(
   parts: readonly TagRollPart[],

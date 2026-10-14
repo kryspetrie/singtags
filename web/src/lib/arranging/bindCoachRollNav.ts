@@ -26,6 +26,8 @@ export function bindCoachRollNav(opts: {
   stepNextIssue: () => void
   stepNextProblem: () => void
   stepSuggest?: (dir: -1 | 1) => void
+  stepVoicing?: (dir: -1 | 1) => void
+  toggleSpread?: () => void
 }): () => void {
   const unregister = registerCoachRollNav({
     stepMoment: opts.stepMoment,
@@ -33,6 +35,8 @@ export function bindCoachRollNav(opts: {
     stepNextIssue: opts.stepNextIssue,
     stepNextProblem: opts.stepNextProblem,
     stepSuggest: opts.stepSuggest,
+    stepVoicing: opts.stepVoicing,
+    toggleSpread: opts.toggleSpread,
   })
   const stop = watch(
     [

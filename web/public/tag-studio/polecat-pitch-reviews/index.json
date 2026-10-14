@@ -25,19 +25,37 @@
       "stacks": 49
     },
     {
+      "id": "seed-polecat-pitch-90008",
+      "tagId": 90008,
+      "title": "Polecat pitch \u00b7 Shine On Me",
+      "file": "90008.json",
+      "notes": 192,
+      "stacks": 46
+    },
+    {
       "id": "seed-polecat-pitch-90009",
       "tagId": 90009,
       "title": "Polecat pitch \u00b7 The Story of the Rose",
       "file": "90009.json",
       "notes": 216,
       "stacks": 50
+    },
+    {
+      "id": "seed-polecat-pitch-90011",
+      "tagId": 90011,
+      "title": "Polecat pitch \u00b7 Down By The Old Mill Stream",
+      "file": "90011.json",
+      "notes": 301,
+      "stacks": 63
     }
   ],
-  "count": 4,
+  "count": 6,
   "gold": [
     90001,
     90003,
     90006,
-    90009
+    90008,
+    90009,
+    90011
   ]
 }

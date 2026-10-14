@@ -22,7 +22,11 @@ import {
   sheetPianoWhiteKeyPx,
   minSheetPianoKeyScaleForViewport,
 } from '../audio/pitchPlayer'
-import { getActivePitchPipeVoice, PITCH_PIPE_VOICE_CHANGE_EVENT } from '../audio/pitchPipeVoice'
+import {
+  getActivePitchPipeVoice,
+  PITCH_PIPE_VOICE_CHANGE_EVENT,
+  type PitchPipeVoiceConfig,
+} from '../audio/pitchPipeVoice'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
 import { usePreferencesStore } from '../stores/preferences'
 import { setSessionBusy } from '../lib/sessionActivity'
@@ -150,6 +154,8 @@ function rebuildPlayer(): void {
   prev.dispose()
   sampleStatus.value = null
   syncSounding()
+  void player.warmUp?.()
+  syncPitchVoice()
   if (pianoEngine.value === 'samples') {
     void player.preloadForNote?.(props.centerNote || 'C4').catch(() => {
       sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t load piano samples'
@@ -157,18 +163,21 @@ function rebuildPlayer(): void {
   }
 }
 
-async function noteOn(note: string): Promise<void> {
+/** Fire sound on this turn; highlight/error sync trails on the promise. */
+function noteOn(note: string): void {
   wantSounding.add(note)
-  try {
-    await player.noteOn(note, detune.value)
-    sampleStatus.value = null
-  } catch {
-    sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
-  }
-  if (!wantSounding.has(note)) {
-    player.noteOff(note, true)
-  }
-  syncSounding()
+  const p = player.noteOn(note, detune.value)
+  void p.then(
+    () => {
+      sampleStatus.value = null
+      if (!wantSounding.has(note)) player.noteOff(note, true)
+      syncSounding()
+    },
+    () => {
+      sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
+      syncSounding()
+    },
+  )
 }
 
 function noteOff(note: string): void {
@@ -183,11 +192,20 @@ watch(detune, (cents) => {
 
 watch(pianoEngine, () => rebuildPlayer())
 
+function pipeVoice(): PitchPipeVoiceConfig {
+  return { ...getActivePitchPipeVoice(), attackSec: prefs.pitchPipeAttackSec }
+}
+
 function syncPitchVoice(): void {
   if (pianoEngine.value === 'synth') {
-    player.setVoice(getActivePitchPipeVoice())
+    player.setVoice(pipeVoice())
   }
 }
+
+watch(
+  () => prefs.pitchPipeAttackSec,
+  () => syncPitchVoice(),
+)
 
 const scrollPcOctave = ref(4)
 const focusNote = ref(props.centerNote || 'C4')
@@ -364,14 +382,27 @@ function onViewportChange(): void {
 let resizeRo: ResizeObserver | null = null
 let lastViewportWidth = 0
 
+function armAudioFromGesture(): void {
+  void player.warmUp?.()
+  if (pianoEngine.value !== 'samples') return
+  window.setTimeout(() => {
+    const mid = noteList.value[Math.floor(noteList.value.length / 2)] ?? 'C4'
+    void player.preloadForNote?.(mid).catch(() => undefined)
+  }, 0)
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onPcKeyDown, true)
   window.addEventListener('keyup', onPcKeyUp, true)
   window.addEventListener('blur', onWindowBlur)
   window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   window.addEventListener('orientationchange', onViewportChange)
+  window.addEventListener('pointerdown', armAudioFromGesture, { capture: true, once: true })
+  window.addEventListener('keydown', armAudioFromGesture, { capture: true, once: true })
   lastViewportWidth = window.innerWidth
+  syncPitchVoice()
   if (pianoEngine.value === 'samples') {
+    // Prefetch center note only (not a blocking full octave before first strike).
     void player.preloadForNote?.(props.centerNote || 'C4').catch(() => {
       sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t load piano samples'
     })
@@ -405,6 +436,8 @@ onUnmounted(() => {
   window.removeEventListener('blur', onWindowBlur)
   window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   window.removeEventListener('orientationchange', onViewportChange)
+  window.removeEventListener('pointerdown', armAudioFromGesture, true)
+  window.removeEventListener('keydown', armAudioFromGesture, true)
   resizeRo?.disconnect()
   resizeRo = null
   heldPcCodes.clear()

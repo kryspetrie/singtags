@@ -113,6 +113,9 @@ const {
   hearCurrentStack,
   hearPillarRoot,
   hearSelectedSuggest,
+  hearVoicingMidi,
+  previewVoicingGhosts,
+  clearVoicingGhosts,
   applyCand,
   applySelectedSuggest,
   applyAltChip,
@@ -137,6 +140,10 @@ const {
   canFix,
   learnLint,
   jumpToLint,
+  chordLabelMode,
+  setChordLabelMode,
+  candLabel,
+  candAltLabel,
   candIdentity,
   layerHint,
   whyFor,
@@ -210,10 +217,10 @@ const chooseMomentLine = computed(() => {
 
 const chooseBanner = computed(() => {
   if (uncoveredSelected.value) {
-    return 'No Sketch, Detected, or melody home under this moment — paint a chord or ◆ a pillar.'
+    return 'No Sketch, Detected, or melody home under this moment — paint a Sketch chord or mark a Strong Lead note.'
   }
   if (mode.value === 'review' && !pillars.value.length && !softHomeLabel.value) {
-    return 'Review needs Sketch pillars for ranked suggestions — lock phrase chords, then ◆ home roots.'
+    return 'Review needs Sketch chords for ranked suggestions — lock phrase chords and check Strong vs passing Lead roles.'
   }
   return null
 })
@@ -497,6 +504,8 @@ onUnmounted(() => {
               :candidates="filteredCandidates"
               :selected-index="suggestIndex"
               :has-stack="!!currentStack"
+              :label="candLabel"
+              :alt-label="candAltLabel"
               :identity="candIdentity"
               :meta="layerHint"
               :why-open="chooseWhyOpen"
@@ -504,8 +513,10 @@ onUnmounted(() => {
               :counterpart="counterpart"
               :filter-options="filterOptions"
               :cand-filter="candFilter"
+              :label-mode="chordLabelMode"
               @update:selected-index="suggestIndex = $event"
               @update:cand-filter="candFilter = $event"
+              @update:label-mode="setChordLabelMode"
               @update:why-open="chooseWhyOpen = $event"
               @preview="previewCand"
               @clear-preview="holdStopHear"
@@ -624,6 +635,9 @@ onUnmounted(() => {
               :progress-fraction="optimizeProgressFraction"
               :progress-label="optimizeProgressLabel"
               @run="onPathOptimize"
+              @hear-voicing="hearVoicingMidi"
+              @preview-voicing="previewVoicingGhosts"
+              @clear-voicing-preview="clearVoicingGhosts"
             />
           </section>
 

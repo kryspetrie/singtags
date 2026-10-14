@@ -1,6 +1,7 @@
 /**
  * TTBB middle-range voicings for Sketch / Cadence / Key-change Hear.
- * Prefer catalog barbershop voicing strings + placeVoicing — never dump 9ths as m2 clusters.
+ * Prefer catalog barbershop voicing strings + placeVoicingConcert — never dump 9ths as m2 clusters.
+ * Concert placement keeps bass out of the mud under a sung (concert) lead.
  * When prev/next context is provided, pick inversions via arranging VL rules
  * (smooth motion, common tones, avoid parallel 5ths/8ves).
  */
@@ -8,7 +9,7 @@ import {
   BARBERSHOP_CHORDS,
   VOICINGS_BY_CHORD,
   leadRoleInChord,
-  placeVoicing,
+  placeVoicingConcert,
   voicingFitsLead,
   type BarbershopChordNature,
   type ChordToneRole,
@@ -22,6 +23,13 @@ import {
   voiceLeadScore,
 } from './theoryScores'
 import { leapsWithinCaps, partJumpCost } from './pathOptimize/partLeaps'
+import {
+  outerSpanOk,
+  partBandFitScore,
+  pitchCenterScore,
+  shuffleWithSeed,
+  type VoicingProfile,
+} from './voicingProfile'
 
 /** Chord quality / nature id (matches BARBERSHOP_CHORDS and Tag Studio sketch qualities). */
 export type SketchHearQuality = string
@@ -263,7 +271,7 @@ export function lockVoicingLeadToMelody(
   let best: VoicingPitches | null = null
   let bestScore = Number.NEGATIVE_INFINITY
   for (const voicing of fitting) {
-    const placed = placeVoicing({
+    const placed = placeVoicingConcert({
       chord,
       rootPc,
       leadMidi: lead,
@@ -309,7 +317,7 @@ export function enumerateSketchHearCandidates(opts: SketchHearChordRef): Voicing
   const seen = new Set<string>()
 
   const tryPlace = (voicing: string, leadMidi: number, lockLead: boolean) => {
-    const placed = placeVoicing({
+    const placed = placeVoicingConcert({
       chord,
       rootPc,
       leadMidi,
@@ -436,8 +444,9 @@ function nodeScore(
   // Dom7 / Dom9: discourage 3rd/7th/9th-bass shells (Bonnie V7(9)/V) without a
   // large root/5 bonus that forces bass leaps on every dominant.
   if (ref.quality === 'seventh' || ref.quality === 'ninth') {
-    if (role === 7 || role === 9) s -= 14
-    else if (role === 3) s -= 12
+    if (role === 7 || role === 9) s -= 18
+    else if (role === 3) s -= 22
+    else if (role === 1 || role === 5) s += 4
   }
   return s
 }
@@ -508,6 +517,10 @@ export type OptimizeSketchHearPathOpts = {
   partAware?: boolean
   /** Risk for leap caps when partAware (default 0.35). */
   risk?: number
+  /** Ensemble bands / outer span / pitch center for revoice. */
+  profile?: VoicingProfile
+  /** When set, shuffle candidate order for Run-again diversity. */
+  exploreSeed?: number
 }
 
 function seedStayBonus(
@@ -558,6 +571,26 @@ function injectSeedCandidate(
  * then picks the path with best voice leading + ring + chord coverage.
  * Pass {@link OptimizeSketchHearPathOpts.seedPitches} when polishing an existing chart.
  */
+function filterByProfile(
+  cands: readonly VoicingPitches[],
+  profile: VoicingProfile | undefined,
+): VoicingPitches[] {
+  if (!profile) return [...cands]
+  const tight = cands.filter((p) => outerSpanOk(p, profile))
+  const pool = tight.length ? tight : [...cands]
+  return [...pool].sort((a, b) => {
+    const sa =
+      partBandFitScore('bass', a.bass, profile) +
+      partBandFitScore('tenor', a.tenor, profile) +
+      pitchCenterScore(a, profile)
+    const sb =
+      partBandFitScore('bass', b.bass, profile) +
+      partBandFitScore('tenor', b.tenor, profile) +
+      pitchCenterScore(b, profile)
+    return sb - sa
+  })
+}
+
 export function optimizeSketchHearPath(
   chords: readonly SketchHearChordRef[],
   opts?: OptimizeSketchHearPathOpts,
@@ -568,10 +601,16 @@ export function optimizeSketchHearPath(
   const preserve = !!seeds?.some((s) => s != null)
   const partAware = !!opts?.partAware
   const risk = opts?.risk ?? 0.35
+  const profile = opts?.profile
+  const exploreSeed = opts?.exploreSeed
   const layers = chords.map((c, i) => {
-    const ranked = rankedCandidates(c)
+    let ranked = rankedCandidates(c)
+    ranked = filterByProfile(ranked, profile)
     // Put I/V home-bass inversions first so ties lean that way
-    const ordered = startSeeds(ranked, c, tonality)
+    let ordered = startSeeds(ranked, c, tonality)
+    if (exploreSeed != null && exploreSeed !== 0) {
+      ordered = shuffleWithSeed(ordered, exploreSeed + i * 17)
+    }
     return injectSeedCandidate(ordered, seeds?.[i], c)
   })
   if (layers.some((L) => !L.length)) {

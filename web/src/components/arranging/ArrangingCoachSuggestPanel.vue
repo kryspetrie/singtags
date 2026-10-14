@@ -28,6 +28,10 @@ const props = defineProps<{
   candidates: readonly HarmonizeCandidate[]
   selectedIndex: number
   hasStack: boolean
+  /** Primary chord spelling (letter or Roman per labelMode). */
+  label: (c: HarmonizeCandidate) => string
+  /** Cross-label so both spellings stay visible on the button. */
+  altLabel: (c: HarmonizeCandidate) => string
   identity: (c: HarmonizeCandidate) => string
   meta: (c: HarmonizeCandidate) => string
   whyOpen: boolean
@@ -35,11 +39,13 @@ const props = defineProps<{
   counterpart: CounterpartDto | null
   filterOptions: { id: CandFilterId; label: string }[]
   candFilter: CandFilterId
+  labelMode: 'name' | 'roman'
 }>()
 
 const emit = defineEmits<{
   'update:selectedIndex': [i: number]
   'update:candFilter': [v: CandFilterId]
+  'update:labelMode': [v: 'name' | 'roman']
   'update:whyOpen': [v: boolean]
   preview: [c: HarmonizeCandidate]
   clearPreview: []
@@ -173,7 +179,31 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
     <p v-if="banner" class="banner">{{ banner }}</p>
 
     <template v-else>
-      <p class="meta">Hold to hear · ✓ {{ hasStack ? 'Replace' : 'Apply' }}</p>
+      <div class="meta-row">
+        <p class="meta">Hold to hear · ✓ {{ hasStack ? 'Replace' : 'Apply' }}</p>
+        <div class="label-seg" role="group" aria-label="Chord label view">
+          <button
+            type="button"
+            class="label-btn"
+            :class="{ on: labelMode === 'name' }"
+            :aria-pressed="labelMode === 'name'"
+            title="Letter names (G7)"
+            @click="emit('update:labelMode', 'name')"
+          >
+            Chord
+          </button>
+          <button
+            type="button"
+            class="label-btn"
+            :class="{ on: labelMode === 'roman' }"
+            :aria-pressed="labelMode === 'roman'"
+            title="Roman numerals (V7)"
+            @click="emit('update:labelMode', 'roman')"
+          >
+            Number
+          </button>
+        </div>
+      </div>
 
       <div
         v-if="filterOptions.length > 1"
@@ -225,7 +255,8 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
                 @lostpointercapture="onHoldStop"
                 @pointerleave="onHoldStop"
               >
-                {{ identity(c) }}
+                <span class="cn">{{ label(c) }}</span>
+                <span class="cr">{{ altLabel(c) }}</span>
               </button>
               <button
                 type="button"
@@ -382,6 +413,39 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
   color: var(--muted);
   background: color-mix(in srgb, var(--bg) 70%, var(--surface));
 }
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.6rem;
+}
+.label-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: none;
+}
+.label-btn {
+  min-height: 1.55rem;
+  padding: 0 0.5rem;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.label-btn:last-child {
+  border-right: none;
+}
+.label-btn.on {
+  background: color-mix(in srgb, var(--accent, #1d6a9f) 16%, var(--surface));
+  color: var(--text);
+}
 .meta {
   margin: 0;
   font-size: 0.72rem;
@@ -439,7 +503,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
   background: var(--surface);
   overflow: hidden;
   min-width: 0;
-  min-height: 1.85rem;
+  min-height: 2.15rem;
 }
 .rank {
   display: grid;
@@ -501,6 +565,11 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
   display: none;
 }
 .hear {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.05rem;
   min-width: 0;
   height: 100%;
   padding: 0.2rem 0.4rem;
@@ -515,9 +584,23 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
   user-select: none;
   overflow: hidden;
 }
-.groups .hear {
+.groups .hear .cn {
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+}
+.groups .hear .cr {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 .cell.on .hear {
   font-weight: 700;

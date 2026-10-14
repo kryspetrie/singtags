@@ -96,15 +96,18 @@ function toSegment(
 ): HarmonyStripSegment {
   const locked = s.locked && s.source !== 'detect'
   const name = sketchLabel(s, opts.preferFlats, opts.tonality, opts.mode)
-  const detailed = romanForChordDetailed({
-    rootPc: s.rootPc,
-    natureId: s.quality,
-    tonality: opts.tonality,
-    mode: opts.mode,
-    resolvesToRoot: next?.rootPc ?? null,
-  })
+  const blank = s.quality === 'blank'
+  const detailed = blank
+    ? { roman: '—', altRoman: null as string | null }
+    : romanForChordDetailed({
+        rootPc: s.rootPc,
+        natureId: s.quality,
+        tonality: opts.tonality,
+        mode: opts.mode,
+        resolvesToRoot: next?.rootPc ?? null,
+      })
   const roman = detailed.roman
-  const displayRoman = formatRomanWithAlt(roman, detailed.altRoman)
+  const displayRoman = blank ? '—' : formatRomanWithAlt(roman, detailed.altRoman)
   const candTick = opts.resolveCandidateTick?.(s.startTick) ?? s.startTick
   const tickCands = opts.nameCandidatesByTick?.get(candTick) ?? []
   const nameOptions = unique([

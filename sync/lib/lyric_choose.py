@@ -1197,6 +1197,9 @@ def suggestion_row(folder: Path, meta: dict) -> Optional[dict[str, Any]]:
         "arranger": meta.get("arranger") or "",
         "collection": meta.get("collection") or None,
         "classic": meta.get("classic"),
+        "rating": meta.get("rating"),
+        "rating_count": meta.get("rating_count"),
+        "download_count": meta.get("download_count"),
         "current_lyrics": _clean(meta.get("lyrics")) or None,
         "current_source": meta.get("lyrics_source"),
         "suggested_lyrics": text or None,
@@ -1211,6 +1214,71 @@ def suggestion_row(folder: Path, meta: dict) -> Optional[dict[str, Any]]:
     }
 
 
+def _as_float(raw: Any, default: float = 0.0) -> float:
+    if raw is None or raw == "":
+        return default
+    try:
+        n = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return n if n == n else default
+
+
+def _as_int(raw: Any, default: int = 0) -> int:
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(float(raw))
+    except (TypeError, ValueError):
+        return default
+
+
+def popularity_sort_key(
+    *,
+    rating: Any = None,
+    download_count: Any = None,
+    tag_id: Any = None,
+) -> tuple[float, float, int, int]:
+    """Importance: rating × log10(1+downloads), then rating, downloads, tag id.
+
+    Pure rating-first would float barely-voted high scores over hugely popular
+    mid-rated tags; the log blend keeps both signals in play.
+    """
+    import math
+
+    r = _as_float(rating)
+    d = _as_int(download_count)
+    tid = tag_id if isinstance(tag_id, int) else 0
+    score = r * math.log10(1 + max(0, d))
+    return (-score, -r, -d, tid)
+
+
+def _row_popularity_sort_key(row: dict) -> tuple[float, float, int, int]:
+    downloads = row.get("download_count")
+    if downloads is None:
+        downloads = row.get("downloads")
+    return popularity_sort_key(
+        rating=row.get("rating"),
+        download_count=downloads,
+        tag_id=row.get("tag_id"),
+    )
+
+
+def _row_has_missing_lyrics(row: dict) -> bool:
+    """True when there is no usable lyric guess to review."""
+    if row.get("reason") == "no_usable_lyrics":
+        return True
+    sug = row.get("suggested_lyrics")
+    if isinstance(sug, str):
+        return not sug.strip()
+    # Absent suggestion → missing unless another lyrics field already has text.
+    for key in ("current_lyrics", "lyrics"):
+        val = row.get(key)
+        if isinstance(val, str) and val.strip():
+            return False
+    return sug is None
+
+
 def _row_collection_sort_key(row: dict) -> tuple[int, float, int]:
     return collection_sort_key(
         collection=row.get("collection"),
@@ -1219,11 +1287,21 @@ def _row_collection_sort_key(row: dict) -> tuple[int, float, int]:
     )
 
 
+def review_queue_sort_key(row: dict) -> tuple:
+    """Collections → missing lyrics → other; popularity within each non-collection band."""
+    coll = _row_collection_sort_key(row)
+    if coll[0] < 90:
+        return (0, coll[0], coll[1], coll[2])
+    missing = 0 if _row_has_missing_lyrics(row) else 1
+    pop = _row_popularity_sort_key(row)
+    return (1, missing, pop[0], pop[1], pop[2], pop[3])
+
+
 def enrich_rows_with_collection(
     rows: list[dict],
     folders: dict[int, Path] | None,
 ) -> list[dict]:
-    """Copy collection/classic from tag metadata onto rows that lack them."""
+    """Copy collection/classic/rating/downloads from tag metadata onto rows."""
     if not folders:
         return rows
     from .state import load_metadata
@@ -1234,7 +1312,13 @@ def enrich_rows_with_collection(
         if not isinstance(tid, int) or tid not in folders:
             out.append(row)
             continue
-        if row.get("collection") is not None and "classic" in row:
+        need_meta = (
+            row.get("collection") is None
+            or "classic" not in row
+            or "rating" not in row
+            or "download_count" not in row
+        )
+        if not need_meta:
             out.append(row)
             continue
         folder = folders[tid]
@@ -1244,6 +1328,12 @@ def enrich_rows_with_collection(
             enriched["collection"] = meta.get("collection")
         if "classic" not in enriched and meta.get("classic") is not None:
             enriched["classic"] = meta.get("classic")
+        if "rating" not in enriched and meta.get("rating") is not None:
+            enriched["rating"] = meta.get("rating")
+        if "rating_count" not in enriched and meta.get("rating_count") is not None:
+            enriched["rating_count"] = meta.get("rating_count")
+        if "download_count" not in enriched and meta.get("download_count") is not None:
+            enriched["download_count"] = meta.get("download_count")
         out.append(enriched)
     return out
 
@@ -1294,7 +1384,7 @@ def load_suggestions(
             if isinstance(row.get("tag_id"), int):
                 rows.append(row)
     rows = enrich_rows_with_collection(rows, folders)
-    rows.sort(key=_row_collection_sort_key)
+    rows.sort(key=review_queue_sort_key)
     return rows
 
 
@@ -1305,7 +1395,7 @@ def save_suggestions(rows: list[dict], path: Path | None = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as fh:
-        for row in sorted(rows, key=_row_collection_sort_key):
+        for row in sorted(rows, key=review_queue_sort_key):
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     tmp.replace(path)
     return path
@@ -1353,11 +1443,11 @@ def prioritize_items_collections_first(
     *,
     folders: dict[int, Path] | None = None,
 ) -> list[dict]:
-    """Stable-ish order: catalog-collection tags first, then everything else.
+    """Collections first, then missing-lyrics, then other by popularity.
 
     Within collections: classic → 100 → easytags → other, then booklet #, then tag id.
-    Non-collection pending items keep their relative order after the collection block.
-    Done items stay after all pending (so the pending-only GUI walk stays collections-first).
+    Non-collection bands (missing lyrics, then the rest): rating×log(downloads).
+    Done items stay after all pending.
     """
     meta_cache: dict[int, dict] = {}
 
@@ -1368,6 +1458,12 @@ def prioritize_items_collections_first(
             out["collection"] = meta.get("collection")
         if out.get("classic") is None and meta.get("classic") is not None:
             out["classic"] = meta.get("classic")
+        if out.get("rating") is None and meta.get("rating") is not None:
+            out["rating"] = meta.get("rating")
+        if out.get("rating_count") is None and meta.get("rating_count") is not None:
+            out["rating_count"] = meta.get("rating_count")
+        if out.get("download_count") is None and meta.get("download_count") is not None:
+            out["download_count"] = meta.get("download_count")
         return out
 
     enriched = [enrich(it) for it in items]
@@ -1375,14 +1471,19 @@ def prioritize_items_collections_first(
     done = [it for it in enriched if it.get("status") == "done"]
 
     coll: list[dict] = []
+    missing: list[dict] = []
     rest: list[dict] = []
     for it in pending:
         if _normalize_collection_id(it.get("collection")):
             coll.append(it)
+        elif _row_has_missing_lyrics(it):
+            missing.append(it)
         else:
             rest.append(it)
     coll.sort(key=_row_collection_sort_key)
-    return coll + rest + done
+    missing.sort(key=_row_popularity_sort_key)
+    rest.sort(key=_row_popularity_sort_key)
+    return coll + missing + rest + done
 
 
 def reorder_review_queue_collections_first(
@@ -1390,10 +1491,10 @@ def reorder_review_queue_collections_first(
     *,
     reset_cursor: bool = True,
 ) -> dict:
-    """Rewrite the review queue so collection tags are processed first.
+    """Rewrite the review queue: collections → missing lyrics → popularity.
 
     When ``reset_cursor`` is true, the cursor resets to 0 only if pending order
-    actually changed (so a mid-collection session keeps its place on reopen).
+    actually changed (so a mid-queue session keeps its place on reopen).
     """
     data = load_review_queue()
     items = list(data.get("items") or [])
@@ -1427,6 +1528,9 @@ def append_review_item(row: dict, *, reason: str = "disputed") -> None:
         "arranger": row.get("arranger"),
         "collection": row.get("collection"),
         "classic": row.get("classic"),
+        "rating": row.get("rating"),
+        "rating_count": row.get("rating_count"),
+        "download_count": row.get("download_count"),
         "suggested_lyrics": row.get("suggested_lyrics"),
         "suggested_source": row.get("suggested_source"),
         "reason": reason,

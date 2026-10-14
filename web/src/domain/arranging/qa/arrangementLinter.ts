@@ -39,6 +39,7 @@ export function lintArrangement(
   opts: {
     profile?: ArrangementProject['contestProfile']
     checkLeadRange?: boolean
+    voicingProfile?: import('../voicingProfile').VoicingProfile | null
     rules?: readonly LintRule[]
   } = {},
 ): ArrangementLint[] {
@@ -46,5 +47,6 @@ export function lintArrangement(
   return createArrangementLinter(rules).lint(project, {
     profile: opts.profile ?? project.contestProfile,
     checkLeadRange: opts.checkLeadRange ?? checkLeadRangeEnabled(project.qaConfig),
+    voicingProfile: opts.voicingProfile ?? null,
   })
 }

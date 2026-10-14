@@ -3,7 +3,7 @@
 **Parent:** [coach-next-steps-2026-10.md](coach-next-steps-2026-10.md)  
 **Accuracy loop:** [polecat-iterative-accuracy-plan-2026-10.md](polecat-iterative-accuracy-plan-2026-10.md) (do-not-retry registry)  
 **Research basis:** [polecat-alt-methods-2026-10.md](polecat-alt-methods-2026-10.md)  
-**Working keep:** `m2b-keep` — full pmn **0.498**, time **0.296**, **pmnConf 0.829** @cov **0.063** (thr 0.75)
+**Working keep:** `c2-add-keep` — full pmn **0.515**, time **0.307**, **pmnConf 0.717** @cov **0.083** (thr 0.75) · prior `m2b-keep` 0.498 / 0.296 / conf 0.829@0.063
 
 This doc is the executable contract for (A) shipping the product path and (B) investigating larger leaps **in parallel** — without re-entering Auto hand-rule churn.
 
@@ -43,7 +43,7 @@ This doc is the executable contract for (A) shipping the product path and (B) in
 - [x] Next-review + review count in Coach dock  
 - [x] Listen checklist written  
 - [x] Oracle upper-bound script runnable  
-- [ ] Human listen pass signed on four tags (manual)
+- [x] Human listen signed (2026-10-09, `c2-add-keep`): **conditional pass** — “not good but maybe okay / kinda bad.” Better luck cycling **Detected chord alts** than Auto Full. **Revoice** rarely moves after Full (bad inversions stick); wants target register + spread/strategy and a real range. Not a chart-identical fail; not a proud ship either. Next product bets: Detected-alts-first Guided, revoice scope+register controls — not more Auto root hand rules.
 
 ---
 
@@ -54,7 +54,7 @@ Status: **research / prototype**. None of these are Auto CI gates until a keep b
 | ID | Leap | Spike / artifact | Decision gate |
 | --- | --- | --- | --- |
 | **C1** | Two-hypothesis Auto (top-2 homes) | `rankStrongHomeAlternatives` + unit test; UI later | Chosen@tap ≥ full pmn +0.05 on oracle sim |
-| **C2** | Teacher–student distill | Inventory Classic Tags / polecat labels; no runtime gold | Train LOO ≥ 0.55 on ≥30 songs before wire |
+| **C2** | Teacher–student distill | Classic 125 stacks + polecat; `--blend-keep` m2b | **Kept** `c2-add-keep` pmn 0.515; raw swap do-not-ship |
 | **C3** | Joint segment+duration | Spec only until C2 corpus; half-bar already failed as promote | timeHit ↑ ≥0.05 on grid decode spike |
 | **C4** | Audio-informed roots | Note pitch_summary / learning tracks availability | Align error &lt; 1 beat before use as teacher |
 | **C5** | Ensemble-aware emission | Post-Harmonize PC vector sketch | Only after stacks exist; not Tag-first Auto |
@@ -72,10 +72,12 @@ Status: **research / prototype**. None of these are Auto CI gates until a keep b
 
 #### C2 / M4b — Corpus + distill
 
-- 12 polecats: gold-neighbor LOO ≤ ~0.47 (alt-methods) — **not** enough for nets.
-- Inventory (`corpusLeapInventory.mjs`, 2026-10-09): **12** songs, ~849 Lead notes (studio often all-pmn), **793** sketch spans, **12/12** `pitch_summary.txt` (C4 candidate), **no** Classic Tags tree on disk. Honest Strong ticks ≈ **554**.
-- Distill only offline features (sd, prev home, segFit, phraseEdge) → frozen table; runtime never reads chart.
-- **Oracle Guided bound** (`guidedOracleUpperBound.mjs` on m2b): Auto@lock **0.829**; if every amber were gold-locked → pmn ≈ **0.989** (+0.49 vs full Auto). Product path can nearly clear stretch **if** users lock; Auto alone cannot.
+- Classic Tags live under `library/` (125 IDs in `work/classic_tag_ids.json`); **125/125** have part-left `pitch_stacks.json` + `pitch_studio.json` (detect skip).
+- Fit `--corpus both --loo`: LOO **0.573** (2292 samples / 132 tags) — clears ≥0.55 / ≥30 songs.
+- **Raw table swap regresses** Auto (−0.035 pmn). **Ship form:** additive blend — m2b prior keys win on conflict; add classic-only keys; keep m2b transitions (`--blend-keep` + `--keep-transitions`).
+- Keep `c2-add-keep`: pmn **0.515** (+0.017), time **0.307** (+0.011); 90011 **0.500**; no winner_reg. Conf precision down (0.829→0.717) as coverage rises.
+- Reproduce: see Cycle C2 in iterative plan. Artifacts: `work/polecat-honest-loop/strongRootPriors.m2b-keep.ts`, `c2-add-keep.json`.
+- **Oracle Guided bound** (`guidedOracleUpperBound.mjs` on m2b): Auto@lock **0.829**; if every amber were gold-locked → pmn ≈ **0.989** (+0.49 vs full Auto). Re-run on `c2-add-keep` if lock UX metrics matter.
 
 #### C6 — Locks → Co5 fill
 
@@ -94,9 +96,17 @@ Status: **research / prototype**. None of these are Auto CI gates until a keep b
 
 | Track | Owner focus | Cadence |
 | --- | --- | --- |
-| **A Ship** | Guided UX, R4, listen, oracle bound | Daily until checklist green |
-| **B Leaps** | C1 spike, C6 decodeUnderLocks, corpus inventory | Same week, no Auto rule churn |
+| **A Ship** | Listen signed (conditional); polish Guided around **Detected alts** | Done enough to stop Auto churn |
+| **B Leaps** | C1 top-2 ↔ Detected alts UX; **revoice register/spread + sticky inversion fix**; C6 underLocks | Next product week |
 | **Merge rule** | Leap code behind exports/scripts; ship Path A without waiting for ≥0.55 Auto | — |
+
+### Listen follow-ups (from 2026-10-09)
+
+1. **Detected chord alts feel more useful than Auto Full** — lean Guided / C1 toward cycling ranked homes at the moment, not another root-table grind.
+2. **Revoice after Full often no-ops** — seeds from Full become the only accepted close voicing (`preferClose` + span caps keep the seed). Needs: explicit **target octave / spread strategy**, and willingness to move inversions when the user asks (not only when score improves continuity).
+3. **Range** — Optimize already scopes to roll selection when present; discoverability is weak, and revoice still runs one whole-scope Viterbi over moments (not a user-facing “revoice this phrase to BAM”).
+4. **Pitch extract / Detect quality** — polecat part-left detection misses chords and invents intermediaries; hurts listen + Auto. Clean **MusicXML** planned later as ground truth (C4/corpus). Until then: Delete on Detected absorbs into neighbor (locked Sketch) so intermediaries do not refill.
+5. **Ensemble Voicing** (shipped) — TTBB/SATB/SSAA (+ custom) part bands, pitch center, max outer span; Coach Optimize walk inversions (Hear/Apply/Shuffle) + Path Optimize Revoice/Full use the same profile; Run again explores.
 
 ---
 

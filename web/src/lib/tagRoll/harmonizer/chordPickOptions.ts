@@ -1,8 +1,11 @@
 /**
  * One-click Harmonize chord options (root + quality together).
  * Valid = lead is a chord tone; More = remaining catalog for browsing.
+ * Roots marked diatonic follow major / natural-minor scale degrees (not major-only).
  */
+import { CHORDS_SAI11 } from '../../../domain/arranging/contestProfile'
 import {
+  degreeOf,
   formatRomanWithAlt,
   romanForChordDetailed,
 } from '../../../domain/arranging/secondaryDominant'
@@ -14,6 +17,19 @@ import {
   pcName,
   type BarbershopChordNature,
 } from './chords'
+
+/** Scale-degree offsets that are diatonic in major / natural minor (matches Roman tables). */
+const DIATONIC_DEGREES: Record<TonalityMode, ReadonlySet<number>> = {
+  major: new Set([0, 2, 4, 5, 7, 9, 11]),
+  minor: new Set([0, 2, 3, 5, 7, 8, 10]),
+}
+
+function isDiatonicRoot(rootPc: number, tonality: number, mode: TonalityMode): boolean {
+  return DIATONIC_DEGREES[mode].has(degreeOf(rootPc, tonality))
+}
+
+/** Sketch primary: contest eleven (Rylander/SAI); BHS extras stay in More. */
+const SKETCH_COMMON_NATURES = new Set<string>(CHORDS_SAI11)
 
 export type HarmonizeChordOption = {
   rootOffset: number
@@ -27,7 +43,7 @@ export type HarmonizeChordOption = {
   romanPrimary: string
   /** Lead is a tone of this chord. */
   validForLead: boolean
-  /** Root is a diatonic scale degree (named ROOT_OFFSETS entry). */
+  /** Root is a diatonic scale degree for the project mode (major / natural minor). */
   diatonicRoot: boolean
 }
 
@@ -54,7 +70,7 @@ export function buildHarmonizeChordOptions(opts: {
 
   for (const r of ROOT_OFFSETS) {
     const rootPc = (((tonality + r.offset) % 12) + 12) % 12
-    const diatonicRoot = !!r.name
+    const diatonicRoot = isDiatonicRoot(rootPc, tonality, mode)
     for (const chord of BARBERSHOP_CHORDS) {
       const validForLead =
         opts.leadMidi == null
@@ -90,18 +106,20 @@ export function buildHarmonizeChordOptions(opts: {
   if (opts.chordOnly || opts.leadMidi == null) {
     const diatonic = all.filter((o) => o.diatonicRoot).sort(sortOpts)
     const chromatic = all.filter((o) => !o.diatonicRoot).sort(sortOpts)
-    // Chord-only: show common diatonic natures first (maj/7/m/m7), rest in More.
-    const common = new Set(['major', 'seventh', 'minor', 'm7', 'maj7', 'dim', 'dim7', 'half-dim'])
-    const primary = diatonic.filter((o) => common.has(o.chordId))
+    // Chord-only: SAI-11 on diatonic roots first; dim/ø7 + chromatic in More.
+    const primary = diatonic.filter((o) => SKETCH_COMMON_NATURES.has(o.chordId))
     const more = [
-      ...diatonic.filter((o) => !common.has(o.chordId)),
+      ...diatonic.filter((o) => !SKETCH_COMMON_NATURES.has(o.chordId)),
       ...chromatic,
     ]
     return { primary, more }
   }
 
-  const primary = all.filter((o) => o.validForLead).sort(sortOpts)
-  const more = all.filter((o) => !o.validForLead && o.diatonicRoot).sort(sortOpts)
+  // Melody filter: only chords that contain the lead — no greyed “other” flood.
+  // Diatonic lead-valid first; chromatic lead-valid under More (still pickable).
+  const leadValid = all.filter((o) => o.validForLead)
+  const primary = leadValid.filter((o) => o.diatonicRoot).sort(sortOpts)
+  const more = leadValid.filter((o) => !o.diatonicRoot).sort(sortOpts)
   return { primary, more }
 }
 

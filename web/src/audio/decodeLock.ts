@@ -5,11 +5,22 @@
  * "Decoding failed". Browsers without Ogg Opus Web Audio support (Safari before
  * iOS 18.4) keep fetching Opus tiers and software-decode via WASM instead of
  * falling back to original AAC/MP3.
+ *
+ * Live piano strikes pass `{ priority: true }` so they jump ahead of background
+ * octave / waveform / download decodes still waiting in the queue.
  */
 import { assertDecodableAudioBytes, sniffAudioMagic } from './audioBytes'
 import { noteOggOpusDecodeFailed, supportsOggOpusWebAudio } from './codecSupport'
 
-let chain: Promise<unknown> = Promise.resolve()
+type DecodeJob = {
+  run: () => Promise<AudioBuffer>
+  resolve: (buf: AudioBuffer) => void
+  reject: (err: unknown) => void
+  priority: boolean
+}
+
+const queue: DecodeJob[] = []
+let pumping = false
 
 async function decodeOggViaWasm(data: ArrayBuffer): Promise<AudioBuffer> {
   const { decodeOggOpusToAudioBuffer } = await import('./opusWasmDecode')
@@ -99,6 +110,35 @@ async function decodeOggWithFallback(
   }
 }
 
+function enqueue(job: DecodeJob): void {
+  if (job.priority) {
+    const i = queue.findIndex((j) => !j.priority)
+    if (i === -1) queue.push(job)
+    else queue.splice(i, 0, job)
+  } else {
+    queue.push(job)
+  }
+  void pump()
+}
+
+async function pump(): Promise<void> {
+  if (pumping) return
+  pumping = true
+  try {
+    while (queue.length) {
+      const job = queue.shift()!
+      try {
+        job.resolve(await job.run())
+      } catch (err) {
+        job.reject(err)
+      }
+    }
+  } finally {
+    pumping = false
+    if (queue.length) void pump()
+  }
+}
+
 /**
  * Decode audio bytes with a process-wide lock.
  * Ogg Opus uses native decode when available, otherwise libopus WASM.
@@ -106,10 +146,11 @@ async function decodeOggWithFallback(
  * @param data Full file bytes (not a stream chunk).
  * @param opts.offlineSampleRate When set, native decode uses OfflineAudioContext
  *   at this rate (background compaction / downloads).
+ * @param opts.priority Live playback (piano key) — runs before queued background work.
  */
 export async function decodeAudioDataExclusive(
   data: ArrayBuffer,
-  opts?: { offlineSampleRate?: number },
+  opts?: { offlineSampleRate?: number; priority?: boolean },
 ): Promise<AudioBuffer> {
   assertDecodableAudioBytes(data)
   const magic = sniffAudioMagic(data)
@@ -125,10 +166,7 @@ export async function decodeAudioDataExclusive(
     }
   }
 
-  const next = chain.then(run, run)
-  chain = next.then(
-    () => undefined,
-    () => undefined,
-  )
-  return next
+  return new Promise<AudioBuffer>((resolve, reject) => {
+    enqueue({ run, resolve, reject, priority: !!opts?.priority })
+  })
 }

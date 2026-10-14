@@ -11,7 +11,7 @@ import {
 } from './chordPickOptions'
 
 describe('buildHarmonizeChordOptions', () => {
-  it('lists lead-valid chords as primary in stack mode', () => {
+  it('lists diatonic lead-valid chords as primary; chromatic lead-valid in More', () => {
     const { primary, more } = buildHarmonizeChordOptions({
       tonality: 0,
       preferFlats: false,
@@ -19,13 +19,15 @@ describe('buildHarmonizeChordOptions', () => {
       chordOnly: false,
     })
     expect(primary.length).toBeGreaterThan(0)
-    expect(primary.every((o) => o.validForLead)).toBe(true)
+    expect(primary.every((o) => o.validForLead && o.diatonicRoot)).toBe(true)
     expect(primary.some((o) => o.name === 'C' || o.roman === 'I')).toBe(true)
-    expect(more.every((o) => !o.validForLead)).toBe(true)
+    expect(more.every((o) => o.validForLead && !o.diatonicRoot)).toBe(true)
+    // Non-melody chords are omitted — filter means filter.
+    expect([...primary, ...more].every((o) => o.validForLead)).toBe(true)
   })
 
-  it('chord-only primary favors common diatonic natures', () => {
-    const { primary } = buildHarmonizeChordOptions({
+  it('chord-only primary favors SAI-11 on diatonic roots', () => {
+    const { primary, more } = buildHarmonizeChordOptions({
       tonality: 0,
       preferFlats: false,
       leadMidi: 60,
@@ -34,7 +36,25 @@ describe('buildHarmonizeChordOptions', () => {
     expect(primary.every((o) => o.diatonicRoot)).toBe(true)
     expect(primary.some((o) => o.chordId === 'major')).toBe(true)
     expect(primary.some((o) => o.chordId === 'seventh')).toBe(true)
+    expect(primary.some((o) => o.chordId === 'ninth')).toBe(true)
+    expect(primary.every((o) => o.chordId !== 'half-dim' && o.chordId !== 'dim')).toBe(true)
+    expect(more.some((o) => o.chordId === 'half-dim' || o.chordId === 'dim')).toBe(true)
   })
+
+  it('marks natural-minor diatonic roots (not major III/vi)', () => {
+    // A minor (tonality 9): C (+3) is III; C♯ (+4) is chromatic ♯iii.
+    const { primary, more } = buildHarmonizeChordOptions({
+      tonality: 9,
+      mode: 'minor',
+      preferFlats: true,
+      leadMidi: null,
+      chordOnly: true,
+    })
+    expect(primary.some((o) => o.rootPc === 0 && o.chordId === 'major')).toBe(true) // C = III
+    expect(primary.every((o) => o.rootPc !== 1)).toBe(true) // C♯ not in primary
+    expect(more.some((o) => o.rootPc === 1 && !o.diatonicRoot)).toBe(true)
+  })
+
   it('labels V7/V (II7) when resolvesToRoot is the next V', () => {
     const { primary } = buildHarmonizeChordOptions({
       tonality: 0,

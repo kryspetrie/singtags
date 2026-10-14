@@ -127,8 +127,9 @@ Lead→chart ambiguity (all 12, Strong ticks):
 
 - Honest labels from Classic Tags / more polecat-like extracts (same protocol: Lead+key only at runtime).
 - Offline teacher only: chart roots for fit; never in Auto CI.
+- **C2 (2026-10):** Classic 125 stacks + polecat LOO 0.573; **additive** prior blend (`c2-add-keep`) → Auto pmn **0.515**. Raw table swap regresses — do not overwrite m2b keys.
 
-Without corpus growth, neural and fat n-gram catalogs will overfit winners (already seen with coverage-refit).
+Without further corpus or soft-blend variants, neural and fat n-gram catalogs will still overfit winners (already seen with coverage-refit).
 
 ---
 

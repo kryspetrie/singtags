@@ -80,3 +80,16 @@ export function ensureLengthForNote(
   const measures = Math.ceil(need / measureTicks)
   return measures * measureTicks
 }
+
+/** Grow timeline length to cover a tick plus empty trailing measures (scroll / place). */
+export function ensureLengthForTick(
+  lengthTicks: number,
+  tick: number,
+  measureTicks = TAG_ROLL_PPQ * 4,
+  padMeasures = 2,
+): number {
+  const m = Math.max(1, Math.round(measureTicks))
+  const need = Math.max(0, tick) + m * Math.max(0, padMeasures)
+  if (need <= lengthTicks) return lengthTicks
+  return Math.ceil(need / m) * m
+}

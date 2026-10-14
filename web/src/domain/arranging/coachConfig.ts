@@ -6,6 +6,7 @@
 export type QaCheckGroupId =
   | 'vocabulary'
   | 'leadAndKey'
+  | 'ensembleRanges'
   | 'voicing'
   | 'density'
   | 'motion'
@@ -41,6 +42,12 @@ export const QA_CHECK_GROUPS: readonly QaCheckGroupDef[] = [
     label: 'Lead range & key',
     hint: 'Singable lead tessitura and key suggestions',
     ruleIds: ['lead-range', 'key-suggestion'],
+  },
+  {
+    id: 'ensembleRanges',
+    label: 'Ensemble ranges',
+    hint: 'Bass/Bari/Lead/Tenor vs your Ranges strip bands and max span',
+    ruleIds: ['ensemble-part-range'],
   },
   {
     id: 'voicing',

@@ -48,6 +48,8 @@ PART_DISPLAY = {
     "sheet": "Sheet",
     "sheet_preview": "Sheet Preview",
     "notation": "Notation",
+    "pitch_stacks": "Pitch Stacks",
+    "pitch_studio": "Pitch Studio",
 }
 
 # Offline/display sheet preview (2-bit dither WebP, stacked pages)

@@ -25,6 +25,10 @@ export type CoachRollNavHandlers = {
   stepNextProblem: () => void
   /** Cycle ranked Suggest candidates (±1). */
   stepSuggest?: (dir: -1 | 1) => void
+  /** Cycle inversion among same-chord Suggest rows (±1). */
+  stepVoicing?: (dir: -1 | 1) => void
+  /** Toggle Closed ↔ Wide on the selected Suggest chord. */
+  toggleSpread?: () => void
 }
 
 const emptyState = (): CoachRollNavState => ({
@@ -75,6 +79,14 @@ export function coachRollNavStepNextProblem(): void {
 
 export function coachRollNavStepSuggest(dir: -1 | 1): void {
   handlers?.stepSuggest?.(dir)
+}
+
+export function coachRollNavStepVoicing(dir: -1 | 1): void {
+  handlers?.stepVoicing?.(dir)
+}
+
+export function coachRollNavToggleSpread(): void {
+  handlers?.toggleSpread?.()
 }
 
 export function clearCoachRollNavState(): void {

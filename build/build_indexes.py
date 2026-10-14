@@ -256,7 +256,22 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
     if not title and isinstance(meta.get("identity"), dict):
         title = meta["identity"].get("title")
 
-    return {
+    pitch_studio: str | None = None
+    pitch_extract_out: dict | None = None
+    pe = meta.get("pitch_extract") if isinstance(meta.get("pitch_extract"), dict) else {}
+    studio_name = part_filename(parts, "pitch_studio") or pe.get("studio_filename")
+    if isinstance(studio_name, str) and (folder / studio_name).is_file():
+        pitch_studio = lib_url(folder.name, studio_name)
+    elif (folder / "pitch_studio.json").is_file():
+        pitch_studio = lib_url(folder.name, "pitch_studio.json")
+    if pe and pitch_studio:
+        pitch_extract_out = {
+            "method": pe.get("method"),
+            "stack_count": pe.get("stack_count"),
+            "extracted_at": pe.get("extracted_at"),
+        }
+
+    out = {
         "tag_id": tid,
         "title": title,
         "alt_title": meta.get("alt_title"),
@@ -287,6 +302,11 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         "downloaded_at": meta.get("downloaded_at"),
         "last_updated_remote": meta.get("last_updated_remote") or meta.get("stamp"),
     }
+    if pitch_studio:
+        out["pitch_studio"] = pitch_studio
+    if pitch_extract_out:
+        out["pitch_extract"] = pitch_extract_out
+    return out
 
 
 def build(library: Path, indexes_out: Path, tags_out: Path) -> None:

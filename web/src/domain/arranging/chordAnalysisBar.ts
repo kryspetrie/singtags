@@ -50,7 +50,7 @@ export type ChordAnalysisSegment = {
 }
 
 export function natureSuffix(natureId: string): string {
-  if (!natureId || natureId === 'unknown') return ''
+  if (!natureId || natureId === 'unknown' || natureId === 'blank') return ''
   if (natureId === 'major') return ''
   if (natureId === 'seventh') return '7'
   if (natureId === 'minor') return 'm'
@@ -82,6 +82,7 @@ export function absoluteChordLabel(
     )
     if (bias != null) flats = bias
   }
+  if (natureId === 'blank') return '—'
   if (!natureId || natureId === 'unknown') {
     return `${pcName(rootPc, flats)}?`
   }

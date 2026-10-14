@@ -52,6 +52,21 @@ export function isTagRollSeedDismissed(id: string): boolean {
   return readDismissedSeedIds().has(id)
 }
 
+/** Drop dismissals for polecat pitch seeds so list refresh can re-import them. */
+export function clearPolecatPitchSeedDismissals(): number {
+  const ls = readStorage()
+  if (!ls) return 0
+  const prev = readDismissedSeedIds()
+  const next = [...prev].filter((id) => !id.startsWith('seed-polecat-pitch-'))
+  const removed = prev.size - next.length
+  try {
+    ls.setItem(DISMISSED_KEY, JSON.stringify(next))
+  } catch {
+    /* ignore */
+  }
+  return removed
+}
+
 export function isTagRollLibraryInitialized(): boolean {
   const ls = readStorage()
   if (!ls) return false

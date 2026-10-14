@@ -4,8 +4,15 @@ import {
   clonePitchPipeVoice,
   DEFAULT_PITCH_PIPE_VOICE,
   getActivePitchPipeVoice,
+  PITCH_PIPE_ATTACK_START_GAIN,
   type PitchPipeVoiceConfig,
 } from './pitchPipeVoice'
+import {
+  createInteractiveAudioContext,
+  ensureAudioKeepalive,
+  stopAudioKeepalive,
+  type AudioKeepalive,
+} from './interactiveAudioContext'
 import { noteToFrequency } from './pitchUiLabels'
 
 export * from './pitchUiLabels'
@@ -14,6 +21,7 @@ export class PitchPlayer {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
   private filter: BiquadFilterNode | null = null
+  private keepalive: AudioKeepalive | null = null
   private oscillators: OscillatorNode[] = []
   private gains: GainNode[] = []
   private playing = false
@@ -38,13 +46,21 @@ export class PitchPlayer {
   }
 
   private ensure(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext()
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.ctx = createInteractiveAudioContext()
       this.master = this.ctx.createGain()
       this.master.gain.value = this.voice.masterGain
       this.master.connect(this.ctx.destination)
+      this.filter = null
     }
     return this.ctx
+  }
+
+  /** Create/resume context on a user gesture (Tag Studio Play before blow-pitch await). */
+  async warmUp(): Promise<void> {
+    const ctx = this.ensure()
+    if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
   }
 
   private syncFilter(ctx: AudioContext): AudioNode {
@@ -73,6 +89,7 @@ export class PitchPlayer {
   async start(note: string, detuneCents = 0): Promise<void> {
     const ctx = this.ensure()
     if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
     this.stop(false)
     this.lastNote = note
     this.lastDetuneCents = detuneCents
@@ -90,11 +107,16 @@ export class PitchPlayer {
       osc.type = partial.type
       osc.frequency.value = freq * 2 ** (partial.semitones / 12)
       osc.detune.value = partial.detuneCents
-      g.gain.value = 0
+      // Soft attack: start at 25% then fade in; 0 = instant full level.
+      if (attack > 0.002) {
+        g.gain.setValueAtTime(partial.gain * PITCH_PIPE_ATTACK_START_GAIN, now)
+        g.gain.linearRampToValueAtTime(partial.gain, now + attack)
+      } else {
+        g.gain.value = partial.gain
+      }
       osc.connect(g)
       g.connect(mixBus)
-      g.gain.linearRampToValueAtTime(partial.gain, now + attack)
-      osc.start()
+      osc.start(now)
       oscs.push(osc)
       gains.push(g)
     }
@@ -166,6 +188,8 @@ export class PitchPlayer {
 
   dispose(): void {
     this.stop(false)
+    stopAudioKeepalive(this.keepalive)
+    this.keepalive = null
     if (this.filter) {
       try {
         this.filter.disconnect()

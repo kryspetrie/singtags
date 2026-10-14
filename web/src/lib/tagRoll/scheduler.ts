@@ -296,12 +296,15 @@ export function createTagRollScheduler(opts: {
   }
 
   function startNote(n: TagRollNote): void {
-    if (scheduled.has(n.id)) return
     const mix = mixRows()
+    // Stay eligible while muted/solo-gated — marking scheduled used to silence
+    // notes for the rest of the play-through even after unmute.
     if (mix.length && !isPartAudible(n.partId, mix)) {
-      scheduled.add(n.id)
+      if (active.has(n.id)) endNoteIfOwned(n)
+      scheduled.delete(n.id)
       return
     }
+    if (scheduled.has(n.id)) return
     scheduled.add(n.id)
 
     const voiceKey = partVoiceKey(n.partId)
@@ -604,7 +607,9 @@ export function createTagRollScheduler(opts: {
     opts.onPlayhead(Math.floor(playhead))
     fireMetronome(prev, next)
 
-    const naturalEnd = playbackEndTick(opts.getNotes(), opts.getLengthTicks())
+    const naturalEnd = playbackEndTick(opts.getNotes(), opts.getLengthTicks(), {
+      sketchSpans: opts.getHarmonySketch?.() ?? null,
+    })
     const endAt = stopAt != null ? Math.min(stopAt, naturalEnd) : naturalEnd
     if (playhead >= endAt) {
       playing = false

@@ -32,6 +32,7 @@ describe('pitchPipe preferences', () => {
       pianoEngine: 'synth',
       pianoLockPosition: false,
       showPcKeyRange: true,
+      attackSec: 0.25,
     })
     expect(loadPitchPipePrefs()).toEqual(defaultPitchPipePrefs())
   })
@@ -57,6 +58,7 @@ describe('pitchPipe preferences', () => {
       pianoEngine: 'samples',
       pianoLockPosition: true,
       showPcKeyRange: false,
+      attackSec: 0.25,
     })
     expect(parsed).toEqual({
       range: 'e3-e4',
@@ -71,7 +73,18 @@ describe('pitchPipe preferences', () => {
       pianoEngine: 'samples',
       pianoLockPosition: true,
       showPcKeyRange: false,
+      attackSec: 0.25,
     })
+  })
+
+  it('defaults missing attackSec to 0.25s soft swell', () => {
+    const parsed = parsePitchPipePrefs({
+      range: 'e3-e4',
+      layout: 'grid',
+      aHz: 440,
+      detuneCents: 0,
+    })
+    expect(parsed?.attackSec).toBe(0.25)
   })
 
   it('migrates legacy fineCents-on-top-of-A format', () => {

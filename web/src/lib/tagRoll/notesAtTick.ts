@@ -59,16 +59,30 @@ export function lastNoteEndTick(notes: readonly TagRollNote[]): number {
   return end
 }
 
+/** Exclusive end tick of the latest locked (or any) sketch span. */
+export function lastSketchEndTick(
+  spans: readonly { endTick: number; locked?: boolean }[] | null | undefined,
+): number {
+  let end = 0
+  for (const s of spans ?? []) {
+    if (s.locked === false) continue
+    end = Math.max(end, s.endTick)
+  }
+  return end
+}
+
 /**
- * Where transport should stop: end of last note, else full project length.
+ * Where transport should stop: end of last note or sketch definition.
+ * Empty projects stop immediately (scroll length can still grow for editing).
  * Always clamped to `lengthTicks`.
  */
 export function playbackEndTick(
   notes: readonly TagRollNote[],
   lengthTicks: number,
+  opts?: { sketchSpans?: readonly { endTick: number; locked?: boolean }[] | null },
 ): number {
-  const content = lastNoteEndTick(notes)
+  const content = Math.max(lastNoteEndTick(notes), lastSketchEndTick(opts?.sketchSpans))
   const length = Math.max(0, lengthTicks)
-  if (content <= 0) return length
+  if (content <= 0) return 0
   return Math.min(length, content)
 }

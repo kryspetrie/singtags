@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Orphan — Coach no longer has a Pillars page. Kept as copy reference only.
- * Pillars are defined on Sketch (Alt+click / ◆ / dock Pillar).
+ * Homes come from Strong vs passing melody + Sketch chords (not manual ◆ tags).
  */
 defineEmits<{
   nextRoles: []
@@ -11,9 +11,9 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Mark phrase chords as <strong>pillars</strong> on the <strong>Sketch</strong> lane:
-      Alt+click a chord, click its ◆ badge, or open it and press <strong>Pillar</strong>.
-      Pillars paint green and drive Coach home-roots. Detected “Lock” promotes holes as pillars.
+      Coach home roots follow <strong>Strong</strong> vs <strong>passing</strong> Lead
+      notes and the chords you paint on <strong>Sketch</strong>. Detected
+      <strong>Lock</strong> promotes hole guesses into Sketch — no separate pillar tags.
     </p>
   </section>
 </template>

@@ -11,6 +11,7 @@ import { isTagRollSeedDismissed } from '../../lib/tagRoll/seedLibraryPrefs'
 import { normalizeTagRollProject } from '../../lib/tagRoll/normalize'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { deleteTagRoll, putNewTagRoll } from './persist'
+import { seedHasUserSketch } from './seedRefreshGuard'
 
 const INDEX_URL = '/tag-studio/polecat-pitch-reviews/index.json'
 const SEED_PREFIX = 'seed-polecat-pitch-'
@@ -46,13 +47,20 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
+export type EnsurePolecatPitchOpts = {
+  /** Re-import every index entry even when notes/bpm match (dev resync). */
+  force?: boolean
+}
+
 /**
  * Sync gold polecat seeds on every Tag Studio list refresh.
  */
 export async function ensurePolecatPitchReviewProjects(
   repository: TagRollRepository,
   clock: Clock,
+  opts?: EnsurePolecatPitchOpts,
 ): Promise<ImportPolecatPitchResult> {
+  const force = opts?.force === true
   const index = await fetchJson<PolecatPitchIndex>(INDEX_URL)
   const result: ImportPolecatPitchResult = {
     imported: 0,
@@ -87,7 +95,7 @@ export async function ensurePolecatPitchReviewProjects(
   for (const entry of index.projects) {
     if (!entry?.id || !entry.file) continue
     // User deleted this seed — do not resurrect on every list refresh.
-    if (!existing.has(entry.id) && isTagRollSeedDismissed(entry.id)) {
+    if (!force && !existing.has(entry.id) && isTagRollSeedDismissed(entry.id)) {
       result.skipped += 1
       continue
     }
@@ -102,12 +110,16 @@ export async function ensurePolecatPitchReviewProjects(
     const nextNotes = Array.isArray(rawObj.notes) ? rawObj.notes.length : 0
     const nextBpm = Number(rawObj.bpm) || 0
     const nextLen = Number(rawObj.lengthTicks) || 0
+    // User Sketch must never be clobbered by a gold re-import
+    // (persist → refreshList used to wipe Sketch after browser Back).
+    const userSketch = seedHasUserSketch(prev?.harmonySketch)
     const same =
+      !force &&
       !!prev &&
       prev.notes.length === nextNotes &&
       Math.abs(prev.bpm - nextBpm) < 0.05 &&
       prev.lengthTicks === nextLen
-    if (same) {
+    if (!force && (same || userSketch)) {
       result.skipped += 1
       continue
     }
@@ -115,6 +127,10 @@ export async function ensurePolecatPitchReviewProjects(
       ...rawObj,
       id: entry.id,
       localEntryId: null,
+      // Keep the user's mixer (mute/volume/pan) across seed content refreshes.
+      mix: prev?.mix ?? rawObj.mix,
+      // Keep Sketch / Declared map if a forced refresh still runs.
+      harmonySketch: prev?.harmonySketch ?? rawObj.harmonySketch,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     })

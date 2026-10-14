@@ -10,16 +10,21 @@ export type SoloMode = 'stereo' | 'left' | 'right'
 
 let sharedCtx: AudioContext | null = null
 
-/** Lazily create the app-wide decode/mix `AudioContext` (one per session). */
+/**
+ * Lazily create the app-wide helper AudioContext (decode helpers / metronome).
+ * Playback engines (tracks, pitch pipe, Tag Studio) use their own contexts so a
+ * page-load decode never leaves a suspended shared context silencing Play.
+ */
 export function getSharedAudioContext(): AudioContext {
-  if (!sharedCtx) sharedCtx = new AudioContext()
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    sharedCtx = new AudioContext()
+  }
   return sharedCtx
 }
 
 /**
- * Resume without blocking forever — browsers often leave AudioContext suspended
- * until a user gesture, and `await resume()` can hang during tag-page warm-up.
- * decodeAudioData still works while suspended in modern Chromium/Firefox.
+ * Resume without blocking forever — for decode / offline prep only.
+ * Never use this before starting oscillators or buffer sources meant to be heard.
  */
 export async function resumeAudioContextBestEffort(
   ctx: AudioContext = getSharedAudioContext(),

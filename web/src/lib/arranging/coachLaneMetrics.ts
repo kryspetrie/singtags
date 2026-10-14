@@ -2,6 +2,7 @@
  * Per-moment metrics + pillar bands for the arranging coach analysis lane.
  */
 import { createHarmonicityScorer } from '../../domain/arranging/harmonicity/harmonicityScore'
+import { blendRingDisplay } from '../../domain/arranging/harmonicity/stackRingScore'
 import {
   buildHarmonicMoments,
   momentsFromMelodyAlone,
@@ -106,8 +107,12 @@ export function buildCoachLaneMarkers(
         natureId: stack.natureId,
         voicing: stack.voicing,
       })
-      // Display scale: strong 4-part lock ≈ 100% (ranking keeps absolute normalize).
-      harmonicity = harm.normalizeForDisplay(raw, { partCount: 4 })
+      // Display: analytical JI lock blended with measured stack-ring prior.
+      harmonicity = blendRingDisplay({
+        harmonicityDisplay: harm.normalizeForDisplay(raw, { partCount: 4 }),
+        natureId: stack.natureId,
+        voicing: stack.voicing,
+      })
       const prev = stacks.filter((s) => s.startTick < stack.startTick).at(-1)
       if (prev?.midi) {
         voiceLead = voiceLeadScore(prev.midi, stack.midi, { melodyVoice: 'lead' })

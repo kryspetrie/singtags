@@ -5,17 +5,23 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
 import {
+  HARMONY_ENTRY_BROWSE_LIMIT,
+  natureToSketchQuality,
+  sketchLabel,
+  sketchRomanDisplay,
   suggestHarmonyEntries,
+  type HarmonyAbsorbNeighbor,
   type HarmonyEntrySuggestion,
+  type HarmonySketchQuality,
 } from '../../lib/tagRoll/harmonySketch'
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import { stripSegW, stripSegX } from '../../lib/tagRoll/harmonyStripGestures'
+import { clampFixedPanelRect, placePopoverNearAnchor } from '../../lib/tagRoll/placePopover'
 import { useDeclaredStripGestures } from '../../composables/useDeclaredStripGestures'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
-import type { HarmonySketchQuality, TagRollProject } from '../../lib/tagRoll/types'
-import { sketchLabel, sketchRomanDisplay, isPillarSketchSpan } from '../../lib/tagRoll/harmonySketch'
+import type { TagRollProject } from '../../lib/tagRoll/types'
 import { SKETCH_LANE_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
@@ -49,14 +55,21 @@ const emit = defineEmits<{
   ]
   hearStop: []
   remove: [id: string]
-  commitAt: [payload: { raw: string; startTick: number; endTick: number; id?: string }]
+  commitAt: [
+    payload: {
+      raw: string
+      startTick: number
+      endTick: number
+      id?: string
+      /** Stay in lane typeahead (e.g. Tab) — do not open the chord dock. */
+      keepEditing?: boolean
+    },
+  ]
   geometry: [payload: { id: string; startTick: number; endTick: number }]
   geometryMany: [payloads: Array<{ id: string; startTick: number; endTick: number }>]
   beginGesture: []
   /** Open / toggle Sketch chord in the right dock. */
   edit: [seg: ChordAnalysisSegment]
-  /** Toggle structural pillar on a Sketch span (Alt+click / badge). */
-  togglePillar: [seg: ChordAnalysisSegment]
   /** Fired after Realize wrote at least one TTBB stack. */
   realized: [payload: { applied: number; spansUsed: number }]
 }>()
@@ -103,8 +116,36 @@ const inlineSuggestOpen = ref(false)
 const inlineSuggestIdx = ref(0)
 type InlineEdit = { id?: string; startTick: number; endTick: number; seed: string }
 const inlineEdit = ref<InlineEdit | null>(null)
-const inlinePos = ref({ top: '0px', left: '0px', minWidth: '12rem' })
+const inlinePos = ref({
+  top: '0px',
+  left: '0px',
+  width: '15rem',
+  maxHeight: '15rem',
+})
+/** User drag offset from the auto-placed position (reset when opening). */
+const inlineDrag = ref({ x: 0, y: 0 })
+let inlineDragSession:
+  | { pointerId: number; startX: number; startY: number; origX: number; origY: number }
+  | null = null
 const inlineSuggestListId = 'tag-roll-declared-inline-suggest'
+
+function leadMidiAtTick(tick: number): number | null {
+  const p = props.project
+  const melId =
+    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  if (!melId) return null
+  const hit = p.notes.find(
+    (n) =>
+      n.partId === melId && n.startTick <= tick && tick < n.startTick + n.durationTicks,
+  )
+  return hit?.midi ?? null
+}
+
+const inlineLeadMidi = computed((): number | null => {
+  const edit = inlineEdit.value
+  if (!edit) return null
+  return leadMidiAtTick(edit.startTick)
+})
 
 const scrollX = computed(() => props.project.view.scrollX)
 const cellW = computed(() => props.project.view.cellW)
@@ -116,11 +157,6 @@ const editSegId = computed(() => props.editSegId ?? null)
 
 function labelOf(seg: ChordAnalysisSegment): string {
   return props.mode === 'roman' ? seg.displayRoman : seg.displayName
-}
-
-function isPillarSeg(seg: ChordAnalysisSegment): boolean {
-  const s = (props.project.harmonySketch ?? []).find((x) => x.id === seg.id)
-  return s ? isPillarSketchSpan(s) : false
 }
 
 function previewLabelOf(d: HarmonyPreviewDraft): string {
@@ -170,6 +206,8 @@ function openInlineEditor(opts: {
   endTick: number
   seed: string
 }): void {
+  inlineDrag.value = { x: 0, y: 0 }
+  store.extendLengthToTick(opts.endTick)
   inlineEdit.value = {
     id: opts.id,
     startTick: opts.startTick,
@@ -182,19 +220,41 @@ function openInlineEditor(opts: {
   emit('focusRange', opts.startTick, opts.endTick)
   void nextTick(() => {
     placeInline()
+    void nextTick(() => placeInline())
     inlineInputEl.value?.focus()
     inlineInputEl.value?.select()
   })
 }
 
+function openInlineForSeg(seg: ChordAnalysisSegment): void {
+  if (props.readOnly || seg.rootPc == null) return
+  store.selectSketchSpans([seg.id])
+  // Blank / new slots start empty so Enter keeps a placeholder and typing isn’t pre-filled.
+  const seed = seg.quality === 'blank' ? '' : labelOf(seg)
+  openInlineEditor({
+    id: seg.id,
+    startTick: seg.startTick,
+    endTick: seg.endTick,
+    seed,
+  })
+}
+
+function onCellDblClick(seg: ChordAnalysisSegment, e: MouseEvent): void {
+  e.preventDefault()
+  e.stopPropagation()
+  openInlineForSeg(seg)
+}
+
 const {
   gesture,
+  hoverEdge,
   previewFor,
   placePreview,
   onPointerDown: onDeclaredPointerDown,
   onPointerMove: onDeclaredPointerMove,
   onPointerUp: onDeclaredPointerUp,
   onPointerCancel: onDeclaredPointerCancel,
+  clearHover,
 } = useDeclaredStripGestures({
   trackEl: declaredTrackEl,
   declared: toRef(props, 'segments'),
@@ -209,44 +269,52 @@ const {
   onSelect: (ids, o) => store.selectSketchSpans(ids, o),
   onClearSelection: () => store.clearSketchSelection(),
   onPlaceRange: (startTick, endTick) => {
+    store.extendLengthToTick(endTick)
     openInlineEditor({ startTick, endTick, seed: '' })
   },
   onEdit: (seg) => {
-    store.selectSketchSpans([seg.id])
-    emit('focusRange', seg.startTick, seg.endTick)
-    emit('edit', seg)
-  },
-  onTogglePillar: (seg) => {
-    if (props.readOnly) return
-    store.selectSketchSpans([seg.id])
-    emit('focusRange', seg.startTick, seg.endTick)
-    emit('togglePillar', seg)
+    // Re-click / double-click without drag → type the chord (inline).
+    openInlineForSeg(seg)
   },
   onGeometry: (payload) => emit('geometry', payload),
   onGeometryMany: (payloads) => emit('geometryMany', payloads),
   onFocusRange: (a, b) => emit('focusRange', a, b),
+  onNeedLength: (tick) => store.extendLengthToTick(tick),
 })
 
-function onPillarBadge(seg: ChordAnalysisSegment, e: PointerEvent): void {
-  e.stopPropagation()
-  e.preventDefault()
-  if (props.readOnly || seg.rootPc == null) return
-  store.selectSketchSpans([seg.id])
-  emit('focusRange', seg.startTick, seg.endTick)
-  emit('togglePillar', seg)
+function handleHot(segId: string, edge: 'start' | 'end'): boolean {
+  return hoverEdge.value?.id === segId && hoverEdge.value.edge === edge
 }
 
 function onTrackFocus(): void {
   store.setChordsLaneFocused(true)
 }
 
+/** Harmonize/Coach preview for the painted (uncommitted) range — dismiss empty typeahead. */
+watch(
+  () => props.previewDraft,
+  (p) => {
+    const edit = inlineEdit.value
+    if (!p || !edit || edit.id) return
+    if (!previewDraftDirty(p)) return
+    const overlaps =
+      edit.startTick < p.endTick && p.startTick < edit.endTick
+    if (overlaps) closeInline()
+  },
+)
+
 const inlineSuggestions = computed((): HarmonyEntrySuggestion[] =>
-  suggestHarmonyEntries(inlineDraft.value, {
-    tonality: props.project.tonality,
-    mode: props.project.tonalityMode ?? 'major',
-    preferFlats: props.project.preferFlats,
-    entryMode: props.mode === 'roman' ? 'roman' : 'name',
-  }),
+  suggestHarmonyEntries(
+    inlineDraft.value,
+    {
+      tonality: props.project.tonality,
+      mode: props.project.tonalityMode ?? 'major',
+      preferFlats: props.project.preferFlats,
+      entryMode: props.mode === 'roman' ? 'roman' : 'name',
+      leadMidi: inlineLeadMidi.value,
+    },
+    HARMONY_ENTRY_BROWSE_LIMIT,
+  ),
 )
 
 function segStyle(seg: ChordAnalysisSegment): Record<string, string> {
@@ -262,20 +330,166 @@ function closeInline(): void {
   inlineEdit.value = null
   inlineDraft.value = ''
   inlineSuggestOpen.value = false
+  inlineDrag.value = { x: 0, y: 0 }
+  inlineDragSession = null
+}
+
+function cellAnchorRect(edit: InlineEdit): DOMRect {
+  const x = stripSegX(edit.startTick, scrollX.value, cellW.value, ppq.value)
+  const w = stripSegW(edit.startTick, edit.endTick, cellW.value, ppq.value)
+  const track = declaredTrackEl.value
+  const tr = track?.getBoundingClientRect()
+  if (!tr) return new DOMRect(8, 8, 160, 40)
+  const left = tr.left + Math.max(0, x)
+  const width = Math.max(48, Math.min(w, 220))
+  return new DOMRect(left, tr.top, width, tr.height)
 }
 
 function placeInline(): void {
   const edit = inlineEdit.value
   if (!edit) return
-  const x = stripSegX(edit.startTick, scrollX.value, cellW.value, ppq.value)
-  const track = declaredTrackEl.value
-  if (!track) return
-  const tr = track.getBoundingClientRect()
-  inlinePos.value = {
-    top: `${Math.round(tr.bottom + 2)}px`,
-    left: `${Math.round(tr.left + Math.max(0, x))}px`,
-    minWidth: '14rem',
+  const el = inlineEl.value
+  const measuredH = el?.offsetHeight ?? 0
+  const measuredW = el?.offsetWidth ?? 240
+  const anchor = cellAnchorRect(edit)
+  const placement = placePopoverNearAnchor(anchor, {
+    minWidth: 220,
+    preferredWidth: 240,
+    preferBelow: true,
+    panelHeightPx: measuredH || 240,
+  })
+  const baseLeft = Number.parseFloat(placement.left) || 8
+  const baseTop = Number.parseFloat(placement.top) || 8
+  const clamped = clampFixedPanelRect({
+    left: baseLeft + inlineDrag.value.x,
+    top: baseTop + inlineDrag.value.y,
+    width: measuredW || 240,
+    height: measuredH || Math.min(placement.maxHeightPx, 280),
+  })
+  // Fold clamp back into drag so the box never sits partially off-screen.
+  inlineDrag.value = {
+    x: clamped.left - baseLeft,
+    y: clamped.top - baseTop,
   }
+  inlinePos.value = {
+    top: `${clamped.top}px`,
+    left: `${clamped.left}px`,
+    width: `${Math.max(220, Math.min(260, measuredW || 240))}px`,
+    maxHeight: `${placement.maxHeightPx}px`,
+  }
+}
+
+function onInlineDragDown(e: PointerEvent): void {
+  if (e.button !== 0) return
+  const el = inlineEl.value
+  if (!el) return
+  e.preventDefault()
+  e.stopPropagation()
+  const left = Number.parseFloat(inlinePos.value.left) || 0
+  const top = Number.parseFloat(inlinePos.value.top) || 0
+  inlineDragSession = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    origX: left,
+    origY: top,
+  }
+  try {
+    el.setPointerCapture(e.pointerId)
+  } catch {
+    /* ignore */
+  }
+}
+
+function onInlineDragMove(e: PointerEvent): void {
+  const s = inlineDragSession
+  if (!s || e.pointerId !== s.pointerId) return
+  const el = inlineEl.value
+  const next = clampFixedPanelRect({
+    left: s.origX + (e.clientX - s.startX),
+    top: s.origY + (e.clientY - s.startY),
+    width: el?.offsetWidth ?? 240,
+    height: el?.offsetHeight ?? 200,
+  })
+  inlinePos.value = {
+    ...inlinePos.value,
+    left: `${next.left}px`,
+    top: `${next.top}px`,
+  }
+}
+
+function onInlineDragUp(e: PointerEvent): void {
+  const s = inlineDragSession
+  if (!s || e.pointerId !== s.pointerId) return
+  const el = inlineEl.value
+  const base = inlineEdit.value ? cellAnchorRect(inlineEdit.value) : null
+  if (base) {
+    const placement = placePopoverNearAnchor(base, {
+      minWidth: 220,
+      preferredWidth: 240,
+      preferBelow: true,
+      panelHeightPx: el?.offsetHeight ?? 240,
+    })
+    const baseLeft = Number.parseFloat(placement.left) || 8
+    const baseTop = Number.parseFloat(placement.top) || 8
+    const left = Number.parseFloat(inlinePos.value.left) || baseLeft
+    const top = Number.parseFloat(inlinePos.value.top) || baseTop
+    inlineDrag.value = { x: left - baseLeft, y: top - baseTop }
+  }
+  inlineDragSession = null
+  try {
+    el?.releasePointerCapture(e.pointerId)
+  } catch {
+    /* ignore */
+  }
+}
+
+function toAbsorbNeighbor(seg: ChordAnalysisSegment): HarmonyAbsorbNeighbor | null {
+  if (seg.rootPc == null) return null
+  return {
+    id: seg.id,
+    startTick: seg.startTick,
+    endTick: seg.endTick,
+    rootPc: seg.rootPc,
+    quality: natureToSketchQuality(seg.quality ?? 'major'),
+  }
+}
+
+/** Delete key removes the whole chord (even while the typeahead is focused). */
+function deleteInlineChord(): void {
+  const edit = inlineEdit.value
+  if (!edit) return
+  const id = edit.id
+  const startTick = edit.startTick
+  const endTick = edit.endTick
+  closeInline()
+  if (!id) return
+  store.selectSketchSpans([id])
+  const removals: Array<{
+    id: string
+    startTick: number
+    endTick: number
+    left?: HarmonyAbsorbNeighbor | null
+    right?: HarmonyAbsorbNeighbor | null
+  }> = []
+  for (const list of [props.segments, props.detectSegments ?? []]) {
+    for (let i = 0; i < list.length; i++) {
+      const cur = list[i]!
+      if (cur.id !== id) continue
+      removals.push({
+        id: cur.id,
+        startTick: cur.startTick,
+        endTick: cur.endTick,
+        left: i > 0 ? toAbsorbNeighbor(list[i - 1]!) : null,
+        right: i < list.length - 1 ? toAbsorbNeighbor(list[i + 1]!) : null,
+      })
+    }
+  }
+  if (!removals.length) {
+    removals.push({ id, startTick, endTick })
+  }
+  store.deleteSelectedSketchSpans({ removals })
+  emit('remove', id)
 }
 function setMode(m: ChordAnalysisMode): void {
   emit('update:mode', m)
@@ -301,20 +515,109 @@ function isDragging(id: string): boolean {
   if (g.kind === 'move') return g.ids.includes(id)
   return false
 }
-function submitInline(raw?: string): void {
+function resolveInlineSubmitText(raw?: string): string {
+  if (raw != null) return raw.trim()
+  if (inlineSuggestions.value.length && inlineSuggestOpen.value) {
+    const hit = inlineSuggestions.value[inlineSuggestIdx.value]
+    if (hit) return hit.insert.trim()
+  }
+  const draft = inlineDraft.value.trim()
+  if (draft) return draft
+  return (inlineEdit.value?.seed ?? '').trim()
+}
+
+/** Empty field → blank placeholder (timing only). */
+function submitBlankInline(opts?: { keepEditing?: boolean }): void {
   const edit = inlineEdit.value
   if (!edit) return
-  const text = (raw ?? inlineDraft.value).trim()
-  if (!text) return
+  emit('commitAt', {
+    raw: '',
+    startTick: edit.startTick,
+    endTick: edit.endTick,
+    id: edit.id,
+    keepEditing: opts?.keepEditing,
+  })
+  closeInline()
+}
+
+function submitInline(raw?: string, opts?: { keepEditing?: boolean }): void {
+  const edit = inlineEdit.value
+  if (!edit) return
+  // Explicit empty / no arg with empty draft → blank (do not auto-pick a suggestion).
+  if (raw === '' || (raw == null && !inlineDraft.value.trim())) {
+    submitBlankInline(opts)
+    return
+  }
+  const text = resolveInlineSubmitText(raw)
+  if (!text) {
+    submitBlankInline(opts)
+    return
+  }
   emit('commitAt', {
     raw: text,
     startTick: edit.startTick,
     endTick: edit.endTick,
     id: edit.id,
+    keepEditing: opts?.keepEditing,
   })
   closeInline()
 }
+
+async function submitInlineAndAdvance(dir: 1 | -1): Promise<void> {
+  const edit = inlineEdit.value
+  if (!edit) return
+  const fromId = edit.id
+  const fromStart = edit.startTick
+  const draft = inlineDraft.value.trim()
+  if (!draft) {
+    // Tab on empty paints a blank slot, then moves to the next chord.
+    emit('commitAt', {
+      raw: '',
+      startTick: edit.startTick,
+      endTick: edit.endTick,
+      id: edit.id,
+      keepEditing: true,
+    })
+  } else {
+    const text = resolveInlineSubmitText()
+    if (text) {
+      emit('commitAt', {
+        raw: text,
+        startTick: edit.startTick,
+        endTick: edit.endTick,
+        id: edit.id,
+        keepEditing: true,
+      })
+    }
+  }
+  closeInline()
+  await nextTick()
+  await nextTick()
+  const list = [...props.segments].sort(
+    (a, b) => a.startTick - b.startTick || a.endTick - b.endTick,
+  )
+  let idx = fromId ? list.findIndex((s) => s.id === fromId) : -1
+  if (idx < 0) idx = list.findIndex((s) => s.startTick === fromStart)
+  if (idx < 0) return
+  const next = list[idx + dir]
+  if (!next) return
+  openInlineForSeg(next)
+}
+
 function onInlineKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Tab') {
+    e.preventDefault()
+    e.stopPropagation()
+    void submitInlineAndAdvance(e.shiftKey ? -1 : 1)
+    return
+  }
+  // Delete removes the whole chord; Backspace only edits the field text.
+  if (e.key === 'Delete') {
+    e.preventDefault()
+    e.stopPropagation()
+    deleteInlineChord()
+    return
+  }
   if (!inlineSuggestOpen.value && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
     inlineSuggestOpen.value = true
   }
@@ -323,13 +626,19 @@ function onInlineKeydown(e: KeyboardEvent): void {
     closeInline()
     return
   }
-  if (!inlineSuggestions.value.length) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      submitInline()
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    // Empty text → blank placeholder (layout chords first, fill via Tab later).
+    if (!inlineDraft.value.trim()) {
+      submitBlankInline()
+      return
     }
+    const hit = inlineSuggestions.value[inlineSuggestIdx.value]
+    if (hit && inlineSuggestOpen.value) submitInline(hit.insert)
+    else submitInline()
     return
   }
+  if (!inlineSuggestions.value.length) return
   if (e.key === 'ArrowDown') {
     e.preventDefault()
     inlineSuggestIdx.value = (inlineSuggestIdx.value + 1) % inlineSuggestions.value.length
@@ -337,11 +646,6 @@ function onInlineKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     inlineSuggestIdx.value =
       (inlineSuggestIdx.value - 1 + inlineSuggestions.value.length) % inlineSuggestions.value.length
-  } else if (e.key === 'Enter') {
-    e.preventDefault()
-    const hit = inlineSuggestions.value[inlineSuggestIdx.value]
-    if (hit && inlineSuggestOpen.value) submitInline(hit.insert)
-    else submitInline()
   }
 }
 
@@ -464,11 +768,12 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         <div
           ref="declaredTrackEl"
           class="track"
-          :title="tagRollTip('Drag empty to paint; Alt+click or ◆ marks a pillar; click opens editor')"
+          :title="tagRollTip('Drag empty to paint; double-click to type; click opens editor')"
           @pointerdown="onDeclaredPointerDown"
           @pointermove="onDeclaredPointerMove"
           @pointerup="onDeclaredPointerUp"
           @pointercancel="onDeclaredPointerCancel"
+          @pointerleave="clearHover"
         >
           <div
             v-if="placeGhostStyle()"
@@ -492,23 +797,26 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
             :key="`d-${seg.id}`"
             class="cell locked"
             :class="{
-              pillar: isPillarSeg(seg),
+              blank: seg.quality === 'blank',
               menu: editSegId === seg.id || inlineEdit?.id === seg.id,
               selected: isSelected(seg.id),
               dragging: isDragging(seg.id),
               preview: isPreviewingSeg(seg),
             }"
             :style="segStyle(seg)"
+            @dblclick="onCellDblClick(seg, $event)"
           >
-            <span class="handle start" aria-hidden="true" />
+            <span
+              class="handle start"
+              :class="{ hot: handleHot(seg.id, 'start') }"
+              aria-hidden="true"
+            />
             <div
               class="lab"
               :title="
                 isPreviewingSeg(seg) && previewDraft
                   ? `Preview: ${previewLabelOf(previewDraft)} (not applied)`
-                  : isPillarSeg(seg)
-                    ? `Pillar: ${labelOf(seg)} — Alt+click or ◆ to clear`
-                    : `Chord: ${labelOf(seg)} — Alt+click or ◆ to mark pillar`
+                  : `Chord: ${labelOf(seg)} — double-click to type`
               "
             >
               <span class="txt">
@@ -519,23 +827,11 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
                 }}
               </span>
             </div>
-            <button
-              type="button"
-              class="pillar-badge"
-              :class="{ on: isPillarSeg(seg) }"
-              :title="
-                isPillarSeg(seg)
-                  ? 'Clear pillar (Alt+click)'
-                  : 'Mark as pillar (Alt+click)'
-              "
-              :aria-label="isPillarSeg(seg) ? 'Clear pillar' : 'Mark as pillar'"
-              :aria-pressed="isPillarSeg(seg)"
-              :disabled="readOnly || seg.rootPc == null"
-              @pointerdown="onPillarBadge(seg, $event)"
-            >
-              ◆
-            </button>
-            <span class="handle end" aria-hidden="true" />
+            <span
+              class="handle end"
+              :class="{ hot: handleHot(seg.id, 'end') }"
+              aria-hidden="true"
+            />
           </div>
         </div>
       </div>
@@ -546,14 +842,34 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         v-if="inlineEdit"
         ref="inlineEl"
         class="inline-pop"
-        :style="inlinePos"
+        :style="{
+          top: inlinePos.top,
+          left: inlinePos.left,
+          width: inlinePos.width,
+          maxHeight: inlinePos.maxHeight,
+        }"
+        @pointermove="onInlineDragMove"
+        @pointerup="onInlineDragUp"
+        @pointercancel="onInlineDragUp"
       >
+        <div
+          class="inline-drag"
+          title="Drag to move"
+          @pointerdown="onInlineDragDown"
+        >
+          <span class="inline-drag-grip" aria-hidden="true" />
+          <span class="inline-drag-label">Chord</span>
+        </div>
         <form class="inline-form" @submit.prevent="submitInline()">
           <input
             ref="inlineInputEl"
             v-model="inlineDraft"
             type="text"
-            :placeholder="mode === 'roman' ? 'V7, iiø…' : 'G7, Dm…'"
+            :placeholder="
+              inlineLeadMidi != null
+                ? 'Chord, or Enter for blank…'
+                : 'Chord, or Enter for blank…'
+            "
             :aria-controls="inlineSuggestListId"
             :aria-expanded="inlineSuggestOpen && inlineSuggestions.length > 0"
             aria-autocomplete="list"
@@ -646,7 +962,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   position: absolute;
   inset: 0;
   touch-action: none;
-  cursor: crosshair;
+  cursor: pointer;
 }
 .cell {
   position: absolute;
@@ -659,48 +975,14 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   overflow: hidden;
   z-index: 1;
 }
-.cell.pillar {
-  border-color: color-mix(in srgb, #1f7a4d 55%, var(--border));
-  background: color-mix(in srgb, #2a8c5a 28%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #2a8c5a 35%, transparent);
-}
-.cell.pillar .handle {
-  background: color-mix(in srgb, #2a8c5a 40%, transparent);
-}
-.pillar-badge {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--surface) 70%, transparent);
+.cell.blank {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--muted) 10%, var(--surface));
   color: var(--muted);
-  font: inherit;
-  font-size: 0.55rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.72;
 }
-.pillar-badge:hover:not(:disabled),
-.cell.selected .pillar-badge,
-.cell.menu .pillar-badge {
-  opacity: 1;
-}
-.pillar-badge.on {
-  color: #1f6b45;
-  background: color-mix(in srgb, #2a8c5a 22%, transparent);
-  opacity: 1;
-}
-.pillar-badge:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+.cell.blank .txt {
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 .cell.selected {
   outline: 2px solid var(--accent);
@@ -738,11 +1020,12 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 6px;
   z-index: 0;
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
-  cursor: ew-resize;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  cursor: pointer;
   pointer-events: none;
+  transition: background 0.12s ease, width 0.12s ease, box-shadow 0.12s ease;
 }
 .handle.start {
   left: 0;
@@ -751,6 +1034,15 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .handle.end {
   right: 0;
   border-radius: 0 6px 6px 0;
+}
+.handle.hot {
+  width: 9px;
+  background: color-mix(in srgb, var(--accent) 85%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  z-index: 4;
+}
+.cell:hover .handle:not(.hot) {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 .lab {
   position: relative;
@@ -787,29 +1079,80 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
 .inline-pop {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.35rem;
+  gap: 0.2rem;
+  box-sizing: border-box;
+  width: 15rem;
+  min-width: 13.5rem;
+  max-width: min(16rem, calc(100vw - 16px));
+  padding: 0.4rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--surface);
   box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
+  overflow: hidden;
+  /* Keep room for a scrollable suggestion list under the input. */
+  min-height: 0;
+}
+.inline-drag {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: none;
+  min-height: 1.35rem;
+  margin: -0.1rem -0.1rem 0;
+  padding: 0.15rem 0.25rem;
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.inline-drag:active {
+  cursor: grabbing;
+}
+.inline-drag-grip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--muted) 55%, transparent) 0 2px,
+      transparent 2px 4px
+    );
+  opacity: 0.85;
+}
+.inline-drag-label {
+  line-height: 1;
+}
+.inline-form {
+  flex: none;
 }
 .inline-form input {
   width: 100%;
   min-height: 2rem;
   padding: 0.25rem 0.45rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--bg, var(--surface));
   color: var(--text);
   font: inherit;
 }
 .suggest {
   list-style: none;
-  margin: 0.2rem 0 0;
+  margin: 0;
   padding: 0;
-  max-height: 10rem;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 4.5rem;
+  max-height: min(40vh, 16rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 .suggest li {
   padding: 0.25rem 0.45rem;

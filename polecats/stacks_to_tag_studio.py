@@ -21,7 +21,9 @@ GOLD_TAG_IDS = frozenset(
         90001,  # My Wild Irish Rose
         90003,  # Sweet And Lovely
         90006,  # Let Me Call You Sweetheart
+        90008,  # Shine On Me (Path A listen)
         90009,  # The Story of the Rose (Heart of My Heart)
+        90011,  # Down By The Old Mill Stream (Path A listen)
     }
 )
 

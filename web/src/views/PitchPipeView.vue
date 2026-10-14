@@ -33,9 +33,13 @@ import {
 } from '../audio/pitchPlayer'
 import {
   getActivePitchPipeVoice,
+  PITCH_PIPE_ATTACK_SEC_MAX,
+  PITCH_PIPE_ATTACK_SEC_MIN,
+  PITCH_PIPE_ATTACK_SEC_STEP,
   PITCH_PIPE_SOUND_OPTIONS,
   PITCH_PIPE_VOICE_CHANGE_EVENT,
   type PitchPipeSoundId,
+  type PitchPipeVoiceConfig,
 } from '../audio/pitchPipeVoice'
 import {
   PIANO_SAMPLE_ENGINE_OPTIONS,
@@ -88,6 +92,23 @@ const pipeSound = computed({
   get: (): PitchPipeSoundId => prefs.pitchPipeSound,
   set: (v: PitchPipeSoundId) => prefs.setPitchPipeSound(v),
 })
+
+const attackSec = computed({
+  get: () => prefs.pitchPipeAttackSec,
+  set: (v: number) => prefs.setPitchPipeAttackSec(v),
+})
+
+const attackLabel = computed(() => {
+  const n = attackSec.value
+  if (n <= 0) return 'instant'
+  if (n < 1) return `${Math.round(n * 1000)} ms`
+  return `${n.toFixed(2).replace(/\.?0+$/, '')} s`
+})
+
+/** Active synth voice with the Settings attack overlay. */
+function pipeVoice(): PitchPipeVoiceConfig {
+  return { ...getActivePitchPipeVoice(), attackSec: attackSec.value }
+}
 
 const detuneLabel = computed(() => {
   const n = detune.value
@@ -184,6 +205,10 @@ function rebuildPlayer(): void {
   prev.dispose()
   sampleStatus.value = null
   syncSoundingFromPlayer()
+  // New AudioContext — unlock immediately when rebuild runs inside a gesture
+  // (engine/layout change); otherwise first key pays resume latency.
+  void player.warmUp?.()
+  syncPitchVoice()
   if (isPianoLayout.value && activeEngine.value === 'samples') {
     const mid = rangeNotes.value[Math.floor(rangeNotes.value.length / 2)] ?? 'C4'
     void player.preloadForNote?.(mid).catch(() => {
@@ -389,10 +414,27 @@ function nudgePianoKeyScale(delta: number): void {
   void nextTick(() => scrollPianoToRange())
 }
 
+/** Unlock AudioContext on the first gesture so the first key isn’t waiting on resume(). */
+function armAudioFromGesture(): void {
+  // Only resume — do not flood the decode lock with a full-keyboard preload on
+  // the same gesture as the note that is about to play.
+  void player.warmUp?.()
+  if (activeEngine.value !== 'samples') return
+  // Defer neighbor warm so the pressed key’s priority decode runs first.
+  window.setTimeout(() => {
+    const mid = noteList.value[Math.floor(noteList.value.length / 2)] ?? 'C4'
+    void player.preloadForNote?.(mid).catch(() => undefined)
+  }, 0)
+}
+
 onMounted(() => {
   window.addEventListener('keydown', onPcKeyDown)
   window.addEventListener('keyup', onPcKeyUp)
   window.addEventListener('blur', onWindowBlur)
+  // Capture phase runs before key/pointer note handlers on the same gesture.
+  window.addEventListener('pointerdown', armAudioFromGesture, { capture: true, once: true })
+  window.addEventListener('keydown', armAudioFromGesture, { capture: true, once: true })
+  syncPitchVoice()
   measurePianoViewport()
   scrollPianoToRange()
   void nextTick(() => measurePianoViewport())
@@ -402,6 +444,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onPcKeyDown)
   window.removeEventListener('keyup', onPcKeyUp)
   window.removeEventListener('blur', onWindowBlur)
+  window.removeEventListener('pointerdown', armAudioFromGesture, true)
+  window.removeEventListener('keydown', armAudioFromGesture, true)
   window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   setSessionBusy('pitch-pipe', false)
   player.dispose()
@@ -417,13 +461,17 @@ function onWindowBlur(): void {
 
 function syncPitchVoice(): void {
   if (activeEngine.value === 'synth') {
-    player.setVoice(getActivePitchPipeVoice())
+    player.setVoice(pipeVoice())
   }
 }
 
 if (typeof window !== 'undefined') {
   window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
 }
+
+watch(attackSec, () => {
+  syncPitchVoice()
+})
 
 watch(detune, (cents) => {
   const notes = player.activeNotes()
@@ -452,18 +500,21 @@ watch([activeEngine, isPianoLayout], () => {
   rebuildPlayer()
 })
 
-async function noteOn(note: string): Promise<void> {
+/** Fire the oscillator/sample on this turn; UI sync trails on the promise. */
+function noteOn(note: string): void {
   wantSounding.add(note)
-  try {
-    await player.noteOn(note, detune.value)
-    sampleStatus.value = null
-  } catch {
-    sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
-  }
-  if (!wantSounding.has(note)) {
-    player.noteOff(note, true)
-  }
-  syncSoundingFromPlayer()
+  const p = player.noteOn(note, detune.value)
+  void p.then(
+    () => {
+      sampleStatus.value = null
+      if (!wantSounding.has(note)) player.noteOff(note, true)
+      syncSoundingFromPlayer()
+    },
+    () => {
+      sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
+      syncSoundingFromPlayer()
+    },
+  )
 }
 
 function noteOff(note: string): void {
@@ -581,6 +632,22 @@ function blackLeftPct(after: string): number {
           Acoustic samples load per octave as you play or scroll.
           <span v-if="sampleStatus" class="sample-err"> {{ sampleStatus }}</span>
         </p>
+
+        <label v-if="activeEngine === 'synth'" class="detune">
+          <span class="lbl">Attack <strong>{{ attackLabel }}</strong></span>
+          <input
+            v-model.number="attackSec"
+            type="range"
+            :min="PITCH_PIPE_ATTACK_SEC_MIN"
+            :max="PITCH_PIPE_ATTACK_SEC_MAX"
+            :step="PITCH_PIPE_ATTACK_SEC_STEP"
+            :aria-valuemin="PITCH_PIPE_ATTACK_SEC_MIN"
+            :aria-valuemax="PITCH_PIPE_ATTACK_SEC_MAX"
+            :aria-valuenow="attackSec"
+            aria-label="Pitch pipe attack fade-in"
+            title="Fade in from 25% to full level over this time (synth only)"
+          />
+        </label>
 
         <label class="range-ref">
           <span class="lbl">Layout</span>

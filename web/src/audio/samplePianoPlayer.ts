@@ -1,14 +1,30 @@
 /**
  * Polyphonic sample piano: one AudioBufferSourceNode voice per sounding note.
+ *
+ * Live strikes must stay synchronous on the cache-hit path — the WAV/Opus
+ * samples already contain their attack transient, so we do not gain-ramp on.
  */
 import {
   ensurePianoOctavesAroundNote,
+  ensurePianoSample,
   getCachedPianoSample,
   noteToMidi,
 } from './pianoSamples'
+import {
+  createInteractiveAudioContext,
+  ensureAudioKeepalive,
+  stopAudioKeepalive,
+  type AudioKeepalive,
+} from './interactiveAudioContext'
 import { midiToHz, playbackRateEaseInOutCurve } from '../lib/tagRoll/portamento'
 import type { TagRollSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
-import { TAG_ROLL_DEFAULT_SOUND_ENVELOPE } from '../lib/tagRoll/soundEnvelope'
+
+/** Release only — attack is in the sample file (never ramp on note-on). */
+const PIANO_PLAY_ENVELOPE = {
+  attackSec: 0,
+  decaySec: 0.04,
+  phraseDecaySec: 0.3,
+} as const
 
 type NoteMixOpts = {
   voiceKey?: string
@@ -25,7 +41,7 @@ type SampleVoice = {
   midi: number
   source: AudioBufferSourceNode
   gain: GainNode
-  panner: AudioNode
+  panner: AudioNode | null
   startedAt: number
 }
 
@@ -34,10 +50,11 @@ const VOICE_LIMIT = 16
 export class SamplePianoPlayer {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
+  private keepalive: AudioKeepalive | null = null
   private voices = new Map<string, SampleVoice>()
   private lastDetuneCents = 0
   private masterGain = 0.85
-  private envelope: TagRollSoundEnvelope = { ...TAG_ROLL_DEFAULT_SOUND_ENVELOPE }
+  private envelope: TagRollSoundEnvelope = { ...PIANO_PLAY_ENVELOPE }
   private loadError: string | null = null
 
   getLoadError(): string | null {
@@ -45,7 +62,8 @@ export class SamplePianoPlayer {
   }
 
   setEnvelope(env: TagRollSoundEnvelope): void {
-    this.envelope = { ...env }
+    // Keep attack at 0 for samples — callers may pass Tag Studio phrase envelopes.
+    this.envelope = { ...env, attackSec: 0 }
   }
 
   activeNotes(): string[] {
@@ -57,8 +75,8 @@ export class SamplePianoPlayer {
   }
 
   private ensure(): AudioContext {
-    if (!this.ctx) {
-      this.ctx = new AudioContext()
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.ctx = createInteractiveAudioContext()
       this.master = this.ctx.createGain()
       this.master.gain.value = this.masterGain
       this.master.connect(this.ctx.destination)
@@ -66,10 +84,18 @@ export class SamplePianoPlayer {
     return this.ctx
   }
 
+  /** Create/resume context on a user gesture (Tag Studio Play before blow-pitch await). */
+  async warmUp(): Promise<void> {
+    const ctx = this.ensure()
+    if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
+  }
+
   async preloadForNote(note: string): Promise<void> {
     try {
-      await ensurePianoOctavesAroundNote(note)
+      await ensurePianoSample(noteToMidi(note))
       this.loadError = null
+      void ensurePianoOctavesAroundNote(note).catch(() => undefined)
     } catch (err) {
       this.loadError = err instanceof Error ? err.message : String(err)
       throw err
@@ -80,49 +106,90 @@ export class SamplePianoPlayer {
     await this.noteOn(note, detuneCents)
   }
 
+  /**
+   * Cache-hit + running context: no `await` before `src.start()` — same turn as
+   * the pointer/key handler (required for “instant” piano feel).
+   */
   async noteOn(
     note: string,
     detuneCents = 0,
     mix?: NoteMixOpts,
   ): Promise<void> {
     const ctx = this.ensure()
-    if (ctx.state === 'suspended') await ctx.resume()
     this.lastDetuneCents = detuneCents
     const key = mix?.voiceKey ?? note
-
-    try {
-      await ensurePianoOctavesAroundNote(note)
-      this.loadError = null
-    } catch (err) {
-      this.loadError = err instanceof Error ? err.message : String(err)
-      throw err
-    }
-
     const midi = noteToMidi(note)
-    const buf = getCachedPianoSample(midi)
-    if (!buf) {
-      this.loadError = `No sample for ${note}`
-      throw new Error(this.loadError)
+    const pan = mix?.pan ?? 0
+    const targetGain = mix?.gain ?? 1
+    const cached = getCachedPianoSample(midi)
+
+    if (cached && ctx.state === 'running') {
+      this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
+      this.strike(ctx, key, note, midi, cached.buffer, cached.onsetSec, detuneCents, targetGain, pan)
+      return
     }
 
+    if (ctx.state === 'suspended') await ctx.resume()
+    this.keepalive = ensureAudioKeepalive(ctx, this.keepalive)
+
+    let sample = cached ?? getCachedPianoSample(midi)
+    if (!sample) {
+      try {
+        sample = await ensurePianoSample(midi, { priority: true })
+        this.loadError = null
+        // Background only — never steal the decode lock from the next key.
+        void ensurePianoOctavesAroundNote(note).catch(() => undefined)
+      } catch (err) {
+        this.loadError = err instanceof Error ? err.message : String(err)
+        throw err
+      }
+    }
+    this.strike(
+      ctx,
+      key,
+      note,
+      midi,
+      sample.buffer,
+      sample.onsetSec,
+      detuneCents,
+      targetGain,
+      pan,
+    )
+  }
+
+  private strike(
+    ctx: AudioContext,
+    key: string,
+    note: string,
+    midi: number,
+    buf: AudioBuffer,
+    onsetSec: number,
+    detuneCents: number,
+    targetGain: number,
+    pan: number,
+  ): void {
     this.noteOff(key, false)
     this.stealIfNeeded()
 
     const src = ctx.createBufferSource()
     const g = ctx.createGain()
-    const panner = createPanner(ctx, mix?.pan ?? 0)
     src.buffer = buf
-    const detuneRate = 2 ** (detuneCents / 1200)
-    src.playbackRate.value = detuneRate
-    const targetGain = mix?.gain ?? 1
-    const now = ctx.currentTime
-    const attack = this.envelope.attackSec
-    g.gain.value = 0
-    g.gain.linearRampToValueAtTime(targetGain, now + attack)
+    src.playbackRate.value = 2 ** (detuneCents / 1200)
+    // Samples already include the hammer attack — full gain immediately.
+    g.gain.value = targetGain
     src.connect(g)
-    g.connect(panner.node)
-    panner.node.connect(this.master!)
-    src.start()
+    let panner: AudioNode | null = null
+    if (Math.abs(pan) > 0.001 && typeof ctx.createStereoPanner === 'function') {
+      panner = ctx.createStereoPanner()
+      ;(panner as StereoPannerNode).pan.value = clampPan(pan)
+      g.connect(panner)
+      panner.connect(this.master!)
+    } else {
+      g.connect(this.master!)
+    }
+    const now = ctx.currentTime
+    // Skip file pre-roll (~50ms silence in Leethring samples).
+    src.start(now, Math.max(0, onsetSec))
     const voice: SampleVoice = {
       key,
       note,
@@ -130,7 +197,7 @@ export class SamplePianoPlayer {
       midi,
       source: src,
       gain: g,
-      panner: panner.node,
+      panner,
       startedAt: now,
     }
     this.voices.set(key, voice)
@@ -218,7 +285,7 @@ export class SamplePianoPlayer {
     window.setTimeout(() => {
       try {
         voice.gain.disconnect()
-        voice.panner.disconnect()
+        voice.panner?.disconnect()
       } catch {
         /* ignore */
       }
@@ -241,6 +308,8 @@ export class SamplePianoPlayer {
 
   dispose(): void {
     this.allNotesOff(false)
+    stopAudioKeepalive(this.keepalive)
+    this.keepalive = null
     const ctx = this.ctx
     this.ctx = null
     this.master = null
@@ -253,15 +322,4 @@ export class SamplePianoPlayer {
 function clampPan(n: number): number {
   if (!Number.isFinite(n)) return 0
   return Math.max(-1, Math.min(1, n))
-}
-
-function createPanner(ctx: AudioContext, pan: number): { node: AudioNode } {
-  if (typeof ctx.createStereoPanner === 'function') {
-    const panner = ctx.createStereoPanner()
-    panner.pan.value = clampPan(pan)
-    return { node: panner }
-  }
-  const g = ctx.createGain()
-  g.gain.value = 1
-  return { node: g }
 }

@@ -1,4 +1,5 @@
 import type { ArrangementProject } from '../types'
+import type { VoicingProfile } from '../voicingProfile'
 
 export type LintSeverity = 'error' | 'warn' | 'info'
 
@@ -19,6 +20,8 @@ export type ArrangementLint = {
 export type LintContext = {
   profile: ArrangementProject['contestProfile']
   checkLeadRange?: boolean
+  /** When set, check stacks against ensemble Ranges strip bands. */
+  voicingProfile?: VoicingProfile | null
 }
 
 export interface LintRule {

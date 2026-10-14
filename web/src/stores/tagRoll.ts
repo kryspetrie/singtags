@@ -25,7 +25,7 @@ import {
   normalizeTagRollProject,
 } from '../lib/tagRoll/normalize'
 import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
-import { ensureLengthForNote, snapTick } from '../lib/tagRoll/snap'
+import { ensureLengthForNote, ensureLengthForTick, snapTick } from '../lib/tagRoll/snap'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
 import { syncProjectMix, hydrateProjectMix } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
@@ -53,7 +53,10 @@ import {
 import {
   isHarmonySketchQuality,
   natureToSketchQuality,
+  absorbHarmonySpanRemoval,
   removeSketchSpan,
+  type HarmonyAbsorbNeighbor,
+  carveInsertSketchSpan,
   sketchPatchFromMelodyNote,
   sketchSpanAtTick,
   sortSpans,
@@ -158,6 +161,7 @@ import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects
 import { ensurePolecatPitchReviewProjects } from '../application/tagRoll/ensurePolecatPitchReviews'
 import { ensureCoachTrialProjects } from '../application/tagRoll/ensureCoachTrials'
 import {
+  clearPolecatPitchSeedDismissals,
   dismissTagRollSeed,
   isTagRollLibraryInitialized,
   markTagRollLibraryInitialized,
@@ -172,6 +176,9 @@ function svc() {
 function now(): number {
   return svc().clock.now()
 }
+
+/** Avoid stacking unload flush listeners across Pinia remounts in tests. */
+let tagRollUnloadFlushBound = false
 
 export const useTagRollStore = defineStore('tagRoll', () => {
   const summaries = ref<TagRollProjectSummary[]>([])
@@ -270,7 +277,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     fn()
   }
 
-  async function refreshList(): Promise<void> {
+  async function refreshList(opts?: { forcePolecatPitch?: boolean }): Promise<void> {
     try {
       const { repository, clock } = svc()
       let list = await listTagRolls(repository)
@@ -287,7 +294,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       }
       // Coach gold set: polecat pitch extracts (import missing; prune dropped seeds).
       try {
-        const pitch = await ensurePolecatPitchReviewProjects(repository, clock)
+        const pitch = await ensurePolecatPitchReviewProjects(repository, clock, {
+          force: opts?.forcePolecatPitch === true,
+        })
         if (pitch.imported > 0 || pitch.removed > 0 || pitch.refreshed > 0) {
           list = await listTagRolls(repository)
         }
@@ -316,6 +325,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   async function openProject(id: string): Promise<TagRollProject | null> {
     busy.value = true
     try {
+      // Persist mixer / edits on the outgoing project before swapping.
+      if (current.value && current.value.id !== id) await persistNow()
       const { repository } = svc()
       const p = await openTagRoll(repository, id)
       current.value = p
@@ -412,18 +423,55 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
 
   async function persistNow(): Promise<void> {
+    // Flush immediately — cancel debounce so refresh/navigate cannot drop mixer etc.
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
     const p = current.value
     if (!p) return
+    // Snapshot identity — if the user mutes/edits during await, do not clobber
+    // the live document with the stale normalized write-back.
+    const savedId = p.id
+    const savedUpdatedAt = p.updatedAt
     try {
       const next = await persistTagRoll(svc().repository, p, svc().clock)
       const normalized = normalizeTagRollProject(next)
       // Keep the live project if normalize fails — never wipe the open editor.
-      if (normalized) current.value = normalized
-      await refreshList()
+      // Only write back when this project is still open and unchanged mid-save.
+      if (
+        normalized &&
+        current.value?.id === savedId &&
+        current.value.updatedAt === savedUpdatedAt
+      ) {
+        current.value = normalized
+      }
+      // Refresh summaries only — never run seed re-import here (that wiped Sketch
+      // after Back when lengthTicks/notes diverged from the gold JSON).
+      try {
+        summaries.value = await listTagRolls(svc().repository)
+      } catch {
+        /* ignore list refresh failures after a successful put */
+      }
       error.value = null
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to save project'
     }
+  }
+
+  /** Flush pending document (incl. mixer) when the tab hides or unloads. */
+  if (
+    !tagRollUnloadFlushBound &&
+    typeof window !== 'undefined' &&
+    typeof document !== 'undefined'
+  ) {
+    tagRollUnloadFlushBound = true
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') void persistNow()
+    })
+    window.addEventListener('pagehide', () => {
+      void persistNow()
+    })
   }
 
   function patchProject(patch: Partial<TagRollProject>, opts?: { history?: boolean }): void {
@@ -558,7 +606,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         : m,
     )
     current.value = { ...p, mix, updatedAt: now() }
-    scheduleSave()
+    // Mute/solo must hit IndexedDB immediately — debounced save races with
+    // navigate/refresh and used to reopen everything unmuted.
+    if (patch.mute != null || patch.solo != null) void persistNow()
+    else scheduleSave()
   }
 
   function clearMixSolos(): void {
@@ -570,7 +621,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       mix: syncProjectMix(p.parts, p.mix).map((m) => ({ ...m, solo: false })),
       updatedAt: now(),
     }
-    scheduleSave()
+    void persistNow()
   }
 
   function setMelodyPart(partId: string): void {
@@ -1060,6 +1111,23 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     })
   }
 
+  /**
+   * Grow the timeline so `tick` (plus trailing empty measures) fits.
+   * Used for infinite right-scroll and sketch-only charts without notes.
+   */
+  function extendLengthToTick(tick: number, opts?: { history?: boolean; padMeasures?: number }): void {
+    const p = current.value
+    if (!p) return
+    const next = ensureLengthForTick(
+      p.lengthTicks,
+      tick,
+      measureTicks(p.timeSignature),
+      opts?.padMeasures ?? 2,
+    )
+    if (next <= p.lengthTicks) return
+    patchProject({ lengthTicks: next }, { history: opts?.history === true })
+  }
+
   function setSheetScroll(sheetScrollX: number, sheetScrollY: number): void {
     patchView({
       sheetScrollX: Math.max(0, sheetScrollX),
@@ -1475,10 +1543,18 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       sketchNext.find((s) => s.startTick === opts.startTick && s.endTick === opts.endTick)?.id ??
       sketchNext[sketchNext.length - 1]?.id ??
       null
+    const mTicks = measureTicks(p.timeSignature)
+    const lengthTicks = ensureLengthForNote(
+      p.lengthTicks,
+      opts.startTick,
+      Math.max(1, opts.endTick - opts.startTick),
+      mTicks,
+    )
     current.value = {
       ...p,
       notes,
       harmonySketch: sketchNext,
+      lengthTicks,
       updatedAt: svc().clock.now(),
     }
     scheduleSave()
@@ -1503,6 +1579,22 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p) return
     patchProject({ harmonySketch: removeSketchSpan(p.harmonySketch ?? [], id) })
     selectedSketchSpanIds.value = selectedSketchSpanIds.value.filter((x) => x !== id)
+  }
+
+  /**
+   * Delete a Sketch/Detected cell and leave empty time (neighbors keep their widths).
+   */
+  function absorbHarmonySpan(
+    removal: { id: string; startTick: number; endTick: number },
+    adjacent: { left?: HarmonyAbsorbNeighbor | null; right?: HarmonyAbsorbNeighbor | null },
+  ): void {
+    const p = current.value
+    if (!p) return
+    pushHistory()
+    patchProject({
+      harmonySketch: absorbHarmonySpanRemoval(p.harmonySketch ?? [], removal, adjacent),
+    })
+    selectedSketchSpanIds.value = selectedSketchSpanIds.value.filter((x) => x !== removal.id)
   }
 
   function clearSketchSelection(): void {
@@ -1585,11 +1677,31 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     return created.length > 0
   }
 
-  function deleteSelectedSketchSpans(): void {
-    if (!selectedSketchSpanIds.value.length) return
+  function deleteSelectedSketchSpans(opts?: {
+    /** Prefer this list (includes synthetic Detect ids + neighbors). */
+    removals?: ReadonlyArray<{
+      id: string
+      startTick: number
+      endTick: number
+      left?: HarmonyAbsorbNeighbor | null
+      right?: HarmonyAbsorbNeighbor | null
+    }>
+  }): void {
+    if (!selectedSketchSpanIds.value.length && !opts?.removals?.length) return
     pushHistory()
     let sketch = current.value?.harmonySketch ?? []
-    for (const id of selectedSketchSpanIds.value) sketch = removeSketchSpan(sketch, id)
+    const removals = [...(opts?.removals ?? [])].sort((a, b) => b.startTick - a.startTick)
+    if (removals.length) {
+      for (const rem of removals) {
+        sketch = absorbHarmonySpanRemoval(
+          sketch,
+          { id: rem.id, startTick: rem.startTick, endTick: rem.endTick },
+          { left: rem.left, right: rem.right },
+        )
+      }
+    } else {
+      for (const id of selectedSketchSpanIds.value) sketch = removeSketchSpan(sketch, id)
+    }
     patchProject({ harmonySketch: sketch })
     selectedSketchSpanIds.value = []
   }
@@ -1600,6 +1712,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const p = current.value
     if (!p || !payloads.length) return
     let sketch = p.harmonySketch ?? []
+    let maxEnd = 0
     for (const payload of payloads) {
       const hit = sketch.find((s) => s.id === payload.id)
       if (!hit) continue
@@ -1609,8 +1722,15 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         endTick: payload.endTick,
         locked: true,
       })
+      maxEnd = Math.max(maxEnd, payload.endTick)
     }
-    patchProject({ harmonySketch: sketch })
+    const lengthTicks = ensureLengthForTick(
+      p.lengthTicks,
+      maxEnd,
+      measureTicks(p.timeSignature),
+      1,
+    )
+    patchProject({ harmonySketch: sketch, lengthTicks })
   }
 
   function lockHarmonySketchSpan(id: string, quality?: HarmonySketchQuality): void {
@@ -1971,6 +2091,124 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     scheduleSave()
   }
 
+  /** Batch TTBB upserts in one history step (Sketch unchanged). */
+  function upsertHarmonyNotesMany(
+    ops: readonly {
+      melodyNoteId: string
+      pitches: { tenor: number; bari: number; bass: number; lead: number }
+    }[],
+  ): number {
+    const p = current.value
+    if (!p || !ops.length) return 0
+    pushHistory()
+    let notes = p.notes
+    let applied = 0
+    for (const op of ops) {
+      const result = applyHarmony({
+        project: { ...p, notes },
+        melodyNoteId: op.melodyNoteId,
+        pitches: op.pitches,
+        idGen: svc().idGen,
+      })
+      if (!result.ok) continue
+      notes = result.notes
+      applied += 1
+    }
+    if (!applied) return 0
+    current.value = { ...p, notes, updatedAt: svc().clock.now() }
+    scheduleSave()
+    return applied
+  }
+
+  /** Carve short Sketch chords for passing NCTs (no note changes). */
+  function carvePassingSketchSpans(
+    ops: readonly {
+      startTick: number
+      endTick: number
+      rootPc: number
+      natureId: string
+    }[],
+  ): number {
+    const p = current.value
+    if (!p || !ops.length) return 0
+    pushHistory()
+    let sketch = p.harmonySketch ?? []
+    for (const op of ops) {
+      const startTick = Math.max(0, Math.round(op.startTick))
+      const endTick = Math.max(startTick + 1, Math.round(op.endTick))
+      sketch = carveInsertSketchSpan(sketch, {
+        startTick,
+        endTick,
+        rootPc: op.rootPc,
+        quality: op.natureId,
+        locked: true,
+        pillar: false,
+        source: 'coach',
+      })
+    }
+    current.value = {
+      ...p,
+      harmonySketch: sketch,
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return ops.length
+  }
+
+  /**
+   * Passing / NCT resolve: carve Sketch chords at each melody window and realize
+   * TTBB in one history step. Inserts are non-pillar; covering remnants keep home.
+   */
+  function applyPassingSketchAndStacks(
+    ops: readonly {
+      melodyNoteId: string
+      pitches: { tenor: number; bari: number; bass: number; lead: number }
+      rootPc: number
+      natureId: string
+      startTick: number
+      endTick: number
+    }[],
+  ): number {
+    const p = current.value
+    if (!p || !ops.length) return 0
+    pushHistory()
+    let sketch = p.harmonySketch ?? []
+    let notes = p.notes
+    let applied = 0
+    for (const op of ops) {
+      const startTick = Math.max(0, Math.round(op.startTick))
+      const endTick = Math.max(startTick + 1, Math.round(op.endTick))
+      sketch = carveInsertSketchSpan(sketch, {
+        startTick,
+        endTick,
+        rootPc: op.rootPc,
+        quality: op.natureId,
+        locked: true,
+        pillar: false,
+        source: 'coach',
+      })
+      const result = applyHarmony({
+        project: { ...p, notes, harmonySketch: sketch },
+        melodyNoteId: op.melodyNoteId,
+        pitches: op.pitches,
+        idGen: svc().idGen,
+      })
+      if (result.ok) {
+        notes = result.notes
+        applied += 1
+      }
+    }
+    if (!applied) return 0
+    current.value = {
+      ...p,
+      notes,
+      harmonySketch: sketch,
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return applied
+  }
+
   /**
    * Harmonize commit: declare locked sketch for the melody window;
    * optionally realize TTBB in the same history step.
@@ -1982,8 +2220,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     quality: string
     mode: 'chord' | 'chord+stack'
     pitches?: { tenor: number; bari: number; bass: number; lead: number }
-    /** Override sketch/realize span (harmonic moment under a held Lead). */
+    /** Override sketch/realize span (inspect range, selected Sketch, held-post). */
     window?: { startTick: number; durationTicks: number }
+    /** Prefer this Sketch span id when replacing a selection. */
+    spanId?: string
   }): void {
     const p = current.value
     if (!p) return
@@ -1991,7 +2231,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!melody) return
     const startTick = opts.window?.startTick ?? melody.startTick
     const durationTicks = opts.window?.durationTicks ?? melody.durationTicks
-    const existing = sketchSpanAtTick(p.harmonySketch ?? [], startTick)
+    const existing =
+      (opts.spanId
+        ? (p.harmonySketch ?? []).find((s) => s.id === opts.spanId)
+        : null) ?? sketchSpanAtTick(p.harmonySketch ?? [], startTick)
     const patch = sketchPatchFromMelodyNote({
       melodyStartTick: startTick,
       melodyDurationTicks: durationTicks,
@@ -2260,20 +2503,42 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     await refreshList()
   }
 
+  /** Dev/listen helper: undismiss + force-reimport polecat pitch gold seeds. */
+  async function resyncPolecatPitchSeeds(): Promise<{ clearedDismissals: number }> {
+    const clearedDismissals = clearPolecatPitchSeedDismissals()
+    await refreshList({ forcePolecatPitch: true })
+    return { clearedDismissals }
+  }
+
   async function duplicateProject(id: string): Promise<TagRollProject> {
     const saved = await duplicateTagRoll(svc().repository, svc().clock, id)
     await refreshList()
     return saved
   }
 
-  function clearCurrent(): void {
-    if (saveTimer) {
-      clearTimeout(saveTimer)
-      saveTimer = null
-    }
+  async function clearCurrent(): Promise<void> {
+    // Must flush before nulling — otherwise refresh cancels the debounced save
+    // and mixer mute/volume/pan never reach IndexedDB.
+    await persistNow()
     if (historyTimer) {
       clearTimeout(historyTimer)
       historyTimer = null
+      const p = current.value
+      if (p) {
+        try {
+          await persistTagRollHistory(
+            svc().repository,
+            {
+              projectId: p.id,
+              undo: undoStack.value,
+              redo: redoStack.value,
+            },
+            svc().clock,
+          )
+        } catch {
+          /* best-effort */
+        }
+      }
     }
     current.value = null
     clearNoteSelection()
@@ -2314,6 +2579,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     pointerTool,
     setPointerTool,
     refreshList,
+    resyncPolecatPitchSeeds,
     openProject,
     createProject,
     importProject,
@@ -2386,6 +2652,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     resetSheetFormatToSystem,
     setLockPiano,
     setScroll,
+    extendLengthToTick,
     setSheetScroll,
     setPlayheadTick,
     setBpm,
@@ -2417,6 +2684,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     upsertHarmonySketchSpan,
     declareHarmonySpan,
     removeHarmonySketchSpan,
+    absorbHarmonySpan,
     lockHarmonySketchSpan,
     lockDetectedAsMyChords,
     toggleSketchPillar,
@@ -2446,6 +2714,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     cutSelectedNotes,
     pasteNotesAtPlayhead,
     upsertHarmonyNotes,
+    upsertHarmonyNotesMany,
+    carvePassingSketchSpans,
+    applyPassingSketchAndStacks,
     commitHarmonizeAtMelody,
     realizeHarmonySketchStacks,
     replaceNotesFromExternal,

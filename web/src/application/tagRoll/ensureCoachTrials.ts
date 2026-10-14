@@ -11,6 +11,7 @@ import { isTagRollSeedDismissed } from '../../lib/tagRoll/seedLibraryPrefs'
 import { normalizeTagRollProject } from '../../lib/tagRoll/normalize'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { deleteTagRoll, putNewTagRoll } from './persist'
+import { seedHasUserSketch } from './seedRefreshGuard'
 
 const INDEX_URL = '/tag-studio/coach-trials/index.json'
 const SEED_PREFIX = 'seed-coach-trial-'
@@ -100,13 +101,15 @@ export async function ensureCoachTrialProjects(
     const nextNotes = Array.isArray(rawObj.notes) ? rawObj.notes.length : 0
     const nextBpm = Number(rawObj.bpm) || 0
     const nextLen = Number(rawObj.lengthTicks) || 0
+    // Never clobber a trial the user has sketched (Back→reopen wipe).
+    const userSketch = seedHasUserSketch(prev?.harmonySketch)
     const same =
       !!prev &&
       prev.notes.length === nextNotes &&
       Math.abs(prev.bpm - nextBpm) < 0.05 &&
       prev.lengthTicks === nextLen &&
       prev.title === String(rawObj.title ?? '')
-    if (same) {
+    if (same || userSketch) {
       result.skipped += 1
       continue
     }
@@ -114,6 +117,9 @@ export async function ensureCoachTrialProjects(
       ...rawObj,
       id: entry.id,
       localEntryId: null,
+      // Keep the user's mixer across seed content refreshes.
+      mix: prev?.mix ?? rawObj.mix,
+      harmonySketch: prev?.harmonySketch ?? rawObj.harmonySketch,
       createdAt: prev?.createdAt ?? now,
       updatedAt: now,
     })

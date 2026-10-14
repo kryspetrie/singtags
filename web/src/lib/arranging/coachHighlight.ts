@@ -93,7 +93,7 @@ export const COACH_LANE_LENSES: { id: CoachLaneLens; label: string }[] = [
 /** ASCII help for the Coach lane [i] button (per active view). */
 export const COACH_LANE_LENS_INFO: Record<CoachLaneLens, string> = {
   ring:
-    'Bar height is Ring % of a strong 4-part (TTBB) lock — lock and overtones, scaled so excellent stacks can reach ~100. Taller is stronger. Dashed boxes still need a chord. Thin purple strip = held Lead (post). Home roots sit in the top band. Tip: complete BS7s with good spacing buzz; thin Dom9s and missing 3rds/♭7s score lower (lock & ring).',
+    'Bar height is Ring % — analytical just-intonation lock blended with measured stack-ring priors for that catalog voicing (taller = stronger buzz). Dashed boxes still need a chord. Thin purple strip = held Lead (post). Home roots sit in the top band. Tip: same chord, different inversions can ring very differently; phrase/song endings prefer a major tonic home.',
   voiceLead:
     'Bar height and the blue line show voice-leading ease from the previous chord. Taller / higher means smoother part motion into this moment. Dashed boxes still need a chord.',
   issues:

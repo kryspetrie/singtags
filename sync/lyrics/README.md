@@ -46,11 +46,11 @@ python lyrics/review_lyric_batch.py --from-cache
 python lyrics/review_queue_gui.py
 # or: python lyrics/review_lyric_batch.py --review --gui
 
-# Optional: reorder existing queue/suggestions so collections are first (resets cursors)
+# Optional: reorder existing queue/suggestions (collections first, then rating/downloads)
 python lyrics/review_lyric_batch.py --collections-first
 ```
 
-**Order:** Tags in catalog collections (`classic` → `100` → `easytags` → other) are reviewed and batch-paged before non-collection tags. Booklet number then tag id break ties.
+**Order:** Catalog collections first, then **missing lyrics** (`no_usable_lyrics`), then other flagged tags. Within the non-collection bands, importance is `rating × log10(1+downloads)`.
 
 **GUI keys:** Enter save · Esc skip · Ctrl+Q quit · Page Up/Down pan sheet · Ctrl+A select lyrics
 

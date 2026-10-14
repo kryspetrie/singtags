@@ -298,7 +298,16 @@ export class TagAudioPlayer {
   }
 
   private async ensureContext(): Promise<AudioContext> {
-    if (!this.ctx) this.ctx = new AudioContext()
+    if (!this.ctx || this.ctx.state === 'closed') {
+      // Closed contexts stay silent forever — rebuild the graph on a fresh one.
+      this.ctx = new AudioContext({ latencyHint: 'interactive' })
+      this.splitter = null
+      this.monoFan = null
+      this.gainL = null
+      this.gainR = null
+      this.merger = null
+      this.graphWired = false
+    }
     if (this.ctx.state === 'suspended') await this.ctx.resume()
     return this.ctx
   }

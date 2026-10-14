@@ -83,17 +83,19 @@ export function useDeclaredStripGestures(opts: {
   onClearSelection: () => void
   /** Drag-defined empty span → open chord editor for this window. */
   onPlaceRange: (startTick: number, endTick: number) => void
-  /** Double-click / click-without-drag on selected span → inline edit. */
+  /** Double-click / re-click without drag on selected span → inline typeahead. */
   onEdit: (seg: ChordAnalysisSegment) => void
-  /** Alt+click a span → toggle structural pillar (home root). */
-  onTogglePillar?: (seg: ChordAnalysisSegment) => void
   onGeometry: (payload: { id: string; startTick: number; endTick: number }) => void
   onGeometryMany: (payloads: Array<{ id: string; startTick: number; endTick: number }>) => void
   onFocusRange: (startTick: number, endTick: number) => void
+  /** Grow project length when place/resize goes past the current end. */
+  onNeedLength?: (tick: number) => void
 }) {
   const gesture = ref<DeclaredStripGesture | null>(null)
   /** Anchor for Shift+click range select (last plain click). */
   const selectionAnchorId = ref<string | null>(null)
+  /** Hovered resize edge for cursor + handle highlight. */
+  const hoverEdge = ref<{ id: string; edge: StripResizeEdge } | null>(null)
 
   function isReadOnly(): boolean {
     const r = opts.readOnly
@@ -148,15 +150,6 @@ export function useDeclaredStripGestures(opts: {
     const hit = findAtLocalX(localX)
 
     if (hit) {
-      // Alt+click marks / clears a structural home-root (pillar) without opening the dock.
-      if (e.altKey && opts.onTogglePillar) {
-        opts.onSelect([hit.id])
-        selectionAnchorId.value = hit.id
-        opts.onTogglePillar(hit)
-        e.preventDefault()
-        return
-      }
-
       const x = stripSegX(hit.startTick, opts.scrollX.value, opts.cellW.value, opts.ppq.value)
       const w = stripSegW(hit.startTick, hit.endTick, opts.cellW.value, opts.ppq.value)
       const edge = hitStripResizeEdge(localX, x, w)
@@ -220,8 +213,9 @@ export function useDeclaredStripGestures(opts: {
           origins,
           startClientX: e.clientX,
           moved: false,
-          // Range / additive clicks never open the chord dock on release.
-          editOnRelease: !additive && !rangeSelect && moveIds.length === 1,
+          // First click selects only; re-click an already-selected chord opens typeahead.
+          // Range / additive clicks never open the editor on release.
+          editOnRelease: already && !additive && !rangeSelect && moveIds.length === 1,
           previews,
         }
       }
@@ -272,26 +266,35 @@ export function useDeclaredStripGestures(opts: {
       if (Math.abs(e.clientX - g.startClientX) > STRIP_DRAG_SLOP_PX) {
         if (g.kind === 'place') g.moved = true
       }
-      g.endTick = Math.max(0, Math.min(opts.lengthTicks.value, tick))
+      // Allow placing past the current length — caller grows the timeline.
+      g.endTick = Math.max(0, tick)
+      if (g.endTick > opts.lengthTicks.value) opts.onNeedLength?.(g.endTick)
       return
     }
 
     const dx = e.clientX - g.startClientX
     const dTicks = Math.round((dx / opts.cellW.value) * opts.ppq.value)
     if (g.kind === 'resize') {
+      const room = Math.max(opts.lengthTicks.value, g.origin.endTick + Math.max(0, dTicks) + opts.snapTicks.value)
+      if (room > opts.lengthTicks.value) opts.onNeedLength?.(room)
       g.preview = resizeSketchSpanByEdge(g.edge, dTicks, g.origin, {
         snapTicks: opts.snapTicks.value,
-        lengthTicks: opts.lengthTicks.value,
+        lengthTicks: Math.max(opts.lengthTicks.value, room),
       })
     } else {
       if (Math.abs(dx) > STRIP_DRAG_SLOP_PX) g.moved = true
       for (const id of g.ids) {
         const origin = g.origins[id]
         if (!origin) continue
-        g.previews[id] = moveSketchSpan(dTicks, origin, {
+        const moved = moveSketchSpan(dTicks, origin, {
           snapTicks: opts.snapTicks.value,
-          lengthTicks: opts.lengthTicks.value,
+          lengthTicks: Math.max(
+            opts.lengthTicks.value,
+            origin.endTick + Math.max(0, dTicks) + opts.snapTicks.value,
+          ),
         })
+        if (moved.endTick > opts.lengthTicks.value) opts.onNeedLength?.(moved.endTick)
+        g.previews[id] = moved
       }
     }
   }
@@ -346,9 +349,17 @@ export function useDeclaredStripGestures(opts: {
     }
 
     if (g.kind === 'move' && !g.moved) {
-      // Re-click an already-selected chord → inline edit. First click only selects.
-      const id = g.ids[0]
-      const seg = id ? opts.declared.value.find((s) => s.id === id) : null
+      // Click (no drag): park playhead at the chord start for easy playback.
+      // Re-click an already-selected single chord → also open inline edit.
+      const segs = g.ids
+        .map((id) => opts.declared.value.find((s) => s.id === id))
+        .filter((s): s is ChordAnalysisSegment => s != null)
+      if (segs.length) {
+        const start = Math.min(...segs.map((s) => s.startTick))
+        const end = Math.max(...segs.map((s) => s.endTick))
+        opts.onFocusRange(start, end)
+      }
+      const seg = segs[0]
       if (seg && g.ids.length === 1 && g.editOnRelease) opts.onEdit(seg)
       return
     }
@@ -392,25 +403,43 @@ export function useDeclaredStripGestures(opts: {
   function updateCursor(clientX: number): void {
     const localX = localXInTrack(clientX)
     const track = opts.trackEl.value
-    if (localX == null || !track) return
+    if (localX == null || !track) {
+      hoverEdge.value = null
+      return
+    }
     for (const seg of opts.declared.value) {
       const x = stripSegX(seg.startTick, opts.scrollX.value, opts.cellW.value, opts.ppq.value)
       const w = stripSegW(seg.startTick, seg.endTick, opts.cellW.value, opts.ppq.value)
       if (localX < x || localX >= x + w) continue
       const edge = hitStripResizeEdge(localX, x, w)
-      track.style.cursor = edge ? 'ew-resize' : 'grab'
+      if (edge) {
+        hoverEdge.value = { id: seg.id, edge }
+        track.style.cursor = 'pointer'
+        return
+      }
+      hoverEdge.value = null
+      track.style.cursor = 'grab'
       return
     }
-    track.style.cursor = 'crosshair'
+    hoverEdge.value = null
+    track.style.cursor = 'pointer'
+  }
+
+  function clearHover(): void {
+    hoverEdge.value = null
+    const track = opts.trackEl.value
+    if (track) track.style.cursor = 'pointer'
   }
 
   return {
     gesture,
+    hoverEdge,
     previewFor,
     placePreview,
     onPointerDown,
     onPointerMove,
     onPointerUp,
     onPointerCancel,
+    clearHover,
   }
 }

@@ -38,6 +38,12 @@ import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
 import { useOfflineModeStore } from '../stores/offlineMode'
+import { useTagRollStore } from '../stores/tagRoll'
+import {
+  importTagAudioToStudio,
+  tagCanImportAudioToStudio,
+} from '../application/tagRoll/importTagAudioToStudio'
+import { getTagStudioServices } from '../composition/tagStudio'
 import TagShareSheet from '../components/TagShareSheet.vue'
 
 const TagPlayer = defineAsyncComponent(() => import('../components/TagPlayer.vue'))
@@ -71,8 +77,12 @@ const favorites = useFavoritesStore()
 const recent = useRecentStore()
 const practice = usePracticeStore()
 const prefs = usePreferencesStore()
+const tagRoll = useTagRollStore()
 const route = useRoute()
 const router = useRouter()
+const pitchImportBusy = ref(false)
+const pitchImportMsg = ref<string | null>(null)
+const pitchImportErr = ref<string | null>(null)
 const { offline } = useOnline()
 const offlineMode = useOfflineModeStore()
 const tagPlayerRef = ref<{
@@ -556,6 +566,41 @@ const queueBlockedReason = computed(() => {
 })
 
 const detailMetaRows = computed(() => (detail.value ? buildTagDetailRows(detail.value) : []))
+
+const canPitchImportToStudio = computed(
+  () => !!detail.value && tagCanImportAudioToStudio(detail.value),
+)
+
+async function onImportIntoTagStudio(): Promise<void> {
+  const d = detail.value
+  if (!d || pitchImportBusy.value) return
+  prefs.setTagRollEnabled(true)
+  pitchImportBusy.value = true
+  pitchImportErr.value = null
+  pitchImportMsg.value = 'Starting…'
+  try {
+    const { repository, clock } = getTagStudioServices()
+    const result = await importTagAudioToStudio(d, repository, clock, {
+      offlineOnly: offline.value,
+      onProgress: (p) => {
+        pitchImportMsg.value = p.message
+      },
+    })
+    if (!result.ok) {
+      pitchImportErr.value = result.error
+      pitchImportMsg.value = null
+      return
+    }
+    pitchImportMsg.value = `Imported ${result.stackCount} chord moments — opening Tag Studio…`
+    await tagRoll.refreshList()
+    await router.push({ name: 'tag-studio-edit', params: { id: result.project.id } })
+  } catch (e) {
+    pitchImportErr.value = e instanceof Error ? e.message : 'Import failed'
+    pitchImportMsg.value = null
+  } finally {
+    pitchImportBusy.value = false
+  }
+}
 
 const pageTitle = computed(() => {
   const routeId = Number(props.id)
@@ -1194,6 +1239,26 @@ async function onRetryLoad(): Promise<void> {
       </div>
     </details>
 
+    <section v-if="canPitchImportToStudio" class="section pitch-import" aria-label="Tag Studio">
+      <div class="section-body pitch-import-body">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="pitchImportBusy || (noNetwork && !hasPackAudio)"
+          title="Detect TTBB pitches from learning tracks and open a new Tag Studio project"
+          @click="onImportIntoTagStudio"
+        >
+          {{ pitchImportBusy ? 'Importing…' : 'Import into Tag Studio' }}
+        </button>
+        <p class="pitch-import-hint muted">
+          Uses a precomputed pitch project when available (from sync); otherwise detects
+          pitches from learning tracks on this device. Best-effort — edit after import.
+        </p>
+        <p v-if="pitchImportMsg" class="pitch-import-status" role="status">{{ pitchImportMsg }}</p>
+        <p v-if="pitchImportErr" class="pitch-import-err" role="alert">{{ pitchImportErr }}</p>
+      </div>
+    </section>
+
     <TagDownloads
       :detail="detail"
       :offline="offline"
@@ -1475,6 +1540,28 @@ async function onRetryLoad(): Promise<void> {
 </template>
 
 <style scoped>
+.pitch-import-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.pitch-import-hint {
+  margin: 0;
+  font-size: 0.88rem;
+  max-width: 36rem;
+  line-height: 1.35;
+}
+.pitch-import-status {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.pitch-import-err {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--danger, #b33);
+}
 .tag {
   min-width: 0;
   max-width: 100%;

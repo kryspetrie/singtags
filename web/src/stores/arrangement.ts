@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getArrangingServices } from '../composition/arranging'
 import { usePreferencesStore } from './preferences'
 import {
@@ -194,8 +194,23 @@ export const useArrangementStore = defineStore('arrangement', () => {
 
   function refreshQa(): void {
     const p = current.value
-    lints.value = p ? runQa(p) : []
+    if (!p) {
+      lints.value = []
+      return
+    }
+    const prefs = usePreferencesStore()
+    lints.value = runQa(p, {
+      voicingProfile: prefs.tagRollPathOptimizePrefs.voicingProfile ?? null,
+    })
   }
+
+  watch(
+    () => usePreferencesStore().tagRollPathOptimizePrefs.voicingProfile,
+    () => {
+      if (current.value) refreshQa()
+    },
+    { deep: true },
+  )
 
   function list(): ArrangementProject[] {
     return [...projects.value].sort((a, b) => b.updatedAt - a.updatedAt)

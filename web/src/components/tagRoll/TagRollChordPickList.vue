@@ -3,7 +3,7 @@
  * Shared chord catalog for Harmonize + Sketch/Detected popover.
  * Groups by root (all C qualities on one row) to favor width over vertical scroll.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   optionKey,
   optionKeyFromRootPc,
@@ -36,6 +36,12 @@ const props = withDefaults(
     emptyPrimaryText?: string
     moreToggleLabel?: (count: number, open: boolean) => string
     sectionByLead?: boolean
+    /**
+     * When true, chords that do not contain the melody note stay visible but
+     * are greyed and not pickable. Prefer omitting them from `more` instead
+     * (Harmonize melody filter builds lead-valid lists only).
+     */
+    disableNonMelody?: boolean
   }>(),
   {
     selectedKey: null,
@@ -46,6 +52,7 @@ const props = withDefaults(
     interaction: 'click',
     emptyPrimaryText: 'No matching chords',
     sectionByLead: false,
+    disableNonMelody: false,
   },
 )
 
@@ -56,6 +63,14 @@ const emit = defineEmits<{
 }>()
 
 const showMore = ref(false)
+/** Melody filter: collapse “does not contain” so the list actually looks filtered. */
+watch(
+  () => props.disableNonMelody,
+  (on) => {
+    if (on) showMore.value = false
+  },
+  { immediate: true },
+)
 
 function rank(list: readonly HarmonizeChordOption[]): HarmonizeChordOption[] {
   if (!props.rankHints?.length) return [...list]
@@ -194,13 +209,19 @@ function chipSecondary(o: HarmonizeChordOption): string | null {
   return null
 }
 
+function isLockedOut(o: HarmonizeChordOption): boolean {
+  return props.disableNonMelody && !!props.leadLabel && !o.validForLead
+}
+
 function onClick(o: HarmonizeChordOption): void {
   if (props.interaction !== 'click') return
+  if (isLockedOut(o)) return
   emit('pick', o)
 }
 
 function onPointerDown(o: HarmonizeChordOption, e: PointerEvent): void {
   if (props.interaction !== 'hold' || e.button !== 0) return
+  if (isLockedOut(o)) return
   e.preventDefault()
   // Capture so pointerup still fires if the chip reflows (selection) or the
   // cursor leaves the button before release — otherwise hold playback sticks.
@@ -228,6 +249,14 @@ function titleOf(o: HarmonizeChordOption): string {
   else if (rank === 1) bits.push('strong alternative')
   else if (rank === 2) bits.push('alternative')
   if (hint?.label) bits.push(hint.label)
+  if (isLockedOut(o)) {
+    bits.push(
+      props.leadLabel
+        ? `does not contain Lead ${props.leadLabel} — turn off melody filter to pick`
+        : 'melody filter on',
+    )
+    return tagRollTip(bits.join(' · '))
+  }
   if (props.interaction === 'hold') {
     if (o.validForLead && props.leadLabel) {
       bits.push(`contains Lead ${props.leadLabel}`)
@@ -271,13 +300,16 @@ function titleOf(o: HarmonizeChordOption): string {
             role="option"
             :class="{
               on: selectedKey === optionKey(o),
-              lead: sectionByLead && o.validForLead && leadLabel,
-              muted: sectionByLead && !o.validForLead,
+              lead: (sectionByLead || disableNonMelody) && o.validForLead && leadLabel,
+              muted: (sectionByLead || disableNonMelody) && !o.validForLead,
+              locked: isLockedOut(o),
               'suggest-best': suggestRank(o) === 0,
               'suggest-alt': suggestRank(o) === 1 || suggestRank(o) === 2,
               'suggest-cadence': !!hintFor(o)?.cadence,
             }"
             :aria-selected="selectedKey === optionKey(o)"
+            :aria-disabled="isLockedOut(o)"
+            :disabled="isLockedOut(o)"
             :title="titleOf(o)"
             @click="onClick(o)"
             @pointerdown="onPointerDown(o, $event)"
@@ -326,8 +358,10 @@ function titleOf(o: HarmonizeChordOption): string {
               type="button"
               class="chord muted"
               role="option"
-              :class="{ on: selectedKey === optionKey(o) }"
+              :class="{ on: selectedKey === optionKey(o), locked: isLockedOut(o) }"
               :aria-selected="selectedKey === optionKey(o)"
+              :aria-disabled="isLockedOut(o)"
+              :disabled="isLockedOut(o)"
               :title="titleOf(o)"
               @click="onClick(o)"
               @pointerdown="onPointerDown(o, $event)"
@@ -473,6 +507,16 @@ function titleOf(o: HarmonizeChordOption): string {
 }
 .chord.muted {
   opacity: 0.78;
+}
+.chord.locked,
+.chord:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+}
+.chord.locked:hover,
+.chord:disabled:hover {
+  background: var(--surface);
 }
 .chord.on {
   border-color: var(--accent, #3a6ea5);

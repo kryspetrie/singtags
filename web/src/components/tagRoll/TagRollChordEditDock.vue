@@ -3,7 +3,7 @@
  * Right-hand dock for Sketch / Detected chord picking (Coach-column companion).
  * Hosts TagRollChordEditPopover; empty/dimmed when nothing is selected.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
 import type { ChordRankHint } from '../../lib/tagRoll/harmonizer/chordPickOptions'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
@@ -32,12 +32,17 @@ const emit = defineEmits<{
   hearStop: []
   remove: []
   popOut: []
-  togglePillar: []
 }>()
 
 const prefs = usePreferencesStore()
+const popoverRef = ref<InstanceType<typeof TagRollChordEditPopover> | null>(null)
 const title = computed(() => (props.variant === 'detected' ? 'Detected' : 'Sketch'))
 const hasTarget = computed(() => props.seg != null && props.seg.rootPc != null)
+
+defineExpose({
+  applySelected: () => popoverRef.value?.applySelected?.(),
+  hearSelected: () => popoverRef.value?.hearSelected?.(),
+})
 /** Include melody pitch in audition inversions (per Sketch / Detected). */
 const lockLeadVoicing = computed({
   get: () =>
@@ -55,29 +60,6 @@ const lockLeadHint = computed(() =>
     : 'Off: closed catalog inversions (Lead not forced into the chord).',
 )
 const showPopOut = computed(() => props.allowPopOut !== false)
-const isPillar = computed(() => {
-  if (!props.seg) return false
-  const sketch = props.project.harmonySketch ?? []
-  const s =
-    sketch.find((x) => x.id === props.seg!.id) ??
-    sketch.find(
-      (x) =>
-        x.locked &&
-        x.startTick === props.seg!.startTick &&
-        x.endTick === props.seg!.endTick,
-    )
-  return !!(s?.locked && s.pillar !== false)
-})
-const pillarTitle = computed(() => {
-  if (props.variant === 'detected') {
-    return isPillar.value
-      ? 'Clear pillar'
-      : 'Lock Detected chord into Sketch as a pillar'
-  }
-  return isPillar.value
-    ? 'Clear pillar (Alt+click on Sketch)'
-    : 'Assign as pillar (or Alt+click on Sketch)'
-})
 </script>
 
 <template>
@@ -89,17 +71,6 @@ const pillarTitle = computed(() => {
     <header class="head">
       <h2 class="title">{{ title }}</h2>
       <div class="head-actions">
-        <button
-          v-if="hasTarget"
-          type="button"
-          class="btn ghost"
-          :class="{ on: isPillar }"
-          :title="pillarTitle"
-          :aria-pressed="isPillar"
-          @click="emit('togglePillar')"
-        >
-          Pillar
-        </button>
         <button
           v-if="showPopOut"
           type="button"
@@ -151,6 +122,7 @@ const pillarTitle = computed(() => {
       </p>
       <TagRollChordEditPopover
         v-else
+        ref="popoverRef"
         :seg="seg!"
         :mode="mode"
         :project="project"
