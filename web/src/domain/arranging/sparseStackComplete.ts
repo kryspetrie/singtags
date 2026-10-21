@@ -151,6 +151,16 @@ function placeLockedVoicing(opts: {
       if (!presentPcs.every((p) => sounding.includes(p))) continue
       const hasRoot = sounding.includes(pc(opts.rootPc))
       const hasThird = thirdOff == null || sounding.includes(pc(opts.rootPc + thirdOff))
+      const seventhOff = chord.offsets[7]
+      const needsSeventh =
+        seventhOff != null &&
+        (opts.natureId === 'seventh' ||
+          opts.natureId === 'ninth' ||
+          opts.natureId === 'm7' ||
+          opts.natureId === 'maj7' ||
+          opts.natureId === 'half-dim' ||
+          opts.natureId === 'dim7')
+      if (needsSeventh && !sounding.includes(pc(opts.rootPc + seventhOff))) continue
       const cost = singerMotionCost(settled, opts.prevMidi)
       const better =
         !best ||
@@ -218,8 +228,26 @@ function voiceAroundLocks(opts: {
   if (tenorLocked != null) used.add(tenorLocked)
   if (bariLocked != null) used.add(bariLocked)
 
+  const seventhOff = BARBERSHOP_CHORDS.find((c) => c.id === opts.natureId)?.offsets[7]
+  const seventhPc =
+    seventhOff != null &&
+    (opts.natureId === 'seventh' ||
+      opts.natureId === 'ninth' ||
+      opts.natureId === 'm7' ||
+      opts.natureId === 'maj7' ||
+      opts.natureId === 'half-dim' ||
+      opts.natureId === 'dim7')
+      ? pc(opts.rootPc + seventhOff)
+      : null
+  const seventhSet = seventhPc == null ? null : new Set([seventhPc])
+  const missingSeventh = () =>
+    seventhPc != null && ![...used].some((midi) => pc(midi) === seventhPc)
+
   const tenor =
     tenorLocked ??
+    (missingSeventh()
+      ? findChordTone(Math.min(lead + 12, 77), lead + 3, -1, seventhSet!, used)
+      : null) ??
     findChordTone(Math.min(lead + 12, 77), lead + 3, -1, tones, used)
   if (tenor == null || tenor <= lead) return null
   used.add(tenor)
@@ -227,6 +255,11 @@ function voiceAroundLocks(opts: {
   let bari = bariLocked ?? null
   if (bari == null && bass != null) {
     bari = findChordTone(lead - 1, bass + 1, -1, tones, used)
+  }
+  if (bari == null && missingSeventh()) {
+    bari =
+      findChordTone(lead + 1, tenor - 1, 1, seventhSet!, used) ??
+      findChordTone(lead - 1, Math.max(SINGER_BAND.bari.min, lead - 16), -1, seventhSet!, used)
   }
   if (bari == null) {
     bari = findChordTone(lead + 1, tenor - 1, 1, tones, used)
@@ -238,7 +271,10 @@ function voiceAroundLocks(opts: {
   if (bari == null) return null
   used.add(bari)
 
-  const bassMidi = bass ?? findChordTone(lead - 1, lead - 24, -1, tones, used)
+  const bassMidi =
+    bass ??
+    (missingSeventh() ? findChordTone(lead - 1, lead - 24, -1, seventhSet!, used) : null) ??
+    findChordTone(lead - 1, lead - 24, -1, tones, used)
   if (bassMidi == null) return null
   const midi: VoicingPitches = {
     bass: bassMidi,
@@ -468,7 +504,7 @@ export function chooseSmoothVoicing(opts: {
           if (midi[role] < band.min || midi[role] > band.max) cost += 20
         }
         if (!sounding.includes(third)) cost += 28
-        if (seventhOff != null && !sounding.includes(pc(opts.rootPc + seventhOff))) cost += 10
+        if (seventhOff != null && !sounding.includes(pc(opts.rootPc + seventhOff))) cost += 1000
         if (bari > opts.lead) cost += 8
         if (midi.bass > midi.bari) cost += 18
         if (midi.tenor - midi.bass > 21) cost += (midi.tenor - midi.bass - 21) * 3

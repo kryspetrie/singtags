@@ -114,6 +114,55 @@ function chordTonePcs(rootPc: number, natureId: string): number[] {
     .map((o) => pc(rootPc + o))
 }
 
+function pcsFitNature(rootPc: number, natureId: string, presentPcs: readonly number[]): boolean {
+  const tones = chordTonePcs(rootPc, natureId)
+  return tones.length > 0 && presentPcs.every((p) => tones.includes(p))
+}
+
+function minorThirdLower(pcs: readonly number[]): number | null {
+  for (const lower of pcs) {
+    for (const upper of pcs) {
+      if (((upper - lower) % 12 + 12) % 12 === 3) return lower
+    }
+  }
+  return null
+}
+
+const DIATONIC_ROOT_DEGREES = [0, 2, 4, 5, 7, 9, 11]
+
+/** Major seventh or tritone with no fuller chord: still name something singable. */
+function dissonantDyadChord(
+  midi: Partial<VoicingPitches> & { lead: number },
+  presentPcs: readonly number[],
+  tonality: number,
+  profile: ContestProfile,
+): { natureId: string; rootPc: number; reason: string } | null {
+  if (presentPcs.length !== 2) return null
+  const sounding = [midi.tenor, midi.lead, midi.bari, midi.bass].filter((m): m is number => m != null)
+  if (sounding.length !== 2) return null
+  sounding.sort((a, b) => a - b)
+  const interval = (sounding[1]! - sounding[0]!) % 12
+  if (interval === 11) {
+    const rootPc = pc(sounding[0]!)
+    if (!DIATONIC_ROOT_DEGREES.includes(degreeOf(rootPc, tonality))) return null
+    if (!isNatureAllowed(profile, 'maj7')) return null
+    return {
+      natureId: 'maj7',
+      rootPc,
+      reason: 'Major seventh dyad → major seventh on the lower note',
+    }
+  }
+  if (interval === 6) {
+    if (!isNatureAllowed(profile, 'dim7')) return null
+    return {
+      natureId: 'dim7',
+      rootPc: pc(midi.lead),
+      reason: 'Tritone dyad → diminished seventh from the lead',
+    }
+  }
+  return null
+}
+
 function rolesPresent(rootPc: number, natureId: string, pcs: number[]): ChordToneRole[] {
   const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
   if (!chord) return []
@@ -335,7 +384,18 @@ export function identifyNatureFromMidi(opts: {
     tonality: opts.tonality,
     pillarRoot: bassPc ?? undefined,
   })
-  if (!inferred.length) return null
+  if (!inferred.length) {
+    const dyad = dissonantDyadChord(opts.midi, presentPcs, opts.tonality, opts.profile)
+    if (dyad) {
+      return {
+        natureId: dyad.natureId,
+        rootPc: dyad.rootPc,
+        voicing: voicingStringFromMidi(opts.midi, dyad.rootPc, dyad.natureId),
+        confidence: 0.55,
+      }
+    }
+    return null
+  }
   const majorSparse = opts.mode === 'major' && partsPresent < 4
   const ranked = [...inferred].sort((a, b) => {
     if (majorSparse) {
@@ -450,6 +510,87 @@ export function identifyNatureFromMidi(opts: {
     }
   }
 
+  // No bass, and the sung notes are a minor third: those are the 5th and 7th of
+  // the dominant a fifth below far more often than the root and 3rd of ii/iii/vi.
+  // A sung bass on the minor root keeps the minor chord.
+  if (opts.mode === 'major' && partsPresent < 4 && bassPc == null) {
+    const lower = minorThirdLower(presentPcs)
+    if (lower != null) {
+      const domRoot = pc(lower + 5)
+      const domTones = [0, 4, 7, 10].map((off) => pc(domRoot + off))
+      if (
+        presentPcs.every((p) => domTones.includes(p)) &&
+        isNatureAllowed(opts.profile, 'seventh') &&
+        majorKeyIncompleteAllows('seventh', domRoot, presentPcs, opts.tonality)
+      ) {
+        top = {
+          natureId: 'seventh',
+          rootPc: domRoot,
+          confidence: Math.max(top.confidence, 0.55),
+          missingRoles: [],
+          reason: 'Minor third with no bass → dominant seventh on the fifth below',
+        }
+      }
+    }
+  }
+
+  // Bass a major sixth under the lead, on a diatonic root, is that sixth chord
+  // (G in the bass, E in the lead → G6), not the diminished seventh on E.
+  if (opts.mode === 'major' && partsPresent < 4 && bassPc != null) {
+    const leadPc = pc(lead)
+    if (((leadPc - bassPc) % 12 + 12) % 12 === 9) {
+      const sixthTones = [0, 4, 7, 9].map((off) => pc(bassPc + off))
+      const degree = degreeOf(bassPc, opts.tonality)
+      if (
+        presentPcs.every((p) => sixthTones.includes(p)) &&
+        [0, 2, 4, 5, 7, 9, 11].includes(degree) &&
+        isNatureAllowed(opts.profile, 'sixth')
+      ) {
+        top = {
+          natureId: 'sixth',
+          rootPc: bassPc,
+          confidence: Math.max(top.confidence, 0.55),
+          missingRoles: [],
+          reason: 'Bass a major sixth under the lead → sixth on the bass',
+        }
+      }
+    }
+  }
+
+  // A sung root plus its major 6th (no bass pattern above) stays a sixth when
+  // every sung note belongs to that chord, instead of a seventh that cannot
+  // contain the 6th.
+  if (
+    opts.mode === 'major' &&
+    partsPresent < 4 &&
+    top.natureId !== 'sixth' &&
+    bassPc == null
+  ) {
+    for (const rootPc of presentPcs) {
+      const sixthPc = pc(rootPc + 9)
+      if (!presentPcs.includes(sixthPc)) continue
+      const sixthTones = [0, 4, 7, 9].map((off) => pc(rootPc + off))
+      if (!presentPcs.every((p) => sixthTones.includes(p))) continue
+      if (![0, 2, 4, 5, 7, 9, 11].includes(degreeOf(rootPc, opts.tonality))) continue
+      if (!isNatureAllowed(opts.profile, 'sixth')) continue
+      // A minor third already claimed as a dominant seventh stays that seventh.
+      if (top.natureId === 'seventh' && presentPcs.every((p) => {
+        const tones = [0, 4, 7, 10].map((off) => pc(top.rootPc + off))
+        return tones.includes(p)
+      })) {
+        break
+      }
+      top = {
+        natureId: 'sixth',
+        rootPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Sung root and major 6th → sixth',
+      }
+      break
+    }
+  }
+
   // Barbershop spells non-tonic major chords as dominant sevenths. I stays a
   // triad. Diminished color is the fully diminished seventh.
   if (opts.mode === 'major' && partsPresent < 4 && top.natureId === 'major') {
@@ -490,6 +631,20 @@ export function identifyNatureFromMidi(opts: {
     majorKeyIncompleteAllows(top.natureId, top.rootPc, presentPcs, opts.tonality)
   ) {
     top = { ...top, confidence: Math.max(top.confidence, 0.55) }
+  }
+
+  if (opts.mode === 'major' && partsPresent < 4) {
+    const dyad = dissonantDyadChord(opts.midi, presentPcs, opts.tonality, opts.profile)
+    const named = pcsFitNature(top.rootPc, top.natureId, presentPcs) && top.confidence >= 0.45
+    if (dyad && !named) {
+      top = {
+        natureId: dyad.natureId,
+        rootPc: dyad.rootPc,
+        confidence: 0.55,
+        missingRoles: [],
+        reason: dyad.reason,
+      }
+    }
   }
 
   return {

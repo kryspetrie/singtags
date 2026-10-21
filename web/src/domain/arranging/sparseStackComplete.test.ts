@@ -90,6 +90,22 @@ describe('completeSparseStack', () => {
     expect(result).toEqual({ ok: false, reason: 'outside_vocab' })
   })
 
+  it('keeps the seventh in the sounding stack', () => {
+    const result = completeSparseStack({
+      midi: { lead: 62, bass: 55 },
+      tonality: 0,
+      mode: 'major',
+      profile: 'bhs_extended',
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.natureId).toBe('seventh')
+    const pcs = [result.pitches.tenor, result.pitches.lead, result.pitches.bari, result.pitches.bass].map(
+      (m) => ((m % 12) + 12) % 12,
+    )
+    expect(pcs).toContain(5)
+  })
+
   it('fills G7 when lead sits a third above the bass', () => {
     const result = completeSparseStack({
       midi: { lead: 59, bass: 55 },
