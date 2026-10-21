@@ -18,8 +18,83 @@ const importInput = ref<HTMLInputElement | null>(null)
 const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
 
+const MILL_LAB_FILES = [
+  'mill-ground.json',
+  'mill-bass-sparse.json',
+  'mill-tenor-sparse.json',
+  'mill-bass-filled.json',
+  'mill-tenor-filled.json',
+] as const
+
+const SPARSE_LAB_FILES = [
+  'rose-ground.json',
+  'rose-bass-sparse.json',
+  'rose-tenor-sparse.json',
+  'rose-bass-filled.json',
+  'rose-tenor-filled.json',
+  'shine-ground.json',
+  'shine-bass-sparse.json',
+  'shine-tenor-sparse.json',
+  'shine-bass-filled.json',
+  'shine-tenor-filled.json',
+] as const
+
 onMounted(() => {
   void (async () => {
+    if (route.query.millLab === '1') {
+      try {
+        await store.refreshList()
+        let added = 0
+        for (const file of MILL_LAB_FILES) {
+          const res = await fetch(`/mill-stream-lab/${file}?t=${Date.now()}`)
+          if (!res.ok) throw new Error(file)
+          const raw = (await res.json()) as { id: string }
+          await store.importProject(raw as never)
+          added++
+        }
+        snackbar.show(
+          `Updated ${added} Mill Stream charts (full, Lead+Bass, Lead+Tenor, and both fills).`,
+          { title: 'Tag Studio', tone: 'ok', ms: 6000 },
+        )
+      } catch (e) {
+        snackbar.show(e instanceof Error ? e.message : 'Mill Stream lab import failed', {
+          title: 'Tag Studio',
+          tone: 'error',
+          ms: 6000,
+        })
+      }
+      const q = { ...route.query }
+      delete q.millLab
+      await router.replace({ query: q })
+      return
+    }
+    if (route.query.sparseLab === '1') {
+      try {
+        await store.refreshList()
+        let added = 0
+        for (const file of SPARSE_LAB_FILES) {
+          const res = await fetch(`/sparse-lab/${file}?t=${Date.now()}`)
+          if (!res.ok) throw new Error(file)
+          const raw = (await res.json()) as { id: string }
+          await store.importProject(raw as never)
+          added++
+        }
+        snackbar.show(
+          `Updated ${added} Story of a Rose and Shine On Me charts (full, Lead+Bass, Lead+Tenor, and both fills).`,
+          { title: 'Tag Studio', tone: 'ok', ms: 6000 },
+        )
+      } catch (e) {
+        snackbar.show(e instanceof Error ? e.message : 'Sparse lab import failed', {
+          title: 'Tag Studio',
+          tone: 'error',
+          ms: 6000,
+        })
+      }
+      const q = { ...route.query }
+      delete q.sparseLab
+      await router.replace({ query: q })
+      return
+    }
     const resync =
       route.query.resyncSeeds === '1' ||
       route.query.resyncSeeds === 'true' ||

@@ -111,6 +111,19 @@ function applyHarmonyForPart(
   )
 }
 
+function partCoversTick(
+  notes: readonly TagRollNote[],
+  partId: string,
+  tick: number,
+): boolean {
+  return notes.some(
+    (n) =>
+      n.partId === partId &&
+      n.startTick <= tick &&
+      tick < n.startTick + n.durationTicks,
+  )
+}
+
 /**
  * Upsert harmony for every non-melody part at the melody note's time span.
  * Existing notes are moved into the stack; notes spanning the insert tick are broken.
@@ -122,6 +135,11 @@ export function applyHarmonyToNotes(opts: {
   pitches: HarmonyPitches
   /** Insert tick (defaults to melody start — the stack under the cursor). */
   cursorTick?: number
+  /**
+   * When true, skip parts that already have a note covering the insert tick
+   * (preserve sung sparse pitches; only fill empty roles).
+   */
+  preserveExistingParts?: boolean
   /** Required for new remnant / stack note ids (no offline imports). */
   idGen: IdGenerator
 }): TagRollNote[] {
@@ -156,6 +174,10 @@ export function applyHarmonyToNotes(opts: {
     remaining.forEach((part, i) => {
       targets.push({ partId: part.id, midi: pool[i % pool.length]! })
     })
+  }
+
+  if (opts.preserveExistingParts) {
+    targets = targets.filter((t) => !partCoversTick(opts.notes, t.partId, insertTick))
   }
 
   const byPart = new Map<string, number>()

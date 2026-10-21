@@ -30,12 +30,16 @@ const props = defineProps<{
   leftGutterPx?: number
   /** Span id currently open in the right-hand chord dock. */
   editSegId?: string | null
+  /** Sparse TBB under melody in current scope — enables Fill parts without Detected. */
+  canFillFromParts?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:mode': [value: ChordAnalysisMode]
   focusRange: [startTick: number, endTick: number]
   lockAll: []
+  /** Lock Detected + fill empty TBB from sparse sounding parts. */
+  completeFromParts: []
   /** Open / toggle Detected chord in the right dock. */
   edit: [seg: ChordAnalysisSegment]
   /** Cycle ranked Detected picks for this hole (top 5). */
@@ -46,6 +50,7 @@ const prefs = usePreferencesStore()
 const collapsed = computed(() => prefs.tagRollDetectedLaneCollapsed)
 const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
 const canLockAll = computed(() => props.segments.length > 0)
+const canFill = computed(() => canLockAll.value || !!props.canFillFromParts)
 const editSegId = computed(() => props.editSegId ?? null)
 const interest = computed(() => prefs.detectedInterest)
 const interestLabel = computed(() => INTEREST_LABEL[interest.value])
@@ -77,6 +82,12 @@ const lengthTicks = computed(() => props.project.lengthTicks)
 
 function labelOf(seg: ChordAnalysisSegment): string {
   return props.mode === 'roman' ? seg.displayRoman : seg.displayName
+}
+
+function detectTitle(seg: ChordAnalysisSegment): string {
+  const cadence = seg.cadenceLabel ? ` · Cadence: ${seg.cadenceLabel}` : ''
+  const teach = props.mode === 'roman' && seg.labelTeach ? ` — ${seg.labelTeach}` : ''
+  return `Detected: ${labelOf(seg)}${cadence}${teach} — click to edit`
 }
 
 function segWidthPx(seg: ChordAnalysisSegment): number {
@@ -199,10 +210,19 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
         type="button"
         class="lock-btn"
         :disabled="!canLockAll"
-        title="Lock — declare all detections into Sketch"
+        title="Lock — declare detections into Sketch (inspect/selection range when set)"
         @click="emit('lockAll')"
       >
         Lock
+      </button>
+      <button
+        type="button"
+        class="complete-btn"
+        :disabled="!canFill"
+        title="Fill parts — with sparse harmony: lock Sketch and fill empty parts (preserves sung notes). Detected-only: lock Sketch without inventing stacks. Skips unrecognized."
+        @click="emit('completeFromParts')"
+      >
+        Fill parts
       </button>
     </template>
     <div class="track-wrap">
@@ -221,11 +241,7 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
               type="button"
               class="lab"
               :aria-label="`Detected: ${labelOf(seg)}`"
-              :title="
-                seg.cadenceLabel
-                  ? `Detected: ${labelOf(seg)} · Cadence: ${seg.cadenceLabel} — click to edit`
-                  : `Detected: ${labelOf(seg)} — click to edit`
-              "
+              :title="detectTitle(seg)"
               @click="onDetectClick(seg)"
             />
             <span class="txt" aria-hidden="true">{{ labelOf(seg) }}</span>
@@ -269,6 +285,28 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
 }
 .lock-btn:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+.complete-btn {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.1rem 0.2rem;
+  min-height: 1.35rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--text);
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.complete-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.complete-btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
 }
 .interest-btn {
   width: 100%;

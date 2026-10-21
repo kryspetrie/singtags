@@ -14,6 +14,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "stories:generate": "node scripts/generate-component-stories.mjs",
+    "publish:polecat-mixed": "vitest run src/lib/tagRoll/publishPolecatMixedSeeds.test.ts",
+    "publish:mixed-chart-gold": "vitest run src/domain/arranging/mixedChartGold/publishMixedChartGold.test.ts",
     "lighthouse": "node scripts/lighthouse.mjs"
   },
   "dependencies": {
@@ -34,6 +36,7 @@
     "mediabunny": "^1.55.2",
     "nanoid": "^3.3.19",
     "ogg-opus-decoder": "^1.7.5",
+    "opentype.js": "^1.3.4",
     "pdfjs-dist": "^4.10.38",
     "pinia": "^4.0.3",
     "qrcode": "^1.5.4",
@@ -51,6 +54,7 @@
     "@storybook/addon-vitest": "^10.5.10",
     "@storybook/vue3-vite": "^10.5.10",
     "@types/node": "^24.13.3",
+    "@types/opentype.js": "^1.3.10",
     "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/browser-playwright": "4.1.11",

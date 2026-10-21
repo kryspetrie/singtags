@@ -87,6 +87,46 @@ describe('parseTagRollMusicXml', () => {
     expect(r.project.sheetNote).toBe('Foot')
   })
 
+  it('explodes two dual-voice parts (mixed polecat SA–TB) into Tenor/Lead/Bari/Bass', () => {
+    const xml = partwise(`
+      <part-list>
+        <score-part id="P1"><part-name>Tenor Lead</part-name></score-part>
+        <score-part id="P2"><part-name>Bari Bass</part-name></score-part>
+      </part-list>
+      <part id="P1"><measure number="1">
+        <attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+        <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+        <backup><duration>4</duration></backup>
+        <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>whole</type><staff>1</staff></note>
+      </measure></part>
+      <part id="P2"><measure number="1">
+        <attributes><divisions>1</divisions></attributes>
+        <note><pitch><step>C</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>whole</type><staff>1</staff></note>
+        <backup><duration>4</duration></backup>
+        <note><pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>whole</type><staff>1</staff></note>
+      </measure></part>
+    `)
+    const r = parseTagRollMusicXml(xml)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.project.parts.map((p) => p.name).slice(0, 4)).toEqual([
+      'Tenor',
+      'Lead',
+      'Bari',
+      'Bass',
+    ])
+    const byName = Object.fromEntries(
+      r.project.parts.map((p) => [
+        p.name,
+        r.project.notes.filter((n) => n.partId === p.id).map((n) => n.midi),
+      ]),
+    )
+    expect(byName.Tenor).toEqual([67])
+    expect(byName.Lead).toEqual([64])
+    expect(byName.Bari).toEqual([60])
+    expect(byName.Bass).toEqual([48])
+  })
+
   it('explodes grand-staff 2+2 voices into Tenor/Lead/Bari/Bass', () => {
     const xml = partwise(`
       <part-list>

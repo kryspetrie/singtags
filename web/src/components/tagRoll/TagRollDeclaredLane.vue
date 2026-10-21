@@ -21,6 +21,7 @@ import { useDeclaredStripGestures } from '../../composables/useDeclaredStripGest
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import { previewDraftDirty } from '../../lib/tagRoll/harmonyPreviewDraft'
+import { sketchLaneClickEditAction } from '../../lib/tagRoll/sketchChordsWiring'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { SKETCH_LANE_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
 import { usePreferencesStore } from '../../stores/preferences'
@@ -39,9 +40,9 @@ const props = defineProps<{
   mode: ChordAnalysisMode
   leftGutterPx?: number
   readOnly?: boolean
-  /** Live preview from dock / Harmonize (not yet Applied). */
+  /** Live preview from Chords panel (not yet Applied). */
   previewDraft?: HarmonyPreviewDraft | null
-  /** Span id currently open in the right-hand chord dock. */
+  /** Span id currently open in the Chords panel. */
   editSegId?: string | null
 }>()
 
@@ -54,21 +55,22 @@ const emit = defineEmits<{
     draft?: { rootPc: number; quality: HarmonySketchQuality },
   ]
   hearStop: []
-  remove: [id: string]
+  /** Sketch map mutated in-lane (Delete) — parent syncs Coach; span already absorbed. */
+  sketchChanged: []
   commitAt: [
     payload: {
       raw: string
       startTick: number
       endTick: number
       id?: string
-      /** Stay in lane typeahead (e.g. Tab) — do not open the chord dock. */
+      /** Stay in lane typeahead (e.g. Tab) — do not open the Chords panel. */
       keepEditing?: boolean
     },
   ]
   geometry: [payload: { id: string; startTick: number; endTick: number }]
   geometryMany: [payloads: Array<{ id: string; startTick: number; endTick: number }>]
   beginGesture: []
-  /** Open / toggle Sketch chord in the right dock. */
+  /** Open / toggle Sketch chord in the Chords panel. */
   edit: [seg: ChordAnalysisSegment]
   /** Fired after Realize wrote at least one TTBB stack. */
   realized: [payload: { applied: number; spansUsed: number }]
@@ -157,6 +159,16 @@ const editSegId = computed(() => props.editSegId ?? null)
 
 function labelOf(seg: ChordAnalysisSegment): string {
   return props.mode === 'roman' ? seg.displayRoman : seg.displayName
+}
+
+function labelTitle(seg: ChordAnalysisSegment): string {
+  const draft = props.previewDraft
+  const base =
+    isPreviewingSeg(seg) && draft
+      ? `Preview: ${previewLabelOf(draft)} (not applied)`
+      : `Chord: ${labelOf(seg)} — double-click to type`
+  const teach = props.mode === 'roman' ? seg.labelTeach : undefined
+  return teach ? `${base} — ${teach}` : base
 }
 
 function previewLabelOf(d: HarmonyPreviewDraft): string {
@@ -273,8 +285,13 @@ const {
     openInlineEditor({ startTick, endTick, seed: '' })
   },
   onEdit: (seg) => {
-    // Re-click / double-click without drag → type the chord (inline).
-    openInlineForSeg(seg)
+    // Click without drag → Chords panel (Sketch write). Blanks stay in lane typeahead.
+    // Double-click still opens inline via onCellDblClick.
+    if (sketchLaneClickEditAction(seg.quality) === 'typeahead') {
+      openInlineForSeg(seg)
+      return
+    }
+    emit('edit', seg)
   },
   onGeometry: (payload) => emit('geometry', payload),
   onGeometryMany: (payloads) => emit('geometryMany', payloads),
@@ -489,7 +506,8 @@ function deleteInlineChord(): void {
     removals.push({ id, startTick, endTick })
   }
   store.deleteSelectedSketchSpans({ removals })
-  emit('remove', id)
+  // Absorb already removed the span — notify parent to sync Coach only (no second delete).
+  emit('sketchChanged')
 }
 function setMode(m: ChordAnalysisMode): void {
   emit('update:mode', m)
@@ -768,7 +786,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
         <div
           ref="declaredTrackEl"
           class="track"
-          :title="tagRollTip('Drag empty to paint; double-click to type; click opens editor')"
+          :title="tagRollTip('Drag empty to paint; click opens Chords (Sketch); double-click to type')"
           @pointerdown="onDeclaredPointerDown"
           @pointermove="onDeclaredPointerMove"
           @pointerup="onDeclaredPointerUp"
@@ -813,11 +831,7 @@ watch(inlineEdit, (edit, _p, onCleanup) => {
             />
             <div
               class="lab"
-              :title="
-                isPreviewingSeg(seg) && previewDraft
-                  ? `Preview: ${previewLabelOf(previewDraft)} (not applied)`
-                  : `Chord: ${labelOf(seg)} — double-click to type`
-              "
+              :title="labelTitle(seg)"
             >
               <span class="txt">
                 {{

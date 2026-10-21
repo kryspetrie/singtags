@@ -68,7 +68,10 @@ describe('CoachResolvePassing', () => {
       idGen,
     })
     expect(ops.length).toBe(1)
-    expect(ops[0]!.candidate.layer).toBe('passing')
+    // F over C: prefer home+melody (primary) over SCF passing.
+    expect(ops[0]!.mismatch.proposal.kind).toBe('melodyLockedVariant')
+    expect(ops[0]!.candidate.layer).toBe('primary')
+    expect(ops[0]!.candidate.midi.lead).toBe(65)
     expect(ops[0]!.note.id).toBe('m1')
   })
 
@@ -200,7 +203,9 @@ describe('CoachResolvePassing', () => {
       profile: 'sai11',
     })
     const c = proposalToCandidate(ops[0]!.mismatch.proposal)
-    expect(c.layer).toBe('passing')
+    expect(ops[0]!.mismatch.proposal.kind).toBe('melodyLockedVariant')
+    expect(c.layer).toBe('primary')
     expect(c.midi).toEqual(ops[0]!.mismatch.proposal.midi)
+    expect(c.midi.lead).toBe(65)
   })
 })

@@ -7,6 +7,7 @@ import {
   type NatureNameCandidate,
 } from '../../domain/arranging/chordAnalysisBar'
 import {
+  dualRomanTeach,
   formatRomanWithAlt,
   romanForChordDetailed,
 } from '../../domain/arranging/secondaryDominant'
@@ -18,6 +19,7 @@ import {
   type HarmonySketchDetectHole,
   type HarmonySketchSpan,
   natureToSketchQuality,
+  trySketchQualityFromNature,
 } from './harmonySketch'
 import type { ChordStack } from '../../domain/arranging/types'
 import { isKnownStack } from '../../domain/arranging/coachEntryMode'
@@ -40,6 +42,8 @@ export type HarmonyStripSegment = {
   displayRoman: string
   /** Classic cadence hint for Detected tooltips. */
   cadenceLabel?: string
+  /** Why this roman spelling was chosen, when the label would otherwise look inconsistent. */
+  labelTeach?: string
 }
 
 export type HarmonyStripRows = {
@@ -61,6 +65,9 @@ export function stacksToDetectHoles(
   const out: HarmonySketchDetectHole[] = []
   for (let i = 0; i < sorted.length; i++) {
     const s = sorted[i]!
+    // Do not coerce unknown → major; omit ungated natures from Detected.
+    const quality = trySketchQualityFromNature(s.natureId)
+    if (!quality) continue
     const next = sorted[i + 1]
     const byDuration = s.startTick + Math.max(1, s.durationTicks)
     const byNext = next != null ? next.startTick : Number.POSITIVE_INFINITY
@@ -72,7 +79,7 @@ export function stacksToDetectHoles(
       startTick: s.startTick,
       endTick,
       rootPc: s.rootPc,
-      quality: natureToSketchQuality(s.natureId),
+      quality,
     })
   }
   return out
@@ -108,6 +115,13 @@ function toSegment(
       })
   const roman = detailed.roman
   const displayRoman = blank ? '—' : formatRomanWithAlt(roman, detailed.altRoman)
+  const labelTeach = blank
+    ? undefined
+    : dualRomanTeach({
+        roman: detailed.roman,
+        altRoman: detailed.altRoman,
+        natureId: s.quality,
+      }) ?? undefined
   const candTick = opts.resolveCandidateTick?.(s.startTick) ?? s.startTick
   const tickCands = opts.nameCandidatesByTick?.get(candTick) ?? []
   const nameOptions = unique([
@@ -140,6 +154,7 @@ function toSegment(
     displayName: name,
     displayRoman,
     cadenceLabel,
+    labelTeach,
   }
 }
 

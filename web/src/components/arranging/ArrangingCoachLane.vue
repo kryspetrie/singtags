@@ -24,7 +24,7 @@ import {
   type CoachLaneLens,
 } from '../../lib/arranging/coachHighlight'
 import type { TagRollProject } from '../../lib/tagRoll/types'
-import { ensureHarmonizeCoachSession } from '../../composables/useHarmonizeCoachSession'
+import { ensureChordsCoachSession } from '../../composables/useChordsCoachSession'
 import { useArrangementStore } from '../../stores/arrangement'
 import { usePreferencesStore } from '../../stores/preferences'
 import TagRollBottomLaneShell from '../tagRoll/TagRollBottomLaneShell.vue'
@@ -107,7 +107,7 @@ async function syncCoachLaneSession(): Promise<boolean> {
   if (laneSyncing) return !!arrStore.current
   laneSyncing = true
   try {
-    const ok = await ensureHarmonizeCoachSession()
+    const ok = await ensureChordsCoachSession()
     if (ok) arrStore.runQa()
     return ok
   } finally {

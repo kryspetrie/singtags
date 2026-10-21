@@ -98,7 +98,7 @@ describe('tagRoll store via ports', () => {
     expect(put).toHaveBeenCalled()
     expect(repository.projects.has(created.id)).toBe(true)
 
-    store.clearCurrent()
+    await store.clearCurrent()
     const opened = await store.openProject(created.id)
     expect(opened?.title).toBe('Ported')
     expect(store.current?.id).toBe(created.id)
@@ -140,5 +140,45 @@ describe('tagRoll store via ports', () => {
       .map((n) => n.id)
       .filter((id) => id.startsWith('trn_'))
     expect(ids).toEqual(['trn_100', 'trn_101', 'trn_102'])
+  })
+
+  it('Sketch selection sets chordsLaneFocused; clearSketchSelection clears it', async () => {
+    const repository = memoryRepository()
+    setTagStudioServicesForTests(
+      createTagStudioServices({
+        repository,
+        idGen: createSequentialIdGenerator(200),
+        clock: createFixedClock(1_700_000_000_200),
+      }),
+    )
+    vi.spyOn(
+      await import('../lib/tagRoll/seedDefaultProjects'),
+      'createTagRollDefaultProjects',
+    ).mockReturnValue([])
+
+    const store = useTagRollStore()
+    const p = createEmptyTagRollProject({ title: 'Sketch focus' })
+    p.harmonySketch = [
+      {
+        id: 'hs_1',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ,
+        rootPc: 0,
+        quality: 'major',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    await repository.put(p)
+    await store.openProject(p.id)
+
+    expect(store.chordsLaneFocused).toBe(false)
+    store.selectSketchSpans(['hs_1'])
+    expect(store.selectedSketchSpanIds).toEqual(['hs_1'])
+    expect(store.chordsLaneFocused).toBe(true)
+
+    store.clearSketchSelection()
+    expect(store.selectedSketchSpanIds).toEqual([])
+    expect(store.chordsLaneFocused).toBe(false)
   })
 })

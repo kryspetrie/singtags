@@ -1,15 +1,13 @@
 /**
  * Tag Studio right-dock open/close + dual-monitor pop-out shell
- * (Coach, Harmonize, Sketch/Detected chord edit).
+ * (Coach, Chords).
  */
 import { computed, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import {
   buildDockPopoutUrl,
   dockKindLabel,
   openCoachPopoutChannel,
-  parseChordEditPopoutParams,
   parseDockPopoutKind,
-  type ChordEditPopoutParams,
   type CoachPopoutChannel,
   type CoachPopoutMsg,
   type CoachTransportIntentAction,
@@ -17,14 +15,12 @@ import {
   dispatchCoachPopoutIntent,
 } from '../lib/arranging/coachPopout'
 import type { CoachTransportView } from './useCoachTransport'
-import type { ChordEditDockSession } from './useTagRollChordEditDock'
 import { useTagRollStore } from '../stores/tagRoll'
 
 export function useTagRollCoachShell(opts: {
   arrangingEnabled: Ref<boolean>
   projectId: Ref<string | null | undefined>
   harmonizeOpen: Ref<boolean>
-  chordEditSession: Ref<ChordEditDockSession | null>
   setPlayheadTick: (tick: number) => void
   /** Apply coach overlay on the roll (pop-out → main window). */
   onRemoteFocusRange?: (startTick: number, endTick: number) => void
@@ -60,32 +56,20 @@ export function useTagRollCoachShell(opts: {
   function closeLocalDock(kind: RightDockKind): void {
     if (kind === 'coach') coachOpen.value = false
     if (kind === 'harmonize') opts.harmonizeOpen.value = false
-    if (kind === 'chordEdit') opts.chordEditSession.value = null
   }
 
-  function openLocalDock(kind: RightDockKind, chordEdit?: ChordEditPopoutParams | null): void {
+  function openLocalDock(kind: RightDockKind): void {
     if (kind === 'coach') {
       if (!opts.arrangingEnabled.value) return
       coachOpen.value = true
       opts.harmonizeOpen.value = false
-      opts.chordEditSession.value = null
       tagStore.assignNoteRolesActive = false
       return
     }
     if (kind === 'harmonize') {
       opts.harmonizeOpen.value = true
       coachOpen.value = false
-      opts.chordEditSession.value = null
       tagStore.assignNoteRolesActive = false
-      return
-    }
-    if (chordEdit) {
-      opts.chordEditSession.value = {
-        variant: chordEdit.variant,
-        segId: chordEdit.segId,
-      }
-      coachOpen.value = false
-      opts.harmonizeOpen.value = false
     }
   }
 
@@ -95,18 +79,9 @@ export function useTagRollCoachShell(opts: {
     popoutWin = null
     if (!kind) return
     detachedKind.value = null
-    // Restore the dock into the main window when the pop-out closes.
-    if (kind === 'chordEdit') {
-      // Session was cleared on pop-out; reopen empty Sketch dock cue via banner only
-      // unless we stashed params — use lastPopoutChordEdit.
-      openLocalDock(kind, lastPopoutChordEdit)
-    } else {
-      openLocalDock(kind)
-    }
+    openLocalDock(kind)
     opts.onRemoteTransportState?.(false, null)
   }
-
-  let lastPopoutChordEdit: ChordEditPopoutParams | null = null
 
   function ensureCoachOpen(): void {
     if (!opts.arrangingEnabled.value) return
@@ -133,7 +108,7 @@ export function useTagRollCoachShell(opts: {
       stopClosedPoll()
       detachedKind.value = null
       popoutWin = null
-      openLocalDock(kind, kind === 'chordEdit' ? lastPopoutChordEdit : null)
+      openLocalDock(kind === 'harmonize' ? 'harmonize' : 'coach')
       opts.onRemoteTransportState?.(false, null)
     }
     if (msg.type === 'closed' && !isPopoutWindow.value) {
@@ -163,13 +138,6 @@ export function useTagRollCoachShell(opts: {
     window.close()
   }
 
-  function onChordEditCloseFromPopout(): void {
-    if (!isPopoutWindow.value) return
-    const id = opts.projectId.value
-    if (id) channel?.post({ type: 'closed', projectId: id, dock: 'chordEdit' })
-    window.close()
-  }
-
   function toggleCoach(): void {
     if (!opts.arrangingEnabled.value) return
     if (detachedKind.value === 'coach' && popoutWin && !popoutWin.closed) {
@@ -194,16 +162,7 @@ export function useTagRollCoachShell(opts: {
   function onDockPopOut(kind: RightDockKind): void {
     const id = opts.projectId.value
     if (!id) return
-    let chordEdit: ChordEditPopoutParams | null = null
-    if (kind === 'chordEdit') {
-      const s = opts.chordEditSession.value
-      if (!s) return
-      chordEdit = { segId: s.segId, variant: s.variant }
-      lastPopoutChordEdit = chordEdit
-    } else {
-      lastPopoutChordEdit = null
-    }
-    const path = buildDockPopoutUrl(window.location.href, kind, chordEdit)
+    const path = buildDockPopoutUrl(window.location.href, kind)
     const w = window.open(path, `singtags-dock-${kind}-${id}`)
     if (!w) {
       popoutHint.value =
@@ -224,10 +183,6 @@ export function useTagRollCoachShell(opts: {
 
   function onHarmonizePopOut(): void {
     onDockPopOut('harmonize')
-  }
-
-  function onChordEditPopOut(): void {
-    onDockPopOut('chordEdit')
   }
 
   function postCoachFocusRange(startTick: number, endTick: number): void {
@@ -258,7 +213,7 @@ export function useTagRollCoachShell(opts: {
     else {
       stopClosedPoll()
       detachedKind.value = null
-      openLocalDock(kind, kind === 'chordEdit' ? lastPopoutChordEdit : null)
+      openLocalDock(kind === 'harmonize' ? 'harmonize' : 'coach')
       if (popoutWin && !popoutWin.closed) popoutWin.close()
       popoutWin = null
       opts.onRemoteTransportState?.(false, null)
@@ -271,8 +226,7 @@ export function useTagRollCoachShell(opts: {
       !isPopoutWindow.value &&
       !(
         (detachedKind.value === 'coach' && coachOpen.value) ||
-        (detachedKind.value === 'harmonize' && opts.harmonizeOpen.value) ||
-        (detachedKind.value === 'chordEdit' && opts.chordEditSession.value != null)
+        (detachedKind.value === 'harmonize' && opts.harmonizeOpen.value)
       ),
   )
 
@@ -301,10 +255,6 @@ export function useTagRollCoachShell(opts: {
       popoutKind.value = kind
       if (kind === 'coach' && opts.arrangingEnabled.value) openLocalDock('coach')
       else if (kind === 'harmonize') openLocalDock('harmonize')
-      else if (kind === 'chordEdit') {
-        const params = parseChordEditPopoutParams(window.location.search)
-        openLocalDock('chordEdit', params)
-      }
       popoutHint.value = `Pop-out ${dockKindLabel(kind)} — edits sync best-effort (last write wins). Prefer one window for note edits.`
       window.addEventListener('pagehide', onPopoutPageHide)
     }
@@ -333,10 +283,8 @@ export function useTagRollCoachShell(opts: {
     onCoachClose,
     onCoachPopOut,
     onHarmonizePopOut,
-    onChordEditPopOut,
     onCoachPopIn,
     onHarmonizeCloseFromPopout,
-    onChordEditCloseFromPopout,
     postCoachFocusRange,
     postTransportState,
     postTransportIntent,

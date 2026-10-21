@@ -9,9 +9,14 @@ import {
   type VexScoreLayoutResult,
 } from '../../lib/tagRoll/sheetScore/renderVexScore'
 import { sheetPageHeightPx, sheetPageWidthPx } from '../../lib/tagRoll/sheetPage'
+import {
+  paintSheetChordMarks,
+  type SheetChordDetectSegment,
+} from '../../lib/tagRoll/sheetChordMarks'
 
 const props = defineProps<{
   project: TagRollProject
+  detectSegments?: readonly SheetChordDetectSegment[]
 }>()
 
 const emit = defineEmits<{
@@ -85,8 +90,16 @@ async function render(): Promise<void> {
       marginBottomIn: props.project.view.sheetMarginBottomIn ?? 0.3,
       engravingScale: props.project.view.sheetEngravingScale ?? 1,
       scoreScale: props.project.view.sheetScoreScale ?? 1,
+      chordDetectSegments: props.detectSegments,
+      chordForceInclude: true,
     })
     if (g !== gen) return
+    const svg = host.querySelector('svg')
+    if (svg) {
+      paintSheetChordMarks(svg, next, props.project, props.detectSegments, {
+        forceInclude: true,
+      })
+    }
     layout.value = next
   } catch (e) {
     if (g !== gen) return
@@ -122,6 +135,11 @@ watch(
     props.project.view.sheetMeasureSizing,
     props.project.view.sheetPageWidthIn,
     props.project.view.sheetPageHeightIn,
+    props.project.view.sheetShowSketchChords,
+    props.project.view.sheetShowDetectedChords,
+    props.project.view.sheetChordLabelMode,
+    props.project.harmonySketch,
+    props.detectSegments,
     props.project.notes,
     props.project.lengthTicks,
   ],

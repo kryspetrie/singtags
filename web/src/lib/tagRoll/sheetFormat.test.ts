@@ -18,6 +18,7 @@ describe('sheetFormat', () => {
     expect(d.sheetPartNames).toBe(false)
     expect(d.sheetShowSketchChords).toBe(false)
     expect(d.sheetShowDetectedChords).toBe(false)
+    expect(d.sheetChordLabelMode).toBe('both')
     expect(d.sheetMarginLeftIn).toBe(0.3)
     expect(d.sheetEngravingScale).toBe(0.95)
     expect(d.sheetScoreScale).toBe(0.95)

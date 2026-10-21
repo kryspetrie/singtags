@@ -152,6 +152,11 @@ export const GLOSSARY_DETAILS: Readonly<Record<string, GlossaryDetail>> = {
     detail:
       'Roman numerals label function by key degree (I ii iii IV V vi vii°) plus applied dominants (V7/V, ♭II7, …). Coach and the Harmony strip use root + quality; Romans are the teaching map behind those labels.',
   },
+  dual_roman: {
+    detail:
+      'Some chords have two honest roman names. The label puts the preferred one first and the other dialect in parentheses. It is the same chord.\n\n• When a degree-2 dominant seventh drives V, function wins: V7/V (II7). When that drive is not known, the degree name wins: II7 (V7/V).\n• A tonic seventh that drives IV is I7 (V7/IV) — barbershop keeps I7.\n• VI7 (V7/ii) is the same order one step further around the circle.\n• Circle sevenths are spelled major: II7, VI7, III7, VII7 — not ii7. III7 and VII7 have no parenthetical.\n• A minor seventh that moves down a fifth stays ii7. It is never V7 or V7/X; that spelling would be the minor seventh of the target (Am7), not Dm7.\n• Dom9 keeps the seventh’s function and is stamped 7(9), so V7/V (II7) becomes V7(9)/V (II7(9)).',
+    makeup: 'In C: D7 driving G is V7/V (II7). D7 with no known target is II7 (V7/V). Dm7→G stays ii7.',
+  },
   classic_cadences: {
     detail:
       'Classic barbershop closes and highways (examples in C):\n\n> Prefer a BS7 → release down a fifth → land on a pillar — the cadence highway that makes tags and phrases feel inevitable.\n\n• Authentic V7→I — G7→C when Lead ^5 resolves to ^1.\n• Circle II7→V7→I — D7→G7→C.\n• Primary dominant I7→IV — C7→F (springboard into the subdominant).\n• Plagal IV→I — F→C (“amen”).\n• Tag penultimate — often a strong V7 before the final I.\n• Half cadence — resting on V without immediate tonic arrival.\nUse Learn examples below to see TTBB stacks and hear each move.',

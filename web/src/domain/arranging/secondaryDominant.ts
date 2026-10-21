@@ -234,6 +234,56 @@ export function formatRomanWithAlt(roman: string, altRoman?: string | null): str
   return `${roman} (${altRoman})`
 }
 
+function withoutDom9Stamp(roman: string): string {
+  return roman.replaceAll('7(9)', '7')
+}
+
+/**
+ * One-line contextual teaching when a roman label would otherwise look inconsistent.
+ * Null for ordinary labels (plain V7, I, …).
+ */
+export function dualRomanTeach(opts: {
+  roman: string
+  altRoman?: string | null
+  natureId?: string
+}): string | null {
+  const roman = opts.roman.trim()
+  const alt = opts.altRoman?.trim() ?? ''
+  if (!roman || roman === '—') return null
+  const stamped = roman.includes('7(9)') || alt.includes('7(9)')
+  const stamp = stamped ? ' Dom9 keeps that function and is written 7(9).' : ''
+  const primary = withoutDom9Stamp(roman)
+  const other = withoutDom9Stamp(alt)
+
+  if (alt && alt !== roman) {
+    if (primary === 'V7/V' && other === 'II7') {
+      return `V7/V is primary because this chord drives V. II7 is the same chord named by scale degree.${stamp}`
+    }
+    if (primary === 'II7' && other === 'V7/V') {
+      return `II7 is the degree name when we do not know it drives V. V7/V is the same chord when it does.${stamp}`
+    }
+    if ((primary === 'I7' || primary === 'i7') && other.startsWith('V7/')) {
+      return `${primary} is the barbershop name for a tonic seventh that drives IV. ${other} is the classical name for the same chord.${stamp}`
+    }
+    if (primary === 'VI7' && other === 'V7/ii') {
+      return `VI7 is the degree name. V7/ii is the same chord when it drives ii.${stamp}`
+    }
+    return `${roman} is the preferred spelling. ${alt} is the other name for the same chord.${stamp}`
+  }
+
+  if (primary === 'III7' || primary === 'VII7') {
+    const minor = primary === 'III7' ? 'iii7' : 'vii7'
+    return `Circle sevenths are spelled as major (${primary}), not ${minor}.${stamp}`
+  }
+  if (opts.natureId === 'm7') {
+    return 'A minor seventh stays a degree name (ii7) even when it moves down a fifth. Calling it V7 would mean a dominant seventh, not this chord.'
+  }
+  if (stamped) {
+    return 'Dom9 uses the same function label as the seventh, stamped 7(9).'
+  }
+  return null
+}
+
 /** True when this seventh is a secondary dominant of the given target (or diatonic V7). */
 export function isSecondaryDominantSeventh(opts: {
   rootPc: number

@@ -91,7 +91,7 @@ import {
   subscribeCoachUiIntent,
   type CoachUiIntent,
 } from '../../lib/arranging/coachUiIntent'
-import { indexOfSeedInCandidates } from '../../lib/tagRoll/harmonizeSuggest'
+import { indexOfSeedInCandidates } from '../../lib/tagRoll/chordsSuggest'
 import type { HarmonyPreviewDraft } from '../../lib/tagRoll/harmonyPreviewDraft'
 import {
   filterLintsInRange,

@@ -1,0 +1,1617 @@
+{
+  "schema": "singtags.tagRoll.project.v1",
+  "id": "seed-polecat-mixed-90012",
+  "title": "Polecat mixed · You Tell Me Your Dream",
+  "subtitle": "",
+  "composer": "Music by Charles N. Daniels \r\nArranged by Phil Embury",
+  "arranger": "",
+  "sheetNote": "",
+  "bpm": 104,
+  "ppq": 480,
+  "snapTicks": 120,
+  "lengthTicks": 60000,
+  "timeSignature": {
+    "numerator": 3,
+    "denominator": 4
+  },
+  "tempoMarkers": [
+    {
+      "id": "trt_50a8ee2b-2c9c-4b34-a1aa-1e2f001c31a6",
+      "tick": 0,
+      "bpm": 104
+    }
+  ],
+  "keyMarkers": [
+    {
+      "id": "trk_01236f76-f013-4f81-8847-3e6ba1b45973",
+      "tick": 0,
+      "tonality": 2,
+      "tonalityMode": "major",
+      "preferFlats": false
+    }
+  ],
+  "expressions": [],
+  "soundEngine": "synth",
+  "pitchPipeSoundId": "mellow",
+  "blowPitchEnabled": false,
+  "metronomeEnabled": false,
+  "metronomeSwing": true,
+  "swing": {
+    "enabled": false,
+    "unit": "eighth",
+    "style": "triplet",
+    "amount": 0
+  },
+  "midiBakeSwing": true,
+  "soundEnvelope": {
+    "attackSec": 0.05,
+    "decaySec": 0.05,
+    "phraseDecaySec": 0.45
+  },
+  "tonality": 2,
+  "tonalityMode": "major",
+  "preferFlats": false,
+  "clefFamily": "ttbb",
+  "parts": [
+    {
+      "id": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "name": "Tenor",
+      "color": "#c45c26",
+      "midiGroup": "upper",
+      "hotkey": "t"
+    },
+    {
+      "id": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "name": "Lead",
+      "color": "#1d6a9f",
+      "midiGroup": "upper",
+      "hotkey": "l"
+    },
+    {
+      "id": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "name": "Bari",
+      "color": "#2f7d4a",
+      "midiGroup": "lower",
+      "hotkey": "r"
+    },
+    {
+      "id": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "name": "Bass",
+      "color": "#5b3d8f",
+      "midiGroup": "lower",
+      "hotkey": "b"
+    }
+  ],
+  "mix": [
+    {
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "volume": 0.82,
+      "pan": -0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "volume": 1,
+      "pan": -0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "volume": 0.82,
+      "pan": 0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "volume": 0.82,
+      "pan": 0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "mix:harmony-sketch",
+      "volume": 0.62,
+      "pan": 0,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "mix:harmony-detected",
+      "volume": 0.55,
+      "pan": 0,
+      "mute": true,
+      "solo": false
+    },
+    {
+      "partId": "mix:metronome",
+      "volume": 1,
+      "pan": 0,
+      "mute": false,
+      "solo": false
+    }
+  ],
+  "notes": [
+    {
+      "id": "trn_e5968efb-5a2f-4e67-b147-f5ba144f1d6b",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 1,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_08997353-abf1-436c-adfa-e90cd934fb38",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 1441,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_2da7dc77-3496-4117-92e0-387a8f6a43e5",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 2400,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_ccf2292f-989e-445b-848c-f3f142da112e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 2881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_2efd5478-583b-412c-8f95-9ad94bc61b8e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 4321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_65b0c0cf-6fdd-48f6-9618-7a90818bc18e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 5761,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_433362d4-07fc-4b69-acd6-6cd825acacb2",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 7201,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_bb107ff6-c915-45b6-8caf-dfa20d1735bc",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 8160,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_4429c393-0b07-4107-9f75-68589075627a",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 8641,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_f445c842-3434-4716-b320-c8cc1df47f5b",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 11521,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_77104245-fade-425f-ae73-13740d84e475",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 12961,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_f8490068-00c8-4eea-a947-a8b31999b541",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 13920,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_e46f5279-4f77-44cb-b9db-56f88ad0748b",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 14401,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_bf0237a2-0f0d-4214-b420-db5e8eb52c3b",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 15360,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_269aa2ca-7e5a-48e7-9167-b04fbbfa6c37",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 15841,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_68fd1c6f-986b-4920-9b6c-85f25133977e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 16800,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_aefa8067-30dd-412c-8b91-a375828c75b1",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 17281,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_ad46dcc0-89fc-47ec-a499-8055377c5ea8",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 18721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_11ae95a4-34b3-40ae-940f-4411eda0bf35",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 20161,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_a7c9d2e2-d70c-4b17-a9ac-422e516bdd26",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 21120,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_4f399b6a-8d47-44e1-b53d-22812e5f3769",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 21601,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_f9ad292b-fb1d-48c2-a54c-12c6ff8e04b4",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 23041,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_d5872ac6-1394-4299-bb63-278e588f7e2c",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 24481,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_05ac0057-3a35-41b5-8b91-3c3195eb1439",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 25440,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_519330c1-efe1-4077-9045-4623079ec9e7",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 25921,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_5e06227e-39ab-499b-8062-041a89f3f33c",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 27361,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_1ef455f1-0724-4d5f-92e4-a7f31c2514fb",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 28801,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_c9cd2257-90cc-4449-a531-db4a3a5756b5",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 30241,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_8b4bacac-c2fc-4bc7-9db2-e9e473bf5798",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 31200,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b58e9274-d497-4366-9407-895d623790bd",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 31681,
+      "durationTicks": 2400
+    },
+    {
+      "id": "trn_485aa08d-5780-4d9d-9361-06f3d72dd58f",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 34561,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_ecc99608-e2fc-4d4c-b0c3-7c0943ec625c",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 36001,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_74f1bc02-019a-483c-a046-928689b5372e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 65,
+      "startTick": 36960,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_e0739301-023b-4c3d-9076-9057948bac6a",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 37441,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_e0f2bfb0-b162-4221-b82c-fcd17315ab8d",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 69,
+      "startTick": 38881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_26628735-af05-485a-bce3-2eeca33ab075",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 68,
+      "startTick": 40321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_323564f5-b579-406a-98df-b84cb881ab3e",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 41761,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_84f0189b-1cc4-448c-a572-ab0db0424715",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 67,
+      "startTick": 42240,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_b92b1774-0706-4a63-84d4-b3f94595c175",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 66,
+      "startTick": 43201,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_fbc7769f-4da0-42a6-a4dc-6fed5a68fc88",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 71,
+      "startTick": 46081,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_bad416ad-d3fa-4c30-8ed6-b068183a8b11",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 71,
+      "startTick": 47521,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_0edd41aa-34aa-4473-a929-e15da259183a",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 71,
+      "startTick": 48480,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_9838136b-22f6-4c34-a2ac-b757c02a4519",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 74,
+      "startTick": 48961,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_a308287b-5f51-491f-8240-539cb30557fa",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 75,
+      "startTick": 50401,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_9cbc279f-9457-488f-ad1f-aa8fbd6db93d",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 74,
+      "startTick": 51841,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_28635978-fb10-4a6c-8bf1-6fb46e6c1fdb",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 74,
+      "startTick": 53281,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_ef295c79-bec4-4c31-85bd-16775400900a",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 73,
+      "startTick": 53760,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_cbb501e7-b405-47c4-a221-b04a93b98688",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 71,
+      "startTick": 54721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_77cc1e74-3053-4389-9602-4700a6c478bc",
+      "partId": "trp_dfc381a9-2fdd-4009-8b68-180e4243286d",
+      "midi": 74,
+      "startTick": 56161,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_305a6438-4899-40ee-a4bb-2576cfeae4c9",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 57,
+      "startTick": 1,
+      "durationTicks": 1440,
+      "lyric": "You"
+    },
+    {
+      "id": "trn_c66c881c-64de-4124-af53-e2ce440494dd",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 56,
+      "startTick": 1441,
+      "durationTicks": 960,
+      "lyric": "had"
+    },
+    {
+      "id": "trn_337c8e33-5549-432b-b500-acbc36822d45",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 2400,
+      "durationTicks": 480,
+      "lyric": "a"
+    },
+    {
+      "id": "trn_cfbe2295-4c64-4a51-8d1d-0c041ea14377",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 57,
+      "startTick": 2881,
+      "durationTicks": 1440,
+      "lyric": "dream,"
+    },
+    {
+      "id": "trn_4ce2f94c-e6bf-445e-ba6a-c08bb07930fc",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 66,
+      "startTick": 4321,
+      "durationTicks": 1440,
+      "lyric": "well,"
+    },
+    {
+      "id": "trn_8eb6a24a-3aec-4bc7-a4f8-2454ca43e2d1",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 5761,
+      "durationTicks": 1440,
+      "lyric": "I"
+    },
+    {
+      "id": "trn_b6d54045-9b90-48c5-b54a-ba31442540c5",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 63,
+      "startTick": 7201,
+      "durationTicks": 960,
+      "lyric": "had"
+    },
+    {
+      "id": "trn_3ba85b5a-c715-4d38-ba58-27feedd62e34",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 8160,
+      "durationTicks": 480,
+      "lyric": "one,"
+    },
+    {
+      "id": "trn_22b75918-31b5-4139-ab78-52e81b6e073f",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 8641,
+      "durationTicks": 1920,
+      "lyric": "too."
+    },
+    {
+      "id": "trn_b1b6c763-96d8-44e4-bb2b-55bb89938c4d",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 11521,
+      "durationTicks": 1440,
+      "lyric": "I"
+    },
+    {
+      "id": "trn_520506a2-2e24-4fca-9b6d-14916ed6c2ce",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 60,
+      "startTick": 12961,
+      "durationTicks": 960,
+      "lyric": "know"
+    },
+    {
+      "id": "trn_2bcf77c4-90a8-417e-9e46-bb39900686e1",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 13920,
+      "durationTicks": 480,
+      "lyric": "mine's"
+    },
+    {
+      "id": "trn_6f68b25b-1d99-4655-a33f-200340557334",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 66,
+      "startTick": 14401,
+      "durationTicks": 1440,
+      "lyric": "best"
+    },
+    {
+      "id": "trn_849172c6-5c4c-4219-9475-23e3967e4315",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 15841,
+      "durationTicks": 960,
+      "lyric": "'cause"
+    },
+    {
+      "id": "trn_b0154559-34ce-4105-94c0-97ade8c15750",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 16800,
+      "durationTicks": 480,
+      "lyric": "it"
+    },
+    {
+      "id": "trn_1363dc6c-6c6b-4685-8247-d6de5add20a3",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 17281,
+      "durationTicks": 1440,
+      "lyric": "was"
+    },
+    {
+      "id": "trn_1064d215-16cd-4e08-8b6a-252830a3f461",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 58,
+      "startTick": 18721,
+      "durationTicks": 1440,
+      "lyric": "of"
+    },
+    {
+      "id": "trn_0ef72200-152d-45e3-a3d3-09709d0f5e9b",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 57,
+      "startTick": 20161,
+      "durationTicks": 2400,
+      "lyric": "you."
+    },
+    {
+      "id": "trn_10050137-37e0-453f-acc7-4c73abb9fb13",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 57,
+      "startTick": 23041,
+      "durationTicks": 1440,
+      "lyric": "Come,"
+    },
+    {
+      "id": "trn_f8675499-4630-49a2-aa8c-7ca2f0b4ed08",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 56,
+      "startTick": 24481,
+      "durationTicks": 960,
+      "lyric": "sweet"
+    },
+    {
+      "id": "trn_ea9cf8d9-5e79-4d50-9174-c3bfdb86bb53",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 25440,
+      "durationTicks": 480,
+      "lyric": "heart,"
+    },
+    {
+      "id": "trn_b53487e3-3f30-481f-a208-b69cbc217b68",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 57,
+      "startTick": 25921,
+      "durationTicks": 1440,
+      "lyric": "tell"
+    },
+    {
+      "id": "trn_3e19ac8d-03a7-46b7-874c-c63068d24757",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 66,
+      "startTick": 27361,
+      "durationTicks": 1440,
+      "lyric": "me,"
+    },
+    {
+      "id": "trn_02b95ac2-4c93-4bcd-a10a-934f9d89d1dc",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 28801,
+      "durationTicks": 1440,
+      "lyric": "now"
+    },
+    {
+      "id": "trn_82b950bb-99ba-4c33-9cbc-58d15e7d3fe6",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 63,
+      "startTick": 30241,
+      "durationTicks": 960,
+      "lyric": "is"
+    },
+    {
+      "id": "trn_c906a585-b8bf-4a7d-9066-82563fb4aff3",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 31200,
+      "durationTicks": 480,
+      "lyric": "the"
+    },
+    {
+      "id": "trn_80806013-e155-49d9-88e3-a20ef6fac6ea",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 31681,
+      "durationTicks": 2400,
+      "lyric": "time."
+    },
+    {
+      "id": "trn_475aa4e5-2bd5-444b-ac05-b8b8a68fa3e1",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 62,
+      "startTick": 34561,
+      "durationTicks": 1440,
+      "lyric": "You"
+    },
+    {
+      "id": "trn_7a409937-1b55-4fd6-961e-007c5e3fa18a",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 36001,
+      "durationTicks": 960,
+      "lyric": "tell"
+    },
+    {
+      "id": "trn_255b0c43-c701-41a3-8f40-45b08192ed83",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 36960,
+      "durationTicks": 480,
+      "lyric": "me"
+    },
+    {
+      "id": "trn_f1d7025d-ddb1-42ea-915d-68678e4ae429",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 69,
+      "startTick": 37441,
+      "durationTicks": 1440,
+      "lyric": "your"
+    },
+    {
+      "id": "trn_982454ac-e709-4348-bb27-ac618b7b4b73",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 66,
+      "startTick": 38881,
+      "durationTicks": 1440,
+      "lyric": "dream,"
+    },
+    {
+      "id": "trn_295465f8-d23f-4c87-ac76-7f20409fafe3",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 40321,
+      "durationTicks": 1440,
+      "lyric": "I'll"
+    },
+    {
+      "id": "trn_f15d4de4-6faa-44c3-8111-6d163af1dd64",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 41761,
+      "durationTicks": 480,
+      "lyric": "tell"
+    },
+    {
+      "id": "trn_b01a9a81-6af7-4161-b49b-ee50671430ff",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 42240,
+      "durationTicks": 960,
+      "lyric": "you"
+    },
+    {
+      "id": "trn_fc3917fd-8fa2-4ff5-9ca8-423432e054ee",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 62,
+      "startTick": 43201,
+      "durationTicks": 1920,
+      "lyric": "mine."
+    },
+    {
+      "id": "trn_df7f9cf7-f7b9-44ba-8e25-2a2c527c9b13",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 62,
+      "startTick": 46081,
+      "durationTicks": 1440,
+      "lyric": "You"
+    },
+    {
+      "id": "trn_3de3c85f-90b1-408f-a9b7-e02141ad5675",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 61,
+      "startTick": 47521,
+      "durationTicks": 960,
+      "lyric": "tell"
+    },
+    {
+      "id": "trn_d30555f3-1600-4b67-b821-f07fc5750e9f",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 62,
+      "startTick": 48480,
+      "durationTicks": 480,
+      "lyric": "me"
+    },
+    {
+      "id": "trn_f13fa97d-61c4-444c-af80-3b3735033c73",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 69,
+      "startTick": 48961,
+      "durationTicks": 1440,
+      "lyric": "your"
+    },
+    {
+      "id": "trn_0d1406a8-44fa-4146-976f-d72a70b89e5c",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 66,
+      "startTick": 50401,
+      "durationTicks": 1440,
+      "lyric": "dream,"
+    },
+    {
+      "id": "trn_14515104-1cd2-4c5b-8c6d-e1de7dc67f6b",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 51841,
+      "durationTicks": 1440,
+      "lyric": "I'll"
+    },
+    {
+      "id": "trn_0d22d05d-5b3d-47c3-9e33-a857de22d109",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 59,
+      "startTick": 53281,
+      "durationTicks": 480,
+      "lyric": "tell"
+    },
+    {
+      "id": "trn_26377d7e-2035-433a-96be-cfcdcfa0b861",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 64,
+      "startTick": 53760,
+      "durationTicks": 960,
+      "lyric": "you"
+    },
+    {
+      "id": "trn_af8fc4e0-16c7-44b6-9d9f-52e6706e7ec9",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 62,
+      "startTick": 54721,
+      "durationTicks": 1440,
+      "lyric": "mine."
+    },
+    {
+      "id": "trn_16c469db-3550-40c3-b831-df17b0004d97",
+      "partId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+      "midi": 69,
+      "startTick": 56161,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_d974d832-97b3-41d0-9e78-eee350c81a53",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 1,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_595abacb-b67d-4d28-a016-25c19e3bf92f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 59,
+      "startTick": 1441,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_1d903bfb-9e3a-46ba-8369-7265076ab0f9",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 56,
+      "startTick": 2400,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_ab13d371-88f9-4dcc-a0b5-45881e029d54",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 2881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_59a5afc5-0cf0-4c37-b90c-d9e05d67ddcf",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 63,
+      "startTick": 4321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_e1b22c70-827d-4b6f-bbc8-279061f852b1",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 5761,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_f7c93ad4-3d4f-4733-b2f9-bac3d990334f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 7201,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_4ba6f453-19fc-45ea-815f-01c7ca023783",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 8160,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_bb77e3bc-f716-4865-b050-148838205d43",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 8641,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_737166da-76ed-4a28-925e-0f3f52557156",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 64,
+      "startTick": 11521,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_e4bfe5f6-7350-4b33-8c56-8b920b48d32a",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 63,
+      "startTick": 12961,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_3aaef03e-85b5-4e8c-9f5e-6e30f619c69c",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 64,
+      "startTick": 13920,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_bf72ed20-8133-4cb9-81e7-86bc32cdc6c9",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 14401,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_6541d123-3d9a-4ddb-b4cb-5f1cc9532e78",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 15360,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b4330faa-8f2f-4787-b9ea-30ba81403cc4",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 15841,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_14530db6-f0a4-486a-882f-98d6297a508e",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 64,
+      "startTick": 16800,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_93c78174-8e5b-418b-a58f-21a41e7eb3ec",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 17281,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_28c375fb-3967-4365-8783-aa1b4e09b03f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 18721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_69f6d753-ace4-4826-8c5e-12767c223cbd",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 20161,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_b71b5e63-3629-4498-8374-b8eb99bf709e",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 60,
+      "startTick": 21120,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_d62215cf-ac62-414d-b476-9185ccb61455",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 21601,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_326afd03-58ce-436e-a0c9-3b947b1fbee3",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 23041,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_f30cf811-02d8-469f-8307-ab1838c7dc3f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 59,
+      "startTick": 24481,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_0ccaaabc-0287-4521-bae5-406a7210c83a",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 56,
+      "startTick": 25440,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_8c848c64-652c-4af8-9f6f-cd460f9a1c74",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 25921,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_91863a92-0d18-464a-b218-a67c6f579bcb",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 63,
+      "startTick": 27361,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_91d13fc4-6bd3-46bf-aa50-e4c08b66ca0f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 28801,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_0fdf8917-fe06-436d-bbb8-f84e89161a2d",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 61,
+      "startTick": 30241,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_af9048ec-d1c2-4193-9741-d842847137ac",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 31200,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_1acfd9f4-3d88-4587-9efc-cf06760a2d1f",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 31681,
+      "durationTicks": 2400
+    },
+    {
+      "id": "trn_b8457b9a-3b3d-426b-9974-c0b0ef728ff0",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 59,
+      "startTick": 34561,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_70ec8478-041a-4780-9c77-8cdd69353370",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 59,
+      "startTick": 36001,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_5276a1ea-f439-4cdf-8a7e-b994aeee5fa0",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 59,
+      "startTick": 36960,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b01112b3-879c-472d-abf6-cd7074264f28",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 37441,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_dba71491-389c-41cc-974e-19f4a249579e",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 64,
+      "startTick": 38400,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_0502f59c-9c0a-4a5e-8d3f-779fe89ddedd",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 63,
+      "startTick": 38881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_8529d957-0c7d-4c7a-a71c-97c8ad42ee5e",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 40321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_74db9a81-897c-4365-ae82-ff4e2e9c4ce1",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 62,
+      "startTick": 41761,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_e09905b0-b879-4b22-a60b-a84976fb8182",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 64,
+      "startTick": 42240,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_af0167c4-04d4-440d-938d-2762cea3e6ab",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 57,
+      "startTick": 43201,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_fc830b01-147c-4f0c-8e45-8568428b2e0d",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 67,
+      "startTick": 46081,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_210faf22-f397-4fb9-a88a-6ea8a5f7b288",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 65,
+      "startTick": 47521,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_a4e0bd0d-3595-4815-866f-bd531fab0ef6",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 65,
+      "startTick": 48480,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_f70c0ae2-b6ac-4f02-b2cd-d0a484dd8c39",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 66,
+      "startTick": 48961,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_6c0a1273-2665-4b4b-ae1d-da0da1d0f335",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 69,
+      "startTick": 50401,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_3a03cb15-8a98-496f-8d79-0b676239360c",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 68,
+      "startTick": 51841,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_37e8a490-0fff-4d24-ae6b-c5d36026d773",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 68,
+      "startTick": 53281,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_34f29a9e-1848-4ed1-b0bc-ab21b1ad5c7d",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 67,
+      "startTick": 53760,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_9ab62840-60fc-4574-948f-67535740f104",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 65,
+      "startTick": 54721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_650117a9-df08-4fd2-9db7-d1850977f38c",
+      "partId": "trp_55ef69f8-8f70-49a7-be70-68c1d5da891a",
+      "midi": 66,
+      "startTick": 56161,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_37b18ae2-dcee-4504-ada2-29bc60f411c0",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 1,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_f9c11ac3-d0d3-44ab-8b66-4b4f1ffcd8d8",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 49,
+      "startTick": 1441,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_004017b4-cc5d-43f9-abec-dcd606d5d628",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 49,
+      "startTick": 2400,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_c19264e8-392c-4b38-a967-708f7e622ab6",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 2881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_d8c3fef6-2bbe-40e2-aaea-39a5f6bf1cb6",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 4321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_c0747f38-58af-416b-9474-3b7cb8f0ffee",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 5761,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_c60f0219-6471-46fc-ba9c-56af8f07767e",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 58,
+      "startTick": 7201,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_b757f492-3c84-4cdc-ac38-bde23ea1b0c6",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 8160,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_1e690245-eabe-4499-8d3b-ba1afd5785cb",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 8641,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_7724b5cb-fc20-4ced-9a5e-928ca05544a6",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 11521,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_24fe0382-a839-4136-90a5-17b1b6b6efec",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 12961,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_2153df26-9c73-4bc7-b368-2849fe0120ca",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 13920,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_549d09c3-ecb8-4be6-b780-4eb70c58b75d",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 14401,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_be5c3cc5-3105-4d11-84cd-f0e5c1208c9a",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 15360,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_56654043-21c9-4c73-8411-7089be57b11d",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 15841,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_4119d93c-abcd-4576-92d5-4385532c463f",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 55,
+      "startTick": 16800,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_59a31194-5501-4a41-9920-0d6e7064e625",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 54,
+      "startTick": 17281,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_7b07419a-8a4b-46aa-8772-d30dadf147e8",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 53,
+      "startTick": 18721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_b2edfff8-1a35-48be-9fff-8a460632d4c8",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 20161,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_2d4904d1-b14a-4f63-bc7e-46730593c026",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 51,
+      "startTick": 21120,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_92667411-0ca1-425a-baac-01235c1a9cd2",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 21601,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_62ae713d-519f-46f2-bc8c-3707f1d479a1",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 23041,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_81cf492a-f972-4b52-abbf-995224f33ce4",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 49,
+      "startTick": 24481,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_902cea06-87f9-44f6-bb67-214ade7af608",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 49,
+      "startTick": 25440,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b16845bd-8554-4790-9144-928b689b2e34",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 25921,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_b190f5ff-e77b-4177-bf90-117ba5f764c0",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 27361,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_a543f0e3-98c4-4371-b8fb-3b9d397a035d",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 28801,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_63777c1c-b0af-4b66-b451-e5ccc80c75a6",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 58,
+      "startTick": 30241,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_eb4c40a7-10ef-4a62-a556-fbc5b5ecfaaa",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 31200,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_ac4fd326-88c3-4f86-b837-a52ddc732aca",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 31681,
+      "durationTicks": 2400
+    },
+    {
+      "id": "trn_0b5bb272-5353-491a-85f4-62aead1835c0",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 55,
+      "startTick": 34561,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_b49055f0-7f08-4c82-b533-e4d7f7b63e56",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 56,
+      "startTick": 36001,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_a29126d2-57ab-4ec2-8b1e-986b010e2a70",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 56,
+      "startTick": 36960,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b06c3fc7-3202-4af3-8239-dabdcd78c984",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 37441,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_bd43e872-ac39-443c-9957-e370def4524d",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 60,
+      "startTick": 38400,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_882b30a1-e600-46f1-9d49-4b2cc85c9c5b",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 38881,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_bbca7ffd-f2aa-436c-ba16-442069839281",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 40321,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_2327a5e9-2039-4fc3-ab8f-3b437dc283ae",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 41761,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_40c58897-574c-4170-9d67-0d904aa68251",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 42240,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_6b56db86-dd4d-4f26-811d-0b2df86460ab",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 43201,
+      "durationTicks": 1920
+    },
+    {
+      "id": "trn_077912e6-8594-4983-bd78-40a175b938e3",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 55,
+      "startTick": 46081,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_d929847d-8c8d-4517-a115-a58f74b99adb",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 56,
+      "startTick": 47521,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_561c9440-d90f-491d-8fa4-4611b26ccd3a",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 56,
+      "startTick": 48480,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_c96c4faa-6832-4181-a4a3-897525c3cbcb",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 62,
+      "startTick": 48961,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_4a4b32b0-2e99-4986-a447-53ed46c45977",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 60,
+      "startTick": 49920,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_da18c627-22fb-49d1-b2be-04cb4a94a74c",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 50401,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_379299eb-a3be-405d-a7da-2437b6d4f266",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 59,
+      "startTick": 51841,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_ee045d02-8641-4d5e-acea-dce2822a4e76",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 52,
+      "startTick": 53281,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_db5b3aae-537e-48cf-b23b-c9a6a10f8577",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 57,
+      "startTick": 53760,
+      "durationTicks": 960
+    },
+    {
+      "id": "trn_3e3b2361-c636-46c9-be27-bcc2c5eac573",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 55,
+      "startTick": 54721,
+      "durationTicks": 1440
+    },
+    {
+      "id": "trn_920fc84a-5a8a-4a55-ae9a-2b36ea053c28",
+      "partId": "trp_516594e7-6926-4a14-938b-c2779912134e",
+      "midi": 50,
+      "startTick": 56161,
+      "durationTicks": 1440
+    }
+  ],
+  "melodyPasses": [],
+  "harmonySketch": [],
+  "localEntryId": null,
+  "view": {
+    "cellW": 28,
+    "cellH": 14,
+    "scrollX": 0,
+    "scrollY": 322,
+    "lockPiano": false,
+    "mode": "compose",
+    "activePartId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+    "melodyPartId": "trp_7181ce4b-ecb0-4ff3-a00f-db0a14dc3831",
+    "playheadTick": 0,
+    "focusActivePart": false,
+    "scaleHighlight": true,
+    "roleDisplay": "off",
+    "showNoteNames": true,
+    "showNoteLyrics": true,
+    "scoreSurface": "roll",
+    "sheetZoom": 40,
+    "sheetShowLyrics": true,
+    "sheetLayout": "continuous",
+    "sheetMeasureSizing": "dynamic",
+    "sheetNoteColors": false,
+    "sheetStaveGap": "tight",
+    "sheetMeasureScale": 1,
+    "sheetNoteSpacing": 1,
+    "sheetBeatStretch": 1,
+    "sheetStaveGapFine": 0.85,
+    "sheetSystemGap": 0.65,
+    "sheetTopMargin": 0.85,
+    "sheetLyricSize": 11,
+    "sheetLyricOffsets": {},
+    "sheetPlaybackHighlight": true,
+    "sheetShowSketchChords": false,
+    "sheetShowDetectedChords": false,
+    "sheetShowEngravedHeader": true,
+    "sheetShowEngravedFooter": true,
+    "sheetPadding": 1,
+    "sheetMinBarWidth": 1,
+    "sheetClefGutter": 0.9,
+    "sheetTimeFactor": 1,
+    "sheetBottomMargin": 0.75,
+    "sheetMarginLeftIn": 0.3,
+    "sheetMarginRightIn": 0.3,
+    "sheetMarginTopIn": 0.3,
+    "sheetMarginBottomIn": 0.3,
+    "sheetEngravingScale": 0.95,
+    "sheetScoreScale": 0.95,
+    "sheetPageWidthIn": 8.5,
+    "sheetPageHeightIn": 11,
+    "sheetPageDpi": 96,
+    "sheetMusicFont": "bravura",
+    "sheetTextFont": "academico",
+    "sheetStaffLineWeight": 1,
+    "sheetPartNames": false,
+    "sheetFormatByLayout": {},
+    "sheetScrollX": 0,
+    "sheetScrollY": 0
+  },
+  "createdAt": 1792087421395,
+  "updatedAt": 1792087421395
+}

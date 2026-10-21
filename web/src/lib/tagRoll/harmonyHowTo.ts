@@ -1,5 +1,5 @@
 /**
- * How-to copy for Tag Studio harmony tools (Harmonize panel + chord lanes).
+ * How-to copy for Tag Studio harmony tools (Chords panel + chord lanes).
  * Kept as data so UI stays thin and tips stay consistent.
  * Lane “i” tips stay short (overview only) — hover popovers are not manuals.
  */
@@ -10,17 +10,17 @@ export type HarmonyHowToSection = {
   steps?: readonly string[]
 }
 
-/** MuseScore-like Harmonize panel: declare vs realize, vs Coach. */
+/** Chords panel: declare vs realize, vs Coach. */
 export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'What this panel is for',
     body:
-      'Harmonize is a hand tool at the current melody note — pick a root and chord quality, preview, and optionally place a TTBB stack.',
+      'Chords is a hand tool for the current melody note or Sketch span — pick a root and chord quality, preview, and optionally place a TTBB stack.',
   },
   {
     title: 'Melody comes from Roles',
     body:
-      'The melody part is set under Toolbar → Roles (M on a selected note). Harmonize, Detected, Coach, and sheet lyrics all use that same part.',
+      'The melody part is set under Toolbar → Roles (M on a selected note). Chords, Detected, Coach, and sheet lyrics all use that same part.',
   },
   {
     title: 'Sketch vs Stack',
@@ -39,15 +39,16 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
   },
 ]
 
-/** Alias used by TagRollHarmonizePanel. */
+/** Alias used by TagRollChordsPanel. */
 export const HARMONIZE_HOWTO = HARMONIZE_PANEL_HOWTO
+export const CHORDS_HOWTO = HARMONIZE_PANEL_HOWTO
 
 /** Toolbar Melody roles (global Strong / Passing / melody part). */
 export const ROLES_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'What Roles is for',
     body:
-      'Choose which part carries the tune and mark Strong vs Passing melody notes. Those labels feed Harmonize, Detected, Coach, and Auto Path Optimize. Unlabeled notes get a duration / beat / phrase-edge default before Auto runs.',
+      'Choose which part carries the tune and mark Strong vs Passing melody notes. Those labels feed Chords, Detected, Coach, and Auto Path Optimize. Unlabeled notes get a duration / beat / phrase-edge default before Auto runs.',
   },
   {
     title: 'Strong',
@@ -71,7 +72,7 @@ export const SKETCH_LANE_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Sketch map',
     body:
-      'Paint chords on the timeline and edit spans in the dock. Enter on empty text leaves a blank (—) slot; Tab walks left-to-right to fill them. Strong vs passing melody roles guide Coach homes — Realize writes TTBB under the melody.',
+      'Paint chords on the timeline and edit them in the Chords panel. Enter on empty text leaves a blank (—) slot; Tab walks left-to-right to fill them. Strong vs passing melody roles guide Coach homes — Realize writes TTBB under the melody.',
   },
 ]
 

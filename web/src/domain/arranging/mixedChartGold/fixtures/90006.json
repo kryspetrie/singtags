@@ -1,0 +1,1684 @@
+{
+  "schema": "mixedChartGold.v1",
+  "tagId": 90006,
+  "source": "musicxml-mixed",
+  "seedId": "seed-polecat-mixed-90006",
+  "tonality": 5,
+  "mode": "major",
+  "profile": "sai11",
+  "preferFlats": true,
+  "verified": false,
+  "lockCoverage": 0.5681818181818182,
+  "onsets": [
+    {
+      "startTick": 1,
+      "endTick": 961,
+      "leadMidi": 57,
+      "midi": {
+        "tenor": 72,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 960,
+      "endTick": 1440,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 55
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 1441,
+      "endTick": 2401,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 69,
+        "bari": 60,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 1,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 2400,
+      "endTick": 2880,
+      "leadMidi": 67,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 2881,
+      "endTick": 3361,
+      "leadMidi": 69,
+      "midi": {
+        "tenor": 72,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 3360,
+      "endTick": 4320,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 4321,
+      "endTick": 5281,
+      "leadMidi": 59,
+      "midi": {
+        "tenor": 68,
+        "bari": 62,
+        "bass": 52
+      },
+      "rootPc": 4,
+      "natureId": "seventh",
+      "roman": "VII7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 4,
+          "natureId": "seventh",
+          "roman": "VII7",
+          "label": "E7"
+        },
+        {
+          "rootPc": 4,
+          "natureId": "ninth",
+          "roman": "VII7(9)",
+          "label": "E7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 5280,
+      "endTick": 5760,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 63,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "seventh",
+      "roman": "I7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "ninth",
+          "roman": "I7(9)",
+          "label": "F7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 5761,
+      "endTick": 7201,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 70,
+        "bari": 65,
+        "bass": 58
+      },
+      "rootPc": 10,
+      "natureId": "major",
+      "roman": "IV",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "major",
+          "roman": "IV",
+          "label": "Bb"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "sixth",
+          "roman": "IV6",
+          "label": "Bb6"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "add9",
+          "roman": "IV(add9)",
+          "label": "Bbadd9"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "seventh",
+          "roman": "IV7",
+          "label": "Bb7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "maj7",
+          "roman": "IV",
+          "label": "Bbmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 7201,
+      "endTick": 8641,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 72,
+        "bari": 66,
+        "bass": 57
+      },
+      "rootPc": 2,
+      "natureId": "seventh",
+      "roman": "VI7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 2,
+          "natureId": "seventh",
+          "roman": "VI7",
+          "label": "D7"
+        },
+        {
+          "rootPc": 2,
+          "natureId": "ninth",
+          "roman": "VI7(9)",
+          "label": "D7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 8641,
+      "endTick": 11041,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 71,
+        "bari": 65,
+        "bass": 55
+      },
+      "rootPc": 7,
+      "natureId": "seventh",
+      "roman": "II7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 7,
+          "natureId": "seventh",
+          "roman": "II7",
+          "label": "G7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "ninth",
+          "roman": "II7(9)",
+          "label": "G7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 11521,
+      "endTick": 12481,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 12480,
+      "endTick": 12960,
+      "leadMidi": 63,
+      "midi": {
+        "tenor": 69,
+        "bari": 66,
+        "bass": 59
+      },
+      "rootPc": 11,
+      "natureId": "seventh",
+      "roman": "♯IV7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 11,
+          "natureId": "seventh",
+          "roman": "♯IV7",
+          "label": "B7"
+        },
+        {
+          "rootPc": 11,
+          "natureId": "ninth",
+          "roman": "♯IV7(9)",
+          "label": "B7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 12961,
+      "endTick": 13921,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 13920,
+      "endTick": 14400,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 62
+      },
+      "rootPc": 10,
+      "natureId": "sixth",
+      "roman": "IV6",
+      "role": "other",
+      "labelSource": "auto-identify",
+      "confidence": 0.5714285714285714,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "sixth",
+          "roman": "IV6",
+          "label": "Bb6"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "m7",
+          "roman": "ii7",
+          "label": "Gm7"
+        }
+      ]
+    },
+    {
+      "startTick": 14401,
+      "endTick": 14881,
+      "leadMidi": 67,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 14880,
+      "endTick": 15840,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 15841,
+      "endTick": 16801,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 71,
+        "bari": 65,
+        "bass": 55
+      },
+      "rootPc": 7,
+      "natureId": "seventh",
+      "roman": "II7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 7,
+          "natureId": "seventh",
+          "roman": "II7",
+          "label": "G7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "ninth",
+          "roman": "II7(9)",
+          "label": "G7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 16800,
+      "endTick": 17280,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 17281,
+      "endTick": 18721,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 18721,
+      "endTick": 20161,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 63,
+        "bass": 54
+      },
+      "rootPc": 6,
+      "natureId": "dim7",
+      "roman": "♭II",
+      "role": "passing",
+      "labelSource": "auto-identify",
+      "confidence": 0.2857142857142857,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 6,
+          "natureId": "dim7",
+          "roman": "♭II",
+          "label": "Gb°7"
+        },
+        {
+          "rootPc": 9,
+          "natureId": "dim7",
+          "roman": "iii",
+          "label": "A°7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "dim7",
+          "roman": "V",
+          "label": "C°7"
+        },
+        {
+          "rootPc": 3,
+          "natureId": "dim7",
+          "roman": "♭VII",
+          "label": "Eb°7"
+        }
+      ]
+    },
+    {
+      "startTick": 20161,
+      "endTick": 22561,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 55
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 23041,
+      "endTick": 24001,
+      "leadMidi": 57,
+      "midi": {
+        "tenor": 72,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 24000,
+      "endTick": 24480,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 55
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 24481,
+      "endTick": 25441,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 69,
+        "bari": 60,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 1,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 25440,
+      "endTick": 25920,
+      "leadMidi": 67,
+      "midi": {
+        "tenor": 70,
+        "bari": 64,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 25921,
+      "endTick": 26401,
+      "leadMidi": 69,
+      "midi": {
+        "tenor": 72,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 26400,
+      "endTick": 27360,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 27361,
+      "endTick": 28321,
+      "leadMidi": 59,
+      "midi": {
+        "tenor": 68,
+        "bari": 62,
+        "bass": 52
+      },
+      "rootPc": 4,
+      "natureId": "seventh",
+      "roman": "VII7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 4,
+          "natureId": "seventh",
+          "roman": "VII7",
+          "label": "E7"
+        },
+        {
+          "rootPc": 4,
+          "natureId": "ninth",
+          "roman": "VII7(9)",
+          "label": "E7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 28320,
+      "endTick": 28800,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 63,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "seventh",
+      "roman": "I7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "ninth",
+          "roman": "I7(9)",
+          "label": "F7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 28801,
+      "endTick": 30241,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 70,
+        "bari": 65,
+        "bass": 58
+      },
+      "rootPc": 10,
+      "natureId": "major",
+      "roman": "IV",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "major",
+          "roman": "IV",
+          "label": "Bb"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "sixth",
+          "roman": "IV6",
+          "label": "Bb6"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "add9",
+          "roman": "IV(add9)",
+          "label": "Bbadd9"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "seventh",
+          "roman": "IV7",
+          "label": "Bb7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "maj7",
+          "roman": "IV",
+          "label": "Bbmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 30241,
+      "endTick": 31681,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 72,
+        "bari": 66,
+        "bass": 57
+      },
+      "rootPc": 2,
+      "natureId": "seventh",
+      "roman": "VI7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 2,
+          "natureId": "seventh",
+          "roman": "VI7",
+          "label": "D7"
+        },
+        {
+          "rootPc": 2,
+          "natureId": "ninth",
+          "roman": "VI7(9)",
+          "label": "D7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 31681,
+      "endTick": 34081,
+      "leadMidi": 67,
+      "midi": {
+        "tenor": 71,
+        "bari": 65,
+        "bass": 62
+      },
+      "rootPc": 7,
+      "natureId": "seventh",
+      "roman": "II7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 7,
+          "natureId": "seventh",
+          "roman": "II7",
+          "label": "G7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "ninth",
+          "roman": "II7(9)",
+          "label": "G7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 34561,
+      "endTick": 35521,
+      "leadMidi": 67,
+      "midi": {
+        "tenor": 70,
+        "bari": 62,
+        "bass": 58
+      },
+      "rootPc": 10,
+      "natureId": "sixth",
+      "roman": "IV6",
+      "role": "other",
+      "labelSource": "auto-identify",
+      "confidence": 1,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "sixth",
+          "roman": "IV6",
+          "label": "Bb6"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "minor",
+          "roman": "ii",
+          "label": "Gm"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "madd6",
+          "roman": "ii6",
+          "label": "Gm6"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "m7",
+          "roman": "ii7",
+          "label": "Gm7"
+        },
+        {
+          "rootPc": 3,
+          "natureId": "maj7",
+          "roman": "♭VII",
+          "label": "Ebmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 35520,
+      "endTick": 36000,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 70,
+        "bari": 62,
+        "bass": 58
+      },
+      "rootPc": 10,
+      "natureId": "major",
+      "roman": "IV",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 1,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "major",
+          "roman": "IV",
+          "label": "Bb"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "sixth",
+          "roman": "IV6",
+          "label": "Bb6"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "add9",
+          "roman": "IV(add9)",
+          "label": "Bbadd9"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "seventh",
+          "roman": "IV7",
+          "label": "Bb7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "maj7",
+          "roman": "IV",
+          "label": "Bbmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 36001,
+      "endTick": 36961,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 74,
+        "bari": 68,
+        "bass": 59
+      },
+      "rootPc": 4,
+      "natureId": "seventh",
+      "roman": "VII7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 4,
+          "natureId": "seventh",
+          "roman": "VII7",
+          "label": "E7"
+        },
+        {
+          "rootPc": 4,
+          "natureId": "ninth",
+          "roman": "VII7(9)",
+          "label": "E7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 36960,
+      "endTick": 37440,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 74,
+        "bari": 68,
+        "bass": 58
+      },
+      "rootPc": 10,
+      "natureId": "seventh",
+      "roman": "IV7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 10,
+          "natureId": "seventh",
+          "roman": "IV7",
+          "label": "Bb7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "ninth",
+          "roman": "IV7(9)",
+          "label": "Bb7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 37441,
+      "endTick": 37921,
+      "leadMidi": 69,
+      "midi": {
+        "tenor": 72,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 37920,
+      "endTick": 38880,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 69,
+        "bari": 65,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    },
+    {
+      "startTick": 38881,
+      "endTick": 39841,
+      "leadMidi": 70,
+      "midi": {
+        "tenor": 74,
+        "bari": 66,
+        "bass": 62
+      },
+      "rootPc": 2,
+      "natureId": "aug",
+      "roman": "vi",
+      "role": "other",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 2,
+          "natureId": "aug",
+          "roman": "vi",
+          "label": "D+"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "aug",
+          "roman": "IV",
+          "label": "Bb+"
+        },
+        {
+          "rootPc": 6,
+          "natureId": "aug",
+          "roman": "♭II",
+          "label": "Gb+"
+        }
+      ]
+    },
+    {
+      "startTick": 39840,
+      "endTick": 40320,
+      "leadMidi": 69,
+      "midi": {
+        "tenor": 72,
+        "bari": 66,
+        "bass": 62
+      },
+      "rootPc": 2,
+      "natureId": "seventh",
+      "roman": "VI7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.875,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 2,
+          "natureId": "seventh",
+          "roman": "VI7",
+          "label": "D7"
+        },
+        {
+          "rootPc": 2,
+          "natureId": "ninth",
+          "roman": "VI7(9)",
+          "label": "D7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 40321,
+      "endTick": 41761,
+      "leadMidi": 62,
+      "midi": {
+        "tenor": 71,
+        "bari": 65,
+        "bass": 55
+      },
+      "rootPc": 7,
+      "natureId": "seventh",
+      "roman": "II7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 7,
+          "natureId": "seventh",
+          "roman": "II7",
+          "label": "G7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "ninth",
+          "roman": "II7(9)",
+          "label": "G7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 41761,
+      "endTick": 43201,
+      "leadMidi": 64,
+      "midi": {
+        "tenor": 70,
+        "bari": 67,
+        "bass": 60
+      },
+      "rootPc": 0,
+      "natureId": "seventh",
+      "roman": "V7",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 0.8571428571428571,
+      "locked": true,
+      "altCandidates": [
+        {
+          "rootPc": 0,
+          "natureId": "seventh",
+          "roman": "V7",
+          "label": "C7"
+        },
+        {
+          "rootPc": 0,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "C7(9)"
+        }
+      ]
+    },
+    {
+      "startTick": 43201,
+      "endTick": 46081,
+      "leadMidi": 65,
+      "midi": {
+        "tenor": 69,
+        "bari": 60,
+        "bass": 53
+      },
+      "rootPc": 5,
+      "natureId": "major",
+      "roman": "I",
+      "role": "pillar",
+      "labelSource": "auto-identify",
+      "confidence": 1,
+      "locked": false,
+      "altCandidates": [
+        {
+          "rootPc": 5,
+          "natureId": "major",
+          "roman": "I",
+          "label": "F"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "sixth",
+          "roman": "I6",
+          "label": "F6"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "add9",
+          "roman": "I(add9)",
+          "label": "Fadd9"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "seventh",
+          "roman": "I7",
+          "label": "F7"
+        },
+        {
+          "rootPc": 5,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Fmaj7"
+        }
+      ]
+    }
+  ]
+}

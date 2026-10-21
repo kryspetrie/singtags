@@ -303,8 +303,9 @@ function streamKeysFromNotes(notes: RawNote[]): StreamKey[] {
 
 function partLooksGrandStaff(p: ParsedPart): boolean {
   if (p.maxStaff >= 2 && p.streams.length >= 2) return true
-  // Single staff but many voices (unusual) — still explode.
-  return p.maxStaff === 1 && p.streams.length >= 3
+  // Single staff with 2+ voices (mixed polecat / SA–TB open score) — explode
+  // into separate Tag Studio tracks (Tenor/Lead or Bari/Bass).
+  return p.maxStaff === 1 && p.streams.length >= 2
 }
 
 function scoreLooksMultiMono(parts: ParsedPart[]): boolean {

@@ -68,3 +68,90 @@ describe('Dom9 omit-root vs minor-sixth dual', () => {
     expect(absoluteChordLabel(id!.rootPc, id!.natureId, true, { tonality: 10 })).toBe('Bb')
   })
 })
+
+describe('major-key incomplete stacks stay in key vocabulary', () => {
+  const idOf = (lead: number, bass: number) =>
+    identifyNatureFromMidi({
+      midi: { lead, bass },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+
+  it('reads F over G as G7, not a chromatic add9', () => {
+    const id = idOf(65, 55)
+    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 7 })
+  })
+
+  it('reads F# over A as F#°7, not F#m', () => {
+    const id = idOf(66, 57)
+    expect(id).toMatchObject({ natureId: 'dim7', rootPc: 6 })
+  })
+
+  it('reads a tonic octave as C, not a parallel minor', () => {
+    const id = idOf(60, 48)
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 0 })
+  })
+
+  it('keeps lead on ^5 with bass on the tonic as I', () => {
+    const id = idOf(67, 60)
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 0 })
+  })
+
+  it('keeps tenor on the tonic root as I when the lead is the fifth', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 67, tenor: 72 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 0 })
+  })
+
+  it('does not rename iii to V7 when the tenor sings the third', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 55, tenor: 64 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).not.toBeNull()
+    expect(id!.natureId === 'seventh' && id!.rootPc === 7).toBe(false)
+  })
+
+  it('reads D over G as G7', () => {
+    const id = idOf(62, 55)
+    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 7 })
+  })
+
+  it('reads B over E as E7', () => {
+    const id = idOf(59, 52)
+    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 4 })
+  })
+
+  it('reads A over F as F7', () => {
+    const id = idOf(57, 53)
+    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 5 })
+  })
+
+  it('reads B under Ab as diminished, not Abm', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 59, tenor: 68 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).not.toBeNull()
+    expect(['minor', 'm7', 'madd6']).not.toContain(id!.natureId)
+    expect(id).toMatchObject({ natureId: 'dim7', rootPc: 11 })
+  })
+
+  it('does not call a bare fifth on vi a chromatic minor', () => {
+    const id = idOf(64, 57)
+    expect(id).not.toBeNull()
+    expect(id!.natureId === 'minor' || id!.natureId === 'm7' || id!.natureId === 'madd6').toBe(
+      false,
+    )
+    expect(id!.rootPc).toBe(9)
+  })
+})

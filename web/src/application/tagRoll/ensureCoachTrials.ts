@@ -2,7 +2,7 @@
  * Fetch bundled Coach trial Tag Studio projects and sync the library.
  * Files live under ``/tag-studio/coach-trials/``.
  *
- * Imports missing trial seeds; refreshes when content changes.
+ * Imports missing trial seeds only — never overwrites on ordinary reload.
  * Keeps user-owned projects untouched.
  */
 import type { Clock } from '../../ports/Clock'
@@ -11,7 +11,6 @@ import { isTagRollSeedDismissed } from '../../lib/tagRoll/seedLibraryPrefs'
 import { normalizeTagRollProject } from '../../lib/tagRoll/normalize'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { deleteTagRoll, putNewTagRoll } from './persist'
-import { seedHasUserSketch } from './seedRefreshGuard'
 
 const INDEX_URL = '/tag-studio/coach-trials/index.json'
 const SEED_PREFIX = 'seed-coach-trial-'
@@ -85,8 +84,14 @@ export async function ensureCoachTrialProjects(
   const now = clock.now()
   for (const entry of index.projects) {
     if (!entry?.id || !entry.file) continue
+    const had = existing.has(entry.id)
+    // Never overwrite an existing trial on ordinary list refresh / reload.
+    if (had) {
+      result.skipped += 1
+      continue
+    }
     // User deleted this seed — do not resurrect on every list refresh.
-    if (!existing.has(entry.id) && isTagRollSeedDismissed(entry.id)) {
+    if (isTagRollSeedDismissed(entry.id)) {
       result.skipped += 1
       continue
     }
@@ -96,31 +101,11 @@ export async function ensureCoachTrialProjects(
       continue
     }
     const rawObj = raw as Record<string, unknown>
-    const had = existing.has(entry.id)
-    const prev = had ? await repository.get(entry.id) : null
-    const nextNotes = Array.isArray(rawObj.notes) ? rawObj.notes.length : 0
-    const nextBpm = Number(rawObj.bpm) || 0
-    const nextLen = Number(rawObj.lengthTicks) || 0
-    // Never clobber a trial the user has sketched (Back→reopen wipe).
-    const userSketch = seedHasUserSketch(prev?.harmonySketch)
-    const same =
-      !!prev &&
-      prev.notes.length === nextNotes &&
-      Math.abs(prev.bpm - nextBpm) < 0.05 &&
-      prev.lengthTicks === nextLen &&
-      prev.title === String(rawObj.title ?? '')
-    if (same || userSketch) {
-      result.skipped += 1
-      continue
-    }
     const project = normalizeTagRollProject({
       ...rawObj,
       id: entry.id,
       localEntryId: null,
-      // Keep the user's mixer across seed content refreshes.
-      mix: prev?.mix ?? rawObj.mix,
-      harmonySketch: prev?.harmonySketch ?? rawObj.harmonySketch,
-      createdAt: prev?.createdAt ?? now,
+      createdAt: now,
       updatedAt: now,
     })
     if (!project || !project.notes.length) {
@@ -128,11 +113,9 @@ export async function ensureCoachTrialProjects(
       continue
     }
     try {
-      if (had) await deleteTagRoll(repository, entry.id)
       await putNewTagRoll(repository, project as TagRollProject, clock)
       existing.add(entry.id)
-      if (had) result.refreshed += 1
-      else result.imported += 1
+      result.imported += 1
     } catch (e) {
       result.errors.push(
         `${entry.file}: ${e instanceof Error ? e.message : 'import failed'}`,

@@ -1,0 +1,1371 @@
+{
+  "schema": "singtags.tagRoll.project.v1",
+  "id": "seed-polecat-mixed-90010",
+  "title": "Polecat mixed · You're The Flower Of My Heart, Sweet Adeline",
+  "subtitle": "",
+  "composer": "Music by Harry Armstrong (1879-1951) \r\nSociety Arrangement",
+  "arranger": "",
+  "sheetNote": "",
+  "bpm": 104,
+  "ppq": 480,
+  "snapTicks": 120,
+  "lengthTicks": 18240,
+  "timeSignature": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "tempoMarkers": [
+    {
+      "id": "trt_3a6dd595-fec5-42e3-b290-3b27c32640f8",
+      "tick": 0,
+      "bpm": 104
+    }
+  ],
+  "keyMarkers": [
+    {
+      "id": "trk_600e40e0-ed88-4c68-b8a6-e0a8149bfc1f",
+      "tick": 0,
+      "tonality": 5,
+      "tonalityMode": "major",
+      "preferFlats": true
+    }
+  ],
+  "expressions": [],
+  "soundEngine": "synth",
+  "pitchPipeSoundId": "mellow",
+  "blowPitchEnabled": false,
+  "metronomeEnabled": false,
+  "metronomeSwing": true,
+  "swing": {
+    "enabled": false,
+    "unit": "eighth",
+    "style": "triplet",
+    "amount": 0
+  },
+  "midiBakeSwing": true,
+  "soundEnvelope": {
+    "attackSec": 0.05,
+    "decaySec": 0.05,
+    "phraseDecaySec": 0.45
+  },
+  "tonality": 5,
+  "tonalityMode": "major",
+  "preferFlats": true,
+  "clefFamily": "ttbb",
+  "parts": [
+    {
+      "id": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "name": "Tenor",
+      "color": "#c45c26",
+      "midiGroup": "upper",
+      "hotkey": "t"
+    },
+    {
+      "id": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "name": "Lead",
+      "color": "#1d6a9f",
+      "midiGroup": "upper",
+      "hotkey": "l"
+    },
+    {
+      "id": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "name": "Bari",
+      "color": "#2f7d4a",
+      "midiGroup": "lower",
+      "hotkey": "r"
+    },
+    {
+      "id": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "name": "Bass",
+      "color": "#5b3d8f",
+      "midiGroup": "lower",
+      "hotkey": "b"
+    }
+  ],
+  "mix": [
+    {
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "volume": 0.82,
+      "pan": -0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "volume": 1,
+      "pan": -0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "volume": 0.82,
+      "pan": 0.6,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "volume": 0.82,
+      "pan": 0.2,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "mix:harmony-sketch",
+      "volume": 0.62,
+      "pan": 0,
+      "mute": false,
+      "solo": false
+    },
+    {
+      "partId": "mix:harmony-detected",
+      "volume": 0.55,
+      "pan": 0,
+      "mute": true,
+      "solo": false
+    },
+    {
+      "partId": "mix:metronome",
+      "volume": 1,
+      "pan": 0,
+      "mute": false,
+      "solo": false
+    }
+  ],
+  "notes": [
+    {
+      "id": "trn_b8ab4249-dbef-4402-bbae-4ebd1eacaa7a",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 960,
+      "durationTicks": 240,
+      "lyric": "Sweet"
+    },
+    {
+      "id": "trn_f1830872-9ea4-46fd-8f0d-81319e185472",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 1200,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_6724b988-b154-492a-9d37-da9f9f79ebdc",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 1440,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_25247622-e6ed-43a4-9229-c322cc508e2d",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 1680,
+      "durationTicks": 240,
+      "lyric": "line,"
+    },
+    {
+      "id": "trn_5bdf8c02-e7cb-4268-9d84-6b2ed27f46fa",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 2880,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_416dc16a-be4b-46da-9e2b-41a3aea6dbd3",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 3120,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_53c4f747-8b37-4858-8fcd-0542cca46f10",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 3360,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_100591d8-5918-4406-8611-b508f0dcb8a7",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 3600,
+      "durationTicks": 240,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_8fd953dd-5996-4ab4-80bb-2c2f37158109",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 4800,
+      "durationTicks": 240,
+      "lyric": "At"
+    },
+    {
+      "id": "trn_309c5fa8-df4e-4e4d-b34f-c4f43896f2c0",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 5040,
+      "durationTicks": 240,
+      "lyric": "night,"
+    },
+    {
+      "id": "trn_f932077a-23f5-4ce5-b5f9-47d7c934cc09",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 5280,
+      "durationTicks": 240,
+      "lyric": "dear"
+    },
+    {
+      "id": "trn_be32f5bb-16c0-468a-a76d-38d7ec44a8f6",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 5520,
+      "durationTicks": 240,
+      "lyric": "heart,"
+    },
+    {
+      "id": "trn_90ad51e8-0479-4baa-a7aa-2f6986e3cc2b",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 6720,
+      "durationTicks": 240,
+      "lyric": "for"
+    },
+    {
+      "id": "trn_ad2a84b4-5a30-4580-8740-46882ac000bf",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 6960,
+      "durationTicks": 240,
+      "lyric": "you"
+    },
+    {
+      "id": "trn_ce2fc3ec-9388-4370-8949-60025ae68abf",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 7200,
+      "durationTicks": 240,
+      "lyric": "I"
+    },
+    {
+      "id": "trn_d561fc7a-40c8-4132-add5-5201d97a77e4",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 7440,
+      "durationTicks": 240,
+      "lyric": "pine."
+    },
+    {
+      "id": "trn_2714fe2a-3003-46c4-8947-f4f1782af851",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 8640,
+      "durationTicks": 240,
+      "lyric": "In"
+    },
+    {
+      "id": "trn_d3392472-597e-47b3-9052-7b789d9660a3",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 8880,
+      "durationTicks": 240,
+      "lyric": "all"
+    },
+    {
+      "id": "trn_d52a1a84-da8c-4c09-b2c0-53d1facf2224",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 9120,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_63114f9a-0ce1-4672-9432-4b2a18e1a176",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 9360,
+      "durationTicks": 240,
+      "lyric": "dreams,"
+    },
+    {
+      "id": "trn_c8198652-007f-4b24-8dc4-9c819fd59696",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 10560,
+      "durationTicks": 240,
+      "lyric": "your"
+    },
+    {
+      "id": "trn_3aec9f21-cf44-4583-9eea-ad81ea3bc7bf",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 10800,
+      "durationTicks": 240,
+      "lyric": "fair"
+    },
+    {
+      "id": "trn_15fbe67f-3067-4852-b702-ecd202012a73",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 11040,
+      "durationTicks": 240,
+      "lyric": "face"
+    },
+    {
+      "id": "trn_d4b61264-7fa3-4ced-a201-8c453c2bedfc",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 11280,
+      "durationTicks": 480,
+      "lyric": "beams."
+    },
+    {
+      "id": "trn_ec71f06a-5c46-4576-b842-8b55f8439af7",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 68,
+      "startTick": 11760,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_7ea4d1a1-e9da-48b5-bcab-2a4c8249f9ae",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 68,
+      "startTick": 12000,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_baefb35a-c4bb-4813-b1f9-0c280a9f9d3b",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 12241,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_15886948-b539-4d2c-9bb2-6689fee566b0",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 12480,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_86a2c3b0-9ac1-4a2b-ab20-e0714b80b1e2",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 74,
+      "startTick": 12720,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_c362512e-341e-449b-8c2e-c26b4a8b962f",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 12960,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_4fa673c1-6700-4b9d-bca6-04d0cd6f5ba7",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 13200,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_c384b85d-778e-47a8-983d-50b3ac8bba81",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 13440,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_29f21bc2-58ef-4c0e-ad7b-873bb2a449e7",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 13680,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_af6c29ba-d6be-41ce-9e15-735935e4b5ca",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 13920,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_b3498ac7-3a9c-4f1b-9c3d-c8f3f9af3861",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 14161,
+      "durationTicks": 240,
+      "lyric": "line,"
+    },
+    {
+      "id": "trn_90ec0529-2d90-456b-9630-7b0fc5ad5ead",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 72,
+      "startTick": 14400,
+      "durationTicks": 240,
+      "lyric": "sweet"
+    },
+    {
+      "id": "trn_36fbb15f-a2a8-4b14-b123-a312918cf8df",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 71,
+      "startTick": 14640,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_03bf72e6-85ae-436d-a2ce-7ded569307e0",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 70,
+      "startTick": 14880,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_5c023dac-7095-47a8-b27c-5d3ef777e992",
+      "partId": "trp_e5efc4f7-394f-4b72-aa8d-657e694b9eb0",
+      "midi": 69,
+      "startTick": 15120,
+      "durationTicks": 960,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_dcf84a28-0512-4a90-8f72-1dc9acc95d7c",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 69,
+      "startTick": 1,
+      "durationTicks": 240,
+      "lyric": "Sweet"
+    },
+    {
+      "id": "trn_3a563521-fc3c-4070-9eea-eca0a0f5076f",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 67,
+      "startTick": 240,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_af32d474-7434-45f8-b12e-8b17034370c3",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 480,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_c6c4a3a4-c5b5-464b-a317-7085cc8423e1",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 721,
+      "durationTicks": 1199,
+      "lyric": "line,"
+    },
+    {
+      "id": "trn_19f3f296-7697-4a9e-8c89-44e48fca345a",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 1920,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_bde492da-f0d1-4151-9cb9-c9969d187fd4",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 2160,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_6dd0c9af-3d2e-4fbd-9da7-c72245de8364",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 61,
+      "startTick": 2400,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_eceed788-fa32-4f62-a891-48f8b0107e2f",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 2641,
+      "durationTicks": 1199,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_519c37fc-9fb6-49e2-8f4d-db1ac064ab26",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 3840,
+      "durationTicks": 240,
+      "lyric": "At"
+    },
+    {
+      "id": "trn_444cf7f3-68c5-464a-a392-abb9cd1a68fa",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 4080,
+      "durationTicks": 240,
+      "lyric": "night"
+    },
+    {
+      "id": "trn_720d32d7-991a-40e0-9306-39a7c43a9f1e",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 4320,
+      "durationTicks": 240,
+      "lyric": "dear"
+    },
+    {
+      "id": "trn_165dce61-6d8b-44ef-b5ec-bf8c2ced6024",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 4561,
+      "durationTicks": 720,
+      "lyric": "heart,"
+    },
+    {
+      "id": "trn_97ad2b37-b334-47c9-b344-45031b0a7125",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 63,
+      "startTick": 5280,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_d4a75e90-9da2-4169-a3ad-88180a62b8a6",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 5520,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ffaca805-1e18-488a-a3a9-0741c1a4cacf",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 5760,
+      "durationTicks": 240,
+      "lyric": "for"
+    },
+    {
+      "id": "trn_b799623c-d593-463a-ad54-1937c0ef36be",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 6000,
+      "durationTicks": 240,
+      "lyric": "you"
+    },
+    {
+      "id": "trn_f86c86b2-5630-4b16-a3aa-68c1ec290745",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 59,
+      "startTick": 6240,
+      "durationTicks": 240,
+      "lyric": "I"
+    },
+    {
+      "id": "trn_28903cdb-4e4c-45c6-8196-629a339aecaf",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 60,
+      "startTick": 6481,
+      "durationTicks": 1199,
+      "lyric": "pine."
+    },
+    {
+      "id": "trn_d9d095f5-e8f9-4a52-a73d-429f4014574c",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 69,
+      "startTick": 7680,
+      "durationTicks": 240,
+      "lyric": "In"
+    },
+    {
+      "id": "trn_e866f25c-2a18-4560-a446-76f49fcbcf28",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 67,
+      "startTick": 7920,
+      "durationTicks": 240,
+      "lyric": "all"
+    },
+    {
+      "id": "trn_3c1959d5-735e-4c3b-a546-f1ce4fbee595",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 60,
+      "startTick": 8160,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_8e389b5d-180f-4652-a5b4-67c91b32a2ef",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 8401,
+      "durationTicks": 1199,
+      "lyric": "dreams,"
+    },
+    {
+      "id": "trn_a350f2ac-dc4d-4fe7-bf45-6f5184f8e308",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 9600,
+      "durationTicks": 240,
+      "lyric": "your"
+    },
+    {
+      "id": "trn_84ddecf9-5531-45f0-b096-051f9a8c8f14",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 9840,
+      "durationTicks": 240,
+      "lyric": "fair"
+    },
+    {
+      "id": "trn_a158b96f-99bd-46f6-9c39-cf54627c8810",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 61,
+      "startTick": 10080,
+      "durationTicks": 240,
+      "lyric": "face"
+    },
+    {
+      "id": "trn_0d84e643-42ea-49ce-b1ed-b1509d358246",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 10321,
+      "durationTicks": 1440,
+      "lyric": "beams."
+    },
+    {
+      "id": "trn_fdbcee23-67ee-4805-8815-aac2324a68b2",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 11760,
+      "durationTicks": 240,
+      "lyric": "You're"
+    },
+    {
+      "id": "trn_59a15c74-c380-4618-99c5-50a25041c335",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 12000,
+      "durationTicks": 240,
+      "lyric": "the"
+    },
+    {
+      "id": "trn_af6daebe-d75a-4a78-af70-d25e1161597c",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 60,
+      "startTick": 12241,
+      "durationTicks": 240,
+      "lyric": "flow"
+    },
+    {
+      "id": "trn_0e516d0b-08a3-4293-bd99-3f1f1037f378",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 12480,
+      "durationTicks": 240,
+      "lyric": "er"
+    },
+    {
+      "id": "trn_159daaa2-f5ca-40ce-b4c6-d3d56f0c25cb",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 70,
+      "startTick": 12720,
+      "durationTicks": 240,
+      "lyric": "of"
+    },
+    {
+      "id": "trn_784c012d-4519-421b-8e1d-f52245c7460a",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 69,
+      "startTick": 12960,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_a8e8d8e1-328b-41b2-9001-ff79728a940a",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 67,
+      "startTick": 13200,
+      "durationTicks": 240,
+      "lyric": "heart,"
+    },
+    {
+      "id": "trn_f076585e-435c-4929-be6d-63574d4beabd",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 62,
+      "startTick": 13440,
+      "durationTicks": 240,
+      "lyric": "sweet"
+    },
+    {
+      "id": "trn_73981048-3f0b-45e5-a6cb-95a3fae28d9f",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 64,
+      "startTick": 13680,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_e51b4622-ad88-42d4-a7bb-1c9cdb832e63",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 60,
+      "startTick": 13920,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_cdb6340b-28da-4519-9a70-9f2352985981",
+      "partId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+      "midi": 65,
+      "startTick": 14161,
+      "durationTicks": 1920,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_f7497d0d-1ffb-40df-8a57-02d0304ce479",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 960,
+      "durationTicks": 240,
+      "lyric": "Sweet"
+    },
+    {
+      "id": "trn_37e6e85f-3d7e-4075-8b5c-b2bbb2e12188",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 62,
+      "startTick": 1200,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_8bdd6579-4a0a-48a4-9ab1-8905988166e5",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 61,
+      "startTick": 1440,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_d0a3b825-2067-4438-aad3-292429cee3ff",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 60,
+      "startTick": 1680,
+      "durationTicks": 240,
+      "lyric": "line,"
+    },
+    {
+      "id": "trn_de5b78e3-6b0a-4b94-b7ab-510bf1da793c",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 2880,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_bb9d3d35-27eb-4142-a6b1-6ccbee3cf38b",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 3120,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_5969a73b-0d50-4eef-8392-715205613b0f",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 3360,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_4ac0a810-b442-4de9-aa69-046543b047ef",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 3600,
+      "durationTicks": 240,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_a6726894-063d-433a-aa29-cf15c8eddfe8",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 67,
+      "startTick": 4800,
+      "durationTicks": 240,
+      "lyric": "At"
+    },
+    {
+      "id": "trn_7cd1cfd6-e4ae-418d-8165-a66ded85ef29",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 67,
+      "startTick": 5040,
+      "durationTicks": 240,
+      "lyric": "night,"
+    },
+    {
+      "id": "trn_9c68869e-fb54-4266-be52-118af976d168",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 5280,
+      "durationTicks": 240,
+      "lyric": "dear"
+    },
+    {
+      "id": "trn_e76d45d5-b928-451f-bb15-01ba0b1d9b0c",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 67,
+      "startTick": 5520,
+      "durationTicks": 240,
+      "lyric": "heart,"
+    },
+    {
+      "id": "trn_07cac860-6c89-4c88-b73b-1d32e69ffbf9",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 6720,
+      "durationTicks": 240,
+      "lyric": "for"
+    },
+    {
+      "id": "trn_a87f9738-13f3-4892-bb25-a81b1f547f27",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 6960,
+      "durationTicks": 240,
+      "lyric": "you"
+    },
+    {
+      "id": "trn_ab2de05f-5700-41ed-a790-bfed9fe96a6e",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 7200,
+      "durationTicks": 240,
+      "lyric": "I"
+    },
+    {
+      "id": "trn_e79f4bb1-a8cb-410a-92af-6f1fe078f2c3",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 64,
+      "startTick": 7440,
+      "durationTicks": 240,
+      "lyric": "pine."
+    },
+    {
+      "id": "trn_d1b72a7a-0722-49f0-a2bf-5a30cda225b8",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 8640,
+      "durationTicks": 240,
+      "lyric": "In"
+    },
+    {
+      "id": "trn_fb836aee-ead1-41db-816e-ccbe9019a66f",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 62,
+      "startTick": 8880,
+      "durationTicks": 240,
+      "lyric": "all"
+    },
+    {
+      "id": "trn_87d00270-7d03-4746-a20a-80c6c82e8c50",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 61,
+      "startTick": 9120,
+      "durationTicks": 240,
+      "lyric": "my"
+    },
+    {
+      "id": "trn_b336a036-eb8d-460c-825b-b6a9673f586b",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 60,
+      "startTick": 9360,
+      "durationTicks": 240,
+      "lyric": "dreams,"
+    },
+    {
+      "id": "trn_92918326-5216-4e46-b90a-1b6805939539",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 10560,
+      "durationTicks": 240,
+      "lyric": "your"
+    },
+    {
+      "id": "trn_0000f311-e609-41ab-b907-20ecf5db2599",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 10800,
+      "durationTicks": 240,
+      "lyric": "fair"
+    },
+    {
+      "id": "trn_35d1f295-5263-4f72-a736-be312014d330",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 11040,
+      "durationTicks": 240,
+      "lyric": "face"
+    },
+    {
+      "id": "trn_09e9a83d-2816-41ac-9463-dd2f84f80992",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 11280,
+      "durationTicks": 480,
+      "lyric": "beams."
+    },
+    {
+      "id": "trn_9b6010ef-22e1-46c7-aa33-2855b86eead4",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 62,
+      "startTick": 11760,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_50fb79ab-12e6-4ae1-9019-0f93ce55d5a5",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 12000,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_2b0729ca-b844-4e79-a3e0-73d68e289abe",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 12241,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_82db46b6-8979-4e14-8672-a328ea331902",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 12480,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_5524f909-3475-4601-ba9f-30c52ae68afb",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 12720,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_4286c8bf-155f-4223-9a8b-ebe2b3815159",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 66,
+      "startTick": 12960,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_cd6e4d4c-2b9b-4250-a6bd-8e669318da3e",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 13200,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_2a27d67e-76d6-4fd8-afed-2583aff1faaf",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 65,
+      "startTick": 13440,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ceac4e7c-20cb-42dc-94a8-ed4fc08b0a73",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 67,
+      "startTick": 13680,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_06ec0b72-214f-4533-9046-a8418120155b",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 64,
+      "startTick": 13920,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_3765a91d-1374-4786-a10f-a790e6dec0ca",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 60,
+      "startTick": 14161,
+      "durationTicks": 240,
+      "lyric": "line,"
+    },
+    {
+      "id": "trn_81090ce0-bf5b-46a6-8191-001412c23c0e",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 63,
+      "startTick": 14400,
+      "durationTicks": 240,
+      "lyric": "sweet"
+    },
+    {
+      "id": "trn_0a0bcb3a-bce9-4d51-8dd7-9153c01ed751",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 62,
+      "startTick": 14640,
+      "durationTicks": 240,
+      "lyric": "A"
+    },
+    {
+      "id": "trn_c6dc6db2-c981-43c7-bd78-1adc3764ae5c",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 61,
+      "startTick": 14880,
+      "durationTicks": 240,
+      "lyric": "de"
+    },
+    {
+      "id": "trn_9113a239-81fa-46d1-b1ac-1e04b3a6175a",
+      "partId": "trp_30fe053f-75a8-43b5-ae80-44445c391b25",
+      "midi": 60,
+      "startTick": 15120,
+      "durationTicks": 960,
+      "lyric": "line."
+    },
+    {
+      "id": "trn_ef4a8ca7-d3d5-4e62-acc9-85917fb0435f",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 960,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_8f74c841-334e-4717-bccb-e80efdbb3d70",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 56,
+      "startTick": 1200,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_0c37ecef-5d90-4732-a5ac-7c1bc65a262d",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 1440,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_1c4c8ac6-ed7d-4aa6-a3ce-52fb9df8a89c",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 1680,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_d0302abd-333e-447a-a989-2846a9e7aa48",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 58,
+      "startTick": 2880,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_bbad8ad2-e7ee-4c8b-986f-ce4345e127d5",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 3120,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_05ba51ae-9873-4165-8b63-480a9591bc37",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 3360,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_9d246d9a-f820-4e9e-abaa-84c0c186906a",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 3600,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ff24e2ef-affc-46f0-8d07-7e48d1a7bc66",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 4800,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_b4870a90-701e-452d-b059-2ed92774af5c",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 5040,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_d26a2a75-5dd7-482e-8d32-639386fce87c",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 5280,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_5ae6990e-c6e8-4e16-83af-d5cf83918b07",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 5520,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_22535325-e95e-4a74-ab5b-7e9915af242a",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 6720,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_5a1414c9-5391-4b09-a8f3-638485197880",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 54,
+      "startTick": 6960,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_454082b5-cd73-49b0-b4df-08400ce49448",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 54,
+      "startTick": 7200,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_44381377-0d83-4079-a485-fa90217b3866",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 7440,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_f6ba9b55-83bd-4431-9f2d-f325a6d001a5",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 8640,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_7d32c226-451b-4eaa-ba0a-a2075ee03d52",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 56,
+      "startTick": 8880,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_05da6fa3-caab-4f0f-b6b7-8b7a41e7fb28",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 9120,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_f0ec7f1b-598f-4fe5-9b59-8e5018d478e8",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 9360,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_8af31d97-2a1a-439b-a9c0-b2d88ad8ec2a",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 58,
+      "startTick": 10560,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_512789cb-0c27-4745-a008-dc30521e1827",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 10800,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_18b87ae5-c60c-498f-9601-8f2bb5399e36",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 11040,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_32ccce86-0e98-44ef-ac43-46a83c1c2340",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 11280,
+      "durationTicks": 480
+    },
+    {
+      "id": "trn_b1054ce0-0012-43dd-a395-d64e70af0145",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 59,
+      "startTick": 11760,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ccdfd89c-a1bf-4676-b728-72e10d8dd641",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 58,
+      "startTick": 12000,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ec304927-9dfd-4571-be03-c9566f9f798c",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 12241,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_96a61054-3fe3-4274-9ce1-6a698be825e0",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 12480,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_95a40df9-0058-43cc-b6fd-fead442c5584",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 58,
+      "startTick": 12720,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_61a18e42-9f14-4177-911e-0f6a19b8a729",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 62,
+      "startTick": 12960,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_937e156d-8f11-4daf-879d-4be2ffbb0646",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 62,
+      "startTick": 13200,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_117640b8-d733-4416-950f-a36a31192d44",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 13440,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_32e47989-6ae2-4d8e-bca1-eb8f12d274c8",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 60,
+      "startTick": 13680,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_c4d2a3c0-5bdd-4d24-bbcf-e47f0ce4106e",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 13920,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_ea2bb646-24e1-48be-8abe-9b0d3bcd95b9",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 14161,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_a351844f-6e1f-4fd3-ba9c-3134e36ccb17",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 57,
+      "startTick": 14400,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_e512cf0a-3e9c-4e3f-8112-ca48afcebe26",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 56,
+      "startTick": 14640,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_43b0ef60-cad9-4765-b6b3-ebebde63edac",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 55,
+      "startTick": 14880,
+      "durationTicks": 240
+    },
+    {
+      "id": "trn_3717cdf0-e636-416e-9ac1-6384b5f150a4",
+      "partId": "trp_529fa000-716f-43f1-9b29-565a96c4e85a",
+      "midi": 53,
+      "startTick": 15120,
+      "durationTicks": 960
+    }
+  ],
+  "melodyPasses": [],
+  "harmonySketch": [],
+  "localEntryId": null,
+  "view": {
+    "cellW": 28,
+    "cellH": 14,
+    "scrollX": 0,
+    "scrollY": 322,
+    "lockPiano": false,
+    "mode": "compose",
+    "activePartId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+    "melodyPartId": "trp_87843b15-2a81-47aa-a014-0652aa92b8e8",
+    "playheadTick": 0,
+    "focusActivePart": false,
+    "scaleHighlight": true,
+    "roleDisplay": "off",
+    "showNoteNames": true,
+    "showNoteLyrics": true,
+    "scoreSurface": "roll",
+    "sheetZoom": 40,
+    "sheetShowLyrics": true,
+    "sheetLayout": "continuous",
+    "sheetMeasureSizing": "dynamic",
+    "sheetNoteColors": false,
+    "sheetStaveGap": "tight",
+    "sheetMeasureScale": 1,
+    "sheetNoteSpacing": 1,
+    "sheetBeatStretch": 1,
+    "sheetStaveGapFine": 0.85,
+    "sheetSystemGap": 0.65,
+    "sheetTopMargin": 0.85,
+    "sheetLyricSize": 11,
+    "sheetLyricOffsets": {},
+    "sheetPlaybackHighlight": true,
+    "sheetShowSketchChords": false,
+    "sheetShowDetectedChords": false,
+    "sheetShowEngravedHeader": true,
+    "sheetShowEngravedFooter": true,
+    "sheetPadding": 1,
+    "sheetMinBarWidth": 1,
+    "sheetClefGutter": 0.9,
+    "sheetTimeFactor": 1,
+    "sheetBottomMargin": 0.75,
+    "sheetMarginLeftIn": 0.3,
+    "sheetMarginRightIn": 0.3,
+    "sheetMarginTopIn": 0.3,
+    "sheetMarginBottomIn": 0.3,
+    "sheetEngravingScale": 0.95,
+    "sheetScoreScale": 0.95,
+    "sheetPageWidthIn": 8.5,
+    "sheetPageHeightIn": 11,
+    "sheetPageDpi": 96,
+    "sheetMusicFont": "bravura",
+    "sheetTextFont": "academico",
+    "sheetStaffLineWeight": 1,
+    "sheetPartNames": false,
+    "sheetFormatByLayout": {},
+    "sheetScrollX": 0,
+    "sheetScrollY": 0
+  },
+  "createdAt": 1792087421194,
+  "updatedAt": 1792087421194
+}

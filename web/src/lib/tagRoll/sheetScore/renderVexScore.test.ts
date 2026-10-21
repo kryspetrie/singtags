@@ -399,4 +399,140 @@ describe('renderVexSheetScore', () => {
     expect(pageA.width).toBe(pageB.width)
     host.remove()
   }, 30000)
+
+  it('draws part names only on the first system and keeps them on-canvas', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.lengthTicks = TAG_ROLL_PPQ * 32
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const tenor = p.parts.find((x) => x.name === 'Tenor')!
+    const bari = p.parts.find((x) => x.name === 'Bari')!
+    const bass = p.parts.find((x) => x.name === 'Bass')!
+    p.notes = []
+    for (let i = 0; i < 16; i++) {
+      const t = i * TAG_ROLL_PPQ * 2
+      p.notes.push(
+        { id: `t${i}`, partId: tenor.id, midi: 67, startTick: t, durationTicks: TAG_ROLL_PPQ },
+        { id: `l${i}`, partId: lead.id, midi: 60, startTick: t, durationTicks: TAG_ROLL_PPQ },
+        { id: `r${i}`, partId: bari.id, midi: 55, startTick: t, durationTicks: TAG_ROLL_PPQ },
+        { id: `b${i}`, partId: bass.id, midi: 48, startTick: t, durationTicks: TAG_ROLL_PPQ },
+      )
+    }
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const layout = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 56,
+      sheetLayout: 'page',
+      pageWidthIn: 5.5,
+      pageHeightIn: 11,
+      pageDpi: 96,
+      scoreScale: 1,
+      showPartNames: true,
+      marginLeftIn: 0.3,
+    })
+    expect(Math.max(...layout.measures.map((m) => m.systemIndex))).toBeGreaterThan(0)
+
+    const labels = [...host.querySelectorAll('text')]
+      .map((el) => ({
+        text: (el.textContent ?? '').trim(),
+        x: Number(el.getAttribute('x') ?? NaN),
+      }))
+      .filter((t) => /Tenor|Lead|Bari|Bass/.test(t.text))
+
+    // One label per staff on system 0 only (joined "Tenor · Lead" / "Bari · Bass").
+    expect(labels.length).toBe(2)
+    expect(labels.some((l) => l.text.includes('Tenor'))).toBe(true)
+    expect(labels.some((l) => l.text.includes('Bass') || l.text.includes('Bari'))).toBe(true)
+    for (const l of labels) {
+      expect(Number.isFinite(l.x)).toBe(true)
+      expect(l.x).toBeGreaterThanOrEqual(0)
+    }
+    host.remove()
+  }, 30000)
+
+  it('trims trailing empty measures from the engraved score', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.lengthTicks = TAG_ROLL_PPQ * 4 * 8
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      {
+        id: 'n0',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const layout = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 40,
+      sheetLayout: 'continuous',
+    })
+    expect(layout.measures).toHaveLength(1)
+    expect(layout.measures[0]!.endTick).toBe(TAG_ROLL_PPQ * 4)
+    host.remove()
+  }, 30000)
+
+  it('widens system gaps for stacked sheet chord marks', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.lengthTicks = TAG_ROLL_PPQ * 32
+    p.view.sheetShowSketchChords = true
+    p.view.sheetChordMarkStyle = 'boxed'
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = []
+    for (let i = 0; i < 16; i++) {
+      p.notes.push({
+        id: `n${i}`,
+        partId: lead.id,
+        midi: 60,
+        startTick: i * TAG_ROLL_PPQ * 2,
+        durationTicks: TAG_ROLL_PPQ,
+      })
+    }
+    // Dense overlapping boxed marks on system 0 force extra clearance.
+    p.harmonySketch = Array.from({ length: 8 }, (_, i) => ({
+      id: `c${i}`,
+      startTick: i * 60,
+      endTick: i * 60 + 120,
+      rootPc: i % 12,
+      quality: 'major' as const,
+      locked: true,
+    }))
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const withChords = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 56,
+      sheetLayout: 'page',
+      pageWidthIn: 5.5,
+      pageHeightIn: 11,
+      pageDpi: 96,
+      systemGap: 0.5,
+    })
+    p.view.sheetShowSketchChords = false
+    const without = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 56,
+      sheetLayout: 'page',
+      pageWidthIn: 5.5,
+      pageHeightIn: 11,
+      pageDpi: 96,
+      systemGap: 0.5,
+    })
+    const si1With = withChords.measures.find((m) => m.systemIndex === 1)
+    const si1Without = without.measures.find((m) => m.systemIndex === 1)
+    expect(si1With).toBeTruthy()
+    expect(si1Without).toBeTruthy()
+    expect(si1With!.y).toBeGreaterThan(si1Without!.y)
+    host.remove()
+  }, 30000)
 })

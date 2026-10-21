@@ -1,6 +1,7 @@
 /**
- * Ephemeral harmony preview — audition before Apply (popover + Harmonize).
+ * Ephemeral harmony preview — audition before Apply (Chords panel / Coach).
  * Not persisted; overlays locked sketch for transport / lane chrome only.
+ * `source: 'popover'` is legacy (old Sketch dock); Chords emits `harmonize`.
  */
 import type { HarmonySketchQuality, HarmonySketchSpan } from './types'
 

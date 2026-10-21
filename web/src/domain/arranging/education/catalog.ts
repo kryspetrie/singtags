@@ -207,6 +207,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     citations: [bam('harmony'), pri('function')],
   },
   {
+    id: 'dual_roman',
+    term: 'Two names for one chord',
+    short:
+      'When function and degree disagree, the primary roman is the one we trust and the parenthetical is the other dialect — same chord.',
+    citations: [bam('harmony'), pri('function')],
+  },
+  {
     id: 'classic_cadences',
     term: 'Classic cadences',
     short: 'Textbook barbershop closes and highways: V7→I, II7→V7→I, I7→IV, plagal IV→I, tag penultimate V7.',

@@ -11,6 +11,7 @@ import {
   authoritativeSketch,
   blockChordMidis,
   carveInsertSketchSpan,
+  splitSketchSpanAt,
   mergeDetectIntoSketchHoles,
   pillarsFromHarmonySketch,
   parseHarmonyEntry,
@@ -21,7 +22,11 @@ import {
   suggestHarmonyEntries,
   upsertSketchSpan,
 } from './harmonySketch'
-import { buildHarmonyStripRows, buildHarmonyStripSegments } from './harmonyStrip'
+import {
+  buildHarmonyStripRows,
+  buildHarmonyStripSegments,
+  stacksToDetectHoles,
+} from './harmonyStrip'
 import type { ChordStack } from '../../domain/arranging/types'
 
 describe('harmonySketch', () => {
@@ -136,6 +141,23 @@ describe('harmonySketch', () => {
     })
   })
 
+  it('resolveSketchApplyTarget unions multi-select without a single spanId', () => {
+    const hit = resolveSketchApplyTarget({
+      playheadTick: 0,
+      measureTicks: 1920,
+      selectedSpans: [
+        { id: 'a', startTick: 0, endTick: 480 },
+        { id: 'b', startTick: 480, endTick: 960 },
+      ],
+    })
+    expect(hit).toMatchObject({
+      startTick: 0,
+      endTick: 960,
+      source: 'selectedSketch',
+    })
+    expect(hit.spanId).toBeUndefined()
+  })
+
   it('resolveSketchApplyTarget prefers selected Sketch, then inspect, then moment', () => {
     expect(
       resolveSketchApplyTarget({
@@ -234,6 +256,55 @@ describe('harmonySketch', () => {
     ])
     expect(sketch).toHaveLength(1)
     expect(sketch[0]).toMatchObject({ rootPc: 7, quality: 'seventh', locked: true })
+  })
+})
+
+describe('splitSketchSpanAt', () => {
+  it('splits a locked span into two identical chords', () => {
+    const base = upsertSketchSpan([], {
+      id: 'home',
+      startTick: 0,
+      endTick: 1920,
+      rootPc: 2,
+      quality: 'seventh',
+      source: 'user',
+      locked: true,
+      pillar: true,
+    })
+    const out = splitSketchSpanAt(base, 'home', 960)
+    expect(out).toHaveLength(2)
+    expect(out![0]).toMatchObject({
+      id: 'home',
+      startTick: 0,
+      endTick: 960,
+      rootPc: 2,
+      quality: 'seventh',
+      pillar: true,
+    })
+    expect(out![1]).toMatchObject({
+      startTick: 960,
+      endTick: 1920,
+      rootPc: 2,
+      quality: 'seventh',
+      pillar: true,
+      locked: true,
+    })
+    expect(out![1]!.id).not.toBe('home')
+  })
+
+  it('no-ops at boundaries or for unlocked spans', () => {
+    const base = upsertSketchSpan([], {
+      id: 'home',
+      startTick: 0,
+      endTick: 480,
+      rootPc: 0,
+      quality: 'major',
+      source: 'user',
+      locked: true,
+    })
+    expect(splitSketchSpanAt(base, 'home', 0)).toBeNull()
+    expect(splitSketchSpanAt(base, 'home', 480)).toBeNull()
+    expect(splitSketchSpanAt(base, 'missing', 240)).toBeNull()
   })
 })
 
@@ -349,6 +420,44 @@ describe('absorbHarmonySpanRemoval', () => {
 })
 
 describe('harmonyStrip', () => {
+  it('stacksToDetectHoles omits unknown natures (no coerce to major)', () => {
+    const holes = stacksToDetectHoles(
+      [
+        {
+          id: 'u',
+          startTick: 0,
+          durationTicks: 480,
+          rootPc: 0,
+          natureId: 'unknown',
+          voicing: '',
+          spread: false,
+          layer: 'primary',
+          scfGroup: null,
+          pillarId: null,
+          midi: { tenor: 67, lead: 60, bari: 55, bass: 48 },
+          ruleTags: [],
+        },
+        {
+          id: 'ok',
+          startTick: 480,
+          durationTicks: 480,
+          rootPc: 0,
+          natureId: 'seventh',
+          voicing: '',
+          spread: false,
+          layer: 'primary',
+          scfGroup: null,
+          pillarId: null,
+          midi: { tenor: 70, lead: 60, bari: 58, bass: 48 },
+          ruleTags: [],
+        },
+      ],
+      1920,
+    )
+    expect(holes).toHaveLength(1)
+    expect(holes[0]).toMatchObject({ startTick: 480, quality: 'seventh' })
+  })
+
   it('buildHarmonyStripSegments prefers sketch over detect', () => {
     const stacks: ChordStack[] = [
       {

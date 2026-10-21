@@ -7,7 +7,6 @@ import { TAG_ROLL_PPQ } from './types'
 
 const downloadBlob = vi.fn()
 const buildZip = vi.fn((files: Array<{ name: string; data: Uint8Array }>) => {
-  // Encode filenames so tests can assert zip contents without parsing zip.
   const enc = new TextEncoder()
   return enc.encode(files.map((f) => f.name).join('|'))
 })
@@ -23,12 +22,26 @@ vi.mock('./sheetScore/renderVexScore', () => ({
   renderVexSheetScore: (...args: unknown[]) => renderVexSheetScore(...args),
 }))
 
+vi.mock('./sheetExportFonts', () => ({
+  injectSheetExportFonts: vi.fn(async () => undefined),
+  sheetExportFontNames: () => ['Bravura', 'Academico'],
+}))
+
+vi.mock('./sheetSvgTextToPaths', () => ({
+  convertSvgTextToPaths: vi.fn(async (svg: SVGSVGElement) => {
+    // Simulate outlining: leave a marker so tests can assert the vector path ran.
+    svg.setAttribute('data-text-outlined', '1')
+  }),
+}))
+
 const svgMock = vi.fn(async () => undefined)
+const addImageMock = vi.fn()
 
 vi.mock('jspdf', () => {
   class MockJsPDF {
     svg = svgMock
     addPage = vi.fn()
+    addImage = addImageMock
     setFillColor = vi.fn()
     rect = vi.fn()
     setTextColor = vi.fn()
@@ -54,6 +67,7 @@ function stubLayout(
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.setAttribute('width', String(opts.width))
   svg.setAttribute('height', String(opts.height))
+  svg.setAttribute('viewBox', `0 0 ${opts.width} ${opts.height}`)
   host.appendChild(svg)
   return {
     width: opts.width,
@@ -61,6 +75,7 @@ function stubLayout(
     contentOriginX: 0,
     contentOriginY: 0,
     systemBodyHeight: 120,
+    sizeScale: 1,
     marginsPx: { left: 28, right: 28, top: 28, bottom: 28 },
     measures: [],
     pages: opts.pages ?? [],
@@ -75,6 +90,7 @@ beforeEach(() => {
   buildZip.mockClear()
   renderVexSheetScore.mockReset()
   svgMock.mockClear()
+  addImageMock.mockClear()
   const ctxStub = {
     fillStyle: '',
     fillRect: vi.fn(),
@@ -82,6 +98,9 @@ beforeEach(() => {
     font: '',
     textAlign: 'left' as CanvasTextAlign,
     fillText: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    scale: vi.fn(),
   }
   HTMLCanvasElement.prototype.getContext = vi.fn(() => ctxStub as unknown as CanvasRenderingContext2D)
   HTMLCanvasElement.prototype.toBlob = function (
@@ -148,7 +167,7 @@ describe('sheetScoreExport', () => {
     expect(downloadBlob.mock.calls[0]![2]).toBe('application/zip')
   })
 
-  it('exports vector PDF via svg2pdf for continuous layout', async () => {
+  it('exports vector PDF via svg2pdf after outlining text', async () => {
     const p = createEmptyTagRollProject()
     p.view.sheetLayout = 'continuous'
     p.title = 'Vec'
@@ -156,13 +175,67 @@ describe('sheetScoreExport', () => {
       stubLayout(opts.host, { width: 1800, height: 360 }),
     )
     const { exportSheetPdfVector } = await import('./sheetScoreExport')
+    const { convertSvgTextToPaths } = await import('./sheetSvgTextToPaths')
     await exportSheetPdfVector(p)
+    expect(convertSvgTextToPaths).toHaveBeenCalled()
     expect(svgMock).toHaveBeenCalled()
+    const svgEl = svgMock.mock.calls[0]![0] as SVGSVGElement
+    // svg2pdf skips visibility:hidden — must stay visible while off-screen.
+    expect(svgEl.style.visibility).not.toBe('hidden')
+    expect(svgEl.style.display).not.toBe('none')
+    expect(addImageMock).not.toHaveBeenCalled()
     expect(downloadBlob.mock.calls[0]![1]).toBe('Vec-vector.pdf')
     expect(downloadBlob.mock.calls[0]![2]).toBe('application/pdf')
   })
 
-  it('exports raster PDF for page layout', async () => {
+  it('paints chord marks before vector PDF export', async () => {
+    const p = createEmptyTagRollProject()
+    p.view.sheetLayout = 'continuous'
+    p.view.sheetShowSketchChords = false
+    p.title = 'Chords'
+    p.harmonySketch = [
+      {
+        id: 's1',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ * 4,
+        rootPc: 0,
+        quality: 'seventh',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    let exportedSvg: SVGSVGElement | null = null
+    renderVexSheetScore.mockImplementation(async (opts: { host: HTMLElement }) => {
+      const lay = stubLayout(opts.host, { width: 800, height: 300 })
+      exportedSvg = opts.host.querySelector('svg')
+      return {
+        ...lay,
+        measures: [
+          {
+            measureIndex: 0,
+            startTick: 0,
+            endTick: TAG_ROLL_PPQ * 4,
+            x: 20,
+            y: 100,
+            width: 200,
+            systemIndex: 0,
+            noteStartX: 40,
+            noteEndX: 200,
+          },
+        ],
+        tickToPoint: (t: number) => ({
+          x: 40 + (t / (TAG_ROLL_PPQ * 4)) * 160,
+          y: 100,
+        }),
+      }
+    })
+    const { exportSheetPdfVector } = await import('./sheetScoreExport')
+    await exportSheetPdfVector(p)
+    expect(exportedSvg?.querySelector('[data-sheet-chord-marks]')).toBeTruthy()
+    expect(downloadBlob.mock.calls[0]![1]).toBe('Chords-vector.pdf')
+  })
+
+  it('exports 300 DPI raster PDF for page layout', async () => {
     const p = createEmptyTagRollProject()
     p.view.sheetLayout = 'page'
     p.title = 'Raster'
@@ -173,7 +246,8 @@ describe('sheetScoreExport', () => {
         pages: [{ index: 0, y: 0, width: 816, height: 1056 }],
       }),
     )
-    const { exportSheetPdfRaster } = await import('./sheetScoreExport')
+    const { exportSheetPdfRaster, SHEET_PDF_RASTER_DPI } = await import('./sheetScoreExport')
+    expect(SHEET_PDF_RASTER_DPI).toBe(300)
     await exportSheetPdfRaster(p)
     expect(downloadBlob.mock.calls[0]![1]).toBe('Raster.pdf')
     expect(downloadBlob.mock.calls[0]![2]).toBe('application/pdf')

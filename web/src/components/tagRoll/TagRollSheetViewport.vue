@@ -4,12 +4,14 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
-import { sketchLabel } from '../../lib/tagRoll/harmonySketch'
 import {
   buildSheetChordMarkBoxes,
-  type SheetChordMarkSpan,
+  collectSheetChordMarkSpans,
+  sheetChordMarkLayoutOpts,
 } from '../../lib/tagRoll/sheetChordMarks'
 import {
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX,
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
   TAG_ROLL_SHEET_ZOOM_MIN,
   type TagRollProject,
 } from '../../lib/tagRoll/types'
@@ -58,6 +60,7 @@ const emit = defineEmits<{
   scroll: [scrollX: number, scrollY: number]
   playhead: [tick: number]
   sheetZoom: [zoom: number]
+  sheetPageViewZoom: [zoom: number]
 }>()
 
 const wrapRef = ref<HTMLElement | null>(null)
@@ -99,13 +102,32 @@ const hasMetaFooter = computed(
 
 const isPageLayout = computed(() => sheetLayout.value === 'page')
 
+/** Page-mode display magnification (1 = 100%). Continuous always 1. */
+const pageViewZoom = computed(() => {
+  if (!isPageLayout.value) return 1
+  const z = props.project.view.sheetPageViewZoom ?? 1
+  return Math.max(
+    TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
+    Math.min(TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX, z),
+  )
+})
+
 const sheetSizeScale = computed(() => props.project.view.sheetScoreScale ?? 1)
+
+/**
+ * Page-view magnification (CSS scale). Engraving stays at base DPI — zoom only
+ * makes the paper look bigger/smaller, never reflows measures.
+ */
+const displayZoom = computed(() =>
+  isPageLayout.value ? pageViewZoom.value : 1,
+)
 
 /** Title band reserved in the score (page 1 / strip). 0 when header off. */
 const titleBandPx = computed(() =>
   estimateSheetTitleBandPx(props.project, hasMetaHeader.value, sheetSizeScale.value),
 )
 
+/** Format Size only — page-view zoom is a CSS scale on the scroller. */
 const sheetSizeStyle = computed(
   () => ({ '--sheet-size': String(sheetSizeScale.value) }) as Record<string, string>,
 )
@@ -122,6 +144,17 @@ const metaFooterH = computed(() =>
   hasMetaFooter.value && !isPageLayout.value
     ? Math.round(36 * sheetSizeScale.value)
     : 0,
+)
+
+/** Screen-space score height (layout × page-view zoom). */
+const scoreContentH = computed(() => {
+  const h = layout.value?.height ?? 0
+  return (h + metaHeaderH.value + metaFooterH.value) * displayZoom.value
+})
+
+/** Screen-space score width. */
+const scoreContentW = computed(
+  () => (layout.value?.width ?? 0) * displayZoom.value,
 )
 
 function minZoom(): number {
@@ -144,6 +177,19 @@ function emitZoom(z: number): void {
   emit('sheetZoom', next)
 }
 
+function clampPageViewZoom(z: number): number {
+  return Math.max(
+    TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
+    Math.min(TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX, Math.round(z * 100) / 100),
+  )
+}
+
+function emitPageViewZoom(z: number): void {
+  const next = clampPageViewZoom(z)
+  if (next === pageViewZoom.value) return
+  emit('sheetPageViewZoom', next)
+}
+
 /** If the viewport grew, bump zoom so measures still fill the width (equal continuous only). */
 function ensureFillWidth(): void {
   if (sheetLayout.value === 'page') return
@@ -161,15 +207,19 @@ function ensureScrollInBounds(): void {
   }
 }
 
-/** Media-bar ± time zoom — uses measured cssW so the fill floor cannot drift. */
+/**
+ * Media-bar ± time zoom.
+ * Page mode: magnify the rendered page. Continuous: px-per-beat density.
+ */
 function nudgeTimeZoom(delta: number): void {
+  if (isPageLayout.value) {
+    // Media bar uses ±2/±4 cell steps; map to ~10% page zoom steps.
+    const step = delta > 0 ? 0.1 : -0.1
+    emitPageViewZoom(pageViewZoom.value + step * Math.max(1, Math.round(Math.abs(delta) / 2)))
+    return
+  }
   emitZoom(sheetZoom.value + delta)
 }
-
-const scoreContentH = computed(() => {
-  const h = layout.value?.height ?? 0
-  return h + metaHeaderH.value + metaFooterH.value
-})
 
 const marginsPx = computed(
   () =>
@@ -209,6 +259,14 @@ const continuousMetaPadStyle = computed(() => ({
   boxSizing: 'border-box' as const,
 }))
 
+/** Horizontal offset so a narrow page sits centered (page layout only). */
+const centerPadX = computed(() => {
+  if (!isPageLayout.value) return 0
+  const w = scoreContentW.value
+  if (w <= 0 || w >= cssW.value) return 0
+  return Math.floor((cssW.value - w) / 2)
+})
+
 /** Vertical offset so a short score sits centered in the viewport. */
 const centerPadY = computed(() => {
   const h = scoreContentH.value
@@ -217,9 +275,22 @@ const centerPadY = computed(() => {
   return Math.floor((avail - h) / 2)
 })
 
-const scrollerTransform = computed(
-  () => `translate(${-scrollX.value}px, ${centerPadY.value - scrollY.value}px)`,
-)
+/**
+ * Pan in screen px, then magnify page-view zoom. Engraving coords stay base;
+ * scale makes the whole paper (notes, frames, overlays) grow together.
+ */
+const scrollerStyle = computed(() => {
+  const tx = centerPadX.value - scrollX.value
+  const ty = centerPadY.value - scrollY.value
+  const z = displayZoom.value
+  return {
+    transform:
+      Math.abs(z - 1) < 1e-6
+        ? `translate(${tx}px, ${ty}px)`
+        : `translate(${tx}px, ${ty}px) scale(${z})`,
+    transformOrigin: '0 0',
+  } as Record<string, string>
+})
 
 type Ptr = { id: number; x: number; y: number }
 const pointers = new Map<number, Ptr>()
@@ -249,11 +320,14 @@ function localPoint(e: PointerEvent): { x: number; y: number } | null {
   return { x: e.clientX - r.left, y: e.clientY - r.top }
 }
 
-/** Content coords inside the VexFlow host (below meta header). */
+/** Content coords inside the VexFlow host (below meta header; base engraving space). */
 function contentPointFromLocal(local: { x: number; y: number }): { x: number; y: number } {
+  const z = displayZoom.value
   return {
-    x: local.x + scrollX.value,
-    y: local.y - RULER_H - centerPadY.value + scrollY.value - metaHeaderH.value,
+    x: (local.x - centerPadX.value + scrollX.value) / z,
+    y:
+      (local.y - RULER_H - centerPadY.value + scrollY.value - metaHeaderH.value * z) /
+      z,
   }
 }
 
@@ -302,7 +376,7 @@ const playbackHighlights = computed((): PlaybackHighlight[] => {
 })
 
 function playheadScreenX(): number {
-  return playheadPoint.value.x - scrollX.value
+  return playheadPoint.value.x * displayZoom.value - scrollX.value + centerPadX.value
 }
 
 function playheadHit(local: { x: number; y: number }): boolean {
@@ -312,10 +386,11 @@ function playheadHit(local: { x: number; y: number }): boolean {
   const pt = playheadPoint.value
   const content = contentPointFromLocal(local)
   const rowH = lay.systemBodyHeight
+  const hit = PLAYHEAD_HIT / displayZoom.value
   return (
-    Math.abs(content.x - pt.x) <= PLAYHEAD_HIT &&
-    content.y >= pt.y - 4 &&
-    content.y <= pt.y + rowH + 4
+    Math.abs(content.x - pt.x) <= hit &&
+    content.y >= pt.y - 4 / displayZoom.value &&
+    content.y <= pt.y + rowH + 4 / displayZoom.value
   )
 }
 
@@ -327,7 +402,7 @@ function tickFromLocal(local: { x: number; y: number }): number {
 }
 
 function maxScrollX(): number {
-  const w = layout.value?.width ?? cssW.value
+  const w = scoreContentW.value || cssW.value
   return Math.max(0, w - cssW.value)
 }
 
@@ -351,6 +426,7 @@ async function rerender(): Promise<void> {
   const gen = ++renderGen
   renderError.value = null
   try {
+    const baseDpi = props.project.view.sheetPageDpi ?? 96
     const next = await renderVexSheetScore({
       host,
       project: props.project,
@@ -360,7 +436,8 @@ async function rerender(): Promise<void> {
       measureSizing: measureSizing.value,
       pageWidthIn: props.project.view.sheetPageWidthIn ?? 8.5,
       pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
-      pageDpi: props.project.view.sheetPageDpi ?? 96,
+      // Base DPI only — page-view zoom is CSS scale (no measure reflow).
+      pageDpi: baseDpi,
       headerBandPx: isPageLayout.value ? titleBandPx.value : 0,
       noteColors: props.project.view.sheetNoteColors === true,
       staveGap: props.project.view.sheetStaveGap ?? 'normal',
@@ -387,6 +464,7 @@ async function rerender(): Promise<void> {
       marginBottomIn: props.project.view.sheetMarginBottomIn ?? 0.3,
       engravingScale: props.project.view.sheetEngravingScale ?? 1,
       scoreScale: props.project.view.sheetScoreScale ?? 1,
+      chordDetectSegments: props.detectSegments,
     })
     if (gen !== renderGen) return
     layout.value = next
@@ -425,7 +503,7 @@ function onPointerDown(e: PointerEvent): void {
     gesture = {
       kind: 'pinch',
       startDist: pointerDistance(pts[0]!, pts[1]!),
-      startZoom: sheetZoom.value,
+      startZoom: isPageLayout.value ? pageViewZoom.value : sheetZoom.value,
     }
     return
   }
@@ -462,7 +540,11 @@ function onPointerMove(e: PointerEvent): void {
     const dist = pointerDistance(pts[0]!, pts[1]!)
     if (gesture.startDist > 0) {
       const factor = dist / gesture.startDist
-      emitZoom(Math.round(gesture.startZoom * factor))
+      if (isPageLayout.value) {
+        emitPageViewZoom(gesture.startZoom * factor)
+      } else {
+        emitZoom(Math.round(gesture.startZoom * factor))
+      }
     }
     return
   }
@@ -500,8 +582,11 @@ function onPointerUp(e: PointerEvent): void {
 function onWheel(e: WheelEvent): void {
   e.preventDefault()
   if (e.ctrlKey || e.metaKey) {
-    const delta = e.deltaY > 0 ? -4 : 4
-    emitZoom(sheetZoom.value + delta)
+    if (isPageLayout.value) {
+      emitPageViewZoom(pageViewZoom.value + (e.deltaY > 0 ? -0.08 : 0.08))
+    } else {
+      emitZoom(sheetZoom.value + (e.deltaY > 0 ? -4 : 4))
+    }
     return
   }
   if (e.shiftKey) {
@@ -517,8 +602,11 @@ function onWheel(e: WheelEvent): void {
     emit('scroll', scrollX.value, clampScroll(scrollX.value, scrollY.value + e.deltaY).y)
     return
   }
-  const delta = e.deltaY > 0 ? -3 : 3
-  emitZoom(sheetZoom.value + delta)
+  if (isPageLayout.value) {
+    emitPageViewZoom(pageViewZoom.value + (e.deltaY > 0 ? -0.08 : 0.08))
+    return
+  }
+  emitZoom(sheetZoom.value + (e.deltaY > 0 ? -3 : 3))
 }
 
 type SheetExprMark =
@@ -569,65 +657,21 @@ const exprMarks = computed((): SheetExprMark[] => {
 const chordMarkBoxes = computed(() => {
   const lay = layout.value
   if (!lay) return []
-  const showSketch = props.project.view.sheetShowSketchChords === true
-  const showDetected = props.project.view.sheetShowDetectedChords === true
-  if (!showSketch && !showDetected) return []
-
-  const spans: SheetChordMarkSpan[] = []
-  const preferFlats = props.project.preferFlats
-  const tonality = props.project.tonality
-  const mode = props.project.tonalityMode ?? 'major'
-  const s = Math.max(0.55, props.project.view.sheetScoreScale ?? 1)
-
-  // When both lanes are on, stack Sketch above Detected; otherwise sit on the staff.
-  const sketchRow = showSketch && showDetected ? 1 : 0
-  if (showSketch) {
-    for (const span of props.project.harmonySketch ?? []) {
-      if (!span.locked) continue
-      spans.push({
-        id: span.id,
-        startTick: span.startTick,
-        endTick: span.endTick,
-        label: sketchLabel(span, preferFlats, tonality, mode),
-        variant: 'sketch',
-        row: sketchRow,
-      })
-    }
-  }
-  if (showDetected) {
-    for (const seg of props.detectSegments ?? []) {
-      if (seg.rootPc == null) continue
-      const label = (seg.displayName || seg.name || '').trim()
-      if (!label) continue
-      spans.push({
-        id: seg.id,
-        startTick: seg.startTick,
-        endTick: seg.endTick,
-        label,
-        variant: 'detected',
-        row: 0,
-      })
-    }
-  }
-
-  return buildSheetChordMarkBoxes(lay, spans, {
-    boxHeight: Math.round(18 * s),
-    gapAboveStaff: Math.round(8 * s),
-  })
+  const spans = collectSheetChordMarkSpans(props.project, props.detectSegments)
+  // Base engraving coords — page-view zoom scales the whole scroller via CSS.
+  return buildSheetChordMarkBoxes(
+    lay,
+    spans,
+    sheetChordMarkLayoutOpts(props.project),
+  )
 })
 
 let ro: ResizeObserver | null = null
-let measureRerenderTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(() => {
   measure()
   ro = new ResizeObserver(() => {
     measure()
-    // Page layout packs to viewport width — reflow after resize settles.
-    if (sheetLayout.value === 'page') {
-      if (measureRerenderTimer) clearTimeout(measureRerenderTimer)
-      measureRerenderTimer = setTimeout(() => void rerender(), 80)
-    }
   })
   if (wrapRef.value) ro.observe(wrapRef.value)
   window.addEventListener('resize', measure)
@@ -637,7 +681,6 @@ onMounted(() => {
 onUnmounted(() => {
   ro?.disconnect()
   window.removeEventListener('resize', measure)
-  if (measureRerenderTimer) clearTimeout(measureRerenderTimer)
   renderGen++
 })
 
@@ -685,6 +728,12 @@ watch(
     props.project.view.sheetMarginBottomIn,
     props.project.view.sheetEngravingScale,
     props.project.view.sheetScoreScale,
+    props.project.view.sheetShowSketchChords,
+    props.project.view.sheetShowDetectedChords,
+    props.project.view.sheetChordMarkStyle,
+    props.project.view.sheetChordLabelMode,
+    props.project.harmonySketch,
+    props.detectSegments,
     props.project.expressions,
     props.project.tempoMarkers,
     props.project.title,
@@ -700,6 +749,18 @@ watch(
   { deep: true },
 )
 
+// Page-view zoom is CSS-only — keep scroll in bounds when magnification changes.
+watch(
+  () => props.project.view.sheetPageViewZoom,
+  () => {
+    if (!isPageLayout.value) return
+    if (centerPadY.value > 0 && scrollY.value !== 0) {
+      emit('scroll', scrollX.value, 0)
+    }
+    ensureScrollInBounds()
+  },
+)
+
 defineExpose({
   cssH,
   cssW,
@@ -708,24 +769,26 @@ defineExpose({
   followPlayheadIntoView(tick: number, opts?: { focusRatio?: number }): void {
     const lay = layout.value
     if (!lay) return
+    const z = displayZoom.value
     const pt = lay.tickToPoint(Math.max(0, tick))
     const nextX = followPlayheadContentScrollX({
-      playheadContentX: pt.x,
+      playheadContentX: pt.x * z,
       scrollX: scrollX.value,
       viewportW: cssW.value,
-      contentW: lay.width,
+      contentW: lay.width * z,
       focusRatio: opts?.focusRatio,
     })
     let nextY = scrollY.value
     if (sheetLayout.value === 'page' && centerPadY.value <= 0) {
-      const contentY = pt.y + metaHeaderH.value
+      const contentY = (pt.y + metaHeaderH.value) * z
       const viewTop = scrollY.value
       const viewBot = scrollY.value + Math.max(1, cssH.value - RULER_H)
       const margin = 24
+      const rowH = lay.systemBodyHeight * z
       if (contentY < viewTop + margin) {
         nextY = Math.max(0, contentY - margin)
-      } else if (contentY + lay.systemBodyHeight > viewBot - margin) {
-        nextY = contentY + lay.systemBodyHeight - (cssH.value - RULER_H) + margin
+      } else if (contentY + rowH > viewBot - margin) {
+        nextY = contentY + rowH - (cssH.value - RULER_H) + margin
       }
     }
     const clamped = clampScroll(nextX ?? scrollX.value, nextY)
@@ -740,6 +803,7 @@ defineExpose({
   <div
     ref="wrapRef"
     class="sheet-wrap"
+    :class="{ 'page-layout': isPageLayout }"
     aria-label="Sheet music view"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
@@ -754,7 +818,7 @@ defineExpose({
         :style="{ transform: `translateX(${playheadScreenX()}px)` }"
       />
     </div>
-    <div class="score-scroller" :style="{ transform: scrollerTransform }">
+    <div class="score-scroller" :style="scrollerStyle">
       <!-- Continuous: title above the strip. Page: title is inside page 1 (below). -->
       <header
         v-if="hasMetaHeader && !isPageLayout"
@@ -821,15 +885,30 @@ defineExpose({
               <span class="ramp-bpm end">♩={{ m.endBpm }}</span>
             </template>
           </div>
+          <!-- Span backgrounds first; boxed draws its own tight border on the label. -->
           <div
             v-for="box in chordMarkBoxes"
-            :key="box.id"
-            class="chord-mark"
+            v-show="box.markStyle === 'span'"
+            :key="`bg-${box.id}`"
+            class="chord-mark-bg span"
             :class="box.variant"
             :style="{
               left: `${box.left}px`,
               top: `${box.top}px`,
               width: `${box.width}px`,
+            }"
+            aria-hidden="true"
+          />
+          <div
+            v-for="box in chordMarkBoxes"
+            :key="`tx-${box.id}`"
+            class="chord-mark-label"
+            :class="[box.variant, box.markStyle]"
+            :style="{
+              left: `${box.left}px`,
+              top: `${box.top}px`,
+              width: box.markStyle === 'span' ? `${box.width}px` : 'max-content',
+              minWidth: box.markStyle === 'span' ? undefined : `${box.width}px`,
             }"
             :title="box.label"
           >
@@ -889,6 +968,10 @@ defineExpose({
   touch-action: none;
   cursor: grab;
 }
+.sheet-wrap.page-layout {
+  /* Desk behind centered Letter pages */
+  background: #e4e1da;
+}
 .sheet-wrap:active {
   cursor: grabbing;
 }
@@ -916,6 +999,7 @@ defineExpose({
   position: absolute;
   top: 28px;
   left: 0;
+  transform-origin: 0 0;
   will-change: transform;
 }
 .sheet-meta-header {
@@ -1028,17 +1112,35 @@ defineExpose({
 .expr-mark {
   position: absolute;
 }
-.chord-mark {
+.chord-mark-bg {
   position: absolute;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 1;
   min-height: calc(16px * var(--sheet-size, 1));
-  padding: 0.1em 0.35em;
+  height: calc(18px * var(--sheet-size, 1));
   border-radius: 4px;
   border: 1px solid color-mix(in srgb, #1a1a1a 35%, transparent);
   background: color-mix(in srgb, #fff 92%, #e8e4dc);
+  pointer-events: none;
+}
+.chord-mark-bg.sketch {
+  border-color: color-mix(in srgb, #1d6a9f 55%, transparent);
+  background: color-mix(in srgb, #dceaf5 70%, #fff);
+}
+.chord-mark-bg.detected {
+  border-color: color-mix(in srgb, #6a5a3a 45%, transparent);
+  background: color-mix(in srgb, #f5efe3 85%, #fff);
+  border-style: dashed;
+}
+.chord-mark-label {
+  position: absolute;
+  box-sizing: border-box;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  min-height: calc(16px * var(--sheet-size, 1));
+  height: calc(18px * var(--sheet-size, 1));
+  padding: 0.1em 0.35em;
   color: #1a1a1a;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: calc(0.72rem * var(--sheet-size, 1));
@@ -1046,20 +1148,34 @@ defineExpose({
   letter-spacing: 0.01em;
   line-height: 1.15;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  pointer-events: none;
 }
-.chord-mark.sketch {
-  border-color: color-mix(in srgb, #1d6a9f 55%, transparent);
-  background: color-mix(in srgb, #dceaf5 70%, #fff);
+.chord-mark-label.span {
+  justify-content: center;
+}
+.chord-mark-label.boxed,
+.chord-mark-label.off {
+  justify-content: flex-start;
+  height: auto;
+  min-height: calc(1.2em + 4px);
+  padding: 0.18em 0.42em;
+  line-height: 1.2;
+}
+.chord-mark-label.boxed {
+  border: 1.25px solid #000;
+  border-radius: 2px;
+  background: transparent;
+}
+.chord-mark-label.sketch {
   color: #143d5c;
 }
-.chord-mark.detected {
-  border-color: color-mix(in srgb, #6a5a3a 45%, transparent);
-  background: color-mix(in srgb, #f5efe3 85%, #fff);
-  border-style: dashed;
+.chord-mark-label.detected {
   color: #4a4030;
   font-weight: 650;
+}
+.chord-mark-label.boxed.sketch,
+.chord-mark-label.boxed.detected {
+  color: #000;
 }
 .expr-mark.fermata {
   transform: translateX(-50%);

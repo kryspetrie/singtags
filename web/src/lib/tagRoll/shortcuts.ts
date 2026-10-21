@@ -24,13 +24,13 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   {
     id: 'cursor-left',
     keys: '←',
-    label: 'Previous note (same part); sets Coach/Harmonize chord · else playhead left',
+    label: 'Previous note (same part); sets Coach/Chords chord · else playhead left',
     group: 'transport',
   },
   {
     id: 'cursor-right',
     keys: '→',
-    label: 'Next note (same part); sets Coach/Harmonize chord · else playhead right',
+    label: 'Next note (same part); sets Coach/Chords chord · else playhead right',
     group: 'transport',
   },
   {
@@ -66,7 +66,7 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   {
     id: 'chord-walk-apply',
     keys: 'F / Enter',
-    label: 'Chord Walk: Apply (Harmonize / Sketch dock / Coach)',
+    label: 'Chord Walk: Apply (Chords / Coach)',
     group: 'harmonize',
   },
   {
@@ -93,6 +93,12 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
     id: 'delete',
     keys: 'Del',
     label: 'Delete selected note(s) / Sketch·Detected chord (leave empty space)',
+    group: 'edit',
+  },
+  {
+    id: 'sketch-split',
+    keys: '|',
+    label: 'Split selected Sketch chord at playhead (same chord left + right)',
     group: 'edit',
   },
   { id: 'deselect', keys: 'Esc', label: 'Close panel / clear tool / deselect', group: 'edit' },
@@ -126,7 +132,7 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   { id: 'part-bass', keys: 'B', label: 'Select Bass', group: 'parts' },
   { id: 'part-cycle', keys: 'C', label: 'Cycle to next part (Clear role in Roles mode)', group: 'parts' },
   { id: 'part-custom', keys: 'Parts…', label: 'Assign keys for extra parts', group: 'parts' },
-  { id: 'harmonize', keys: 'M', label: 'Open Harmonize (Melody part in Roles mode)', group: 'harmonize' },
+  { id: 'harmonize', keys: 'M', label: 'Open Chords (Melody part in Roles mode)', group: 'harmonize' },
   { id: 'roles', keys: 'Roles', label: 'Open Melody roles (toolbar)', group: 'harmonize' },
   { id: 'assign-roles-melody', keys: 'M', label: 'Set Melody part (Roles mode)', group: 'harmonize' },
   { id: 'assign-roles-strong', keys: 'S', label: 'Set Strong (Melody roles mode)', group: 'harmonize' },
@@ -135,13 +141,13 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   {
     id: 'harm-prev',
     keys: 'Prev',
-    label: 'Previous melody / Suggest moment (Harmonize Prev button; Q = next empty)',
+    label: 'Previous melody / Suggest moment (Chords Prev button; Q = next empty)',
     group: 'harmonize',
   },
   {
     id: 'harm-next',
     keys: 'Next',
-    label: 'Next melody / Suggest moment (Harmonize Next button; Q = next empty)',
+    label: 'Next melody / Suggest moment (Chords Next button; Q = next empty)',
     group: 'harmonize',
   },
   { id: 'harm-cancel', keys: 'Ctrl+Z', label: 'Undo (global)', group: 'harmonize' },

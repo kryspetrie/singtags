@@ -1,0 +1,36 @@
+{
+  "pilots": [
+    90001,
+    90006,
+    90011
+  ],
+  "projects": [
+    {
+      "tagId": 90001,
+      "file": "90001.json",
+      "verified": false,
+      "lockCoverage": 0.4154,
+      "stackOnsets": 65,
+      "locked": 27,
+      "unlocked": 38
+    },
+    {
+      "tagId": 90006,
+      "file": "90006.json",
+      "verified": false,
+      "lockCoverage": 0.5682,
+      "stackOnsets": 44,
+      "locked": 25,
+      "unlocked": 19
+    },
+    {
+      "tagId": 90011,
+      "file": "90011.json",
+      "verified": false,
+      "lockCoverage": 0.4074,
+      "stackOnsets": 27,
+      "locked": 11,
+      "unlocked": 16
+    }
+  ]
+}

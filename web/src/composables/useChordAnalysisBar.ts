@@ -464,6 +464,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
       romanOptions: s.romanOptions,
       displayName: s.displayName,
       displayRoman: s.displayRoman,
+      labelTeach: s.labelTeach,
     })),
   )
 
@@ -489,6 +490,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
         displayName: s.displayName,
         displayRoman: s.displayRoman,
         cadenceLabel: s.cadenceLabel,
+        labelTeach: s.labelTeach,
         altIndex,
         altCount,
       }
@@ -501,6 +503,10 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     ...detectSegments.value,
   ])
 
+  const contestProfile = computed(
+    () => linkedArrangement.value?.contestProfile ?? DEFAULT_CONTEST_PROFILE,
+  )
+
   return {
     declaredMode,
     detectedMode,
@@ -510,6 +516,7 @@ export function useChordAnalysisBar(project: Ref<TagRollProject | null>) {
     declaredSegments,
     detectSegments,
     nameCandidatesByTick,
+    contestProfile,
     cycleDetectAlt,
     setDeclaredMode,
     setDetectedMode,

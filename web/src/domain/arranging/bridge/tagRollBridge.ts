@@ -298,6 +298,7 @@ export function tagRollToArrangement(
       midi: present,
       profile: base.contestProfile,
       tonality: tag.tonality,
+      mode: tag.tonalityMode ?? 'major',
     })
     let midi = {
       tenor: tOn?.midi ?? lead.midi + 4,

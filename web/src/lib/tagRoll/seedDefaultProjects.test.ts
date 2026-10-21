@@ -9,7 +9,7 @@ describe('createTagRollDefaultProjects', () => {
     expect(p.title).toBe('Lilly Marlene (v2)')
     expect(p.id).not.toBe('seed-lilly-marlene-v2')
     expect(p.notes.length).toBeGreaterThan(0)
-    expect(p.parts.map((x) => x.name)).toEqual(['Tenor', 'Lead', 'Bari', 'Bass', '5th'])
+    expect(p.parts.map((x) => x.name)).toEqual(['Tenor', 'Lead', 'Bari', 'Bass'])
     expect(p.createdAt).toBe(1_700_000_000_000)
     expect(p.localEntryId).toBeNull()
   })

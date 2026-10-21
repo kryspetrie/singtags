@@ -108,6 +108,18 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
     sheetPlaybackHighlight: view.sheetPlaybackHighlight !== false,
     sheetShowSketchChords: view.sheetShowSketchChords === true,
     sheetShowDetectedChords: view.sheetShowDetectedChords === true,
+    sheetChordMarkStyle:
+      view.sheetChordMarkStyle === 'off' ||
+      view.sheetChordMarkStyle === 'span' ||
+      view.sheetChordMarkStyle === 'boxed'
+        ? view.sheetChordMarkStyle
+        : 'boxed',
+    sheetChordLabelMode:
+      view.sheetChordLabelMode === 'name' ||
+      view.sheetChordLabelMode === 'roman' ||
+      view.sheetChordLabelMode === 'both'
+        ? view.sheetChordLabelMode
+        : base.sheetChordLabelMode,
     sheetShowEngravedHeader: view.sheetShowEngravedHeader !== false,
     sheetShowEngravedFooter: view.sheetShowEngravedFooter !== false,
     sheetPadding: clampSheetFormat(

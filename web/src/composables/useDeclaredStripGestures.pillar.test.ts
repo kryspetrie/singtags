@@ -118,10 +118,11 @@ describe('useDeclaredStripGestures shift-click range', () => {
     expect(sketchSpanIdsBetween(spans, 's2', 's2')).toEqual(['s2'])
   })
 
-  it('click without drag focuses the chord range (playhead at start)', () => {
+  it('click without drag focuses the chord range and opens edit (Chords)', () => {
     const trackEl = ref<HTMLElement | null>(makeTrack())
     const selectedIds = ref<string[]>([])
     const onFocusRange = vi.fn()
+    const onEdit = vi.fn()
     const onSelect = vi.fn((ids: string[]) => {
       selectedIds.value = ids
     })
@@ -139,7 +140,7 @@ describe('useDeclaredStripGestures shift-click range', () => {
       onSelect,
       onClearSelection: vi.fn(),
       onPlaceRange: vi.fn(),
-      onEdit: vi.fn(),
+      onEdit,
       onGeometry: vi.fn(),
       onGeometryMany: vi.fn(),
       onFocusRange,
@@ -152,6 +153,47 @@ describe('useDeclaredStripGestures shift-click range', () => {
     onPointerUp(new PointerEvent('pointerup', { pointerId: 1 }))
     expect(onSelect).toHaveBeenLastCalledWith(['s2'])
     expect(onFocusRange).toHaveBeenCalledWith(480, 960)
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 's2' }))
+  })
+
+  it('Shift+click range does not open edit on release', () => {
+    const trackEl = ref<HTMLElement | null>(makeTrack())
+    const selectedIds = ref<string[]>(['s1'])
+    const onEdit = vi.fn()
+    const onSelect = vi.fn((ids: string[]) => {
+      selectedIds.value = ids
+    })
+
+    const { onPointerDown, onPointerUp } = useDeclaredStripGestures({
+      trackEl,
+      declared: ref(spans),
+      selectedIds,
+      scrollX: ref(0),
+      cellW: ref(24),
+      ppq: ref(480),
+      snapTicks: ref(120),
+      lengthTicks: ref(1920),
+      onBeginGesture: vi.fn(),
+      onSelect,
+      onClearSelection: vi.fn(),
+      onPlaceRange: vi.fn(),
+      onEdit,
+      onGeometry: vi.fn(),
+      onGeometryMany: vi.fn(),
+      onFocusRange: vi.fn(),
+    })
+
+    onPointerDown(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        clientX: 60,
+        clientY: 10,
+        pointerId: 1,
+        shiftKey: true,
+      }),
+    )
+    onPointerUp(new PointerEvent('pointerup', { pointerId: 1 }))
+    expect(onEdit).not.toHaveBeenCalled()
   })
 
   it('click then Shift+click selects the inclusive range', () => {

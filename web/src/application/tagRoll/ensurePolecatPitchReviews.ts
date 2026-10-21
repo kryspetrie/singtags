@@ -2,8 +2,9 @@
  * Fetch bundled gold-standard polecat pitch Tag Studio projects and sync the library.
  * Files live under ``/tag-studio/polecat-pitch-reviews/`` (see polecats/stacks_to_tag_studio.py).
  *
- * Imports missing gold seeds; removes other ``seed-polecat-pitch-*`` auto-seeds that
- * are no longer in the index (keeps user-owned projects untouched).
+ * Imports missing gold seeds only (never overwrites on reload). Removes other
+ * ``seed-polecat-pitch-*`` auto-seeds that are no longer in the index
+ * (keeps user-owned projects untouched). Use ``force`` for explicit resync.
  */
 import type { Clock } from '../../ports/Clock'
 import type { TagRollRepository } from '../../ports/TagRollRepository'
@@ -11,7 +12,6 @@ import { isTagRollSeedDismissed } from '../../lib/tagRoll/seedLibraryPrefs'
 import { normalizeTagRollProject } from '../../lib/tagRoll/normalize'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import { deleteTagRoll, putNewTagRoll } from './persist'
-import { seedHasUserSketch } from './seedRefreshGuard'
 
 const INDEX_URL = '/tag-studio/polecat-pitch-reviews/index.json'
 const SEED_PREFIX = 'seed-polecat-pitch-'
@@ -94,8 +94,14 @@ export async function ensurePolecatPitchReviewProjects(
   const now = clock.now()
   for (const entry of index.projects) {
     if (!entry?.id || !entry.file) continue
+    const had = existing.has(entry.id)
+    // Never overwrite an existing seed on ordinary list refresh / reload.
+    if (had && !force) {
+      result.skipped += 1
+      continue
+    }
     // User deleted this seed — do not resurrect on every list refresh.
-    if (!force && !existing.has(entry.id) && isTagRollSeedDismissed(entry.id)) {
+    if (!force && !had && isTagRollSeedDismissed(entry.id)) {
       result.skipped += 1
       continue
     }
@@ -105,24 +111,7 @@ export async function ensurePolecatPitchReviewProjects(
       continue
     }
     const rawObj = raw as Record<string, unknown>
-    const had = existing.has(entry.id)
     const prev = had ? await repository.get(entry.id) : null
-    const nextNotes = Array.isArray(rawObj.notes) ? rawObj.notes.length : 0
-    const nextBpm = Number(rawObj.bpm) || 0
-    const nextLen = Number(rawObj.lengthTicks) || 0
-    // User Sketch must never be clobbered by a gold re-import
-    // (persist → refreshList used to wipe Sketch after browser Back).
-    const userSketch = seedHasUserSketch(prev?.harmonySketch)
-    const same =
-      !force &&
-      !!prev &&
-      prev.notes.length === nextNotes &&
-      Math.abs(prev.bpm - nextBpm) < 0.05 &&
-      prev.lengthTicks === nextLen
-    if (!force && (same || userSketch)) {
-      result.skipped += 1
-      continue
-    }
     const project = normalizeTagRollProject({
       ...rawObj,
       id: entry.id,

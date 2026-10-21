@@ -26,6 +26,11 @@ import {
 } from '../../lib/arranging/coachRollTransport'
 import { registerCoachPopoutIntentHandler } from '../../lib/arranging/coachPopout'
 import type { CoachTransportView } from '../../composables/useCoachTransport'
+import {
+  dualRomanTeach,
+  formatRomanWithAlt,
+  romanForChordDetailed,
+} from '../../domain/arranging/secondaryDominant'
 import { DEFAULT_QA_CONFIG } from '../../domain/arranging/coachConfig'
 import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
 import type { ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
@@ -201,6 +206,30 @@ const cadenceTeach = computed(() => {
     : ['classic_cadences', 'circle_fifths', 'tension_release']
   if (!glossaryIds.includes('classic_cadences')) glossaryIds.unshift('classic_cadences')
   return { label, body: t.body, glossaryIds }
+})
+
+const labelTeach = computed(() => {
+  const c = filteredCandidates.value[suggestIndex.value]
+  const p = arrStore.current
+  if (!c || !p) return null
+  const detailed = romanForChordDetailed({
+    rootPc: c.rootPc,
+    natureId: c.natureId,
+    tonality: p.tonality,
+    mode: p.tonalityMode ?? 'major',
+    resolvesToRoot: c.nextPillarRoot ?? null,
+  })
+  const body = dualRomanTeach({
+    roman: detailed.roman,
+    altRoman: detailed.altRoman,
+    natureId: c.natureId,
+  })
+  if (!body) return null
+  return {
+    label: formatRomanWithAlt(detailed.roman, detailed.altRoman),
+    body,
+    glossaryIds: ['dual_roman', 'secondary_dom'],
+  }
 })
 
 const chooseMomentLine = computed(() => {
@@ -497,6 +526,7 @@ onUnmounted(() => {
               v-if="selectedMoment"
               :moment-line="chooseMomentLine"
               :cadence-teach="cadenceTeach"
+              :label-teach="labelTeach"
               :cadence-plans="cadencePlans"
               :hearing-plan-id="hearingPlanId"
               :preview-plan-id="previewPlanId"

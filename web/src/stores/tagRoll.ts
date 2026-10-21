@@ -57,12 +57,20 @@ import {
   removeSketchSpan,
   type HarmonyAbsorbNeighbor,
   carveInsertSketchSpan,
+  splitSketchSpanAt,
   sketchPatchFromMelodyNote,
   sketchSpanAtTick,
   sortSpans,
   upsertSketchSpan,
 } from '../lib/tagRoll/harmonySketch'
 import { realizeSketchStacksToNotes } from '../lib/tagRoll/realizeSketchStacks'
+import {
+  completeFromPartsToNotes,
+  type CompleteFromPartsItem,
+  type CompleteFromPartsRange,
+  type DetectedHolePref,
+} from '../lib/tagRoll/completeFromParts'
+import type { ContestProfile } from '../domain/arranging/contestProfile'
 import {
   applyMelodyRolesToTagNotes,
   melodyPartIdOf,
@@ -101,6 +109,8 @@ import {
   TAG_ROLL_MIDI_MAX,
   TAG_ROLL_MIDI_MIN,
   TAG_ROLL_PPQ,
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX,
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
   TAG_ROLL_SHEET_ZOOM_MAX,
   TAG_ROLL_SHEET_ZOOM_MIN,
 } from '../lib/tagRoll/types'
@@ -159,7 +169,7 @@ import {
 } from '../lib/tagRoll/sheetPage'
 import { createTagRollDefaultProjects } from '../lib/tagRoll/seedDefaultProjects'
 import { ensurePolecatPitchReviewProjects } from '../application/tagRoll/ensurePolecatPitchReviews'
-import { ensureCoachTrialProjects } from '../application/tagRoll/ensureCoachTrials'
+import { ensurePolecatMixedSeedProjects } from '../application/tagRoll/ensurePolecatMixedSeeds'
 import {
   clearPolecatPitchSeedDismissals,
   dismissTagRollSeed,
@@ -277,11 +287,12 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     fn()
   }
 
-  async function refreshList(opts?: { forcePolecatPitch?: boolean }): Promise<void> {
+  async function refreshList(): Promise<void> {
     try {
       const { repository, clock } = svc()
       let list = await listTagRolls(repository)
-      // Starter demos only on a never-used library — not after the user emptied it.
+      // Only starter: Lilly Marlene (v2) on a never-used empty library.
+      // No polecat / coach auto-seeds on ordinary load or reload.
       if (!list.length && !isTagRollLibraryInitialized()) {
         const seeded = createTagRollDefaultProjects(clock.now())
         for (const p of seeded) {
@@ -291,26 +302,6 @@ export const useTagRollStore = defineStore('tagRoll', () => {
           markTagRollLibraryInitialized()
           list = await listTagRolls(repository)
         }
-      }
-      // Coach gold set: polecat pitch extracts (import missing; prune dropped seeds).
-      try {
-        const pitch = await ensurePolecatPitchReviewProjects(repository, clock, {
-          force: opts?.forcePolecatPitch === true,
-        })
-        if (pitch.imported > 0 || pitch.removed > 0 || pitch.refreshed > 0) {
-          list = await listTagRolls(repository)
-        }
-      } catch {
-        /* optional bundle — ignore offline / missing public files */
-      }
-      // Coach trial seeds (e.g. My Bonnie Classic Path Optimize).
-      try {
-        const trials = await ensureCoachTrialProjects(repository, clock)
-        if (trials.imported > 0 || trials.removed > 0 || trials.refreshed > 0) {
-          list = await listTagRolls(repository)
-        }
-      } catch {
-        /* optional bundle — ignore offline / missing public files */
       }
       if (list.length) markTagRollLibraryInitialized()
       summaries.value = list
@@ -697,6 +688,23 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchView({ sheetZoom: z })
   }
 
+  function setSheetPageViewZoom(sheetPageViewZoom: number): void {
+    const raw = Number(sheetPageViewZoom)
+    const z = Math.max(
+      TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
+      Math.min(
+        TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX,
+        Number.isFinite(raw) ? raw : 1,
+      ),
+    )
+    patchView({ sheetPageViewZoom: Math.round(z * 100) / 100 })
+  }
+
+  function nudgeSheetPageViewZoom(delta: number): void {
+    const cur = Number(current.value?.view.sheetPageViewZoom)
+    setSheetPageViewZoom((Number.isFinite(cur) ? cur : 1) + Number(delta))
+  }
+
   function setSheetShowLyrics(on: boolean): void {
     patchView({ sheetShowLyrics: on })
   }
@@ -852,6 +860,16 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setSheetShowDetectedChords(on: boolean): void {
     patchView({ sheetShowDetectedChords: on })
+  }
+
+  function setSheetChordMarkStyle(style: 'off' | 'span' | 'boxed'): void {
+    const sheetChordMarkStyle =
+      style === 'off' || style === 'span' || style === 'boxed' ? style : 'boxed'
+    patchView({ sheetChordMarkStyle })
+  }
+
+  function setSheetChordLabelMode(mode: 'name' | 'roman' | 'both'): void {
+    patchView({ sheetChordLabelMode: mode })
   }
 
   function setSheetShowEngravedHeader(on: boolean): void {
@@ -1599,6 +1617,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function clearSketchSelection(): void {
     selectedSketchSpanIds.value = []
+    // Sketch chrome / inspectSelectNone must not stick after selection clear.
+    chordsLaneFocused.value = false
   }
 
   function setChordsLaneFocused(on: boolean): void {
@@ -1620,6 +1640,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     if (selectedSketchSpanIds.value.length) {
       chordsLaneFocused.value = true
+    } else {
+      chordsLaneFocused.value = false
     }
     selectedNoteIds.value = []
     selectedExpressionId.value = null
@@ -1704,6 +1726,27 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     patchProject({ harmonySketch: sketch })
     selectedSketchSpanIds.value = []
+  }
+
+  /**
+   * Split the single selected Sketch span at the playhead (same chord left + right).
+   * Returns the new right-span id, or null when the playhead is not strictly inside.
+   */
+  function splitSelectedSketchAtPlayhead(): string | null {
+    const p = current.value
+    if (!p || selectedSketchSpanIds.value.length !== 1) return null
+    const id = selectedSketchSpanIds.value[0]!
+    const tick = p.view.playheadTick
+    const next = splitSketchSpanAt(p.harmonySketch ?? [], id, tick)
+    if (!next) return null
+    const right = next.find((s) => s.startTick === Math.round(tick) && s.id !== id)
+    pushHistory()
+    patchProject({ harmonySketch: next })
+    // Keep both halves selected so the cut is obvious; focus stays at playhead.
+    const leftStill = next.find((s) => s.id === id)
+    selectedSketchSpanIds.value = [leftStill?.id, right?.id].filter(Boolean) as string[]
+    chordsLaneFocused.value = true
+    return right?.id ?? null
   }
 
   function moveSketchSpansGeometry(
@@ -2259,6 +2302,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   /**
    * Realize locked Sketch as TTBB stacks under Lead melody notes.
    * When sketch spans are selected, only those spans are used; otherwise all locked.
+   * Preserves covering TBB only when sparse harmony already exists at the onset.
    */
   function realizeHarmonySketchStacks(opts?: {
     detectSpans?: readonly {
@@ -2304,6 +2348,56 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     scheduleSave()
     return { applied: result.applied, spansUsed: result.spansUsed }
+  }
+
+  /**
+   * Lock Detected (where vocab-ok) into Sketch; with sparse TBB, fill empty parts.
+   * Skips unrecognized / outside-vocab / no-completion moments.
+   */
+  function completeFromParts(opts: {
+    detectHoles?: readonly DetectedHolePref[]
+    range?: CompleteFromPartsRange
+    profile: ContestProfile
+  }): {
+    filled: number
+    locked: number
+    skipped: number
+    items: CompleteFromPartsItem[]
+  } {
+    const p = current.value
+    if (!p) return { filled: 0, locked: 0, skipped: 0, items: [] }
+    const result = completeFromPartsToNotes({
+      project: p,
+      detectHoles: opts.detectHoles,
+      range: opts.range ?? null,
+      profile: opts.profile,
+      idGen: svc().idGen,
+    })
+    if (result.filled === 0 && result.locked === 0 && result.skipped === 0) {
+      return { filled: 0, locked: 0, skipped: 0, items: [] }
+    }
+    if (result.filled === 0 && result.locked === 0) {
+      return {
+        filled: 0,
+        locked: 0,
+        skipped: result.skipped,
+        items: result.items,
+      }
+    }
+    pushHistory()
+    current.value = {
+      ...p,
+      notes: result.notes,
+      harmonySketch: sortSpans(result.sketch),
+      updatedAt: svc().clock.now(),
+    }
+    scheduleSave()
+    return {
+      filled: result.filled,
+      locked: result.locked,
+      skipped: result.skipped,
+      items: result.items,
+    }
   }
 
   /**
@@ -2503,10 +2597,24 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     await refreshList()
   }
 
-  /** Dev/listen helper: undismiss + force-reimport polecat pitch gold seeds. */
+  /**
+   * Opt-in only (?resyncPolecat=1): undismiss + force-reimport polecat pitch /
+   * mixed MusicXML gold seeds. Not run on ordinary load.
+   */
   async function resyncPolecatPitchSeeds(): Promise<{ clearedDismissals: number }> {
     const clearedDismissals = clearPolecatPitchSeedDismissals()
-    await refreshList({ forcePolecatPitch: true })
+    const { repository, clock } = svc()
+    try {
+      await ensurePolecatPitchReviewProjects(repository, clock, { force: true })
+    } catch {
+      /* optional bundle */
+    }
+    try {
+      await ensurePolecatMixedSeedProjects(repository, clock, { force: true })
+    } catch {
+      /* optional bundle */
+    }
+    await refreshList()
     return { clearedDismissals }
   }
 
@@ -2606,6 +2714,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     nudgeCellH,
     setCellSize,
     setSheetZoom,
+    setSheetPageViewZoom,
+    nudgeSheetPageViewZoom,
     setSheetShowLyrics,
     setSheetLayout,
     setSheetMeasureSizing,
@@ -2623,6 +2733,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setSheetPlaybackHighlight,
     setSheetShowSketchChords,
     setSheetShowDetectedChords,
+    setSheetChordMarkStyle,
+    setSheetChordLabelMode,
     setSheetShowEngravedHeader,
     setSheetShowEngravedFooter,
     setSheetPadding,
@@ -2695,6 +2807,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     cutSelectedSketchSpans,
     pasteSketchSpansAtPlayhead,
     deleteSelectedSketchSpans,
+    splitSelectedSketchAtPlayhead,
     moveSketchSpansGeometry,
     setSoundEnvelope,
     addNote,
@@ -2719,6 +2832,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     applyPassingSketchAndStacks,
     commitHarmonizeAtMelody,
     realizeHarmonySketchStacks,
+    completeFromParts,
     replaceNotesFromExternal,
     addPart,
     updatePart,

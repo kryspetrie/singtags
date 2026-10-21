@@ -865,6 +865,76 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               @change="toggleChecked(store.setSheetShowDetectedChords, $event)"
             />
           </label>
+          <div
+            v-if="project.view.sheetShowSketchChords || project.view.sheetShowDetectedChords"
+            class="field"
+          >
+            <span class="field-label">Chord marks</span>
+            <div class="segment" role="group" aria-label="Sheet chord mark style">
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: (project.view.sheetChordMarkStyle ?? 'boxed') === 'off' }"
+                :title="tagRollTip('Chord labels only — no background boxes')"
+                @click="store.setSheetChordMarkStyle('off')"
+              >
+                Off
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: project.view.sheetChordMarkStyle === 'span' }"
+                :title="tagRollTip('Duration span bands between chord changes')"
+                @click="store.setSheetChordMarkStyle('span')"
+              >
+                Span
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: (project.view.sheetChordMarkStyle ?? 'boxed') === 'boxed' }"
+                :title="tagRollTip('Tight box around each label at the onset (lead-sheet style)')"
+                @click="store.setSheetChordMarkStyle('boxed')"
+              >
+                Boxed
+              </button>
+            </div>
+          </div>
+          <div
+            v-if="project.view.sheetShowSketchChords || project.view.sheetShowDetectedChords"
+            class="field"
+          >
+            <span class="field-label">Chord labels</span>
+            <div class="segment" role="group" aria-label="Sheet chord label mode">
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: (project.view.sheetChordLabelMode ?? 'both') === 'name' }"
+                :title="tagRollTip('Show absolute chord names (C7)')"
+                @click="store.setSheetChordLabelMode('name')"
+              >
+                Name
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: (project.view.sheetChordLabelMode ?? 'both') === 'roman' }"
+                :title="tagRollTip('Show roman numerals (V7)')"
+                @click="store.setSheetChordLabelMode('roman')"
+              >
+                Roman
+              </button>
+              <button
+                type="button"
+                class="seg-btn"
+                :class="{ on: (project.view.sheetChordLabelMode ?? 'both') === 'both' }"
+                :title="tagRollTip('Show name and roman together — C7 (V7)')"
+                @click="store.setSheetChordLabelMode('both')"
+              >
+                Both
+              </button>
+            </div>
+          </div>
         </div>
       </details>
     </div>

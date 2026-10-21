@@ -55,6 +55,57 @@ function uniquePcs(midis: readonly number[]): number[] {
   return [...new Set(midis.map(pc))]
 }
 
+const MINOR_FAMILY = new Set(['minor', 'm7', 'madd6'])
+const COLOR_FAMILY = new Set(['sixth', 'add9', 'maj7', 'aug'])
+const DIM_FAMILY = new Set(['dim', 'dim7', 'half-dim'])
+/** ii, iii, vi — the minor chords that belong in a major key. */
+const DIATONIC_MINOR_DEGREES = new Set([2, 4, 9])
+
+/**
+ * Incomplete stacks in a major key: diatonic triads and the dominant sevenths
+ * built on those roots (I, IV, V, and the secondary-dominant circle), plus
+ * ii/iii/vi only when their minor third is actually sounding, plus diminished
+ * chords (including common-tone diminished). Chromatic minors and color chords
+ * whose root is not in the key are not in that vocabulary.
+ */
+export function majorKeyIncompleteAllows(
+  natureId: string,
+  rootPc: number,
+  presentPcs: readonly number[],
+  tonality: number,
+): boolean {
+  if (DIM_FAMILY.has(natureId)) return true
+  const degree = degreeOf(rootPc, tonality)
+  if (MINOR_FAMILY.has(natureId)) {
+    if (!DIATONIC_MINOR_DEGREES.has(degree)) return false
+    return presentPcs.includes(pc(rootPc + 3))
+  }
+  if (![0, 2, 4, 5, 7, 9, 11].includes(degree)) return false
+  if (COLOR_FAMILY.has(natureId)) {
+    // Root + color tone alone is also a minor third (A–F# as “A6”). Require the
+    // major third so a diminished reading can win that pair.
+    return (
+      presentPcs.includes(pc(rootPc)) &&
+      presentPcs.includes(pc(rootPc + 4)) &&
+      colorToneSounding(natureId, rootPc, presentPcs)
+    )
+  }
+  return true
+}
+
+function colorToneSounding(
+  natureId: string,
+  rootPc: number,
+  presentPcs: readonly number[],
+): boolean {
+  const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
+  if (!chord) return false
+  const role: ChordToneRole =
+    natureId === 'add9' ? 9 : natureId === 'aug' ? 5 : natureId === 'maj7' ? 7 : 6
+  const off = chord.offsets[role]
+  return off != null && presentPcs.includes(pc(rootPc + off))
+}
+
 function chordTonePcs(rootPc: number, natureId: string): number[] {
   const chord = BARBERSHOP_CHORDS.find((c) => c.id === natureId)
   if (!chord) return []
@@ -187,6 +238,8 @@ export function identifyNatureFromMidi(opts: {
   midi: Partial<VoicingPitches> & { lead: number }
   profile: ContestProfile
   tonality: number
+  /** Major-key arrangements reject out-of-vocabulary minors on incomplete stacks. */
+  mode?: TonalityMode
 }): { natureId: string; rootPc: number; voicing: string; confidence: number } | null {
   const lead = opts.midi.lead
   const presentMidi = [opts.midi.tenor, opts.midi.lead, opts.midi.bari, opts.midi.bass].filter(
@@ -283,7 +336,24 @@ export function identifyNatureFromMidi(opts: {
     pillarRoot: bassPc ?? undefined,
   })
   if (!inferred.length) return null
+  const majorSparse = opts.mode === 'major' && partsPresent < 4
   const ranked = [...inferred].sort((a, b) => {
+    if (majorSparse) {
+      const aVocab = majorKeyIncompleteAllows(a.natureId, a.rootPc, presentPcs, opts.tonality)
+        ? 1
+        : 0
+      const bVocab = majorKeyIncompleteAllows(b.natureId, b.rootPc, presentPcs, opts.tonality)
+        ? 1
+        : 0
+      if (bVocab !== aVocab) return bVocab - aVocab
+      // Two sung notes: the bass note is the root far more often than it is a
+      // color tone of some other chord (stops Bb6 / Ebadd9 beating G7).
+      if (bassPc != null) {
+        const aBass = a.rootPc === bassPc ? 1 : 0
+        const bBass = b.rootPc === bassPc ? 1 : 0
+        if (bBass !== aBass) return bBass - aBass
+      }
+    }
     // Completeness first — never let a Dom9 missing root+3rd beat a complete triad
     // just because the 7th/9th pitch-classes happen to be present (Bonnie IV7(9)).
     const aComplete = a.missingRoles.length === 0 ? 1 : 0
@@ -310,7 +380,7 @@ export function identifyNatureFromMidi(opts: {
         ? 1
         : 0
     if (bOmitRoot !== aOmitRoot) return bOmitRoot - aOmitRoot
-    if (bassPc != null) {
+    if (!majorSparse && bassPc != null) {
       const aBass = a.rootPc === bassPc ? 1 : 0
       const bBass = b.rootPc === bassPc ? 1 : 0
       if (bBass !== aBass) return bBass - aBass
@@ -324,11 +394,36 @@ export function identifyNatureFromMidi(opts: {
   const leadDeg = degreeOf(lead, opts.tonality)
   const dominantPc = ((opts.tonality + 7) % 12 + 12) % 12
   const tonicPc = ((opts.tonality % 12) + 12) % 12
-  if (partsPresent < 4 && leadDeg === 7) {
+  const tonicTriad = [0, 4, 7].map((off) => pc(tonicPc + off))
+  // Tenor or bass on the tonic, with every sung note inside the tonic triad
+  // (Lead G + Tenor C), is I. Do not rename it V7 just because there is no bass.
+  const tonicExplains =
+    presentPcs.includes(tonicPc) && presentPcs.every((p) => tonicTriad.includes(p))
+  if (partsPresent < 4 && tonicExplains) {
+    top = {
+      natureId: 'major',
+      rootPc: tonicPc,
+      confidence: Math.max(top.confidence, 0.55),
+      missingRoles: [],
+      reason: 'Sung tonic root with every note inside I → I triad',
+    }
+  }
+  if (partsPresent < 4 && leadDeg === 7 && !tonicExplains) {
     const isAlreadyV =
       degreeOf(top.rootPc, opts.tonality) === 7 &&
       (isDominantNature(top.natureId) || top.natureId === 'major')
-    if (!isAlreadyV) {
+    // Bass on the root of a chord that already explains the notes (tonic fifth
+    // in the lead) is that chord, not an automatic V7.
+    const bassIsRoot = bassPc != null && bassPc === pc(top.rootPc)
+    const v7Tones = [0, 4, 7, 10].map((off) => pc(dominantPc + off))
+    const sungFitsV7 = presentPcs.every((p) => v7Tones.includes(p))
+    // Bonnie: a complete parallel-minor / chromatic sixth under ^5 is still V7.
+    // A diatonic chord that actually contains the tenor (iii, a bare fifth of I)
+    // stays that chord, so Fill is not asked to write a V7 the tenor cannot sing.
+    const outsideMajorVocab =
+      top.missingRoles.length === 0 &&
+      !majorKeyIncompleteAllows(top.natureId, top.rootPc, presentPcs, opts.tonality)
+    if (!isAlreadyV && !bassIsRoot && (sungFitsV7 || outsideMajorVocab)) {
       top = {
         natureId: 'seventh',
         rootPc: dominantPc,
@@ -353,6 +448,48 @@ export function identifyNatureFromMidi(opts: {
       missingRoles: [],
       reason: 'Lead ^3 incomplete tonic Mm7 → I triad (authentic land)',
     }
+  }
+
+  // Barbershop spells non-tonic major chords as dominant sevenths. I stays a
+  // triad. Diminished color is the fully diminished seventh.
+  if (opts.mode === 'major' && partsPresent < 4 && top.natureId === 'major') {
+    const deg = degreeOf(top.rootPc, opts.tonality)
+    if (
+      deg !== 0 &&
+      isNatureAllowed(opts.profile, 'seventh') &&
+      majorKeyIncompleteAllows('seventh', top.rootPc, presentPcs, opts.tonality)
+    ) {
+      top = {
+        ...top,
+        natureId: 'seventh',
+        confidence: Math.max(top.confidence, 0.55),
+        reason: 'Non-tonic major-key incomplete stack → dominant seventh',
+      }
+    }
+  }
+  if (
+    opts.mode === 'major' &&
+    partsPresent < 4 &&
+    (top.natureId === 'dim' || top.natureId === 'dim7') &&
+    isNatureAllowed(opts.profile, 'dim7')
+  ) {
+    const leadPc = pc(lead)
+    const tones = [0, 3, 6, 9].map((off) => pc(top.rootPc + off))
+    top = {
+      ...top,
+      natureId: 'dim7',
+      rootPc: tones.includes(leadPc) ? leadPc : top.rootPc,
+      confidence: Math.max(top.confidence, 0.55),
+      reason: 'Incomplete diminished stack → dim7 spelled from the melody',
+    }
+  }
+
+  if (
+    opts.mode === 'major' &&
+    partsPresent < 4 &&
+    majorKeyIncompleteAllows(top.natureId, top.rootPc, presentPcs, opts.tonality)
+  ) {
+    top = { ...top, confidence: Math.max(top.confidence, 0.55) }
   }
 
   return {

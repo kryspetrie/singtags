@@ -121,4 +121,51 @@ describe('realizeSketchStacksToNotes', () => {
     expect(result.notes.filter((n) => n.partId === 'bass')).toHaveLength(1)
     expect(result.notes.find((n) => n.partId === 'bass')!.startTick).toBe(TAG_ROLL_PPQ)
   })
+
+  it('preserves covering Bass when sparse; rewrites when bare melody', () => {
+    const sketch: HarmonySketchSpan[] = [
+      {
+        id: 's1',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ * 2,
+        rootPc: 0,
+        quality: 'major',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    const melody: TagRollNote = {
+      id: 'm1',
+      partId: 'lead',
+      midi: 60,
+      startTick: 0,
+      durationTicks: TAG_ROLL_PPQ,
+    }
+    const sungBass: TagRollNote = {
+      id: 'bs1',
+      partId: 'bass',
+      midi: 43,
+      startTick: 0,
+      durationTicks: TAG_ROLL_PPQ,
+    }
+    const sparse = realizeSketchStacksToNotes({
+      notes: [melody, sungBass],
+      parts,
+      sketch,
+      melodyPartId: 'lead',
+      idGen: idGen(),
+    })
+    expect(sparse.notes.find((n) => n.id === 'bs1')?.midi).toBe(43)
+
+    const bare = realizeSketchStacksToNotes({
+      notes: [melody],
+      parts,
+      sketch,
+      melodyPartId: 'lead',
+      idGen: createSequentialIdGenerator(100),
+    })
+    const bareBass = bare.notes.find((n) => n.partId === 'bass')
+    expect(bareBass).toBeTruthy()
+    expect(bareBass!.midi).not.toBe(43)
+  })
 })

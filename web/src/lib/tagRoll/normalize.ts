@@ -25,8 +25,11 @@ import {
   TAG_ROLL_MIDI_MIN,
   TAG_ROLL_PPQ,
   TAG_ROLL_SCHEMA,
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX,
+  TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
   TAG_ROLL_SHEET_ZOOM_MAX,
   TAG_ROLL_SHEET_ZOOM_MIN,
+  type TagRollSheetChordMarkStyle,
   type TagRollClefFamily,
   type TagRollEditorMode,
   type TagRollExpression,
@@ -125,6 +128,11 @@ export function normalizeSheetLayout(v: unknown): TagRollSheetLayout {
   // Legacy: equal / compressed were continuous strip modes.
   if (v === 'equal' || v === 'compressed') return 'continuous'
   return TAG_ROLL_DEFAULT_VIEW.sheetLayout
+}
+
+export function normalizeSheetChordMarkStyle(v: unknown): TagRollSheetChordMarkStyle {
+  if (v === 'off' || v === 'span' || v === 'boxed') return v
+  return TAG_ROLL_DEFAULT_VIEW.sheetChordMarkStyle
 }
 
 function normalizeSheetMeasureSizing(
@@ -314,6 +322,13 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       o.sheetShowDetectedChords === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetShowDetectedChords
         : Boolean(o.sheetShowDetectedChords),
+    sheetChordLabelMode:
+      o.sheetChordLabelMode === 'name' ||
+      o.sheetChordLabelMode === 'roman' ||
+      o.sheetChordLabelMode === 'both'
+        ? o.sheetChordLabelMode
+        : TAG_ROLL_DEFAULT_VIEW.sheetChordLabelMode,
+    sheetChordMarkStyle: normalizeSheetChordMarkStyle(o.sheetChordMarkStyle),
     sheetShowEngravedHeader:
       o.sheetShowEngravedHeader === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetShowEngravedHeader
@@ -403,6 +418,11 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       TAG_ROLL_DEFAULT_VIEW.sheetPageHeightIn,
     ),
     sheetPageDpi: clampSheetPageDpi(o.sheetPageDpi, TAG_ROLL_DEFAULT_VIEW.sheetPageDpi),
+    sheetPageViewZoom: clamp(
+      Number(o.sheetPageViewZoom) || TAG_ROLL_DEFAULT_VIEW.sheetPageViewZoom,
+      TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN,
+      TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX,
+    ),
     sheetMusicFont: normalizeSheetMusicFont(o.sheetMusicFont),
     sheetTextFont: normalizeSheetTextFont(o.sheetTextFont),
     sheetStaffLineWeight: clampSheetFormat(

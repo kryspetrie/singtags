@@ -101,6 +101,8 @@ export type SheetFormatSnapshot = Pick<
   | 'sheetPlaybackHighlight'
   | 'sheetShowSketchChords'
   | 'sheetShowDetectedChords'
+  | 'sheetChordLabelMode'
+  | 'sheetChordMarkStyle'
   | 'sheetShowEngravedHeader'
   | 'sheetShowEngravedFooter'
   | 'sheetPadding'
@@ -140,6 +142,8 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
     sheetPlaybackHighlight: v.sheetPlaybackHighlight,
     sheetShowSketchChords: v.sheetShowSketchChords,
     sheetShowDetectedChords: v.sheetShowDetectedChords,
+    sheetChordLabelMode: v.sheetChordLabelMode,
+    sheetChordMarkStyle: v.sheetChordMarkStyle,
     sheetShowEngravedHeader: v.sheetShowEngravedHeader,
     sheetShowEngravedFooter: v.sheetShowEngravedFooter,
     sheetPadding: v.sheetPadding,

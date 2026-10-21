@@ -43,6 +43,12 @@ export function realizeSketchStacksToNotes(opts: {
   /** Detected hole fills — included in the inversion path so Sketch voicings match. */
   detectSpans?: readonly Pick<HarmonySketchSpan, 'id' | 'startTick' | 'endTick' | 'rootPc' | 'quality'>[] | null
   tonality?: number
+  /**
+   * When true, never overwrite covering TBB.
+   * When false, always rewrite.
+   * When omitted, preserve only when ≥1 non-melody part already covers the onset.
+   */
+  preserveExistingParts?: boolean
   idGen: IdGenerator
 }): RealizeSketchStacksResult {
   const lockedAll = authoritativeSketch(opts.sketch)
@@ -153,11 +159,22 @@ export function realizeSketchStacksToNotes(opts: {
       bass: voicing.bass,
       lead: step.melody.midi,
     }
+    const mel = notes.find((n) => n.id === step.melody.id) ?? step.melody
+    const onset = mel.startTick
+    const sparseCover =
+      opts.preserveExistingParts ??
+      notes.some(
+        (n) =>
+          n.partId !== opts.melodyPartId &&
+          n.startTick <= onset &&
+          onset < n.startTick + n.durationTicks,
+      )
     notes = applyHarmonyToNotes({
       notes,
       parts: opts.parts,
-      melody: notes.find((n) => n.id === step.melody.id) ?? step.melody,
+      melody: mel,
       pitches,
+      preserveExistingParts: sparseCover,
       idGen: opts.idGen,
     })
     prevVoicing = {

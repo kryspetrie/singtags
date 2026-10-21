@@ -125,6 +125,9 @@ export type TagRollScoreSurface = 'roll' | 'sheet'
  */
 export type TagRollSheetLayout = 'continuous' | 'page'
 
+/** Sheet chord overlay chrome (text-only / duration span / tight lead-sheet box). */
+export type TagRollSheetChordMarkStyle = 'off' | 'span' | 'boxed'
+
 /**
  * How measure widths are computed (applies to continuous and page):
  * - equal — every bar the same beat-proportional width
@@ -298,6 +301,18 @@ export type TagRollViewPrefs = {
   sheetShowSketchChords: boolean
   /** Show Detected chord labels in boxes above the staff. */
   sheetShowDetectedChords: boolean
+  /**
+   * How sheet chord boxes label harmony: absolute name, roman numeral, or both
+   * (e.g. `C7 (V7)`).
+   */
+  sheetChordLabelMode: 'name' | 'roman' | 'both'
+  /**
+   * Chord overlay chrome above the staff:
+   * - off — label text only (no background)
+   * - span — duration band between barlines / note splits
+   * - boxed — tight box around the label at the onset (lead-sheet style)
+   */
+  sheetChordMarkStyle: TagRollSheetChordMarkStyle
   /** Title / credits block above the score in sheet view. */
   sheetShowEngravedHeader: boolean
   /** Footer note block below the score. */
@@ -332,6 +347,11 @@ export type TagRollViewPrefs = {
   sheetPageHeightIn: number
   /** Page layout: CSS px per inch for screen/print preview (default 96). */
   sheetPageDpi: number
+  /**
+   * Page layout only: display magnification of the rendered page paper
+   * (does not reflow engraving). 1 = 100%.
+   */
+  sheetPageViewZoom: number
   /** SMuFL music font. */
   sheetMusicFont: TagRollSheetMusicFont
   /** Text font for lyrics and labels. */
@@ -481,6 +501,8 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetPlaybackHighlight: true,
   sheetShowSketchChords: false,
   sheetShowDetectedChords: false,
+  sheetChordLabelMode: 'both',
+  sheetChordMarkStyle: 'boxed',
   sheetShowEngravedHeader: true,
   sheetShowEngravedFooter: true,
   sheetPadding: 1,
@@ -497,6 +519,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetPageWidthIn: 8.5,
   sheetPageHeightIn: 11,
   sheetPageDpi: 96,
+  sheetPageViewZoom: 1,
   sheetMusicFont: 'bravura',
   sheetTextFont: 'academico',
   sheetStaffLineWeight: 1,
@@ -514,6 +537,10 @@ export const TAG_ROLL_CELL_H_MAX = 32
 
 export const TAG_ROLL_SHEET_ZOOM_MIN = 16
 export const TAG_ROLL_SHEET_ZOOM_MAX = 160
+
+/** Page-mode display zoom (rendered page magnification). */
+export const TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MIN = 0.4
+export const TAG_ROLL_SHEET_PAGE_VIEW_ZOOM_MAX = 2.5
 
 /** Ruler height (px) — taller in compose so playhead scrubbing is easier. */
 export const TAG_ROLL_RULER_H = 16

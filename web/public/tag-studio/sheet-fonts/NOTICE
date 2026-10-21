@@ -1,0 +1,19 @@
+Tag Studio sheet fonts
+======================
+
+Bundled copies of @vexflow-fonts packages (OFL-1.1), used for on-screen
+engraving and PDF/image export without a CDN dependency at runtime.
+
+Sources (jsDelivr / npm @vexflow-fonts/*):
+  Bravura, Petaluma, Petaluma Text, Petaluma Script — Steinberg Media (OFL)
+  Leland, Leland Text — MuseScore (OFL)
+  Finale Maestro / Finale Maestro Text — MakeMusic (via @vexflow-fonts)
+  Academico — @vexflow-fonts
+  Roboto Slab — Google Fonts (Apache 2.0), packaged by @vexflow-fonts
+
+Layout mirrors VexFlow `Font.FILES` paths under this directory so
+`Font.HOST_URL` can point here. Each face includes `.woff2` (screen / raster
+embed) and `.otf` (vector PDF glyph outlining via opentype.js).
+
+Refresh:
+  ./web/scripts/fetch-sheet-fonts.sh

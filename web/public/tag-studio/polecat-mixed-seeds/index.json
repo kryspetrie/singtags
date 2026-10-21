@@ -1,0 +1,161 @@
+{
+  "projects": [
+    {
+      "id": "seed-polecat-mixed-90001",
+      "tagId": 90001,
+      "title": "Polecat mixed \u00b7 My Wild Irish Rose",
+      "file": "90001.json",
+      "notes": 294,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90002",
+      "tagId": 90002,
+      "title": "Polecat mixed \u00b7 Wait Till The Sun Shines, Nellie",
+      "file": "90002.json",
+      "notes": 522,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90003",
+      "tagId": 90003,
+      "title": "Polecat mixed \u00b7 Sweet And Lovely (That's What You Are To Me)",
+      "file": "90003.json",
+      "notes": 374,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90004",
+      "tagId": 90004,
+      "title": "Polecat mixed \u00b7 Down Our Way",
+      "file": "90004.json",
+      "notes": 213,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90005",
+      "tagId": 90005,
+      "title": "Polecat mixed \u00b7 Honey / Little 'Lize Medley",
+      "file": "90005.json",
+      "notes": 326,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90006",
+      "tagId": 90006,
+      "title": "Polecat mixed \u00b7 Let Me Call You Sweetheart",
+      "file": "90006.json",
+      "notes": 192,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90007",
+      "tagId": 90007,
+      "title": "Polecat mixed \u00b7 Sweet, Sweet Roses Of Morn",
+      "file": "90007.json",
+      "notes": 344,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90008",
+      "tagId": 90008,
+      "title": "Polecat mixed \u00b7 Shine On Me",
+      "file": "90008.json",
+      "notes": 162,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90009",
+      "tagId": 90009,
+      "title": "Polecat mixed \u00b7 The Story Of The Rose",
+      "file": "90009.json",
+      "notes": 231,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90010",
+      "tagId": 90010,
+      "title": "Polecat mixed \u00b7 You're The Flower Of My Heart, Sweet Adeline",
+      "file": "90010.json",
+      "notes": 154,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90011",
+      "tagId": 90011,
+      "title": "Polecat mixed \u00b7 Down By The Old Mill Stream",
+      "file": "90011.json",
+      "notes": 209,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    },
+    {
+      "id": "seed-polecat-mixed-90012",
+      "tagId": 90012,
+      "title": "Polecat mixed \u00b7 You Tell Me Your Dream",
+      "file": "90012.json",
+      "notes": 196,
+      "parts": [
+        "Tenor",
+        "Lead",
+        "Bari",
+        "Bass"
+      ]
+    }
+  ],
+  "count": 12
+}

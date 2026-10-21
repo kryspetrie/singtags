@@ -18,9 +18,16 @@ export type CadenceTeachView = {
   glossaryIds: readonly string[]
 }
 
+export type LabelTeachView = {
+  label: string
+  body: string
+  glossaryIds: readonly string[]
+}
+
 const props = defineProps<{
   momentLine: string
   cadenceTeach?: CadenceTeachView | null
+  labelTeach?: LabelTeachView | null
   cadencePlans?: readonly CadenceSuggestion[]
   hearingPlanId?: string | null
   previewPlanId?: string | null
@@ -137,6 +144,7 @@ function onCounterpartHoldStart(e: PointerEvent): void {
 }
 
 const cadenceLearnOpen = ref(false)
+const labelLearnOpen = ref(false)
 const planTeach = ref<CadenceSuggestion | null>(null)
 const moreOpen = ref(false)
 
@@ -169,6 +177,13 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
       :glossary-ids="cadenceTeach.glossaryIds"
       :intro="cadenceTeach.body"
       @back="cadenceLearnOpen = false"
+    />
+    <ArrangingCoachTeachLesson
+      v-else-if="labelLearnOpen && labelTeach"
+      :title="`Label · ${labelTeach.label}`"
+      :glossary-ids="labelTeach.glossaryIds"
+      :intro="labelTeach.body"
+      @back="labelLearnOpen = false"
     />
 
     <template v-else>
@@ -315,6 +330,21 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
           </button>
         </div>
         <ArrangingTeachProse class="cadence-body" :text="cadenceTeach.body" />
+      </aside>
+
+      <aside v-if="labelTeach" class="cadence-teach label-teach">
+        <div class="cadence-head">
+          <strong>Label · {{ labelTeach.label }}</strong>
+          <button
+            type="button"
+            :class="TEACH_LEARN_BTN_CLASS"
+            title="Open the two-names lesson"
+            @click="labelLearnOpen = true"
+          >
+            Learn
+          </button>
+        </div>
+        <ArrangingTeachProse class="cadence-body" :text="labelTeach.body" />
       </aside>
 
       <ArrangingCoachCadencePlans

@@ -97,6 +97,10 @@ const isView = computed(() => mode.value === 'view')
 const isSheet = computed(
   () => isView.value && project.value?.view.scoreSurface === 'sheet',
 )
+const pageZoomPct = computed(() => {
+  const z = Number(project.value?.view.sheetPageViewZoom)
+  return Math.round((Number.isFinite(z) ? z : 1) * 100)
+})
 const harmonizeOpen = computed(() => !!props.harmonizeOpen)
 const keyChangeOpen = computed(() => !!props.keyChangeOpen)
 const tweaksOpen = computed(() => !!props.tweaksOpen)
@@ -480,6 +484,40 @@ onUnmounted(() => {
         Print
       </button>
 
+      <div
+        v-if="isView && project.view.scoreSurface === 'sheet' && project.view.sheetLayout === 'page'"
+        class="page-zoom"
+        role="group"
+        aria-label="Page zoom"
+      >
+        <button
+          type="button"
+          class="btn sm page-zoom-btn"
+          :title="tagRollTip('Zoom out on the rendered page')"
+          aria-label="Zoom out page"
+          @click.stop="store.nudgeSheetPageViewZoom(-0.1)"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          class="page-zoom-pct"
+          :title="tagRollTip('Reset page zoom to 100%')"
+          @click.stop="store.setSheetPageViewZoom(1)"
+        >
+          {{ pageZoomPct }}%
+        </button>
+        <button
+          type="button"
+          class="btn sm page-zoom-btn"
+          :title="tagRollTip('Zoom in on the rendered page')"
+          aria-label="Zoom in page"
+          @click.stop="store.nudgeSheetPageViewZoom(0.1)"
+        >
+          +
+        </button>
+      </div>
+
       <label
         v-if="!isView"
         class="field"
@@ -607,10 +645,10 @@ onUnmounted(() => {
         class="btn sm"
         :class="{ on: harmonizeOpen }"
         :aria-expanded="harmonizeOpen"
-        :title="tipByShortcutId('harmonize', 'Harmonize')"
+        :title="tipByShortcutId('harmonize', 'Chords')"
         @click="emit('openHarmonize')"
       >
-        Harmonize
+        Chords
       </button>
 
       <button
@@ -838,7 +876,7 @@ onUnmounted(() => {
             <button
               type="button"
               role="menuitem"
-              :title="tagRollTip('Raster PDF (JPEG pages) — multi-page for Page layout, long page for Continuous')"
+              :title="tagRollTip('Raster PDF at 300 DPI (JPEG pages) — multi-page for Page layout, long page for Continuous')"
               @click="exportOpen = false; emit('exportSheetPdf')"
             >
               Sheet · PDF (raster)
@@ -846,7 +884,7 @@ onUnmounted(() => {
             <button
               type="button"
               role="menuitem"
-              :title="tagRollTip('Vector PDF from score SVG — multi-page for Page layout, long page for Continuous')"
+              :title="tagRollTip('True vector PDF (outlined SMuFL paths via svg2pdf) — multi-page for Page layout, long page for Continuous')"
               @click="exportOpen = false; emit('exportSheetPdfVector')"
             >
               Sheet · PDF (vector)
@@ -1013,6 +1051,38 @@ onUnmounted(() => {
 .tr-ico {
   width: 0.95rem;
   height: 0.95rem;
+}
+.page-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+  padding: 0.1rem 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg, var(--surface)) 65%, var(--surface));
+}
+.page-zoom-btn {
+  min-width: 1.85rem;
+  padding: 0.12rem 0.35rem;
+  font-weight: 700;
+}
+.page-zoom-pct {
+  min-width: 3.1rem;
+  min-height: 30px;
+  padding: 0.1rem 0.35rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.page-zoom-pct:hover {
+  background: var(--surface);
 }
 .lbl {
   font-size: 0.68rem;

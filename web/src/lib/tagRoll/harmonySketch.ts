@@ -41,10 +41,20 @@ export function isHarmonySketchQuality(q: string): q is HarmonySketchQuality {
 
 /** Map stack/detect nature → sketch quality (unknown → major). */
 export function natureToSketchQuality(natureId: string): HarmonySketchQuality {
-  if (isHarmonySketchQuality(natureId)) return natureId
+  return trySketchQualityFromNature(natureId) ?? 'major'
+}
+
+/**
+ * Map nature → sketch quality, or null when unrecognized / blank / empty.
+ * Use for Complete-from-parts / Lock gates so unknown never becomes major.
+ */
+export function trySketchQualityFromNature(natureId: string): HarmonySketchQuality | null {
+  if (!natureId || natureId === 'unknown' || natureId === 'blank') return null
+  if (isHarmonySketchQuality(natureId)) {
+    return isBlankSketchQuality(natureId) ? null : natureId
+  }
   if (natureId === 'halfdim' || natureId === 'half_dim') return 'half-dim'
-  if (natureId === 'unknown' || !natureId) return 'major'
-  return 'major'
+  return null
 }
 
 /** Timing placeholder — no sounding chord yet. */
@@ -245,6 +255,29 @@ export function upsertSketchSpan(
  * remnants keep the prior root/quality). Used for passing / NCT fills so the
  * covering pillar is not deleted wholesale.
  */
+/**
+ * Split one locked Sketch span at `tick` into left + right remnants
+ * (same root/quality/pillar/source). Returns null when tick is not strictly inside.
+ */
+export function splitSketchSpanAt(
+  spans: readonly HarmonySketchSpan[],
+  id: string,
+  tick: number,
+): HarmonySketchSpan[] | null {
+  const t = Math.round(tick)
+  const s = spans.find((x) => x.id === id)
+  if (!s?.locked) return null
+  if (!(s.startTick < t && t < s.endTick)) return null
+  if (t - s.startTick < 1 || s.endTick - t < 1) return null
+  const left: HarmonySketchSpan = { ...s, endTick: t }
+  const right: HarmonySketchSpan = {
+    ...s,
+    id: allocatePrefixedId('hs'),
+    startTick: t,
+  }
+  return sortSpans([...spans.filter((x) => x.id !== id), left, right])
+}
+
 export function carveInsertSketchSpan(
   spans: readonly HarmonySketchSpan[],
   patch: {

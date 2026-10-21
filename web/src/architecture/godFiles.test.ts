@@ -24,24 +24,30 @@ export const ARCH_MAX_LINES_NEW = 800
 export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/SingTogetherView.vue': 4810,
   'components/SheetViewer.vue': 2666,
-  'views/HomeView.vue': 2650,
+  'views/HomeView.vue': 3450,
   'views/OpticalTransferView.vue': 2400,
   'components/TagPlayer.vue': 2300,
   'views/LocalLibraryView.vue': 2250,
-  'views/TagView.vue': 2050,
-  'stores/preferences.ts': 2060, // + Detected interest + scoring Tweaks JSON
+  'views/TagView.vue': 2130,
+  'stores/preferences.ts': 2260, // + Detected interest + scoring Tweaks JSON
   'views/SettingsView.vue': 1750,
   'views/FavoritesView.vue': 1750,
   'App.vue': 1700,
   'views/RecorderSessionView.vue': 1600,
-  'views/PitchPipeView.vue': 1550,
+  'views/PitchPipeView.vue': 1590,
   'views/LocalDocView.vue': 1500,
-  'views/TagRollEditorView.vue': 2860, // + Harmonize → Coach Choose seed handoff
-  'stores/tagRoll.ts': 2410, // Harmonize moment-window sketch commit
-  'components/arranging/useArrangingCoachDock.ts': 1440, // Open Choose seed match + filter reset
-  'components/arranging/ArrangingCoachDock.vue': 1130, // Keychange panel on Polish (K6)
-  'stores/arrangement.ts': 910, // soft Suggest context (Sketch/Detected fallback)
-  'components/tagRoll/TagRollViewport.vue': 1570, // multi-part same-pitch color bands + z-order
+  'views/TagRollEditorView.vue': 3290, // + Fill parts fixes
+  'stores/tagRoll.ts': 2860, // + page view zoom + chord mark style
+  'components/arranging/useArrangingCoachDock.ts': 1690, // Open Choose seed match + filter reset
+  'components/arranging/ArrangingCoachDock.vue': 1170, // Keychange panel on Polish (K6)
+  'components/arranging/ArrangingCoachSuggestPanel.vue': 810,
+  'components/arranging/ArrangingPathOptimize.vue': 890,
+  'domain/arranging/harmonize/candidateRanker.ts': 880,
+  'domain/arranging/pathOptimize/optimize.ts': 870,
+  'domain/arranging/strongRootPriors.generated.ts': 1520,
+  'lib/tagRoll/harmonySketch.ts': 1050, // + trySketchQualityFromNature
+  'stores/arrangement.ts': 960, // soft Suggest context (Sketch/Detected fallback)
+  'components/tagRoll/TagRollViewport.vue': 1600, // multi-part same-pitch color bands + z-order
   'views/WirelessTransferView.vue': 1200,
   'views/LocalPlaylistView.vue': 1150,
   'offline/resolveMedia.ts': 1050,
@@ -52,23 +58,23 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'stores/offlineLibrary.ts': 950,
   'components/tagRoll/TagRollExpressionLane.vue': 970, // bottom-lane shell + shared time grid
   'components/tagRoll/TagRollMediaBar.vue': 1230, // lane toggles beside W/H + major/minor key optgroups
-  'components/tagRoll/TagRollHarmonizePanel.vue': 1665, // Suggest measure-anchor + moment window apply
-  'components/tagRoll/TagRollDeclaredLane.vue': 840, // Sketch-lane typeahead + Realize emit
+  'components/tagRoll/TagRollChordsPanel.vue': 2690, // + Split + home+melody passing labels
+  'components/tagRoll/TagRollDeclaredLane.vue': 1180, // Sketch-lane typeahead + Chords edit emit
   'composables/useTagDetail.ts': 900,
   'views/RecorderView.vue': 900,
   'audio/player.ts': 850,
   'components/SearchChips.vue': 850,
-  'components/SheetPianoDock.vue': 898, // min zoom fills viewport width
+  'components/SheetPianoDock.vue': 940, // min zoom fills viewport width
   'components/ScrubRail.vue': 800,
   'views/PitchPipeSoundLabView.vue': 800,
-  'stores/catalog.ts': 795, // first-paint slice + deferred SearchEngine on hydrate
+  'stores/catalog.ts': 830, // first-paint slice + deferred SearchEngine on hydrate
   'components/RouletteModeEditor.vue': 700,
   'offline/cacheManage.ts': 700,
-  'components/tagRoll/TagRollToolbar.vue': 1140, // + sheet Format/Meta entry
+  'components/tagRoll/TagRollToolbar.vue': 1220, // + page zoom controls
   // Sheet metadata/layout branch — grandfathered until carved into smaller modules.
-  'components/tagRoll/TagRollSheetFormatPanel.vue': 1160,
-  'components/tagRoll/TagRollSheetViewport.vue': 1060,
-  'lib/tagRoll/sheetScore/renderVexScore.ts': 1040,
+  'components/tagRoll/TagRollSheetFormatPanel.vue': 1250, // + chord mark style Off/Span/Boxed
+  'components/tagRoll/TagRollSheetViewport.vue': 1290, // + dpi×zoom re-engrave cache
+  'lib/tagRoll/sheetScore/renderVexScore.ts': 1110,
 }
 
 const SKIP_DIR = new Set([

@@ -83,7 +83,7 @@ export function useDeclaredStripGestures(opts: {
   onClearSelection: () => void
   /** Drag-defined empty span → open chord editor for this window. */
   onPlaceRange: (startTick: number, endTick: number) => void
-  /** Double-click / re-click without drag on selected span → inline typeahead. */
+  /** Click without drag on a span → open Chords (or blank typeahead in the lane). */
   onEdit: (seg: ChordAnalysisSegment) => void
   onGeometry: (payload: { id: string; startTick: number; endTick: number }) => void
   onGeometryMany: (payloads: Array<{ id: string; startTick: number; endTick: number }>) => void
@@ -213,9 +213,9 @@ export function useDeclaredStripGestures(opts: {
           origins,
           startClientX: e.clientX,
           moved: false,
-          // First click selects only; re-click an already-selected chord opens typeahead.
+          // Single-cell click (no drag) opens the Chords panel; blanks use lane typeahead.
           // Range / additive clicks never open the editor on release.
-          editOnRelease: already && !additive && !rangeSelect && moveIds.length === 1,
+          editOnRelease: !additive && !rangeSelect && moveIds.length === 1,
           previews,
         }
       }
@@ -350,7 +350,7 @@ export function useDeclaredStripGestures(opts: {
 
     if (g.kind === 'move' && !g.moved) {
       // Click (no drag): park playhead at the chord start for easy playback.
-      // Re-click an already-selected single chord → also open inline edit.
+      // Single selected chord → open Chords panel (or blank typeahead).
       const segs = g.ids
         .map((id) => opts.declared.value.find((s) => s.id === id))
         .filter((s): s is ChordAnalysisSegment => s != null)

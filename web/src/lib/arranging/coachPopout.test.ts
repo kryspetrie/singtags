@@ -9,7 +9,6 @@ import {
   buildDockPopoutUrl,
   isCoachPopoutSearch,
   parseDockPopoutKind,
-  parseChordEditPopoutParams,
   coachChannelName,
 } from './coachPopout'
 
@@ -24,7 +23,7 @@ describe('coachPopout', () => {
   it('parses dockPopout kinds', () => {
     expect(parseDockPopoutKind('?dockPopout=coach')).toBe('coach')
     expect(parseDockPopoutKind('?dockPopout=harmonize')).toBe('harmonize')
-    expect(parseDockPopoutKind('?dockPopout=chordEdit')).toBe('chordEdit')
+    expect(parseDockPopoutKind('?dockPopout=chordEdit')).toBe('harmonize')
     expect(parseDockPopoutKind('?coachPopout=1')).toBe('coach')
     expect(parseDockPopoutKind('?dockPopout=nope')).toBe(null)
   })
@@ -33,20 +32,7 @@ describe('coachPopout', () => {
     expect(buildDockPopoutUrl('/tag-studio/abc', 'harmonize')).toBe(
       '/tag-studio/abc?dockPopout=harmonize',
     )
-    expect(
-      buildDockPopoutUrl('/tag-studio/abc', 'chordEdit', {
-        segId: 'hs_1',
-        variant: 'declared',
-      }),
-    ).toContain('dockSeg=hs_1')
     expect(buildCoachPopoutUrl('/tag-studio/abc')).toBe('/tag-studio/abc?dockPopout=coach')
-  })
-
-  it('parses chord-edit popout params', () => {
-    expect(
-      parseChordEditPopoutParams('?dockPopout=chordEdit&dockSeg=hs_1&dockVariant=declared'),
-    ).toEqual({ segId: 'hs_1', variant: 'declared' })
-    expect(parseChordEditPopoutParams('?dockPopout=chordEdit')).toBe(null)
   })
 
   it('names channel by project', () => {

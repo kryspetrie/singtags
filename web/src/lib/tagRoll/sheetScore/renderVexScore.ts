@@ -39,7 +39,13 @@ import {
   SHEET_MEASURE_WIDTH_MIN,
   sheetMeasureWidthPx,
 } from '../zoomFill'
+import {
+  estimateUnitChordClearancesForPlaces,
+  type SheetChordDetectSegment,
+} from '../sheetChordMarks'
+import { stackSheetSystems } from '../sheetSystemStack'
 import { assignSheetStaves } from './assignStaves'
+import { sheetEngraveLengthTicks } from './engraveLength'
 import { mapTicksToDuration, type NoteDurationType } from './durationMap'
 import {
   contentSizedMeasureBodyPx,
@@ -147,6 +153,8 @@ export function ensureVexFonts(music = 'Bravura', text = 'Academico'): Promise<v
   if (fontsReady && fontsKey === key) return fontsReady
   fontsKey = key
   fontsReady = (async () => {
+    const { configureSheetFontHost } = await import('../sheetFontAssets')
+    configureSheetFontHost()
     // happy-dom / some test envs lack FontFace — still set module fonts.
     if (typeof FontFace !== 'undefined') {
       await VexFlow.loadFonts(music, text)
@@ -500,6 +508,10 @@ export async function renderVexSheetScore(opts: {
   engravingScale?: number
   /** Overall score content scale inside margins. */
   scoreScale?: number
+  /** Detected chord segments for sheet chord clearance (viewport / export). */
+  chordDetectSegments?: readonly SheetChordDetectSegment[]
+  /** Include Sketch+Detected whenever data exists (PDF / print). */
+  chordForceInclude?: boolean
 }): Promise<VexScoreLayoutResult> {
   const musicId = normalizeSheetMusicFont(opts.musicFont)
   const textId = normalizeSheetTextFont(opts.textFont)
@@ -575,6 +587,12 @@ export async function renderVexSheetScore(opts: {
       : null
   host.replaceChildren()
 
+  const ppq = project.ppq || TAG_ROLL_PPQ
+  const mLen = measureTicks(project.timeSignature, ppq)
+  // Drop trailing empty measures past the last note / mark (keep ≥1 measure).
+  const lengthTicks = sheetEngraveLengthTicks(project, mLen)
+  const measureCount = Math.max(1, Math.ceil(lengthTicks / mLen))
+
   const assignment = assignSheetStaves(project.parts, project.clefFamily, {
     melodyPartId: project.view.melodyPartId,
     notes: project.notes,
@@ -582,15 +600,10 @@ export async function renderVexSheetScore(opts: {
   const events = buildSheetRhythm({
     assignment,
     notes: project.notes,
-    lengthTicks: project.lengthTicks,
+    lengthTicks,
     timeSignature: project.timeSignature,
-    ppq: project.ppq || TAG_ROLL_PPQ,
+    ppq,
   })
-
-  const ppq = project.ppq || TAG_ROLL_PPQ
-  const mLen = measureTicks(project.timeSignature, ppq)
-  const lengthTicks = Math.max(mLen, project.lengthTicks)
-  const measureCount = Math.max(1, Math.ceil(lengthTicks / mLen))
   const ts = `${project.timeSignature.numerator}/${project.timeSignature.denominator}`
   const beatsPerMeasure = mLen / ppq
 
@@ -658,10 +671,9 @@ export async function renderVexSheetScore(opts: {
     )
   }
 
+  // Width-wrap into systems first; page breaks come after chord clearance.
   let curX = leftPad
   let systemIndex = 0
-  let pageIndex = 0
-  let systemsOnPage = 0
   let maxRight = leftPad
   for (let mi = 0; mi < measureCount; mi++) {
     let w = measureBodies[mi]!
@@ -671,29 +683,40 @@ export async function renderVexSheetScore(opts: {
       !atSystemStart &&
       curX + w + rightPad > contentWidth
     ) {
-      // New system — maybe also a new page if height is exhausted.
-      const nextSystems = systemsOnPage + 1
-      const usedH =
-        nextSystems * systemBodyHeight +
-        Math.max(0, nextSystems - 1) * systemGapPx
-      if (usedH > pageSystemBudget(pageIndex) && systemsOnPage > 0) {
-        pageIndex += 1
-        systemsOnPage = 0
-      }
       systemIndex += 1
-      systemsOnPage += 1
       curX = leftPad
       w += clefExtraPx
     } else if (atSystemStart) {
       w += clefExtraPx
-      if (systemsOnPage === 0) systemsOnPage = 1
     }
-    places.push({ mi, x: curX, y: 0, systemIndex, pageIndex, width: w })
+    places.push({ mi, x: curX, y: 0, systemIndex, pageIndex: 0, width: w })
     curX += w
     maxRight = Math.max(maxRight, curX)
   }
 
-  // Y: stack systems; insert page gaps between pages; reserve title band on page 0.
+  const pageTopPad = (pi: number) =>
+    (pi === 0 ? headerBandPx : 0) + scoreTopPad
+  stackSheetSystems(places, {
+    systemBodyHeight,
+    baseSystemGap: systemGapPx,
+    chordClearanceBySystem: estimateUnitChordClearancesForPlaces(
+      project,
+      places,
+      {
+        measureTicks: mLen,
+        lengthTicks,
+        sizeScale,
+        detectSegments: opts.chordDetectSegments,
+        forceInclude: opts.chordForceInclude,
+      },
+    ),
+    existingTopHeadroom: exprHeadroom,
+    pageMode,
+    pageSystemBudget,
+    pageContentTopY: (pi) => pi * (pageH + pageGapPx) + pageTopPad(pi),
+    continuousOriginY: headerBandPx + scoreTopPad,
+  })
+
   const pageCount = (places[places.length - 1]?.pageIndex ?? 0) + 1
   const pages: VexScorePageGeom[] = []
   if (pageMode) {
@@ -707,30 +730,9 @@ export async function renderVexSheetScore(opts: {
     }
   }
 
-  const pageTopPad = (pi: number) =>
-    (pi === 0 ? headerBandPx : 0) + scoreTopPad
-
-  let yCursor = pageMode ? pages[0]!.y + pageTopPad(0) : headerBandPx + scoreTopPad
-  let prevSi = -1
-  let prevPage = 0
-  for (const pl of places) {
-    if (pl.systemIndex !== prevSi) {
-      if (prevSi >= 0) {
-        if (pl.pageIndex !== prevPage) {
-          yCursor = pages[pl.pageIndex]!.y + pageTopPad(pl.pageIndex)
-        } else {
-          yCursor += systemBodyHeight + systemGapPx
-        }
-      }
-      prevSi = pl.systemIndex
-      prevPage = pl.pageIndex
-    }
-    pl.y = yCursor
-  }
   const systemCount = (places[places.length - 1]?.systemIndex ?? 0) + 1
-  const totalWidth = pageMode
-    ? pageW
-    : Math.ceil(maxRight + rightPad)
+  const yCursor = places.reduce((max, pl) => Math.max(max, pl.y), 0)
+  const totalWidth = pageMode ? pageW : Math.ceil(maxRight + rightPad)
   const totalHeight = pageMode
     ? Math.ceil(pages[pageCount - 1]!.y + pageH)
     : Math.ceil(yCursor + systemBodyHeight + bottomPad)
@@ -850,12 +852,15 @@ export async function renderVexSheetScore(opts: {
         spaceBelow: showLyrics ? LYRIC_STAVE_SPACE_BELOW : 0,
       })
       stave.setStyle({ ...stave.getStyle(), lineWidth: staffLineWidth, strokeStyle: '#000000' })
-      if (showPartNames && pl.x === leftPad) {
+      // Part names once, on the first system only. StaveText LEFT already sits
+      // left of the clef (staveX − width − 24); a further negative shiftX was
+      // pushing labels off the left edge of the SVG.
+      if (showPartNames && pl.systemIndex === 0 && pl.x === leftPad) {
         const partLabel = staff.labels.filter(Boolean).join(' · ')
         if (partLabel) {
-          // Sit in the reserved part-name gutter (left of clef), not into the page edge.
           stave.setStaveText(partLabel, StaveModifierPosition.LEFT, {
-            shiftX: -Math.max(8, partNameGutter - 10),
+            // Keep a small gap before the clef; stay inside partNameGutter.
+            shiftX: 4,
           })
         }
       }

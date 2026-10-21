@@ -221,4 +221,32 @@ describe('applyHarmonyToNotes', () => {
     const newIds = next.filter((n) => n.id.startsWith('trn_')).map((n) => n.id)
     expect(newIds).toEqual(['trn_40', 'trn_41', 'trn_42'])
   })
+
+  it('preserveExistingParts leaves covering Bari alone and fills empty roles', () => {
+    const melody = {
+      id: 'm1',
+      partId: 'lead',
+      midi: 60,
+      startTick: 0,
+      durationTicks: TAG_ROLL_PPQ,
+    }
+    const bari = {
+      id: 'b1',
+      partId: 'bari',
+      midi: 55,
+      startTick: 0,
+      durationTicks: TAG_ROLL_PPQ,
+    }
+    const next = applyHarmonyToNotes({
+      notes: [melody, bari],
+      parts,
+      melody,
+      pitches,
+      preserveExistingParts: true,
+      idGen: idGen(),
+    })
+    expect(next.find((n) => n.id === 'b1')).toMatchObject({ midi: 55, startTick: 0 })
+    expect(next.find((n) => n.partId === 'tenor' && n.startTick === 0)?.midi).toBe(67)
+    expect(next.find((n) => n.partId === 'bass' && n.startTick === 0)?.midi).toBe(48)
+  })
 })

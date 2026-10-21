@@ -10,6 +10,7 @@ import {
 import type { VoicingPitches } from './chords'
 import {
   accidentalBiasForRootInKey,
+  dualRomanTeach,
   formatRomanWithAlt,
   romanForChordDetailed,
 } from './secondaryDominant'
@@ -43,6 +44,8 @@ export type ChordAnalysisSegment = {
   displayRoman: string
   /** Classic cadence hint for Detected tooltips. */
   cadenceLabel?: string
+  /** Why this roman spelling was chosen, when the label would otherwise look inconsistent. */
+  labelTeach?: string
   /** Detected Alt pick: 0 = best … up to DETECT_ALT_LIMIT - 1. */
   altIndex?: number
   /** How many ranked Detected picks are available (≤ {@link DETECT_ALT_LIMIT}). */
@@ -192,6 +195,14 @@ export function buildChordAnalysisSegments(opts: {
       s.natureId === 'unknown'
         ? roman
         : formatRomanWithAlt(detailed.roman, detailed.altRoman)
+    const labelTeach =
+      s.natureId === 'unknown'
+        ? undefined
+        : dualRomanTeach({
+            roman: detailed.roman,
+            altRoman: detailed.altRoman,
+            natureId: s.natureId,
+          }) ?? undefined
     out.push({
       id: s.id,
       startTick: s.startTick,
@@ -205,6 +216,7 @@ export function buildChordAnalysisSegments(opts: {
       displayName: pickDisplay(ov?.name, nameOptions, name),
       displayRoman:
         ov?.roman && romanOptions.includes(ov.roman) ? ov.roman : defaultRoman,
+      labelTeach,
     })
   }
   return out
