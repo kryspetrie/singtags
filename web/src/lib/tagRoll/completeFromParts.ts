@@ -354,6 +354,11 @@ export function completeFromPartsToNotes(opts: {
       ...(bsOn ? { bass: bsOn.midi } : {}),
     }
 
+    const nextBass = bass
+      ? p.notes
+          .filter((n) => n.partId === bass.id && n.startTick >= endTick)
+          .sort((a, b) => a.startTick - b.startTick)[0]
+      : undefined
     const result = completeSparseStack({
       midi,
       tonality: p.tonality,
@@ -361,6 +366,7 @@ export function completeFromPartsToNotes(opts: {
       profile: opts.profile,
       preferredNatureId: preferredQuality,
       preferredRootPc: preferredRoot,
+      nextBassPc: nextBass != null ? ((nextBass.midi % 12) + 12) % 12 : null,
       prevMidi: {
         lead: melody.midi,
         tenor: tOn?.midi ?? carried.tenor,

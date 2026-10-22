@@ -11,6 +11,7 @@ import {
 } from './chords'
 import { identifyNatureFromMidi, majorKeyIncompleteAllows } from './chordCompletion'
 import { isNatureAllowed, type ContestProfile } from './contestProfile'
+import { degreeOf } from './secondaryDominant'
 import type { TonalityMode } from './types'
 
 export type SparseSkipReason = 'unrecognized' | 'outside_vocab' | 'no_completion'
@@ -161,6 +162,11 @@ function placeLockedVoicing(opts: {
           opts.natureId === 'half-dim' ||
           opts.natureId === 'dim7')
       if (needsSeventh && !sounding.includes(pc(opts.rootPc + seventhOff))) continue
+      const sixthOff = chord.offsets[6]
+      const needsSixth =
+        sixthOff != null && (opts.natureId === 'sixth' || opts.natureId === 'madd6')
+      if (needsSixth && !sounding.includes(pc(opts.rootPc + sixthOff))) continue
+      if (opts.natureId === 'sixth' && thirdOff != null && !hasThird) continue
       const cost = singerMotionCost(settled, opts.prevMidi)
       const better =
         !best ||
@@ -228,38 +234,66 @@ function voiceAroundLocks(opts: {
   if (tenorLocked != null) used.add(tenorLocked)
   if (bariLocked != null) used.add(bariLocked)
 
-  const seventhOff = BARBERSHOP_CHORDS.find((c) => c.id === opts.natureId)?.offsets[7]
-  const seventhPc =
-    seventhOff != null &&
-    (opts.natureId === 'seventh' ||
-      opts.natureId === 'ninth' ||
-      opts.natureId === 'm7' ||
-      opts.natureId === 'maj7' ||
-      opts.natureId === 'half-dim' ||
-      opts.natureId === 'dim7')
-      ? pc(opts.rootPc + seventhOff)
-      : null
-  const seventhSet = seventhPc == null ? null : new Set([seventhPc])
-  const missingSeventh = () =>
-    seventhPc != null && ![...used].some((midi) => pc(midi) === seventhPc)
+  const chord = BARBERSHOP_CHORDS.find((c) => c.id === opts.natureId)
+  const seventhOff = chord?.offsets[7]
+  const sixthOff = chord?.offsets[6]
+  const colorPc = (() => {
+    if (
+      seventhOff != null &&
+      (opts.natureId === 'seventh' ||
+        opts.natureId === 'ninth' ||
+        opts.natureId === 'm7' ||
+        opts.natureId === 'maj7' ||
+        opts.natureId === 'half-dim' ||
+        opts.natureId === 'dim7')
+    ) {
+      return pc(opts.rootPc + seventhOff)
+    }
+    if (sixthOff != null && (opts.natureId === 'sixth' || opts.natureId === 'madd6')) {
+      return pc(opts.rootPc + sixthOff)
+    }
+    return null
+  })()
+  const thirdOff = chord?.offsets[3]
+  const thirdPc = thirdOff == null ? null : pc(opts.rootPc + thirdOff)
+  const colorSet = colorPc == null ? null : new Set([colorPc])
+  const thirdSet = thirdPc == null ? null : new Set([thirdPc])
+  const missingColor = () =>
+    colorPc != null && ![...used].some((midi) => pc(midi) === colorPc)
+  const missingThird = () =>
+    thirdPc != null && ![...used].some((midi) => pc(midi) === thirdPc)
 
   const tenor =
     tenorLocked ??
-    (missingSeventh()
-      ? findChordTone(Math.min(lead + 12, 77), lead + 3, -1, seventhSet!, used)
+    (missingColor()
+      ? findChordTone(Math.min(lead + 12, 77), lead + 3, -1, colorSet!, used)
+      : null) ??
+    (missingThird()
+      ? findChordTone(Math.min(lead + 12, 77), lead + 3, -1, thirdSet!, used)
       : null) ??
     findChordTone(Math.min(lead + 12, 77), lead + 3, -1, tones, used)
   if (tenor == null || tenor <= lead) return null
   used.add(tenor)
 
   let bari = bariLocked ?? null
-  if (bari == null && bass != null) {
+  if (bari == null && bass != null && missingColor()) {
+    bari = findChordTone(lead - 1, bass + 1, -1, colorSet!, used)
+  }
+  if (bari == null && bass != null && missingThird()) {
+    bari = findChordTone(lead - 1, bass + 1, -1, thirdSet!, used)
+  }
+  if (bari == null && bass != null && !missingColor() && !missingThird()) {
     bari = findChordTone(lead - 1, bass + 1, -1, tones, used)
   }
-  if (bari == null && missingSeventh()) {
+  if (bari == null && missingColor()) {
     bari =
-      findChordTone(lead + 1, tenor - 1, 1, seventhSet!, used) ??
-      findChordTone(lead - 1, Math.max(SINGER_BAND.bari.min, lead - 16), -1, seventhSet!, used)
+      findChordTone(lead + 1, tenor - 1, 1, colorSet!, used) ??
+      findChordTone(lead - 1, Math.max(SINGER_BAND.bari.min, lead - 16), -1, colorSet!, used)
+  }
+  if (bari == null && missingThird()) {
+    bari =
+      findChordTone(lead + 1, tenor - 1, 1, thirdSet!, used) ??
+      findChordTone(lead - 1, Math.max(SINGER_BAND.bari.min, lead - 16), -1, thirdSet!, used)
   }
   if (bari == null) {
     bari = findChordTone(lead + 1, tenor - 1, 1, tones, used)
@@ -273,7 +307,8 @@ function voiceAroundLocks(opts: {
 
   const bassMidi =
     bass ??
-    (missingSeventh() ? findChordTone(lead - 1, lead - 24, -1, seventhSet!, used) : null) ??
+    (missingColor() ? findChordTone(lead - 1, lead - 24, -1, colorSet!, used) : null) ??
+    (missingThird() ? findChordTone(lead - 1, lead - 24, -1, thirdSet!, used) : null) ??
     findChordTone(lead - 1, lead - 24, -1, tones, used)
   if (bassMidi == null) return null
   const midi: VoicingPitches = {
@@ -505,6 +540,14 @@ export function chooseSmoothVoicing(opts: {
         }
         if (!sounding.includes(third)) cost += 28
         if (seventhOff != null && !sounding.includes(pc(opts.rootPc + seventhOff))) cost += 1000
+        const sixthOff = chord?.offsets[6]
+        if (
+          sixthOff != null &&
+          (opts.natureId === 'sixth' || opts.natureId === 'madd6') &&
+          !sounding.includes(pc(opts.rootPc + sixthOff))
+        ) {
+          cost += 1000
+        }
         if (bari > opts.lead) cost += 8
         if (midi.bass > midi.bari) cost += 18
         if (midi.tenor - midi.bass > 21) cost += (midi.tenor - midi.bass - 21) * 3
@@ -548,6 +591,8 @@ export function completeSparseStack(opts: {
   preferredRootPc?: number | null
   /** Previous TTBB stack, so filled parts step instead of leaping. */
   prevMidi?: Partial<VoicingPitches> | null
+  /** Bass pitch class of the next chord. A tonic triad moving to IV becomes I7. */
+  nextBassPc?: number | null
   pillarRoot?: number
   limit?: number
 }): SparseCompleteResult {
@@ -612,6 +657,19 @@ export function completeSparseStack(opts: {
 
   if (!isNatureAllowed(opts.profile, natureId)) {
     return { ok: false, reason: 'outside_vocab' }
+  }
+
+  const triadPcs = [0, 4, 7].map((off) => ((rootPc + off) % 12 + 12) % 12)
+  if (
+    mode === 'major' &&
+    natureId === 'major' &&
+    degreeOf(rootPc, opts.tonality) === 0 &&
+    opts.nextBassPc != null &&
+    degreeOf(opts.nextBassPc, opts.tonality) === 5 &&
+    triadPcs.every((p) => uniquePcs(present).includes(p)) &&
+    isNatureAllowed(opts.profile, 'seventh')
+  ) {
+    natureId = 'seventh'
   }
 
   if (!presentPcsFitNature(present, natureId, rootPc)) {

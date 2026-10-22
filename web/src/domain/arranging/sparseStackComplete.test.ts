@@ -189,6 +189,37 @@ describe('completeSparseStack', () => {
     expect(chosen.bass).toBe(48)
   })
 
+  it('puts the 6th in the baritone of a minor add-6', () => {
+    const result = completeSparseStack({
+      midi: { lead: 62, tenor: 65, bass: 57 },
+      tonality: 0,
+      mode: 'major',
+      profile: 'bhs_extended',
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.natureId).toBe('madd6')
+    expect(((result.pitches.bari % 12) + 12) % 12).toBe(11)
+  })
+
+  it('turns a tonic triad into I7 when the next bass is IV', () => {
+    const result = completeSparseStack({
+      midi: { lead: 64, tenor: 67, bass: 48 },
+      tonality: 0,
+      mode: 'major',
+      profile: 'bhs_extended',
+      nextBassPc: 5,
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.natureId).toBe('seventh')
+    expect(result.rootPc).toBe(0)
+    const pcs = [result.pitches.tenor, result.pitches.bari, result.pitches.bass].map(
+      (m) => ((m % 12) + 12) % 12,
+    )
+    expect(pcs).toContain(10)
+  })
+
   it('honors preferred Detected nature when allowed', () => {
     const result = completeSparseStack({
       midi: { lead: 60, bass: 48 },

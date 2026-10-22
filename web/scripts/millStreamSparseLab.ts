@@ -244,8 +244,17 @@ const outDir = process.argv[5] ? resolve(process.argv[5]) : OUT
 const groundTitle = process.argv[4] ? `${label} · full` : 'Mill Stream · full (your copy)'
 
 const ground = load(USER)
-const bassSparse = sparseCopy(ground, ['Lead', 'Bass'], `${idPrefix}-bass-sparse`, `${label} · Lead + Bass`)
-const tenorSparse = sparseCopy(ground, ['Lead', 'Tenor'], `${idPrefix}-tenor-sparse`, `${label} · Lead + Tenor`)
+
+/** Every way to keep the lead and drop some of tenor, bari, and bass. */
+const COMBOS: { key: string; keep: string[]; title: string }[] = [
+  { key: 'lead', keep: ['Lead'], title: 'Lead only' },
+  { key: 'tenor', keep: ['Lead', 'Tenor'], title: 'Lead + Tenor' },
+  { key: 'bari', keep: ['Lead', 'Bari'], title: 'Lead + Bari' },
+  { key: 'bass', keep: ['Lead', 'Bass'], title: 'Lead + Bass' },
+  { key: 'nobass', keep: ['Lead', 'Tenor', 'Bari'], title: 'Lead + Tenor + Bari' },
+  { key: 'nobari', keep: ['Lead', 'Tenor', 'Bass'], title: 'Lead + Tenor + Bass' },
+  { key: 'notenor', keep: ['Lead', 'Bari', 'Bass'], title: 'Lead + Bari + Bass' },
+]
 
 function runFill(sparse: TagRollProject, id: string, title: string) {
   const holes = detectHoles(sparse)
@@ -277,32 +286,31 @@ function runFill(sparse: TagRollProject, id: string, title: string) {
   }
 }
 
-const bassFilled = runFill(bassSparse, `${idPrefix}-bass-filled`, `${label} · Lead + Bass filled`)
-const tenorFilled = runFill(tenorSparse, `${idPrefix}-tenor-filled`, `${label} · Lead + Tenor filled`)
+const arms = COMBOS.map((combo) => {
+  const sparse = sparseCopy(ground, combo.keep, `${idPrefix}-${combo.key}-sparse`, `${label} · ${combo.title}`)
+  const filled = runFill(sparse, `${idPrefix}-${combo.key}-filled`, `${label} · ${combo.title} filled`)
+  return { combo, sparse, filled }
+})
 
-const report = {
+const report: Record<string, unknown> = {
   sourceId: ground.id,
   sourceTitle: ground.title,
   notes: ground.notes.length,
   lengthTicks: ground.lengthTicks,
   melodyPart: ground.parts.find((p) => p.id === melodyId(ground))?.name ?? 'Lead',
-  bass: {
-    ...summarize('Lead + Bass', score(ground, bassSparse, bassFilled.project), bassFilled.stats),
-    skips: bassFilled.skips,
-  },
-  tenor: {
-    ...summarize('Lead + Tenor', score(ground, tenorSparse, tenorFilled.project), tenorFilled.stats),
-    skips: tenorFilled.skips,
-  },
+}
+for (const arm of arms) {
+  report[arm.combo.key] = {
+    kept: arm.combo.keep,
+    ...summarize(arm.combo.title, score(ground, arm.sparse, arm.filled.project), arm.filled.stats),
+    skips: arm.filled.skips,
+  }
 }
 
 mkdirSync(outDir, { recursive: true })
 const projects = [
   { ...ground, id: `${idPrefix}-ground`, title: groundTitle, harmonySketch: [] },
-  bassSparse,
-  tenorSparse,
-  bassFilled.project,
-  tenorFilled.project,
+  ...arms.flatMap((arm) => [arm.sparse, arm.filled.project]),
 ]
 for (const p of projects) {
   writeFileSync(resolve(outDir, `${p.id}.json`), `${JSON.stringify(p)}\n`)

@@ -591,12 +591,100 @@ export function identifyNatureFromMidi(opts: {
     }
   }
 
-  // Barbershop spells non-tonic major chords as dominant sevenths. I stays a
-  // triad. Diminished color is the fully diminished seventh.
-  if (opts.mode === 'major' && partsPresent < 4 && top.natureId === 'major') {
-    const deg = degreeOf(top.rootPc, opts.tonality)
+  // The 3rd and 5th of the key (E–G in C) are the tonic triad when no bass is
+  // sung. With a bass, those same two pitch classes are a sixth on V.
+  if (opts.mode === 'major' && partsPresent < 4 && bassPc == null) {
+    const third = pc(tonicPc + 4)
+    const fifth = pc(tonicPc + 7)
     if (
+      presentPcs.includes(third) &&
+      presentPcs.includes(fifth) &&
+      presentPcs.every((p) => p === third || p === fifth)
+    ) {
+      top = {
+        natureId: 'major',
+        rootPc: tonicPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Sung 3rd and 5th of the key → tonic triad',
+      }
+    }
+  }
+  if (opts.mode === 'major' && partsPresent < 4 && bassPc != null) {
+    const third = pc(tonicPc + 4)
+    const fifth = pc(tonicPc + 7)
+    if (
+      presentPcs.includes(third) &&
+      presentPcs.includes(fifth) &&
+      presentPcs.every((p) => p === third || p === fifth) &&
+      isNatureAllowed(opts.profile, 'sixth')
+    ) {
+      top = {
+        natureId: 'sixth',
+        rootPc: fifth,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Bass present on the 3rd and 5th of the key → sixth on V',
+      }
+    }
+  }
+
+  // Lead a perfect fourth above the bass is the root, and the bass is its
+  // fifth (D over A). That is the dominant seventh on the lead. I and IV stay
+  // triads until their flat 7th is actually sung.
+  if (opts.mode === 'major' && partsPresent < 4 && bassPc != null) {
+    const leadPc = pc(lead)
+    const leadDeg = degreeOf(leadPc, opts.tonality)
+    const flatSeventhSung = presentPcs.includes(pc(leadPc + 10))
+    const fifthUnderLead = ((leadPc - bassPc) % 12 + 12) % 12 === 5
+    const keepTriad = leadDeg === 0 || (leadDeg === 5 && !flatSeventhSung)
+    const fitsTriad = presentPcs.every((p) => [0, 4, 7].some((off) => pc(leadPc + off) === p))
+    const fitsSeventh = presentPcs.every((p) => [0, 4, 7, 10].some((off) => pc(leadPc + off) === p))
+    if (fifthUnderLead && keepTriad && fitsTriad) {
+      top = {
+        natureId: 'major',
+        rootPc: leadPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: leadDeg === 5 ? 'IV fifth under the lead → major triad' : 'Tonic fifth under the lead → major triad',
+      }
+    } else if (
+      fifthUnderLead &&
+      !keepTriad &&
+      fitsSeventh &&
+      isNatureAllowed(opts.profile, 'seventh') &&
+      majorKeyIncompleteAllows('seventh', leadPc, presentPcs, opts.tonality)
+    ) {
+      top = {
+        natureId: 'seventh',
+        rootPc: leadPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Bass on the fifth under the lead → dominant seventh on the lead',
+      }
+    }
+  }
+
+  // Barbershop spells non-tonic major chords as dominant sevenths. I stays a
+  // triad, and so does IV unless the flat 7th is sung. Diminished color is the
+  // fully diminished seventh.
+  if (opts.mode === 'major' && partsPresent < 4) {
+    const deg = degreeOf(top.rootPc, opts.tonality)
+    const flatSeventhSung = presentPcs.includes(pc(top.rootPc + 10))
+    const triadTones = [0, 4, 7].map((off) => pc(top.rootPc + off))
+    const notesFitTriad = presentPcs.every((p) => triadTones.includes(p))
+    if (deg === 5 && !flatSeventhSung && notesFitTriad && (top.natureId === 'seventh' || top.natureId === 'ninth' || top.natureId === 'major')) {
+      top = {
+        natureId: 'major',
+        rootPc: top.rootPc,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'IV without a sung flat 7th → major triad',
+      }
+    } else if (
+      top.natureId === 'major' &&
       deg !== 0 &&
+      deg !== 5 &&
       isNatureAllowed(opts.profile, 'seventh') &&
       majorKeyIncompleteAllows('seventh', top.rootPc, presentPcs, opts.tonality)
     ) {
@@ -622,6 +710,45 @@ export function identifyNatureFromMidi(opts: {
       rootPc: tones.includes(leadPc) ? leadPc : top.rootPc,
       confidence: Math.max(top.confidence, 0.55),
       reason: 'Incomplete diminished stack → dim7 spelled from the melody',
+    }
+  }
+
+  // Three voices on a minor triad (ii / iii / vi) are a minor add-6. The empty
+  // voice sings the major 6th, rather than the relative major sixth.
+  if (opts.mode === 'major' && partsPresent < 4 && presentPcs.length === 3) {
+    const minorRoot = presentPcs.find((root) => {
+      const rel = presentPcs.map((p) => (p - root + 12) % 12).sort((a, b) => a - b)
+      return rel[0] === 0 && rel[1] === 3 && rel[2] === 7
+    })
+    if (
+      minorRoot != null &&
+      isNatureAllowed(opts.profile, 'madd6') &&
+      majorKeyIncompleteAllows('madd6', minorRoot, presentPcs, opts.tonality)
+    ) {
+      top = {
+        natureId: 'madd6',
+        rootPc: minorRoot,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Minor triad → minor add-6, empty voice takes the 6th',
+      }
+    }
+  }
+  // Three voices on a diminished triad are a dim7. The empty voice sings the
+  // remaining tone. Root is the note the other two sit a minor 3rd and a tritone above.
+  if (opts.mode === 'major' && partsPresent < 4 && presentPcs.length === 3) {
+    const dimRoot = presentPcs.find((root) => {
+      const rel = presentPcs.map((p) => (p - root + 12) % 12).sort((a, b) => a - b)
+      return rel[0] === 0 && rel[1] === 3 && rel[2] === 6
+    })
+    if (dimRoot != null && isNatureAllowed(opts.profile, 'dim7')) {
+      top = {
+        natureId: 'dim7',
+        rootPc: dimRoot,
+        confidence: Math.max(top.confidence, 0.55),
+        missingRoles: [],
+        reason: 'Diminished triad → dim7, empty voice takes the remaining tone',
+      }
     }
   }
 

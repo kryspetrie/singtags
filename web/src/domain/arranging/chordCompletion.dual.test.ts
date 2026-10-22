@@ -133,14 +133,54 @@ describe('major-key incomplete stacks stay in key vocabulary', () => {
     expect(id).toMatchObject({ natureId: 'major', rootPc: 0 })
   })
 
-  it('reads lead G and tenor E as A7, the dominant under that minor third', () => {
+  it('reads E and G with a bass as a sixth on V', () => {
     const id = identifyNatureFromMidi({
-      midi: { lead: 55, tenor: 64 },
+      midi: { lead: 67, tenor: 64, bass: 55 },
       profile: 'bhs_extended',
       tonality: 0,
       mode: 'major',
     })
-    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 9 })
+    expect(id).toMatchObject({ natureId: 'sixth', rootPc: 7 })
+  })
+
+  it('reads a minor triad as a minor add-6', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 62, tenor: 65, bass: 57 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).toMatchObject({ natureId: 'madd6', rootPc: 2 })
+  })
+
+  it('reads a diminished triad as a diminished seventh', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 64, tenor: 67, bass: 70 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).toMatchObject({ natureId: 'dim7', rootPc: 4 })
+  })
+
+  it('reads the 3rd and 5th of the key as the tonic triad', () => {
+    const id = identifyNatureFromMidi({
+      midi: { lead: 64, tenor: 67 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 0 })
+  })
+
+  it('reads D over A as D7, the dominant on the lead', () => {
+    const id = idOf(62, 57)
+    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 2 })
+  })
+
+  it('keeps a bare IV as a major triad', () => {
+    const id = idOf(65, 60)
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 5 })
   })
 
   it('reads D over G as G7', () => {
@@ -153,9 +193,9 @@ describe('major-key incomplete stacks stay in key vocabulary', () => {
     expect(id).toMatchObject({ natureId: 'seventh', rootPc: 4 })
   })
 
-  it('reads A over F as F7', () => {
+  it('reads A over F as F, a IV triad', () => {
     const id = idOf(57, 53)
-    expect(id).toMatchObject({ natureId: 'seventh', rootPc: 5 })
+    expect(id).toMatchObject({ natureId: 'major', rootPc: 5 })
   })
 
   it('reads B with Ab a major sixth above it as B6, not Abm', () => {

@@ -125,7 +125,7 @@ describe('completeFromPartsToNotes', () => {
     expect(result.filled).toBe(2)
     expect(result.items.map((item) => (item.kind === 'filled' ? item.label : item.kind))).toEqual([
       'G7',
-      'F7',
+      'F',
     ])
   })
 
