@@ -276,6 +276,7 @@ export function completeFromPartsToNotes(opts: {
   let notes = [...p.notes]
   let sketch = [...(p.harmonySketch ?? [])]
   let carried: { tenor?: number; bari?: number; bass?: number } = {}
+  let prevChoice: { rootPc: number; natureId: string } | null = null
   const items: CompleteFromPartsItem[] = []
   let filled = 0
   let locked = 0
@@ -367,6 +368,8 @@ export function completeFromPartsToNotes(opts: {
       preferredNatureId: preferredQuality,
       preferredRootPc: preferredRoot,
       nextBassPc: nextBass != null ? ((nextBass.midi % 12) + 12) % 12 : null,
+      prevRootPc: prevChoice?.rootPc ?? null,
+      prevNatureId: prevChoice?.natureId ?? null,
       prevMidi: {
         lead: melody.midi,
         tenor: tOn?.midi ?? carried.tenor,
@@ -390,6 +393,7 @@ export function completeFromPartsToNotes(opts: {
       continue
     }
 
+    prevChoice = { rootPc: result.rootPc, natureId: result.natureId }
     const quality = trySketchQualityFromNature(result.natureId)
     if (!quality) {
       items.push({

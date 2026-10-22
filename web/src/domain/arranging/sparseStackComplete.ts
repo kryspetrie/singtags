@@ -9,7 +9,7 @@ import {
   VOICINGS_BY_CHORD,
   type VoicingPitches,
 } from './chords'
-import { identifyNatureFromMidi, majorKeyIncompleteAllows } from './chordCompletion'
+import { coachCircleNature, identifyNatureFromMidi, majorKeyIncompleteAllows } from './chordCompletion'
 import { isNatureAllowed, type ContestProfile } from './contestProfile'
 import { degreeOf } from './secondaryDominant'
 import type { TonalityMode } from './types'
@@ -593,6 +593,9 @@ export function completeSparseStack(opts: {
   prevMidi?: Partial<VoicingPitches> | null
   /** Bass pitch class of the next chord. A tonic triad moving to IV becomes I7. */
   nextBassPc?: number | null
+  /** Previous filled chord, so a missing bass can follow the circle of fifths. */
+  prevRootPc?: number | null
+  prevNatureId?: string | null
   pillarRoot?: number
   limit?: number
 }): SparseCompleteResult {
@@ -670,6 +673,23 @@ export function completeSparseStack(opts: {
     isNatureAllowed(opts.profile, 'seventh')
   ) {
     natureId = 'seventh'
+  }
+
+  if (opts.midi.bass == null && opts.prevRootPc != null && opts.prevNatureId) {
+    const circled = coachCircleNature({
+      midi: opts.midi,
+      detected: { natureId, rootPc },
+      tonality: opts.tonality,
+      mode,
+      profile: opts.profile,
+      prevRootPc: opts.prevRootPc,
+      prevNatureId: opts.prevNatureId,
+      prevMidi: opts.prevMidi,
+    })
+    if (circled && presentPcsFitNature(present, circled.natureId, circled.rootPc)) {
+      natureId = circled.natureId
+      rootPc = circled.rootPc
+    }
   }
 
   if (!presentPcsFitNature(present, natureId, rootPc)) {

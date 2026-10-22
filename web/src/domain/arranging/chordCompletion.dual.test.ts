@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
-import { identifyNatureFromMidi } from './chordCompletion'
+import { coachCircleNature, identifyNatureFromMidi } from './chordCompletion'
 import { absoluteChordLabel } from './chordAnalysisBar'
 import { romanForChord } from './secondaryDominant'
 
@@ -217,5 +217,39 @@ describe('major-key incomplete stacks stay in key vocabulary', () => {
       false,
     )
     expect(id!.rootPc).toBe(9)
+  })
+
+  it('leaves a sung bass to detection', () => {
+    const picked = coachCircleNature({
+      midi: { lead: 62, tenor: 65, bass: 55 },
+      detected: { natureId: 'seventh', rootPc: 7 },
+      tonality: 0,
+      mode: 'major',
+      profile: 'bhs_extended',
+      prevRootPc: 2,
+      prevNatureId: 'seventh',
+    })
+    expect(picked).toBeNull()
+  })
+
+  it('follows a dominant a fifth down when the bass is missing', () => {
+    const detected = identifyNatureFromMidi({
+      midi: { lead: 62, tenor: 67 },
+      profile: 'bhs_extended',
+      tonality: 0,
+      mode: 'major',
+    })
+    expect(detected).not.toBeNull()
+    const picked = coachCircleNature({
+      midi: { lead: 62, tenor: 67 },
+      detected: { natureId: detected!.natureId, rootPc: detected!.rootPc },
+      tonality: 0,
+      mode: 'major',
+      profile: 'bhs_extended',
+      prevRootPc: 2,
+      prevNatureId: 'seventh',
+      prevMidi: { tenor: 67, lead: 64, bari: 60, bass: 50 },
+    })
+    expect(picked).toMatchObject({ natureId: 'major', rootPc: 7 })
   })
 })

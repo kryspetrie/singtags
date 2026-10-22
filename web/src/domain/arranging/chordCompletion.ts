@@ -989,6 +989,73 @@ export function completePartialChord(req: CompletionRequest): CompletionResult {
 }
 
 /**
+ * When the bass is absent, the coach's completion ranking may rename the
+ * detected chord to the one a fifth below the previous chord. The suggestion
+ * has to be the top pick and has to contain every sung note. A sung bass keeps
+ * the detected name.
+ */
+export function coachCircleNature(opts: {
+  midi: Partial<VoicingPitches> & { lead: number }
+  detected: { natureId: string; rootPc: number }
+  tonality: number
+  mode?: TonalityMode
+  profile: ContestProfile
+  prevRootPc: number
+  prevNatureId: string
+  prevMidi?: Partial<VoicingPitches> | null
+}): { natureId: string; rootPc: number } | null {
+  if (opts.midi.bass != null) return null
+  const prevDeg = degreeOf(opts.prevRootPc, opts.tonality)
+  const prevCanResolve =
+    isDominantNature(opts.prevNatureId) ||
+    prevDeg === 7 ||
+    ((opts.prevNatureId === 'major' || opts.prevNatureId === 'sixth') &&
+      (prevDeg === 0 || prevDeg === 2 || prevDeg === 5))
+  if (!prevCanResolve) return null
+  const target = (opts.prevRootPc + 5) % 12
+  const present = [opts.midi.tenor, opts.midi.lead, opts.midi.bari, opts.midi.bass].filter(
+    (m): m is number => m != null,
+  )
+  const locked: Partial<VoicingPitches> = { lead: opts.midi.lead }
+  if (opts.midi.tenor != null) locked.tenor = opts.midi.tenor
+  if (opts.midi.bari != null) locked.bari = opts.midi.bari
+  const prev = opts.prevMidi
+  const prevFull =
+    prev && prev.lead != null && prev.tenor != null && prev.bari != null && prev.bass != null
+      ? { lead: prev.lead, tenor: prev.tenor, bari: prev.bari, bass: prev.bass }
+      : null
+  const ranked = completePartialChord({
+    presentMidi: present,
+    leadMidi: opts.midi.lead,
+    lockedParts: locked,
+    tonality: opts.tonality,
+    mode: opts.mode,
+    profile: opts.profile,
+    pillarRoot: ((opts.tonality % 12) + 12) % 12,
+    prevMidi: prevFull,
+    prevDominant:
+      prevFull && isDominantNature(opts.prevNatureId)
+        ? { rootPc: opts.prevRootPc, natureId: opts.prevNatureId, midi: prevFull }
+        : null,
+    limit: 8,
+  })
+  const top = ranked.suggestions[0]
+  if (!top || top.rootPc !== target) return null
+  if (top.natureId !== 'major' && top.natureId !== 'seventh' && top.natureId !== 'sixth' && top.natureId !== 'ninth') {
+    return null
+  }
+  const pcs = uniquePcs(present)
+  if (!pcsFitNature(top.rootPc, top.natureId, pcs)) return null
+  if (!majorKeyIncompleteAllows(top.natureId, top.rootPc, pcs, opts.tonality)) return null
+  if (top.natureId === opts.detected.natureId && top.rootPc === opts.detected.rootPc) return null
+  const detected = ranked.suggestions.find(
+    (s) => s.natureId === opts.detected.natureId && s.rootPc === opts.detected.rootPc,
+  )
+  if (detected && top.score < detected.score + 1) return null
+  return { natureId: top.natureId, rootPc: top.rootPc }
+}
+
+/**
  * Repair a stack after removing one or two parts — lead stays locked when present.
  */
 export function repairStackAfterRemovingParts(opts: {
