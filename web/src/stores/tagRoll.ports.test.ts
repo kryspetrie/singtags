@@ -181,4 +181,47 @@ describe('tagRoll store via ports', () => {
     expect(store.selectedSketchSpanIds).toEqual([])
     expect(store.chordsLaneFocused).toBe(false)
   })
+
+  it('addTuplet / overlap guard / removeTuplet', async () => {
+    const repository = memoryRepository()
+    setTagStudioServicesForTests(
+      createTagStudioServices({
+        repository,
+        idGen: createSequentialIdGenerator(300),
+        clock: createFixedClock(1_700_000_000_300),
+      }),
+    )
+    vi.spyOn(
+      await import('../lib/tagRoll/seedDefaultProjects'),
+      'createTagRollDefaultProjects',
+    ).mockReturnValue([])
+
+    const store = useTagRollStore()
+    const p = createEmptyTagRollProject({ title: 'Tuplets' })
+    await repository.put(p)
+    await store.openProject(p.id)
+
+    const a = store.addTuplet({ startTick: 0, spanTicks: TAG_ROLL_PPQ })
+    expect(a).toBeTruthy()
+    expect(store.current?.tuplets).toHaveLength(1)
+    expect(store.selectedTupletId).toBe(a!.id)
+
+    const overlap = store.addTuplet({
+      startTick: TAG_ROLL_PPQ / 2,
+      spanTicks: TAG_ROLL_PPQ,
+    })
+    expect(overlap).toBeNull()
+    expect(store.current?.tuplets).toHaveLength(1)
+
+    const b = store.addTuplet({
+      startTick: TAG_ROLL_PPQ,
+      spanTicks: TAG_ROLL_PPQ,
+    })
+    expect(b).toBeTruthy()
+    expect(store.current?.tuplets).toHaveLength(2)
+
+    store.selectTuplet(a!.id)
+    expect(store.deleteSelectedTuplet()).toBe(true)
+    expect(store.current?.tuplets.map((t) => t.id)).toEqual([b!.id])
+  })
 })

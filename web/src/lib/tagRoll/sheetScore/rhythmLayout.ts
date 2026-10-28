@@ -6,7 +6,7 @@ import {
   splitSlicesAtMeasures,
 } from '../notationTimeline'
 import { beamGroupTicks, beatTicks, measureTicks } from '../tempoMap'
-import type { TagRollNote, TagRollTimeSignature } from '../types'
+import type { TagRollNote, TagRollTimeSignature, TagRollTuplet } from '../types'
 import { TAG_ROLL_PPQ } from '../types'
 import {
   decomposeTicksToDurations,
@@ -18,6 +18,7 @@ import {
   tupletMemberDuration,
   type SheetTupletInfo,
 } from './sheetTuplets'
+import { stampNotesFromTupletContainers } from './stampTupletTags'
 import type { SheetStaffAssignment, SheetStaffSpec, SheetVoiceRole } from './types'
 
 export type SheetRhythmEvent = {
@@ -216,7 +217,8 @@ function resolveExplicitTuplets(events: SheetRhythmEvent[], ppq: number): void {
   for (const members of byId.values()) {
     members.sort((a, b) => a.startTick - b.startTick)
     const sum = members.reduce((s, e) => s + e.durationTicks, 0)
-    const written = tupletMemberDuration(sum, ppq)
+    const normalNotes = members[0]!.tuplet!.normalNotes
+    const written = tupletMemberDuration(sum, ppq, normalNotes)
     for (let i = 0; i < members.length; i++) {
       const e = members[i]!
       e.tuplet = {
@@ -237,6 +239,8 @@ export function buildSheetRhythm(opts: {
   lengthTicks: number
   timeSignature: TagRollTimeSignature
   ppq?: number
+  /** Piano-roll tuplet containers — stamp membership before engraving. */
+  tuplets?: readonly TagRollTuplet[]
   /** Part that owns the melody at a tick. Omitted: use each voice slot's isMelody flag. */
   melodyPartAt?: (tick: number) => string | null
 }): SheetRhythmEvent[] {
@@ -245,6 +249,7 @@ export function buildSheetRhythm(opts: {
     measureTicks(opts.timeSignature, ppq),
     opts.lengthTicks,
   )
+  const notes = stampNotesFromTupletContainers(opts.notes, opts.tuplets ?? [])
   const events: SheetRhythmEvent[] = []
   for (const staff of opts.assignment.staves) {
     for (const slot of staff.voices) {
@@ -252,7 +257,7 @@ export function buildSheetRhythm(opts: {
         ...eventsForStaffVoice(
           staff,
           slot,
-          opts.notes,
+          notes,
           lengthTicks,
           opts.timeSignature,
           ppq,

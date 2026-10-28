@@ -22,10 +22,17 @@ function near(a: number, b: number): boolean {
   return Math.abs(a - b) <= TOL
 }
 
-/** Written note type for each member of a 3:2 tuplet spanning `sumTicks`. */
-export function tupletMemberDuration(sumTicks: number, ppq = TAG_ROLL_PPQ): MappedDuration {
-  // Three eighths in a quarter: sum=ppq, each glyph = eighth = ppq/2 = sum/2.
-  return mapTicksToDuration(Math.round(sumTicks / 2), ppq)
+/**
+ * Written note type for each equal member of a tuplet spanning `sumTicks`.
+ * Glyph length = sum / normalNotes (e.g. 3:2 in a quarter → eighth; 6:4 → sixteenth).
+ */
+export function tupletMemberDuration(
+  sumTicks: number,
+  ppq = TAG_ROLL_PPQ,
+  normalNotes = 2,
+): MappedDuration {
+  const n = Math.max(1, Math.round(normalNotes))
+  return mapTicksToDuration(Math.round(sumTicks / n), ppq)
 }
 
 /**

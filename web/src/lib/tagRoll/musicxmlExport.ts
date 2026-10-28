@@ -514,6 +514,7 @@ export function exportTagRollMusicXml(
     lengthTicks,
     timeSignature: ts,
     ppq,
+    tuplets: project.tuplets,
     melodyPartAt: (tick) => melodyPartAtTick(project, tick),
   })
 

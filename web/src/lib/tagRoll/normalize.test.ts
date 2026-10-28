@@ -29,6 +29,7 @@ describe('tagRoll normalize', () => {
     expect(p.parts).toHaveLength(4)
     expect(p.parts.map((x) => x.name)).toEqual(['Tenor', 'Lead', 'Bari', 'Bass'])
     expect(p.notes).toEqual([])
+    expect(p.tuplets).toEqual([])
     expect(p.view.activePartId).toBe(p.parts.find((x) => x.name === 'Lead')!.id)
     expect(p.mix.filter((m) => p.parts.some((x) => x.id === m.partId))).toHaveLength(4)
     expect(p.mix.length).toBeGreaterThanOrEqual(4)

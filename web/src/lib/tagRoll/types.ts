@@ -63,13 +63,30 @@ export type TagRollNote = {
   /**
    * Optional tuplet membership (e.g. triplet). When omitted, sheet inference
    * may still detect equal-length 3:2 runs from tick math.
+   * Prefer {@link TagRollTuplet} containers; `groupId` should match `tuplets[].id`.
    */
   tuplet?: {
     actualNotes: number
     normalNotes: number
-    /** Shared id for all members of this tuplet instance. */
+    /** Shared id for all members of this tuplet instance (= container id). */
     groupId: string
   }
+}
+
+/**
+ * Piano-roll tuplet container: binary-grid span that owns irregular subdivisions.
+ * Members are ordinary notes tagged with `tuplet.groupId === id`.
+ */
+export type TagRollTuplet = {
+  id: string
+  partId: string
+  startTick: number
+  /** Written time occupied on the binary grid (e.g. one quarter for a triplet). */
+  spanTicks: number
+  /** How many notes are played (3 for triplet, 6 for sextuplet). */
+  actualNotes: number
+  /** How many of the written value they occupy (2 for triplet = 3:2). */
+  normalNotes: number
 }
 
 /** Strong (pmn) / Passing (smn) / unlabeled — mirrors arrangement MelodyRole. */
@@ -468,6 +485,11 @@ export type TagRollProject = {
   /** Per-part mute/solo/pan/volume. */
   mix: TagRollPartMix[]
   notes: TagRollNote[]
+  /**
+   * Tuplet containers (triplets / sextuplets / …) on the piano roll.
+   * Binary snap unchanged; member notes carry `tuplet.groupId`.
+   */
+  tuplets: TagRollTuplet[]
   /** Cross-part melody handoffs (dashed lines on the roll). */
   melodyPasses: TagRollMelodyPass[]
   /**

@@ -465,6 +465,7 @@ export async function renderVexSheetScore(opts: {
     lengthTicks,
     timeSignature: project.timeSignature,
     ppq,
+    tuplets: project.tuplets,
     melodyPartAt: (tick) => melodyPartAtTick(project, tick),
   })
   const ts = `${project.timeSignature.numerator}/${project.timeSignature.denominator}`

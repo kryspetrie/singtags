@@ -19,6 +19,7 @@ import type {
   TagRollSwing,
   TagRollTempoMarker,
   TagRollTimeSignature,
+  TagRollTuplet,
 } from './types'
 import { TAG_ROLL_DEFAULT_CLEF_FAMILY, TAG_ROLL_DEFAULT_SOUND_ENVELOPE } from './types'
 import { TAG_ROLL_DEFAULT_SWING } from './swingMap'
@@ -54,6 +55,7 @@ export type TagRollDocumentSnapshot = {
   parts: TagRollPart[]
   mix: TagRollPartMix[]
   notes: TagRollNote[]
+  tuplets: TagRollTuplet[]
   melodyPasses: TagRollMelodyPass[]
   harmonySketch: HarmonySketchSpan[]
   localEntryId: string | null
@@ -88,6 +90,7 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     parts: p.parts.map((x) => ({ ...x })),
     mix: (p.mix ?? []).map((m) => ({ ...m })),
     notes: p.notes.map((n) => ({ ...n })),
+    tuplets: (p.tuplets ?? []).map((t) => ({ ...t })),
     melodyPasses: (p.melodyPasses ?? []).map((l) => ({ ...l })),
     harmonySketch: (p.harmonySketch ?? []).map((s) => ({ ...s })),
     localEntryId: p.localEntryId,
@@ -151,6 +154,7 @@ export function applyDocumentSnapshot(
     parts,
     mix: syncProjectMix(parts, snap.mix),
     notes: snap.notes.map((n) => ({ ...n })),
+    tuplets: (snap.tuplets ?? []).map((t) => ({ ...t })),
     melodyPasses: (snap.melodyPasses ?? []).map((l) => ({ ...l })),
     harmonySketch: (snap.harmonySketch ?? []).map((s) => ({ ...s })),
     localEntryId: snap.localEntryId,

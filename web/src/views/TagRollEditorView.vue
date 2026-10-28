@@ -34,6 +34,7 @@ import TagRollPartsPanel from '../components/tagRoll/TagRollPartsPanel.vue'
 import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
 import TagRollMixerPanel from '../components/tagRoll/TagRollMixerPanel.vue'
 import TagRollShortcutsOverlay from '../components/tagRoll/TagRollShortcutsOverlay.vue'
+import TagRollTupletEditor from '../components/tagRoll/TagRollTupletEditor.vue'
 import TagRollTote from '../components/tagRoll/TagRollTote.vue'
 import TagRollVoicingRangePanel from '../components/tagRoll/TagRollVoicingRangePanel.vue'
 import { VOICING_RANGE_PANEL_W } from '../lib/arranging/voicingRangeUi'
@@ -78,6 +79,7 @@ import { getTagStudioServices } from '../composition/tagStudio'
 import { TAG_ROLL_DURATION_PRESETS, dottedDurationTicks, stepDurationTicks } from '../lib/tagRoll/snap'
 import { findPartByHotkey } from '../lib/tagRoll/partHotkeys'
 import { isTypingTarget, matchModKey, tagRollTip, tipByShortcutId } from '../lib/tagRoll/shortcuts'
+import type { TupletEditorDraft } from '../lib/tagRoll/tupletEditor'
 import {
   nextMeasureTick,
   prevMeasureTick,
@@ -202,6 +204,7 @@ const harmonyPreview = ref<HarmonyPreviewDraft | null>(null)
 const arrangingEnabled = computed(() => !!prefs.arrangingEnabled)
 const projectIdRef = computed(() => store.current?.id ?? props.id)
 const shortcutsOpen = ref(false)
+const tupletEditorOpen = ref(false)
 const ghostNotes = ref<
   { midi: number; startTick: number; durationTicks: number; color: string; overlay?: boolean }[]
 >([])
@@ -1045,12 +1048,30 @@ function onStop(): void {
  * Clear note / Sketch / inspect / expression selection.
  * Returns true when something was cleared (Escape can stop before closing docks).
  */
+function onTupletEditorApply(draft: TupletEditorDraft): void {
+  store.applyTupletEditorDraft(draft)
+  tupletEditorOpen.value = false
+}
+
+function onTupletEditorHear(
+  notes: { midi: number; durationTicks: number }[],
+): void {
+  const first = notes[0]
+  if (first) void auditionMidi(first.midi)
+}
+
+function openTupletEditor(id?: string | null): void {
+  if (id) store.selectTuplet(id)
+  if (store.selectedTupletId) tupletEditorOpen.value = true
+}
+
 function clearRollSelection(): boolean {
   const had =
     store.selectedNoteIds.length > 0 ||
     store.selectedSketchSpanIds.length > 0 ||
     !!chordCursor.value ||
     !!store.selectedExpressionId ||
+    !!store.selectedTupletId ||
     store.chordsLaneFocused
   if (!had) return false
   store.clearNoteSelection()
@@ -1065,6 +1086,7 @@ function clearRollSelection(): boolean {
   }
   releaseInspectRange()
   if (store.selectedExpressionId) store.selectExpression(null)
+  if (store.selectedTupletId) store.selectTuplet(null)
   return true
 }
 
@@ -2208,6 +2230,11 @@ function onKeyDown(e: KeyboardEvent): void {
       else coachRollTransportPrimary()
       return
     }
+    if (store.selectedTupletId && !chordWalkActive) {
+      e.preventDefault()
+      tupletEditorOpen.value = true
+      return
+    }
     e.preventDefault()
     onEnterTransport()
     return
@@ -2217,6 +2244,10 @@ function onKeyDown(e: KeyboardEvent): void {
     // Roles stays open on Esc — only clear the note selection (exit via Roles toggle or ✕).
     if (store.assignNoteRolesActive) {
       store.selectNote(null)
+      return
+    }
+    if (tupletEditorOpen.value) {
+      tupletEditorOpen.value = false
       return
     }
     if (shortcutsOpen.value) {
@@ -2251,6 +2282,10 @@ function onKeyDown(e: KeyboardEvent): void {
     }
     if (store.expressionTool) {
       store.setExpressionTool(null)
+      return
+    }
+    if (store.tupletTool) {
+      store.setTupletTool(false)
       return
     }
     if (!prefs.tagRollLyricsLaneCollapsed) {
@@ -2478,6 +2513,11 @@ function onKeyDown(e: KeyboardEvent): void {
   if (lower === 'e') {
     e.preventDefault()
     store.setMode('compose')
+    return
+  }
+  if (lower === 't') {
+    e.preventDefault()
+    store.setTupletTool(!store.tupletTool)
     return
   }
   if (lower === 'c') {
@@ -2769,6 +2809,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 @audition-note="(m) => void auditionMidi(m)"
                 @preview-pitch="(m) => void previewPitch(m)"
                 @pointer-hud="(p) => (pointerHud = p)"
+                @open-tuplet-editor="openTupletEditor"
               />
               <div
                 v-if="!(project.view.mode === 'view' && project.view.scoreSurface === 'sheet')"
@@ -2913,6 +2954,15 @@ function onKeyDown(e: KeyboardEvent): void {
     <TagRollViewFiltersPanel :open="marksOpen" @close="marksOpen = false" />
     <TagRollMixerPanel :open="mixerOpen" @close="mixerOpen = false" />
     <TagRollShortcutsOverlay :open="shortcutsOpen" @close="shortcutsOpen = false" />
+    <TagRollTupletEditor
+      v-if="project"
+      :open="tupletEditorOpen && !!store.selectedTupletId"
+      :project="project"
+      :tuplet-id="store.selectedTupletId"
+      @close="tupletEditorOpen = false"
+      @apply="onTupletEditorApply"
+      @hear="onTupletEditorHear"
+    />
     <ConfirmDialog
       :open="!!pendingInspectDeleteMessage"
       title="Delete notes in selection?"

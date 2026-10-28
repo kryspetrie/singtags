@@ -44,10 +44,16 @@ import {
   type TagRollSheetMeasureSizing,
   type TagRollSheetStaveGap,
   type TagRollTempoMarker,
+  type TagRollTuplet,
   type TagRollViewPrefs,
 } from './types'
 import { normalizeHarmonySketch } from './harmonySketch'
 import { createDefaultKeyMarkers, ensureKeyMarkers, normalizeKeyMarker } from './keyMap'
+import {
+  createTupletContainer,
+  migrateTupletsFromNotes,
+  repairOverlappingTuplets,
+} from './tupletContainers'
 import {
   createDefaultTempoMarkers,
   normalizeExpression,
@@ -549,6 +555,7 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     parts,
     mix: syncProjectMix(parts, null),
     notes: [],
+    tuplets: [],
     melodyPasses: [],
     harmonySketch: [],
     localEntryId: null,
@@ -610,6 +617,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     .filter((e): e is TagRollExpression => !!e)
   const melodyPasses = normalizeMelodyPasses(o.melodyPasses, notes)
   const harmonySketch = normalizeHarmonySketch(o.harmonySketch)
+  const tuplets = normalizeTuplets(o.tuplets, notes, partIds)
 
   return {
     schema: TAG_ROLL_SCHEMA,
@@ -648,6 +656,7 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     parts,
     mix: syncProjectMix(parts, Array.isArray(o.mix) ? (o.mix as never) : null),
     notes,
+    tuplets,
     melodyPasses,
     harmonySketch,
     localEntryId:
@@ -658,6 +667,41 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     createdAt: Number.isFinite(Number(o.createdAt)) ? Number(o.createdAt) : now,
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : now,
   }
+}
+
+function normalizeTuplet(raw: unknown, partIds: Set<string>): TagRollTuplet | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const partId = typeof o.partId === 'string' ? o.partId : ''
+  if (!partId || !partIds.has(partId)) return null
+  const startTick = Math.round(Number(o.startTick))
+  const spanTicks = Math.round(Number(o.spanTicks))
+  const actualNotes = Math.round(Number(o.actualNotes))
+  const normalNotes = Math.round(Number(o.normalNotes))
+  if (!Number.isFinite(startTick) || startTick < 0) return null
+  if (!Number.isFinite(spanTicks) || spanTicks < 1) return null
+  if (!Number.isFinite(actualNotes) || actualNotes < 2) return null
+  if (!Number.isFinite(normalNotes) || normalNotes < 1) return null
+  return createTupletContainer({
+    id: typeof o.id === 'string' && o.id.trim() ? o.id.trim() : undefined,
+    partId,
+    startTick,
+    spanTicks,
+    actualNotes,
+    normalNotes,
+  })
+}
+
+function normalizeTuplets(
+  raw: unknown,
+  notes: readonly TagRollNote[],
+  partIds: Set<string>,
+): TagRollTuplet[] {
+  const fromRaw = (Array.isArray(raw) ? raw : [])
+    .map((item) => normalizeTuplet(item, partIds))
+    .filter((t): t is TagRollTuplet => !!t)
+  const withMigrated = migrateTupletsFromNotes(notes, fromRaw)
+  return repairOverlappingTuplets(withMigrated)
 }
 
 function normalizeMelodyPasses(raw: unknown, notes: readonly TagRollNote[]): TagRollMelodyPass[] {

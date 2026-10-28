@@ -60,6 +60,12 @@ import {
   listPortamentoLinks,
 } from '../../lib/tagRoll/portamento'
 import { melodyPartAtTick, strokeMelodyPassLinks } from '../../lib/tagRoll/melodyPass'
+import { isTupletMemberNote } from '../../lib/tagRoll/tupletContainers'
+import { paintTupletBands } from '../../lib/tagRoll/tupletChrome'
+import {
+  hitTupletAtPoint,
+  snapTupletDragSpan,
+} from '../../lib/tagRoll/tupletHitTest'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const RESIZE_EDGE = 8
@@ -115,6 +121,8 @@ const emit = defineEmits<{
   marqueeActive: [active: boolean]
   /** Ruler drag-select / edge resize; null clears (click-away). */
   chordCursorChange: [range: { startTick: number; endTick: number } | null]
+  /** Open the tuplet member editor for a container id. */
+  openTupletEditor: [tupletId: string]
 }>()
 
 const store = useTagRollStore()
@@ -275,6 +283,29 @@ type Gesture =
       edge: ChordCursorEdge
       otherTick: number
     }
+  | {
+      kind: 'tuplet-create'
+      originTick: number
+      curTick: number
+      moved: boolean
+    }
+  | {
+      kind: 'tuplet-move'
+      id: string
+      originStartTick: number
+      originSpanTicks: number
+      grabTick: number
+      historyStarted: boolean
+    }
+  | {
+      kind: 'tuplet-resize'
+      id: string
+      edge: 'start' | 'end'
+      originStartTick: number
+      originSpanTicks: number
+      startClientX: number
+      historyStarted: boolean
+    }
 
 let gesture: Gesture | null = null
 let pinchActive = false
@@ -282,6 +313,7 @@ let pinchStartDist = 0
 let pinchStartAngle = 0
 let pinchStartCells = { cellW: 28, cellH: 14 }
 let marqueePreview: { x: number; y: number; w: number; h: number } | null = null
+let tupletCreatePreview: { startTick: number; spanTicks: number } | null = null
 const marqueeUi = ref(false)
 const cursorEdgeHover = ref(false)
 
@@ -367,6 +399,21 @@ function hitNotesAt(lx: number, ly: number): TagRollNote[] {
     if (lx >= r.x && lx < r.x + r.w && ly >= r.y && ly < r.y + r.h) hits.push(n)
   }
   return hits
+}
+
+function hitTuplet(lx: number, ly: number) {
+  return hitTupletAtPoint(props.project.tuplets ?? [], lx, ly, {
+    scrollX: scrollX.value,
+    bandY: headerBandH.value,
+    bandH: Math.max(0, cssH.value - headerBandH.value),
+    ticksToPx,
+    cellW: cellW.value,
+    handleW: RESIZE_EDGE,
+    partId:
+      props.project.view.focusActivePart && props.project.view.activePartId
+        ? props.project.view.activePartId
+        : null,
+  })
 }
 
 function hitNote(lx: number, ly: number): TagRollNote | null {
@@ -565,6 +612,36 @@ function draw(): void {
     ctx.globalAlpha = 1
   }
 
+  // Tuplet containers — dashed bands behind notes (binary grid unchanged).
+  {
+    const tuplets = props.project.tuplets ?? []
+    const preview = tupletCreatePreview
+      ? [
+          {
+            id: '__preview__',
+            partId: props.project.view.activePartId ?? '',
+            startTick: tupletCreatePreview.startTick,
+            spanTicks: tupletCreatePreview.spanTicks,
+            actualNotes: 3,
+            normalNotes: 2,
+          },
+        ]
+      : []
+    paintTupletBands(ctx, [...tuplets, ...preview], {
+      scrollX: scrollX.value,
+      bandY: headerBandH.value,
+      bandH: Math.max(0, cssH.value - headerBandH.value),
+      ticksToPx,
+      cellW: cw,
+      selectedId: store.selectedTupletId,
+      focusPartId: props.project.view.focusActivePart
+        ? props.project.view.activePartId
+        : null,
+      partColor: (partId) =>
+        props.project.parts.find((p) => p.id === partId)?.color || accent,
+    })
+  }
+
   for (let m = TAG_ROLL_MIDI_MIN; m <= TAG_ROLL_MIDI_MAX; m++) {
     const y = oy + midiToY(m, ch)
     if (y + ch < 0 || y > cssH.value) continue
@@ -688,8 +765,9 @@ function draw(): void {
   }
 
   // 1) Fills — horizontal bands when multiple parts share the pitch.
+  // Tuplet members are slightly dimmed (band chrome owns the span story).
   for (const d of drawn) {
-    ctx.globalAlpha = 1
+    ctx.globalAlpha = isTupletMemberNote(d.n) ? 0.72 : 1
     fillNoteColorBands(ctx, {
       x: d.r.x + 1,
       y: d.r.y + 1,
@@ -700,6 +778,7 @@ function draw(): void {
     ctx.strokeStyle = surface
     ctx.lineWidth = 1
     ctx.strokeRect(d.r.x + 1.5, d.r.y + 1.5, d.r.w - 3, d.r.h - 3)
+    ctx.globalAlpha = 1
   }
 
   for (const g of props.ghostNotes ?? []) {
@@ -934,6 +1013,22 @@ function startGroupMove(
   }
 }
 
+function onDblClick(e: MouseEvent): void {
+  if (mode.value !== 'compose') return
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const rect = canvas.getBoundingClientRect()
+  const lx = e.clientX - rect.left
+  const ly = e.clientY - rect.top
+  if (ly < headerBandH.value) return
+  const tupHit = hitTuplet(lx, ly)
+  if (tupHit) {
+    e.preventDefault()
+    store.selectTuplet(tupHit.tuplet.id)
+    emit('openTupletEditor', tupHit.tuplet.id)
+  }
+}
+
 function onPointerDown(e: PointerEvent): void {
   if (e.button !== 0) return
   const canvas = canvasRef.value
@@ -1047,8 +1142,36 @@ function onPointerDown(e: PointerEvent): void {
     return
   }
 
-  // compose mode
+  // compose mode — tuplet bands before notes (distinct chrome).
+  const tupHit = hitTuplet(local.x, local.y)
+  if (tupHit && !store.tupletTool) {
+    store.selectTuplet(tupHit.tuplet.id)
+    if (tupHit.edge === 'start' || tupHit.edge === 'end') {
+      gesture = {
+        kind: 'tuplet-resize',
+        id: tupHit.tuplet.id,
+        edge: tupHit.edge,
+        originStartTick: tupHit.tuplet.startTick,
+        originSpanTicks: tupHit.tuplet.spanTicks,
+        startClientX: e.clientX,
+        historyStarted: false,
+      }
+      return
+    }
+    const grid = gridFromLocal(local.x, local.y)
+    gesture = {
+      kind: 'tuplet-move',
+      id: tupHit.tuplet.id,
+      originStartTick: tupHit.tuplet.startTick,
+      originSpanTicks: tupHit.tuplet.spanTicks,
+      grabTick: grid.tick,
+      historyStarted: false,
+    }
+    return
+  }
+
   if (hit) {
+    store.selectTuplet(null)
     const resizeEdge = hitResizeEdge(hit, local.x, local.y)
     if (
       resizeEdge &&
@@ -1086,7 +1209,23 @@ function onPointerDown(e: PointerEvent): void {
     return
   }
 
+  if (store.tupletTool) {
+    const tick = snapTick(
+      clampTick(pxToTicks(local.x + scrollX.value, cellW.value)),
+      props.project.snapTicks,
+    )
+    tupletCreatePreview = null
+    gesture = {
+      kind: 'tuplet-create',
+      originTick: tick,
+      curTick: tick,
+      moved: false,
+    }
+    return
+  }
+
   // Empty grid → marquee (drag) or deselect/place (click).
+  store.selectTuplet(null)
   marqueePreview = null
   marqueeUi.value = true
   emit('marqueeActive', true)
@@ -1212,6 +1351,78 @@ function onPointerMove(e: PointerEvent): void {
       gesture.curLy,
     )
     draw()
+    return
+  }
+
+  if (gesture.kind === 'tuplet-create') {
+    const local = localPoint(e)
+    if (!local) return
+    const tick = snapTick(
+      clampTick(pxToTicks(local.x + scrollX.value, cellW.value)),
+      props.project.snapTicks,
+    )
+    if (Math.abs(tick - gesture.originTick) > 0) gesture.moved = true
+    gesture.curTick = tick
+    tupletCreatePreview = snapTupletDragSpan(
+      gesture.originTick,
+      gesture.curTick,
+      props.project.snapTicks,
+    )
+    draw()
+    return
+  }
+
+  if (gesture.kind === 'tuplet-move') {
+    const local = localPoint(e)
+    if (!local) return
+    const g = gridFromLocal(local.x, local.y)
+    const nextStart = snapTick(
+      clampTick(gesture.originStartTick + (g.tick - gesture.grabTick)),
+      props.project.snapTicks,
+    )
+    if (nextStart === gesture.originStartTick) return
+    if (!gesture.historyStarted) {
+      store.pushHistoryCheckpoint()
+      gesture.historyStarted = true
+    }
+    store.patchTupletLive(gesture.id, {
+      startTick: nextStart,
+      spanTicks: gesture.originSpanTicks,
+    })
+    return
+  }
+
+  if (gesture.kind === 'tuplet-resize') {
+    const pdx = e.clientX - gesture.startClientX
+    const deltaTicks = pxToTicks(pdx, cellW.value)
+    const snap = props.project.snapTicks
+    let startTick = gesture.originStartTick
+    let endTick = gesture.originStartTick + gesture.originSpanTicks
+    if (gesture.edge === 'start') {
+      startTick = snapTick(
+        clampTick(gesture.originStartTick + deltaTicks),
+        snap,
+      )
+      if (endTick - startTick < snap) startTick = endTick - snap
+    } else {
+      endTick = snapTick(
+        clampTick(gesture.originStartTick + gesture.originSpanTicks + deltaTicks),
+        snap,
+      )
+      if (endTick - startTick < snap) endTick = startTick + snap
+    }
+    const spanTicks = endTick - startTick
+    if (
+      startTick === gesture.originStartTick &&
+      spanTicks === gesture.originSpanTicks
+    ) {
+      return
+    }
+    if (!gesture.historyStarted) {
+      store.pushHistoryCheckpoint()
+      gesture.historyStarted = true
+    }
+    store.patchTupletLive(gesture.id, { startTick, spanTicks })
     return
   }
 
@@ -1393,9 +1604,12 @@ function onPointerUp(e: PointerEvent): void {
     draw()
     if (!g.moved) {
       const hasSel =
-        props.selectedNoteIds.length > 0 || (props.selectedSketchSpanIds?.length ?? 0) > 0
+        props.selectedNoteIds.length > 0 ||
+        (props.selectedSketchSpanIds?.length ?? 0) > 0 ||
+        !!store.selectedTupletId
       if (composeEmptyClickAction(hasSel, { forcePlace: g.additive }) === 'deselect') {
         emit('select', null)
+        store.selectTuplet(null)
         return
       }
       const grid = gridFromLocal(g.startLx, g.startLy)
@@ -1415,6 +1629,23 @@ function onPointerUp(e: PointerEvent): void {
       partId: partFilter,
     })
     emit('selectMany', ids, g.additive ? { additive: true } : undefined)
+    return
+  }
+
+  if (g.kind === 'tuplet-create') {
+    tupletCreatePreview = null
+    draw()
+    const span = snapTupletDragSpan(
+      g.originTick,
+      g.moved ? g.curTick : g.originTick + props.project.snapTicks,
+      props.project.snapTicks,
+    )
+    if (!span) return
+    const created = store.addTuplet({
+      startTick: span.startTick,
+      spanTicks: span.spanTicks,
+    })
+    if (created) emit('openTupletEditor', created.id)
     return
   }
 
@@ -1501,9 +1732,12 @@ watch(
     props.project.timeSignature,
     props.project.snapTicks,
     props.project.notes,
+    props.project.tuplets,
     props.project.parts,
     props.project.melodyPasses,
     props.selectedNoteIds,
+    store.selectedTupletId,
+    store.tupletTool,
     props.project.view.roleDisplay,
     props.project.view.scaleHighlight,
     props.project.view.showNoteNames,
@@ -1537,6 +1771,7 @@ defineExpose({ cssH, cssW, resize, draw, nudgeTimeZoom })
       pan:
         (store.pointerTool === 'pan' || shiftHeld) &&
         project.view.mode !== 'view',
+      'tuplet-tool': store.tupletTool && project.view.mode === 'compose',
     }"
     @wheel="onWheel"
     @pointerleave="onPointerLeave"
@@ -1548,6 +1783,7 @@ defineExpose({ cssH, cssW, resize, draw, nudgeTimeZoom })
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerUp"
+      @dblclick="onDblClick"
     />
   </div>
 </template>
@@ -1565,6 +1801,9 @@ defineExpose({ cssH, cssW, resize, draw, nudgeTimeZoom })
 }
 .viewport.compose {
   cursor: crosshair;
+}
+.viewport.tuplet-tool {
+  cursor: col-resize;
 }
 .viewport.compose:active {
   cursor: grabbing;

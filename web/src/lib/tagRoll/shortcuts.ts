@@ -13,6 +13,12 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   { id: 'mode-view', keys: 'V', label: 'View mode', group: 'modes' },
   { id: 'mode-compose', keys: 'E', label: 'Compose mode', group: 'modes' },
   { id: 'mode-lyrics', keys: 'Y', label: 'Toggle Lyrics lane', group: 'modes' },
+  {
+    id: 'tuplet-tool',
+    keys: 'T',
+    label: 'Tuplet tool — drag a span for a triplet container',
+    group: 'modes',
+  },
   { id: 'play-pause', keys: 'Space', label: 'Play / stop (return to playback start)', group: 'transport' },
   { id: 'pause-enter', keys: 'Enter', label: 'Pause in place', group: 'transport' },
   { id: 'stop', keys: 'S', label: 'Stop — return to playback start', group: 'transport' },
@@ -92,7 +98,7 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   {
     id: 'delete',
     keys: 'Del',
-    label: 'Delete selected note(s) / Sketch·Detected chord (leave empty space)',
+    label: 'Delete selected note(s) / tuplet / Sketch·Detected chord (leave empty space)',
     group: 'edit',
   },
   {

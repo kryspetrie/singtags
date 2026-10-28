@@ -98,8 +98,17 @@ import type {
   TagRollSheetTextFont,
   TagRollTempoMarker,
   TagRollTimeSignature,
+  TagRollTuplet,
   TagRollViewPrefs,
 } from '../lib/tagRoll/types'
+import {
+  assertNoTupletOverlap,
+  createTupletContainer,
+  deleteTupletContainer,
+  syncMemberTupletTags,
+  TUPLET_PRESETS,
+} from '../lib/tagRoll/tupletContainers'
+import { applyTupletDraft, type TupletEditorDraft } from '../lib/tagRoll/tupletEditor'
 import {
   TAG_ROLL_CELL_H_MAX,
   TAG_ROLL_CELL_H_MIN,
@@ -202,6 +211,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   const selectedNoteIds = ref<string[]>([])
   const selectedSketchSpanIds = ref<string[]>([])
   const selectedExpressionId = ref<string | null>(null)
+  const selectedTupletId = ref<string | null>(null)
+  /** When set, empty-drag on the roll creates a tuplet span (default 3:2). */
+  const tupletTool = ref<boolean>(false)
   const expressionTool = ref<TagRollExpressionTool>(null)
   const pointerTool = ref<TagRollPointerTool>('edit')
   const addDurationTicks = ref(TAG_ROLL_PPQ)
@@ -328,6 +340,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         : null
       clearNoteSelection()
       selectedExpressionId.value = null
+      selectedTupletId.value = null
+      tupletTool.value = false
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
@@ -367,6 +381,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
+      selectedTupletId.value = null
+      tupletTool.value = false
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
@@ -397,6 +413,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
       current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
+      selectedTupletId.value = null
+      tupletTool.value = false
       expressionTool.value = null
       undoStack.value = []
       redoStack.value = []
@@ -496,6 +514,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'clefFamily',
         'parts',
         'notes',
+        'tuplets',
         'melodyPasses',
         'harmonySketch',
         'localEntryId',
@@ -1379,8 +1398,176 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     expressionTool.value = tool
   }
 
+  function setTupletTool(on: boolean): void {
+    tupletTool.value = !!on
+    if (on) {
+      pointerTool.value = 'edit'
+      if (current.value?.view.mode !== 'compose') patchView({ mode: 'compose' })
+    }
+  }
+
+  function selectTuplet(id: string | null): void {
+    selectedTupletId.value = id
+    if (id) {
+      clearNoteSelection()
+      selectedExpressionId.value = null
+      chordsLaneFocused.value = false
+      clearSketchSelection()
+    }
+  }
+
+  function addTuplet(input: {
+    startTick: number
+    spanTicks: number
+    partId?: string
+    actualNotes?: number
+    normalNotes?: number
+  }): TagRollTuplet | null {
+    const p = current.value
+    if (!p) return null
+    const partId = input.partId ?? p.view.activePartId ?? p.parts[0]?.id
+    if (!partId) return null
+    const snap = p.snapTicks || TAG_ROLL_DEFAULT_SNAP_TICKS
+    const startTick = snapTick(input.startTick, snap)
+    const endTick = snapTick(input.startTick + input.spanTicks, snap)
+    const spanTicks = Math.max(snap, endTick - startTick)
+    // Reject spans that cross a barline (Phase 4 policy applied at create).
+    const mTicks = measureTicks(p.timeSignature)
+    if (Math.floor(startTick / mTicks) !== Math.floor((startTick + spanTicks - 1) / mTicks)) {
+      return null
+    }
+    const ratio = {
+      actualNotes: input.actualNotes ?? TUPLET_PRESETS.triplet.actualNotes,
+      normalNotes: input.normalNotes ?? TUPLET_PRESETS.triplet.normalNotes,
+    }
+    const candidate = createTupletContainer({
+      partId,
+      startTick,
+      spanTicks,
+      ...ratio,
+    })
+    if (!assertNoTupletOverlap(p.tuplets ?? [], candidate)) return null
+    pushHistory()
+    const lengthTicks = ensureLengthForTick(
+      p.lengthTicks,
+      startTick + spanTicks,
+      mTicks,
+    )
+    current.value = {
+      ...p,
+      tuplets: [...(p.tuplets ?? []), candidate],
+      lengthTicks,
+      updatedAt: now(),
+    }
+    selectTuplet(candidate.id)
+    scheduleSave()
+    return candidate
+  }
+
+  function patchTuplet(
+    id: string,
+    patch: Partial<Pick<TagRollTuplet, 'startTick' | 'spanTicks' | 'actualNotes' | 'normalNotes' | 'partId'>>,
+    opts?: { history?: boolean },
+  ): boolean {
+    const p = current.value
+    if (!p) return false
+    const cur = (p.tuplets ?? []).find((t) => t.id === id)
+    if (!cur) return false
+    const next: TagRollTuplet = {
+      ...cur,
+      ...patch,
+      startTick: Math.max(0, Math.round(patch.startTick ?? cur.startTick)),
+      spanTicks: Math.max(1, Math.round(patch.spanTicks ?? cur.spanTicks)),
+      actualNotes: Math.max(2, Math.round(patch.actualNotes ?? cur.actualNotes)),
+      normalNotes: Math.max(1, Math.round(patch.normalNotes ?? cur.normalNotes)),
+      partId: patch.partId ?? cur.partId,
+    }
+    if (!assertNoTupletOverlap(p.tuplets ?? [], next, { ignoreId: id })) return false
+    const mTicks = measureTicks(p.timeSignature)
+    if (
+      Math.floor(next.startTick / mTicks) !==
+      Math.floor((next.startTick + next.spanTicks - 1) / mTicks)
+    ) {
+      return false
+    }
+    if (opts?.history !== false) pushHistory()
+    let notes = p.notes
+    if (
+      next.actualNotes !== cur.actualNotes ||
+      next.normalNotes !== cur.normalNotes
+    ) {
+      notes = syncMemberTupletTags(notes, next)
+    }
+    const lengthTicks = ensureLengthForTick(
+      p.lengthTicks,
+      next.startTick + next.spanTicks,
+      mTicks,
+    )
+    current.value = {
+      ...p,
+      tuplets: (p.tuplets ?? []).map((t) => (t.id === id ? next : t)),
+      notes,
+      lengthTicks,
+      updatedAt: now(),
+    }
+    scheduleSave()
+    return true
+  }
+
+  function patchTupletLive(
+    id: string,
+    patch: Partial<Pick<TagRollTuplet, 'startTick' | 'spanTicks'>>,
+  ): boolean {
+    return patchTuplet(id, patch, { history: false })
+  }
+
+  function removeTuplet(id: string, opts?: { removeMembers?: boolean }): void {
+    const p = current.value
+    if (!p) return
+    if (!(p.tuplets ?? []).some((t) => t.id === id)) return
+    pushHistory()
+    const out = deleteTupletContainer(p.tuplets ?? [], p.notes, id, {
+      removeMembers: opts?.removeMembers,
+    })
+    current.value = {
+      ...p,
+      tuplets: out.tuplets,
+      notes: out.notes,
+      updatedAt: now(),
+    }
+    if (selectedTupletId.value === id) selectedTupletId.value = null
+    scheduleSave()
+  }
+
+  function deleteSelectedTuplet(): boolean {
+    const id = selectedTupletId.value
+    if (!id) return false
+    removeTuplet(id)
+    return true
+  }
+
+  function applyTupletEditorDraft(draft: TupletEditorDraft): boolean {
+    const p = current.value
+    if (!p) return false
+    if (!(p.tuplets ?? []).some((t) => t.id === draft.tupletId)) return false
+    pushHistory()
+    const out = applyTupletDraft(p.notes, p.tuplets ?? [], draft, {
+      newNoteId: () => svc().idGen.next('trn'),
+    })
+    current.value = {
+      ...p,
+      notes: out.notes,
+      tuplets: out.tuplets,
+      updatedAt: now(),
+    }
+    scheduleSave()
+    return true
+  }
+
   function setPointerTool(tool: TagRollPointerTool): void {
     pointerTool.value = tool === 'pan' ? 'pan' : 'edit'
+    // Pointer tools are mutually exclusive with the tuplet span tool.
+    tupletTool.value = false
   }
 
   function setSoundEngine(soundEngine: TagRollProject['soundEngine']): void {
@@ -2046,6 +2233,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   }
   function deleteSelectedNotes(): void {
     if (tryBoundInspectDelete()) return
+    if (selectedTupletId.value) {
+      deleteSelectedTuplet()
+      return
+    }
     if (!selectedNoteIds.value.length) return
     deleteNotes(selectedNoteIds.value)
   }
@@ -2059,6 +2250,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     chordsLaneFocused.value = false
     clearSketchSelection()
+    selectedTupletId.value = null
     if (opts?.additive) {
       if (selectedNoteIds.value.includes(id)) {
         selectedNoteIds.value = selectedNoteIds.value.filter((x) => x !== id)
@@ -2679,6 +2871,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     current.value = null
     clearNoteSelection()
     selectedExpressionId.value = null
+    selectedTupletId.value = null
+    tupletTool.value = false
     expressionTool.value = null
     transportPlaying.value = false
     undoStack.value = []
@@ -2704,6 +2898,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     sketchClipboard,
     chordsLaneFocused,
     selectedExpressionId,
+    selectedTupletId,
+    tupletTool,
     expressionTool,
     addDurationTicks,
     transportPlaying,
@@ -2814,6 +3010,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     deleteExpression,
     selectExpression,
     setExpressionTool,
+    setTupletTool,
+    selectTuplet,
+    addTuplet,
+    patchTuplet,
+    patchTupletLive,
+    removeTuplet,
+    deleteSelectedTuplet,
+    applyTupletEditorDraft,
     setSoundEngine,
     setPitchPipeSoundId,
     setBlowPitchEnabled,

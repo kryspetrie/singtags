@@ -189,6 +189,57 @@ describe('musicxmlExport', () => {
     expect(xml).toContain('<accidental>flat-flat</accidental>')
   })
 
+  it('emits time-modification from explicit tuplet containers', () => {
+    const p = createEmptyTagRollProject({ title: 'Explicit trip' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const third = Math.round(TAG_ROLL_PPQ / 3)
+    const d0 = third
+    const d1 = third
+    const d2 = TAG_ROLL_PPQ - d0 - d1
+    const groupId = 'tup_xml'
+    p.tuplets = [
+      {
+        id: groupId,
+        partId: lead.id,
+        startTick: 0,
+        spanTicks: TAG_ROLL_PPQ,
+        actualNotes: 3,
+        normalNotes: 2,
+      },
+    ]
+    p.notes = [
+      {
+        id: 'a',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: d0,
+        tuplet: { groupId, actualNotes: 3, normalNotes: 2 },
+      },
+      {
+        id: 'b',
+        partId: lead.id,
+        midi: 62,
+        startTick: d0,
+        durationTicks: d1,
+        tuplet: { groupId, actualNotes: 3, normalNotes: 2 },
+      },
+      {
+        id: 'c',
+        partId: lead.id,
+        midi: 64,
+        startTick: d0 + d1,
+        durationTicks: d2,
+        tuplet: { groupId, actualNotes: 3, normalNotes: 2 },
+      },
+    ]
+    const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
+    expect(xml).toContain('<actual-notes>3</actual-notes>')
+    expect(xml).toContain('<normal-notes>2</normal-notes>')
+    expect(xml).toContain('<tuplet type="start"')
+    expect(xml).toContain('<tuplet type="stop"')
+  })
+
   it('emits syllabic begin/end and time-modification for inferred triplets', () => {
     const p = createEmptyTagRollProject({ title: 'Trip' })
     const lead = p.parts.find((x) => x.name === 'Lead')!
