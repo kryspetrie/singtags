@@ -1,8 +1,9 @@
 /**
- * Choose VexFlow rest keys so multi-voice rests/notes don’t share a staff line.
- * Whole/half (block) rests stay on the staff — never above/below the lines.
+ * Choose VexFlow rest keys so multi-voice rests clear the other voice.
+ * Prefer the same-voice “lane” (nearby notes); when crowded, escape above
+ * (stem-up) or below (stem-down) the other voice — never through it.
  */
-import { midiToMusicXmlPitch } from '../musicxmlExport'
+import { midiToMusicXmlPitch } from '../midiPitch'
 import type { TagRollClefFamily } from '../types'
 import { diatonicIndex } from './staffPitch'
 import type { SheetStaffKind } from './types'
@@ -35,6 +36,15 @@ export function vexKeyToDegree(key: string): number {
   return diatonicIndex(step, octave)
 }
 
+const DEGREE_STEPS = ['c', 'd', 'e', 'f', 'g', 'a', 'b'] as const
+
+/** Vex key for a diatonic degree (natural spelling). */
+export function degreeToVexKey(degree: number): string {
+  const octave = Math.floor(degree / 7)
+  const step = DEGREE_STEPS[((degree % 7) + 7) % 7]!
+  return `${step}/${octave}`
+}
+
 /** Inclusive staff-line degree range (bottom line … top line). */
 export function staffDegreeRange(clef: 'treble' | 'bass'): { lo: number; hi: number } {
   if (clef === 'bass') {
@@ -49,7 +59,7 @@ export function isKeyOnStaff(clef: 'treble' | 'bass', key: string): boolean {
   return d >= lo && d <= hi
 }
 
-function noteDegree(
+export function noteDegreeFromConcert(
   concertMidi: number,
   clefFamily: TagRollClefFamily,
   staffKind: SheetStaffKind,
@@ -60,52 +70,82 @@ function noteDegree(
   return diatonicIndex(step, octave)
 }
 
+/** Default rest degree for a voice / duration (engraving convention). */
+function defaultRestDegree(
+  clef: 'treble' | 'bass',
+  stemUp: boolean,
+  kind: RestDurationKind,
+): number {
+  if (clef === 'bass') {
+    if (kind === 'whole') return diatonicIndex('D', 3)
+    if (kind === 'half') return diatonicIndex('B', 2)
+    return stemUp ? diatonicIndex('A', 3) : diatonicIndex('G', 2)
+  }
+  if (kind === 'whole') return diatonicIndex('D', 5)
+  if (kind === 'half') return diatonicIndex('B', 4)
+  return stemUp ? diatonicIndex('E', 5) : diatonicIndex('G', 4)
+}
+
 /**
- * Candidate rest keys, preferred first — all on the staff.
- * Voice 1 prefers higher staff positions; voice 2 lower.
- * Whole/half defaults: hang from / sit on interior lines.
+ * Candidate rest keys around a preferred degree (same-voice lane / escape).
+ * Includes on-staff slots plus ledger overflow in the voice’s direction.
  */
 export function restKeyCandidates(
   clef: 'treble' | 'bass',
   stemUp: boolean,
   kind: RestDurationKind = 'other',
+  preferDegree?: number,
 ): string[] {
-  if (clef === 'bass') {
-    // Staff: G2–A3. Whole hangs from D3; half sits on B2.
-    if (kind === 'whole') {
-      return stemUp
-        ? ['d/3', 'f/3', 'b/2', 'a/3', 'c/3', 'g/2', 'e/3']
-        : ['d/3', 'b/2', 'c/3', 'g/2', 'f/3', 'a/2', 'e/3']
-    }
-    if (kind === 'half') {
-      return stemUp
-        ? ['b/2', 'd/3', 'f/3', 'a/3', 'c/3', 'g/2', 'e/3']
-        : ['b/2', 'g/2', 'c/3', 'a/2', 'd/3', 'f/3', 'e/3']
-    }
-    return stemUp
-      ? ['a/3', 'f/3', 'd/3', 'e/3', 'c/3', 'b/2', 'g/2']
-      : ['g/2', 'b/2', 'a/2', 'c/3', 'd/3', 'e/3', 'f/3']
+  const { lo, hi } = staffDegreeRange(clef)
+  const def =
+    preferDegree != null && Number.isFinite(preferDegree)
+      ? Math.round(preferDegree)
+      : defaultRestDegree(clef, stemUp, kind)
+  const onStaff: number[] = []
+  for (let d = lo; d <= hi; d++) onStaff.push(d)
+  onStaff.sort((a, b) => {
+    const da = Math.abs(a - def)
+    const db = Math.abs(b - def)
+    if (da !== db) return da - db
+    return stemUp ? b - a : a - b
+  })
+
+  // Enough ledger room to clear a high/low other-voice note.
+  const overflowSteps = kind === 'other' ? 6 : 5
+  const above: number[] = []
+  const below: number[] = []
+  for (let i = 1; i <= overflowSteps; i++) {
+    above.push(hi + i)
+    below.push(lo - i)
   }
-  // Treble staff: E4–F5. Whole hangs from D5; half sits on B4.
-  if (kind === 'whole') {
-    return stemUp
-      ? ['d/5', 'b/4', 'c/5', 'e/5', 'a/4', 'f/5', 'g/4']
-      : ['d/5', 'b/4', 'a/4', 'g/4', 'c/5', 'e/4', 'f/4']
-  }
-  if (kind === 'half') {
-    return stemUp
-      ? ['b/4', 'd/5', 'c/5', 'e/5', 'a/4', 'f/5', 'g/4']
-      : ['b/4', 'g/4', 'a/4', 'e/4', 'c/5', 'f/4', 'd/5']
-  }
-  return stemUp
-    ? ['e/5', 'c/5', 'd/5', 'a/4', 'b/4', 'f/5', 'g/4']
-    : ['g/4', 'e/4', 'f/4', 'a/4', 'b/4', 'c/5', 'd/5']
+  const overflow = stemUp ? [...above, ...below] : [...below, ...above]
+  // Prefer near `def` first (may be off-staff for high tenor lanes).
+  const all = [...onStaff, ...overflow]
+  all.sort((a, b) => {
+    const da = Math.abs(a - def)
+    const db = Math.abs(b - def)
+    if (da !== db) return da - db
+    return stemUp ? b - a : a - b
+  })
+  return all.map(degreeToVexKey)
 }
 
-/** True if a rest on `degree` would collide with an occupied degree. */
-function restCollides(degree: number, occupied: ReadonlySet<number>): boolean {
-  // Block rests sit on/under a line — keep ±1 clear of noteheads.
-  return occupied.has(degree) || occupied.has(degree + 1) || occupied.has(degree - 1)
+function restClearance(kind: RestDurationKind): number {
+  if (kind === 'whole' || kind === 'half') return 1
+  return 2
+}
+
+function restCollisionScore(
+  degree: number,
+  occupied: ReadonlySet<number>,
+  clearance: number,
+): number {
+  let score = 0
+  for (const o of occupied) {
+    const dist = Math.abs(o - degree)
+    if (dist <= clearance) score += clearance - dist + 1
+  }
+  return score
 }
 
 export function restDurationKind(type: string): RestDurationKind {
@@ -114,18 +154,73 @@ export function restDurationKind(type: string): RestDurationKind {
   return 'other'
 }
 
-/**
- * Pick a rest key for a span, avoiding other-voice notes/rests that overlap in time.
- * Never leaves the staff; shifts within staff lines/spaces only.
- */
-export function pickRestKey(opts: {
+/** Slight horizontal nudge when a rest still shares a column with a notehead. */
+export const REST_X_NUDGE_PX = 3.5
+
+export type RestPlacement = {
+  key: string
+  /** Pixels; negative = left. Applied via StaveNote.setXShift. */
+  xShift: number
+}
+
+type RestPickOpts = {
   clef: 'treble' | 'bass'
   stemUp: boolean
   startTick: number
   durationTicks: number
   occupants: readonly RestOccupant[]
   durationKind?: RestDurationKind
-}): string {
+  /**
+   * Preferred staff degree from nearby same-voice notes (tenor lane, etc.).
+   * Combined with escape-above/below the other voice.
+   */
+  preferDegree?: number
+}
+
+/**
+ * Nearest sounding same-voice degree before/after a rest (for lane alignment).
+ */
+export function nearbySameVoiceDegree(
+  events: readonly {
+    startTick: number
+    durationTicks: number
+    concertMidi: number | null
+  }[],
+  restStart: number,
+  restDuration: number,
+  clefFamily: TagRollClefFamily,
+  staffKind: SheetStaffKind,
+  preferFlats: boolean,
+): number | undefined {
+  const restEnd = restStart + Math.max(1, restDuration)
+  let best: { dist: number; degree: number } | null = null
+  for (const e of events) {
+    if (e.concertMidi == null) continue
+    const eEnd = e.startTick + Math.max(1, e.durationTicks)
+    // Skip notes that overlap the rest span (shouldn't happen in mono voice).
+    if (spansOverlap(restStart, restEnd, e.startTick, eEnd)) continue
+    const dist =
+      eEnd <= restStart
+        ? restStart - eEnd
+        : e.startTick >= restEnd
+          ? e.startTick - restEnd
+          : 0
+    const degree = noteDegreeFromConcert(
+      e.concertMidi,
+      clefFamily,
+      staffKind,
+      preferFlats,
+    )
+    if (!best || dist < best.dist) best = { dist, degree }
+  }
+  return best?.degree
+}
+
+/**
+ * Pick rest staff position + optional L/R nudge.
+ * Escapes above other-voice notes for stem-up (tenor), below for stem-down.
+ */
+export function pickRestPlacement(opts: RestPickOpts): RestPlacement {
   const end = opts.startTick + Math.max(1, opts.durationTicks)
   const occupied = new Set<number>()
   for (const o of opts.occupants) {
@@ -134,13 +229,75 @@ export function pickRestKey(opts: {
     occupied.add(o.degree)
   }
   const kind = opts.durationKind ?? 'other'
-  const candidates = restKeyCandidates(opts.clef, opts.stemUp, kind).filter((k) =>
-    isKeyOnStaff(opts.clef, k),
-  )
-  for (const key of candidates) {
-    if (!restCollides(vexKeyToDegree(key), occupied)) return key
+  const clearance = restClearance(kind)
+  const fallbackDef = defaultRestDegree(opts.clef, opts.stemUp, kind)
+
+  let prefer = opts.preferDegree ?? fallbackDef
+  if (occupied.size) {
+    let hi = -Infinity
+    let lo = Infinity
+    for (const o of occupied) {
+      if (o > hi) hi = o
+      if (o < lo) lo = o
+    }
+    // Stem-up (tenor): stay at/above the other voice — never drop under the lead.
+    // Stem-down (lead): stay at/below.
+    const escape = opts.stemUp ? hi + clearance + 1 : lo - clearance - 1
+    prefer = opts.stemUp ? Math.max(prefer, escape) : Math.min(prefer, escape)
   }
-  return candidates[0] ?? (opts.clef === 'bass' ? 'd/3' : 'b/4')
+
+  const candidates = restKeyCandidates(opts.clef, opts.stemUp, kind, prefer)
+  const fallback = candidates[0] ?? (opts.clef === 'bass' ? 'd/3' : 'b/4')
+  const closestToPrefer = (): string => {
+    let best = fallback
+    let bestDist = Number.POSITIVE_INFINITY
+    for (const key of candidates) {
+      const dist = Math.abs(vexKeyToDegree(key) - prefer)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = key
+      }
+    }
+    return best
+  }
+  if (!occupied.size) return { key: closestToPrefer(), xShift: 0 }
+
+  let bestKey = fallback
+  let bestScore = Number.POSITIVE_INFINITY
+  let bestDist = Number.POSITIVE_INFINITY
+  let bestDir = -Infinity
+  for (const key of candidates) {
+    const deg = vexKeyToDegree(key)
+    const score = restCollisionScore(deg, occupied, clearance)
+    const dist = Math.abs(deg - prefer)
+    const dir = opts.stemUp ? deg : -deg
+    // Clear first, then near preferred lane, then further in escape direction.
+    const better =
+      score < bestScore ||
+      (score === bestScore && dist < bestDist) ||
+      (score === bestScore && dist === bestDist && dir > bestDir)
+    if (!better) continue
+    bestScore = score
+    bestKey = key
+    bestDist = dist
+    bestDir = dir
+  }
+
+  const deg = vexKeyToDegree(bestKey)
+  let minDist = Number.POSITIVE_INFINITY
+  for (const o of occupied) minDist = Math.min(minDist, Math.abs(o - deg))
+  const needX = bestScore > 0 || minDist <= clearance + 1
+  const xShift = needX
+    ? opts.stemUp
+      ? -REST_X_NUDGE_PX
+      : REST_X_NUDGE_PX
+    : 0
+  return { key: bestKey, xShift }
+}
+
+/** Staff-key only (tests / callers that ignore horizontal nudge). */
+export function pickRestKey(opts: RestPickOpts): string {
+  return pickRestPlacement(opts).key
 }
 
 /** Sounding-note occupants for rest collision (same staff, other voices). */
@@ -163,7 +320,7 @@ export function noteOccupantsFromEvents(
     out.push({
       startTick: e.startTick,
       durationTicks: e.durationTicks,
-      degree: noteDegree(e.concertMidi, clefFamily, staffKind, preferFlats),
+      degree: noteDegreeFromConcert(e.concertMidi, clefFamily, staffKind, preferFlats),
     })
   }
   return out

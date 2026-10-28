@@ -2,28 +2,44 @@
 /**
  * Full-panel Coach Help — how to use the current step’s controls.
  */
+import { computed, ref } from 'vue'
 import type { CoachHelpSection } from '../../application/arranging/coachIdeasHelp'
 import {
   TEACH_PANEL_CLASS,
   TEACH_PANEL_CLOSE_CLASS,
   TEACH_PANEL_HEAD_CLASS,
 } from '../../lib/arranging/teachChrome'
+import ArrangingLearnChoices from './ArrangingLearnChoices.vue'
 import './arranging-teach-chrome.css'
 
-defineProps<{
-  title: string
-  intro: string
-  sections: readonly CoachHelpSection[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    title: string
+    intro: string
+    sections: readonly CoachHelpSection[]
+    /** Drawer already supplies the title and close control. */
+    embedded?: boolean
+  }>(),
+  { embedded: false },
+)
 
 const emit = defineEmits<{
   close: []
 }>()
+
+const sectionIndex = ref(0)
+const section = computed(() => {
+  if (!props.sections.length) return null
+  return props.sections[Math.min(sectionIndex.value, props.sections.length - 1)] ?? null
+})
+const topicOptions = computed(() =>
+  props.sections.map((sec, i) => ({ id: `${i}:${sec.title}`, label: sec.title })),
+)
 </script>
 
 <template>
   <section :class="TEACH_PANEL_CLASS" aria-label="Coach help">
-    <header :class="TEACH_PANEL_HEAD_CLASS" class="help-head">
+    <header v-if="!embedded" :class="TEACH_PANEL_HEAD_CLASS" class="help-head">
       <h3>{{ title }}</h3>
       <button
         type="button"
@@ -36,12 +52,16 @@ const emit = defineEmits<{
       </button>
     </header>
     <p class="intro">{{ intro }}</p>
-    <ol class="sections">
-      <li v-for="sec in sections" :key="sec.title">
-        <strong>{{ sec.title }}</strong>
-        <p>{{ sec.body }}</p>
-      </li>
-    </ol>
+    <ArrangingLearnChoices
+      label="Topic"
+      :options="topicOptions"
+      :selected="Math.min(sectionIndex, Math.max(0, sections.length - 1))"
+      @pick="sectionIndex = $event"
+    />
+    <article v-if="section" class="topic">
+      <h4>{{ section.title }}</h4>
+      <p>{{ section.body }}</p>
+    </article>
   </section>
 </template>
 
@@ -56,24 +76,19 @@ const emit = defineEmits<{
   font-weight: 600;
   color: var(--text);
 }
-.sections {
+.topic {
+  display: grid;
+  gap: 0.35rem;
+}
+.topic h4 {
   margin: 0;
-  padding: 0 0 0 1.1rem;
-  display: grid;
-  gap: 0.55rem;
-}
-.sections li {
-  display: grid;
-  gap: 0.15rem;
-}
-.sections strong {
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 750;
 }
-.sections p {
+.topic p {
   margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text);
 }
 </style>

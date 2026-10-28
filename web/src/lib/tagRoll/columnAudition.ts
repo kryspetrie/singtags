@@ -3,6 +3,7 @@
  * Prefer the suggestion (ghosts) over written TTBB so both don't sound together.
  */
 import { hearStackNotesAtTick } from './notesAtTick'
+import { previewDraftDirty, type HarmonyPreviewDraft } from './harmonyPreviewDraft'
 import type { TagRollNote } from './types'
 
 export type AuditionGhost = {
@@ -44,4 +45,30 @@ export function notesForColumnAudition(opts: {
     durationTicks: g.durationTicks,
   }))
   return [...melody, ...ghostNotes]
+}
+
+function noteOverlaps(
+  note: { startTick: number; durationTicks: number },
+  range: { startTick: number; endTick: number },
+): boolean {
+  const end = note.startTick + Math.max(1, note.durationTicks)
+  return note.startTick < range.endTick && range.startTick < end
+}
+
+/**
+ * Transport notes while a chord preview is active. The preview voicing is
+ * played from Sketch, so written harmony in that span stays silent. Melody
+ * notes stay so the tune does not drop out.
+ */
+export function notesForPreviewTransport(opts: {
+  notes: readonly TagRollNote[]
+  preview: HarmonyPreviewDraft | null
+  melodyAt: (tick: number) => string | null
+}): TagRollNote[] {
+  const preview = opts.preview
+  if (!preview || !previewDraftDirty(preview)) return [...opts.notes]
+  return opts.notes.filter((note) => {
+    if (!noteOverlaps(note, preview)) return true
+    return opts.melodyAt(note.startTick) === note.partId
+  })
 }

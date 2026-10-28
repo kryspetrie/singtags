@@ -133,6 +133,142 @@ describe('buildSheetRhythm', () => {
     expect(notes.some((n) => n.tieStop)).toBe(true)
   })
 
+  it('keeps dotted quarters as dotted (not tied approximations)', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'dq',
+          partId: 'l',
+          midi: 60,
+          startTick: 0,
+          durationTicks: Math.round(TAG_ROLL_PPQ * 1.5),
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(1)
+    expect(notes[0]!.duration.type).toBe('quarter')
+    expect(notes[0]!.duration.dots).toBe(1)
+    expect(notes[0]!.tieStart).toBe(false)
+  })
+
+  it('ties a half on beat 2 into two quarters at mid-bar', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'sync',
+          partId: 'l',
+          midi: 60,
+          startTick: TAG_ROLL_PPQ,
+          durationTicks: TAG_ROLL_PPQ * 2,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(2)
+    expect(notes.map((n) => n.duration.type)).toEqual(['quarter', 'quarter'])
+    expect(notes[0]!.tieStart).toBe(true)
+    expect(notes[1]!.tieStop).toBe(true)
+  })
+
+  it('ties a syncopated quarter that starts off the beat into two eighths', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'off',
+          partId: 'l',
+          midi: 60,
+          startTick: TAG_ROLL_PPQ / 2,
+          durationTicks: TAG_ROLL_PPQ,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(2)
+    expect(notes.map((n) => n.duration.type)).toEqual(['eighth', 'eighth'])
+    expect(notes[0]!.tieStart).toBe(true)
+    expect(notes[1]!.tieStop).toBe(true)
+  })
+
+  it('decomposes multi-beat rests instead of rounding to one nearest glyph', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'n',
+          partId: 'l',
+          midi: 60,
+          startTick: TAG_ROLL_PPQ * 3,
+          durationTicks: TAG_ROLL_PPQ,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const rests = events.filter((e) => e.partId === 'l' && e.concertMidi == null)
+    const restTicks = rests.reduce((s, e) => s + e.durationTicks, 0)
+    expect(restTicks).toBe(TAG_ROLL_PPQ * 3)
+    expect(rests.length).toBeGreaterThanOrEqual(1)
+    // Three beats: should prefer dotted half or half+quarter, not a single nearest miss.
+    expect(rests.every((r) => r.duration.ticks > 0)).toBe(true)
+  })
+
+  it('beams three eighths together in 6/8 (compound beat)', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const eighth = TAG_ROLL_PPQ / 2
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        { id: 'a', partId: 'l', midi: 60, startTick: 0, durationTicks: eighth },
+        { id: 'b', partId: 'l', midi: 62, startTick: eighth, durationTicks: eighth },
+        { id: 'c', partId: 'l', midi: 64, startTick: eighth * 2, durationTicks: eighth },
+      ],
+      lengthTicks: eighth * 6,
+      timeSignature: { numerator: 6, denominator: 8 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(3)
+    expect(notes[0]!.beamGroupId).not.toBeNull()
+    expect(notes[0]!.beamGroupId).toBe(notes[1]!.beamGroupId)
+    expect(notes[1]!.beamGroupId).toBe(notes[2]!.beamGroupId)
+  })
+
+  it('ties a five-beat note into whole + quarter', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'five',
+          partId: 'l',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ * 5,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 8,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes.length).toBeGreaterThanOrEqual(2)
+    expect(notes[0]!.duration.type).toBe('whole')
+    expect(notes.some((n) => n.tieStart)).toBe(true)
+    expect(notes.some((n) => n.tieStop)).toBe(true)
+  })
+
   it('inserts rests for empty spans', () => {
     const assignment = assignSheetStaves(parts, 'ttbb')
     const events = buildSheetRhythm({

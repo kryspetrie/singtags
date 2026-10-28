@@ -60,6 +60,16 @@ export type TagRollNote = {
    * Meaningful on the melody part; ignored elsewhere.
    */
   role?: TagRollMelodyRole
+  /**
+   * Optional tuplet membership (e.g. triplet). When omitted, sheet inference
+   * may still detect equal-length 3:2 runs from tick math.
+   */
+  tuplet?: {
+    actualNotes: number
+    normalNotes: number
+    /** Shared id for all members of this tuplet instance. */
+    groupId: string
+  }
 }
 
 /** Strong (pmn) / Passing (smn) / unlabeled — mirrors arrangement MelodyRole. */
@@ -263,14 +273,29 @@ export type TagRollViewPrefs = {
   scoreSurface: TagRollScoreSurface
   /** Sheet surface: pixels per beat (independent of piano-roll cellW). */
   sheetZoom: number
-  /** Sheet surface: show stacked lyrics under each staff. */
+  /** Sheet surface: show lyrics. */
   sheetShowLyrics: boolean
+  /**
+   * Sheet: keep each part’s lyrics on one straight horizontal lane
+   * (tenor/bari above staff, lead/bass below) — default on.
+   */
+  sheetStraightLyrics: boolean
   /** Sheet: continuous strip vs paginated pages. */
   sheetLayout: TagRollSheetLayout
   /** Sheet: equal vs dynamic (content-sized) measure widths. */
   sheetMeasureSizing: TagRollSheetMeasureSizing
+  /**
+   * Sheet page layout: after wrapping, stretch each system so every line
+   * fills the width between the left and right margins (default on).
+   */
+  sheetFullJustify: boolean
   /** Sheet: outline melody / Strong–Passing in color (print-friendly when off). */
   sheetNoteColors: boolean
+  /**
+   * Sheet: draw × above the staff for same-staff crossings — lead above tenor,
+   * or bass above bari (default on; especially useful for stemless whole notes).
+   */
+  sheetShowCrossoverMarks: boolean
   /** Sheet: grand-staff gap between upper and lower clefs. */
   sheetStaveGap: TagRollSheetStaveGap
   /** Sheet: global measure-width multiplier (0.5–2). */
@@ -292,9 +317,14 @@ export type TagRollViewPrefs = {
   sheetLyricSize: number
   /**
    * Per-part lyric vertical nudge in VexFlow textLine units (0 = default stack).
-   * Positive moves the lyric line further below the staff.
+   * Positive moves further from the staff (above for voice 1, below for voice 2).
    */
   sheetLyricOffsets: Record<string, number>
+  /**
+   * Per-part lyric visibility. Missing key = visible. Only `false` is stored.
+   * Global {@link sheetShowLyrics} still gates all lyrics.
+   */
+  sheetLyricPartVisible: Record<string, boolean>
   /** Tint sounding notes during transport playback. */
   sheetPlaybackHighlight: boolean
   /** Show Sketch chord labels in boxes above the staff. */
@@ -358,6 +388,8 @@ export type TagRollViewPrefs = {
   sheetTextFont: TagRollSheetTextFont
   /** Staff line thickness multiplier. */
   sheetStaffLineWeight: number
+  /** Note stem length multiplier (1 = engraving default). */
+  sheetStemLength: number
   /** Part names at the start of each system. */
   sheetPartNames: boolean
   /**
@@ -486,9 +518,12 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   scoreSurface: 'roll',
   sheetZoom: 40,
   sheetShowLyrics: true,
+  sheetStraightLyrics: true,
   sheetLayout: 'continuous',
   sheetMeasureSizing: 'dynamic',
+  sheetFullJustify: true,
   sheetNoteColors: false,
+  sheetShowCrossoverMarks: true,
   sheetStaveGap: 'tight',
   sheetMeasureScale: 1,
   sheetNoteSpacing: 1,
@@ -498,6 +533,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetTopMargin: 0.85,
   sheetLyricSize: 11,
   sheetLyricOffsets: {},
+  sheetLyricPartVisible: {},
   sheetPlaybackHighlight: true,
   sheetShowSketchChords: false,
   sheetShowDetectedChords: false,
@@ -523,6 +559,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetMusicFont: 'bravura',
   sheetTextFont: 'academico',
   sheetStaffLineWeight: 1,
+  sheetStemLength: 0.8,
   sheetPartNames: false,
   sheetFormatByLayout: {},
   sheetScrollX: 0,

@@ -194,13 +194,7 @@ export function useCoachGuidedAndReview(opts: {
   }
 
   function onLabelRoles(): void {
-    arrStore.labelRoles(true)
-    arrStore.runQa()
-    opts.pushToRoll()
-    prefs.openTagRollBottomLane('coach')
-    const mel = arrStore.current?.melody ?? []
-    const pick = mel.find((m) => m.id === arrStore.selectedMelodyId) ?? mel[0]
-    if (pick) selectMelodyNote(pick.id)
+    // Strong/Passing marks are no longer assigned from Coach.
   }
 
   async function onPathOptimize(args: {

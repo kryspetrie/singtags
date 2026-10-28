@@ -3,11 +3,7 @@
  * View marks — toggle piano-roll chrome so melody / roles stay readable.
  */
 import { computed } from 'vue'
-import {
-  roleDisplayFromToggles,
-  roleDisplayShowsMelody,
-  roleDisplayShowsRoles,
-} from '../../lib/tagRoll/roleDisplay'
+import { roleDisplayFromToggles, roleDisplayShowsMelody } from '../../lib/tagRoll/roleDisplay'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import type { TagRollRoleDisplay } from '../../lib/tagRoll/types'
 import { useTagRollStore } from '../../stores/tagRoll'
@@ -26,17 +22,12 @@ const roleDisplay = computed(
   () => (project.value?.view.roleDisplay ?? 'off') as TagRollRoleDisplay,
 )
 const showMelody = computed(() => roleDisplayShowsMelody(roleDisplay.value))
-const showRoles = computed(() => roleDisplayShowsRoles(roleDisplay.value))
 const scaleHighlight = computed(() => project.value?.view.scaleHighlight !== false)
 const showNoteNames = computed(() => project.value?.view.showNoteNames !== false)
 const showNoteLyrics = computed(() => project.value?.view.showNoteLyrics !== false)
 
 function setMelody(on: boolean): void {
-  store.setRoleDisplay(roleDisplayFromToggles(on, showRoles.value))
-}
-
-function setRoles(on: boolean): void {
-  store.setRoleDisplay(roleDisplayFromToggles(showMelody.value, on))
+  store.setRoleDisplay(roleDisplayFromToggles(on, false))
 }
 
 function setScale(on: boolean): void {
@@ -55,10 +46,6 @@ function clearMarks(): void {
   store.setRoleDisplay('off')
   store.setShowNoteNames(false)
   store.setShowNoteLyrics(false)
-}
-
-function rolesOnly(): void {
-  store.setRoleDisplay('roles')
 }
 
 function melodyOnly(): void {
@@ -82,7 +69,7 @@ function melodyOnly(): void {
     </header>
 
     <p class="hint">
-      Turn chrome on only when you need it. Melody, roles, note names, and lyrics are independent so
+      Turn chrome on only when you need it. Melody, note names, and lyrics are independent so
       the roll stays readable.
     </p>
 
@@ -98,21 +85,6 @@ function melodyOnly(): void {
         <span class="lbl">
           <strong>Melody</strong>
           <span class="sub">Red stripe on the Melody part</span>
-        </span>
-      </label>
-      <label class="row" :title="tagRollTip('Green / yellow stripes for Strong and Passing')">
-        <input
-          type="checkbox"
-          :checked="showRoles"
-          @change="setRoles(($event.target as HTMLInputElement).checked)"
-        />
-        <span class="swatch-pair" aria-hidden="true">
-          <span class="swatch pmn" />
-          <span class="swatch smn" />
-        </span>
-        <span class="lbl">
-          <strong>Strong / Passing</strong>
-          <span class="sub">Role stripes on labeled notes</span>
         </span>
       </label>
       <label class="row" :title="tagRollTip('Pitch name inside each note (e.g. Bb)')">
@@ -155,17 +127,8 @@ function melodyOnly(): void {
     </fieldset>
 
     <div class="presets" role="group" aria-label="Quick presets">
-      <button type="button" class="btn sm" :title="tagRollTip('Hide melody, roles, note names, and lyrics')" @click="clearMarks">
+      <button type="button" class="btn sm" :title="tagRollTip('Hide melody stripe, note names, and lyrics')" @click="clearMarks">
         Clear
-      </button>
-      <button
-        type="button"
-        class="btn sm"
-        :class="{ on: roleDisplay === 'roles' }"
-        :title="tagRollTip('Strong / Passing only')"
-        @click="rolesOnly"
-      >
-        Roles only
       </button>
       <button
         type="button"

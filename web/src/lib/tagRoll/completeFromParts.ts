@@ -20,6 +20,9 @@ import {
   type HarmonySketchSpan,
 } from './harmonySketch'
 import { melodyPartIdOf } from './melodyNoteRoles'
+import { melodyPartAtTick } from './melodyPass'
+import { smoothFilledMedianWindow } from './medianJumpFill'
+import { medianJumpOnFill } from './medianJumpPrefs'
 import type { TagRollNote, TagRollPart, TagRollProject } from './types'
 
 /** Inclusive-start exclusive-end tick window. */
@@ -109,12 +112,20 @@ function coveringNote(
  * becomes two slices, so empty parts get a note for each shorter rhythm.
  */
 function harmonyFillSlices(
-  notes: readonly TagRollNote[],
-  melodyPartId: string,
+  project: TagRollProject,
   harmonyPartIds: readonly string[],
   range: CompleteFromPartsRange,
 ): Array<{ startTick: number; endTick: number; melody: TagRollNote }> {
-  const partIds = new Set([melodyPartId, ...harmonyPartIds])
+  const notes = project.notes
+  const partIds = new Set(harmonyPartIds)
+  const startPart = melodyPartIdOf(project)
+  if (startPart) partIds.add(startPart)
+  for (const pass of project.melodyPasses ?? []) {
+    const from = notes.find((n) => n.id === pass.fromNoteId)
+    const to = notes.find((n) => n.id === pass.toNoteId)
+    if (from) partIds.add(from.partId)
+    if (to) partIds.add(to.partId)
+  }
   const ticks = new Set<number>()
   for (const n of notes) {
     if (!partIds.has(n.partId)) continue
@@ -128,7 +139,7 @@ function harmonyFillSlices(
     const endTick = sorted[i + 1]!
     if (endTick <= startTick) continue
     if (!tickInIntervals(startTick, range)) continue
-    const melody = coveringNote(notes, melodyPartId, startTick)
+    const melody = coveringNote(notes, melodyPartAtTick(project, startTick), startTick)
     if (!melody) continue
     out.push({ startTick, endTick, melody })
   }
@@ -216,14 +227,13 @@ export function hasSparseHarmonyInScope(opts: {
   range?: CompleteFromPartsRange
 }): boolean {
   const p = opts.project
-  const melodyPartId = melodyPartIdOf(p)
-  if (!melodyPartId) return false
+  if (!melodyPartIdOf(p)) return false
   const tenor = partByName(p.parts, 'Tenor')
   const bari = partByName(p.parts, 'Bari')
   const bass = partByName(p.parts, 'Bass')
   const range = opts.range ?? null
   for (const melody of p.notes) {
-    if (melody.partId !== melodyPartId) continue
+    if (melody.partId !== melodyPartAtTick(p, melody.startTick)) continue
     if (!tickInIntervals(melody.startTick, range)) continue
     const tick = melody.startTick
     if (
@@ -271,7 +281,7 @@ export function completeFromPartsToNotes(opts: {
   const preferFlats = p.preferFlats
 
   const harmonyIds = [tenor?.id, bari?.id, bass?.id].filter((id): id is string => !!id)
-  const slices = harmonyFillSlices(p.notes, melodyPartId, harmonyIds, range)
+  const slices = harmonyFillSlices(p, harmonyIds, range)
 
   let notes = [...p.notes]
   let sketch = [...(p.harmonySketch ?? [])]
@@ -477,11 +487,40 @@ export function completeFromPartsToNotes(opts: {
       notes,
       originalNotes: p.notes,
       sketch,
-      melodyPartId,
+      melodyAt: (tick) => melodyPartAtTick(p, tick),
       tenorId: tenor.id,
       bariId: bari.id,
       bassId: bass.id,
     })
+    if (medianJumpOnFill()) {
+      const median = smoothFilledMedianWindow({
+        notes,
+        originalNotes: p.notes,
+        sketch,
+        melodyAt: (tick) => melodyPartAtTick(p, tick),
+        tenorId: tenor.id,
+        bariId: bari.id,
+        bassId: bass.id,
+        profile: opts.profile,
+      })
+      notes = median.notes
+      for (const edit of median.edits) {
+        const quality = trySketchQualityFromNature(edit.natureId)
+        if (!quality) continue
+        const span = sketch.find((s) => s.startTick === edit.tick)
+        if (span) {
+          span.rootPc = edit.rootPc
+          span.quality = quality
+        }
+        const item = items.find((entry) => entry.startTick === edit.tick)
+        if (item && (item.kind === 'filled' || item.kind === 'locked')) {
+          item.label = absoluteChordLabel(edit.rootPc, edit.natureId, preferFlats, {
+            tonality: p.tonality,
+            tonalityMode: mode,
+          })
+        }
+      }
+    }
   }
 
   return { notes, sketch, filled, locked, skipped, items }
@@ -511,7 +550,7 @@ function smoothFilledJumps(opts: {
   notes: TagRollNote[]
   originalNotes: readonly TagRollNote[]
   sketch: readonly HarmonySketchSpan[]
-  melodyPartId: string
+  melodyAt: (tick: number) => string | null
   tenorId: string
   bariId: string
   bassId: string
@@ -536,7 +575,8 @@ function smoothFilledJumps(opts: {
     const order = pass === 0 ? ticks : [...ticks].reverse()
     for (const tick of order) {
       const span = opts.sketch.find((s) => s.startTick <= tick && tick < s.endTick)
-      const lead = coveringNote(notes, opts.melodyPartId, tick)
+      const melodyPartId = opts.melodyAt(tick)
+      const lead = melodyPartId ? coveringNote(notes, melodyPartId, tick) : undefined
       if (!span || !lead) continue
 
       const locked: Partial<Record<SparseHarmonyRole, number>> = {}
@@ -561,7 +601,7 @@ function smoothFilledJumps(opts: {
           index >= 0 && index < line.length - 1 && connected(cover, line[index + 1]!)
             ? line[index + 1]
             : undefined
-        if (sung) locked[role] = cover.midi
+        if (sung || partByRole[role] === melodyPartId) locked[role] = cover.midi
         else if (!originalIds.has(cover.id)) {
           current[role] = cover.midi
           const oldIn = prevNote ? Math.abs(cover.midi - prevNote.midi) : 0

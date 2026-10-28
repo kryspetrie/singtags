@@ -41,6 +41,7 @@ import {
   normalizeScreenBox,
   noteIdsInMarquee,
 } from '../../lib/tagRoll/selection'
+import { pianoRollLaneColor } from '../../lib/tagRoll/pianoRollLanes'
 import { midiInScale } from '../../lib/tagRoll/scaleHighlight'
 import { keyAtTick } from '../../lib/tagRoll/keyMap'
 import { paintNoteBoxLabel, darkenCssColor } from '../../lib/tagRoll/noteBoxLabel'
@@ -58,7 +59,7 @@ import {
   easeInOutCosine,
   listPortamentoLinks,
 } from '../../lib/tagRoll/portamento'
-import { strokeMelodyPassLinks } from '../../lib/tagRoll/melodyPass'
+import { melodyPartAtTick, strokeMelodyPassLinks } from '../../lib/tagRoll/melodyPass'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const RESIZE_EDGE = 8
@@ -70,6 +71,7 @@ type GhostNote = {
   startTick: number
   durationTicks: number
   color: string
+  overlay?: boolean
 }
 
 type ChordCursorHighlight = {
@@ -494,6 +496,31 @@ function draw(): void {
   const bTicks = beatTicks(ts)
   const snap = Math.max(1, props.project.snapTicks)
 
+  const keyFallback = {
+    tonality: props.project.tonality,
+    tonalityMode: (props.project.tonalityMode ?? 'major') as 'major' | 'minor',
+    preferFlats: props.project.preferFlats,
+  }
+  const scaleKey = keyAtTick(props.project.view.playheadTick, props.project.keyMarkers, keyFallback)
+  const scaleOn = props.project.view.scaleHighlight !== false
+
+  for (let m = TAG_ROLL_MIDI_MIN; m <= TAG_ROLL_MIDI_MAX; m++) {
+    const y = oy + midiToY(m, ch)
+    if (y + ch < 0 || y > cssH.value) continue
+    const pc = ((m % 12) + 12) % 12
+    const isBlack = pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10
+    const lane = pianoRollLaneColor({
+      background: bg,
+      accent,
+      isBlack,
+      inScale: scaleOn && midiInScale(m, scaleKey.tonality, scaleKey.tonalityMode),
+    })
+    if (lane) {
+      ctx.fillStyle = lane
+      ctx.fillRect(0, y, cssW.value, ch)
+    }
+  }
+
   // Snap subdivision lines (subtle)
   for (let t = 0; t <= props.project.lengthTicks; t += snap) {
     if (t % bTicks === 0) continue
@@ -538,35 +565,9 @@ function draw(): void {
     ctx.globalAlpha = 1
   }
 
-  const keyFallback = {
-    tonality: props.project.tonality,
-    tonalityMode: (props.project.tonalityMode ?? 'major') as 'major' | 'minor',
-    preferFlats: props.project.preferFlats,
-  }
-  const scaleKey = keyAtTick(props.project.view.playheadTick, props.project.keyMarkers, keyFallback)
-
   for (let m = TAG_ROLL_MIDI_MIN; m <= TAG_ROLL_MIDI_MAX; m++) {
     const y = oy + midiToY(m, ch)
     if (y + ch < 0 || y > cssH.value) continue
-    const pc = ((m % 12) + 12) % 12
-    const isBlack = pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10
-    // Quiet piano-key lanes (independent of scale membership).
-    if (isBlack) {
-      ctx.fillStyle = muted
-      ctx.globalAlpha = 0.08
-      ctx.fillRect(0, y, cssW.value, ch)
-      ctx.globalAlpha = 1
-    }
-    // Scale highlight: wash IN-key rows so membership follows tonality (not black keys).
-    if (
-      props.project.view.scaleHighlight !== false &&
-      midiInScale(m, scaleKey.tonality, scaleKey.tonalityMode)
-    ) {
-      ctx.fillStyle = accent
-      ctx.globalAlpha = 0.11
-      ctx.fillRect(0, y, cssW.value, ch)
-      ctx.globalAlpha = 1
-    }
     ctx.strokeStyle = border
     ctx.globalAlpha = 0.55
     ctx.lineWidth = 1
@@ -608,8 +609,8 @@ function draw(): void {
     }
   }
 
-  // Harmonize preview ghosts (filled translucent).
   for (const g of props.ghostNotes ?? []) {
+    if (g.overlay) continue
     const r = noteRect(g)
     if (r.x + r.w < 0 || r.x > cssW.value || r.y + r.h < 0 || r.y > cssH.value) continue
     ctx.globalAlpha = 0.38
@@ -639,12 +640,7 @@ function draw(): void {
   const activePartId = props.project.view.activePartId
   const roleDisp = props.project.view.roleDisplay ?? 'off'
   const wantMelodyChrome = roleDisp === 'melody' || roleDisp === 'both'
-  const wantRoleChrome = roleDisp === 'roles' || roleDisp === 'both'
-  const melodyPartId =
-    props.project.view.melodyPartId ??
-    props.project.parts.find((p) => p.name === 'Lead')?.id ??
-    null
-
+  const wantRoleChrome = false
   type DrawnNote = {
     n: (typeof props.project.notes)[number]
     r: { x: number; y: number; w: number; h: number }
@@ -686,7 +682,7 @@ function draw(): void {
       bandColors: bandColors.length ? bandColors : [part?.color || accent],
       selected,
       showHandles,
-      showMelody: wantMelodyChrome && !!melodyPartId && n.partId === melodyPartId,
+      showMelody: wantMelodyChrome && n.partId === melodyPartAtTick(props.project, n.startTick),
       role: showRole ? (roleRaw as 'pmn' | 'smn') : null,
     })
   }
@@ -704,6 +700,13 @@ function draw(): void {
     ctx.strokeStyle = surface
     ctx.lineWidth = 1
     ctx.strokeRect(d.r.x + 1.5, d.r.y + 1.5, d.r.w - 3, d.r.h - 3)
+  }
+
+  for (const g of props.ghostNotes ?? []) {
+    if (!g.overlay) continue
+    const r = noteRect(g)
+    ctx.globalAlpha = 0.82; ctx.fillStyle = ctx.strokeStyle = g.color || accent; ctx.lineWidth = 1.5
+    ctx.fillRect(r.x + 2, r.y + 2, Math.max(1, r.w - 4), Math.max(1, r.h - 4)); ctx.globalAlpha = 1; ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1)
   }
 
   // 2) Role / melody chrome — left-edge stripes on every note.

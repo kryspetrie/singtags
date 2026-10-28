@@ -16,17 +16,8 @@ const emit = defineEmits<{
 }>()
 
 const pillarTip = glossaryTitle('pillar')
-const strongTip = glossaryTitle('pmn')
-const passingTip = glossaryTitle('smn')
 const heldTip =
   'Held Lead (post) — the melody sustains while other parts may change chords underneath.'
-
-function roleTitle(label: string | null): string {
-  if (!label) return ''
-  if (/strong/i.test(label)) return strongTip
-  if (/pass/i.test(label)) return passingTip
-  return label
-}
 </script>
 
 <template>
@@ -37,9 +28,6 @@ function roleTitle(label: string | null): string {
         ctx.roman
       }}</span>
       <span v-if="ctx.heldLead" class="post" :title="heldTip">Post</span>
-      <span v-if="ctx.roleLabel" class="role" :title="roleTitle(ctx.roleLabel)">{{
-        ctx.roleLabel
-      }}</span>
       <span
         v-if="ctx.functionLabel"
         class="fn"

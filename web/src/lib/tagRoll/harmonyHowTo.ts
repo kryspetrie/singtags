@@ -18,9 +18,9 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
       'Chords is a hand tool for the current melody note or Sketch span — pick a root and chord quality, preview, and optionally place a TTBB stack.',
   },
   {
-    title: 'Melody comes from Roles',
+    title: 'Melody comes from the Melody tool',
     body:
-      'The melody part is set under Toolbar → Roles (M on a selected note). Chords, Detected, Coach, and sheet lyrics all use that same part.',
+      'Lead carries the tune. Toolbar → Melody, then M on a note, hands the melody to that part until the next change.',
   },
   {
     title: 'Sketch vs Stack',
@@ -43,27 +43,16 @@ export const HARMONIZE_PANEL_HOWTO: readonly HarmonyHowToSection[] = [
 export const HARMONIZE_HOWTO = HARMONIZE_PANEL_HOWTO
 export const CHORDS_HOWTO = HARMONIZE_PANEL_HOWTO
 
-/** Toolbar Melody roles (global Strong / Passing / melody part). */
+/** Toolbar melody handoff (Lead until the tune moves to another part). */
 export const ROLES_HOWTO: readonly HarmonyHowToSection[] = [
   {
-    title: 'What Roles is for',
+    title: 'What Melody is for',
     body:
-      'Choose which part carries the tune and mark Strong vs Passing melody notes. Those labels feed Chords, Detected, Coach, and Auto Path Optimize. Unlabeled notes get a duration / beat / phrase-edge default before Auto runs.',
-  },
-  {
-    title: 'Strong',
-    body:
-      'A melody tone that carries a structural harmony (home). Longer, metrically strong, phrase start/end, or lyric stress. If you would write a chord-symbol change above that note → Strong. Gets its own chord decision.',
-  },
-  {
-    title: 'Passing',
-    body:
-      'A melody tone that connects Strong tones. Shorter / weaker beat / stepwise filler. Does not invent a new home — the chord approaches or holds the neighboring Strong harmony.',
+      'Lead carries the tune until you say otherwise. Select the note where the melody moves to another part and press M. That part stays the melody until the next handoff. The sheet draws a dashed line across the change.',
   },
   {
     title: 'Quick keys',
-    body:
-      'M sets Melody part · S Strong · P Passing · C clear role · arrows move selection · Show cycles Off / Melody / Roles / Both.',
+    body: 'M hands the melody to the selected note. Press M on that same note to undo. Arrows move the selection.',
   },
 ]
 
@@ -72,7 +61,7 @@ export const SKETCH_LANE_HOWTO: readonly HarmonyHowToSection[] = [
   {
     title: 'Sketch map',
     body:
-      'Paint chords on the timeline and edit them in the Chords panel. Enter on empty text leaves a blank (—) slot; Tab walks left-to-right to fill them. Strong vs passing melody roles guide Coach homes — Realize writes TTBB under the melody.',
+      'Paint chords on the timeline and edit them in the Chords panel. Enter on empty text leaves a blank (—) slot; Tab walks left-to-right to fill them. Realize writes TTBB under the melody.',
   },
 ]
 

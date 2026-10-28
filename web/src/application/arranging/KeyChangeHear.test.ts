@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
-import { voiceModulationHearPath } from './KeyChangeHear'
+import { keyChangeRollGhosts, voiceModulationHearPath } from './KeyChangeHear'
 import type { PackedModulationStep } from '../../domain/arranging/keyChangePack'
 import { placeVoicing, BARBERSHOP_CHORDS } from '../../domain/arranging/chords/chords'
 import {
@@ -92,5 +92,34 @@ describe('voiceModulationHearPath', () => {
       ],
     })
     expect(path[0]!.lead).toBe(64)
+  })
+})
+
+describe('keyChangeRollGhosts', () => {
+  const steps = packed(
+    [
+      { rootPc: 0, natureId: 'seventh' },
+      { rootPc: 5, natureId: 'major' },
+    ],
+    0,
+    960,
+  )
+
+  it('places harmony ghosts on each packed step and leaves a written lead alone', () => {
+    const ghosts = keyChangeRollGhosts(steps, {
+      tonality: 0,
+      melodyNotes: [{ startTick: 0, endTick: 1920, midi: 64 }],
+      colorFor: () => '#abc',
+    })
+    expect(ghosts.some((g) => g.role === 'lead')).toBe(false)
+    expect(ghosts.filter((g) => g.startTick === 0)).toHaveLength(3)
+    expect(ghosts.filter((g) => g.startTick === 960).every((g) => g.durationTicks === 960)).toBe(true)
+    expect(ghosts.every((g) => g.overlay && g.color === '#abc')).toBe(true)
+  })
+
+  it('draws the lead too when that step has no melody', () => {
+    const ghosts = keyChangeRollGhosts(steps, { tonality: 0 })
+    expect(ghosts.filter((g) => g.role === 'lead')).toHaveLength(2)
+    expect(ghosts.find((g) => g.role === 'bass')?.color).toBe('#5b3d8f')
   })
 })

@@ -20,6 +20,7 @@ import {
   pushUndoStack,
   type TagRollDocumentSnapshot,
 } from '../lib/tagRoll/history'
+import { toggleMelodyHandoff } from '../lib/tagRoll/melodyPass'
 import {
   createEmptyTagRollProject,
   normalizeTagRollProject,
@@ -143,6 +144,8 @@ import {
   SHEET_TIME_FACTOR_MIN,
   SHEET_STAFF_LINE_MAX,
   SHEET_STAFF_LINE_MIN,
+  SHEET_STEM_LENGTH_MAX,
+  SHEET_STEM_LENGTH_MIN,
   SHEET_MARGIN_IN_MIN,
   SHEET_MARGIN_IN_MAX,
   SHEET_ENGRAVING_SCALE_MIN,
@@ -348,6 +351,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     try {
       const prefs = usePreferencesStore()
       const p = createEmptyTagRollProject({ title })
+      Object.assign(p.view, effectiveSheetFormatDefault('continuous'))
       const cellW = Math.max(
         TAG_ROLL_CELL_W_MIN,
         Math.min(TAG_ROLL_CELL_W_MAX, Math.round(prefs.tagRollCellW)),
@@ -619,6 +623,27 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchView({ melodyPartId: partId })
   }
 
+  /** Melody moves to this note's part from here on. Press again on that note to undo. */
+  function toggleMelodyHandoffAtNote(noteId: string): string | null {
+    const p = current.value
+    if (!p) return null
+    const result = toggleMelodyHandoff(p, noteId)
+    if (!result) return null
+    if (result.changed) {
+      pushHistory()
+      current.value = {
+        ...p,
+        melodyPasses: result.passes,
+        view: result.startingPartId
+          ? { ...p.view, melodyPartId: result.startingPartId }
+          : p.view,
+        updatedAt: now(),
+      }
+      scheduleSave()
+    }
+    return result.message
+  }
+
   function setRoleDisplay(roleDisplay: TagRollViewPrefs['roleDisplay']): void {
     patchView({ roleDisplay })
   }
@@ -833,31 +858,24 @@ export const useTagRollStore = defineStore('tagRoll', () => {
 
   function setSheetLyricOffset(partId: string, offset: number): void {
     const p = current.value
-    if (!p || !p.parts.some((part) => part.id === partId)) return
+    if (!p?.parts.some((part) => part.id === partId)) return
     const next = { ...(p.view.sheetLyricOffsets ?? {}) }
-    const n = clampSheetFormat(
-      offset,
-      SHEET_LYRIC_LINE_OFFSET_MIN,
-      SHEET_LYRIC_LINE_OFFSET_MAX,
-      0,
-    )
+    const n = clampSheetFormat(offset, SHEET_LYRIC_LINE_OFFSET_MIN, SHEET_LYRIC_LINE_OFFSET_MAX, 0)
     if (n === 0) delete next[partId]
     else next[partId] = n
     patchView({ sheetLyricOffsets: next })
   }
 
   function resetSheetLyricOffsets(): void {
-    patchView({ sheetLyricOffsets: {} })
+    patchView({ sheetLyricOffsets: {}, sheetLyricPartVisible: {} })
   }
 
   function setSheetPlaybackHighlight(on: boolean): void {
     patchView({ sheetPlaybackHighlight: on })
   }
-
   function setSheetShowSketchChords(on: boolean): void {
     patchView({ sheetShowSketchChords: on })
   }
-
   function setSheetShowDetectedChords(on: boolean): void {
     patchView({ sheetShowDetectedChords: on })
   }
@@ -1065,6 +1083,14 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     })
   }
 
+  function setSheetStemLength(sheetStemLength: number): void {
+    patchView({
+      sheetStemLength: clampSheetFormat(
+        sheetStemLength, SHEET_STEM_LENGTH_MIN, SHEET_STEM_LENGTH_MAX,
+        TAG_ROLL_DEFAULT_VIEW.sheetStemLength,
+      ),
+    })
+  }
   function setSheetPartNames(on: boolean): void {
     patchView({ sheetPartNames: on })
   }
@@ -2475,13 +2501,15 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const melodyPartId =
       p.view.melodyPartId === id ? parts[0]?.id ?? null : p.view.melodyPartId
     const sheetLyricOffsets = { ...(p.view.sheetLyricOffsets ?? {}) }
+    const sheetLyricPartVisible = { ...(p.view.sheetLyricPartVisible ?? {}) }
     delete sheetLyricOffsets[id]
+    delete sheetLyricPartVisible[id]
     current.value = {
       ...p,
       parts,
       notes,
       mix: syncProjectMix(parts, p.mix),
-      view: { ...p.view, activePartId, melodyPartId, sheetLyricOffsets },
+      view: { ...p.view, activePartId, melodyPartId, sheetLyricOffsets, sheetLyricPartVisible },
       updatedAt: now(),
     }
     scheduleSave()
@@ -2707,6 +2735,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchPartMix,
     clearMixSolos,
     setMelodyPart,
+    toggleMelodyHandoffAtNote,
     setRoleDisplay,
     setNoteRole,
     importMelodyRolesFromArrangement,
@@ -2752,6 +2781,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     setSheetMusicFont,
     setSheetTextFont,
     setSheetStaffLineWeight,
+    setSheetStemLength,
     setSheetPartNames,
     setSheetPageWidthIn,
     setSheetPageHeightIn,

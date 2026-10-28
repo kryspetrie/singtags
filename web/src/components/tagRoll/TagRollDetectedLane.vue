@@ -5,12 +5,27 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ChordAnalysisMode, ChordAnalysisSegment } from '../../domain/arranging/chordAnalysisBar'
+import { DEFAULT_CONTEST_PROFILE } from '../../domain/arranging/contestProfile'
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import { stripSegW, stripSegX } from '../../lib/tagRoll/harmonyStripGestures'
+import { melodyPartAtTick } from '../../lib/tagRoll/melodyPass'
+import { selectionSmoothRange, smoothJumpsInProject } from '../../lib/tagRoll/medianJumpFill'
+import {
+  loadHeldPartNames,
+  loadLockMelody,
+  medianJumpOnFill,
+  saveHeldPartNames,
+  saveLockMelody,
+  setMedianJumpOnFill,
+} from '../../lib/tagRoll/medianJumpPrefs'
 import type { TagRollProject } from '../../lib/tagRoll/types'
 import type { DetectedInterestLevel } from '../../lib/tagRoll/detectedInterestPrefs'
+import { useArrangementStore } from '../../stores/arrangement'
 import { usePreferencesStore } from '../../stores/preferences'
+import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollBottomLaneShell from './TagRollBottomLaneShell.vue'
+
+const HOLD_NAMES = ['Tenor', 'Lead', 'Bari', 'Bass'] as const
 
 const TRACK_H = 44
 /** Hide alt badge when the cell is narrower than this (px). */
@@ -47,28 +62,22 @@ const emit = defineEmits<{
 }>()
 
 const prefs = usePreferencesStore()
+const store = useTagRollStore()
+const arrangement = useArrangementStore()
 const collapsed = computed(() => prefs.tagRollDetectedLaneCollapsed)
 const leftGutterPx = computed(() => Math.max(64, props.leftGutterPx ?? 112))
 const canLockAll = computed(() => props.segments.length > 0)
 const canFill = computed(() => canLockAll.value || !!props.canFillFromParts)
 const editSegId = computed(() => props.editSegId ?? null)
 const interest = computed(() => prefs.detectedInterest)
-const interestLabel = computed(() => INTEREST_LABEL[interest.value])
-const interestTitle = computed(() => {
-  const cur = INTEREST_LABEL[interest.value]
-  if (interest.value === 'basic') {
-    return `Detected interest: ${cur} — click for Mild (V7, ii7→V, held cadences)`
-  }
-  if (interest.value === 'mild') {
-    return `Detected interest: ${cur} — click for Bold (V7/V · Dom9 alts)`
-  }
-  return `Detected interest: ${cur} — click for Basic (diatonic homes)`
+const interestHint = computed(() => {
+  if (interest.value === 'basic') return 'Diatonic homes.'
+  if (interest.value === 'mild') return 'Adds V7, ii7 to V, and held cadences.'
+  return 'Adds V7/V and dominant-ninth alternates.'
 })
 
-function cycleInterest(): void {
-  const i = INTEREST_CYCLE.indexOf(interest.value)
-  const next = INTEREST_CYCLE[(i + 1) % INTEREST_CYCLE.length]!
-  prefs.setDetectedInterest(next)
+function setInterest(level: DetectedInterestLevel): void {
+  prefs.setDetectedInterest(level)
 }
 
 const wrapRef = ref<HTMLElement | null>(null)
@@ -179,6 +188,88 @@ onMounted(() => {
 onUnmounted(() => ro?.disconnect())
 
 watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => drawGrid())
+
+const savedHold = loadHeldPartNames()
+const heldNames = ref<string[]>(savedHold ?? [])
+const lockMelody = ref(loadLockMelody())
+const smoothOnFill = ref(medianJumpOnFill())
+const smoothScope = ref<'song' | 'selection'>('song')
+const smoothStatus = ref('')
+
+const hasSelection = computed(
+  () => store.selectedNoteIds.length > 0 || store.selectedSketchSpanIds.length > 0,
+)
+
+const smoothActionLabel = computed(() =>
+  smoothScope.value === 'selection' ? 'Smooth selection' : 'Smooth song',
+)
+
+function held(name: string): boolean {
+  return heldNames.value.includes(name)
+}
+
+function toggleHold(name: string): void {
+  const set = new Set(heldNames.value)
+  if (set.has(name)) set.delete(name)
+  else set.add(name)
+  heldNames.value = HOLD_NAMES.filter((part) => set.has(part))
+  saveHeldPartNames(heldNames.value)
+}
+
+function onToggleMelody(event: Event): void {
+  const on = (event.target as HTMLInputElement).checked
+  lockMelody.value = on
+  saveLockMelody(on)
+}
+
+function onToggleFill(event: Event): void {
+  const on = (event.target as HTMLInputElement).checked
+  smoothOnFill.value = on
+  setMedianJumpOnFill(on)
+}
+
+function onSmoothJumps(): void {
+  const project = props.project
+  const selection = selectionSmoothRange(
+    project.notes,
+    store.selectedNoteIds,
+    project.harmonySketch ?? [],
+    store.selectedSketchSpanIds,
+  )
+  if (smoothScope.value === 'selection' && !selection) {
+    smoothStatus.value = 'Select notes or Sketch chords to smooth a range.'
+    return
+  }
+  const range = smoothScope.value === 'selection' ? selection : null
+  const hold = new Set(
+    project.parts.filter((part) => heldNames.value.includes(part.name)).map((part) => part.id),
+  )
+  const result = smoothJumpsInProject({
+    notes: project.notes,
+    parts: project.parts,
+    sketch: project.harmonySketch ?? [],
+    melodyAt: (tick) => melodyPartAtTick(project, tick),
+    range,
+    holdPartIds: hold,
+    lockMelody: lockMelody.value,
+    profile: arrangement.current?.contestProfile ?? DEFAULT_CONTEST_PROFILE,
+    tonality: project.tonality,
+    mode: project.tonalityMode,
+  })
+  if (result.reverted) {
+    smoothStatus.value = 'Left as-is — smoothing would enlarge a leap.'
+    return
+  }
+  if (!result.changed) {
+    smoothStatus.value = range ? 'No jumps to smooth in the selection.' : 'No jumps to smooth in the song.'
+    return
+  }
+  store.replaceNotesFromExternal(result.notes)
+  const noun = result.changed === 1 ? 'note' : 'notes'
+  smoothStatus.value = range
+    ? `Smoothed ${result.changed} ${noun} in the selection.`
+    : `Smoothed ${result.changed} ${noun} in the song.`
+}
 </script>
 
 <template>
@@ -198,16 +289,6 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
     <template #gutter>
       <button
         type="button"
-        class="interest-btn"
-        :class="{ mild: interest === 'mild', bold: interest === 'bold' }"
-        :aria-label="`Detected interest: ${interestLabel}. Cycle level`"
-        :title="interestTitle"
-        @click="cycleInterest"
-      >
-        {{ interestLabel }}
-      </button>
-      <button
-        type="button"
         class="lock-btn"
         :disabled="!canLockAll"
         title="Lock — declare detections into Sketch (inspect/selection range when set)"
@@ -224,6 +305,84 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
       >
         Fill parts
       </button>
+    </template>
+    <template #options>
+      <section class="opt-sec">
+        <h3 class="opt-h">Interest</h3>
+        <p class="opt-hint">{{ interestHint }}</p>
+        <div class="opt-seg" role="group" aria-label="Detected interest">
+          <button
+            v-for="level in INTEREST_CYCLE"
+            :key="level"
+            type="button"
+            class="opt-seg-btn"
+            :class="{ on: interest === level }"
+            :aria-pressed="interest === level"
+            @click="setInterest(level)"
+          >
+            {{ INTEREST_LABEL[level] }}
+          </button>
+        </div>
+      </section>
+      <section class="opt-sec">
+        <h3 class="opt-h">Smooth jumps</h3>
+        <p class="opt-hint">
+          Revoice this arrangement around the current chords. Locked notes stay. Tenor, bari, and bass can move to another inversion. Lead keeps its pitch.
+        </p>
+        <div class="scope-row" role="radiogroup" aria-label="Where to smooth">
+          <label class="smooth-check">
+            <input v-model="smoothScope" type="radio" value="song" />
+            Whole song
+          </label>
+          <label class="smooth-check" :class="{ off: !hasSelection && smoothScope !== 'selection' }">
+            <input v-model="smoothScope" type="radio" value="selection" :disabled="!hasSelection" />
+            Selection
+          </label>
+        </div>
+        <label class="smooth-check">
+          <input
+            type="checkbox"
+            :checked="lockMelody"
+            aria-label="Lock melody"
+            @change="onToggleMelody"
+          />
+          Lock melody, including handoffs
+        </label>
+        <p class="opt-hint">Also lock a whole part:</p>
+        <div class="hold-row" role="group" aria-label="Parts locked for the whole song">
+          <button
+            v-for="name in HOLD_NAMES"
+            :key="name"
+            type="button"
+            class="hold-btn"
+            :class="{ on: held(name) }"
+            :aria-pressed="held(name)"
+            :title="`Lock ${name} for the whole song`"
+            @click="toggleHold(name)"
+          >
+            {{ name }}
+          </button>
+        </div>
+        <label class="smooth-check">
+          <input
+            type="checkbox"
+            :checked="smoothOnFill"
+            aria-label="Smooth jumps when filling parts"
+            @change="onToggleFill"
+          />
+          Also when filling parts
+        </label>
+        <button
+          type="button"
+          class="opt-action"
+          :aria-label="smoothActionLabel"
+          :disabled="smoothScope === 'selection' && !hasSelection"
+          @click="onSmoothJumps"
+        >
+          {{ smoothActionLabel }}
+        </button>
+        <p v-if="smoothStatus" class="smooth-status">{{ smoothStatus }}</p>
+      </section>
     </template>
     <div class="track-wrap">
       <div ref="wrapRef" class="grid-wrap">
@@ -308,34 +467,85 @@ watch([scrollX, cellW, lengthTicks, () => props.project.timeSignature], () => dr
 .complete-btn:not(:disabled):hover {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
 }
-.interest-btn {
-  width: 100%;
-  max-width: 100%;
-  padding: 0.1rem 0.2rem;
-  min-height: 1.35rem;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--surface);
+.opt-sec + .opt-sec {
+  margin-top: 0.75rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--border);
+}
+.opt-h {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+.opt-hint {
+  margin: 0 0 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.opt-seg,
+.hold-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.opt-seg-btn,
+.hold-btn,
+.opt-action {
+  min-height: 1.7rem;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
-  font-size: 0.62rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
   cursor: pointer;
 }
-.interest-btn.mild {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+.opt-seg-btn.on,
+.hold-btn.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  margin-bottom: 0.35rem;
+}
+.scope-row .smooth-check.off {
+  opacity: 0.45;
+}
+.opt-action {
+  margin-top: 0.15rem;
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
-.interest-btn.bold {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+.opt-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
-.interest-btn:hover {
+.smooth-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 650;
   color: var(--text);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  cursor: pointer;
+}
+.smooth-check input {
+  margin: 0;
+}
+.smooth-status {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--muted);
 }
 .track-wrap {
   flex: 1 1 auto;

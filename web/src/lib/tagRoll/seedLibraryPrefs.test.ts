@@ -10,6 +10,7 @@ import {
   isTagRollSeedId,
   markTagRollLibraryInitialized,
   readDismissedSeedIds,
+  undismissTagRollSeed,
 } from './seedLibraryPrefs'
 
 describe('seedLibraryPrefs', () => {
@@ -45,6 +46,15 @@ describe('seedLibraryPrefs', () => {
     dismissTagRollSeed('seed-coach-trial-bonnie-classic')
     expect(isTagRollSeedDismissed('seed-coach-trial-bonnie-classic')).toBe(true)
     expect(isTagRollSeedDismissed('seed-polecat-pitch-90001')).toBe(false)
+  })
+
+  it('undismisses one seed', () => {
+    stubLocalStorage()
+    dismissTagRollSeed('seed-polecat-mixed-90011')
+    dismissTagRollSeed('seed-lilly-marlene-v2')
+    undismissTagRollSeed('seed-lilly-marlene-v2')
+    expect(isTagRollSeedDismissed('seed-lilly-marlene-v2')).toBe(false)
+    expect(isTagRollSeedDismissed('seed-polecat-mixed-90011')).toBe(true)
   })
 
   it('clears polecat pitch dismissals only', () => {

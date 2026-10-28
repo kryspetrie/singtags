@@ -17,7 +17,7 @@ describe('harmonyHowTo', () => {
     expect(text).toMatch(/\bStack\b/)
     expect(text).toMatch(/\bCatalog\b/)
     expect(text).toMatch(/\bCoach\b/)
-    expect(text).toMatch(/Roles/)
+    expect(text).toMatch(/Melody/)
   })
 
   it('gives short overviews for each bottom lane', () => {
@@ -37,11 +37,9 @@ describe('harmonyHowTo', () => {
     expect(text).toMatch(/Realize/)
   })
 
-  it('defines Strong vs Passing for Roles', () => {
+  it('explains the melody part under Roles', () => {
     const text = formatHowToPlain(ROLES_HOWTO)
-    expect(text).toMatch(/^Strong\n/m)
-    expect(text).toMatch(/^Passing\n/m)
-    expect(text).toMatch(/structural harmony/i)
-    expect(text).toMatch(/connect/i)
+    expect(text).toMatch(/Lead carries the tune/i)
+    expect(text).toMatch(/\bM\b/)
   })
 })

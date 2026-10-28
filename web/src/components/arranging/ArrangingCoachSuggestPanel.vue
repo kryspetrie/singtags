@@ -6,11 +6,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { HarmonizeCandidate } from '../../domain/arranging/harmonize'
 import type { CadenceSuggestion } from '../../domain/arranging/cadences'
 import type { AltChipDto, CandFilterId, CounterpartDto } from '../../application/arranging/CoachAlternates'
-import ArrangingCoachTeachLesson from './ArrangingCoachTeachLesson.vue'
 import ArrangingCoachCadencePlans from './ArrangingCoachCadencePlans.vue'
-import ArrangingTeachProse from './ArrangingTeachProse.vue'
-import { TEACH_LEARN_BTN_CLASS } from '../../lib/arranging/teachChrome'
-import './arranging-teach-chrome.css'
 
 export type CadenceTeachView = {
   label: string
@@ -70,6 +66,7 @@ const emit = defineEmits<{
   applyCadenceStep: [plan: CadenceSuggestion, stepIndex: number]
   hearCadencePlan: [plan: CadenceSuggestion]
   previewCadencePlan: [plan: CadenceSuggestion]
+  openLesson: [lesson: { title: string; glossaryIds: readonly string[]; intro?: string }]
 }>()
 
 type ToneId = 'home' | 'passing' | 'seventh' | 'other'
@@ -143,10 +140,11 @@ function onCounterpartHoldStart(e: PointerEvent): void {
   emit('holdStartCounterpart')
 }
 
-const cadenceLearnOpen = ref(false)
-const labelLearnOpen = ref(false)
-const planTeach = ref<CadenceSuggestion | null>(null)
 const moreOpen = ref(false)
+
+function openTeach(title: string, glossaryIds: readonly string[], intro?: string): void {
+  emit('openLesson', { title, glossaryIds, intro })
+}
 
 function onFillEmpties(): void {
   moreOpen.value = false
@@ -164,29 +162,6 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
 
 <template>
   <section class="suggest-panel">
-    <ArrangingCoachTeachLesson
-      v-if="planTeach"
-      :title="`Cadence · ${planTeach.label}`"
-      :glossary-ids="planTeach.glossaryIds"
-      :intro="planTeach.teach"
-      @back="planTeach = null"
-    />
-    <ArrangingCoachTeachLesson
-      v-else-if="cadenceLearnOpen && cadenceTeach"
-      :title="`Cadence · ${cadenceTeach.label}`"
-      :glossary-ids="cadenceTeach.glossaryIds"
-      :intro="cadenceTeach.body"
-      @back="cadenceLearnOpen = false"
-    />
-    <ArrangingCoachTeachLesson
-      v-else-if="labelLearnOpen && labelTeach"
-      :title="`Label · ${labelTeach.label}`"
-      :glossary-ids="labelTeach.glossaryIds"
-      :intro="labelTeach.body"
-      @back="labelLearnOpen = false"
-    />
-
-    <template v-else>
     <header v-if="momentLine" class="moment-strip">
       <span class="moment-line">{{ momentLine }}</span>
     </header>
@@ -295,7 +270,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
           :class="{ on: whyOpen }"
           :disabled="!candidates[0]"
           :aria-pressed="whyOpen"
-          title="Open Why? ranking dock to the left"
+          title="Open Why in Learn"
           @click="emit('update:whyOpen', !whyOpen)"
         >
           {{ whyOpen ? 'Hide Why?' : 'Why?' }}
@@ -317,35 +292,26 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
         </div>
       </div>
 
-      <aside v-if="cadenceTeach" class="cadence-teach">
-        <div class="cadence-head">
-          <strong>Cadence · {{ cadenceTeach.label }}</strong>
-          <button
-            type="button"
-            :class="TEACH_LEARN_BTN_CLASS"
-            title="Open full cadence lesson with examples"
-            @click="cadenceLearnOpen = true"
-          >
-            Learn
-          </button>
-        </div>
-        <ArrangingTeachProse class="cadence-body" :text="cadenceTeach.body" />
-      </aside>
-
-      <aside v-if="labelTeach" class="cadence-teach label-teach">
-        <div class="cadence-head">
-          <strong>Label · {{ labelTeach.label }}</strong>
-          <button
-            type="button"
-            :class="TEACH_LEARN_BTN_CLASS"
-            title="Open the two-names lesson"
-            @click="labelLearnOpen = true"
-          >
-            Learn
-          </button>
-        </div>
-        <ArrangingTeachProse class="cadence-body" :text="labelTeach.body" />
-      </aside>
+      <div v-if="cadenceTeach || labelTeach" class="learn-row">
+        <button
+          v-if="cadenceTeach"
+          type="button"
+          class="learn-chip"
+          title="Open the cadence lesson beside the dock"
+          @click="cadenceTeach && openTeach(`Cadence · ${cadenceTeach.label}`, cadenceTeach.glossaryIds, cadenceTeach.body)"
+        >
+          Cadence · {{ cadenceTeach.label }}
+        </button>
+        <button
+          v-if="labelTeach"
+          type="button"
+          class="learn-chip"
+          title="Open the two-names lesson beside the dock"
+          @click="labelTeach && openTeach(`Label · ${labelTeach.label}`, labelTeach.glossaryIds, labelTeach.body)"
+        >
+          Label · {{ labelTeach.label }}
+        </button>
+      </div>
 
       <ArrangingCoachCadencePlans
         v-if="cadencePlans?.length"
@@ -354,7 +320,7 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
         :preview-plan-id="previewPlanId"
         @apply-plan="emit('applyCadencePlan', $event)"
         @apply-step="(plan, i) => emit('applyCadenceStep', plan, i)"
-        @learn="planTeach = $event"
+        @learn="(plan) => openTeach(`Cadence · ${plan.label}`, plan.glossaryIds, plan.teach)"
         @hear="emit('hearCadencePlan', $event)"
         @preview="emit('previewCadencePlan', $event)"
       />
@@ -413,7 +379,6 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
         </ul>
       </div>
 
-    </template>
     </template>
   </section>
 </template>
@@ -748,27 +713,25 @@ onUnmounted(() => document.removeEventListener('pointerdown', onDocPointer, true
 .more-menu button:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.cadence-teach {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.4rem 0.45rem;
-  border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-}
-.cadence-head {
+.learn-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem;
+  flex-wrap: wrap;
+  gap: 0.3rem;
 }
-.cadence-teach strong {
-  font-size: 0.78rem;
-}
-.cadence-body {
-  font-size: 0.75rem;
-  line-height: 1.4;
+.learn-chip {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 999px;
+  background: transparent;
   color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+  min-height: 1.55rem;
+  padding: 0.1rem 0.55rem;
+}
+.learn-chip:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .insight-sub {
   margin: 0 0 0.25rem;

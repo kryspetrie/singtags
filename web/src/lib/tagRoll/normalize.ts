@@ -48,7 +48,6 @@ import {
 } from './types'
 import { normalizeHarmonySketch } from './harmonySketch'
 import { createDefaultKeyMarkers, ensureKeyMarkers, normalizeKeyMarker } from './keyMap'
-import { effectiveSheetFormatDefault } from './sheetFormatDefaults'
 import {
   createDefaultTempoMarkers,
   normalizeExpression,
@@ -83,6 +82,8 @@ import {
   SHEET_TIME_FACTOR_MIN,
   SHEET_STAFF_LINE_MAX,
   SHEET_STAFF_LINE_MIN,
+  SHEET_STEM_LENGTH_MAX,
+  SHEET_STEM_LENGTH_MIN,
   SHEET_MARGIN_IN_MIN,
   SHEET_MARGIN_IN_MAX,
   SHEET_SCORE_SCALE_MIN,
@@ -172,6 +173,21 @@ export function normalizeSheetLyricOffsets(
   return out
 }
 
+/** Keep only known part ids explicitly set to hidden (`false`). */
+export function normalizeSheetLyricPartVisible(
+  raw: unknown,
+  parts: readonly TagRollPart[],
+): Record<string, boolean> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const ids = new Set(parts.map((p) => p.id))
+  const out: Record<string, boolean> = {}
+  for (const [partId, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!ids.has(partId)) continue
+    if (val === false) out[partId] = false
+  }
+  return out
+}
+
 /** @deprecated use clampSheetMeasureScale */
 export function normalizeSheetScale(v: unknown, fallback = 1): number {
   return clampSheetMeasureScale(v, fallback)
@@ -214,6 +230,19 @@ export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
   const durationTicks = Math.max(1, Math.round(Number(o.durationTicks)) || TAG_ROLL_DEFAULT_SNAP_TICKS)
   const lyric =
     typeof o.lyric === 'string' && o.lyric.length ? o.lyric : undefined
+  const tupletRaw = o.tuplet && typeof o.tuplet === 'object' ? (o.tuplet as Record<string, unknown>) : null
+  const tuplet =
+    tupletRaw &&
+    typeof tupletRaw.groupId === 'string' &&
+    tupletRaw.groupId.trim() &&
+    Number(tupletRaw.actualNotes) >= 2 &&
+    Number(tupletRaw.normalNotes) >= 1
+      ? {
+          groupId: tupletRaw.groupId.trim(),
+          actualNotes: Math.round(Number(tupletRaw.actualNotes)),
+          normalNotes: Math.round(Number(tupletRaw.normalNotes)),
+        }
+      : undefined
   const role =
     o.role === 'pmn' || o.role === 'smn' ? o.role : undefined
   return {
@@ -224,6 +253,7 @@ export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
     durationTicks,
     ...(lyric != null ? { lyric } : {}),
     ...(role ? { role } : {}),
+    ...(tuplet ? { tuplet } : {}),
   }
 }
 
@@ -262,12 +292,19 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       TAG_ROLL_SHEET_ZOOM_MAX,
     ),
     sheetShowLyrics: o.sheetShowLyrics === undefined ? true : Boolean(o.sheetShowLyrics),
+    sheetStraightLyrics:
+      o.sheetStraightLyrics === undefined ? true : Boolean(o.sheetStraightLyrics),
     sheetLayout: normalizeSheetLayout(o.sheetLayout),
     sheetMeasureSizing: normalizeSheetMeasureSizing(o.sheetMeasureSizing, o.sheetLayout),
+    sheetFullJustify: o.sheetFullJustify === undefined ? true : Boolean(o.sheetFullJustify),
     sheetNoteColors:
       o.sheetNoteColors === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetNoteColors
         : Boolean(o.sheetNoteColors),
+    sheetShowCrossoverMarks:
+      o.sheetShowCrossoverMarks === undefined
+        ? true
+        : Boolean(o.sheetShowCrossoverMarks),
     sheetStaveGap: normalizeSheetStaveGap(o.sheetStaveGap),
     sheetMeasureScale: clampSheetMeasureScale(
       o.sheetMeasureScale,
@@ -310,6 +347,10 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       ),
     ),
     sheetLyricOffsets: normalizeSheetLyricOffsets(o.sheetLyricOffsets, parts),
+    sheetLyricPartVisible: normalizeSheetLyricPartVisible(
+      o.sheetLyricPartVisible,
+      parts,
+    ),
     sheetPlaybackHighlight:
       o.sheetPlaybackHighlight === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetPlaybackHighlight
@@ -431,6 +472,12 @@ export function normalizeTagRollView(raw: unknown, parts: TagRollPart[]): TagRol
       SHEET_STAFF_LINE_MAX,
       TAG_ROLL_DEFAULT_VIEW.sheetStaffLineWeight,
     ),
+    sheetStemLength: clampSheetFormat(
+      o.sheetStemLength,
+      SHEET_STEM_LENGTH_MIN,
+      SHEET_STEM_LENGTH_MAX,
+      TAG_ROLL_DEFAULT_VIEW.sheetStemLength,
+    ),
     sheetPartNames:
       o.sheetPartNames === undefined
         ? TAG_ROLL_DEFAULT_VIEW.sheetPartNames
@@ -507,7 +554,6 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     localEntryId: null,
     view: {
       ...TAG_ROLL_DEFAULT_VIEW,
-      ...effectiveSheetFormatDefault('continuous'),
       // Start scrolled so middle C is near the vertical center of a typical viewport later.
       scrollY: (TAG_ROLL_MIDI_MAX - 60) * TAG_ROLL_DEFAULT_VIEW.cellH,
       activePartId: lead.id,

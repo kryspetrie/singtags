@@ -490,38 +490,40 @@ function smoothLeapCost(note: number, other: number | undefined, role: SparseHar
   return 70 + (delta - limit) * 8
 }
 
-/**
- * Another voicing of the same chord. The lead stays put, and so does every
- * harmony part that was already sung (`locked`). Filled parts may take any
- * chord tone in a singable octave, so two filled voices can swap and a filled
- * bass can change the inversion. A leap past the part's limit costs more than
- * dropping a color tone.
- */
-export function chooseSmoothVoicing(opts: {
+export type SmoothVoicingOpts = {
   natureId: string
   rootPc: number
   lead: number
   locked: Partial<Record<SparseHarmonyRole, number>>
   prev?: Partial<Record<SparseHarmonyRole, number>>
   next?: Partial<Record<SparseHarmonyRole, number>>
-}): VoicingPitches | null {
+  /** Lowest-cost stacks to keep. Omit to return every legal stack. */
+  limit?: number
+}
+
+/**
+ * Legal stacks for one chord. The lead stays put, and so does every harmony
+ * part that was already sung (`locked`). Filled parts may take any chord tone
+ * in a singable octave. Sorted by leap cost, then by the order they were found.
+ */
+export function listSmoothVoicings(opts: SmoothVoicingOpts): VoicingPitches[] {
   const tones = chordTonePcs(opts.rootPc, opts.natureId)
-  if (!tones.length || !tones.includes(pc(opts.lead))) return null
+  if (!tones.length || !tones.includes(pc(opts.lead))) return []
   for (const role of HARMONY_ROLES) {
     const held = opts.locked[role]
-    if (held != null && !tones.includes(pc(held))) return null
+    if (held != null && !tones.includes(pc(held))) return []
   }
   const choices: Record<SparseHarmonyRole, number[]> = {
     tenor: opts.locked.tenor != null ? [opts.locked.tenor] : toneOctaves('tenor', tones, opts.lead),
     bari: opts.locked.bari != null ? [opts.locked.bari] : toneOctaves('bari', tones, opts.lead),
     bass: opts.locked.bass != null ? [opts.locked.bass] : toneOctaves('bass', tones, opts.lead),
   }
-  if (HARMONY_ROLES.some((role) => choices[role].length === 0)) return null
+  if (HARMONY_ROLES.some((role) => choices[role].length === 0)) return []
   const chord = BARBERSHOP_CHORDS.find((c) => c.id === opts.natureId)
   const third = pc(opts.rootPc + (chord?.offsets[3] ?? 4))
   const seventhOff = chord?.offsets[7]
-  let best: VoicingPitches | null = null
-  let bestCost = Number.POSITIVE_INFINITY
+  const found: { midi: VoicingPitches; cost: number; order: number }[] = []
+  let order = 0
   for (const tenor of choices.tenor) {
     for (const bari of choices.bari) {
       for (const bass of choices.bass) {
@@ -551,14 +553,30 @@ export function chooseSmoothVoicing(opts: {
         if (bari > opts.lead) cost += 8
         if (midi.bass > midi.bari) cost += 18
         if (midi.tenor - midi.bass > 21) cost += (midi.tenor - midi.bass - 21) * 3
-        if (cost < bestCost) {
-          best = midi
-          bestCost = cost
-        }
+        found.push({ midi, cost, order: order++ })
       }
     }
   }
-  return best
+  found.sort((a, b) => a.cost - b.cost || a.order - b.order)
+  const out: VoicingPitches[] = []
+  const seen = new Set<string>()
+  const limit = opts.limit ?? found.length
+  for (const row of found) {
+    const key = `${row.midi.tenor},${row.midi.bari},${row.midi.bass}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(row.midi)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+/**
+ * Best voicing from {@link listSmoothVoicings}. A leap past the part's limit
+ * costs more than dropping a color tone.
+ */
+export function chooseSmoothVoicing(opts: SmoothVoicingOpts): VoicingPitches | null {
+  return listSmoothVoicings({ ...opts, limit: 1 })[0] ?? null
 }
 
 function rolesFromResult(

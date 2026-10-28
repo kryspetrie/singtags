@@ -2,8 +2,18 @@
 /**
  * Tag Studio project list.
  */
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+import TagRollSeedLibraryDialog from '../components/tagRoll/TagRollSeedLibraryDialog.vue'
+import { importSelectedLibrarySeeds } from '../application/tagRoll/importLibrarySeeds'
+import { getTagStudioServices } from '../composition/tagStudio'
+import {
+  goldenOffersFromIndex,
+  LILLY_LIBRARY_SEED,
+  librarySeedInLibrary,
+  type LibrarySeedOffer,
+} from '../lib/tagRoll/librarySeeds'
 import { readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
 import { readTagRollMusicXmlFile } from '../lib/tagRoll/musicxmlImport'
 import { tagRollTip } from '../lib/tagRoll/shortcuts'
@@ -17,6 +27,24 @@ const snackbar = useSnackbarStore()
 const importInput = ref<HTMLInputElement | null>(null)
 const importMusicXmlInput = ref<HTMLInputElement | null>(null)
 const importBusy = ref(false)
+const seedOpen = ref(false)
+const seedBusy = ref(false)
+const seedOffers = ref<LibrarySeedOffer[]>([LILLY_LIBRARY_SEED])
+const seedLoadError = ref('')
+const seedPresentIds = computed(() =>
+  seedOffers.value.filter((offer) => librarySeedInLibrary(store.summaries, offer)).map((o) => o.id),
+)
+
+/** Grace period after Yes, before the arrangement is actually removed. */
+const DELETE_GRACE_MS = 5000
+const pendingConfirm = ref<{ id: string; title: string } | null>(null)
+const deletingIds = ref<string[]>([])
+const pendingDeletes = new Map<string, { title: string; timer: ReturnType<typeof setTimeout> }>()
+let listAlive = true
+
+function isDeleting(id: string): boolean {
+  return deletingIds.value.includes(id)
+}
 
 const MILL_LAB_FILES = [
   'mill-ground.json',
@@ -117,6 +145,55 @@ onMounted(() => {
   })()
 })
 
+async function openSeedLibrary(): Promise<void> {
+  seedLoadError.value = ''
+  seedOffers.value = [LILLY_LIBRARY_SEED]
+  try {
+    const res = await fetch('/tag-studio/polecat-mixed-seeds/index.json', { cache: 'no-cache' })
+    if (!res.ok) throw new Error('index')
+    const songs = goldenOffersFromIndex(await res.json())
+    seedOffers.value = [LILLY_LIBRARY_SEED, ...songs]
+    if (!songs.length) {
+      seedLoadError.value = 'The golden songs could not be loaded. Lilly Marlene is still available.'
+    }
+  } catch {
+    seedLoadError.value = 'The golden songs could not be loaded. Lilly Marlene is still available.'
+  }
+  seedOpen.value = true
+}
+
+async function onLoadSeeds(ids: string[]): Promise<void> {
+  if (seedBusy.value || !ids.length) return
+  seedBusy.value = true
+  try {
+    const { repository, clock } = getTagStudioServices()
+    const result = await importSelectedLibrarySeeds(repository, clock, seedOffers.value, ids)
+    await store.refreshList()
+    if (result.errors.length) {
+      seedLoadError.value = result.errors.join(' ')
+    }
+    if (result.imported.length) {
+      const n = result.imported.length
+      snackbar.show(`Added ${n} chart${n === 1 ? '' : 's'} to the library.`, {
+        title: 'Tag Studio',
+        tone: 'ok',
+        ms: 3500,
+      })
+    } else if (!result.errors.length) {
+      snackbar.show('Those charts are already in the library.', {
+        title: 'Tag Studio',
+        tone: 'ok',
+        ms: 3000,
+      })
+    }
+    if (!result.errors.length) seedOpen.value = false
+  } catch (e) {
+    seedLoadError.value = e instanceof Error ? e.message : 'Could not add those charts'
+  } finally {
+    seedBusy.value = false
+  }
+}
+
 async function onCreate(): Promise<void> {
   try {
     const p = await store.createProject()
@@ -189,14 +266,58 @@ async function onImportMusicXmlFile(e: Event): Promise<void> {
 }
 
 async function onDelete(id: string, title: string): Promise<void> {
+  if (isDeleting(id)) return
+  pendingConfirm.value = { id, title }
+}
+
+function confirmDelete(): void {
+  const target = pendingConfirm.value
+  pendingConfirm.value = null
+  if (!target || isDeleting(target.id)) return
+  const existing = pendingDeletes.get(target.id)
+  if (existing) clearTimeout(existing.timer)
+  deletingIds.value = [...deletingIds.value.filter((id) => id !== target.id), target.id]
+  const timer = setTimeout(() => {
+    void commitDelete(target.id)
+  }, DELETE_GRACE_MS)
+  pendingDeletes.set(target.id, { title: target.title, timer })
+  const count = pendingDeletes.size
+  const msg =
+    count === 1
+      ? `“${target.title}” will be deleted in a few seconds.`
+      : `${count} arrangements will be deleted in a few seconds.`
+  snackbar.show(msg, {
+    title: 'Deleting',
+    tone: 'info',
+    ms: DELETE_GRACE_MS,
+    action: { label: 'Undo', onClick: undoPendingDeletes },
+  })
+}
+
+function undoPendingDeletes(): void {
+  for (const row of pendingDeletes.values()) clearTimeout(row.timer)
+  pendingDeletes.clear()
+  deletingIds.value = []
+}
+
+async function commitDelete(id: string): Promise<void> {
+  const row = pendingDeletes.get(id)
+  if (!row) return
+  pendingDeletes.delete(id)
+  if (listAlive) deletingIds.value = deletingIds.value.filter((item) => item !== id)
+  const title = row.title
   try {
     await store.removeProject(id)
-    snackbar.show(`"${title}" deleted`, { title: 'Project deleted', tone: 'ok', ms: 2000 })
+    if (snackbar.message?.includes(title)) snackbar.dismiss()
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to delete project'
     snackbar.show(msg, { title: 'Error', tone: 'error', ms: 4000 })
   }
 }
+
+onUnmounted(() => {
+  listAlive = false
+})
 
 async function onDuplicate(id: string, title: string): Promise<void> {
   try {
@@ -257,6 +378,15 @@ function fmtDate(ms: number): string {
         <button
           type="button"
           class="btn"
+          :disabled="importBusy || seedBusy"
+          :title="tagRollTip('Choose Lilly Marlene and golden songs to add to this library')"
+          @click="openSeedLibrary"
+        >
+          Examples
+        </button>
+        <button
+          type="button"
+          class="btn"
           :disabled="importBusy"
           :title="tagRollTip('Import a SingTags Tag Studio JSON project')"
           @click="onImportClick"
@@ -283,17 +413,34 @@ function fmtDate(ms: number): string {
       </div>
     </header>
 
+    <TagRollSeedLibraryDialog
+      :open="seedOpen"
+      :offers="seedOffers"
+      :present-ids="seedPresentIds"
+      :busy="seedBusy"
+      :load-error="seedLoadError"
+      @close="seedOpen = false"
+      @load="onLoadSeeds"
+    />
+
     <p v-if="store.error" class="err" role="alert">{{ store.error }}</p>
 
     <ul v-if="store.summaries.length" class="list" role="list">
-      <li v-for="s in store.summaries" :key="s.id" class="row">
+      <li
+        v-for="s in store.summaries"
+        :key="s.id"
+        class="row"
+        :class="{ deleting: isDeleting(s.id) }"
+      >
         <RouterLink
           class="row-main"
           :to="{ name: 'tag-studio-edit', params: { id: s.id } }"
           :title="tagRollTip(`Open ${s.title}`)"
+          @click="isDeleting(s.id) && $event.preventDefault()"
         >
           <span class="row-title">{{ s.title }}</span>
-          <span class="row-meta">
+          <span v-if="isDeleting(s.id)" class="row-meta">Deleting…</span>
+          <span v-else class="row-meta">
             {{ s.bpm }} BPM · {{ s.noteCount }} note{{ s.noteCount === 1 ? '' : 's' }} ·
             {{ fmtDate(s.updatedAt) }}
           </span>
@@ -301,6 +448,7 @@ function fmtDate(ms: number): string {
         <button
           type="button"
           class="btn ghost"
+          :disabled="isDeleting(s.id)"
           :aria-label="`Duplicate ${s.title}`"
           :title="tagRollTip(`Duplicate ${s.title}`)"
           @click="onDuplicate(s.id, s.title)"
@@ -310,6 +458,7 @@ function fmtDate(ms: number): string {
         <button
           type="button"
           class="btn ghost"
+          :disabled="isDeleting(s.id)"
           :aria-label="`Delete ${s.title}`"
           :title="tagRollTip(`Delete ${s.title}`)"
           @click="onDelete(s.id, s.title)"
@@ -321,6 +470,15 @@ function fmtDate(ms: number): string {
     <p v-else-if="store.loaded" class="empty">
       No projects yet. Create one to open the piano roll.
     </p>
+    <ConfirmDialog
+      :open="!!pendingConfirm"
+      title="Are you sure?"
+      :message="pendingConfirm ? `Delete “${pendingConfirm.title}”? It stays in your library for a few seconds so you can undo.` : ''"
+      confirm-label="Yes"
+      cancel-label="Cancel"
+      @close="pendingConfirm = null"
+      @confirm="confirmDelete"
+    />
   </section>
 </template>
 
@@ -387,6 +545,9 @@ function fmtDate(ms: number): string {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+}
+.row.deleting {
+  opacity: 0.55;
 }
 .row-main {
   flex: 1 1 auto;

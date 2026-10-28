@@ -26,6 +26,8 @@ import {
   SHEET_SCORE_SCALE_MIN,
   SHEET_STAFF_LINE_MAX,
   SHEET_STAFF_LINE_MIN,
+  SHEET_STEM_LENGTH_MAX,
+  SHEET_STEM_LENGTH_MIN,
   SHEET_STAVE_GAP_FINE_MAX,
   SHEET_STAVE_GAP_FINE_MIN,
   SHEET_SYSTEM_GAP_MAX,
@@ -66,6 +68,7 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
   const base = defaultSheetFormat()
   return {
     sheetNoteColors: view.sheetNoteColors === true,
+    sheetShowCrossoverMarks: view.sheetShowCrossoverMarks !== false,
     sheetStaveGap:
       view.sheetStaveGap === 'tight' || view.sheetStaveGap === 'wide'
         ? view.sheetStaveGap
@@ -104,7 +107,9 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
         base.sheetLyricSize,
       ),
     ),
+    sheetStraightLyrics: view.sheetStraightLyrics !== false,
     sheetLyricOffsets: {},
+    sheetLyricPartVisible: {},
     sheetPlaybackHighlight: view.sheetPlaybackHighlight !== false,
     sheetShowSketchChords: view.sheetShowSketchChords === true,
     sheetShowDetectedChords: view.sheetShowDetectedChords === true,
@@ -160,8 +165,15 @@ export function snapshotSheetFormat(view: TagRollViewPrefs): SheetFormatSnapshot
       SHEET_STAFF_LINE_MAX,
       base.sheetStaffLineWeight,
     ),
+    sheetStemLength: clampSheetFormat(
+      view.sheetStemLength,
+      SHEET_STEM_LENGTH_MIN,
+      SHEET_STEM_LENGTH_MAX,
+      base.sheetStemLength,
+    ),
     sheetPartNames: view.sheetPartNames === true,
     sheetMeasureSizing: view.sheetMeasureSizing === 'dynamic' ? 'dynamic' : 'equal',
+    sheetFullJustify: view.sheetFullJustify !== false,
     sheetPageWidthIn: clampSheetPageInches(
       view.sheetPageWidthIn,
       SHEET_PAGE_WIDTH_IN_MIN,
@@ -247,10 +259,15 @@ export function effectiveSheetFormatDefault(view: SheetFormatViewKey): SheetForm
   const system = defaultSheetFormat()
   const overlay = readStore()[view]
   if (!overlay || typeof overlay !== 'object') {
-    return { ...system, sheetLyricOffsets: {} }
+    return { ...system, sheetLyricOffsets: {}, sheetLyricPartVisible: {} }
   }
   // Re-validate via snapshot helpers by merging then clamping through snapshotSheetFormat shape.
-  const merged = { ...system, ...overlay, sheetLyricOffsets: {} }
+  const merged = {
+    ...system,
+    ...overlay,
+    sheetLyricOffsets: {},
+    sheetLyricPartVisible: {},
+  }
   return snapshotSheetFormat(merged as TagRollViewPrefs)
 }
 
@@ -259,7 +276,7 @@ export function saveSheetFormatCustomDefault(
   snap: SheetFormatSnapshot,
 ): void {
   const store = readStore()
-  store[view] = { ...snap, sheetLyricOffsets: {} }
+  store[view] = { ...snap, sheetLyricOffsets: {}, sheetLyricPartVisible: {} }
   writeStore(store)
 }
 

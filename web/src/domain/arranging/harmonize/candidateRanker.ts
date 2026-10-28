@@ -6,6 +6,7 @@ import type { HarmonicityScorer } from '../harmonicity/harmonicityScore'
 import { createHarmonicityScorer } from '../harmonicity/harmonicityScore'
 import { stackRingPrior } from '../harmonicity/stackRingScore'
 import { theoryRankBonuses, voiceLeadScore } from '../theoryScores'
+import { medianJumpRankPenalty } from '../medianJumpWindow'
 import {
   scoreCadenceFit,
   type CadenceBias,
@@ -639,6 +640,7 @@ export function rankCandidates(
     }
 
     score += w.voiceLead * voiceLeadScore(c.prevMidi, c.midi, { melodyVoice })
+    score -= w.voiceLead * medianJumpRankPenalty(c.prevPrevMidi, c.prevMidi, c.midi)
     score += w.strongVoice * strongVoiceScore(c)
 
     const bonuses = theoryRankBonuses({
@@ -821,6 +823,10 @@ export function explainRankingBreakdown(
     {
       label: 'voiceLead',
       value: w.voiceLead * voiceLeadScore(c.prevMidi, c.midi, { melodyVoice }),
+    },
+    {
+      label: 'medianJump',
+      value: -w.voiceLead * medianJumpRankPenalty(c.prevPrevMidi, c.prevMidi, c.midi),
     },
     { label: 'strongVoice', value: w.strongVoice * strongVoiceScore(c) },
     {

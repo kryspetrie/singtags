@@ -133,11 +133,8 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   { id: 'part-cycle', keys: 'C', label: 'Cycle to next part (Clear role in Roles mode)', group: 'parts' },
   { id: 'part-custom', keys: 'Parts…', label: 'Assign keys for extra parts', group: 'parts' },
   { id: 'harmonize', keys: 'M', label: 'Open Chords (Melody part in Roles mode)', group: 'harmonize' },
-  { id: 'roles', keys: 'Roles', label: 'Open Melody roles (toolbar)', group: 'harmonize' },
+  { id: 'roles', keys: 'Melody', label: 'Hand the melody to another part (toolbar)', group: 'harmonize' },
   { id: 'assign-roles-melody', keys: 'M', label: 'Set Melody part (Roles mode)', group: 'harmonize' },
-  { id: 'assign-roles-strong', keys: 'S', label: 'Set Strong (Melody roles mode)', group: 'harmonize' },
-  { id: 'assign-roles-passing', keys: 'P', label: 'Set Passing (Melody roles mode)', group: 'harmonize' },
-  { id: 'assign-roles-clear', keys: 'C', label: 'Clear Strong/Passing (Melody roles mode)', group: 'harmonize' },
   {
     id: 'harm-prev',
     keys: 'Prev',

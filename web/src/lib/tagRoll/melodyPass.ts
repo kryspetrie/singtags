@@ -29,6 +29,102 @@ export function canLinkMelodyPass(a: TagRollNote, b: TagRollNote): boolean {
   return a.id !== b.id && a.partId !== b.partId
 }
 
+/** Lead, unless the chart named a different starting melody part. */
+export function startingMelodyPartId(
+  project: {
+    parts: readonly { id: string; name: string }[]
+    view: { melodyPartId?: string | null }
+  },
+): string | null {
+  return (
+    project.view.melodyPartId ??
+    project.parts.find((p) => p.name === 'Lead')?.id ??
+    project.parts[0]?.id ??
+    null
+  )
+}
+
+/**
+ * The part that has the melody at `tick`. Lead (or the chart's starting
+ * melody part) until a handoff, then the new part until the next handoff.
+ */
+export function melodyPartAtTick(
+  project: {
+    notes: readonly { id: string; partId: string; startTick: number }[]
+    parts: readonly { id: string; name: string }[]
+    view: { melodyPartId?: string | null }
+    melodyPasses?: readonly { toNoteId: string }[] | null
+  },
+  tick: number,
+): string | null {
+  let partId = startingMelodyPartId(project)
+  const changes: { tick: number; partId: string }[] = []
+  for (const pass of project.melodyPasses ?? []) {
+    const to = project.notes.find((n) => n.id === pass.toNoteId)
+    if (to) changes.push({ tick: to.startTick, partId: to.partId })
+  }
+  changes.sort((a, b) => a.tick - b.tick)
+  for (const change of changes) {
+    if (change.tick <= tick) partId = change.partId
+  }
+  return partId
+}
+
+/** Last note on the melody part before `tick`, the start of a dashed handoff. */
+export function previousMelodyNote(
+  project: Pick<TagRollProject, 'notes' | 'parts' | 'view' | 'melodyPasses'>,
+  tick: number,
+): TagRollNote | null {
+  const partId = melodyPartAtTick(project, Math.max(0, tick - 1))
+  if (!partId) return null
+  let best: TagRollNote | null = null
+  for (const n of project.notes) {
+    if (n.partId !== partId || n.startTick >= tick) continue
+    if (!best || n.startTick > best.startTick) best = n
+  }
+  return best
+}
+
+/**
+ * Move the melody to this note's part from here on, or undo that handoff
+ * when the note is already the change. Returns null when the note is missing.
+ */
+export function toggleMelodyHandoff(
+  project: Pick<TagRollProject, 'notes' | 'parts' | 'view' | 'melodyPasses'>,
+  noteId: string,
+  id?: string,
+): { passes: TagRollMelodyPass[]; changed: boolean; message: string; startingPartId?: string } | null {
+  const note = project.notes.find((n) => n.id === noteId)
+  if (!note) return null
+  const passes = project.melodyPasses ?? []
+  const existing = passes.find((p) => p.toNoteId === note.id)
+  if (existing) {
+    return {
+      passes: passes.filter((p) => p.id !== existing.id),
+      changed: true,
+      message: 'Melody stays with the previous part',
+    }
+  }
+  const current = melodyPartAtTick(project, note.startTick)
+  if (note.partId === current) {
+    return { passes, changed: false, message: 'This part already has the melody here' }
+  }
+  const prev = previousMelodyNote(project, note.startTick)
+  if (!prev) {
+    return {
+      passes,
+      changed: true,
+      startingPartId: note.partId,
+      message: 'Melody starts on this part',
+    }
+  }
+  return {
+    passes: upsertMelodyPass(passes, prev.id, note.id, id ?? `mp_${prev.id}_${note.id}`),
+    changed: true,
+    message: 'Melody moves to this part until the next change',
+  }
+}
+
 /** Earlier onset → later onset; ties break by midi. */
 export function orderMelodyPassPair(
   a: TagRollNote,

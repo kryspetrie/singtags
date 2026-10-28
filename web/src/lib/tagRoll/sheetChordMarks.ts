@@ -2,6 +2,8 @@
  * Chord label boxes above the staff in Tag Studio sheet view / export / print.
  */
 import type { VexScoreLayoutResult } from './sheetScore/renderVexScore'
+import { assignSheetStaves } from './sheetScore/assignStaves'
+import { sheetChordGapAboveStaffPx } from './sheetScore/sheetLyricLanes'
 import { sketchLabel, sketchRomanDisplay } from './harmonySketch'
 import type { TagRollProject, TagRollSheetChordMarkStyle } from './types'
 
@@ -34,12 +36,14 @@ export type SheetChordMarkBox = {
   systemIndex: number
 }
 
-/** Minimal Detected segment fields needed for sheet chord overlays. */
+/** Minimal Detected segment fields needed for sheet chord overlays / spelling. */
 export type SheetChordDetectSegment = {
   id: string
   startTick: number
   endTick: number
   rootPc?: number | null
+  /** Nature / sketch quality id when known (drives enharmonic spelling). */
+  quality?: string | null
   displayName?: string
   name?: string
   displayRoman?: string
@@ -152,9 +156,16 @@ export function sheetChordMarkLayoutOpts(project: TagRollProject): {
   const s = Math.max(0.55, project.view.sheetScoreScale ?? 1)
   // Tall enough for padded boxed labels (border + line-height) without clipping.
   const boxHeight = Math.round(22 * s)
+  const assignment = assignSheetStaves(project.parts, project.clefFamily, {
+    melodyPartId: project.view.melodyPartId,
+    notes: project.notes,
+  })
+  const aboveIds =
+    assignment.staves[0]?.voices.filter((v) => v.voice === 1).map((v) => v.partId) ??
+    []
   return {
     boxHeight,
-    gapAboveStaff: Math.round(8 * s),
+    gapAboveStaff: sheetChordGapAboveStaffPx(project.view, aboveIds),
     markStyle: normalizeSheetChordMarkStyle(project.view.sheetChordMarkStyle),
     fontSize: Math.max(10, Math.round(boxHeight * 0.58)),
   }

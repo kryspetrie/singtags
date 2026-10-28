@@ -669,10 +669,10 @@ onUnmounted(() => {
         class="btn sm"
         :class="{ on: rolesOpen }"
         :aria-expanded="rolesOpen"
-        :title="tagRollTip('Melody roles — set melody part, Strong / Passing', 'Roles')"
+        :title="tagRollTip('Melody — Lead until a handoff to another part', 'Melody')"
         @click="emit('openRoles')"
       >
-        Roles
+        Melody
       </button>
 
       <button
@@ -681,7 +681,7 @@ onUnmounted(() => {
         class="btn sm"
         :class="{ on: marksOpen }"
         :aria-expanded="marksOpen"
-        :title="tagRollTip('Toggle Melody / Strong–Passing chrome and scale tint', 'Marks')"
+        :title="tagRollTip('Toggle melody stripe, note names, and scale tint', 'Marks')"
         @click="emit('openMarks')"
       >
         Marks

@@ -102,6 +102,7 @@ describe('tagRoll normalize', () => {
         sheetMeasureScale: 1.25,
         sheetNoteSpacing: 1.4,
         sheetLyricOffsets: { [leadId]: 2.5, gone: 3, bad: 'x' },
+        sheetLyricPartVisible: { [leadId]: false, gone: false, ok: true },
       },
     })
     expect(n!.subtitle).toBe('Sub')
@@ -112,6 +113,7 @@ describe('tagRoll normalize', () => {
     expect(n!.view.sheetMeasureSizing).toBe('dynamic')
     expect(n!.view.sheetNoteColors).toBe(false)
     expect(n!.view.sheetLyricOffsets).toEqual({ [leadId]: 2.5 })
+    expect(n!.view.sheetLyricPartVisible).toEqual({ [leadId]: false })
     expect(n!.view.sheetStaveGap).toBe('wide')
     expect(n!.view.sheetMeasureScale).toBe(1.25)
     expect(n!.view.sheetNoteSpacing).toBe(1.4)

@@ -8,6 +8,7 @@
 import { computed, ref } from 'vue'
 import { applyTagRollTimeWheel } from '../../lib/tagRoll/timeWheel'
 import { useTagRollStore } from '../../stores/tagRoll'
+import TagRollLaneMenu from './TagRollLaneMenu.vue'
 
 export type BottomLaneViewOption = {
   value: string
@@ -132,6 +133,9 @@ function onWheel(e: WheelEvent): void {
         <div v-if="$slots.gutter" class="gutter-extra">
           <slot name="gutter" />
         </div>
+        <TagRollLaneMenu v-if="$slots.options" :label="`${label} options`">
+          <slot name="options" />
+        </TagRollLaneMenu>
       </div>
     </div>
     <div class="lane-main">

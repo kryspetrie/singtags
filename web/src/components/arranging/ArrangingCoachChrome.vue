@@ -1,17 +1,15 @@
 <script setup lang="ts">
 /**
- * Coach dock header — Tweaks / ideas / help open as full-panel modes in the parent.
+ * Coach dock header — Learn opens the shared learning drawer; Tweaks stays settings.
  */
 defineProps<{
   showConfig: boolean
-  showIdeas: boolean
-  showHelp: boolean
+  showLearn: boolean
 }>()
 
 const emit = defineEmits<{
   toggleConfig: []
-  toggleIdeas: []
-  toggleHelp: []
+  toggleLearn: []
   popOut: []
   close: []
 }>()
@@ -24,20 +22,12 @@ const emit = defineEmits<{
       <button
         type="button"
         class="text-btn"
-        title="Craft ideas for this step"
-        :aria-pressed="showIdeas"
-        @click="emit('toggleIdeas')"
+        title="Ideas, help, and why this chord"
+        aria-label="Learn"
+        :aria-pressed="showLearn"
+        @click="emit('toggleLearn')"
       >
-        Ideas
-      </button>
-      <button
-        type="button"
-        class="text-btn"
-        title="How to use this step"
-        :aria-pressed="showHelp"
-        @click="emit('toggleHelp')"
-      >
-        Help
+        Learn
       </button>
       <button
         type="button"
@@ -51,7 +41,7 @@ const emit = defineEmits<{
       </button>
       <button type="button" class="text-btn" title="Pop out" @click="emit('popOut')">Pop out</button>
       <button type="button" class="icon-btn" aria-label="Close coach" @click="emit('close')">
-        x
+        ×
       </button>
     </div>
   </header>

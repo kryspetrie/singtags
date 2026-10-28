@@ -1,18 +1,18 @@
 /**
  * Coach Keychange helper (Phase K6) — list paths, apply Sketch + arrival key marker.
  */
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import {
   listModulationOptions,
   type ModulationOption,
 } from '../../application/arranging/KeyChangeApply'
-import { voiceModulationHearPath } from '../../application/arranging/KeyChangeHear'
+import { keyChangeRollGhosts, voiceModulationHearPath } from '../../application/arranging/KeyChangeHear'
 import { getArrangingServices } from '../../composition/arranging'
 import type { AudioPreview } from '../../ports/AudioPreview'
-import { useArrangementStore } from '../../stores/arrangement'
 import { useTagRollStore } from '../../stores/tagRoll'
 import type { HarmonySketchQuality } from '../../lib/tagRoll/types'
 import { TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
+import { keyAtTick } from '../../lib/tagRoll/keyMap'
 
 const PC_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
 
@@ -20,32 +20,52 @@ export function useCoachKeyChange(opts?: {
   /** Override playhead tick (defaults to Tag Studio playhead). */
   playheadTick?: Ref<number>
 }) {
-  const arrStore = useArrangementStore()
   const tagStore = useTagRollStore()
 
   const fromTonality = ref(0)
   const toTonality = ref(1)
   const measureBudget = ref(2)
   const includeHybrids = ref(false)
-  const includePosts = ref(true)
+  const includePosts = ref(false)
   const holdPc = ref(0)
+  const fromTouched = ref(false)
   const selectedPathId = ref<string | null>(null)
   const applyStepIndex = ref(0)
   const status = ref('')
 
-  function syncFromProject(): void {
-    const p = arrStore.current ?? tagStore.current
+  function keyFromPlayhead(): void {
+    if (fromTouched.value) return
+    const p = tagStore.current
     if (!p) return
-    const t = 'tonality' in p ? p.tonality : 0
-    fromTonality.value = ((t % 12) + 12) % 12
-    toTonality.value = (fromTonality.value + 1) % 12
+    const key = keyAtTick(p.view?.playheadTick ?? 0, p.keyMarkers, {
+      tonality: p.tonality,
+      tonalityMode: p.tonalityMode,
+      preferFlats: p.preferFlats,
+    })
+    fromTonality.value = ((key.tonality % 12) + 12) % 12
     holdPc.value = fromTonality.value
+  }
+
+  function syncFromProject(): void {
+    fromTouched.value = false
+    keyFromPlayhead()
+    toTonality.value = (fromTonality.value + 1) % 12
+  }
+
+  function touchFrom(): void {
+    fromTouched.value = true
+  }
+
+  function setLift(semis: number): void {
+    toTonality.value = (((fromTonality.value + semis) % 12) + 12) % 12
   }
 
   const playhead = computed(() => {
     if (opts?.playheadTick) return opts.playheadTick.value
     return tagStore.current?.view?.playheadTick ?? 0
   })
+
+  watch(playhead, () => keyFromPlayhead())
 
   const ppq = computed(() => tagStore.current?.ppq ?? TAG_ROLL_PPQ)
   const ts = computed(
@@ -102,11 +122,23 @@ export function useCoachKeyChange(opts?: {
 
   const selected = computed(() => {
     const id = selectedPathId.value
-    return (
-      options.value.find((o) => o.path.id === id) ??
-      options.value.find((o) => o.packOk) ??
-      null
-    )
+    for (const opt of options.value) {
+      if (opt.path.id === id) return opt
+      const alt = opt.alts?.find((a) => a.path.id === id)
+      if (alt) return alt
+    }
+    return options.value.find((o) => o.packOk) ?? null
+  })
+
+  const previewGhosts = computed(() => {
+    const packed = selected.value?.packOk ? selected.value.packed : undefined
+    if (!packed?.length) return []
+    const parts = tagStore.current?.parts ?? []
+    return keyChangeRollGhosts(packed, {
+      tonality: fromTonality.value,
+      melodyNotes: melodyNotes.value,
+      colorFor: (name) => parts.find((p) => p.name === name)?.color,
+    })
   })
 
   function selectPath(id: string): void {
@@ -194,7 +226,10 @@ export function useCoachKeyChange(opts?: {
     span,
     options,
     selected,
+    previewGhosts,
     syncFromProject,
+    touchFrom,
+    setLift,
     selectPath,
     applyNextStep,
     applyAll,

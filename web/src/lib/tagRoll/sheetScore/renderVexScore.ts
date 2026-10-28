@@ -6,7 +6,6 @@ import {
   Factory,
   StaveModifierPosition,
   StaveNote,
-  Stem,
   Voice,
   VexFlow,
   type Stave,
@@ -23,8 +22,8 @@ import {
   sheetPageHeightPx,
   sheetPageWidthPx,
 } from '../sheetPage'
-import { midiToMusicXmlPitch } from '../musicxmlExport'
 import { measureTicks } from '../tempoMap'
+import { melodyPartAtTick, resolveMelodyPasses } from '../melodyPass'
 import type {
   TagRollProject,
   TagRollSheetLayout,
@@ -46,26 +45,46 @@ import {
 import { stackSheetSystems } from '../sheetSystemStack'
 import { assignSheetStaves } from './assignStaves'
 import { sheetEngraveLengthTicks } from './engraveLength'
-import { mapTicksToDuration, type NoteDurationType } from './durationMap'
+import { justifySheetSystems } from './justifySheetSystems'
 import {
   contentSizedMeasureBodyPx,
   scaledEqualMeasureBodyPx,
 } from './measureWidth'
 import {
-  melodyRoleBorderColor,
-  MELODY_PART_BORDER_COLOR,
-} from '../../../domain/arranging/melodyRoleLabels'
-import {
   noteOccupantsFromEvents,
-  pickRestKey,
-  restDurationKind,
   type RestOccupant,
-  vexKeyToDegree,
 } from './restPlacement'
 import { buildSheetRhythm, type SheetRhythmEvent } from './rhythmLayout'
-import type { SheetClefKind, SheetStaffSpec } from './types'
-import { concertToWrittenMidi } from './writtenPitch'
-import { vexKeySpec } from '../keySignature'
+import { staffCrossoverNoteIds } from './sheetCrossover'
+import {
+  drawStraightLyricLanes,
+  sheetLyricSystemPads,
+  staveGapSpaces,
+  straightLyricStaveGapExtra,
+} from './sheetLyricLanes'
+import { type SheetTieAnchor } from './sheetRhythmMarks'
+import { clampSheetStemLength } from './sheetStemLength'
+import {
+  applySvgSizeScale,
+  drawCrossoverMarks,
+  drawMelodyHandoffLines,
+  noteheadPoint,
+} from './sheetScoreOverlays'
+import type { SheetClefKind } from './types'
+import {
+  buildVoiceNotes,
+  fillMeasureIfEmpty,
+  vexNoteClef,
+  type PlacedTickable,
+} from './sheetVoiceNotes'
+import {
+  applySheetAccidentals,
+  preferFlatsAtTick,
+  sheetKeySpecAtTick,
+} from './sheetAccidentals'
+import { applyOpposingVoiceOffsets } from './sheetNoteCollision'
+import { spellWrittenMidi } from './sheetPitchSpelling'
+import { attachSheetTuplets } from './sheetTuplets'
 
 export type VexScoreMeasureGeom = {
   measureIndex: number
@@ -126,25 +145,6 @@ export type VexScoreLayoutResult = {
   pointToTick: (x: number, y: number) => number
 }
 
-/** Display-scale the VexFlow SVG so glyphs track stave geometry (viewBox zoom). */
-function applySvgSizeScale(
-  host: HTMLElement,
-  unitWidth: number,
-  unitHeight: number,
-  sizeScale: number,
-): void {
-  const svg = host.querySelector('svg')
-  if (!svg) return
-  const w = Math.max(1, unitWidth)
-  const h = Math.max(1, unitHeight)
-  svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-  svg.setAttribute('width', String(Math.max(1, Math.round(w * sizeScale))))
-  svg.setAttribute('height', String(Math.max(1, Math.round(h * sizeScale))))
-  svg.style.width = `${Math.max(1, Math.round(w * sizeScale))}px`
-  svg.style.height = `${Math.max(1, Math.round(h * sizeScale))}px`
-  svg.style.display = 'block'
-}
-
 let fontsKey: string | null = null
 let fontsReady: Promise<void> | null = null
 
@@ -164,29 +164,6 @@ export function ensureVexFonts(music = 'Bravura', text = 'Academico'): Promise<v
   return fontsReady
 }
 
-function vexDuration(type: NoteDurationType, isRest: boolean): string {
-  const base: Record<NoteDurationType, string> = {
-    whole: 'w',
-    half: 'h',
-    quarter: 'q',
-    eighth: '8',
-    sixteenth: '16',
-    'thirty-second': '32',
-  }
-  // Dots via StaveNoteStruct.dots — appending 'd' breaks rest glyphs.
-  return base[type] + (isRest ? 'r' : '')
-}
-
-function midiToVexKey(writtenMidi: number, preferFlats: boolean): string {
-  const { step, alter, octave } = midiToMusicXmlPitch(writtenMidi, preferFlats)
-  let acc = ''
-  if (alter === 1) acc = '#'
-  else if (alter === 2) acc = '##'
-  else if (alter === -1) acc = 'b'
-  else if (alter === -2) acc = 'bb'
-  return `${step.toLowerCase()}${acc}/${octave}`
-}
-
 function clefSpec(kind: SheetClefKind): { clef: string; annotation?: string } {
   switch (kind) {
     case 'treble8vb':
@@ -200,53 +177,11 @@ function clefSpec(kind: SheetClefKind): { clef: string; annotation?: string } {
   }
 }
 
-/** StaveNote staff-line math uses the note's clef, not the stave glyph. */
-function vexNoteClef(kind: SheetClefKind): string {
-  return kind.startsWith('bass') ? 'bass' : 'treble'
-}
-
-/** Top-to-top stave spacing in staff-spaces (× stave.space px). */
-const SPACE_BETWEEN_STAVES_TIGHT = 5
-const SPACE_BETWEEN_STAVES = 6.5
-const SPACE_BETWEEN_STAVES_WIDE = 9
-/** Extra room between grand-staff staves when lyrics are on. */
-const SPACE_BETWEEN_STAVES_LYRICS_TIGHT = 8.5
-const SPACE_BETWEEN_STAVES_LYRICS = 11
-const SPACE_BETWEEN_STAVES_LYRICS_WIDE = 15
 /** Gap between wrapped systems in page layout. */
 const SYSTEM_GAP_PX = 22
-
-function staveGapSpaces(
-  gap: TagRollSheetStaveGap,
-  showLyrics: boolean,
-  fine = 1,
-): number {
-  let base: number
-  if (showLyrics) {
-    if (gap === 'tight') base = SPACE_BETWEEN_STAVES_LYRICS_TIGHT
-    else if (gap === 'wide') base = SPACE_BETWEEN_STAVES_LYRICS_WIDE
-    else base = SPACE_BETWEEN_STAVES_LYRICS
-  } else if (gap === 'tight') base = SPACE_BETWEEN_STAVES_TIGHT
-  else if (gap === 'wide') base = SPACE_BETWEEN_STAVES_WIDE
-  else base = SPACE_BETWEEN_STAVES
-  return Math.max(3.5, Math.round(base * fine * 10) / 10)
-}
-
 const DEFAULT_LYRIC_FONT_PX = 12
-/** Push lyric lines below stems / noteheads (VexFlow textLine units). */
-const LYRIC_TEXT_LINE_V1 = 2
-const LYRIC_TEXT_LINE_V2 = 3
-/** Extra stave-gap spaces per unit of lyric line offset above the default. */
 const LYRIC_OFFSET_GAP_SPACES = 0.45
 const LYRIC_STAVE_SPACE_BELOW = 4
-
-/** Base lyric textLine for stem-up (v1) / stem-down (v2), plus user nudge. */
-export function lyricTextLineForVoice(voice: 1 | 2, offset = 0): number {
-  const base = voice === 1 ? LYRIC_TEXT_LINE_V1 : LYRIC_TEXT_LINE_V2
-  return Math.max(0, Math.round((base + offset) * 10) / 10)
-}
-/** Dark-red outline for the project melody voice (matches piano-roll Roles chrome). */
-const MELODY_NOTE_STROKE = MELODY_PART_BORDER_COLOR
 
 function eventsInMeasure(
   events: readonly SheetRhythmEvent[],
@@ -254,132 +189,6 @@ function eventsInMeasure(
   end: number,
 ): SheetRhythmEvent[] {
   return events.filter((e) => e.startTick >= start && e.startTick < end)
-}
-
-type PlacedTickable = {
-  tick: number
-  note: StaveNote
-  /** Sounding notes — use for cursor anchors (whole rests are center-shifted). */
-  preferAnchor: boolean
-}
-
-function buildVoiceNotes(
-  factory: Factory,
-  events: readonly SheetRhythmEvent[],
-  staff: SheetStaffSpec,
-  clefFamily: TagRollProject['clefFamily'],
-  preferFlats: boolean,
-  stemUp: boolean,
-  showLyrics: boolean,
-  /** Other-voice notes/rests on this staff that occupy diatonic degrees. */
-  restOccupants: readonly RestOccupant[],
-  /** Collect placed rest degrees so later voices can dodge them. */
-  placedRestsOut: RestOccupant[],
-  placedOut: PlacedTickable[],
-  noteColors: boolean,
-  lyricFontPx: number,
-  lyricOffsets: Readonly<Record<string, number>>,
-): StaveNote[] {
-  const clef = vexNoteClef(staff.clef)
-  const notes: StaveNote[] = []
-  for (const e of events) {
-    const isRest = e.concertMidi == null
-    let keys: string[]
-    if (isRest) {
-      const key = pickRestKey({
-        clef: clef as 'treble' | 'bass',
-        stemUp,
-        startTick: e.startTick,
-        durationTicks: e.durationTicks,
-        occupants: restOccupants,
-        durationKind: restDurationKind(e.duration.type),
-      })
-      keys = [key]
-      placedRestsOut.push({
-        startTick: e.startTick,
-        durationTicks: e.durationTicks,
-        degree: vexKeyToDegree(key),
-      })
-    } else {
-      keys = [
-        midiToVexKey(
-          concertToWrittenMidi(e.concertMidi!, clefFamily, staff.kind),
-          preferFlats,
-        ),
-      ]
-    }
-    const note = factory.StaveNote({
-      keys,
-      duration: vexDuration(e.duration.type, isRest),
-      dots: e.duration.dots || undefined,
-      clef,
-      stemDirection: isRest ? undefined : stemUp ? Stem.UP : Stem.DOWN,
-      autoStem: false,
-    })
-    if (noteColors && !isRest && e.isMelody) {
-      const roleStroke =
-        e.melodyRole === 'pmn' || e.melodyRole === 'smn'
-          ? melodyRoleBorderColor(e.melodyRole)
-          : null
-      // Strong/Passing = role-colored outline; unmarked melody stays the Lead cue.
-      note.setStyle({
-        strokeStyle: roleStroke ?? MELODY_NOTE_STROKE,
-      })
-    }
-    if (showLyrics && e.lyric && !e.tieStop) {
-      // Stack per voice under the staff; textLine clears stems above.
-      const ann = factory.Annotation({
-        text: e.lyric,
-        vJustify: 'bottom',
-      })
-      ann.setFontSize(lyricFontPx)
-      ann.setTextLine(
-        lyricTextLineForVoice(e.voice, lyricOffsets[e.partId] ?? 0),
-      )
-      note.addModifier(ann, 0)
-    }
-    notes.push(note)
-    placedOut.push({ tick: e.startTick, note, preferAnchor: !isRest })
-  }
-  return notes
-}
-
-function fillMeasureIfEmpty(
-  factory: Factory,
-  notes: StaveNote[],
-  measureTicksCount: number,
-  measureStartTick: number,
-  ppq: number,
-  clef: string,
-  stemUp: boolean,
-  restOccupants: readonly RestOccupant[],
-  placedRestsOut: RestOccupant[],
-  placedOut: PlacedTickable[],
-): StaveNote[] {
-  if (notes.length) return notes
-  const mapped = mapTicksToDuration(measureTicksCount, ppq)
-  const key = pickRestKey({
-    clef: clef as 'treble' | 'bass',
-    stemUp,
-    startTick: measureStartTick,
-    durationTicks: measureTicksCount,
-    occupants: restOccupants,
-    durationKind: restDurationKind(mapped.type),
-  })
-  placedRestsOut.push({
-    startTick: measureStartTick,
-    durationTicks: measureTicksCount,
-    degree: vexKeyToDegree(key),
-  })
-  const note = factory.StaveNote({
-    keys: [key],
-    duration: vexDuration(mapped.type, true),
-    dots: mapped.dots || undefined,
-    clef,
-    autoStem: false,
-  })
-  placedOut.push({ tick: measureStartTick, note, preferAnchor: false })
-  return [note]
 }
 
 /** Piecewise-linear tick → x from sorted, unique-tick anchors. */
@@ -409,30 +218,65 @@ function buildTickToX(anchors: { tick: number; x: number }[]): (tick: number) =>
 }
 
 /**
- * Auto-beam eighths+ and register beams on the Factory render queue.
- * Naked `Beam.generateBeams` attaches beams (suppressing stems) but never draws them.
+ * Beam eighths+ using rhythmLayout beamGroupId (beat groups; rests break beams).
+ * Falls back to VexFlow generateBeams with rests kept so gaps still break groups.
  */
-function beamNotes(factory: Factory, notes: StaveNote[]): void {
-  const beamable = notes.filter((n) => {
-    if (n.isRest()) return false
+function beamNotes(
+  factory: Factory,
+  notes: StaveNote[],
+  events: readonly SheetRhythmEvent[],
+): void {
+  const byGroup = new Map<number, StaveNote[]>()
+  for (let i = 0; i < notes.length; i++) {
+    const n = notes[i]!
+    if (n.isRest()) continue
     const d = n.getDuration()
-    return (
+    const beamable =
       d === '8' ||
       d === '16' ||
       d === '32' ||
       d.startsWith('8') ||
       d.startsWith('16') ||
       d.startsWith('32')
-    )
-  })
-  if (beamable.length < 2) return
+    if (!beamable) continue
+    const gid = events[i]?.beamGroupId
+    if (gid == null) continue
+    const list = byGroup.get(gid) ?? []
+    list.push(n)
+    byGroup.set(gid, list)
+  }
+  let drew = false
+  for (const group of byGroup.values()) {
+    if (group.length < 2) continue
+    try {
+      factory.Beam({ notes: group, options: { autoStem: false } })
+      drew = true
+    } catch {
+      /* ignore beam failures on mixed groups */
+    }
+  }
+  if (drew) return
   try {
-    const beams = Beam.generateBeams(beamable, { maintainStemDirections: true })
+    // Keep rests so generateBeams does not bridge gaps between beamable notes.
+    const withRests = notes.filter((n) => {
+      if (n.isRest()) return true
+      const d = n.getDuration()
+      return (
+        d === '8' ||
+        d === '16' ||
+        d === '32' ||
+        d.startsWith('8') ||
+        d.startsWith('16') ||
+        d.startsWith('32')
+      )
+    })
+    if (withRests.filter((n) => !n.isRest()).length < 2) return
+    const beams = Beam.generateBeams(withRests, { maintainStemDirections: true })
     for (const beam of beams) {
       factory.Beam({ notes: beam.getNotes(), options: { autoStem: false } })
     }
   } catch {
-    /* ignore beam failures on mixed groups */
+    /* ignore */
   }
 }
 
@@ -446,10 +290,14 @@ export async function renderVexSheetScore(opts: {
   /** Approximate pixels per quarter — scales measure widths. */
   pxPerBeat: number
   showLyrics?: boolean
+  /** Straight per-part lyric lanes (default on when lyrics shown). */
+  straightLyrics?: boolean
   /** continuous | page (default continuous). */
   sheetLayout?: TagRollSheetLayout
   /** equal | dynamic measure widths (default equal). */
   measureSizing?: TagRollSheetMeasureSizing
+  /** Page layout: stretch each system to the margins (default on). */
+  fullJustify?: boolean
   /** Page width in inches (page layout). */
   pageWidthIn?: number
   /** Page height in inches (page layout). */
@@ -460,6 +308,8 @@ export async function renderVexSheetScore(opts: {
   viewportWidth?: number
   /** Outline melody / roles (default true). */
   noteColors?: boolean
+  /** Mark same-staff crossings (lead>tenor, bass>bari) with × (default on). */
+  showCrossoverMarks?: boolean
   /** Grand-staff spacing (default normal). */
   staveGap?: TagRollSheetStaveGap
   /** Global measure-width multiplier (default 1). */
@@ -476,8 +326,9 @@ export async function renderVexSheetScore(opts: {
   topMargin?: number
   /** Lyric font size (px). */
   lyricSize?: number
-  /** Per-part lyric line nudges (VexFlow textLine units; 0 = default). */
+  /** Per-part lyric nudges (textLine units). Missing part visibility = shown. */
   lyricOffsets?: Readonly<Record<string, number>>
+  lyricPartVisible?: Readonly<Record<string, boolean>>
   /** @deprecated Prefer marginLeftIn / marginRightIn. */
   paddingScale?: number
   /** Minimum measure width floor multiplier. */
@@ -492,7 +343,9 @@ export async function renderVexSheetScore(opts: {
   textFont?: TagRollSheetTextFont
   /** Staff line thickness multiplier (default 1). */
   staffLineWeight?: number
-  /** Part names at system starts (default false). */
+  /** Stem length multiplier (default 1). */
+  stemLength?: number
+  /** Part names (default false). */
   showPartNames?: boolean
   /**
    * Extra top band on page 1 for title / credits HTML.
@@ -518,7 +371,9 @@ export async function renderVexSheetScore(opts: {
   await ensureVexFonts(vexMusicFontName(musicId), vexTextFontName(textId))
   const { host, project, pxPerBeat } = opts
   const showLyrics = opts.showLyrics !== false
+  const straightLyrics = showLyrics && opts.straightLyrics !== false
   const noteColors = opts.noteColors === true
+  const showCrossoverMarks = opts.showCrossoverMarks !== false
   const staveGapPref: TagRollSheetStaveGap =
     opts.staveGap === 'tight' || opts.staveGap === 'wide' ? opts.staveGap : 'normal'
   const measureScale = opts.measureScale ?? 1
@@ -535,10 +390,12 @@ export async function renderVexSheetScore(opts: {
   )
   const lyricFontPx = Math.round(opts.lyricSize ?? DEFAULT_LYRIC_FONT_PX)
   const lyricOffsets = opts.lyricOffsets ?? {}
-  const maxLyricOffset = Object.values(lyricOffsets).reduce(
-    (m, v) => Math.max(m, typeof v === 'number' ? v : 0),
-    0,
-  )
+  const lyricPartVisible = opts.lyricPartVisible ?? {}
+  const lyricPartOn = (partId: string) => lyricPartVisible[partId] !== false
+  const maxLyricOffset = Object.entries(lyricOffsets).reduce((m, [id, v]) => {
+    if (!lyricPartOn(id) || typeof v !== 'number') return m
+    return Math.max(m, v)
+  }, 0)
   const minBarPx = Math.round(SHEET_MEASURE_WIDTH_MIN * (opts.minBarWidth ?? 1))
   const timeFactor = opts.timeFactor ?? 1
   const staffLineWidth = clampSheetFormat(
@@ -547,12 +404,14 @@ export async function renderVexSheetScore(opts: {
     SHEET_STAFF_LINE_MAX,
     1,
   )
+  const stemLength = clampSheetStemLength(opts.stemLength, 1)
   const showPartNames = opts.showPartNames === true
   const headerBandScreen = Math.max(0, Math.round(opts.headerBandPx ?? 0))
   const sheetLayout: TagRollSheetLayout =
     opts.sheetLayout === 'page' ? 'page' : 'continuous'
   const measureSizing: TagRollSheetMeasureSizing =
     opts.measureSizing === 'dynamic' ? 'dynamic' : 'equal'
+  const fullJustify = opts.fullJustify !== false
   const pageDpi = opts.pageDpi ?? 96
   const pageWScreen = sheetPageWidthPx(opts.pageWidthIn ?? 8.5, pageDpi)
   const pageHScreen = sheetPageHeightPx(opts.pageHeightIn ?? 11, pageDpi)
@@ -570,10 +429,6 @@ export async function renderVexSheetScore(opts: {
   const rightPad = inchesToPx(opts.marginRightIn ?? 0.3)
   const topPad = inchesToPx(opts.marginTopIn ?? 0.3)
   const bottomPad = inchesToPx(opts.marginBottomIn ?? 0.3)
-  // Expression headroom / below-staff breathing inside the system.
-  const exprHeadroom = Math.round(8 * (opts.topMargin ?? 1))
-  const staffTailPad = Math.round(10 * (opts.bottomMargin ?? 1))
-  const scoreTopPad = topPad + exprHeadroom
   const clefExtraPx = Math.round(
     SHEET_FIRST_MEASURE_CLEF_EXTRA_PX * (opts.clefGutter ?? 1),
   )
@@ -597,12 +452,20 @@ export async function renderVexSheetScore(opts: {
     melodyPartId: project.view.melodyPartId,
     notes: project.notes,
   })
+  const abovePartIds =
+    assignment.staves[0]?.voices.filter((v) => v.voice === 1).map((v) => v.partId) ?? []
+  const { exprHeadroom, staffTailPad } = sheetLyricSystemPads({
+    straightLyrics, lyricFontPx, lyricOffsets, abovePartIds, lyricPartOn,
+    topMargin: opts.topMargin, bottomMargin: opts.bottomMargin, stemLength, linePx,
+  })
+  const scoreTopPad = topPad + exprHeadroom
   const events = buildSheetRhythm({
     assignment,
     notes: project.notes,
     lengthTicks,
     timeSignature: project.timeSignature,
     ppq,
+    melodyPartAt: (tick) => melodyPartAtTick(project, tick),
   })
   const ts = `${project.timeSignature.numerator}/${project.timeSignature.denominator}`
   const beatsPerMeasure = mLen / ppq
@@ -610,7 +473,8 @@ export async function renderVexSheetScore(opts: {
   const staveCount = Math.max(1, assignment.staves.length)
   const staveGap =
     staveGapSpaces(staveGapPref, showLyrics, staveGapFine) +
-    (showLyrics ? maxLyricOffset * LYRIC_OFFSET_GAP_SPACES : 0)
+    (showLyrics ? maxLyricOffset * LYRIC_OFFSET_GAP_SPACES : 0) +
+    (straightLyrics ? straightLyricStaveGapExtra(lyricFontPx, linePx, stemLength) : 0)
   // Staff height ≈ 4 line-gaps; staveGap is in staff-spaces between staves.
   // Page/strip bottom margin is reserved separately — not inside each system.
   const systemBodyHeight =
@@ -694,6 +558,15 @@ export async function renderVexSheetScore(opts: {
     maxRight = Math.max(maxRight, curX)
   }
 
+  if (pageMode) {
+    justifySheetSystems(places, {
+      enabled: fullJustify,
+      leftPad,
+      targetInnerWidth: Math.max(1, contentWidth - leftPad - rightPad),
+    })
+    maxRight = places.reduce((m, p) => Math.max(m, p.x + p.width), leftPad)
+  }
+
   const pageTopPad = (pi: number) =>
     (pi === 0 ? headerBandPx : 0) + scoreTopPad
   stackSheetSystems(places, {
@@ -748,6 +621,10 @@ export async function renderVexSheetScore(opts: {
   const topStaves: Stave[] = []
   /** Engraved tickables with musical start ticks (for playhead anchoring). */
   const placedByMeasure: PlacedTickable[][] = []
+  /** Open tie starts awaiting a stop (across measures). */
+  const openTies = new Map<string, SheetTieAnchor>()
+  /** Last key signature drawn on each system (accidentals follow the printed key). */
+  const printedKeyBySystem = new Map<number, string>()
 
   for (const pl of places) {
     const mi = pl.mi
@@ -755,6 +632,16 @@ export async function renderVexSheetScore(opts: {
     const endTick = Math.min(lengthTicks, (mi + 1) * mLen)
     const inMeas = eventsInMeasure(events, startTick, endTick)
     const thisWidth = pl.width
+    const musicalKey = sheetKeySpecAtTick(project, startTick)
+    const prevPrinted = printedKeyBySystem.get(pl.systemIndex)
+    const systemStart = pl.x === leftPad
+    const keyChangedMidSystem = !systemStart && prevPrinted != null && prevPrinted !== musicalKey
+    // Print key at system start, or mid-system when the marker changes.
+    if (systemStart || keyChangedMidSystem || prevPrinted == null) {
+      printedKeyBySystem.set(pl.systemIndex, musicalKey)
+    }
+    const printedKey = printedKeyBySystem.get(pl.systemIndex) ?? musicalKey
+    const drawKeySig = systemStart || keyChangedMidSystem
     const system = factory.System({
       x: pl.x,
       y: pl.y,
@@ -764,6 +651,10 @@ export async function renderVexSheetScore(opts: {
 
     const staveRefs: Stave[] = []
     const placedHere: PlacedTickable[] = []
+    const measureBeats = Math.max(
+      1,
+      Math.round(((endTick - startTick) / ppq) * (project.timeSignature.denominator / 4)),
+    )
     for (const staff of assignment.staves) {
       const noteClef = vexNoteClef(staff.clef)
       const voices = []
@@ -771,15 +662,19 @@ export async function renderVexSheetScore(opts: {
       const staffEvents = inMeas.filter((e) => staffPartIds.has(e.partId))
       /** Rests placed so far on this staff (later voices dodge earlier ones). */
       const placedRests: RestOccupant[] = []
+      const flatsAt = (tick: number) => preferFlatsAtTick(project, tick)
+      const spellAt = (writtenMidi: number, tick: number) =>
+        spellWrittenMidi(writtenMidi, project, tick, opts.chordDetectSegments)
+      const voiceBuilt: {
+        slotEvents: SheetRhythmEvent[]
+        notes: StaveNote[]
+        voiceNum: 1 | 2
+      }[] = []
       for (const slot of staff.voices) {
         const slotEvents = staffEvents.filter((e) => e.partId === slot.partId)
         const exclude = new Set([slot.partId])
         const noteOcc = noteOccupantsFromEvents(
-          staffEvents,
-          exclude,
-          project.clefFamily,
-          staff.kind,
-          project.preferFlats,
+          staffEvents, exclude, project.clefFamily, staff.kind, flatsAt(startTick),
         )
         const restOccupants = [...noteOcc, ...placedRests]
         let notes = buildVoiceNotes(
@@ -787,15 +682,21 @@ export async function renderVexSheetScore(opts: {
           slotEvents,
           staff,
           project.clefFamily,
-          project.preferFlats,
+          flatsAt,
           slot.voice === 1,
           showLyrics,
+          straightLyrics,
           restOccupants,
           placedRests,
           placedHere,
           noteColors,
           lyricFontPx,
           lyricOffsets,
+          lyricPartOn,
+          stemLength,
+          slot.voice,
+          openTies,
+          spellAt,
         )
         notes = fillMeasureIfEmpty(
           factory,
@@ -809,36 +710,45 @@ export async function renderVexSheetScore(opts: {
           placedRests,
           placedHere,
         )
-        beamNotes(factory, notes)
+        voiceBuilt.push({ slotEvents, notes, voiceNum: slot.voice })
+      }
+      const v1 = voiceBuilt.find((v) => v.voiceNum === 1)
+      const v2 = voiceBuilt.find((v) => v.voiceNum === 2)
+      if (v1 && v2 && v1.slotEvents.length && v2.slotEvents.length) {
+        applyOpposingVoiceOffsets({
+          v1Events: v1.slotEvents,
+          v1Notes: v1.notes,
+          v2Events: v2.slotEvents,
+          v2Notes: v2.notes,
+          clefFamily: project.clefFamily,
+          staffKind: staff.kind,
+          preferFlats: flatsAt(startTick),
+        })
+      }
+      for (const built of voiceBuilt) {
+        beamNotes(factory, built.notes, built.slotEvents)
+        attachSheetTuplets(factory, built.notes, built.slotEvents)
         const voice = factory
           .Voice({
             time: {
-              numBeats: project.timeSignature.numerator,
+              numBeats: measureBeats,
               beatValue: project.timeSignature.denominator,
             },
           })
+          // SOFT only as fallback when tick sum drifts; prefer exact fill from rhythmLayout.
           .setMode(Voice.Mode.SOFT)
-          .addTickables(notes)
+          .addTickables(built.notes)
         voices.push(voice)
       }
       if (!voices.length) {
         const notes = fillMeasureIfEmpty(
-          factory,
-          [],
-          endTick - startTick,
-          startTick,
-          ppq,
-          noteClef,
-          true,
-          [],
-          placedRests,
-          placedHere,
+          factory, [], endTick - startTick, startTick, ppq, noteClef, true, [], placedRests, placedHere,
         )
         voices.push(
           factory
             .Voice({
               time: {
-                numBeats: project.timeSignature.numerator,
+                numBeats: measureBeats,
                 beatValue: project.timeSignature.denominator,
               },
             })
@@ -846,37 +756,33 @@ export async function renderVexSheetScore(opts: {
             .addTickables(notes),
         )
       }
+      applySheetAccidentals(voices, printedKey)
 
       const stave = system.addStave({
         voices,
-        spaceBelow: showLyrics ? LYRIC_STAVE_SPACE_BELOW : 0,
+        spaceBelow: showLyrics
+          ? LYRIC_STAVE_SPACE_BELOW + (straightLyrics ? 1 : 0)
+          : 0,
       })
       stave.setStyle({ ...stave.getStyle(), lineWidth: staffLineWidth, strokeStyle: '#000000' })
       // Part names once, on the first system only. StaveText LEFT already sits
       // left of the clef (staveX − width − 24); a further negative shiftX was
       // pushing labels off the left edge of the SVG.
-      if (showPartNames && pl.systemIndex === 0 && pl.x === leftPad) {
+      if (showPartNames && pl.systemIndex === 0 && systemStart) {
         const partLabel = staff.labels.filter(Boolean).join(' · ')
         if (partLabel) {
-          stave.setStaveText(partLabel, StaveModifierPosition.LEFT, {
-            // Keep a small gap before the clef; stay inside partNameGutter.
-            shiftX: 4,
-          })
+          stave.setStaveText(partLabel, StaveModifierPosition.LEFT, { shiftX: 4 })
         }
       }
       staveRefs.push(stave)
-      if (pl.x === leftPad) {
+      if (systemStart) {
         const c = clefSpec(staff.clef)
         if (c.annotation) stave.addClef(c.clef, undefined, c.annotation)
         else stave.addClef(c.clef)
-        stave.addKeySignature(
-          vexKeySpec(
-            project.tonality,
-            project.preferFlats,
-            project.tonalityMode ?? 'major',
-          ),
-        )
+        stave.addKeySignature(printedKey)
         if (mi === 0) stave.addTimeSignature(ts)
+      } else if (drawKeySig) {
+        stave.addKeySignature(printedKey)
       }
     }
 
@@ -915,6 +821,18 @@ export async function renderVexSheetScore(opts: {
   }
 
   factory.draw()
+  const placedFlat = placedByMeasure.flat()
+  // Lyrics (white boxes under staff lines) then raise notes; overlays stay on top.
+  if (straightLyrics) {
+    drawStraightLyricLanes(host, placedFlat, {
+      fontPx: lyricFontPx, linePx, stemLength, fontFamily: vexTextFontName(textId),
+      offsets: lyricOffsets, partVisible: lyricPartOn,
+    })
+  }
+  drawMelodyHandoffLines(host, placedFlat, resolveMelodyPasses(project))
+  if (showCrossoverMarks) {
+    drawCrossoverMarks(host, placedFlat, staffCrossoverNoteIds(project.notes, project.parts))
+  }
   applySvgSizeScale(host, totalWidth, totalHeight, sizeScale)
 
   const sx = (n: number) => n * sizeScale

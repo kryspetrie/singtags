@@ -67,6 +67,10 @@ export const SHEET_BOTTOM_MARGIN_MAX = 1.85
 export const SHEET_STAFF_LINE_MIN = 0.55
 export const SHEET_STAFF_LINE_MAX = 2.6
 
+/** Note stem length multiplier (1 = VexFlow default). */
+export const SHEET_STEM_LENGTH_MIN = 0.55
+export const SHEET_STEM_LENGTH_MAX = 1.85
+
 export function clampSheetFormat(
   n: unknown,
   min: number,
@@ -89,6 +93,7 @@ export function clampSheetNoteSpacing(n: unknown, fallback = 1): number {
 export type SheetFormatSnapshot = Pick<
   TagRollViewPrefs,
   | 'sheetNoteColors'
+  | 'sheetShowCrossoverMarks'
   | 'sheetStaveGap'
   | 'sheetMeasureScale'
   | 'sheetNoteSpacing'
@@ -97,7 +102,9 @@ export type SheetFormatSnapshot = Pick<
   | 'sheetSystemGap'
   | 'sheetTopMargin'
   | 'sheetLyricSize'
+  | 'sheetStraightLyrics'
   | 'sheetLyricOffsets'
+  | 'sheetLyricPartVisible'
   | 'sheetPlaybackHighlight'
   | 'sheetShowSketchChords'
   | 'sheetShowDetectedChords'
@@ -113,8 +120,10 @@ export type SheetFormatSnapshot = Pick<
   | 'sheetMusicFont'
   | 'sheetTextFont'
   | 'sheetStaffLineWeight'
+  | 'sheetStemLength'
   | 'sheetPartNames'
   | 'sheetMeasureSizing'
+  | 'sheetFullJustify'
   | 'sheetPageWidthIn'
   | 'sheetPageHeightIn'
   | 'sheetPageDpi'
@@ -130,6 +139,7 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
   const v = TAG_ROLL_DEFAULT_VIEW
   return {
     sheetNoteColors: v.sheetNoteColors,
+    sheetShowCrossoverMarks: v.sheetShowCrossoverMarks !== false,
     sheetStaveGap: v.sheetStaveGap,
     sheetMeasureScale: v.sheetMeasureScale,
     sheetNoteSpacing: v.sheetNoteSpacing,
@@ -138,7 +148,9 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
     sheetSystemGap: v.sheetSystemGap,
     sheetTopMargin: v.sheetTopMargin,
     sheetLyricSize: v.sheetLyricSize,
+    sheetStraightLyrics: v.sheetStraightLyrics !== false,
     sheetLyricOffsets: { ...v.sheetLyricOffsets },
+    sheetLyricPartVisible: { ...v.sheetLyricPartVisible },
     sheetPlaybackHighlight: v.sheetPlaybackHighlight,
     sheetShowSketchChords: v.sheetShowSketchChords,
     sheetShowDetectedChords: v.sheetShowDetectedChords,
@@ -154,8 +166,10 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
     sheetMusicFont: v.sheetMusicFont,
     sheetTextFont: v.sheetTextFont,
     sheetStaffLineWeight: v.sheetStaffLineWeight,
+    sheetStemLength: v.sheetStemLength,
     sheetPartNames: v.sheetPartNames,
     sheetMeasureSizing: v.sheetMeasureSizing,
+    sheetFullJustify: v.sheetFullJustify !== false,
     sheetPageWidthIn: v.sheetPageWidthIn,
     sheetPageHeightIn: v.sheetPageHeightIn,
     sheetPageDpi: v.sheetPageDpi,
@@ -165,5 +179,53 @@ export function defaultSheetFormat(): SheetFormatSnapshot {
     sheetMarginTopIn: v.sheetMarginTopIn,
     sheetEngravingScale: v.sheetEngravingScale,
     sheetScoreScale: v.sheetScoreScale,
+  }
+}
+
+/** Min reserved band for engraved title / credits on page 1. */
+export const SHEET_TITLE_BAND_MIN_PX = 92
+
+/** Title / subtitle / credits band height (0 when header off or empty). */
+export function estimateSheetTitleBandPx(
+  project: {
+    title?: string
+    subtitle?: string
+    composer?: string
+    arranger?: string
+  },
+  show: boolean,
+  sizeScale = 1,
+): number {
+  if (!show) return 0
+  const hasTitle = !!project.title?.trim()
+  const hasSub = !!project.subtitle?.trim()
+  const hasCredits = !!(project.composer?.trim() || project.arranger?.trim())
+  if (!hasTitle && !hasSub && !hasCredits) return 0
+  const s = Math.max(0.4, sizeScale)
+  let h = 28
+  if (hasTitle) h += 28
+  if (hasSub) h += 20
+  if (hasCredits) h += 22
+  return Math.round(Math.max(SHEET_TITLE_BAND_MIN_PX, h) * s)
+}
+
+/** Page-edge margins in CSS px (excludes part-name gutter). */
+export function sheetPageEdgeMarginsPx(
+  view: Pick<
+    TagRollViewPrefs,
+    | 'sheetPageDpi'
+    | 'sheetMarginLeftIn'
+    | 'sheetMarginRightIn'
+    | 'sheetMarginTopIn'
+    | 'sheetMarginBottomIn'
+  >,
+): { left: number; right: number; top: number; bottom: number } {
+  const dpi = view.sheetPageDpi ?? 96
+  const inch = (v: number | undefined, d: number) => Math.round((v ?? d) * dpi)
+  return {
+    left: inch(view.sheetMarginLeftIn, 0.3),
+    right: inch(view.sheetMarginRightIn, 0.3),
+    top: inch(view.sheetMarginTopIn, 0.3),
+    bottom: inch(view.sheetMarginBottomIn, 0.3),
   }
 }

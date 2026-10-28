@@ -430,6 +430,8 @@ describe('appendSheetChordMarksToSvg', () => {
   it('paints SVG marks in unit space when sizeScale ≠ 1', () => {
     const p = createEmptyTagRollProject()
     p.view.sheetScoreScale = 1.25
+    // Keep gap geometry independent of straight-lyric chord lift.
+    p.view.sheetStraightLyrics = false
     p.view.sheetChordMarkStyle = 'span'
     p.harmonySketch = [
       {

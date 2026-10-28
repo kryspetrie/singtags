@@ -35,6 +35,16 @@ function overlaps(
   return a.startTick < b.endTick && b.startTick < a.endTick
 }
 
+/** True when a dirty preview covers this span, so the old chord should stay silent. */
+export function previewOverlapsRange(
+  preview: HarmonyPreviewDraft | null,
+  startTick: number,
+  endTick: number,
+): boolean {
+  if (!preview || !previewDraftDirty(preview)) return false
+  return startTick < preview.endTick && preview.startTick < endTick
+}
+
 /**
  * Locked sketch for mixer/scheduler, with an active preview replacing any
  * overlapping locked span (so Play hears the candidate, not the committed chord).

@@ -164,7 +164,7 @@ export const GLOSSARY_DETAILS: Readonly<Record<string, GlossaryDetail>> = {
   },
   melody_pass: {
     detail:
-      'The Roles melody part (Toolbar → Roles) is the tune Coach and Detected treat as Lead. Strong/Passing marks and sheet outlines follow that voice.',
+      'Lead carries the tune until it moves. Toolbar → Melody, then M on the arrival note, hands the melody to that part until the next change. The sheet and the piano roll draw a dashed line from the previous melody note to that arrival.',
   },
   voicing_spread: {
     detail:

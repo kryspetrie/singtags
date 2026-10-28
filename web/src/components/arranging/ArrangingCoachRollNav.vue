@@ -98,7 +98,7 @@ const tm = computed(() => tr.value.model)
   left: 0.35rem;
   right: 0.35rem;
   bottom: 0.35rem;
-  z-index: 6;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

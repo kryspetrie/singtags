@@ -8,6 +8,7 @@ import { collectMomentBoundaries, melodyWithDeferredPortamento } from '../harmon
 import { identifyNatureFromMidi } from '../chordCompletion'
 import { BARBERSHOP_CHORDS, placeVoicing } from '../chords'
 import { deferOverlappingOnsets } from '../../../lib/tagRoll/portamento'
+import { melodyPartAtTick } from '../../../lib/tagRoll/melodyPass'
 import {
   TAG_ROLL_DEFAULT_BPM,
   TAG_ROLL_DEFAULT_LENGTH_TICKS,
@@ -189,7 +190,7 @@ export function tagRollToArrangement(
   }
 
   const leadNotes = tag.notes
-    .filter((n) => n.partId === leadPart.id)
+    .filter((n) => n.partId === melodyPartAtTick(tag, n.startTick))
     .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
 
   // Musical onsets: portamento destinations begin at the predecessor release
@@ -210,9 +211,12 @@ export function tagRollToArrangement(
   const bass = partByName(tag.parts, 'Bass')
 
   const harmonyNotes = tag.notes.filter((n) => {
-    if (n.partId === leadPart.id) return false
+    if (n.partId === melodyPartAtTick(tag, n.startTick)) return false
     return (
-      n.partId === tenor?.id || n.partId === bari?.id || n.partId === bass?.id
+      n.partId === tenor?.id ||
+      n.partId === bari?.id ||
+      n.partId === bass?.id ||
+      n.partId === leadPart.id
     )
   })
 
@@ -230,7 +234,7 @@ export function tagRollToArrangement(
       })),
       (a, b) => a.midi - b.midi,
     ),
-    ...(['Tenor', 'Bari', 'Bass'] as const).flatMap((name) => {
+    ...(['Tenor', 'Bari', 'Bass', 'Lead'] as const).flatMap((name) => {
       const part = partByName(tag.parts, name)
       if (!part) return []
       const notes = harmonyNotes.filter((n) => n.partId === part.id)

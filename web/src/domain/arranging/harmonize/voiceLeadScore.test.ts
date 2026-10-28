@@ -149,4 +149,22 @@ describe('rankCandidates prefers smoother harmony VL', () => {
     const vl = parts.find((p) => p.label === 'voiceLead')
     expect(vl?.value).toBe(0.5)
   })
+
+  it('penalizes an inversion whose tenor leap sticks out from the recent step', () => {
+    const prevPrev = { bass: 48, bari: 47, lead: 60, tenor: 66 }
+    const outlier = baseCand({ bass: 48, bari: 52, lead: 60, tenor: 74 }, 'outlier')
+    const settled = baseCand({ bass: 48, bari: 57, lead: 60, tenor: 69 }, 'settled')
+    outlier.prevPrevMidi = prevPrev
+    settled.prevPrevMidi = prevPrev
+    const ranked = rankCandidates([outlier, settled], {
+      weights: { ...VL_ONLY },
+      harmonicity: null,
+    })
+    expect(ranked[0]!.label).toBe('settled')
+    const parts = explainRankingBreakdown(outlier, {
+      weights: { ...VL_ONLY },
+      harmonicity: null,
+    })
+    expect(parts.find((p) => p.label === 'medianJump')?.value).toBeLessThan(0)
+  })
 })

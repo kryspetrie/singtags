@@ -1,22 +1,17 @@
 <script setup lang="ts">
 /**
- * Thin HUD for Melody roles (Strong / Passing / Melody) on the piano roll.
+ * Thin HUD for handing the melody from one part to another.
  */
 import { computed } from 'vue'
 import InfoTips from '../InfoTips.vue'
 import HarmonyHowToSections from './HarmonyHowToSections.vue'
 import { ROLES_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
-import {
-  roleDisplayFromToggles,
-  roleDisplayShowsMelody,
-  roleDisplayShowsRoles,
-} from '../../lib/tagRoll/roleDisplay'
+import { roleDisplayFromToggles, roleDisplayShowsMelody } from '../../lib/tagRoll/roleDisplay'
 import type { TagRollRoleDisplay } from '../../lib/tagRoll/types'
 
 const props = defineProps<{
   active: boolean
   melodyPartName: string | null
-  selectedRole: 'pmn' | 'smn' | 'unknown' | null
   roleDisplay: TagRollRoleDisplay
 }>()
 
@@ -27,22 +22,17 @@ const emit = defineEmits<{
 }>()
 
 const showMelody = computed(() => roleDisplayShowsMelody(props.roleDisplay))
-const showRoles = computed(() => roleDisplayShowsRoles(props.roleDisplay))
 
 function setMelody(on: boolean): void {
-  emit('update:roleDisplay', roleDisplayFromToggles(on, showRoles.value))
-}
-
-function setRoles(on: boolean): void {
-  emit('update:roleDisplay', roleDisplayFromToggles(showMelody.value, on))
+  emit('update:roleDisplay', roleDisplayFromToggles(on, false))
 }
 </script>
 
 <template>
   <div v-if="active" class="hud" role="status" aria-live="polite">
     <div class="main">
-      <strong>Melody roles</strong>
-      <InfoTips class="howto" label="How to use Melody roles" title="How to use Melody roles">
+      <strong>Melody</strong>
+      <InfoTips class="howto" label="How melody handoffs work" title="How melody handoffs work">
         <HarmonyHowToSections :sections="ROLES_HOWTO" />
       </InfoTips>
       <span class="sep">·</span>
@@ -52,21 +42,8 @@ function setRoles(on: boolean): void {
       <span class="sep">·</span>
       <span>Shift+arrows move</span>
       <span class="sep">·</span>
-      <kbd
-        title="Strong: structural home — chord-symbol change; gets its own chord decision"
-        >S</kbd
-      >
-      Strong
-      <kbd
-        title="Passing: connects Strong tones; approaches or holds the neighboring home"
-        >P</kbd
-      >
-      Passing
-      <kbd>C</kbd> Clear
-      <kbd>M</kbd> Melody
+      <kbd>M</kbd> Handoff
       <span v-if="melodyPartName" class="mel">Melody: {{ melodyPartName }}</span>
-      <span v-if="selectedRole === 'pmn'" class="role pmn">Strong</span>
-      <span v-else-if="selectedRole === 'smn'" class="role smn">Passing</span>
       <span class="sep">·</span>
       <label class="tog" title="Show red Melody stripe">
         <input
@@ -76,19 +53,11 @@ function setRoles(on: boolean): void {
         />
         Melody
       </label>
-      <label class="tog" title="Show Strong / Passing stripes">
-        <input
-          type="checkbox"
-          :checked="showRoles"
-          @change="setRoles(($event.target as HTMLInputElement).checked)"
-        />
-        Roles
-      </label>
       <button type="button" class="filter" title="Open View marks" @click="emit('openMarks')">
         Marks…
       </button>
     </div>
-    <button type="button" class="close" title="Exit Roles" @click="$emit('close')">✕</button>
+    <button type="button" class="close" title="Exit Melody" @click="$emit('close')">✕</button>
   </div>
 </template>
 
@@ -141,22 +110,6 @@ kbd {
   margin-left: 0.25rem;
   font-weight: 650;
   color: var(--muted);
-}
-.role {
-  font-weight: 750;
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-}
-.role.pmn {
-  color: #1f6b45;
-  border-color: color-mix(in srgb, #2a8c5a 45%, var(--border));
-  background: color-mix(in srgb, #2a8c5a 14%, transparent);
-}
-.role.smn {
-  color: #9a7a10;
-  border-color: color-mix(in srgb, #d4a81c 55%, var(--border));
-  background: color-mix(in srgb, #d4a81c 16%, transparent);
 }
 .tog {
   display: inline-flex;

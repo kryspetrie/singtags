@@ -15,7 +15,7 @@ describe('resolveCoachNextAction', () => {
     expect(a.kind).toBe('suggest_pillars')
     expect(a.cta).toMatch(/Open Sketch/i)
     expect(a.focus).toBe('home')
-    expect(a.body).toMatch(/Strong|passing/i)
+    expect(a.body).toMatch(/Sketch/i)
   })
 
   it('skips Sketch nag when Sketch/Detected already map the phrase', () => {
@@ -29,7 +29,7 @@ describe('resolveCoachNextAction', () => {
     })
     expect(a.kind).toBe('walk_choose')
     expect(a.focus).toBe('choose')
-    expect(a.body).toMatch(/Sketch\/Detected|Strong|passing/i)
+    expect(a.body).toMatch(/Sketch\/Detected/i)
   })
 
   it('mentions existing stacks when suggesting Sketch chords', () => {

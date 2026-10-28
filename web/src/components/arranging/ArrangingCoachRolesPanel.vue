@@ -10,14 +10,11 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Melody part and Strong / Passing live under toolbar <strong>Roles</strong> — one place for
-      Harmonize, Detected, and Coach. <strong>Strong</strong> = structural home (chord-symbol
-      change); <strong>Passing</strong> = connective tone under the neighboring home. Auto
-      defaults unlabeled notes from duration, beat, and phrase edges. Open Roles to override
-      (<kbd>S</kbd> / <kbd>P</kbd> / <kbd>M</kbd>).
+      The tune starts on Lead. Under toolbar <strong>Melody</strong>, press <kbd>M</kbd> on the
+      note where it moves to another part. That part keeps the melody until the next handoff.
     </p>
     <button type="button" class="primary" @click="$emit('openAssign')">
-      Open Melody roles
+      Open Melody
     </button>
   </section>
 </template>

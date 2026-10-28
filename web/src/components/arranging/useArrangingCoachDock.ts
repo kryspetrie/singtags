@@ -863,17 +863,10 @@ export function useArrangingCoachDock(
     if (arrStore.selectedPillarId) focusPillar(arrStore.selectedPillarId)
   }
 
-  function autoLabelRolesIfRepair(): void {
-    if (detectCoachEntryMode(arrStore.current, moments.value.length) !== 'repair') return
-    arrStore.labelRoles(false)
-    arrStore.runQa()
-  }
-
   function onLockPillar(): void {
     arrStore.lockSelectedPillar()
     pillarTouched.value = true
     syncPillarsToSketch()
-    autoLabelRolesIfRepair()
     // Approach Two: confirm destination → next.
     onProposeNext()
   }
@@ -882,7 +875,6 @@ export function useArrangingCoachDock(
     if (!canLockRemaining.value) return
     arrStore.lockRemaining()
     syncPillarsToSketch()
-    autoLabelRolesIfRepair()
   }
 
   function onDeletePillar(): void {

@@ -2,6 +2,8 @@
  * Key-change apply façade — suggest, pack, Sketch patches, form gate (Phase K2+K3).
  */
 import {
+  preferredKeyChangeTemplate,
+  signedKeyInterval,
   suggestKeyChanges,
   type ModulationPath,
   type SuggestKeyChangesOpts,
@@ -80,6 +82,8 @@ export type ModulationOption = {
   packed?: PackedModulationStep[]
   patches?: ModulationSketchPatch[]
   soft?: MelodySoftScoreResult
+  /** Other paths in the same family, hidden behind this row. */
+  alts?: ModulationOption[]
 }
 
 const QUALITIES = new Set([
@@ -101,6 +105,88 @@ const QUALITIES = new Set([
 function natureToQuality(natureId: string): string {
   if (QUALITIES.has(natureId)) return natureId
   return 'major'
+}
+
+type KeyChangeFamily = 'gold' | 'cadence' | 'pivot' | 'circle' | 'post' | 'hitch'
+
+function stepKey(path: ModulationPath): string {
+  return path.steps.map((s) => `${s.rootPc}:${s.natureId}`).join('|')
+}
+
+function goldFor(opts: SuggestKeyChangesOpts): string | null {
+  return preferredKeyChangeTemplate(
+    signedKeyInterval(opts.fromTonality, opts.toTonality, opts.preferUp !== false),
+  )
+}
+
+function familyOf(path: ModulationPath, gold: string | null): KeyChangeFamily {
+  if (
+    path.templateId === 'hitch' ||
+    (path.character === 'abrupt' && path.steps.length === 1 && path.steps[0]?.rootPc === path.toTonality)
+  ) {
+    return 'hitch'
+  }
+  if (gold && path.templateId === gold) return 'gold'
+  if (path.templateId?.startsWith('post')) return 'post'
+  if (path.id.includes('circle')) return 'circle'
+  if (path.id.includes('pivot') || path.id.includes('IV-V')) return 'pivot'
+  return 'cadence'
+}
+
+function compareOptions(
+  a: ModulationOption,
+  b: ModulationOption,
+  opts: SuggestKeyChangesOpts,
+): number {
+  if (a.packOk !== b.packOk) return a.packOk ? -1 : 1
+  const score = (b.soft?.score ?? 0) - (a.soft?.score ?? 0)
+  if (score !== 0) return score
+  const gold = goldFor(opts)
+  const ga = a.path.templateId === gold ? 0 : 1
+  const gb = b.path.templateId === gold ? 0 : 1
+  if (ga !== gb) return ga - gb
+  const ha = a.path.templateId === 'hitch' ? 1 : 0
+  const hb = b.path.templateId === 'hitch' ? 1 : 0
+  if (ha !== hb) return ha - hb
+  if (a.path.rank !== b.path.rank) return a.path.rank - b.path.rank
+  return a.path.length - b.path.length
+}
+
+const FAMILY_ORDER: KeyChangeFamily[] = ['gold', 'cadence', 'pivot', 'circle', 'post', 'hitch']
+
+function presentFamilies(
+  options: readonly ModulationOption[],
+  opts: SuggestKeyChangesOpts,
+): ModulationOption[] {
+  const gold = goldFor(opts)
+  const groups = new Map<KeyChangeFamily, ModulationOption[]>()
+  for (const opt of options) {
+    const family = familyOf(opt.path, gold)
+    const list = groups.get(family) ?? []
+    list.push(opt)
+    groups.set(family, list)
+  }
+  const shown: ModulationOption[] = []
+  const seen = new Set<string>()
+  for (const family of FAMILY_ORDER) {
+    const list = (groups.get(family) ?? []).filter((o) => o.packOk)
+    if (!list.length) continue
+    list.sort((a, b) => compareOptions(a, b, opts))
+    const head = list[0]!
+    const headKey = stepKey(head.path)
+    if (seen.has(headKey)) continue
+    seen.add(headKey)
+    const alts = list.slice(1).filter((o) => {
+      const key = stepKey(o.path)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    }).slice(0, 4)
+    shown.push({ ...head, alts: alts.length ? alts : undefined })
+  }
+  if (shown.length) return shown
+  const fallback = options.find((o) => !o.packOk)
+  return fallback ? [fallback] : []
 }
 
 export function pickModulationPath(
@@ -149,19 +235,23 @@ export function listModulationOptions(
 
   let paths: ModulationPath[] = [...suggestKeyChanges(opts)]
 
-  if (opts.includePosts !== false) {
-    paths.push(
-      ...suggestPostKeyChanges({
-        fromTonality: opts.fromTonality,
-        toTonality: opts.toTonality,
-        fromMode: opts.fromMode,
-        toMode: opts.toMode,
-        holdPc: opts.holdPc ?? opts.fromTonality,
-        preferUp: opts.preferUp,
-        maxLength: Math.max(budgetChords, opts.maxLength ?? 5),
-        limit: 8,
-      }),
-    )
+  if (opts.includePosts === true) {
+    const hold = ((opts.holdPc ?? opts.fromTonality) % 12 + 12) % 12
+    const sounding = (opts.melodyNotes ?? []).some((n) => ((n.midi % 12) + 12) % 12 === hold)
+    if (sounding) {
+      paths.push(
+        ...suggestPostKeyChanges({
+          fromTonality: opts.fromTonality,
+          toTonality: opts.toTonality,
+          fromMode: opts.fromMode,
+          toMode: opts.toMode,
+          holdPc: hold,
+          preferUp: opts.preferUp,
+          maxLength: Math.max(budgetChords, opts.maxLength ?? 5),
+          limit: 8,
+        }),
+      )
+    }
   }
 
   if (opts.includeHybrids !== false && opts.enumerateHybrids !== false) {
@@ -229,14 +319,8 @@ export function listModulationOptions(
       soft,
     })
   }
-  out.sort((a, b) => {
-    if (a.packOk !== b.packOk) return a.packOk ? -1 : 1
-    const sa = a.soft?.score ?? 0
-    const sb = b.soft?.score ?? 0
-    if (sb !== sa) return sb - sa
-    return a.path.rank - b.path.rank
-  })
-  return out
+  out.sort((a, b) => compareOptions(a, b, opts))
+  return presentFamilies(out, opts)
 }
 
 /**

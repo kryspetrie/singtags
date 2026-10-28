@@ -12,6 +12,7 @@ import {
 import { getArrangingServices } from '../../composition/arranging'
 import { asciiMusicText } from '../../lib/arranging/asciiMusicText'
 import type { AudioPreview } from '../../ports/AudioPreview'
+import ArrangingLearnChoices from './ArrangingLearnChoices.vue'
 import ArrangingTeachProse from './ArrangingTeachProse.vue'
 import ArrangingTeachSources from './ArrangingTeachSources.vue'
 
@@ -29,8 +30,9 @@ const emit = defineEmits<{
 
 const lesson = ref<TeachLessonView | null>(null)
 const hearingId = ref<string | null>(null)
-const openTopics = ref<Record<string, boolean>>({})
-const openExamples = ref<Record<string, boolean>>({})
+const topicIndex = ref(0)
+const exampleIndex = ref(0)
+const chordIndex = ref(0)
 let audio: AudioPreview | null = null
 let hearToken = 0
 
@@ -42,12 +44,9 @@ function rebuild(): void {
     intro: props.intro,
     renderer: services.notationRenderer,
   })
-  const topics: Record<string, boolean> = {}
-  for (const t of lesson.value.topics) topics[t.id] = true
-  openTopics.value = topics
-  const examples: Record<string, boolean> = {}
-  for (const ex of lesson.value.examples) examples[ex.id] = true
-  openExamples.value = examples
+  topicIndex.value = 0
+  exampleIndex.value = 0
+  chordIndex.value = 0
 }
 
 watch(
@@ -102,16 +101,28 @@ function stopHear(): void {
   audio = null
 }
 
-function toggleTopic(id: string): void {
-  openTopics.value = { ...openTopics.value, [id]: !openTopics.value[id] }
-}
-
-function toggleExample(id: string): void {
-  openExamples.value = { ...openExamples.value, [id]: !openExamples.value[id] }
+function pickExample(index: number): void {
+  exampleIndex.value = index
+  chordIndex.value = 0
 }
 
 const topics = computed(() => lesson.value?.topics ?? [])
 const examples = computed(() => lesson.value?.examples ?? [])
+const topic = computed(() => topics.value[topicIndex.value] ?? null)
+const example = computed(() => examples.value[exampleIndex.value] ?? null)
+const chord = computed(() => example.value?.chords[chordIndex.value] ?? null)
+const topicOptions = computed(() =>
+  topics.value.map((t) => ({ id: t.id, label: asciiMusicText(t.term) })),
+)
+const exampleOptions = computed(() =>
+  examples.value.map((ex) => ({ id: ex.id, label: asciiMusicText(ex.title) })),
+)
+const chordOptions = computed(() =>
+  (example.value?.chords ?? []).map((ch, i) => ({
+    id: `${example.value?.id ?? 'ex'}-${i}`,
+    label: asciiMusicText(ch.label),
+  })),
+)
 </script>
 
 <template>
@@ -137,93 +148,79 @@ const examples = computed(() => lesson.value?.examples ?? [])
 
     <p v-if="!topics.length" class="empty">No teaching note for this topic yet.</p>
 
-    <section v-for="t in topics" :key="t.id" class="topic">
-      <button
-        type="button"
-        class="collapse-head"
-        :aria-expanded="openTopics[t.id] !== false"
-        @click="toggleTopic(t.id)"
-      >
-        <span class="chev" aria-hidden="true">{{ openTopics[t.id] !== false ? '▾' : '▸' }}</span>
-        <h4>{{ asciiMusicText(t.term) }}</h4>
-      </button>
-      <div v-show="openTopics[t.id] !== false" class="collapse-body">
-        <ArrangingTeachProse class="detail" :text="t.detail" />
-        <div v-if="t.makeup" class="makeup">
-          <span class="lbl">Makeup</span>
-          <ArrangingTeachProse :text="t.makeup" />
-        </div>
-        <figure v-for="(img, ii) in t.images" :key="`${t.id}-img-${ii}`" class="teach-fig">
-          <img :src="img.src" :alt="img.alt" loading="lazy" decoding="async" />
-          <figcaption v-if="img.caption">{{ asciiMusicText(img.caption) }}</figcaption>
-        </figure>
-        <ArrangingTeachSources v-if="t.citations.length" :items="t.citations" />
+    <ArrangingLearnChoices
+      label="Topic"
+      :options="topicOptions"
+      :selected="topicIndex"
+      @pick="topicIndex = $event"
+    />
+    <section v-if="topic" class="topic">
+      <h4>{{ asciiMusicText(topic.term) }}</h4>
+      <ArrangingTeachProse class="detail" :text="topic.detail" />
+      <div v-if="topic.makeup" class="makeup">
+        <span class="lbl">Makeup</span>
+        <ArrangingTeachProse :text="topic.makeup" />
       </div>
+      <figure v-for="(img, ii) in topic.images" :key="`${topic.id}-img-${ii}`" class="teach-fig">
+        <img :src="img.src" :alt="img.alt" loading="lazy" decoding="async" />
+        <figcaption v-if="img.caption">{{ asciiMusicText(img.caption) }}</figcaption>
+      </figure>
+      <ArrangingTeachSources v-if="topic.citations.length" :items="topic.citations" />
     </section>
 
     <template v-if="examples.length">
-      <div class="examples-head">
-        <p class="examples-label">Examples</p>
-        <p class="examples-key">Key of C major · TTBB</p>
-      </div>
-      <article v-for="ex in examples" :key="ex.id" class="example">
+      <p class="examples-key">Key of C major · TTBB</p>
+      <ArrangingLearnChoices
+        label="Example"
+        :options="exampleOptions"
+        :selected="exampleIndex"
+        @pick="pickExample"
+      />
+      <article v-if="example" class="example">
         <header class="ex-head">
-          <button
-            type="button"
-            class="collapse-head ex-title"
-            :aria-expanded="openExamples[ex.id] !== false"
-            @click="toggleExample(ex.id)"
-          >
-            <span class="chev" aria-hidden="true">{{
-              openExamples[ex.id] !== false ? '▾' : '▸'
-            }}</span>
-            <div class="ex-title-copy">
-              <strong>{{ asciiMusicText(ex.title) }}</strong>
-              <ArrangingTeachProse class="caption" :text="ex.caption" />
-            </div>
-          </button>
+          <div class="ex-title-copy">
+            <strong>{{ asciiMusicText(example.title) }}</strong>
+            <ArrangingTeachProse class="caption" :text="example.caption" />
+          </div>
           <button
             type="button"
             class="hear"
-            :aria-pressed="hearingId === ex.id"
-            :title="hearingId === ex.id ? 'Stop' : 'Hear this example'"
-            @click.stop="hearingId === ex.id ? stopHear() : hearExample(ex)"
+            :aria-pressed="hearingId === example.id"
+            :title="hearingId === example.id ? 'Stop' : 'Hear this example'"
+            @click="hearingId === example.id ? stopHear() : hearExample(example)"
           >
-            {{ hearingId === ex.id ? 'Stop' : 'Hear' }}
+            {{ hearingId === example.id ? 'Stop' : 'Hear' }}
           </button>
         </header>
-        <div v-show="openExamples[ex.id] !== false" class="collapse-body ex-body">
-          <div
-            v-if="ex.svg"
-            class="staff"
-            aria-label="Notation example"
-            v-html="ex.svg"
-          />
-          <p class="staff-legend" aria-hidden="true">Treble-8: Tenor · Lead — Bass: Bari · Bass</p>
-          <ul class="chord-list">
-            <li v-for="(ch, i) in ex.chords" :key="`${ex.id}-${i}`">
-              <div class="chord-row">
-                <div class="chord-meta">
-                  <strong>{{ asciiMusicText(ch.label) }}</strong>
-                  <span class="voices">{{ asciiMusicText(ch.makeup) }}</span>
-                  <em v-if="ch.annotation">{{ asciiMusicText(ch.annotation) }}</em>
-                </div>
-                <button
-                  type="button"
-                  class="hear hear-sm"
-                  :aria-pressed="hearingId === `${ex.id}:${i}`"
-                  :title="hearingId === `${ex.id}:${i}` ? 'Stop' : `Hear ${ch.label}`"
-                  @click.stop="
-                    hearingId === `${ex.id}:${i}` ? stopHear() : hearChord(ex.id, i, ch.midi)
-                  "
-                >
-                  {{ hearingId === `${ex.id}:${i}` ? 'Stop' : 'Hear' }}
-                </button>
-              </div>
-            </li>
-          </ul>
-          <ArrangingTeachSources v-if="ex.cite" :items="[ex.cite]" />
+        <div v-if="example.svg" class="staff" aria-label="Notation example" v-html="example.svg" />
+        <p class="staff-legend" aria-hidden="true">Treble-8: Tenor · Lead — Bass: Bari · Bass</p>
+        <ArrangingLearnChoices
+          label="Chord"
+          :options="chordOptions"
+          :selected="chordIndex"
+          @pick="chordIndex = $event"
+        />
+        <div v-if="chord" class="chord-row">
+          <div class="chord-meta">
+            <strong>{{ asciiMusicText(chord.label) }}</strong>
+            <span class="voices">{{ asciiMusicText(chord.makeup) }}</span>
+            <em v-if="chord.annotation">{{ asciiMusicText(chord.annotation) }}</em>
+          </div>
+          <button
+            type="button"
+            class="hear hear-sm"
+            :aria-pressed="hearingId === `${example.id}:${chordIndex}`"
+            :title="hearingId === `${example.id}:${chordIndex}` ? 'Stop' : `Hear ${chord.label}`"
+            @click="
+              hearingId === `${example.id}:${chordIndex}`
+                ? stopHear()
+                : hearChord(example.id, chordIndex, chord.midi)
+            "
+          >
+            {{ hearingId === `${example.id}:${chordIndex}` ? 'Stop' : 'Hear' }}
+          </button>
         </div>
+        <ArrangingTeachSources v-if="example.cite" :items="[example.cite]" />
       </article>
     </template>
   </div>
@@ -261,27 +258,18 @@ const examples = computed(() => lesson.value?.examples ?? [])
   text-transform: uppercase;
   color: var(--muted);
 }
-.examples-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem 0.75rem;
-  margin-top: 0.15rem;
-}
-.examples-label,
 .examples-key {
-  margin: 0;
+  margin: 0.15rem 0 0;
   font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 650;
+  letter-spacing: 0.01em;
   color: var(--muted);
 }
-.examples-key {
-  font-weight: 650;
-  text-transform: none;
-  letter-spacing: 0.01em;
+.topic h4,
+.ex-title-copy strong {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
 }
 .intro {
   font-size: 0.84rem;
@@ -430,6 +418,7 @@ const examples = computed(() => lesson.value?.examples ?? [])
   border-radius: 6px;
   border: 1px solid var(--border);
   background: #fbfaf7;
+  color: #1c1914;
 }
 .staff :deep(svg) {
   display: block;
@@ -437,6 +426,7 @@ const examples = computed(() => lesson.value?.examples ?? [])
   width: 100%;
   height: auto;
   position: static !important;
+  color: #1c1914;
 }
 .staff-legend {
   margin: 0;
@@ -465,6 +455,10 @@ const examples = computed(() => lesson.value?.examples ?? [])
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.45rem;
+  padding: 0.4rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--bg));
 }
 .chord-meta {
   display: grid;

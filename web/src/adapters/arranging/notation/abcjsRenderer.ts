@@ -15,6 +15,7 @@ export function createAbcjsNotationRenderer(): NotationRenderer {
       const staffwidth = opts.width ?? 480
       abcjs.renderAbc(host, abc, {
         add_classes: true,
+        foregroundColor: '#1c1914',
         paddingleft: 0,
         paddingright: 0,
         paddingtop: 0,
@@ -35,6 +36,8 @@ export function createAbcjsNotationRenderer(): NotationRenderer {
       svg.setAttribute('width', '100%')
       svg.removeAttribute('height')
       svg.setAttribute('preserveAspectRatio', 'xMinYMin meet')
+      if (svg.getAttribute('fill') === 'currentColor') svg.setAttribute('fill', '#1c1914')
+      if (svg.getAttribute('stroke') === 'currentColor') svg.setAttribute('stroke', '#1c1914')
       return svg.outerHTML
     },
   }

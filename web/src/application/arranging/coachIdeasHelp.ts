@@ -60,19 +60,31 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
         glossaryIds: ['circle_fifths', 'springboard', 'secondary_dom', 'bs7'],
       },
     ],
-    helpIntro: 'Get oriented, then jump to Chords.',
+    helpIntro: 'Get oriented, then jump to Chords. Open Help any time for the walkthrough.',
     help: [
       {
-        title: 'Before Coach',
-        body: 'Enter Lead on the roll. Optionally label Strong/Passing on the toolbar, and lock Sketch chords for the phrase homes.',
+        title: 'Melody',
+        body: 'Lead carries the tune. Toolbar > Melody, then M on a note, hands it to another part from there until the next change. The sheet draws a dashed line across the handoff.',
       },
       {
-        title: 'Open Coach',
-        body: 'Use the Coach control or click the Coach lane. The roll bar (Prev / Next | Apply best | Hear | Next empty) drives the walk while the dock shows ranked choices.',
+        title: 'Sketch map (optional)',
+        body: 'Paint phrase chords on Sketch when you want a harmony map. Amber Coach-lane homes are low-confidence guesses — confirm with the diamond or change the root. Not required for Path Optimize.',
       },
       {
-        title: 'Coverage lane',
-        body: 'The Coach lane toggles Ring, Voice-leading (VL), and Issues. Press [i] for what the bars mean. Full issue text lives under Potential issues in Chords/Check.',
+        title: 'Chords',
+        body: 'Walk each Lead moment, hear ranked voicings, and Apply. Prefer textbook cadences (V7->I, II7->V7->I, I7->IV) when the melody implies them.',
+      },
+      {
+        title: 'Check',
+        body: 'Clear craft issues in range. Learn opens the rule beside the dock. Fix all safe applies only automatic repairs.',
+      },
+      {
+        title: 'Optimize',
+        body: 'Path Optimizer fills empties, revoices, or rechords for the whole song, a selection, or the current chord. Tune VL and Ring, then Run.',
+      },
+      {
+        title: 'Polish',
+        body: 'Skim the checklist and style factors. Export MIDI / MusicXML from the Tag Studio toolbar. Contest and tuning prefs live under Tweaks.',
       },
     ],
   },
@@ -95,7 +107,7 @@ const BY_STEP: Record<GuidedStepId, CoachIdeasHelp> = {
       {
         title: 'Cadence highways at work',
         body:
-          'When the melody outlines a close, Coach biases textbook moves: V7->I, leading-tone V7, II7->V7->I, I7->IV. Read the Cadence teach block when it appears - it names the story so you can keep or reject it by ear.',
+          'When the melody outlines a close, Coach biases textbook moves: V7->I, leading-tone V7, II7->V7->I, I7->IV. Open the Cadence chip when it appears - it names the story so you can keep or reject it by ear.',
         glossaryIds: ['classic_cadences', 'circle_fifths'],
       },
       {

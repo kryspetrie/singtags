@@ -16,6 +16,10 @@ import {
   type TagRollProject,
 } from '../../lib/tagRoll/types'
 import {
+  estimateSheetTitleBandPx,
+  sheetPageEdgeMarginsPx,
+} from '../../lib/tagRoll/sheetFormat'
+import {
   renderVexSheetScore,
   type VexScoreLayoutResult,
 } from '../../lib/tagRoll/sheetScore/renderVexScore'
@@ -27,26 +31,6 @@ import { followPlayheadContentScrollX } from '../../lib/tagRoll/followPlayheadSc
 const PLAYHEAD_HIT = 10
 const DRAG_SLOP = 6
 const RULER_H = 28
-/** Title / credits band reserved inside page 1 (and continuous when engraved header on). */
-const SHEET_TITLE_BAND_MIN_PX = 92
-
-function estimateSheetTitleBandPx(
-  project: TagRollProject,
-  show: boolean,
-  sizeScale = 1,
-): number {
-  if (!show) return 0
-  const hasTitle = !!project.title?.trim()
-  const hasSub = !!project.subtitle?.trim()
-  const hasCredits = !!(project.composer?.trim() || project.arranger?.trim())
-  if (!hasTitle && !hasSub && !hasCredits) return 0
-  const s = Math.max(0.4, sizeScale)
-  let h = 28
-  if (hasTitle) h += 28
-  if (hasSub) h += 20
-  if (hasCredits) h += 22
-  return Math.round(Math.max(SHEET_TITLE_BAND_MIN_PX, h) * s)
-}
 
 const props = defineProps<{
   project: TagRollProject
@@ -231,33 +215,41 @@ const marginsPx = computed(
     },
 )
 
-const pageTitleStyle = computed(() => ({
-  width: `${layout.value?.pages[0]?.width ?? 816}px`,
-  height: `${titleBandPx.value}px`,
-  paddingLeft: `${marginsPx.value.left}px`,
-  paddingRight: `${marginsPx.value.right}px`,
-  boxSizing: 'border-box' as const,
-}))
+const pageEdgeMarginsPx = computed(() => sheetPageEdgeMarginsPx(props.project.view))
 
+function edgeBox(w: number, extra: Record<string, string> = {}) {
+  const m = pageEdgeMarginsPx.value
+  return {
+    left: `${m.left}px`,
+    width: `${Math.max(0, w - m.left - m.right)}px`,
+    boxSizing: 'border-box' as const,
+    ...extra,
+  }
+}
+const pageTitleStyle = computed(() =>
+  edgeBox(layout.value?.pages[0]?.width ?? 816, {
+    top: `${pageEdgeMarginsPx.value.top}px`,
+    height: `${titleBandPx.value}px`,
+  }),
+)
 const pageFooterStyle = computed(() => {
   const pages = layout.value?.pages
   if (!pages?.length) return {}
   const last = pages[pages.length - 1]!
-  const bottom = Math.max(28, marginsPx.value.bottom)
-  return {
-    width: `${last.width}px`,
-    paddingLeft: `${marginsPx.value.left}px`,
-    paddingRight: `${marginsPx.value.right}px`,
-    boxSizing: 'border-box' as const,
+  const bottom = Math.max(28, pageEdgeMarginsPx.value.bottom)
+  return edgeBox(last.width, {
     transform: `translate(0, ${last.y + last.height - bottom}px)`,
+  })
+})
+const continuousMetaPadStyle = computed(() => {
+  const m = pageEdgeMarginsPx.value
+  return {
+    paddingLeft: `${m.left}px`,
+    paddingRight: `${m.right}px`,
+    paddingTop: `${m.top}px`,
+    boxSizing: 'border-box' as const,
   }
 })
-
-const continuousMetaPadStyle = computed(() => ({
-  paddingLeft: `${marginsPx.value.left}px`,
-  paddingRight: `${marginsPx.value.right}px`,
-  boxSizing: 'border-box' as const,
-}))
 
 /** Horizontal offset so a narrow page sits centered (page layout only). */
 const centerPadX = computed(() => {
@@ -432,14 +424,17 @@ async function rerender(): Promise<void> {
       project: props.project,
       pxPerBeat: sheetZoom.value,
       showLyrics: showLyrics.value,
+      straightLyrics: props.project.view.sheetStraightLyrics !== false,
       sheetLayout: sheetLayout.value,
       measureSizing: measureSizing.value,
+      fullJustify: props.project.view.sheetFullJustify !== false,
       pageWidthIn: props.project.view.sheetPageWidthIn ?? 8.5,
       pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
       // Base DPI only — page-view zoom is CSS scale (no measure reflow).
       pageDpi: baseDpi,
       headerBandPx: isPageLayout.value ? titleBandPx.value : 0,
       noteColors: props.project.view.sheetNoteColors === true,
+      showCrossoverMarks: props.project.view.sheetShowCrossoverMarks !== false,
       staveGap: props.project.view.sheetStaveGap ?? 'normal',
       measureScale: props.project.view.sheetMeasureScale ?? 1,
       noteSpacing: props.project.view.sheetNoteSpacing ?? 1,
@@ -449,6 +444,7 @@ async function rerender(): Promise<void> {
       topMargin: props.project.view.sheetTopMargin ?? 1,
       lyricSize: props.project.view.sheetLyricSize ?? 12,
       lyricOffsets: props.project.view.sheetLyricOffsets ?? {},
+      lyricPartVisible: props.project.view.sheetLyricPartVisible ?? {},
       paddingScale: props.project.view.sheetPadding ?? 1,
       minBarWidth: props.project.view.sheetMinBarWidth ?? 1,
       clefGutter: props.project.view.sheetClefGutter ?? 1,
@@ -457,6 +453,7 @@ async function rerender(): Promise<void> {
       musicFont: props.project.view.sheetMusicFont,
       textFont: props.project.view.sheetTextFont,
       staffLineWeight: props.project.view.sheetStaffLineWeight ?? 1,
+      stemLength: props.project.view.sheetStemLength ?? 0.8,
       showPartNames: props.project.view.sheetPartNames === true,
       marginLeftIn: props.project.view.sheetMarginLeftIn ?? 0.3,
       marginRightIn: props.project.view.sheetMarginRightIn ?? 0.3,
@@ -697,11 +694,14 @@ watch(
     props.project.view.sheetZoom,
     props.project.view.sheetLayout,
     props.project.view.sheetMeasureSizing,
+    props.project.view.sheetFullJustify,
     props.project.view.sheetPageWidthIn,
     props.project.view.sheetPageHeightIn,
     props.project.view.sheetPageDpi,
     props.project.view.sheetShowLyrics,
+    props.project.view.sheetStraightLyrics,
     props.project.view.sheetNoteColors,
+    props.project.view.sheetShowCrossoverMarks,
     props.project.view.sheetStaveGap,
     props.project.view.sheetMeasureScale,
     props.project.view.sheetNoteSpacing,
@@ -711,6 +711,7 @@ watch(
     props.project.view.sheetTopMargin,
     props.project.view.sheetLyricSize,
     props.project.view.sheetLyricOffsets,
+    props.project.view.sheetLyricPartVisible,
     props.project.view.sheetShowEngravedHeader,
     props.project.view.sheetShowEngravedFooter,
     props.project.view.sheetPadding,
@@ -721,6 +722,7 @@ watch(
     props.project.view.sheetMusicFont,
     props.project.view.sheetTextFont,
     props.project.view.sheetStaffLineWeight,
+    props.project.view.sheetStemLength,
     props.project.view.sheetPartNames,
     props.project.view.sheetMarginLeftIn,
     props.project.view.sheetMarginRightIn,
@@ -1011,14 +1013,19 @@ defineExpose({
 }
 .sheet-meta-header.on-page {
   position: absolute;
-  left: 0;
-  top: 0;
+  /* left / top / width from pageEdgeMarginsPx inline styles */
   z-index: 2;
   min-width: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   pointer-events: none;
+}
+.score-host :deep(svg text) { -webkit-text-stroke: 0 !important; }
+.score-host :deep(.sheet-lyric-backdrop) { fill: #fff !important; stroke: none !important; }
+.score-host :deep(.sheet-lyric-lane) {
+  font-weight: 400 !important; font-style: normal !important; fill: #6e6963 !important;
 }
 .meta-title {
   margin: 0;
@@ -1058,10 +1065,10 @@ defineExpose({
 }
 .sheet-meta-footer.on-page {
   position: absolute;
-  left: 0;
   top: 0;
   z-index: 2;
   min-width: 0;
+  padding: 0;
   pointer-events: none;
 }
 .meta-note {

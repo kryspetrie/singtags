@@ -12,24 +12,36 @@ import {
   TEACH_PANEL_HEAD_CLASS,
 } from '../../lib/arranging/teachChrome'
 import ArrangingCoachTeachLesson from './ArrangingCoachTeachLesson.vue'
+import ArrangingLearnChoices from './ArrangingLearnChoices.vue'
 import ArrangingTeachProse from './ArrangingTeachProse.vue'
 import ArrangingTeachStrip from './ArrangingTeachStrip.vue'
 import './arranging-teach-chrome.css'
 
-const props = defineProps<{
-  title: string
-  intro: string
-  ideas: readonly CoachIdeaCard[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    title: string
+    intro: string
+    ideas: readonly CoachIdeaCard[]
+    /** Drawer already supplies the title and close control. */
+    embedded?: boolean
+  }>(),
+  { embedded: false },
+)
 
 const emit = defineEmits<{
   close: []
+  learn: [lesson: { title: string; glossaryIds: readonly string[]; intro?: string }]
 }>()
 
 const teachIds = ref<string[] | null>(null)
 const teachTitle = ref('')
 const teachIntro = ref('')
 const teaching = computed(() => teachIds.value != null)
+const ideaIndex = ref(0)
+const currentIdea = computed(() => {
+  if (!props.ideas.length) return null
+  return props.ideas[Math.min(ideaIndex.value, props.ideas.length - 1)] ?? null
+})
 
 const stripIds = computed(() => {
   const ids: string[] = []
@@ -47,10 +59,17 @@ const stripIds = computed(() => {
 function openLearn(idea: CoachIdeaCard): void {
   const ids = idea.glossaryIds
   if (!ids?.length) return
-  teachIds.value = [...ids]
-  teachTitle.value = idea.title
-  teachIntro.value = idea.body
+  const lesson = { title: idea.title, glossaryIds: [...ids], intro: idea.body }
+  emit('learn', lesson)
+  if (props.embedded) return
+  teachIds.value = lesson.glossaryIds
+  teachTitle.value = lesson.title
+  teachIntro.value = lesson.intro
 }
+
+const lessonOptions = computed(() =>
+  props.ideas.map((item, i) => ({ id: `${i}:${item.title}`, label: asciiMusicText(item.title) })),
+)
 
 function backToIdeas(): void {
   teachIds.value = null
@@ -64,7 +83,7 @@ function backToIdeas(): void {
     :class="TEACH_PANEL_CLASS"
     :aria-label="teaching ? 'Theory lesson' : 'Coach ideas'"
   >
-    <header :class="TEACH_PANEL_HEAD_CLASS">
+    <header v-if="!embedded || teaching" :class="TEACH_PANEL_HEAD_CLASS">
       <div class="titles">
         <button
           v-if="teaching"
@@ -78,6 +97,7 @@ function backToIdeas(): void {
         <h3>{{ teaching ? asciiMusicText(teachTitle) : title }}</h3>
       </div>
       <button
+        v-if="!embedded"
         type="button"
         :class="TEACH_PANEL_CLOSE_CLASS"
         aria-label="Close"
@@ -95,24 +115,27 @@ function backToIdeas(): void {
         :ids="stripIds"
         heading="Key ideas"
       />
-      <p class="lesson-label">Mini lessons</p>
-      <ul class="cards">
-        <li v-for="idea in ideas" :key="idea.title">
-          <div class="card-head">
-            <strong>{{ asciiMusicText(idea.title) }}</strong>
-            <button
-              v-if="idea.glossaryIds?.length"
-              type="button"
-              :class="TEACH_LEARN_BTN_CLASS"
-              title="Open full theory lesson with examples"
-              @click="openLearn(idea)"
-            >
-              Learn
-            </button>
-          </div>
-          <ArrangingTeachProse class="card-body" :text="idea.body" />
-        </li>
-      </ul>
+      <ArrangingLearnChoices
+        label="Mini lessons"
+        :options="lessonOptions"
+        :selected="Math.min(ideaIndex, Math.max(0, ideas.length - 1))"
+        @pick="ideaIndex = $event"
+      />
+      <article v-if="currentIdea" class="card">
+        <div class="card-head">
+          <strong>{{ asciiMusicText(currentIdea.title) }}</strong>
+          <button
+            v-if="currentIdea.glossaryIds?.length"
+            type="button"
+            :class="TEACH_LEARN_BTN_CLASS"
+            title="Open this lesson"
+            @click="openLearn(currentIdea)"
+          >
+            Learn
+          </button>
+        </div>
+        <ArrangingTeachProse class="card-body" :text="currentIdea.body" />
+      </article>
     </template>
 
     <ArrangingCoachTeachLesson
@@ -120,6 +143,7 @@ function backToIdeas(): void {
       :title="teachTitle"
       :glossary-ids="teachIds"
       :intro="teachIntro"
+      hide-back
       @back="backToIdeas"
     />
   </section>
@@ -150,22 +174,7 @@ function backToIdeas(): void {
   font-weight: 600;
   color: var(--text);
 }
-.lesson-label {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.cards {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-.cards li {
+.card {
   display: grid;
   gap: 0.3rem;
   padding: 0.5rem 0.55rem;
@@ -179,7 +188,7 @@ function backToIdeas(): void {
   justify-content: space-between;
   gap: 0.4rem;
 }
-.cards strong {
+.card strong {
   font-size: 0.84rem;
   font-weight: 750;
 }

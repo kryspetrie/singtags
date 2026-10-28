@@ -11,60 +11,9 @@ defineEmits<{
   <section class="landing" aria-label="Coach workflow">
     <h3 class="title">How to use Coach</h3>
     <p class="lead">
-      Auto Coach needs Lead + key + Strong/Passing (defaults if unlabeled). High-confidence
-      homes lock automatically; amber Coach-lane homes need a one-tap ◆ confirm (Home
-      transport: <strong>Next review</strong>). Sketch is a chord map — not a place to tag
-      pillars. Use the step rail (Home > Chords > Check > Auto > Polish).
+      Auto Coach needs the Lead and a key. Walk Chords, then Check, Optimize, and Polish.
+      Help opens the walkthrough beside this dock when you want it.
     </p>
-
-    <ol class="steps">
-      <li>
-        <strong>Melody &amp; Strong / Passing</strong>
-        <span>
-          Toolbar > Roles: set the Melody part (M). Mark Strong (structural homes) vs Passing
-          (connective) with S / P, or leave blank — Auto assigns from duration, beat, and phrase
-          edges. Path Optimize Classic runs from those labels.
-        </span>
-      </li>
-      <li>
-        <strong>Sketch map (optional)</strong>
-        <span>
-          Paint phrase chords on Sketch when you want a harmony map. Amber Coach-lane homes are
-          low-confidence Auto guesses — confirm with ◆ or change the root. Not required for Auto
-          Path Optimize.
-        </span>
-      </li>
-      <li>
-        <strong>Chords</strong>
-        <span>
-          Walk each Lead moment, hear ranked voicings, and Apply. Prefer textbook cadences
-          (V7->I, II7->V7->I, I7->IV) when the melody implies them.
-        </span>
-      </li>
-      <li>
-        <strong>Check</strong>
-        <span>
-          Clear craft issues in range. Learn explains the rule; Fix all safe applies only
-          automatic repairs.
-        </span>
-      </li>
-      <li>
-        <strong>Optimize</strong>
-        <span>
-          Path Optimizer: fill empties, revoice, or rechord for the whole song, a selection, or
-          the current chord. Tune VL↔Ring, Run, audition — Try again for alternates. Chord Walk
-          keys on Chords: ↑↓ suggests, [/] inversion, W closed/wide, F/Enter apply, H hear, Q
-          empty (←→ notes).
-        </span>
-      </li>
-      <li>
-        <strong>Polish</strong>
-        <span>
-          Skim the checklist and style factors. Export MIDI / MusicXML from the Tag Studio
-          toolbar. Contest / tuning prefs live under Tweaks.
-        </span>
-      </li>
-    </ol>
 
     <button type="button" class="primary" @click="$emit('continue')">
       Continue to Chords
@@ -88,23 +37,6 @@ defineEmits<{
   font-size: 0.84rem;
   line-height: 1.45;
   color: var(--text);
-}
-.steps {
-  margin: 0;
-  padding: 0 0 0 1.15rem;
-  display: grid;
-  gap: 0.65rem;
-}
-.steps li {
-  display: grid;
-  gap: 0.2rem;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: var(--muted);
-}
-.steps strong {
-  color: var(--text);
-  font-size: 0.84rem;
 }
 .primary {
   justify-self: start;

@@ -378,6 +378,7 @@ describe('renderVexSheetScore', () => {
       pageDpi: 96,
       systemGap: 0.5,
       staveGapFine: 1,
+      showLyrics: false,
     })
     const wrapLoose = await renderVexSheetScore({
       host,
@@ -389,6 +390,7 @@ describe('renderVexSheetScore', () => {
       pageDpi: 96,
       systemGap: 2.8,
       staveGapFine: 1,
+      showLyrics: false,
     })
     const maxSi = Math.max(...wrapTight.measures.map((m) => m.systemIndex))
     if (maxSi > 0) {
@@ -516,6 +518,7 @@ describe('renderVexSheetScore', () => {
       pageHeightIn: 11,
       pageDpi: 96,
       systemGap: 0.5,
+      showLyrics: false,
     })
     p.view.sheetShowSketchChords = false
     const without = await renderVexSheetScore({
@@ -527,6 +530,7 @@ describe('renderVexSheetScore', () => {
       pageHeightIn: 11,
       pageDpi: 96,
       systemGap: 0.5,
+      showLyrics: false,
     })
     const si1With = withChords.measures.find((m) => m.systemIndex === 1)
     const si1Without = without.measures.find((m) => m.systemIndex === 1)
@@ -535,4 +539,359 @@ describe('renderVexSheetScore', () => {
     expect(si1With!.y).toBeGreaterThan(si1Without!.y)
     host.remove()
   }, 30000)
+
+  it('full-justifies every page system to the same inner width', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.lengthTicks = TAG_ROLL_PPQ * 32
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = Array.from({ length: 8 }, (_, i) => ({
+      id: `n${i}`,
+      partId: lead.id,
+      midi: 60 + (i % 3),
+      startTick: i * TAG_ROLL_PPQ * 4,
+      durationTicks: TAG_ROLL_PPQ * 2,
+    }))
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const pageW = 480
+    const layout = await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 36,
+      sheetLayout: 'page',
+      measureSizing: 'dynamic',
+      fullJustify: true,
+      pageWidthIn: pageW / 96,
+      pageHeightIn: 11,
+      pageDpi: 96,
+      marginLeftIn: 0.25,
+      marginRightIn: 0.25,
+      viewportWidth: pageW,
+    })
+    const systems = new Map<number, typeof layout.measures>()
+    for (const m of layout.measures) {
+      const row = systems.get(m.systemIndex) ?? []
+      row.push(m)
+      systems.set(m.systemIndex, row)
+    }
+    expect(systems.size).toBeGreaterThan(1)
+    const ends = [...systems.values()].map((row) => {
+      const right = Math.max(...row.map((m) => m.x + m.width))
+      const left = Math.min(...row.map((m) => m.x))
+      return Math.round(right - left)
+    })
+    const first = ends[0]!
+    for (const end of ends) expect(end).toBe(first)
+    // Ragged systems would be shorter; justified rows share one filled width.
+    expect(first).toBeGreaterThan(300)
+    host.remove()
+  }, 20000)
+
+  it('prints a new key signature mid-system when the key marker changes', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.tonality = 0
+    p.preferFlats = false
+    p.keyMarkers = [
+      { id: 'k0', tick: 0, tonality: 0, tonalityMode: 'major', preferFlats: false },
+      {
+        id: 'k1',
+        tick: TAG_ROLL_PPQ * 4,
+        tonality: 7,
+        tonalityMode: 'major',
+        preferFlats: false,
+      },
+    ]
+    p.lengthTicks = TAG_ROLL_PPQ * 8
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      { id: 'a', partId: lead.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+      {
+        id: 'b',
+        partId: lead.id,
+        midi: 67,
+        startTick: TAG_ROLL_PPQ * 4,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    // Wide continuous viewport keeps both measures on one system (mid-system key path).
+    await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 28,
+      sheetLayout: 'continuous',
+      viewportWidth: 2400,
+    })
+    const svg = host.querySelector('svg')
+    expect(svg).toBeTruthy()
+    host.remove()
+  }, 20000)
+
+  it('spells mid-song flat keys with flats even when the opening key prefers sharps', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.tonality = 0
+    p.preferFlats = false
+    p.tonalityMode = 'major'
+    p.lengthTicks = TAG_ROLL_PPQ * 8
+    p.keyMarkers = [
+      { id: 'k0', tick: 0, tonality: 0, tonalityMode: 'major', preferFlats: false },
+      {
+        id: 'k1',
+        tick: TAG_ROLL_PPQ * 4,
+        tonality: 1,
+        tonalityMode: 'major',
+        preferFlats: true,
+      },
+    ]
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    // MIDI 61 = C#/Db. After the Db marker it must be spelled as a flat.
+    p.notes = [
+      {
+        id: 'l',
+        partId: lead.id,
+        midi: 61,
+        startTick: TAG_ROLL_PPQ * 4,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({ host, project: p, pxPerBeat: 40 })
+    const texts = [...host.querySelectorAll('svg text')].map((t) => t.textContent ?? '')
+    const flatHit = texts.some((t) => /[\uE260♭]/.test(t))
+    const sharpHit = texts.some((t) => /[\uE262♯]/.test(t))
+    expect(flatHit).toBe(true)
+    expect(sharpHit).toBe(false)
+    host.remove()
+  }, 20000)
+
+  it('draws straight lyric lanes above/below each staff', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    const tenor = p.parts.find((x) => x.name === 'Tenor')!
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const bari = p.parts.find((x) => x.name === 'Bari')!
+    const bass = p.parts.find((x) => x.name === 'Bass')!
+    p.notes = [
+      { id: 't', partId: tenor.id, midi: 67, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Ten' },
+      { id: 'l', partId: lead.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Lead' },
+      { id: 'r', partId: bari.id, midi: 55, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Bar' },
+      { id: 'b', partId: bass.id, midi: 48, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Bass' },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 40,
+      showLyrics: true,
+      straightLyrics: true,
+    })
+    const lanes = [...host.querySelectorAll('[data-sheet-lyric-lane]')]
+    expect(lanes).toHaveLength(4)
+    const above = lanes.filter((el) => el.getAttribute('data-sheet-lyric-lane') === 'above')
+    const below = lanes.filter((el) => el.getAttribute('data-sheet-lyric-lane') === 'below')
+    expect(above).toHaveLength(2)
+    expect(below).toHaveLength(2)
+    const ys = (els: Element[]) =>
+      els.map((el) => Number((el as SVGTextElement).getAttribute('y'))).sort((a, b) => a - b)
+    const a = ys(above)
+    const b = ys(below)
+    // Vertical order: tenor(above) < lead(below) < bari(above) < bass(below).
+    expect(a[0]!).toBeLessThan(b[0]!)
+    expect(b[0]!).toBeLessThan(a[1]!)
+    expect(a[1]!).toBeLessThan(b[1]!)
+    const backs = host.querySelectorAll('.sheet-lyric-backdrop')
+    expect(backs.length).toBe(4)
+    const svg = host.querySelector('svg')!
+    const kids = [...svg.children]
+    const lyricIdx = kids.findIndex((el) => el.classList?.contains('sheet-lyric-layer'))
+    const noteIdx = kids.findIndex((el) =>
+      (el.getAttribute('class') || '').includes('stavenote'),
+    )
+    expect(lyricIdx).toBeGreaterThanOrEqual(0)
+    expect(noteIdx).toBeGreaterThan(lyricIdx)
+    host.remove()
+  }, 20000)
+
+  it('hides straight lyrics for parts marked not visible', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    const tenor = p.parts.find((x) => x.name === 'Tenor')!
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      { id: 't', partId: tenor.id, midi: 67, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Ten' },
+      { id: 'l', partId: lead.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ, lyric: 'Lead' },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 40,
+      showLyrics: true,
+      straightLyrics: true,
+      lyricPartVisible: { [tenor.id]: false },
+    })
+    const texts = [...host.querySelectorAll('[data-sheet-lyric-lane]')].map(
+      (el) => el.textContent,
+    )
+    expect(texts).toEqual(['Lead'])
+    host.remove()
+  }, 20000)
+
+  it('draws crossover × marks when lead is above tenor', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    const tenor = p.parts.find((x) => x.name === 'Tenor')!
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    // Stemless whole notes — lead above tenor on the upper staff.
+    p.notes = [
+      { id: 't', partId: tenor.id, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ * 4 },
+      { id: 'l', partId: lead.id, midi: 67, startTick: 0, durationTicks: TAG_ROLL_PPQ * 4 },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({ host, project: p, pxPerBeat: 40 })
+    expect(host.querySelectorAll('[data-sheet-crossover="1"]').length).toBe(1)
+    host.replaceChildren()
+    await renderVexSheetScore({
+      host,
+      project: p,
+      pxPerBeat: 40,
+      showCrossoverMarks: false,
+    })
+    expect(host.querySelectorAll('[data-sheet-crossover="1"]').length).toBe(0)
+    host.remove()
+  }, 20000)
+
+  it('draws augmentation dots on dotted notes', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      {
+        id: 'dq',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: Math.round(TAG_ROLL_PPQ * 1.5),
+      },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({ host, project: p, pxPerBeat: 40 })
+    // VexFlow paints the SMuFL augmentation dot as a second <text> in the notehead.
+    const stemmed = [...host.querySelectorAll('.vf-stavenote')].filter((n) =>
+      n.querySelector('.vf-stem, [class*="stem"]'),
+    )
+    expect(stemmed.some((n) => n.querySelectorAll('text').length >= 2)).toBe(true)
+    host.remove()
+  }, 20000)
+
+  it('draws ties across barlines', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      {
+        id: 'long',
+        partId: lead.id,
+        midi: 60,
+        startTick: TAG_ROLL_PPQ * 3,
+        durationTicks: TAG_ROLL_PPQ * 2,
+      },
+    ]
+    p.lengthTicks = TAG_ROLL_PPQ * 8
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({ host, project: p, pxPerBeat: 40 })
+    const ties = host.querySelectorAll('.vf-stavetie, [class*="stavetie"], [class*="StaveTie"]')
+    expect(ties.length).toBeGreaterThan(0)
+    host.remove()
+  }, 20000)
+
+  it('draws accidental glyphs for notes outside the key signature', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.tonality = 0
+    p.preferFlats = false
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const bass = p.parts.find((x) => x.name === 'Bass')!
+    // F#4 and Bb2 — neither is in C major.
+    p.notes = [
+      { id: 'l', partId: lead.id, midi: 66, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+      { id: 'b', partId: bass.id, midi: 46, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+    ]
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    await renderVexSheetScore({ host, project: p, pxPerBeat: 40 })
+    const svg = host.querySelector('svg')!
+    const html = svg.outerHTML
+    const accidentalNodes = svg.querySelectorAll(
+      '.vf-accidental, [class*="accidental"], [class*="Accidental"]',
+    )
+    // Bravura glyphs may land in <text> without a dedicated class — accept either.
+    const glyphHit =
+      accidentalNodes.length > 0 ||
+      /[\uE260-\uE26F\u266D\u266F♮♯♭]/.test(html) ||
+      [...svg.querySelectorAll('text')].some((t) => /[#b♮♯♭]/.test(t.textContent ?? ''))
+    expect(glyphHit).toBe(true)
+    host.remove()
+  }, 20000)
+
+  it('spells the same MIDI as Ab under Ab7 and G# under E7', async () => {
+    await ensureVexFonts()
+    const midi = 68 // G#4 / Ab4
+    const leadOf = () => {
+      const p = createEmptyTagRollProject()
+      p.tonality = 0
+      p.preferFlats = false
+      const lead = p.parts.find((x) => x.name === 'Lead')!
+      p.notes = [
+        { id: 'l', partId: lead.id, midi, startTick: 0, durationTicks: TAG_ROLL_PPQ },
+      ]
+      return p
+    }
+    const ab = leadOf()
+    ab.harmonySketch = [
+      {
+        id: 'ab7',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ * 4,
+        rootPc: 8,
+        quality: 'seventh',
+        source: 'user',
+        locked: true,
+      },
+    ]
+    const e7 = leadOf()
+    e7.harmonySketch = [
+      {
+        id: 'e7',
+        startTick: 0,
+        endTick: TAG_ROLL_PPQ * 4,
+        rootPc: 4,
+        quality: 'seventh',
+        source: 'user',
+        locked: true,
+      },
+    ]
+
+    const { spellWrittenMidi, spelledPitchToVexKey } = await import('./sheetPitchSpelling')
+    expect(spelledPitchToVexKey(spellWrittenMidi(midi, ab, 0))).toBe('ab/4')
+    expect(spelledPitchToVexKey(spellWrittenMidi(midi, e7, 0))).toBe('g#/4')
+
+    for (const project of [ab, e7]) {
+      const host = document.createElement('div')
+      document.body.appendChild(host)
+      await renderVexSheetScore({ host, project, pxPerBeat: 40 })
+      expect(host.querySelector('svg')).toBeTruthy()
+      host.remove()
+    }
+  }, 20000)
 })

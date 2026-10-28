@@ -82,3 +82,66 @@ export function voiceModulationHearPath(
     return { bass, bari, lead, tenor }
   })
 }
+
+export type KeyChangeRollGhost = {
+  role: 'tenor' | 'lead' | 'bari' | 'bass'
+  midi: number
+  startTick: number
+  durationTicks: number
+  color: string
+  /** Paint above written notes so the proposal stays visible. */
+  overlay: true
+}
+
+const PART_FALLBACK: Record<KeyChangeRollGhost['role'], string> = {
+  tenor: '#c45c26',
+  lead: '#1d6a9f',
+  bari: '#2f7d4a',
+  bass: '#5b3d8f',
+}
+
+function melodyCoversStep(
+  step: PackedModulationStep,
+  melody: readonly MelodyLeadHint[],
+): boolean {
+  return melody.some((m) => m.startTick < step.endTick && m.endTick > step.startTick)
+}
+
+/** TTBB ghosts for the selected path, timed to the packed steps. Lead is omitted where the tune is already written. */
+export function keyChangeRollGhosts(
+  steps: readonly PackedModulationStep[],
+  opts: {
+    tonality?: number
+    melodyNotes?: readonly MelodyLeadHint[]
+    colorFor?: (partName: string) => string | undefined
+  },
+): KeyChangeRollGhost[] {
+  const melody = opts.melodyNotes ?? []
+  const voiced = voiceModulationHearPath(steps, {
+    tonality: opts.tonality,
+    melodyNotes: melody,
+  })
+  const out: KeyChangeRollGhost[] = []
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i]!
+    const stack = voiced[i]
+    if (!stack) continue
+    const dur = Math.max(1, step.endTick - step.startTick)
+    const roles = ['bass', 'bari', 'tenor'] as const
+    const pitches: Record<(typeof roles)[number] | 'lead', number> = stack
+    const showLead = !melodyCoversStep(step, melody)
+    const names = showLead ? ([...roles, 'lead'] as const) : roles
+    for (const role of names) {
+      const partName = role === 'bari' ? 'Bari' : role[0]!.toUpperCase() + role.slice(1)
+      out.push({
+        role,
+        midi: pitches[role],
+        startTick: step.startTick,
+        durationTicks: dur,
+        color: opts.colorFor?.(partName) || PART_FALLBACK[role],
+        overlay: true,
+      })
+    }
+  }
+  return out
+}

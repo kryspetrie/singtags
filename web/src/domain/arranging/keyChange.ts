@@ -10,6 +10,7 @@ import {
   keyLabel,
   modulationChord as chord,
   modulationPathId as pathId,
+  preferredKeyChangeTemplate,
   signedKeyInterval,
   type ModulationCharacter,
   type ModulationChord,
@@ -29,6 +30,7 @@ export type {
 export {
   findPivotChords,
   keyLabel,
+  preferredKeyChangeTemplate,
   signedKeyInterval,
 } from './keyChangeShared'
 export { combineKeyChangePaths } from './keyChangeHybrids'
@@ -89,8 +91,24 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
       'fromTonality' | 'toTonality' | 'fromMode' | 'toMode' | 'intervalSemis'
     >,
   ) => {
+    const steps: ModulationChord[] = []
+    for (const s of p.steps) {
+      const prev = steps[steps.length - 1]
+      if (prev && prev.rootPc === s.rootPc && prev.natureId === s.natureId) {
+        steps[steps.length - 1] = {
+          ...prev,
+          romanFrom: prev.romanFrom ?? s.romanFrom,
+          romanTo: prev.romanTo ?? s.romanTo,
+        }
+        continue
+      }
+      steps.push(s)
+    }
+    if (!steps.length) return
     paths.push({
       ...p,
+      steps,
+      length: steps.length,
       fromTonality,
       toTonality,
       fromMode,
@@ -154,7 +172,7 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
         ? 'Up-a-fourth / down-a-fifth hitch: the old tonic becomes V7 of the new key.'
         : 'Classic short modulation: announce the new dominant, then release.',
       teachingId: 'tension_release',
-      rank: 1,
+      rank: i7AsV ? 0 : 1,
       templateId: kind,
     })
   }
@@ -230,31 +248,33 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
       label: `Chromatic lift ${dir} to ${toL}`,
       reason: `Common barbershop lift of ${Math.abs(interval)} semitone(s): color the old tonic, then cadence in the new key.`,
       teachingId: 'tension_release',
-      rank: 1,
+      rank: 0,
       templateId: `lift-${dir}`,
     })
   }
 
-  // ——— Tertian / common-tone flavored lift for ±3 / ±4 ———
-  if (Math.abs(interval) === 3 || Math.abs(interval) === 4) {
-    const tertianStep = pcOf(fromTonality + (interval > 0 ? 4 : 8))
-    const steps = [
-      chord(fromTonality, 'seventh', 'Old tonic BS7 (tertian setup)', `${fromIRoman}7`, undefined),
-      chord(tertianStep, 'seventh', 'Tertian BS7 connector', undefined, undefined),
-      chord(vNew, 'seventh', 'V7 of new key', undefined, 'V7'),
-      chord(toTonality, arrivalNature, 'Arrival tonic', undefined, arrivalRoman),
-    ]
-    push({
-      id: pathId('smooth', 'tertian', fromTonality, toTonality, steps),
-      character: 'smooth',
-      length: 4,
-      steps,
-      label: `Tertian approach to ${toL}`,
-      reason: 'Major-third-flavored connector into the new dominant — common-tone / tertian lift idiom.',
-      teachingId: 'circle_fifths',
-      rank: 2,
-      templateId: 'tertian',
-    })
+  // ——— Tertian lift for a major third: connector is the other mediant, not the arrival root ———
+  if (Math.abs(interval) === 4) {
+    const tertianStep = pcOf(fromTonality + (interval > 0 ? -4 : 4))
+    if (tertianStep !== toTonality && tertianStep !== fromTonality) {
+      const steps = [
+        chord(fromTonality, 'seventh', 'Old tonic BS7 (tertian setup)', `${fromIRoman}7`, undefined),
+        chord(tertianStep, 'seventh', 'Tertian BS7 connector', undefined, undefined),
+        chord(vNew, 'seventh', 'V7 of new key', undefined, 'V7'),
+        chord(toTonality, arrivalNature, 'Arrival tonic', undefined, arrivalRoman),
+      ]
+      push({
+        id: pathId('smooth', 'tertian', fromTonality, toTonality, steps),
+        character: 'smooth',
+        length: 4,
+        steps,
+        label: `Tertian approach to ${toL}`,
+        reason: 'Major-third connector that shares a tone with both keys, then the new dominant.',
+        teachingId: 'circle_fifths',
+        rank: 0,
+        templateId: 'tertian',
+      })
+    }
   }
 
   // ——— Smooth pivot paths ———
@@ -316,8 +336,8 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
     }
   }
 
-  // ——— Extended circle walk ———
-  {
+  // ——— Extended circle walk (skip when the old tonic is already the new V7) ———
+  if (fromTonality !== vNew) {
     const chain: ModulationChord[] = []
     let root = fromTonality
     const guard = new Set<number>()
@@ -379,28 +399,6 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
     })
   }
 
-  // ——— Extended scenic chromatic ———
-  if (Math.abs(interval) >= 1) {
-    const mid = pcOf(fromTonality + (interval > 0 ? 1 : 11))
-    const steps = [
-      chord(fromTonality, 'seventh', 'Old tonic BS7', `${fromIRoman}7`, undefined),
-      chord(mid, 'seventh', 'Chromatic connector', undefined, undefined),
-      chord(vOfVNew, 'seventh', 'V7/V of new', undefined, 'V7/V'),
-      chord(vNew, 'seventh', 'V7 of new', undefined, 'V7'),
-      chord(toTonality, arrivalNature, 'Arrival', undefined, arrivalRoman),
-    ]
-    push({
-      id: pathId('extended', 'scenic', fromTonality, toTonality, steps),
-      character: 'extended',
-      length: 5,
-      steps,
-      label: `Scenic chromatic approach to ${toL}`,
-      reason: 'Longer narrative: destabilize home, chromatic step, then five-of-five into the new key.',
-      teachingId: 'circle_fifths',
-      rank: 7,
-    })
-  }
-
   if (opts.includeHybrids !== false) {
     pushHybridKeyChanges({
       push,
@@ -439,6 +437,13 @@ export function suggestKeyChanges(opts: SuggestKeyChangesOpts): ModulationPath[]
   })
 
   out.sort((a, b) => {
+    const gold = preferredKeyChangeTemplate(interval)
+    const ga = a.templateId === gold ? 0 : 1
+    const gb = b.templateId === gold ? 0 : 1
+    if (ga !== gb) return ga - gb
+    const ha = a.templateId === 'hitch' ? 1 : 0
+    const hb = b.templateId === 'hitch' ? 1 : 0
+    if (ha !== hb) return ha - hb
     const charOrder: Record<ModulationCharacter, number> = {
       abrupt: 0,
       direct: 1,

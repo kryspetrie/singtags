@@ -69,7 +69,7 @@ export function resolveCoachNextAction(opts: {
       return {
         id: 'walk_choose',
         title: 'Choose chords',
-        body: 'Sketch/Detected already map the phrase — step moments and Apply voicings. Strong vs passing Lead roles guide home roots.',
+        body: 'Sketch/Detected already map the phrase — step moments and Apply voicings.',
         cta: 'Choose chords',
         focus: 'choose',
         kind: 'walk_choose',
@@ -79,8 +79,8 @@ export function resolveCoachNextAction(opts: {
       id: 'suggest_pillars',
       title: 'Paint phrase chords on Sketch',
       body: repair
-        ? 'Harmony is already on the roll. Lock phrase chords in Sketch (stacks stay put). Mark Strong vs passing Lead notes so Coach knows the homes.'
-        : 'Open Sketch and lock phrase chords. Coach homes come from Strong vs passing Lead notes — not manual pillar tags.',
+        ? 'Harmony is already on the roll. Lock phrase chords in Sketch (stacks stay put).'
+        : 'Open Sketch and lock phrase chords. Coach ranks homes from the melody and the Sketch map.',
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'suggest_pillars',
@@ -92,7 +92,7 @@ export function resolveCoachNextAction(opts: {
     return {
       id: 'cover_gaps',
       title: 'Cover uncovered melody',
-      body: `${gaps.length} Lead onset(s) sit before the first Sketch chord — extend Sketch earlier, or mark an earlier Strong melody note.`,
+      body: `${gaps.length} Lead onset(s) sit before the first Sketch chord — extend Sketch earlier.`,
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'cover_gaps',
@@ -106,8 +106,8 @@ export function resolveCoachNextAction(opts: {
       title: repair && known > 0 ? 'Confirm draft homes' : 'Confirm draft homes',
       body:
         repair && known > 0
-          ? `${unconfirmed} draft home root(s) still on the Coach lane. Prefer Strong/passing roles + Sketch chords; Lock only if you used Propose.`
-          : `${unconfirmed} draft home root(s) — paint Sketch chords and check Strong/passing roles, or Lock a Coach draft if you Proposed one.`,
+          ? `${unconfirmed} draft home root(s) still on the Coach lane. Paint them on Sketch, or Lock a Coach draft if you used Propose.`
+          : `${unconfirmed} draft home root(s) — paint Sketch chords, or Lock a Coach draft if you Proposed one.`,
       cta: 'Open Sketch',
       focus: 'home',
       kind: 'lock_pillars',

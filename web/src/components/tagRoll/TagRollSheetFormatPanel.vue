@@ -10,10 +10,6 @@ import {
   SHEET_BOTTOM_MARGIN_MIN,
   SHEET_CLEF_GUTTER_MAX,
   SHEET_CLEF_GUTTER_MIN,
-  SHEET_LYRIC_SIZE_MAX,
-  SHEET_LYRIC_SIZE_MIN,
-  SHEET_LYRIC_LINE_OFFSET_MAX,
-  SHEET_LYRIC_LINE_OFFSET_MIN,
   SHEET_MARGIN_IN_MAX,
   SHEET_MARGIN_IN_MIN,
   SHEET_MEASURE_SCALE_MAX,
@@ -24,6 +20,8 @@ import {
   SHEET_SCORE_SCALE_MIN,
   SHEET_STAFF_LINE_MAX,
   SHEET_STAFF_LINE_MIN,
+  SHEET_STEM_LENGTH_MAX,
+  SHEET_STEM_LENGTH_MIN,
   SHEET_STAVE_GAP_FINE_MAX,
   SHEET_STAVE_GAP_FINE_MIN,
   SHEET_SYSTEM_GAP_MAX,
@@ -50,6 +48,7 @@ import { TAG_ROLL_DEFAULT_VIEW } from '../../lib/tagRoll/types'
 import type { TagRollSheetMusicFont, TagRollSheetTextFont } from '../../lib/tagRoll/types'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
 import { useTagRollStore } from '../../stores/tagRoll'
+import TagRollSheetLyricsControls from './TagRollSheetLyricsControls.vue'
 
 const props = defineProps<{
   project: TagRollProject
@@ -86,10 +85,6 @@ const hasCustomDefault = computed(() => {
   defaultTick.value
   return store.hasCustomSheetFormatDefault()
 })
-const hasLyricOffsets = computed(() =>
-  Object.values(props.project.view.sheetLyricOffsets ?? {}).some((v) => v !== 0),
-)
-
 function onSaveDefault(): void {
   store.saveSheetFormatAsDefault()
   defaultTick.value++
@@ -126,15 +121,6 @@ const pagePxLabel = computed(
 
 function pct(v: number): string {
   return `${Math.round(v * 100)}%`
-}
-
-function lyricOffsetLabel(v: number): string {
-  if (v === 0) return '0'
-  return v > 0 ? `+${v}` : `${v}`
-}
-
-function onLyricOffset(partId: string, e: Event): void {
-  store.setSheetLyricOffset(partId, Number((e.target as HTMLInputElement).value))
 }
 
 function inches(v: number): string {
@@ -212,6 +198,9 @@ function numInput(name: keyof ReturnType<typeof defaultSheetFormat>, e: Event): 
       break
     case 'sheetStaffLineWeight':
       store.setSheetStaffLineWeight(v)
+      break
+    case 'sheetStemLength':
+      store.setSheetStemLength(v)
       break
     case 'sheetPageWidthIn':
       store.setSheetPageWidthIn(v)
@@ -508,12 +497,20 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
             </button>
           </div>
           <p class="page-hint">
-            {{
-              isDynamic
-                ? 'Sparse bars shrink; busy bars grow.'
-                : 'Every bar the same beat-proportional width.'
-            }}
+            {{ isDynamic ? 'Sparse bars shrink; busy bars grow.' : 'Every bar the same beat-proportional width.' }}
           </p>
+          <label
+            class="toggle-row"
+            :class="{ on: project.view.sheetFullJustify !== false }"
+            :title="tagRollTip('Page layout: stretch each system to the left/right margins')"
+          >
+            <span class="toggle-title">Full justify</span>
+            <input
+              type="checkbox"
+              :checked="project.view.sheetFullJustify !== false"
+              @change="store.patchView({ sheetFullJustify: ($event.target as HTMLInputElement).checked })"
+            />
+          </label>
           <label
             class="slider-row"
             :title="tagRollTip('Scale all measure widths (complements Size)')"
@@ -573,68 +570,7 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
       >
         <summary class="group-title">Lyrics &amp; title</summary>
         <div class="group-body">
-          <label
-            class="toggle-row"
-            :class="{ on: project.view.sheetShowLyrics !== false }"
-          >
-            <span class="toggle-title">Show lyrics</span>
-            <input
-              type="checkbox"
-              class="setting-switch"
-              role="switch"
-              :checked="project.view.sheetShowLyrics !== false"
-              @change="toggleChecked(store.setSheetShowLyrics, $event)"
-            />
-          </label>
-          <label
-            v-if="project.view.sheetShowLyrics !== false"
-            class="slider-row"
-          >
-            <span class="slider-label">Lyric size</span>
-            <span class="slider-val">{{ project.view.sheetLyricSize ?? 11 }}px</span>
-            <input
-              type="range"
-              class="slider"
-              :min="SHEET_LYRIC_SIZE_MIN"
-              :max="SHEET_LYRIC_SIZE_MAX"
-              step="1"
-              :value="project.view.sheetLyricSize ?? 11"
-              @input="numInput('sheetLyricSize', $event)"
-            />
-          </label>
-          <template v-if="project.view.sheetShowLyrics !== false">
-            <p class="hint">Move each part’s lyric line below its staff.</p>
-            <label
-              v-for="part in project.parts"
-              :key="part.id"
-              class="slider-row"
-              :title="tagRollTip(`Vertical nudge for ${part.name} lyrics`)"
-            >
-              <span class="slider-label lyric-part" :style="{ color: part.color }">{{
-                part.name
-              }}</span>
-              <span class="slider-val">{{
-                lyricOffsetLabel(project.view.sheetLyricOffsets?.[part.id] ?? 0)
-              }}</span>
-              <input
-                type="range"
-                class="slider"
-                :min="SHEET_LYRIC_LINE_OFFSET_MIN"
-                :max="SHEET_LYRIC_LINE_OFFSET_MAX"
-                step="0.5"
-                :value="project.view.sheetLyricOffsets?.[part.id] ?? 0"
-                @input="onLyricOffset(part.id, $event)"
-              />
-            </label>
-            <button
-              v-if="hasLyricOffsets"
-              type="button"
-              class="reset-link"
-              @click="store.resetSheetLyricOffsets()"
-            >
-              Reset lyric positions
-            </button>
-          </template>
+          <TagRollSheetLyricsControls :project="project" />
           <label
             class="toggle-row"
             :class="{ on: project.view.sheetShowEngravedHeader !== false }"
@@ -803,6 +739,22 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               @input="numInput('sheetStaffLineWeight', $event)"
             />
           </label>
+          <label
+            class="slider-row"
+            :title="tagRollTip('Lengthen or shorten note stems (beams follow)')"
+          >
+            <span class="slider-label">Stem length</span>
+            <span class="slider-val">{{ pct(project.view.sheetStemLength ?? 0.8) }}</span>
+            <input
+              type="range"
+              class="slider"
+              :min="SHEET_STEM_LENGTH_MIN"
+              :max="SHEET_STEM_LENGTH_MAX"
+              step="0.05"
+              :value="project.view.sheetStemLength ?? 0.8"
+              @input="numInput('sheetStemLength', $event)"
+            />
+          </label>
           <label class="toggle-row" :class="{ on: project.view.sheetPartNames === true }">
             <span class="toggle-title">Part names</span>
             <input
@@ -822,6 +774,16 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
               :checked="project.view.sheetNoteColors === true"
               @change="toggleChecked(store.setSheetNoteColors, $event)"
             />
+          </label>
+          <label
+            class="toggle-row"
+            :class="{ on: project.view.sheetShowCrossoverMarks !== false }"
+            :title="tagRollTip('× above the staff when lead is above tenor, or bass above bari')"
+          >
+            <span class="toggle-title">Crossover marks</span>
+            <input type="checkbox" class="setting-switch" role="switch"
+              :checked="project.view.sheetShowCrossoverMarks !== false"
+              @change="store.patchView({ sheetShowCrossoverMarks: ($event.target as HTMLInputElement).checked })" />
           </label>
           <label
             class="toggle-row"
@@ -1100,12 +1062,6 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
 .slider-label {
   color: var(--fg);
 }
-.slider-label.lyric-part {
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .slider-val {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1207,38 +1163,16 @@ function onGroupToggle(key: keyof typeof open.value, e: Event): void {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .btn {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  border-radius: 7px;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  align-self: flex-start;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+  border-radius: 7px; padding: 0.35rem 0.6rem; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; align-self: flex-start;
 }
-.btn-ghost {
-  background: transparent;
-}
+.btn-ghost { background: transparent; }
 .foot {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.4rem;
+  display: flex; flex-direction: column; gap: 0.35rem;
+  border-top: 1px solid var(--border); padding-top: 0.4rem;
 }
-.foot-hint {
-  margin: 0;
-  font-size: 0.68rem;
-  line-height: 1.35;
-  color: var(--muted);
-}
-.foot-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-.foot-actions .btn {
-  flex: 1 1 auto;
-}
+.foot-hint { margin: 0; font-size: 0.68rem; line-height: 1.35; color: var(--muted); }
+.foot-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.foot-actions .btn { flex: 1 1 auto; }
 </style>

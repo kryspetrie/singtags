@@ -5,12 +5,15 @@
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingCoachSuggestPanel from './ArrangingCoachSuggestPanel.vue'
-import ArrangingCoachWhyDock from './ArrangingCoachWhyDock.vue'
+import ArrangingLearnDrawer from './ArrangingLearnDrawer.vue'
+import ArrangingCandidateWhy from './ArrangingCandidateWhy.vue'
 import ArrangingStepRail from './ArrangingStepRail.vue'
 import ArrangingPathOptimize from './ArrangingPathOptimize.vue'
 import ArrangingReviewPolish from './ArrangingReviewPolish.vue'
 import ArrangingCoachChrome from './ArrangingCoachChrome.vue'
 import ArrangingCoachPanelOverlay from './ArrangingCoachPanelOverlay.vue'
+import ArrangingCoachIdeasPanel from './ArrangingCoachIdeasPanel.vue'
+import ArrangingCoachHelpPanel from './ArrangingCoachHelpPanel.vue'
 import ArrangingCoachLanding from './ArrangingCoachLanding.vue'
 import ArrangingCoachTransport from './ArrangingCoachTransport.vue'
 import ArrangingCoachTeachLesson from './ArrangingCoachTeachLesson.vue'
@@ -236,7 +239,6 @@ const chooseMomentLine = computed(() => {
   const ctx = momentContext.value
   if (!ctx) return selectedMoment.value ? 'Moment' : ''
   const bits = [`Lead ${ctx.leadPitch}`]
-  if (ctx.roleLabel) bits.push(ctx.roleLabel)
   if (ctx.pillarLabel) bits.push(`Pillar ${ctx.pillarLabel}`)
   else if (softHomeLabel.value) bits.push(softHomeLabel.value)
   if (ctx.heldLead) bits.push('Post')
@@ -246,10 +248,10 @@ const chooseMomentLine = computed(() => {
 
 const chooseBanner = computed(() => {
   if (uncoveredSelected.value) {
-    return 'No Sketch, Detected, or melody home under this moment — paint a Sketch chord or mark a Strong Lead note.'
+    return 'No Sketch, Detected, or melody home under this moment — paint a Sketch chord.'
   }
   if (mode.value === 'review' && !pillars.value.length && !softHomeLabel.value) {
-    return 'Review needs Sketch chords for ranked suggestions — lock phrase chords and check Strong vs passing Lead roles.'
+    return 'Review needs Sketch chords for ranked suggestions — lock phrase chords on the Sketch lane.'
   }
   return null
 })
@@ -370,12 +372,113 @@ watch(
   { immediate: true },
 )
 
-const panelMode = ref<'config' | 'ideas' | 'help' | null>(null)
+const panelMode = ref<'config' | null>(null)
 const dockWidthRem = ref(44)
 const resizing = ref(false)
 
+type LearnRequest =
+  | { kind: 'ideas' }
+  | { kind: 'help' }
+  | { kind: 'why' }
+  | { kind: 'lesson'; title: string; glossaryIds: readonly string[]; intro?: string }
+
+const learnRequest = ref<LearnRequest | null>(null)
+const learnReturn = ref<'ideas' | 'help' | 'why'>('ideas')
+
+const learnOpen = computed(
+  () =>
+    learnRequest.value != null &&
+    (learnRequest.value.kind !== 'why' ||
+      (focusTab.value === 'choose' && chooseWhyView.value != null)),
+)
+
+const learnSections = computed(() => [
+  { id: 'ideas', label: 'Ideas' },
+  { id: 'help', label: 'Help' },
+  { id: 'why', label: 'Why', disabled: chooseWhyView.value == null },
+])
+
+function closeLearn(): void {
+  if (learnRequest.value?.kind === 'why') chooseWhyOpen.value = false
+  learnRequest.value = null
+}
+
+function setLearnSection(id: string): void {
+  if (id === 'why') {
+    if (!chooseWhyView.value) return
+    chooseWhyOpen.value = true
+    return
+  }
+  if (id !== 'ideas' && id !== 'help') return
+  if (chooseWhyOpen.value) chooseWhyOpen.value = false
+  panelMode.value = null
+  learnRequest.value = { kind: id }
+}
+
+function backFromLesson(): void {
+  const back = learnReturn.value
+  if (back === 'why' && chooseWhyView.value) {
+    chooseWhyOpen.value = true
+    return
+  }
+  if (chooseWhyOpen.value) chooseWhyOpen.value = false
+  learnRequest.value = { kind: back === 'why' ? 'ideas' : back }
+}
+
+function openLesson(lesson: {
+  title: string
+  glossaryIds: readonly string[]
+  intro?: string
+}): void {
+  const kind = learnRequest.value?.kind
+  if (kind === 'ideas' || kind === 'help' || kind === 'why') learnReturn.value = kind
+  if (chooseWhyOpen.value) chooseWhyOpen.value = false
+  panelMode.value = null
+  learnRequest.value = { kind: 'lesson', ...lesson }
+}
+
+function openLintLesson(): void {
+  const detail = lintDetail.value
+  if (!detail) return
+  openLesson({
+    title: detail.headline,
+    glossaryIds: detail.glossary.map((g) => g.id),
+    intro: detail.body,
+  })
+}
+
+watch(chooseWhyOpen, (on) => {
+  if (on) {
+    panelMode.value = null
+    learnRequest.value = { kind: 'why' }
+  } else if (learnRequest.value?.kind === 'why') {
+    learnRequest.value = null
+  }
+})
+
+function onLearnLint(lint: Parameters<typeof learnLint>[0]): void {
+  learnLint(lint)
+  openLintLesson()
+}
+
+function toggleLearn(): void {
+  if (learnOpen.value) {
+    closeLearn()
+    return
+  }
+  togglePanel('ideas')
+}
+
 function togglePanel(mode: 'config' | 'ideas' | 'help'): void {
-  panelMode.value = panelMode.value === mode ? null : mode
+  if (chooseWhyOpen.value) chooseWhyOpen.value = false
+  if (mode === 'config') {
+    const next = panelMode.value === 'config' ? null : 'config'
+    panelMode.value = next
+    if (next) learnRequest.value = null
+    return
+  }
+  panelMode.value = null
+  learnRequest.value = learnRequest.value?.kind === mode ? null : { kind: mode }
 }
 
 const ideasTitle = computed(() => `Ideas - ${labelForGuidedStep(guidedStep.value)}`)
@@ -440,18 +543,46 @@ onUnmounted(() => {
 
 <template>
   <div class="coach-shell" :style="{ '--coach-dock-w': `${dockWidthRem}rem` }">
-    <ArrangingCoachWhyDock
-      v-if="chooseWhyOpen && chooseWhyView && focusTab === 'choose'"
-      :why="chooseWhyView"
-      :show-numbers="whyShowNumbers"
-      :chord-label="
-        filteredCandidates[suggestIndex]
-          ? candIdentity(filteredCandidates[suggestIndex]!)
-          : null
-      "
-      @close="chooseWhyOpen = false"
-      @update:show-numbers="whyShowNumbers = $event"
-    />
+    <ArrangingLearnDrawer
+      :open="learnOpen"
+      title="Learn"
+      :section="learnRequest?.kind"
+      :sections="learnSections"
+      @update:section="setLearnSection"
+      @back="backFromLesson"
+      @close="closeLearn"
+    >
+      <ArrangingCoachIdeasPanel
+        v-if="learnRequest?.kind === 'ideas'"
+        :title="ideasTitle"
+        :intro="ideasHelp.ideasIntro"
+        :ideas="ideasHelp.ideas"
+        embedded
+        @learn="openLesson"
+        @close="closeLearn"
+      />
+      <ArrangingCoachHelpPanel
+        v-else-if="learnRequest?.kind === 'help'"
+        :title="helpTitle"
+        :intro="ideasHelp.helpIntro"
+        :sections="ideasHelp.help"
+        embedded
+        @close="closeLearn"
+      />
+      <ArrangingCandidateWhy
+        v-else-if="learnRequest?.kind === 'why' && chooseWhyView"
+        :why="chooseWhyView"
+        :show-numbers="whyShowNumbers"
+        @update:show-numbers="whyShowNumbers = $event"
+      />
+      <ArrangingCoachTeachLesson
+        v-else-if="learnRequest?.kind === 'lesson'"
+        :title="learnRequest.title"
+        :glossary-ids="learnRequest.glossaryIds"
+        :intro="learnRequest.intro"
+        hide-back
+      />
+    </ArrangingLearnDrawer>
     <aside
       class="coach-dock"
       :class="{ resizing }"
@@ -467,10 +598,12 @@ onUnmounted(() => {
     />
 
     <ArrangingCoachChrome
-      :show-config="panelMode === 'config'" :show-ideas="panelMode === 'ideas'"
-      :show-help="panelMode === 'help'"
-      @toggle-config="togglePanel('config')" @toggle-ideas="togglePanel('ideas')"
-      @toggle-help="togglePanel('help')" @pop-out="emit('popOut')" @close="emit('close')"
+      :show-config="panelMode === 'config'"
+      :show-learn="learnOpen"
+      @toggle-config="togglePanel('config')"
+      @toggle-learn="toggleLearn"
+      @pop-out="emit('popOut')"
+      @close="emit('close')"
     />
 
     <p v-if="syncing" class="muted">Linking…</p>
@@ -548,6 +681,7 @@ onUnmounted(() => {
               @update:cand-filter="candFilter = $event"
               @update:label-mode="setChordLabelMode"
               @update:why-open="chooseWhyOpen = $event"
+              @open-lesson="openLesson"
               @preview="previewCand"
               @clear-preview="holdStopHear"
               @hold-start="holdStartHear"
@@ -567,31 +701,11 @@ onUnmounted(() => {
             />
             <p v-else class="muted">Select a moment with ← / → or click the roll.</p>
 
-            <details
-              v-if="lintDetail && expandedLintId"
-              class="lint-detail"
-              open
-            >
-              <summary>
-                <span class="loc">{{
-                  noteLints.find((l) => l.id === expandedLintId)
-                    ? lintParts(noteLints.find((l) => l.id === expandedLintId)!).loc
-                    : 'Issue'
-                }}</span>
-                <span class="msg">{{ lintDetail.headline }}</span>
-                <button type="button" class="x" title="Close" @click.prevent="clearLintDetail">
-                  x
-                </button>
-              </summary>
-              <ArrangingCoachTeachLesson
-                v-if="lintDetail.glossary.length"
-                :title="lintDetail.headline"
-                :glossary-ids="lintDetail.glossary.map((g) => g.id)"
-                :intro="lintDetail.body"
-                hide-back
-              />
-              <p v-else class="body">{{ lintDetail.body }}</p>
-            </details>
+            <p v-if="lintDetail && expandedLintId" class="lint-note">
+              <span class="msg">{{ lintDetail.headline }}</span>
+              <button type="button" class="learn-link" @click="openLintLesson">Learn</button>
+              <button type="button" class="x" title="Close" @click="clearLintDetail">×</button>
+            </p>
 
             <aside v-if="noteLints.length" class="potential-issues">
               <h3 class="potential-title">
@@ -649,7 +763,7 @@ onUnmounted(() => {
                 :expanded-id="expandedLintId"
                 @jump="jumpToLint"
                 @fix="fixItem"
-                @learn="learnLint"
+                @learn="onLearnLint"
               />
             </aside>
           </section>
@@ -700,6 +814,7 @@ onUnmounted(() => {
 
 <style scoped>
 .coach-shell {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -795,8 +910,7 @@ onUnmounted(() => {
 .primary,
 .step-btn,
 .fix-btn,
-.cand-actions button,
-.linkish {
+.cand-actions button {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -995,202 +1109,29 @@ onUnmounted(() => {
 .lint-jump:hover .msg {
   text-decoration: underline;
 }
-.best-row {
+.lint-note {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.45rem;
-}
-.best-id,
-.cand-id {
-  font-size: 0.88rem;
-}
-.step-btn.slim {
-  min-height: 1.65rem;
-  font-size: 0.72rem;
-  padding: 0.15rem 0.4rem;
-}
-.lint-detail {
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 9px;
-  padding: 0.4rem 0.5rem;
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  display: grid;
-  gap: 0.35rem;
-}
-.lint-detail summary {
-  display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.4rem;
-  cursor: pointer;
-  font-weight: 700;
-  list-style: none;
-}
-.lint-detail summary::-webkit-details-marker {
-  display: none;
-}
-.advanced {
-  margin-top: 0.25rem;
-}
-.advanced summary {
-  cursor: pointer;
-  user-select: none;
-}
-.lint-detail .loc {
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
+  gap: 0.45rem;
+  margin: 0;
   font-size: 0.78rem;
 }
-.lint-detail .msg {
-  flex: 1;
+.lint-note .msg {
+  flex: 1 1 auto;
   min-width: 0;
-}
-.lint-detail .x {
-  border: 0;
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-  color: var(--muted);
-  padding: 0 0.2rem;
-}
-.lint-detail .body {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: var(--text);
-}
-.lint-detail .gloss {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.25rem;
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.other-cands {
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 0.35rem 0.45rem;
-  display: grid;
-  gap: 0.35rem;
-}
-.other-cands summary {
-  cursor: pointer;
   font-weight: 700;
-  font-size: 0.8rem;
 }
-.other-cands .meta {
-  margin-left: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-.chip {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 650;
-  cursor: pointer;
-  min-height: 1.65rem;
-  padding: 0.1rem 0.5rem;
-}
-.filter-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.25rem;
-}
-.filter-row button {
-  min-height: 1.6rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg, var(--surface));
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-.filter-row button.on {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.cands.flat li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 0.4rem;
-  padding: 0.25rem 0;
+.lint-note .learn-link,
+.lint-note .x {
   border: 0;
-  border-radius: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-}
-.inv-details {
-  flex: 1 1 100%;
-  margin: 0.15rem 0 0;
-}
-.inv-details summary {
-  cursor: pointer;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-.inv-list {
-  list-style: none;
-  margin: 0.25rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.25rem;
-}
-.inv-list li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  align-items: center;
-  border-bottom: 0 !important;
-  padding: 0.15rem 0 !important;
-}
-.best-inv {
-  margin: 0.35rem 0 0.15rem;
-}
-.cands.flat li:last-child {
-  border-bottom: 0;
-}
-.cands.flat .why-inline {
-  flex: 1 1 100%;
-}
-.cands li {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.score-bar {
-  display: inline-block;
-  height: 4px;
-  min-width: 1.5rem;
-  max-width: 3.5rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
-  vertical-align: middle;
-}
-.cand-meta {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.linkish {
   background: transparent;
-  border-color: transparent;
-  text-decoration: underline;
-  min-height: auto;
-  padding: 0.1rem 0.2rem;
-  font-size: 0.75rem;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.lint-note .x {
+  color: var(--muted);
 }
 </style>

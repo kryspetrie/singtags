@@ -13,6 +13,7 @@ import {
   type ChordAnalysisSegment,
   type NatureNameCandidate,
 } from '../domain/arranging/chordAnalysisBar'
+import { melodyPartAtTick } from '../lib/tagRoll/melodyPass'
 import {
   expandHeldMomentsForCadences,
   impliedStacksForBareMelody,
@@ -62,21 +63,18 @@ function deferredPartOnsets(notes: readonly TagRollNote[]): number[] {
  * predecessor end) — matches sheet / Uncovered / coach moments.
  */
 export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[] {
-  const lead =
-    (tag.view.melodyPartId ? tag.parts.find((p) => p.id === tag.view.melodyPartId) : null) ??
-    partByName(tag, 'Lead')
-  if (!lead) return []
   const tenor = partByName(tag, 'Tenor')
   const bari = partByName(tag, 'Bari')
   const bass = partByName(tag, 'Bass')
   const harmonyIds = [tenor?.id, bari?.id, bass?.id].filter(Boolean) as string[]
-
-  const roleById = new Map(
-    tag.notes.filter((n) => n.partId === lead.id).map((n) => [n.id, n.role] as const),
+  const melodyNotes = tag.notes.filter(
+    (n) => n.partId === melodyPartAtTick(tag, n.startTick),
   )
+  if (!melodyNotes.length && !melodyPartAtTick(tag, 0)) return []
+
+  const roleById = new Map(melodyNotes.map((n) => [n.id, n.role] as const))
   const leadNotes = deferOverlappingOnsets(
-    tag.notes
-      .filter((n) => n.partId === lead.id)
+    melodyNotes
       .map((n) => ({
         startTick: n.startTick,
         durationTicks: n.durationTicks,
@@ -92,7 +90,9 @@ export function bareMelodyMomentsFromTag(tag: TagRollProject): BareMelodyMoment[
 
   const out: BareMelodyMoment[] = []
   for (const n of leadNotes) {
+    const melodyId = melodyPartAtTick(tag, n.startTick)
     const hasHarmony = harmonyIds.some((partId) =>
+      partId !== melodyId &&
       tag.notes.some(
         (h) =>
           h.partId === partId &&

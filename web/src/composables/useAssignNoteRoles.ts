@@ -9,6 +9,7 @@ import {
   noteRolesMapFromProject,
   roleForTagNote,
 } from '../lib/tagRoll/melodyNoteRoles'
+import { melodyPartAtTick } from '../lib/tagRoll/melodyPass'
 import {
   neighborNoteInStack,
   neighborNoteSamePart,
@@ -101,12 +102,11 @@ export function useAssignNoteRoles(opts: {
     if (!p || !id) return
     const note = p.notes.find((n) => n.id === id)
     if (!note) return
-    store.setMelodyPart(note.partId)
+    const message = store.toggleMelodyHandoffAtNote(note.id)
     if (p.view.roleDisplay === 'off') store.setRoleDisplay('melody')
-    snackbar.show(
-      `Melody: ${p.parts.find((x) => x.id === note.partId)?.name ?? 'part'}`,
-      { title: 'Melody part', tone: 'ok', ms: 2000 },
-    )
+    if (message) {
+      snackbar.show(message, { title: 'Melody', tone: 'ok', ms: 2200 })
+    }
   }
 
   /** Always available; viewport paints roles only when Marks filter allows. */
@@ -119,7 +119,9 @@ export function useAssignNoteRoles(opts: {
   const assignRolesMelodyName = computed(() => {
     const p = opts.project.value
     if (!p) return null
-    const mid = melodyPartIdOf(p)
+    const sel = store.selectedNote
+    const tick = sel?.startTick ?? p.view.playheadTick
+    const mid = melodyPartAtTick(p, tick)
     return p.parts.find((x) => x.id === mid)?.name ?? null
   })
 

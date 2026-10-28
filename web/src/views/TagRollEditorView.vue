@@ -46,7 +46,8 @@ import {
   provideTagRollAudio,
   type TagRollAudioApi,
 } from '../composables/useTagRollAudio'
-import { notesForColumnAudition } from '../lib/tagRoll/columnAudition'
+import { notesForColumnAudition, notesForPreviewTransport } from '../lib/tagRoll/columnAudition'
+import { melodyPartAtTick } from '../lib/tagRoll/melodyPass'
 import {
   isMetronomeAudible,
   isPartAudible,
@@ -116,6 +117,7 @@ import {
   type CompleteFromPartsItem,
 } from '../lib/tagRoll/completeFromParts'
 import {
+  previewOverlapsRange,
   sketchSpansForAudition,
   type HarmonyPreviewDraft,
 } from '../lib/tagRoll/harmonyPreviewDraft'
@@ -201,7 +203,7 @@ const arrangingEnabled = computed(() => !!prefs.arrangingEnabled)
 const projectIdRef = computed(() => store.current?.id ?? props.id)
 const shortcutsOpen = ref(false)
 const ghostNotes = ref<
-  { midi: number; startTick: number; durationTicks: number; color: string }[]
+  { midi: number; startTick: number; durationTicks: number; color: string; overlay?: boolean }[]
 >([])
 const coachFocus = useTagRollCoachFocus(() => store.current, store)
 const {
@@ -568,7 +570,11 @@ function rebuildScheduler(): void {
   if (!project.value) return
   const p = ensurePlayer()
   scheduler = createTagRollScheduler({
-    getNotes: () => store.current?.notes ?? [],
+    getNotes: () => notesForPreviewTransport({
+      notes: store.current?.notes ?? [],
+      preview: harmonyPreview.value,
+      melodyAt: (tick) => (store.current ? melodyPartAtTick(store.current, tick) : null),
+    }),
     getBpm: () => store.current?.bpm ?? 104,
     getTempoMarkers: () => store.current?.tempoMarkers ?? [],
     getExpressions: () => store.current?.expressions ?? [],
@@ -593,7 +599,7 @@ function rebuildScheduler(): void {
       sketchSpansForAudition(store.current?.harmonySketch ?? [], harmonyPreview.value),
     getDetectedSpans: () =>
       chordDetectSegments.value
-        .filter((s) => s.rootPc != null)
+        .filter((s) => s.rootPc != null && !previewOverlapsRange(harmonyPreview.value, s.startTick, s.endTick))
         .map((s) => ({
           id: s.id,
           startTick: s.startTick,
@@ -1140,8 +1146,7 @@ async function auditionTick(tick: number): Promise<void> {
   const p = project.value
   if (!p) return
   stopSketchHear()
-  const melodyPartId =
-    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  const melodyPartId = melodyPartAtTick(p, tick)
   const notes = notesForColumnAudition({
     notes: p.notes,
     tick,
@@ -1179,8 +1184,7 @@ function onHearStack(): void {
 function harmonyLeadMidiAt(tick: number): number | null {
   const p = project.value
   if (!p) return null
-  const leadId =
-    p.view.melodyPartId ?? p.parts.find((x) => x.name === 'Lead')?.id ?? null
+  const leadId = melodyPartAtTick(p, tick)
   const note = p.notes.find(
     (n) =>
       (!leadId || n.partId === leadId) &&
@@ -1342,12 +1346,9 @@ function syncSketchToCoachPillars(): void {
 
 const {
   navigateSelectedNote,
-  onSetSelectedMelodyRole,
-  onClearSelectedMelodyRole,
   onAssignMelodyPart,
   noteRolesMap,
   assignRolesMelodyName,
-  assignRolesSelectedRole,
 } = useAssignNoteRoles({
   project,
   arrangingEnabled,
@@ -1760,19 +1761,10 @@ function onSelectMany(ids: string[], opts?: { additive?: boolean }): void {
 }
 
 function onGhost(
-  ghosts: {
-    role?: string
-    midi: number
-    startTick: number
-    durationTicks: number
-    color: string
-  }[],
+  ghosts: { role?: string; midi: number; startTick: number; durationTicks: number; color: string; overlay?: boolean }[],
 ): void {
   ghostNotes.value = ghosts.map((g) => ({
-    midi: g.midi,
-    startTick: g.startTick,
-    durationTicks: g.durationTicks,
-    color: g.color,
+    midi: g.midi, startTick: g.startTick, durationTicks: g.durationTicks, color: g.color, overlay: g.overlay,
   }))
 }
 
@@ -1999,7 +1991,9 @@ function toggleRoles(): void {
   if (harmonizeOpen.value) onHarmonizeClose()
   store.assignNoteRolesActive = true
   // Show role chrome only — melody stripes stay off until Marks toggles them.
-  if (project.value?.view.roleDisplay === 'off') store.setRoleDisplay('roles')
+  if (project.value?.view.roleDisplay === 'off' || project.value?.view.roleDisplay === 'roles' || project.value?.view.roleDisplay === 'both') {
+    store.setRoleDisplay('melody')
+  }
   const arr = arrStore.current
   if (arr && project.value && arr.id === `arr_${project.value.id}`) {
     store.importMelodyRolesFromArrangement(arr.melody)
@@ -2488,8 +2482,7 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 'c') {
     e.preventDefault()
-    if (store.assignNoteRolesActive) onClearSelectedMelodyRole()
-    else store.cycleActivePart(1)
+    store.cycleActivePart(1)
     return
   }
   if (lower === 'y') {
@@ -2499,13 +2492,7 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 's') {
     e.preventDefault()
-    if (store.assignNoteRolesActive) onSetSelectedMelodyRole('pmn')
-    else onStop()
-    return
-  }
-  if (lower === 'p' && store.assignNoteRolesActive) {
-    e.preventDefault()
-    onSetSelectedMelodyRole('smn')
+    onStop()
     return
   }
   if (lower === 'm') {
@@ -2742,7 +2729,6 @@ function onKeyDown(e: KeyboardEvent): void {
               <TagRollAssignRolesHud
                 :active="store.assignNoteRolesActive"
                 :melody-part-name="assignRolesMelodyName"
-                :selected-role="assignRolesSelectedRole"
                 :role-display="project.view.roleDisplay ?? 'off'"
                 @close="store.assignNoteRolesActive = false"
                 @update:role-display="(d) => store.setRoleDisplay(d)"
@@ -2901,7 +2887,7 @@ function onKeyDown(e: KeyboardEvent): void {
           class="keychange-dock"
           aria-label="Key change"
         >
-          <TagRollKeyChangePanel @close="onKeyChangeClose" />
+          <TagRollKeyChangePanel @close="onKeyChangeClose" @preview="onGhost" />
         </aside>
         <aside
           v-else-if="tweaksOpen && project.view.mode !== 'view'"
@@ -3211,7 +3197,6 @@ function onKeyDown(e: KeyboardEvent): void {
   min-height: 0;
 }
 .stage.dock-popout :deep(.coach-shell),
-.stage.dock-popout :deep(.coach-dock),
 .stage.dock-popout :deep(.tr-hz),
 .stage.dock-popout :deep(.chord-edit-dock),
 .stage.dock-popout :deep(.keychange-dock) {
@@ -3219,6 +3204,16 @@ function onKeyDown(e: KeyboardEvent): void {
   max-width: none;
   min-width: 0;
   border-left: 0;
+}
+.stage.dock-popout :deep(.coach-dock) {
+  flex: 1 1 auto;
+  width: auto !important;
+  max-width: none; min-width: 0;
+  border-left: 0;
+}
+.stage.dock-popout :deep(.learn-drawer) {
+  position: relative; right: auto; top: auto; bottom: auto;
+  width: min(24rem, 46%); max-width: none; box-shadow: none;
 }
 .keychange-dock,
 .tweaks-dock,
@@ -3232,11 +3227,8 @@ function onKeyDown(e: KeyboardEvent): void {
   border-left: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 94%, var(--bg, var(--surface)));
 }
-.stage.dock-popout :deep(.why-dock) {
-  width: min(16.5rem, 40%) !important;
-  min-width: 12rem;
-  border-left: 0;
-  border-right: 1px solid var(--border);
+.keychange-dock {
+  display: flex; flex-direction: column; align-self: stretch; min-height: 0; overflow: hidden;
 }
 .stage-main > :deep(.coach-shell),
 .stage-main > :deep(.tr-hz),

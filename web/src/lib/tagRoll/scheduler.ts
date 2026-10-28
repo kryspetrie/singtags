@@ -338,6 +338,17 @@ export function createTagRollScheduler(opts: {
     void opts.player.noteOn(midiToNote(n.midi), 0, { voiceKey, gain: volume, pan })
   }
 
+  function releaseDroppedNote(id: string): void {
+    const key = active.get(id)
+    if (!key) return
+    opts.player.noteOff(key, envelope().decaySec)
+    active.delete(id)
+    for (const [partId, noteId] of activeByPart) {
+      if (noteId === id) activeByPart.delete(partId)
+    }
+    scheduled.delete(id)
+  }
+
   function endNoteIfOwned(n: TagRollNote): void {
     if (!active.has(n.id)) return
     // Only release if this note still owns the part voice.
@@ -482,6 +493,13 @@ export function createTagRollScheduler(opts: {
 
   function scheduleDetected(t: number, lookAhead: number): void {
     const spans = opts.getDetectedSpans?.() ?? []
+    const live = new Set(spans.filter((s) => s.endTick > t).map((s) => s.id))
+    for (const id of [...detectActive.keys()]) {
+      if (!live.has(id)) endDetectedSpan(id)
+    }
+    for (const id of [...detectScheduled]) {
+      if (!spans.some((s) => s.id === id)) detectScheduled.delete(id)
+    }
     const cap = stopAt
     const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
     for (const span of spans) {
@@ -500,6 +518,10 @@ export function createTagRollScheduler(opts: {
 
   function scheduleNotes(t: number, lookAhead: number): void {
     const notes = [...opts.getNotes()].sort((a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id))
+    const live = new Set(notes.map((n) => n.id))
+    for (const id of [...active.keys()]) {
+      if (!live.has(id)) releaseDroppedNote(id)
+    }
     const cap = stopAt
     const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
     for (const n of notes) {

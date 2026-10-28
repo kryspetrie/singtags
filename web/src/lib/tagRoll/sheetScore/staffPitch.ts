@@ -1,7 +1,7 @@
 /**
  * Written MIDI → staff position, accidental, ledger lines.
  */
-import { midiToMusicXmlPitch } from '../musicxmlExport'
+import { midiToMusicXmlPitch } from '../midiPitch'
 import type { SheetClefKind } from './types'
 
 const STEP_INDEX: Record<string, number> = {

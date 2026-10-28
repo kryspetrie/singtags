@@ -43,6 +43,7 @@ import {
   voicingRoleStackTitle,
 } from '../../lib/tagRoll/harmonizer/inversionLabel'
 import { CHORDS_HOWTO } from '../../lib/tagRoll/harmonyHowTo'
+import { melodyPartAtTick } from '../../lib/tagRoll/melodyPass'
 import { useChordPickLabelMode } from '../../composables/useChordPickLabelMode'
 import {
   loadChordsApplyMode,
@@ -202,27 +203,22 @@ const melodyPartId = computed(() => {
   )
 })
 
-const melodyPart = computed(
-  () => project.value?.parts.find((p) => p.id === melodyPartId.value) ?? null,
-)
-
 const melodyNotesSorted = computed((): TagRollNote[] => {
   const p = project.value
-  const mid = melodyPartId.value
-  if (!p || !mid) return []
+  if (!p) return []
   return p.notes
-    .filter((n) => n.partId === mid)
+    .filter((n) => n.partId === melodyPartAtTick(p, n.startTick))
     .slice()
     .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
 })
 
 const melodyNote = computed((): TagRollNote | null => {
   const p = project.value
-  const mid = melodyPartId.value
-  if (!p || !mid) return null
+  if (!p) return null
   const sel = store.selectedNote
-  if (sel && sel.partId === mid) return sel
-  const at = notesAtTick(p.notes, p.view.playheadTick).filter((n) => n.partId === mid)
+  if (sel && sel.partId === melodyPartAtTick(p, sel.startTick)) return sel
+  const atPlay = melodyPartAtTick(p, p.view.playheadTick)
+  const at = notesAtTick(p.notes, p.view.playheadTick).filter((n) => n.partId === atPlay)
   if (at.length) return at.slice().sort((a, b) => a.midi - b.midi)[0] ?? null
   // Nearest upcoming / previous melody note relative to playhead.
   const sorted = melodyNotesSorted.value
@@ -231,6 +227,13 @@ const melodyNote = computed((): TagRollNote | null => {
   const next = sorted.find((n) => n.startTick >= tick)
   if (next) return next
   return sorted[sorted.length - 1] ?? null
+})
+
+const melodyPart = computed(() => {
+  const p = project.value
+  const note = melodyNote.value
+  if (note && p) return p.parts.find((part) => part.id === note.partId) ?? null
+  return p?.parts.find((part) => part.id === melodyPartId.value) ?? null
 })
 
 const melodyIndex = computed(() => {
@@ -1354,7 +1357,7 @@ function harmonyLeadMidiAt(tick: number): number | null {
   if (!p || !mid) return null
   const hit = p.notes.find(
     (n) =>
-      n.partId === mid &&
+      n.partId === melodyPartAtTick(p, tick) &&
       n.startTick <= tick &&
       tick < n.startTick + n.durationTicks,
   )
@@ -2001,7 +2004,7 @@ defineExpose({
 
       <p v-if="!melodyNote" class="warn">
         Add a {{ melodyPart?.name ?? 'melody' }} note or move the playhead onto one.
-        Melody part is set under Toolbar → Roles.
+        Lead carries the tune until a Melody handoff.
       </p>
 
       <template v-else>

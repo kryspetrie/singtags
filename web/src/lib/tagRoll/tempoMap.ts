@@ -23,6 +23,16 @@ export function beatTicks(ts: TagRollTimeSignature, ppq = TAG_ROLL_PPQ): number 
   return Math.max(1, Math.round((ppq * 4) / Math.max(1, ts.denominator)))
 }
 
+/**
+ * Beam / syncopation grouping unit. Compound meters (6/8, 9/8, 12/8) group by
+ * the dotted-quarter (3 written eighths), not each eighth.
+ */
+export function beamGroupTicks(ts: TagRollTimeSignature, ppq = TAG_ROLL_PPQ): number {
+  const b = beatTicks(ts, ppq)
+  if (ts.denominator === 8 && ts.numerator % 3 === 0) return b * 3
+  return b
+}
+
 export function createDefaultTempoMarkers(bpm = TAG_ROLL_DEFAULT_BPM): TagRollTempoMarker[] {
   return [{ id: allocatePrefixedId('trt'), tick: 0, bpm }]
 }

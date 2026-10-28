@@ -100,13 +100,16 @@ async function renderOffscreen(
     project,
     pxPerBeat: project.view.sheetZoom,
     showLyrics: project.view.sheetShowLyrics !== false,
+    straightLyrics: project.view.sheetStraightLyrics !== false,
     sheetLayout: page ? 'page' : 'continuous',
     measureSizing: project.view.sheetMeasureSizing ?? 'dynamic',
+    fullJustify: project.view.sheetFullJustify !== false,
     pageWidthIn: project.view.sheetPageWidthIn ?? 8.5,
     pageHeightIn: project.view.sheetPageHeightIn ?? 11,
     pageDpi: project.view.sheetPageDpi ?? 96,
     headerBandPx: page ? estimateTitleBand(project) : 0,
     noteColors: project.view.sheetNoteColors === true,
+    showCrossoverMarks: project.view.sheetShowCrossoverMarks !== false,
     staveGap: project.view.sheetStaveGap ?? 'normal',
     measureScale: project.view.sheetMeasureScale ?? 1,
     noteSpacing: project.view.sheetNoteSpacing ?? 1,
@@ -116,6 +119,7 @@ async function renderOffscreen(
     topMargin: project.view.sheetTopMargin ?? 1,
     lyricSize: project.view.sheetLyricSize ?? 12,
     lyricOffsets: project.view.sheetLyricOffsets ?? {},
+    lyricPartVisible: project.view.sheetLyricPartVisible ?? {},
     paddingScale: project.view.sheetPadding ?? 1,
     minBarWidth: project.view.sheetMinBarWidth ?? 1,
     clefGutter: project.view.sheetClefGutter ?? 1,
@@ -124,6 +128,7 @@ async function renderOffscreen(
     musicFont: project.view.sheetMusicFont,
     textFont: project.view.sheetTextFont,
     staffLineWeight: project.view.sheetStaffLineWeight ?? 1,
+    stemLength: project.view.sheetStemLength ?? 0.8,
     showPartNames: project.view.sheetPartNames === true,
     marginLeftIn: project.view.sheetMarginLeftIn ?? 0.3,
     marginRightIn: project.view.sheetMarginRightIn ?? 0.3,
@@ -200,12 +205,13 @@ function drawTitleOntoCanvas(
   bandH: number,
   marginLeft: number,
   marginRight: number,
+  marginTop = 0,
 ): void {
   if (bandH <= 0) return
   ctx.fillStyle = '#1a1a1a'
   ctx.textAlign = 'center'
-  let y = 28
-  const cx = pageW / 2
+  let y = Math.max(18, marginTop + 18)
+  const cx = marginLeft + (pageW - marginLeft - marginRight) / 2
   if (project.title?.trim()) {
     ctx.font = '700 22px Georgia, "Times New Roman", serif'
     ctx.fillText(project.title.trim(), cx, y)
@@ -255,21 +261,23 @@ function drawTitleOntoPdf(
   bandHPt: number,
   marginLeftPt: number,
   marginRightPt: number,
+  marginTopPt = 0,
 ): void {
   if (bandHPt <= 0) return
-  let y = 22
+  let y = Math.max(14, marginTopPt + 14)
+  const cx = marginLeftPt + (pageWPt - marginLeftPt - marginRightPt) / 2
   doc.setTextColor(26, 26, 26)
   if (project.title?.trim()) {
     doc.setFont('times', 'bold')
     doc.setFontSize(16)
-    doc.text(project.title.trim(), pageWPt / 2, y, { align: 'center' })
+    doc.text(project.title.trim(), cx, y, { align: 'center' })
     y += 18
   }
   if (project.subtitle?.trim()) {
     doc.setFont('times', 'italic')
     doc.setFontSize(11)
     doc.setTextColor(61, 58, 52)
-    doc.text(project.subtitle.trim(), pageWPt / 2, y, { align: 'center' })
+    doc.text(project.subtitle.trim(), cx, y, { align: 'center' })
     y += 14
   }
   if (project.composer?.trim() || project.arranger?.trim()) {
@@ -450,7 +458,15 @@ async function pageCanvases(
       if (pg.index === 0 && band > 0) {
         ctx.save()
         ctx.scale(scale, scale)
-        drawTitleOntoCanvas(ctx, project, wCss, band, margins.left, margins.right)
+        drawTitleOntoCanvas(
+          ctx,
+          project,
+          wCss,
+          band,
+          margins.left,
+          margins.right,
+          margins.top,
+        )
         ctx.restore()
       }
       const srcH = Math.round(regionH * scale)
@@ -653,6 +669,7 @@ export async function exportSheetPdfVector(
           pxToPt(band, dpi),
           pxToPt(margins.left, dpi),
           pxToPt(margins.right, dpi),
+          pxToPt(margins.top, dpi),
         )
       }
 

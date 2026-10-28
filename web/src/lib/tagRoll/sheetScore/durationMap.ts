@@ -20,6 +20,15 @@ export type MappedDuration = {
   ticks: number
 }
 
+export type DecomposePositionOpts = {
+  /** Absolute onset of this span (after barline splits). */
+  startTick: number
+  /** Measure length in ticks (forces mid-bar splits in binary meters). */
+  measureTicks: number
+  /** Beat length — off-beat syncopations may not cross the next beat. */
+  beatTicks: number
+}
+
 const FLAGS: Record<NoteDurationType, number> = {
   whole: 0,
   half: 0,
@@ -69,6 +78,134 @@ export function mapTicksToDuration(
     }
   }
   return best
+}
+
+/**
+ * Strictly greedy largest-first split. Tick sum always equals the input —
+ * never round a leftover up past the remaining span.
+ */
+function greedyDecompose(durationTicks: number, ppq: number): MappedDuration[] {
+  const target = Math.max(1, Math.round(durationTicks))
+  let remaining = target
+  const list = catalog(ppq)
+    .slice()
+    .sort((a, b) => b.ticks - a.ticks || a.dots - b.dots)
+  const smallest = list[list.length - 1]!.ticks
+  const out: MappedDuration[] = []
+  while (remaining > 0 && out.length < 16) {
+    const exact = list.find((c) => c.ticks === remaining)
+    if (exact) {
+      out.push(exact)
+      remaining = 0
+      break
+    }
+    const fit = list.find((c) => c.ticks <= remaining)
+    if (!fit || remaining < smallest) {
+      // Sub-catalog leftover: keep nearest glyph type but exact tick count.
+      const approx = mapTicksToDuration(remaining, ppq)
+      out.push({ ...approx, ticks: remaining })
+      remaining = 0
+      break
+    }
+    out.push(fit)
+    remaining -= fit.ticks
+  }
+  if (!out.length) {
+    const approx = mapTicksToDuration(target, ppq)
+    return [{ ...approx, ticks: target }]
+  }
+  return out
+}
+
+/**
+ * Mid-bar + off-beat syncopation splits.
+ * - Half on beat 2 → two tied quarters at mid-bar.
+ * - Quarter starting on an off-beat that crosses the next beat → split + tie.
+ * Whole / dotted-half from the downbeat may cross the midpoint.
+ */
+export function groupingSplitTicks(
+  startTick: number,
+  durationTicks: number,
+  measureTicks: number,
+  beatTicks: number,
+): number[] {
+  const mLen = Math.max(1, Math.round(measureTicks))
+  const bLen = Math.max(1, Math.round(beatTicks))
+  const end = startTick + Math.max(1, Math.round(durationTicks))
+  const parts: number[] = []
+  let t = startTick
+  while (t < end) {
+    const measureStart = Math.floor(t / mLen) * mLen
+    const measureEnd = measureStart + mLen
+    const segEnd = Math.min(end, measureEnd)
+    let stop = segEnd
+
+    if (mLen % 2 === 0) {
+      const mid = measureStart + mLen / 2
+      const crossesMid = t < mid && segEnd > mid
+      const fromDownbeat = t === measureStart
+      const lenInMeasure = segEnd - t
+      const allowMidCross =
+        fromDownbeat &&
+        (lenInMeasure >= mLen || lenInMeasure === Math.round(mLen * 0.75))
+      if (crossesMid && !allowMidCross) {
+        stop = Math.min(stop, mid)
+      }
+    }
+
+    // Off-beat onset: must not cross the next beat boundary.
+    const onBeat = t % bLen === 0
+    if (!onBeat) {
+      const nextBeat = Math.floor(t / bLen) * bLen + bLen
+      if (nextBeat > t && nextBeat < segEnd) {
+        stop = Math.min(stop, nextBeat)
+      }
+    }
+
+    parts.push(stop - t)
+    t = stop
+  }
+  return parts.length ? parts : [Math.max(1, Math.round(durationTicks))]
+}
+
+/** @deprecated Prefer {@link groupingSplitTicks} (includes beat syncopation). */
+export function midBarSplitTicks(
+  startTick: number,
+  durationTicks: number,
+  measureTicks: number,
+): number[] {
+  return groupingSplitTicks(
+    startTick,
+    durationTicks,
+    measureTicks,
+    Math.max(1, Math.round(measureTicks / 4)),
+  )
+}
+
+/**
+ * Split a tick span into standard note values (largest first) so engraving can
+ * show dots / ties instead of silently rounding to a single nearest duration.
+ * With `position`, also split at mid-bar and off-beat syncopation boundaries.
+ */
+export function decomposeTicksToDurations(
+  durationTicks: number,
+  ppq = TAG_ROLL_PPQ,
+  position?: DecomposePositionOpts,
+): MappedDuration[] {
+  if (!position) {
+    return greedyDecompose(durationTicks, ppq)
+  }
+  const chunks = groupingSplitTicks(
+    position.startTick,
+    durationTicks,
+    position.measureTicks,
+    position.beatTicks,
+  )
+  const out: MappedDuration[] = []
+  for (const chunk of chunks) {
+    out.push(...greedyDecompose(chunk, ppq))
+  }
+  return out.length ? out : [mapTicksToDuration(durationTicks, ppq)]
 }
 
 export function durationHasStem(type: NoteDurationType): boolean {

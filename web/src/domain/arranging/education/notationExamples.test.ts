@@ -54,6 +54,8 @@ describe('notation examples (abcjs)', () => {
     expect(svg).toContain('viewBox=')
     expect(svg).not.toMatch(/position:\s*absolute/)
     expect(svg).toMatch(/width="100%"/)
+    expect(svg).toMatch(/abcjs-note[^>]*fill="#1c1914"/)
+    expect(svg).not.toMatch(/fill="(?:currentColor|#fff(?:fff)?|white)"/i)
   })
 
   it('bad TTBB example marks tenor below lead in data', () => {

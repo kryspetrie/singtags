@@ -52,6 +52,20 @@ export function isTagRollSeedDismissed(id: string): boolean {
   return readDismissedSeedIds().has(id)
 }
 
+/** User chose to load this seed again. */
+export function undismissTagRollSeed(id: string): void {
+  if (!isTagRollSeedId(id)) return
+  const ls = readStorage()
+  if (!ls) return
+  const next = readDismissedSeedIds()
+  if (!next.delete(id)) return
+  try {
+    ls.setItem(DISMISSED_KEY, JSON.stringify([...next]))
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 /** Drop dismissals for polecat pitch seeds so list refresh can re-import them. */
 export function clearPolecatPitchSeedDismissals(): number {
   const ls = readStorage()

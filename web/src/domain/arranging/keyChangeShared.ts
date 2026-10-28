@@ -114,6 +114,15 @@ export function signedKeyInterval(
   return preferUp ? (up <= 6 ? up : down) : down >= -6 ? down : up
 }
 
+/** Corpus plant for this signed interval, when the teaching table names one. */
+export function preferredKeyChangeTemplate(intervalSemis: number): string | null {
+  if (intervalSemis === 1 || intervalSemis === 2) return 'lift-up'
+  if (intervalSemis === -1 || intervalSemis === -2) return 'lift-down'
+  if (intervalSemis === 4 || intervalSemis === -4) return 'tertian'
+  if (intervalSemis === 5 || intervalSemis === -7) return 'I7-as-V'
+  return null
+}
+
 export function keyLabel(tonality: number, mode: TonalityMode): string {
   const names = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B']
   return `${names[pcOf(tonality)]!}${mode === 'minor' ? 'm' : ''}`
@@ -129,7 +138,7 @@ export function diatonicChords(tonality: number, mode: TonalityMode) {
   }))
 }
 
-/** PCs that are diatonic triad roots in both keys (pivot candidates). */
+/** PCs that are the same diatonic triad (root and quality) in both keys. */
 export function findPivotChords(
   fromTonality: number,
   toTonality: number,
@@ -140,14 +149,13 @@ export function findPivotChords(
   const b = diatonicChords(toTonality, toMode)
   const out: { rootPc: number; fromRoman: string; toRoman: string; natureId: string }[] = []
   for (const x of a) {
-    const y = b.find((z) => z.rootPc === x.rootPc)
+    const y = b.find((z) => z.rootPc === x.rootPc && z.natureId === x.natureId)
     if (!y) continue
-    const natureId = x.natureId === y.natureId ? x.natureId : x.natureId
     out.push({
       rootPc: x.rootPc,
       fromRoman: x.roman,
       toRoman: y.roman,
-      natureId: natureId === 'dim' ? 'dim' : natureId,
+      natureId: x.natureId,
     })
   }
   return out

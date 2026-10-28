@@ -3,14 +3,16 @@
  * Tag Studio Key change helper — pick from/to keys, set the transition span,
  * then Hear / Apply ranked modulation paths into Sketch (not a Coach panel).
  */
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useCoachKeyChange } from '../arranging/useCoachKeyChange'
 import { asciiMusicText } from '../../lib/arranging/asciiMusicText'
-import { TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
+import { ticksToPx } from '../../lib/tagRoll/normalize'
+import { TAG_ROLL_MIDI_MAX, TAG_ROLL_PPQ } from '../../lib/tagRoll/types'
 import { useTagRollStore } from '../../stores/tagRoll'
 
 const emit = defineEmits<{
   close: []
+  preview: [ghosts: { midi: number; startTick: number; durationTicks: number; color: string; overlay?: boolean }[]]
 }>()
 
 const store = useTagRollStore()
@@ -27,7 +29,10 @@ const {
   span,
   options,
   selected,
+  previewGhosts,
   syncFromProject,
+  touchFrom,
+  setLift,
   selectPath,
   applyNextStep,
   applyAll,
@@ -55,7 +60,47 @@ const startMeasure = computed({
 })
 
 onMounted(() => syncFromProject())
-onUnmounted(() => dispose())
+let shownPreview = ''
+watch(previewGhosts, (ghosts) => {
+  emit('preview', ghosts)
+  const mark = `${selected.value?.path.id ?? ''}:${ghosts[0]?.startTick ?? ''}:${ghosts.length}`
+  if (!ghosts.length || mark === shownPreview) return
+  shownPreview = mark
+  const p = store.current
+  if (!p) return
+  let lo = 127
+  let hi = 0
+  let start = ghosts[0]!.startTick
+  for (const g of ghosts) {
+    if (g.midi < lo) lo = g.midi
+    if (g.midi > hi) hi = g.midi
+    if (g.startTick < start) start = g.startTick
+  }
+  const mid = (lo + hi) / 2
+  const scrollY = Math.max(0, Math.round((TAG_ROLL_MIDI_MAX - mid) * p.view.cellH - 16 * p.view.cellH))
+  const scrollX = Math.max(0, ticksToPx(start, p.view.cellW, p.ppq) - 16)
+  store.setScroll(scrollX, scrollY)
+}, { immediate: true })
+onUnmounted(() => {
+  emit('preview', [])
+  dispose()
+})
+
+function liftOn(semis: number): boolean {
+  return ((toTonality.value - fromTonality.value + 12) % 12) === semis
+}
+
+function familyOn(opt: { path: { id: string }; alts?: { path: { id: string } }[] }): boolean {
+  const id = selected.value?.path.id
+  if (!id) return false
+  return opt.path.id === id || !!opt.alts?.some((alt) => alt.path.id === id)
+}
+
+function shownId(opt: { path: { id: string }; alts?: { path: { id: string } }[] }): string {
+  const id = selected.value?.path.id
+  if (id && (opt.path.id === id || opt.alts?.some((alt) => alt.path.id === id))) return id
+  return opt.path.id
+}
 </script>
 
 <template>
@@ -75,7 +120,7 @@ onUnmounted(() => dispose())
     <div class="controls">
       <label>
         From key
-        <select v-model.number="fromTonality">
+        <select v-model.number="fromTonality" @change="touchFrom">
           <option v-for="(n, i) in PC_NAMES" :key="`f-${i}`" :value="i">{{ n }}</option>
         </select>
       </label>
@@ -85,6 +130,12 @@ onUnmounted(() => dispose())
           <option v-for="(n, i) in PC_NAMES" :key="`t-${i}`" :value="i">{{ n }}</option>
         </select>
       </label>
+      <div class="lifts" role="group" aria-label="Preferred lifts">
+        <button type="button" :class="{ on: liftOn(1) }" @click="setLift(1)">+½</button>
+        <button type="button" :class="{ on: liftOn(2) }" @click="setLift(2)">+1</button>
+        <button type="button" :class="{ on: liftOn(3) }" @click="setLift(3)">+m3</button>
+        <button type="button" :class="{ on: liftOn(5) }" @click="setLift(5)">+4th</button>
+      </div>
       <label>
         Start measure
         <input v-model.number="startMeasure" type="number" min="1" max="999" />
@@ -98,7 +149,11 @@ onUnmounted(() => dispose())
         Hybrid paths
       </label>
       <label class="check">
-        <input v-model="includePosts" type="checkbox" />
+        <input
+          v-model="includePosts"
+          type="checkbox"
+          title="Lists a post only when this pitch is sounding in the lead"
+        />
         Post-cadence holds
       </label>
       <label v-if="includePosts">
@@ -119,9 +174,9 @@ onUnmounted(() => dispose())
       <li
         v-for="opt in options"
         :key="opt.path.id"
-        :class="{ on: selected?.path.id === opt.path.id, bad: !opt.packOk }"
+        :class="{ on: familyOn(opt), bad: !opt.packOk }"
       >
-        <button type="button" class="pick" @click="selectPath(opt.path.id)">
+        <button type="button" class="pick" @click="selectPath(shownId(opt))">
           <strong>{{ asciiMusicText(opt.path.label) }}</strong>
           <span class="meta">
             {{ opt.path.length }} chords · {{ opt.path.character }}
@@ -133,6 +188,18 @@ onUnmounted(() => dispose())
             opt.path.steps.map((s) => asciiMusicText(s.romanTo || s.role)).join(' → ')
           }}</span>
         </button>
+        <select
+          v-if="opt.alts?.length"
+          class="alts"
+          aria-label="Other paths in this family"
+          :value="shownId(opt)"
+          @change="selectPath(($event.target as HTMLSelectElement).value)"
+        >
+          <option :value="opt.path.id">{{ asciiMusicText(opt.path.label) }}</option>
+          <option v-for="alt in opt.alts" :key="alt.path.id" :value="alt.path.id">
+            {{ asciiMusicText(alt.path.label) }}
+          </option>
+        </select>
       </li>
     </ul>
 
@@ -174,13 +241,26 @@ onUnmounted(() => dispose())
 
 <style scoped>
 .keychange {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.45rem;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0.55rem 0.6rem;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   border-radius: 10px;
   background: color-mix(in srgb, var(--accent) 5%, var(--surface));
   min-width: 0;
+}
+.head,
+.controls,
+.span,
+.row,
+.status {
+  flex-shrink: 0;
 }
 .head {
   display: flex;
@@ -215,9 +295,40 @@ onUnmounted(() => dispose())
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem 0.65rem;
+  gap: 0.45rem 0.6rem;
   align-items: end;
-  font-size: 0.75rem;
+}
+.lifts {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+.lifts button {
+  min-height: 1.8rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lifts button.on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.alts {
+  width: 100%;
+  min-height: 1.7rem;
+  margin-top: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.72rem;
 }
 .controls label {
   display: grid;
@@ -242,13 +353,18 @@ onUnmounted(() => dispose())
   gap: 0.3rem;
   font-weight: 600;
 }
+.paths,
+.empty {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 .paths {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.28rem;
-  max-height: 14rem;
+  align-content: start;
   overflow: auto;
 }
 .paths li {

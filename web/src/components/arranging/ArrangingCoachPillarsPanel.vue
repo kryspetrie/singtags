@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Orphan — Coach no longer has a Pillars page. Kept as copy reference only.
- * Homes come from Strong vs passing melody + Sketch chords (not manual ◆ tags).
+ * Homes come from the melody and Sketch chords.
  */
 defineEmits<{
   nextRoles: []
@@ -11,8 +11,7 @@ defineEmits<{
 <template>
   <section class="panel">
     <p class="hint">
-      Coach home roots follow <strong>Strong</strong> vs <strong>passing</strong> Lead
-      notes and the chords you paint on <strong>Sketch</strong>. Detected
+      Coach home roots follow the Lead and the chords you paint on <strong>Sketch</strong>. Detected
       <strong>Lock</strong> promotes hole guesses into Sketch — no separate pillar tags.
     </p>
   </section>
