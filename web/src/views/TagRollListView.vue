@@ -133,7 +133,7 @@ onMounted(() => {
       snackbar.show(
         `Polecat seeds: ${n} in library` +
           (clearedDismissals ? ` (cleared ${clearedDismissals} dismissals)` : ''),
-        { title: 'Tag Studio', tone: 'success', ms: 4500 },
+        { title: 'Tag Studio', tone: 'ok', ms: 4500 },
       )
       const q = { ...route.query }
       delete q.resyncSeeds
@@ -354,8 +354,8 @@ function fmtDate(ms: number): string {
         <h1 class="title">Tag Studio</h1>
         <p class="lead">
           Create and arrange custom tag arrangements on a piano-roll grid. Import
-          <strong>SingTags JSON</strong> or <strong>MusicXML</strong> here, or from Export ▾ inside a
-          project.
+          <strong>SingTags JSON</strong> or <strong>MusicXML</strong> here, or from
+          <strong>Import ▾</strong> inside a project.
         </p>
       </div>
       <div class="head-actions">

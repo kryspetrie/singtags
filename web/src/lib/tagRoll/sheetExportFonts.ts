@@ -74,7 +74,7 @@ export async function injectSheetExportFonts(
     const family = name.replace(/'/g, "\\'")
     const format = src.includes('font/otf') ? 'opentype' : 'woff2'
     rules.push(
-      `@font-face{font-family:'${family}';src:url(${JSON.stringify(src)}) format('${format}');font-style:normal;font-weight:400 700;font-display:block;}`,
+      `@font-face{font-family:'${family}';src:url(${JSON.stringify(src)}) format('${format}');font-style:normal;font-weight:400;font-display:block;}`,
     )
   }
   if (!rules.length) return

@@ -74,6 +74,19 @@ sync_site_prefix education "public,max-age=300"
 sync_site_prefix instruments "public,max-age=300"
 sync_site_prefix install-help "public,max-age=300"
 
+# Open Graph shells for /tag/{id} (extensionless HTML objects). Discordbot reads
+# these; humans still get the SPA bundle referenced inside each shell.
+if [[ -d "$DIST/tag-previews" ]]; then
+  echo "Syncing tag/ link-preview shells…"
+  aws s3 sync "$DIST/tag-previews/" "${DEST}tag/" \
+    "${DRY[@]}" \
+    "${SIZE_ONLY_ARGS[@]}" \
+    --delete \
+    --content-type "text/html; charset=utf-8" \
+    --metadata-directive REPLACE \
+    --cache-control "public,max-age=3600"
+fi
+
 # Root shell / PWA files: copy by name so we never LIST library/ (or tags/).
 echo "Uploading app shell (root files)…"
 shopt -s nullglob

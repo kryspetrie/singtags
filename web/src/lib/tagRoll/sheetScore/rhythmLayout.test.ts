@@ -156,6 +156,61 @@ describe('buildSheetRhythm', () => {
     expect(notes[0]!.tieStart).toBe(false)
   })
 
+  it('keeps a 3/4 quarter on beat 2 as one quarter (not tied eighths)', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'q2',
+          partId: 'l',
+          midi: 60,
+          startTick: TAG_ROLL_PPQ,
+          durationTicks: TAG_ROLL_PPQ,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 3,
+      timeSignature: { numerator: 3, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(1)
+    expect(notes[0]!.duration).toMatchObject({ type: 'quarter', dots: 0 })
+    expect(notes[0]!.tieStart).toBe(false)
+    expect(notes[0]!.tieStop).toBe(false)
+  })
+
+  it('emits tie start/stop for authored adjacent pair', () => {
+    const assignment = assignSheetStaves(parts, 'ttbb')
+    const events = buildSheetRhythm({
+      assignment,
+      notes: [
+        {
+          id: 'a',
+          partId: 'l',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ,
+          tie: { toNoteId: 'b' },
+        },
+        {
+          id: 'b',
+          partId: 'l',
+          midi: 60,
+          startTick: TAG_ROLL_PPQ,
+          durationTicks: TAG_ROLL_PPQ,
+        },
+      ],
+      lengthTicks: TAG_ROLL_PPQ * 4,
+      timeSignature: { numerator: 4, denominator: 4 },
+    })
+    const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
+    expect(notes).toHaveLength(2)
+    expect(notes[0]!.tieStart).toBe(true)
+    expect(notes[0]!.tieStop).toBe(false)
+    expect(notes[1]!.tieStop).toBe(true)
+    expect(notes[1]!.tieStart).toBe(false)
+  })
+
   it('ties a half on beat 2 into two quarters at mid-bar', () => {
     const assignment = assignSheetStaves(parts, 'ttbb')
     const events = buildSheetRhythm({

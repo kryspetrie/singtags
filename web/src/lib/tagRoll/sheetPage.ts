@@ -8,7 +8,13 @@ export const SHEET_PAGE_WIDTH_IN_MAX = 17
 export const SHEET_PAGE_HEIGHT_IN_MIN = 4
 export const SHEET_PAGE_HEIGHT_IN_MAX = 22
 export const SHEET_PAGE_DPI_MIN = 72
-export const SHEET_PAGE_DPI_MAX = 150
+export const SHEET_PAGE_DPI_MAX = 192
+
+/**
+ * On-screen supersampling: engrave at this multiple of Size, then CSS-zoom back.
+ * Keeps staff/lyric rasterization sharp; vector PDF export stays 1×.
+ */
+export const SHEET_SCREEN_RENDER_RATIO = 2
 
 /** US Letter. */
 export const SHEET_PAGE_LETTER = { widthIn: 8.5, heightIn: 11 } as const

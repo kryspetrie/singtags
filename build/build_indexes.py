@@ -234,9 +234,11 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
 
     sheet_name = part_filename(parts, "sheet")
     preview_name = part_filename(parts, "sheet_preview")
+    og_name = part_filename(parts, "sheet_og")
     sheets: list[str] = []
     sheet_pages: list[str] = []
     sheet_preview: str | None = None
+    sheet_og: str | None = None
     if sheet_name and (folder / sheet_name).is_file():
         sheets.append(lib_url(folder.name, sheet_name))
     if preview_name and (folder / preview_name).is_file():
@@ -246,9 +248,18 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
     elif sheet_preview is None:
         for f in folder.iterdir():
             if f.is_file() and "preview" in f.name.lower() and f.suffix.lower() == ".webp":
+                if "sheet og" in f.name.lower():
+                    continue
                 sheet_preview = lib_url(folder.name, f.name)
                 sheet_pages.append(sheet_preview)
                 sheets.append(sheet_preview)
+                break
+    if og_name and (folder / og_name).is_file():
+        sheet_og = lib_url(folder.name, og_name)
+    elif sheet_og is None:
+        for f in folder.iterdir():
+            if f.is_file() and "sheet og" in f.name.lower() and f.suffix.lower() == ".webp":
+                sheet_og = lib_url(folder.name, f.name)
                 break
 
     layout = meta.get("audio_layout_summary") or meta.get("audio_layouts") or {}
@@ -296,6 +307,7 @@ def spa_metadata(folder: Path, meta: dict, tid: int) -> dict:
         "sheets": sheets,
         "sheet_pages": sheet_pages,
         "sheet_preview": sheet_preview,
+        "sheet_og": sheet_og,
         "source_folder": folder.name,
         "parts_recombinable": meta.get("parts_recombinable"),
         # Media freshness for client offline cache invalidation

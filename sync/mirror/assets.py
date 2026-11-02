@@ -32,7 +32,12 @@ from lib.http import (
 )
 from lib.names import build_file_name, build_folder_name
 from lib.parse_tag_page import download_file_url, tag_page_url
-from lib.sheet_export import build_sheet_preview_webp, crop_pdf_bytes, image_to_rgb
+from lib.sheet_export import (
+    build_sheet_og_webp,
+    build_sheet_preview_webp,
+    crop_pdf_bytes,
+    image_to_rgb,
+)
 from lib.state import (
     find_folder_for_id,
     load_metadata,
@@ -134,6 +139,57 @@ def ensure_sheet_preview(
     # Replace the whole entry so leftover verbose keys cannot linger.
     meta.setdefault("parts", {})["sheet_preview"] = {"filename": filename}
     print(f"   --> Preview {filename} ({size} bytes)")
+    ensure_sheet_og(folder, meta, sheet_path, force=force)
+    return dest
+
+
+def ensure_sheet_og(
+    folder: Path,
+    meta: dict,
+    sheet_path: Path,
+    *,
+    force: bool = False,
+) -> Optional[Path]:
+    """Tiny 3-bit first-page WebP for Discord/Slack Open Graph cards."""
+    og_entry = _part_entry(meta, "sheet_og")
+    filename = build_file_name(
+        meta.get("title"),
+        meta.get("key"),
+        meta.get("arranger"),
+        "sheet_og",
+        ".webp",
+    )
+    dest = folder / filename
+
+    for key in list(og_entry.keys()):
+        if key != "filename":
+            og_entry.pop(key, None)
+
+    if (
+        not force
+        and og_entry.get("filename") == filename
+        and dest.is_file()
+        and dest.stat().st_size >= 80
+    ):
+        return dest
+
+    for old in list(folder.glob("*")):
+        if not old.is_file() or old == dest:
+            continue
+        if old.suffix.lower() == ".webp" and "sheet og" in old.name.lower():
+            try:
+                old.unlink()
+            except OSError:
+                pass
+
+    try:
+        size = build_sheet_og_webp(sheet_path, dest)
+    except Exception as exc:
+        print(f"   [Warn] sheet OG thumb failed: {exc}")
+        return None
+
+    meta.setdefault("parts", {})["sheet_og"] = {"filename": filename}
+    print(f"   --> OG thumb {filename} ({size} bytes)")
     return dest
 
 

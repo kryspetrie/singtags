@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { createTupletContainer } from './tupletContainers'
-import { paintTupletBands, tupletBadgeLabel } from './tupletChrome'
+import { paintTupletBands, tupletBadgeLabel, tupletKindLabel } from './tupletChrome'
 import { TAG_ROLL_PPQ } from './types'
 
 describe('tupletChrome', () => {
@@ -12,6 +12,13 @@ describe('tupletChrome', () => {
     expect(tupletBadgeLabel({ actualNotes: 6, normalNotes: 4 })).toBe('6')
     expect(tupletBadgeLabel({ actualNotes: 5, normalNotes: 4 })).toBe('5')
     expect(tupletBadgeLabel({ actualNotes: 7, normalNotes: 4 })).toBe('7:4')
+  })
+
+  it('kind label uses Triplet / Sextuplet / a:n', () => {
+    expect(tupletKindLabel({ actualNotes: 3, normalNotes: 2 })).toBe('Triplet')
+    expect(tupletKindLabel({ actualNotes: 6, normalNotes: 4 })).toBe('Sextuplet')
+    expect(tupletKindLabel({ actualNotes: 5, normalNotes: 4 })).toBe('Quintuplet')
+    expect(tupletKindLabel({ actualNotes: 7, normalNotes: 4 })).toBe('7:4')
   })
 
   it('paintTupletBands returns a rect for each container', () => {

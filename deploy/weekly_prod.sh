@@ -75,6 +75,10 @@ if [[ "$SYNC_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
+# Display WebP + tiny Discord OG thumbs (new tags get these in sync; this backfills).
+echo "--- sync: sheet previews + OG thumbs ---"
+(cd "$ROOT/sync" && python sheets/build_sheet_previews.py)
+
 echo "--- build: indexes ---"
 python3 "$ROOT/build/build_indexes.py"
 echo "--- build: offline manifests ---"
@@ -83,6 +87,7 @@ python3 "$ROOT/build/build_offline_manifest.py"
 echo "--- deploy: library ---"
 "$ROOT/deploy/publish.sh" library
 echo "--- deploy: website ---"
+# website build prerenders /tag/{id} Open Graph HTML shells (see deploy_common.sh)
 "$ROOT/deploy/publish.sh" website
 
 echo "=== Weekly prod refresh complete ==="

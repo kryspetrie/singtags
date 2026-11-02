@@ -47,6 +47,7 @@ PART_DISPLAY = {
     "mix": "Mix",
     "sheet": "Sheet",
     "sheet_preview": "Sheet Preview",
+    "sheet_og": "Sheet OG",
     "notation": "Notation",
     "pitch_stacks": "Pitch Stacks",
     "pitch_studio": "Pitch Studio",
@@ -56,6 +57,11 @@ PART_DISPLAY = {
 SHEET_PREVIEW_MAX_WIDTH = 800
 SHEET_PREVIEW_GREY_LEVELS = 4
 SHEET_PREVIEW_GAMMA = 1.4
+
+# Discord/Slack Open Graph thumb: first page only, tiny dithered greyscale.
+SHEET_OG_MAX_WIDTH = 300
+SHEET_OG_GREY_LEVELS = 8  # 3-bit (8 greys); much clearer than 1-bit at Discord sizes
+SHEET_OG_GAMMA = 1.4
 
 # Published audio tiers (Opus) — see docs/AUDIO_STORAGE_AND_CACHE.md
 # Online playback default; originals for download + cache upgrade only.

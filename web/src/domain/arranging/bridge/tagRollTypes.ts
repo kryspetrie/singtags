@@ -80,6 +80,8 @@ export type TagRollProject = {
   expressions: unknown[]
   soundEngine: string
   pitchPipeSoundId: string
+  soundfontId?: string
+  soundfontPatch?: { bankMSB: number; bankLSB: number; program: number }
   soundEnvelope: { attackMs: number; releaseMs: number }
   tonality: number
   /** Major / minor mode for scale + sheet key signature. */

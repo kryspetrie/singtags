@@ -480,10 +480,18 @@ export function drawStraightLyricLanes(
         )
         el.setAttribute('fill', SHEET_LYRIC_FILL)
         el.setAttribute('font-size', String(fontPx))
+        el.setAttribute('font-weight', '400')
+        el.setAttribute('font-style', 'normal')
+        el.setAttribute('font-family', `"${family}", Academico, serif`)
+        // Regular face only — browser synthetic bold is why lyrics looked heavier
+        // than vector PDF outlines of the same Academico OTF.
         el.style.fontFamily = `"${family}", Academico, serif`
         el.style.fontWeight = '400'
         el.style.fontStyle = 'normal'
         el.style.fontStretch = 'normal'
+        el.style.fontSynthesis = 'none'
+        el.style.setProperty('-webkit-font-smoothing', 'antialiased')
+        el.style.setProperty('-moz-osx-font-smoothing', 'grayscale')
         el.style.setProperty('-webkit-text-stroke', '0')
         el.style.setProperty('paint-order', 'normal')
         el.textContent = text

@@ -139,7 +139,11 @@ function harmonyFillSlices(
     const endTick = sorted[i + 1]!
     if (endTick <= startTick) continue
     if (!tickInIntervals(startTick, range)) continue
-    const melody = coveringNote(notes, melodyPartAtTick(project, startTick), startTick)
+    const melody = coveringNote(
+      notes,
+      melodyPartAtTick(project, startTick) ?? undefined,
+      startTick,
+    )
     if (!melody) continue
     out.push({ startTick, endTick, melody })
   }

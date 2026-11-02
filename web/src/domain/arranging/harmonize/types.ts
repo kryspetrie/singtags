@@ -14,6 +14,8 @@ export type HarmonizeCandidate = {
   label: string
   /** Raw harmonicity contribution (0..1-ish) before weight; optional until scored. */
   harmonicity?: number
+  /** Upcoming pillar root for secondary-dominant / roman teaching (when known). */
+  nextPillarRoot?: number | null
 }
 
 export type UnscoredCandidate = Omit<HarmonizeCandidate, 'score' | 'harmonicity'> & {

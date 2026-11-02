@@ -808,7 +808,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div v-if="!isSheet" class="input-wrap">
+      <div class="input-wrap">
         <button
           type="button"
           class="btn sm"

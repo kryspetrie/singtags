@@ -119,9 +119,13 @@ function greedyDecompose(durationTicks: number, ppq: number): MappedDuration[] {
 
 /**
  * Mid-bar + off-beat syncopation splits.
- * - Half on beat 2 → two tied quarters at mid-bar.
+ * - Half on beat 2 in 4/4 → two tied quarters at mid-bar.
  * - Quarter starting on an off-beat that crosses the next beat → split + tie.
- * Whole / dotted-half from the downbeat may cross the midpoint.
+ * - Whole / dotted-half from the downbeat may cross the midpoint.
+ *
+ * Mid-bar bisect only applies when the measure has an even number of beat
+ * units (2/4, 4/4, 6/8, …). Odd meters like 3/4 must not split at mLen/2 —
+ * that turns a quarter on beat 2 into two pointless tied eighths.
  */
 export function groupingSplitTicks(
   startTick: number,
@@ -132,6 +136,12 @@ export function groupingSplitTicks(
   const mLen = Math.max(1, Math.round(measureTicks))
   const bLen = Math.max(1, Math.round(beatTicks))
   const end = startTick + Math.max(1, Math.round(durationTicks))
+  const unitsPerMeasure = mLen / bLen
+  const hasBinaryMid =
+    mLen % 2 === 0 &&
+    Number.isInteger(unitsPerMeasure) &&
+    unitsPerMeasure >= 2 &&
+    unitsPerMeasure % 2 === 0
   const parts: number[] = []
   let t = startTick
   while (t < end) {
@@ -140,7 +150,7 @@ export function groupingSplitTicks(
     const segEnd = Math.min(end, measureEnd)
     let stop = segEnd
 
-    if (mLen % 2 === 0) {
+    if (hasBinaryMid) {
       const mid = measureStart + mLen / 2
       const crossesMid = t < mid && segEnd > mid
       const fromDownbeat = t === measureStart

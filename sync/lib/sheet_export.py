@@ -533,6 +533,49 @@ def build_sheet_preview_webp(
     return size
 
 
+def build_sheet_og_webp(
+    sheet_path: Path,
+    dest: Path,
+    *,
+    max_width: int | None = None,
+    pdf_dpi: int = DEFAULT_PDF_DPI,
+    crop_margin: int = DEFAULT_CROP_MARGIN,
+    crop_threshold: int = DEFAULT_CROP_THRESHOLD,
+) -> int:
+    """First-page 3-bit (8-grey) dithered WebP for Open Graph / Discord."""
+    from .config import SHEET_OG_GAMMA, SHEET_OG_GREY_LEVELS, SHEET_OG_MAX_WIDTH
+
+    max_width = SHEET_OG_MAX_WIDTH if max_width is None else max_width
+    pages = prepare_pages(
+        sheet_path,
+        dpi=pdf_dpi,
+        max_width=max_width,
+        crop_threshold=crop_threshold,
+        crop_margin=crop_margin,
+    )
+    if not pages:
+        raise RuntimeError(f"no pages for OG thumb: {sheet_path.name}")
+    save_greyscale_webp(
+        pages[0],
+        dest,
+        max_width=max_width,
+        levels=SHEET_OG_GREY_LEVELS,
+        gamma=SHEET_OG_GAMMA,
+        dither=True,
+    )
+    size = dest.stat().st_size
+    # Greyscale blanks still compress tiny; keep above empty-shell noise.
+    if size < 80:
+        try:
+            dest.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise RuntimeError(
+            f"sheet OG thumb for {sheet_path.name} is only {size} bytes (likely blank)"
+        )
+    return size
+
+
 def write_pbm(im: Image.Image, path: Path) -> None:
     """Write a 1-bit Pillow image as binary PBM (P4)."""
     if im.mode != "1":

@@ -55,6 +55,7 @@ import {
   paintMelodyRoleBorders,
 } from '../../domain/arranging/melodyRoleLabels'
 import { focusPartGhosts } from '../../lib/tagRoll/partGhosts'
+import { listAuthoredTieLinks } from '../../lib/tagRoll/noteTies'
 import {
   easeInOutCosine,
   listPortamentoLinks,
@@ -167,7 +168,6 @@ const rulerH = computed(() =>
 /** Ruler + reserved chrome (Harmony strip) — pitch plane starts here. */
 const headerBandH = computed(() => rulerH.value + Math.max(0, props.headerExtraH ?? 0))
 
-const gridW = computed(() => ticksToPx(props.project.lengthTicks, cellW.value))
 const gridH = computed(
   () => (TAG_ROLL_MIDI_MAX - TAG_ROLL_MIDI_MIN + 1) * cellH.value,
 )
@@ -823,6 +823,32 @@ function draw(): void {
       ctx.lineWidth = d.n.id === primarySelectedId.value ? 2 : 1.5
       ctx.strokeRect(d.r.x + 0.5, d.r.y + 0.5, d.r.w - 1, d.r.h - 1)
     }
+  }
+
+  // Authored ties — soft bridge under the abutting note pair.
+  for (const link of listAuthoredTieLinks(props.project.notes)) {
+    const faded =
+      focusActive && !!activePartId && link.from.partId !== activePartId
+    const part = props.project.parts.find((p) => p.id === link.from.partId)
+    const color = part?.color || accent
+    const r0 = noteRect(link.from)
+    const r1 = noteRect(link.to)
+    const x0 = r0.x + Math.max(4, r0.w - 2)
+    const x1 = r1.x + 2
+    if (x1 < -2 || x0 > cssW.value + 2) continue
+    const y = Math.max(r0.y + r0.h, r1.y + r1.h) - 2
+    const midX = (x0 + x1) / 2
+    const dip = Math.min(10, Math.max(5, (x1 - x0) * 0.35 + 4))
+    ctx.save()
+    ctx.globalAlpha = faded ? 0.25 : 0.85
+    ctx.strokeStyle = color
+    ctx.lineWidth = faded ? 1.25 : 1.75
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    ctx.moveTo(x0, y)
+    ctx.quadraticCurveTo(midX, y + dip, x1, y)
+    ctx.stroke()
+    ctx.restore()
   }
 
   // Portamento overlays — ease-in-out curves across each same-part overlap.

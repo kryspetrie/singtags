@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mill Stream sparse lab</title>
+    <style>
+      body { font: 16px/1.45 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #ccc; }
+      a { color: #0b57d0; }
+      .miss { font-size: 0.9rem; color: #333; }
+    </style>
+  </head>
+  <body>
+    <h1>Down By The Old Mill Stream</h1>
+    <p id="status">Loading your chart and the sparse copies…</p>
+    <div id="report"></div>
+    <script>
+      const FILES = [
+        'mill-ground.json',
+        'mill-bass-sparse.json',
+        'mill-tenor-sparse.json',
+        'mill-bass-filled.json',
+        'mill-tenor-filled.json',
+      ]
+      function openDb() {
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open('singtags-tag-roll', 2)
+          req.onerror = () => reject(req.error)
+          req.onsuccess = () => resolve(req.result)
+          req.onupgradeneeded = () => {
+            const db = req.result
+            if (!db.objectStoreNames.contains('projects')) {
+              db.createObjectStore('projects', { keyPath: 'id' })
+            }
+            if (!db.objectStoreNames.contains('history')) {
+              db.createObjectStore('history', { keyPath: 'projectId' })
+            }
+          }
+        })
+      }
+      async function main() {
+        const projects = []
+        for (const file of FILES) {
+          const res = await fetch(file)
+          if (!res.ok) throw new Error(file)
+          projects.push(await res.json())
+        }
+        const report = await (await fetch('report.json')).json()
+        const db = await openDb()
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('projects', 'readwrite')
+          const store = tx.objectStore('projects')
+          for (const p of projects) store.put(p)
+          tx.oncomplete = () => resolve()
+          tx.onerror = () => reject(tx.error)
+        })
+        db.close()
+        const rows = [report.bass, report.tenor]
+        document.getElementById('status').textContent =
+          'Saved five charts into this browser’s Tag Studio library. Open one below.'
+        document.getElementById('report').innerHTML = `
+          <p>Ground truth is your edited copy (${report.notes} notes), not the original MusicXML seed.</p>
+          <table>
+            <thead><tr><th></th><th>Lead + Bass</th><th>Lead + Tenor</th></tr></thead>
+            <tbody>
+              <tr><td>Chord identity from the two parts</td><td>${rows[0].detectNature}</td><td>${rows[1].detectNature}</td></tr>
+              <tr><td>Chord identity after Fill parts</td><td>${rows[0].filledNature}</td><td>${rows[1].filledNature}</td></tr>
+              <tr><td>Harmony notes matching pitch class</td><td>${rows[0].voicePitchClass}</td><td>${rows[1].voicePitchClass}</td></tr>
+              <tr><td>Stacks with every voice matching</td><td>${rows[0].stacksAllVoicesPc}</td><td>${rows[1].stacksAllVoicesPc}</td></tr>
+              <tr><td>Fill / skipped</td><td>${rows[0].fillStats.filled} filled, ${rows[0].fillStats.skipped} skipped</td><td>${rows[1].fillStats.filled} filled, ${rows[1].fillStats.skipped} skipped</td></tr>
+            </tbody>
+          </table>
+          <ul>
+            ${projects.map((p) => `<li><a href="/tag-studio/${p.id}">${p.title}</a></li>`).join('')}
+          </ul>
+          <p class="miss">Scored on the ${rows[0].onsets} Lead onsets where the full chart already has Tenor, Bari, and Bass. The other Lead notes are melody alone.</p>
+        `
+      }
+      main().catch((err) => {
+        document.getElementById('status').textContent = 'Could not save the charts: ' + err
+      })
+    </script>
+  </body>
+</html>

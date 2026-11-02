@@ -110,8 +110,11 @@ export function spellMidiFromChord(
   const stepIdx = (rootIdx + ROLE_LETTER_STEPS[role]) % 7
   const step = STEPS[stepIdx]!
   const natPc = NAT_PC[stepIdx]!
-  let alter = ((pc - natPc + 6) % 12) - 6
-  if (alter > 2 || alter < -2) {
+  const alter = ((pc - natPc + 6) % 12) - 6
+  // Keep chord-letter spelling only for single accidentals. Dim7 sevenths
+  // (Bbb/Ebb/…) are theoretically a 7th below the root letter, but barbershop
+  // charts almost never want double flats/sharps — prefer key-friendly spelling.
+  if (alter > 1 || alter < -1) {
     return midiToMusicXmlPitch(n, preferFlats)
   }
   const octave = (n - alter - natPc) / 12 - 1

@@ -50,20 +50,39 @@ const totalH = computed(
 function ensurePlayer(): PitchTonePlayer {
   if (shared) return shared.ensurePlayer()
   if (!localPlayer) {
-    localPlayer = createPitchTonePlayer(props.project.soundEngine, { polyphony: true })
+    localPlayer = createPitchTonePlayer(props.project.soundEngine, {
+      polyphony: true,
+      soundfontId: props.project.soundfontId,
+      soundfontPatch: props.project.soundfontPatch,
+    })
   }
   if (props.project.soundEngine === 'synth') {
     localPlayer.setVoice(resolvePitchPipeVoiceById(props.project.pitchPipeSoundId))
+  }
+  if (props.project.soundEngine === 'soundfont') {
+    localPlayer.setSoundfontPatch?.(props.project.soundfontPatch)
   }
   return localPlayer
 }
 
 watch(
-  () => [props.project.soundEngine, props.project.pitchPipeSoundId] as const,
+  () =>
+    `${props.project.soundEngine}\0${props.project.pitchPipeSoundId}\0${props.project.soundfontId}`,
   () => {
     // Shared player is rebuilt by the editor; only dispose a local fallback.
     localPlayer?.dispose()
     localPlayer = null
+  },
+)
+
+watch(
+  () => {
+    const p = props.project.soundfontPatch
+    return `${p.bankMSB}:${p.bankLSB}:${p.program}`
+  },
+  () => {
+    if (props.project.soundEngine !== 'soundfont') return
+    localPlayer?.setSoundfontPatch?.(props.project.soundfontPatch)
   },
 )
 

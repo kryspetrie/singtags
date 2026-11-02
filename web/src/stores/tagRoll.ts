@@ -27,6 +27,7 @@ import {
 } from '../lib/tagRoll/normalize'
 import { duplicateTagRoll } from '../application/tagRoll/duplicateProject'
 import { ensureLengthForNote, ensureLengthForTick, snapTick } from '../lib/tagRoll/snap'
+import { clampSoundfontPatchToBank } from '../audio/soundfontPresets'
 import { normalizeSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
 import { syncProjectMix, hydrateProjectMix } from '../lib/tagRoll/mix'
 import { applyNoteClipboardAtPlayhead } from '../lib/tagRoll/pasteClipboard'
@@ -101,6 +102,13 @@ import type {
   TagRollTuplet,
   TagRollViewPrefs,
 } from '../lib/tagRoll/types'
+import {
+  clearTiesInvolving,
+  sanitizeNoteTies,
+  tieNotesInList,
+  tieSelectionState,
+  untieNotesInList,
+} from '../lib/tagRoll/noteTies'
 import {
   assertNoTupletOverlap,
   createTupletContainer,
@@ -394,14 +402,36 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
   }
 
-  /** Persist an imported SingTags JSON project (already normalized). */
-  async function importProject(project: TagRollProject): Promise<TagRollProject> {
+  /** True when the open chart has no musical content (safe to overwrite on import). */
+  function isBlankCurrentProject(): boolean {
+    const cur = current.value
+    if (!cur) return false
+    return (
+      cur.notes.length === 0 &&
+      (cur.harmonySketch?.length ?? 0) === 0 &&
+      (cur.tuplets?.length ?? 0) === 0
+    )
+  }
+
+  /**
+   * Persist an imported project (already normalized).
+   * When `replaceBlankCurrent` is set and the open project is empty, reuse its id
+   * instead of creating an orphan blank chart.
+   */
+  async function importProject(
+    project: TagRollProject,
+    opts?: { replaceBlankCurrent?: boolean },
+  ): Promise<TagRollProject> {
     try {
       const stamp = now()
+      const cur = current.value
+      const replaceBlank = !!opts?.replaceBlankCurrent && isBlankCurrentProject() && !!cur
       const p = normalizeTagRollProject({
         ...project,
+        ...(replaceBlank && cur
+          ? { id: cur.id, createdAt: cur.createdAt, title: project.title || cur.title }
+          : { createdAt: project.createdAt || stamp }),
         updatedAt: stamp,
-        createdAt: project.createdAt || stamp,
         localEntryId: null,
       })
       if (!p) throw new Error('Invalid project')
@@ -409,7 +439,16 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         ...p,
         mix: hydrateProjectMix(p.parts, p.mix),
       }
-      const saved = await putNewTagRoll(svc().repository, withMix, svc().clock)
+      const saved = replaceBlank
+        ? await persistTagRoll(svc().repository, withMix, svc().clock)
+        : await putNewTagRoll(svc().repository, withMix, svc().clock)
+      if (replaceBlank) {
+        await persistTagRollHistory(
+          svc().repository,
+          { projectId: saved.id, undo: [], redo: [] },
+          svc().clock,
+        )
+      }
       current.value = saved
       clearNoteSelection()
       selectedExpressionId.value = null
@@ -502,6 +541,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
         'expressions',
         'soundEngine',
         'pitchPipeSoundId',
+        'soundfontId',
+        'soundfontPatch',
         'blowPitchEnabled',
         'metronomeEnabled',
         'metronomeSwing',
@@ -1579,6 +1620,27 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     patchProject({ pitchPipeSoundId: id })
   }
 
+  function setSoundfontId(soundfontId: TagRollProject['soundfontId']): void {
+    const p = current.value
+    if (!p) {
+      patchProject({ soundfontId })
+      return
+    }
+    // Switching banks: keep patch when still valid, else fall back to Grand / program 0.
+    patchProject({
+      soundfontId,
+      soundfontPatch: clampSoundfontPatchToBank(soundfontId, p.soundfontPatch),
+    })
+  }
+
+  function setSoundfontPatch(soundfontPatch: TagRollProject['soundfontPatch']): void {
+    const p = current.value
+    if (!p) return
+    patchProject({
+      soundfontPatch: clampSoundfontPatchToBank(p.soundfontId, soundfontPatch),
+    })
+  }
+
   function setBlowPitchEnabled(blowPitchEnabled: boolean): void {
     patchProject({ blowPitchEnabled: !!blowPitchEnabled })
   }
@@ -2149,14 +2211,16 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const p = current.value
     if (!p) return
     if (opts?.history !== false) pushHistory()
-    const notes = p.notes.map((n) => {
-      if (n.id !== id) return n
-      const next = { ...n, ...patch }
-      next.midi = Math.max(TAG_ROLL_MIDI_MIN, Math.min(TAG_ROLL_MIDI_MAX, Math.round(next.midi)))
-      next.startTick = Math.max(0, Math.round(next.startTick))
-      next.durationTicks = Math.max(1, Math.round(next.durationTicks))
-      return next
-    })
+    const notes = sanitizeNoteTies(
+      p.notes.map((n) => {
+        if (n.id !== id) return n
+        const next = { ...n, ...patch }
+        next.midi = Math.max(TAG_ROLL_MIDI_MIN, Math.min(TAG_ROLL_MIDI_MAX, Math.round(next.midi)))
+        next.startTick = Math.max(0, Math.round(next.startTick))
+        next.durationTicks = Math.max(1, Math.round(next.durationTicks))
+        return next
+      }),
+    )
     const hit = notes.find((n) => n.id === id)
     const lengthTicks = hit
       ? ensureLengthForNote(
@@ -2184,18 +2248,20 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     const byId = new Map(updates.map((u) => [u.id, u]))
     let lengthTicks = p.lengthTicks
     const mTicks = measureTicks(p.timeSignature)
-    const notes = p.notes.map((n) => {
-      const u = byId.get(n.id)
-      if (!u) return n
-      const next = { ...n }
-      if (u.midi != null) {
-        next.midi = Math.max(TAG_ROLL_MIDI_MIN, Math.min(TAG_ROLL_MIDI_MAX, Math.round(u.midi)))
-      }
-      if (u.startTick != null) next.startTick = Math.max(0, Math.round(u.startTick))
-      if (u.durationTicks != null) next.durationTicks = Math.max(1, Math.round(u.durationTicks))
-      lengthTicks = ensureLengthForNote(lengthTicks, next.startTick, next.durationTicks, mTicks)
-      return next
-    })
+    const notes = sanitizeNoteTies(
+      p.notes.map((n) => {
+        const u = byId.get(n.id)
+        if (!u) return n
+        const next = { ...n }
+        if (u.midi != null) {
+          next.midi = Math.max(TAG_ROLL_MIDI_MIN, Math.min(TAG_ROLL_MIDI_MAX, Math.round(u.midi)))
+        }
+        if (u.startTick != null) next.startTick = Math.max(0, Math.round(u.startTick))
+        if (u.durationTicks != null) next.durationTicks = Math.max(1, Math.round(u.durationTicks))
+        lengthTicks = ensureLengthForNote(lengthTicks, next.startTick, next.durationTicks, mTicks)
+        return next
+      }),
+    )
     current.value = { ...p, notes, lengthTicks, updatedAt: now() }
     scheduleSave()
   }
@@ -2219,7 +2285,9 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     if (!p || !ids.length) return
     const remove = new Set(ids)
     pushHistory()
-    const notes = p.notes.filter((n) => !remove.has(n.id))
+    const notes = sanitizeNoteTies(
+      clearTiesInvolving(p.notes, remove).filter((n) => !remove.has(n.id)),
+    )
     current.value = {
       ...p,
       notes,
@@ -2230,6 +2298,55 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     }
     selectedNoteIds.value = selectedNoteIds.value.filter((id) => !remove.has(id))
     scheduleSave()
+  }
+
+  /** Tie two adjacent same-pitch notes (order-insensitive). */
+  function tieNotes(aId: string, bId: string): boolean {
+    const p = current.value
+    if (!p) return false
+    const next = tieNotesInList(p.notes, aId, bId)
+    if (!next) return false
+    pushHistory()
+    current.value = { ...p, notes: next, updatedAt: now() }
+    scheduleSave()
+    return true
+  }
+
+  function untieNotes(aId: string, bId: string): boolean {
+    const p = current.value
+    if (!p) return false
+    const state = tieSelectionState(p.notes, [aId, bId])
+    if (!state.canUntie) return false
+    pushHistory()
+    current.value = {
+      ...p,
+      notes: untieNotesInList(p.notes, aId, bId),
+      updatedAt: now(),
+    }
+    scheduleSave()
+    return true
+  }
+
+  function tieSelectedNotes(): boolean {
+    const ids = selectedNoteIds.value
+    if (ids.length !== 2) return false
+    return tieNotes(ids[0]!, ids[1]!)
+  }
+
+  function untieSelectedNotes(): boolean {
+    const ids = selectedNoteIds.value
+    if (ids.length !== 2) return false
+    return untieNotes(ids[0]!, ids[1]!)
+  }
+
+  /** Shift+T: tie if unbound pair, untie if already tied. */
+  function toggleTieSelectedNotes(): boolean {
+    const p = current.value
+    if (!p) return false
+    const state = tieSelectionState(p.notes, selectedNoteIds.value)
+    if (state.canUntie) return untieSelectedNotes()
+    if (state.canTie) return tieSelectedNotes()
+    return false
   }
   function deleteSelectedNotes(): void {
     if (tryBoundInspectDelete()) return
@@ -3020,6 +3137,8 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     applyTupletEditorDraft,
     setSoundEngine,
     setPitchPipeSoundId,
+    setSoundfontId,
+    setSoundfontPatch,
     setBlowPitchEnabled,
     setMetronomeEnabled,
     setMetronomeSwing,
@@ -3053,6 +3172,11 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     deleteNote,
     deleteNotes,
     deleteSelectedNotes,
+    tieNotes,
+    untieNotes,
+    tieSelectedNotes,
+    untieSelectedNotes,
+    toggleTieSelectedNotes,
     nextNoteId: () => svc().idGen.next('trn'),
     selectNote,
     selectNotes,

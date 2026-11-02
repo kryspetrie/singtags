@@ -28,6 +28,9 @@
   cursor: pointer;
   touch-action: manipulation;
 }
+.btn:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
 a.btn:hover {
   text-decoration: none;
   color: var(--text);
@@ -64,8 +67,23 @@ a.btn-ghost:hover {
   text-decoration: none;
 }
 .btn-danger {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  background: color-mix(in srgb, var(--danger, #9b2c2c) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--danger, #9b2c2c) 45%, var(--border));
+  color: var(--danger, #9b2c2c);
+}
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger, #9b2c2c) 18%, var(--surface));
+}
+
+/**
+ * Compact actions for dense Tag Studio chrome (toolbar / inline).
+ * Modal footers should keep default `.btn` (touch ≥ 44px).
+ */
+.btn-sm {
+  min-height: 34px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
 }
 
 .chip {

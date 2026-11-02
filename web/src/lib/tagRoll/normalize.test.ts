@@ -45,6 +45,8 @@ describe('tagRoll normalize', () => {
     expect(p.view.showNoteLyrics).toBe(true)
     expect(p.clefFamily).toBe('ttbb')
     expect(p.view.scoreSurface).toBe('roll')
+    expect(p.soundEngine).toBe('synth')
+    expect(p.pitchPipeSoundId).toBe('mellow')
   })
 
   it('normalizes clefFamily and defaults missing to ttbb', () => {

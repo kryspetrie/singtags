@@ -61,6 +61,47 @@ describe('musicxmlExport', () => {
     expect(measures[1]!.some((s) => s.tieStop && s.midi === 60)).toBe(true)
   })
 
+  it('preserves authored tie flags when a slice does not cross a barline', () => {
+    const mLen = TAG_ROLL_PPQ * 4
+    const measures = splitSlicesAtMeasures(
+      [
+        { start: 0, dur: TAG_ROLL_PPQ, midi: 60, tieStart: true },
+        { start: TAG_ROLL_PPQ, dur: TAG_ROLL_PPQ, midi: 60, tieStop: true },
+      ],
+      mLen,
+      mLen,
+    )
+    expect(measures[0]!.some((s) => s.tieStart && s.start === 0)).toBe(true)
+    expect(measures[0]!.some((s) => s.tieStop && s.start === TAG_ROLL_PPQ)).toBe(true)
+  })
+
+  it('exports MusicXML tie start/stop for authored adjacent pair', () => {
+    const p = createEmptyTagRollProject({ title: 'Tied' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    p.notes = [
+      {
+        id: 'a',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ,
+        tie: { toNoteId: 'b' },
+      },
+      {
+        id: 'b',
+        partId: lead.id,
+        midi: 60,
+        startTick: TAG_ROLL_PPQ,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
+    expect(xml).toContain('<tie type="start"/>')
+    expect(xml).toContain('<tie type="stop"/>')
+    expect(xml).toContain('<tied type="start"/>')
+    expect(xml).toContain('<tied type="stop"/>')
+  })
+
   it('emits staff parts with clef octave-change and voice 1/2', () => {
     const p = createEmptyTagRollProject({ title: 'Test & Tag' })
     const lead = p.parts.find((x) => x.name === 'Lead')!
@@ -165,7 +206,7 @@ describe('musicxmlExport', () => {
     expect(e7).toContain('<accidental>sharp</accidental>')
   })
 
-  it('emits flat-flat for dim7 sevenths (Bbb)', () => {
+  it('spells dim7 sevenths without double flats (A, not Bbb)', () => {
     const p = createEmptyTagRollProject({ title: 'Dim' })
     p.preferFlats = true
     const lead = p.parts.find((x) => x.name === 'Lead')!
@@ -184,9 +225,9 @@ describe('musicxmlExport', () => {
       },
     ]
     const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
-    expect(xml).toContain('<step>B</step>')
-    expect(xml).toContain('<alter>-2</alter>')
-    expect(xml).toContain('<accidental>flat-flat</accidental>')
+    expect(xml).toContain('<step>A</step>')
+    expect(xml).not.toContain('<alter>-2</alter>')
+    expect(xml).not.toContain('<accidental>flat-flat</accidental>')
   })
 
   it('emits time-modification from explicit tuplet containers', () => {

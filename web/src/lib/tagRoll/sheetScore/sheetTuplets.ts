@@ -36,8 +36,35 @@ export function tupletMemberDuration(
 }
 
 /**
- * If `durationTicks` is a classic triplet atom (⅓ or ⅔ of a quarter), return a
- * single mapped duration with the written glyph — do not binary-decompose it.
+ * Written glyph for one (possibly multi-slot) tuplet member.
+ * Sounding duration maps through the actual:normal ratio so a 2-slot member of
+ * an eighth-triplet is a quarter, and a 2-slot member of a dotted-eighth
+ * triplet (dotted-quarter span) is a dotted quarter.
+ */
+export function tupletMemberWrittenDuration(
+  memberDurationTicks: number,
+  spanTicks: number,
+  actualNotes: number,
+  normalNotes: number,
+  ppq = TAG_ROLL_PPQ,
+): MappedDuration {
+  const actual = Math.max(1, Math.round(actualNotes))
+  const normal = Math.max(1, Math.round(normalNotes))
+  const span = Math.max(1, Math.round(spanTicks))
+  const soundUnit = span / actual
+  const writtenUnit = span / normal
+  const slots = soundUnit > 0 ? memberDurationTicks / soundUnit : 1
+  const writtenTicks = Math.max(1, Math.round(slots * writtenUnit))
+  return { ...mapTicksToDuration(writtenTicks, ppq), ticks: memberDurationTicks }
+}
+
+/**
+ * If `durationTicks` is a classic triplet atom whose sounding length is not a
+ * binary catalog value (⅓ or ⅔ of a quarter / eighth), return a single written
+ * glyph — do not binary-decompose it.
+ *
+ * Do not match lengths that are already normal catalog values (quarter, half,
+ * …): those collide with ordinary mid-bar / syncopation splits.
  */
 export function tryTupletMemberAtom(
   durationTicks: number,
@@ -51,7 +78,7 @@ export function tryTupletMemberAtom(
     return { ...mapTicksToDuration(ppq / 2, ppq), ticks: dur }
   }
   if (near(dur, twoThirds)) {
-    // Quarter-triplet atom inside a half.
+    // Two slots of an eighth-triplet (written quarter) inside a half.
     return { ...mapTicksToDuration(ppq, ppq), ticks: dur }
   }
   // Half-beat triplet atoms (⅓ of an eighth) — sixteenth triplets in an eighth.
@@ -106,22 +133,23 @@ export function inferTupletsOnEvents(
       continue
     }
     const sum = a.e.durationTicks + b.e.durationTicks + c.e.durationTicks
-    // 3:2 occupies a binary span that is 2/3 of the sum… sum should equal a
-    // catalog duration (quarter, half, dotted quarter, etc.).
+    // 3:2 occupies an undotted binary span (quarter, half, eighth, …).
+    // Dotted parents are ordinary compound / 3/4 rhythms (three quarters in a
+    // bar, three eighths in a dotted quarter) — never auto-infer those.
     const parent = mapTicksToDuration(sum, ppq)
-    if (!near(parent.ticks, sum)) {
+    if (!near(parent.ticks, sum) || parent.dots !== 0) {
       i++
       continue
     }
-    // Each member is ~ parent/3 and parent is divisible-ish by the 3:2 story:
-    // parent ticks == time of 2 written notes of member type.
+    // Written member value × 2 should equal the parent span (3 in the time of 2).
     const written = tupletMemberDuration(sum, ppq)
     if (!near(written.ticks * 2, sum) && !near(written.ticks * 2, parent.ticks)) {
-      // Still accept if each slice is ~sum/3
-      if (!near(d0 * 3, sum)) {
-        i++
-        continue
-      }
+      i++
+      continue
+    }
+    if (written.dots !== 0) {
+      i++
+      continue
     }
     const id = nextId++
     const group = [a, b, c]

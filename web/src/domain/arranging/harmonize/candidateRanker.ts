@@ -701,6 +701,7 @@ export function rankCandidates(
       ruleTags: tags,
       label: c.label,
       harmonicity: harmonicityNorm,
+      nextPillarRoot: c.nextPillarRoot,
     }
   })
 

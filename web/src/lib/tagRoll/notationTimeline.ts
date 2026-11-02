@@ -26,13 +26,16 @@ export function collapsePartNotesMono(notes: readonly TagRollNote[]): TagRollNot
 
 /**
  * Monophonic timeline: lowest MIDI at each onset (sheet and MusicXML stay in sync).
- * Same-onset doubles are dropped.
+ * Same-onset doubles are dropped. Authored `tie.toNoteId` sets slice tie flags.
  */
 export function notesToTimelineMono(
   notes: readonly TagRollNote[],
   lengthTicks: number,
 ): NotationSlice[] {
   const collapsed = collapsePartNotesMono(notes)
+  const tiedInto = new Set(
+    collapsed.map((n) => n.tie?.toNoteId).filter((id): id is string => !!id),
+  )
   const slices: NotationSlice[] = []
   let cursor = 0
   let i = 0
@@ -50,11 +53,14 @@ export function notesToTimelineMono(
     group.sort((a, b) => a.midi - b.midi || a.id.localeCompare(b.id))
     const n = group[0]!
     const dur = Math.max(1, n.durationTicks)
+    const isTieStop = tiedInto.has(n.id)
     slices.push({
       start: groupStart,
       dur,
       midi: n.midi,
-      ...(n.lyric ? { lyric: n.lyric } : {}),
+      ...(n.lyric && !isTieStop ? { lyric: n.lyric } : {}),
+      ...(n.tie?.toNoteId ? { tieStart: true } : {}),
+      ...(isTieStop ? { tieStop: true } : {}),
     })
     cursor = groupStart + dur
   }
@@ -81,8 +87,10 @@ export function splitSlicesAtMeasures(
       const barEnd = (mIndex + 1) * mLen
       const take = Math.min(remaining, barEnd - t, lengthTicks - t)
       if (take <= 0) break
-      const tieStart = s.midi != null && remaining > take
-      const tieStop = s.midi != null && !first
+      const isLastPiece = remaining <= take
+      // Barline splits always start a tie; preserve authored start/stop on edges.
+      const tieStart = s.midi != null && (remaining > take || (!!s.tieStart && isLastPiece))
+      const tieStop = s.midi != null && (!first || !!s.tieStop)
       measures[mIndex]!.push({
         start: t,
         dur: take,

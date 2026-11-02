@@ -16,8 +16,8 @@ export const SHEET_BEAT_STRETCH_MAX = 2.2
 export const SHEET_STAVE_GAP_FINE_MIN = 0.4
 export const SHEET_STAVE_GAP_FINE_MAX = 2.8
 
-/** Vertical gap between wrapped systems (page layout). */
-export const SHEET_SYSTEM_GAP_MIN = 0.35
+/** Vertical gap between wrapped systems (page layout). 0 = flush (chord clearance may still add room). */
+export const SHEET_SYSTEM_GAP_MIN = 0
 export const SHEET_SYSTEM_GAP_MAX = 3
 
 /** Page / strip margins in inches. */

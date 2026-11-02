@@ -387,10 +387,17 @@ function ensurePlayer(): PitchTonePlayer {
   if (shared) return shared.ensurePlayer()
   if (!localPlayer) {
     const engine = project.value?.soundEngine ?? 'synth'
-    localPlayer = createPitchTonePlayer(engine, { polyphony: true })
+    localPlayer = createPitchTonePlayer(engine, {
+      polyphony: true,
+      soundfontId: project.value?.soundfontId,
+      soundfontPatch: project.value?.soundfontPatch,
+    })
   }
   if ((project.value?.soundEngine ?? 'synth') === 'synth') {
     localPlayer.setVoice(resolvePitchPipeVoiceById(project.value?.pitchPipeSoundId))
+  }
+  if ((project.value?.soundEngine ?? 'synth') === 'soundfont' && project.value?.soundfontPatch) {
+    localPlayer.setSoundfontPatch?.(project.value.soundfontPatch)
   }
   return localPlayer
 }
@@ -1911,7 +1918,7 @@ defineExpose({
           )
         "
         @pointerdown="stopHoldHear"
-        @click="commitHarmony"
+        @click="() => commitHarmony()"
       >Apply</button>
       <button
         v-if="canRemoveSketch"

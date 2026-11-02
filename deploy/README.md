@@ -15,7 +15,7 @@ python3 build/build_offline_manifest.py
 
 | Command | What it uploads |
 | --- | --- |
-| `./deploy/website_s3.sh` | SPA + indexes + slim `/tags/{id}/metadata.json` — **never** `library/` |
+| `./deploy/website_s3.sh` | SPA + indexes + slim `/tags/{id}/metadata.json` + `/tag/{id}` link-preview HTML — **never** `library/` |
 | `./deploy/library_s3.sh` | `library/` → `s3://$S3_BUCKET/$S3_LIBRARY_PREFIX/` |
 | `./deploy/publish.sh website\|library\|all` | Dispatcher |
 | `./deploy/weekly_prod.sh` | Weekly: sync → indexes → library + website (same bucket) |

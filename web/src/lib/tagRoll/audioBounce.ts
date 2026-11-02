@@ -14,6 +14,11 @@ import { planBlowPitch, prependAudioBuffer, renderBlowPitchBufferAsync } from '.
 import { noteSoundSegments } from './fermataNoteSplit'
 import { measureStartTick } from './measureBeat'
 import {
+  isTieContinuation,
+  tieChainEndTick,
+  tieChainIds,
+} from './noteTies'
+import {
   findOverlappingPredecessor,
   frequencyEaseInOutCurve,
   midiToHz,
@@ -143,10 +148,14 @@ export function planPartBounceEvents(
   const sorted = [...notes].sort((a, b) => a.startTick - b.startTick || a.id.localeCompare(b.id))
   const events: BounceVoiceEvent[] = []
   for (const n of sorted) {
-    const endTick = n.startTick + n.durationTicks
+    if (isTieContinuation(sorted, n.id)) continue
+    const endTick = tieChainEndTick(sorted, n)
     const startSec = tickSec(project, n.startTick)
     const endSec = tickSec(project, endTick)
-    const phraseEnd = shouldDecayOnNoteEnd(sorted, n)
+    const chain = tieChainIds(sorted, n)
+    const lastId = chain[chain.length - 1] ?? n.id
+    const last = sorted.find((x) => x.id === lastId) ?? n
+    const phraseEnd = shouldDecayOnNoteEnd(sorted, last)
     const pred = findOverlappingPredecessor(sorted, n)
     const win = pred ? overlapWindow(pred, n) : null
     if (pred && win) {

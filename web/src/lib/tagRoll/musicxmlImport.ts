@@ -83,9 +83,15 @@ function musicXmlPitchToMidi(pitchEl: Element): number | null {
   return Math.round(midi)
 }
 
-function durationToTicks(duration: number, divisions: number): number {
+/** MusicXML duration/onset divisions → Tag Roll ticks (0 allowed for measure-relative onset). */
+function divisionsToTicks(duration: number, divisions: number): number {
   const div = Math.max(1, divisions)
-  return Math.max(1, Math.round((duration / div) * TAG_ROLL_PPQ))
+  return Math.max(0, Math.round((duration / div) * TAG_ROLL_PPQ))
+}
+
+/** Note length in ticks; never zero so a pitched event always occupies the roll. */
+function durationToTicks(duration: number, divisions: number): number {
+  return Math.max(1, divisionsToTicks(duration, divisions))
 }
 
 /**
@@ -117,37 +123,77 @@ export async function musicXmlTextFromFile(file: File): Promise<string> {
   return new TextDecoder().decode(buf)
 }
 
+/** Pitched note still in measure-relative divisions (absolute ticks assigned later). */
+type MeasureNote = {
+  staff: number
+  voice: number
+  midi: number
+  onsetDiv: number
+  durDiv: number
+  lyric?: string
+  tieStart: boolean
+  tieStop: boolean
+}
+
+type ParsedMeasure = {
+  contentDiv: number
+  divisions: number
+  implicit: boolean
+  notes: MeasureNote[]
+}
+
 type ParsedPart = {
   id: string
   name: string
+  /** Optional Sibelius-style display names per voice (e.g. Tenor / Lead). */
+  voiceNames: string[]
+  measures: ParsedMeasure[]
   notes: RawNote[]
   maxStaff: number
   streams: StreamKey[]
 }
 
-function parsePartNotes(partEl: Element): {
-  notes: RawNote[]
+/** Read a positive int from a direct child or descendant (Sibelius voice/staff). */
+function noteInt(el: Element, name: string, fallback: number): number {
+  const node =
+    child(el, name) ?? (el.getElementsByTagName(name).item(0) as Element | null)
+  const n = Number(text(node) || '')
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback
+}
+
+function parseScorePartVoiceNames(scorePart: Element): string[] {
+  const display = child(scorePart, 'part-name-display')
+  if (!display) return []
+  return children(display, 'display-text')
+    .map((el) => text(el))
+    .filter(Boolean)
+}
+
+/**
+ * Parse one MusicXML `<part>` into measure-relative notes. Absolute ticks are
+ * assigned later so all parts share one pickup / measure grid.
+ */
+function parsePartMeasures(partEl: Element): {
+  measures: ParsedMeasure[]
   maxStaff: number
-  divisions: number
   timeSig: TagRollTimeSignature | null
   bpm: number | null
   fifths: number | null
   mode: 'major' | 'minor' | null
 } {
-  const notes: RawNote[] = []
+  const measuresOut: ParsedMeasure[] = []
   let divisions = 1
-  let measureStartTick = 0
   let maxStaff = 1
   let timeSig: TagRollTimeSignature | null = null
   let bpm: number | null = null
   let fifths: number | null = null
   let mode: 'major' | 'minor' | null = null
 
-  const measures = children(partEl, 'measure')
-  for (const measure of measures) {
+  for (const measure of children(partEl, 'measure')) {
     let cursorDiv = 0
     let lastNoteOnsetDiv = 0
     let measureDivs = 0
+    const notes: MeasureNote[] = []
 
     for (const el of Array.from(measure.children)) {
       const tag = el.localName
@@ -200,11 +246,11 @@ function parsePartNotes(partEl: Element): {
       if (tag !== 'note') continue
 
       const isChord = !!child(el, 'chord')
-      const isRest = !!child(el, 'rest')
+      const isRest = !!child(el, 'rest') || !!el.getElementsByTagName('rest').item(0)
       const isGrace = !!child(el, 'grace')
       const durDiv = Number(text(child(el, 'duration')) || '0')
-      const staff = Math.max(1, Number(text(child(el, 'staff')) || '1') || 1)
-      const voice = Math.max(1, Number(text(child(el, 'voice')) || '1') || 1)
+      const staff = noteInt(el, 'staff', 1)
+      const voice = noteInt(el, 'voice', 1)
       maxStaff = Math.max(maxStaff, staff)
 
       if (isGrace) continue
@@ -217,7 +263,7 @@ function parsePartNotes(partEl: Element): {
       }
 
       if (isRest || durDiv <= 0) continue
-      const pitchEl = child(el, 'pitch')
+      const pitchEl = child(el, 'pitch') ?? (el.getElementsByTagName('pitch').item(0) as Element | null)
       if (!pitchEl) continue
       const midi = musicXmlPitchToMidi(pitchEl)
       if (midi == null) continue
@@ -237,24 +283,94 @@ function parsePartNotes(partEl: Element): {
         staff,
         voice,
         midi,
-        startTick: measureStartTick + durationToTicks(onsetDiv, divisions),
-        durationTicks: durationToTicks(durDiv, divisions),
+        onsetDiv,
+        durDiv,
         ...(lyric ? { lyric } : {}),
         tieStart,
         tieStop,
       })
     }
 
-    // Advance measure start by written measure length (or content extent).
-    const ts = timeSig ?? { numerator: 4, denominator: 4 }
-    const measureLenDiv =
-      measureDivs > 0
-        ? measureDivs
-        : Math.round((ts.numerator * divisions * 4) / ts.denominator)
-    measureStartTick += durationToTicks(Math.max(1, measureLenDiv), divisions)
+    measuresOut.push({
+      contentDiv: measureDivs,
+      divisions,
+      implicit: measure.getAttribute('implicit') === 'yes',
+      notes,
+    })
   }
 
-  return { notes, maxStaff, divisions, timeSig, bpm, fifths, mode }
+  return { measures: measuresOut, maxStaff, timeSig, bpm, fifths, mode }
+}
+
+/**
+ * Assign absolute ticks so every MusicXML part shares one measure grid.
+ * Short opening / implicit pickups are right-aligned onto a full written bar
+ * so the following chorus downbeat lands on a Tag Studio measure boundary.
+ */
+function materializeSharedTimeline(
+  parts: ParsedPart[],
+  timeSig: TagRollTimeSignature,
+): void {
+  const measureCount = Math.max(0, ...parts.map((p) => p.measures.length))
+  if (!measureCount) return
+
+  let measureStartTick = 0
+  let divisions = 1
+  for (let mi = 0; mi < measureCount; mi++) {
+    for (const p of parts) {
+      const m = p.measures[mi]
+      if (m) divisions = Math.max(1, m.divisions || divisions)
+    }
+    const fullMeasureDiv = Math.max(
+      1,
+      Math.round((timeSig.numerator * divisions * 4) / timeSig.denominator),
+    )
+    const contentDiv = Math.max(0, ...parts.map((p) => p.measures[mi]?.contentDiv ?? 0))
+    const implicit = parts.some((p) => p.measures[mi]?.implicit)
+    const hasNext = parts.some((p) => (p.measures[mi + 1]?.contentDiv ?? 0) > 0)
+    const nextContent = Math.max(0, ...parts.map((p) => p.measures[mi + 1]?.contentDiv ?? 0))
+    const nextLooksFull = nextContent >= fullMeasureDiv * 0.95
+    const leftAligned =
+      contentDiv > 0 &&
+      parts.some((p) =>
+        (p.measures[mi]?.notes ?? []).some((n) => n.onsetDiv === 0),
+      )
+    const shouldRightAlign =
+      contentDiv > 0 &&
+      contentDiv < fullMeasureDiv &&
+      leftAligned &&
+      (implicit || (mi === 0 && (nextLooksFull || hasNext)))
+
+    const padDiv = shouldRightAlign ? fullMeasureDiv - contentDiv : 0
+    // Keep every part on the same advance (max content, or full bar when padded).
+    let advanceDiv = contentDiv > 0 ? contentDiv : fullMeasureDiv
+    if (shouldRightAlign) advanceDiv = fullMeasureDiv
+
+    for (const p of parts) {
+      const m = p.measures[mi]
+      if (!m) continue
+      const div = Math.max(1, m.divisions || divisions)
+      for (const n of m.notes) {
+        p.notes.push({
+          staff: n.staff,
+          voice: n.voice,
+          midi: n.midi,
+          startTick: measureStartTick + divisionsToTicks(n.onsetDiv + padDiv, div),
+          durationTicks: durationToTicks(n.durDiv, div),
+          ...(n.lyric ? { lyric: n.lyric } : {}),
+          tieStart: n.tieStart,
+          tieStop: n.tieStop,
+        })
+      }
+    }
+
+    measureStartTick += divisionsToTicks(Math.max(1, advanceDiv), divisions)
+  }
+
+  for (const p of parts) {
+    p.streams = streamKeysFromNotes(p.notes)
+    if (!p.streams.length) p.streams = ['1:1']
+  }
 }
 
 function mergeTies(notes: RawNote[]): RawNote[] {
@@ -301,18 +417,8 @@ function streamKeysFromNotes(notes: RawNote[]): StreamKey[] {
   })
 }
 
-function partLooksGrandStaff(p: ParsedPart): boolean {
-  if (p.maxStaff >= 2 && p.streams.length >= 2) return true
-  // Single staff with 2+ voices (mixed polecat / SA–TB open score) — explode
-  // into separate Tag Studio tracks (Tenor/Lead or Bari/Bass).
-  return p.maxStaff === 1 && p.streams.length >= 2
-}
-
-function scoreLooksMultiMono(parts: ParsedPart[]): boolean {
-  if (parts.length < 2) return false
-  // Most parts are single-stream (one staff / one voice).
-  const mono = parts.filter((p) => p.streams.length <= 1).length
-  return mono >= Math.ceil(parts.length * 0.6)
+function partLooksMultiVoice(p: ParsedPart): boolean {
+  return p.maxStaff >= 2 || p.streams.length >= 2
 }
 
 function fifthsToTonality(fifths: number): { tonality: number; preferFlats: boolean } {
@@ -464,10 +570,14 @@ export function parseTagRollMusicXml(xmlText: string): MusicXmlImportResult {
   const partList = child(root, 'part-list')
   const scoreParts = partList ? children(partList, 'score-part') : []
   const nameById = new Map<string, string>()
+  const voiceNamesById = new Map<string, string[]>()
   for (const sp of scoreParts) {
     const id = sp.getAttribute('id') || ''
     const name = text(child(sp, 'part-name')) || id
-    if (id) nameById.set(id, name)
+    if (id) {
+      nameById.set(id, name)
+      voiceNamesById.set(id, parseScorePartVoiceNames(sp))
+    }
   }
 
   const partEls = children(root, 'part')
@@ -481,20 +591,24 @@ export function parseTagRollMusicXml(xmlText: string): MusicXmlImportResult {
 
   for (const partEl of partEls) {
     const id = partEl.getAttribute('id') || `P${parsed.length + 1}`
-    const { notes, maxStaff, timeSig: ts, bpm: b, fifths: f, mode: m } = parsePartNotes(partEl)
+    const { measures, maxStaff, timeSig: ts, bpm: b, fifths: f, mode: m } =
+      parsePartMeasures(partEl)
     if (ts) timeSig = ts
     if (b != null) bpm = b
     if (f != null) fifths = f
     if (m) mode = m
-    const streams = streamKeysFromNotes(notes)
     parsed.push({
       id,
       name: nameById.get(id) || id,
-      notes,
+      voiceNames: voiceNamesById.get(id) ?? [],
+      measures,
+      notes: [],
       maxStaff,
-      streams: streams.length ? streams : ['1:1'],
+      streams: ['1:1'],
     })
   }
+
+  materializeSharedTimeline(parsed, timeSig)
 
   const { tonality, preferFlats } = fifthsToTonality(fifths)
   const meta = {
@@ -510,25 +624,29 @@ export function parseTagRollMusicXml(xmlText: string): MusicXmlImportResult {
     mode,
   }
 
-  const explode =
-    partLooksGrandStaff(parsed[0]!) ||
-    (!scoreLooksMultiMono(parsed) && parsed.some((p) => partLooksGrandStaff(p)))
+  // Always explode when any part has multiple voices/staves (mixed polecat SA–TB,
+  // Sibelius "Tenor Lead" / "Bari Bass", grand staff, …).
+  const explode = parsed.some((p) => partLooksMultiVoice(p))
 
-  if (explode || (parsed.length === 1 && parsed[0]!.streams.length >= 2)) {
-    // Grand-staff / multi-voice: explode each (staff, voice) stream in order.
+  if (explode) {
     const streams: { nameHint: string; notes: RawNote[] }[] = []
     for (const p of parsed) {
       const keys = streamKeysFromNotes(p.notes)
       const ordered = keys.length ? keys : ['1:1']
+      // Voice index within this MusicXML part (0 = first voice stream).
+      let voiceOrdinal = 0
       for (const key of ordered) {
         const [staff, voice] = key.split(':').map(Number) as [number, number]
         const slice = p.notes.filter((n) => n.staff === staff && n.voice === voice)
         if (!slice.length) continue
+        const named = p.voiceNames[voiceOrdinal]?.trim()
         const hint =
-          ordered.length === 1 && parsed.length > 1
+          named ||
+          (ordered.length === 1 && parsed.length > 1
             ? p.name
-            : `${p.name} s${staff}v${voice}`
+            : `${p.name} s${staff}v${voice}`)
         streams.push({ nameHint: hint, notes: slice })
+        voiceOrdinal++
       }
     }
     if (!streams.length) return { ok: false, error: 'No pitched notes found in MusicXML' }

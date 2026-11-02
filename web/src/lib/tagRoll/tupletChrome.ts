@@ -11,6 +11,14 @@ export function tupletBadgeLabel(t: Pick<TagRollTuplet, 'actualNotes' | 'normalN
   return `${t.actualNotes}:${t.normalNotes}`
 }
 
+/** Human label for selection chrome (e.g. “Triplet”). */
+export function tupletKindLabel(t: Pick<TagRollTuplet, 'actualNotes' | 'normalNotes'>): string {
+  if (t.actualNotes === 3 && t.normalNotes === 2) return 'Triplet'
+  if (t.actualNotes === 6 && t.normalNotes === 4) return 'Sextuplet'
+  if (t.actualNotes === 5 && t.normalNotes === 4) return 'Quintuplet'
+  return `${t.actualNotes}:${t.normalNotes}`
+}
+
 export type PaintTupletBandsOpts = {
   scrollX: number
   bandY: number

@@ -19,6 +19,12 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
     label: 'Tuplet tool — drag a span for a triplet container',
     group: 'modes',
   },
+  {
+    id: 'tie-notes',
+    keys: 'Shift+T',
+    label: 'Tie / untie two selected adjacent same-pitch notes',
+    group: 'edit',
+  },
   { id: 'play-pause', keys: 'Space', label: 'Play / stop (return to playback start)', group: 'transport' },
   { id: 'pause-enter', keys: 'Enter', label: 'Pause in place', group: 'transport' },
   { id: 'stop', keys: 'S', label: 'Stop — return to playback start', group: 'transport' },

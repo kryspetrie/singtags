@@ -4,6 +4,8 @@
  */
 
 import type { PianoSoundEngineId } from '../../audio/pianoSamples'
+import type { TagRollSoundfontId } from '../../audio/soundfonts'
+import type { TagRollSoundfontPatch } from '../../audio/soundfontPresets'
 import type { TagRollSoundEnvelope } from './soundEnvelope'
 import { TAG_ROLL_DEFAULT_SOUND_ENVELOPE } from './soundEnvelope'
 
@@ -70,6 +72,14 @@ export type TagRollNote = {
     normalNotes: number
     /** Shared id for all members of this tuplet instance (= container id). */
     groupId: string
+  }
+  /**
+   * Directed tie into another note on the same part (same midi, adjacent).
+   * Chains allowed (A→B→C). Playback treats the chain as one sounding event.
+   */
+  tie?: {
+    /** Id of the next note this one ties into. */
+    toNoteId: string
   }
 }
 
@@ -447,9 +457,16 @@ export type TagRollProject = {
   soundEngine: PianoSoundEngineId
   /**
    * Pitch-pipe synth voice: built-in `mellow` / `bright`, or a Sound Lab library id.
-   * Also used for the blow-pitch intro (even when `soundEngine` is `samples`).
+   * Also used for the blow-pitch intro (even when `soundEngine` is `samples` / `soundfont`).
    */
   pitchPipeSoundId: string
+  /** SF2 bank when `soundEngine` is `soundfont`. */
+  soundfontId: TagRollSoundfontId
+  /**
+   * MIDI patch inside the selected SF2 (bank MSB/LSB + program).
+   * Piano-only banks ignore this and stay on Grand/program 0.
+   */
+  soundfontPatch: TagRollSoundfontPatch
   /**
    * When true, play/export a one-measure centered pitch-pipe tonic immediately
    * before the first measure that contains notes. Decay finishes before notes.
@@ -576,7 +593,7 @@ export const TAG_ROLL_DEFAULT_VIEW: TagRollViewPrefs = {
   sheetScoreScale: 0.95,
   sheetPageWidthIn: 8.5,
   sheetPageHeightIn: 11,
-  sheetPageDpi: 96,
+  sheetPageDpi: 144,
   sheetPageViewZoom: 1,
   sheetMusicFont: 'bravura',
   sheetTextFont: 'academico',

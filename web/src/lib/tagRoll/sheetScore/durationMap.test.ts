@@ -41,6 +41,26 @@ describe('durationMap', () => {
     ])
   })
 
+  it('keeps a quarter on beat 2 in 3/4 (no mid-bar bisect)', () => {
+    const mLen = TAG_ROLL_PPQ * 3
+    const bLen = TAG_ROLL_PPQ
+    // Beat 2 → beat 3 crosses the geometric midpoint (1.5 beats) but must stay one quarter.
+    expect(groupingSplitTicks(TAG_ROLL_PPQ, TAG_ROLL_PPQ, mLen, bLen)).toEqual([TAG_ROLL_PPQ])
+    const parts = decomposeTicksToDurations(TAG_ROLL_PPQ, TAG_ROLL_PPQ, {
+      startTick: TAG_ROLL_PPQ,
+      measureTicks: mLen,
+      beatTicks: bLen,
+    })
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatchObject({ type: 'quarter', dots: 0 })
+  })
+
+  it('keeps a half from beat 1 in 3/4 as a half (not eighth+dotted-quarter)', () => {
+    const mLen = TAG_ROLL_PPQ * 3
+    const bLen = TAG_ROLL_PPQ
+    expect(groupingSplitTicks(0, TAG_ROLL_PPQ * 2, mLen, bLen)).toEqual([TAG_ROLL_PPQ * 2])
+  })
+
   it('keeps a dotted half from the downbeat as one value across mid-bar', () => {
     const parts = decomposeTicksToDurations(TAG_ROLL_PPQ * 3, TAG_ROLL_PPQ, {
       startTick: 0,

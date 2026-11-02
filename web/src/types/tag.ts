@@ -132,6 +132,11 @@ export interface TagDetail {
   sheets?: string[]
   /** Compact 2-bit dither WebP for offline cache + default display. */
   sheet_preview?: string | null
+  /**
+   * Tiny first-page 3-bit greyscale WebP for Open Graph / Discord link cards
+   * (~300px wide). Prefer over `sheet_preview` for social unfurls.
+   */
+  sheet_og?: string | null
   sheet_pages?: string[]
   /**
    * Original-quality paths keyed by part id (legacy / download).

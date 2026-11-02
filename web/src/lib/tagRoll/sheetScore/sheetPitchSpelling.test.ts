@@ -34,11 +34,21 @@ describe('sheetPitchSpelling', () => {
     expect(p.alter).toBe(-1)
   })
 
-  it('spells Cdim7 seventh as Bbb (letter B, not A)', () => {
-    // C + 9 = pc 9 = A/Bbb; dim7 role 7 → Bbb
-    const p = spellMidiFromChord(69, { rootPc: 0, quality: 'dim7' }, true)
-    expect(p.step).toBe('B')
-    expect(p.alter).toBe(-2)
+  it('avoids double flats on dim7 sevenths (A, not Bbb)', () => {
+    // C + 9 = pc 9; stack letter would be Bbb, but we fall back to key spelling.
+    const flat = spellMidiFromChord(69, { rootPc: 0, quality: 'dim7' }, true)
+    expect(flat.step).toBe('A')
+    expect(flat.alter).toBe(0)
+    const sharp = spellMidiFromChord(69, { rootPc: 0, quality: 'dim7' }, false)
+    expect(sharp.step).toBe('A')
+    expect(sharp.alter).toBe(0)
+  })
+
+  it('avoids double flats on Abdim7 (D/F, not Ebb/Gbb)', () => {
+    const fifth = spellMidiFromChord(62, { rootPc: 8, quality: 'dim7' }, true)
+    expect(spelledPitchToVexKey(fifth)).toBe('d/4')
+    const seventh = spellMidiFromChord(65, { rootPc: 8, quality: 'dim7' }, true)
+    expect(spelledPitchToVexKey(seventh)).toBe('f/4')
   })
 
   it('falls back to preferFlats for non-chord tones', () => {

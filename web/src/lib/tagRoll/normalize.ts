@@ -2,7 +2,15 @@
  * Normalize / create Tag Roll projects.
  */
 import { isPianoSoundEngineId } from '../../audio/pianoSamples'
-import { loadPitchPipeSoundId } from '../../audio/pitchPipeVoice'
+import {
+  isTagRollSoundfontId,
+  TAG_ROLL_DEFAULT_SOUNDFONT_ID,
+} from '../../audio/soundfonts'
+import {
+  clampSoundfontPatchToBank,
+  normalizeSoundfontPatch,
+  TAG_ROLL_DEFAULT_SOUNDFONT_PATCH,
+} from '../../audio/soundfontPresets'
 import { migratePartHotkey, normalizePartHotkey } from './partHotkeys'
 import { syncProjectMix } from './mix'
 import { allocatePrefixedId, newTagRollProjectId } from './ids'
@@ -48,6 +56,7 @@ import {
   type TagRollViewPrefs,
 } from './types'
 import { normalizeHarmonySketch } from './harmonySketch'
+import { sanitizeNoteTies } from './noteTies'
 import { createDefaultKeyMarkers, ensureKeyMarkers, normalizeKeyMarker } from './keyMap'
 import {
   createTupletContainer,
@@ -251,6 +260,11 @@ export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
       : undefined
   const role =
     o.role === 'pmn' || o.role === 'smn' ? o.role : undefined
+  const tieRaw = o.tie && typeof o.tie === 'object' ? (o.tie as Record<string, unknown>) : null
+  const toNoteId =
+    tieRaw && typeof tieRaw.toNoteId === 'string' && tieRaw.toNoteId.trim()
+      ? tieRaw.toNoteId.trim()
+      : undefined
   return {
     id,
     partId,
@@ -260,6 +274,7 @@ export function normalizeTagRollNote(raw: unknown): TagRollNote | null {
     ...(lyric != null ? { lyric } : {}),
     ...(role ? { role } : {}),
     ...(tuplet ? { tuplet } : {}),
+    ...(toNoteId ? { tie: { toNoteId } } : {}),
   }
 }
 
@@ -541,7 +556,9 @@ export function createEmptyTagRollProject(opts?: { title?: string }): TagRollPro
     keyMarkers: createDefaultKeyMarkers(0, 'major', false),
     expressions: [],
     soundEngine: 'synth',
-    pitchPipeSoundId: loadPitchPipeSoundId(),
+    pitchPipeSoundId: 'mellow',
+    soundfontId: TAG_ROLL_DEFAULT_SOUNDFONT_ID,
+    soundfontPatch: { ...TAG_ROLL_DEFAULT_SOUNDFONT_PATCH },
     blowPitchEnabled: false,
     metronomeEnabled: false,
     metronomeSwing: true,
@@ -582,15 +599,24 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
   if (!parts.length) parts = createDefaultTagRollParts()
 
   const partIds = new Set(parts.map((p) => p.id))
-  const notes = (Array.isArray(o.notes) ? o.notes : [])
-    .map(normalizeTagRollNote)
-    .filter((n): n is TagRollNote => !!n && partIds.has(n.partId))
+  const notes = sanitizeNoteTies(
+    (Array.isArray(o.notes) ? o.notes : [])
+      .map(normalizeTagRollNote)
+      .filter((n): n is TagRollNote => !!n && partIds.has(n.partId)),
+  )
 
   const soundEngine = isPianoSoundEngineId(o.soundEngine) ? o.soundEngine : 'synth'
   const pitchPipeSoundId =
     typeof o.pitchPipeSoundId === 'string' && o.pitchPipeSoundId.trim()
       ? o.pitchPipeSoundId.trim().slice(0, 64)
       : 'mellow'
+  const soundfontId = isTagRollSoundfontId(o.soundfontId)
+    ? o.soundfontId
+    : TAG_ROLL_DEFAULT_SOUNDFONT_ID
+  const soundfontPatch = clampSoundfontPatchToBank(
+    soundfontId,
+    normalizeSoundfontPatch(o.soundfontPatch),
+  )
   const now = Date.now()
   const bpm = clamp(Math.round(Number(o.bpm) || TAG_ROLL_DEFAULT_BPM), 20, 320)
   const timeSignature = normalizeTimeSignature(o.timeSignature)
@@ -643,6 +669,8 @@ export function normalizeTagRollProject(raw: unknown): TagRollProject | null {
     expressions,
     soundEngine,
     pitchPipeSoundId,
+    soundfontId,
+    soundfontPatch,
     blowPitchEnabled: Boolean(o.blowPitchEnabled),
     metronomeEnabled: Boolean(o.metronomeEnabled),
     metronomeSwing: o.metronomeSwing === false ? false : true,

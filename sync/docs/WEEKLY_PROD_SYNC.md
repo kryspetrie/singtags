@@ -80,8 +80,10 @@ Still valid for now: machine with a local `library/` runs sync CLI, then pushes 
 
 ```
 1. sync/  — bulk-meta + frontier (local disk)
-2. build/ — indexes + offline manifests (local)
-3. deploy/ — publish library + website → singtags-prod
+2. sync/  — sheet_preview + sheet_og backfill (tiny Discord thumbs)
+3. build/ — indexes + offline manifests (local)
+4. deploy/ — publish library + website → singtags-prod
+            (website build prerenders /tag/{id} Open Graph HTML shells)
 ```
 
 | Flag / env | Meaning |

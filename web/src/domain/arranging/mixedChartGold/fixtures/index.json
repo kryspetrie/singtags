@@ -27,10 +27,10 @@
       "tagId": 90011,
       "file": "90011.json",
       "verified": false,
-      "lockCoverage": 0.4074,
-      "stackOnsets": 27,
+      "lockCoverage": 0.44,
+      "stackOnsets": 25,
       "locked": 11,
-      "unlocked": 16
+      "unlocked": 14
     }
   ]
 }

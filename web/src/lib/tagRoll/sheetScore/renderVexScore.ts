@@ -68,7 +68,6 @@ import {
   applySvgSizeScale,
   drawCrossoverMarks,
   drawMelodyHandoffLines,
-  noteheadPoint,
 } from './sheetScoreOverlays'
 import type { SheetClefKind } from './types'
 import {
@@ -177,8 +176,15 @@ function clefSpec(kind: SheetClefKind): { clef: string; annotation?: string } {
   }
 }
 
-/** Gap between wrapped systems in page layout. */
-const SYSTEM_GAP_PX = 22
+/**
+ * Extra air between packed systems at System rows = 100%.
+ * Slider maps 0% → near-flush, 100% → this pack, 300% → much wider.
+ */
+const SYSTEM_GAP_PX = 10
+/** Comfortable stem/ledger room under the bottom staff at 100% (staff-spaces). */
+const SYSTEM_BELOW_STEM_SPACES = 5
+/** Near-overlap stem room at System rows = 0% (staff-spaces). */
+const SYSTEM_BELOW_STEM_SPACES_MIN = 1.25
 const DEFAULT_LYRIC_FONT_PX = 12
 const LYRIC_OFFSET_GAP_SPACES = 0.45
 const LYRIC_STAVE_SPACE_BELOW = 4
@@ -433,7 +439,6 @@ export async function renderVexSheetScore(opts: {
     SHEET_FIRST_MEASURE_CLEF_EXTRA_PX * (opts.clefGutter ?? 1),
   )
   // Keep inter-page gap constant in screen px.
-  const systemGapPx = Math.round(SYSTEM_GAP_PX * systemGapScale)
   const pageGapPx = SHEET_PAGE_GAP_PX / sizeScale
   // Tests may pass viewportWidth as an override for the line budget (screen px).
   const lineBudgetOverride =
@@ -476,10 +481,36 @@ export async function renderVexSheetScore(opts: {
     staveGapSpaces(staveGapPref, showLyrics, staveGapFine) +
     (showLyrics ? maxLyricOffset * LYRIC_OFFSET_GAP_SPACES : 0) +
     (straightLyrics ? straightLyricStaveGapExtra(lyricFontPx, linePx, stemLength) : 0)
-  // Staff height ≈ 4 line-gaps; staveGap is in staff-spaces between staves.
-  // Page/strip bottom margin is reserved separately — not inside each system.
-  const systemBodyHeight =
-    staveCount * (4 * linePx + staveGap * linePx) + staffTailPad
+  // VexFlow `spaceBetweenStaves` is top-to-top. System.format() also advances that
+  // gap *after* the last stave, and stems/ledgers hang below the bottom staff.
+  // System rows: 100% = comfortable body + SYSTEM_GAP_PX; 0% ≈ flush; >100% widens hard.
+  const staffStackHeight =
+    Math.max(0, staveCount - 1) * staveGap * linePx + 4 * linePx
+  const vexTrailingGapPx = staveGap * linePx
+  const belowStaffPx = Math.max(
+    staffTailPad,
+    Math.round(SYSTEM_BELOW_STEM_SPACES * linePx * stemLength),
+  )
+  const body100 = staffStackHeight + belowStaffPx + vexTrailingGapPx
+  const contentFloor =
+    staffStackHeight +
+    Math.max(
+      // Lyrics still need their tail when packing toward 0%.
+      showLyrics ? staffTailPad : 0,
+      Math.round(SYSTEM_BELOW_STEM_SPACES_MIN * linePx * stemLength),
+    )
+  const gapScale = Math.max(0, systemGapScale)
+  const bodyComfort = Math.max(0, body100 - contentFloor)
+  const systemBodyHeight = Math.round(
+    contentFloor + bodyComfort * Math.min(1, gapScale),
+  )
+  // Below 100%: shrink the small base gap. Above 100%: also expand the comfort pad
+  // that 100% reserved inside the body, so 300% is clearly much wider.
+  const systemGapPx = Math.round(
+    gapScale <= 1
+      ? SYSTEM_GAP_PX * gapScale
+      : SYSTEM_GAP_PX * gapScale + (gapScale - 1) * bodyComfort,
+  )
   const equalBody = scaledEqualMeasureBodyPx(
     sheetMeasureWidthPx(pxPerBeat, project.timeSignature, ppq) * timeFactor * beatStretch,
     measureScale,
@@ -698,6 +729,7 @@ export async function renderVexSheetScore(opts: {
           slot.voice,
           openTies,
           spellAt,
+          pl.systemIndex,
         )
         notes = fillMeasureIfEmpty(
           factory,

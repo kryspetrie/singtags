@@ -13,12 +13,18 @@ export const PIANO_SAMPLE_MIDI_MAX = 101 // F7
 export const PIANO_SAMPLE_ENGINE_OPTIONS = [
   { value: 'synth' as const, label: 'Pitch pipe (synth)' },
   { value: 'samples' as const, label: 'Acoustic piano (samples)' },
+  { value: 'soundfont' as const, label: 'SoundFont piano (SF2)' },
 ]
 
 export type PianoSoundEngineId = (typeof PIANO_SAMPLE_ENGINE_OPTIONS)[number]['value']
 
 export function isPianoSoundEngineId(v: unknown): v is PianoSoundEngineId {
-  return v === 'synth' || v === 'samples'
+  return v === 'synth' || v === 'samples' || v === 'soundfont'
+}
+
+/** Engines that use sampled/SF2 piano timbre (not the pitch-pipe synth voice). */
+export function isSampledPianoEngine(v: unknown): boolean {
+  return v === 'samples' || v === 'soundfont'
 }
 
 /** Scientific note → MIDI (C4 = 60). Accepts # / b accidentals. */

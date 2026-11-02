@@ -128,6 +128,8 @@ export function arrangementToTagRoll(
     expressions: [],
     soundEngine: 'synth',
     pitchPipeSoundId: 'mellow',
+    soundfontId: 'ydp-grand',
+    soundfontPatch: { bankMSB: 0, bankLSB: 0, program: 0 },
     soundEnvelope: { attackMs: 8, releaseMs: 80 },
     tonality: project.tonality,
     tonalityMode: project.tonalityMode ?? 'major',

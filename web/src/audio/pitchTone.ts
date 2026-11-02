@@ -6,8 +6,17 @@ import { PitchPlayer } from './pitchPlayer'
 import { getActivePitchPipeVoice, type PitchPipeVoiceConfig } from './pitchPipeVoice'
 import type { PianoSoundEngineId } from './pianoSamples'
 import { SamplePianoPlayer } from './samplePianoPlayer'
+import { SoundFontPianoPlayer } from './soundFontPianoPlayer'
 import { PolySynthPlayer } from './polySynthPlayer'
 import type { TagRollSoundEnvelope } from '../lib/tagRoll/soundEnvelope'
+import {
+  TAG_ROLL_DEFAULT_SOUNDFONT_ID,
+  type TagRollSoundfontId,
+} from './soundfonts'
+import {
+  TAG_ROLL_DEFAULT_SOUNDFONT_PATCH,
+  type TagRollSoundfontPatch,
+} from './soundfontPresets'
 
 /** Optional per-voice mix for Tag Studio (same pitch on multiple parts). */
 export type PitchNoteMixOpts = {
@@ -48,6 +57,8 @@ export type PitchTonePlayer = {
   preloadForNote?(note: string): Promise<void>
   getLoadError?(): string | null
   ensureOctave?(oct: number): Promise<void>
+  /** SF2 bank instrument (bank MSB/LSB + program). No-op for non-SF engines. */
+  setSoundfontPatch?(patch: TagRollSoundfontPatch): void
 }
 
 function wrapPolySynth(synth: PolySynthPlayer): PitchTonePlayer {
@@ -95,6 +106,31 @@ function wrapSamples(sample: SamplePianoPlayer): PitchTonePlayer {
   }
 }
 
+function wrapSoundFont(sf: SoundFontPianoPlayer): PitchTonePlayer {
+  return {
+    noteOn: (note, detune, mix) => sf.noteOn(note, detune, mix),
+    noteOff: (note, fade) => sf.noteOff(note, fade),
+    allNotesOff: (fade) => sf.allNotesOff(fade),
+    activeNotes: () => sf.activeNotes(),
+    isNoteActive: (note) => sf.isNoteActive(note),
+    start: async (note, detune) => {
+      sf.allNotesOff(false)
+      await sf.noteOn(note, detune)
+    },
+    stop: (fade) => sf.allNotesOff(fade),
+    setVoice: () => undefined,
+    setEnvelope: (env) => sf.setEnvelope(env),
+    glideTo: (key, note, dur) => sf.glideTo(key, note, dur),
+    warmUp: () => sf.warmUp(),
+    restartIfPlaying: () => sf.restartIfPlaying(),
+    dispose: () => sf.dispose(),
+    preloadForNote: (note) => sf.preloadForNote(note),
+    getLoadError: () => sf.getLoadError(),
+    ensureOctave: (oct) => sf.ensureOctave(oct),
+    setSoundfontPatch: (patch) => sf.setSoundfontPatch(patch),
+  }
+}
+
 /** Wrap monophonic PitchPlayer for grid/list (one note at a time). */
 function wrapMono(synth: PitchPlayer): PitchTonePlayer {
   let current: string | null = null
@@ -131,16 +167,30 @@ function wrapMono(synth: PitchPlayer): PitchTonePlayer {
 }
 
 /**
- * @param engine synth | samples
+ * @param engine synth | samples | soundfont
  * @param opts.polyphony When true (piano layouts), use poly synth/sample engines.
+ * @param opts.soundfontId SF2 bank when engine is `soundfont`.
+ * @param opts.soundfontPatch MIDI patch within a multi-instrument SF2.
  */
 export function createPitchTonePlayer(
   engine: PianoSoundEngineId,
-  opts?: { polyphony?: boolean },
+  opts?: {
+    polyphony?: boolean
+    soundfontId?: TagRollSoundfontId
+    soundfontPatch?: TagRollSoundfontPatch
+  },
 ): PitchTonePlayer {
   const poly = opts?.polyphony !== false
   if (engine === 'samples') {
     return wrapSamples(new SamplePianoPlayer())
+  }
+  if (engine === 'soundfont') {
+    return wrapSoundFont(
+      new SoundFontPianoPlayer(
+        opts?.soundfontId ?? TAG_ROLL_DEFAULT_SOUNDFONT_ID,
+        opts?.soundfontPatch ?? TAG_ROLL_DEFAULT_SOUNDFONT_PATCH,
+      ),
+    )
   }
   if (poly) {
     return wrapPolySynth(new PolySynthPlayer(getActivePitchPipeVoice()))

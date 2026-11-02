@@ -10,12 +10,13 @@ import type { TagRollNote, TagRollTimeSignature, TagRollTuplet } from '../types'
 import { TAG_ROLL_PPQ } from '../types'
 import {
   decomposeTicksToDurations,
+  mapTicksToDuration,
   type MappedDuration,
 } from './durationMap'
 import {
   inferTupletsOnEvents,
   tryTupletMemberAtom,
-  tupletMemberDuration,
+  tupletMemberWrittenDuration,
   type SheetTupletInfo,
 } from './sheetTuplets'
 import { stampNotesFromTupletContainers } from './stampTupletTags'
@@ -133,15 +134,20 @@ function eventsForStaffVoice(
           n.startTick <= s.start &&
           s.start < n.startTick + n.durationTicks,
       )
-      // Tuplet atoms (⅓ beat) stay as one glyph; otherwise greedy + mid-bar splits.
+      // Tuplet atoms (⅓ beat) stay as one glyph; tagged tuplet members skip
+      // mid-bar/syncopation splits so resolveExplicitTuplets can assign the
+      // correct (possibly dotted) written value per slot count.
       const tupletAtom = s.midi != null ? tryTupletMemberAtom(s.dur, ppq) : null
+      const keepWholeForTuplet = !!(source?.tuplet && s.midi != null)
       const pieces: MappedDuration[] = tupletAtom
         ? [tupletAtom]
-        : decomposeTicksToDurations(s.dur, ppq, {
-            startTick: s.start,
-            measureTicks: mLen,
-            beatTicks: bLen,
-          })
+        : keepWholeForTuplet
+          ? [{ ...mapTicksToDuration(s.dur, ppq), ticks: s.dur }]
+          : decomposeTicksToDurations(s.dur, ppq, {
+              startTick: s.start,
+              measureTicks: mLen,
+              beatTicks: bLen,
+            })
       let t = s.start
       for (let i = 0; i < pieces.length; i++) {
         const duration = pieces[i]!
@@ -217,17 +223,24 @@ function resolveExplicitTuplets(events: SheetRhythmEvent[], ppq: number): void {
   for (const members of byId.values()) {
     members.sort((a, b) => a.startTick - b.startTick)
     const sum = members.reduce((s, e) => s + e.durationTicks, 0)
+    const actualNotes = members[0]!.tuplet!.actualNotes
     const normalNotes = members[0]!.tuplet!.normalNotes
-    const written = tupletMemberDuration(sum, ppq, normalNotes)
     for (let i = 0; i < members.length; i++) {
       const e = members[i]!
       e.tuplet = {
         id: e.tuplet!.id,
-        actualNotes: e.tuplet!.actualNotes,
-        normalNotes: e.tuplet!.normalNotes,
+        actualNotes,
+        normalNotes,
         index: i,
       }
-      e.duration = { ...written, ticks: e.durationTicks }
+      // Per-member written value (supports multi-slot / dotted members).
+      e.duration = tupletMemberWrittenDuration(
+        e.durationTicks,
+        sum,
+        actualNotes,
+        normalNotes,
+        ppq,
+      )
     }
   }
 }

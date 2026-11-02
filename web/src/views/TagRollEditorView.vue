@@ -5,6 +5,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
+import { isTagRollSoundfontId, prefetchSoundfont } from '../audio/soundfonts'
 import { MetronomeClicker } from '../audio/metronomeClicker'
 import { midiToNote } from '../audio/pianoSamples'
 import { resolvePitchPipeVoiceById } from '../audio/pitchPipeVoice'
@@ -35,6 +36,7 @@ import TagRollMediaBar from '../components/tagRoll/TagRollMediaBar.vue'
 import TagRollMixerPanel from '../components/tagRoll/TagRollMixerPanel.vue'
 import TagRollShortcutsOverlay from '../components/tagRoll/TagRollShortcutsOverlay.vue'
 import TagRollTupletEditor from '../components/tagRoll/TagRollTupletEditor.vue'
+import SelectionBar from '../components/SelectionBar.vue'
 import TagRollTote from '../components/tagRoll/TagRollTote.vue'
 import TagRollVoicingRangePanel from '../components/tagRoll/TagRollVoicingRangePanel.vue'
 import { VOICING_RANGE_PANEL_W } from '../lib/arranging/voicingRangeUi'
@@ -49,6 +51,7 @@ import {
 } from '../composables/useTagRollAudio'
 import { notesForColumnAudition, notesForPreviewTransport } from '../lib/tagRoll/columnAudition'
 import { melodyPartAtTick } from '../lib/tagRoll/melodyPass'
+import { tieSelectionState } from '../lib/tagRoll/noteTies'
 import {
   isMetronomeAudible,
   isPartAudible,
@@ -80,6 +83,7 @@ import { TAG_ROLL_DURATION_PRESETS, dottedDurationTicks, stepDurationTicks } fro
 import { findPartByHotkey } from '../lib/tagRoll/partHotkeys'
 import { isTypingTarget, matchModKey, tagRollTip, tipByShortcutId } from '../lib/tagRoll/shortcuts'
 import type { TupletEditorDraft } from '../lib/tagRoll/tupletEditor'
+import { tupletKindLabel } from '../lib/tagRoll/tupletChrome'
 import {
   nextMeasureTick,
   prevMeasureTick,
@@ -344,7 +348,6 @@ const {
   segments: chordAnalysisSegments,
   declaredSegments: chordDeclaredSegments,
   detectSegments: chordDetectSegments,
-  nameCandidatesByTick: chordNameCandidatesByTick,
   contestProfile: chordContestProfile,
   setDeclaredMode: setChordDeclaredMode,
   setDetectedMode: setChordDetectedMode,
@@ -524,10 +527,17 @@ let blowPitchRaf = 0
 function ensurePlayer(): PitchTonePlayer {
   const eng = project.value?.soundEngine ?? 'synth'
   if (!player) {
-    player = createPitchTonePlayer(eng, { polyphony: true })
+    player = createPitchTonePlayer(eng, {
+      polyphony: true,
+      soundfontId: project.value?.soundfontId,
+      soundfontPatch: project.value?.soundfontPatch,
+    })
   }
   if (eng === 'synth') {
     player.setVoice(resolvePitchPipeVoiceById(project.value?.pitchPipeSoundId))
+  }
+  if (eng === 'soundfont' && project.value?.soundfontPatch) {
+    player.setSoundfontPatch?.(project.value.soundfontPatch)
   }
   const env = project.value?.soundEnvelope
   if (env) player.setEnvelope?.(env)
@@ -819,12 +829,24 @@ watch(
   },
 )
 
+// Primitive key — NOT an array. `current` is a shallowRef, so every playhead
+// patch replaces the project object; a fresh `[engine, font]` array would fail
+// Object.is and dispose the AudioContext on every tick (silent “playing”).
 watch(
-  () => project.value?.soundEngine,
-  () => {
+  () => `${project.value?.soundEngine ?? ''}\0${project.value?.soundfontId ?? ''}`,
+  (key) => {
+    const sep = key.indexOf('\0')
+    const eng = sep >= 0 ? key.slice(0, sep) : key
+    const fontId = sep >= 0 ? key.slice(sep + 1) : ''
     player?.dispose()
     player = null
     rebuildScheduler()
+    // Fetch SF2 only when the SoundFont engine is selected (not on every project load).
+    if (eng === 'soundfont' && isTagRollSoundfontId(fontId)) {
+      void prefetchSoundfont(fontId).catch((err) => {
+        console.error('[TagRoll] soundfont prefetch failed', err)
+      })
+    }
   },
 )
 
@@ -833,6 +855,19 @@ watch(
   () => {
     if (project.value?.soundEngine !== 'synth') return
     player?.setVoice(resolvePitchPipeVoiceById(project.value?.pitchPipeSoundId))
+  },
+)
+
+// Instrument change must not rebuild the AudioContext — only program-change.
+watch(
+  () => {
+    const p = project.value?.soundfontPatch
+    return p ? `${p.bankMSB}:${p.bankLSB}:${p.program}` : ''
+  },
+  () => {
+    if (project.value?.soundEngine !== 'soundfont') return
+    const patch = project.value?.soundfontPatch
+    if (patch) player?.setSoundfontPatch?.(patch)
   },
 )
 
@@ -1002,8 +1037,14 @@ async function onPlay(): Promise<void> {
   ensureMixCanSound()
   // Resume the *main* engine on this user gesture before any awaited intro work.
   // Blow-pitch uses a separate AudioContext; without this, content stays suspended.
+  // SoundFont warmUp unlocks audio + starts bank load — do not block the playhead
+  // on the multi‑MB SF2 fetch (failures must not abort transport).
   const tone = ensurePlayer()
-  await tone.warmUp?.()
+  try {
+    await tone.warmUp?.()
+  } catch (err) {
+    console.error('[TagRoll] sound warmUp failed', err)
+  }
   void ensureMetronome().ensureLoaded(prefs.tagRollMetronomeSound)
   rebuildScheduler()
   const from = bounds?.fromTick ?? playbackOriginTick.value
@@ -1063,6 +1104,47 @@ function onTupletEditorHear(
 function openTupletEditor(id?: string | null): void {
   if (id) store.selectTuplet(id)
   if (store.selectedTupletId) tupletEditorOpen.value = true
+}
+
+const selectedTuplet = computed(() => {
+  const id = store.selectedTupletId
+  if (!id || !project.value) return null
+  return (project.value.tuplets ?? []).find((t) => t.id === id) ?? null
+})
+
+const tupletSelectionBarOpen = computed(
+  () => !!selectedTuplet.value && !tupletEditorOpen.value && project.value?.view.mode !== 'view',
+)
+
+const noteTieSelection = computed(() => {
+  const p = project.value
+  if (!p || store.selectedNoteIds.length !== 2) {
+    return { canTie: false, canUntie: false, reason: 'Select exactly two notes' }
+  }
+  return tieSelectionState(p.notes, store.selectedNoteIds)
+})
+
+const noteTieBarOpen = computed(
+  () =>
+    store.selectedNoteIds.length === 2 &&
+    !tupletSelectionBarOpen.value &&
+    project.value?.view.mode !== 'view',
+)
+
+const tupletSelectionLabel = computed(() => {
+  const t = selectedTuplet.value
+  if (!t || !project.value) return 'Tuplet'
+  const part = project.value.parts.find((p) => p.id === t.partId)
+  const kind = tupletKindLabel(t)
+  return part?.name ? `${kind} · ${part.name}` : kind
+})
+
+function onTupletSelectionClear(): void {
+  store.selectTuplet(null)
+}
+
+function onTupletSelectionDelete(): void {
+  store.deleteSelectedTuplet()
 }
 
 function clearRollSelection(): boolean {
@@ -1382,42 +1464,6 @@ function onSketchLaneChanged(): void {
   clearLaneChordSession()
 }
 
-function onApplyHarmonyDraft(
-  id: string,
-  draft: { rootPc: number; quality: import('../lib/tagRoll/types').HarmonySketchQuality },
-): void {
-  const p = project.value
-  if (!p) return
-  const span = (p.harmonySketch ?? []).find((s) => s.id === id)
-  if (span) {
-    store.upsertHarmonySketchSpan({
-      ...span,
-      rootPc: draft.rootPc,
-      quality: draft.quality,
-      locked: true,
-      source: 'user',
-    })
-    harmonyPreview.value = null
-    syncSketchToCoachPillars()
-    return
-  }
-  const det =
-    chordDetectSegments.value.find((s) => s.id === id) ??
-    chordAnalysisSegments.value.find((s) => s.id === id)
-  if (!det) return
-  store.upsertHarmonySketchSpan({
-    id,
-    startTick: det.startTick,
-    endTick: det.endTick,
-    rootPc: draft.rootPc,
-    quality: draft.quality,
-    source: 'user',
-    locked: true,
-  })
-  harmonyPreview.value = null
-  syncSketchToCoachPillars()
-}
-
 function onHarmonyPreview(draft: HarmonyPreviewDraft | null): void {
   harmonyPreview.value = draft
 }
@@ -1655,9 +1701,11 @@ async function onImportJsonFile(e: Event): Promise<void> {
       snackbar.show(parsed.error, { title: 'Import failed', tone: 'error', ms: 4000 })
       return
     }
-    const p = await store.importProject(parsed.project)
+    const p = await store.importProject(parsed.project, { replaceBlankCurrent: true })
     snackbar.show(`Imported “${p.title}”`, { title: 'Imported', tone: 'ok', ms: 2500 })
-    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+    if (String(route.params.id) !== p.id) {
+      await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to import project'
     snackbar.show(msg, { title: 'Import failed', tone: 'error', ms: 4000 })
@@ -1679,13 +1727,15 @@ async function onImportMusicXmlFile(e: Event): Promise<void> {
       snackbar.show(parsed.error, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
       return
     }
-    const p = await store.importProject(parsed.project)
+    const p = await store.importProject(parsed.project, { replaceBlankCurrent: true })
     snackbar.show(`Imported “${p.title}” from MusicXML`, {
       title: 'Imported',
       tone: 'ok',
       ms: 2500,
     })
-    await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+    if (String(route.params.id) !== p.id) {
+      await router.push({ name: 'tag-studio-edit', params: { id: p.id } })
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to import MusicXML'
     snackbar.show(msg, { title: 'MusicXML import failed', tone: 'error', ms: 4500 })
@@ -1819,7 +1869,8 @@ function onChordsRemoveSketch(): void {
     x: (typeof chordDeclaredSegments.value)[number],
   ): import('../lib/tagRoll/harmonySketch').HarmonyAbsorbNeighbor | null => {
     if (x.rootPc == null) return null
-    const quality = isHarmonySketchQuality(x.natureId) ? x.natureId : 'major'
+    const q = x.quality ?? 'major'
+    const quality = isHarmonySketchQuality(q) ? q : 'major'
     return {
       id: x.id,
       startTick: x.startTick,
@@ -2423,20 +2474,8 @@ function onKeyDown(e: KeyboardEvent): void {
         x: (typeof chordDetectSegments.value)[number],
       ): import('../lib/tagRoll/harmonySketch').HarmonyAbsorbNeighbor | null => {
         if (x.rootPc == null) return null
-        const q = x.natureId
-        const quality =
-          q === 'major' ||
-          q === 'minor' ||
-          q === 'seventh' ||
-          q === 'm7' ||
-          q === 'dim' ||
-          q === 'half-dim' ||
-          q === 'aug' ||
-          q === 'sixth' ||
-          q === 'ninth' ||
-          q === 'major7'
-            ? q
-            : 'major'
+        const q = x.quality ?? 'major'
+        const quality = isHarmonySketchQuality(q) ? q : 'major'
         return {
           id: x.id,
           startTick: x.startTick,
@@ -2517,6 +2556,10 @@ function onKeyDown(e: KeyboardEvent): void {
   }
   if (lower === 't') {
     e.preventDefault()
+    if (e.shiftKey) {
+      store.toggleTieSelectedNotes()
+      return
+    }
     store.setTupletTool(!store.tupletTool)
     return
   }
@@ -2954,6 +2997,69 @@ function onKeyDown(e: KeyboardEvent): void {
     <TagRollViewFiltersPanel :open="marksOpen" @close="marksOpen = false" />
     <TagRollMixerPanel :open="mixerOpen" @close="mixerOpen = false" />
     <TagRollShortcutsOverlay :open="shortcutsOpen" @close="shortcutsOpen = false" />
+    <SelectionBar
+      :count="tupletSelectionBarOpen ? 1 : 0"
+      :count-text="tupletSelectionLabel"
+      toolbar-label="Selected tuplet"
+      @clear="onTupletSelectionClear"
+    >
+      <button
+        type="button"
+        class="btn"
+        :title="tagRollTip('Edit tuplet members', 'Enter')"
+        aria-label="Edit tuplet"
+        @click="openTupletEditor()"
+      >
+        <span class="label-long">Edit</span>
+        <span class="label-short">Edit</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-remove-icon"
+        :title="tipByShortcutId('delete', 'Delete tuplet and its notes')"
+        aria-label="Delete tuplet"
+        @click="onTupletSelectionDelete"
+      >
+        ×
+      </button>
+    </SelectionBar>
+    <SelectionBar
+      :count="noteTieBarOpen ? 2 : 0"
+      count-text="2 notes"
+      toolbar-label="Selected notes"
+      @clear="store.clearNoteSelection()"
+    >
+      <button
+        type="button"
+        class="btn"
+        :disabled="!noteTieSelection.canTie"
+        :title="
+          noteTieSelection.canTie
+            ? tagRollTip('Tie selected notes', 'Shift+T')
+            : noteTieSelection.reason || 'Cannot tie'
+        "
+        aria-label="Tie notes"
+        @click="store.tieSelectedNotes()"
+      >
+        <span class="label-long">Tie</span>
+        <span class="label-short">Tie</span>
+      </button>
+      <button
+        type="button"
+        class="btn"
+        :disabled="!noteTieSelection.canUntie"
+        :title="
+          noteTieSelection.canUntie
+            ? tagRollTip('Untie selected notes', 'Shift+T')
+            : 'Notes are not tied'
+        "
+        aria-label="Untie notes"
+        @click="store.untieSelectedNotes()"
+      >
+        <span class="label-long">Untie</span>
+        <span class="label-short">Untie</span>
+      </button>
+    </SelectionBar>
     <TagRollTupletEditor
       v-if="project"
       :open="tupletEditorOpen && !!store.selectedTupletId"

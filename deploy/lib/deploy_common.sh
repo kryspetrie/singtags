@@ -54,6 +54,18 @@ deploy_require_cmd() {
   fi
 }
 
+# Discord/Slack crawlers do not run JS — bake Open Graph into /tag/{id} HTML.
+deploy_prerender_tag_link_previews() {
+  local root="$1"
+  echo "Prerendering tag link previews…"
+  (
+    cd "$root"
+    SITE_ORIGIN="${SITE_ORIGIN:-https://www.singtags.com}" \
+      VITE_MEDIA_BASE="${VITE_MEDIA_BASE:-/library}" \
+      python3 build/prerender_tag_link_previews.py
+  )
+}
+
 # Build the Vue app into web/dist. Honors SKIP_BUILD=1, VITE_BASE, VITE_MEDIA_BASE.
 deploy_build_web() {
   local root="$1"
@@ -63,10 +75,11 @@ deploy_build_web() {
       exit 1
     fi
     echo "Skipping build (SKIP_BUILD=1)"
-    return 0
+  else
+    echo "Building web (VITE_BASE=${VITE_BASE:-/}${VITE_MEDIA_BASE:+ VITE_MEDIA_BASE=$VITE_MEDIA_BASE})"
+    (cd "$root/web" && npm run build)
   fi
-  echo "Building web (VITE_BASE=${VITE_BASE:-/}${VITE_MEDIA_BASE:+ VITE_MEDIA_BASE=$VITE_MEDIA_BASE})"
-  (cd "$root/web" && npm run build)
+  deploy_prerender_tag_link_previews "$root"
 }
 
 deploy_s3_uri() {

@@ -1,9 +1,17 @@
 /**
  * @vitest-environment happy-dom
  */
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parseTagRollMusicXml } from './musicxmlImport'
+import { measureTicks } from './tempoMap'
 import { TAG_ROLL_PPQ } from './types'
+
+const MILL_STREAM = resolve(
+  __dirname,
+  '../../../../polecats/mixed-musicxml/DOWN BY THE OLD MILL STREAM.musicxml.xml',
+)
 
 function partwise(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -223,7 +231,50 @@ describe('parseTagRollMusicXml', () => {
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.project.bpm).toBe(120)
+    expect(r.project.notes[0]!.startTick).toBe(0)
     expect(r.project.notes[0]!.durationTicks).toBe(TAG_ROLL_PPQ)
+  })
+
+  it('right-aligns a short opening pickup so the next bar hits the meter grid', () => {
+    // Sibelius-style incomplete first bar (pickup) then full bar at onset 0 —
+    // must not clamp onset 0→1, and should pad the pickup into a full 3/4 bar.
+    const xml = partwise(`
+      <part-list><score-part id="P1"><part-name>Lead</part-name></score-part></part-list>
+      <part id="P1">
+        <measure number="1">
+          <attributes>
+            <divisions>256</divisions>
+            <time><beats>3</beats><beat-type>4</beat-type></time>
+          </attributes>
+          <note>
+            <pitch><step>A</step><octave>3</octave></pitch>
+            <duration>128</duration><voice>1</voice><type>eighth</type>
+          </note>
+          <note>
+            <pitch><step>C</step><octave>4</octave></pitch>
+            <duration>128</duration><voice>1</voice><type>eighth</type>
+          </note>
+          <note>
+            <pitch><step>E</step><octave>4</octave></pitch>
+            <duration>128</duration><voice>1</voice><type>eighth</type>
+          </note>
+        </measure>
+        <measure number="2">
+          <note>
+            <pitch><step>G</step><octave>4</octave></pitch>
+            <duration>768</duration><voice>1</voice><type>half</type><dot/>
+          </note>
+        </measure>
+      </part>
+    `)
+    const r = parseTagRollMusicXml(xml)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const notes = [...r.project.notes].sort((a, b) => a.startTick - b.startTick)
+    // 3/4 = 1440; pickup (720) right-aligned → 720,960,1200; chorus downbeat 1440.
+    expect(notes.map((n) => n.startTick)).toEqual([720, 960, 1200, 1440])
+    expect(notes[3]!.durationTicks).toBe(1440)
+    expect(notes.every((n) => n.startTick % (TAG_ROLL_PPQ / 2) === 0)).toBe(true)
   })
 
   it('rejects timewise scores', () => {
@@ -233,4 +284,44 @@ describe('parseTagRollMusicXml', () => {
     if (r.ok) return
     expect(r.error).toMatch(/timewise/i)
   })
+
+  it.skipIf(!existsSync(MILL_STREAM))(
+    'Mill Stream: explodes dual voices to TTBB and puts chorus on a barline',
+    () => {
+      const r = parseTagRollMusicXml(readFileSync(MILL_STREAM, 'utf8'))
+      expect(r.ok).toBe(true)
+      if (!r.ok) return
+      expect(r.project.parts.map((p) => p.name)).toEqual(['Tenor', 'Lead', 'Bari', 'Bass'])
+      const counts = Object.fromEntries(
+        r.project.parts.map((p) => [
+          p.name,
+          r.project.notes.filter((n) => n.partId === p.id).length,
+        ]),
+      )
+      expect(counts.Tenor).toBeGreaterThan(40)
+      expect(counts.Lead).toBeGreaterThan(40)
+      expect(counts.Bari).toBeGreaterThan(40)
+      expect(counts.Bass).toBeGreaterThan(40)
+
+      const mLen = measureTicks(r.project.timeSignature, TAG_ROLL_PPQ)
+      expect(mLen).toBe(1440)
+      // First TTBB stack (“old”) must sit on a measure boundary.
+      const chordTick = [...new Set(r.project.notes.map((n) => n.startTick))]
+        .sort((a, b) => a - b)
+        .find((t) => {
+          const parts = new Set(
+            r.project.notes.filter((n) => n.startTick === t).map((n) => n.partId),
+          )
+          return parts.size >= 4
+        })
+      expect(chordTick).toBe(1440)
+      expect(chordTick! % mLen).toBe(0)
+      // Pickup eighths sit in the prior bar (right-aligned anacrusis).
+      const lead = r.project.parts.find((p) => p.name === 'Lead')!
+      const pickup = r.project.notes
+        .filter((n) => n.partId === lead.id && n.startTick < 1440)
+        .sort((a, b) => a.startTick - b.startTick)
+      expect(pickup.map((n) => n.startTick)).toEqual([720, 960, 1200])
+    },
+  )
 })

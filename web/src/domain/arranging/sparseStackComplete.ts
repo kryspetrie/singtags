@@ -676,27 +676,34 @@ export function completeSparseStack(opts: {
     rootPc = rootPc ?? identified.rootPc
   }
 
-  if (!isNatureAllowed(opts.profile, natureId)) {
+  if (natureId == null || rootPc == null) {
+    return { ok: false, reason: 'unrecognized' }
+  }
+  // Locals after null-check so callbacks don't see `let … | null`.
+  let resolvedNature = natureId
+  let resolvedRoot = rootPc
+
+  if (!isNatureAllowed(opts.profile, resolvedNature)) {
     return { ok: false, reason: 'outside_vocab' }
   }
 
-  const triadPcs = [0, 4, 7].map((off) => ((rootPc + off) % 12 + 12) % 12)
+  const triadPcs = [0, 4, 7].map((off) => ((resolvedRoot + off) % 12 + 12) % 12)
   if (
     mode === 'major' &&
-    natureId === 'major' &&
-    degreeOf(rootPc, opts.tonality) === 0 &&
+    resolvedNature === 'major' &&
+    degreeOf(resolvedRoot, opts.tonality) === 0 &&
     opts.nextBassPc != null &&
     degreeOf(opts.nextBassPc, opts.tonality) === 5 &&
     triadPcs.every((p) => uniquePcs(present).includes(p)) &&
     isNatureAllowed(opts.profile, 'seventh')
   ) {
-    natureId = 'seventh'
+    resolvedNature = 'seventh'
   }
 
   if (opts.midi.bass == null && opts.prevRootPc != null && opts.prevNatureId) {
     const circled = coachCircleNature({
       midi: opts.midi,
-      detected: { natureId, rootPc },
+      detected: { natureId: resolvedNature, rootPc: resolvedRoot },
       tonality: opts.tonality,
       mode,
       profile: opts.profile,
@@ -705,18 +712,18 @@ export function completeSparseStack(opts: {
       prevMidi: opts.prevMidi,
     })
     if (circled && presentPcsFitNature(present, circled.natureId, circled.rootPc)) {
-      natureId = circled.natureId
-      rootPc = circled.rootPc
+      resolvedNature = circled.natureId
+      resolvedRoot = circled.rootPc
     }
   }
 
-  if (!presentPcsFitNature(present, natureId, rootPc)) {
+  if (!presentPcsFitNature(present, resolvedNature, resolvedRoot)) {
     return { ok: false, reason: 'unrecognized' }
   }
 
   const pitches = placeLockedVoicing({
-    natureId,
-    rootPc,
+    natureId: resolvedNature,
+    rootPc: resolvedRoot,
     leadMidi: opts.midi.lead,
     locked,
     presentMidi: present,
@@ -728,8 +735,8 @@ export function completeSparseStack(opts: {
 
   return {
     ok: true,
-    natureId,
-    rootPc,
+    natureId: resolvedNature,
+    rootPc: resolvedRoot,
     pitches,
     ...rolesFromResult(opts.midi),
   }

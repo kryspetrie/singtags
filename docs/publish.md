@@ -12,19 +12,25 @@ This is the **deploy SSOT**. Other READMEs point here; do not invent alternate c
 
 Website deploy **does not** rebuild indexes or offline manifests. After changing `library/`, rebuild artifacts before (or with) website publish.
 
+Website build also prerenders **`/tag/{id}` Open Graph HTML shells** (title, arranger, key, year, image) into `web/dist/tag-previews/` and syncs them to `s3://…/tag/{id}` so Discord/Slack link previews work without running the SPA. Image preference: tiny `sheet_og` (300px 3-bit greyscale) → display `sheet_preview` → lyrics in the description when neither exists.
+
 ```
 library/  (via sync/ or copy)
     │
+    ├─► sync/sheets/build_sheet_previews.py   # display WebP + sheet_og thumbs
+    │
     ├─► build/build_indexes.py
     │         → web/public/indexes/{core,lyrics}.json.gz, expansions.json
-    │         → web/public/tags/{id}/metadata.json
+    │         → web/public/tags/{id}/metadata.json  (includes sheet_og)
     │
     ├─► build/build_offline_manifest.py   # requires tags/ from indexes
     │         → web/public/indexes/offline-{sheets,audio}.json.gz
     │
-    ├─► ./deploy/publish.sh library       # media → s3://…/library/
-    └─► ./deploy/publish.sh website       # SPA + indexes/tags already in web/public
+    ├─► ./deploy/publish.sh library       # media (incl. sheet_og) → s3://…/library/
+    └─► ./deploy/publish.sh website       # SPA + indexes/tags + /tag/{id} OG HTML
 ```
+
+`./deploy/weekly_prod.sh` runs that full sequence after the barbershoptags mirror sync.
 
 | Situation | Run |
 | --- | --- |

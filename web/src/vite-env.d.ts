@@ -11,3 +11,8 @@ declare module 'wasm-media-encoders/wasm/ogg?url' {
   const url: string
   export default url
 }
+
+declare module 'spessasynth_lib/dist/spessasynth_processor.min.js?url' {
+  const url: string
+  export default url
+}

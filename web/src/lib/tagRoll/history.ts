@@ -42,6 +42,8 @@ export type TagRollDocumentSnapshot = {
   expressions: TagRollExpression[]
   soundEngine: PianoSoundEngineId
   pitchPipeSoundId: string
+  soundfontId: TagRollProject['soundfontId']
+  soundfontPatch: TagRollProject['soundfontPatch']
   blowPitchEnabled: boolean
   metronomeEnabled: boolean
   metronomeSwing: boolean
@@ -77,6 +79,8 @@ export function captureDocumentSnapshot(p: TagRollProject): TagRollDocumentSnaps
     expressions: p.expressions.map((e) => ({ ...e })),
     soundEngine: p.soundEngine,
     pitchPipeSoundId: p.pitchPipeSoundId,
+    soundfontId: p.soundfontId,
+    soundfontPatch: { ...(p.soundfontPatch ?? { bankMSB: 0, bankLSB: 0, program: 0 }) },
     blowPitchEnabled: !!p.blowPitchEnabled,
     metronomeEnabled: !!p.metronomeEnabled,
     metronomeSwing: p.metronomeSwing !== false,
@@ -139,6 +143,10 @@ export function applyDocumentSnapshot(
     expressions,
     soundEngine: snap.soundEngine,
     pitchPipeSoundId: snap.pitchPipeSoundId || 'mellow',
+    soundfontId: snap.soundfontId ?? p.soundfontId,
+    soundfontPatch: snap.soundfontPatch
+      ? { ...snap.soundfontPatch }
+      : { ...(p.soundfontPatch ?? { bankMSB: 0, bankLSB: 0, program: 0 }) },
     blowPitchEnabled: !!snap.blowPitchEnabled,
     metronomeEnabled: !!snap.metronomeEnabled,
     metronomeSwing: snap.metronomeSwing !== false,

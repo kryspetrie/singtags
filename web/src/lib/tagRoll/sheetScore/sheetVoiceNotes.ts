@@ -15,7 +15,7 @@ import {
 } from './restPlacement'
 import type { SheetRhythmEvent } from './rhythmLayout'
 import { lyricTextLineForVoice } from './sheetLyricLanes'
-import { parseLyricSyllable } from './sheetLyricSyllabic'
+import { parseLyricSyllable, type ParsedLyricSyllable } from './sheetLyricSyllabic'
 import {
   spelledPitchToVexKey,
   type SpelledPitch,
@@ -95,6 +95,7 @@ export function buildVoiceNotes(
   voice: 1 | 2,
   openTies: Map<string, SheetTieAnchor>,
   spellFor?: (writtenMidi: number, tick: number) => SpelledPitch,
+  systemIndex = 0,
 ): StaveNote[] {
   const clef = vexNoteClef(staff.clef)
   const notes: StaveNote[] = []
@@ -138,10 +139,17 @@ export function buildVoiceNotes(
       note.setStyle({ strokeStyle: MELODY_NOTE_STROKE })
     }
     connectSheetTie(
-      factory, openTies, `${e.partId}:${voice}`, note, e.concertMidi, e.tieStart, e.tieStop,
+      factory,
+      openTies,
+      `${e.partId}:${voice}`,
+      note,
+      e.concertMidi,
+      e.tieStart,
+      e.tieStop,
+      systemIndex,
     )
     const showPartLyric = showLyrics && lyricPartOn(e.partId)
-    const parsed =
+    const parsed: ParsedLyricSyllable | null =
       showPartLyric && e.lyric && !e.tieStop
         ? parseLyricSyllable(e.lyric, lyricOpen)
         : null
@@ -158,6 +166,8 @@ export function buildVoiceNotes(
     if (lyricText && !straightLyrics) {
       const ann = factory.Annotation({ text: lyricText, vJustify: 'bottom' })
       ann.setFontSize(lyricFontPx)
+      // Match vector PDF outlines (regular Academico) — never synthetic bold.
+      ann.fontWeight = 'normal'
       ann.setTextLine(lyricTextLineForVoice(e.voice, lyricOffsets[e.partId] ?? 0))
       note.addModifier(ann, 0)
     }

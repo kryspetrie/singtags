@@ -40,6 +40,8 @@ def detect_part(path: Path) -> str | None:
     stem = path.stem.lower()
     suffix = path.suffix.lower()
 
+    if "sheet og" in name:
+        return "sheet_og"
     if "sheet preview" in name:
         return "sheet_preview"
 

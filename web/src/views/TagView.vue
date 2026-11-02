@@ -29,11 +29,16 @@ import TagMyRating from '../components/TagMyRating.vue'
 import TagPageTitle from '../components/TagPageTitle.vue'
 import EmptyState from '../components/EmptyState.vue'
 import type { AudioTransform } from '../types/audio'
+import { useDocumentMeta } from '../composables/useDocumentMeta'
 import { useOnline } from '../composables/useOnline'
 import { useTagDetail } from '../composables/useTagDetail'
 import { buildTagDetailRows } from '../lib/tagDetailMeta'
 import { visibleAltTitle } from '../lib/tagDisplay'
 import { barbershopTagsTagUrl } from '../lib/barbershopTags'
+import {
+  tagDocumentTitle,
+  tagLinkPreviewDescriptionFromSources,
+} from '../lib/tagLinkPreview'
 import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
@@ -615,6 +620,13 @@ const pageTitle = computed(() => {
 const pageTitleDisplay = computed(
   () => pageTitle.value || `Tag ${softNavigating.value ? paintedTagId.value : props.id}`,
 )
+const documentTitle = computed(() =>
+  tagDocumentTitle(pageTitleDisplay.value, softNavigating.value ? paintedTagId.value : props.id),
+)
+const documentDescription = computed(() =>
+  tagLinkPreviewDescriptionFromSources(detail.value, summary.value),
+)
+useDocumentMeta({ title: documentTitle, description: documentDescription })
 const pageAltTitle = computed(() => {
   const routeId = Number(props.id)
   if (detail.value && detail.value.tag_id !== routeId) {

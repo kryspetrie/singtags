@@ -8,11 +8,15 @@ import { playbackEndTick } from './notesAtTick'
 import {
   bpmAtTick,
   fermataExecutionTick,
-  notesSpanningTick,
   shouldSkipFermataOnPlay,
   ticksToSecondsAtBpm,
 } from './tempoMap'
 import { isPartAudible, mixForPart, sketchMixGain, detectedMixGain } from './mix'
+import {
+  isTieContinuation,
+  tieChainEndTick,
+  tieChainIds,
+} from './noteTies'
 import {
   findOverlappingPredecessor,
   overlapWindow,
@@ -357,7 +361,11 @@ export function createTagRollScheduler(opts: {
       return
     }
     const key = active.get(n.id)!
-    const phraseEnd = shouldDecayOnNoteEnd(opts.getNotes(), n)
+    const notes = opts.getNotes()
+    const chain = tieChainIds(notes, n)
+    const lastId = chain[chain.length - 1] ?? n.id
+    const last = notes.find((x) => x.id === lastId) ?? n
+    const phraseEnd = shouldDecayOnNoteEnd(notes, last)
     opts.player.noteOff(key, releaseSecForNoteEnd(envelope(), phraseEnd))
     active.delete(n.id)
     activeByPart.delete(n.partId)
@@ -525,8 +533,10 @@ export function createTagRollScheduler(opts: {
     const cap = stopAt
     const look = cap != null ? Math.min(lookAhead, cap) : lookAhead
     for (const n of notes) {
+      // Continuations are sustained by the chain head — no re-attack.
+      if (isTieContinuation(notes, n.id)) continue
       if (cap != null && n.startTick >= cap) continue
-      const end = n.startTick + n.durationTicks
+      const end = tieChainEndTick(notes, n)
       if (end <= t) {
         // Keep sounding through a fermata hold that begins at this note’s end.
         if (fermata?.stage !== 'hold') endNoteIfOwned(n)
@@ -535,7 +545,7 @@ export function createTagRollScheduler(opts: {
       if (n.startTick <= look) {
         startNote(n)
       }
-      // Release at natural end or when the inspect-range stop bound is reached.
+      // Release at chain end or when the inspect-range stop bound is reached.
       const releaseAt = cap != null ? Math.min(end, cap) : end
       if (active.has(n.id) && t >= releaseAt && fermata?.stage !== 'hold') {
         endNoteIfOwned(n)
@@ -546,9 +556,11 @@ export function createTagRollScheduler(opts: {
   }
 
   function resumeAfterFermataGap(tick: number): void {
-    // Re-attack only notes that still span past the execution point — not the
-    // notes that just finished and were held through the fermata.
-    for (const n of notesSpanningTick(opts.getNotes(), tick)) {
+    // Re-attack chain heads (and untied notes) that still sound past the tick.
+    const notes = opts.getNotes()
+    for (const n of notes) {
+      if (isTieContinuation(notes, n.id)) continue
+      if (n.startTick > tick || tieChainEndTick(notes, n) <= tick) continue
       scheduled.delete(n.id)
       startNote(n as TagRollNote)
     }

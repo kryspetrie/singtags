@@ -162,9 +162,16 @@ Same logic runs incrementally inside `mirror/sync.py`. These are library-wide jo
 ```bash
 python audio/analyze_audio_layouts.py
 python audio/encode_audio_tiers.py
-python sheets/build_sheet_previews.py
+python sheets/build_sheet_previews.py          # display WebP + Discord OG thumbs
+python sheets/build_sheet_previews.py --og-only  # backfill tiny sheet_og only
 python sheets/crop_library_pdfs.py
 ```
+
+`build_sheet_previews.py` writes:
+- **sheet_preview** — stacked 2-bit dither WebP for the in-app viewer
+- **sheet_og** — first-page ~300px 3-bit (8-grey) WebP for Open Graph / Discord (also built when a sheet is saved during `mirror/sync.py`)
+
+Weekly prod (`../deploy/weekly_prod.sh`) runs sheet previews before indexes + publish so new/missing thumbs are backfilled.
 
 Design: [`docs/AUDIO_STORAGE_AND_CACHE.md`](docs/AUDIO_STORAGE_AND_CACHE.md) (client ADR: [`../docs/decisions/audio-storage-cache.md`](../docs/decisions/audio-storage-cache.md)).
 

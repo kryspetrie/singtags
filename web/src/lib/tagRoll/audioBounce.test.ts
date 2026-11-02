@@ -247,6 +247,37 @@ describe('audioBounce planning', () => {
     expect(events[0]?.kind).toBe('attack')
     expect(events.some((e) => e.kind === 'glide')).toBe(true)
   })
+
+  it('collapses an authored tie chain into one attack spanning the sum', () => {
+    const p = createEmptyTagRollProject({ title: 'Tie bounce' })
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const notes = [
+      {
+        id: 'a',
+        partId: lead.id,
+        midi: 60,
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ,
+        tie: { toNoteId: 'b' },
+      },
+      {
+        id: 'b',
+        partId: lead.id,
+        midi: 60,
+        startTick: TAG_ROLL_PPQ,
+        durationTicks: TAG_ROLL_PPQ,
+      },
+    ]
+    const events = planPartBounceEvents(notes, p)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.kind).toBe('attack')
+    if (events[0]?.kind === 'attack') {
+      expect(events[0].endSec).toBeGreaterThan(events[0].startSec)
+      // Two quarters at default bpm (104) ≈ 1.154s.
+      const expected = (2 * 60) / (p.bpm || 104)
+      expect(events[0].endSec - events[0].startSec).toBeCloseTo(expected, 2)
+    }
+  })
 })
 
 describe('bounceTagRollTracks + blow pitch', () => {

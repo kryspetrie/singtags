@@ -21,11 +21,25 @@ describe('sheetRhythmMarks', () => {
     const a = new StaveNote({ keys: ['c/5'], duration: 'h' })
     const b = new StaveNote({ keys: ['c/5'], duration: 'q' })
     const c = new StaveNote({ keys: ['c/5'], duration: 'q' })
-    connectSheetTie(factory as never, open, 'lead:2', a, 60, true, false)
-    connectSheetTie(factory as never, open, 'lead:2', b, 60, true, true)
-    connectSheetTie(factory as never, open, 'lead:2', c, 60, false, true)
+    connectSheetTie(factory as never, open, 'lead:2', a, 60, true, false, 0)
+    connectSheetTie(factory as never, open, 'lead:2', b, 60, true, true, 0)
+    connectSheetTie(factory as never, open, 'lead:2', c, 60, false, true, 0)
     expect(factory.StaveTie).toHaveBeenCalledTimes(2)
     expect(factory.StaveTie).toHaveBeenNthCalledWith(1, { from: a, to: b })
     expect(factory.StaveTie).toHaveBeenNthCalledWith(2, { from: b, to: c })
+  })
+
+  it('splits ties that cross systems into two partials', () => {
+    const factory = {
+      StaveTie: vi.fn(),
+    }
+    const open = new Map()
+    const a = new StaveNote({ keys: ['c/5'], duration: 'h' })
+    const b = new StaveNote({ keys: ['c/5'], duration: 'q' })
+    connectSheetTie(factory as never, open, 'lead:2', a, 60, true, false, 0)
+    connectSheetTie(factory as never, open, 'lead:2', b, 60, false, true, 1)
+    expect(factory.StaveTie).toHaveBeenCalledTimes(2)
+    expect(factory.StaveTie).toHaveBeenNthCalledWith(1, { from: a, to: null })
+    expect(factory.StaveTie).toHaveBeenNthCalledWith(2, { from: null, to: b })
   })
 })

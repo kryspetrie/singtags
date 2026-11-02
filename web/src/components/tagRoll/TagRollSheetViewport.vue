@@ -19,6 +19,7 @@ import {
   estimateSheetTitleBandPx,
   sheetPageEdgeMarginsPx,
 } from '../../lib/tagRoll/sheetFormat'
+import { SHEET_SCREEN_RENDER_RATIO } from '../../lib/tagRoll/sheetPage'
 import {
   renderVexSheetScore,
   type VexScoreLayoutResult,
@@ -99,11 +100,19 @@ const pageViewZoom = computed(() => {
 const sheetSizeScale = computed(() => props.project.view.sheetScoreScale ?? 1)
 
 /**
- * Page-view magnification (CSS scale). Engraving stays at base DPI — zoom only
+ * Page-view magnification. Engraving stays at base geometry — zoom only
  * makes the paper look bigger/smaller, never reflows measures.
  */
 const displayZoom = computed(() =>
   isPageLayout.value ? pageViewZoom.value : 1,
+)
+
+/**
+ * Paint zoom after supersampling: engrave at {@link SHEET_SCREEN_RENDER_RATIO}×,
+ * then CSS-zoom back so staff/lyric edges stay sharp (avoids blurry transform:scale).
+ */
+const scrollerZoom = computed(
+  () => displayZoom.value / SHEET_SCREEN_RENDER_RATIO,
 )
 
 /** Title band reserved in the score (page 1 / strip). 0 when header off. */
@@ -111,34 +120,37 @@ const titleBandPx = computed(() =>
   estimateSheetTitleBandPx(props.project, hasMetaHeader.value, sheetSizeScale.value),
 )
 
-/** Format Size only — page-view zoom is a CSS scale on the scroller. */
+/** Format Size in paint space (supersampled; CSS zoom brings it back to screen). */
 const sheetSizeStyle = computed(
-  () => ({ '--sheet-size': String(sheetSizeScale.value) }) as Record<string, string>,
+  () =>
+    ({
+      '--sheet-size': String(sheetSizeScale.value * SHEET_SCREEN_RENDER_RATIO),
+    }) as Record<string, string>,
 )
 
 /**
- * Extra scroll chrome above the SVG host.
+ * Extra scroll chrome above the SVG host (paint-space px before scrollerZoom).
  * Page mode: title sits inside page 1 (already in layout height) — don't double-count.
  * Continuous: title sits above the SVG strip.
  */
 const metaHeaderH = computed(() =>
-  isPageLayout.value ? 0 : titleBandPx.value,
+  isPageLayout.value ? 0 : titleBandPx.value * SHEET_SCREEN_RENDER_RATIO,
 )
 const metaFooterH = computed(() =>
   hasMetaFooter.value && !isPageLayout.value
-    ? Math.round(36 * sheetSizeScale.value)
+    ? Math.round(36 * sheetSizeScale.value * SHEET_SCREEN_RENDER_RATIO)
     : 0,
 )
 
-/** Screen-space score height (layout × page-view zoom). */
+/** Screen-space score height (paint layout × scroller zoom). */
 const scoreContentH = computed(() => {
   const h = layout.value?.height ?? 0
-  return (h + metaHeaderH.value + metaFooterH.value) * displayZoom.value
+  return (h + metaHeaderH.value + metaFooterH.value) * scrollerZoom.value
 })
 
 /** Screen-space score width. */
 const scoreContentW = computed(
-  () => (layout.value?.width ?? 0) * displayZoom.value,
+  () => (layout.value?.width ?? 0) * scrollerZoom.value,
 )
 
 function minZoom(): number {
@@ -205,17 +217,17 @@ function nudgeTimeZoom(delta: number): void {
   emitZoom(sheetZoom.value + delta)
 }
 
-const marginsPx = computed(
-  () =>
-    layout.value?.marginsPx ?? {
-      left: Math.round((props.project.view.sheetMarginLeftIn ?? 0.3) * 96),
-      right: Math.round((props.project.view.sheetMarginRightIn ?? 0.3) * 96),
-      top: Math.round((props.project.view.sheetMarginTopIn ?? 0.3) * 96),
-      bottom: Math.round((props.project.view.sheetMarginBottomIn ?? 0.3) * 96),
-    },
-)
-
-const pageEdgeMarginsPx = computed(() => sheetPageEdgeMarginsPx(props.project.view))
+/**
+ * Page-edge margins in paint-space px (inside the supersampled scroller).
+ * Score engraving uses dpi×SHEET_SCREEN_RENDER_RATIO; overlay HTML must match.
+ */
+const pageEdgeMarginsPx = computed(() => {
+  const baseDpi = props.project.view.sheetPageDpi ?? 144
+  return sheetPageEdgeMarginsPx({
+    ...props.project.view,
+    sheetPageDpi: baseDpi * SHEET_SCREEN_RENDER_RATIO,
+  })
+})
 
 function edgeBox(w: number, extra: Record<string, string> = {}) {
   const m = pageEdgeMarginsPx.value
@@ -227,16 +239,20 @@ function edgeBox(w: number, extra: Record<string, string> = {}) {
   }
 }
 const pageTitleStyle = computed(() =>
-  edgeBox(layout.value?.pages[0]?.width ?? 816, {
+  edgeBox(layout.value?.pages[0]?.width ?? 816 * SHEET_SCREEN_RENDER_RATIO, {
     top: `${pageEdgeMarginsPx.value.top}px`,
-    height: `${titleBandPx.value}px`,
+    // Match headerBandPx reserved in renderVexSheetScore (paint space).
+    height: `${titleBandPx.value * SHEET_SCREEN_RENDER_RATIO}px`,
   }),
 )
 const pageFooterStyle = computed(() => {
   const pages = layout.value?.pages
   if (!pages?.length) return {}
   const last = pages[pages.length - 1]!
-  const bottom = Math.max(28, pageEdgeMarginsPx.value.bottom)
+  const bottom = Math.max(
+    28 * SHEET_SCREEN_RENDER_RATIO,
+    pageEdgeMarginsPx.value.bottom,
+  )
   return edgeBox(last.width, {
     transform: `translate(0, ${last.y + last.height - bottom}px)`,
   })
@@ -268,19 +284,17 @@ const centerPadY = computed(() => {
 })
 
 /**
- * Pan in screen px, then magnify page-view zoom. Engraving coords stay base;
- * scale makes the whole paper (notes, frames, overlays) grow together.
+ * Pan/center are screen px; CSS `zoom` means `translate` is pre-zoom (paint)
+ * space — convert so the page actually centers instead of sitting left.
  */
 const scrollerStyle = computed(() => {
-  const tx = centerPadX.value - scrollX.value
-  const ty = centerPadY.value - scrollY.value
-  const z = displayZoom.value
+  const z = scrollerZoom.value || 1
+  const tx = (centerPadX.value - scrollX.value) / z
+  const ty = (centerPadY.value - scrollY.value) / z
   return {
-    transform:
-      Math.abs(z - 1) < 1e-6
-        ? `translate(${tx}px, ${ty}px)`
-        : `translate(${tx}px, ${ty}px) scale(${z})`,
+    transform: `translate(${tx}px, ${ty}px)`,
     transformOrigin: '0 0',
+    zoom: String(scrollerZoom.value),
   } as Record<string, string>
 })
 
@@ -312,9 +326,9 @@ function localPoint(e: PointerEvent): { x: number; y: number } | null {
   return { x: e.clientX - r.left, y: e.clientY - r.top }
 }
 
-/** Content coords inside the VexFlow host (below meta header; base engraving space). */
+/** Content coords inside the VexFlow host (below meta header; paint / layout space). */
 function contentPointFromLocal(local: { x: number; y: number }): { x: number; y: number } {
-  const z = displayZoom.value
+  const z = scrollerZoom.value
   return {
     x: (local.x - centerPadX.value + scrollX.value) / z,
     y:
@@ -368,7 +382,7 @@ const playbackHighlights = computed((): PlaybackHighlight[] => {
 })
 
 function playheadScreenX(): number {
-  return playheadPoint.value.x * displayZoom.value - scrollX.value + centerPadX.value
+  return playheadPoint.value.x * scrollerZoom.value - scrollX.value + centerPadX.value
 }
 
 function playheadHit(local: { x: number; y: number }): boolean {
@@ -378,11 +392,11 @@ function playheadHit(local: { x: number; y: number }): boolean {
   const pt = playheadPoint.value
   const content = contentPointFromLocal(local)
   const rowH = lay.systemBodyHeight
-  const hit = PLAYHEAD_HIT / displayZoom.value
+  const hit = PLAYHEAD_HIT / scrollerZoom.value
   return (
     Math.abs(content.x - pt.x) <= hit &&
-    content.y >= pt.y - 4 / displayZoom.value &&
-    content.y <= pt.y + rowH + 4 / displayZoom.value
+    content.y >= pt.y - 4 / scrollerZoom.value &&
+    content.y <= pt.y + rowH + 4 / scrollerZoom.value
   )
 }
 
@@ -418,7 +432,11 @@ async function rerender(): Promise<void> {
   const gen = ++renderGen
   renderError.value = null
   try {
-    const baseDpi = props.project.view.sheetPageDpi ?? 96
+    const baseDpi = props.project.view.sheetPageDpi ?? 144
+    const userSize = props.project.view.sheetScoreScale ?? 1
+    // Supersample: paint at ratio× DPI/Size, CSS-zoom back with scrollerZoom.
+    const paintDpi = baseDpi * SHEET_SCREEN_RENDER_RATIO
+    const paintSize = userSize * SHEET_SCREEN_RENDER_RATIO
     const next = await renderVexSheetScore({
       host,
       project: props.project,
@@ -430,9 +448,10 @@ async function rerender(): Promise<void> {
       fullJustify: props.project.view.sheetFullJustify !== false,
       pageWidthIn: props.project.view.sheetPageWidthIn ?? 8.5,
       pageHeightIn: props.project.view.sheetPageHeightIn ?? 11,
-      // Base DPI only — page-view zoom is CSS scale (no measure reflow).
-      pageDpi: baseDpi,
-      headerBandPx: isPageLayout.value ? titleBandPx.value : 0,
+      pageDpi: paintDpi,
+      headerBandPx: isPageLayout.value
+        ? titleBandPx.value * SHEET_SCREEN_RENDER_RATIO
+        : 0,
       noteColors: props.project.view.sheetNoteColors === true,
       showCrossoverMarks: props.project.view.sheetShowCrossoverMarks !== false,
       staveGap: props.project.view.sheetStaveGap ?? 'normal',
@@ -459,8 +478,8 @@ async function rerender(): Promise<void> {
       marginRightIn: props.project.view.sheetMarginRightIn ?? 0.3,
       marginTopIn: props.project.view.sheetMarginTopIn ?? 0.3,
       marginBottomIn: props.project.view.sheetMarginBottomIn ?? 0.3,
-      engravingScale: props.project.view.sheetEngravingScale ?? 1,
-      scoreScale: props.project.view.sheetScoreScale ?? 1,
+      engravingScale: paintSize,
+      scoreScale: paintSize,
       chordDetectSegments: props.detectSegments,
     })
     if (gen !== renderGen) return
@@ -771,7 +790,7 @@ defineExpose({
   followPlayheadIntoView(tick: number, opts?: { focusRatio?: number }): void {
     const lay = layout.value
     if (!lay) return
-    const z = displayZoom.value
+    const z = scrollerZoom.value
     const pt = lay.tickToPoint(Math.max(0, tick))
     const nextX = followPlayheadContentScrollX({
       playheadContentX: pt.x * z,
@@ -1002,7 +1021,6 @@ defineExpose({
   top: 28px;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
 }
 .sheet-meta-header {
   box-sizing: border-box;
@@ -1022,10 +1040,12 @@ defineExpose({
   justify-content: center;
   pointer-events: none;
 }
-.score-host :deep(svg text) { -webkit-text-stroke: 0 !important; }
 .score-host :deep(.sheet-lyric-backdrop) { fill: #fff !important; stroke: none !important; }
-.score-host :deep(.sheet-lyric-lane) {
-  font-weight: 400 !important; font-style: normal !important; fill: #6e6963 !important;
+.score-host :deep(.sheet-lyric-lane),
+.score-host :deep(svg text[class*='annotation']) {
+  font-weight: 400 !important;
+  font-style: normal !important;
+  fill: #6e6963 !important;
 }
 .meta-title {
   margin: 0;
@@ -1109,6 +1129,15 @@ defineExpose({
 }
 .score-host :deep(svg) {
   display: block;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  shape-rendering: geometricPrecision;
+}
+.score-host :deep(svg text) {
+  -webkit-text-stroke: 0 !important;
+  font-synthesis: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .expr-layer {
   position: absolute;

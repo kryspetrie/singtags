@@ -486,23 +486,5 @@ defineExpose({ draft, loadDraft })
   flex: 1 1 auto;
   min-width: 0.5rem;
 }
-.btn {
-  min-height: 44px;
-  padding: 0.45rem 0.9rem;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.btn:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent, #fff);
-}
+/* Button look comes from utilities.css (.btn / .btn-primary). */
 </style>

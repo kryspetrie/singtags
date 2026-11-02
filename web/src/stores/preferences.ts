@@ -217,6 +217,7 @@ const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
 const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
 const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
+const TAG_ROLL_SOUNDFONT_FAVORITES_KEY = 'singtags.labs.tagRoll.soundfontFavorites.v1'
 const TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.expressionLaneCollapsed.v1'
 const TAG_ROLL_COACH_LANE_COLLAPSED_KEY = 'singtags.labs.tagRoll.coachLaneCollapsed.v1'
 const TAG_ROLL_COACH_GUIDED_STEP_KEY = 'singtags.labs.tagRoll.coachGuidedStep.v1'
@@ -606,6 +607,31 @@ function loadStringArray(key: string, fallback: string[]): string[] {
   }
 }
 
+/** SoundFont instrument favorites (`soundfontId|bankMSB:bankLSB:program`). */
+function loadSoundfontFavoriteKeys(): string[] {
+  try {
+    const raw = localStorage.getItem(TAG_ROLL_SOUNDFONT_FAVORITES_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    const out: string[] = []
+    const seen = new Set<string>()
+    for (const v of parsed) {
+      if (typeof v !== 'string') continue
+      const key = v.trim().slice(0, 96)
+      if (!key || seen.has(key)) continue
+      // soundfontId|msb:lsb:program
+      if (!/^[a-z0-9-]+\|\d{1,3}:\d{1,3}:\d{1,3}$/i.test(key)) continue
+      seen.add(key)
+      out.push(key)
+      if (out.length >= 64) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
 function loadPrimaryNavOrder(): PrimaryNavId[] {
   try {
     const raw = localStorage.getItem(PRIMARY_NAV_ORDER_KEY)
@@ -814,6 +840,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
       Math.max(0, loadNumber(TAG_ROLL_METRONOME_VOLUME_KEY, TAG_ROLL_METRONOME_VOLUME_DEFAULT)),
     ),
   )
+  /** Favorited SoundFont instruments (persists across projects). */
+  const tagRollSoundfontFavorites = ref<string[]>(loadSoundfontFavoriteKeys())
   const tagRollExpressionLaneCollapsed = ref(
     loadBool(TAG_ROLL_EXPRESSION_LANE_COLLAPSED_KEY, true),
   )
@@ -1205,6 +1233,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
       }
     },
     { flush: 'sync' },
+  )
+
+  watch(
+    tagRollSoundfontFavorites,
+    (v) => {
+      try {
+        localStorage.setItem(TAG_ROLL_SOUNDFONT_FAVORITES_KEY, JSON.stringify(v))
+      } catch {
+        /* ignore */
+      }
+    },
+    { deep: true, flush: 'sync' },
   )
 
   watch(
@@ -1772,6 +1812,22 @@ export const usePreferencesStore = defineStore('preferences', () => {
     )
   }
 
+  /** Toggle a SoundFont instrument favorite key (`soundfontId|msb:lsb:program`). */
+  function toggleTagRollSoundfontFavorite(key: string): void {
+    const k = key.trim().slice(0, 96)
+    if (!/^[a-z0-9-]+\|\d{1,3}:\d{1,3}:\d{1,3}$/i.test(k)) return
+    const cur = tagRollSoundfontFavorites.value
+    if (cur.includes(k)) {
+      tagRollSoundfontFavorites.value = cur.filter((x) => x !== k)
+      return
+    }
+    tagRollSoundfontFavorites.value = [k, ...cur].slice(0, 64)
+  }
+
+  function isTagRollSoundfontFavorite(key: string): boolean {
+    return tagRollSoundfontFavorites.value.includes(key)
+  }
+
   /** Collapse the Tag Studio expression (Mods) lane chrome. */
   function setTagRollExpressionLaneCollapsed(on: boolean): void {
     tagRollExpressionLaneCollapsed.value = !!on
@@ -2113,6 +2169,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     tagRollCellH,
     tagRollMetronomeSound,
     tagRollMetronomeVolume,
+    tagRollSoundfontFavorites,
     tagRollExpressionLaneCollapsed,
     tagRollCoachLaneCollapsed,
     tagRollCoachGuidedStep,
@@ -2179,6 +2236,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setTagRollCellSize,
     setTagRollMetronomeSound,
     setTagRollMetronomeVolume,
+    toggleTagRollSoundfontFavorite,
+    isTagRollSoundfontFavorite,
     setTagRollExpressionLaneCollapsed,
     setTagRollCoachLaneCollapsed,
     setTagRollCoachGuidedStep,

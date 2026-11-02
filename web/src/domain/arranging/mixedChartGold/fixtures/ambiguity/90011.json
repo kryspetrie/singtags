@@ -1,15 +1,15 @@
 {
   "tagId": 90011,
   "summary": {
-    "stackOnsets": 27,
+    "stackOnsets": 25,
     "locked": 11,
-    "unlocked": 16,
-    "lockCoverage": 0.4074074074074074,
+    "unlocked": 14,
+    "lockCoverage": 0.44,
     "verified": false
   },
   "ambiguous": [
     {
-      "startTick": 721,
+      "startTick": 1440,
       "leadMidi": 67,
       "midi": {
         "tenor": 72,
@@ -56,7 +56,7 @@
       ]
     },
     {
-      "startTick": 2161,
+      "startTick": 2880,
       "leadMidi": 66,
       "midi": {
         "tenor": 72,
@@ -97,7 +97,7 @@
       ]
     },
     {
-      "startTick": 6481,
+      "startTick": 7200,
       "leadMidi": 64,
       "midi": {
         "tenor": 66,
@@ -126,7 +126,7 @@
       ]
     },
     {
-      "startTick": 9361,
+      "startTick": 10080,
       "leadMidi": 60,
       "midi": {
         "tenor": 64,
@@ -173,54 +173,7 @@
       ]
     },
     {
-      "startTick": 11280,
-      "leadMidi": 52,
-      "midi": {
-        "tenor": 64,
-        "bari": 55,
-        "bass": 48
-      },
-      "auto": {
-        "rootPc": 0,
-        "natureId": "major",
-        "roman": "I"
-      },
-      "confidence": 0.8571428571428571,
-      "alts": [
-        {
-          "rootPc": 0,
-          "natureId": "major",
-          "roman": "I",
-          "label": "C"
-        },
-        {
-          "rootPc": 0,
-          "natureId": "sixth",
-          "roman": "I6",
-          "label": "C6"
-        },
-        {
-          "rootPc": 0,
-          "natureId": "add9",
-          "roman": "I(add9)",
-          "label": "Cadd9"
-        },
-        {
-          "rootPc": 0,
-          "natureId": "seventh",
-          "roman": "I7",
-          "label": "C7"
-        },
-        {
-          "rootPc": 0,
-          "natureId": "maj7",
-          "roman": "I",
-          "label": "Cmaj7"
-        }
-      ]
-    },
-    {
-      "startTick": 12241,
+      "startTick": 12960,
       "leadMidi": 60,
       "midi": {
         "tenor": 64,
@@ -267,7 +220,7 @@
       ]
     },
     {
-      "startTick": 15121,
+      "startTick": 15840,
       "leadMidi": 57,
       "midi": {
         "tenor": 65,
@@ -314,7 +267,7 @@
       ]
     },
     {
-      "startTick": 20881,
+      "startTick": 21600,
       "leadMidi": 55,
       "midi": {
         "tenor": 64,
@@ -361,7 +314,7 @@
       ]
     },
     {
-      "startTick": 25201,
+      "startTick": 25920,
       "leadMidi": 66,
       "midi": {
         "tenor": 72,
@@ -402,7 +355,7 @@
       ]
     },
     {
-      "startTick": 26641,
+      "startTick": 27360,
       "leadMidi": 65,
       "midi": {
         "tenor": 72,
@@ -431,7 +384,7 @@
       ]
     },
     {
-      "startTick": 32401,
+      "startTick": 33120,
       "leadMidi": 60,
       "midi": {
         "tenor": 64,
@@ -478,54 +431,7 @@
       ]
     },
     {
-      "startTick": 37440,
-      "leadMidi": 60,
-      "midi": {
-        "tenor": 69,
-        "bari": 60,
-        "bass": 53
-      },
-      "auto": {
-        "rootPc": 5,
-        "natureId": "major",
-        "roman": "IV"
-      },
-      "confidence": 0.8571428571428571,
-      "alts": [
-        {
-          "rootPc": 5,
-          "natureId": "major",
-          "roman": "IV",
-          "label": "F"
-        },
-        {
-          "rootPc": 5,
-          "natureId": "sixth",
-          "roman": "IV6",
-          "label": "F6"
-        },
-        {
-          "rootPc": 5,
-          "natureId": "add9",
-          "roman": "IV(add9)",
-          "label": "Fadd9"
-        },
-        {
-          "rootPc": 5,
-          "natureId": "seventh",
-          "roman": "IV7",
-          "label": "F7"
-        },
-        {
-          "rootPc": 5,
-          "natureId": "maj7",
-          "roman": "IV",
-          "label": "Fmaj7"
-        }
-      ]
-    },
-    {
-      "startTick": 40080,
+      "startTick": 40800,
       "leadMidi": 65,
       "midi": {
         "tenor": 69,
@@ -560,7 +466,7 @@
       ]
     },
     {
-      "startTick": 42481,
+      "startTick": 43200,
       "leadMidi": 64,
       "midi": {
         "tenor": 67,
@@ -607,7 +513,7 @@
       ]
     },
     {
-      "startTick": 43921,
+      "startTick": 44640,
       "leadMidi": 60,
       "midi": {
         "tenor": 64,
@@ -654,7 +560,7 @@
       ]
     },
     {
-      "startTick": 48241,
+      "startTick": 48960,
       "leadMidi": 64,
       "midi": {
         "tenor": 67,

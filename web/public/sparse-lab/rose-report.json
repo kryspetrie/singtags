@@ -1,0 +1,503 @@
+{
+  "sourceId": "seed-polecat-mixed-90009",
+  "sourceTitle": "Polecat mixed · The Story Of The Rose",
+  "notes": 231,
+  "lengthTicks": 51360,
+  "melodyPart": "Lead",
+  "bass": {
+    "name": "Lead + Bass",
+    "onsets": 52,
+    "detectNature": "69.2% (36/52)",
+    "filledNature": "67.3% (35/52)",
+    "voicePitchClass": "75.0% (117/156)",
+    "voiceExactMidi": "73.7% (115/156)",
+    "stacksAllVoicesPc": "57.7% (30/52)",
+    "stacksAllVoicesMidi": "53.8% (28/52)",
+    "fillStats": {
+      "filled": 79,
+      "skipped": 6,
+      "locked": 0
+    },
+    "regressions": [
+      {
+        "bar": 7,
+        "beat": 1,
+        "ground": "G7",
+        "filled": "G"
+      },
+      {
+        "bar": 23,
+        "beat": 1,
+        "ground": "G7",
+        "filled": "G"
+      }
+    ],
+    "misses": [
+      {
+        "bar": 2,
+        "beat": 3,
+        "ground": "C6",
+        "detected": "A°7",
+        "filled": "A°7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 3,
+        "beat": 1,
+        "ground": "D7",
+        "detected": "Am",
+        "filled": "Am",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 7,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "G7",
+        "filled": "G",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 10,
+        "beat": 1,
+        "ground": "A7",
+        "detected": "F#ø7",
+        "filled": "F#m7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 11,
+        "beat": 1,
+        "ground": "Am6",
+        "detected": "A7",
+        "filled": "A7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 12,
+        "beat": 1,
+        "ground": "D7",
+        "detected": "Bø7",
+        "filled": "Dm6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 13,
+        "beat": 1,
+        "ground": "Am6",
+        "detected": "A7",
+        "filled": "A7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 14,
+        "beat": 1,
+        "ground": "D7",
+        "detected": "Bø7",
+        "filled": "Dm6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 15,
+        "beat": 1,
+        "ground": "Fm6",
+        "detected": "Dø7",
+        "filled": "Ab6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 18,
+        "beat": 3,
+        "ground": "C6",
+        "detected": "A°7",
+        "filled": "A°7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 19,
+        "beat": 1,
+        "ground": "D7",
+        "detected": "Am",
+        "filled": "Am",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 23,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "G7",
+        "filled": "G",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 25,
+        "beat": 2,
+        "ground": "E7",
+        "detected": "Dbø7",
+        "filled": "Dbm7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 25,
+        "beat": 3,
+        "ground": "E7",
+        "detected": "Dbø7",
+        "filled": "Dbm7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 26,
+        "beat": 1,
+        "ground": "A",
+        "detected": "A7",
+        "filled": "A7",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 26,
+        "beat": 3,
+        "ground": "C7",
+        "detected": "E°7",
+        "filled": "E°7",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 28,
+        "beat": 1,
+        "ground": "B7",
+        "detected": "Eb°7",
+        "filled": "Eb°7",
+        "voices": "2/3 pc"
+      }
+    ],
+    "skips": [
+      {
+        "bar": 1,
+        "beat": 2,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 1,
+        "beat": 2,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 17,
+        "beat": 2,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 17,
+        "beat": 2,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 27,
+        "beat": 3,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 27,
+        "beat": 3,
+        "reason": "unrecognized"
+      }
+    ]
+  },
+  "tenor": {
+    "name": "Lead + Tenor",
+    "onsets": 52,
+    "detectNature": "42.3% (22/52)",
+    "filledNature": "40.4% (21/52)",
+    "voicePitchClass": "50.6% (79/156)",
+    "voiceExactMidi": "47.4% (74/156)",
+    "stacksAllVoicesPc": "21.2% (11/52)",
+    "stacksAllVoicesMidi": "17.3% (9/52)",
+    "fillStats": {
+      "filled": 72,
+      "skipped": 2,
+      "locked": 0
+    },
+    "regressions": [
+      {
+        "bar": 5,
+        "beat": 2,
+        "ground": "Db°7",
+        "filled": "Bb°7"
+      },
+      {
+        "bar": 9,
+        "beat": 2,
+        "ground": "Eb°7",
+        "filled": "C°7"
+      },
+      {
+        "bar": 21,
+        "beat": 2,
+        "ground": "Db°7",
+        "filled": "Bb°7"
+      }
+    ],
+    "misses": [
+      {
+        "bar": 1,
+        "beat": 2,
+        "ground": "Cmaj7",
+        "detected": "Dbø7",
+        "filled": "Dbm7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 2,
+        "beat": 1,
+        "ground": "C",
+        "detected": "Em",
+        "filled": "G6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 2,
+        "beat": 3,
+        "ground": "C6",
+        "detected": "F#ø7",
+        "filled": "Am6",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 5,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 5,
+        "beat": 2,
+        "ground": "Db°7",
+        "detected": "Db°7",
+        "filled": "Bb°7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 5,
+        "beat": 3,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 6,
+        "beat": 3,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 7,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 9,
+        "beat": 1,
+        "ground": "A7",
+        "detected": "Em",
+        "filled": "G6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 9,
+        "beat": 2,
+        "ground": "Eb°7",
+        "detected": "Eb°7",
+        "filled": "C°7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 9,
+        "beat": 3,
+        "ground": "A7",
+        "detected": "Em",
+        "filled": "Em",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 10,
+        "beat": 3,
+        "ground": "A7",
+        "detected": "Em",
+        "filled": "Em",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 12,
+        "beat": 3,
+        "ground": "D7",
+        "detected": "A°7",
+        "filled": "Am6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 14,
+        "beat": 3,
+        "ground": "D7",
+        "detected": "A°7",
+        "filled": "Am6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 15,
+        "beat": 1,
+        "ground": "Fm6",
+        "detected": "Dm7",
+        "filled": "Dm7",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 17,
+        "beat": 2,
+        "ground": "Cmaj7",
+        "detected": "Dbø7",
+        "filled": "Dbm7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 18,
+        "beat": 1,
+        "ground": "C",
+        "detected": "Em",
+        "filled": "G6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 18,
+        "beat": 3,
+        "ground": "C6",
+        "detected": "F#ø7",
+        "filled": "Am6",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 21,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 21,
+        "beat": 2,
+        "ground": "Db°7",
+        "detected": "Db°7",
+        "filled": "Bb°7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 21,
+        "beat": 3,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 22,
+        "beat": 3,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 23,
+        "beat": 1,
+        "ground": "G7",
+        "detected": "Dm",
+        "filled": "Dm",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 25,
+        "beat": 1,
+        "ground": "C",
+        "detected": "Em",
+        "filled": "G6",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 26,
+        "beat": 1,
+        "ground": "A",
+        "detected": "F#ø7",
+        "filled": "F#m7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 26,
+        "beat": 3,
+        "ground": "C7",
+        "detected": "C",
+        "filled": "C",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 27,
+        "beat": 1,
+        "ground": "F",
+        "detected": "F7",
+        "filled": "F7",
+        "voices": "2/3 pc"
+      },
+      {
+        "bar": 27,
+        "beat": 3,
+        "ground": "Fmaj7",
+        "detected": "F#ø7",
+        "filled": "F#m7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 28,
+        "beat": 1,
+        "ground": "B7",
+        "detected": "F7",
+        "filled": "F7",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 29,
+        "beat": 1,
+        "ground": "C",
+        "detected": "Em",
+        "filled": "Em",
+        "voices": "1/3 pc"
+      },
+      {
+        "bar": 33,
+        "beat": 1,
+        "ground": "F7",
+        "detected": "C°7",
+        "filled": "C°7",
+        "voices": "2/3 pc"
+      }
+    ],
+    "skips": [
+      {
+        "bar": 26,
+        "beat": 3,
+        "reason": "unrecognized"
+      },
+      {
+        "bar": 26,
+        "beat": 3,
+        "reason": "unrecognized"
+      }
+    ]
+  }
+}

@@ -481,6 +481,55 @@ describe('renderVexSheetScore', () => {
     host.remove()
   }, 30000)
 
+  it('scales System rows: 0% near-flush, 100% comfortable, 300% much wider', async () => {
+    await ensureVexFonts()
+    const p = createEmptyTagRollProject()
+    p.lengthTicks = TAG_ROLL_PPQ * 32
+    const lead = p.parts.find((x) => x.name === 'Lead')!
+    const bass = p.parts.find((x) => x.name === 'Bass')!
+    p.notes = []
+    for (let i = 0; i < 16; i++) {
+      const t = i * TAG_ROLL_PPQ * 2
+      p.notes.push(
+        { id: `l${i}`, partId: lead.id, midi: 60, startTick: t, durationTicks: TAG_ROLL_PPQ },
+        { id: `b${i}`, partId: bass.id, midi: 40, startTick: t, durationTicks: TAG_ROLL_PPQ },
+      )
+    }
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const common = {
+      host,
+      project: p,
+      pxPerBeat: 64,
+      sheetLayout: 'page' as const,
+      pageWidthIn: 4.5,
+      pageHeightIn: 14,
+      pageDpi: 96,
+      staveGapFine: 1,
+      showLyrics: false,
+    }
+    const at100 = await renderVexSheetScore({ ...common, systemGap: 1 })
+    const at0 = await renderVexSheetScore({ ...common, systemGap: 0 })
+    const at300 = await renderVexSheetScore({ ...common, systemGap: 3 })
+    expect(at0.systemBodyHeight).toBeLessThan(at100.systemBodyHeight)
+    expect(at300.systemBodyHeight).toBe(at100.systemBodyHeight)
+    const y1 = (layout: typeof at100) =>
+      layout.measures.find((m) => m.systemIndex === 1)?.y
+    expect(y1(at100)).toBeTruthy()
+    expect(y1(at0)).toBeTruthy()
+    expect(y1(at300)).toBeTruthy()
+    const stride = (layout: typeof at100) =>
+      y1(layout)! - layout.measures.find((m) => m.systemIndex === 0)!.y
+    const s0 = stride(at0)
+    const s100 = stride(at100)
+    const s300 = stride(at300)
+    expect(s100).toBeGreaterThanOrEqual(at100.systemBodyHeight)
+    expect(s100).toBeGreaterThan(s0)
+    // 300% should open far more than the 0→100 comfort band alone.
+    expect(s300 - s100).toBeGreaterThan(s100 - s0)
+    host.remove()
+  }, 30000)
+
   it('widens system gaps for stacked sheet chord marks', async () => {
     await ensureVexFonts()
     const p = createEmptyTagRollProject()

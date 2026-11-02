@@ -10,6 +10,7 @@ Full when-to-run rules: [`../docs/publish.md`](../docs/publish.md).
 | --- | --- | --- |
 | `build_indexes.py` | `web/public/indexes/core.json.gz`, `lyrics.json.gz`, `expansions.json`; `web/public/tags/{id}/metadata.json` | Catalog-facing `library/` changes (new tags, metadata, lyrics, media presence) |
 | `build_offline_manifest.py` | `web/public/indexes/offline-sheets.json.gz`, `offline-audio.json.gz` | After indexes, when offline pack membership/sizes should refresh |
+| `prerender_tag_link_previews.py` | `web/dist/tag-previews/{id}` (Open Graph HTML shells) | After every Vite build (wired from `deploy/lib/deploy_common.sh`) so Discord/Slack can unfurl `/tag/{id}` |
 
 **Order:** indexes first (creates `tags/`), then offline manifests.  
 **Website deploy does not run these** — it only uploads whatever is already under `web/public/` → `dist/`.

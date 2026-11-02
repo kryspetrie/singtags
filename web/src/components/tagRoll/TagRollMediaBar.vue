@@ -7,6 +7,20 @@ import { METRONOME_SOUND_PAIRS } from '../../audio/metronomeSamples'
 import { PIANO_SAMPLE_ENGINE_OPTIONS } from '../../audio/pianoSamples'
 import { listPitchPipeSoundChoices } from '../../audio/pitchPipeVoice'
 import {
+  isTagRollSoundfontId,
+  prefetchSoundfont,
+  soundfontIsMultiInstrument,
+  TAG_ROLL_SOUNDFONT_OPTIONS,
+} from '../../audio/soundfonts'
+import {
+  groupSoundfontPresets,
+  parseSoundfontPatchKey,
+  soundfontFavoriteKey,
+  soundfontPatchKey,
+  soundfontPresetsFor,
+  type TagRollSoundfontPreset,
+} from '../../audio/soundfontPresets'
+import {
   MAJOR_KEY_CHOICES,
   MINOR_KEY_CHOICES,
   keyChoiceById,
@@ -178,12 +192,136 @@ function refreshPitchChoices(): void {
 
 function onSound(e: Event): void {
   const v = (e.target as HTMLSelectElement).value
-  if (v === 'synth' || v === 'samples') store.setSoundEngine(v)
+  if (v === 'synth' || v === 'samples' || v === 'soundfont') {
+    store.setSoundEngine(v)
+    if (v === 'soundfont') {
+      const id = project.value?.soundfontId
+      if (id) void prefetchSoundfont(id).catch(() => undefined)
+    }
+  }
 }
 
 function onPitchSound(e: Event): void {
   const v = (e.target as HTMLSelectElement).value
   if (v) store.setPitchPipeSoundId(v)
+}
+
+function onSoundfont(e: Event): void {
+  const v = (e.target as HTMLSelectElement).value
+  if (isTagRollSoundfontId(v)) {
+    store.setSoundfontId(v)
+    instrumentSearch.value = ''
+    void prefetchSoundfont(v).catch(() => undefined)
+  }
+}
+
+const instrumentSearch = ref('')
+
+const soundfontPresets = computed(() => {
+  const id = project.value?.soundfontId
+  if (!id || !soundfontIsMultiInstrument(id)) return [] as TagRollSoundfontPreset[]
+  return soundfontPresetsFor(id)
+})
+
+const showInstrumentPicker = computed(
+  () => project.value?.soundEngine === 'soundfont' && soundfontPresets.value.length > 1,
+)
+
+const currentPatchKey = computed(() => {
+  const p = project.value?.soundfontPatch
+  return p ? soundfontPatchKey(p) : '0:0:0'
+})
+
+const currentFavoriteKey = computed(() => {
+  const id = project.value?.soundfontId
+  const p = project.value?.soundfontPatch
+  if (!id || !p) return ''
+  return soundfontFavoriteKey(id, p)
+})
+
+const currentIsFavorite = computed(() =>
+  currentFavoriteKey.value ? prefs.isTagRollSoundfontFavorite(currentFavoriteKey.value) : false,
+)
+
+const favoritePresets = computed(() => {
+  const id = project.value?.soundfontId
+  if (!id) return [] as TagRollSoundfontPreset[]
+  const byKey = new Map(soundfontPresets.value.map((p) => [soundfontPatchKey(p), p]))
+  const out: TagRollSoundfontPreset[] = []
+  for (const fav of prefs.tagRollSoundfontFavorites) {
+    if (!fav.startsWith(`${id}|`)) continue
+    const patch = parseSoundfontPatchKey(fav.slice(id.length + 1))
+    if (!patch) continue
+    const hit = byKey.get(soundfontPatchKey(patch))
+    if (hit) out.push(hit)
+  }
+  return out
+})
+
+/** Lower score = better match. Non-matches return Infinity. */
+function instrumentSearchScore(p: TagRollSoundfontPreset, q: string): number {
+  if (!q) return Infinity
+  const name = p.name.toLowerCase()
+  const key = soundfontPatchKey(p)
+  const prog = String(p.program)
+  let score = Infinity
+  if (name === q) score = 0
+  else if (name.startsWith(q)) score = 1
+  else if (name.split(/[\s._/-]+/).some((w) => w.startsWith(q))) score = 2
+  else if (name.includes(q)) score = 3
+  else if (prog === q || key === q) score = 4
+  else if (prog.startsWith(q) || key.includes(q)) score = 5
+  else return Infinity
+  // Prefer melodic bank 0, then lower bank/program for stable “best” picks.
+  if (p.drum) score += 40
+  else if (p.bankMSB !== 0 || p.bankLSB !== 0) score += 10
+  score += p.bankMSB * 0.01 + p.program * 0.0001
+  return score
+}
+
+const rankedSearchHits = computed(() => {
+  const q = instrumentSearch.value.trim().toLowerCase()
+  if (!q) return [] as TagRollSoundfontPreset[]
+  return soundfontPresets.value
+    .map((p) => ({ p, score: instrumentSearchScore(p, q) }))
+    .filter((x) => Number.isFinite(x.score))
+    .sort((a, b) => a.score - b.score || a.p.name.localeCompare(b.p.name))
+    .map((x) => x.p)
+})
+
+const filteredInstrumentGroups = computed(() => {
+  const q = instrumentSearch.value.trim()
+  if (!q) return groupSoundfontPresets(soundfontPresets.value)
+  // Keep ranked order: one flat “Matches” group so the best hit is first / selected.
+  return rankedSearchHits.value.length
+    ? [{ label: 'Matches', presets: rankedSearchHits.value }]
+    : []
+})
+
+watch(rankedSearchHits, (hits) => {
+  const q = instrumentSearch.value.trim()
+  if (!q || !hits.length) return
+  const best = hits[0]!
+  const cur = project.value?.soundfontPatch
+  if (cur && soundfontPatchKey(cur) === soundfontPatchKey(best)) return
+  store.setSoundfontPatch(best)
+})
+
+function onSoundfontInstrument(e: Event): void {
+  const key = (e.target as HTMLSelectElement).value
+  const patch = parseSoundfontPatchKey(key)
+  if (patch) store.setSoundfontPatch(patch)
+}
+
+function toggleCurrentInstrumentFavorite(): void {
+  const key = currentFavoriteKey.value
+  if (key) prefs.toggleTagRollSoundfontFavorite(key)
+}
+
+function presetOptionLabel(p: TagRollSoundfontPreset): string {
+  const bank =
+    p.bankMSB || p.bankLSB ? ` · bank ${p.bankMSB}${p.bankLSB ? `/${p.bankLSB}` : ''}` : ''
+  return `${p.name} (#${p.program}${bank})`
 }
 
 function onBlowPitch(e: Event): void {
@@ -323,13 +461,11 @@ onUnmounted(() => {
             Sound
           </button>
           <div v-if="soundOpen" class="sound-pop" role="dialog" aria-label="Sound setup">
-            <p v-if="isView" class="view-hint">View mode — sound settings are read-only</p>
             <label class="field">
               <span class="lbl">Engine</span>
               <select
                 class="sel"
                 :value="project.soundEngine"
-                :disabled="isView"
                 aria-label="Sound engine"
                 @change="onSound"
               >
@@ -343,6 +479,92 @@ onUnmounted(() => {
               </select>
             </label>
             <label
+              v-if="project.soundEngine === 'soundfont'"
+              class="field wide"
+              :title="tagRollTip('SoundFont bank for the SF2 piano engine')"
+            >
+              <span class="lbl">SoundFont</span>
+              <select
+                class="sel"
+                :value="project.soundfontId"
+                aria-label="SoundFont piano bank"
+                @change="onSoundfont"
+              >
+                <option
+                  v-for="o in TAG_ROLL_SOUNDFONT_OPTIONS"
+                  :key="o.value"
+                  :value="o.value"
+                >
+                  {{ o.label }}
+                </option>
+              </select>
+            </label>
+            <template v-if="showInstrumentPicker">
+              <label
+                class="field wide"
+                :title="tagRollTip('Filter instruments by name or program number')"
+              >
+                <span class="lbl">Find</span>
+                <input
+                  v-model="instrumentSearch"
+                  type="search"
+                  class="sel"
+                  placeholder="Search instruments…"
+                  aria-label="Search SoundFont instruments"
+                />
+              </label>
+              <div class="instrument-row">
+                <label class="instrument-sel" :title="tagRollTip('MIDI instrument in this SoundFont')">
+                  <span class="lbl">Instrument</span>
+                  <select
+                    class="sel"
+                    :value="currentPatchKey"
+                    aria-label="SoundFont instrument"
+                    @change="onSoundfontInstrument"
+                  >
+                    <optgroup v-if="favoritePresets.length" label="★ Favorites">
+                      <option
+                        v-for="p in favoritePresets"
+                        :key="`fav-${soundfontPatchKey(p)}`"
+                        :value="soundfontPatchKey(p)"
+                      >
+                        {{ presetOptionLabel(p) }}
+                      </option>
+                    </optgroup>
+                    <optgroup
+                      v-for="g in filteredInstrumentGroups"
+                      :key="g.label"
+                      :label="g.label"
+                    >
+                      <option
+                        v-for="p in g.presets"
+                        :key="soundfontPatchKey(p)"
+                        :value="soundfontPatchKey(p)"
+                      >
+                        {{ presetOptionLabel(p) }}
+                      </option>
+                    </optgroup>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="fav-btn"
+                  :class="{ on: currentIsFavorite }"
+                  :title="
+                    currentIsFavorite
+                      ? tagRollTip('Remove from favorites')
+                      : tagRollTip('Add to favorites')
+                  "
+                  :aria-label="currentIsFavorite ? 'Unfavorite instrument' : 'Favorite instrument'"
+                  :aria-pressed="currentIsFavorite"
+                  @click="toggleCurrentInstrumentFavorite"
+                >
+                  {{ currentIsFavorite ? '★' : '☆' }}
+                </button>
+              </div>
+            </template>
+            <label
+              v-if="project.soundEngine === 'synth'"
               class="field wide"
               :title="tagRollTip('Pitch pipe voice — used for blow-pitch and synth engine')"
             >
@@ -350,7 +572,6 @@ onUnmounted(() => {
               <select
                 class="sel"
                 :value="project.pitchPipeSoundId"
-                :disabled="isView"
                 aria-label="Pitch pipe sound"
                 @change="onPitchSound"
               >
@@ -372,7 +593,6 @@ onUnmounted(() => {
                 type="checkbox"
                 class="chk"
                 :checked="project.blowPitchEnabled"
-                :disabled="isView"
                 aria-label="Blow pitch before arrangement"
                 @change="onBlowPitch"
               />
@@ -386,7 +606,6 @@ onUnmounted(() => {
                 type="checkbox"
                 class="chk"
                 :checked="project.metronomeEnabled"
-                :disabled="isView"
                 aria-label="Metronome during playback"
                 @change="onMetronome"
               />
@@ -400,7 +619,7 @@ onUnmounted(() => {
                 type="checkbox"
                 class="chk"
                 :checked="project.metronomeSwing !== false"
-                :disabled="isView || !project.metronomeEnabled || !project.swing?.enabled"
+                :disabled="!project.metronomeEnabled || !project.swing?.enabled"
                 aria-label="Metronome swing subdivisions"
                 @change="onMetronomeSwing"
               />
@@ -414,7 +633,6 @@ onUnmounted(() => {
                 type="checkbox"
                 class="chk"
                 :checked="project.swing?.enabled"
-                :disabled="isView"
                 aria-label="Enable swing"
                 @change="onSwingEnabled"
               />
@@ -427,7 +645,7 @@ onUnmounted(() => {
               <select
                 class="sel"
                 :value="project.swing?.unit ?? 'eighth'"
-                :disabled="isView || !project.swing?.enabled"
+                :disabled="!project.swing?.enabled"
                 aria-label="Swing unit"
                 @change="onSwingUnit"
               >
@@ -443,7 +661,7 @@ onUnmounted(() => {
               <select
                 class="sel"
                 :value="project.swing?.style ?? 'triplet'"
-                :disabled="isView || !project.swing?.enabled"
+                :disabled="!project.swing?.enabled"
                 aria-label="Swing style"
                 @change="onSwingStyle"
               >
@@ -464,7 +682,7 @@ onUnmounted(() => {
                 step="0.01"
                 list="tag-roll-swing-notches"
                 :value="project.swing?.amount ?? 0"
-                :disabled="isView || !project.swing?.enabled"
+                :disabled="!project.swing?.enabled"
                 aria-label="Swing amount"
                 @input="onSwingAmount"
               />
@@ -476,7 +694,6 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="link-btn swing-notch"
-                :disabled="isView"
                 :title="tagRollTip('Snap to classic shuffle (~67%)')"
                 @click="snapSwingShuffle"
               >
@@ -513,7 +730,6 @@ onUnmounted(() => {
                     project.tonalityMode ?? 'major',
                   )
                 "
-                :disabled="isView"
                 aria-label="Key"
                 @change="onKey"
               >
@@ -538,7 +754,6 @@ onUnmounted(() => {
                 :max="TAG_ROLL_ATTACK_SEC_MAX"
                 :step="TAG_ROLL_ENVELOPE_SEC_STEP"
                 :value="project.soundEnvelope.attackSec"
-                :disabled="isView"
                 aria-label="Attack seconds"
                 @input="onAttack"
               />
@@ -556,7 +771,6 @@ onUnmounted(() => {
                 :max="TAG_ROLL_DECAY_SEC_MAX"
                 :step="TAG_ROLL_ENVELOPE_SEC_STEP"
                 :value="project.soundEnvelope.decaySec"
-                :disabled="isView"
                 aria-label="Decay seconds into next note"
                 @input="onDecay"
               />
@@ -574,7 +788,6 @@ onUnmounted(() => {
                 :max="TAG_ROLL_PHRASE_DECAY_SEC_MAX"
                 :step="TAG_ROLL_ENVELOPE_SEC_STEP"
                 :value="project.soundEnvelope.phraseDecaySec"
-                :disabled="isView"
                 aria-label="Phrase-end decay seconds"
                 @input="onPhraseDecay"
               />
@@ -1075,7 +1288,7 @@ onUnmounted(() => {
   left: 0;
   bottom: calc(100% + 8px);
   z-index: 40;
-  width: min(18rem, 80vw);
+  width: min(26rem, 92vw);
   display: grid;
   gap: 0.45rem;
   padding: 0.65rem 0.75rem;
@@ -1083,6 +1296,43 @@ onUnmounted(() => {
   border-radius: 10px;
   background: var(--surface);
   box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
+}
+.instrument-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.35rem;
+}
+.instrument-sel {
+  display: grid;
+  grid-template-columns: 5.75rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  min-height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, var(--surface));
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.fav-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.fav-btn.on {
+  color: #c9a227;
+  border-color: color-mix(in srgb, #c9a227 55%, var(--border));
+  background: color-mix(in srgb, #c9a227 12%, var(--surface));
 }
 .view-hint {
   margin: 0;
@@ -1093,22 +1343,30 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  min-width: 0;
 }
 .field.wide {
   display: grid;
-  grid-template-columns: 3.2rem 1fr auto;
+  grid-template-columns: 5.75rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 .lbl {
+  flex: 0 0 auto;
+  min-width: 0;
   font-size: 0.68rem;
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 .sel {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   min-height: 34px;
   padding: 0.2rem 0.4rem;
   border: 1px solid var(--border);

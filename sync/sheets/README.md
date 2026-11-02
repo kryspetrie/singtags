@@ -16,8 +16,11 @@ cd sync && source ./.venv/bin/activate
 
 ### `build_sheet_previews.py`
 
+Builds **sheet_preview** (viewer WebP) and **sheet_og** (tiny Discord/OG thumb).
+
 ```bash
 python sheets/build_sheet_previews.py
+python sheets/build_sheet_previews.py --og-only          # missing OG thumbs only
 python sheets/build_sheet_previews.py --force --limit 100
 ```
 
