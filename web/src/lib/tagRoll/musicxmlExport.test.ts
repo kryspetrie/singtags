@@ -15,7 +15,7 @@ describe('musicxmlExport', () => {
     expect(midiToMusicXmlPitch(60, false)).toEqual({ step: 'C', alter: 0, octave: 4 })
   })
 
-  it('defers portamento destination to source release for monophonic notation', () => {
+  it('keeps both notes at their roll onsets and cuts the source at the destination', () => {
     const lead = 'p1'
     const out = collapsePartNotesMono([
       { id: 'a', partId: lead, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ * 2 },
@@ -28,12 +28,13 @@ describe('musicxmlExport', () => {
       },
     ])
     expect(out).toHaveLength(2)
-    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
-    expect(out[1]!.startTick).toBe(TAG_ROLL_PPQ * 2)
-    expect(out[1]!.durationTicks).toBe(TAG_ROLL_PPQ)
+    expect(out[0]!.startTick).toBe(0)
+    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ)
+    expect(out[1]!.startTick).toBe(TAG_ROLL_PPQ)
+    expect(out[1]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
   })
 
-  it('omits a destination that ends before the source releases', () => {
+  it('still engraves a destination that ends inside the source', () => {
     const lead = 'p1'
     const out = collapsePartNotesMono([
       { id: 'a', partId: lead, midi: 60, startTick: 0, durationTicks: TAG_ROLL_PPQ * 2 },
@@ -45,9 +46,10 @@ describe('musicxmlExport', () => {
         durationTicks: TAG_ROLL_PPQ / 2,
       },
     ])
-    expect(out).toHaveLength(1)
-    expect(out[0]!.id).toBe('a')
-    expect(out[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
+    expect(out.map((n) => [n.id, n.startTick, n.durationTicks])).toEqual([
+      ['a', 0, TAG_ROLL_PPQ],
+      ['b', TAG_ROLL_PPQ, TAG_ROLL_PPQ / 2],
+    ])
   })
 
   it('splits notes across barlines with ties', () => {
@@ -352,5 +354,21 @@ describe('musicxmlExport', () => {
     const xml = new TextDecoder().decode(exportTagRollMusicXml(p))
     expect(xml).toContain('<fifths>0</fifths>')
     expect(xml).toContain('<fifths>1</fifths>')
+  })
+})
+
+describe('Lilly Marlene (v2) slide', () => {
+  it('engraves the Mar→C4 overlap as two notes, the second at its roll start', async () => {
+    const { default: seed } = await import('./defaultProjects/lillyMarleneV2.json')
+    const { notesToTimelineMono } = await import('./notationTimeline')
+    const part = 'trp_6c3691bc-b471-4ee7-ab1b-1e2fb3a8c185'
+    const notes = (seed as { notes: Array<{ partId: string }> }).notes.filter(
+      (n) => n.partId === part,
+    ) as Parameters<typeof notesToTimelineMono>[0]
+    const sounding = notesToTimelineMono(notes, 9600).filter((s) => s.midi != null)
+    expect(sounding.map((s) => [s.midi, s.start, s.dur]).slice(0, 2)).toEqual([
+      [55, 1440, 240],
+      [60, 1680, 2160],
+    ])
   })
 })

@@ -82,3 +82,5 @@ export const SHEET_TOP_PAD = 20
 export const SHEET_BOTTOM_PAD = 24
 /** Space above the top staff for fermata / rit / accel marks. */
 export const SHEET_EXPR_BAND = 28
+/** Unit px reserved above a system (above its chord marks) for a rit. / accel. mark. */
+export const SHEET_RAMP_BAND = 26

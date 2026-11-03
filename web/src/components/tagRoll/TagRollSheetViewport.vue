@@ -24,6 +24,7 @@ import {
   renderVexSheetScore,
   type VexScoreLayoutResult,
 } from '../../lib/tagRoll/sheetScore/renderVexScore'
+import { SHEET_RAMP_BAND } from '../../lib/tagRoll/sheetScore/types'
 import { isRampStickyMarker } from '../../lib/tagRoll/tempoMap'
 import { clampSheetZoom, minPxPerBeatToFillSheet } from '../../lib/tagRoll/zoomFill'
 import { pointerDistance } from '../../lib/tagRoll/zoomPan'
@@ -656,10 +657,13 @@ const exprMarks = computed((): SheetExprMark[] => {
     } else {
       const a = lay.tickToPoint(ex.startTick)
       const b = lay.tickToPoint(ex.endTick)
+      // Stack above the system's chord marks so the mark never overlaps the notes.
+      const sys = lay.measures.find((m) => ex.startTick >= m.startTick && ex.startTick < m.endTick)
+      const chordRoom = lay.chordClearanceBySystem[sys?.systemIndex ?? 0] ?? 0
       out.push({
         kind: ex.kind,
         left: Math.min(a.x, b.x),
-        top: a.y,
+        top: a.y - chordRoom - SHEET_RAMP_BAND * lay.sizeScale,
         width: Math.abs(b.x - a.x),
         label: ex.kind === 'rit' ? 'rit.' : 'accel.',
         startBpm: ex.startBpm,
@@ -1240,7 +1244,7 @@ defineExpose({
 }
 .expr-mark.rit,
 .expr-mark.accel {
-  margin-top: calc(18px * var(--sheet-size, 1));
+  margin-top: calc(2px * var(--sheet-size, 1));
   height: calc(22px * var(--sheet-size, 1));
   min-width: 4.5em;
 }

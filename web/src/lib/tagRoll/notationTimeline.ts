@@ -1,7 +1,6 @@
 /**
  * Shared monophonic timeline + barline splits for sheet engraving and MusicXML.
  */
-import { deferOverlappingOnsets } from './portamento'
 import type { TagRollNote } from './types'
 
 export type NotationSlice = {
@@ -16,12 +15,29 @@ export type NotationSlice = {
 /**
  * Collapse same-part overlaps for monophonic notation.
  *
- * Portamento in the roll starts the destination note early so the glide can
- * finish at the source note’s written end. For notation we keep the source
- * duration intact and defer the destination onset to that release.
+ * An overlap in the roll only marks a slide (portamento) — it is not a note of its
+ * own. Each note keeps its roll onset, and the earlier note is cut at the later
+ * note's start, so two overlapped notes engrave as exactly two notes.
+ * Same-onset items are kept (the timeline picks the lowest later).
  */
 export function collapsePartNotesMono(notes: readonly TagRollNote[]): TagRollNote[] {
-  return deferOverlappingOnsets([...notes], (a, b) => a.midi - b.midi || a.id.localeCompare(b.id))
+  const sorted = [...notes].sort(
+    (a, b) =>
+      a.startTick - b.startTick ||
+      a.durationTicks - b.durationTicks ||
+      a.midi - b.midi ||
+      a.id.localeCompare(b.id),
+  )
+  const out: TagRollNote[] = []
+  for (const n of sorted) {
+    const copy = { ...n }
+    const last = out[out.length - 1]
+    if (last && copy.startTick > last.startTick && copy.startTick < last.startTick + last.durationTicks) {
+      last.durationTicks = copy.startTick - last.startTick
+    }
+    out.push(copy)
+  }
+  return out
 }
 
 /**

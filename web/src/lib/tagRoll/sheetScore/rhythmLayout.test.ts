@@ -344,7 +344,7 @@ describe('buildSheetRhythm', () => {
     expect(lead.some((e) => e.concertMidi == null && e.startTick === 0)).toBe(true)
   })
 
-  it('shows portamento destination after the source releases', () => {
+  it('engraves a slide overlap as two notes at their roll onsets', () => {
     const assignment = assignSheetStaves(parts, 'ttbb')
     const events = buildSheetRhythm({
       assignment,
@@ -368,13 +368,15 @@ describe('buildSheetRhythm', () => {
       timeSignature: { numerator: 4, denominator: 4 },
     })
     const notes = events.filter((e) => e.partId === 'l' && e.concertMidi != null)
-    expect(notes).toHaveLength(2)
     expect(notes[0]!.concertMidi).toBe(60)
     expect(notes[0]!.startTick).toBe(0)
-    expect(notes[0]!.durationTicks).toBe(TAG_ROLL_PPQ * 2)
+    expect(notes[0]!.durationTicks).toBe(TAG_ROLL_PPQ)
     expect(notes[1]!.concertMidi).toBe(64)
-    expect(notes[1]!.startTick).toBe(TAG_ROLL_PPQ * 2)
-    expect(notes[1]!.durationTicks).toBe(TAG_ROLL_PPQ)
+    expect(notes[1]!.startTick).toBe(TAG_ROLL_PPQ)
+    // Destination may be split into tied pieces; together they span its full length.
+    const dest = notes.filter((n) => n.concertMidi === 64)
+    expect(dest.reduce((t, n) => t + n.durationTicks, 0)).toBe(TAG_ROLL_PPQ * 2)
+    expect(notes.filter((n) => n.concertMidi === 60)).toHaveLength(1)
   })
 
   it('carries Lead lyrics onto rhythm events (not on tie continuations)', () => {

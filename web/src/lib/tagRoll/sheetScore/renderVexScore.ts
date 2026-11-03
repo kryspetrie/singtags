@@ -69,7 +69,7 @@ import {
   drawCrossoverMarks,
   drawMelodyHandoffLines,
 } from './sheetScoreOverlays'
-import type { SheetClefKind } from './types'
+import { SHEET_RAMP_BAND, type SheetClefKind } from './types'
 import {
   buildVoiceNotes,
   fillMeasureIfEmpty,
@@ -134,6 +134,8 @@ export type VexScoreLayoutResult = {
     bottom: number
   }
   measures: VexScoreMeasureGeom[]
+  /** Screen px above each system's staff top used by chord marks (rit. / accel. stack above). */
+  chordClearanceBySystem: number[]
   /** Page frames (empty when continuous). */
   pages: VexScorePageGeom[]
   /** Map musical tick → x in the rendered SVG content. */
@@ -601,20 +603,34 @@ export async function renderVexSheetScore(opts: {
 
   const pageTopPad = (pi: number) =>
     (pi === 0 ? headerBandPx : 0) + scoreTopPad
+  const chordClearance = estimateUnitChordClearancesForPlaces(project, places, {
+    measureTicks: mLen,
+    lengthTicks,
+    sizeScale,
+    detectSegments: opts.chordDetectSegments,
+    forceInclude: opts.chordForceInclude,
+  })
+  // rit. / accel. sit above the system's chord marks, so the top of that system needs
+  // extra room (otherwise the dashed line and label land on the notes).
+  const systemOfTick = (tick: number): number => {
+    const mi = Math.min(measureCount - 1, Math.max(0, Math.floor(tick / mLen)))
+    return places.find((p) => p.mi === mi)?.systemIndex ?? 0
+  }
+  const rampSystems = new Set<number>()
+  for (const ex of project.expressions ?? []) {
+    if (ex.kind === 'rit' || ex.kind === 'accel') rampSystems.add(systemOfTick(ex.startTick))
+  }
+  const systemCountForClearance = Math.max(
+    chordClearance.length,
+    ...[...rampSystems].map((si) => si + 1),
+  )
+  const systemClearance = Array.from({ length: systemCountForClearance }, (_, si) =>
+    (chordClearance[si] ?? 0) + (rampSystems.has(si) ? SHEET_RAMP_BAND : 0),
+  )
   stackSheetSystems(places, {
     systemBodyHeight,
     baseSystemGap: systemGapPx,
-    chordClearanceBySystem: estimateUnitChordClearancesForPlaces(
-      project,
-      places,
-      {
-        measureTicks: mLen,
-        lengthTicks,
-        sizeScale,
-        detectSegments: opts.chordDetectSegments,
-        forceInclude: opts.chordForceInclude,
-      },
-    ),
+    chordClearanceBySystem: systemClearance,
     existingTopHeadroom: exprHeadroom,
     pageMode,
     pageSystemBudget,
@@ -1053,6 +1069,7 @@ export async function renderVexSheetScore(opts: {
     },
     measures,
     pages,
+    chordClearanceBySystem: chordClearance.map((c) => sx(c)),
     tickToX,
     tickToPoint,
     pointToTick,
