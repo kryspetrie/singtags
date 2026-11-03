@@ -16,3 +16,8 @@ declare module 'spessasynth_lib/dist/spessasynth_processor.min.js?url' {
   const url: string
   export default url
 }
+
+interface ImportMetaEnv {
+  /** Public Google OAuth Web client ID (never a secret). Empty disables Drive sync. */
+  readonly VITE_GOOGLE_OAUTH_CLIENT_ID?: string
+}

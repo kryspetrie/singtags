@@ -113,6 +113,7 @@ SKIP_BUILD=1 ./deploy/publish.sh website   # reuse existing web/dist
 | `S3_BUCKET` | Required |
 | `S3_PREFIX` / `S3_LIBRARY_PREFIX` | Optional path prefixes |
 | `VITE_BASE` / `VITE_MEDIA_BASE` | App base + public library URL at **build** time |
+| `VITE_GOOGLE_OAUTH_CLIENT_ID` | Optional. Public Google OAuth **Web client ID** for Labs Drive sync; empty hides it. Never a client secret — see [google-drive-sync-and-cache.md](plans/google-drive-sync-and-cache.md) Phase 0 |
 | `DEPLOY_ENV` | Alternate env file (default: repo-root `.env.deploy`) |
 | `SKIP_BUILD=1` | Skip `npm run build`; require existing `web/dist` |
 | `DRY_RUN=1` | `aws s3 sync --dryrun` |

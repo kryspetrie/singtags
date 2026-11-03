@@ -2,11 +2,57 @@
 /**
  * Experimental / optional features (feature flags).
  */
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import InfoTips from '../components/InfoTips.vue'
+import {
+  googleAuthState,
+  isDriveSyncEnabled,
+  isGoogleConfigured,
+  restoreGoogleConnection,
+  setDriveSyncEnabled,
+  signIn,
+  signOut,
+  testDriveConnection,
+} from '../lib/google/googleAuth'
 import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
+
+const driveSyncOn = ref(isDriveSyncEnabled())
+const driveConfigured = isGoogleConfigured()
+const driveTestMsg = ref('')
+
+onMounted(restoreGoogleConnection)
+
+function toggleDriveSync(): void {
+  driveSyncOn.value = !driveSyncOn.value
+  setDriveSyncEnabled(driveSyncOn.value)
+}
+
+async function connectGoogle(): Promise<void> {
+  driveTestMsg.value = ''
+  try {
+    await signIn()
+  } catch {
+    /* message shown from googleAuthState.error */
+  }
+}
+
+async function disconnectGoogle(): Promise<void> {
+  driveTestMsg.value = ''
+  await signOut()
+}
+
+async function testDrive(): Promise<void> {
+  driveTestMsg.value = 'Testing…'
+  try {
+    const r = await testDriveConnection()
+    driveTestMsg.value = `Drive reachable${r.email ? ` as ${r.email}` : ''}.`
+  } catch (e) {
+    driveTestMsg.value = e instanceof Error ? e.message : String(e)
+  }
+}
 
 function toggleLocalLibrary(): void {
   prefs.setLocalLibraryEnabled(!prefs.localLibraryEnabled)
@@ -147,6 +193,61 @@ function toggleTagStudio(): void {
           @change="toggleSingTogether"
         />
       </label>
+    </section>
+
+    <section class="card" aria-labelledby="drive-sync-h">
+      <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
+      <p class="card-desc">
+        Sign in with Google to keep your own data (preferences, favorites, recents, Tag Studio, My
+        Library) in your private SingTags app folder on Google Drive. This step only connects your
+        account; syncing arrives in a later release. SingTags never sees your password.
+      </p>
+
+      <label class="setting-row" :class="{ on: driveSyncOn }" title="Enable Google Drive sync">
+        <span class="setting-copy">
+          <span class="setting-title">Google Drive sync</span>
+          <span class="setting-desc">
+            {{
+              !driveConfigured
+                ? 'Unavailable — this build has no Google client ID'
+                : driveSyncOn
+                  ? 'Feature available — connect below'
+                  : 'Off'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="driveSyncOn"
+          :aria-checked="driveSyncOn"
+          :disabled="!driveConfigured"
+          aria-label="Google Drive sync"
+          @change="toggleDriveSync"
+        />
+      </label>
+
+      <template v-if="driveConfigured && driveSyncOn">
+        <p v-if="googleAuthState.connected" class="card-desc">
+          Connected{{ googleAuthState.email ? ` as ${googleAuthState.email}` : '' }}.
+        </p>
+        <button
+          v-if="!googleAuthState.connected"
+          type="button"
+          class="btn"
+          :disabled="googleAuthState.busy"
+          @click="connectGoogle"
+        >
+          Connect Google Drive
+        </button>
+        <template v-else>
+          <button type="button" class="btn" @click="testDrive">Test connection</button>
+          <button type="button" class="btn" @click="disconnectGoogle">Disconnect</button>
+        </template>
+        <p v-if="googleAuthState.error" class="card-desc" role="alert">{{ googleAuthState.error }}</p>
+        <p v-if="driveTestMsg" class="card-desc" role="status">{{ driveTestMsg }}</p>
+      </template>
     </section>
 
     <section class="card" aria-labelledby="webrtc-h">

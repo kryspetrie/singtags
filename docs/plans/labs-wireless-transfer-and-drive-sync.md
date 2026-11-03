@@ -96,33 +96,9 @@ New module e.g. `web/src/lib/google/googleAuth.ts`:
 
 ## Feature 4 — Drive as configuration datastore (+ optional tag cache)
 
-Separate Labs track; depends on Google Identity.
+**SSOT:** [google-drive-sync-and-cache.md](google-drive-sync-and-cache.md) (OAuth without client secret in the SPA, background hydrate, Tag Studio, optional content-addressed offline cache mirror, format vs incremental invalidation).
 
-### 4a — App state sync (favorites / recent / config)
-
-**Reuse** [appStateBackup.ts](web/src/lib/appStateBackup.ts) (`singtags.app-state` + favorites IDB via `favoritesBackup`) as the blob format.
-
-**Store:** Drive **Application Data folder** (`spaces: appDataFolder`) for private sync—avoids cluttering My Drive; or a visible `SingTags Sync/` folder if users want manual access (Labs toggle).
-
-**Flows:**
-
-- **Backup now** / **Restore** / **Auto-backup** on debounce after favorites/recent/prefs changes (Labs).
-- Conflict: last-write-wins with `exportedAt` + confirm dialog if cloud newer.
-- Expand `APP_STATE_LOCAL_KEYS` carefully (include Labs flags only if desired).
-
-**Not in v1:** full My Library blob sync (huge); offer “include My Library zip” as opt-in using existing [localLibraryBackup.ts](web/src/lib/localLibraryBackup.ts).
-
-### 4b — Cache tags to Google Drive
-
-**Goal:** Reduce SingTags origin fetches when online-to-Drive is OK but origin is slow/blocked.
-
-**Approach:** Mirror offline pack artifacts (sheet/audio cache entries from [libraryPack.ts](web/src/offline/libraryPack.ts) / [cacheManage.ts](web/src/offline/cacheManage.ts)) into Drive appData or `SingTags Cache/` as content-addressed files + a small manifest JSON (`tagId`, paths, hashes, quality).
-
-**Flows:** “Upload offline packs to Drive” / “Restore packs from Drive” / optional “prefer Drive when SingTags origin fails.”
-
-**Caveats:** Drive quota is the user’s; large audio packs; eviction policy; still need initial catalog indexes (or cache `core.json.gz` too). Not a CDN replacement for cold users.
-
-**Done when:** Labs user can wipe site data, Sign in with Google, restore favorites/recent/prefs, and optionally rehydrate a previously uploaded pack set without re-downloading everything from SingTags (subject to Drive availability).
+This Labs doc keeps WebRTC / OS Share / Drive Link; do not expand Feature 4 here—execute phases in the dedicated plan.
 
 ---
 

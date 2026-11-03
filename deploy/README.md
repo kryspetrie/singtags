@@ -38,6 +38,7 @@ SKIP_BUILD=1 ./deploy/publish.sh website
 | `S3_BUCKET` | Required |
 | `S3_PREFIX` / `S3_LIBRARY_PREFIX` | Optional prefixes |
 | `VITE_BASE` / `VITE_MEDIA_BASE` | Baked into the SPA at build time |
+| `VITE_GOOGLE_OAUTH_CLIENT_ID` | Optional public Google OAuth Web client ID (Labs Drive sync). Build-time only; never put a client secret here |
 | `DEPLOY_ENV` | Env file path (default: repo-root `.env.deploy`) |
 | `SKIP_BUILD=1` | Reuse existing `web/dist` |
 | `DRY_RUN=1` | Dry-run S3 sync |

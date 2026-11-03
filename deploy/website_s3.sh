@@ -9,7 +9,7 @@
 # - Copy root shell files with `aws s3 cp` (no bucket-wide LIST).
 #
 # Required: S3_BUCKET
-# Optional: S3_PREFIX, VITE_BASE, VITE_MEDIA_BASE, SKIP_BUILD=1, DRY_RUN=1,
+# Optional: S3_PREFIX, VITE_BASE, VITE_MEDIA_BASE, VITE_GOOGLE_OAUTH_CLIENT_ID, SKIP_BUILD=1, DRY_RUN=1,
 #           SIZE_ONLY=0 (disable --size-only on prefix syncs), DEPLOY_ENV=.env.deploy
 set -euo pipefail
 
