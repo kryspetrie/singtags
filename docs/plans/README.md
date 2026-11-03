@@ -27,7 +27,7 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [sheet-qr-transfer.md](sheet-qr-transfer.md) | Catalog buttons demoted; Decimen for ad-hoc/receive |
 | [optical-transfer-bandwidth.md](optical-transfer-bandwidth.md) | In progress — XZ wire + audio format dropdown; multi-stream QR (JAB dropped) |
 | [labs-wireless-transfer-and-drive-sync.md](labs-wireless-transfer-and-drive-sync.md) | In progress — WebRTC + OS Share; Drive Link deferred; Drive sync → dedicated plan |
-| [google-drive-sync-and-cache.md](google-drive-sync-and-cache.md) | Planned — OAuth + user-data sync (prefs, favorites, Tag Studio, My Library); opt-in Browse cache mirror; Drive-link sharing is a follow-up |
+| [google-drive-sync-and-cache.md](google-drive-sync-and-cache.md) | In progress (`user-login`) — Phases 0–2: GIS auth + app-state appData sync; Tag Studio / My Library / cache mirror next |
 | [offline-optical-bootstrap-feasibility.md](offline-optical-bootstrap-feasibility.md) | Research only — stock-camera cold bootstrap not feasible |
 | [sing-session-ux.md](sing-session-ux.md) | Implemented (phased UX shipped) |
 | [sing-session-hardening.md](sing-session-hardening.md) | Implemented (practice off; bake UX; edge fixes) |

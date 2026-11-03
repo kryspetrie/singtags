@@ -30,6 +30,7 @@ import { packHasAnySheets } from '../offline/resolveMedia'
 import { DEVICE_AUDIO_STORAGE_QUALITY } from '../types/audio'
 import { formatFavoritesNotice, noticeCollectionTagIds, noticeFromFavoriteRecord, type FavoritesNotice } from './favoritesNotice'
 import { useSnackbarStore } from './snackbar'
+import { scheduleDriveAppStatePush } from '../lib/google/driveAppStateSync'
 
 /**
  * Optimistic in-memory row shown before IDB write completes.
@@ -245,6 +246,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       nextTagGen(summary.id)
       applyRecords(records.value.filter((r) => r.tagId !== summary.id))
       lastNotice.value = { type: 'removed' }
+      scheduleDriveAppStatePush()
       void (async () => {
         try {
           await removeStarred(summary.id)
@@ -261,6 +263,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       buildPlaceholder(summary, detail),
       ...records.value.filter((r) => r.tagId !== summary.id),
     ])
+    scheduleDriveAppStatePush()
     void runStarBackground(summary.id, gen, summary, detail, options)
   }
 
@@ -507,6 +510,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
     nextTagGen(tagId)
     await removeStarred(tagId)
     applyRecords(records.value.filter((r) => r.tagId !== tagId))
+    scheduleDriveAppStatePush()
   }
 
   /** Export favorites as JSON file shape (`StarredTagsFile` / legacy backup format). */
@@ -528,6 +532,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       const file = parseStarredFile(raw)
       const n = await importStarredFile(file)
       await refresh()
+      scheduleDriveAppStatePush()
       if (fetchMedia) {
         let fetched = 0
         for (const t of file.tags) {

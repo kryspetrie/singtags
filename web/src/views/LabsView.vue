@@ -15,6 +15,11 @@ import {
   signOut,
   testDriveConnection,
 } from '../lib/google/googleAuth'
+import {
+  driveSyncState,
+  ensureDriveHydrate,
+  scheduleDriveAppStatePush,
+} from '../lib/google/driveAppStateSync'
 import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
@@ -28,12 +33,17 @@ onMounted(restoreGoogleConnection)
 function toggleDriveSync(): void {
   driveSyncOn.value = !driveSyncOn.value
   setDriveSyncEnabled(driveSyncOn.value)
+  if (driveSyncOn.value && googleAuthState.connected) {
+    void ensureDriveHydrate()
+  }
 }
 
 async function connectGoogle(): Promise<void> {
   driveTestMsg.value = ''
   try {
     await signIn()
+    scheduleDriveAppStatePush()
+    void ensureDriveHydrate()
   } catch {
     /* message shown from googleAuthState.error */
   }
@@ -198,9 +208,9 @@ function toggleTagStudio(): void {
     <section class="card" aria-labelledby="drive-sync-h">
       <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
       <p class="card-desc">
-        Sign in with Google to keep your own data (preferences, favorites, recents, Tag Studio, My
-        Library) in your private SingTags app folder on Google Drive. This step only connects your
-        account; syncing arrives in a later release. SingTags never sees your password.
+        Sign in with Google to keep preferences, favorites, recents, and Labs flags in your private
+        SingTags app folder on Google Drive (appData). Tag Studio and My Library sync come next.
+        Catalog media mirror stays opt-in later. SingTags never sees your password.
       </p>
 
       <label class="setting-row" :class="{ on: driveSyncOn }" title="Enable Google Drive sync">
@@ -247,6 +257,14 @@ function toggleTagStudio(): void {
         </template>
         <p v-if="googleAuthState.error" class="card-desc" role="alert">{{ googleAuthState.error }}</p>
         <p v-if="driveTestMsg" class="card-desc" role="status">{{ driveTestMsg }}</p>
+        <p
+          v-if="driveSyncState.message"
+          class="card-desc"
+          role="status"
+        >
+          Sync: {{ driveSyncState.message }}
+          <template v-if="driveSyncState.status !== 'idle'"> ({{ driveSyncState.status }})</template>
+        </p>
       </template>
     </section>
 

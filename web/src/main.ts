@@ -118,6 +118,9 @@ async function bootstrap(): Promise<void> {
   app.mount('#app')
 
   void warmCatalog
+
+  // Google Drive app-state sync (Labs): idle hydrate after shell paint — never blocks Browse.
+  void import('./lib/google/driveSyncBootstrap').then((m) => m.startDriveAppStateSync())
 }
 
 void bootstrap()

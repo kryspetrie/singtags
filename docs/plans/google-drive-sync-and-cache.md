@@ -1,6 +1,6 @@
 # Google Drive sync — app state + optional offline cache mirror
 
-> **Status:** In progress — Phases 0 (code/docs) and 1 implemented on branch `user-login`; Google Cloud console steps and live smoke test pending  
+> **Status:** In progress — Phases 0–2 on branch `user-login` (auth + app-state Drive I/O); Google Cloud console steps and live smoke test pending; Phases 3+ not started  
 > **Created:** 2026-11-02  
 > **Related:** [labs-wireless-transfer-and-drive-sync.md](labs-wireless-transfer-and-drive-sync.md) (Feature 4 sketch — this plan is the SSOT for Drive sync), [catalog-split-and-s3-pull.md](catalog-split-and-s3-pull.md) (origin egress), [../decisions/offline-library.md](../decisions/offline-library.md), [../decisions/audio-storage-cache.md](../decisions/audio-storage-cache.md), [`web/src/lib/appStateBackup.ts`](../../web/src/lib/appStateBackup.ts), [`web/src/offline/cacheManage.ts`](../../web/src/offline/cacheManage.ts)
 
@@ -280,21 +280,21 @@ _(fill when done)_
 
 #### Tasks
 
-- [ ] `web/src/lib/google/driveAppData.ts`: list/create folder path under appDataFolder; upload/download JSON; if-match / hash helpers.
-- [ ] Map connect → `ensureDriveHydrate()` from app bootstrap (idle / `requestIdleCallback` / after catalog ready).
-- [ ] Serialize via existing `buildAppStateBackup` / apply paths; extend `APP_STATE_LOCAL_KEYS` only with intentional keys (document each add).
-- [ ] Debounced `scheduleDriveAppStatePush()` hooked from favorites / preferences / recent stores (narrow call sites).
-- [ ] Conflict UI (minimal confirm dialog).
-- [ ] Vitest: meta newer/older decisions; merge union for favorites ids.
+- [x] `web/src/lib/google/driveAppData.ts`: list/create folder path under appDataFolder; upload/download JSON; hash helpers (`sha256Hex`).
+- [x] Map connect → `ensureDriveHydrate()` from app bootstrap (idle / `requestIdleCallback`) and Labs Connect.
+- [x] Serialize via existing `buildAppStateBackup` / apply paths; extend `APP_STATE_LOCAL_KEYS` with `singtags.labs.driveSync.enabled.v1` only.
+- [x] Debounced `scheduleDriveAppStatePush()` hooked from favorites mutations (+ Labs Connect); prefs/recent ride along via localStorage snapshot on next push.
+- [x] Conflict UI (minimal `confirm` / injectable chooser: keep-local / keep-cloud / merge).
+- [x] Vitest: meta newer/older decisions; merge union for favorites ids.
 
 #### Acceptance
 
-- Wipe site data → Connect Google → favorites/recents/prefs restore from a prior backup without re-entering them.
+- Wipe site data → Connect Google → favorites/recents/prefs restore from a prior backup without re-entering them. **(manual — needs `VITE_GOOGLE_OAUTH_CLIENT_ID` + Testing user)**
 - Local star → within debounce → appears on second browser profile after Connect (manual).
 
-### Gate —
+### Gate — 2026-11-03
 
-_(fill when done)_
+Code + unit tests on `user-login`. Live Drive smoke still blocked on human Google Cloud checklist (Phase 0 console steps).
 
 ---
 
