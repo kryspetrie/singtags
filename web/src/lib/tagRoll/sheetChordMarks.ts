@@ -509,6 +509,7 @@ export function estimateSheetChordSystemClearances(
     marginsPx: { left: 0, right: 0, top: 0, bottom: 0 },
     measures: stubMeasures,
     pages: [],
+    chordClearanceBySystem: [],
     tickToX,
     tickToPoint: (t: number) => ({ x: tickToX(t), y: 0 }),
     pointToTick: () => 0,
