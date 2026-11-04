@@ -113,6 +113,11 @@ async function onConnect(): Promise<void> {
         </header>
 
         <div class="body">
+          <p class="warn beta-note" role="note">
+            Beta: your email <strong>must</strong> be configured by Krys as a test user, or Connect
+            will not work. Ask Krys to add you before continuing.
+          </p>
+
           <ul class="highlights">
             <li>Pick up where you left off on phone, tablet, or computer</li>
             <li>SingTags keeps no account and no copy of your data</li>

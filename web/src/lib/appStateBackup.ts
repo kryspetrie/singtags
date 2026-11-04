@@ -46,9 +46,8 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.labs.arranging.enabled.v1',
   /** Labs Google Drive sync master switch (Phase 2+). */
   'singtags.labs.driveSync.enabled.v1',
-  /** Opt-in Drive mirror of Browse sheet / track offline packs. */
-  'singtags.drive.cache.sheets.enabled.v1',
-  'singtags.drive.cache.audio.enabled.v1',
+  // Song-cache prefs (`singtags.drive.cache.{sheets,audio}.enabled.v1`) stay device-local —
+  // each browser chooses whether to download sheets/tracks (from Drive or S3). Do not sync.
   /** Background Drive sync poll interval in minutes (`0` = off). */
   'singtags.drive.sync.pollMinutes.v1',
 

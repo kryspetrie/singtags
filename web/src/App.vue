@@ -12,6 +12,11 @@ import { useOfflineLibraryStore } from './stores/offlineLibrary'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { usePreferencesStore } from './stores/preferences'
 import { useSnackbarStore } from './stores/snackbar'
+import {
+  driveCacheSyncState,
+  driveCacheTransferLabel,
+  isDriveCacheTransferActive,
+} from './lib/google/driveCacheSync'
 import { formatBytes } from './offline/storageEstimate'
 import { goTagBack, tagBackLabel } from './lib/tagReturn'
 import {
@@ -393,7 +398,7 @@ watch(
 
 const bottomNavCols = computed(() => pinnedNavItems.value.length + 1)
 
-/** User hid the pack download progress snack; download keeps running. */
+/** User hid the pack / Drive transfer progress snack; transfer keeps running. */
 const packProgressSnackHidden = ref(false)
 
 const packDownloadActive = computed(
@@ -403,11 +408,21 @@ const packDownloadActive = computed(
     offlineLib.packSyncBusy,
 )
 
+const driveCacheTransferActive = computed(() => isDriveCacheTransferActive())
+
 const showPackProgressSnack = computed(
-  () => packDownloadActive.value && !packProgressSnackHidden.value,
+  () =>
+    (packDownloadActive.value || driveCacheTransferActive.value) &&
+    !packProgressSnackHidden.value,
 )
 
 const packProgressSnackPct = computed(() => {
+  if (driveCacheTransferActive.value && driveCacheSyncState.total > 0) {
+    return Math.min(
+      100,
+      Math.round((driveCacheSyncState.done / driveCacheSyncState.total) * 100),
+    )
+  }
   const sheetsOn = offlineLib.sheetsStatus === 'running'
   const audioOn = offlineLib.audioStatus === 'running'
   const sheetsRatio = offlineLib.sheetsProgress?.ratio ?? 0
@@ -419,19 +434,31 @@ const packProgressSnackPct = computed(() => {
 })
 
 const packProgressSnackLabel = computed(() => {
+  // Prefer Drive source/destination labels while a Drive transfer is active.
+  if (driveCacheTransferActive.value) {
+    return driveCacheTransferLabel() || 'Google Drive song cache…'
+  }
   const sheetsOn = offlineLib.sheetsStatus === 'running'
   const audioOn = offlineLib.audioStatus === 'running'
-  if (offlineLib.packSyncBusy && !sheetsOn && !audioOn) return 'Syncing offline library…'
+  if (offlineLib.packSyncBusy && !sheetsOn && !audioOn) {
+    return 'Syncing offline library from SingTags…'
+  }
   if (sheetsOn && audioOn) {
-    return `Downloading offline library… ${packProgressSnackPct.value}%`
+    return `Downloading from SingTags… ${packProgressSnackPct.value}%`
   }
   if (sheetsOn) {
-    return offlineLib.sheetsProgress?.label || `Downloading sheets… ${packProgressSnackPct.value}%`
+    return (
+      offlineLib.sheetsProgress?.label ||
+      `Downloading sheets from SingTags… ${packProgressSnackPct.value}%`
+    )
   }
   if (audioOn) {
-    return offlineLib.audioProgress?.label || `Downloading learning tracks… ${packProgressSnackPct.value}%`
+    return (
+      offlineLib.audioProgress?.label ||
+      `Downloading tracks from SingTags… ${packProgressSnackPct.value}%`
+    )
   }
-  return 'Downloading…'
+  return 'Downloading from SingTags…'
 })
 
 function dismissPackProgressSnack(): void {
@@ -447,26 +474,55 @@ watch(
     () => offlineLib.sheetsStatus,
     () => offlineLib.audioStatus,
     () => offlineLib.packSyncBusy,
+    () => driveCacheSyncState.status,
   ],
-  ([sheets, audio, busy], prev) => {
-    const [prevSheets, prevAudio, prevBusy] = prev ?? [sheets, audio, busy]
-    const wasActive = prevSheets === 'running' || prevAudio === 'running' || Boolean(prevBusy)
-    const isActive = sheets === 'running' || audio === 'running' || Boolean(busy)
-    if (isActive && !wasActive) {
+  ([sheets, audio, busy, driveStatus], prev) => {
+    const [prevSheets, prevAudio, prevBusy, prevDrive] = prev ?? [
+      sheets,
+      audio,
+      busy,
+      driveStatus,
+    ]
+    const wasPack = prevSheets === 'running' || prevAudio === 'running' || Boolean(prevBusy)
+    const isPack = sheets === 'running' || audio === 'running' || Boolean(busy)
+    const wasDrive =
+      prevDrive === 'hydrating' || prevDrive === 'uploading' || prevDrive === 'invalidating'
+    const isDrive =
+      driveStatus === 'hydrating' ||
+      driveStatus === 'uploading' ||
+      driveStatus === 'invalidating'
+    if ((isPack && !wasPack) || (isDrive && !wasDrive)) {
       // New download/sync — show the snack even if the previous run was dismissed.
       packProgressSnackHidden.value = false
       return
     }
-    if (!isActive && wasActive) {
+    if (!isPack && wasPack && !isDrive) {
       packProgressSnackHidden.value = true
       const finishedOk =
         (prevSheets === 'running' && sheets === 'done') ||
         (prevAudio === 'running' && audio === 'done') ||
         (Boolean(prevBusy) && !busy && (sheets === 'done' || audio === 'done'))
       if (finishedOk) {
-        snackbar.show('Offline library updated — browse Settings for details.', {
+        snackbar.show('Offline library updated from SingTags — see Settings for details.', {
           tone: 'ok',
           ms: 6_000,
+        })
+      }
+    }
+    if (!isDrive && wasDrive && !isPack) {
+      packProgressSnackHidden.value = true
+      const msg = driveCacheSyncState.message
+      if (driveStatus === 'error') {
+        snackbar.show(msg || 'Google Drive song-cache sync failed', {
+          title: 'Google Drive',
+          tone: 'error',
+          ms: 7_000,
+        })
+      } else if (msg && /Uploaded|Restored/i.test(msg)) {
+        snackbar.show(msg, {
+          title: 'Google Drive',
+          tone: 'ok',
+          ms: 5_000,
         })
       }
     }

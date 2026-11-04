@@ -53,9 +53,13 @@ describe('GoogleDriveCacheOfferDialog', () => {
     expect(probeDriveCachePresence).toHaveBeenCalled()
     const text = document.body.textContent || ''
     expect(text).toMatch(/already has SingTags song files/i)
+    expect(text).toMatch(/for this device only/i)
     expect(text).toMatch(/Enable local sheet music cache from your Drive/)
     expect(text).toMatch(/Enable local track cache and sync/)
     expect(text).toMatch(/Already on Drive/)
+    const checks = [...document.body.querySelectorAll('input.cache-check')] as HTMLInputElement[]
+    expect(checks).toHaveLength(2)
+    expect(checks.every((c) => !c.checked)).toBe(true)
     w.unmount()
   })
 
@@ -73,13 +77,13 @@ describe('GoogleDriveCacheOfferDialog', () => {
     await flushPromises()
 
     const text = document.body.textContent || ''
-    expect(text).toMatch(/Optionally keep sheet music/i)
+    expect(text).toMatch(/on this device/i)
     expect(text).toMatch(/Enable local sheet music cache and sync/)
     expect(text).toMatch(/Enable local track cache and sync/)
     w.unmount()
   })
 
-  it('Continue applies selected prefs', async () => {
+  it('Continue with defaults off applies no cache on this device', async () => {
     probeDriveCachePresence.mockResolvedValue({
       sheets: { present: true, files: 1, bytes: 10 },
       audio: { present: true, files: 2, bytes: 20 },
@@ -90,6 +94,36 @@ describe('GoogleDriveCacheOfferDialog', () => {
       attachTo: document.body,
       global: { plugins: [createPinia()] },
     })
+    await flushPromises()
+
+    const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Continue$/.test((b.textContent || '').trim()),
+    ) as HTMLButtonElement
+    continueBtn.click()
+    await flushPromises()
+
+    expect(applyDriveCacheOffer).toHaveBeenCalledWith(
+      expect.objectContaining({ sheets: false, audio: false }),
+    )
+    expect(w.emitted('decided')?.[0]).toEqual([{ sheets: false, audio: false }])
+    w.unmount()
+  })
+
+  it('Continue applies checked prefs for this device', async () => {
+    probeDriveCachePresence.mockResolvedValue({
+      sheets: { present: true, files: 1, bytes: 10 },
+      audio: { present: true, files: 2, bytes: 20 },
+    })
+
+    const w = mount(GoogleDriveCacheOfferDialog, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    const checks = [...document.body.querySelectorAll('input.cache-check')] as HTMLInputElement[]
+    for (const c of checks) c.click()
     await flushPromises()
 
     const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>

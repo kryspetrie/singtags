@@ -65,6 +65,7 @@ describe('GoogleDriveConnectDialog', () => {
 
     const text = document.body.textContent || ''
     expect(text).toMatch(/Sync across your devices/)
+    expect(text).toMatch(/must.*be configured by Krys as a test user/i)
     expect(text).toMatch(/check your Drive for an existing song cache/i)
     expect(text).not.toMatch(/Enable local sheet music cache and sync/)
     expect(document.body.querySelectorAll('input[type="checkbox"]')).toHaveLength(0)

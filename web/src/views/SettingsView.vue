@@ -54,6 +54,12 @@ import {
   setDriveSyncPollMinutes,
 } from '../lib/google/driveSyncPoll'
 import {
+  driveCacheSyncState,
+  driveCacheTransferLabel,
+  isDriveCacheTransferActive,
+  restoreDriveCachePrefs,
+} from '../lib/google/driveCacheSync'
+import {
   googleAuthState,
   isDriveSyncEnabled,
   isGoogleConfigured,
@@ -238,6 +244,7 @@ const canRequestPersistentStorage = computed(
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
   restoreGoogleConnection()
+  restoreDriveCachePrefs()
   drivePollMinutes.value = getDriveSyncPollMinutes()
   void refreshPdfRasterMeter()
   // Always refresh manifests when online so new remote tags can be detected.
@@ -265,6 +272,39 @@ const cachePct = computed(() => {
 })
 
 const metered = computed(() => offlineLib.isLikelyMeteredConnection())
+
+/** Source-aware song-cache transfer line (Drive vs SingTags). */
+const songCacheTransferStatus = computed(() => {
+  if (isDriveCacheTransferActive()) {
+    return driveCacheTransferLabel()
+  }
+  const sheetsOn = offlineLib.sheetsStatus === 'running'
+  const audioOn = offlineLib.audioStatus === 'running'
+  if (sheetsOn && audioOn) return 'Downloading sheets & tracks from SingTags…'
+  if (sheetsOn) {
+    return offlineLib.sheetsProgress?.label
+      ? `${offlineLib.sheetsProgress.label} (from SingTags)`
+      : 'Downloading sheets from SingTags…'
+  }
+  if (audioOn) {
+    return offlineLib.audioProgress?.label
+      ? `${offlineLib.audioProgress.label} (from SingTags)`
+      : 'Downloading tracks from SingTags…'
+  }
+  if (offlineLib.packSyncBusy) return 'Syncing offline library from SingTags…'
+  // Idle leftover from the last Drive transfer (e.g. “Uploaded 12 files…”).
+  return driveCacheTransferLabel()
+})
+
+const songCacheDevicePrefs = computed(() => {
+  const bits: string[] = []
+  if (driveCacheSyncState.sheetsEnabled) bits.push('sheets')
+  if (driveCacheSyncState.audioEnabled) bits.push('tracks')
+  if (!bits.length) return 'This device is not set to keep a song cache.'
+  return `This device caches ${bits.join(' & ')}${
+    googleAuthState.connected ? ' (Google Drive when available, else SingTags)' : ' from SingTags'
+  }.`
+})
 
 const audioDownloadBytes = computed(() =>
   estimateAudioDownloadBytes(
@@ -875,14 +915,17 @@ function cancelCullUpgrades(): void {
       <h2 id="drive-poll-h">Google Drive sync</h2>
       <p class="hint">
         When you’re signed in, SingTags periodically checks Drive both ways: pull newer favorites /
-        settings (and song cache if enabled), then upload local changes. Uses the signed-in tab
+        settings, then upload local changes. Song cache stays per-device. Uses the signed-in tab
         token — no login popup from the background.
       </p>
       <p v-if="googleAuthState.connected" class="hint" role="status">
         Signed in{{ googleAuthState.email ? ` as ${googleAuthState.email}` : '' }}
-        <template v-if="!isDriveSyncEnabled()"> — turn on Drive sync from More → Log in / Labs</template>.
+        <template v-if="!isDriveSyncEnabled()"> — turn on Drive sync from Labs (beta)</template>.
       </p>
-      <p v-else class="hint">Not signed in — open More → Log in with Google to connect.</p>
+      <p v-else class="hint">
+        Not signed in — enable Google Drive sync in Labs (your email must be added by Krys as a beta
+        tester), then Log in.
+      </p>
       <label class="drive-poll-row">
         <span class="drive-poll-label">Background sync interval</span>
         <select
@@ -904,7 +947,10 @@ function cancelCullUpgrades(): void {
 
     <p class="lede">
       Save the songbook and optional lo-fi learning tracks on this device for offline singing.
-      Favorite individual tags while browsing to cache compact 64 kbps Mix audio for those songs.
+      This choice is per device — signing in elsewhere does not start a download here. When you’re
+      signed in with Google, this device prefers your Drive cache and uploads new files for other
+      devices that opt in. Favorite individual tags while browsing to cache compact 64 kbps Mix
+      audio for those songs.
     </p>
 
     <dl v-if="offlineLib.sheetsCachedCount || offlineLib.audioCachedCount" class="storage-summary">
@@ -933,6 +979,20 @@ function cancelCullUpgrades(): void {
       connect to Wi‑Fi before caching the full audio library.
     </p>
     <p v-if="offlineLib.cacheMessage" class="ok" role="status">{{ offlineLib.cacheMessage }}</p>
+    <p class="hint" role="status">{{ songCacheDevicePrefs }}</p>
+    <p
+      v-if="songCacheTransferStatus"
+      class="ok sync-banner"
+      role="status"
+      :aria-busy="isDriveCacheTransferActive() || offlineLib.packSyncBusy || offlineLib.sheetsStatus === 'running' || offlineLib.audioStatus === 'running'"
+    >
+      {{ songCacheTransferStatus }}
+      <template v-if="isDriveCacheTransferActive() && driveCacheSyncState.total > 0">
+        <span class="storage-meta">
+          ({{ driveCacheSyncState.done }}/{{ driveCacheSyncState.total }})
+        </span>
+      </template>
+    </p>
 
     <p v-if="packSyncBanner && !offline" class="ok sync-banner" role="status">
       {{ packSyncBanner }}

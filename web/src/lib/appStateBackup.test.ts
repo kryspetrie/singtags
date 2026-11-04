@@ -78,4 +78,17 @@ describe('appStateBackup', () => {
     expect(localStorage.getItem('evil.key')).toBeNull()
     expect(APP_STATE_LOCAL_KEYS).toContain('singtags.manualOffline')
   })
+
+  it('keeps song-cache prefs device-local (not in app-state sync)', () => {
+    expect(APP_STATE_LOCAL_KEYS).not.toContain('singtags.drive.cache.sheets.enabled.v1')
+    expect(APP_STATE_LOCAL_KEYS).not.toContain('singtags.drive.cache.audio.enabled.v1')
+    localStorage.setItem('singtags.drive.cache.sheets.enabled.v1', '0')
+    applyLocalStorageSnapshot({
+      'singtags.drive.cache.sheets.enabled.v1': '1',
+      'singtags.drive.cache.audio.enabled.v1': '1',
+    })
+    // Stale cloud keys must not flip this device’s cache choice.
+    expect(localStorage.getItem('singtags.drive.cache.sheets.enabled.v1')).toBe('0')
+    expect(localStorage.getItem('singtags.drive.cache.audio.enabled.v1')).toBeNull()
+  })
 })

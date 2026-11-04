@@ -27,8 +27,9 @@ const probing = ref(false)
 const applying = ref(false)
 const error = ref('')
 const presence = ref<DriveCachePresence | null>(null)
-const enableSheets = ref(true)
-const enableAudio = ref(true)
+/** Per-device opt-in — default off so a new login does not start a large download. */
+const enableSheets = ref(false)
+const enableAudio = ref(false)
 
 const SHEETS_SIZE_CAP = 100 * 1024 * 1024
 
@@ -68,15 +69,15 @@ watch(
     error.value = ''
     applying.value = false
     presence.value = null
-    enableSheets.value = true
-    enableAudio.value = true
+    enableSheets.value = false
+    enableAudio.value = false
     probing.value = true
     window.addEventListener('keydown', onKeydown)
     try {
       presence.value = await probeDriveCachePresence()
-      // Default on; still recommended whether restoring or first sync.
-      enableSheets.value = true
-      enableAudio.value = true
+      // Stay off until the user opts in for this device.
+      enableSheets.value = false
+      enableAudio.value = false
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       presence.value = {
@@ -148,13 +149,14 @@ async function onSkip(): Promise<void> {
           <p class="lede">
             <template v-if="probing">Checking your Google Drive…</template>
             <template v-else-if="anyOnDrive">
-              Your Drive already has SingTags song files. Enable a local cache to restore them
-              here — no need to re-download everything from SingTags.com.
+              Your Drive already has SingTags song files. Turn on a cache
+              <strong>for this device only</strong> to restore them here (from Drive when
+              possible, otherwise SingTags). Other devices keep their own choice.
             </template>
             <template v-else>
-              Optionally keep sheet music and learning tracks on this device and in your Drive.
-              Recommended — SingTags is self-funded, and Drive makes hosting a one-time cost per
-              person.
+              Optionally download sheet music and learning tracks
+              <strong>on this device</strong>. When you’re signed in, new files also sync to your
+              Drive for other devices that opt in. Skip if you don’t need a local cache here.
             </template>
           </p>
         </header>

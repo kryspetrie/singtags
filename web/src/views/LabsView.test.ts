@@ -1,7 +1,8 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
+import { isDriveSyncEnabled } from '../lib/google/googleAuth'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import LabsView from './LabsView.vue'
@@ -12,6 +13,10 @@ describe('LabsView', () => {
     localStorage.clear()
     setActivePinia(createPinia())
     document.body.innerHTML = ''
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('does not expose Optical Transfer or Audio Recorder labs toggles', async () => {
@@ -95,6 +100,20 @@ describe('LabsView', () => {
     })
     await flushPromises()
     expect(w.find('input[aria-label="Tag Roulette"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('keeps Google Drive sync off by default and states the beta-tester requirement', async () => {
+    vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(isDriveSyncEnabled()).toBe(false)
+    const toggle = w.get('input[aria-label="Google Drive sync"]')
+    expect(toggle.element).toHaveProperty('checked', false)
+    expect(w.text()).toMatch(/must.*be added by Krys as a beta tester/i)
+    expect(w.text()).toMatch(/Off — enable after Krys adds your email/)
     w.unmount()
   })
 })

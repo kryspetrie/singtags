@@ -14,6 +14,7 @@ import {
 } from '../lib/google/accountUi'
 import {
   googleAuthState,
+  isDriveSyncEnabled,
   isGoogleConfigured,
   restoreGoogleConnection,
 } from '../lib/google/googleAuth'
@@ -111,8 +112,15 @@ const accountMenuDesc = computed(() => {
       ? `Signed in as ${googleAuthState.email}`
       : 'Disconnect Google Drive sync'
   }
-  return 'Sync favorites & settings via your Drive'
+  return 'Beta — email must be added by Krys first'
 })
+
+/** Labs-gated: Log in appears after enabling Drive sync; Log out stays if connected. */
+const showAccountMenu = computed(
+  () =>
+    googleConfigured &&
+    (googleAuthState.driveSyncEnabled || googleAuthState.connected || isDriveSyncEnabled()),
+)
 
 const primaryNavGates = computed(
   (): PrimaryNavGates => ({
@@ -210,6 +218,18 @@ function onAccountClick(): void {
     openGoogleLogoutConfirm()
     return
   }
+  if (!isDriveSyncEnabled() && !googleAuthState.driveSyncEnabled) {
+    snackbar.show(
+      'Turn on Google Drive sync in Labs first. Your email must be added by Krys as a beta tester.',
+      {
+        title: 'Labs beta',
+        tone: 'error',
+        ms: 4500,
+        placement: 'center',
+      },
+    )
+    return
+  }
   openGoogleLogin()
 }
 </script>
@@ -293,9 +313,9 @@ function onAccountClick(): void {
         <span class="menu-desc">{{ item.desc }}</span>
       </RouterLink>
 
-      <!-- Mobile only — desktop uses the top-right account control. -->
+      <!-- Mobile only — desktop uses the top-right account control. Labs-gated. -->
       <button
-        v-if="!isDesktop"
+        v-if="!isDesktop && showAccountMenu"
         type="button"
         class="menu-item menu-item-account"
         :class="{ connected: googleAuthState.connected }"

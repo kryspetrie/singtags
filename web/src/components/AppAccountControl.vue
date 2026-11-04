@@ -17,6 +17,7 @@ import {
 import { driveSyncState } from '../lib/google/driveAppStateSync'
 import {
   googleAuthState,
+  isDriveSyncEnabled,
   isGoogleConfigured,
   restoreGoogleConnection,
   setDriveSyncEnabled,
@@ -53,6 +54,13 @@ const chromeTitle = computed(() => {
   }
   return 'Log in with Google to sync across devices'
 })
+
+/** Labs-gated: hide Log in until Drive sync is enabled; keep chrome if already signed in. */
+const showAccountChrome = computed(
+  () =>
+    googleConfigured &&
+    (googleAuthState.driveSyncEnabled || googleAuthState.connected || isDriveSyncEnabled()),
+)
 
 onMounted(() => {
   restoreGoogleConnection()
@@ -111,6 +119,18 @@ function onChromeClick(): void {
     return
   }
   if (!googleAuthState.connected) {
+    if (!isDriveSyncEnabled() && !googleAuthState.driveSyncEnabled) {
+      snackbar.show(
+        'Turn on Google Drive sync in Labs first. Your email must be added by Krys as a beta tester.',
+        {
+          title: 'Labs beta',
+          tone: 'error',
+          ms: 4500,
+          placement: 'center',
+        },
+      )
+      return
+    }
     openGoogleLogin()
     return
   }
@@ -169,7 +189,7 @@ async function confirmLogout(): Promise<void> {
 </script>
 
 <template>
-  <div ref="rootRef" class="account-chrome">
+  <div v-if="showAccountChrome" ref="rootRef" class="account-chrome">
     <button
       type="button"
       class="account-btn"

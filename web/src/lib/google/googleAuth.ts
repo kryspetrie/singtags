@@ -75,6 +75,8 @@ declare global {
 /** Reactive UI state (token itself is deliberately not exposed). */
 export const googleAuthState = reactive({
   connected: false,
+  /** Labs flag — Google login chrome is hidden until this is on (or already connected). */
+  driveSyncEnabled: false,
   email: '' as string,
   busy: false,
   error: '' as string,
@@ -157,6 +159,7 @@ export function isDriveSyncEnabled(): boolean {
 
 export function setDriveSyncEnabled(on: boolean): void {
   writeFlag(DRIVE_SYNC_ENABLED_KEY, on ? '1' : '0')
+  googleAuthState.driveSyncEnabled = on
 }
 
 export function readConnection(): GoogleConnection | null {
@@ -175,6 +178,7 @@ export function readConnection(): GoogleConnection | null {
 export function restoreGoogleConnection(): void {
   const c = readConnection()
   googleAuthState.connected = c !== null
+  googleAuthState.driveSyncEnabled = isDriveSyncEnabled()
   googleAuthState.email = c?.email ?? ''
   restoreAccessTokenFromSession()
 }
@@ -388,6 +392,7 @@ export function __resetGoogleAuthForTests(): void {
   pending = null
   gisPromise = null
   googleAuthState.connected = false
+  googleAuthState.driveSyncEnabled = false
   googleAuthState.email = ''
   googleAuthState.busy = false
   googleAuthState.error = ''

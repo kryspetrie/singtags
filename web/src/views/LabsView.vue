@@ -21,7 +21,11 @@ import {
   ensureDriveHydrate,
   syncDriveAppStateNow,
 } from '../lib/google/driveAppStateSync'
-import { driveCacheSyncState } from '../lib/google/driveCacheSync'
+import {
+  driveCacheSyncState,
+  driveCacheTransferLabel,
+  isDriveCacheTransferActive,
+} from '../lib/google/driveCacheSync'
 import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
@@ -226,10 +230,14 @@ function toggleTagStudio(): void {
     <section class="card" aria-labelledby="drive-sync-h">
       <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
       <p class="card-desc">
-        Sign in with Google to keep preferences, favorites, recents, and Labs flags in your private
-        SingTags app folder on Google Drive (appData). Sheet / track cache mirroring is opt-in from
-        the Log in dialog. Tag Studio and My Library sync come next. SingTags never sees your
-        password.
+        Beta — off by default. Sign in with Google to keep preferences, favorites, recents, and Labs
+        flags in your private SingTags app folder on Drive (appData). Sheet / track cache mirroring
+        is opt-in after you connect. Tag Studio and My Library sync come next. SingTags never sees
+        your password.
+      </p>
+      <p class="card-desc" role="note">
+        Your Google email <strong>must</strong> be added by Krys as a beta tester first. If it isn’t
+        on the allowlist, Connect will fail — ask Krys to add you before turning this on.
       </p>
 
       <label class="setting-row" :class="{ on: driveSyncOn }" title="Enable Google Drive sync">
@@ -240,8 +248,8 @@ function toggleTagStudio(): void {
               !driveConfigured
                 ? 'Unavailable — this build has no Google client ID'
                 : driveSyncOn
-                  ? 'Feature available — connect below'
-                  : 'Off'
+                  ? 'On — Connect only works if Krys listed your email as a beta tester'
+                  : 'Off — enable after Krys adds your email as a beta tester'
             }}
           </span>
         </span>
@@ -295,12 +303,13 @@ function toggleTagStudio(): void {
           class="card-desc"
           role="status"
         >
-          Cache:
+          Song cache:
           {{
+            driveCacheTransferLabel() ||
             driveCacheSyncState.message ||
-            (driveCacheSyncState.status !== 'idle' ? driveCacheSyncState.status : '')
+            driveCacheSyncState.status
           }}
-          <template v-if="driveCacheSyncState.total > 0">
+          <template v-if="driveCacheSyncState.total > 0 && isDriveCacheTransferActive()">
             ({{ driveCacheSyncState.done }}/{{ driveCacheSyncState.total }})
           </template>
         </p>

@@ -14,6 +14,9 @@ import {
   DRIVE_CACHE_SHEETS_KEY,
   buildLocalDriveCacheManifest,
   decideDriveCacheAction,
+  driveCacheSyncState,
+  driveCacheTransferLabel,
+  isDriveCacheTransferActive,
   isSupportedDriveCacheManifest,
   pathForPackUrl,
   readDriveCachePref,
@@ -44,6 +47,31 @@ describe('driveCacheSync', () => {
 
     setDriveAudioCacheEnabled(true)
     expect(readDriveCachePref(DRIVE_CACHE_AUDIO_KEY)).toBe(true)
+  })
+
+  it('labels Drive transfers with source and progress', () => {
+    expect(isDriveCacheTransferActive()).toBe(false)
+    expect(driveCacheTransferLabel()).toBe('')
+
+    driveCacheSyncState.status = 'hydrating'
+    driveCacheSyncState.done = 3
+    driveCacheSyncState.total = 10
+    expect(isDriveCacheTransferActive()).toBe(true)
+    expect(driveCacheTransferLabel()).toMatch(/Downloading from Google Drive/)
+    expect(driveCacheTransferLabel()).toMatch(/3\/10/)
+
+    driveCacheSyncState.status = 'uploading'
+    driveCacheSyncState.done = 1
+    driveCacheSyncState.total = 4
+    expect(driveCacheTransferLabel()).toMatch(/Uploading to Google Drive/)
+    expect(driveCacheTransferLabel()).toMatch(/1\/4/)
+
+    driveCacheSyncState.status = 'idle'
+    driveCacheSyncState.message = 'Uploaded 4 files to Google Drive'
+    driveCacheSyncState.done = 0
+    driveCacheSyncState.total = 0
+    expect(isDriveCacheTransferActive()).toBe(false)
+    expect(driveCacheTransferLabel()).toBe('Uploaded 4 files to Google Drive')
   })
 
   it('round-trips pack paths', () => {

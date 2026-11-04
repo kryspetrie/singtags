@@ -1,6 +1,11 @@
 /**
  * Opt-in Drive mirror for Browse offline packs (sheets / lo-fi tracks).
  *
+ * Device-local prefs (`DRIVE_CACHE_*_KEY`): this browser wants a local song cache.
+ * They are **not** in app-state sync — login on a phone must not force cache download
+ * on a laptop. When a pref is on and the user is signed in, hydrate from Drive first,
+ * fill gaps from SingTags/S3, then push new local objects up.
+ *
  * Layout: appDataFolder/singtags/cache/{manifest.json, objects/{sha256}}
  * See docs/plans/google-drive-sync-and-cache.md Feature B / Phase 4.
  *
@@ -34,7 +39,9 @@ import {
   restoreGoogleConnection,
 } from './googleAuth'
 
+/** Device-local: this browser wants a sheets song cache (Drive and/or S3). */
 export const DRIVE_CACHE_SHEETS_KEY = 'singtags.drive.cache.sheets.enabled.v1'
+/** Device-local: this browser wants a tracks song cache (Drive and/or S3). */
 export const DRIVE_CACHE_AUDIO_KEY = 'singtags.drive.cache.audio.enabled.v1'
 
 export const DRIVE_CACHE_SEGMENTS = ['singtags', 'cache'] as const
@@ -107,7 +114,43 @@ export const driveCacheSyncState = reactive({
   done: 0,
   total: 0,
   lastInvalidationReason: '' as string,
+  /** Mirrored device prefs for reactive Settings / toast UI. */
+  sheetsEnabled: false,
+  audioEnabled: false,
 })
+
+function syncPrefStateFromStorage(): void {
+  driveCacheSyncState.sheetsEnabled = readFlag(DRIVE_CACHE_SHEETS_KEY)
+  driveCacheSyncState.audioEnabled = readFlag(DRIVE_CACHE_AUDIO_KEY)
+}
+
+/** True while Drive song-cache hydrate / upload / invalidate is in flight. */
+export function isDriveCacheTransferActive(): boolean {
+  const s = driveCacheSyncState.status
+  return s === 'hydrating' || s === 'uploading' || s === 'invalidating'
+}
+
+/**
+ * Short UI label for the current Drive song-cache transfer (source-aware).
+ * Empty when idle with no leftover status message.
+ */
+export function driveCacheTransferLabel(): string {
+  const { status, message, done, total } = driveCacheSyncState
+  const progress = total > 0 ? ` ${done.toLocaleString()}/${total.toLocaleString()}` : ''
+  if (status === 'hydrating') {
+    return `Downloading from Google Drive…${progress}`
+  }
+  if (status === 'uploading') {
+    return `Uploading to Google Drive…${progress}`
+  }
+  if (status === 'invalidating') {
+    return message || 'Updating Google Drive cache…'
+  }
+  if (status === 'error') {
+    return message || 'Google Drive cache error'
+  }
+  return message
+}
 
 let syncInFlight: Promise<void> | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
@@ -153,10 +196,17 @@ export function isDriveAudioCacheEnabled(): boolean {
 
 export function setDriveSheetsCacheEnabled(on: boolean): void {
   writeFlag(DRIVE_CACHE_SHEETS_KEY, on)
+  driveCacheSyncState.sheetsEnabled = on
 }
 
 export function setDriveAudioCacheEnabled(on: boolean): void {
   writeFlag(DRIVE_CACHE_AUDIO_KEY, on)
+  driveCacheSyncState.audioEnabled = on
+}
+
+/** Refresh reactive pref mirrors from localStorage (e.g. Settings mount). */
+export function restoreDriveCachePrefs(): void {
+  syncPrefStateFromStorage()
 }
 
 export function isDriveCacheSyncEnabled(): boolean {
@@ -718,7 +768,7 @@ export async function hydrateDriveCache(): Promise<{ sheets: number; audio: numb
   if (!hasUsableAccessToken()) await getAccessToken()
 
   driveCacheSyncState.status = 'hydrating'
-  driveCacheSyncState.message = 'Restoring song cache from Drive…'
+  driveCacheSyncState.message = 'Downloading song cache from Google Drive…'
   driveCacheSyncState.done = 0
   driveCacheSyncState.total = 0
 
@@ -741,7 +791,9 @@ export async function hydrateDriveCache(): Promise<{ sheets: number; audio: numb
 
   driveCacheSyncState.status = 'idle'
   driveCacheSyncState.message =
-    sheets + audio > 0 ? `Restored ${sheets + audio} files from Drive` : ''
+    sheets + audio > 0
+      ? `Restored ${sheets + audio} file${sheets + audio === 1 ? '' : 's'} from Google Drive`
+      : ''
   return { sheets, audio }
 }
 
@@ -759,7 +811,7 @@ export async function uploadDriveCache(): Promise<{ uploaded: number }> {
   if (!hasUsableAccessToken()) await getAccessToken()
 
   driveCacheSyncState.status = 'uploading'
-  driveCacheSyncState.message = 'Uploading song cache to Drive…'
+  driveCacheSyncState.message = 'Uploading song cache to Google Drive…'
 
   const local = await buildLocalDriveCacheManifest({ sheets: wantSheets, audio: wantAudio })
   const objectsFolderId = await ensureAppDataPath(DRIVE_CACHE_OBJECTS_SEGMENTS)
@@ -822,7 +874,7 @@ export async function uploadDriveCache(): Promise<{ uploaded: number }> {
     objectIds.set(entry.hash, created.id)
     uploaded++
     driveCacheSyncState.done++
-    driveCacheSyncState.message = `Uploading song cache… ${driveCacheSyncState.done}/${driveCacheSyncState.total}`
+    driveCacheSyncState.message = `Uploading to Google Drive… ${driveCacheSyncState.done}/${driveCacheSyncState.total}`
   })
 
   // Merge cloud entries for packs we are not uploading this pass so we don't wipe them.
@@ -845,7 +897,9 @@ export async function uploadDriveCache(): Promise<{ uploaded: number }> {
 
   driveCacheSyncState.status = 'idle'
   driveCacheSyncState.message =
-    uploaded > 0 ? `Uploaded ${uploaded} files to Drive` : 'Song cache already on Drive'
+    uploaded > 0
+      ? `Uploaded ${uploaded} file${uploaded === 1 ? '' : 's'} to Google Drive`
+      : 'Song cache already on Google Drive'
   return { uploaded }
 }
 
@@ -919,4 +973,6 @@ export function __resetDriveCacheSyncForTests(): void {
   driveCacheSyncState.done = 0
   driveCacheSyncState.total = 0
   driveCacheSyncState.lastInvalidationReason = ''
+  driveCacheSyncState.sheetsEnabled = false
+  driveCacheSyncState.audioEnabled = false
 }

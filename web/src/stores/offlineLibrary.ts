@@ -649,6 +649,20 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     if (kind === 'audio' && audioStatus.value === 'running') return
     error.value = null
     await requestPersistentStorage()
+    // Mark this device as wanting a local song cache for this pack (not synced via app-state).
+    // When signed in, prefer Drive objects first, then fill gaps from SingTags/S3 below.
+    try {
+      const auth = await import('../lib/google/googleAuth')
+      const cache = await import('../lib/google/driveCacheSync')
+      auth.restoreGoogleConnection()
+      if (kind === 'sheets') cache.setDriveSheetsCacheEnabled(true)
+      else cache.setDriveAudioCacheEnabled(true)
+      if (auth.isDriveSyncEnabled() && auth.googleAuthState.connected && !offlineMode.offline) {
+        await cache.ensureDriveCacheSync({ allowTokenPrompt: false })
+      }
+    } catch {
+      /* Drive optional — continue with SingTags download */
+    }
     // Refresh remote manifests so newly published tags are included.
     if (!offlineMode.offline) {
       await loadManifests()
@@ -858,6 +872,14 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       audioProgress.value = null
       audioCachedCount.value = 0
       audioCachedBytes.value = 0
+    }
+    // Opt this device out of auto song-cache for this pack (Drive hydrate / push stays off).
+    try {
+      const cache = await import('../lib/google/driveCacheSync')
+      if (kind === 'sheets') cache.setDriveSheetsCacheEnabled(false)
+      else cache.setDriveAudioCacheEnabled(false)
+    } catch {
+      /* ignore */
     }
     await refreshEstimate()
     await refreshCacheReady().catch(() => undefined)

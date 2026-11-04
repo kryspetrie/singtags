@@ -65,8 +65,10 @@ describe('googleAuth', () => {
 
   it('stores Drive sync Labs flag, default off', () => {
     expect(isDriveSyncEnabled()).toBe(false)
+    expect(googleAuthState.driveSyncEnabled).toBe(false)
     setDriveSyncEnabled(true)
     expect(isDriveSyncEnabled()).toBe(true)
+    expect(googleAuthState.driveSyncEnabled).toBe(true)
   })
 
   it('signIn persists connection marker and email, not the token', async () => {

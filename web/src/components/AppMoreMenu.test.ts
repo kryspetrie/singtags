@@ -16,6 +16,7 @@ import {
   __resetGoogleAuthForTests,
   GOOGLE_CONNECTED_KEY,
   googleAuthState,
+  setDriveSyncEnabled,
 } from '../lib/google/googleAuth'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
@@ -371,7 +372,34 @@ describe('AppMoreMenu', () => {
     w.unmount()
   })
 
+  it('hides Log in with Google until Labs Drive sync is enabled', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    expect(
+      [...document.body.querySelectorAll('button.menu-item-account')].some((b) =>
+        /Log in with Google/.test(b.textContent || ''),
+      ),
+    ).toBe(false)
+    w.unmount()
+  })
+
   it('opens the Drive connect modal from Log in with Google', async () => {
+    setDriveSyncEnabled(true)
     const pinia = createPinia()
     setActivePinia(pinia)
     const router = createRouter({
@@ -403,6 +431,7 @@ describe('AppMoreMenu', () => {
     expect(accountUiState.connectOpen).toBe(true)
     expect(document.body.textContent).toMatch(/Sync across your devices/)
     expect(document.body.textContent).toMatch(/Your data & privacy/)
+    expect(document.body.textContent).toMatch(/must.*be configured by Krys as a test user/i)
     w.unmount()
     account.unmount()
   })
