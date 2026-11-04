@@ -741,9 +741,12 @@ async function hydratePackFromManifest(
       continue
     }
     const bytes = await downloadFileBytes(fileId)
+    // Copy into a fresh ArrayBuffer — Response BodyInit rejects shared/generic ArrayBufferLike.
+    const body = new Uint8Array(bytes.byteLength)
+    body.set(bytes)
     await store.put(
       url,
-      new Response(bytes, {
+      new Response(body.buffer, {
         status: 200,
         headers: { 'Content-Type': entry.mime || 'application/octet-stream' },
       }),
