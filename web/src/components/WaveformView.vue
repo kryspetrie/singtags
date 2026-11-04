@@ -20,6 +20,7 @@ import {
   type WaveformLayout,
   bracketCenterX,
 } from '../lib/waveformLayout'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const props = withDefaults(
   defineProps<{
@@ -204,7 +205,7 @@ function timeAt(lay: WaveformLayout, x: number): number {
 function clientXLocal(clientX: number): number {
   const wrap = wrapRef.value
   if (!wrap) return 0
-  return clientX - wrap.getBoundingClientRect().left
+  return visualPxToLayoutPx(clientX - wrap.getBoundingClientRect().left)
 }
 
 function draw(): void {
@@ -454,7 +455,7 @@ function onPointerMove(e: PointerEvent): void {
   if (!props.interactive) return
   const lay = readLayout()
   if (!lay) return
-  if (!dragging.value && Math.abs(e.clientX - downX.value) > DRAG_SLOP) {
+  if (!dragging.value && Math.abs(visualPxToLayoutPx(e.clientX - downX.value)) > DRAG_SLOP) {
     dragging.value = true
     if (pending.value === 'cursor') {
       drag.value = 'cursor'

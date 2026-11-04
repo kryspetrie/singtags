@@ -31,6 +31,17 @@ const KNOWN: Record<string, CollectionInfo> = {
   easytags: { id: 'easytags', label: 'Easy Tags', prefix: null, sortRank: 2 },
 }
 
+/**
+ * Filter id for tags with no catalog collection (browse “Other” section).
+ * Not a BarbershopTags series id — sentinel for section / chip filters only.
+ */
+export const COLLECTION_OTHER_FILTER_ID = '__other__'
+
+/** True when a filter id targets the Other (uncategorized) bucket. */
+export function isOtherCollectionFilterId(id: string | null | undefined): boolean {
+  return id === COLLECTION_OTHER_FILTER_ID || id === 'other'
+}
+
 /** Normalize a raw collection id for comparison and filter keys. */
 export function normalizeCollectionId(raw: string | null | undefined): string | null {
   if (raw == null) return null
@@ -252,7 +263,12 @@ export function filterTagsByCollectionOptions(
   if (!collectionFilters.length) return tags
   const catalogIds = new Set<string>()
   const memberIds = new Set<number>()
+  let includeOther = false
   for (const f of collectionFilters) {
+    if (isOtherCollectionFilterId(f)) {
+      includeOther = true
+      continue
+    }
     const uid = parseUserCollectionFilterId(f)
     if (uid) {
       const col = userCollections.find((c) => c.id === uid)
@@ -266,6 +282,8 @@ export function filterTagsByCollectionOptions(
     const cid = normalizeCollectionId(t.collection)
     if (cid && catalogIds.has(cid)) return true
     if (memberIds.has(t.id)) return true
+    // Browse “Other” = no catalog collection id (null / blank).
+    if (includeOther && !cid) return true
     return false
   })
 }

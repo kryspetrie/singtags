@@ -69,6 +69,18 @@ import {
   collectionJumpLabel,
 } from '../search/browse'
 import { isUserCollectionFilterId } from '../lib/collections'
+import { NARROW_VIEWPORT_MQ, readIsNarrowViewport } from '../lib/narrowViewport'
+import {
+  scrollWindowToLayoutY,
+  visualPxToLayoutPx,
+  windowScrollYLayout,
+} from '../lib/uiScale'
+import {
+  observeZoomAwareWindowOffset,
+  observeZoomAwareWindowRect,
+  zoomAwareInitialOffset,
+  zoomAwareWindowScroll,
+} from '../lib/zoomWindowVirtualizer'
 import { normalizeYear } from '../lib/year'
 import { DEFAULT_AXIS_BLEND, scrubResultsIndexTick } from '../lib/scrub'
 import { visibleAltTitle } from '../lib/tagDisplay'
@@ -123,15 +135,20 @@ const showMidRestoreSkeleton = computed(
  * away). Those blocks stay in flow (visibility:hidden) so offsets stay stable
  * when they become visible again on reveal.
  */
+function syncWindowScrollY(): void {
+  windowScrollY.value = windowScrollYLayout()
+}
+
 function scrollPastSearchChrome(): void {
   if (typeof window === 'undefined') return
   beginProgrammaticBrowseScroll()
   const meta = document.querySelector('.home .results-meta') as HTMLElement | null
   const search = document.querySelector('.home .search-toolbar') as HTMLElement | null
   const el = meta ?? search
+  // offsetTop/Height are layout CSS px — convert for window.scrollTo under html zoom.
   const y = el ? Math.max(0, el.offsetTop + el.offsetHeight - 4) : 120
-  window.scrollTo({ top: y, left: 0, behavior: 'auto' })
-  windowScrollY.value = window.scrollY
+  scrollWindowToLayoutY(y)
+  syncWindowScrollY()
 }
 
 function closeWelcome(): void {
@@ -295,14 +312,20 @@ function browseAltTitle(tag: TagSummary): string | null {
 /** True while we are writing `at` so route watch does not re-apply filters. */
 const syncingScrollUrl = ref(false)
 
-function applyRoute(): void {
+/**
+ * Sync catalog from the route. Pass `revealOptions` only for the initial deep-link
+ * paint — section-header filters must not force-open the ⋮ options panel.
+ */
+function applyRoute(opts?: { revealOptions?: boolean }): void {
   syncingRoute.value = true
   const sort = (
     typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_BROWSE_SORT
   ) as SortMode
   catalog.syncFromRoute(route.query as Record<string, unknown>, sort)
-  // Reveal filter chips when the URL carried search/filter state (copy/paste deep link).
-  if (browseQueryHasFiltersOrSearch(route.query as Record<string, unknown>)) {
+  if (
+    opts?.revealOptions &&
+    browseQueryHasFiltersOrSearch(route.query as Record<string, unknown>)
+  ) {
     optionsOpen.value = true
   }
   void nextTick(() => {
@@ -312,7 +335,7 @@ function applyRoute(): void {
 
 // Apply deep-link query before catalog finishes loading so copy/paste URLs
 // never flash default Browse (and never get wiped by a late store→URL write).
-applyRoute()
+applyRoute({ revealOptions: true })
 
 watch(
   () => route.query,
@@ -510,8 +533,8 @@ function scrollBrowseTop(): void {
   scrollToBrowseRow(0, 'start')
 }
 
-/** Document scroll Y — drives ↑ enabled/disabled and two-step jump-top. */
-const windowScrollY = ref(typeof window !== 'undefined' ? window.scrollY : 0)
+/** Document scroll Y in layout CSS px — drives ↑ enabled/disabled and jump-top. */
+const windowScrollY = ref(windowScrollYLayout())
 
 const DOC_TOP_EPS = 2
 const BROWSE_FLOOR_EPS = 8
@@ -539,11 +562,11 @@ const jumpTopLabel = computed(() => {
   return 'Jump to first section'
 })
 
-/** Tooltip mentions hold-to-search when a short click still has a stepwise target. */
+/** Tooltip mentions hold/double-click shortcut when a short click still has a stepwise target. */
 const jumpTopTitle = computed(() => {
   if (jumpTopDisabled.value) return jumpTopLabel.value
   if (atBrowseChromeTop.value) return jumpTopLabel.value
-  return `${jumpTopLabel.value} · hold for search`
+  return `${jumpTopLabel.value} · hold or double-tap for top`
 })
 
 const JUMP_TOP_HOLD_MS = 450
@@ -596,7 +619,7 @@ function onJumpTopClick(): void {
     jumpTopHoldFired = false
     return
   }
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
   if (jumpTopDisabled.value) return
   if (atBrowseChromeTop.value) {
     scrollToSearchTop({ force: true })
@@ -604,9 +627,9 @@ function onJumpTopClick(): void {
   }
   scrollBrowseTop()
   // Virtualizer scroll may settle a frame later — refresh ↑ state for the second step.
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
   requestAnimationFrame(() => {
-    windowScrollY.value = window.scrollY
+    syncWindowScrollY()
   })
 }
 
@@ -628,9 +651,16 @@ const browseJumpKeys = computed(() => {
   return live
 })
 
+/** One collection chip active → flat tag list; scrub by tag # like View by Tag #. */
+const singleCollectionFiltered = computed(
+  () => catalog.sortMode === 'collection' && catalog.filters.collections.length === 1,
+)
+
 /** Year / Tag # density scrub — always available when that View-by is active. */
 const specificScrub = computed(
-  () => hasScrubRail(catalog.sortMode) && catalog.allResults.length >= 1,
+  () =>
+    (hasScrubRail(catalog.sortMode) || singleCollectionFiltered.value) &&
+    catalog.allResults.length >= 1,
 )
 /**
  * Optional results scrub for every other View-by (title, collection, rating, …).
@@ -638,7 +668,10 @@ const specificScrub = computed(
  * section/collection chip row entirely.
  */
 const resultsScrubAvailable = computed(
-  () => !hasScrubRail(catalog.sortMode) && catalog.allResults.length >= 2,
+  () =>
+    !hasScrubRail(catalog.sortMode) &&
+    !singleCollectionFiltered.value &&
+    catalog.allResults.length >= 2,
 )
 const resultsScrubOpen = ref(false)
 const showScrub = computed(
@@ -806,6 +839,14 @@ const rowVirtualizer = useWindowVirtualizer(
     overscan: scrubbing.value ? BROWSE_SCRUB_OVERSCAN : BROWSE_OVERSCAN,
     scrollMargin: listScrollMargin.value,
     scrollPaddingStart: stickyBrowsePad.value,
+    // window.scrollY / innerHeight are visual under html zoom; row sizes are layout.
+    observeElementRect: observeZoomAwareWindowRect,
+    observeElementOffset: observeZoomAwareWindowOffset,
+    scrollToFn: zoomAwareWindowScroll,
+    initialOffset: zoomAwareInitialOffset,
+    /** Prefer offsetHeight (layout). RO borderBoxSize is close to layout in Chrome but
+     * still avoid it so we never mix units with the zoom-aware scroll offset. */
+    measureElement: (el) => (el as HTMLElement).offsetHeight,
   })),
 )
 
@@ -902,14 +943,14 @@ function beginProgrammaticBrowseScroll(): void {
 
 function pinSearchTopIfArmed(): void {
   if (!shouldPinSearchTop()) return
-  if (window.scrollY > DOC_TOP_EPS) scrollToSearchTop()
+  if (windowScrollYLayout() > DOC_TOP_EPS) scrollToSearchTop()
 }
 
 function mayStillAutoPinSearchTop(): boolean {
   return mayAutoPinSearchTop({
     restoring: browseShouldRestoreList() || browseScrollIntent === 'restore',
     userTookScroll: browseUserTookScroll,
-    scrollY: typeof window !== 'undefined' ? window.scrollY : 0,
+    scrollY: windowScrollYLayout(),
     docTopEps: DOC_TOP_EPS,
   })
 }
@@ -924,10 +965,10 @@ function onBrowseUserScrollGesture(): void {
 function clampBrowseScrollFloor(): void {
   if (shouldPinSearchTop()) return
   const floor = browseScrollFloorY()
-  if (window.scrollY < floor) {
-    window.scrollTo({ top: floor, behavior: 'auto' })
+  if (windowScrollYLayout() < floor) {
+    scrollWindowToLayoutY(floor)
   }
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
 }
 
 function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' | 'auto' = 'start'): void {
@@ -941,10 +982,11 @@ function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' |
 
 
 /** Narrow browse: hide persistent select column until long-press / selection. */
-const NARROW_SELECT_MQ = '(max-width: 639px)'
+const NARROW_SELECT_MQ = NARROW_VIEWPORT_MQ
 const LONG_PRESS_MS = 450
 const LONG_PRESS_MOVE_PX = 10
-const isNarrow = ref(false)
+/** Init from matchMedia before paint so checkboxes / 100 Days labels don’t flash. */
+const isNarrow = ref(readIsNarrowViewport())
 const selectMode = ref(false)
 let narrowMq: MediaQueryList | null = null
 
@@ -953,7 +995,7 @@ const showRowSelect = computed(
 )
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? false
+  isNarrow.value = narrowMq?.matches ?? readIsNarrowViewport()
 }
 
 watch(
@@ -1005,8 +1047,8 @@ function onRowPointerDown(e: PointerEvent, id: number): void {
 function onRowPointerMove(e: PointerEvent): void {
   if (longPressTimer == null) return
   if (
-    Math.abs(e.clientX - longPressX) > LONG_PRESS_MOVE_PX ||
-    Math.abs(e.clientY - longPressY) > LONG_PRESS_MOVE_PX
+    Math.abs(visualPxToLayoutPx(e.clientX - longPressX)) > LONG_PRESS_MOVE_PX ||
+    Math.abs(visualPxToLayoutPx(e.clientY - longPressY)) > LONG_PRESS_MOVE_PX
   ) {
     clearLongPressTimer()
   }
@@ -1035,7 +1077,8 @@ function browseFocusY(): number {
   const rail = document.querySelector('.scrub-rail') as HTMLElement | null
   if (rail) {
     const r = rail.getBoundingClientRect()
-    return Math.min(window.innerHeight - 48, Math.max(96, r.bottom + 28))
+    const bottom = visualPxToLayoutPx(r.bottom)
+    return Math.min(window.innerHeight - 48, Math.max(96, bottom + 28))
   }
   return Math.min(220, window.innerHeight * 0.32)
 }
@@ -1053,12 +1096,14 @@ function syncScrubFromScroll(): void {
     const idx = Number(raw)
     if (!Number.isFinite(idx)) continue
     const rect = el.getBoundingClientRect()
-    const mid = (rect.top + rect.bottom) / 2
+    const top = visualPxToLayoutPx(rect.top)
+    const bottom = visualPxToLayoutPx(rect.bottom)
+    const mid = (top + bottom) / 2
     const dist =
-      rect.bottom < y - 8
-        ? y - rect.bottom
-        : rect.top > y + 8
-          ? rect.top - y
+      bottom < y - 8
+        ? y - bottom
+        : top > y + 8
+          ? top - y
           : Math.abs(mid - y) * 0.25
     if (dist < bestDist) {
       bestDist = dist
@@ -1076,7 +1121,7 @@ function activeBrowseTagId(): number | null {
   let bestIdx: number | null = null
   let bestTop = -Infinity
   for (const el of nodes) {
-    const top = el.getBoundingClientRect().top
+    const top = visualPxToLayoutPx(el.getBoundingClientRect().top)
     if (top <= focus && top >= bestTop) {
       bestTop = top
       const raw = el.getAttribute('data-browse-index')
@@ -1119,14 +1164,14 @@ function scheduleBrowseScrollUrlSync(): void {
 }
 
 function onBrowseScroll(): void {
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
   // Sticky flag so catalog.load / lyrics / jump-rail settles never yank to y=0.
   // While pin is armed, mid-list scroll means the user overrode scrollTo(0) —
   // note it even inside the programmatic suppress window (fast-scroll race).
   if (
     shouldNoteUserBrowseScroll({
       userTookScroll: browseUserTookScroll,
-      scrollY: window.scrollY,
+      scrollY: windowScrollY.value,
       docTopEps: DOC_TOP_EPS,
       suppressUntil: suppressUserScrollDisarmUntil,
       pinArmed: shouldPinSearchTop() || Date.now() <= pinSearchTopUntil,
@@ -1246,6 +1291,16 @@ function scrubLabelAtIndex(index: number): string {
   if (!tag) return ''
   if (catalog.sortMode === 'id') return tagIdHundredKey(tag.id)
   if (catalog.sortMode === 'year') return yearSectionKey(normalizeYear(tag.year))
+  // One collection filter → flat list; scrub by tag # (not the same collection name every index).
+  if (catalog.sortMode === 'collection' && catalog.filters.collections.length === 1) {
+    return tagIdHundredKey(tag.id)
+  }
+  if (catalog.sortMode === 'collection') {
+    const key = sectionKeyFor(tag, 'collection')
+    if (key && key !== 'All') {
+      return collectionJumpLabel(key, userCollections.collections, { compact: true })
+    }
+  }
   // Sectioned sorts: letter / collection / rating key — never song titles.
   const key = sectionKeyFor(tag, catalog.sortMode)
   if (key && key !== 'All') return key
@@ -1467,11 +1522,12 @@ function restoreBrowseScrollFromTag(): void {
 
 /** Re-apply a full-page-reload scrollY after the virtualizer has real height. */
 function restoreBrowseScrollFromReload(y: number): void {
+  // `y` is raw window.scrollY (visual) from session save — do not layout-convert.
   const until = Date.now() + 1200
   const apply = () => {
     if (Date.now() > until) return
     window.scrollTo({ top: y, left: 0, behavior: 'auto' })
-    windowScrollY.value = window.scrollY
+    syncWindowScrollY()
   }
   apply()
   requestAnimationFrame(() => {
@@ -1504,8 +1560,8 @@ function prepositionBrowseRow(rowIndex: number): void {
     listScrollMargin: listScrollMargin.value,
     stickyPad: stickyBrowsePad.value,
   })
-  window.scrollTo({ top: y, left: 0, behavior: 'auto' })
-  windowScrollY.value = window.scrollY
+  scrollWindowToLayoutY(y)
+  syncWindowScrollY()
   scrollToBrowseRow(rowIndex, 'start')
 }
 
@@ -1615,7 +1671,7 @@ async function settleScrollThenReveal(): Promise<void> {
   if (restoringAtTag.value) {
     scrollPastSearchChrome()
     applyBrowseScrollIntent()
-    // Row heights are locked to estimates — one re-pin after layout is enough.
+    // One re-pin after layout so dynamic row measures settle under sticky chrome.
     await frames(2)
     syncListScrollMargin()
     syncStickyBrowsePad()
@@ -1625,7 +1681,7 @@ async function settleScrollThenReveal(): Promise<void> {
     applyBrowseScrollIntent()
     await frames(2)
   }
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
   browseReveal.value = true
 }
 
@@ -1695,7 +1751,7 @@ onMounted(async () => {
   // else: list already revealed and/or user scrolled — leave scroll alone
   // (lyrics often finish right here; do not yank to top).
 
-  windowScrollY.value = window.scrollY
+  syncWindowScrollY()
   jumpRailRo = new ResizeObserver(() => {
     syncJumpCols()
     syncListScrollMargin()
@@ -1784,6 +1840,17 @@ watch(
       jumpRailRo.observe(jumpRailEl.value)
       if (listEl.value) jumpRailRo.observe(listEl.value)
     }
+  },
+)
+
+/** Drop any zoom-poisoned row size cache after Display size changes. */
+watch(
+  () => prefs.uiScalePercent,
+  async () => {
+    await nextTick()
+    syncListScrollMargin()
+    syncStickyBrowsePad()
+    rowVirtualizer.value.measure()
   },
 )
 
@@ -2071,6 +2138,8 @@ watch(
         @pointerup="onJumpTopPointerEnd"
         @pointercancel="onJumpTopPointerEnd"
         @click="onJumpTopClick"
+        @dblclick.prevent="onJumpTopHold"
+        @contextmenu.prevent
       >
         ↑
       </button>
@@ -2546,7 +2615,7 @@ watch(
 .browse-skeleton-virt {
   position: relative;
   pointer-events: none;
-  height: var(--browse-tag-row-h, 128px);
+  height: var(--browse-tag-row-h, 148px);
   overflow: hidden;
 }
 .browse-skeleton-virt .row-fav:disabled {
@@ -3168,6 +3237,9 @@ watch(
   text-align: center;
 }
 .jump-top {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   /* Match year-scrub ↑: fixed footprint so title/collection rails don’t resize it. */
   box-sizing: border-box;
   width: 2.75rem;
@@ -3270,12 +3342,8 @@ watch(
 .scrub-ghost-row {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
+  padding-bottom: 0.35rem;
   box-sizing: border-box;
-  height: var(--browse-tag-row-h, 128px);
-  overflow: hidden;
-}
-.scrub-ghost-row:has(> .section-head) {
-  height: var(--browse-section-row-h, 56px);
 }
 .scrub-ghost-row .list-row {
   /* Match real rows: surface card + radius (ghost sits on page bg). */
@@ -3295,17 +3363,9 @@ watch(
   pointer-events: none;
 }
 .virt-row {
+  /* Uniform gap between cards of any measured height. */
   padding-bottom: 0.35rem;
   box-sizing: border-box;
-}
-/* Lock to estimateSize so measureElement never reflows scroll restore. */
-.list > .virt-row:has(> .list-row) {
-  height: var(--browse-tag-row-h, 128px);
-  overflow: hidden;
-}
-.list > .virt-row:has(> .section-head) {
-  height: var(--browse-section-row-h, 56px);
-  overflow: hidden;
 }
 .list-row {
   display: grid;

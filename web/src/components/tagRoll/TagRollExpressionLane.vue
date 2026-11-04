@@ -5,6 +5,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { newLocalId } from '../../offline/localLibraryDb'
 import { pxToTicks, ticksToPx } from '../../lib/tagRoll/normalize'
+import { layoutLocalFromClient, visualPxToLayoutPx } from '../../lib/uiScale'
 import { snapTick } from '../../lib/tagRoll/snap'
 import { bpmAtTick, isRampStickyMarker, measureTicks } from '../../lib/tagRoll/tempoMap'
 import { keyAtTick, keyMarkerLabel } from '../../lib/tagRoll/keyMap'
@@ -142,7 +143,7 @@ function clampTick(tick: number): number {
 function localPoint(e: PointerEvent): { x: number; y: number } | null {
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return null
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  return layoutLocalFromClient(e.clientX, e.clientY, rect)
 }
 
 function tickAtX(lx: number): number {
@@ -209,7 +210,7 @@ function hitExpression(lx: number): {
 function resize(): void {
   const el = wrapRef.value
   if (!el) return
-  cssW.value = Math.max(1, Math.floor(el.getBoundingClientRect().width))
+  cssW.value = Math.max(1, Math.floor(el.clientWidth))
   draw()
 }
 
@@ -572,7 +573,7 @@ function onPointerDown(e: PointerEvent): void {
 function onPointerMove(e: PointerEvent): void {
   if (!gesture) return
   if (gesture.kind === 'pan') {
-    const dx = e.clientX - gesture.startClientX
+    const dx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
     if (Math.abs(dx) > DRAG_SLOP) gesture.moved = true
     store.setScroll(Math.max(0, gesture.originX - dx), props.project.view.scrollY)
     return

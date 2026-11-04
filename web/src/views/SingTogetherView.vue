@@ -60,6 +60,8 @@ import PitchControls from '../components/PitchControls.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import InfoTips from '../components/InfoTips.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
+import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
 import { useSingTogetherStore } from '../stores/singTogether'
@@ -102,7 +104,7 @@ const quickAddOpen = ref(false)
 /** Multi-select (Local Library / Recent pattern). */
 const selectedIds = ref<Set<string>>(new Set())
 const selectMode = ref(false)
-const isNarrow = ref(false)
+const isNarrow = ref(readIsNarrowViewport())
 const NARROW_SELECT_MQ = '(max-width: 639px)'
 const LONG_PRESS_MS = 450
 const LONG_PRESS_MOVE_PX = 10
@@ -159,8 +161,8 @@ function onRowPointerDown(e: PointerEvent, id: string): void {
 
 function onRowPointerMove(e: PointerEvent): void {
   if (longPressTimer == null) return
-  const dx = e.clientX - longPressX
-  const dy = e.clientY - longPressY
+  const dx = visualPxToLayoutPx(e.clientX - longPressX)
+  const dy = visualPxToLayoutPx(e.clientY - longPressY)
   if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) {
     clearTimeout(longPressTimer)
     longPressTimer = null

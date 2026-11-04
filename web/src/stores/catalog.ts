@@ -52,6 +52,7 @@ import { useUserCollectionsStore } from './userCollections'
 import { useRatingsStore } from './ratings'
 import {
   filterTagsByCollectionOptions,
+  isOtherCollectionFilterId,
   isUserCollectionFilterId,
   parseUserCollectionFilterId,
 } from '../lib/collections'
@@ -532,15 +533,25 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
     const userCols = useUserCollectionsStore()
     const colFilters = filters.value.collections
-    const hasUserCol = colFilters.some((c) => isUserCollectionFilterId(c))
-    let engineFilters = hasUserCol ? { ...filters.value, collections: [] } : filters.value
+    // User playlists + Other are client-side only (not MiniSearch collection fields).
+    const needsClientCollectionFilter = colFilters.some(
+      (c) => isUserCollectionFilterId(c) || isOtherCollectionFilterId(c),
+    )
+    let engineFilters = needsClientCollectionFilter
+      ? {
+          ...filters.value,
+          collections: colFilters.filter(
+            (c) => !isUserCollectionFilterId(c) && !isOtherCollectionFilterId(c),
+          ),
+        }
+      : filters.value
     // Available offline: has sheet/audio apply to cached blobs, not catalog metadata.
     if (engineFilters.cached != null) {
       engineFilters = { ...engineFilters, hasSheet: null, hasAudio: null }
     }
     const q = buildSearchQuery(debouncedQuery.value, engineFilters)
     let found = sortBrowseTags(eng.search(q), sortMode.value, sortReverse.value, sortOpts)
-    if (hasUserCol) {
+    if (needsClientCollectionFilter) {
       found = filterTagsByCollectionOptions(found, colFilters, userCols.collections)
     }
     return applyClientFilters(found)

@@ -2,8 +2,10 @@
  * Narrow-viewport long-press multi-select for list rows (Sing Together pattern).
  */
 import { computed, onUnmounted, ref, type Ref } from 'vue'
+import { NARROW_VIEWPORT_MQ, readIsNarrowViewport } from '../lib/narrowViewport'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
-export const DEFAULT_NARROW_SELECT_MQ = '(max-width: 639px)'
+export const DEFAULT_NARROW_SELECT_MQ = NARROW_VIEWPORT_MQ
 export const DEFAULT_LONG_PRESS_MS = 450
 export const DEFAULT_LONG_PRESS_MOVE_PX = 10
 
@@ -37,7 +39,8 @@ export function useLongPressSelect<TId extends string | number>(
 
   const selectedIds = ref(new Set<TId>()) as Ref<Set<TId>>
   const selectMode = ref(false)
-  const isNarrow = ref(false)
+  /** Init from matchMedia immediately so checkboxes don’t flash on mobile. */
+  const isNarrow = ref(readIsNarrowViewport())
 
   let narrowMq: MediaQueryList | null = null
   let longPressTimer: ReturnType<typeof setTimeout> | null = null
@@ -113,8 +116,8 @@ export function useLongPressSelect<TId extends string | number>(
 
   function onRowPointerMove(e: PointerEvent): void {
     if (longPressTimer == null) return
-    const dx = e.clientX - longPressX
-    const dy = e.clientY - longPressY
+    const dx = visualPxToLayoutPx(e.clientX - longPressX)
+    const dy = visualPxToLayoutPx(e.clientY - longPressY)
     if (dx * dx + dy * dy > longPressMovePx * longPressMovePx) {
       clearTimeout(longPressTimer)
       longPressTimer = null

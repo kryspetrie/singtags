@@ -7,6 +7,7 @@ import { foldText } from './normalize'
 import type { TagSummary } from '../types/tag'
 import { normalizeYear } from '../lib/year'
 import {
+  COLLECTION_OTHER_FILTER_ID,
   collectionBadge,
   collectionInfo,
   collectionLabel,
@@ -230,12 +231,13 @@ export function yearBoundsForSectionKey(
   return null
 }
 
-/** Map a collection section label/key back to a filter id (catalog or `user:…`). */
+/** Map a collection section label/key back to a filter id (catalog, Other, or `user:…`). */
 export function collectionIdForSectionKey(
   key: string,
   knownIds: string[],
 ): string | null {
-  if (!key || key === 'Other') return null
+  if (!key) return null
+  if (key === 'Other') return COLLECTION_OTHER_FILTER_ID
   // Custom browse sections use the filter id as the section key.
   if (isUserCollectionFilterId(key)) return key
   for (const id of knownIds) {

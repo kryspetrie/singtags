@@ -14,6 +14,7 @@ import {
   type StripResizeEdge,
 } from '../lib/tagRoll/harmonyStripGestures'
 import { snapTick } from '../lib/tagRoll/snap'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 export type DeclaredStripGesture =
   | {
@@ -105,7 +106,7 @@ export function useDeclaredStripGestures(opts: {
   function localXInTrack(clientX: number): number | null {
     const track = opts.trackEl.value
     if (!track) return null
-    return clientX - track.getBoundingClientRect().left
+    return visualPxToLayoutPx(clientX - track.getBoundingClientRect().left)
   }
 
   function findAtLocalX(localX: number): ChordAnalysisSegment | null {
@@ -263,7 +264,7 @@ export function useDeclaredStripGestures(opts: {
     )
 
     if (g.kind === 'place' || g.kind === 'marquee') {
-      if (Math.abs(e.clientX - g.startClientX) > STRIP_DRAG_SLOP_PX) {
+      if (Math.abs(visualPxToLayoutPx(e.clientX - g.startClientX)) > STRIP_DRAG_SLOP_PX) {
         if (g.kind === 'place') g.moved = true
       }
       // Allow placing past the current length — caller grows the timeline.
@@ -272,7 +273,7 @@ export function useDeclaredStripGestures(opts: {
       return
     }
 
-    const dx = e.clientX - g.startClientX
+    const dx = visualPxToLayoutPx(e.clientX - g.startClientX)
     const dTicks = Math.round((dx / opts.cellW.value) * opts.ppq.value)
     if (g.kind === 'resize') {
       const room = Math.max(opts.lengthTicks.value, g.origin.endTick + Math.max(0, dTicks) + opts.snapTicks.value)

@@ -2,6 +2,8 @@
  * Viewport-clamped fixed popover placement (below anchor, flip above if needed).
  * Result is always fully on-screen for the reported maxHeight / width.
  */
+import { visualPxToLayoutPx } from '../uiScale'
+
 export type PopoverPlacement = {
   top: string
   left: string
@@ -25,13 +27,18 @@ export function placePopoverNearAnchor(
     panelHeightPx?: number
   },
 ): PopoverPlacement {
+  // Anchor GBR is visual under html zoom; CSS top/left and innerWidth are layout.
+  const aTop = visualPxToLayoutPx(anchor.top)
+  const aBottom = visualPxToLayoutPx(anchor.bottom)
+  const aLeft = visualPxToLayoutPx(anchor.left)
+  const aWidth = visualPxToLayoutPx(anchor.width)
   const minW = opts?.minWidth ?? DEFAULT_MIN_W
   const preferredW = Math.max(minW, opts?.preferredWidth ?? minW)
   const vw = window.innerWidth
   const vh = window.innerHeight
   const panelW = Math.min(preferredW, Math.max(minW, vw - PAD * 2))
-  const spaceBelow = Math.max(0, vh - anchor.bottom - PAD)
-  const spaceAbove = Math.max(0, anchor.top - PAD)
+  const spaceBelow = Math.max(0, vh - aBottom - PAD)
+  const spaceAbove = Math.max(0, aTop - PAD)
   const preferBelow = opts?.preferBelow !== false
   const openUp =
     preferBelow
@@ -40,17 +47,17 @@ export function placePopoverNearAnchor(
   const avail = Math.floor(openUp ? spaceAbove : spaceBelow)
   const maxHeightPx = Math.max(80, avail)
   const panelH = Math.min(maxHeightPx, opts?.panelHeightPx ?? Math.min(maxHeightPx, 280))
-  let topPx = openUp ? anchor.top - panelH - 2 : anchor.bottom + 2
+  let topPx = openUp ? aTop - panelH - 2 : aBottom + 2
   // Keep the full panel inside the viewport.
   topPx = Math.max(PAD, Math.min(topPx, vh - PAD - panelH))
   const leftPx = Math.min(
-    Math.max(PAD, Math.round(anchor.left)),
+    Math.max(PAD, Math.round(aLeft)),
     Math.max(PAD, vw - panelW - PAD),
   )
   return {
     top: `${Math.round(topPx)}px`,
     left: `${Math.round(leftPx)}px`,
-    minWidth: `${Math.max(minW, Math.round(Math.min(panelW, Math.max(anchor.width, minW))))}px`,
+    minWidth: `${Math.max(minW, Math.round(Math.min(panelW, Math.max(aWidth, minW))))}px`,
     maxHeightPx,
     openUp,
   }

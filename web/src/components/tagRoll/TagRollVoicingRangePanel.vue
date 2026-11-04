@@ -21,6 +21,7 @@ import {
   type TagRollProject,
 } from '../../lib/tagRoll/types'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
+import { visualPxToLayoutPx } from '../../lib/uiScale'
 import { usePreferencesStore } from '../../stores/preferences'
 
 const props = defineProps<{
@@ -106,8 +107,8 @@ function placeSettingsMenu(): void {
   if (!btn) return
   const r = btn.getBoundingClientRect()
   settingsMenuPos.value = {
-    top: `${Math.round(r.top)}px`,
-    left: `${Math.round(r.right + 6)}px`,
+    top: `${Math.round(visualPxToLayoutPx(r.top))}px`,
+    left: `${Math.round(visualPxToLayoutPx(r.right) + 6)}px`,
   }
 }
 
@@ -162,7 +163,7 @@ function profileFromSpanEdges(
 
 function clientYToContentY(clientY: number, el: HTMLElement): number {
   const rect = el.getBoundingClientRect()
-  return clientY - rect.top + scrollY.value
+  return visualPxToLayoutPx(clientY - rect.top) + scrollY.value
 }
 
 function applyDragAtClientY(clientY: number): void {

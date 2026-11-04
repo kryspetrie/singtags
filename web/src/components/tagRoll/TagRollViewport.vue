@@ -16,6 +16,7 @@ import {
   type TagRollProject,
 } from '../../lib/tagRoll/types'
 import { midiToY, pxToTicks, ticksToPx, yToMidi } from '../../lib/tagRoll/normalize'
+import { layoutLocalFromClient, visualPxToLayoutPx } from '../../lib/uiScale'
 import {
   hitChordCursorEdge,
   rangeFromDragTicks,
@@ -361,7 +362,8 @@ function pitchOriginY(): number {
 function localPoint(e: PointerEvent): { x: number; y: number } | null {
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return null
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  // Layout px — GBR is visual under html `zoom`.
+  return layoutLocalFromClient(e.clientX, e.clientY, rect)
 }
 
 function gridFromLocal(lx: number, ly: number): { tick: number; midi: number } {
@@ -503,9 +505,9 @@ function startPan(
 function resize(): void {
   const el = wrapRef.value
   if (!el) return
-  const r = el.getBoundingClientRect()
-  cssW.value = Math.max(1, Math.floor(r.width))
-  cssH.value = Math.max(1, Math.floor(r.height))
+  // client* = layout px (stable under html zoom); GBR width would shrink/grow with Display size.
+  cssW.value = Math.max(1, Math.floor(el.clientWidth))
+  cssH.value = Math.max(1, Math.floor(el.clientHeight))
   ensureFillWidth()
   ensureScrollInBounds()
   draw()
@@ -1044,8 +1046,7 @@ function onDblClick(e: MouseEvent): void {
   const canvas = canvasRef.value
   if (!canvas) return
   const rect = canvas.getBoundingClientRect()
-  const lx = e.clientX - rect.left
-  const ly = e.clientY - rect.top
+  const { x: lx, y: ly } = layoutLocalFromClient(e.clientX, e.clientY, rect)
   if (ly < headerBandH.value) return
   const tupHit = hitTuplet(lx, ly)
   if (tupHit) {
@@ -1305,8 +1306,8 @@ function onPointerMove(e: PointerEvent): void {
   if (!gesture) return
 
   if (gesture.kind === 'pan') {
-    const pdx = e.clientX - gesture.startClientX
-    const pdy = e.clientY - gesture.startClientY
+    const pdx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
+    const pdy = visualPxToLayoutPx(e.clientY - gesture.startClientY)
     if (Math.abs(pdx) + Math.abs(pdy) > DRAG_SLOP) gesture.moved = true
     const next = clampScroll(gesture.originX - pdx, gesture.originY - pdy)
     emit('scroll', next.x, next.y)
@@ -1316,8 +1317,8 @@ function onPointerMove(e: PointerEvent): void {
   if (gesture.kind === 'playhead') {
     const local = localPoint(e)
     if (!local) return
-    const pdx = e.clientX - gesture.startClientX
-    const pdy = e.clientY - gesture.startClientY
+    const pdx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
+    const pdy = visualPxToLayoutPx(e.clientY - gesture.startClientY)
     if (Math.abs(pdx) + Math.abs(pdy) > DRAG_SLOP) gesture.moved = true
     const tick = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
     emit('playhead', tick)
@@ -1327,8 +1328,8 @@ function onPointerMove(e: PointerEvent): void {
   if (gesture.kind === 'chord-range') {
     const local = localPoint(e)
     if (!local) return
-    const pdx = e.clientX - gesture.startClientX
-    const pdy = e.clientY - gesture.startClientY
+    const pdx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
+    const pdy = visualPxToLayoutPx(e.clientY - gesture.startClientY)
     if (Math.abs(pdx) + Math.abs(pdy) <= DRAG_SLOP) return
     gesture.moved = true
     const raw = clampTick(pxToTicks(local.x + scrollX.value, cellW.value))
@@ -1344,15 +1345,15 @@ function onPointerMove(e: PointerEvent): void {
   }
 
   if (gesture.kind === 'select-click') {
-    const pdx = e.clientX - gesture.startClientX
-    const pdy = e.clientY - gesture.startClientY
+    const pdx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
+    const pdy = visualPxToLayoutPx(e.clientY - gesture.startClientY)
     if (Math.abs(pdx) + Math.abs(pdy) > DRAG_SLOP) {
       gesture = {
         kind: 'pan',
         originX: scrollX.value,
         originY: scrollY.value,
-        startClientX: e.clientX - pdx,
-        startClientY: e.clientY - pdy,
+        startClientX: gesture.startClientX,
+        startClientY: gesture.startClientY,
         moved: true,
         onClick: 'none',
       }
@@ -1705,7 +1706,9 @@ function onWheel(e: WheelEvent): void {
   // Default wheel: horizontal zoom (cellW), keep tick under cursor stable.
   // Scale by delta magnitude so trackpads don't apply a full 10% step per pixel.
   const rect = canvasRef.value?.getBoundingClientRect()
-  const localX = rect ? e.clientX - rect.left : cssW.value / 2
+  const localX = rect
+    ? layoutLocalFromClient(e.clientX, e.clientY, rect).x
+    : cssW.value / 2
   const tickUnder = pxToTicks(localX + scrollX.value, cellW.value)
   const t = Math.max(-1.25, Math.min(1.25, e.deltaY / 100))
   const factor = Math.exp(-t * 0.028)

@@ -156,8 +156,9 @@ function fitDesktopPinsFromMeasure(avail: number): number {
   if (kids.length < 2) return -1
   const gap =
     parseFloat(getComputedStyle(measure).columnGap || getComputedStyle(measure).gap) || 6.4
-  const moreW = kids[kids.length - 1]!.getBoundingClientRect().width
-  const pinWidths = kids.slice(0, -1).map((el) => el.getBoundingClientRect().width)
+  // offsetWidth = layout px (matches nav.clientWidth under html zoom).
+  const moreW = kids[kids.length - 1]!.offsetWidth
+  const pinWidths = kids.slice(0, -1).map((el) => el.offsetWidth)
   if (!(moreW > 0) || pinWidths.some((w) => !(w > 0))) return -1
   return fitNavPinsToWidth(pinWidths, moreW, gap, avail)
 }
@@ -303,7 +304,9 @@ let headerResizeObserver: ResizeObserver | null = null
 function publishHeaderHeight(): void {
   const el = topEl.value
   if (!el) return
-  const h = Math.ceil(el.getBoundingClientRect().height)
+  // Use layout height (offsetHeight), not getBoundingClientRect — CSS `zoom` on
+  // <html> inflates GBR and over-pads sticky browse chrome until cards vanish.
+  const h = Math.ceil(el.offsetHeight || el.getBoundingClientRect().height)
   document.documentElement.style.setProperty('--header-h', `${h}px`)
 }
 

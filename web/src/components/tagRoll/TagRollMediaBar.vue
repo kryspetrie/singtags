@@ -65,6 +65,26 @@ const emit = defineEmits<{
 
 const store = useTagRollStore()
 const prefs = usePreferencesStore()
+
+/** Mobile: collapse to a single transport row; expand for mixer / lanes / zoom. */
+const MEDIA_COLLAPSE_MQ = '(max-width: 900px)'
+const mediaExpanded = ref(false)
+const mediaCollapseMq =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(MEDIA_COLLAPSE_MQ)
+    : null
+const narrowMedia = ref(mediaCollapseMq?.matches ?? false)
+function onMediaMqChange(): void {
+  narrowMedia.value = mediaCollapseMq?.matches ?? false
+  if (!narrowMedia.value) mediaExpanded.value = false
+}
+onMounted(() => {
+  mediaCollapseMq?.addEventListener('change', onMediaMqChange)
+})
+onUnmounted(() => {
+  mediaCollapseMq?.removeEventListener('change', onMediaMqChange)
+})
+
 const project = computed(() => store.current)
 const isView = computed(() => project.value?.view.mode === 'view')
 const mixerOpen = computed(() => !!props.mixerOpen)
@@ -436,7 +456,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="project" class="media-bar" role="region" aria-label="Transport and sound">
+  <div
+    v-if="project"
+    class="media-bar"
+    :class="{ 'media-collapsed': narrowMedia && !mediaExpanded }"
+    role="region"
+    aria-label="Transport and sound"
+  >
     <div class="side left">
       <div class="util-stack" role="group" aria-label="Mixer and sound">
         <button
@@ -884,6 +910,17 @@ onUnmounted(() => {
     </div>
 
     <div class="transport" role="group" aria-label="Transport">
+      <button
+        v-if="narrowMedia"
+        type="button"
+        class="tr-btn media-toggle"
+        :aria-expanded="mediaExpanded"
+        :title="mediaExpanded ? 'Hide mixer and lanes' : 'Show mixer and lanes'"
+        :aria-label="mediaExpanded ? 'Hide mixer and lanes' : 'Show mixer and lanes'"
+        @click="mediaExpanded = !mediaExpanded"
+      >
+        {{ mediaExpanded ? '▾' : '▴' }}
+      </button>
       <button
         type="button"
         class="tr-btn"
@@ -1443,6 +1480,12 @@ onUnmounted(() => {
       'left'
       'right';
     justify-items: center;
+  }
+  .media-bar.media-collapsed {
+    grid-template-areas: 'transport';
+  }
+  .media-bar.media-collapsed .side {
+    display: none;
   }
   .side.left,
   .side.right {

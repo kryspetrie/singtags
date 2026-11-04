@@ -193,14 +193,15 @@ function onPanelAfterLeave(): void {
   margin: 0;
 }
 
-/* Modest menus (e.g. More): grow with content; only scroll if near viewport height. */
+/* Modest menus (e.g. More): grow with content; only scroll if near viewport height.
+ * Prefer % of the fixed inset root over 100dvh — CSS zoom on <html> skews dvh. */
 .sheet-root.fitContent .panel {
   max-height: calc(
-    100dvh - var(--bottom-nav-h, 3.75rem) - env(safe-area-inset-bottom) - 0.75rem
+    100% - var(--bottom-nav-h, 3.75rem) - env(safe-area-inset-bottom) - 0.75rem
   );
 }
 .sheet-root.fitContent.elevated .panel {
-  max-height: calc(100dvh - env(safe-area-inset-bottom) - 1.5rem);
+  max-height: calc(100% - env(safe-area-inset-bottom) - 1.5rem);
 }
 .sheet-root.fitContent .body {
   flex: 0 1 auto;
@@ -324,7 +325,7 @@ function onPanelAfterLeave(): void {
   }
   .sheet-root.fullScreen .panel {
     width: min(960px, 94vw);
-    height: min(88vh, calc(100dvh - 2.5rem));
+    height: min(88vh, calc(100% - 2.5rem));
     max-height: none;
     border-radius: calc(var(--radius, 10px) + 2px);
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);

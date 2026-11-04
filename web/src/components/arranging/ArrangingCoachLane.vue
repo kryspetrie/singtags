@@ -8,6 +8,7 @@ import { melodyGapsOutsidePillars } from '../../domain/arranging/pillars'
 import { buildHarmonicMoments } from '../../domain/arranging/harmonicMoments'
 import { partOnsetsFromTagRoll } from '../../lib/arranging/partOnsetsFromTagRoll'
 import { pxToTicks, ticksToPx } from '../../lib/tagRoll/normalize'
+import { layoutLocalFromClient } from '../../lib/uiScale'
 import { drawLaneTimeGrid } from '../../lib/tagRoll/laneTimeGrid'
 import {
   buildCoachLaneMarkers,
@@ -345,8 +346,7 @@ function onPointer(e: PointerEvent): void {
   emit('openPanel')
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
+  const { x, y } = layoutLocalFromClient(e.clientX, e.clientY, rect)
   const pil = hitPillar(x, y)
   if (pil) {
     selectPillarBand(pil)
@@ -369,8 +369,7 @@ function onPointer(e: PointerEvent): void {
 function onMove(e: PointerEvent): void {
   const rect = canvasRef.value?.getBoundingClientRect()
   if (!rect) return
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
+  const { x, y } = layoutLocalFromClient(e.clientX, e.clientY, rect)
   const pil = hitPillar(x, y)
   if (pil) {
     const root = pcName(pil.rootPc, preferFlats.value)

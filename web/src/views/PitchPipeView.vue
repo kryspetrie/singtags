@@ -551,6 +551,8 @@ function onPianoPointerUp(e: PointerEvent): void {
   if (!note) return
   pointerNotes.delete(e.pointerId)
   noteOff(note)
+  const el = e.currentTarget
+  if (el instanceof HTMLElement) el.blur()
 }
 
 function onNoteKey(e: KeyboardEvent, note: string): void {
@@ -875,7 +877,11 @@ function blackLeftPct(after: string): number {
       </div>
     </details>
 
-    <div class="stage" :class="{ 'stage-piano-h': isHorizontalPiano }">
+    <div
+      class="stage"
+      :class="{ 'stage-piano-h': isHorizontalPiano }"
+      @contextmenu.prevent
+    >
       <div
         v-if="isPianoLayout && !isHorizontalPiano"
         ref="pianoScrollRef"
@@ -1280,7 +1286,11 @@ function blackLeftPct(after: string): number {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  touch-action: manipulation;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;

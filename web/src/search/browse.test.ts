@@ -199,7 +199,7 @@ describe('section → filter helpers', () => {
 
   it('maps collection section labels to catalog ids', () => {
     expect(collectionIdForSectionKey('Classic', ['classic', '100'])).toBe('classic')
-    expect(collectionIdForSectionKey('Other', ['classic'])).toBeNull()
+    expect(collectionIdForSectionKey('Other', ['classic'])).toBe('__other__')
   })
 })
 

@@ -3,6 +3,7 @@
  * Arranging coach — Home → Chords → Check → Auto → Polish.
  */
 import { computed, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
+import { visualPxToLayoutPx } from '../../lib/uiScale'
 import ArrangingIssueBoard from './ArrangingIssueBoard.vue'
 import ArrangingCoachSuggestPanel from './ArrangingCoachSuggestPanel.vue'
 import ArrangingLearnDrawer from './ArrangingLearnDrawer.vue'
@@ -493,13 +494,16 @@ function onResizePointerDown(e: PointerEvent): void {
   const dock = handle.parentElement
   const startX = e.clientX
   // Prefer rendered width so rem state matches what the user sees (vw caps, etc.).
-  const renderedRem = dock ? dock.getBoundingClientRect().width / 16 : dockWidthRem.value
+  // getBoundingClientRect is visual; /16 for rem must use layout width under CSS zoom.
+  const renderedRem = dock
+    ? visualPxToLayoutPx(dock.getBoundingClientRect().width) / 16
+    : dockWidthRem.value
   const startW = Number.isFinite(renderedRem) ? renderedRem : dockWidthRem.value
   dockWidthRem.value = startW
 
   const onMove = (ev: PointerEvent) => {
-    const dx = startX - ev.clientX
-    dockWidthRem.value = Math.min(56, Math.max(22, startW + dx / 16))
+    const dx = visualPxToLayoutPx(ev.clientX - startX)
+    dockWidthRem.value = Math.min(56, Math.max(22, startW - dx / 16))
   }
   const onUp = (ev: PointerEvent) => {
     resizing.value = false

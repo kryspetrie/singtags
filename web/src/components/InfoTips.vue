@@ -4,6 +4,7 @@
  * Popover flips end-align / above when there isn’t room right or below (mobile + bottom bars).
  */
 import { nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 withDefaults(
   defineProps<{
@@ -28,14 +29,17 @@ function updatePlacement(): void {
   const el = rootEl.value
   if (!el || typeof window === 'undefined') return
   const rect = el.getBoundingClientRect()
+  const left = visualPxToLayoutPx(rect.left)
+  const top = visualPxToLayoutPx(rect.top)
+  const bottom = visualPxToLayoutPx(rect.bottom)
   const margin = 16
   const maxW = Math.min(22 * 16, window.innerWidth - margin * 2)
-  const spaceRight = window.innerWidth - rect.left - margin
+  const spaceRight = window.innerWidth - left - margin
   alignEnd.value = spaceRight < maxW
 
   const overlay = el.querySelector('.info-tips-overlay') as HTMLElement | null
-  const spaceBelow = window.innerHeight - rect.bottom - margin
-  const spaceAbove = rect.top - margin
+  const spaceBelow = window.innerHeight - bottom - margin
+  const spaceAbove = top - margin
   // Prefer measuring the open overlay; fall back so bottom-bar tips flip up early.
   const need = Math.max(overlay?.offsetHeight || 0, 220)
   alignAbove.value = spaceBelow < need && spaceAbove > spaceBelow

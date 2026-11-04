@@ -38,6 +38,8 @@ import {
   importLocalLibraryZip,
 } from '../lib/localLibraryBackup'
 import { formatBytes, getStorageEstimate } from '../offline/storageEstimate'
+import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const library = useLocalLibraryStore()
 const playlists = useLocalPlaylistsStore()
@@ -168,7 +170,7 @@ const {
 const NARROW_SELECT_MQ = '(max-width: 639px)'
 const LONG_PRESS_MS = 450
 const LONG_PRESS_MOVE_PX = 10
-const isNarrow = ref(false)
+const isNarrow = ref(readIsNarrowViewport())
 let narrowMq: MediaQueryList | null = null
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let longPressId: string | null = null
@@ -636,8 +638,8 @@ function onRowPointerDown(e: PointerEvent, id: string): void {
 function onRowPointerMove(e: PointerEvent): void {
   if (longPressTimer == null) return
   if (
-    Math.abs(e.clientX - longPressX) > LONG_PRESS_MOVE_PX ||
-    Math.abs(e.clientY - longPressY) > LONG_PRESS_MOVE_PX
+    Math.abs(visualPxToLayoutPx(e.clientX - longPressX)) > LONG_PRESS_MOVE_PX ||
+    Math.abs(visualPxToLayoutPx(e.clientY - longPressY)) > LONG_PRESS_MOVE_PX
   ) {
     clearLongPressTimer()
   }

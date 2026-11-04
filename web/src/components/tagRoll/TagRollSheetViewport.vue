@@ -28,6 +28,7 @@ import { SHEET_RAMP_BAND } from '../../lib/tagRoll/sheetScore/types'
 import { isRampStickyMarker } from '../../lib/tagRoll/tempoMap'
 import { clampSheetZoom, minPxPerBeatToFillSheet } from '../../lib/tagRoll/zoomFill'
 import { pointerDistance } from '../../lib/tagRoll/zoomPan'
+import { layoutLocalFromClient, visualPxToLayoutPx } from '../../lib/uiScale'
 import { followPlayheadContentScrollX } from '../../lib/tagRoll/followPlayheadScroll'
 
 const PLAYHEAD_HIT = 10
@@ -324,7 +325,7 @@ function localPoint(e: PointerEvent): { x: number; y: number } | null {
   const wrap = wrapRef.value
   if (!wrap) return null
   const r = wrap.getBoundingClientRect()
-  return { x: e.clientX - r.left, y: e.clientY - r.top }
+  return layoutLocalFromClient(e.clientX, e.clientY, r)
 }
 
 /** Content coords inside the VexFlow host (below meta header; paint / layout space). */
@@ -576,8 +577,8 @@ function onPointerMove(e: PointerEvent): void {
   }
 
   if (gesture.kind === 'pan') {
-    const dx = e.clientX - gesture.startClientX
-    const dy = e.clientY - gesture.startClientY
+    const dx = visualPxToLayoutPx(e.clientX - gesture.startClientX)
+    const dy = visualPxToLayoutPx(e.clientY - gesture.startClientY)
     if (!gesture.moved && Math.hypot(dx, dy) > DRAG_SLOP) gesture.moved = true
     if (!gesture.moved) return
     const next = clampScroll(gesture.originX - dx, gesture.originY - dy)

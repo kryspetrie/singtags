@@ -7,6 +7,7 @@
  */
 import { computed, ref } from 'vue'
 import { applyTagRollTimeWheel } from '../../lib/tagRoll/timeWheel'
+import { visualPxToLayoutPx } from '../../lib/uiScale'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollLaneMenu from './TagRollLaneMenu.vue'
 
@@ -78,7 +79,7 @@ function onWheel(e: WheelEvent): void {
     lengthTicks: p.lengthTicks,
     ppq: p.ppq,
     viewportWidthPx: el.clientWidth,
-    localX: e.clientX - rect.left,
+    localX: visualPxToLayoutPx(e.clientX - rect.left),
     shiftPansTime: true,
   })
   if (!result) return

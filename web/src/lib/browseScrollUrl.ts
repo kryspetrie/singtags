@@ -86,12 +86,13 @@ export function mergeBrowseScrollQuery(
 }
 
 /**
- * Browse virtualizer row estimates — must match HomeView `.virt-row` locked
- * heights (title + reserved alt + meta + reserved lyrics + card chrome).
- * Undersized estimates reflow after measureElement and shift scroll restore.
+ * Browse virtualizer row estimates (initial / unmeasured). Real sizes come from
+ * measureElement → offsetHeight; prefer a comfortable upper bound so early
+ * scroll restore undershoots less while rows measure in.
  */
 export const BROWSE_SECTION_ROW_H = 56
-export const BROWSE_TAG_ROW_H = 128
+/** Typical upper bound: title + optional alt + wrapped meta + lyrics + chrome. */
+export const BROWSE_TAG_ROW_H = 148
 
 /**
  * Approximate window.scrollY so browse row `rowIndex` sits under sticky chrome.

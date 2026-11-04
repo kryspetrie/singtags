@@ -72,4 +72,15 @@ describe('user collection browse helpers', () => {
     )
     expect(hit.map((t: any) => t.id).sort()).toEqual([1, 2, 3])
   })
+
+  it('filters Other to tags with no catalog collection', () => {
+    const tags = [
+      { id: 1, collection: 'classic' },
+      { id: 2, collection: null },
+      { id: 3, collection: '' },
+      { id: 4, collection: '100' },
+    ] as any
+    const hit = filterTagsByCollectionOptions(tags, ['__other__'], [])
+    expect(hit.map((t: any) => t.id).sort()).toEqual([2, 3])
+  })
 })

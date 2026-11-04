@@ -70,6 +70,25 @@ const emit = defineEmits<{
 const store = useTagRollStore()
 const prefs = usePreferencesStore()
 
+/** Mobile: collapse tool strip to modes + More toggle. */
+const TOOLS_COLLAPSE_MQ = '(max-width: 900px)'
+const toolsExpanded = ref(false)
+const toolsCollapseMq =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(TOOLS_COLLAPSE_MQ)
+    : null
+const narrowTools = ref(toolsCollapseMq?.matches ?? false)
+function onToolsMqChange(): void {
+  narrowTools.value = toolsCollapseMq?.matches ?? false
+  if (!narrowTools.value) toolsExpanded.value = false
+}
+onMounted(() => {
+  toolsCollapseMq?.addEventListener('change', onToolsMqChange)
+})
+onUnmounted(() => {
+  toolsCollapseMq?.removeEventListener('change', onToolsMqChange)
+})
+
 type PendingScope =
   | {
       kind: 'key'
@@ -331,9 +350,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div v-if="project" class="tr-tb" role="toolbar" aria-label="Tag Studio tools">
+  <div
+    v-if="project"
+    class="tr-tb"
+    :class="{ 'tools-collapsed': narrowTools && !toolsExpanded }"
+    role="toolbar"
+    aria-label="Tag Studio tools"
+  >
     <div class="row primary-row">
-      <div class="modes segment" role="group" aria-label="Editor mode">
+      <div class="modes modes-primary segment" role="group" aria-label="Editor mode">
         <button
           v-for="m in MODES"
           :key="m.id"
@@ -347,6 +372,17 @@ onUnmounted(() => {
           {{ m.label }}
         </button>
       </div>
+
+      <button
+        v-if="narrowTools"
+        type="button"
+        class="btn sm tools-toggle"
+        :aria-expanded="toolsExpanded"
+        :title="toolsExpanded ? 'Hide tools' : 'Show tools'"
+        @click="toolsExpanded = !toolsExpanded"
+      >
+        {{ toolsExpanded ? 'Less' : 'More' }}
+      </button>
 
       <div class="sep" aria-hidden="true" />
 
@@ -951,6 +987,14 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 88%, var(--bg, var(--surface)));
+}
+.tools-toggle {
+  margin-left: auto;
+  font-weight: 650;
+}
+/* Mobile collapsed: keep mode switcher + More; hide the rest of the tool strip. */
+.tr-tb.tools-collapsed .primary-row > *:not(.modes-primary):not(.tools-toggle) {
+  display: none !important;
 }
 .sep {
   width: 1px;

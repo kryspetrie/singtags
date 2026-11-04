@@ -4,6 +4,7 @@
  * Full screen lifts the same note into a modal.
  */
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { visualPxToLayoutPx } from '../../lib/uiScale'
 
 const props = defineProps<{
   open: boolean
@@ -33,15 +34,18 @@ function placeDocked(): void {
   const shell = hostEl.value?.closest('.coach-shell')
   if (!(shell instanceof HTMLElement)) return
   const rect = shell.getBoundingClientRect()
+  const top = visualPxToLayoutPx(rect.top)
+  const height = visualPxToLayoutPx(rect.height)
+  const left = visualPxToLayoutPx(rect.left)
   const width = Math.min(28 * 16, Math.max(16 * 16, window.innerWidth * 0.36))
-  const room = Math.max(0, rect.left - 8)
+  const room = Math.max(0, left - 8)
   const overlap = Math.max(0, width - room)
   frameStyle.value = {
     position: 'fixed',
-    top: `${rect.top}px`,
-    height: `${rect.height}px`,
+    top: `${top}px`,
+    height: `${height}px`,
     width: `${width}px`,
-    left: `${Math.max(8, rect.left - width + overlap)}px`,
+    left: `${Math.max(8, left - width + overlap)}px`,
     right: 'auto',
     bottom: 'auto',
     zIndex: '90',

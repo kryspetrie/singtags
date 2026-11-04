@@ -2,6 +2,7 @@
  * Pointer drag-to-reorder for vertical lists (Favorites rows, collection manage rows).
  */
 import { computed, onUnmounted, ref } from 'vue'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const DRAG_HOLD_MS = 280
 
@@ -83,7 +84,7 @@ export function useSortableListDrag<TId extends string | number>(options: {
 
   function onHoldMove(e: PointerEvent): void {
     if (holdPointerId !== e.pointerId) return
-    if (Math.abs(e.clientY - holdStartY) > 8) cancelHold()
+    if (Math.abs(visualPxToLayoutPx(e.clientY - holdStartY)) > 8) cancelHold()
   }
 
   function cancelHold(): void {

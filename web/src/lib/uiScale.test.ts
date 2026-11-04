@@ -11,6 +11,9 @@ import {
   resolveInitialUiScale,
   writeStoredUiScale,
   UI_SCALE_STORAGE_KEY,
+  uiZoomFactor,
+  visualPxToLayoutPx,
+  layoutPxToVisualPx,
 } from './uiScale'
 
 describe('uiScale', () => {
@@ -59,5 +62,15 @@ describe('uiScale', () => {
     localStorage.setItem(UI_SCALE_STORAGE_KEY, '95')
     expect(resolveInitialUiScale()).toBe(100)
     expect(localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('converts visual GBR px back to layout px under zoom', () => {
+    applyUiScale(85)
+    expect(uiZoomFactor()).toBe(0.85)
+    expect(visualPxToLayoutPx(85)).toBeCloseTo(100, 5)
+    expect(layoutPxToVisualPx(100)).toBeCloseTo(85, 5)
+    applyUiScale(100)
+    expect(visualPxToLayoutPx(100)).toBe(100)
+    expect(layoutPxToVisualPx(100)).toBe(100)
   })
 })

@@ -350,7 +350,8 @@ function commit(t: number): void {
 function measureTrack(): void {
   const el = trackEl.value
   if (!el) return
-  trackWidthPx.value = el.getBoundingClientRect().width
+  // clientWidth = layout px (matches EDGE_PAD / loupe density under html zoom).
+  trackWidthPx.value = el.clientWidth
 }
 
 let trackRo: ResizeObserver | null = null
@@ -478,6 +479,8 @@ onBeforeUnmount(() => {
       @pointerup="onJumpTopPointerEnd"
       @pointercancel="onJumpTopPointerEnd"
       @click="onJumpTopClick"
+      @dblclick.prevent="emit('jumpTopHold')"
+      @contextmenu.prevent
     >
       ↑
     </button>

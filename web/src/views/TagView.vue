@@ -203,7 +203,21 @@ function enterSheetFullscreen(): void {
   if (tracksFullscreenActive.value) {
     void tagPlayerRef.value?.exitFullscreen()
   }
-  sheetViewerRef.value?.enterFullscreen()
+  // Expand the sheet <details> first — a collapsed section hides SheetViewer, so
+  // enterFullscreen measures 0×0, blanks the FS control, and leaves an uncentered fit.
+  const sheetDetails = document.querySelector(
+    'details.section:has(.sheet-section-head)',
+  ) as HTMLDetailsElement | null
+  if (sheetDetails && !sheetDetails.open) {
+    sheetDetails.open = true
+  }
+  const enter = () => {
+    sheetViewerRef.value?.enterFullscreen()
+  }
+  // Wait a frame so the section body is laid out before measuring the viewport.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(enter)
+  })
 }
 
 function onTracksFullscreenChange(on: boolean): void {

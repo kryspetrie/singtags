@@ -16,6 +16,7 @@ import {
   TITLE_LETTER_FILTER_OPTIONS,
 } from '../search/browse'
 import FilterSheet from './FilterSheet.vue'
+import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const props = defineProps<{
   /** Filter sheet open state. */
@@ -82,7 +83,8 @@ function measureSheetAnchor(): void {
     sheetAnchorTop.value = null
     return
   }
-  const bottom = el.getBoundingClientRect().bottom
+  // CSS --sheet-anchor-top is layout px; GBR is visual under html zoom.
+  const bottom = visualPxToLayoutPx(el.getBoundingClientRect().bottom)
   // If chips scrolled off-screen, fall back to default sheet height.
   sheetAnchorTop.value = bottom > 48 ? Math.round(bottom) : null
 }

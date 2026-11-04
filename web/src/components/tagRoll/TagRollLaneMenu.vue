@@ -5,6 +5,7 @@
  * overflow does not clip it.
  */
 import { nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import { visualPxToLayoutPx } from '../../lib/uiScale'
 
 const props = withDefaults(
   defineProps<{
@@ -24,26 +25,28 @@ function place(): void {
   const btn = btnRef.value
   if (!btn) return
   const rect = btn.getBoundingClientRect()
+  const top = visualPxToLayoutPx(rect.top)
+  const bottom = visualPxToLayoutPx(rect.bottom)
   const width = Math.min(272, window.innerWidth - 16)
   const margin = 8
-  let left = rect.left
+  let left = visualPxToLayoutPx(rect.left)
   if (left + width > window.innerWidth - margin) {
     left = Math.max(margin, window.innerWidth - margin - width)
   }
-  const spaceAbove = rect.top - margin
-  const spaceBelow = window.innerHeight - rect.bottom - margin
+  const spaceAbove = top - margin
+  const spaceBelow = window.innerHeight - bottom - margin
   const openAbove = spaceBelow < 240 && spaceAbove > spaceBelow
   const maxHeight = Math.max(120, (openAbove ? spaceAbove : spaceBelow) - 8)
   panelStyle.value = openAbove
     ? {
         left: `${left}px`,
-        bottom: `${window.innerHeight - rect.top + 6}px`,
+        bottom: `${window.innerHeight - top + 6}px`,
         width: `${width}px`,
         maxHeight: `${maxHeight}px`,
       }
     : {
         left: `${left}px`,
-        top: `${rect.bottom + 6}px`,
+        top: `${bottom + 6}px`,
         width: `${width}px`,
         maxHeight: `${maxHeight}px`,
       }
