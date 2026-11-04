@@ -453,7 +453,9 @@ watch(metaBlockEl, (el, prev) => {
   /* Reserved one-line box so late lyrics hydrate fades in without a jump. */
   min-height: calc(0.86rem * 1.35);
   font-weight: 400;
-  max-width: 42rem;
+  /* Fill the card row; ellipsis only at the real edge (not an early rem cap). */
+  min-width: 0;
+  max-width: 100%;
   opacity: 0;
   transition: opacity 0.35s ease;
 }
