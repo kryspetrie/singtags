@@ -395,9 +395,11 @@ def build(library: Path, indexes_out: Path, tags_out: Path) -> None:
             "sheet": published.get("sheet"),
             "partsRecombinable": published.get("parts_recombinable"),
         }
-        core.append(row)
         lyr = published.get("lyrics")
-        if lyr:
+        has_lyrics = bool(isinstance(lyr, str) and lyr.strip())
+        row["hasLyrics"] = has_lyrics
+        core.append(row)
+        if has_lyrics:
             lyrics_docs.append({"id": tid, "lyrics": lyr})
 
     # Drop published detail JSON for tags we no longer expose.

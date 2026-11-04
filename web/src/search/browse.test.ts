@@ -41,6 +41,7 @@ function tag(partial: Partial<TagSummary> & { id: number }): TagSummary {
     year: null,
     parts: 4,
     hasSheet: true,
+    hasLyrics: true,
     audioParts: [],
     sheet: null,
     sheetPages: [],

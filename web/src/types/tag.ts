@@ -100,6 +100,12 @@ export interface TagSummary {
   year?: number | string | null
   parts?: number | null
   hasSheet: boolean
+  /**
+   * True when published lyrics exist for this tag (from core index).
+   * Browse reserves a lyrics row only when this is not false; omitted on
+   * older indexes → treat as unknown and keep the reserved row.
+   */
+  hasLyrics?: boolean
   audioParts: PartId[]
   /** Non-original tier kinds present in sample/publish media. */
   audioTiers?: AudioTierId[]

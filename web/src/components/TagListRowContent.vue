@@ -35,6 +35,13 @@ const myRating = computed(() => {
 })
 /** Mobile: badge rides the subtitle when one exists; otherwise leads the meta row. */
 const badgeOnMeta = computed(() => !!bookletBadge.value && !altTitle.value)
+/**
+ * Browse/Roulette pass `lyricsSnippet` (string|null). Reserve the lyrics row
+ * unless core says this tag has no lyrics (`hasLyrics === false`).
+ */
+const showLyricsRow = computed(
+  () => props.lyricsSnippet !== undefined && props.tag.hasLyrics !== false,
+)
 
 /**
  * Mobile: lyrics stay on their own line unless key→icons meta already wraps
@@ -74,7 +81,7 @@ function metaDetailsWrapToSecondLine(): boolean {
 /** Apply pack only after measuring with lyrics on its own line (flex-basis 100%). */
 function syncLyricsPack(): void {
   if (packSyncing) return
-  if (!isNarrow.value || props.lyricsSnippet === undefined) {
+  if (!isNarrow.value || !showLyricsRow.value) {
     packLyricsAfterMetaWrap.value = false
     return
   }
@@ -143,7 +150,8 @@ watch(
       props.tag.audioParts?.length,
       cacheLabel.value,
       badgeOnMeta.value,
-      props.lyricsSnippet !== undefined,
+      showLyricsRow.value,
+      props.tag.hasLyrics,
     ] as const,
   () => {
     void nextTick(() => scheduleSyncLyricsPack())
@@ -285,11 +293,11 @@ watch(metaBlockEl, (el, prev) => {
       </span>
     </span>
     <!--
-      Browse/Roulette pass lyricsSnippet (string|null): always reserve one line
-      (nbsp + min-height) so late lyrics hydrate fades in without resizing cards.
+      Browse/Roulette: reserve one line when the tag has lyrics (hasLyrics !== false)
+      so late hydrate fades in without resizing; skip the row when core says none.
     -->
     <span
-      v-if="lyricsSnippet !== undefined"
+      v-if="showLyricsRow"
       class="lyrics-snip"
       :class="{ ready: !!lyricsSnippet, 'after-meta-wrap': packLyricsAfterMetaWrap }"
       :title="lyricsSnippet ? 'Lyrics' : undefined"
