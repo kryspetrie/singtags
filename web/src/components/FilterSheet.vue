@@ -4,24 +4,40 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-const props = defineProps<{
-  /** Sheet open state controlled by parent. */
-  open: boolean
-  title: string
-  /** Viewport Y of the panel top on mobile (e.g. bottom of filter chips). */
-  anchorTop?: number | null
-  /** Raise above fullscreen sheet chrome (default sheet is under soft-fullscreen). */
-  elevated?: boolean
-  /** Hide the visible title; dialog `aria-label` still uses `title`. */
-  hideTitle?: boolean
-  /** Mobile: full-height drawer; desktop: large centered panel. */
-  fullScreen?: boolean
-  /**
-   * Grow the panel to its content (up to the viewport) instead of the default
-   * short max-height that forces an inner scrollbar for modest menus.
-   */
-  fitContent?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Sheet open state controlled by parent. */
+    open: boolean
+    title: string
+    /** Viewport Y of the panel top on mobile (e.g. bottom of filter chips). */
+    anchorTop?: number | null
+    /** Raise above fullscreen sheet chrome (default sheet is under soft-fullscreen). */
+    elevated?: boolean
+    /** Hide the visible title; dialog `aria-label` still uses `title`. */
+    hideTitle?: boolean
+    /** Hide the entire header (title + Done) — for docked desktop menus. */
+    hideHeader?: boolean
+    /** Mobile: full-height drawer; desktop: large centered panel. */
+    fullScreen?: boolean
+    /**
+     * Grow the panel to its content (up to the viewport) instead of the default
+     * short max-height that forces an inner scrollbar for modest menus.
+     */
+    fitContent?: boolean
+    /**
+     * Desktop: dock as a dropdown under an anchor instead of a centered modal.
+     * Set `--dock-top` / `--dock-right` (or `--dock-left`) via `dockStyle`.
+     */
+    docked?: boolean
+    /** Positioning vars for docked desktop dropdown. */
+    dockStyle?: Record<string, string> | null
+  }>(),
+  {
+    hideHeader: false,
+    docked: false,
+    dockStyle: null,
+  },
+)
 
 defineEmits<{
   close: []
@@ -30,8 +46,14 @@ defineEmits<{
 const anchored = computed(() => props.anchorTop != null && props.anchorTop >= 0)
 
 const rootStyle = computed(() => {
-  if (!anchored.value || props.anchorTop == null) return undefined
-  return { '--sheet-anchor-top': `${props.anchorTop}px` }
+  const style: Record<string, string> = {}
+  if (anchored.value && props.anchorTop != null) {
+    style['--sheet-anchor-top'] = `${props.anchorTop}px`
+  }
+  if (props.docked && props.dockStyle) {
+    Object.assign(style, props.dockStyle)
+  }
+  return Object.keys(style).length ? style : undefined
 })
 
 /** Keep the overlay mounted until the leave animation finishes. */
@@ -75,10 +97,16 @@ function onPanelAfterLeave(): void {
     <div
       v-if="layerOpen"
       class="sheet-root"
-      :class="{ anchored, elevated, fullScreen: fullScreen, fitContent: fitContent }"
+      :class="{
+        anchored,
+        elevated,
+        fullScreen: fullScreen,
+        fitContent: fitContent,
+        docked: docked,
+      }"
       :style="rootStyle"
-      role="dialog"
-      aria-modal="true"
+      :role="docked ? 'menu' : 'dialog'"
+      :aria-modal="docked ? undefined : 'true'"
       :aria-label="title"
       :aria-hidden="!open"
     >
@@ -91,9 +119,16 @@ function onPanelAfterLeave(): void {
           @click="$emit('close')"
         />
       </Transition>
-      <Transition name="sheet-slide" @after-leave="onPanelAfterLeave">
+      <Transition
+        :name="docked ? 'sheet-dock' : 'sheet-slide'"
+        @after-leave="onPanelAfterLeave"
+      >
         <div v-if="contentOpen" class="panel">
-          <header class="head" :class="{ 'head-titleless': hideTitle }">
+          <header
+            v-if="!hideHeader"
+            class="head"
+            :class="{ 'head-titleless': hideTitle }"
+          >
             <h2 v-if="!hideTitle">{{ title }}</h2>
             <button type="button" class="btn btn-primary" @click="$emit('close')">Done</button>
           </header>
@@ -330,6 +365,44 @@ function onPanelAfterLeave(): void {
     border-radius: calc(var(--radius, 10px) + 2px);
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
   }
+
+  /* Docked dropdown (e.g. desktop More) — not a centered modal. */
+  .sheet-root.docked {
+    justify-content: flex-start;
+    align-items: stretch;
+    padding: 0;
+    pointer-events: none;
+  }
+  .sheet-root.docked .backdrop {
+    pointer-events: auto;
+    top: 0;
+    bottom: 0;
+    background: transparent;
+  }
+  .sheet-root.docked .panel {
+    pointer-events: auto;
+    position: absolute;
+    top: var(--dock-top, calc(var(--header-h, 3.5rem) + 0.35rem));
+    right: var(--dock-right, 0.75rem);
+    left: auto;
+    width: min(22rem, calc(100vw - 1.5rem));
+    max-height: min(80vh, 36rem);
+    margin: 0;
+    padding: 0.55rem 0.55rem 0.65rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+  }
+  .sheet-root.docked.fitContent .panel {
+    max-height: min(80vh, 36rem);
+  }
+  .sheet-root.docked .body {
+    padding: 0.25rem 0.15rem;
+  }
+  .sheet-root.docked.elevated .panel {
+    margin-bottom: 0;
+  }
+
   @keyframes sheet-slide-in {
     from {
       transform: translateY(1.25rem) scale(0.98);
@@ -349,6 +422,43 @@ function onPanelAfterLeave(): void {
       transform: translateY(1.25rem) scale(0.98);
       opacity: 0;
     }
+  }
+
+  .sheet-root.docked .panel {
+    transform-origin: top right;
+  }
+  .sheet-dock-enter-active {
+    animation: sheet-dock-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .sheet-dock-leave-active {
+    animation: sheet-dock-out 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes sheet-dock-in {
+    from {
+      transform: translateY(-0.35rem) scale(0.98);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes sheet-dock-out {
+    from {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: translateY(-0.35rem) scale(0.98);
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-dock-enter-active,
+  .sheet-dock-leave-active {
+    animation-duration: 0.01ms;
   }
 }
 </style>

@@ -3,9 +3,11 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { FavoritesBackupFile } from '../favoritesBackup'
+import type { AppStateBackupFile } from '../appStateBackup'
 import {
   __resetDriveAppStateSyncForTests,
   decideDriveAppStateSync,
+  mergeAppStates,
   mergeFavoritesByUnion,
   type DriveAppStateMeta,
 } from './driveAppStateSync'
@@ -41,7 +43,9 @@ function fav(tags: Array<{ id: number; starredAt: string; title?: string }>): Fa
   }
 }
 
-function meta(partial: Partial<DriveAppStateMeta> & Pick<DriveAppStateMeta, 'contentHash' | 'exportedAt'>): DriveAppStateMeta {
+function meta(
+  partial: Partial<DriveAppStateMeta> & Pick<DriveAppStateMeta, 'contentHash' | 'exportedAt'>,
+): DriveAppStateMeta {
   return {
     schemaVersion: 1,
     deviceId: 'dev-a',
@@ -59,7 +63,6 @@ describe('decideDriveAppStateSync', () => {
       decideDriveAppStateSync({
         cloud: null,
         localHash: 'abc',
-        localExportedAt: '2026-11-03T10:00:00.000Z',
         dirty: false,
         lastSync: null,
       }),
@@ -71,47 +74,54 @@ describe('decideDriveAppStateSync', () => {
       decideDriveAppStateSync({
         cloud: meta({ contentHash: 'abc', exportedAt: '2026-11-03T11:00:00.000Z' }),
         localHash: 'abc',
-        localExportedAt: '2026-11-03T10:00:00.000Z',
         dirty: false,
         lastSync: null,
       }),
     ).toEqual({ action: 'noop', reason: 'same-hash' })
   })
 
-  it('downloads when cloud is newer and local is clean', () => {
+  it('downloads on first hydrate when cloud exists and local is clean', () => {
     expect(
       decideDriveAppStateSync({
         cloud: meta({ contentHash: 'cloud', exportedAt: '2026-11-03T12:00:00.000Z' }),
-        localHash: 'local',
-        localExportedAt: '2026-11-03T10:00:00.000Z',
-        dirty: false,
-        lastSync: meta({ contentHash: 'local', exportedAt: '2026-11-03T10:00:00.000Z' }),
-      }),
-    ).toEqual({ action: 'download', reason: 'cloud-newer' })
-  })
-
-  it('conflicts when cloud is newer and local is dirty', () => {
-    expect(
-      decideDriveAppStateSync({
-        cloud: meta({ contentHash: 'cloud', exportedAt: '2026-11-03T12:00:00.000Z' }),
-        localHash: 'local',
-        localExportedAt: '2026-11-03T11:00:00.000Z',
-        dirty: true,
-        lastSync: meta({ contentHash: 'old', exportedAt: '2026-11-03T09:00:00.000Z' }),
-      }),
-    ).toEqual({ action: 'conflict', reason: 'cloud-newer-local-dirty' })
-  })
-
-  it('uploads when local is newer', () => {
-    expect(
-      decideDriveAppStateSync({
-        cloud: meta({ contentHash: 'cloud', exportedAt: '2026-11-03T10:00:00.000Z' }),
-        localHash: 'local',
-        localExportedAt: '2026-11-03T12:00:00.000Z',
+        localHash: 'empty-local',
         dirty: false,
         lastSync: null,
       }),
-    ).toEqual({ action: 'upload', reason: 'local-newer-or-dirty' })
+    ).toEqual({ action: 'download', reason: 'first-hydrate-prefer-cloud' })
+  })
+
+  it('downloads when cloud changed since last sync and local is clean', () => {
+    expect(
+      decideDriveAppStateSync({
+        cloud: meta({ contentHash: 'cloud', exportedAt: '2026-11-03T12:00:00.000Z' }),
+        localHash: 'local',
+        dirty: false,
+        lastSync: meta({ contentHash: 'local', exportedAt: '2026-11-03T10:00:00.000Z' }),
+      }),
+    ).toEqual({ action: 'download', reason: 'cloud-changed' })
+  })
+
+  it('merges when both sides changed since last sync (no wipe)', () => {
+    expect(
+      decideDriveAppStateSync({
+        cloud: meta({ contentHash: 'cloud', exportedAt: '2026-11-03T12:00:00.000Z' }),
+        localHash: 'local',
+        dirty: true,
+        lastSync: meta({ contentHash: 'old', exportedAt: '2026-11-03T09:00:00.000Z' }),
+      }),
+    ).toEqual({ action: 'merge', reason: 'both-changed' })
+  })
+
+  it('uploads when local is dirty and cloud matches last sync', () => {
+    expect(
+      decideDriveAppStateSync({
+        cloud: meta({ contentHash: 'same', exportedAt: '2026-11-03T10:00:00.000Z' }),
+        localHash: 'local',
+        dirty: true,
+        lastSync: meta({ contentHash: 'same', exportedAt: '2026-11-03T10:00:00.000Z' }),
+      }),
+    ).toEqual({ action: 'upload', reason: 'local-changed' })
   })
 })
 
@@ -131,5 +141,33 @@ describe('mergeFavoritesByUnion', () => {
     const one = merged.starred.tags.find((t) => t.summary.id === 1)!
     expect(one.summary.title).toBe('Local One')
     expect(merged.practice.order.sort((a, b) => a - b)).toEqual([1, 2, 3])
+  })
+})
+
+describe('mergeAppStates', () => {
+  it('unions favorites and prefers local localStorage keys', () => {
+    const local: AppStateBackupFile = {
+      version: 1,
+      kind: 'singtags.app-state',
+      exportedAt: '2026-11-03T12:00:00.000Z',
+      includeCache: false,
+      favorites: fav([{ id: 1, starredAt: '2026-11-03T12:00:00.000Z' }]),
+      localStorage: { 'singtags.theme.v1': 'dark', 'only-local': '1' },
+    }
+    const cloud: AppStateBackupFile = {
+      version: 1,
+      kind: 'singtags.app-state',
+      exportedAt: '2026-11-03T11:00:00.000Z',
+      includeCache: false,
+      favorites: fav([{ id: 2, starredAt: '2026-11-03T11:00:00.000Z' }]),
+      localStorage: { 'singtags.theme.v1': 'light', 'only-cloud': '1' },
+    }
+    const merged = mergeAppStates(local, cloud)
+    expect(merged.favorites.starred.tags.map((t) => t.summary.id).sort()).toEqual([1, 2])
+    expect(merged.localStorage).toEqual({
+      'singtags.theme.v1': 'dark',
+      'only-cloud': '1',
+      'only-local': '1',
+    })
   })
 })

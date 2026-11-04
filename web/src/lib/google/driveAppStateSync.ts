@@ -3,8 +3,12 @@
  *
  * Stores under appDataFolder/singtags/state/:
  *   app-state.json + app-state.meta.json
+ *
+ * Concurrent devices: favorites are union-merged (never last-writer-wins wipe).
+ * Failed uploads retry with backoff until dirty clears.
  */
 
+import { isSingTagsOffline } from '../appOffline'
 import {
   applyLocalStorageSnapshot,
   buildAppStateBackup,
@@ -22,10 +26,13 @@ import {
 } from './driveAppData'
 import { reactive } from 'vue'
 import {
+  getAccessToken,
   googleAuthState,
+  hasUsableAccessToken,
   isDriveSyncEnabled,
   readConnection,
   restoreGoogleConnection,
+  GoogleAuthError,
 } from './googleAuth'
 
 export const DRIVE_STATE_SEGMENTS = ['singtags', 'state'] as const
@@ -47,14 +54,20 @@ export type DriveSyncDecision =
   | { action: 'noop'; reason: string }
   | { action: 'upload'; reason: string }
   | { action: 'download'; reason: string }
-  | { action: 'conflict'; reason: string }
+  /** Both sides changed — auto-merge favorites (no data loss) then upload. */
+  | { action: 'merge'; reason: string }
+
+/** While applying a cloud restore, favorites import must not mark local dirty / schedule push. */
+let suppressDrivePush = false
 
 export type DriveConflictChoice = 'keep-local' | 'keep-cloud' | 'merge'
 
 export const driveSyncState = reactive({
-  status: 'idle' as 'idle' | 'hydrating' | 'pushing' | 'error',
+  status: 'idle' as 'idle' | 'hydrating' | 'pushing' | 'error' | 'retrying',
   message: '' as string,
   lastSyncedAt: '' as string,
+  retryAttempt: 0,
+  pendingDirty: false,
 })
 
 type SnapshotProvider = () => Promise<AppStateSnapshotInput> | AppStateSnapshotInput
@@ -64,9 +77,14 @@ let snapshotProvider: SnapshotProvider | null = null
 let applyFavorites: ApplyFavorites | null = null
 let conflictChooser: (() => Promise<DriveConflictChoice>) | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
 let hydrateInFlight: Promise<void> | null = null
+let pushInFlight: Promise<void> | null = null
+let onlineHooked = false
 
 const PUSH_DEBOUNCE_MS = 8_000
+const RETRY_BASE_MS = 15_000
+const RETRY_MAX_MS = 5 * 60_000
 
 function readFlag(key: string): string | null {
   try {
@@ -98,10 +116,12 @@ export function getOrCreateDeviceId(): string {
 
 export function markDriveAppStateDirty(): void {
   writeFlag(DRIVE_DIRTY_KEY, new Date().toISOString())
+  driveSyncState.pendingDirty = true
 }
 
 export function clearDriveAppStateDirty(): void {
   writeFlag(DRIVE_DIRTY_KEY, null)
+  driveSyncState.pendingDirty = false
 }
 
 export function isDriveAppStateDirty(): boolean {
@@ -146,6 +166,8 @@ export function configureDriveAppStateSync(opts: {
   snapshotProvider = opts.getSnapshot
   applyFavorites = opts.applyFavorites
   if (opts.chooseConflict) conflictChooser = opts.chooseConflict
+  ensureOnlineRetryHook()
+  driveSyncState.pendingDirty = isDriveAppStateDirty()
 }
 
 export function setDriveConflictChooser(
@@ -154,12 +176,30 @@ export function setDriveConflictChooser(
   conflictChooser = choose
 }
 
+/** Bound by {@link DriveSyncConflictDialog} — optional manual override; concurrent sync auto-merges. */
+export const driveConflictUi = reactive({
+  open: false,
+})
+
+let conflictUiResolve: ((choice: DriveConflictChoice) => void) | null = null
+
+/** Resolve the in-app conflict dialog (Keep device / Use Drive / Merge). */
+export function resolveDriveConflict(choice: DriveConflictChoice): void {
+  driveConflictUi.open = false
+  const resolve = conflictUiResolve
+  conflictUiResolve = null
+  resolve?.(choice)
+}
+
+/** Dismiss / Escape → keep this device (do not overwrite local with Drive). */
+export function dismissDriveConflict(): void {
+  resolveDriveConflict('keep-local')
+}
+
 async function defaultConflictChooser(): Promise<DriveConflictChoice> {
   if (conflictChooser) return conflictChooser()
-  const useCloud = window.confirm(
-    'Google Drive has newer SingTags data, and this device also has unsynced changes.\n\nOK = use Drive (overwrite this device)\nCancel = keep this device (upload local)',
-  )
-  return useCloud ? 'keep-cloud' : 'keep-local'
+  // Concurrent edits default to merge (favorites union) — never prompt to wipe data.
+  return 'merge'
 }
 
 export async function hashAppState(state: AppStateBackupFile): Promise<string> {
@@ -167,36 +207,41 @@ export async function hashAppState(state: AppStateBackupFile): Promise<string> {
   return sha256Hex(JSON.stringify({ ...state, includeCache: false }))
 }
 
+/**
+ * Decide sync action from content hashes + dirty/lastSync — not from freshly minted
+ * `exportedAt` (buildAppStateBackup always stamps "now", which falsely looks locally newer).
+ */
 export function decideDriveAppStateSync(opts: {
   cloud: DriveAppStateMeta | null
   localHash: string
-  localExportedAt: string
   dirty: boolean
   lastSync: DriveAppStateMeta | null
 }): DriveSyncDecision {
-  const { cloud, localHash, localExportedAt, dirty, lastSync } = opts
+  const { cloud, localHash, dirty, lastSync } = opts
   if (!cloud) {
     return { action: 'upload', reason: 'no-cloud-copy' }
   }
   if (cloud.contentHash === localHash) {
     return { action: 'noop', reason: 'same-hash' }
   }
-  if (lastSync && cloud.contentHash === lastSync.contentHash && !dirty) {
-    return { action: 'upload', reason: 'local-changed-since-last-sync' }
+
+  const cloudChanged = !lastSync || cloud.contentHash !== lastSync.contentHash
+  const localChanged = dirty || !lastSync || localHash !== lastSync.contentHash
+
+  // New browser / first hydrate: prefer Drive so we don't upload empty locals over cloud.
+  if (!lastSync && !dirty) {
+    return { action: 'download', reason: 'first-hydrate-prefer-cloud' }
   }
-  const cloudNewer = cloud.exportedAt > localExportedAt
-  const localNewer = localExportedAt > cloud.exportedAt
-  if (cloudNewer && dirty) {
-    return { action: 'conflict', reason: 'cloud-newer-local-dirty' }
+  if (cloudChanged && localChanged) {
+    return { action: 'merge', reason: 'both-changed' }
   }
-  if (cloudNewer) {
-    return { action: 'download', reason: 'cloud-newer' }
+  if (cloudChanged) {
+    return { action: 'download', reason: 'cloud-changed' }
   }
-  if (localNewer || dirty) {
-    return { action: 'upload', reason: 'local-newer-or-dirty' }
+  if (localChanged) {
+    return { action: 'upload', reason: 'local-changed' }
   }
-  // Same exportedAt but different hash — prefer upload to publish local.
-  return { action: 'upload', reason: 'hash-mismatch' }
+  return { action: 'noop', reason: 'stable' }
 }
 
 /** Favorites merge: union of tag ids; last-write-wins per tag by starredAt. */
@@ -246,6 +291,24 @@ export function mergeFavoritesByUnion(
     practice: {
       order,
       autoAdvance: local.practice.autoAdvance,
+    },
+  }
+}
+
+/** Merge two app-state blobs: favorites union; localStorage local-over-cloud. */
+export function mergeAppStates(
+  local: AppStateBackupFile,
+  cloud: AppStateBackupFile,
+): AppStateBackupFile {
+  return {
+    version: 1,
+    kind: 'singtags.app-state',
+    exportedAt: new Date().toISOString(),
+    includeCache: false,
+    favorites: mergeFavoritesByUnion(local.favorites, cloud.favorites),
+    localStorage: {
+      ...cloud.localStorage,
+      ...local.localStorage,
     },
   }
 }
@@ -307,6 +370,7 @@ export async function writeCloudAppState(state: AppStateBackupFile): Promise<Dri
   })
   writeLastSyncMeta(meta)
   clearDriveAppStateDirty()
+  clearRetry()
   return meta
 }
 
@@ -335,30 +399,137 @@ async function applyCloudState(
     mode === 'merge'
       ? mergeFavoritesByUnion((await buildLocalState()).favorites, state.favorites)
       : state.favorites
-  await applyFav(favorites, mode)
+  await applyFav(favorites, mode === 'merge' ? 'merge' : 'replace')
   applyLocalStorageSnapshot(state.localStorage || {})
+}
+
+/**
+ * If Drive moved since lastSync, merge remote into local (favorites union) then upload.
+ * Never blind-overwrite a newer peer device.
+ */
+async function uploadMergingRemoteIfNeeded(local: AppStateBackupFile): Promise<DriveAppStateMeta> {
+  const lastSync = readLastSyncMeta()
+  const cloudMeta = await readCloudAppStateMeta()
+  if (
+    cloudMeta &&
+    (!lastSync || cloudMeta.contentHash !== lastSync.contentHash) &&
+    (await hashAppState(local)) !== cloudMeta.contentHash
+  ) {
+    const remote = await readCloudAppState()
+    if (remote) {
+      const merged = mergeAppStates(local, remote)
+      suppressDrivePush = true
+      try {
+        await applyCloudState(merged, 'merge')
+      } finally {
+        suppressDrivePush = false
+      }
+      // Re-snapshot after apply so IDB/prefs match what we upload.
+      const after = await buildLocalState()
+      const toWrite = mergeAppStates(after, remote)
+      return writeCloudAppState(toWrite)
+    }
+  }
+  return writeCloudAppState(local)
+}
+
+async function applyMergedRemote(local: AppStateBackupFile): Promise<void> {
+  const remote = await readCloudAppState()
+  if (!remote) {
+    await writeCloudAppState(local)
+    driveSyncState.message = 'Uploaded app state to Drive'
+    return
+  }
+  const merged = mergeAppStates(local, remote)
+  suppressDrivePush = true
+  try {
+    await applyCloudState(merged, 'merge')
+  } finally {
+    suppressDrivePush = false
+  }
+  const after = await buildLocalState()
+  await writeCloudAppState(mergeAppStates(after, remote))
+  driveSyncState.message = 'Merged with Drive and uploaded'
+  // Prefs may have changed — reload so Pinia picks up localStorage.
+  window.setTimeout(() => window.location.reload(), 250)
+}
+
+function clearRetry(): void {
+  driveSyncState.retryAttempt = 0
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+}
+
+function scheduleRetry(reason: string): void {
+  markDriveAppStateDirty()
+  if (isSingTagsOffline()) {
+    driveSyncState.status = 'idle'
+    driveSyncState.message = 'Offline — Drive sync paused'
+    return
+  }
+  const attempt = driveSyncState.retryAttempt
+  const delay = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.min(attempt, 6))
+  driveSyncState.retryAttempt = attempt + 1
+  driveSyncState.status = 'retrying'
+  driveSyncState.message = `${reason} — retrying in ${Math.round(delay / 1000)}s`
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    void pushDriveAppStateNow()
+  }, delay)
+}
+
+function ensureOnlineRetryHook(): void {
+  if (onlineHooked || typeof window === 'undefined') return
+  onlineHooked = true
+  window.addEventListener('online', () => {
+    if (isDriveAppStateDirty()) scheduleDriveAppStatePush()
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isDriveAppStateDirty()) {
+      scheduleDriveAppStatePush()
+    }
+  })
 }
 
 /**
  * Non-blocking hydrate: pull cloud app-state when appropriate.
  * Safe to call repeatedly; concurrent calls share one in-flight promise.
  */
-export async function ensureDriveHydrate(): Promise<void> {
+export async function ensureDriveHydrate(opts?: { allowTokenPrompt?: boolean }): Promise<void> {
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected || !readConnection()) return
+  if (isSingTagsOffline()) {
+    driveSyncState.status = 'idle'
+    driveSyncState.message = 'Offline — Drive sync paused'
+    return
+  }
+  // Background hydrate must not open GIS popups (they flash and close without a gesture).
+  if (!opts?.allowTokenPrompt && !hasUsableAccessToken()) {
+    driveSyncState.status = 'idle'
+    driveSyncState.message = 'Connected — tap Sync now in Labs to refresh Drive'
+    if (isDriveAppStateDirty()) {
+      driveSyncState.message = 'Pending upload — tap Sync now in Labs (signed in)'
+    }
+    return
+  }
   if (hydrateInFlight) return hydrateInFlight
 
   hydrateInFlight = (async () => {
     driveSyncState.status = 'hydrating'
     driveSyncState.message = ''
     try {
+      if (opts?.allowTokenPrompt && !hasUsableAccessToken()) {
+        await getAccessToken({ interactive: true })
+      }
       const local = await buildLocalState()
       const localHash = await hashAppState(local)
       const cloud = await readCloudAppStateMeta()
       const decision = decideDriveAppStateSync({
         cloud,
         localHash,
-        localExportedAt: local.exportedAt,
         dirty: isDriveAppStateDirty(),
         lastSync: readLastSyncMeta(),
       })
@@ -366,11 +537,14 @@ export async function ensureDriveHydrate(): Promise<void> {
       if (decision.action === 'noop') {
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Drive synced'
+        clearDriveAppStateDirty()
+        clearRetry()
+        if (cloud) writeLastSyncMeta(cloud)
         return
       }
 
       if (decision.action === 'upload') {
-        await writeCloudAppState(local)
+        await uploadMergingRemoteIfNeeded(local)
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Uploaded app state to Drive'
         return
@@ -380,57 +554,69 @@ export async function ensureDriveHydrate(): Promise<void> {
         const remote = await readCloudAppState()
         if (!remote) {
           await writeCloudAppState(local)
+          driveSyncState.status = 'idle'
+          driveSyncState.message = 'Uploaded app state to Drive'
           return
         }
-        await applyCloudState(remote, 'replace')
-        const meta = cloud!
-        writeLastSyncMeta(meta)
+        // If we somehow have local dirty during download decision, merge instead of replace.
+        if (isDriveAppStateDirty()) {
+          await applyMergedRemote(local)
+          driveSyncState.status = 'idle'
+          return
+        }
+        suppressDrivePush = true
+        try {
+          await applyCloudState(remote, 'replace')
+        } finally {
+          suppressDrivePush = false
+        }
+        writeLastSyncMeta(cloud!)
         clearDriveAppStateDirty()
+        clearRetry()
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Restored app state from Drive'
-        // Prefs / recent live in localStorage — reload so Pinia picks them up.
         window.setTimeout(() => window.location.reload(), 250)
         return
       }
 
-      // conflict
-      const choice = await defaultConflictChooser()
-      if (choice === 'keep-local') {
-        await writeCloudAppState(local)
-        driveSyncState.message = 'Kept this device; uploaded to Drive'
-      } else if (choice === 'keep-cloud') {
-        const remote = await readCloudAppState()
-        if (remote) {
-          await applyCloudState(remote, 'replace')
-          if (cloud) writeLastSyncMeta(cloud)
-          clearDriveAppStateDirty()
-          driveSyncState.message = 'Kept Drive; restored to this device'
-          window.setTimeout(() => window.location.reload(), 250)
-        }
-      } else {
-        const remote = await readCloudAppState()
-        if (remote) {
-          const mergedFav = mergeFavoritesByUnion(local.favorites, remote.favorites)
-          const merged: AppStateBackupFile = {
-            ...local,
-            exportedAt: new Date().toISOString(),
-            favorites: mergedFav,
-            localStorage: {
-              ...remote.localStorage,
-              ...local.localStorage,
-            },
+      // merge — concurrent devices; never wipe favorites
+      if (cloud) {
+        const choice = await defaultConflictChooser()
+        if (choice === 'keep-local') {
+          await uploadMergingRemoteIfNeeded(local)
+          driveSyncState.message = 'Kept this device; uploaded to Drive'
+        } else if (choice === 'keep-cloud') {
+          const remote = await readCloudAppState()
+          if (remote) {
+            suppressDrivePush = true
+            try {
+              await applyCloudState(remote, 'replace')
+            } finally {
+              suppressDrivePush = false
+            }
+            writeLastSyncMeta(cloud)
+            clearDriveAppStateDirty()
+            clearRetry()
+            driveSyncState.message = 'Kept Drive; restored to this device'
+            window.setTimeout(() => window.location.reload(), 250)
           }
-          await applyCloudState(merged, 'merge')
-          await writeCloudAppState(merged)
-          driveSyncState.message = 'Merged favorites; uploaded to Drive'
-          window.setTimeout(() => window.location.reload(), 250)
+        } else {
+          await applyMergedRemote(local)
         }
       }
       driveSyncState.status = 'idle'
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
       driveSyncState.status = 'error'
-      driveSyncState.message = e instanceof Error ? e.message : String(e)
+      driveSyncState.message = msg
+      if (!(e instanceof GoogleAuthError && e.code === 'reconnect')) {
+        scheduleRetry(msg || 'Drive sync failed')
+      } else {
+        driveSyncState.message = `${msg} — tap Sync now when ready`
+        markDriveAppStateDirty()
+      }
     } finally {
+      suppressDrivePush = false
       hydrateInFlight = null
     }
   })()
@@ -440,9 +626,15 @@ export async function ensureDriveHydrate(): Promise<void> {
 
 /** Debounced background upload after local changes. */
 export function scheduleDriveAppStatePush(): void {
+  if (suppressDrivePush) return
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected) return
   markDriveAppStateDirty()
+  // Stay dirty while Offline; upload when connectivity / Online mode returns.
+  if (isSingTagsOffline()) {
+    driveSyncState.message = 'Offline — Drive upload pending'
+    return
+  }
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => {
     pushTimer = null
@@ -453,15 +645,52 @@ export function scheduleDriveAppStatePush(): void {
 export async function pushDriveAppStateNow(): Promise<void> {
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected) return
-  driveSyncState.status = 'pushing'
-  try {
-    const local = await buildLocalState()
-    await writeCloudAppState(local)
+  if (isSingTagsOffline()) {
     driveSyncState.status = 'idle'
-    driveSyncState.message = 'Drive synced'
-  } catch (e) {
-    driveSyncState.status = 'error'
-    driveSyncState.message = e instanceof Error ? e.message : String(e)
+    driveSyncState.message = 'Offline — Drive sync paused'
+    markDriveAppStateDirty()
+    return
+  }
+  if (pushInFlight) return pushInFlight
+  // Background debounce must not open a GIS popup after reload.
+  if (!hasUsableAccessToken()) {
+    driveSyncState.status = 'idle'
+    driveSyncState.message = 'Pending upload — tap Sync now in Labs'
+    markDriveAppStateDirty()
+    return
+  }
+
+  pushInFlight = (async () => {
+    driveSyncState.status = 'pushing'
+    try {
+      const local = await buildLocalState()
+      await uploadMergingRemoteIfNeeded(local)
+      driveSyncState.status = 'idle'
+      driveSyncState.message = 'Drive synced'
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      driveSyncState.status = 'error'
+      driveSyncState.message = msg
+      if (!(e instanceof GoogleAuthError && e.code === 'reconnect')) {
+        scheduleRetry(msg || 'Upload failed')
+      } else {
+        markDriveAppStateDirty()
+        driveSyncState.message = `${msg} — tap Sync now when ready`
+      }
+    } finally {
+      pushInFlight = null
+    }
+  })()
+
+  return pushInFlight
+}
+
+/** User-gesture sync: may prompt GIS once, then hydrate or push as needed. */
+export async function syncDriveAppStateNow(): Promise<void> {
+  clearRetry()
+  await ensureDriveHydrate({ allowTokenPrompt: true })
+  if (isDriveAppStateDirty() && hasUsableAccessToken()) {
+    await pushDriveAppStateNow()
   }
 }
 
@@ -472,8 +701,15 @@ export function __resetDriveAppStateSyncForTests(): void {
   conflictChooser = null
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = null
+  clearRetry()
   hydrateInFlight = null
+  pushInFlight = null
   driveSyncState.status = 'idle'
   driveSyncState.message = ''
   driveSyncState.lastSyncedAt = ''
+  driveSyncState.retryAttempt = 0
+  driveSyncState.pendingDirty = false
+  driveConflictUi.open = false
+  conflictUiResolve = null
+  suppressDrivePush = false
 }

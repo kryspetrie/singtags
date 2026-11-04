@@ -24,6 +24,11 @@ export async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+export async function sha256Bytes(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', toArrayBuffer(bytes))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 /** Copy into a detached ArrayBuffer so fetch/Blob typings accept it. */
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
@@ -73,6 +78,28 @@ export async function findChildByName(
     `/files?q=${encodeURIComponent(q)}&spaces=appDataFolder&fields=files(id,name,mimeType)&pageSize=10`,
   )
   return data.files?.[0] ?? null
+}
+
+/** List all non-trashed children under a folder (paginated). */
+export async function listChildren(parentId: string): Promise<DriveFileRef[]> {
+  const out: DriveFileRef[] = []
+  let pageToken: string | undefined
+  const q = `'${parentId}' in parents and trashed = false`
+  do {
+    const params = new URLSearchParams({
+      q,
+      spaces: 'appDataFolder',
+      fields: 'nextPageToken,files(id,name,mimeType)',
+      pageSize: '1000',
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+    const data = await driveJson<{ files?: DriveFileRef[]; nextPageToken?: string }>(
+      `/files?${params.toString()}`,
+    )
+    if (data.files?.length) out.push(...data.files)
+    pageToken = data.nextPageToken
+  } while (pageToken)
+  return out
 }
 
 export async function createFolder(
@@ -214,4 +241,14 @@ export async function downloadTextFile(fileId: string): Promise<string> {
 
 export async function downloadJsonFile<T = unknown>(fileId: string): Promise<T> {
   return JSON.parse(await downloadTextFile(fileId)) as T
+}
+
+/** Permanently delete a Drive file (appData). */
+export async function deleteFile(fileId: string): Promise<void> {
+  const res = await driveFetch(`/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' })
+  if (res.status === 404 || res.status === 204) return
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `Drive delete failed (${res.status}).`)
+  }
 }

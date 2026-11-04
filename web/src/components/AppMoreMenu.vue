@@ -3,11 +3,20 @@
  * Secondary app menu: settings, downloads, sing mode toggle.
  * Destination links not pinned to the primary chrome appear here.
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import FilterSheet from './FilterSheet.vue'
 import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 import { usePwaInstall } from '../composables/usePwaInstall'
+import {
+  openGoogleLogin,
+  openGoogleLogoutConfirm,
+} from '../lib/google/accountUi'
+import {
+  googleAuthState,
+  isGoogleConfigured,
+  restoreGoogleConnection,
+} from '../lib/google/googleAuth'
 import {
   PRIMARY_NAV_ITEMS,
   morePrimaryNavIds,
@@ -20,7 +29,7 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useQueueStore } from '../stores/queue'
 import { useSnackbarStore } from '../stores/snackbar'
 
-defineProps<{
+const props = defineProps<{
   open: boolean
 }>()
 
@@ -34,6 +43,76 @@ const queue = useQueueStore()
 const snackbar = useSnackbarStore()
 const { showInstallEntry, canPrompt, promptInstall } = usePwaInstall()
 const howToOpen = ref(false)
+const googleConfigured = isGoogleConfigured()
+const isDesktop = ref(false)
+const dockStyle = ref<Record<string, string> | null>(null)
+
+const DESKTOP_MQ = '(min-width: 768px)'
+
+function syncDesktop(): void {
+  isDesktop.value = window.matchMedia(DESKTOP_MQ).matches
+}
+
+function updateDockPosition(): void {
+  if (!isDesktop.value) {
+    dockStyle.value = null
+    return
+  }
+  const btn = document.querySelector(
+    'header .topnav .more-btn',
+  ) as HTMLElement | null
+  if (!btn) {
+    dockStyle.value = {
+      '--dock-top': 'calc(var(--header-h, 3.5rem) + 0.35rem)',
+      '--dock-right': '0.75rem',
+    }
+    return
+  }
+  const r = btn.getBoundingClientRect()
+  const gap = 6
+  dockStyle.value = {
+    '--dock-top': `${Math.round(r.bottom + gap)}px`,
+    '--dock-right': `${Math.max(8, Math.round(window.innerWidth - r.right))}px`,
+  }
+}
+
+let desktopMq: MediaQueryList | null = null
+
+onMounted(() => {
+  syncDesktop()
+  desktopMq = window.matchMedia(DESKTOP_MQ)
+  desktopMq.addEventListener('change', syncDesktop)
+})
+
+onUnmounted(() => {
+  desktopMq?.removeEventListener('change', syncDesktop)
+  desktopMq = null
+})
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      restoreGoogleConnection()
+      syncDesktop()
+      updateDockPosition()
+    }
+  },
+)
+
+const accountMenuLabel = computed(() =>
+  googleAuthState.connected ? 'Log out' : 'Log in with Google',
+)
+
+const accountMenuDesc = computed(() => {
+  if (!googleConfigured) return 'Google sync is not configured in this build'
+  if (googleAuthState.connected) {
+    return googleAuthState.email
+      ? `Signed in as ${googleAuthState.email}`
+      : 'Disconnect Google Drive sync'
+  }
+  return 'Sync favorites & settings via your Drive'
+})
 
 const primaryNavGates = computed(
   (): PrimaryNavGates => ({
@@ -113,10 +192,40 @@ function toggleOfflineMode(): void {
     },
   )
 }
+
+function onAccountClick(): void {
+  if (!googleConfigured) {
+    snackbar.show('Google sync is not configured in this build', {
+      title: 'Unavailable',
+      tone: 'error',
+      ms: 3500,
+      placement: 'center',
+    })
+    close()
+    return
+  }
+  // Dialogs live in AppAccountControl; close More so they aren’t buried.
+  close()
+  if (googleAuthState.connected) {
+    openGoogleLogoutConfirm()
+    return
+  }
+  openGoogleLogin()
+}
 </script>
 
 <template>
-  <FilterSheet :open="open" title="More" elevated hide-title fit-content @close="close">
+  <FilterSheet
+    :open="open"
+    title="More"
+    elevated
+    hide-title
+    :hide-header="isDesktop"
+    fit-content
+    :docked="isDesktop"
+    :dock-style="dockStyle"
+    @close="close"
+  >
     <nav class="menu" aria-label="More">
       <label
         class="setting-row setting-sing"
@@ -184,6 +293,33 @@ function toggleOfflineMode(): void {
         <span class="menu-desc">{{ item.desc }}</span>
       </RouterLink>
 
+      <!-- Mobile only — desktop uses the top-right account control. -->
+      <button
+        v-if="!isDesktop"
+        type="button"
+        class="menu-item menu-item-account"
+        :class="{ connected: googleAuthState.connected }"
+        @click="onAccountClick"
+      >
+        <span class="menu-row">
+          <span class="account-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" focusable="false">
+              <path
+                fill="currentColor"
+                d="M12 12a4.5 4.5 0 1 0-4.5-4.5A4.5 4.5 0 0 0 12 12Zm0 2.25c-3.6 0-6.75 1.8-6.75 4v.75h13.5V18.25c0-2.2-3.15-4-6.75-4Z"
+              />
+              <path
+                fill="currentColor"
+                opacity="0.85"
+                d="M18.75 8.5a.75.75 0 0 0-.75.75V11h-1.75a.75.75 0 0 0 0 1.5H18v1.75a.75.75 0 0 0 1.5 0V12.5h1.75a.75.75 0 0 0 0-1.5H19.5V9.25a.75.75 0 0 0-.75-.75Z"
+              />
+            </svg>
+          </span>
+          <span class="menu-label">{{ accountMenuLabel }}</span>
+        </span>
+        <span class="menu-desc">{{ accountMenuDesc }}</span>
+      </button>
+
       <button
         v-if="showInstallEntry"
         type="button"
@@ -223,6 +359,31 @@ function toggleOfflineMode(): void {
   text-align: left;
   width: 100%;
   box-sizing: border-box;
+}
+.menu-item-account {
+  order: 4;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.menu-item-account .account-icon {
+  display: inline-flex;
+  color: var(--accent-hover);
+  flex: 0 0 auto;
+}
+.menu-item-account .menu-label {
+  color: var(--accent-hover);
+  font-weight: 700;
+}
+.menu-item-account.connected {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.menu-item-account.connected .menu-label {
+  color: var(--accent-hover);
+  font-weight: 650;
+}
+.menu-item-account.connected .account-icon {
+  color: var(--accent);
 }
 .menu-item-install {
   order: 5;

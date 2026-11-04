@@ -4,6 +4,8 @@
  */
 
 import { configureDriveAppStateSync, ensureDriveHydrate } from './driveAppStateSync'
+import { ensureDriveCacheSync } from './driveCacheSync'
+import { startDriveSyncPolling } from './driveSyncPoll'
 import { isDriveSyncEnabled, restoreGoogleConnection } from './googleAuth'
 import { useFavoritesStore } from '../../stores/favorites'
 import { usePracticeStore } from '../../stores/practice'
@@ -14,10 +16,11 @@ export function startDriveAppStateSync(): void {
   restoreGoogleConnection()
 
   configureDriveAppStateSync({
-    getSnapshot: () => {
+    getSnapshot: async () => {
       const favorites = useFavoritesStore()
       const userCollections = useUserCollectionsStore()
       const practice = usePracticeStore()
+      await favorites.ensureLoaded()
       return {
         records: favorites.records,
         collections: userCollections.exportSnapshot(),
@@ -34,6 +37,9 @@ export function startDriveAppStateSync(): void {
     },
   })
 
+  // Poll interval is Settings-configurable; safe even when not connected (ticks no-op).
+  startDriveSyncPolling()
+
   if (!isDriveSyncEnabled()) return
 
   const idle = (cb: () => void) => {
@@ -43,7 +49,10 @@ export function startDriveAppStateSync(): void {
       window.setTimeout(cb, 1200)
     }
   }
+  // Idle hydrate only runs when a token is already in memory (no popup flash).
   idle(() => {
-    void ensureDriveHydrate()
+    void ensureDriveHydrate({ allowTokenPrompt: false }).then(() =>
+      ensureDriveCacheSync({ allowTokenPrompt: false }),
+    )
   })
 }

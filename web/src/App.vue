@@ -47,6 +47,7 @@ import {
 } from './lib/primaryNav'
 import { setPrimaryNavFitCapacity } from './lib/primaryNavFit'
 import AboutDialog from './components/AboutDialog.vue'
+import AppAccountControl from './components/AppAccountControl.vue'
 import AppMoreMenu from './components/AppMoreMenu.vue'
 import CollectionPickerSheet from './components/CollectionPickerSheet.vue'
 import LocalGroupPickerSheet from './components/LocalGroupPickerSheet.vue'
@@ -57,6 +58,9 @@ const LocalReceiveDuplicateDialog = defineAsyncComponent(
 )
 const OfflineOpticalTransferPrompt = defineAsyncComponent(
   () => import('./components/OfflineOpticalTransferPrompt.vue'),
+)
+const DriveSyncConflictDialog = defineAsyncComponent(
+  () => import('./components/DriveSyncConflictDialog.vue'),
 )
 
 const favorites = useFavoritesStore()
@@ -260,8 +264,8 @@ const moreNavActive = computed(() => {
   return !pinnedNavIds.value.includes(id)
 })
 
-function openMore(): void {
-  moreOpen.value = true
+function toggleMore(): void {
+  moreOpen.value = !moreOpen.value
 }
 
 function closeMore(): void {
@@ -544,29 +548,33 @@ async function acceptReconnectPrompt(): Promise<void> {
           </button>
         </div>
       </div>
-      <nav ref="topnavRef" class="topnav" aria-label="Primary">
-        <RouterLink
-          v-for="item in pinnedNavItems"
-          :key="item.id"
-          class="btn btn-ghost"
-          :class="{ 'router-link-active': isPinnedNavActive(item.id) }"
-          :to="item.path"
-          @click="onPinnedNavClick(item.id, $event)"
-        >{{ item.label }}</RouterLink>
-        <button
-          type="button"
-          class="btn btn-ghost more-btn"
-          :class="{ on: moreOpen || moreNavActive }"
-          aria-haspopup="dialog"
-          :aria-expanded="moreOpen"
-          aria-label="More"
-          title="More"
-          @click="openMore"
-        >
-          <span class="more-icon" aria-hidden="true">☰</span>
-          <span v-if="prefs.zipExportsEnabled && queue.count" class="n">{{ queue.count }}</span>
-        </button>
-      </nav>
+      <div class="top-end">
+        <nav ref="topnavRef" class="topnav" aria-label="Primary">
+          <RouterLink
+            v-for="item in pinnedNavItems"
+            :key="item.id"
+            class="btn btn-ghost"
+            :class="{ 'router-link-active': isPinnedNavActive(item.id) }"
+            :to="item.path"
+            @click="onPinnedNavClick(item.id, $event)"
+          >{{ item.label }}</RouterLink>
+          <button
+            type="button"
+            class="btn btn-ghost more-btn"
+            :class="{ on: moreOpen || moreNavActive }"
+            aria-haspopup="menu"
+            :aria-expanded="moreOpen"
+            aria-label="More"
+            title="More"
+            @click="toggleMore"
+          >
+            <span class="more-icon" aria-hidden="true">☰</span>
+            <span v-if="prefs.zipExportsEnabled && queue.count" class="n">{{ queue.count }}</span>
+          </button>
+        </nav>
+        <!-- Desktop-only Google account (outside configurable pins). Mobile: More → Log in. -->
+        <AppAccountControl />
+      </div>
     </header>
     <!-- Off-screen: full preferred pin set + More for width-budget fitting (outside clipped header). -->
     <nav
@@ -595,6 +603,7 @@ async function acceptReconnectPrompt(): Promise<void> {
       <RouterLink class="btn btn-ghost" to="/settings?tab=offline">Offline settings</RouterLink>
     </div>
     <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
+    <DriveSyncConflictDialog />
     <AppMoreMenu :open="moreOpen" @close="closeMore" />
     <CollectionPickerSheet
       :open="!!favorites.collectionPickerTagIds?.length"
@@ -642,10 +651,10 @@ async function acceptReconnectPrompt(): Promise<void> {
         type="button"
         class="tab more-tab"
         :class="{ on: moreOpen || moreNavActive }"
-        aria-haspopup="dialog"
+        aria-haspopup="menu"
         :aria-expanded="moreOpen"
         aria-label="More"
-        @click="openMore"
+        @click="toggleMore"
       >
         <span class="ico" aria-hidden="true">☰</span>
         More
@@ -1110,8 +1119,18 @@ async function acceptReconnectPrompt(): Promise<void> {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.topnav {
+/* Desktop: pins + More + account. Hidden on mobile (bottom tabs + More sheet). */
+.top-end {
   display: none;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.topnav {
+  display: flex;
   flex: 1 1 0;
   align-self: center;
   gap: 0.4rem;
@@ -1557,8 +1576,10 @@ main {
     flex-wrap: nowrap;
     overflow: hidden;
   }
-  .topnav {
+  .top-end {
     display: flex;
+  }
+  .topnav {
     flex: 1 1 0;
     flex-wrap: nowrap;
     min-width: 0;
@@ -1606,7 +1627,7 @@ main {
     align-items: flex-end;
     text-align: right;
   }
-  .topnav {
+  .top-end {
     display: none;
   }
   .offline-ribbon {

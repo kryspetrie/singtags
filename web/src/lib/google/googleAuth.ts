@@ -2,7 +2,8 @@
  * Google Identity Services (GIS) token client for Drive sync.
  *
  * Public Web client ID only (`VITE_GOOGLE_OAUTH_CLIENT_ID`) — never a client secret.
- * Access tokens live in memory; only a small "connected" marker is persisted.
+ * Access tokens live in memory + sessionStorage (this tab only, with expiry).
+ * The "connected" marker is in localStorage; never put a client secret in the SPA.
  * See docs/plans/google-drive-sync-and-cache.md.
  */
 
@@ -13,6 +14,8 @@ export const GOOGLE_SCOPES = `${GOOGLE_DRIVE_APPDATA_SCOPE} openid email profile
 
 export const DRIVE_SYNC_ENABLED_KEY = 'singtags.labs.driveSync.enabled.v1'
 export const GOOGLE_CONNECTED_KEY = 'singtags.google.connected.v1'
+/** Tab-scoped token cache so Sync after reload does not force the account picker. */
+export const GOOGLE_TOKEN_SESSION_KEY = 'singtags.google.accessToken.v1'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
@@ -108,6 +111,46 @@ function writeFlag(key: string, value: string | null): void {
   }
 }
 
+function persistAccessToken(token: string, expiresAt: number): void {
+  accessToken = token
+  tokenExpiresAt = expiresAt
+  try {
+    sessionStorage.setItem(GOOGLE_TOKEN_SESSION_KEY, JSON.stringify({ token, expiresAt }))
+  } catch {
+    /* private / blocked */
+  }
+}
+
+function restoreAccessTokenFromSession(): void {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_TOKEN_SESSION_KEY)
+    if (!raw) return
+    const v = JSON.parse(raw) as { token?: unknown; expiresAt?: unknown }
+    if (
+      typeof v.token === 'string' &&
+      typeof v.expiresAt === 'number' &&
+      Date.now() < v.expiresAt - EXPIRY_SKEW_MS
+    ) {
+      accessToken = v.token
+      tokenExpiresAt = v.expiresAt
+      return
+    }
+    sessionStorage.removeItem(GOOGLE_TOKEN_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearAccessToken(): void {
+  accessToken = null
+  tokenExpiresAt = 0
+  try {
+    sessionStorage.removeItem(GOOGLE_TOKEN_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 export function isDriveSyncEnabled(): boolean {
   return readFlag(DRIVE_SYNC_ENABLED_KEY) === '1'
 }
@@ -128,11 +171,12 @@ export function readConnection(): GoogleConnection | null {
   }
 }
 
-/** Sync reactive state from localStorage (call on app start / when the Labs card mounts). */
+/** Sync reactive state from localStorage + restore tab token from sessionStorage. */
 export function restoreGoogleConnection(): void {
   const c = readConnection()
   googleAuthState.connected = c !== null
   googleAuthState.email = c?.email ?? ''
+  restoreAccessTokenFromSession()
 }
 
 function loadGis(): Promise<GoogleGis> {
@@ -171,8 +215,8 @@ async function ensureClient(): Promise<TokenClient> {
         p.reject(new GoogleAuthError('reconnect', r.error_description || r.error || 'Google sign-in failed.'))
         return
       }
-      accessToken = r.access_token
-      tokenExpiresAt = Date.now() + (Number(r.expires_in) || 3600) * 1000
+      const expiresAt = Date.now() + (Number(r.expires_in) || 3600) * 1000
+      persistAccessToken(r.access_token, expiresAt)
       p.resolve(r.access_token)
     },
     error_callback: (e) => {
@@ -206,20 +250,25 @@ async function fetchEmail(token: string): Promise<string | undefined> {
   }
 }
 
+async function markConnectedFromToken(token: string): Promise<GoogleConnection> {
+  const conn: GoogleConnection = {
+    email: await fetchEmail(token),
+    connectedAt: new Date().toISOString(),
+  }
+  writeFlag(GOOGLE_CONNECTED_KEY, JSON.stringify(conn))
+  googleAuthState.connected = true
+  googleAuthState.email = conn.email ?? ''
+  googleAuthState.error = ''
+  return conn
+}
+
 /** Interactive consent — call from a user gesture (popup). */
 export async function signIn(): Promise<GoogleConnection> {
   googleAuthState.busy = true
   googleAuthState.error = ''
   try {
     const token = await requestToken('select_account')
-    const conn: GoogleConnection = {
-      email: await fetchEmail(token),
-      connectedAt: new Date().toISOString(),
-    }
-    writeFlag(GOOGLE_CONNECTED_KEY, JSON.stringify(conn))
-    googleAuthState.connected = true
-    googleAuthState.email = conn.email ?? ''
-    return conn
+    return await markConnectedFromToken(token)
   } catch (e) {
     googleAuthState.error = e instanceof Error ? e.message : String(e)
     throw e
@@ -228,33 +277,66 @@ export async function signIn(): Promise<GoogleConnection> {
   }
 }
 
+/** True when we already hold a non-expired access token (memory or session). */
+export function hasUsableAccessToken(): boolean {
+  if (!!accessToken && Date.now() < tokenExpiresAt - EXPIRY_SKEW_MS) return true
+  restoreAccessTokenFromSession()
+  return !!accessToken && Date.now() < tokenExpiresAt - EXPIRY_SKEW_MS
+}
+
 /**
- * Valid access token for Drive calls. Reuses the in-memory token, otherwise tries a silent
- * re-request. Throws `reconnect` when Google needs a user gesture.
+ * Valid access token for Drive calls.
+ *
+ * Default: return cached token only — never open a popup from background work.
+ * `{ interactive: true }` (button click): reuse cache, else try `prompt: ''` (often no UI
+ * under a user gesture), and only then fall back to the account picker.
  */
-export async function getAccessToken(): Promise<string> {
-  if (!googleAuthState.connected) {
+export async function getAccessToken(opts?: { interactive?: boolean }): Promise<string> {
+  if (!opts?.interactive && !googleAuthState.connected) {
     throw new GoogleAuthError('not-connected', 'Connect Google Drive first.')
   }
-  if (accessToken && Date.now() < tokenExpiresAt - EXPIRY_SKEW_MS) return accessToken
+  if (hasUsableAccessToken()) return accessToken!
+  if (!opts?.interactive) {
+    const err = new GoogleAuthError(
+      'reconnect',
+      'Reconnect Google Drive (tap Connect or Sync now) — the sign-in popup cannot run in the background.',
+    )
+    googleAuthState.error = err.message
+    throw err
+  }
   try {
-    return await requestToken('')
+    let token: string
+    try {
+      // Under a real click, empty prompt usually renews with little or no UI.
+      token = await requestToken('')
+    } catch {
+      token = await requestToken('select_account')
+    }
+    if (!googleAuthState.connected) {
+      await markConnectedFromToken(token)
+    } else if (!googleAuthState.email) {
+      googleAuthState.email = (await fetchEmail(token)) ?? ''
+    }
+    googleAuthState.error = ''
+    return token
   } catch (e) {
-    googleAuthState.error = e instanceof Error ? e.message : String(e)
-    throw e
+    const msg = e instanceof Error ? e.message : String(e)
+    googleAuthState.error = msg || 'Reconnect Google Drive to continue syncing.'
+    throw e instanceof GoogleAuthError
+      ? e
+      : new GoogleAuthError('reconnect', googleAuthState.error)
   }
 }
 
 /** Drop the cached token (e.g. after a Drive 401) so the next call re-requests. */
 export function invalidateAccessToken(): void {
-  accessToken = null
-  tokenExpiresAt = 0
+  clearAccessToken()
 }
 
 /** Revoke the token with Google when possible and clear all local connection state. */
 export async function signOut(): Promise<void> {
   const token = accessToken
-  invalidateAccessToken()
+  clearAccessToken()
   tokenClient = null
   pending = null
   writeFlag(GOOGLE_CONNECTED_KEY, null)
@@ -280,7 +362,7 @@ export interface DriveAboutSummary {
 
 /** Phase 1 smoke test: Drive `about.get` with the current token. */
 export async function testDriveConnection(): Promise<DriveAboutSummary> {
-  const token = await getAccessToken()
+  const token = await getAccessToken({ interactive: true })
   const res = await fetch(DRIVE_ABOUT_URL, { headers: { Authorization: `Bearer ${token}` } })
   if (res.status === 401) {
     invalidateAccessToken()
@@ -301,8 +383,7 @@ export async function testDriveConnection(): Promise<DriveAboutSummary> {
 
 /** Test hook: reset module state. */
 export function __resetGoogleAuthForTests(): void {
-  accessToken = null
-  tokenExpiresAt = 0
+  clearAccessToken()
   tokenClient = null
   pending = null
   gisPromise = null
@@ -310,4 +391,9 @@ export function __resetGoogleAuthForTests(): void {
   googleAuthState.email = ''
   googleAuthState.busy = false
   googleAuthState.error = ''
+  try {
+    sessionStorage.removeItem(GOOGLE_TOKEN_SESSION_KEY)
+  } catch {
+    /* ignore */
+  }
 }

@@ -46,6 +46,11 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.labs.arranging.enabled.v1',
   /** Labs Google Drive sync master switch (Phase 2+). */
   'singtags.labs.driveSync.enabled.v1',
+  /** Opt-in Drive mirror of Browse sheet / track offline packs. */
+  'singtags.drive.cache.sheets.enabled.v1',
+  'singtags.drive.cache.audio.enabled.v1',
+  /** Background Drive sync poll interval in minutes (`0` = off). */
+  'singtags.drive.sync.pollMinutes.v1',
 
   'singtags.primaryNav.order.v1',
   'singtags.primaryNav.hidden.v1',

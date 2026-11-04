@@ -4,6 +4,7 @@
  */
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import GoogleDriveCacheOfferDialog from '../components/GoogleDriveCacheOfferDialog.vue'
 import InfoTips from '../components/InfoTips.vue'
 import {
   googleAuthState,
@@ -18,8 +19,9 @@ import {
 import {
   driveSyncState,
   ensureDriveHydrate,
-  scheduleDriveAppStatePush,
+  syncDriveAppStateNow,
 } from '../lib/google/driveAppStateSync'
+import { driveCacheSyncState } from '../lib/google/driveCacheSync'
 import { usePreferencesStore } from '../stores/preferences'
 
 const prefs = usePreferencesStore()
@@ -34,16 +36,20 @@ function toggleDriveSync(): void {
   driveSyncOn.value = !driveSyncOn.value
   setDriveSyncEnabled(driveSyncOn.value)
   if (driveSyncOn.value && googleAuthState.connected) {
-    void ensureDriveHydrate()
+    void ensureDriveHydrate({ allowTokenPrompt: false })
   }
 }
+
+const cacheOfferOpen = ref(false)
 
 async function connectGoogle(): Promise<void> {
   driveTestMsg.value = ''
   try {
     await signIn()
-    scheduleDriveAppStatePush()
-    void ensureDriveHydrate()
+    // Hydrate under the same user gesture (token already in memory). Do not mark dirty /
+    // push first — that used to upload empty favorites over Drive on a fresh profile.
+    await ensureDriveHydrate({ allowTokenPrompt: true })
+    cacheOfferOpen.value = true
   } catch {
     /* message shown from googleAuthState.error */
   }
@@ -52,6 +58,7 @@ async function connectGoogle(): Promise<void> {
 async function disconnectGoogle(): Promise<void> {
   driveTestMsg.value = ''
   await signOut()
+  driveSyncState.message = ''
 }
 
 async function testDrive(): Promise<void> {
@@ -59,6 +66,17 @@ async function testDrive(): Promise<void> {
   try {
     const r = await testDriveConnection()
     driveTestMsg.value = `Drive reachable${r.email ? ` as ${r.email}` : ''}.`
+  } catch (e) {
+    driveTestMsg.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+async function syncDriveNow(): Promise<void> {
+  driveTestMsg.value = ''
+  try {
+    await syncDriveAppStateNow()
+    const { ensureDriveCacheSync } = await import('../lib/google/driveCacheSync')
+    await ensureDriveCacheSync({ allowTokenPrompt: true })
   } catch (e) {
     driveTestMsg.value = e instanceof Error ? e.message : String(e)
   }
@@ -209,8 +227,9 @@ function toggleTagStudio(): void {
       <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
       <p class="card-desc">
         Sign in with Google to keep preferences, favorites, recents, and Labs flags in your private
-        SingTags app folder on Google Drive (appData). Tag Studio and My Library sync come next.
-        Catalog media mirror stays opt-in later. SingTags never sees your password.
+        SingTags app folder on Google Drive (appData). Sheet / track cache mirroring is opt-in from
+        the Log in dialog. Tag Studio and My Library sync come next. SingTags never sees your
+        password.
       </p>
 
       <label class="setting-row" :class="{ on: driveSyncOn }" title="Enable Google Drive sync">
@@ -252,18 +271,38 @@ function toggleTagStudio(): void {
           Connect Google Drive
         </button>
         <template v-else>
+          <button type="button" class="btn" @click="syncDriveNow">Sync now</button>
           <button type="button" class="btn" @click="testDrive">Test connection</button>
           <button type="button" class="btn" @click="disconnectGoogle">Disconnect</button>
         </template>
         <p v-if="googleAuthState.error" class="card-desc" role="alert">{{ googleAuthState.error }}</p>
         <p v-if="driveTestMsg" class="card-desc" role="status">{{ driveTestMsg }}</p>
         <p
-          v-if="driveSyncState.message"
+          v-if="driveSyncState.message || driveSyncState.pendingDirty"
           class="card-desc"
           role="status"
         >
-          Sync: {{ driveSyncState.message }}
-          <template v-if="driveSyncState.status !== 'idle'"> ({{ driveSyncState.status }})</template>
+          <template v-if="driveSyncState.message">Sync: {{ driveSyncState.message }}</template>
+          <template v-else-if="driveSyncState.pendingDirty">Sync: pending upload…</template>
+          <template v-if="driveSyncState.status !== 'idle'">
+            ({{ driveSyncState.status }}{{
+              driveSyncState.retryAttempt ? ` #${driveSyncState.retryAttempt}` : ''
+            }})
+          </template>
+        </p>
+        <p
+          v-if="driveCacheSyncState.message || driveCacheSyncState.status !== 'idle'"
+          class="card-desc"
+          role="status"
+        >
+          Cache:
+          {{
+            driveCacheSyncState.message ||
+            (driveCacheSyncState.status !== 'idle' ? driveCacheSyncState.status : '')
+          }}
+          <template v-if="driveCacheSyncState.total > 0">
+            ({{ driveCacheSyncState.done }}/{{ driveCacheSyncState.total }})
+          </template>
         </p>
       </template>
     </section>
@@ -323,6 +362,7 @@ function toggleTagStudio(): void {
       </RouterLink>
     </section>
   </section>
+  <GoogleDriveCacheOfferDialog :open="cacheOfferOpen" @close="cacheOfferOpen = false" />
 </template>
 
 <style scoped>

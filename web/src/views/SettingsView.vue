@@ -47,6 +47,18 @@ import {
   type PrimaryNavId,
 } from '../lib/primaryNav'
 import { primaryNavFitCapacity } from '../lib/primaryNavFit'
+import {
+  DRIVE_SYNC_POLL_OPTIONS,
+  driveSyncPollLabel,
+  getDriveSyncPollMinutes,
+  setDriveSyncPollMinutes,
+} from '../lib/google/driveSyncPoll'
+import {
+  googleAuthState,
+  isDriveSyncEnabled,
+  isGoogleConfigured,
+  restoreGoogleConnection,
+} from '../lib/google/googleAuth'
 
 const SETTINGS_TABS = ['appearance', 'offline'] as const
 type SettingsTab = (typeof SETTINGS_TABS)[number]
@@ -85,6 +97,16 @@ const favorites = useFavoritesStore()
 const catalog = useCatalogStore()
 const prefs = usePreferencesStore()
 const { offline } = useOnline()
+
+const driveConfigured = isGoogleConfigured()
+const drivePollMinutes = ref(getDriveSyncPollMinutes())
+
+function onDrivePollChange(event: Event): void {
+  const el = event.target as HTMLSelectElement
+  const mins = Number(el.value)
+  setDriveSyncPollMinutes(mins)
+  drivePollMinutes.value = getDriveSyncPollMinutes()
+}
 
 const primaryNavGates = computed(
   (): PrimaryNavGates => ({
@@ -215,6 +237,8 @@ const canRequestPersistentStorage = computed(
 
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
+  restoreGoogleConnection()
+  drivePollMinutes.value = getDriveSyncPollMinutes()
   void refreshPdfRasterMeter()
   // Always refresh manifests when online so new remote tags can be detected.
   if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
@@ -841,6 +865,41 @@ function cancelCullUpgrades(): void {
           </button>
         </div>
       </div>
+    </section>
+
+    <section
+      v-if="driveConfigured"
+      class="card primary-card"
+      aria-labelledby="drive-poll-h"
+    >
+      <h2 id="drive-poll-h">Google Drive sync</h2>
+      <p class="hint">
+        When you’re signed in, SingTags periodically checks Drive both ways: pull newer favorites /
+        settings (and song cache if enabled), then upload local changes. Uses the signed-in tab
+        token — no login popup from the background.
+      </p>
+      <p v-if="googleAuthState.connected" class="hint" role="status">
+        Signed in{{ googleAuthState.email ? ` as ${googleAuthState.email}` : '' }}
+        <template v-if="!isDriveSyncEnabled()"> — turn on Drive sync from More → Log in / Labs</template>.
+      </p>
+      <p v-else class="hint">Not signed in — open More → Log in with Google to connect.</p>
+      <label class="drive-poll-row">
+        <span class="drive-poll-label">Background sync interval</span>
+        <select
+          class="drive-poll-select"
+          :value="String(drivePollMinutes)"
+          aria-label="Google Drive background sync interval"
+          @change="onDrivePollChange"
+        >
+          <option
+            v-for="mins in DRIVE_SYNC_POLL_OPTIONS"
+            :key="mins"
+            :value="String(mins)"
+          >
+            {{ driveSyncPollLabel(mins) }}
+          </option>
+        </select>
+      </label>
     </section>
 
     <p class="lede">
@@ -1532,6 +1591,28 @@ function cancelCullUpgrades(): void {
 }
 .connection-btn {
   flex-shrink: 0;
+}
+.drive-poll-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+  margin: 0.65rem 0 0;
+}
+.drive-poll-label {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--text);
+}
+.drive-poll-select {
+  min-width: 11rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
 }
 .connection-on {
   margin: 0 0 1rem;

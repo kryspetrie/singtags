@@ -1,12 +1,22 @@
 /**
  * @vitest-environment happy-dom
  */
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import AppAccountControl from './AppAccountControl.vue'
 import AppMoreMenu from './AppMoreMenu.vue'
 import { resetPwaInstallStateForTests } from '../composables/usePwaInstall'
+import {
+  __resetAccountUiForTests,
+  accountUiState,
+} from '../lib/google/accountUi'
+import {
+  __resetGoogleAuthForTests,
+  GOOGLE_CONNECTED_KEY,
+  googleAuthState,
+} from '../lib/google/googleAuth'
 import { useOfflineModeStore } from '../stores/offlineMode'
 import { usePreferencesStore } from '../stores/preferences'
 import { useSnackbarStore } from '../stores/snackbar'
@@ -14,8 +24,30 @@ import { useSnackbarStore } from '../stores/snackbar'
 describe('AppMoreMenu', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
+    __resetGoogleAuthForTests()
+    __resetAccountUiForTests()
     resetPwaInstallStateForTests()
     document.body.innerHTML = ''
+    vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
+    // Mobile path: More shows account; desktop chrome owns it instead.
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('toggles sing mode, closes, and shows snackbar', async () => {
@@ -337,5 +369,92 @@ describe('AppMoreMenu', () => {
     const link = document.body.querySelector('a[href="/tag-studio"]') as HTMLAnchorElement
     expect(link).toBeTruthy()
     w.unmount()
+  })
+
+  it('opens the Drive connect modal from Log in with Google', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const account = mount(AppAccountControl, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    const login = [...document.body.querySelectorAll('button.menu-item-account')].find((b) =>
+      /Log in with Google/.test(b.textContent || ''),
+    ) as HTMLButtonElement
+    expect(login).toBeTruthy()
+    login.click()
+    await flushPromises()
+
+    expect(accountUiState.connectOpen).toBe(true)
+    expect(document.body.textContent).toMatch(/Sync across your devices/)
+    expect(document.body.textContent).toMatch(/Your data & privacy/)
+    w.unmount()
+    account.unmount()
+  })
+
+  it('shows Log out when already connected and confirms disconnect', async () => {
+    localStorage.setItem(
+      GOOGLE_CONNECTED_KEY,
+      JSON.stringify({ connectedAt: '2026-01-01T00:00:00.000Z', email: 'a@b.com' }),
+    )
+    googleAuthState.connected = true
+    googleAuthState.email = 'a@b.com'
+
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const account = mount(AppAccountControl, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    const logout = [...document.body.querySelectorAll('button.menu-item-account')].find((b) =>
+      /Log out/.test(b.textContent || ''),
+    ) as HTMLButtonElement
+    expect(logout).toBeTruthy()
+    expect(logout.textContent).toMatch(/a@b\.com/)
+    logout.click()
+    await flushPromises()
+
+    expect(accountUiState.logoutConfirmOpen).toBe(true)
+    expect(document.body.textContent).toMatch(/Log out of Google/)
+    const confirm = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Log out$/.test((b.textContent || '').trim()),
+    ) as HTMLButtonElement
+    confirm.click()
+    await flushPromises()
+
+    expect(googleAuthState.connected).toBe(false)
+    expect(useSnackbarStore().title).toBe('Logged out')
+    w.unmount()
+    account.unmount()
   })
 })

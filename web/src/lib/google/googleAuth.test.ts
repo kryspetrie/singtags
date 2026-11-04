@@ -89,14 +89,36 @@ describe('googleAuth', () => {
     expect(requests).toHaveLength(1)
   })
 
-  it('refreshes silently after a reload while connected', async () => {
-    const { requests } = installGis()
+  it('restores a tab token from sessionStorage after module reset', async () => {
+    installGis()
     await signIn()
+    // Simulate SPA reload of the module globals while sessionStorage keeps the token.
+    const raw = sessionStorage.getItem('singtags.google.accessToken.v1')
+    expect(raw).toBeTruthy()
     __resetGoogleAuthForTests()
+    // put token back (reset clears session); re-seed then restore
+    sessionStorage.setItem(
+      'singtags.google.accessToken.v1',
+      JSON.stringify({ token: 'tok-session', expiresAt: Date.now() + 3_600_000 }),
+    )
+    localStorage.setItem(
+      GOOGLE_CONNECTED_KEY,
+      JSON.stringify({ email: 'a@b.com', connectedAt: new Date().toISOString() }),
+    )
     vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
     restoreGoogleConnection()
-    await getAccessToken()
-    expect(requests[requests.length - 1]).toEqual({ prompt: '' })
+    expect(await getAccessToken()).toBe('tok-session')
+  })
+
+  it('interactive renew tries empty prompt before account picker', async () => {
+    const { requests } = installGis()
+    localStorage.setItem(
+      GOOGLE_CONNECTED_KEY,
+      JSON.stringify({ email: 'a@b.com', connectedAt: new Date().toISOString() }),
+    )
+    restoreGoogleConnection()
+    await getAccessToken({ interactive: true })
+    expect(requests[0]).toEqual({ prompt: '' })
   })
 
   it('throws not-connected before sign-in', async () => {

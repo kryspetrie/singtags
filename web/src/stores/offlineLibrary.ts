@@ -350,6 +350,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   async function loadManifests(): Promise<void> {
     error.value = null
     try {
+      await ensureOfflineContentFormatOrReset()
       const [sheets, audio] = await Promise.all([
         loadOfflineManifest('offline-sheets.json.gz', SHEETS_MANIFEST_SNAPSHOT_KEY),
         loadOfflineManifest('offline-audio.json.gz', AUDIO_MANIFEST_SNAPSHOT_KEY),
@@ -364,6 +365,56 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       await hydratePackStatusesFromProgress()
       refreshPackSyncPrompt()
     }
+  }
+
+  /**
+   * When SingTags *media*-format stamps change, clear only those local packs and
+   * delete matching Drive objects (other pack’s Drive media is kept).
+   */
+  async function ensureOfflineContentFormatOrReset(): Promise<void> {
+    const {
+      currentOfflineContentFormat,
+      packsNeedingFormatReset,
+      readOfflineContentFormatStamp,
+      writeOfflineContentFormatStamp,
+    } = await import('../lib/offlineContentFormat')
+    const current = currentOfflineContentFormat()
+    const stored = readOfflineContentFormatStamp()
+    const need = packsNeedingFormatReset(stored, current)
+    if (!need.sheets && !need.audio) {
+      if (!stored) writeOfflineContentFormatStamp(current)
+      return
+    }
+    sheetsQueue?.pause()
+    audioQueue?.pause()
+    if (need.sheets) {
+      await sheetsPack.clear()
+      sheetsStatus.value = 'idle'
+      sheetsProgress.value = null
+      await clearPackProgress('sheets').catch(() => undefined)
+    }
+    if (need.audio) {
+      await audioPack.clear()
+      audioStatus.value = 'idle'
+      audioProgress.value = null
+      await clearPackProgress('audio').catch(() => undefined)
+    }
+    writeOfflineContentFormatStamp(current)
+    const which =
+      need.sheets && need.audio ? 'sheets and tracks' : need.sheets ? 'sheets' : 'tracks'
+    cacheMessage.value = `Song ${which} format updated — cleared locally. Other Drive media kept.`
+    // Purge only the incompatible pack’s Drive objects; keep the rest.
+    void import('../lib/google/driveCacheSync')
+      .then(async (m) => {
+        if (!m.isDriveCacheSyncEnabled()) return
+        await m.purgeIncompatibleDriveMedia({
+          sheets: need.sheets,
+          audio: need.audio,
+          reason: 'media-format-mismatch',
+        })
+        m.scheduleDriveCachePush()
+      })
+      .catch(() => undefined)
   }
 
   /**
@@ -732,6 +783,11 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     await refreshEstimate()
     await refreshCacheReady().catch(() => undefined)
     refreshPackSyncPrompt()
+    if (finalStatus === 'done') {
+      void import('../lib/google/driveCacheSync')
+        .then(({ scheduleDriveCachePush }) => scheduleDriveCachePush())
+        .catch(() => undefined)
+    }
   }
 
   /** Pause an in-flight pack download queue. */
