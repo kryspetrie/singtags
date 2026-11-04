@@ -237,7 +237,10 @@ function toggleTagStudio(): void {
       </p>
       <p class="card-desc" role="note">
         Your Google email <strong>must</strong> be added by Krys as a beta tester first. If it isn’t
-        on the allowlist, Connect will fail — ask Krys to add you before turning this on.
+        on the allowlist, Connect will fail — ask Krys to add you before turning this on. The OAuth
+        consent screen must also include Drive scope
+        <code>drive.appdata</code> (and Drive API enabled), or Google returns “insufficient
+        authentication scopes.”
       </p>
 
       <label class="setting-row" :class="{ on: driveSyncOn }" title="Enable Google Drive sync">

@@ -38,6 +38,11 @@ async function authHeader(): Promise<string> {
   return `Bearer ${await getAccessToken()}`
 }
 
+function isInsufficientScopeError(status: number, body: string): boolean {
+  if (status !== 403) return false
+  return /insufficient|PERMISSION_DENIED|ACCESS_TOKEN_SCOPE_INSUFFICIENT/i.test(body)
+}
+
 async function driveFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers)
   headers.set('Authorization', await authHeader())
@@ -54,6 +59,13 @@ async function driveJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await driveFetch(path, init)
   if (!res.ok) {
     const text = await res.text().catch(() => '')
+    if (isInsufficientScopeError(res.status, text)) {
+      invalidateAccessToken()
+      throw new GoogleAuthError(
+        'reconnect',
+        'Drive access was denied (missing appData scope). Disconnect, then Connect again and approve Drive. If it still fails, add drive.appdata on the Google Cloud OAuth consent screen.',
+      )
+    }
     throw new Error(text || `Google Drive request failed (${res.status}).`)
   }
   if (res.status === 204) return undefined as T

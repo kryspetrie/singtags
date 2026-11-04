@@ -19,9 +19,14 @@ export const GOOGLE_TOKEN_SESSION_KEY = 'singtags.google.accessToken.v1'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
+const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
 const DRIVE_ABOUT_URL = 'https://www.googleapis.com/drive/v3/about?fields=user,storageQuota'
 /** Refresh slightly before Google's stated expiry. */
 const EXPIRY_SKEW_MS = 60_000
+
+/** Shown when Google returns a token without Drive appData (or Cloud consent screen omits it). */
+export const DRIVE_SCOPE_MISSING_MESSAGE =
+  'Google did not grant Drive app data access. In Google Cloud → APIs & Services → OAuth consent screen, add scope “https://www.googleapis.com/auth/drive.appdata”, ensure Drive API is enabled, then Disconnect and Connect again (approve Drive when prompted).'
 
 export interface GoogleConnection {
   email?: string
@@ -254,6 +259,25 @@ async function fetchEmail(token: string): Promise<string | undefined> {
   }
 }
 
+/** True when the access token includes Drive application-data scope. */
+export async function tokenHasDriveAppDataScope(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${TOKENINFO_URL}?access_token=${encodeURIComponent(token)}`)
+    if (!res.ok) return false
+    const j = (await res.json()) as { scope?: unknown }
+    if (typeof j.scope !== 'string') return false
+    return j.scope.split(/\s+/).includes(GOOGLE_DRIVE_APPDATA_SCOPE)
+  } catch {
+    return false
+  }
+}
+
+async function ensureDriveAppDataScope(token: string): Promise<string> {
+  if (await tokenHasDriveAppDataScope(token)) return token
+  clearAccessToken()
+  throw new GoogleAuthError('reconnect', DRIVE_SCOPE_MISSING_MESSAGE)
+}
+
 async function markConnectedFromToken(token: string): Promise<GoogleConnection> {
   const conn: GoogleConnection = {
     email: await fetchEmail(token),
@@ -266,12 +290,16 @@ async function markConnectedFromToken(token: string): Promise<GoogleConnection> 
   return conn
 }
 
-/** Interactive consent — call from a user gesture (popup). */
+/**
+ * Interactive consent — call from a user gesture (popup).
+ * Uses `prompt: 'consent'` so Drive appData is actually granted; `select_account`
+ * alone can reuse an older grant that only has email/profile.
+ */
 export async function signIn(): Promise<GoogleConnection> {
   googleAuthState.busy = true
   googleAuthState.error = ''
   try {
-    const token = await requestToken('select_account')
+    const token = await ensureDriveAppDataScope(await requestToken('consent'))
     return await markConnectedFromToken(token)
   } catch (e) {
     googleAuthState.error = e instanceof Error ? e.message : String(e)
@@ -299,7 +327,16 @@ export async function getAccessToken(opts?: { interactive?: boolean }): Promise<
   if (!opts?.interactive && !googleAuthState.connected) {
     throw new GoogleAuthError('not-connected', 'Connect Google Drive first.')
   }
-  if (hasUsableAccessToken()) return accessToken!
+  if (hasUsableAccessToken()) {
+    if (await tokenHasDriveAppDataScope(accessToken!)) return accessToken!
+    // Stale/narrow grant in this tab — drop it and re-auth when allowed.
+    clearAccessToken()
+    if (!opts?.interactive) {
+      const err = new GoogleAuthError('reconnect', DRIVE_SCOPE_MISSING_MESSAGE)
+      googleAuthState.error = err.message
+      throw err
+    }
+  }
   if (!opts?.interactive) {
     const err = new GoogleAuthError(
       'reconnect',
@@ -311,11 +348,12 @@ export async function getAccessToken(opts?: { interactive?: boolean }): Promise<
   try {
     let token: string
     try {
-      // Under a real click, empty prompt usually renews with little or no UI.
-      token = await requestToken('')
+      // Prefer consent when renewing so Drive appData is included if it was missing.
+      token = await requestToken('consent')
     } catch {
-      token = await requestToken('select_account')
+      token = await requestToken('')
     }
+    token = await ensureDriveAppDataScope(token)
     if (!googleAuthState.connected) {
       await markConnectedFromToken(token)
     } else if (!googleAuthState.email) {

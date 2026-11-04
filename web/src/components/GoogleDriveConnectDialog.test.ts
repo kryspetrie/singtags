@@ -7,6 +7,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import GoogleDriveConnectDialog from './GoogleDriveConnectDialog.vue'
 import {
   __resetGoogleAuthForTests,
+  GOOGLE_DRIVE_APPDATA_SCOPE,
   googleAuthState,
   isDriveSyncEnabled,
 } from '../lib/google/googleAuth'
@@ -41,10 +42,21 @@ describe('GoogleDriveConnectDialog', () => {
     vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ email: 'singer@example.com' }),
-      })),
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('tokeninfo')) {
+          return {
+            ok: true,
+            json: async () => ({
+              scope: `${GOOGLE_DRIVE_APPDATA_SCOPE} openid email profile`,
+            }),
+          }
+        }
+        return {
+          ok: true,
+          json: async () => ({ email: 'singer@example.com' }),
+        }
+      }),
     )
     installGis()
   })

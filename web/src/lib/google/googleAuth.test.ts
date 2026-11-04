@@ -44,11 +44,23 @@ function installGis(opts: { fail?: boolean } = {}) {
 describe('googleAuth', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
     __resetGoogleAuthForTests()
     vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response(JSON.stringify({ email: 'a@b.com' }), { status: 200 })),
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('tokeninfo')) {
+          return new Response(
+            JSON.stringify({
+              scope: `${GOOGLE_DRIVE_APPDATA_SCOPE} openid email profile`,
+            }),
+            { status: 200 },
+          )
+        }
+        return new Response(JSON.stringify({ email: 'a@b.com' }), { status: 200 })
+      }),
     )
   })
 
@@ -71,9 +83,10 @@ describe('googleAuth', () => {
     expect(googleAuthState.driveSyncEnabled).toBe(true)
   })
 
-  it('signIn persists connection marker and email, not the token', async () => {
-    installGis()
+  it('signIn forces consent and persists connection marker and email, not the token', async () => {
+    const { requests } = installGis()
     await signIn()
+    expect(requests[0]).toEqual({ prompt: 'consent' })
     expect(googleAuthState.connected).toBe(true)
     expect(googleAuthState.email).toBe('a@b.com')
     const raw = localStorage.getItem(GOOGLE_CONNECTED_KEY)!
@@ -82,6 +95,23 @@ describe('googleAuth', () => {
     restoreGoogleConnection()
     expect(googleAuthState.connected).toBe(true)
     expect(googleAuthState.email).toBe('a@b.com')
+  })
+
+  it('rejects Connect when the token lacks drive.appdata', async () => {
+    installGis()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('tokeninfo')) {
+          return new Response(JSON.stringify({ scope: 'openid email profile' }), { status: 200 })
+        }
+        return new Response(JSON.stringify({ email: 'a@b.com' }), { status: 200 })
+      }),
+    )
+    await expect(signIn()).rejects.toMatchObject({ code: 'reconnect' })
+    expect(googleAuthState.connected).toBe(false)
+    expect(googleAuthState.error).toMatch(/Drive app data/i)
   })
 
   it('reuses the in-memory token and does not re-prompt', async () => {
@@ -112,7 +142,7 @@ describe('googleAuth', () => {
     expect(await getAccessToken()).toBe('tok-session')
   })
 
-  it('interactive renew tries empty prompt before account picker', async () => {
+  it('interactive renew uses consent so Drive appData is granted', async () => {
     const { requests } = installGis()
     localStorage.setItem(
       GOOGLE_CONNECTED_KEY,
@@ -120,7 +150,7 @@ describe('googleAuth', () => {
     )
     restoreGoogleConnection()
     await getAccessToken({ interactive: true })
-    expect(requests[0]).toEqual({ prompt: '' })
+    expect(requests[0]).toEqual({ prompt: 'consent' })
   })
 
   it('throws not-connected before sign-in', async () => {
@@ -154,19 +184,28 @@ describe('googleAuth', () => {
   it('testDriveConnection maps about.get and sends the bearer token', async () => {
     installGis()
     await signIn()
-    const f = vi.fn(async () =>
-      new Response(
+    const f = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('tokeninfo')) {
+        return new Response(
+          JSON.stringify({ scope: `${GOOGLE_DRIVE_APPDATA_SCOPE} openid email profile` }),
+          { status: 200 },
+        )
+      }
+      return new Response(
         JSON.stringify({
           user: { emailAddress: 'a@b.com' },
           storageQuota: { usage: '10', limit: '100' },
         }),
         { status: 200 },
-      ),
-    )
+      )
+    })
     vi.stubGlobal('fetch', f)
     const r = await testDriveConnection()
     expect(r).toEqual({ email: 'a@b.com', usedBytes: 10, limitBytes: 100 })
-    const call = f.mock.calls[0] as unknown as [string, { headers: Record<string, string> }]
-    expect(call[1].headers.Authorization).toBe('Bearer tok1')
+    const aboutCall = f.mock.calls.find((c) => String(c[0]).includes('/drive/v3/about')) as
+      | [string, { headers: Record<string, string> }]
+      | undefined
+    expect(aboutCall?.[1].headers.Authorization).toBe('Bearer tok1')
   })
 })
