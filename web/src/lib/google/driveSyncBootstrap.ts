@@ -3,7 +3,13 @@
  * Kept separate so `main.ts` stays thin and google modules stay free of Vue SFCs.
  */
 
-import { configureDriveAppStateSync, ensureDriveHydrate } from './driveAppStateSync'
+import {
+  configureDriveAppStateSync,
+  ensureDriveHydrate,
+  isDriveAppStateDirty,
+  markDriveAppStateDirty,
+  readLastSyncMeta,
+} from './driveAppStateSync'
 import { ensureDriveCacheSync } from './driveCacheSync'
 import { startDriveSyncPolling } from './driveSyncPoll'
 import { isDriveSyncEnabled, restoreGoogleConnection } from './googleAuth'
@@ -51,8 +57,16 @@ export function startDriveAppStateSync(): void {
   }
   // Idle hydrate only runs when a token is already in memory (no popup flash).
   idle(() => {
-    void ensureDriveHydrate({ allowTokenPrompt: false }).then(() =>
-      ensureDriveCacheSync({ allowTokenPrompt: false }),
-    )
+    void (async () => {
+      // Stars saved before Drive was connected are not "dirty" yet. Mark them so the
+      // first sync merges with Drive instead of replacing this device with the cloud copy.
+      const favorites = useFavoritesStore()
+      await favorites.ensureLoaded()
+      if (!readLastSyncMeta() && !isDriveAppStateDirty() && favorites.records.length > 0) {
+        markDriveAppStateDirty()
+      }
+      await ensureDriveHydrate({ allowTokenPrompt: false })
+      await ensureDriveCacheSync({ allowTokenPrompt: false })
+    })()
   })
 }

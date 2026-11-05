@@ -4,7 +4,6 @@
  */
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import GoogleDriveCacheOfferDialog from '../components/GoogleDriveCacheOfferDialog.vue'
 import InfoTips from '../components/InfoTips.vue'
 import {
   googleAuthState,
@@ -12,7 +11,6 @@ import {
   isGoogleConfigured,
   restoreGoogleConnection,
   setDriveSyncEnabled,
-  signIn,
   signOut,
   testDriveConnection,
 } from '../lib/google/googleAuth'
@@ -40,21 +38,6 @@ function toggleDriveSync(): void {
   setDriveSyncEnabled(driveSyncOn.value)
   if (driveSyncOn.value && googleAuthState.connected) {
     void ensureDriveHydrate({ allowTokenPrompt: false })
-  }
-}
-
-const cacheOfferOpen = ref(false)
-
-async function connectGoogle(): Promise<void> {
-  driveTestMsg.value = ''
-  try {
-    await signIn()
-    // Hydrate under the same user gesture (token already in memory). Do not mark dirty /
-    // push first — that used to upload empty favorites over Drive on a fresh profile.
-    await ensureDriveHydrate({ allowTokenPrompt: true })
-    cacheOfferOpen.value = true
-  } catch {
-    /* message shown from googleAuthState.error */
   }
 }
 
@@ -229,14 +212,15 @@ function toggleTagStudio(): void {
     <section class="card" aria-labelledby="drive-sync-h">
       <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
       <p class="card-desc">
-        Beta — off by default. Sign in with Google to keep preferences, favorites, recents, and Labs
-        flags in your private SingTags app folder on Drive (appData). Sheet / track cache mirroring
-        is opt-in after you connect. Tag Studio and My Library sync come next. SingTags never sees
-        your password.
+        Beta — off by default. Turn this on, then use <strong>Log in</strong> in the title bar
+        (More on a phone) to connect. That keeps preferences, favorites, recents, and Labs flags in
+        your private SingTags app folder on Drive (appData). Sheet / track cache mirroring is opt-in
+        in that same sign-in. Tag Studio and My Library sync come next. SingTags never sees your
+        password.
       </p>
       <p class="card-desc" role="note">
         Your Google email <strong>must</strong> be added by Krys as a beta tester first. If it isn’t
-        on the allowlist, Connect will fail — ask Krys to add you before turning this on. The OAuth
+        on the allowlist, Log in will fail — ask Krys to add you before turning this on. The OAuth
         consent screen must also include Drive scope
         <code>drive.appdata</code> (and Drive API enabled), or Google returns “insufficient
         authentication scopes.”
@@ -250,7 +234,9 @@ function toggleTagStudio(): void {
               !driveConfigured
                 ? 'Unavailable — this build has no Google client ID'
                 : driveSyncOn
-                  ? 'On — Connect only works if Krys listed your email as a beta tester'
+                  ? googleAuthState.connected
+                    ? 'On — signed in from the title bar'
+                    : 'On — use Log in in the title bar to connect'
                   : 'Off — enable after Krys adds your email as a beta tester'
             }}
           </span>
@@ -271,16 +257,10 @@ function toggleTagStudio(): void {
         <p v-if="googleAuthState.connected" class="card-desc">
           Connected{{ googleAuthState.email ? ` as ${googleAuthState.email}` : '' }}.
         </p>
-        <button
-          v-if="!googleAuthState.connected"
-          type="button"
-          class="btn"
-          :disabled="googleAuthState.busy"
-          @click="connectGoogle"
-        >
-          Connect Google Drive
-        </button>
-        <template v-else>
+        <p v-else class="card-desc">
+          Connect from <strong>Log in</strong> in the title bar. On a phone, use More → Log in.
+        </p>
+        <template v-if="googleAuthState.connected">
           <button type="button" class="btn" @click="syncDriveNow">Sync now</button>
           <button type="button" class="btn" @click="testDrive">Test connection</button>
           <button type="button" class="btn" @click="disconnectGoogle">Disconnect</button>
@@ -370,7 +350,6 @@ function toggleTagStudio(): void {
       </RouterLink>
     </section>
   </section>
-  <GoogleDriveCacheOfferDialog :open="cacheOfferOpen" @close="cacheOfferOpen = false" />
 </template>
 
 <style scoped>

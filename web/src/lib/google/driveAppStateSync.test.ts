@@ -6,9 +6,17 @@ import type { FavoritesBackupFile } from '../favoritesBackup'
 import type { AppStateBackupFile } from '../appStateBackup'
 import {
   __resetDriveAppStateSyncForTests,
+  configureDriveAppStateSync,
   decideDriveAppStateSync,
+  DRIVE_DIRTY_KEY,
+  DRIVE_PUSH_BATCH_DEFAULT_SECONDS,
+  DRIVE_PUSH_BATCH_SECONDS_KEY,
+  drivePushBatchLabel,
+  getDrivePushBatchSeconds,
   mergeAppStates,
   mergeFavoritesByUnion,
+  scheduleDriveAppStatePush,
+  setDrivePushBatchSeconds,
   type DriveAppStateMeta,
 } from './driveAppStateSync'
 
@@ -169,5 +177,48 @@ describe('mergeAppStates', () => {
       'only-cloud': '1',
       'only-local': '1',
     })
+  })
+})
+
+describe('drive push batch', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    __resetDriveAppStateSyncForTests()
+  })
+
+  it('defaults to a 5 second upload batch', () => {
+    expect(getDrivePushBatchSeconds()).toBe(DRIVE_PUSH_BATCH_DEFAULT_SECONDS)
+    expect(drivePushBatchLabel(0)).toBe('Off')
+    expect(drivePushBatchLabel(5)).toBe('Every 5 seconds')
+  })
+
+  it('persists the batch window on this device', () => {
+    setDrivePushBatchSeconds(15)
+    expect(localStorage.getItem(DRIVE_PUSH_BATCH_SECONDS_KEY)).toBe('15')
+    expect(getDrivePushBatchSeconds()).toBe(15)
+    setDrivePushBatchSeconds(0)
+    expect(getDrivePushBatchSeconds()).toBe(0)
+  })
+
+  it('remembers a local edit before Drive is connected', () => {
+    scheduleDriveAppStatePush()
+    expect(localStorage.getItem(DRIVE_DIRTY_KEY)).toBeTruthy()
+  })
+
+  it('queues recents and settings writes for the same upload batch', () => {
+    configureDriveAppStateSync({
+      getSnapshot: async () => ({
+        records: [],
+        collections: [],
+        practice: { order: [], autoAdvance: true },
+      }),
+      applyFavorites: async () => undefined,
+    })
+    const proto = Object.getPrototypeOf(localStorage) as Storage
+    localStorage.removeItem(DRIVE_DIRTY_KEY)
+    localStorage.setItem('singtags.recent.v2', '[]')
+    localStorage.removeItem(DRIVE_DIRTY_KEY)
+    localStorage.setItem('singtags.recent.v2', '[]')
+    expect(localStorage.getItem(DRIVE_DIRTY_KEY)).toBeTruthy()
   })
 })

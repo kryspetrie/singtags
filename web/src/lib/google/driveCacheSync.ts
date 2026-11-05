@@ -39,6 +39,14 @@ import {
   restoreGoogleConnection,
 } from './googleAuth'
 import { tagIdFromCachePath } from '../offlineReadiness'
+import {
+  DOWNLOAD_SLOTS_START,
+  createByteBudget,
+  megabitsToBytesPerSec,
+  nextDownloadSlots,
+  readDriveDownloadMbps,
+  type ByteBudget,
+} from './downloadBudget'
 
 export { tagIdFromCachePath }
 
@@ -127,6 +135,8 @@ export const driveCacheSyncState = reactive({
   /** Files finished / queued in the current transfer (moves while a tag is still copying). */
   filesDone: 0,
   filesTotal: 0,
+  /** Active restore cap in megabits per second. 0 when a restore is not running. */
+  downloadMbps: 0,
 })
 
 function syncPrefStateFromStorage(): void {
@@ -155,7 +165,11 @@ export function driveCacheTransferLabel(): string {
   if (verb) {
     if (total <= 0) return message || `${verb}…`
     const shown = Math.min(Math.max(0, done), total)
-    return `${verb}… ${shown.toLocaleString()}/${total.toLocaleString()} tags`
+    const cap =
+      status === 'hydrating' && driveCacheSyncState.downloadMbps > 0
+        ? ` · up to ${driveCacheSyncState.downloadMbps} Mb/s`
+        : ''
+    return `${verb}… ${shown.toLocaleString()}/${total.toLocaleString()} tags${cap}`
   }
   if (status === 'invalidating') {
     return message || 'Updating Google Drive cache…'
@@ -303,6 +317,8 @@ let uploadFollowUp = false
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 const PUSH_DEBOUNCE_MS = 12_000
 const UPLOAD_CONCURRENCY = 3
+/** Pay this much of a file before opening it, so tiny files cannot all start at once. */
+const DOWNLOAD_PREPAY_BYTES = 64 * 1024
 /** Rewrite manifest.json after this many newly stored files. */
 export const DRIVE_CACHE_MANIFEST_FLUSH_FILES = 30
 /** Rewrite manifest.json at least this often while an upload is storing files. */
@@ -978,34 +994,98 @@ export async function ensureDriveCacheFormatCompatible(): Promise<{
   return { compatible: true, clearedLocal: false, reason: decision.reason }
 }
 
-async function hydratePackFromManifest(
+async function installDriveCacheEntry(
   kind: PackKind,
-  entries: DriveCachePackEntry[],
+  entry: DriveCachePackEntry,
   objectIds: Map<string, string>,
-  onFile: (path: string) => void,
-): Promise<string[]> {
+  budget: ByteBudget,
+): Promise<boolean> {
+  const url = urlFromPackPath(entry.path)
+  const fileId = objectIds.get(entry.hash)
   const store = packStore(kind)
-  const installed: string[] = []
-  for (const entry of entries) {
-    const url = urlFromPackPath(entry.path)
-    const fileId = objectIds.get(entry.hash)
-    if (!(await store.has(url)) && fileId) {
-      const bytes = await downloadFileBytes(fileId)
-      // Copy into a fresh ArrayBuffer — Response BodyInit rejects shared/generic ArrayBufferLike.
-      const body = new Uint8Array(bytes.byteLength)
-      body.set(bytes)
-      await store.put(
-        url,
-        new Response(body.buffer, {
-          status: 200,
-          headers: { 'Content-Type': entry.mime || 'application/octet-stream' },
-        }),
-      )
-      installed.push(entry.path)
-    }
-    onFile(entry.path)
+  if (!fileId || (await store.has(url))) return false
+  const prepaid = Math.min(Math.max(entry.bytes, 1), DOWNLOAD_PREPAY_BYTES)
+  await budget.acquire(prepaid)
+  let credit = prepaid
+  const bytes = await downloadFileBytes(fileId, async (n) => {
+    const unpaid = Math.max(0, n - credit)
+    credit = Math.max(0, credit - n)
+    if (unpaid > 0) await budget.acquire(unpaid)
+  })
+  // Copy into a fresh ArrayBuffer — Response BodyInit rejects shared/generic ArrayBufferLike.
+  const body = new Uint8Array(bytes.byteLength)
+  body.set(bytes)
+  await store.put(
+    url,
+    new Response(body.buffer, {
+      status: 200,
+      headers: { 'Content-Type': entry.mime || 'application/octet-stream' },
+    }),
+  )
+  return true
+}
+
+/**
+ * Run downloads with a rising or falling in-flight count.
+ * More sockets while the speed cap is idle; fewer once the cap is what they wait on.
+ */
+async function mapPoolBudget<T>(
+  items: readonly T[],
+  budget: ByteBudget,
+  worker: (item: T, budget: ByteBudget) => Promise<void>,
+): Promise<void> {
+  let next = 0
+  let running = 0
+  let slots = Math.min(DOWNLOAD_SLOTS_START, Math.max(1, items.length))
+  let waitedMs = 0
+  let instant = 0
+  let finished = 0
+  let failed: unknown = null
+  const paced: ByteBudget = {
+    acquire: async (bytes) => {
+      const slept = await budget.acquire(bytes)
+      if (slept >= 25) waitedMs += slept
+      else instant += 1
+      return slept
+    },
   }
-  return installed
+
+  await new Promise<void>((resolve, reject) => {
+    const pump = () => {
+      if (failed) {
+        if (running === 0) reject(failed)
+        return
+      }
+      while (next < items.length && running < slots) {
+        const item = items[next]!
+        next += 1
+        running += 1
+        worker(item, paced)
+          .then(() => {
+            finished += 1
+            if (finished % 6 === 0) {
+              const waitedRatio = waitedMs / Math.max(1, waitedMs + instant * 25)
+              slots = nextDownloadSlots({
+                slots,
+                waitedRatio,
+                saturated: running >= slots,
+              })
+              waitedMs = 0
+              instant = 0
+            }
+          })
+          .catch((err: unknown) => {
+            failed = err
+          })
+          .finally(() => {
+            running -= 1
+            pump()
+          })
+      }
+      if (next >= items.length && running === 0) resolve()
+    }
+    pump()
+  })
 }
 
 /** Pull missing pack files from Drive into local Cache API / OPFS. */
@@ -1025,32 +1105,49 @@ export async function hydrateDriveCache(): Promise<{ sheets: number; audio: numb
   driveCacheSyncState.done = 0
   driveCacheSyncState.total = 0
   clearDriveTagProgress()
+  driveCacheSyncState.downloadMbps = readDriveDownloadMbps()
   driveCacheSyncState.message = 'Checking Google Drive…'
 
-  const cloud = await readCloudManifest()
-  if (!cloud) {
+  try {
+    const cloud = await readCloudManifest()
+    if (!cloud) {
+      driveCacheSyncState.status = 'idle'
+      driveCacheSyncState.message = ''
+      return { sheets: 0, audio: 0 }
+    }
+
+    const { index: objectIds } = await collectDriveObjects()
+
+    const sheetsEntries = wantSheets ? cloud.packs.sheets : []
+    const audioEntries = wantAudio ? cloud.packs.audio : []
+    const jobs: { kind: PackKind; entry: DriveCachePackEntry }[] = [
+      ...sheetsEntries.map((entry) => ({ kind: 'sheets' as const, entry })),
+      ...audioEntries.map((entry) => ({ kind: 'audio' as const, entry })),
+    ]
+    const progress = trackTagProgress(jobs.map((job) => job.entry.path))
+    driveCacheSyncState.message = 'Downloading song cache from Google Drive…'
+    const budget = createByteBudget({
+      bytesPerSec: () => megabitsToBytesPerSec(readDriveDownloadMbps()),
+    })
+
+    const installed: { sheets: string[]; audio: string[] } = { sheets: [], audio: [] }
+    await mapPoolBudget(jobs, budget, async (job, paced) => {
+      if (await installDriveCacheEntry(job.kind, job.entry, objectIds, paced)) {
+        installed[job.kind].push(job.entry.path)
+      }
+      progress.mark(job.entry.path)
+    })
+    const restoredTags = tagIdsInCachePaths([...installed.sheets, ...installed.audio]).length
+
     driveCacheSyncState.status = 'idle'
-    driveCacheSyncState.message = ''
-    return { sheets: 0, audio: 0 }
+    driveCacheSyncState.done = 0
+    driveCacheSyncState.total = 0
+    driveCacheSyncState.message =
+      restoredTags > 0 ? `Restored ${restoredTags} tag${restoredTags === 1 ? '' : 's'} from Google Drive` : ''
+    return { sheets: installed.sheets.length, audio: installed.audio.length }
+  } finally {
+    driveCacheSyncState.downloadMbps = 0
   }
-
-  const { index: objectIds } = await collectDriveObjects()
-
-  const sheetsEntries = wantSheets ? cloud.packs.sheets : []
-  const audioEntries = wantAudio ? cloud.packs.audio : []
-  const progress = trackTagProgress([...sheetsEntries, ...audioEntries].map((e) => e.path))
-  driveCacheSyncState.message = 'Downloading song cache from Google Drive…'
-
-  const sheets = await hydratePackFromManifest('sheets', sheetsEntries, objectIds, progress.mark)
-  const audio = await hydratePackFromManifest('audio', audioEntries, objectIds, progress.mark)
-  const restoredTags = tagIdsInCachePaths([...sheets, ...audio]).length
-
-  driveCacheSyncState.status = 'idle'
-  driveCacheSyncState.done = 0
-  driveCacheSyncState.total = 0
-  driveCacheSyncState.message =
-    restoredTags > 0 ? `Restored ${restoredTags} tag${restoredTags === 1 ? '' : 's'} from Google Drive` : ''
-  return { sheets: sheets.length, audio: audio.length }
 }
 
 /** Upload local pack files that Drive does not already have; rewrite manifest. */
@@ -1249,4 +1346,5 @@ export function __resetDriveCacheSyncForTests(): void {
   driveCacheSyncState.finishedTagIds = []
   driveCacheSyncState.filesDone = 0
   driveCacheSyncState.filesTotal = 0
+  driveCacheSyncState.downloadMbps = 0
 }

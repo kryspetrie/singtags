@@ -43,6 +43,7 @@ export function tagIdFromCachePath(path: string): number | null {
 
 /**
  * Build a per-tag offline-media index from bulk pack URL listings and favorites.
+ * Library paths are folders ending in ` - {tagId}`, not only `sheets/` and `media/`.
  */
 export function buildReadinessFromUrlLists(
   sheetUrls: string[],
@@ -64,11 +65,11 @@ export function buildReadinessFromUrlLists(
   }
 
   for (const url of sheetUrls) {
-    const tagId = tagIdFromMediaPath(url)
+    const tagId = tagIdFromCachePath(url)
     if (tagId != null) entry(tagId).sheets = true
   }
   for (const url of audioUrls) {
-    const tagId = tagIdFromMediaPath(url)
+    const tagId = tagIdFromCachePath(url)
     if (tagId != null) entry(tagId).audio = true
   }
   for (const record of starred) {

@@ -10,6 +10,7 @@
 
 import { isSingTagsOffline } from '../appOffline'
 import {
+  APP_STATE_LOCAL_KEYS,
   applyLocalStorageSnapshot,
   buildAppStateBackup,
   parseAppStateBackup,
@@ -81,10 +82,17 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null
 let hydrateInFlight: Promise<void> | null = null
 let pushInFlight: Promise<void> | null = null
 let onlineHooked = false
+let storageHooked = false
 
-const PUSH_DEBOUNCE_MS = 8_000
+/** How long to wait so a burst of stars / settings edits becomes one Drive upload. */
+export const DRIVE_PUSH_BATCH_SECONDS_KEY = 'singtags.drive.sync.pushBatchSeconds.v1'
+/** Preset batch windows (seconds). `0` = don’t auto-upload. */
+export const DRIVE_PUSH_BATCH_OPTIONS = [0, 2, 5, 15, 30, 60] as const
+export const DRIVE_PUSH_BATCH_DEFAULT_SECONDS = 5
+
 const RETRY_BASE_MS = 15_000
 const RETRY_MAX_MS = 5 * 60_000
+const SYNCED_LOCAL_KEYS = new Set<string>(APP_STATE_LOCAL_KEYS)
 
 function readFlag(key: string): string | null {
   try {
@@ -167,7 +175,71 @@ export function configureDriveAppStateSync(opts: {
   applyFavorites = opts.applyFavorites
   if (opts.chooseConflict) conflictChooser = opts.chooseConflict
   ensureOnlineRetryHook()
+  installAppStateStorageHook()
   driveSyncState.pendingDirty = isDriveAppStateDirty()
+}
+
+export function normalizeDrivePushBatchSeconds(n: unknown): number {
+  const v = typeof n === 'number' ? n : Number(n)
+  if (!Number.isFinite(v) || v <= 0) return 0
+  const seconds = Math.floor(v)
+  if ((DRIVE_PUSH_BATCH_OPTIONS as readonly number[]).includes(seconds)) return seconds
+  return Math.min(300, Math.max(1, seconds))
+}
+
+export function getDrivePushBatchSeconds(): number {
+  const raw = readFlag(DRIVE_PUSH_BATCH_SECONDS_KEY)
+  if (raw == null || raw === '') return DRIVE_PUSH_BATCH_DEFAULT_SECONDS
+  return normalizeDrivePushBatchSeconds(raw)
+}
+
+export function setDrivePushBatchSeconds(seconds: number): void {
+  const next = normalizeDrivePushBatchSeconds(seconds)
+  writeFlag(DRIVE_PUSH_BATCH_SECONDS_KEY, String(next))
+  if (!pushTimer) return
+  clearTimeout(pushTimer)
+  pushTimer = null
+  if (isDriveAppStateDirty()) scheduleDriveAppStatePush()
+}
+
+export function drivePushBatchLabel(seconds: number): string {
+  const s = normalizeDrivePushBatchSeconds(seconds)
+  if (s <= 0) return 'Off'
+  if (s === 1) return 'Every second'
+  return `Every ${s} seconds`
+}
+
+/**
+ * Recents, settings, and other synced localStorage keys don’t go through the
+ * favorites store. One hook batches those writes into the same upload.
+ */
+function installAppStateStorageHook(): void {
+  if (storageHooked || typeof localStorage === 'undefined') return
+  const setItem = localStorage.setItem.bind(localStorage)
+  const removeItem = localStorage.removeItem.bind(localStorage)
+  const patchedSet = (key: string, value: string) => {
+    setItem(key, value)
+    if (SYNCED_LOCAL_KEYS.has(key)) scheduleDriveAppStatePush()
+  }
+  const patchedRemove = (key: string) => {
+    removeItem(key)
+    if (SYNCED_LOCAL_KEYS.has(key)) scheduleDriveAppStatePush()
+  }
+  try {
+    Object.defineProperty(localStorage, 'setItem', {
+      configurable: true,
+      writable: true,
+      value: patchedSet,
+    })
+    Object.defineProperty(localStorage, 'removeItem', {
+      configurable: true,
+      writable: true,
+      value: patchedRemove,
+    })
+  } catch {
+    return
+  }
+  storageHooked = true
 }
 
 export function setDriveConflictChooser(
@@ -498,7 +570,14 @@ function ensureOnlineRetryHook(): void {
  * Non-blocking hydrate: pull cloud app-state when appropriate.
  * Safe to call repeatedly; concurrent calls share one in-flight promise.
  */
-export async function ensureDriveHydrate(opts?: { allowTokenPrompt?: boolean }): Promise<void> {
+export async function ensureDriveHydrate(opts?: {
+  allowTokenPrompt?: boolean
+  /**
+   * When false, a pull may download or merge but will not upload local-only
+   * changes. Those stay dirty for the short push batch.
+   */
+  pushLocal?: boolean
+}): Promise<void> {
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected || !readConnection()) return
   if (isSingTagsOffline()) {
@@ -517,7 +596,9 @@ export async function ensureDriveHydrate(opts?: { allowTokenPrompt?: boolean }):
   }
   if (hydrateInFlight) return hydrateInFlight
 
+  const pushLocal = opts?.pushLocal !== false
   hydrateInFlight = (async () => {
+    const dirtyStamp = readFlag(DRIVE_DIRTY_KEY)
     driveSyncState.status = 'hydrating'
     driveSyncState.message = ''
     try {
@@ -537,13 +618,21 @@ export async function ensureDriveHydrate(opts?: { allowTokenPrompt?: boolean }):
       if (decision.action === 'noop') {
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Drive synced'
-        clearDriveAppStateDirty()
-        clearRetry()
+        // A star during this check must stay queued for the push batch.
+        if (readFlag(DRIVE_DIRTY_KEY) === dirtyStamp) {
+          clearDriveAppStateDirty()
+          clearRetry()
+        }
         if (cloud) writeLastSyncMeta(cloud)
         return
       }
 
       if (decision.action === 'upload') {
+        if (!pushLocal) {
+          driveSyncState.status = 'idle'
+          driveSyncState.message = 'Local changes queued to upload'
+          return
+        }
         await uploadMergingRemoteIfNeeded(local)
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Uploaded app state to Drive'
@@ -624,22 +713,25 @@ export async function ensureDriveHydrate(opts?: { allowTokenPrompt?: boolean }):
   return hydrateInFlight
 }
 
-/** Debounced background upload after local changes. */
+/** Debounced background upload after local changes (favorites, recents, settings). */
 export function scheduleDriveAppStatePush(): void {
   if (suppressDrivePush) return
+  // Remember the edit even if Drive isn’t connected yet, so the next sign-in uploads it.
+  markDriveAppStateDirty()
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected) return
-  markDriveAppStateDirty()
   // Stay dirty while Offline; upload when connectivity / Online mode returns.
   if (isSingTagsOffline()) {
     driveSyncState.message = 'Offline — Drive upload pending'
     return
   }
+  const seconds = getDrivePushBatchSeconds()
+  if (seconds <= 0) return
   if (pushTimer) clearTimeout(pushTimer)
   pushTimer = setTimeout(() => {
     pushTimer = null
     void pushDriveAppStateNow()
-  }, PUSH_DEBOUNCE_MS)
+  }, seconds * 1000)
 }
 
 export async function pushDriveAppStateNow(): Promise<void> {

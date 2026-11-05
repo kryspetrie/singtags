@@ -277,10 +277,31 @@ export async function upsertTextFile(opts: {
   return updateFileMedia({ fileId: existing.id, mimeType: mime, bytes })
 }
 
-export async function downloadFileBytes(fileId: string): Promise<Uint8Array> {
+export async function downloadFileBytes(
+  fileId: string,
+  pace?: (bytes: number) => Promise<void>,
+): Promise<Uint8Array> {
   const res = await driveFetch(`/files/${encodeURIComponent(fileId)}?alt=media`)
   if (!res.ok) throw new Error(`Could not download Drive file (${res.status}).`)
-  return new Uint8Array(await res.arrayBuffer())
+  if (!pace || !res.body) return new Uint8Array(await res.arrayBuffer())
+  const reader = res.body.getReader()
+  const parts: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (!value?.byteLength) continue
+    await pace(value.byteLength)
+    parts.push(value)
+    total += value.byteLength
+  }
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    out.set(part, offset)
+    offset += part.byteLength
+  }
+  return out
 }
 
 export async function downloadTextFile(fileId: string): Promise<string> {

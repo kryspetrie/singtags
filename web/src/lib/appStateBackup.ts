@@ -48,8 +48,9 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.labs.driveSync.enabled.v1',
   // Song-cache prefs (`singtags.drive.cache.{sheets,audio}.enabled.v1`) stay device-local —
   // each browser chooses whether to download sheets/tracks (from Drive or S3). Do not sync.
-  /** Background Drive sync poll interval in minutes (`0` = off). */
+  /** Background Drive pull interval in minutes (`0` = off). */
   'singtags.drive.sync.pollMinutes.v1',
+  // Push batch window (`singtags.drive.sync.pushBatchSeconds.v1`) stays on this device.
 
   'singtags.primaryNav.order.v1',
   'singtags.primaryNav.hidden.v1',

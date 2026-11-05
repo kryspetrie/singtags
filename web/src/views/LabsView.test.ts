@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { isDriveSyncEnabled } from '../lib/google/googleAuth'
+import { isDriveSyncEnabled, __resetGoogleAuthForTests } from '../lib/google/googleAuth'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import LabsView from './LabsView.vue'
@@ -114,6 +114,21 @@ describe('LabsView', () => {
     expect(toggle.element).toHaveProperty('checked', false)
     expect(w.text()).toMatch(/must.*be added by Krys as a beta tester/i)
     expect(w.text()).toMatch(/Off — enable after Krys adds your email/)
+    expect(w.text()).not.toMatch(/Connect Google Drive/)
+    w.unmount()
+  })
+
+  it('does not offer a Google connect button after Drive sync is enabled', async () => {
+    __resetGoogleAuthForTests()
+    vi.stubEnv('VITE_GOOGLE_OAUTH_CLIENT_ID', 'test-client.apps.googleusercontent.com')
+    localStorage.setItem('singtags.labs.driveSync.enabled.v1', '1')
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(w.text()).toMatch(/use Log in in the title bar to connect/)
+    expect(w.text()).toMatch(/Connect from/)
+    expect(w.findAll('button').some((b) => /connect/i.test(b.text()))).toBe(false)
     w.unmount()
   })
 })

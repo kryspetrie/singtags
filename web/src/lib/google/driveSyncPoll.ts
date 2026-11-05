@@ -1,5 +1,6 @@
 /**
- * Periodic Drive sync when signed in (app state + optional song cache).
+ * Periodic pull of Drive app state (favorites, recents, settings) plus optional
+ * song-cache sync. Uploads are a separate short batch in driveAppStateSync.
  * Interval is Settings-configurable; 0 disables polling.
  */
 
@@ -78,9 +79,12 @@ async function pollTick(): Promise<void> {
   if (tickInFlight) return tickInFlight
   tickInFlight = (async () => {
     try {
-      await ensureDriveHydrate({ allowTokenPrompt: false })
+      await ensureDriveHydrate({ allowTokenPrompt: false, pushLocal: false })
+      // Don’t hold the next favorites pull behind a long song-cache transfer.
       if (isDriveCacheSyncEnabled()) {
-        await ensureDriveCacheSync({ allowTokenPrompt: false })
+        void ensureDriveCacheSync({ allowTokenPrompt: false }).catch(() => {
+          /* status surfaces on driveCacheSyncState */
+        })
       }
     } catch {
       /* status surfaces on driveSyncState / driveCacheSyncState */

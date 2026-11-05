@@ -48,6 +48,12 @@ import {
 } from '../lib/primaryNav'
 import { primaryNavFitCapacity } from '../lib/primaryNavFit'
 import {
+  DRIVE_PUSH_BATCH_OPTIONS,
+  drivePushBatchLabel,
+  getDrivePushBatchSeconds,
+  setDrivePushBatchSeconds,
+} from '../lib/google/driveAppStateSync'
+import {
   DRIVE_SYNC_POLL_OPTIONS,
   driveSyncPollLabel,
   getDriveSyncPollMinutes,
@@ -70,6 +76,10 @@ import {
   isGoogleConfigured,
   restoreGoogleConnection,
 } from '../lib/google/googleAuth'
+import {
+  readDriveDownloadMbps,
+  writeDriveDownloadMbps,
+} from '../lib/google/downloadBudget'
 
 const SETTINGS_TABS = ['appearance', 'offline'] as const
 type SettingsTab = (typeof SETTINGS_TABS)[number]
@@ -111,12 +121,37 @@ const { offline } = useOnline()
 
 const driveConfigured = isGoogleConfigured()
 const drivePollMinutes = ref(getDriveSyncPollMinutes())
+const drivePushBatchSeconds = ref(getDrivePushBatchSeconds())
+const driveDownloadMbps = ref(readDriveDownloadMbps())
+/** Current full song cache is about this large; used only to explain the speed setting. */
+const DRIVE_LIBRARY_MB = 700
+
+const driveRestoreMinutes = computed(() => {
+  const mbps = driveDownloadMbps.value
+  if (!(mbps > 0)) return 1
+  return Math.max(1, Math.round((DRIVE_LIBRARY_MB * 8) / mbps / 60))
+})
 
 function onDrivePollChange(event: Event): void {
   const el = event.target as HTMLSelectElement
   const mins = Number(el.value)
   setDriveSyncPollMinutes(mins)
   drivePollMinutes.value = getDriveSyncPollMinutes()
+}
+
+function onDrivePushBatchChange(event: Event): void {
+  const el = event.target as HTMLSelectElement
+  setDrivePushBatchSeconds(Number(el.value))
+  drivePushBatchSeconds.value = getDrivePushBatchSeconds()
+}
+
+function onDriveDownloadMbps(event: Event): void {
+  const el = event.target as HTMLInputElement
+  driveDownloadMbps.value = writeDriveDownloadMbps(Number(el.value))
+  el.value = String(driveDownloadMbps.value)
+  if (driveCacheSyncState.status === 'hydrating') {
+    driveCacheSyncState.downloadMbps = driveDownloadMbps.value
+  }
 }
 
 const primaryNavGates = computed(
@@ -271,6 +306,8 @@ onMounted(async () => {
   restoreGoogleConnection()
   restoreDriveCachePrefs()
   drivePollMinutes.value = getDriveSyncPollMinutes()
+  drivePushBatchSeconds.value = getDrivePushBatchSeconds()
+  driveDownloadMbps.value = readDriveDownloadMbps()
   void refreshPdfRasterMeter()
   // Always refresh manifests when online so new remote tags can be detected.
   if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
@@ -1040,9 +1077,9 @@ function cancelCullUpgrades(): void {
     >
       <h2 id="drive-poll-h">Google Drive sync</h2>
       <p class="hint">
-        When you’re signed in, SingTags periodically checks Drive both ways: pull newer favorites /
-        settings, then upload local changes. Song cache stays per-device. Uses the signed-in tab
-        token — no login popup from the background.
+        Favorites, recents, and settings upload in a short batch after you change them. A separate
+        check pulls newer copies down from Drive. Song cache stays per-device and follows that
+        check. Uses the signed-in tab token — no login popup from the background.
       </p>
       <p v-if="googleAuthState.connected" class="hint" role="status">
         Signed in{{ googleAuthState.email ? ` as ${googleAuthState.email}` : '' }}
@@ -1053,11 +1090,31 @@ function cancelCullUpgrades(): void {
         tester), then Log in.
       </p>
       <label class="drive-poll-row">
-        <span class="drive-poll-label">Background sync interval</span>
+        <span class="drive-poll-label">Send changes</span>
+        <select
+          class="drive-poll-select"
+          :value="String(drivePushBatchSeconds)"
+          aria-label="How soon local favorites and settings upload"
+          @change="onDrivePushBatchChange"
+        >
+          <option
+            v-for="seconds in DRIVE_PUSH_BATCH_OPTIONS"
+            :key="seconds"
+            :value="String(seconds)"
+          >
+            {{ drivePushBatchLabel(seconds) }}
+          </option>
+        </select>
+      </label>
+      <p class="hint">
+        Stars, recents, and settings wait this long so a burst of edits becomes one upload.
+      </p>
+      <label class="drive-poll-row">
+        <span class="drive-poll-label">Check Drive for updates</span>
         <select
           class="drive-poll-select"
           :value="String(drivePollMinutes)"
-          aria-label="Google Drive background sync interval"
+          aria-label="How often to pull newer favorites and settings from Drive"
           @change="onDrivePollChange"
         >
           <option
@@ -1069,6 +1126,27 @@ function cancelCullUpgrades(): void {
           </option>
         </select>
       </label>
+      <label class="drive-poll-row">
+        <span class="drive-poll-label">Download speed limit</span>
+        <span class="drive-speed">
+          <input
+            class="drive-poll-select drive-speed-input"
+            type="number"
+            min="0.5"
+            max="200"
+            step="0.5"
+            :value="driveDownloadMbps"
+            aria-label="Google Drive download speed limit in megabits per second"
+            @change="onDriveDownloadMbps"
+          />
+          <span class="drive-poll-unit">Mb/s</span>
+        </span>
+      </label>
+      <p class="hint">
+        The restore keeps several Drive downloads open and stays near this rate. A full library is
+        about 700 MB, so {{ driveDownloadMbps }} Mb/s takes about {{ driveRestoreMinutes }} minutes.
+        Changing it applies to a restore already running.
+      </p>
       <div class="drive-cache-choices">
         <p class="hint">
           Choose what this device copies into your Google Drive. Local sheets and tracks stay on
@@ -1865,6 +1943,19 @@ function cancelCullUpgrades(): void {
   background: var(--surface);
   color: var(--text);
   font: inherit;
+}
+.drive-speed {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.drive-speed-input {
+  width: 5.5rem;
+  min-width: 0;
+}
+.drive-poll-unit {
+  font-size: 0.92rem;
+  font-weight: 650;
 }
 .drive-cache-choices {
   display: grid;

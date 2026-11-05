@@ -51,6 +51,15 @@ describe('offline readiness', () => {
     expect(ready.get(50)).toEqual({ sheets: false, audio: true })
     expect(ready.get(60)).toEqual({ sheets: true, audio: false })
     expect(ready.has(70)).toBe(false)
+
+    const library = buildReadinessFromUrlLists(
+      [],
+      [
+        'https://www.singtags.com/library/Smile%20%28G%20Major%29%20-%20Bobby%20Gray%20Jr%20-%201/Smile%20-%20Lead%20-%20Solo.opus',
+      ],
+      [],
+    )
+    expect(library.get(1)).toEqual({ sheets: false, audio: true })
   })
 
   it('matches every cached filter, treating a missing entry as not cached', () => {
