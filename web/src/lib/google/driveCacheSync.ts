@@ -197,6 +197,63 @@ export function selectCacheEntriesToUpload(
   return out
 }
 
+/**
+ * Pack rows whose bytes are already in an objects folder.
+ * Cloud rows stay until this device has stored a replacement for the same path,
+ * so a partial upload remains downloadable and the next sync can fill the gaps.
+ */
+export function mergeStoredDriveCachePack(
+  local: readonly DriveCachePackEntry[],
+  cloud: readonly DriveCachePackEntry[],
+  knownHashes: ReadonlySet<string>,
+): DriveCachePackEntry[] {
+  const byPath = new Map<string, DriveCachePackEntry>()
+  for (const entry of cloud) {
+    if (!entry.path || !entry.hash || !knownHashes.has(entry.hash)) continue
+    byPath.set(entry.path, entry)
+  }
+  for (const entry of local) {
+    if (!entry.path || !entry.hash || !knownHashes.has(entry.hash)) continue
+    byPath.set(entry.path, entry)
+  }
+  return [...byPath.values()]
+}
+
+function storedPack(
+  enabled: boolean,
+  local: readonly DriveCachePackEntry[],
+  cloud: readonly DriveCachePackEntry[] | undefined,
+  knownHashes: ReadonlySet<string>,
+): DriveCachePackEntry[] {
+  if (!enabled) return cloud ? [...cloud] : []
+  // An empty object index means we could not see stored bytes. Keep the cloud list
+  // instead of publishing an empty pack over a usable one.
+  if (knownHashes.size === 0) return cloud ? [...cloud] : []
+  return mergeStoredDriveCachePack(local, cloud ?? [], knownHashes)
+}
+
+/** Manifest that names only song files already stored on Drive. */
+export function driveCacheManifestForStoredObjects(opts: {
+  local: DriveCacheManifest
+  cloud?: DriveCacheManifest | null
+  knownHashes: ReadonlySet<string>
+  sheets: boolean
+  audio: boolean
+}): DriveCacheManifest {
+  const cloud = opts.cloud ?? null
+  return {
+    kind: 'singtags.drive-cache',
+    schemaVersion: DRIVE_CACHE_SCHEMA_VERSION,
+    formatId: DRIVE_CACHE_FORMAT_ID,
+    exportedAt: new Date().toISOString(),
+    source: opts.local.source,
+    packs: {
+      sheets: storedPack(opts.sheets, opts.local.packs.sheets, cloud?.packs.sheets, opts.knownHashes),
+      audio: storedPack(opts.audio, opts.local.packs.audio, cloud?.packs.audio, opts.knownHashes),
+    },
+  }
+}
+
 function clearDriveTagProgress(): void {
   driveCacheSyncState.tagIds = []
   driveCacheSyncState.finishedTagIds = []
@@ -246,6 +303,10 @@ let uploadFollowUp = false
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 const PUSH_DEBOUNCE_MS = 12_000
 const UPLOAD_CONCURRENCY = 3
+/** Rewrite manifest.json after this many newly stored files. */
+export const DRIVE_CACHE_MANIFEST_FLUSH_FILES = 30
+/** Rewrite manifest.json at least this often while an upload is storing files. */
+export const DRIVE_CACHE_MANIFEST_FLUSH_MS = 10_000
 
 function readFlag(key: string): boolean {
   try {
@@ -672,6 +733,64 @@ async function mapPool<T>(
   await Promise.all(runners)
 }
 
+function createStoredManifestPublisher(opts: {
+  local: DriveCacheManifest
+  cloud: DriveCacheManifest | null
+  known: ReadonlySet<string>
+  sheets: boolean
+  audio: boolean
+}): { noteStored(): void; flush(): Promise<void> } {
+  let pending = 0
+  let lastPublished = 0
+  let chain: Promise<void> = Promise.resolve()
+
+  const publish = (force: boolean): Promise<void> => {
+    const run = async () => {
+      const elapsed = Date.now() - lastPublished
+      const due =
+        force ||
+        pending >= DRIVE_CACHE_MANIFEST_FLUSH_FILES ||
+        (pending > 0 && lastPublished > 0 && elapsed >= DRIVE_CACHE_MANIFEST_FLUSH_MS)
+      if (!due) return
+      const queued = pending
+      pending = 0
+      try {
+        await writeDriveCacheManifest(
+          driveCacheManifestForStoredObjects({
+            local: opts.local,
+            cloud: opts.cloud,
+            knownHashes: opts.known,
+            sheets: opts.sheets,
+            audio: opts.audio,
+          }),
+        )
+        lastPublished = Date.now()
+      } catch (err) {
+        pending += queued
+        throw err
+      }
+    }
+    chain = chain.then(run, run)
+    return chain
+  }
+
+  return {
+    noteStored() {
+      pending += 1
+      const elapsed = Date.now() - lastPublished
+      if (
+        pending >= DRIVE_CACHE_MANIFEST_FLUSH_FILES ||
+        (lastPublished > 0 && elapsed >= DRIVE_CACHE_MANIFEST_FLUSH_MS)
+      ) {
+        void publish(false).catch(() => {
+          /* the next checkpoint or the final flush reports a persistent failure */
+        })
+      }
+    },
+    flush: () => publish(true),
+  }
+}
+
 async function writeDriveCacheManifest(manifest: DriveCacheManifest): Promise<void> {
   const cacheFolderId = await ensureAppDataPath(DRIVE_CACHE_SEGMENTS)
   await upsertTextFile({
@@ -992,48 +1111,54 @@ async function uploadDriveCacheOnce(): Promise<{ uploaded: number }> {
     driveCacheSyncState.message = 'Uploading song cache to Google Drive…'
   }
 
+  const publisher = createStoredManifestPublisher({
+    local,
+    cloud,
+    known,
+    sheets: wantSheets,
+    audio: wantAudio,
+  })
+
   let uploaded = 0
   const uploadedPaths: string[] = []
-  await mapPool(uniqueMissing, UPLOAD_CONCURRENCY, async (entry) => {
-    const src = hashSources.get(entry.hash)
-    if (!src) {
+  let uploadError: unknown = null
+  try {
+    // Link hashes already on Drive before copying more, so a resumed sync is usable immediately.
+    await publisher.flush()
+    await mapPool(uniqueMissing, UPLOAD_CONCURRENCY, async (entry) => {
+      const src = hashSources.get(entry.hash)
+      if (!src) {
+        progress.mark(entry.path)
+        return
+      }
+      const res = await packStore(src.kind).get(src.url)
+      if (!res) {
+        progress.mark(entry.path)
+        return
+      }
+      const bytes = new Uint8Array(await res.arrayBuffer())
+      const created = await uploadNewFile({
+        name: entry.hash,
+        parentId: objectsFolderId,
+        mimeType: entry.mime || src.mime || 'application/octet-stream',
+        bytes,
+      })
+      objectIds.set(entry.hash, created.id)
+      known.add(entry.hash)
+      uploaded++
+      uploadedPaths.push(entry.path)
+      publisher.noteStored()
       progress.mark(entry.path)
-      return
-    }
-    const res = await packStore(src.kind).get(src.url)
-    if (!res) {
-      progress.mark(entry.path)
-      return
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer())
-    const created = await uploadNewFile({
-      name: entry.hash,
-      parentId: objectsFolderId,
-      mimeType: entry.mime || src.mime || 'application/octet-stream',
-      bytes,
     })
-    objectIds.set(entry.hash, created.id)
-    known.add(entry.hash)
-    uploaded++
-    uploadedPaths.push(entry.path)
-    progress.mark(entry.path)
-  })
-
-  const merged: DriveCacheManifest = {
-    ...local,
-    packs: {
-      sheets: wantSheets ? local.packs.sheets : cloud?.packs.sheets ?? [],
-      audio: wantAudio ? local.packs.audio : cloud?.packs.audio ?? [],
-    },
+  } catch (e) {
+    uploadError = e
   }
-
-  const cacheFolderId = await ensureAppDataPath(DRIVE_CACHE_SEGMENTS)
-  await upsertTextFile({
-    name: DRIVE_CACHE_MANIFEST_FILE,
-    parentId: cacheFolderId,
-    text: JSON.stringify(merged),
-    mimeType: 'application/json',
-  })
+  try {
+    await publisher.flush()
+  } catch (e) {
+    if (!uploadError) uploadError = e
+  }
+  if (uploadError) throw uploadError
 
   const uploadedTags = tagIdsInCachePaths(uploadedPaths).length
   driveCacheSyncState.status = 'idle'

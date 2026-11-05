@@ -18,6 +18,8 @@ import {
   driveCacheTransferLabel,
   isDriveCacheTransferActive,
   isSupportedDriveCacheManifest,
+  driveCacheManifestForStoredObjects,
+  mergeStoredDriveCachePack,
   pathForPackUrl,
   readDriveCachePref,
   selectCacheEntriesToUpload,
@@ -112,6 +114,60 @@ describe('driveCacheSync', () => {
     const missing = selectCacheEntriesToUpload(local, new Set(['bbb']))
     expect(missing.map((e) => e.hash)).toEqual(['aaa', 'ccc'])
     expect(tagIdsInCachePaths(missing.map((e) => e.path)).sort()).toEqual([1, 2])
+  })
+
+  it('publishes only stored files and keeps a partial cloud pack usable', () => {
+    const localManifest = {
+      kind: 'singtags.drive-cache' as const,
+      schemaVersion: 1,
+      formatId: DRIVE_CACHE_FORMAT_ID,
+      exportedAt: '2026-01-01T00:00:00.000Z',
+      source: {
+        sheetsContentFormat: SHEETS_CONTENT_FORMAT_ID,
+        audioContentFormat: AUDIO_CONTENT_FORMAT_ID,
+      },
+      packs: {
+        sheets: [
+          { path: 'sheets/1/a.webp', hash: 'stored', bytes: 10 },
+          { path: 'sheets/2/a.webp', hash: 'missing', bytes: 10 },
+        ],
+        audio: [{ path: 'media/3/lead.opus', hash: 'track', bytes: 10 }],
+      },
+    }
+    const cloud = {
+      ...localManifest,
+      packs: {
+        sheets: [{ path: 'sheets/9/old.webp', hash: 'old', bytes: 4 }],
+        audio: [{ path: 'media/8/lead.opus', hash: 'kept', bytes: 4 }],
+      },
+    }
+
+    const partial = driveCacheManifestForStoredObjects({
+      local: localManifest,
+      cloud,
+      knownHashes: new Set(['stored', 'old', 'kept']),
+      sheets: true,
+      audio: true,
+    })
+    expect(partial.packs.sheets.map((e) => e.path)).toEqual(['sheets/9/old.webp', 'sheets/1/a.webp'])
+    expect(partial.packs.audio.map((e) => e.hash)).toEqual(['kept'])
+
+    const replaced = mergeStoredDriveCachePack(
+      [{ path: 'sheets/9/old.webp', hash: 'new', bytes: 8 }],
+      cloud.packs.sheets,
+      new Set(['old', 'new']),
+    )
+    expect(replaced).toEqual([{ path: 'sheets/9/old.webp', hash: 'new', bytes: 8 }])
+
+    const untouched = driveCacheManifestForStoredObjects({
+      local: localManifest,
+      cloud,
+      knownHashes: new Set(),
+      sheets: true,
+      audio: false,
+    })
+    expect(untouched.packs.sheets.map((e) => e.hash)).toEqual(['old'])
+    expect(untouched.packs.audio.map((e) => e.hash)).toEqual(['kept'])
   })
 
   it('round-trips pack paths', () => {

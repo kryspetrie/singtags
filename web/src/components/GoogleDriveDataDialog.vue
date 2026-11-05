@@ -116,8 +116,8 @@ function settingsLine(s: DriveAccountSummary): string {
               </span>
             </p>
             <p v-if="isDriveCacheTransferActive()" class="status" role="status">
-              A copy to Drive is still running. This number is only what has finished, not the full
-              song cache on this device.
+              A copy to Drive is still running. Sheet and track counts are the songs already listed,
+              and that list is updated while the copy continues. Refresh to see the latest.
             </p>
             <p
               v-else-if="summary.catalogBytes > summary.objectBytes + 5 * 1024 * 1024"
