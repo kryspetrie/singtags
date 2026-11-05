@@ -19,7 +19,11 @@ export const GOOGLE_TOKEN_SESSION_KEY = 'singtags.google.accessToken.v1'
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client'
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
-const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
+/**
+ * Token introspection. Use the www.googleapis.com host — `oauth2.googleapis.com/tokeninfo`
+ * omits CORS headers, so a browser fetch fails and looks like “scope missing”.
+ */
+const TOKENINFO_URL = 'https://www.googleapis.com/oauth2/v3/tokeninfo'
 const DRIVE_ABOUT_URL = 'https://www.googleapis.com/drive/v3/about?fields=user,storageQuota'
 /** Refresh slightly before Google's stated expiry. */
 const EXPIRY_SKEW_MS = 60_000
@@ -259,23 +263,36 @@ async function fetchEmail(token: string): Promise<string | undefined> {
   }
 }
 
-/** True when the access token includes Drive application-data scope. */
-export async function tokenHasDriveAppDataScope(token: string): Promise<boolean> {
+/**
+ * Whether the access token includes Drive application-data scope.
+ * `null` means we could not read tokeninfo (CORS/network) — do not treat that as a denial.
+ */
+export async function tokenHasDriveAppDataScope(token: string): Promise<boolean | null> {
   try {
     const res = await fetch(`${TOKENINFO_URL}?access_token=${encodeURIComponent(token)}`)
-    if (!res.ok) return false
+    if (!res.ok) return null
     const j = (await res.json()) as { scope?: unknown }
-    if (typeof j.scope !== 'string') return false
-    return j.scope.split(/\s+/).includes(GOOGLE_DRIVE_APPDATA_SCOPE)
+    const scope =
+      typeof j.scope === 'string'
+        ? j.scope
+        : Array.isArray(j.scope)
+          ? j.scope.filter((s): s is string => typeof s === 'string').join(' ')
+          : ''
+    if (!scope) return null
+    return scope.split(/\s+/).includes(GOOGLE_DRIVE_APPDATA_SCOPE)
   } catch {
-    return false
+    return null
   }
 }
 
 async function ensureDriveAppDataScope(token: string): Promise<string> {
-  if (await tokenHasDriveAppDataScope(token)) return token
-  clearAccessToken()
-  throw new GoogleAuthError('reconnect', DRIVE_SCOPE_MISSING_MESSAGE)
+  const has = await tokenHasDriveAppDataScope(token)
+  // Only block when Google explicitly listed scopes and omitted drive.appdata.
+  if (has === false) {
+    clearAccessToken()
+    throw new GoogleAuthError('reconnect', DRIVE_SCOPE_MISSING_MESSAGE)
+  }
+  return token
 }
 
 async function markConnectedFromToken(token: string): Promise<GoogleConnection> {
@@ -328,8 +345,9 @@ export async function getAccessToken(opts?: { interactive?: boolean }): Promise<
     throw new GoogleAuthError('not-connected', 'Connect Google Drive first.')
   }
   if (hasUsableAccessToken()) {
-    if (await tokenHasDriveAppDataScope(accessToken!)) return accessToken!
-    // Stale/narrow grant in this tab — drop it and re-auth when allowed.
+    const hasScope = await tokenHasDriveAppDataScope(accessToken!)
+    if (hasScope !== false) return accessToken!
+    // Confirmed narrow grant — drop it and re-auth when allowed.
     clearAccessToken()
     if (!opts?.interactive) {
       const err = new GoogleAuthError('reconnect', DRIVE_SCOPE_MISSING_MESSAGE)

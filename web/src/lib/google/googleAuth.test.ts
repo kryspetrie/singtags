@@ -104,6 +104,7 @@ describe('googleAuth', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input)
         if (url.includes('tokeninfo')) {
+          expect(url).toContain('www.googleapis.com/oauth2/v3/tokeninfo')
           return new Response(JSON.stringify({ scope: 'openid email profile' }), { status: 200 })
         }
         return new Response(JSON.stringify({ email: 'a@b.com' }), { status: 200 })
@@ -112,6 +113,21 @@ describe('googleAuth', () => {
     await expect(signIn()).rejects.toMatchObject({ code: 'reconnect' })
     expect(googleAuthState.connected).toBe(false)
     expect(googleAuthState.error).toMatch(/Drive app data/i)
+  })
+
+  it('still connects when tokeninfo is unreachable', async () => {
+    installGis()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('tokeninfo')) throw new TypeError('Failed to fetch')
+        return new Response(JSON.stringify({ email: 'a@b.com' }), { status: 200 })
+      }),
+    )
+    await signIn()
+    expect(googleAuthState.connected).toBe(true)
+    expect(googleAuthState.email).toBe('a@b.com')
   })
 
   it('reuses the in-memory token and does not re-prompt', async () => {
