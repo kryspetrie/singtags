@@ -20,6 +20,8 @@ import { ensureDriveHydrate } from '../lib/google/driveAppStateSync'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
 import { formatBytes } from '../offline/storageEstimate'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
+import { useSnackbarStore } from '../stores/snackbar'
+import GoogleDrivePrivacyNote from './GoogleDrivePrivacyNote.vue'
 
 const props = defineProps<{
   open: boolean
@@ -32,6 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
+const snackbar = useSnackbarStore()
 const configured = isGoogleConfigured()
 const connecting = ref(false)
 
@@ -69,21 +72,33 @@ function onCancel(): void {
   emit('close')
 }
 
-async function onConnect(): Promise<void> {
+function onConnect(): void {
   if (!configured || connecting.value) return
   connecting.value = true
   googleAuthState.error = ''
-  try {
-    setDriveSyncEnabled(true)
-    await signIn()
-    await ensureDriveHydrate({ allowTokenPrompt: true })
-    emit('connected')
-    emit('close')
-  } catch {
-    /* googleAuthState.error */
-  } finally {
-    connecting.value = false
-  }
+  setDriveSyncEnabled(true)
+  // Close now — Google’s popup and the snackbar carry the rest of the status.
+  emit('close')
+  snackbar.show('Approve Google in the popup to finish signing in.', {
+    title: 'Connecting',
+    tone: 'ok',
+    ms: 4000,
+  })
+  void (async () => {
+    try {
+      await signIn()
+      await ensureDriveHydrate({ allowTokenPrompt: true })
+      emit('connected')
+    } catch {
+      snackbar.show(googleAuthState.error || 'Google sign-in failed.', {
+        title: 'Google Drive',
+        tone: 'error',
+        ms: 7000,
+      })
+    } finally {
+      connecting.value = false
+    }
+  })()
 }
 </script>
 
@@ -134,18 +149,7 @@ async function onConnect(): Promise<void> {
             enable sheets and tracks on this device.
           </p>
 
-          <section class="info-block" aria-labelledby="drive-privacy-heading">
-            <h3 id="drive-privacy-heading">Your data &amp; privacy</h3>
-            <p>
-              Login only opens a private SingTags folder in your Google Drive. We don’t run a
-              user database, and this connection doesn’t send metrics or library contents back to
-              us.
-            </p>
-            <p>
-              Your files stay in your Google Account. Log out here or revoke SingTags in Google
-              settings to stop syncing.
-            </p>
-          </section>
+          <GoogleDrivePrivacyNote />
 
           <section class="info-block" aria-labelledby="drive-space-heading">
             <h3 id="drive-space-heading">Drive space used</h3>

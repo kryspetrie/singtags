@@ -39,8 +39,8 @@ describe('GoogleDriveCacheOfferDialog', () => {
 
   it('offers restore copy when Drive already has packs', async () => {
     probeDriveCachePresence.mockResolvedValue({
-      sheets: { present: true, files: 12, bytes: 1_000_000 },
-      audio: { present: false, files: 0, bytes: 0 },
+      sheets: { present: true, files: 12, bytes: 1_000_000, tags: 4 },
+      audio: { present: false, files: 0, bytes: 0, tags: 0 },
     })
 
     const w = mount(GoogleDriveCacheOfferDialog, {
@@ -65,8 +65,8 @@ describe('GoogleDriveCacheOfferDialog', () => {
 
   it('offers first-time sync copy when Drive is empty', async () => {
     probeDriveCachePresence.mockResolvedValue({
-      sheets: { present: false, files: 0, bytes: 0 },
-      audio: { present: false, files: 0, bytes: 0 },
+      sheets: { present: false, files: 0, bytes: 0, tags: 0 },
+      audio: { present: false, files: 0, bytes: 0, tags: 0 },
     })
 
     const w = mount(GoogleDriveCacheOfferDialog, {
@@ -83,7 +83,7 @@ describe('GoogleDriveCacheOfferDialog', () => {
     w.unmount()
   })
 
-  it('Continue with defaults off applies no cache on this device', async () => {
+  it('Sync with defaults off applies no cache and closes immediately', async () => {
     probeDriveCachePresence.mockResolvedValue({
       sheets: { present: true, files: 1, bytes: 10 },
       audio: { present: true, files: 2, bytes: 20 },
@@ -96,20 +96,21 @@ describe('GoogleDriveCacheOfferDialog', () => {
     })
     await flushPromises()
 
-    const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
-      /^Continue$/.test((b.textContent || '').trim()),
+    const syncBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Sync$/.test((b.textContent || '').trim()),
     ) as HTMLButtonElement
-    continueBtn.click()
+    syncBtn.click()
     await flushPromises()
 
     expect(applyDriveCacheOffer).toHaveBeenCalledWith(
       expect.objectContaining({ sheets: false, audio: false }),
     )
     expect(w.emitted('decided')?.[0]).toEqual([{ sheets: false, audio: false }])
+    expect(w.emitted('close')).toBeTruthy()
     w.unmount()
   })
 
-  it('Continue applies checked prefs for this device', async () => {
+  it('Sync applies checked prefs and closes before the download finishes', async () => {
     probeDriveCachePresence.mockResolvedValue({
       sheets: { present: true, files: 1, bytes: 10 },
       audio: { present: true, files: 2, bytes: 20 },
@@ -126,16 +127,27 @@ describe('GoogleDriveCacheOfferDialog', () => {
     for (const c of checks) c.click()
     await flushPromises()
 
-    const continueBtn = [...document.body.querySelectorAll('button')].find((b) =>
-      /^Continue$/.test((b.textContent || '').trim()),
+    let release: (() => void) | undefined
+    applyDriveCacheOffer.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+
+    const syncBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Sync$/.test((b.textContent || '').trim()),
     ) as HTMLButtonElement
-    continueBtn.click()
+    syncBtn.click()
     await flushPromises()
 
+    expect(w.emitted('close')).toBeTruthy()
+    expect(w.emitted('decided')?.[0]).toEqual([{ sheets: true, audio: true }])
     expect(applyDriveCacheOffer).toHaveBeenCalledWith(
       expect.objectContaining({ sheets: true, audio: true }),
     )
-    expect(w.emitted('decided')?.[0]).toEqual([{ sheets: true, audio: true }])
+    release?.()
+    await flushPromises()
     w.unmount()
   })
 })

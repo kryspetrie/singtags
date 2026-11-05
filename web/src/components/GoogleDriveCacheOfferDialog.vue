@@ -74,15 +74,15 @@ watch(
     probing.value = true
     window.addEventListener('keydown', onKeydown)
     try {
-      presence.value = await probeDriveCachePresence()
+      presence.value = await probeDriveCachePresence({ allowTokenPrompt: true })
       // Stay off until the user opts in for this device.
       enableSheets.value = false
       enableAudio.value = false
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
       presence.value = {
-        sheets: { present: false, files: 0, bytes: 0 },
-        audio: { present: false, files: 0, bytes: 0 },
+        sheets: { present: false, files: 0, bytes: 0, tags: 0 },
+        audio: { present: false, files: 0, bytes: 0, tags: 0 },
       }
     } finally {
       probing.value = false
@@ -95,23 +95,20 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 
-async function onContinue(): Promise<void> {
+function onSync(): void {
   if (applying.value || probing.value) return
-  applying.value = true
-  error.value = ''
-  try {
-    await applyDriveCacheOffer({
-      sheets: enableSheets.value,
-      audio: enableAudio.value,
-      startLocalPacks: (kind) => offlineLib.startPack(kind),
-    })
-    emit('decided', { sheets: enableSheets.value, audio: enableAudio.value })
-    emit('close')
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    applying.value = false
-  }
+  const sheets = enableSheets.value
+  const audio = enableAudio.value
+  // Close immediately — Drive/SingTags progress shows on the snackbar.
+  emit('decided', { sheets, audio })
+  emit('close')
+  void applyDriveCacheOffer({
+    sheets,
+    audio,
+    startLocalPacks: (kind) => offlineLib.startPack(kind),
+  }).catch(() => {
+    /* driveCacheSyncState / pack snackbar surfaces the failure */
+  })
 }
 
 async function onSkip(): Promise<void> {
@@ -222,11 +219,10 @@ async function onSkip(): Promise<void> {
           <button
             type="button"
             class="btn btn-primary"
-            :disabled="applying || probing"
-            :aria-busy="applying"
-            @click="onContinue"
+            :disabled="probing"
+            @click="onSync"
           >
-            {{ applying ? 'Starting…' : 'Continue' }}
+            Sync
           </button>
         </footer>
       </div>

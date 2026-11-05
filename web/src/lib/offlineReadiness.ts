@@ -13,6 +13,35 @@ export function tagIdFromMediaPath(pathOrUrl: string): number | null {
 }
 
 /**
+ * Tag id from a cached pack path.
+ * Accepts `sheets/{id}/`, `media/{id}/`, `tags/{id}/`, and library folders ending in ` - {id}`.
+ */
+export function tagIdFromCachePath(path: string): number | null {
+  const fromMedia = tagIdFromMediaPath(path)
+  if (fromMedia != null) return fromMedia
+  let decoded = path
+  try {
+    decoded = decodeURIComponent(path)
+  } catch {
+    /* keep the raw path */
+  }
+  const tags = decoded.match(/(?:^|\/)tags\/(\d+)(?:\/|$)/)
+  if (tags) {
+    const id = Number(tags[1])
+    if (Number.isSafeInteger(id)) return id
+  }
+  const parts = decoded.split('/').filter(Boolean)
+  const dirs = parts.length > 1 ? parts.slice(0, -1) : parts
+  for (let i = dirs.length - 1; i >= 0; i--) {
+    const folder = dirs[i]?.match(/ - (\d+)$/)
+    if (!folder) continue
+    const id = Number(folder[1])
+    if (Number.isSafeInteger(id)) return id
+  }
+  return null
+}
+
+/**
  * Build a per-tag offline-media index from bulk pack URL listings and favorites.
  */
 export function buildReadinessFromUrlLists(

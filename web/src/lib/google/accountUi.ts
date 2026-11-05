@@ -7,6 +7,7 @@ export const accountUiState = reactive({
   connectOpen: false,
   logoutConfirmOpen: false,
   cacheOfferOpen: false,
+  driveDataOpen: false,
   /** Desktop chrome account dropdown. */
   chromeMenuOpen: false,
 })
@@ -23,6 +24,13 @@ export function openGoogleLogoutConfirm(): void {
   accountUiState.logoutConfirmOpen = true
 }
 
+export function openGoogleDriveData(): void {
+  accountUiState.chromeMenuOpen = false
+  accountUiState.connectOpen = false
+  accountUiState.logoutConfirmOpen = false
+  accountUiState.driveDataOpen = true
+}
+
 export function openGoogleCacheOffer(): void {
   accountUiState.cacheOfferOpen = true
 }
@@ -36,5 +44,6 @@ export function __resetAccountUiForTests(): void {
   accountUiState.connectOpen = false
   accountUiState.logoutConfirmOpen = false
   accountUiState.cacheOfferOpen = false
+  accountUiState.driveDataOpen = false
   accountUiState.chromeMenuOpen = false
 }

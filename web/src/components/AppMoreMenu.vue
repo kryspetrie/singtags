@@ -9,6 +9,7 @@ import FilterSheet from './FilterSheet.vue'
 import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import {
+  openGoogleDriveData,
   openGoogleLogin,
   openGoogleLogoutConfirm,
 } from '../lib/google/accountUi'
@@ -201,6 +202,11 @@ function toggleOfflineMode(): void {
   )
 }
 
+function onDriveDataClick(): void {
+  close()
+  openGoogleDriveData()
+}
+
 function onAccountClick(): void {
   if (!googleConfigured) {
     snackbar.show('Google sync is not configured in this build', {
@@ -314,6 +320,15 @@ function onAccountClick(): void {
       </RouterLink>
 
       <!-- Mobile only — desktop uses the top-right account control. Labs-gated. -->
+      <button
+        v-if="!isDesktop && showAccountMenu && googleAuthState.connected"
+        type="button"
+        class="menu-item menu-item-account"
+        @click="onDriveDataClick"
+      >
+        <span class="menu-label">Your Drive data</span>
+        <span class="menu-desc">What’s stored in your Google Drive, and how it’s kept private</span>
+      </button>
       <button
         v-if="!isDesktop && showAccountMenu"
         type="button"

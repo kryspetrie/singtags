@@ -12,6 +12,7 @@
 import { isNonAudioPayload, sniffAudioMagic } from '../audio/audioBytes'
 import type { OfflinePackStore } from './libraryPack'
 import { InflightLimiter } from './downloadConcurrency'
+import { tagIdFromCachePath } from '../lib/offlineReadiness'
 
 /**
  * True when bytes look like an HTML document (SPA fallback poison).
@@ -160,6 +161,9 @@ export class DownloadQueue {
   private done = 0
   private doneBytes = 0
   private totalBytes = 0
+  private tagRemaining = new Map<number, number>()
+  private tagsDone = 0
+  private tagsTotal = 0
   private status: DownloadStatus = 'idle'
   private pauseRequested = false
   private abort: AbortController | null = null
@@ -204,6 +208,32 @@ export class DownloadQueue {
     this.doneBytes = items.slice(0, this.index).reduce((s, i) => s + (i.bytes ?? 0), 0)
     this.totalBytes = items.reduce((s, i) => s + (i.bytes ?? 0), 0)
     this.error = null
+    this.resetTagCounts()
+  }
+
+  /** Group queue rows by tag so progress is songs, not individual files. */
+  private resetTagCounts(): void {
+    this.tagRemaining = new Map()
+    for (const item of this.items) {
+      const id = tagIdFromCachePath(item.path) ?? 0
+      this.tagRemaining.set(id, (this.tagRemaining.get(id) ?? 0) + 1)
+    }
+    this.tagsTotal = this.tagRemaining.size
+    this.tagsDone = 0
+    for (let i = 0; i < this.index; i++) {
+      this.noteTagFileDone(this.items[i]?.path ?? '')
+    }
+  }
+
+  private noteTagFileDone(path: string): void {
+    const id = tagIdFromCachePath(path) ?? 0
+    const left = (this.tagRemaining.get(id) ?? 1) - 1
+    if (left <= 0) {
+      this.tagRemaining.delete(id)
+      this.tagsDone = Math.min(this.tagsTotal, this.tagsDone + 1)
+    } else {
+      this.tagRemaining.set(id, left)
+    }
   }
 
   /** Start or resume downloading until done, paused, errored, or quota-exceeded. */
@@ -253,12 +283,13 @@ export class DownloadQueue {
     const path = this.pendingProgressPath
     this.pendingProgressPath = undefined
     const total = this.items.length
+    const tags = this.tagsTotal > 0 ? `${this.tagsDone}/${this.tagsTotal} tags` : `${this.done}/${total}`
     this.options.onProgress?.({
       label:
         this.status === 'running'
-          ? `Downloading… ${this.done}/${total}`
+          ? `Downloading… ${tags}`
           : this.status === 'paused'
-            ? `Paused ${this.done}/${total}`
+            ? `Paused ${tags}`
             : this.status === 'done'
               ? 'Complete'
               : this.status === 'quota'
@@ -270,7 +301,7 @@ export class DownloadQueue {
       total,
       doneBytes: this.doneBytes,
       totalBytes: this.totalBytes,
-      ratio: total <= 0 ? 1 : this.done / total,
+      ratio: this.tagsTotal > 0 ? this.tagsDone / this.tagsTotal : total <= 0 ? 1 : this.done / total,
       currentPath: path,
     })
   }
@@ -314,6 +345,7 @@ export class DownloadQueue {
           if (isPlausibleDownloadBody(existingBuf, existingType, item.path)) {
             this.done++
             this.doneBytes += item.bytes ?? existingBuf.byteLength
+            this.noteTagFileDone(item.path)
             this.options.onItemDone?.(item.path, i)
             this.emitProgress(item.path)
             continue
@@ -354,6 +386,7 @@ export class DownloadQueue {
         )
         this.done++
         this.doneBytes += item.bytes ?? buf.byteLength
+        this.noteTagFileDone(item.path)
         this.options.onItemDone?.(item.path, i)
         this.emitProgress(item.path)
       } catch (e) {
@@ -372,6 +405,7 @@ export class DownloadQueue {
         this.options.onItemError?.(item.path, msg)
         if (this.options.continueOnError) {
           this.done++
+          this.noteTagFileDone(item.path)
           this.emitProgress(item.path)
           continue
         }

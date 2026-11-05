@@ -102,6 +102,37 @@ describe('GoogleDriveConnectDialog', () => {
     expect(isDriveSyncEnabled()).toBe(true)
     expect(googleAuthState.connected).toBe(true)
     expect(ensureDriveHydrate).toHaveBeenCalled()
+    expect(w.emitted('close')).toBeTruthy()
+    expect(w.emitted('connected')).toBeTruthy()
+    w.unmount()
+  })
+
+  it('closes before Google sign-in finishes', async () => {
+    const { ensureDriveHydrate } = await import('../lib/google/driveAppStateSync')
+    let release: (() => void) | undefined
+    vi.mocked(ensureDriveHydrate).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    )
+    const w = mount(GoogleDriveConnectDialog, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [createPinia()] },
+    })
+    await flushPromises()
+
+    const connect = [...document.body.querySelectorAll('button')].find((b) =>
+      /^Connect$/.test((b.textContent || '').trim()),
+    ) as HTMLButtonElement
+    connect.click()
+    await flushPromises()
+
+    expect(w.emitted('close')).toBeTruthy()
+    expect(w.emitted('connected')).toBeFalsy()
+    release?.()
+    await flushPromises()
     expect(w.emitted('connected')).toBeTruthy()
     w.unmount()
   })

@@ -7,10 +7,12 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import GoogleDriveCacheOfferDialog from './GoogleDriveCacheOfferDialog.vue'
 import GoogleDriveConnectDialog from './GoogleDriveConnectDialog.vue'
+import GoogleDriveDataDialog from './GoogleDriveDataDialog.vue'
 import {
   accountUiState,
   closeGoogleAccountMenus,
   openGoogleCacheOffer,
+  openGoogleDriveData,
   openGoogleLogin,
   openGoogleLogoutConfirm,
 } from '../lib/google/accountUi'
@@ -237,6 +239,14 @@ async function confirmLogout(): Promise<void> {
           type="button"
           class="account-menu-item"
           role="menuitem"
+          @click="openGoogleDriveData"
+        >
+          Your Drive data
+        </button>
+        <button
+          type="button"
+          class="account-menu-item"
+          role="menuitem"
           :disabled="loggingOut"
           @click="openGoogleLogoutConfirm"
         >
@@ -255,6 +265,10 @@ async function confirmLogout(): Promise<void> {
     :open="accountUiState.cacheOfferOpen"
     @close="accountUiState.cacheOfferOpen = false"
     @decided="onCacheDecided"
+  />
+  <GoogleDriveDataDialog
+    :open="accountUiState.driveDataOpen"
+    @close="accountUiState.driveDataOpen = false"
   />
   <ConfirmDialog
     :open="accountUiState.logoutConfirmOpen"

@@ -230,7 +230,18 @@ describe('App shell', () => {
     expect(progress.exists()).toBe(true)
     expect(progress.text()).toContain('Sheets 2/10')
     expect(progress.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('20')
-    expect(progress.find('a[href="/settings?tab=offline"]').exists()).toBe(true)
+    expect(progress.find('a[href="/settings?tab=offline"]').exists()).toBe(false)
+
+    const details = progress.findAll('button').find((b) => b.text() === 'Details')!
+    await details.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toMatch(/Downloading from SingTags/)
+    expect(document.body.textContent).toMatch(/Sheets 2\/10/)
+
+    const close = [...document.body.querySelectorAll('button')].find((b) => b.textContent === 'Close')
+    close?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushPromises()
+    expect(document.body.textContent).not.toMatch(/Song cache settings/)
 
     await progress.findAll('button').find((b) => b.text() === 'Dismiss')!.trigger('click')
     await flushPromises()

@@ -20,8 +20,11 @@ import {
   isSupportedDriveCacheManifest,
   pathForPackUrl,
   readDriveCachePref,
+  selectCacheEntriesToUpload,
   setDriveAudioCacheEnabled,
   setDriveSheetsCacheEnabled,
+  tagIdFromCachePath,
+  tagIdsInCachePaths,
   urlFromPackPath,
 } from './driveCacheSync'
 
@@ -58,13 +61,17 @@ describe('driveCacheSync', () => {
     driveCacheSyncState.total = 10
     expect(isDriveCacheTransferActive()).toBe(true)
     expect(driveCacheTransferLabel()).toMatch(/Downloading from Google Drive/)
-    expect(driveCacheTransferLabel()).toMatch(/3\/10/)
+    expect(driveCacheTransferLabel()).toMatch(/3\/10 tags/)
 
     driveCacheSyncState.status = 'uploading'
     driveCacheSyncState.done = 1
     driveCacheSyncState.total = 4
     expect(driveCacheTransferLabel()).toMatch(/Uploading to Google Drive/)
-    expect(driveCacheTransferLabel()).toMatch(/1\/4/)
+    expect(driveCacheTransferLabel()).toMatch(/1\/4 tags/)
+
+    driveCacheSyncState.done = 12
+    driveCacheSyncState.total = 4
+    expect(driveCacheTransferLabel()).toMatch(/4\/4 tags/)
 
     driveCacheSyncState.status = 'idle'
     driveCacheSyncState.message = 'Uploaded 4 files to Google Drive'
@@ -72,6 +79,39 @@ describe('driveCacheSync', () => {
     driveCacheSyncState.total = 0
     expect(isDriveCacheTransferActive()).toBe(false)
     expect(driveCacheTransferLabel()).toBe('Uploaded 4 files to Google Drive')
+  })
+
+  it('counts tags and skips hashes already on Drive', () => {
+    expect(tagIdFromCachePath('sheets/42/page-1.webp')).toBe(42)
+    expect(tagIdFromCachePath('/media/7/lead.opus')).toBe(7)
+    expect(tagIdFromCachePath('/tags/15/metadata.json')).toBe(15)
+    expect(
+      tagIdFromCachePath(
+        'Smile%20%28G%20Major%29%20-%20Bobby%20Gray%20Jr%20-%201/Smile%20-%20Sheet%20Preview.webp',
+      ),
+    ).toBe(1)
+    expect(
+      tagIdFromCachePath(
+        'polecats/Down By The Old Mill Stream (Ab Major) - 90011/Down By The Old Mill Stream - Lead.opus',
+      ),
+    ).toBe(90011)
+    expect(
+      tagIdsInCachePaths([
+        'Smile%20%28G%20Major%29%20-%20Bobby%20Gray%20Jr%20-%201/a.webp',
+        'Smile%20%28G%20Major%29%20-%20Bobby%20Gray%20Jr%20-%201/b.webp',
+        'polecats/Down Our Way (Bb Major) - Floyd Connett - 90004/lead.opus',
+      ]),
+    ).toEqual([1, 90004])
+
+    const local = [
+      { path: 'sheets/1/a.webp', hash: 'aaa', bytes: 10 },
+      { path: 'sheets/1/b.webp', hash: 'bbb', bytes: 10 },
+      { path: 'media/2/lead.opus', hash: 'ccc', bytes: 10 },
+      { path: 'sheets/3/a.webp', hash: 'aaa', bytes: 10 },
+    ]
+    const missing = selectCacheEntriesToUpload(local, new Set(['bbb']))
+    expect(missing.map((e) => e.hash)).toEqual(['aaa', 'ccc'])
+    expect(tagIdsInCachePaths(missing.map((e) => e.path)).sort()).toEqual([1, 2])
   })
 
   it('round-trips pack paths', () => {

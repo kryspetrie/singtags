@@ -18,6 +18,11 @@ export type DriveFileRef = {
   mimeType?: string
 }
 
+export type DriveAppDataFile = DriveFileRef & {
+  /** Byte size reported by Drive. Folders are 0. */
+  size: number
+}
+
 export async function sha256Hex(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -109,6 +114,37 @@ export async function listChildren(parentId: string): Promise<DriveFileRef[]> {
       `/files?${params.toString()}`,
     )
     if (data.files?.length) out.push(...data.files)
+    pageToken = data.nextPageToken
+  } while (pageToken)
+  return out
+}
+
+/** Every non-trashed file in this app’s private Drive folder, including nested ones. */
+export async function listAppDataFiles(): Promise<DriveAppDataFile[]> {
+  const out: DriveAppDataFile[] = []
+  let pageToken: string | undefined
+  do {
+    const params = new URLSearchParams({
+      q: 'trashed = false',
+      spaces: 'appDataFolder',
+      fields: 'nextPageToken,files(id,name,mimeType,size)',
+      pageSize: '1000',
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+    const data = await driveJson<{
+      files?: { id?: string; name?: string; mimeType?: string; size?: string }[]
+      nextPageToken?: string
+    }>(`/files?${params.toString()}`)
+    for (const file of data.files ?? []) {
+      if (!file.id || !file.name) continue
+      const size = file.size === undefined ? 0 : Number(file.size)
+      out.push({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: Number.isFinite(size) && size > 0 ? size : 0,
+      })
+    }
     pageToken = data.nextPageToken
   } while (pageToken)
   return out

@@ -24,7 +24,6 @@ import {
 import {
   driveCacheSyncState,
   driveCacheTransferLabel,
-  isDriveCacheTransferActive,
 } from '../lib/google/driveCacheSync'
 import { usePreferencesStore } from '../stores/preferences'
 
@@ -312,9 +311,6 @@ function toggleTagStudio(): void {
             driveCacheSyncState.message ||
             driveCacheSyncState.status
           }}
-          <template v-if="driveCacheSyncState.total > 0 && isDriveCacheTransferActive()">
-            ({{ driveCacheSyncState.done }}/{{ driveCacheSyncState.total }})
-          </template>
         </p>
       </template>
     </section>

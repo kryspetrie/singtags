@@ -56,8 +56,13 @@ import {
 import {
   driveCacheSyncState,
   driveCacheTransferLabel,
+  ensureDriveCacheSync,
   isDriveCacheTransferActive,
+  probeDriveCachePresence,
   restoreDriveCachePrefs,
+  setDriveAudioCacheEnabled,
+  setDriveSheetsCacheEnabled,
+  type DriveCachePresence,
 } from '../lib/google/driveCacheSync'
 import {
   googleAuthState,
@@ -240,6 +245,26 @@ async function onClearPdfRasterCache(): Promise<void> {
 const canRequestPersistentStorage = computed(
   () => isPersistentStorageAvailable() && !offlineLib.estimate?.persisted,
 )
+const persistBusy = ref(false)
+const persistNotice = ref('')
+const persistNoticeOk = ref(false)
+
+async function onProtectOfflineData(): Promise<void> {
+  if (persistBusy.value || !canRequestPersistentStorage.value) return
+  persistBusy.value = true
+  persistNotice.value = 'Asking the browser to protect offline data…'
+  persistNoticeOk.value = true
+  try {
+    const ok = await offlineLib.requestPersistentStorage()
+    const granted = ok || !!offlineLib.estimate?.persisted
+    persistNoticeOk.value = granted
+    persistNotice.value = granted
+      ? 'Protected. This browser will try to keep SingTags’ offline sheets and tracks when storage is low.'
+      : 'This browser did not grant protection. It does not show a permission dialog. Chrome usually allows this only after SingTags is installed, or after you use the site often. Until then it can still delete the cache when storage is low.'
+  } finally {
+    persistBusy.value = false
+  }
+}
 
 onMounted(async () => {
   offlineLib.restoreCatalogCached()
@@ -251,7 +276,16 @@ onMounted(async () => {
   if (!offline.value || !offlineLib.loaded) await offlineLib.loadManifests()
   else await offlineLib.refreshEstimate()
   await offlineLib.refreshCacheReady().catch(() => undefined)
+  if (googleAuthState.connected) void refreshDrivePresence()
 })
+
+watch(
+  () => googleAuthState.connected,
+  (connected) => {
+    if (connected) void refreshDrivePresence()
+    else drivePresence.value = null
+  },
+)
 
 const sheetsPct = computed(() => {
   const p = offlineLib.sheetsProgress
@@ -306,6 +340,86 @@ const songCacheDevicePrefs = computed(() => {
   }.`
 })
 
+const sheetsTagTotal = computed(() => offlineLib.sheetsManifest?.entries.length ?? 0)
+const audioTagTotal = computed(() => offlineLib.audioManifest?.entries.length ?? 0)
+
+function readyTagCount(kind: 'sheets' | 'audio'): number {
+  let n = 0
+  for (const ready of catalog.cacheReadyByTag.values()) {
+    if (ready[kind]) n++
+  }
+  return n
+}
+
+const sheetsTagsReady = computed(() => readyTagCount('sheets'))
+const audioTagsReady = computed(() => readyTagCount('audio'))
+
+function tagCountLabel(ready: number, total: number, cachedFiles: number): string {
+  const knowReady = catalog.cacheReadyByTag.size > 0
+  if (knowReady && total > 0) return `${ready.toLocaleString()} of ${total.toLocaleString()} tags`
+  if (knowReady && ready > 0) return `${ready.toLocaleString()} tags`
+  if (cachedFiles > 0 && total > 0) return `${total.toLocaleString()} tags`
+  return ''
+}
+
+const sheetsOnDeviceTags = computed(() =>
+  tagCountLabel(sheetsTagsReady.value, sheetsTagTotal.value, offlineLib.sheetsCachedCount),
+)
+const audioOnDeviceTags = computed(() =>
+  tagCountLabel(audioTagsReady.value, audioTagTotal.value, offlineLib.audioCachedCount),
+)
+
+const drivePresence = ref<DriveCachePresence | null>(null)
+const drivePresenceBusy = ref(false)
+const driveForceBusy = ref(false)
+const driveForceError = ref('')
+
+const canForceDriveSync = computed(
+  () =>
+    googleAuthState.connected &&
+    !offline.value &&
+    !driveForceBusy.value &&
+    !isDriveCacheTransferActive() &&
+    (driveCacheSyncState.sheetsEnabled || driveCacheSyncState.audioEnabled),
+)
+
+async function refreshDrivePresence(): Promise<void> {
+  if (!googleAuthState.connected || offline.value) {
+    drivePresence.value = null
+    return
+  }
+  drivePresenceBusy.value = true
+  try {
+    drivePresence.value = await probeDriveCachePresence({ allowTokenPrompt: false })
+  } catch (e) {
+    driveForceError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    drivePresenceBusy.value = false
+  }
+}
+
+function onDriveSheetsToggle(event: Event): void {
+  setDriveSheetsCacheEnabled((event.target as HTMLInputElement).checked)
+}
+
+function onDriveAudioToggle(event: Event): void {
+  setDriveAudioCacheEnabled((event.target as HTMLInputElement).checked)
+}
+
+async function onForceDriveSync(): Promise<void> {
+  if (!canForceDriveSync.value) return
+  driveForceBusy.value = true
+  driveForceError.value = ''
+  try {
+    await ensureDriveCacheSync({ allowTokenPrompt: true })
+    await refreshDrivePresence()
+  } catch (e) {
+    driveForceError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    driveForceBusy.value = false
+  }
+}
+
 const audioDownloadBytes = computed(() =>
   estimateAudioDownloadBytes(
     offlineLib.audioManifest,
@@ -341,13 +455,19 @@ const sheetsActionLabel = computed(() => {
     return 'Resume sheets'
   }
   if (offlineLib.sheetsSyncAvailable) {
-    return `Sync missing sheets (${offlineLib.sheetsMissingCount})`
+    const missing = sheetsTagTotal.value - sheetsTagsReady.value
+    return catalog.cacheReadyByTag.size > 0 && missing > 0
+      ? `Sync missing sheets (${missing.toLocaleString()} tags)`
+      : 'Sync missing sheets'
   }
   if (
     offlineLib.sheetsExpectedCount > 0 &&
     offlineLib.sheetsCachedCount < offlineLib.sheetsExpectedCount
   ) {
-    return `Continue sheets (${offlineLib.sheetsExpectedCount - offlineLib.sheetsCachedCount} left)`
+    const missing = sheetsTagTotal.value - sheetsTagsReady.value
+    return catalog.cacheReadyByTag.size > 0 && missing > 0
+      ? `Continue sheets (${missing.toLocaleString()} tags left)`
+      : 'Continue sheets'
   }
   if (offlineLib.sheetsStatus === 'done' || offlineLib.sheetsCachedCount > 0) {
     return 'Sheets up to date'
@@ -364,13 +484,19 @@ const audioActionLabel = computed(() => {
     return 'Resume audio'
   }
   if (offlineLib.audioSyncAvailable) {
-    return `Sync missing audio (${offlineLib.audioMissingCount})`
+    const missing = audioTagTotal.value - audioTagsReady.value
+    return catalog.cacheReadyByTag.size > 0 && missing > 0
+      ? `Sync missing tracks (${missing.toLocaleString()} tags)`
+      : 'Sync missing tracks'
   }
   if (
     offlineLib.audioExpectedCount > 0 &&
     offlineLib.audioCachedCount < offlineLib.audioExpectedCount
   ) {
-    return `Continue audio (${offlineLib.audioExpectedCount - offlineLib.audioCachedCount} left)`
+    const missing = audioTagTotal.value - audioTagsReady.value
+    return catalog.cacheReadyByTag.size > 0 && missing > 0
+      ? `Continue tracks (${missing.toLocaleString()} tags left)`
+      : 'Continue tracks'
   }
   if (offlineLib.audioStatus === 'done' || offlineLib.audioCachedCount > 0) {
     return 'Tracks up to date'
@@ -943,6 +1069,68 @@ function cancelCullUpgrades(): void {
           </option>
         </select>
       </label>
+      <div class="drive-cache-choices">
+        <p class="hint">
+          Choose what this device copies into your Google Drive. Local sheets and tracks stay on
+          this device either way. Turn a box on, then sync.
+        </p>
+        <label class="drive-cache-check">
+          <input
+            type="checkbox"
+            :checked="driveCacheSyncState.sheetsEnabled"
+            @change="onDriveSheetsToggle"
+          />
+          <span>Sync sheet music to Drive</span>
+        </label>
+        <label class="drive-cache-check">
+          <input
+            type="checkbox"
+            :checked="driveCacheSyncState.audioEnabled"
+            @change="onDriveAudioToggle"
+          />
+          <span>Sync learning tracks to Drive</span>
+        </label>
+        <p v-if="drivePresence" class="hint" role="status">
+          Sheets on Drive:
+          {{
+            drivePresence.sheets.present
+              ? `${drivePresence.sheets.tags.toLocaleString()} tags`
+              : 'not uploaded'
+          }}
+          · Tracks on Drive:
+          {{
+            drivePresence.audio.present
+              ? `${drivePresence.audio.tags.toLocaleString()} tags`
+              : 'not uploaded'
+          }}
+        </p>
+        <p v-else-if="googleAuthState.connected && drivePresenceBusy" class="hint" role="status">
+          Checking what is already on Google Drive…
+        </p>
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            :disabled="!canForceDriveSync"
+            :aria-busy="driveForceBusy || isDriveCacheTransferActive()"
+            @click="onForceDriveSync"
+          >
+            {{
+              driveForceBusy || isDriveCacheTransferActive()
+                ? 'Syncing to Google Drive…'
+                : 'Sync to Google Drive now'
+            }}
+          </button>
+        </div>
+        <p v-if="!googleAuthState.connected" class="hint">Sign in to sync this device’s cache.</p>
+        <p
+          v-else-if="!driveCacheSyncState.sheetsEnabled && !driveCacheSyncState.audioEnabled"
+          class="hint"
+        >
+          Turn on sheets, tracks, or both before syncing.
+        </p>
+        <p v-if="driveForceError" class="warn" role="alert">{{ driveForceError }}</p>
+      </div>
     </section>
 
     <p class="lede">
@@ -958,14 +1146,14 @@ function cancelCullUpgrades(): void {
         <dt>Sheets on device</dt>
         <dd>
           {{ offlineLib.formatBytes(offlineLib.sheetsCachedBytes) }}
-          <span class="storage-meta">({{ offlineLib.sheetsCachedCount }} files)</span>
+          <span v-if="sheetsOnDeviceTags" class="storage-meta">({{ sheetsOnDeviceTags }})</span>
         </dd>
       </div>
       <div>
         <dt>Tracks on device</dt>
         <dd>
           {{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}
-          <span class="storage-meta">({{ offlineLib.audioCachedCount }} files)</span>
+          <span v-if="audioOnDeviceTags" class="storage-meta">({{ audioOnDeviceTags }})</span>
         </dd>
       </div>
     </dl>
@@ -987,11 +1175,6 @@ function cancelCullUpgrades(): void {
       :aria-busy="isDriveCacheTransferActive() || offlineLib.packSyncBusy || offlineLib.sheetsStatus === 'running' || offlineLib.audioStatus === 'running'"
     >
       {{ songCacheTransferStatus }}
-      <template v-if="isDriveCacheTransferActive() && driveCacheSyncState.total > 0">
-        <span class="storage-meta">
-          ({{ driveCacheSyncState.done }}/{{ driveCacheSyncState.total }})
-        </span>
-      </template>
     </p>
 
     <p v-if="packSyncBanner && !offline" class="ok sync-banner" role="status">
@@ -1013,9 +1196,9 @@ function cancelCullUpgrades(): void {
       <p class="hint">
         Cache sheet images (WebP pages) for every tag — about
         {{ offlineLib.formatBytes(offlineLib.sheetsTotalBytes) }} to download.
-        <template v-if="offlineLib.sheetsCachedCount">
+        <template v-if="offlineLib.sheetsCachedCount && sheetsOnDeviceTags">
           <strong>{{ offlineLib.formatBytes(offlineLib.sheetsCachedBytes) }}</strong> stored
-          ({{ offlineLib.sheetsCachedCount }} of {{ offlineLib.sheetsExpectedCount }} files).
+          ({{ sheetsOnDeviceTags }}).
         </template>
         Already-cached files are kept; sync only downloads what’s missing. PDF sheet view still needs
         the network; offline mode uses the cached page images.
@@ -1071,13 +1254,14 @@ function cancelCullUpgrades(): void {
       <p v-if="audioPackComplete" class="hint bandwidth-est">
         Library complete:
         <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> on device
-        ({{ offlineLib.audioCachedCount }} files). Use Wi‑Fi when syncing new tags.
+        <template v-if="audioOnDeviceTags">({{ audioOnDeviceTags }})</template>. Use Wi‑Fi when
+        syncing new tags.
       </p>
       <p v-else class="hint bandwidth-est">
         Catalog pack about <strong>~{{ audioDownloadLabel }}</strong> of lo-fi Opus over the network.
         <template v-if="offlineLib.audioCachedCount">
           <strong>{{ offlineLib.formatBytes(offlineLib.audioCachedBytes) }}</strong> on device
-          ({{ offlineLib.audioCachedCount }} of {{ offlineLib.audioExpectedCount }} files).
+          <template v-if="audioOnDeviceTags">({{ audioOnDeviceTags }})</template>.
         </template>
         Use Wi‑Fi when possible.
       </p>
@@ -1149,9 +1333,8 @@ function cancelCullUpgrades(): void {
         <h2 id="storage-h">Storage</h2>
         <p v-if="canRequestPersistentStorage" class="hint">
           Browsers can delete SingTags’ offline sheets and tracks when the device is low on space.
-          “Protect offline data” asks the browser to keep this site’s cache. Chrome often grants it
-          silently (no dialog). We also request this automatically when you download the songbook or
-          learning tracks.
+          “Protect offline data” asks this browser to keep the cache. Most browsers answer with no
+          dialog. The result shows here.
         </p>
         <p v-else-if="offlineLib.estimate?.persisted" class="hint">
           This browser said it will keep SingTags’ offline data when the device is low on space.
@@ -1195,10 +1378,11 @@ function cancelCullUpgrades(): void {
             v-if="canRequestPersistentStorage"
             type="button"
             class="btn btn-ghost"
+            :disabled="persistBusy"
             title="Ask the browser to keep offline sheets and tracks when storage is low"
-            @click="offlineLib.requestPersistentStorage()"
+            @click="onProtectOfflineData"
           >
-            Protect offline data
+            {{ persistBusy ? 'Asking the browser…' : 'Protect offline data' }}
           </button>
           <button
             v-if="confirmCullUpgrades"
@@ -1231,6 +1415,14 @@ function cancelCullUpgrades(): void {
             Cancel
           </button>
         </div>
+        <p
+          v-if="persistNotice"
+          class="hint persist-notice"
+          :class="persistNoticeOk ? 'ok' : 'warn'"
+          role="status"
+        >
+          {{ persistNotice }}
+        </p>
         <p v-if="confirmCullUpgrades" class="hint warn-inline" role="alert">
           Frees space from 300&nbsp;dpi sheet rasters and warmed playback/original tracks. Keeps the
           WebP sheets pack and ultra/lo-fi learning-track pack so you do not need a full cache dump.
@@ -1673,6 +1865,23 @@ function cancelCullUpgrades(): void {
   background: var(--surface);
   color: var(--text);
   font: inherit;
+}
+.drive-cache-choices {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+.drive-cache-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+.drive-cache-check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
 }
 .connection-on {
   margin: 0 0 1rem;

@@ -12,6 +12,7 @@ import { useOfflineLibraryStore } from './stores/offlineLibrary'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { usePreferencesStore } from './stores/preferences'
 import { useSnackbarStore } from './stores/snackbar'
+import CacheTransferDetailsDialog from './components/CacheTransferDetailsDialog.vue'
 import {
   driveCacheSyncState,
   driveCacheTransferLabel,
@@ -400,6 +401,7 @@ const bottomNavCols = computed(() => pinnedNavItems.value.length + 1)
 
 /** User hid the pack / Drive transfer progress snack; transfer keeps running. */
 const packProgressSnackHidden = ref(false)
+const transferDetailsOpen = ref(false)
 
 const packDownloadActive = computed(
   () =>
@@ -417,7 +419,8 @@ const showPackProgressSnack = computed(
 )
 
 const packProgressSnackPct = computed(() => {
-  if (driveCacheTransferActive.value && driveCacheSyncState.total > 0) {
+  if (driveCacheTransferActive.value) {
+    if (driveCacheSyncState.total <= 0) return 0
     return Math.min(
       100,
       Math.round((driveCacheSyncState.done / driveCacheSyncState.total) * 100),
@@ -810,9 +813,15 @@ async function acceptReconnectPrompt(): Promise<void> {
           <div class="toast-progress-fill" :style="{ width: `${packProgressSnackPct}%` }" />
         </div>
       </div>
-      <RouterLink class="btn btn-ghost" to="/settings?tab=offline">Details</RouterLink>
+      <button type="button" class="btn btn-ghost" @click="transferDetailsOpen = true">
+        Details
+      </button>
       <button type="button" class="btn btn-ghost" @click="dismissPackProgressSnack">Dismiss</button>
     </div>
+    <CacheTransferDetailsDialog
+      :open="transferDetailsOpen"
+      @close="transferDetailsOpen = false"
+    />
     <Teleport to="body">
       <Transition name="snack-center">
         <div

@@ -908,16 +908,13 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   }
 
   /**
-   * Request persistent storage quota (reduces eviction under pressure).
-   * Side effects: browser permission API, refreshes estimate, sets `cacheMessage`.
+   * Request persistent storage so the browser is less likely to evict offline packs.
+   * Refreshes the storage estimate. The Settings screen shows the result next to the button.
    */
   async function ensurePersistentStorage(): Promise<boolean> {
     const ok = await requestPersistentStorage()
     await refreshEstimate()
-    cacheMessage.value = ok
-      ? 'Offline data protected — the browser is less likely to clear SingTags’ cache when storage is low.'
-      : 'Could not protect offline data. Cached sheets and tracks may still be cleared if the device is low on space.'
-    return ok
+    return ok || !!estimate.value?.persisted
   }
 
   /** Clear store error message. */
