@@ -23,25 +23,23 @@ export function shouldDisarmPinSearchTop(opts: {
 /**
  * Whether a `scroll` event should sticky-mark “user took over”.
  *
- * Pin paths call `scrollTo(0)` and suppress disarm for ~100ms. Fast user scrolls
- * during that window used to be ignored while later pin timeouts still yanked to
- * top — so note mid-list scroll even inside the suppress window when pin is armed.
- * Pure restore (pin not armed) still respects suppress so programmatic mid-list
- * positioning does not look like user intent.
+ * Always respect {@link suppressUntil}: programmatic pin/`scrollTo` and row-height
+ * settle (lyrics pack / virtualizer remasure) synthesize `scroll` without a real
+ * gesture. Fast user scrolls during suppress are caught by wheel/touchmove via
+ * {@link shouldNoteUserBrowseScrollGesture}.
  */
 export function shouldNoteUserBrowseScroll(opts: {
   userTookScroll: boolean
   scrollY: number
   docTopEps: number
   suppressUntil: number
-  /** True while auto pin-to-search-top is still armed. */
-  pinArmed: boolean
+  /** Kept for call-site compatibility; no longer bypasses suppress. */
+  pinArmed?: boolean
   now?: number
 }): boolean {
   if (opts.userTookScroll) return false
   if (opts.scrollY <= opts.docTopEps) return false
   const now = opts.now ?? Date.now()
-  if (opts.pinArmed) return true
   return now >= opts.suppressUntil
 }
 

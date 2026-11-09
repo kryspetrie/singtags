@@ -3,7 +3,8 @@
  * hard-reset only the Workbox precache (not song/offline media caches).
  */
 
-import { armDeferredPwaUpdate } from './deferredPwaUpdate'
+import { BROWSE_RELOAD_SCROLL_KEY } from './browseReloadScroll'
+import { armDeferredPwaUpdate, PWA_RELOAD_SCROLL_KEY } from './deferredPwaUpdate'
 
 type UpdateFn = (reloadPage?: boolean) => Promise<void>
 
@@ -71,7 +72,7 @@ export function isAppShellCacheName(name: string): boolean {
   return false
 }
 
-/** Drop SPA shell caches and unregister service workers, then reload. */
+/** Drop SPA shell caches and unregister service workers, then reload at search top. */
 export async function hardResetAppShell(): Promise<void> {
   if (typeof window === 'undefined') return
   needRefresh = false
@@ -90,6 +91,23 @@ export async function hardResetAppShell(): Promise<void> {
       const regs = await navigator.serviceWorker.getRegistrations()
       await Promise.all(regs.map((r) => r.unregister().catch(() => false)))
     }
+  } catch {
+    /* ignore */
+  }
+  // Force refresh should not restore a stuck mid-list Browse position.
+  try {
+    sessionStorage.removeItem(PWA_RELOAD_SCROLL_KEY)
+    sessionStorage.removeItem(BROWSE_RELOAD_SCROLL_KEY)
+  } catch {
+    /* ignore */
+  }
+  try {
+    const u = new URL(window.location.href)
+    if (u.searchParams.has('at')) {
+      u.searchParams.delete('at')
+      window.history.replaceState(null, '', `${u.pathname}${u.search}${u.hash}`)
+    }
+    window.scrollTo(0, 0)
   } catch {
     /* ignore */
   }

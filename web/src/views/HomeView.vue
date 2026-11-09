@@ -935,8 +935,8 @@ function noteUserBrowseScroll(): void {
   clearPinSearchTopTimers()
 }
 
-function beginProgrammaticBrowseScroll(): void {
-  suppressUserScrollDisarmUntil = Date.now() + 100
+function beginProgrammaticBrowseScroll(ms = 100): void {
+  suppressUserScrollDisarmUntil = Math.max(suppressUserScrollDisarmUntil, Date.now() + ms)
 }
 
 function pinSearchTopIfArmed(): void {
@@ -1162,9 +1162,7 @@ function scheduleBrowseScrollUrlSync(): void {
 
 function onBrowseScroll(): void {
   syncWindowScrollY()
-  // Sticky flag so catalog.load / lyrics / jump-rail settles never yank to y=0.
-  // While pin is armed, mid-list scroll means the user overrode scrollTo(0) —
-  // note it even inside the programmatic suppress window (fast-scroll race).
+  // Suppress covers pin + remasure; real gestures use wheel/touchmove.
   if (
     shouldNoteUserBrowseScroll({
       userTookScroll: browseUserTookScroll,
@@ -1603,6 +1601,7 @@ function startPinSearchTop(): void {
   if (!mayStillAutoPinSearchTop()) return
   clearPinSearchTopTimers()
   armPinSearchTop(2500)
+  beginProgrammaticBrowseScroll(1200) // remasure must not abort pin
   scrollToSearchTop()
   const pin = () => pinSearchTopIfArmed()
   requestAnimationFrame(() => {
@@ -1657,6 +1656,7 @@ function frames(n = 2): Promise<void> {
 /** Pin the real list (opacity 0), measure, then fade in. */
 async function settleScrollThenReveal(): Promise<void> {
   await nextTick()
+  beginProgrammaticBrowseScroll(1200)
   syncListScrollMargin()
   syncStickyBrowsePad()
   syncJumpCols()

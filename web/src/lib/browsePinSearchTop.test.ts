@@ -47,7 +47,7 @@ describe('browsePinSearchTop', () => {
     ).toBe(false)
   })
 
-  it('notes mid-list scroll during pin suppress (fast-scroll race)', () => {
+  it('respects suppress even while pin is armed (layout remasure ≠ user scroll)', () => {
     expect(
       shouldNoteUserBrowseScroll({
         userTookScroll: false,
@@ -57,7 +57,7 @@ describe('browsePinSearchTop', () => {
         pinArmed: true,
         now: 1000,
       }),
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('respects suppress during restore when pin is not armed', () => {
@@ -71,6 +71,19 @@ describe('browsePinSearchTop', () => {
         now: 1000,
       }),
     ).toBe(false)
+  })
+
+  it('notes mid-list scroll after suppress while pin is still armed', () => {
+    expect(
+      shouldNoteUserBrowseScroll({
+        userTookScroll: false,
+        scrollY: 400,
+        docTopEps: 2,
+        suppressUntil: 500,
+        pinArmed: true,
+        now: 1000,
+      }),
+    ).toBe(true)
   })
 
   it('notes mid-list scroll after suppress when pin is not armed', () => {

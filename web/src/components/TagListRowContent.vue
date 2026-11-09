@@ -49,29 +49,23 @@ const showLyricsRow = computed(
 )
 
 /**
- * Mobile: lyrics stay on their own line unless key→icons meta already wraps
- * onto a second line; then lyrics continue on that wrap line after the chips.
+ * Mobile only: lyrics stay on their own line unless meta chips already wrap;
+ * then lyrics continue on that wrap line. Desktop skips all pack/RO work.
  *
- * Until the first measure finishes, lyrics contribute no height (`layout-pending`)
- * so the virtualizer does not lock in a tall “own line” size then shrink.
+ * First narrow settle uses `layout-pending` (no height) until measured — later
+ * updates remasure in place without collapsing (avoids scroll thrash).
  */
 const metaBlockEl = ref<HTMLElement | null>(null)
 const isNarrow = ref(readIsNarrowViewport())
 const packLyricsAfterMetaWrap = ref(false)
-/** False on narrow+lyrics until pack class is decided (avoids first-paint jump). */
-const lyricsLayoutReady = ref(!(readIsNarrowViewport() && showLyricsRow.value))
+const needsLyricsPack = () => isNarrow.value && showLyricsRow.value
+/** False on narrow+lyrics until first pack decision. */
+const lyricsLayoutReady = ref(!needsLyricsPack())
 let narrowMq: MediaQueryList | null = null
 let metaRo: ResizeObserver | null = null
 let packRaf = 0
+let packRoArmed = false
 
-function measureMetaWrap(): boolean {
-  return metaDetailsWrapToSecondLine(metaBlockEl.value)
-}
-
-/**
- * Patch the lyrics node immediately (no flushSync in this Vue build) so the
- * Browse virtualizer's measureElement sees the settled height in this frame.
- */
 function applyLyricsLayoutDom(): void {
   const snip = metaBlockEl.value?.querySelector('.lyrics-snip')
   if (!(snip instanceof HTMLElement)) return
@@ -79,33 +73,54 @@ function applyLyricsLayoutDom(): void {
   snip.classList.toggle('layout-pending', !lyricsLayoutReady.value)
 }
 
-/** Measure chip wrap (lyrics pending = out of flow, same as own-line for chips). */
-function syncLyricsPack(): void {
-  if (!isNarrow.value || !showLyricsRow.value) {
-    packLyricsAfterMetaWrap.value = false
-    lyricsLayoutReady.value = true
-    applyLyricsLayoutDom()
+function ensurePackRo(): void {
+  if (!needsLyricsPack() || typeof ResizeObserver === 'undefined') {
+    metaRo?.disconnect()
+    metaRo = null
+    packRoArmed = false
     return
   }
-  packLyricsAfterMetaWrap.value = measureMetaWrap()
+  if (!metaRo) {
+    metaRo = new ResizeObserver(() => {
+      scheduleSyncLyricsPack()
+    })
+  }
+  if (metaBlockEl.value && !packRoArmed) {
+    metaRo.observe(metaBlockEl.value)
+    packRoArmed = true
+  }
+}
+
+function syncLyricsPack(): void {
+  if (!needsLyricsPack()) {
+    packLyricsAfterMetaWrap.value = false
+    lyricsLayoutReady.value = true
+    return
+  }
+  packLyricsAfterMetaWrap.value = metaDetailsWrapToSecondLine(metaBlockEl.value)
   lyricsLayoutReady.value = true
   applyLyricsLayoutDom()
 }
 
-/**
- * Function ref runs during patch (before parent measureElement), so we can
- * settle lyrics pack before the virtualizer locks in row height.
- */
+/** Function ref: settle pack during patch on narrow only (before measureElement). */
 function bindMetaBlock(el: unknown): void {
-  if (metaBlockEl.value && metaRo) metaRo.unobserve(metaBlockEl.value)
+  if (metaBlockEl.value && metaRo) {
+    metaRo.unobserve(metaBlockEl.value)
+    packRoArmed = false
+  }
   metaBlockEl.value = el instanceof HTMLElement ? el : null
   if (!metaBlockEl.value) return
+  if (!needsLyricsPack()) {
+    lyricsLayoutReady.value = true
+    packLyricsAfterMetaWrap.value = false
+    return
+  }
   syncLyricsPack()
-  metaRo?.observe(metaBlockEl.value)
+  ensurePackRo()
 }
 
 function scheduleSyncLyricsPack(): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined' || !needsLyricsPack()) return
   if (packRaf) window.cancelAnimationFrame(packRaf)
   packRaf = window.requestAnimationFrame(() => {
     packRaf = 0
@@ -114,11 +129,22 @@ function scheduleSyncLyricsPack(): void {
 }
 
 function syncNarrow(): void {
+  const wasNarrow = isNarrow.value
   isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
-  if (isNarrow.value && showLyricsRow.value) {
+  if (isNarrow.value && showLyricsRow.value && !wasNarrow) {
+    // Crossing into narrow: one pending measure, then settle.
     lyricsLayoutReady.value = false
     applyLyricsLayoutDom()
   }
+  if (!needsLyricsPack()) {
+    packLyricsAfterMetaWrap.value = false
+    lyricsLayoutReady.value = true
+    metaRo?.disconnect()
+    metaRo = null
+    packRoArmed = false
+    return
+  }
+  ensurePackRo()
   scheduleSyncLyricsPack()
 }
 
@@ -126,14 +152,10 @@ onMounted(() => {
   if (typeof window === 'undefined') return
   narrowMq = window.matchMedia(NARROW_VIEWPORT_MQ)
   narrowMq.addEventListener('change', syncNarrow)
-  if (typeof ResizeObserver !== 'undefined') {
-    metaRo = new ResizeObserver(() => {
-      scheduleSyncLyricsPack()
-    })
-    if (metaBlockEl.value) metaRo.observe(metaBlockEl.value)
+  if (needsLyricsPack()) {
+    ensurePackRo()
+    syncLyricsPack()
   }
-  // Ref may have settled already; ensure pack state matches DOM.
-  syncLyricsPack()
 })
 
 onUnmounted(() => {
@@ -141,6 +163,7 @@ onUnmounted(() => {
   narrowMq = null
   metaRo?.disconnect()
   metaRo = null
+  packRoArmed = false
   if (packRaf) window.cancelAnimationFrame(packRaf)
 })
 
@@ -161,13 +184,9 @@ watch(
       props.tag.hasLyrics,
     ] as const,
   () => {
-    if (isNarrow.value && showLyricsRow.value) {
-      lyricsLayoutReady.value = false
-      applyLyricsLayoutDom()
-    }
-    void nextTick(() => {
-      syncLyricsPack()
-    })
+    // Remasure in place — do not collapse to layout-pending (that shifts scroll).
+    if (!needsLyricsPack()) return
+    void nextTick(() => scheduleSyncLyricsPack())
   },
 )
 </script>
