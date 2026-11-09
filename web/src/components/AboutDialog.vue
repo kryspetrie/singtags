@@ -6,8 +6,10 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
+import { useSnackbarStore } from '../stores/snackbar'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
+import { checkForAppUpdate } from '../lib/pwaAppUpdate'
 import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 
 const props = defineProps<{
@@ -20,8 +22,10 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
+const snackbar = useSnackbarStore()
 const { showInstallEntry, promptInstall } = usePwaInstall()
 const howToOpen = ref(false)
+const appUpdateBusy = ref(false)
 
 /** `about` main panel, or nested `details` (offline / install) with back. */
 type Panel = 'about' | 'details'
@@ -80,6 +84,45 @@ async function onInstall(): Promise<void> {
   }
   close()
 }
+
+/** Ask the service worker for a newer shell; offer a hard shell reset if none waiting. */
+async function onCheckAppUpdate(): Promise<void> {
+  if (appUpdateBusy.value) return
+  appUpdateBusy.value = true
+  try {
+    const result = await checkForAppUpdate()
+    if (result.status === 'reloading') {
+      snackbar.show('Updating SingTags…', { tone: 'ok', ms: 2500 })
+      close()
+      return
+    }
+    if (result.status === 'offline') {
+      snackbar.show('Connect to the internet to check for app updates.', {
+        tone: 'info',
+        ms: 4000,
+      })
+      return
+    }
+    snackbar.show(
+      'No update waiting. If the app still looks old, force-refresh the shell (keeps your song cache).',
+      {
+        tone: 'info',
+        title: 'App update',
+        ms: 0,
+        action: {
+          label: 'Force refresh',
+          onClick: () => {
+            void checkForAppUpdate({ forceReset: true })
+          },
+        },
+      },
+    )
+  } catch {
+    snackbar.show('Could not check for app updates.', { tone: 'error' })
+  } finally {
+    appUpdateBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -126,6 +169,20 @@ async function onInstall(): Promise<void> {
               <button type="button" class="btn btn-ghost" @click="panel = 'details'">
                 Offline, install &amp; cache details
               </button>
+            </p>
+            <p class="details-action">
+              <button
+                type="button"
+                class="btn btn-ghost"
+                :disabled="appUpdateBusy"
+                @click="onCheckAppUpdate"
+              >
+                {{ appUpdateBusy ? 'Checking…' : 'Check for app update' }}
+              </button>
+            </p>
+            <p class="text-muted hint-app-update">
+              Stuck on an old home-screen install? Check here, then use Force refresh if needed —
+              your offline song cache stays.
             </p>
           </div>
 
@@ -308,6 +365,11 @@ async function onInstall(): Promise<void> {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
+}
+.hint-app-update {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 .body {
   display: grid;

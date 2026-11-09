@@ -5,7 +5,6 @@
  */
 import { onMounted, onUnmounted, computed, ref, watch, nextTick, defineAsyncComponent } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { useRegisterSW } from 'virtual:pwa-register/vue'
 import { useFavoritesStore } from './stores/favorites'
 import { useQueueStore } from './stores/queue'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
@@ -35,10 +34,8 @@ import {
   startPwaInstallListeners,
   stopPwaInstallListeners,
 } from './composables/usePwaInstall'
-import {
-  armDeferredPwaUpdate,
-  restoreScrollAfterPwaReload,
-} from './lib/deferredPwaUpdate'
+import { restoreScrollAfterPwaReload } from './lib/deferredPwaUpdate'
+import { usePwaAppUpdateRegistration } from './composables/usePwaAppUpdateRegistration'
 import { browseScrollIntent } from './router'
 import {
   PRIMARY_NAV_ITEMS,
@@ -299,14 +296,7 @@ function onBrowseNavClick(e: Event): void {
   goTagBack(router, route)
 }
 
-// Waiting SW applies silently when the session is idle (not playing / fullscreen).
-let updateServiceWorker: (reloadPage?: boolean) => Promise<void> = async () => {}
-;({ updateServiceWorker } = useRegisterSW({
-  immediate: true,
-  onNeedRefresh() {
-    armDeferredPwaUpdate((reload) => updateServiceWorker(reload))
-  },
-}))
+usePwaAppUpdateRegistration()
 
 const topEl = ref<HTMLElement | null>(null)
 let headerResizeObserver: ResizeObserver | null = null

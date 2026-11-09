@@ -96,9 +96,14 @@ for f in "${root_files[@]}"; do
   [[ -f "$f" ]] || continue
   base="$(basename "$f")"
   # Always upload shell files (no --size-only): same-size HTML/JS edits must ship.
+  # Service worker scripts must revalidate quickly or phones stay on old precaches.
+  cache_control="public,max-age=300"
+  if [[ "$base" == "sw.js" || "$base" == workbox-*.js ]]; then
+    cache_control="public,max-age=0,must-revalidate"
+  fi
   aws s3 cp "$f" "${DEST}${base}" \
     "${DRY[@]}" \
-    --cache-control "public,max-age=300"
+    --cache-control "$cache_control"
 done
 
 # Remove obsolete root-level website objects (e.g. old workbox-*.js). Uses a

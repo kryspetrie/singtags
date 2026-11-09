@@ -37,7 +37,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/SettingsView.vue': 2170,
   'views/TagView.vue': 2147,
   'components/tagRoll/TagRollViewport.vue': 1868,
-  'App.vue': 1714,
+  'App.vue': 1704,
   'views/FavoritesView.vue': 1681,
   'components/arranging/useArrangingCoachDock.ts': 1679,
   'views/PitchPipeView.vue': 1595,

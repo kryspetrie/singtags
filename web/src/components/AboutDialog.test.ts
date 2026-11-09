@@ -9,6 +9,10 @@ import AboutDialog from './AboutDialog.vue'
 import { resetPwaInstallStateForTests } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
 
+vi.mock('../lib/pwaAppUpdate', () => ({
+  checkForAppUpdate: vi.fn(async () => ({ status: 'current' as const })),
+}))
+
 describe('AboutDialog', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -62,6 +66,27 @@ describe('AboutDialog', () => {
       /Install App/.test(b.textContent || ''),
     )
     expect(installBtn).toBeTruthy()
+    w.unmount()
+  })
+
+  it('offers Check for app update on the about panel', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(AboutDialog, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [createPinia(), router] },
+    })
+    await flushPromises()
+
+    const updateBtn = [...document.body.querySelectorAll('button')].find((b) =>
+      /Check for app update/.test(b.textContent || ''),
+    )
+    expect(updateBtn).toBeTruthy()
     w.unmount()
   })
 
