@@ -1339,8 +1339,8 @@ function jumpSectionTip(key: string): string {
 }
 function jumpKeyLabels(key: string): { full: string; compact: string } {
   if (catalog.sortMode === 'collection') return collectionJumpLabels(key, userCollections.collections)
-  const full = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)?.label ?? key
-  return { full, compact: full }
+  const sec = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
+  return { full: sec?.type === 'section' ? sec.label : key, compact: sec?.type === 'section' ? sec.label : key }
 }
 
 function isCustomJumpKey(key: string): boolean {
