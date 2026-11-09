@@ -96,7 +96,7 @@ function syncLyricsPack(): void {
  * Function ref runs during patch (before parent measureElement), so we can
  * settle lyrics pack before the virtualizer locks in row height.
  */
-function bindMetaBlock(el: Element | null): void {
+function bindMetaBlock(el: unknown): void {
   if (metaBlockEl.value && metaRo) metaRo.unobserve(metaBlockEl.value)
   metaBlockEl.value = el instanceof HTMLElement ? el : null
   if (!metaBlockEl.value) return
