@@ -1,15 +1,14 @@
 <script setup lang="ts">
 /**
- * About SingTags dialog with nested offline/install details and storage estimates.
+ * About SingTags dialog with nested offline/install details and app-update panels.
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { usePwaInstall } from '../composables/usePwaInstall'
 import { useOfflineLibraryStore } from '../stores/offlineLibrary'
-import { useSnackbarStore } from '../stores/snackbar'
 import { formatBytes } from '../offline/storageEstimate'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
-import { checkForAppUpdate } from '../lib/pwaAppUpdate'
+import { checkForAppUpdate, type AppUpdateCheckResult } from '../lib/pwaAppUpdate'
 import PwaInstallHowToDialog from './PwaInstallHowToDialog.vue'
 
 const props = defineProps<{
@@ -22,19 +21,32 @@ const emit = defineEmits<{
 }>()
 
 const offlineLib = useOfflineLibraryStore()
-const snackbar = useSnackbarStore()
 const { showInstallEntry, promptInstall } = usePwaInstall()
 const howToOpen = ref(false)
 const appUpdateBusy = ref(false)
+/** Last finished check on the update panel (`null` while idle/checking). */
+const appUpdateResult = ref<AppUpdateCheckResult | 'error' | null>(null)
 
-/** `about` main panel, or nested `details` (offline / install) with back. */
-type Panel = 'about' | 'details'
+/** Main about, offline/install details, or in-dialog app update. */
+type Panel = 'about' | 'details' | 'update'
 const panel = ref<Panel>('about')
+
+function panelTitleId(): string {
+  if (panel.value === 'details') return 'about-details-title'
+  if (panel.value === 'update') return 'about-update-title'
+  return 'about-title'
+}
+
+function backToAbout(): void {
+  panel.value = 'about'
+  appUpdateResult.value = null
+  appUpdateBusy.value = false
+}
 
 function onKeydown(e: KeyboardEvent): void {
   if (e.key !== 'Escape') return
-  if (panel.value === 'details') {
-    panel.value = 'about'
+  if (panel.value === 'details' || panel.value === 'update') {
+    backToAbout()
     return
   }
   emit('close')
@@ -45,12 +57,15 @@ watch(
   (open) => {
     if (open) {
       panel.value = 'about'
+      appUpdateResult.value = null
+      appUpdateBusy.value = false
       void offlineLib.refreshEstimate()
       window.addEventListener('keydown', onKeydown)
       return
     }
     window.removeEventListener('keydown', onKeydown)
   },
+  { immediate: true },
 )
 
 onUnmounted(() => {
@@ -71,8 +86,40 @@ const usedNowLabel = computed(() => {
   return used > 0 ? formatBytes(used) : null
 })
 
+const updateStatusMessage = computed(() => {
+  const result = appUpdateResult.value
+  if (result && result !== 'error' && result.status === 'reloading') {
+    return 'Updating SingTags…'
+  }
+  if (appUpdateBusy.value || !result) return 'Checking for an app update…'
+  if (result === 'error') return 'Could not check for app updates.'
+  if (result.status === 'offline') return 'Connect to the internet to check for app updates.'
+  if (result.status === 'unsupported') {
+    return 'This browser cannot update the installed app shell from here.'
+  }
+  return 'No update waiting. If the app still looks old, force-refresh the shell — your offline song cache stays.'
+})
+
+const showForceRefresh = computed(
+  () =>
+    !!appUpdateResult.value &&
+    appUpdateResult.value !== 'error' &&
+    appUpdateResult.value.status === 'current',
+)
+
+const showUpdateRetry = computed(() => {
+  if (appUpdateBusy.value || !appUpdateResult.value) return false
+  if (appUpdateResult.value === 'error') return true
+  return (
+    appUpdateResult.value.status === 'offline' ||
+    appUpdateResult.value.status === 'unsupported'
+  )
+})
+
 function close(): void {
   panel.value = 'about'
+  appUpdateResult.value = null
+  appUpdateBusy.value = false
   emit('close')
 }
 
@@ -85,40 +132,24 @@ async function onInstall(): Promise<void> {
   close()
 }
 
+function openAppUpdatePanel(): void {
+  panel.value = 'update'
+  void runAppUpdateCheck()
+}
+
 /** Ask the service worker for a newer shell; offer a hard shell reset if none waiting. */
-async function onCheckAppUpdate(): Promise<void> {
+async function runAppUpdateCheck(opts?: { forceReset?: boolean }): Promise<void> {
   if (appUpdateBusy.value) return
   appUpdateBusy.value = true
+  if (!opts?.forceReset) appUpdateResult.value = null
   try {
-    const result = await checkForAppUpdate()
+    const result = await checkForAppUpdate(opts)
+    appUpdateResult.value = result
     if (result.status === 'reloading') {
-      snackbar.show('Updating SingTags…', { tone: 'ok', ms: 2500 })
       close()
-      return
     }
-    if (result.status === 'offline') {
-      snackbar.show('Connect to the internet to check for app updates.', {
-        tone: 'info',
-        ms: 4000,
-      })
-      return
-    }
-    snackbar.show(
-      'No update waiting. If the app still looks old, force-refresh the shell (keeps your song cache).',
-      {
-        tone: 'info',
-        title: 'App update',
-        ms: 0,
-        action: {
-          label: 'Force refresh',
-          onClick: () => {
-            void checkForAppUpdate({ forceReset: true })
-          },
-        },
-      },
-    )
   } catch {
-    snackbar.show('Could not check for app updates.', { tone: 'error' })
+    appUpdateResult.value = 'error'
   } finally {
     appUpdateBusy.value = false
   }
@@ -132,7 +163,7 @@ async function onCheckAppUpdate(): Promise<void> {
       class="about-root"
       role="dialog"
       aria-modal="true"
-      :aria-labelledby="panel === 'about' ? 'about-title' : 'about-details-title'"
+      :aria-labelledby="panelTitleId()"
     >
       <button type="button" class="backdrop" aria-label="Close about" @click="close" />
       <div class="panel" tabindex="-1">
@@ -171,13 +202,8 @@ async function onCheckAppUpdate(): Promise<void> {
               </button>
             </p>
             <p class="details-action">
-              <button
-                type="button"
-                class="btn btn-ghost"
-                :disabled="appUpdateBusy"
-                @click="onCheckAppUpdate"
-              >
-                {{ appUpdateBusy ? 'Checking…' : 'Check for app update' }}
+              <button type="button" class="btn btn-ghost" @click="openAppUpdatePanel">
+                Check for app update
               </button>
             </p>
             <p class="text-muted hint-app-update">
@@ -200,9 +226,9 @@ async function onCheckAppUpdate(): Promise<void> {
           </footer>
         </template>
 
-        <template v-else>
+        <template v-else-if="panel === 'details'">
           <header class="head">
-            <button type="button" class="btn btn-ghost back" @click="panel = 'about'">← About</button>
+            <button type="button" class="btn btn-ghost back" @click="backToAbout">← About</button>
             <p class="eyebrow">Details</p>
             <h2 id="about-details-title">Offline, install &amp; cache</h2>
           </header>
@@ -300,6 +326,55 @@ async function onCheckAppUpdate(): Promise<void> {
             </RouterLink>
           </footer>
         </template>
+
+        <template v-else>
+          <header class="head">
+            <button type="button" class="btn btn-ghost back" @click="backToAbout">← About</button>
+            <p class="eyebrow">Update</p>
+            <h2 id="about-update-title">App update</h2>
+          </header>
+
+          <div class="body">
+            <p
+              class="update-status"
+              :class="{
+                'update-status-error': appUpdateResult === 'error',
+                'update-status-ok':
+                  !!appUpdateResult &&
+                  appUpdateResult !== 'error' &&
+                  appUpdateResult.status === 'reloading',
+              }"
+              role="status"
+            >
+              {{ updateStatusMessage }}
+            </p>
+            <p v-if="showForceRefresh" class="text-muted hint-app-update">
+              Force refresh clears the app shell cache only. Starred tags and downloaded sheets /
+              learning tracks stay on this device.
+            </p>
+          </div>
+
+          <footer class="actions">
+            <button type="button" class="btn btn-primary" @click="close">Close</button>
+            <button
+              v-if="showForceRefresh"
+              type="button"
+              class="btn btn-install"
+              :disabled="appUpdateBusy"
+              @click="runAppUpdateCheck({ forceReset: true })"
+            >
+              {{ appUpdateBusy ? 'Refreshing…' : 'Force refresh' }}
+            </button>
+            <button
+              v-else-if="showUpdateRetry"
+              type="button"
+              class="btn btn-ghost"
+              @click="runAppUpdateCheck()"
+            >
+              Try again
+            </button>
+          </footer>
+        </template>
       </div>
     </div>
     <PwaInstallHowToDialog :open="howToOpen" @close="howToOpen = false" />
@@ -370,6 +445,16 @@ async function onCheckAppUpdate(): Promise<void> {
   margin: 0;
   font-size: 0.85rem;
   line-height: 1.4;
+}
+.update-status {
+  margin: 0;
+  font-weight: 600;
+}
+.update-status-error {
+  color: var(--danger);
+}
+.update-status-ok {
+  color: var(--accent);
 }
 .body {
   display: grid;

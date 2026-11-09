@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Precompute TTBB pitch stacks + Tag Studio JSON into each tag folder.
+"""Precompute TTBB pitch stacks into each tag folder.
 
 Writes alongside other assets:
   pitch_stacks.json   — timeline + nature guesses
-  pitch_studio.json   — SingTags Tag Studio project (import-ready)
   pitch_summary.txt   — human-readable progression
 
-Updates ``metadata.json`` → ``pitch_extract`` + ``parts.pitch_*``.
+Updates ``metadata.json`` → ``pitch_extract`` + ``parts.pitch_stacks``.
+Does not write ``pitch_studio.json`` (Tag page auto-import retired).
 
 Examples::
 

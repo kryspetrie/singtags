@@ -27,7 +27,7 @@ export const ARCH_MAX_LINES_NEW = 800
  */
 export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'views/SingTogetherView.vue': 4812,
-  'views/HomeView.vue': 3505,
+  'views/HomeView.vue': 3500,
   'views/TagRollEditorView.vue': 3437,
   'components/tagRoll/TagRollChordsPanel.vue': 2691,
   'components/SheetViewer.vue': 2666,
@@ -35,7 +35,7 @@ export const ARCH_GOD_FILE_BUDGET: Readonly<Record<string, number>> = {
   'components/TagPlayer.vue': 2226,
   'views/LocalLibraryView.vue': 2209,
   'views/SettingsView.vue': 2170,
-  'views/TagView.vue': 2147,
+  'views/TagView.vue': 2060,
   'components/tagRoll/TagRollViewport.vue': 1868,
   'App.vue': 1704,
   'views/FavoritesView.vue': 1681,

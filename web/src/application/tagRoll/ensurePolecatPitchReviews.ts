@@ -1,10 +1,9 @@
 /**
- * Fetch bundled gold-standard polecat pitch Tag Studio projects and sync the library.
- * Files live under ``/tag-studio/polecat-pitch-reviews/`` (see polecats/stacks_to_tag_studio.py).
+ * Sync (and retire) auto ``seed-polecat-pitch-*`` Tag Studio projects.
  *
- * Imports missing gold seeds only (never overwrites on reload). Removes other
- * ``seed-polecat-pitch-*`` auto-seeds that are no longer in the index
- * (keeps user-owned projects untouched). Use ``force`` for explicit resync.
+ * The published index is empty — Tag page pitch import / auto seeds were pulled
+ * until projects can be validated by hand. List refresh removes leftover seeds
+ * from device libraries; user-owned projects are untouched.
  */
 import type { Clock } from '../../ports/Clock'
 import type { TagRollRepository } from '../../ports/TagRollRepository'

@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * Browse home: virtualized tag list, search/filters, scrub rails, bulk queue/favorite actions,
- * and first-run welcome flow.
- */
+/** Browse home: virtualized tag list, search/filters, scrub, bulk actions, welcome. */
 import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useWindowVirtualizer } from '@tanstack/vue-virtual'
@@ -34,8 +31,12 @@ import {
   peekTagReturnScrollY,
 } from '../lib/tagReturn'
 import { saveBrowseReloadScroll } from '../lib/browseReloadScroll'
+import { shouldOfferBrowseWelcome } from '../lib/browseWelcome'
 import {
+  isSearchTopPending,
+  mayArmPinSearchTop,
   mayAutoPinSearchTop,
+  shouldBlockVirtualizerScrollAdjust,
   shouldNoteUserBrowseScroll,
   shouldNoteUserBrowseScrollGesture,
 } from '../lib/browsePinSearchTop'
@@ -116,12 +117,9 @@ const tipsOpen = ref(false)
 const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
 const qrScannerOpen = ref(false)
-/** ~1–2 viewports of placeholder rows while the catalog hydrates. */
 const BROWSE_SKELETON_ROWS = 16
 const browseSkeletonRows = Array.from({ length: BROWSE_SKELETON_ROWS }, (_, i) => i)
-/** Fade list in once catalog is ready (scroll applied while opacity 0). */
 const browseReveal = ref(false)
-/** Mid-list chrome only for explicit restore intent + `?at=`. */
 const restoringAtTag = computed(
   () =>
     browseScrollIntent === 'restore' &&
@@ -130,8 +128,18 @@ const restoringAtTag = computed(
 const showMidRestoreSkeleton = computed(
   () => restoringAtTag.value && !browseReveal.value && !catalog.error,
 )
+const searchTopPending = computed(() =>
+  isSearchTopPending({
+    browseReveal: browseReveal.value,
+    restoringAtTag: restoringAtTag.value,
+    scrollIntent: browseScrollIntent,
+  }),
+)
 function syncWindowScrollY(): void {
   windowScrollY.value = windowScrollYLayout()
+}
+function setSearchTopSettlingLock(on: boolean): void {
+  document.documentElement.classList.toggle('browse-search-top-settling', on)
 }
 
 function scrollPastSearchChrome(): void {
@@ -147,30 +155,24 @@ function scrollPastSearchChrome(): void {
 }
 
 function closeWelcome(): void {
-  // Welcome owns the first-run download ask — suppress the sheets/sync toasts so they
-  // never stack under (or flash after) this splash.
   void offlineLib.dismissSheetsPrompt()
   void offlineLib.dismissPackSyncPrompt()
   prefs.dismissBrowseWelcome()
   welcomeOpen.value = false
-  // First-run dismiss: keep search/filters in view under the dialog.
   scrollToSearchTop({ force: true })
 }
 
-/** Document y=0 — search/filters visible (not sticky jump-rail floor). */
 function scrollToSearchTop(opts?: { force?: boolean }): void {
-  // User-driven scroll must not be yanked back; ↑ / welcome pass force.
   if (browseUserTookScroll && !opts?.force) return
   beginProgrammaticBrowseScroll()
   scrubScrollIndex.value = 0
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   windowScrollY.value = 0
-  stripBrowseScrollParamsFromUrl() // sync-clear stale ?at= before PTR can reuse it
+  stripBrowseScrollParamsFromUrl()
   scheduleBrowseScrollUrlSync()
 }
 
 async function onWelcomeContinue(opts: { cacheSheets: boolean; cacheAudio: boolean }): Promise<void> {
-  // Dismiss duplicate prompts before flipping browseWelcomeDismissed (which would reveal them).
   await offlineLib.dismissSheetsPrompt()
   void offlineLib.dismissPackSyncPrompt()
   closeWelcome()
@@ -513,11 +515,7 @@ function sortReverseTip(): string {
     : 'Reverse the current view order'
 }
 
-/**
- * Pin the first browse group under sticky jump/scrub chrome.
- * Do not scroll to document y=0 — that reveals search and unsticks the rail.
- * The ↑ control uses {@link onJumpTopClick} for the two-step (group → search).
- */
+/** Pin first group under sticky chrome (not document y=0). */
 function scrollBrowseTop(): void {
   scrubScrollIndex.value = 0
   if (!browseRows.value.length) {
@@ -528,19 +526,10 @@ function scrollBrowseTop(): void {
   scrollToBrowseRow(0, 'start')
 }
 
-/** Document scroll Y in layout CSS px — drives ↑ enabled/disabled and jump-top. */
 const windowScrollY = ref(windowScrollYLayout())
-
 const DOC_TOP_EPS = 2
 const BROWSE_FLOOR_EPS = 8
-
-/** True when search/filters are fully in view (↑ should be disabled). */
 const jumpTopDisabled = computed(() => windowScrollY.value <= DOC_TOP_EPS)
-
-/**
- * True when the first group is pinned under sticky chrome (or between that and search).
- * Another ↑ click reveals search.
- */
 const atBrowseChromeTop = computed(() => {
   const y = windowScrollY.value
   if (y <= DOC_TOP_EPS) return false
@@ -548,7 +537,6 @@ const atBrowseChromeTop = computed(() => {
   return y <= floor + BROWSE_FLOOR_EPS
 })
 
-/** ↑ tip: deeper → first group; at first group → search; at search → disabled. */
 const jumpTopLabel = computed(() => {
   if (jumpTopDisabled.value) return 'Already at search'
   if (atBrowseChromeTop.value) return 'Back to search'
@@ -557,7 +545,6 @@ const jumpTopLabel = computed(() => {
   return 'Jump to first section'
 })
 
-/** Tooltip mentions hold/double-click shortcut when a short click still has a stepwise target. */
 const jumpTopTitle = computed(() => {
   if (jumpTopDisabled.value) return jumpTopLabel.value
   if (atBrowseChromeTop.value) return jumpTopLabel.value
@@ -566,7 +553,6 @@ const jumpTopTitle = computed(() => {
 
 const JUMP_TOP_HOLD_MS = 450
 let jumpTopHoldTimer: ReturnType<typeof setTimeout> | null = null
-/** Suppress the click that follows a completed hold. */
 let jumpTopHoldFired = false
 
 function clearJumpTopHoldTimer(): void {
@@ -820,11 +806,29 @@ function syncStickyBrowsePad(): void {
   stickyBrowsePad.value = stickyBrowsePadPx()
 }
 
-/** Extra rows while scrubbing so mid-drag jumps stay filled longer. */
 const BROWSE_OVERSCAN = 14
 const BROWSE_SCRUB_OVERSCAN = 48
-/** True while year/tag# scrub is driving the list — drives overscan + ghost layer. */
 const scrubbing = ref(false)
+
+let pinSearchTopUntil = 0
+let suppressUserScrollDisarmUntil = 0
+let browseUserTookScroll = false
+let pinSearchTopTimers: number[] = []
+
+function shouldPinSearchTop(): boolean {
+  return (
+    !browseUserTookScroll &&
+    browseScrollIntent !== 'restore' &&
+    Date.now() <= pinSearchTopUntil
+  )
+}
+
+function blockVirtualizerScrollAdjust(): boolean {
+  return shouldBlockVirtualizerScrollAdjust({
+    pinArmed: shouldPinSearchTop(),
+    searchTopPending: searchTopPending.value,
+  })
+}
 
 const rowVirtualizer = useWindowVirtualizer(
   computed(() => ({
@@ -834,13 +838,17 @@ const rowVirtualizer = useWindowVirtualizer(
     overscan: scrubbing.value ? BROWSE_SCRUB_OVERSCAN : BROWSE_OVERSCAN,
     scrollMargin: listScrollMargin.value,
     scrollPaddingStart: stickyBrowsePad.value,
-    // window.scrollY / innerHeight are visual under html zoom; row sizes are layout.
     observeElementRect: observeZoomAwareWindowRect,
     observeElementOffset: observeZoomAwareWindowOffset,
-    scrollToFn: zoomAwareWindowScroll,
+    scrollToFn: (offset, opts, instance) => {
+      if (blockVirtualizerScrollAdjust()) {
+        instance.scrollElement?.scrollTo?.({ top: 0, behavior: 'auto' })
+        return
+      }
+      zoomAwareWindowScroll(offset, opts, instance)
+    },
+    shouldAdjustScrollPositionOnItemSizeChange: () => !blockVirtualizerScrollAdjust(),
     initialOffset: zoomAwareInitialOffset,
-    /** Prefer offsetHeight (layout). RO borderBoxSize is close to layout in Chrome but
-     * still avoid it so we never mix units with the zoom-aware scroll offset. */
     measureElement: (el) => (el as HTMLElement).offsetHeight,
   })),
 )
@@ -878,34 +886,8 @@ function browseRowIndexForSection(key: string): number {
   return browseRows.value.findIndex((r) => r.type === 'section' && r.key === key)
 }
 
-/** Min window.scrollY where sticky jump/scrub chrome stays stuck (search stays off-screen). */
 function browseScrollFloorY(): number {
   return Math.max(0, listScrollMargin.value - stickyBrowsePad.value)
-}
-
-/**
- * Keep document y=0 while Browse is meant to open on search (fresh / reload-at-top).
- * Jump rail + virtualizer padding often land on the first collection header otherwise.
- * Disarm as soon as the user scrolls away — otherwise first-paint→full catalog and
- * lyrics settle timeouts yank them back to the top.
- */
-let pinSearchTopUntil = 0
-/** Ignore scroll events while we programmatically pin / restore. */
-let suppressUserScrollDisarmUntil = 0
-/**
- * Sticky for this Browse mount: once the user scrolls the list, never auto-pin
- * search-top again (catalog.load / lyrics / jump-rail watches must not fight them).
- */
-let browseUserTookScroll = false
-/** Pending pinSearchTopIfArmed timeouts — cleared when the user takes over. */
-let pinSearchTopTimers: number[] = []
-
-function shouldPinSearchTop(): boolean {
-  return (
-    !browseUserTookScroll &&
-    browseScrollIntent !== 'restore' &&
-    Date.now() <= pinSearchTopUntil
-  )
 }
 
 function armPinSearchTop(ms = 2000): void {
@@ -950,9 +932,22 @@ function mayStillAutoPinSearchTop(): boolean {
   })
 }
 
-/** Wheel / touchmove — never from programmatic scrollTo; cancel auto-pin immediately. */
+function mayArmBrowsePinSearchTop(): boolean {
+  return mayArmPinSearchTop({
+    restoring: browseShouldRestoreList() || browseScrollIntent === 'restore',
+    userTookScroll: browseUserTookScroll,
+  })
+}
+
 function onBrowseUserScrollGesture(): void {
-  if (!shouldNoteUserBrowseScrollGesture({ userTookScroll: browseUserTookScroll })) return
+  if (
+    !shouldNoteUserBrowseScrollGesture({
+      userTookScroll: browseUserTookScroll,
+      searchTopPending: searchTopPending.value,
+    })
+  ) {
+    return
+  }
   noteUserBrowseScroll()
 }
 
@@ -1586,7 +1581,6 @@ function restoreBrowseScrollFromUrl(): void {
   }
 }
 
-/** Restore vs pin-to-top (search-top reload intent wins over a stale `?at=`). */
 function browseShouldRestoreList(): boolean {
   if (browseScrollIntent === 'top') return false
   const urlScroll = parseBrowseScrollQuery(route.query as Record<string, unknown>)
@@ -1598,14 +1592,15 @@ function browseShouldRestoreList(): boolean {
 }
 
 function startPinSearchTop(): void {
-  if (!mayStillAutoPinSearchTop()) return
+  if (!mayArmBrowsePinSearchTop()) return
   clearPinSearchTopTimers()
   armPinSearchTop(2500)
-  beginProgrammaticBrowseScroll(1200) // remasure must not abort pin
+  beginProgrammaticBrowseScroll(1200)
+  setSearchTopSettlingLock(true)
   scrollToSearchTop()
   const pin = () => pinSearchTopIfArmed()
   requestAnimationFrame(() => {
-    if (!mayStillAutoPinSearchTop()) return
+    if (!mayArmBrowsePinSearchTop()) return
     scrollToSearchTop()
     requestAnimationFrame(pin)
   })
@@ -1617,7 +1612,6 @@ function startPinSearchTop(): void {
   schedulePinSearchTop(2000, pin)
 }
 
-/** Apply top / `at=` / tag-return scroll once (used while list is still opacity 0). */
 function applyBrowseScrollIntent(): void {
   syncListScrollMargin()
   syncStickyBrowsePad()
@@ -1634,9 +1628,7 @@ function applyBrowseScrollIntent(): void {
     restoreBrowseScrollFromTag()
     return
   }
-  // Fresh browse: never yank back after the user has scrolled (catalog.load /
-  // lyrics often finish while they're mid-list).
-  if (!mayStillAutoPinSearchTop()) return
+  if (!mayArmBrowsePinSearchTop()) return
   scrollToSearchTop()
 }
 
@@ -1653,7 +1645,6 @@ function frames(n = 2): Promise<void> {
   })
 }
 
-/** Pin the real list (opacity 0), measure, then fade in. */
 async function settleScrollThenReveal(): Promise<void> {
   await nextTick()
   beginProgrammaticBrowseScroll(1200)
@@ -1661,26 +1652,25 @@ async function settleScrollThenReveal(): Promise<void> {
   syncStickyBrowsePad()
   syncJumpCols()
   if (restoringAtTag.value) {
+    setSearchTopSettlingLock(false)
     scrollPastSearchChrome()
     applyBrowseScrollIntent()
-    // One re-pin after layout so dynamic row measures settle under sticky chrome.
     await frames(2)
     syncListScrollMargin()
     syncStickyBrowsePad()
     applyBrowseScrollIntent()
     await frames(1)
   } else {
+    setSearchTopSettlingLock(true)
     applyBrowseScrollIntent()
     await frames(2)
+    if (mayArmBrowsePinSearchTop()) scrollToSearchTop({ force: true })
   }
   syncWindowScrollY()
   browseReveal.value = true
+  setSearchTopSettlingLock(false)
 }
 
-/**
- * Fade the list in after scroll is settled. Never toggles reveal back off —
- * that blanked the page and killed the fade.
- */
 watch(
   () => catalog.loaded && !catalog.error,
   async (ok) => {
@@ -1688,9 +1678,6 @@ watch(
       browseReveal.value = false
       return
     }
-    // Already faded in (e.g. first-paint → full): keep visible.
-    // Do not re-apply search-top — catalog.load() finishes while users often
-    // scroll (lyrics fade around the same time).
     if (browseReveal.value) {
       if (browseShouldRestoreList() && !browseUserTookScroll) {
         await nextTick()
@@ -1703,7 +1690,6 @@ watch(
   { immediate: true },
 )
 
-// Setup-time pin (before onMounted await) so jump-rail paint cannot flash mid-list.
 if (!browseShouldRestoreList() && browseScrollIntent !== 'restore') {
   if (typeof window !== 'undefined') window.scrollTo(0, 0)
   startPinSearchTop()
@@ -1712,14 +1698,12 @@ if (!browseShouldRestoreList() && browseScrollIntent !== 'restore') {
 onMounted(async () => {
   void offlineLib.refreshCacheReady().catch(() => undefined)
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
-  // Wheel/touchmove are never from scrollTo — cancel auto-pin as soon as the user
-  // tries to scroll (scroll events alone lose to pin suppress during fast load).
   window.addEventListener('wheel', onBrowseUserScrollGesture, { passive: true })
   window.addEventListener('touchmove', onBrowseUserScrollGesture, { passive: true })
   window.addEventListener('pagehide', onBrowsePageHide)
 
   const restoreList = browseShouldRestoreList()
-  if (!restoreList && browseScrollIntent !== 'restore' && mayStillAutoPinSearchTop()) {
+  if (!restoreList && browseScrollIntent !== 'restore' && mayArmBrowsePinSearchTop()) {
     startPinSearchTop()
   } else if (restoringAtTag.value) {
     scrollPastSearchChrome()
@@ -1728,20 +1712,25 @@ onMounted(async () => {
 
   await Promise.all([catalog.load(), favorites.ensureLoaded()])
   applyRoute()
-  if (!prefs.browseWelcomeDismissed) welcomeOpen.value = true
+  if (
+    shouldOfferBrowseWelcome({
+      dismissed: prefs.browseWelcomeDismissed,
+      pathname: route.path,
+      search: typeof location !== 'undefined' ? location.search : '',
+    })
+  ) {
+    welcomeOpen.value = true
+  }
   await nextTick()
   syncListScrollMargin()
   syncStickyBrowsePad()
   syncScrubFromScroll()
   syncJumpCols()
-  if (!browseReveal.value) {
-    await settleScrollThenReveal()
-  } else if (browseShouldRestoreList() && !browseUserTookScroll) {
+  if (!browseReveal.value) await settleScrollThenReveal()
+  else if (browseShouldRestoreList() && !browseUserTookScroll) {
     if (restoringAtTag.value) scrollPastSearchChrome()
     applyBrowseScrollIntent()
   }
-  // else: list already revealed and/or user scrolled — leave scroll alone
-  // (lyrics often finish right here; do not yank to top).
 
   syncWindowScrollY()
   jumpRailRo = new ResizeObserver(() => {
@@ -1759,6 +1748,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  setSearchTopSettlingLock(false)
   jumpRailRo?.disconnect()
   jumpRailRo = null
   narrowMq?.removeEventListener('change', syncNarrowSelect)
@@ -1867,6 +1857,7 @@ watch(
     class="home row-select-host"
     :class="{
       'mid-restore-pending': showMidRestoreSkeleton,
+      'search-top-pending': searchTopPending,
       'has-selection': catalog.selectedIds.size,
       'row-select-active': selectMode || catalog.selectedIds.size > 0,
       'jump-rows-2': showJump && !jumpRailCollapsed && jumpRows === 2,
@@ -2574,13 +2565,17 @@ watch(
   opacity: 1;
   transition: opacity 0.28s ease;
 }
-/* Stay in flow (scroll offsets stay valid) but never paint over mid-list chrome. */
 .home.mid-restore-pending .search-toolbar,
 .home.mid-restore-pending .results-meta {
   visibility: hidden;
   pointer-events: none;
 }
 .home.mid-restore-pending .jump-rail {
+  pointer-events: none;
+}
+.home.search-top-pending .results-meta,
+.home.search-top-pending .jump-rail {
+  visibility: hidden;
   pointer-events: none;
 }
 .browse-skeleton {

@@ -6,8 +6,10 @@ Uses the same solo-channel + alignment metadata as SingTags encode
 
 Writes next to ``metadata.json``:
   - ``pitch_stacks.json`` — timeline + nature guesses
-  - ``pitch_studio.json`` — Tag Studio project JSON
   - ``pitch_summary.txt`` — human-readable progression
+
+Does **not** write ``pitch_studio.json`` (Tag page auto-import into Tag Studio
+was removed; those projects were not trustworthy without manual validation).
 """
 
 from __future__ import annotations
@@ -1371,9 +1373,7 @@ def process_folder(
     force: bool = False,
     write_metadata: bool = True,
 ) -> dict[str, Any]:
-    """Extract pitches into ``pitch_stacks.json`` + ``pitch_studio.json`` in *folder*."""
-    from .pitch_studio_project import build_project  # local import avoids cycles
-
+    """Extract pitches into ``pitch_stacks.json`` in *folder*."""
     meta_path = folder / "metadata.json"
     meta = json.loads(meta_path.read_text())
     tag_id = int(meta.get("tag_id") or meta.get("id") or 0)
@@ -1382,13 +1382,24 @@ def process_folder(
     if not _voice_parts_present(meta, folder):
         raise FileNotFoundError("missing Lead/Tenor/Bari/Bass audio")
 
+    # Drop retired Tag Studio auto-import projects if a prior extract left them.
+    studio_path = folder / STUDIO_FILENAME
+    studio_removed = False
+    if studio_path.is_file():
+        studio_path.unlink()
+        studio_removed = True
+    parts = meta.get("parts") if isinstance(meta.get("parts"), dict) else {}
+    if isinstance(parts, dict) and "pitch_studio" in parts:
+        parts.pop("pitch_studio", None)
+        studio_removed = True
+    pe = meta.get("pitch_extract") if isinstance(meta.get("pitch_extract"), dict) else {}
+    if isinstance(pe, dict) and pe.pop("studio_filename", None) is not None:
+        studio_removed = True
+    if studio_removed and write_metadata:
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+
     existing = meta.get("pitch_extract") if isinstance(meta.get("pitch_extract"), dict) else {}
-    if (
-        not force
-        and (folder / STACKS_FILENAME).is_file()
-        and (folder / STUDIO_FILENAME).is_file()
-        and existing.get("method") == METHOD
-    ):
+    if not force and (folder / STACKS_FILENAME).is_file() and existing.get("method") == METHOD:
         return {
             "id": tag_id,
             "title": meta.get("title"),
@@ -1677,9 +1688,6 @@ def process_folder(
     }
     (folder / STACKS_FILENAME).write_text(json.dumps(payload, indent=2) + "\n")
 
-    studio = build_project(payload)
-    (folder / STUDIO_FILENAME).write_text(json.dumps(studio, indent=2) + "\n")
-
     lines = [
         f"{tag_id}  {meta.get('title')}  ({meta.get('key')})",
         (
@@ -1718,7 +1726,6 @@ def process_folder(
         "stack_count": len(events),
         "extracted_at": extracted_at,
         "stacks_filename": STACKS_FILENAME,
-        "studio_filename": STUDIO_FILENAME,
         "bpm": tempo_info["bpm"],
         "timeSignature": payload["timeSignature"],
         "blown_pitch_stripped": bool(blown_info.get("stripped")),
@@ -1735,7 +1742,7 @@ def process_folder(
         meta["pitch_extract"] = pitch_meta
         parts = meta.setdefault("parts", {})
         parts["pitch_stacks"] = {"filename": STACKS_FILENAME}
-        parts["pitch_studio"] = {"filename": STUDIO_FILENAME}
+        parts.pop("pitch_studio", None)
         meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
 
     return {

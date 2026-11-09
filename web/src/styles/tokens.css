@@ -152,3 +152,9 @@ button {
     min-height: var(--touch);
   }
 }
+
+/* Browse search-top settle: block scroll + anchoring so jump-rail cannot flash mid-list. */
+html.browse-search-top-settling {
+  overflow: hidden !important;
+  overflow-anchor: none;
+}

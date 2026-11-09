@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Polecats wrapper → ``sync/audio/extract_pitch_stacks.py``.
 
-Prefers writing ``pitch_stacks.json`` / ``pitch_studio.json`` into each polecat
-folder (same as the library pipeline). Optional ``--work-copy`` also mirrors
-timelines under ``work/polecat-pitch-stacks/``.
+Prefers writing ``pitch_stacks.json`` into each polecat folder (same as the
+library pipeline; does not write ``pitch_studio.json``). Optional
+``--work-copy`` also mirrors timelines under ``work/polecat-pitch-stacks/``.
 """
 
 from __future__ import annotations

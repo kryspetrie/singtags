@@ -825,6 +825,7 @@ describe('view smoke tests', () => {
 
     const router = makeRouter([{ path: '/', component: HomeView }])
     await router.push('/')
+    window.history.replaceState({}, '', '/')
     const w = mount(HomeView, {
       global: {
         plugins: [pinia, router],
@@ -850,6 +851,31 @@ describe('view smoke tests', () => {
     // Closing welcome must clear the sheets toast so it does not stack with the splash.
     expect(dismissSheets).toHaveBeenCalled()
     expect(dismissSync).toHaveBeenCalled()
+    w.unmount()
+    document.body.innerHTML = ''
+  })
+
+  it('HomeView does not show welcome on Browse deep links', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const catalog = useCatalogStore()
+    vi.spyOn(catalog, 'load').mockImplementation(async () => {
+      catalog.$patch({ loaded: true, loading: false, tags: [] })
+    })
+    vi.spyOn(useFavoritesStore(), 'ensureLoaded').mockResolvedValue()
+
+    const router = makeRouter([{ path: '/', component: HomeView }])
+    await router.push({ path: '/', query: { at: '1204' } })
+    window.history.replaceState({}, '', '/?at=1204')
+    const w = mount(HomeView, {
+      global: {
+        plugins: [pinia, router],
+        stubs: { SearchChips: true, EmptyState: true, RouterLink: true, ...fontAwesomeStub },
+      },
+    })
+    await flushPromises()
+    expect(document.body.textContent).not.toMatch(/Welcome to SingTags/)
+    expect(usePreferencesStore().browseWelcomeDismissed).toBe(false)
     w.unmount()
     document.body.innerHTML = ''
   })

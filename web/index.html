@@ -80,13 +80,14 @@
           }
         }
       } catch (_) {}
-      // Pull-to-refresh at Browse search top: pagehide may leave a Y≈0 snapshot while
-      // the reload URL still has a stale ?at=. Strip it before Vue paints mid-list chrome.
+      // Browse scroll intent before first paint: strip stale ?at= on search-top reload,
+      // then pin Y=0 unless this load is a real mid-list restore.
       try {
         var browseReloadRaw = sessionStorage.getItem('singtags.browseReload.scroll.v1')
+        var browseReloadY = -1
         if (browseReloadRaw) {
           var browseReloadSnap = JSON.parse(browseReloadRaw)
-          var browseReloadY = Math.round(Number(browseReloadSnap && browseReloadSnap.scrollY) || 0)
+          browseReloadY = Math.round(Number(browseReloadSnap && browseReloadSnap.scrollY) || 0)
           var browseReloadAge = Date.now() - (Number(browseReloadSnap && browseReloadSnap.at) || 0)
           if (browseReloadY <= 24 && browseReloadAge >= 0 && browseReloadAge < 60000) {
             var browseUrl = new URL(location.href)
@@ -107,6 +108,9 @@
             }
           }
         }
+        var midBrowseRestore =
+          new URL(location.href).searchParams.has('at') || browseReloadY > 24
+        if (!midBrowseRestore) window.scrollTo(0, 0)
       } catch (_) {}
     </script>
   </head>

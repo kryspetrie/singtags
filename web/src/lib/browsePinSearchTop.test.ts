@@ -3,7 +3,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  isSearchTopPending,
+  mayArmPinSearchTop,
   mayAutoPinSearchTop,
+  shouldBlockVirtualizerScrollAdjust,
   shouldDisarmPinSearchTop,
   shouldNoteUserBrowseScroll,
   shouldNoteUserBrowseScrollGesture,
@@ -115,6 +118,9 @@ describe('browsePinSearchTop', () => {
   it('treats wheel/touchmove as user intent until already noted', () => {
     expect(shouldNoteUserBrowseScrollGesture({ userTookScroll: false })).toBe(true)
     expect(shouldNoteUserBrowseScrollGesture({ userTookScroll: true })).toBe(false)
+    expect(
+      shouldNoteUserBrowseScrollGesture({ userTookScroll: false, searchTopPending: true }),
+    ).toBe(false)
   })
 
   it('blocks auto-pin after the user has scrolled, even if scrollY is later 0', () => {
@@ -152,6 +158,38 @@ describe('browsePinSearchTop', () => {
         scrollY: 0,
         docTopEps: 2,
       }),
+    ).toBe(false)
+  })
+
+  it('arms initial pin even when scrollY is already mid-list', () => {
+    expect(mayArmPinSearchTop({ restoring: false, userTookScroll: false })).toBe(true)
+    expect(mayArmPinSearchTop({ restoring: false, userTookScroll: true })).toBe(false)
+    expect(mayArmPinSearchTop({ restoring: true, userTookScroll: false })).toBe(false)
+    expect(
+      isSearchTopPending({
+        browseReveal: false,
+        restoringAtTag: false,
+        scrollIntent: 'top',
+      }),
+    ).toBe(true)
+    expect(
+      isSearchTopPending({
+        browseReveal: false,
+        restoringAtTag: true,
+        scrollIntent: 'restore',
+      }),
+    ).toBe(false)
+  })
+
+  it('blocks virtualizer scroll adjustments while search-top is settling', () => {
+    expect(
+      shouldBlockVirtualizerScrollAdjust({ pinArmed: false, searchTopPending: true }),
+    ).toBe(true)
+    expect(
+      shouldBlockVirtualizerScrollAdjust({ pinArmed: true, searchTopPending: false }),
+    ).toBe(true)
+    expect(
+      shouldBlockVirtualizerScrollAdjust({ pinArmed: false, searchTopPending: false }),
     ).toBe(false)
   })
 

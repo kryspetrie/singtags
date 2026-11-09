@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "verify:browse-flash": "node scripts/verifyBrowseSearchTopFlash.mjs",
     "typecheck": "vue-tsc -b --pretty false",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",

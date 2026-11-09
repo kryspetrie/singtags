@@ -5,6 +5,8 @@
  * them back to y=0.
  */
 
+export type BrowseScrollIntentLike = 'top' | 'restore' | null
+
 export function shouldDisarmPinSearchTop(opts: {
   pinArmed: boolean
   scrollY: number
@@ -45,15 +47,32 @@ export function shouldNoteUserBrowseScroll(opts: {
 
 /**
  * Wheel / touchmove are never synthesized by `scrollTo` — always user intent.
+ * Ignore while search-top is still settling so pull-to-refresh finger-up does
+ * not mark “user took scroll” and leave mid-list chrome painted.
  */
 export function shouldNoteUserBrowseScrollGesture(opts: {
   userTookScroll: boolean
+  /** True while Browse is still settling to search-top (before list fade-in). */
+  searchTopPending?: boolean
 }): boolean {
-  return !opts.userTookScroll
+  if (opts.userTookScroll) return false
+  if (opts.searchTopPending) return false
+  return true
 }
 
 /**
- * Whether auto “search top” positioning may still run.
+ * Arm / re-arm search-top pin regardless of current scrollY.
+ * Use for the initial mount pin so a browser-restored mid offset can still be yanked home.
+ */
+export function mayArmPinSearchTop(opts: {
+  restoring: boolean
+  userTookScroll: boolean
+}): boolean {
+  return !opts.restoring && !opts.userTookScroll
+}
+
+/**
+ * Whether auto “search top” positioning may still run after settle.
  * Once the user has scrolled the list (or scrollY is already mid-list), stop.
  */
 export function mayAutoPinSearchTop(opts: {
@@ -62,9 +81,35 @@ export function mayAutoPinSearchTop(opts: {
   scrollY: number
   docTopEps: number
 }): boolean {
-  if (opts.restoring) return false
-  if (opts.userTookScroll) return false
+  if (!mayArmPinSearchTop(opts)) return false
   return opts.scrollY <= opts.docTopEps
+}
+
+/**
+ * Hide sticky mid-list chrome (results meta + jump rail) until search-top settles.
+ * Mid-restore keeps that chrome visible on purpose.
+ */
+export function isSearchTopPending(opts: {
+  browseReveal: boolean
+  restoringAtTag: boolean
+  scrollIntent: BrowseScrollIntentLike
+}): boolean {
+  if (opts.browseReveal) return false
+  if (opts.restoringAtTag) return false
+  if (opts.scrollIntent === 'restore') return false
+  return true
+}
+
+/**
+ * Block TanStack Virtual `applyScrollAdjustment` / scrollToFn while pinning search-top.
+ * Cold load measures rows above the fold and can cascade window.scrollY to thousands
+ * of px (jump-rail flash) before pin-to-top runs.
+ */
+export function shouldBlockVirtualizerScrollAdjust(opts: {
+  pinArmed: boolean
+  searchTopPending: boolean
+}): boolean {
+  return opts.pinArmed || opts.searchTopPending
 }
 
 /** @deprecated Prefer {@link mayAutoPinSearchTop}. */
