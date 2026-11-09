@@ -49,6 +49,37 @@
       } catch (_) {
         document.documentElement.dataset.narrow = '1'
       }
+      // Theme / embolden / display scale from localStorage before CSS paints, so
+      // main.ts hydration does not flash weight, color, or zoom after first paint.
+      try {
+        var root = document.documentElement
+        var theme = localStorage.getItem('singtags.theme.v1')
+        var themeColors = {
+          light: '#0f6b5c',
+          dark: '#2a8a76',
+          'hc-light': '#005a4a',
+          'hc-dark': '#3aa890',
+        }
+        if (theme === 'dark' || theme === 'hc-dark' || theme === 'hc-light') {
+          root.setAttribute('data-theme', theme)
+          root.style.colorScheme = theme === 'hc-light' ? 'light' : 'dark'
+          var themeMeta = document.querySelector('meta[name="theme-color"]')
+          if (themeMeta) themeMeta.setAttribute('content', themeColors[theme])
+        }
+        if (localStorage.getItem('singtags.embolden.v1') === '1') {
+          root.setAttribute('data-embolden', '1')
+        }
+        var scaleRaw = localStorage.getItem('singtags.uiScale.v1')
+        if (scaleRaw) {
+          var scale = Math.round(Number(scaleRaw) / 5) * 5
+          if (scale >= 70 && scale <= 130 && scale !== 100) {
+            var zoom = String(scale / 100)
+            root.style.zoom = zoom
+            root.style.setProperty('--ui-scale', zoom)
+            root.dataset.uiScale = String(scale)
+          }
+        }
+      } catch (_) {}
     </script>
   </head>
   <body>

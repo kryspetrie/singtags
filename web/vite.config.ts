@@ -118,35 +118,58 @@ function serveLibraryPlugin(): Plugin {
 }
 
 /**
- * Preload the body + display faces used in the sticky header so shift-refresh
- * does not paint system fonts first then swap (text/header jump).
+ * Preload every shipped IBM Plex latin face early in `<head>` so shift-refresh
+ * can win `font-display: optional` before first paint (no Arial→Plex flash).
+ * Also hoist stylesheets ahead of the long modulepreload list so CSS (and
+ * @font-face) are discovered immediately instead of after dozens of JS hints.
  */
 function preloadIbmPlexFontsPlugin(): Plugin {
-  const prefer = [
-    /ibm-plex-sans-latin-400-normal.*\.woff2$/,
-    /ibm-plex-serif-latin-700-normal.*\.woff2$/,
-  ]
+  const faceRe = /ibm-plex-(?:sans|serif)-latin-\d+-normal[^/]*\.woff2$/
+  let collected: string[] = []
+
+  function hrefsFromBundle(bundle: Record<string, unknown> | undefined): string[] {
+    if (!bundle) return []
+    const base = viteBase()
+    return Object.keys(bundle)
+      .filter((fileName) => faceRe.test(fileName))
+      .sort()
+      .map((fileName) => `${base}${fileName.replace(/^\//, '')}`)
+  }
+
   return {
     name: 'preload-ibm-plex-fonts',
+    generateBundle(_options, bundle) {
+      collected = hrefsFromBundle(bundle)
+    },
     transformIndexHtml: {
       order: 'post',
       handler(html, ctx) {
-        const base = viteBase()
-        const hrefs: string[] = []
-        if (ctx.bundle) {
-          for (const fileName of Object.keys(ctx.bundle)) {
-            if (!prefer.some((re) => re.test(fileName))) continue
-            hrefs.push(`${base}${fileName.replace(/^\//, '')}`)
-          }
-        }
-        if (!hrefs.length) return html
-        const links = hrefs
+        const hrefs = collected.length ? collected : hrefsFromBundle(ctx.bundle)
+        const fontLinks = hrefs
           .map(
             (href) =>
               `<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin />`,
           )
           .join('\n    ')
-        return html.replace('</head>', `    ${links}\n  </head>`)
+
+        const sheets: string[] = []
+        let next = html.replace(/\n?\s*<link rel="stylesheet"[^>]*>/g, (m) => {
+          sheets.push(m.trim())
+          return ''
+        })
+
+        const early = [fontLinks, sheets.join('\n    ')].filter(Boolean).join('\n    ')
+        if (!early) return html
+
+        if (next.includes('<meta charset="UTF-8" />')) {
+          next = next.replace(
+            '<meta charset="UTF-8" />',
+            `<meta charset="UTF-8" />\n    ${early}`,
+          )
+        } else {
+          next = next.replace('<head>', `<head>\n    ${early}`)
+        }
+        return next
       },
     },
   }
