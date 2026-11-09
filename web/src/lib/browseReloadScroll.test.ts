@@ -4,6 +4,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BROWSE_RELOAD_SCROLL_KEY,
+  browsePathIgnoringScrollParams,
+  browseReloadSnapIsSearchTop,
   consumeBrowseReloadScroll,
   isBrowseHomePath,
   saveBrowseReloadScroll,
@@ -89,5 +91,42 @@ describe('browseReloadScroll', () => {
       getEntriesByType: () => [{ type: 'reload' }],
     })
     expect(consumeBrowseReloadScroll()).toBe(0)
+  })
+
+  it('matches paths that only differ by at=', () => {
+    expect(browsePathIgnoringScrollParams('/?at=1204')).toBe(
+      browsePathIgnoringScrollParams('/'),
+    )
+    expect(browsePathIgnoringScrollParams('/?q=love&at=1')).toBe(
+      browsePathIgnoringScrollParams('/?q=love'),
+    )
+  })
+
+  it('honors a fresh search-top snap even when PTR reports navigate', () => {
+    window.history.replaceState({}, '', '/?at=1204')
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/?at=1204', scrollY: 4, at: Date.now() }),
+    )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'navigate' }],
+    })
+    expect(browseReloadSnapIsSearchTop()).toBe(true)
+    expect(consumeBrowseReloadScroll()).toBe(0)
+    expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
+  })
+
+  it('does not honor mid-list snaps when navigation is not a reload', () => {
+    window.history.replaceState({}, '', '/?at=1204')
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/?at=1204', scrollY: 1800, at: Date.now() }),
+    )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'navigate' }],
+    })
+    expect(browseReloadSnapIsSearchTop()).toBe(false)
+    expect(consumeBrowseReloadScroll()).toBeNull()
+    expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeTruthy()
   })
 })

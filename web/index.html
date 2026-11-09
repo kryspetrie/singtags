@@ -80,6 +80,34 @@
           }
         }
       } catch (_) {}
+      // Pull-to-refresh at Browse search top: pagehide may leave a Y≈0 snapshot while
+      // the reload URL still has a stale ?at=. Strip it before Vue paints mid-list chrome.
+      try {
+        var browseReloadRaw = sessionStorage.getItem('singtags.browseReload.scroll.v1')
+        if (browseReloadRaw) {
+          var browseReloadSnap = JSON.parse(browseReloadRaw)
+          var browseReloadY = Math.round(Number(browseReloadSnap && browseReloadSnap.scrollY) || 0)
+          var browseReloadAge = Date.now() - (Number(browseReloadSnap && browseReloadSnap.at) || 0)
+          if (browseReloadY <= 24 && browseReloadAge >= 0 && browseReloadAge < 60000) {
+            var browseUrl = new URL(location.href)
+            var browseScrollKeys = ['at', 'sec', 'scroll', 'sy']
+            var browseStripped = false
+            for (var bi = 0; bi < browseScrollKeys.length; bi++) {
+              if (browseUrl.searchParams.has(browseScrollKeys[bi])) {
+                browseUrl.searchParams.delete(browseScrollKeys[bi])
+                browseStripped = true
+              }
+            }
+            if (browseStripped) {
+              history.replaceState(
+                history.state,
+                '',
+                browseUrl.pathname + browseUrl.search + browseUrl.hash,
+              )
+            }
+          }
+        }
+      } catch (_) {}
     </script>
   </head>
   <body>

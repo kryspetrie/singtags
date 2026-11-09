@@ -26,6 +26,8 @@ import { resolveInitialEmbolden, applyEmbolden } from './lib/embolden'
 import { syncNarrowViewportDataset } from './lib/narrowViewport'
 import { getCatalogSnapshotIdb } from './offline/indexSnapshotDb'
 import { browseUrlLooksDefault } from './lib/catalogFirstPaint'
+import { browseReloadSnapIsSearchTop } from './lib/browseReloadScroll'
+import { stripBrowseScrollParamsFromUrl } from './lib/browseScrollUrl'
 import { useOfflineModeStore } from './stores/offlineMode'
 import { useCatalogStore } from './stores/catalog'
 import { useOfflineLibraryStore } from './stores/offlineLibrary'
@@ -82,7 +84,9 @@ async function bootstrap(): Promise<void> {
   // Sync mirror is legacy/tiny only — full library lives in IndexedDB.
   // Default Browse: paint a localStorage viewport slice before IDB returns.
   // (HomeView pins to top / restores reload scroll when the full catalog swaps in.)
-  if (browseUrlLooksDefault()) {
+  const searchTopReload = browseReloadSnapIsSearchTop()
+  if (searchTopReload) stripBrowseScrollParamsFromUrl()
+  if (browseUrlLooksDefault() || searchTopReload) {
     catalog.hydrateFirstPaint()
   } else if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('at')) {
     // Mid-list restore: jump-rail keys only so chrome can size before tags arrive.

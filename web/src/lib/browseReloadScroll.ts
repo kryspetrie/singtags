@@ -73,31 +73,76 @@ export function saveBrowseReloadScroll(scrollY = typeof window !== 'undefined' ?
   }
 }
 
-/**
- * If this document load is a reload of Browse, return the saved Y and clear it.
- * Returns null for typed navigations, in-app opens, and stale/mismatched paths.
- */
-export function consumeBrowseReloadScroll(): number | null {
+/** Compare Browse URLs ignoring list-position keys (`at` / legacy scroll). */
+export function browsePathIgnoringScrollParams(pathWithSearch: string): string {
+  try {
+    const url = new URL(pathWithSearch, 'http://local.invalid')
+    for (const key of ['at', 'sec', 'scroll', 'sy'] as const) {
+      url.searchParams.delete(key)
+    }
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return pathWithSearch
+  }
+}
+
+function readBrowseReloadSnap(): BrowseReloadScroll | null {
   if (typeof sessionStorage === 'undefined') return null
-  if (!isReloadNavigation()) return null
   let raw: string | null
   try {
     raw = sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)
-    if (raw) sessionStorage.removeItem(BROWSE_RELOAD_SCROLL_KEY)
   } catch {
     return null
   }
   if (!raw) return null
-  let snap: BrowseReloadScroll
   try {
-    snap = JSON.parse(raw) as BrowseReloadScroll
+    const snap = JSON.parse(raw) as BrowseReloadScroll
+    if (!snap || typeof snap.scrollY !== 'number') return null
+    return snap
   } catch {
     return null
   }
-  if (!snap || typeof snap.scrollY !== 'number') return null
-  if (snap.path !== currentPath()) return null
-  if (Date.now() - (snap.at || 0) > 30 * 60_000) return null
-  const y = Math.max(0, Math.round(snap.scrollY))
-  // Tiny offsets still count as search-top (don't restore into the first section).
-  return y <= 24 ? 0 : y
+}
+
+/** True when pagehide left a near-zero Y (search chrome was showing). */
+export function browseReloadSnapIsSearchTop(maxAgeMs = 60_000): boolean {
+  const snap = readBrowseReloadSnap()
+  if (!snap) return false
+  if (Date.now() - (snap.at || 0) > maxAgeMs) return false
+  if (Math.max(0, Math.round(snap.scrollY || 0)) > 24) return false
+  if (typeof location === 'undefined') return true
+  return (
+    browsePathIgnoringScrollParams(snap.path) ===
+    browsePathIgnoringScrollParams(currentPath())
+  )
+}
+
+/**
+ * If this document load is a Browse reload, return the saved Y and clear it.
+ * Search-top snaps (Y≈0) are also honored for a short window when the browser
+ * reports pull-to-refresh as `navigate` instead of `reload`, so a stale `?at=`
+ * does not win.
+ */
+export function consumeBrowseReloadScroll(): number | null {
+  if (typeof sessionStorage === 'undefined') return null
+  const snap = readBrowseReloadSnap()
+  if (!snap) return null
+  const age = Date.now() - (snap.at || 0)
+  if (age > 30 * 60_000) return null
+  if (
+    browsePathIgnoringScrollParams(snap.path) !==
+    browsePathIgnoringScrollParams(currentPath())
+  ) {
+    return null
+  }
+  const y = Math.max(0, Math.round(snap.scrollY || 0))
+  const searchTop = y <= 24
+  // Mid-list Y only on real reloads. Search-top also accepts fresh PTR "navigate".
+  if (!isReloadNavigation() && !(searchTop && age <= 15_000)) return null
+  try {
+    sessionStorage.removeItem(BROWSE_RELOAD_SCROLL_KEY)
+  } catch {
+    /* ignore */
+  }
+  return searchTop ? 0 : y
 }

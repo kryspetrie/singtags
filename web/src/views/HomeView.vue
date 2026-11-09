@@ -121,10 +121,10 @@ const BROWSE_SKELETON_ROWS = 16
 const browseSkeletonRows = Array.from({ length: BROWSE_SKELETON_ROWS }, (_, i) => i)
 /** Fade list in once catalog is ready (scroll applied while opacity 0). */
 const browseReveal = ref(false)
-/** `?at=` restore: mid-list chrome (ignored when reload intent is search-top). */
+/** Mid-list chrome only for explicit restore intent + `?at=`. */
 const restoringAtTag = computed(
   () =>
-    browseScrollIntent !== 'top' &&
+    browseScrollIntent === 'restore' &&
     parseBrowseScrollQuery(route.query as Record<string, unknown>).at != null,
 )
 const showMidRestoreSkeleton = computed(
@@ -157,15 +157,15 @@ function closeWelcome(): void {
   scrollToSearchTop({ force: true })
 }
 
-/** Document y=0 — search bar and filters visible (not sticky jump-rail floor). */
+/** Document y=0 — search/filters visible (not sticky jump-rail floor). */
 function scrollToSearchTop(opts?: { force?: boolean }): void {
-  // Once the user has taken over scroll, auto/settle paths must not yank to top.
-  // Explicit ↑ / welcome still pass force.
+  // User-driven scroll must not be yanked back; ↑ / welcome pass force.
   if (browseUserTookScroll && !opts?.force) return
   beginProgrammaticBrowseScroll()
   scrubScrollIndex.value = 0
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   windowScrollY.value = 0
+  stripBrowseScrollParamsFromUrl() // sync-clear stale ?at= before PTR can reuse it
   scheduleBrowseScrollUrlSync()
 }
 
@@ -1136,6 +1136,7 @@ function syncBrowseScrollUrl(): void {
   const y = window.scrollY || 0
   const tagId = y > DOC_TOP_EPS ? activeBrowseTagId() : null
   const patch = browseScrollToQuery(tagId, y)
+  if (!Object.keys(patch).length) stripBrowseScrollParamsFromUrl()
   const nextQuery = mergeBrowseScrollQuery(route.query as Record<string, unknown>, patch)
   if (browseScrollQueriesEqual(route.query as Record<string, unknown>, nextQuery)) return
   syncingScrollUrl.value = true
@@ -1535,8 +1536,7 @@ function onBrowsePageHide(): void {
     clearTimeout(browseScrollUrlTimer)
     browseScrollUrlTimer = null
   }
-  // Save then sync-strip stale `?at=` (async router.replace often loses unload race).
-  saveBrowseReloadScroll(y)
+  saveBrowseReloadScroll(y) // before strip so reload of stale ?at= can still match Y≈0
   if (y <= BROWSE_SEARCH_TOP_EPS) stripBrowseScrollParamsFromUrl()
   syncBrowseScrollUrl()
 }
