@@ -13,13 +13,8 @@ import { faHeart as faHeartSolid, faPause, faPen, faPlay, faStop, faEllipsisVert
 import { faHeart as faHeartRegular } from '@fortawesome/free-regular-svg-icons'
 import App from './App.vue'
 import { router } from './router'
-// Self-hosted (npm) — no Google Fonts CDN
-import '@fontsource/ibm-plex-sans/latin-400.css'
-import '@fontsource/ibm-plex-sans/latin-500.css'
-import '@fontsource/ibm-plex-sans/latin-600.css'
-import '@fontsource/ibm-plex-sans/latin-700.css'
-import '@fontsource/ibm-plex-serif/latin-600.css'
-import '@fontsource/ibm-plex-serif/latin-700.css'
+// Self-hosted IBM Plex (metric fallbacks + Vite HTML preload) — no Google CDN
+import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/controls.css'
 import './styles/utilities.css'

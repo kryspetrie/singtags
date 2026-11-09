@@ -9,8 +9,8 @@
   --on-accent: #ffffff;
   --danger: #9b2c2c;
   --radius: 10px;
-  --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --font-display: "IBM Plex Serif", Georgia, serif;
+  --font: "IBM Plex Sans", "IBM Plex Sans Fallback", "Segoe UI", system-ui, sans-serif;
+  --font-display: "IBM Plex Serif", "IBM Plex Serif Fallback", Georgia, serif;
   --header-h: 3.5rem; /* fallback; App overwrites with measured sticky header height */
   --bottom-nav-h: 3.75rem;
   --touch: 44px;

@@ -117,6 +117,41 @@ function serveLibraryPlugin(): Plugin {
   }
 }
 
+/**
+ * Preload the body + display faces used in the sticky header so shift-refresh
+ * does not paint system fonts first then swap (text/header jump).
+ */
+function preloadIbmPlexFontsPlugin(): Plugin {
+  const prefer = [
+    /ibm-plex-sans-latin-400-normal.*\.woff2$/,
+    /ibm-plex-serif-latin-700-normal.*\.woff2$/,
+  ]
+  return {
+    name: 'preload-ibm-plex-fonts',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const base = viteBase()
+        const hrefs: string[] = []
+        if (ctx.bundle) {
+          for (const fileName of Object.keys(ctx.bundle)) {
+            if (!prefer.some((re) => re.test(fileName))) continue
+            hrefs.push(`${base}${fileName.replace(/^\//, '')}`)
+          }
+        }
+        if (!hrefs.length) return html
+        const links = hrefs
+          .map(
+            (href) =>
+              `<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin />`,
+          )
+          .join('\n    ')
+        return html.replace('</head>', `    ${links}\n  </head>`)
+      },
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: viteBase(),
@@ -129,6 +164,7 @@ export default defineConfig({
   plugins: [
     serveLibraryPlugin(),
     vue(),
+    preloadIbmPlexFontsPlugin(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: [

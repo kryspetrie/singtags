@@ -67,7 +67,6 @@ const OfflineOpticalTransferPrompt = defineAsyncComponent(
 const DriveSyncConflictDialog = defineAsyncComponent(
   () => import('./components/DriveSyncConflictDialog.vue'),
 )
-
 const favorites = useFavoritesStore()
 const queue = useQueueStore()
 const offlineLib = useOfflineLibraryStore()
@@ -97,7 +96,6 @@ watch(
   () => favorites.error,
   (msg) => pushStoreError(msg, () => favorites.clearError()),
 )
-
 const onTagPage = computed(() => route.name === 'tag')
 const backLabel = computed(() => tagBackLabel(route))
 const aboutOpen = ref(false)
@@ -1124,14 +1122,15 @@ async function acceptReconnectPrompt(): Promise<void> {
   justify-content: center;
   gap: 0.18rem;
   min-width: 0;
-  /* Keep the two-line lockup ≈ about-btn height so the header doesn’t grow. */
-  min-height: 1.7rem;
+  /* Reserve both lines so font swap does not grow the sticky header. */
+  min-height: calc(1.4rem + 0.18rem + 0.62rem * 1.1);
 }
 .brand-name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.4rem;
   line-height: 1;
+  height: 1.4rem;
   flex-shrink: 0;
 }
 .brand-tagline {
@@ -1141,6 +1140,7 @@ async function acceptReconnectPrompt(): Promise<void> {
   font-weight: 500;
   color: var(--muted);
   line-height: 1.1;
+  height: calc(0.62rem * 1.1);
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
