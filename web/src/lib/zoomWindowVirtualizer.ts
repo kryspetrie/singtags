@@ -59,3 +59,34 @@ export function zoomAwareWindowScroll(
 export function zoomAwareInitialOffset(): number {
   return visualPxToLayoutPx(typeof window !== 'undefined' ? window.scrollY : 0)
 }
+
+/**
+ * TanStack Virtual reads `instance.shouldAdjustScrollPositionOnItemSizeChange`,
+ * not the same key on `options` — set the instance field or the gate is a no-op.
+ */
+export function bindVirtualizerScrollAdjustGate(
+  instance: WinVirtualizer,
+  shouldBlock: () => boolean,
+): void {
+  instance.shouldAdjustScrollPositionOnItemSizeChange = () => !shouldBlock()
+}
+
+type ScrollOffsetMutable = {
+  scrollOffset: number | null
+  scrollAdjustments: number
+  _intendedScrollOffset: number | null
+  scrollElement: Win | null
+}
+
+/**
+ * Keep document top and the virtualizer's eager scrollOffset in sync.
+ * Blocking only `window.scrollTo(0)` while `applyScrollAdjustment` still bumps
+ * `scrollOffset` leaves mid-list rows painted under an empty gap at y=0.
+ */
+export function pinWindowVirtualizerToSearchTop(instance: WinVirtualizer): void {
+  const v = instance as unknown as ScrollOffsetMutable
+  v.scrollAdjustments = 0
+  v.scrollOffset = 0
+  v._intendedScrollOffset = null
+  v.scrollElement?.scrollTo?.({ top: 0, behavior: 'auto' })
+}

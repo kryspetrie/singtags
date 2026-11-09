@@ -81,8 +81,10 @@ import {
   windowScrollYLayout,
 } from '../lib/uiScale'
 import {
+  bindVirtualizerScrollAdjustGate,
   observeZoomAwareWindowOffset,
   observeZoomAwareWindowRect,
+  pinWindowVirtualizerToSearchTop,
   zoomAwareInitialOffset,
   zoomAwareWindowScroll,
 } from '../lib/zoomWindowVirtualizer'
@@ -166,7 +168,7 @@ function scrollToSearchTop(opts?: { force?: boolean }): void {
   if (browseUserTookScroll && !opts?.force) return
   beginProgrammaticBrowseScroll()
   scrubScrollIndex.value = 0
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  pinWindowVirtualizerToSearchTop(rowVirtualizer.value)
   windowScrollY.value = 0
   stripBrowseScrollParamsFromUrl()
   scheduleBrowseScrollUrlSync()
@@ -816,11 +818,7 @@ let browseUserTookScroll = false
 let pinSearchTopTimers: number[] = []
 
 function shouldPinSearchTop(): boolean {
-  return (
-    !browseUserTookScroll &&
-    browseScrollIntent !== 'restore' &&
-    Date.now() <= pinSearchTopUntil
-  )
+  return !browseUserTookScroll && browseScrollIntent !== 'restore' && Date.now() <= pinSearchTopUntil
 }
 
 function blockVirtualizerScrollAdjust(): boolean {
@@ -842,16 +840,16 @@ const rowVirtualizer = useWindowVirtualizer(
     observeElementOffset: observeZoomAwareWindowOffset,
     scrollToFn: (offset, opts, instance) => {
       if (blockVirtualizerScrollAdjust()) {
-        instance.scrollElement?.scrollTo?.({ top: 0, behavior: 'auto' })
+        pinWindowVirtualizerToSearchTop(instance)
         return
       }
       zoomAwareWindowScroll(offset, opts, instance)
     },
-    shouldAdjustScrollPositionOnItemSizeChange: () => !blockVirtualizerScrollAdjust(),
     initialOffset: zoomAwareInitialOffset,
     measureElement: (el) => (el as HTMLElement).offsetHeight,
   })),
 )
+bindVirtualizerScrollAdjustGate(rowVirtualizer.value, blockVirtualizerScrollAdjust)
 
 const virtualBrowseRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const browseListHeight = computed(() => rowVirtualizer.value.getTotalSize())
@@ -920,7 +918,7 @@ function beginProgrammaticBrowseScroll(ms = 100): void {
 
 function pinSearchTopIfArmed(): void {
   if (!shouldPinSearchTop()) return
-  if (windowScrollYLayout() > DOC_TOP_EPS) scrollToSearchTop()
+  scrollToSearchTop()
 }
 
 function mayStillAutoPinSearchTop(): boolean {

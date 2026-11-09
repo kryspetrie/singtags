@@ -104,6 +104,9 @@ export function isSearchTopPending(opts: {
  * Block TanStack Virtual `applyScrollAdjustment` / scrollToFn while pinning search-top.
  * Cold load measures rows above the fold and can cascade window.scrollY to thousands
  * of px (jump-rail flash) before pin-to-top runs.
+ *
+ * Wire via `bindVirtualizerScrollAdjustGate` on the **instance** field — putting this
+ * on `useWindowVirtualizer` options is a no-op in @tanstack/virtual-core.
  */
 export function shouldBlockVirtualizerScrollAdjust(opts: {
   pinArmed: boolean
