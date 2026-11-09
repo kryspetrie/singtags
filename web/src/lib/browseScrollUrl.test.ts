@@ -9,6 +9,7 @@ import {
   mergeBrowseScrollQuery,
   onlyBrowseScrollQueryChanged,
   parseBrowseScrollQuery,
+  stripBrowseScrollParamsFromUrl,
 } from './browseScrollUrl'
 import { browseQueriesEqual } from './browseRouteQuery'
 
@@ -17,6 +18,13 @@ describe('browseScrollUrl', () => {
     expect(browseScrollToQuery(42, 0)).toEqual({})
     expect(browseScrollToQuery(42, 12)).toEqual({})
     expect(browseScrollToQuery(null, 880)).toEqual({})
+  })
+
+  it('synchronously strips at (and legacy scroll keys) from the URL', () => {
+    window.history.replaceState({}, '', '/?q=love&at=1204&scroll=900&sec=Classic')
+    expect(stripBrowseScrollParamsFromUrl()).toBe(true)
+    expect(location.search).toBe('?q=love')
+    expect(stripBrowseScrollParamsFromUrl()).toBe(false)
   })
 
   it('writes at when scrolled into the list', () => {

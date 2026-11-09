@@ -45,6 +45,7 @@ import {
   mergeBrowseQuery,
 } from '../lib/browseRouteQuery'
 import {
+  BROWSE_SEARCH_TOP_EPS,
   BROWSE_SECTION_ROW_H,
   BROWSE_TAG_ROW_H,
   browseScrollToQuery,
@@ -53,6 +54,7 @@ import {
   mergeBrowseScrollQuery,
   onlyBrowseScrollQueryChanged,
   parseBrowseScrollQuery,
+  stripBrowseScrollParamsFromUrl,
 } from '../lib/browseScrollUrl'
 import {
   hasJumpRail,
@@ -119,20 +121,15 @@ const BROWSE_SKELETON_ROWS = 16
 const browseSkeletonRows = Array.from({ length: BROWSE_SKELETON_ROWS }, (_, i) => i)
 /** Fade list in once catalog is ready (scroll applied while opacity 0). */
 const browseReveal = ref(false)
-
-/** `?at=` restore: keep mid-list chrome, don't flash search-top. */
+/** `?at=` restore: mid-list chrome (ignored when reload intent is search-top). */
 const restoringAtTag = computed(
-  () => parseBrowseScrollQuery(route.query as Record<string, unknown>).at != null,
+  () =>
+    browseScrollIntent !== 'top' &&
+    parseBrowseScrollQuery(route.query as Record<string, unknown>).at != null,
 )
 const showMidRestoreSkeleton = computed(
   () => restoringAtTag.value && !browseReveal.value && !catalog.error,
 )
-
-/**
- * Dock sticky jump chrome under the app header (search / results-meta scrolled
- * away). Those blocks stay in flow (visibility:hidden) so offsets stay stable
- * when they become visible again on reveal.
- */
 function syncWindowScrollY(): void {
   windowScrollY.value = windowScrollYLayout()
 }
@@ -1533,12 +1530,14 @@ function restoreBrowseScrollFromReload(y: number): void {
 }
 
 function onBrowsePageHide(): void {
-  saveBrowseReloadScroll(window.scrollY || 0)
-  // Flush scroll URL immediately — debounce may not run before unload.
+  const y = window.scrollY || 0
   if (browseScrollUrlTimer != null) {
     clearTimeout(browseScrollUrlTimer)
     browseScrollUrlTimer = null
   }
+  // Save then sync-strip stale `?at=` (async router.replace often loses unload race).
+  saveBrowseReloadScroll(y)
+  if (y <= BROWSE_SEARCH_TOP_EPS) stripBrowseScrollParamsFromUrl()
   syncBrowseScrollUrl()
 }
 
@@ -1587,8 +1586,9 @@ function restoreBrowseScrollFromUrl(): void {
   }
 }
 
-/** Decide restore vs pin-to-top before awaiting catalog (avoids a mid-list flash). */
+/** Restore vs pin-to-top (search-top reload intent wins over a stale `?at=`). */
 function browseShouldRestoreList(): boolean {
+  if (browseScrollIntent === 'top') return false
   const urlScroll = parseBrowseScrollQuery(route.query as Record<string, unknown>)
   return (
     browseScrollIntent === 'restore' ||

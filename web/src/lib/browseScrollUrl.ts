@@ -85,6 +85,38 @@ export function mergeBrowseScrollQuery(
   return out
 }
 
+const BROWSE_SCROLL_URL_KEYS: readonly string[] = [
+  ...BROWSE_SCROLL_KEYS,
+  ...LEGACY_SCROLL_KEYS,
+]
+
+/**
+ * Synchronously drop list-position query keys via `history.replaceState`.
+ * Used on pagehide at search top so a pull-to-reload does not keep a stale
+ * `?at=` that the async router.replace may not commit before unload.
+ */
+export function stripBrowseScrollParamsFromUrl(
+  loc: Location = typeof location !== 'undefined' ? location : (undefined as unknown as Location),
+  hist: History = typeof history !== 'undefined' ? history : (undefined as unknown as History),
+): boolean {
+  if (!loc || !hist || typeof URL === 'undefined') return false
+  try {
+    const url = new URL(loc.href)
+    let changed = false
+    for (const key of BROWSE_SCROLL_URL_KEYS) {
+      if (!url.searchParams.has(key)) continue
+      url.searchParams.delete(key)
+      changed = true
+    }
+    if (!changed) return false
+    const next = `${url.pathname}${url.search}${url.hash}`
+    hist.replaceState(hist.state, '', next)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Browse virtualizer row estimates (initial / unmeasured). Real sizes come from
  * measureElement → offsetHeight; prefer a comfortable upper bound so early

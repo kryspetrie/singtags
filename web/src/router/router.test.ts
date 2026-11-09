@@ -226,11 +226,15 @@ describe('router', () => {
     expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
   })
 
-  it('scrollBehavior prefers URL at-tag over sessionStorage', async () => {
+  it('scrollBehavior prefers URL at-tag over mid-list sessionStorage', async () => {
+    window.history.replaceState({}, '', '/?at=1204')
     sessionStorage.setItem(
       BROWSE_RELOAD_SCROLL_KEY,
-      JSON.stringify({ path: '/', scrollY: 9999, at: Date.now() }),
+      JSON.stringify({ path: '/?at=1204', scrollY: 9999, at: Date.now() }),
     )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'reload' }],
+    })
     const behavior = router.options.scrollBehavior
     const to = {
       name: 'home',
@@ -258,5 +262,43 @@ describe('router', () => {
     expect(browseReloadScrollY).toBeNull()
     expect(result).toBe(false)
     expect(sessionStorage.getItem(BROWSE_RELOAD_SCROLL_KEY)).toBeNull()
+  })
+
+  it('scrollBehavior prefers search-top reload snapshot over stale at query', async () => {
+    window.history.replaceState({}, '', '/?at=1204')
+    sessionStorage.setItem(
+      BROWSE_RELOAD_SCROLL_KEY,
+      JSON.stringify({ path: '/?at=1204', scrollY: 8, at: Date.now() }),
+    )
+    vi.stubGlobal('performance', {
+      getEntriesByType: () => [{ type: 'reload' }],
+    })
+    const behavior = router.options.scrollBehavior
+    const to = {
+      name: 'home',
+      path: '/',
+      fullPath: '/?at=1204',
+      hash: '',
+      query: { at: '1204' },
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    const from = {
+      name: undefined,
+      path: '/',
+      fullPath: '/',
+      hash: '',
+      query: {},
+      params: {},
+      matched: [],
+      meta: {},
+    }
+    // @ts-expect-error minimal route stubs for scrollBehavior
+    const result = await behavior(to, from, null)
+    expect(browseScrollIntent).toBe('top')
+    expect(browseReloadScrollY).toBeNull()
+    expect(result).toEqual({ top: 0 })
+    expect(location.search).not.toContain('at=')
   })
 })

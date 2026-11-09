@@ -8,7 +8,7 @@ import {
   BROWSE_RELOAD_SCROLL_KEY,
   consumeBrowseReloadScroll,
 } from '../lib/browseReloadScroll'
-import { parseBrowseScrollQuery } from '../lib/browseScrollUrl'
+import { parseBrowseScrollQuery, stripBrowseScrollParamsFromUrl } from '../lib/browseScrollUrl'
 import { usePreferencesStore } from '../stores/preferences'
 // Landing route is eager so reload paints Browse with the shell (no async chunk gap).
 import HomeView from '../views/HomeView.vue'
@@ -213,20 +213,24 @@ export const router = createRouter({
       if (from?.name === 'home' && to.path === from.path) {
         return false
       }
-      // Prefer URL tag anchor (`at`) — HomeView scrolls that row under the chrome.
+      // pagehide snapshot first: a search-top reload must win over a stale `?at=`
+      // (async router.replace often does not commit before pull-to-refresh unloads).
+      const reloadY = consumeBrowseReloadScroll()
       const urlScroll = parseBrowseScrollQuery(to.query as Record<string, unknown>)
+      if (reloadY === 0) {
+        browseScrollIntent = 'top'
+        browseReloadScrollY = null
+        if (urlScroll.at != null) stripBrowseScrollParamsFromUrl()
+        if (typeof window !== 'undefined') window.scrollTo(0, 0)
+        return { top: 0 }
+      }
+      // Prefer URL tag anchor (`at`) — HomeView scrolls that row under the chrome.
       if (urlScroll.at != null) {
         browseScrollIntent = 'restore'
         browseReloadScrollY = null
-        try {
-          sessionStorage?.removeItem(BROWSE_RELOAD_SCROLL_KEY)
-        } catch {
-          /* ignore */
-        }
         return false
       }
       // Fallback: sessionStorage from pagehide (reload mid-drag before URL catch-up).
-      const reloadY = consumeBrowseReloadScroll()
       if (reloadY != null && reloadY > 0) {
         browseScrollIntent = 'restore'
         browseReloadScrollY = reloadY
