@@ -114,20 +114,16 @@ const tipsOpen = ref(false)
 const optionsOpen = ref(false)
 const welcomeOpen = ref(false)
 const qrScannerOpen = ref(false)
-/**
- * Placeholder browse rows while the catalog hydrates — enough for ~1–2 viewports
- * so cold loads feel like a list, not a blank “Loading…” gap.
- */
+/** ~1–2 viewports of placeholder rows while the catalog hydrates. */
 const BROWSE_SKELETON_ROWS = 16
 const browseSkeletonRows = Array.from({ length: BROWSE_SKELETON_ROWS }, (_, i) => i)
-/** Fade Browse list in once catalog is ready (scroll is applied while still opacity 0). */
+/** Fade list in once catalog is ready (scroll applied while opacity 0). */
 const browseReveal = ref(false)
 
-/** Reload/share with `?at=` — keep mid-list chrome, don't flash search-top. */
+/** `?at=` restore: keep mid-list chrome, don't flash search-top. */
 const restoringAtTag = computed(
   () => parseBrowseScrollQuery(route.query as Record<string, unknown>).at != null,
 )
-/** Mid-list `?at=` restore: mid chrome until real rows are pinned and faded in. */
 const showMidRestoreSkeleton = computed(
   () => restoringAtTag.value && !browseReveal.value && !catalog.error,
 )
@@ -1658,10 +1654,7 @@ function frames(n = 2): Promise<void> {
   })
 }
 
-/**
- * Position the *real* virtualized list (opacity 0), wait for measure/pin, then fade
- * it in. Placeholder cards cannot match measured row heights — they always jump.
- */
+/** Pin the real list (opacity 0), measure, then fade in. */
 async function settleScrollThenReveal(): Promise<void> {
   await nextTick()
   syncListScrollMargin()
@@ -2663,6 +2656,12 @@ watch(
   width: min(88%, 22rem);
   height: calc(0.86rem * 1.35);
   margin: 0;
+}
+/* Mobile cards usually pack lyrics onto the meta wrap line — don't reserve a third skel line. */
+@media (max-width: 639px) {
+  .browse-skeleton-virt .skel-lyrics {
+    display: none;
+  }
 }
 .skel-fav {
   width: 2.75rem;

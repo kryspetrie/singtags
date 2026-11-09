@@ -19,6 +19,7 @@ import {
   readIsNarrowViewport,
   syncNarrowViewportDataset,
 } from '../lib/narrowViewport'
+import { metaDetailsWrapToSecondLine } from '../lib/lyricsMetaPack'
 import { useCatalogStore } from '../stores/catalog'
 import { useRatingsStore } from '../stores/ratings'
 
@@ -50,73 +51,74 @@ const showLyricsRow = computed(
 /**
  * Mobile: lyrics stay on their own line unless key→icons meta already wraps
  * onto a second line; then lyrics continue on that wrap line after the chips.
+ *
+ * Until the first measure finishes, lyrics contribute no height (`layout-pending`)
+ * so the virtualizer does not lock in a tall “own line” size then shrink.
  */
 const metaBlockEl = ref<HTMLElement | null>(null)
 const isNarrow = ref(readIsNarrowViewport())
 const packLyricsAfterMetaWrap = ref(false)
+/** False on narrow+lyrics until pack class is decided (avoids first-paint jump). */
+const lyricsLayoutReady = ref(!(readIsNarrowViewport() && showLyricsRow.value))
 let narrowMq: MediaQueryList | null = null
 let metaRo: ResizeObserver | null = null
-let packSyncing = false
-let packTimer = 0
+let packRaf = 0
 
-/** Key / arranger / year / rating / downloads / cache / sheet+audio icons only. */
-const META_DETAIL_SEL = '.meta-item'
-/**
- * Baseline-aligned chips on one flex line can differ by a few px in offsetTop.
- * A real wrap is ~one line (≥ ~0.92rem); require a clear gap.
- */
-const META_WRAP_TOP_EPS_PX = 10
-
-function metaDetailsWrapToSecondLine(): boolean {
-  const root = metaBlockEl.value
-  if (!root) return false
-  const chips = root.querySelectorAll<HTMLElement>(META_DETAIL_SEL)
-  if (chips.length < 2) return false
-  let minTop = Infinity
-  let maxTop = -Infinity
-  for (const chip of chips) {
-    const top = chip.offsetTop
-    if (top < minTop) minTop = top
-    if (top > maxTop) maxTop = top
-  }
-  return maxTop - minTop >= META_WRAP_TOP_EPS_PX
+function measureMetaWrap(): boolean {
+  return metaDetailsWrapToSecondLine(metaBlockEl.value)
 }
 
-/** Apply pack only after measuring with lyrics on its own line (flex-basis 100%). */
+/**
+ * Patch the lyrics node immediately (no flushSync in this Vue build) so the
+ * Browse virtualizer's measureElement sees the settled height in this frame.
+ */
+function applyLyricsLayoutDom(): void {
+  const snip = metaBlockEl.value?.querySelector('.lyrics-snip')
+  if (!(snip instanceof HTMLElement)) return
+  snip.classList.toggle('after-meta-wrap', packLyricsAfterMetaWrap.value)
+  snip.classList.toggle('layout-pending', !lyricsLayoutReady.value)
+}
+
+/** Measure chip wrap (lyrics pending = out of flow, same as own-line for chips). */
 function syncLyricsPack(): void {
-  if (packSyncing) return
   if (!isNarrow.value || !showLyricsRow.value) {
     packLyricsAfterMetaWrap.value = false
+    lyricsLayoutReady.value = true
+    applyLyricsLayoutDom()
     return
   }
-  packSyncing = true
-  const apply = (): void => {
-    const wrap = metaDetailsWrapToSecondLine()
-    packLyricsAfterMetaWrap.value = wrap
-    void nextTick(() => {
-      packSyncing = false
-    })
-  }
-  if (packLyricsAfterMetaWrap.value) {
-    // Unpack first so chip wrap isn’t affected by lyrics on the same line.
-    packLyricsAfterMetaWrap.value = false
-    void nextTick(apply)
-  } else {
-    apply()
-  }
+  packLyricsAfterMetaWrap.value = measureMetaWrap()
+  lyricsLayoutReady.value = true
+  applyLyricsLayoutDom()
+}
+
+/**
+ * Function ref runs during patch (before parent measureElement), so we can
+ * settle lyrics pack before the virtualizer locks in row height.
+ */
+function bindMetaBlock(el: Element | null): void {
+  if (metaBlockEl.value && metaRo) metaRo.unobserve(metaBlockEl.value)
+  metaBlockEl.value = el instanceof HTMLElement ? el : null
+  if (!metaBlockEl.value) return
+  syncLyricsPack()
+  metaRo?.observe(metaBlockEl.value)
 }
 
 function scheduleSyncLyricsPack(): void {
   if (typeof window === 'undefined') return
-  window.clearTimeout(packTimer)
-  packTimer = window.setTimeout(() => {
-    packTimer = 0
+  if (packRaf) window.cancelAnimationFrame(packRaf)
+  packRaf = window.requestAnimationFrame(() => {
+    packRaf = 0
     syncLyricsPack()
-  }, 32)
+  })
 }
 
 function syncNarrow(): void {
   isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
+  if (isNarrow.value && showLyricsRow.value) {
+    lyricsLayoutReady.value = false
+    applyLyricsLayoutDom()
+  }
   scheduleSyncLyricsPack()
 }
 
@@ -126,11 +128,12 @@ onMounted(() => {
   narrowMq.addEventListener('change', syncNarrow)
   if (typeof ResizeObserver !== 'undefined') {
     metaRo = new ResizeObserver(() => {
-      if (!packSyncing) scheduleSyncLyricsPack()
+      scheduleSyncLyricsPack()
     })
     if (metaBlockEl.value) metaRo.observe(metaBlockEl.value)
   }
-  scheduleSyncLyricsPack()
+  // Ref may have settled already; ensure pack state matches DOM.
+  syncLyricsPack()
 })
 
 onUnmounted(() => {
@@ -138,7 +141,7 @@ onUnmounted(() => {
   narrowMq = null
   metaRo?.disconnect()
   metaRo = null
-  if (packTimer) window.clearTimeout(packTimer)
+  if (packRaf) window.cancelAnimationFrame(packRaf)
 })
 
 watch(
@@ -158,17 +161,15 @@ watch(
       props.tag.hasLyrics,
     ] as const,
   () => {
-    void nextTick(() => scheduleSyncLyricsPack())
+    if (isNarrow.value && showLyricsRow.value) {
+      lyricsLayoutReady.value = false
+      applyLyricsLayoutDom()
+    }
+    void nextTick(() => {
+      syncLyricsPack()
+    })
   },
 )
-
-watch(metaBlockEl, (el, prev) => {
-  if (prev) metaRo?.unobserve(prev)
-  if (el) {
-    metaRo?.observe(el)
-    scheduleSyncLyricsPack()
-  }
-})
 </script>
 
 <template>
@@ -208,7 +209,7 @@ watch(metaBlockEl, (el, prev) => {
     Mobile: meta chips + lyrics share one flex wrap. Lyrics default to their own
     line; if chips already wrap, lyrics continue on that wrap line.
   -->
-  <span ref="metaBlockEl" class="meta-block">
+  <span :ref="bindMetaBlock" class="meta-block">
     <span class="meta">
       <!-- Mobile, no subtitle: badge shares the meta line when width allows. -->
       <span
@@ -303,7 +304,11 @@ watch(metaBlockEl, (el, prev) => {
     <span
       v-if="showLyricsRow"
       class="lyrics-snip"
-      :class="{ ready: !!lyricsSnippet, 'after-meta-wrap': packLyricsAfterMetaWrap }"
+      :class="{
+        ready: !!lyricsSnippet,
+        'after-meta-wrap': packLyricsAfterMetaWrap,
+        'layout-pending': !lyricsLayoutReady,
+      }"
       :title="lyricsSnippet ? 'Lyrics' : undefined"
       :aria-hidden="lyricsSnippet ? undefined : true"
     >{{ lyricsSnippet || '\u00a0' }}</span>
@@ -495,6 +500,8 @@ watch(metaBlockEl, (el, prev) => {
   /*
    * Default: own line (flex-basis 100%). Only `.after-meta-wrap` — when the
    * detail chips already occupy two lines — continues after those chips.
+   * `.layout-pending` keeps lyrics out of flow until that measure runs so the
+   * first paint / virtualizer measure matches the settled height.
    */
   .lyrics-snip {
     flex: 1 1 100%;
@@ -503,6 +510,19 @@ watch(metaBlockEl, (el, prev) => {
   }
   .lyrics-snip.after-meta-wrap {
     flex: 1 1 0;
+  }
+  .lyrics-snip.layout-pending {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    min-height: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

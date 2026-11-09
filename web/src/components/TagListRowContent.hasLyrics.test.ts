@@ -43,16 +43,21 @@ function tag(partial: Partial<TagSummary> & { id: number }): TagSummary {
   }
 }
 
+function stubMatchMedia(matches: boolean): void {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  )
+}
+
 describe('TagListRowContent lyrics row', () => {
   beforeEach(() => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }),
-    )
+    stubMatchMedia(false)
+    document.documentElement.dataset.narrow = '0'
   })
 
   it('reserves a lyrics row when hasLyrics is true and snippet prop is passed', () => {
@@ -61,6 +66,21 @@ describe('TagListRowContent lyrics row', () => {
     })
     expect(w.find('.lyrics-snip').exists()).toBe(true)
     expect(w.find('.lyrics-snip').classes()).not.toContain('ready')
+    expect(w.find('.lyrics-snip').classes()).not.toContain('layout-pending')
+  })
+
+  it('settles narrow lyrics pack before leaving layout-pending', async () => {
+    stubMatchMedia(true)
+    document.documentElement.dataset.narrow = '1'
+    const w = mount(TagListRowContent, {
+      props: { tag: tag({ id: 10, hasLyrics: true }), lyricsSnippet: null },
+      attachTo: document.body,
+    })
+    await w.vm.$nextTick()
+    const snip = w.find('.lyrics-snip')
+    expect(snip.exists()).toBe(true)
+    expect(snip.classes()).not.toContain('layout-pending')
+    w.unmount()
   })
 
   it('omits the lyrics row when hasLyrics is false', () => {
