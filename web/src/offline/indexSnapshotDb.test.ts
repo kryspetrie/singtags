@@ -39,10 +39,13 @@ describe('indexSnapshotDb', () => {
         },
       ],
       { foo: ['bar'] },
+      'abc123',
     )
     const rec = await getCatalogSnapshotIdb()
     expect(rec?.tags[0]?.title).toBe('Test')
     expect(rec?.expansions).toEqual({ foo: ['bar'] })
+    expect(rec?.storageFormat).toBe('gzip')
+    expect(rec?.sourceHash).toBe('abc123')
   })
 
   it('round-trips catalog via gzip storage format', async () => {

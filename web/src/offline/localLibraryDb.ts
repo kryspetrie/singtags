@@ -12,6 +12,7 @@ import type {
 } from '../types/localLibrary'
 import { normalizeLocalEntry, normalizeLocalGroup, normalizeLocalPlaylist } from '../types/localLibrary'
 import { idbReq } from './offlineIndexedDb'
+import { markUserDataMutated } from '../lib/userDataDirty'
 
 export const LOCAL_LIBRARY_DB_NAME = 'singtags-local-library'
 export const LOCAL_LIBRARY_DB_VERSION = 5
@@ -211,6 +212,7 @@ export async function putLocalLibraryPrefs(prefs: LocalLibraryPrefs): Promise<vo
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export function newLocalId(prefix = 'le'): string {
@@ -255,6 +257,7 @@ export async function putLocalEntry(entry: LocalEntry): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function listAssetsForEntry(entryId: string): Promise<LocalAsset[]> {
@@ -315,6 +318,7 @@ export async function putLocalAsset(asset: LocalAsset, blob?: LocalAssetBlob): P
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function getLocalAssetBlob(id: string): Promise<LocalAssetBlob | null> {
@@ -341,6 +345,7 @@ export async function deleteLocalAsset(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteLocalEntry(id: string): Promise<void> {
@@ -363,6 +368,7 @@ export async function deleteLocalEntry(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function listLocalGroups(): Promise<LocalGroup[]> {
@@ -391,6 +397,7 @@ export async function putLocalGroup(group: LocalGroup): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteLocalGroup(id: string): Promise<void> {
@@ -415,6 +422,7 @@ export async function deleteLocalGroup(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 /** Put entry + assets (+ blobs) in one transaction. */
@@ -448,6 +456,7 @@ export async function putLocalEntryBundle(
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 
@@ -488,6 +497,7 @@ export async function putLocalPlaylist(playlist: LocalPlaylist): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteLocalPlaylist(id: string): Promise<void> {
@@ -502,6 +512,7 @@ export async function deleteLocalPlaylist(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function listAllLocalBlobs(): Promise<LocalAssetBlob[]> {

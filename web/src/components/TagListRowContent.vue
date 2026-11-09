@@ -14,7 +14,11 @@ import type { TagSummary } from '../types/tag'
 import { bookletBadgeForTag } from '../search/browse'
 import { normalizeYear } from '../lib/year'
 import { cacheReadyLabel, formatDownloads, visibleAltTitle } from '../lib/tagDisplay'
-import { NARROW_VIEWPORT_MQ, readIsNarrowViewport } from '../lib/narrowViewport'
+import {
+  NARROW_VIEWPORT_MQ,
+  readIsNarrowViewport,
+  syncNarrowViewportDataset,
+} from '../lib/narrowViewport'
 import { useCatalogStore } from '../stores/catalog'
 import { useRatingsStore } from '../stores/ratings'
 
@@ -112,7 +116,7 @@ function scheduleSyncLyricsPack(): void {
 }
 
 function syncNarrow(): void {
-  isNarrow.value = narrowMq?.matches ?? readIsNarrowViewport()
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
   scheduleSyncLyricsPack()
 }
 

@@ -32,6 +32,8 @@ Do **not** fold pillars, wizard step, contest profile, or just-intonation fields
 | `MusicXmlExporter` | `lib/tagRoll/musicxmlExport.ts` |
 | `AudioBounce` | `lib/tagRoll/audioBounce.ts` |
 | `LibraryIngest` | Local Library (Pinia-free use-case) |
+| `CatalogAudioSource` | `offline/resolveMedia.ts` (`resolveAudioPart`) |
+| `LocalLibraryArchiveStore` | `offline/localLibraryDb.ts` |
 
 ## Explicitly deferred
 
@@ -40,6 +42,7 @@ Do **not** fold pillars, wizard step, contest profile, or just-intonation fields
 - **TS8** — MusicXML `layout: 'perPart' | 'ttbb'`
 - **TS9** — never merge arrangement fields into the TagRoll schema
 - Full store thinning (remainder of **TS3**) and god-file splits (**TS4**) ratchet when touched
+- [PA0–PA3](../plans/tag-studio-ports-readiness.md#pure-ports-and-adapters-refactor) landed 2026-11-06. Drive sync, catalog browse, and the tag player stayed out. God-file budgets were not raised.
 
 ## References
 

@@ -2,6 +2,7 @@
  * IndexedDB for Labs Audio Recorder sessions + take blobs.
  */
 import { idbReq } from './offlineIndexedDb'
+import { markUserDataMutated } from '../lib/userDataDirty'
 import { newLocalId } from './localLibraryDb'
 import {
   normalizeRecorderSession,
@@ -117,6 +118,7 @@ export async function putRecorderSession(session: RecorderSession): Promise<void
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteRecorderSession(id: string): Promise<void> {
@@ -155,6 +157,7 @@ export async function deleteRecorderSession(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function listTakesForSession(sessionId: string): Promise<RecorderTake[]> {
@@ -208,6 +211,7 @@ export async function putRecorderTake(take: RecorderTake, blob: RecorderBlob): P
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 /**
@@ -256,6 +260,7 @@ export async function appendRecorderTake(
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 /** Sum of take.byteLength metadata (no blob materialization). */
@@ -321,6 +326,7 @@ export async function deleteRecorderTake(takeId: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function getRecorderOriginal(id: string): Promise<RecorderOriginal | null> {

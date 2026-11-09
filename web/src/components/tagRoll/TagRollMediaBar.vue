@@ -73,9 +73,9 @@ const mediaCollapseMq =
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia(MEDIA_COLLAPSE_MQ)
     : null
-const narrowMedia = ref(mediaCollapseMq?.matches ?? false)
+const narrowMedia = ref(mediaCollapseMq?.matches ?? true)
 function onMediaMqChange(): void {
-  narrowMedia.value = mediaCollapseMq?.matches ?? false
+  narrowMedia.value = mediaCollapseMq?.matches ?? true
   if (!narrowMedia.value) mediaExpanded.value = false
 }
 onMounted(() => {
@@ -459,7 +459,7 @@ onUnmounted(() => {
   <div
     v-if="project"
     class="media-bar"
-    :class="{ 'media-collapsed': narrowMedia && !mediaExpanded }"
+    :class="{ 'media-expanded': mediaExpanded }"
     role="region"
     aria-label="Transport and sound"
   >
@@ -911,7 +911,6 @@ onUnmounted(() => {
 
     <div class="transport" role="group" aria-label="Transport">
       <button
-        v-if="narrowMedia"
         type="button"
         class="tr-btn media-toggle"
         :aria-expanded="mediaExpanded"
@@ -1471,37 +1470,5 @@ onUnmounted(() => {
 }
 .tr-btn:active {
   transform: translateY(1px);
-}
-@media (max-width: 900px) {
-  .media-bar {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'transport'
-      'left'
-      'right';
-    justify-items: center;
-  }
-  .media-bar.media-collapsed {
-    grid-template-areas: 'transport';
-  }
-  .media-bar.media-collapsed .side {
-    display: none;
-  }
-  .side.left,
-  .side.right {
-    justify-content: center;
-    justify-self: stretch;
-    width: 100%;
-  }
-  .lane-toggles {
-    padding-left: 0;
-    border-left: none;
-  }
-  .lane-grid {
-    justify-content: center;
-  }
-  .transport {
-    justify-self: center;
-  }
 }
 </style>

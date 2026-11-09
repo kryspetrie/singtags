@@ -233,6 +233,7 @@ describe('cacheManage', () => {
       pianoEngine: 'synth',
       pianoLockPosition: false,
       showPcKeyRange: true,
+      attackSec: 0.25,
     })
   })
 

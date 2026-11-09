@@ -1,10 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import {
-  buildTagSharePath,
-  readDetuneFromQuery,
-  shareOrCopyUrl,
-  shouldPreferWebShare,
-} from './tagShare'
+import { shareOrCopyUrl, shouldPreferWebShare } from '../adapters/system/osShare'
+import { buildTagSharePath, readDetuneFromQuery } from './tagShare'
 
 describe('buildTagSharePath', () => {
   it('omits zero shift and optional flags', () => {

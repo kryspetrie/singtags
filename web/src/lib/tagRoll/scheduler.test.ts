@@ -44,7 +44,15 @@ describe('createTagRollScheduler', () => {
     const playheads: number[] = []
     let ended = false
     const sched = createTagRollScheduler({
-      getNotes: () => [],
+      getNotes: () => [
+        {
+          id: 'n1',
+          partId: 'p',
+          midi: 60,
+          startTick: 0,
+          durationTicks: TAG_ROLL_PPQ * 2,
+        },
+      ],
       getBpm: () => 120,
       getLengthTicks: () => TAG_ROLL_PPQ * 2,
       player: fakePlayer() as never,
@@ -235,8 +243,17 @@ describe('createTagRollScheduler', () => {
         endBpm: 40,
       },
     ]
+    const sustain = [
+      {
+        id: 'n1',
+        partId: 'p',
+        midi: 60,
+        startTick: 0,
+        durationTicks: TAG_ROLL_PPQ * 64,
+      },
+    ]
     const sched = createTagRollScheduler({
-      getNotes: () => [],
+      getNotes: () => sustain,
       getBpm: () => 120,
       getTempoMarkers: () => [{ id: 't0', tick: 0, bpm: 120 }],
       getExpressions: () => rit,
@@ -256,7 +273,7 @@ describe('createTagRollScheduler', () => {
 
     const clock2 = installClock()
     const sched2 = createTagRollScheduler({
-      getNotes: () => [],
+      getNotes: () => sustain,
       getBpm: () => 120,
       getTempoMarkers: () => [{ id: 't0', tick: 0, bpm: 120 }],
       getExpressions: () => [],

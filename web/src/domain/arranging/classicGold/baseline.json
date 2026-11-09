@@ -1,11 +1,11 @@
 {
-  "updatedAt": "2026-10-09T03:23:05.801Z",
+  "updatedAt": "2026-11-06T20:58:14.604Z",
   "note": "Classic Tags advisory baseline — default Basic Path Optimize.",
   "micro": {
-    "pillarNorm": 0.927,
-    "natureMatch": 0.63,
-    "softFullNorm": 0.476,
-    "strictPillarNorm": 0.603
+    "pillarNorm": 0.917,
+    "natureMatch": 0.634,
+    "softFullNorm": 0.471,
+    "strictPillarNorm": 0.597
   },
   "perTag": {
     "1": {
@@ -17,7 +17,7 @@
     "2": {
       "pillarNorm": 1,
       "natureMatch": 0.583,
-      "softFullNorm": 0.516,
+      "softFullNorm": 0.452,
       "strictPillarNorm": 0.583
     },
     "9": {
@@ -27,9 +27,9 @@
       "strictPillarNorm": 0.667
     },
     "10": {
-      "pillarNorm": 1,
-      "natureMatch": 0.625,
-      "softFullNorm": 0.6,
+      "pillarNorm": 0.75,
+      "natureMatch": 0.833,
+      "softFullNorm": 0.467,
       "strictPillarNorm": 0.556
     },
     "11": {
@@ -42,7 +42,7 @@
       "pillarNorm": 0.9,
       "natureMatch": 0.778,
       "softFullNorm": 0.556,
-      "strictPillarNorm": 0.818
+      "strictPillarNorm": 0.727
     },
     "13": {
       "pillarNorm": 1,
@@ -53,7 +53,7 @@
     "14": {
       "pillarNorm": 1,
       "natureMatch": 0.556,
-      "softFullNorm": 0.7,
+      "softFullNorm": 0.75,
       "strictPillarNorm": 0.636
     },
     "17": {
@@ -77,13 +77,13 @@
     "20": {
       "pillarNorm": 0.714,
       "natureMatch": 0.2,
-      "softFullNorm": 0.467,
+      "softFullNorm": 0.4,
       "strictPillarNorm": 0.2
     },
     "21": {
       "pillarNorm": 0.8,
       "natureMatch": 1,
-      "softFullNorm": 0.5,
+      "softFullNorm": 0.556,
       "strictPillarNorm": 0.667
     },
     "22": {
@@ -101,14 +101,14 @@
     "26": {
       "pillarNorm": 1,
       "natureMatch": 0.545,
-      "softFullNorm": 0.56,
+      "softFullNorm": 0.52,
       "strictPillarNorm": 0.5
     },
     "27": {
       "pillarNorm": 1,
-      "natureMatch": 0.6,
+      "natureMatch": 0.4,
       "softFullNorm": 0.429,
-      "strictPillarNorm": 0.6
+      "strictPillarNorm": 0.4
     },
     "28": {
       "pillarNorm": 0.8,
@@ -118,7 +118,7 @@
     },
     "29": {
       "pillarNorm": 1,
-      "natureMatch": 1,
+      "natureMatch": 0.8,
       "softFullNorm": 0.412,
       "strictPillarNorm": 1
     },
@@ -136,27 +136,27 @@
     },
     "33": {
       "pillarNorm": 1,
-      "natureMatch": 0.25,
+      "natureMatch": 0.375,
       "softFullNorm": 0.625,
-      "strictPillarNorm": 0.375
+      "strictPillarNorm": 0.5
     },
     "34": {
       "pillarNorm": 1,
-      "natureMatch": 0.75,
+      "natureMatch": 0.5,
       "softFullNorm": 0.333,
-      "strictPillarNorm": 0.75
+      "strictPillarNorm": 0.5
     },
     "35": {
       "pillarNorm": 1,
-      "natureMatch": 0.571,
+      "natureMatch": 0.714,
       "softFullNorm": 0.5,
       "strictPillarNorm": 0.75
     },
     "36": {
-      "pillarNorm": 1,
-      "natureMatch": 0.714,
-      "softFullNorm": 0.567,
-      "strictPillarNorm": 0.667
+      "pillarNorm": 0.857,
+      "natureMatch": 0.75,
+      "softFullNorm": 0.5,
+      "strictPillarNorm": 0.6
     },
     "37": {
       "pillarNorm": 0.857,
@@ -172,9 +172,9 @@
     },
     "39": {
       "pillarNorm": 0.8,
-      "natureMatch": 0.5,
-      "softFullNorm": 0.563,
-      "strictPillarNorm": 0.267
+      "natureMatch": 0.625,
+      "softFullNorm": 0.5,
+      "strictPillarNorm": 0.467
     },
     "40": {
       "pillarNorm": 1,
@@ -190,15 +190,15 @@
     },
     "42": {
       "pillarNorm": 0.833,
-      "natureMatch": 0.6,
+      "natureMatch": 0.8,
       "softFullNorm": 0.421,
-      "strictPillarNorm": 0.273
+      "strictPillarNorm": 0.364
     },
     "43": {
       "pillarNorm": 1,
-      "natureMatch": 0.5,
+      "natureMatch": 0.75,
       "softFullNorm": 0.444,
-      "strictPillarNorm": 0.667
+      "strictPillarNorm": 0.833
     },
     "44": {
       "pillarNorm": 1,
@@ -208,68 +208,68 @@
     },
     "45": {
       "pillarNorm": 0.833,
-      "natureMatch": 0.6,
+      "natureMatch": 0.4,
       "softFullNorm": 0.381,
-      "strictPillarNorm": 0.667
+      "strictPillarNorm": 0.5
     },
     "46": {
       "pillarNorm": 1,
       "natureMatch": 1,
-      "softFullNorm": 0.45,
+      "softFullNorm": 0.4,
       "strictPillarNorm": 1
     },
     "47": {
       "pillarNorm": 0.875,
-      "natureMatch": 0.571,
-      "softFullNorm": 0.464,
-      "strictPillarNorm": 0.625
+      "natureMatch": 0.857,
+      "softFullNorm": 0.5,
+      "strictPillarNorm": 0.75
     },
     "49": {
       "pillarNorm": 0.909,
-      "natureMatch": 0.5,
+      "natureMatch": 0.6,
       "softFullNorm": 0.524,
       "strictPillarNorm": 0.5
     },
     "50": {
-      "pillarNorm": 0.833,
-      "natureMatch": 0.6,
-      "softFullNorm": 0.357,
+      "pillarNorm": 0.667,
+      "natureMatch": 0.5,
+      "softFullNorm": 0.286,
       "strictPillarNorm": 0.429
     },
     "51": {
-      "pillarNorm": 1,
-      "natureMatch": 0.5,
+      "pillarNorm": 0.75,
+      "natureMatch": 0.333,
       "softFullNorm": 0.333,
-      "strictPillarNorm": 0.5
+      "strictPillarNorm": 0.333
     },
     "53": {
       "pillarNorm": 1,
-      "natureMatch": 0.5,
+      "natureMatch": 0.75,
       "softFullNorm": 0.556,
-      "strictPillarNorm": 0.6
+      "strictPillarNorm": 0.8
     },
     "54": {
-      "pillarNorm": 0.8,
-      "natureMatch": 0.625,
-      "softFullNorm": 0.389,
-      "strictPillarNorm": 0.615
+      "pillarNorm": 1,
+      "natureMatch": 0.6,
+      "softFullNorm": 0.444,
+      "strictPillarNorm": 0.692
     },
     "55": {
       "pillarNorm": 1,
       "natureMatch": 1,
-      "softFullNorm": 0.462,
+      "softFullNorm": 0.385,
       "strictPillarNorm": 1
     },
     "56": {
       "pillarNorm": 1,
       "natureMatch": 1,
-      "softFullNorm": 0.438,
+      "softFullNorm": 0.625,
       "strictPillarNorm": 1
     },
     "57": {
       "pillarNorm": 1,
       "natureMatch": 0.875,
-      "softFullNorm": 0.722,
+      "softFullNorm": 0.667,
       "strictPillarNorm": 0.778
     },
     "58": {
@@ -280,21 +280,21 @@
     },
     "59": {
       "pillarNorm": 1,
-      "natureMatch": 0.857,
-      "softFullNorm": 0.364,
-      "strictPillarNorm": 0.636
+      "natureMatch": 0.714,
+      "softFullNorm": 0.409,
+      "strictPillarNorm": 0.545
     },
     "62": {
       "pillarNorm": 1,
       "natureMatch": 0.556,
-      "softFullNorm": 0.667,
+      "softFullNorm": 0.611,
       "strictPillarNorm": 0.455
     },
     "63": {
       "pillarNorm": 1,
-      "natureMatch": 0.6,
+      "natureMatch": 0.8,
       "softFullNorm": 0.467,
-      "strictPillarNorm": 0.857
+      "strictPillarNorm": 0.714
     },
     "64": {
       "pillarNorm": 0.857,
@@ -303,16 +303,16 @@
       "strictPillarNorm": 0.364
     },
     "65": {
-      "pillarNorm": 1,
-      "natureMatch": 0.545,
-      "softFullNorm": 0.368,
+      "pillarNorm": 0.909,
+      "natureMatch": 0.6,
+      "softFullNorm": 0.342,
       "strictPillarNorm": 0.5
     },
     "66": {
-      "pillarNorm": 0.714,
-      "natureMatch": 0.4,
-      "softFullNorm": 0.421,
-      "strictPillarNorm": 0.429
+      "pillarNorm": 0.571,
+      "natureMatch": 0.5,
+      "softFullNorm": 0.368,
+      "strictPillarNorm": 0.571
     },
     "67": {
       "pillarNorm": 1,
@@ -354,7 +354,7 @@
       "pillarNorm": 0.889,
       "natureMatch": 0.375,
       "softFullNorm": 0.412,
-      "strictPillarNorm": 0.636
+      "strictPillarNorm": 0.545
     },
     "74": {
       "pillarNorm": 0.857,
@@ -363,10 +363,10 @@
       "strictPillarNorm": 0.714
     },
     "76": {
-      "pillarNorm": 1,
-      "natureMatch": 0.857,
-      "softFullNorm": 0.563,
-      "strictPillarNorm": 0.75
+      "pillarNorm": 0.857,
+      "natureMatch": 0.833,
+      "softFullNorm": 0.5,
+      "strictPillarNorm": 0.625
     },
     "77": {
       "pillarNorm": 1,
@@ -388,9 +388,9 @@
     },
     "80": {
       "pillarNorm": 1,
-      "natureMatch": 0.444,
+      "natureMatch": 0.333,
       "softFullNorm": 0.355,
-      "strictPillarNorm": 0.636
+      "strictPillarNorm": 0.455
     },
     "81": {
       "pillarNorm": 1,
@@ -401,13 +401,13 @@
     "82": {
       "pillarNorm": 0.857,
       "natureMatch": 0.833,
-      "softFullNorm": 0.556,
-      "strictPillarNorm": 0.714
+      "softFullNorm": 0.444,
+      "strictPillarNorm": 0.857
     },
     "83": {
-      "pillarNorm": 0.929,
-      "natureMatch": 0.615,
-      "softFullNorm": 0.652,
+      "pillarNorm": 0.857,
+      "natureMatch": 0.583,
+      "softFullNorm": 0.609,
       "strictPillarNorm": 0.6
     },
     "84": {
@@ -424,9 +424,9 @@
     },
     "86": {
       "pillarNorm": 1,
-      "natureMatch": 0.556,
+      "natureMatch": 0.444,
       "softFullNorm": 0.6,
-      "strictPillarNorm": 0.667
+      "strictPillarNorm": 0.583
     },
     "87": {
       "pillarNorm": 1,
@@ -442,21 +442,21 @@
     },
     "89": {
       "pillarNorm": 0.857,
-      "natureMatch": 0.167,
+      "natureMatch": 0.333,
       "softFullNorm": 0.727,
-      "strictPillarNorm": 0.25
+      "strictPillarNorm": 0.5
     },
     "90": {
-      "pillarNorm": 1,
-      "natureMatch": 0.545,
-      "softFullNorm": 0.519,
-      "strictPillarNorm": 0.538
+      "pillarNorm": 0.818,
+      "natureMatch": 0.778,
+      "softFullNorm": 0.444,
+      "strictPillarNorm": 0.615
     },
     "91": {
       "pillarNorm": 1,
-      "natureMatch": 0.25,
+      "natureMatch": 0.5,
       "softFullNorm": 0.538,
-      "strictPillarNorm": 0.25
+      "strictPillarNorm": 0.5
     },
     "92": {
       "pillarNorm": 0.889,
@@ -468,7 +468,7 @@
       "pillarNorm": 0.667,
       "natureMatch": 0.5,
       "softFullNorm": 0.333,
-      "strictPillarNorm": 0.667
+      "strictPillarNorm": 0.333
     },
     "94": {
       "pillarNorm": 0.875,
@@ -485,7 +485,7 @@
     "96": {
       "pillarNorm": 1,
       "natureMatch": 0.571,
-      "softFullNorm": 0.444,
+      "softFullNorm": 0.5,
       "strictPillarNorm": 0.571
     },
     "97": {
@@ -502,45 +502,45 @@
     },
     "99": {
       "pillarNorm": 0.818,
-      "natureMatch": 0.667,
+      "natureMatch": 0.556,
       "softFullNorm": 0.524,
-      "strictPillarNorm": 0.583
+      "strictPillarNorm": 0.417
     },
     "100": {
       "pillarNorm": 1,
-      "natureMatch": 0.667,
+      "natureMatch": 1,
       "softFullNorm": 0.556,
-      "strictPillarNorm": 1
+      "strictPillarNorm": 0.75
     },
     "101": {
       "pillarNorm": 1,
-      "natureMatch": 0.667,
+      "natureMatch": 0.556,
       "softFullNorm": 0.714,
       "strictPillarNorm": 0.6
     },
     "102": {
       "pillarNorm": 0.917,
-      "natureMatch": 0.455,
+      "natureMatch": 0.636,
       "softFullNorm": 0.522,
-      "strictPillarNorm": 0.467
+      "strictPillarNorm": 0.533
     },
     "103": {
       "pillarNorm": 0.909,
-      "natureMatch": 0.7,
+      "natureMatch": 0.5,
       "softFullNorm": 0.536,
       "strictPillarNorm": 0.571
     },
     "104": {
-      "pillarNorm": 0.857,
-      "natureMatch": 0.333,
+      "pillarNorm": 0.929,
+      "natureMatch": 0.462,
       "softFullNorm": 0.515,
-      "strictPillarNorm": 0.267
+      "strictPillarNorm": 0.4
     },
     "105": {
-      "pillarNorm": 0.875,
-      "natureMatch": 0.714,
+      "pillarNorm": 0.75,
+      "natureMatch": 0.333,
       "softFullNorm": 0.348,
-      "strictPillarNorm": 0.667
+      "strictPillarNorm": 0.444
     },
     "106": {
       "pillarNorm": 1,
@@ -556,19 +556,19 @@
     },
     "108": {
       "pillarNorm": 0.8,
-      "natureMatch": 0.25,
+      "natureMatch": 0.5,
       "softFullNorm": 0.308,
-      "strictPillarNorm": 0.333
+      "strictPillarNorm": 0.5
     },
     "109": {
       "pillarNorm": 0.833,
-      "natureMatch": 1,
+      "natureMatch": 0.8,
       "softFullNorm": 0.348,
-      "strictPillarNorm": 0.714
+      "strictPillarNorm": 0.571
     },
     "110": {
       "pillarNorm": 0.8,
-      "natureMatch": 0.25,
+      "natureMatch": 0,
       "softFullNorm": 0.267,
       "strictPillarNorm": 0.2
     },
@@ -576,7 +576,7 @@
       "pillarNorm": 1,
       "natureMatch": 0.4,
       "softFullNorm": 0.545,
-      "strictPillarNorm": 0.6
+      "strictPillarNorm": 0.4
     },
     "112": {
       "pillarNorm": 1,
@@ -586,33 +586,33 @@
     },
     "113": {
       "pillarNorm": 0.857,
-      "natureMatch": 0.5,
-      "softFullNorm": 0.438,
+      "natureMatch": 0.667,
+      "softFullNorm": 0.5,
       "strictPillarNorm": 0.571
     },
     "114": {
       "pillarNorm": 0.857,
       "natureMatch": 0.5,
-      "softFullNorm": 0.235,
+      "softFullNorm": 0.206,
       "strictPillarNorm": 0.429
     },
     "115": {
       "pillarNorm": 1,
-      "natureMatch": 0.545,
-      "softFullNorm": 0.515,
-      "strictPillarNorm": 0.643
+      "natureMatch": 0.636,
+      "softFullNorm": 0.485,
+      "strictPillarNorm": 0.714
     },
     "116": {
       "pillarNorm": 1,
-      "natureMatch": 0,
+      "natureMatch": 0.125,
       "softFullNorm": 0.476,
       "strictPillarNorm": 0.125
     },
     "117": {
-      "pillarNorm": 1,
-      "natureMatch": 0.667,
+      "pillarNorm": 0.833,
+      "natureMatch": 0.4,
       "softFullNorm": 0.588,
-      "strictPillarNorm": 0.833
+      "strictPillarNorm": 0.667
     },
     "118": {
       "pillarNorm": 0.889,
@@ -621,10 +621,10 @@
       "strictPillarNorm": 0.778
     },
     "119": {
-      "pillarNorm": 0.846,
-      "natureMatch": 0.909,
-      "softFullNorm": 0.5,
-      "strictPillarNorm": 0.714
+      "pillarNorm": 0.769,
+      "natureMatch": 0.7,
+      "softFullNorm": 0.469,
+      "strictPillarNorm": 0.5
     },
     "120": {
       "pillarNorm": 0.75,
@@ -653,24 +653,24 @@
     "124": {
       "pillarNorm": 1,
       "natureMatch": 0.5,
-      "softFullNorm": 0.409,
-      "strictPillarNorm": 0.5
+      "softFullNorm": 0.364,
+      "strictPillarNorm": 0.667
     },
     "125": {
-      "pillarNorm": 0.5,
+      "pillarNorm": 0.75,
       "natureMatch": 1,
       "softFullNorm": 0.269,
-      "strictPillarNorm": 0.5
+      "strictPillarNorm": 0.75
     },
     "126": {
       "pillarNorm": 1,
-      "natureMatch": 0.571,
+      "natureMatch": 0.714,
       "softFullNorm": 0.474,
-      "strictPillarNorm": 0.625
+      "strictPillarNorm": 0.75
     },
     "127": {
       "pillarNorm": 1,
-      "natureMatch": 0.727,
+      "natureMatch": 0.636,
       "softFullNorm": 0.706,
       "strictPillarNorm": 0.615
     },
@@ -682,9 +682,9 @@
     },
     "129": {
       "pillarNorm": 0.857,
-      "natureMatch": 1,
-      "softFullNorm": 0.4,
-      "strictPillarNorm": 0.857
+      "natureMatch": 0.833,
+      "softFullNorm": 0.45,
+      "strictPillarNorm": 0.714
     },
     "130": {
       "pillarNorm": 1,
@@ -694,9 +694,9 @@
     },
     "131": {
       "pillarNorm": 0.9,
-      "natureMatch": 0.556,
-      "softFullNorm": 0.56,
-      "strictPillarNorm": 0.5
+      "natureMatch": 0.667,
+      "softFullNorm": 0.52,
+      "strictPillarNorm": 0.667
     },
     "132": {
       "pillarNorm": 1,
@@ -707,14 +707,14 @@
     "133": {
       "pillarNorm": 1,
       "natureMatch": 0.8,
-      "softFullNorm": 0.4,
+      "softFullNorm": 0.467,
       "strictPillarNorm": 0.667
     },
     "134": {
       "pillarNorm": 1,
-      "natureMatch": 0.8,
+      "natureMatch": 0.6,
       "softFullNorm": 0.533,
-      "strictPillarNorm": 0.833
+      "strictPillarNorm": 0.667
     },
     "135": {
       "pillarNorm": 1,

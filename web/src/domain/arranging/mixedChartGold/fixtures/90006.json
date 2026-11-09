@@ -11,8 +11,8 @@
   "lockCoverage": 0.5681818181818182,
   "onsets": [
     {
-      "startTick": 1,
-      "endTick": 961,
+      "startTick": 0,
+      "endTick": 960,
       "leadMidi": 57,
       "midi": {
         "tenor": 72,
@@ -91,8 +91,8 @@
       ]
     },
     {
-      "startTick": 1441,
-      "endTick": 2401,
+      "startTick": 1440,
+      "endTick": 2400,
       "leadMidi": 65,
       "midi": {
         "tenor": 69,
@@ -171,8 +171,8 @@
       ]
     },
     {
-      "startTick": 2881,
-      "endTick": 3361,
+      "startTick": 2880,
+      "endTick": 3360,
       "leadMidi": 69,
       "midi": {
         "tenor": 72,
@@ -269,8 +269,8 @@
       ]
     },
     {
-      "startTick": 4321,
-      "endTick": 5281,
+      "startTick": 4320,
+      "endTick": 5280,
       "leadMidi": 59,
       "midi": {
         "tenor": 68,
@@ -331,8 +331,8 @@
       ]
     },
     {
-      "startTick": 5761,
-      "endTick": 7201,
+      "startTick": 5760,
+      "endTick": 7200,
       "leadMidi": 62,
       "midi": {
         "tenor": 70,
@@ -380,8 +380,8 @@
       ]
     },
     {
-      "startTick": 7201,
-      "endTick": 8641,
+      "startTick": 7200,
+      "endTick": 8640,
       "leadMidi": 62,
       "midi": {
         "tenor": 72,
@@ -411,8 +411,8 @@
       ]
     },
     {
-      "startTick": 8641,
-      "endTick": 11041,
+      "startTick": 8640,
+      "endTick": 11040,
       "leadMidi": 62,
       "midi": {
         "tenor": 71,
@@ -442,8 +442,8 @@
       ]
     },
     {
-      "startTick": 11521,
-      "endTick": 12481,
+      "startTick": 11520,
+      "endTick": 12480,
       "leadMidi": 64,
       "midi": {
         "tenor": 70,
@@ -504,8 +504,8 @@
       ]
     },
     {
-      "startTick": 12961,
-      "endTick": 13921,
+      "startTick": 12960,
+      "endTick": 13920,
       "leadMidi": 64,
       "midi": {
         "tenor": 70,
@@ -566,8 +566,8 @@
       ]
     },
     {
-      "startTick": 14401,
-      "endTick": 14881,
+      "startTick": 14400,
+      "endTick": 14880,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -628,8 +628,8 @@
       ]
     },
     {
-      "startTick": 15841,
-      "endTick": 16801,
+      "startTick": 15840,
+      "endTick": 16800,
       "leadMidi": 62,
       "midi": {
         "tenor": 71,
@@ -690,8 +690,8 @@
       ]
     },
     {
-      "startTick": 17281,
-      "endTick": 18721,
+      "startTick": 17280,
+      "endTick": 18720,
       "leadMidi": 60,
       "midi": {
         "tenor": 69,
@@ -739,8 +739,8 @@
       ]
     },
     {
-      "startTick": 18721,
-      "endTick": 20161,
+      "startTick": 18720,
+      "endTick": 20160,
       "leadMidi": 60,
       "midi": {
         "tenor": 69,
@@ -782,8 +782,8 @@
       ]
     },
     {
-      "startTick": 20161,
-      "endTick": 22561,
+      "startTick": 20160,
+      "endTick": 22560,
       "leadMidi": 60,
       "midi": {
         "tenor": 70,
@@ -813,8 +813,8 @@
       ]
     },
     {
-      "startTick": 23041,
-      "endTick": 24001,
+      "startTick": 23040,
+      "endTick": 24000,
       "leadMidi": 57,
       "midi": {
         "tenor": 72,
@@ -893,8 +893,8 @@
       ]
     },
     {
-      "startTick": 24481,
-      "endTick": 25441,
+      "startTick": 24480,
+      "endTick": 25440,
       "leadMidi": 65,
       "midi": {
         "tenor": 69,
@@ -973,8 +973,8 @@
       ]
     },
     {
-      "startTick": 25921,
-      "endTick": 26401,
+      "startTick": 25920,
+      "endTick": 26400,
       "leadMidi": 69,
       "midi": {
         "tenor": 72,
@@ -1071,8 +1071,8 @@
       ]
     },
     {
-      "startTick": 27361,
-      "endTick": 28321,
+      "startTick": 27360,
+      "endTick": 28320,
       "leadMidi": 59,
       "midi": {
         "tenor": 68,
@@ -1133,8 +1133,8 @@
       ]
     },
     {
-      "startTick": 28801,
-      "endTick": 30241,
+      "startTick": 28800,
+      "endTick": 30240,
       "leadMidi": 62,
       "midi": {
         "tenor": 70,
@@ -1182,8 +1182,8 @@
       ]
     },
     {
-      "startTick": 30241,
-      "endTick": 31681,
+      "startTick": 30240,
+      "endTick": 31680,
       "leadMidi": 62,
       "midi": {
         "tenor": 72,
@@ -1213,8 +1213,8 @@
       ]
     },
     {
-      "startTick": 31681,
-      "endTick": 34081,
+      "startTick": 31680,
+      "endTick": 34080,
       "leadMidi": 67,
       "midi": {
         "tenor": 71,
@@ -1244,8 +1244,8 @@
       ]
     },
     {
-      "startTick": 34561,
-      "endTick": 35521,
+      "startTick": 34560,
+      "endTick": 35520,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -1342,8 +1342,8 @@
       ]
     },
     {
-      "startTick": 36001,
-      "endTick": 36961,
+      "startTick": 36000,
+      "endTick": 36960,
       "leadMidi": 64,
       "midi": {
         "tenor": 74,
@@ -1404,8 +1404,8 @@
       ]
     },
     {
-      "startTick": 37441,
-      "endTick": 37921,
+      "startTick": 37440,
+      "endTick": 37920,
       "leadMidi": 69,
       "midi": {
         "tenor": 72,
@@ -1502,8 +1502,8 @@
       ]
     },
     {
-      "startTick": 38881,
-      "endTick": 39841,
+      "startTick": 38880,
+      "endTick": 39840,
       "leadMidi": 70,
       "midi": {
         "tenor": 74,
@@ -1570,8 +1570,8 @@
       ]
     },
     {
-      "startTick": 40321,
-      "endTick": 41761,
+      "startTick": 40320,
+      "endTick": 41760,
       "leadMidi": 62,
       "midi": {
         "tenor": 71,
@@ -1601,8 +1601,8 @@
       ]
     },
     {
-      "startTick": 41761,
-      "endTick": 43201,
+      "startTick": 41760,
+      "endTick": 43200,
       "leadMidi": 64,
       "midi": {
         "tenor": 70,
@@ -1632,8 +1632,8 @@
       ]
     },
     {
-      "startTick": 43201,
-      "endTick": 46081,
+      "startTick": 43200,
+      "endTick": 46080,
       "leadMidi": 65,
       "midi": {
         "tenor": 69,

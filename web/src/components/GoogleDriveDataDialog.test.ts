@@ -10,6 +10,7 @@ import GoogleDriveDataDialog from './GoogleDriveDataDialog.vue'
 import { accountUiState, __resetAccountUiForTests } from '../lib/google/accountUi'
 import { loadDriveAccountSummary } from '../lib/google/driveAccountSummary'
 import { GOOGLE_CONNECTED_KEY, googleAuthState } from '../lib/google/googleAuth'
+import { useSnackbarStore } from '../stores/snackbar'
 
 vi.mock('../lib/google/driveAccountSummary', () => ({
   loadDriveAccountSummary: vi.fn(),
@@ -97,6 +98,41 @@ describe('Google Drive data modal', () => {
     expect(accountUiState.chromeMenuOpen).toBe(false)
     expect(document.body.textContent).toMatch(/Your Google Drive/)
     expect(document.body.textContent).toMatch(/no telemetry/)
+    wrapper.unmount()
+  })
+
+  it('checks Drive from the account menu', async () => {
+    localStorage.setItem(
+      GOOGLE_CONNECTED_KEY,
+      JSON.stringify({ connectedAt: '2026-01-01T00:00:00.000Z', email: 'singer@example.com' }),
+    )
+    googleAuthState.connected = true
+    googleAuthState.email = 'singer@example.com'
+    googleAuthState.driveSyncEnabled = false
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+    const wrapper = mount(AppAccountControl, {
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    const account = document.body.querySelector('.account-btn') as HTMLButtonElement
+    account.click()
+    await flushPromises()
+    const check = [...document.body.querySelectorAll('button')].find((b) =>
+      /Check for updates/.test(b.textContent || ''),
+    ) as HTMLButtonElement
+    expect(check).toBeTruthy()
+    check.click()
+    await flushPromises()
+    expect(useSnackbarStore().title).toBe('Google Drive')
+    expect(useSnackbarStore().message).toMatch(/Turn on Google Drive sync in Labs/)
+    expect(accountUiState.chromeMenuOpen).toBe(false)
     wrapper.unmount()
   })
 })

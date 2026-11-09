@@ -21,7 +21,7 @@ import { applyTagReturnScrollIfAny } from '../lib/tagReturn'
 import { queueSelectedTags, type QueueDownloadMode } from '../lib/queueSelectedTags'
 import { loadTagDetailCached } from '../lib/loadTagDetailCached'
 import type { TagSummary } from '../types/tag'
-import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const catalog = useCatalogStore()
@@ -72,7 +72,7 @@ const showRowSelect = computed(
 )
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? false
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
 }
 
 function toggleSelect(id: number): void {
@@ -254,8 +254,8 @@ function rowStarLabel(tag: TagSummary): string {
 
 <template>
   <section
-    class="recent-page"
-    :class="{ 'has-selection': selectedIds.size }"
+    class="recent-page row-select-host"
+    :class="{ 'has-selection': selectedIds.size, 'row-select-active': selectMode || selectedIds.size > 0 }"
     aria-label="Recent tags"
   >
     <p v-if="catalog.loading && !catalog.loaded" class="muted intro" role="status">

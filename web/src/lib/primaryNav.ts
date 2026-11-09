@@ -307,6 +307,34 @@ export function resolvePrimaryNavPinCount(preferred: number, fitCapacity: number
   return Math.max(1, Math.min(pref, fit, PRIMARY_NAV_PIN_COUNT_MAX))
 }
 
+/** Desktop topnav breakpoint (matches App shell). */
+export const DESKTOP_NAV_MQ = '(min-width: 768px)'
+
+/**
+ * Sync pin capacity before the off-screen / bottom-bar probe runs, so the first
+ * paint does not show more pins than will fit and then yank them into More.
+ */
+export function estimateInitialNavFitCapacity(
+  preferred: number,
+  opts?: { innerWidth?: number; isDesktop?: boolean },
+): number {
+  const pref = normalizePrimaryNavPinCount(preferred)
+  const w =
+    opts?.innerWidth ??
+    (typeof window !== 'undefined' && Number.isFinite(window.innerWidth) ? window.innerWidth : 0)
+  const desktop =
+    opts?.isDesktop ??
+    (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(DESKTOP_NAV_MQ).matches
+      : false)
+  if (!desktop) {
+    return resolvePrimaryNavPinCount(pref, maxBottomNavPins(w > 0 ? w : 360))
+  }
+  // Brand + account controls + More ≈ 280px; ~88px per pin label.
+  const rough = Math.max(1, Math.floor(Math.max(0, w - 280) / 88))
+  return resolvePrimaryNavPinCount(pref, rough)
+}
+
 /**
  * How many leading pin buttons fit beside a fixed More control given widths (px).
  * Drops from the right; always returns at least 1 when any pin is offered.

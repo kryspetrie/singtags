@@ -41,6 +41,14 @@
       try {
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
       } catch (_) {}
+      // Stamp narrow vs wide before Vue so Browse checkboxes / jump labels match
+      // the phone viewport on first paint (not after onMounted matchMedia).
+      try {
+        var narrow = window.matchMedia('(max-width: 639px)').matches
+        document.documentElement.dataset.narrow = narrow ? '1' : '0'
+      } catch (_) {
+        document.documentElement.dataset.narrow = '1'
+      }
     </script>
   </head>
   <body>

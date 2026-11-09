@@ -11,20 +11,12 @@
 import { isSingTagsOffline } from '../appOffline'
 import {
   APP_STATE_LOCAL_KEYS,
-  applyLocalStorageSnapshot,
-  buildAppStateBackup,
-  parseAppStateBackup,
   type AppStateBackupFile,
   type AppStateSnapshotInput,
 } from '../appStateBackup'
+import { mergeUserDocuments } from '../userDocuments'
 import type { FavoritesBackupFile } from '../favoritesBackup'
-import {
-  downloadJsonFile,
-  ensureAppDataPath,
-  findChildByName,
-  sha256Hex,
-  upsertTextFile,
-} from './driveAppData'
+import { sha256Hex } from './driveAppData'
 import { reactive } from 'vue'
 import {
   getAccessToken,
@@ -35,6 +27,16 @@ import {
   restoreGoogleConnection,
   GoogleAuthError,
 } from './googleAuth'
+import {
+  applyCloudState,
+  applyMergedRemote,
+  buildLocalState,
+  readCloudAppState,
+  readCloudAppStateMeta,
+  restoreFirstCloudCopy,
+  uploadMergingRemoteIfNeeded,
+  writeCloudAppState,
+} from './driveAppStateCloud'
 
 export const DRIVE_STATE_SEGMENTS = ['singtags', 'state'] as const
 export const DRIVE_APP_STATE_FILE = 'app-state.json'
@@ -59,7 +61,11 @@ export type DriveSyncDecision =
   | { action: 'merge'; reason: string }
 
 /** While applying a cloud restore, favorites import must not mark local dirty / schedule push. */
-let suppressDrivePush = false
+export let suppressDrivePush = false
+
+export function setSuppressDrivePush(value: boolean): void {
+  suppressDrivePush = value
+}
 
 export type DriveConflictChoice = 'keep-local' | 'keep-cloud' | 'merge'
 
@@ -71,15 +77,21 @@ export const driveSyncState = reactive({
   pendingDirty: false,
 })
 
-type SnapshotProvider = () => Promise<AppStateSnapshotInput> | AppStateSnapshotInput
-type ApplyFavorites = (favorites: FavoritesBackupFile, mode: 'replace' | 'merge') => Promise<void>
+export type SnapshotProvider = () => Promise<AppStateSnapshotInput> | AppStateSnapshotInput
+export type ApplyFavorites = (favorites: FavoritesBackupFile, mode: 'replace' | 'merge') => Promise<void>
 
-let snapshotProvider: SnapshotProvider | null = null
-let applyFavorites: ApplyFavorites | null = null
+export let snapshotProvider: SnapshotProvider | null = null
+export let applyFavorites: ApplyFavorites | null = null
 let conflictChooser: (() => Promise<DriveConflictChoice>) | null = null
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 let retryTimer: ReturnType<typeof setTimeout> | null = null
 let hydrateInFlight: Promise<void> | null = null
+/** Set when a pull applied Drive state and the caller asked to reload later. */
+export let reloadAfterHydrate = false
+
+export function setReloadAfterHydrate(value: boolean): void {
+  reloadAfterHydrate = value
+}
 let pushInFlight: Promise<void> | null = null
 let onlineHooked = false
 let storageHooked = false
@@ -160,7 +172,7 @@ export function readLastSyncMeta(): DriveAppStateMeta | null {
   }
 }
 
-function writeLastSyncMeta(meta: DriveAppStateMeta): void {
+export function writeLastSyncMeta(meta: DriveAppStateMeta): void {
   writeFlag(DRIVE_LAST_SYNC_KEY, JSON.stringify(meta))
   driveSyncState.lastSyncedAt = meta.exportedAt
 }
@@ -274,9 +286,46 @@ async function defaultConflictChooser(): Promise<DriveConflictChoice> {
   return 'merge'
 }
 
+/**
+ * Hash the synced content only. `exportedAt` is stamped on every snapshot, so
+ * including it made every device look locally edited and the pull never took
+ * the download branch.
+ */
+function canonicalAppState(state: AppStateBackupFile): unknown {
+  const favorites = state.favorites
+  const tags = [...(favorites.starred?.tags ?? [])].sort(
+    (a, b) => (a.summary?.id ?? 0) - (b.summary?.id ?? 0),
+  )
+  const collections = [...(favorites.collections ?? [])].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  )
+  const localStorage: Record<string, string> = {}
+  for (const key of Object.keys(state.localStorage ?? {}).sort()) {
+    const value = state.localStorage[key]
+    if (typeof value === 'string') localStorage[key] = value
+  }
+  return {
+    version: state.version,
+    kind: state.kind,
+    includeCache: false,
+    favorites: {
+      version: favorites.version,
+      kind: favorites.kind,
+      starred: {
+        version: favorites.starred.version,
+        kind: favorites.starred.kind,
+        tags,
+      },
+      collections,
+      practice: favorites.practice,
+    },
+    localStorage,
+    documents: state.documents ?? null,
+  }
+}
+
 export async function hashAppState(state: AppStateBackupFile): Promise<string> {
-  // Stable-ish: stringify without pretty-print; includeCache is always false for Drive.
-  return sha256Hex(JSON.stringify({ ...state, includeCache: false }))
+  return sha256Hex(JSON.stringify(canonicalAppState(state)))
 }
 
 /**
@@ -372,6 +421,7 @@ export function mergeAppStates(
   local: AppStateBackupFile,
   cloud: AppStateBackupFile,
 ): AppStateBackupFile {
+  const documents = mergeUserDocuments(local.documents, cloud.documents)
   return {
     version: 1,
     kind: 'singtags.app-state',
@@ -382,151 +432,11 @@ export function mergeAppStates(
       ...cloud.localStorage,
       ...local.localStorage,
     },
+    ...(documents ? { documents } : {}),
   }
 }
 
-async function ensureStateFolderId(): Promise<string> {
-  return ensureAppDataPath(DRIVE_STATE_SEGMENTS)
-}
-
-export async function readCloudAppStateMeta(): Promise<DriveAppStateMeta | null> {
-  const folderId = await ensureStateFolderId()
-  const metaFile = await findChildByName(DRIVE_APP_STATE_META_FILE, folderId)
-  if (!metaFile) return null
-  const raw = await downloadJsonFile<Partial<DriveAppStateMeta>>(metaFile.id)
-  if (
-    raw.schemaVersion !== 1 ||
-    typeof raw.exportedAt !== 'string' ||
-    typeof raw.contentHash !== 'string' ||
-    typeof raw.deviceId !== 'string'
-  ) {
-    return null
-  }
-  return {
-    schemaVersion: 1,
-    exportedAt: raw.exportedAt,
-    contentHash: raw.contentHash,
-    deviceId: raw.deviceId,
-  }
-}
-
-export async function readCloudAppState(): Promise<AppStateBackupFile | null> {
-  const folderId = await ensureStateFolderId()
-  const file = await findChildByName(DRIVE_APP_STATE_FILE, folderId)
-  if (!file) return null
-  return parseAppStateBackup(await downloadJsonFile(file.id))
-}
-
-export async function writeCloudAppState(state: AppStateBackupFile): Promise<DriveAppStateMeta> {
-  const folderId = await ensureStateFolderId()
-  const normalized: AppStateBackupFile = { ...state, includeCache: false }
-  const text = JSON.stringify(normalized)
-  const contentHash = await sha256Hex(text)
-  const meta: DriveAppStateMeta = {
-    schemaVersion: 1,
-    exportedAt: normalized.exportedAt,
-    deviceId: getOrCreateDeviceId(),
-    contentHash,
-  }
-  await upsertTextFile({
-    name: DRIVE_APP_STATE_FILE,
-    parentId: folderId,
-    text,
-    mimeType: 'application/json',
-  })
-  await upsertTextFile({
-    name: DRIVE_APP_STATE_META_FILE,
-    parentId: folderId,
-    text: JSON.stringify(meta),
-    mimeType: 'application/json',
-  })
-  writeLastSyncMeta(meta)
-  clearDriveAppStateDirty()
-  clearRetry()
-  return meta
-}
-
-async function requireProviders(): Promise<{
-  getSnapshot: SnapshotProvider
-  applyFavorites: ApplyFavorites
-}> {
-  if (!snapshotProvider || !applyFavorites) {
-    throw new Error('Drive app-state sync is not configured yet.')
-  }
-  return { getSnapshot: snapshotProvider, applyFavorites }
-}
-
-async function buildLocalState(): Promise<AppStateBackupFile> {
-  const { getSnapshot } = await requireProviders()
-  const input = await getSnapshot()
-  return buildAppStateBackup(input, false)
-}
-
-async function applyCloudState(
-  state: AppStateBackupFile,
-  mode: 'replace' | 'merge',
-): Promise<void> {
-  const { applyFavorites: applyFav } = await requireProviders()
-  const favorites =
-    mode === 'merge'
-      ? mergeFavoritesByUnion((await buildLocalState()).favorites, state.favorites)
-      : state.favorites
-  await applyFav(favorites, mode === 'merge' ? 'merge' : 'replace')
-  applyLocalStorageSnapshot(state.localStorage || {})
-}
-
-/**
- * If Drive moved since lastSync, merge remote into local (favorites union) then upload.
- * Never blind-overwrite a newer peer device.
- */
-async function uploadMergingRemoteIfNeeded(local: AppStateBackupFile): Promise<DriveAppStateMeta> {
-  const lastSync = readLastSyncMeta()
-  const cloudMeta = await readCloudAppStateMeta()
-  if (
-    cloudMeta &&
-    (!lastSync || cloudMeta.contentHash !== lastSync.contentHash) &&
-    (await hashAppState(local)) !== cloudMeta.contentHash
-  ) {
-    const remote = await readCloudAppState()
-    if (remote) {
-      const merged = mergeAppStates(local, remote)
-      suppressDrivePush = true
-      try {
-        await applyCloudState(merged, 'merge')
-      } finally {
-        suppressDrivePush = false
-      }
-      // Re-snapshot after apply so IDB/prefs match what we upload.
-      const after = await buildLocalState()
-      const toWrite = mergeAppStates(after, remote)
-      return writeCloudAppState(toWrite)
-    }
-  }
-  return writeCloudAppState(local)
-}
-
-async function applyMergedRemote(local: AppStateBackupFile): Promise<void> {
-  const remote = await readCloudAppState()
-  if (!remote) {
-    await writeCloudAppState(local)
-    driveSyncState.message = 'Uploaded app state to Drive'
-    return
-  }
-  const merged = mergeAppStates(local, remote)
-  suppressDrivePush = true
-  try {
-    await applyCloudState(merged, 'merge')
-  } finally {
-    suppressDrivePush = false
-  }
-  const after = await buildLocalState()
-  await writeCloudAppState(mergeAppStates(after, remote))
-  driveSyncState.message = 'Merged with Drive and uploaded'
-  // Prefs may have changed — reload so Pinia picks up localStorage.
-  window.setTimeout(() => window.location.reload(), 250)
-}
-
-function clearRetry(): void {
+export function clearRetry(): void {
   driveSyncState.retryAttempt = 0
   if (retryTimer) {
     clearTimeout(retryTimer)
@@ -577,6 +487,8 @@ export async function ensureDriveHydrate(opts?: {
    * changes. Those stay dirty for the short push batch.
    */
   pushLocal?: boolean
+  /** Apply Drive state, but leave the page reload to the caller. */
+  deferReload?: boolean
 }): Promise<void> {
   restoreGoogleConnection()
   if (!isDriveSyncEnabled() || !googleAuthState.connected || !readConnection()) return
@@ -607,12 +519,22 @@ export async function ensureDriveHydrate(opts?: {
       }
       const local = await buildLocalState()
       const localHash = await hashAppState(local)
+      const lastSync = readLastSyncMeta()
+      // A dirty flag left by enabling Drive, or by a timestamp-only snapshot,
+      // must not block a download when the synced content matches last time.
+      if (lastSync && localHash === lastSync.contentHash && isDriveAppStateDirty()) {
+        clearDriveAppStateDirty()
+      }
       const cloud = await readCloudAppStateMeta()
+      if (!lastSync) {
+        await restoreFirstCloudCopy(local, pushLocal)
+        return
+      }
       const decision = decideDriveAppStateSync({
         cloud,
         localHash,
         dirty: isDriveAppStateDirty(),
-        lastSync: readLastSyncMeta(),
+        lastSync,
       })
 
       if (decision.action === 'noop') {
@@ -664,7 +586,7 @@ export async function ensureDriveHydrate(opts?: {
         clearRetry()
         driveSyncState.status = 'idle'
         driveSyncState.message = 'Restored app state from Drive'
-        window.setTimeout(() => window.location.reload(), 250)
+        noteHydrateReload(opts?.deferReload)
         return
       }
 
@@ -687,7 +609,7 @@ export async function ensureDriveHydrate(opts?: {
             clearDriveAppStateDirty()
             clearRetry()
             driveSyncState.message = 'Kept Drive; restored to this device'
-            window.setTimeout(() => window.location.reload(), 250)
+            noteHydrateReload(opts?.deferReload)
           }
         } else {
           await applyMergedRemote(local)
@@ -786,6 +708,14 @@ export async function syncDriveAppStateNow(): Promise<void> {
   }
 }
 
+function noteHydrateReload(defer: boolean | undefined): void {
+  if (defer) {
+    reloadAfterHydrate = true
+    return
+  }
+  window.setTimeout(() => window.location.reload(), 250)
+}
+
 /** Test hook. */
 export function __resetDriveAppStateSyncForTests(): void {
   snapshotProvider = null
@@ -796,6 +726,7 @@ export function __resetDriveAppStateSyncForTests(): void {
   clearRetry()
   hydrateInFlight = null
   pushInFlight = null
+  reloadAfterHydrate = false
   driveSyncState.status = 'idle'
   driveSyncState.message = ''
   driveSyncState.lastSyncedAt = ''
@@ -805,3 +736,11 @@ export function __resetDriveAppStateSyncForTests(): void {
   conflictUiResolve = null
   suppressDrivePush = false
 }
+
+export {
+  readCloudAppState,
+  readCloudAppStateMeta,
+  writeCloudAppState,
+} from './driveAppStateCloud'
+
+export { checkDriveForUpdates, summarizeDriveUpdateCheck } from './driveUpdateCheck'

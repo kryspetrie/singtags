@@ -1,0 +1,48 @@
+/**
+ * Tag Studio media/toolbar: collapse on narrow viewports until expanded.
+ * Kept out of the SFCs so first-paint CSS does not grow god-file budgets.
+ */
+
+@media (max-width: 900px) {
+  .media-bar {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'transport';
+    justify-items: center;
+  }
+  .media-bar.media-expanded {
+    grid-template-areas:
+      'transport'
+      'left'
+      'right';
+  }
+  .media-bar:not(.media-expanded) .side {
+    display: none;
+  }
+  .media-bar .side.left,
+  .media-bar .side.right {
+    justify-content: center;
+    justify-self: stretch;
+    width: 100%;
+  }
+  .media-bar .lane-toggles {
+    padding-left: 0;
+    border-left: none;
+  }
+  .media-bar .lane-grid {
+    justify-content: center;
+  }
+  .media-bar .transport {
+    justify-self: center;
+  }
+
+  .tr-tb:not(.tools-expanded) .primary-row > *:not(.modes-primary):not(.tools-toggle) {
+    display: none !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .media-toggle,
+  .tools-toggle {
+    display: none !important;
+  }
+}

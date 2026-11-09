@@ -17,6 +17,7 @@ import {
   type FavoritesBackupFile,
 } from './favoritesBackup'
 import type { UserCollection } from '../stores/userCollections'
+import { parseUserDocuments, type UserDocumentsFile } from './userDocuments'
 
 /** localStorage keys included in app-state backups. */
 export const APP_STATE_LOCAL_KEYS = [
@@ -64,6 +65,70 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.embolden.v1',
   'singtags.sheetInvert.v1',
   'singtags.sheetErode.v2',
+  'singtags.singMode.v1',
+  'singtags.shareFullscreen.v1',
+  'singtags.shareBarbershopTags.v1',
+  'singtags.sheetFsPageMode.v1',
+  'singtags.sheetPianoKeyScale.v2',
+  'singtags.sheetPianoHeightPx.v1',
+  'singtags.applyDetuneGlobally.v1',
+  'singtags.labs.opticalTransfer.enabled.v1',
+  'singtags.labs.localLibrary.enabled.v1',
+  'singtags.labs.webrtcTransfer.enabled.v1',
+  'singtags.labs.osShareTransfer.enabled.v1',
+  'singtags.labs.tagRoll.enabled.v1',
+  'singtags.labs.tagStudio.enabled.v1',
+  'singtags.labs.tagRoll.cellW.v1',
+  'singtags.labs.tagRoll.cellH.v1',
+  'singtags.labs.tagStudio.cellW.v1',
+  'singtags.labs.tagStudio.cellH.v1',
+  'singtags.labs.tagRoll.metronomeSound.v1',
+  'singtags.labs.tagRoll.metronomeVolume.v1',
+  'singtags.labs.tagRoll.soundfontFavorites.v1',
+  'singtags.labs.tagRoll.expressionLaneCollapsed.v1',
+  'singtags.labs.tagRoll.coachLaneCollapsed.v1',
+  'singtags.labs.tagRoll.coachGuidedStep.v1',
+  'singtags.labs.tagRoll.chordWalkAutoAdvance.v1',
+  'singtags.labs.tagRoll.voicingRangesOpen.v1',
+  'singtags.labs.tagRoll.voicingRangeFilter.v1',
+  'singtags.labs.tagRoll.pathOptimize.v1',
+  'singtags.labs.tagRoll.declaredLaneCollapsed.v1',
+  'singtags.labs.tagRoll.chordsLaneCollapsed.v1',
+  'singtags.labs.tagRoll.detectedLaneCollapsed.v1',
+  'singtags.labs.tagRoll.lyricsLaneCollapsed.v1',
+  'singtags.labs.tagRoll.chordAnalysisMode.v1',
+  'singtags.labs.tagRoll.declaredChordMode.v1',
+  'singtags.labs.tagRoll.detectedChordMode.v1',
+  'singtags.labs.tagRoll.chordAnalysisOverrides.v1',
+  'singtags.labs.arranging.teachStripCollapsed.v1',
+  'singtags.opticalTransfer.frameBytes.v1',
+  'singtags.opticalTransfer.gridCodes.v1',
+  'singtags.opticalTransfer.autoDensity.v1',
+  'singtags.opticalTransfer.txFps.v1',
+  'singtags.opticalTransfer.displayScale.v1',
+  'singtags.opticalTransfer.preset.v1',
+  'singtags.pdfRasterCacheMaxMb.v1',
+  'singtags.roulette.v1',
+  'singtags.rouletteSession.v1',
+  'singtags.myRatings.v1',
+  'arranging.projects.v1',
+  'singtags.tagRoll.sheetFormatDefaults.v1',
+  'singtags.tagRoll.medianJumpOnFill.v1',
+  'singtags.tagRoll.medianJumpHold.v1',
+  'singtags.tagRoll.medianJumpLockMelody.v1',
+  'singtags.tagRoll.dismissedSeedIds.v1',
+  'singtags.tagRoll.libraryInitialized.v1',
+  'singtags.tagRoll.harmonizeApplyMode',
+  'singtags.tagRoll.harmonizeWorkspace',
+  'singtags.tagRoll.harmonizeChordLabelMode',
+  'singtags.tagRoll.harmonizeMelodyFilter',
+  'singtags.tagRoll.sketchLockLeadVoicing.v1',
+  'singtags.tagRoll.detectedLockLeadVoicing.v1',
+  'singtags.tagRoll.detectedScoreTweaks.v1',
+  'singtags.tagRoll.detectedInterest.v1',
+  'singtags.tagRoll.cadenceBias',
+  'singtags.singTogether.qrNudgeSeen.v2',
+  'singtags.pitchPipeVoiceLab.drafts.v1',
 ] as const
 
 /** On-disk / zip `app-state.json` schema (v1). */
@@ -75,6 +140,11 @@ export type AppStateBackupFile = {
   favorites: FavoritesBackupFile
   /** Raw localStorage values for known SingTags keys. */
   localStorage: Record<string, string>
+  /**
+   * Tag Studio, arranging, My Library, and recordings.
+   * File bytes are referenced by hash and stored separately.
+   */
+  documents?: UserDocumentsFile
 }
 
 /** Live app data needed to build an app-state backup. */
@@ -82,6 +152,7 @@ export type AppStateSnapshotInput = {
   records: StarredTagRecord[]
   collections: UserCollection[]
   practice: { order: number[]; autoAdvance: boolean }
+  documents?: UserDocumentsFile
 }
 
 /** Snapshot only keys listed in {@link APP_STATE_LOCAL_KEYS}. */
@@ -127,6 +198,7 @@ export function buildAppStateBackup(
       practice: input.practice,
     }),
     localStorage: readLocalStorageSnapshot(),
+    ...(input.documents ? { documents: input.documents } : {}),
   }
 }
 
@@ -144,6 +216,7 @@ export function parseAppStateBackup(raw: unknown): AppStateBackupFile {
       if (typeof v === 'string') local[k] = v
     }
   }
+  const documents = parseUserDocuments(obj.documents)
   return {
     version: 1,
     kind: 'singtags.app-state',
@@ -151,6 +224,7 @@ export function parseAppStateBackup(raw: unknown): AppStateBackupFile {
     includeCache: obj.includeCache === true,
     favorites,
     localStorage: local,
+    ...(documents ? { documents } : {}),
   }
 }
 

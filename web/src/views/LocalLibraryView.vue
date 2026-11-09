@@ -38,7 +38,7 @@ import {
   importLocalLibraryZip,
 } from '../lib/localLibraryBackup'
 import { formatBytes, getStorageEstimate } from '../offline/storageEstimate'
-import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import { visualPxToLayoutPx } from '../lib/uiScale'
 
 const library = useLocalLibraryStore()
@@ -301,7 +301,7 @@ const resultsCountLabel = computed(() => {
 })
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? false
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
 }
 
 function onDocPointerDown(e: PointerEvent): void {
@@ -842,8 +842,8 @@ function groupsForEntry(entryId: string) {
 
 <template>
   <section
-    class="library"
-    :class="{ 'has-selection': selectedIds.size > 0 || selectedPlaylistIds.size > 0 }"
+    class="library row-select-host"
+    :class="{ 'has-selection': selectedIds.size > 0 || selectedPlaylistIds.size > 0, 'row-select-active': selectMode || selectedIds.size > 0 || playlistSelectMode || selectedPlaylistIds.size > 0 }"
     aria-label="My Library"
   >
     <input

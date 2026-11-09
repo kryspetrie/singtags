@@ -302,6 +302,7 @@ export const useFavoritesStore = defineStore('favorites', () => {
       message: `Favorited ${pending.length} tag(s)`,
       tagIds: pending.map((s) => s.id),
     }
+    scheduleDriveAppStatePush()
     return pending.length
   }
 
@@ -525,12 +526,16 @@ export const useFavoritesStore = defineStore('favorites', () => {
    * @param fetchMedia - When true, re-fetch media blobs after metadata import.
    * @returns Number of tags imported. Side effects: IndexedDB, optional network.
    */
-  async function importFromJson(raw: unknown, fetchMedia = false): Promise<number> {
+  async function importFromJson(
+    raw: unknown,
+    fetchMedia = false,
+    mode: 'merge' | 'replace' = 'merge',
+  ): Promise<number> {
     busy.value = true
     error.value = null
     try {
       const file = parseStarredFile(raw)
-      const n = await importStarredFile(file)
+      const n = await importStarredFile(file, { replace: mode === 'replace' })
       await refresh()
       scheduleDriveAppStatePush()
       if (fetchMedia) {

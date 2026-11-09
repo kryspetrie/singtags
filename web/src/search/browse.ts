@@ -214,6 +214,17 @@ export function collectionJumpLabel(
   return label
 }
 
+/** Full + compact jump-rail labels (CSS picks via `html[data-narrow]`). */
+export function collectionJumpLabels(
+  key: string,
+  userCollections: UserCollectionBrowse[],
+): { full: string; compact: string } {
+  return {
+    full: collectionJumpLabel(key, userCollections),
+    compact: collectionJumpLabel(key, userCollections, { compact: true }),
+  }
+}
+
 /** Inclusive year bounds for a browse year-section key, or null if unknown. */
 export function yearBoundsForSectionKey(
   key: string,

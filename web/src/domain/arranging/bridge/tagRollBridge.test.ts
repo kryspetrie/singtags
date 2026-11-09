@@ -17,7 +17,7 @@ function fixture(): ArrangementProject {
     chord,
     rootPc: 7,
     leadMidi: 62,
-    voicing: '5317',
+    voicing: '1357',
   })!
   return {
     ...createEmptyArrangement('Bridge Song', { id: 'arr_1', now: 1000 }),
@@ -41,7 +41,7 @@ function fixture(): ArrangementProject {
         durationTicks: 480,
         rootPc: 7,
         natureId: 'seventh',
-        voicing: '5317',
+        voicing: '1357',
         spread: false,
         layer: 'primary',
         scfGroup: null,

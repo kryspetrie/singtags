@@ -9,11 +9,12 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-roulette.md](tag-roulette.md) | Proposed — product |
 | [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |
 | [virtual-piano.md](virtual-piano.md) | Proposed — poly piano: Sound Lab voice schema + Leethring samples |
+| [digital-tuner.md](digital-tuner.md) | Proposed — Labs Digital Tuner; responsive desktop/mobile; kill-gate before chord |
 | [tag-roll.md](tag-roll.md) | In progress — Phase 8 on `piano-roll` branch |
 | [tag-studio-hardening.md](tag-studio-hardening.md) | In progress — A–E done; F next |
 | [tag-studio-ux-polish.md](tag-studio-ux-polish.md) | In progress — A–F chrome + thin patterns on `piano-roll` |
 | [tag-studio-sheet-view.md](tag-studio-sheet-view.md) | In progress — View Roll/Sheet toggle; sheet via VexFlow/Bravura |
-| [tag-studio-ports-readiness.md](tag-studio-ports-readiness.md) | In progress — hygiene done; arranging package port next |
+| [tag-studio-ports-readiness.md](tag-studio-ports-readiness.md) | In progress — PA0–PA3 landed; TS3 rest, TS4, TS5, TS7, TS8 still open |
 | [tag-studio-swing.md](tag-studio-swing.md) | Implemented — swing playback + MIDI/MP3 bake; metronome swing |
 | [tag-audio-pitch-import.md](tag-audio-pitch-import.md) | MVP — Tag page “Import into Tag Studio” from learning-track pitch |
 | [arranging-labs-dock.md](arranging-labs-dock.md) | In progress — timeline pillars + Arrange/Review walk |

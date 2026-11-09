@@ -3,16 +3,20 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { FavoritesBackupFile } from '../favoritesBackup'
+import { googleAuthState } from './googleAuth'
 import type { AppStateBackupFile } from '../appStateBackup'
 import {
   __resetDriveAppStateSyncForTests,
   configureDriveAppStateSync,
+  checkDriveForUpdates,
   decideDriveAppStateSync,
+  summarizeDriveUpdateCheck,
   DRIVE_DIRTY_KEY,
   DRIVE_PUSH_BATCH_DEFAULT_SECONDS,
   DRIVE_PUSH_BATCH_SECONDS_KEY,
   drivePushBatchLabel,
   getDrivePushBatchSeconds,
+  hashAppState,
   mergeAppStates,
   mergeFavoritesByUnion,
   scheduleDriveAppStatePush,
@@ -180,6 +184,50 @@ describe('mergeAppStates', () => {
   })
 })
 
+describe('hashAppState', () => {
+  it('treats two snapshots of the same favorites and settings as equal', async () => {
+    const base: AppStateBackupFile = {
+      version: 1,
+      kind: 'singtags.app-state',
+      exportedAt: '2026-11-03T12:00:00.000Z',
+      includeCache: false,
+      favorites: fav([
+        { id: 2, starredAt: '2026-11-03T10:00:00.000Z' },
+        { id: 1, starredAt: '2026-11-03T11:00:00.000Z' },
+      ]),
+      localStorage: { 'singtags.theme.v1': 'dark', 'singtags.recent.v2': '[]' },
+    }
+    const later: AppStateBackupFile = {
+      ...base,
+      exportedAt: '2026-11-05T18:00:00.000Z',
+      favorites: {
+        ...base.favorites,
+        exportedAt: '2026-11-05T18:00:00.000Z',
+        starred: {
+          ...base.favorites.starred,
+          exportedAt: '2026-11-05T18:00:01.000Z',
+          tags: [...base.favorites.starred.tags].reverse(),
+        },
+      },
+      localStorage: {
+        'singtags.recent.v2': '[]',
+        'singtags.theme.v1': 'dark',
+      },
+    }
+    expect(await hashAppState(base)).toBe(await hashAppState(later))
+
+    const withStar = {
+      ...base,
+      favorites: fav([
+        { id: 2, starredAt: '2026-11-03T10:00:00.000Z' },
+        { id: 1, starredAt: '2026-11-03T11:00:00.000Z' },
+        { id: 9, starredAt: '2026-11-03T12:00:00.000Z' },
+      ]),
+    }
+    expect(await hashAppState(withStar)).not.toBe(await hashAppState(base))
+  })
+})
+
 describe('drive push batch', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -220,5 +268,33 @@ describe('drive push batch', () => {
     localStorage.removeItem(DRIVE_DIRTY_KEY)
     localStorage.setItem('singtags.recent.v2', '[]')
     expect(localStorage.getItem(DRIVE_DIRTY_KEY)).toBeTruthy()
+  })
+
+  it('asks for a sign-in before checking Drive', async () => {
+    googleAuthState.connected = false
+    googleAuthState.driveSyncEnabled = false
+    const result = await checkDriveForUpdates()
+    expect(result.ok).toBe(false)
+    expect(result.message).toMatch(/Sign in/)
+  })
+
+  it('reports app state, saved files, and the song cache together', () => {
+    expect(
+      summarizeDriveUpdateCheck({ stateMessage: 'Drive synced', restoredItems: 0, cacheMessage: '' }),
+    ).toBe('Up to date')
+    expect(
+      summarizeDriveUpdateCheck({
+        stateMessage: 'Drive synced',
+        restoredItems: 2,
+        cacheMessage: 'Restored 4 tags from Google Drive',
+      }),
+    ).toBe('Brought in 2 items from Drive. Restored 4 tags from Google Drive.')
+    expect(
+      summarizeDriveUpdateCheck({
+        stateMessage: 'Restored app state from Drive',
+        restoredItems: 0,
+        cacheMessage: '',
+      }),
+    ).toBe('Restored app state from Drive.')
   })
 })

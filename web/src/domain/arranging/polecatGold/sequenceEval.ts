@@ -2,7 +2,7 @@
  * Timing-agnostic Coach eval vs polecat gold chord sequences.
  * Lead + synthetic pillars → Basic pathOptimize → LCS on pillar romans.
  */
-import { createSequentialIdGenerator } from '../../../adapters/arranging/persistence/systemServices'
+import type { IdGenerator } from '../../../ports/IdGenerator'
 import { createEmptyArrangement, type ArrangementProject } from '../types'
 import { pathOptimize } from '../pathOptimize/optimize'
 import type { PathOptimizeWeights } from '../pathOptimize/types'
@@ -16,6 +16,21 @@ export type EvalWeightOpts = {
   rankingBase?: Partial<RankingWeights>
   /** Path Optimize taste (merged with Basic risk:0 defaults). */
   pathWeights?: Partial<PathOptimizeWeights>
+  /**
+   * Fresh generator per call. When omitted, ids are `prefix_1`, `prefix_2`, …
+   * the same sequence `createSequentialIdGenerator()` produces.
+   */
+  idGen?: IdGenerator
+}
+
+/** Same id sequence as the test adapter, without domain importing that adapter. */
+function defaultEvalIdGen(): IdGenerator {
+  let n = 1
+  return {
+    next(prefix: string): string {
+      return `${prefix}_${n++}`
+    },
+  }
 }
 
 const TICK = 480
@@ -190,7 +205,7 @@ export async function optimizeBasic(
       skipProbe: true,
     },
     {
-      idGen: createSequentialIdGenerator(),
+      idGen: opts.idGen ?? defaultEvalIdGen(),
       rankerDeps: opts.rankingBase ? { weights: opts.rankingBase } : undefined,
     },
   )

@@ -140,7 +140,7 @@ function onConnect(): void {
           </ul>
 
           <p class="syncs">
-            Syncs favorites, settings, and recent tags.
+            Syncs favorites, settings, Tag Studio, My Library, recordings, and Tag Roulette.
             <span class="syncs-soon">Tag Studio &amp; My Library coming soon.</span>
           </p>
 

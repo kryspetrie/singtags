@@ -23,10 +23,12 @@ import '@fontsource/ibm-plex-serif/latin-700.css'
 import './styles/tokens.css'
 import './styles/controls.css'
 import './styles/utilities.css'
+import './styles/tagRollNarrow.css'
 import { ensureFetchPatchInstalled } from './lib/manualOfflineFetch'
 import { resolveInitialUiScale, applyUiScale } from './lib/uiScale'
 import { resolveInitialAppTheme, applyAppTheme } from './lib/theme'
 import { resolveInitialEmbolden, applyEmbolden } from './lib/embolden'
+import { syncNarrowViewportDataset } from './lib/narrowViewport'
 import { getCatalogSnapshotIdb } from './offline/indexSnapshotDb'
 import { browseUrlLooksDefault } from './lib/catalogFirstPaint'
 import { useOfflineModeStore } from './stores/offlineMode'
@@ -37,6 +39,8 @@ import { useOfflineLibraryStore } from './stores/offlineLibrary'
 applyUiScale(resolveInitialUiScale())
 applyAppTheme(resolveInitialAppTheme())
 applyEmbolden(resolveInitialEmbolden())
+// Re-stamp after zoom so matchMedia + CSS `html[data-narrow]` stay aligned.
+syncNarrowViewportDataset()
 
 // Register FontAwesome icons (hearts + media transport; avoid emoji glyphs that break on mobile)
 library.add(
@@ -92,18 +96,26 @@ async function bootstrap(): Promise<void> {
   catalog.hydrateFromSnapshot()
   offlineLib.hydrateManifestSnapshots()
 
-  const catalogIdb = earlyCatalogIdb
+  // Register before mount so HomeView `load()` awaits this instead of
+  // starting a second catalog download and search-index build.
+  const catalogReady = catalog.beginIndexedDbHydrate(
+    earlyCatalogIdb.then((snap) =>
+      snap?.tags?.length
+        ? {
+            tags: snap.tags,
+            expansions: snap.expansions,
+            sourceHash: snap.sourceHash,
+            storageFormat: snap.storageFormat,
+          }
+        : null,
+    ),
+  )
 
   // Kick IDB/network warm-up immediately; do not block shell paint on it.
   const warmCatalog = (async () => {
     // First-paint slice still needs the full IDB catalog (jump rail, remaining tags).
     if (!catalog.loaded || catalog.partialCatalog) {
-      const snap = await catalogIdb
-      await catalog.hydrateFromIndexedDb(
-        snap?.tags?.length
-          ? { tags: snap.tags, expansions: snap.expansions }
-          : null,
-      )
+      await catalogReady
     }
     if (!catalog.loaded) {
       await catalog.load({ refresh: !offlineMode.offline })

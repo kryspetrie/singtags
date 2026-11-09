@@ -7,7 +7,7 @@
  */
 
 import type { TagSummary } from '../types/tag'
-import { buildBrowseRows, sortBrowseTags } from '../search/browse'
+import { sectionKeyFor, sortBrowseTags } from '../search/browse'
 import {
   clearPersistentSnapshot,
   loadPersistentSnapshot,
@@ -55,7 +55,14 @@ export function saveCatalogFirstPaint(allTags: readonly TagSummary[]): void {
     return
   }
   const sorted = sortBrowseTags([...allTags], 'collection', false)
-  const { jumpKeys } = buildBrowseRows(sorted, 'collection', sorted.length)
+  const jumpKeys: string[] = []
+  const seen = new Set<string>()
+  for (const tag of sorted) {
+    const key = sectionKeyFor(tag, 'collection')
+    if (seen.has(key)) continue
+    seen.add(key)
+    jumpKeys.push(key)
+  }
   const payload: CatalogFirstPaint = {
     v: 1,
     tags: sorted.slice(0, CATALOG_FIRST_PAINT_COUNT),

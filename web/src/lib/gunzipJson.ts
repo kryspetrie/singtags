@@ -13,11 +13,43 @@ export async function parseGzipJsonBuffer<T>(buf: ArrayBuffer): Promise<T> {
   return JSON.parse(text) as T
 }
 
+/** Fetch a gzip/plain body, falling back to the offline Cache API. */
+export async function fetchGzipArrayBuffer(url: string): Promise<ArrayBuffer> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`)
+    return await res.arrayBuffer()
+  } catch (err) {
+    try {
+      const { matchOfflineCache } = await import('./manualOfflineFetch')
+      const cached = await matchOfflineCache(url)
+      if (cached) return await cached.arrayBuffer()
+    } catch {
+      /* ignore */
+    }
+    if (err instanceof Error) throw err
+    throw new Error(`Failed to load ${url}`)
+  }
+}
+
+/**
+ * SHA-1 of response bytes so a refresh can skip parsing and reindexing
+ * when the published file has not changed. Null when SubtleCrypto is missing.
+ */
+export async function digestSha1Hex(buf: ArrayBuffer): Promise<string | null> {
+  try {
+    const subtle = globalThis.crypto?.subtle
+    if (!subtle) return null
+    const digest = await subtle.digest('SHA-1', buf)
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch {
+    return null
+  }
+}
+
 /** Fetch JSON from a URL (gzip or plain UTF-8 body). */
 export async function fetchGzipJson<T>(url: string): Promise<T> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to load ${url} (${res.status})`)
-  return parseGzipJsonBuffer<T>(await res.arrayBuffer())
+  return parseGzipJsonBuffer<T>(await fetchGzipArrayBuffer(url))
 }
 
 /** fetch → Cache API fallback (manual offline / airplane mode). */

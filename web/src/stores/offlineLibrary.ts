@@ -7,26 +7,15 @@
  */
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
+import { mediaUrl } from '../lib/mediaUrl'
 import { usePreferencesStore } from './preferences'
 import { audioPack, sheetsPack, type PackKind } from '../offline/libraryPack'
 import {
   DownloadQueue,
-  type DownloadItem,
   type DownloadProgress,
   type DownloadStatus,
 } from '../offline/downloadQueue'
-import {
-  adaptivePackConcurrency,
-  packDownloadInflight,
-  refreshPackDownloadInflightCap,
-} from '../offline/downloadConcurrency'
-import {
-  clearPackProgress,
-  getPackProgress,
-  putPackProgress,
-  type PackProgressRecord,
-} from '../offline/packProgressDb'
+import { clearPackProgress, getPackProgress } from '../offline/packProgressDb'
 import {
   formatBytes,
   getStorageEstimate,
@@ -34,117 +23,37 @@ import {
   requestPersistentStorage,
   type StorageEstimateInfo,
 } from '../offline/storageEstimate'
-import type { OfflineManifest, OfflineManifestEntry } from '../offline/manifestTypes'
-import {
-  filterAudioManifest,
-  flattenFilteredAudioManifest,
-  flattenManifestEntries,
-} from '../lib/offlineManifest'
+import type { OfflineManifest } from '../offline/manifestTypes'
 import {
   expectedAudioFileCount,
   expectedSheetsFileCount,
   normalizePackStatus,
   packMissingFileCount,
-  packStartIndex,
   packSyncAvailable,
 } from '../lib/packSync'
 import { OFFLINE_LOFI_AUDIO_BALLPARK_LABEL } from '../lib/offlineAudioBallpark'
-import { fetchGzipJson, parseGzipJsonBuffer } from '../lib/gunzipJson'
-import { matchOfflineCache } from '../lib/manualOfflineFetch'
-import { loadPersistentSnapshot, savePersistentSnapshot } from '../lib/persistentSnapshot'
-import type { LibraryAudioPartsMode } from '../lib/audioParts'
-import { isPublishedTierPath } from '../lib/audioTiers'
-import {
-  DEVICE_AUDIO_STORAGE_QUALITY,
-  storageSizeFactor,
-  HOSTED_AUDIO_MIME,
-  usesOpusStorage,
-} from '../types/audio'
 import { useOfflineModeStore } from './offlineMode'
-import { loadOfflineReadinessIndex } from '../lib/offlineReadiness'
+import { loadOfflineReadinessIndex } from '../adapters/catalog/offlineReadinessIndex'
+import {
+  AUDIO_MANIFEST_SNAPSHOT_KEY,
+  CATALOG_CACHED_KEY,
+  type CacheProgress,
+  type OfflineReadyState,
+  SHEETS_MANIFEST_SNAPSHOT_KEY,
+  loadManifestSnapshot,
+  loadOfflineManifest,
+} from './offlineLibrary/manifestSnapshot'
+import { type StoreDeps } from './offlineLibrary/deps'
+import { createPackDownloadActions } from './offlineLibrary/packDownload'
 
-/** localStorage key for last successful catalog fetch (also cleared by cacheManage wipe). */
-const CATALOG_CACHED_KEY = 'singtags.catalogCachedAt'
-
-type CacheProgress = {
-  label: string
-  done: number
-  total: number
-  ratio: number
-}
-
-export type { OfflineManifest, OfflineManifestEntry }
-
-/** High-level offline readiness for status UI and gating. */
-export type OfflineReadyState =
-  | 'online'
-  | 'offline-ready'
-  | 'offline-limited'
-  | 'downloading'
-  | 'unknown'
-
-export type StartPackOptions = {
-  /** Override library parts filter for audio downloads (welcome uses `all`). */
-  partsMode?: LibraryAudioPartsMode
-}
-
-const SHEETS_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineSheetsManifest.v1'
-const AUDIO_MANIFEST_SNAPSHOT_KEY = 'singtags.offlineAudioManifest.v1'
-
-/** Persist manifest JSON to durable snapshot storage (survives refresh). */
-function saveManifestSnapshot(key: string, manifest: OfflineManifest): void {
-  savePersistentSnapshot(key, manifest)
-}
-
-/** Type guard for offline manifest snapshot JSON. */
-function isOfflineManifest(data: unknown): data is OfflineManifest {
-  return (
-    typeof data === 'object' &&
-    data != null &&
-    Array.isArray((data as OfflineManifest).entries)
-  )
-}
-
-/** Load manifest from persistent snapshot when network/cache miss. */
-function loadManifestSnapshot(key: string): OfflineManifest | null {
-  return loadPersistentSnapshot(key, isOfflineManifest)
-}
-
-/**
- * Fetch gzip manifest from indexes URL, with offline cache and snapshot fallback.
- * Side effects: network or cache read; saves snapshot on success.
- */
-async function loadOfflineManifest(
-  fileName: string,
-  snapshotKey: string,
-): Promise<OfflineManifest | null> {
-  const url = indexesUrl(fileName)
-  try {
-    const data = await fetchGzipJson<OfflineManifest>(url)
-    saveManifestSnapshot(snapshotKey, data)
-    return data
-  } catch {
-    try {
-      const cached = await matchOfflineCache(url)
-      if (cached) {
-        const data = await parseGzipJsonBuffer<OfflineManifest>(await cached.arrayBuffer())
-        saveManifestSnapshot(snapshotKey, data)
-        return data
-      }
-    } catch {
-      /* ignore */
-    }
-    return loadManifestSnapshot(snapshotKey)
-  }
-}
-
-/** Flatten manifest entries into download queue items (sheets pack). */
-function flattenManifest(manifest: OfflineManifest): DownloadItem[] {
-  return flattenManifestEntries(manifest)
-}
-
-/** Pinia store for offline sheet/audio library packs and cache management. */
+export type {
+  OfflineManifest,
+  OfflineManifestEntry,
+  OfflineReadyState,
+  StartPackOptions,
+} from './offlineLibrary/manifestSnapshot'
 export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
+
   const offlineMode = useOfflineModeStore()
   const sheetsManifest = ref<OfflineManifest | null>(null)
   const audioManifest = ref<OfflineManifest | null>(null)
@@ -168,9 +77,6 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
   const cacheBusy = ref(false)
   const cacheProgress = ref<CacheProgress | null>(null)
   const cacheMessage = ref<string | null>(null)
-
-  let sheetsQueue: DownloadQueue | null = null
-  let audioQueue: DownloadQueue | null = null
 
   const sheetsTotalBytes = computed(() => sheetsManifest.value?.totalBytes ?? 0)
   const audioTotalBytes = computed(() => audioManifest.value?.totalBytes ?? 0)
@@ -230,6 +136,85 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
         return 'Offline status unknown'
     }
   })
+
+  /** Avoid writing IndexedDB on every tiny file — throttle cursor saves. */
+  const persistCursorState: Record<PackKind, { lastAt: number; lastCursor: number; timer: ReturnType<typeof setTimeout> | null }> = {
+    sheets: { lastAt: 0, lastCursor: 0, timer: null },
+    audio: { lastAt: 0, lastCursor: 0, timer: null },
+  }
+  const slots = {
+    sheetsQueue: null as (DownloadQueue | null),
+    audioQueue: null as (DownloadQueue | null),
+  }
+  const deps: StoreDeps = {
+    offlineMode,
+    sheetsManifest,
+    audioManifest,
+    sheetsStatus,
+    audioStatus,
+    sheetsProgress,
+    audioProgress,
+    sheetsCachedCount,
+    audioCachedCount,
+    sheetsCachedBytes,
+    audioCachedBytes,
+    estimate,
+    error,
+    showSheetsPrompt,
+    showPackSyncPrompt,
+    packSyncBusy,
+    catalogCachedAt,
+    loaded,
+    cacheBusy,
+    cacheProgress,
+    cacheMessage,
+    sheetsTotalBytes,
+    audioTotalBytes,
+    audioBallparkLabel,
+    sheetsExpectedCount,
+    audioExpectedCount,
+    sheetsSyncAvailable,
+    audioSyncAvailable,
+    sheetsMissingCount,
+    audioMissingCount,
+    readyState,
+    statusLabel,
+    persistCursorState,
+    slots,
+    refreshEstimate,
+    refreshCacheReady,
+    packSyncDismissKey,
+    readDismissedPackSyncKey,
+    writeDismissedPackSyncKey,
+    refreshPackSyncPrompt,
+    hydratePackStatusesFromProgress,
+    loadManifests,
+    ensureOfflineContentFormatOrReset,
+    markCatalogCached,
+    restoreCatalogCached,
+    hydrateManifestSnapshots,
+    clearAllOfflineData,
+    cullUpgradeCaches,
+    exportOfflineCache,
+    importOfflineCache,
+    dismissSheetsPrompt,
+    ensureSheetsForTag,
+    ensurePersistentStorage,
+    clearError,
+  }
+  const packDownloadActions = createPackDownloadActions(deps)
+  packDownloadActions.bindWatches()
+  const {
+    persistProgress,
+    startPack,
+    pausePack,
+    installPackUnloadGuard,
+    dismissPackSyncPrompt,
+    syncMissingPacks,
+    clearPack,
+  } = {
+    ...packDownloadActions.actions,
+  }
 
   /**
    * Refresh storage quota estimate and cached file counts/bytes in both packs.
@@ -385,8 +370,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       if (!stored) writeOfflineContentFormatStamp(current)
       return
     }
-    sheetsQueue?.pause()
-    audioQueue?.pause()
+    slots.sheetsQueue?.pause()
+    slots.audioQueue?.pause()
     if (need.sheets) {
       await sheetsPack.clear()
       sheetsStatus.value = 'idle'
@@ -461,8 +446,8 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
     cacheMessage.value = null
     error.value = null
     try {
-      sheetsQueue?.pause()
-      audioQueue?.pause()
+      slots.sheetsQueue?.pause()
+      slots.audioQueue?.pause()
       const { clearAllOfflineData } = await import('../offline/cacheManage')
       await clearAllOfflineData()
       sheetsStatus.value = 'idle'
@@ -574,316 +559,7 @@ export const useOfflineLibraryStore = defineStore('offlineLibrary', () => {
       cacheProgress.value = null
     }
   }
-
-  /** Merge pack download progress into IndexedDB (`putPackProgress`). */
-  async function persistProgress(
-    kind: PackKind,
-    patch: Partial<PackProgressRecord>,
-  ): Promise<void> {
-    const prev = (await getPackProgress(kind)) || {
-      kind,
-      manifestVersion: kind === 'sheets' ? sheetsManifest.value?.version ?? 1 : audioManifest.value?.version ?? 1,
-      cursor: 0,
-      donePaths: [],
-      updatedAt: new Date().toISOString(),
-      status: 'idle' as const,
-    }
-    await putPackProgress({
-      ...prev,
-      ...patch,
-      kind,
-      updatedAt: new Date().toISOString(),
-    })
-  }
-
-
-  /** Avoid writing IndexedDB on every tiny file — throttle cursor saves. */
-  const persistCursorState: Record<PackKind, { lastAt: number; lastCursor: number; timer: ReturnType<typeof setTimeout> | null }> = {
-    sheets: { lastAt: 0, lastCursor: 0, timer: null },
-    audio: { lastAt: 0, lastCursor: 0, timer: null },
-  }
-
-  /**
-   * Throttled cursor persistence during pack download (avoid IDB write per file).
-   * Side effect: deferred `persistProgress` to IndexedDB.
-   */
-  function schedulePersistCursor(
-    kind: PackKind,
-    cursor: number,
-    manifestVersion: number,
-    opts?: { force?: boolean },
-  ): void {
-    const st = persistCursorState[kind]
-    st.lastCursor = cursor
-    const force = opts?.force === true
-    const now = Date.now()
-    const flush = () => {
-      st.timer = null
-      st.lastAt = Date.now()
-      void persistProgress(kind, {
-        status: 'running',
-        cursor: st.lastCursor,
-        manifestVersion,
-      })
-    }
-    if (force || now - st.lastAt >= 750 || cursor % 50 === 0) {
-      if (st.timer) {
-        clearTimeout(st.timer)
-        st.timer = null
-      }
-      flush()
-      return
-    }
-    if (!st.timer) st.timer = setTimeout(flush, 750)
-  }
-
-  /**
-   * Start or resume downloading one pack (`sheets` or `audio`).
-   * Side effects: network, IndexedDB pack store, progress IDB, optional Opus re-encode.
-   *
-   * @param kind - Which offline pack to download.
-   * @param _opts - Reserved; `partsMode` override for audio filtering.
-   */
-  async function startPack(kind: PackKind, _opts?: StartPackOptions): Promise<void> {
-    if (kind === 'sheets' && sheetsStatus.value === 'running') return
-    if (kind === 'audio' && audioStatus.value === 'running') return
-    error.value = null
-    await requestPersistentStorage()
-    // Mark this device as wanting a local song cache for this pack (not synced via app-state).
-    // When signed in, prefer Drive objects first, then fill gaps from SingTags/S3 below.
-    try {
-      const auth = await import('../lib/google/googleAuth')
-      const cache = await import('../lib/google/driveCacheSync')
-      auth.restoreGoogleConnection()
-      if (kind === 'sheets') cache.setDriveSheetsCacheEnabled(true)
-      else cache.setDriveAudioCacheEnabled(true)
-      if (auth.isDriveSyncEnabled() && auth.googleAuthState.connected && !offlineMode.offline) {
-        await cache.ensureDriveCacheSync({ allowTokenPrompt: false })
-      }
-    } catch {
-      /* Drive optional — continue with SingTags download */
-    }
-    // Refresh remote manifests so newly published tags are included.
-    if (!offlineMode.offline) {
-      await loadManifests()
-    } else if (!(kind === 'sheets' ? sheetsManifest.value : audioManifest.value)) {
-      await loadManifests()
-    }
-    const manifest = kind === 'sheets' ? sheetsManifest.value : audioManifest.value
-    if (!manifest) {
-      if (offlineMode.manualOffline) {
-        error.value =
-          'Offline mode is on — go online once so SingTags can load download lists, then try again.'
-      } else {
-        error.value = `Missing offline ${kind} manifest — rebuild indexes.`
-      }
-      return
-    }
-
-
-    if (kind === 'audio') {
-      const est = await getStorageEstimate()
-      const { totalBytes, entries } = filterAudioManifest(manifest, 'all', [])
-      const paths = entries.flatMap((e) => e.paths)
-      const publishedOnly = paths.length > 0 && paths.every(isPublishedTierPath)
-      const sizeFactor = publishedOnly ? 1 : storageSizeFactor(DEVICE_AUDIO_STORAGE_QUALITY)
-      // Remaining bytes only — a partial download must not require free space for the whole pack.
-      const need = Math.max(0, totalBytes * sizeFactor - audioCachedBytes.value)
-      if (need > 0 && est && est.quota > 0 && est.quota - est.usage < need) {
-        error.value = `Not enough storage for the remaining learning tracks (~${formatBytes(need)} estimated). Free space and try again.`
-        return
-      }
-    }
-
-    const items =
-      kind === 'audio'
-        ? flattenFilteredAudioManifest(manifest, 'all', [])
-        : flattenManifest(manifest)
-    const prev = await getPackProgress(kind)
-    // Mid-download resume only; otherwise rescan from 0 and skip files already on device.
-    const startIndex = packStartIndex({
-      status: prev?.status,
-      progressVersion: prev?.manifestVersion,
-      manifestVersion: manifest.version,
-      cursor: prev?.cursor,
-      itemCount: items.length,
-    })
-
-    const store = kind === 'sheets' ? sheetsPack : audioPack
-    const packReencodes =
-      kind === 'audio' &&
-      usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY) &&
-      items.some((i) => !isPublishedTierPath(i.path))
-    refreshPackDownloadInflightCap()
-    const concurrencyKind =
-      kind === 'sheets' ? 'sheets' : packReencodes ? 'audio-reencode' : 'audio-fetch'
-    const { fetch: fetchConcurrency, transform: transformConcurrency } =
-      adaptivePackConcurrency(concurrencyKind)
-    const queue = new DownloadQueue(store, {
-      // Adaptive workers + shared inflight gate; re-encode pipelines behind a transform cap.
-      continueOnError: kind === 'audio',
-      onItemError: (p, err) => {
-        console.warn('[offline audio]', p, err)
-      },
-      concurrency: fetchConcurrency,
-      transformConcurrency: transformConcurrency > 0 ? transformConcurrency : undefined,
-      needsTransform:
-        kind === 'audio' && usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY)
-          ? (item) => !isPublishedTierPath(item.path)
-          : undefined,
-      inflight: packDownloadInflight,
-      onProgress: (p) => {
-        if (kind === 'sheets') sheetsProgress.value = p
-        else audioProgress.value = p
-      },
-      onStatus: (s, err) => {
-        if (kind === 'sheets') sheetsStatus.value = s
-        else audioStatus.value = s
-        if (err) error.value = err
-        void persistProgress(kind, { status: s, cursor: queue.getCursor() })
-        void refreshEstimate().then(() => {
-          void refreshCacheReady().catch(() => undefined)
-          refreshPackSyncPrompt()
-        })
-      },
-      onItemDone: (_path, index) => {
-        schedulePersistCursor(kind, index + 1, manifest.version)
-      },
-      transformResponse:
-        kind === 'audio' && usesOpusStorage(DEVICE_AUDIO_STORAGE_QUALITY)
-          ? async (item, response) => {
-              if (isPublishedTierPath(item.path)) return response
-              const { encodeBytesForStorage } = await import('../offline/compactAudio')
-              const buf = new Uint8Array(await response.arrayBuffer())
-              const hostedMime = response.headers.get('content-type') || HOSTED_AUDIO_MIME
-              const { bytes, mime } = await encodeBytesForStorage(
-                buf,
-                DEVICE_AUDIO_STORAGE_QUALITY,
-                hostedMime,
-                item.path,
-              )
-              const copy = new Uint8Array(bytes.byteLength)
-              copy.set(bytes)
-              return new Response(copy.buffer, {
-                status: 200,
-                headers: { 'Content-Type': mime },
-              })
-            }
-          : undefined,
-    })
-
-    if (kind === 'sheets') sheetsQueue = queue
-    else audioQueue = queue
-
-    queue.setItems(items, startIndex)
-    if (kind === 'sheets') sheetsStatus.value = 'running'
-    else audioStatus.value = 'running'
-    await persistProgress(kind, {
-      status: 'running',
-      cursor: startIndex,
-      manifestVersion: manifest.version,
-      dismissedPrompt: true,
-    })
-    showSheetsPrompt.value = false
-    showPackSyncPrompt.value = false
-    await queue.start()
-    const finalStatus = queue.getStatus()
-    await persistProgress(kind, {
-      status: finalStatus === 'running' ? 'paused' : finalStatus,
-      cursor: queue.getCursor(),
-      manifestVersion: manifest.version,
-      dismissedPrompt: true,
-    })
-    await refreshEstimate()
-    await refreshCacheReady().catch(() => undefined)
-    refreshPackSyncPrompt()
-    if (finalStatus === 'done') {
-      void import('../lib/google/driveCacheSync')
-        .then(({ scheduleDriveCachePush }) => scheduleDriveCachePush())
-        .catch(() => undefined)
-    }
-  }
-
-  /** Pause an in-flight pack download queue. */
-  function pausePack(kind: PackKind): void {
-    if (kind === 'sheets') sheetsQueue?.pause()
-    else audioQueue?.pause()
-  }
-
-  /** Best-effort: leave mid-download as paused if the tab is killed/backgrounded. */
-  let unloadGuardInstalled = false
-  function installPackUnloadGuard(): void {
-    if (unloadGuardInstalled || typeof window === 'undefined') return
-    unloadGuardInstalled = true
-    window.addEventListener('pagehide', () => {
-      pausePack('sheets')
-      pausePack('audio')
-    })
-  }
   installPackUnloadGuard()
-
-  /** Dismiss sync prompt and remember manifest versions. Side effect: localStorage. */
-  async function dismissPackSyncPrompt(): Promise<void> {
-    writeDismissedPackSyncKey(packSyncDismissKey(sheetsManifest.value, audioManifest.value))
-    showPackSyncPrompt.value = false
-  }
-
-  /**
-   * Download missing sheet + audio pack files (keeps existing cache).
-   * Always kicks off both packs so Settings stays consistent with the banner CTA.
-   */
-  async function syncMissingPacks(): Promise<void> {
-    if (packSyncBusy.value) return
-    if (sheetsStatus.value === 'running' || audioStatus.value === 'running') return
-    packSyncBusy.value = true
-    showPackSyncPrompt.value = false
-    error.value = null
-    try {
-      // Dismiss toast persistence after we've taken the action (not before busy UI).
-      writeDismissedPackSyncKey(packSyncDismissKey(sheetsManifest.value, audioManifest.value))
-      // Parallel: separate queues; each skips files already on device.
-      await Promise.all([startPack('sheets'), startPack('audio')])
-    } finally {
-      packSyncBusy.value = false
-      refreshPackSyncPrompt()
-    }
-  }
-
-  /**
-   * Clear one pack’s cached files and progress (sheets or audio).
-   * Side effects: IndexedDB pack clear, progress record delete.
-   */
-  async function clearPack(kind: PackKind): Promise<void> {
-    if (kind === 'sheets') {
-      sheetsQueue?.pause()
-      sheetsQueue = null
-      await sheetsPack.clear()
-      await clearPackProgress('sheets')
-      sheetsStatus.value = 'idle'
-      sheetsProgress.value = null
-      sheetsCachedCount.value = 0
-      sheetsCachedBytes.value = 0
-    } else {
-      audioQueue?.pause()
-      audioQueue = null
-      await audioPack.clear()
-      await clearPackProgress('audio')
-      audioStatus.value = 'idle'
-      audioProgress.value = null
-      audioCachedCount.value = 0
-      audioCachedBytes.value = 0
-    }
-    // Opt this device out of auto song-cache for this pack (Drive hydrate / push stays off).
-    try {
-      const cache = await import('../lib/google/driveCacheSync')
-      if (kind === 'sheets') cache.setDriveSheetsCacheEnabled(false)
-      else cache.setDriveAudioCacheEnabled(false)
-    } catch {
-      /* ignore */
-    }
-    await refreshEstimate()
-    await refreshCacheReady().catch(() => undefined)
-  }
 
   /** Dismiss first-run sheets download prompt. Side effect: pack progress IDB. */
   async function dismissSheetsPrompt(): Promise<void> {

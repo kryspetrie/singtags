@@ -79,7 +79,7 @@ describe('resolveGuidedStep entry routing', () => {
     expect(resolveGuidedStep(p)).toBe('chords')
   })
 
-  it('repair: skips to polish when coverage is high', () => {
+  it('repair: skips to Optimize when coverage is high and clean', () => {
     const p = createEmptyArrangement()
     p.melody = [
       { id: 'm1', midi: 60, startTick: 0, durationTicks: 480, role: 'unknown' },
@@ -89,7 +89,7 @@ describe('resolveGuidedStep entry routing', () => {
     p.pillars = [
       { id: 'p1', rootPc: 0, startTick: 0, endTick: 960, confirmed: true, source: 'user' },
     ]
-    expect(resolveGuidedStep(p, { entryMode: 'repair' })).toBe('polish')
+    expect(resolveGuidedStep(p, { entryMode: 'repair' })).toBe('auto')
   })
 
   it('does not treat unknown as filled coverage', () => {
@@ -108,14 +108,14 @@ describe('resolveGuidedStep entry routing', () => {
     expect(resolveGuidedStep(p, { entryMode: 'compose' })).toBe('chords')
   })
 
-  it('polish when clean and well covered', () => {
+  it('Optimize when clean and well covered', () => {
     const p = createEmptyArrangement()
     p.melody = [{ id: 'm', midi: 60, startTick: 0, durationTicks: 480, role: 'pmn' }]
     p.pillars = [
       { id: 'p1', rootPc: 0, startTick: 0, endTick: 480, confirmed: true, source: 'user' },
     ]
     p.stacks = [knownSeventh(0)]
-    expect(resolveGuidedStepWithLints(p, 0)).toBe('polish')
+    expect(resolveGuidedStepWithLints(p, 0)).toBe('auto')
   })
 })
 

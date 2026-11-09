@@ -22,7 +22,8 @@ import {
 } from '../../lib/tagRoll/pitchExtract/yin'
 import { parseTagRollProjectJson } from '../../lib/tagRoll/projectJson'
 import type { TagRollProject } from '../../lib/tagRoll/types'
-import { resolveAudioPart } from '../../offline/resolveMedia'
+import { getTagStudioServices } from '../../composition/tagStudio'
+import type { CatalogAudioSource } from '../../ports/CatalogAudio'
 import type { TagDetail } from '../../types/tag'
 import { putNewTagRoll } from './persist'
 import type { TagRollRepository } from '../../ports/TagRollRepository'
@@ -59,6 +60,7 @@ async function fetchPartBytes(
   detail: TagDetail,
   part: VoicePart,
   offlineOnly: boolean,
+  catalogAudio: CatalogAudioSource,
 ): Promise<{ bytes: ArrayBuffer; via: string }> {
   // Prefer ultra solo (already mono + align-baked) when published.
   const ultra = ultraAudioPath(detail, part)
@@ -71,7 +73,7 @@ async function fetchPartBytes(
     }
   }
 
-  const resolved = await resolveAudioPart(detail, part, { offlineOnly })
+  const resolved = await catalogAudio.resolvePart(detail, part, { offlineOnly })
   if (resolved?.url) {
     const res = await fetch(resolved.url)
     if (res.ok) return { bytes: await res.arrayBuffer(), via: resolved.tier || 'resolved' }
@@ -139,7 +141,9 @@ export async function importTagAudioToStudio(
   detail: TagDetail,
   repository: TagRollRepository,
   clock: Clock,
-  opts?: {
+  opts: {
+    /** Defaults to the Tag Studio composition root when a screen omits it. */
+    catalogAudio?: CatalogAudioSource
     offlineOnly?: boolean
     onProgress?: (p: ImportTagAudioProgress) => void
     /** When true, skip precomputed JSON and always run live extract. */
@@ -184,7 +188,8 @@ export async function importTagAudioToStudio(
         total,
         message: `Loading ${part}…`,
       })
-      const { bytes, via } = await fetchPartBytes(detail, part, offlineOnly)
+      const catalogAudio = opts.catalogAudio ?? getTagStudioServices().catalogAudio
+      const { bytes, via } = await fetchPartBytes(detail, part, offlineOnly, catalogAudio)
       report?.({
         phase: 'decode',
         part,

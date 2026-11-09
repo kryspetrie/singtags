@@ -9,10 +9,10 @@
       "tagId": 90001,
       "file": "90001.json",
       "verified": false,
-      "lockCoverage": 0.4154,
-      "stackOnsets": 65,
+      "lockCoverage": 0.4286,
+      "stackOnsets": 63,
       "locked": 27,
-      "unlocked": 38
+      "unlocked": 36
     },
     {
       "tagId": 90006,

@@ -91,8 +91,9 @@ describe('QueueView', () => {
     expect(q.count).toBe(2)
 
     await w.findAll('button').find((b) => b.text() === 'Export as zip')!.trigger('click')
-    await flushPromises()
-    expect(q.busy).toBe(false)
+    await vi.waitFor(() => {
+      expect(q.busy).toBe(false)
+    })
     expect(q.progress.done).toBe(2)
 
     await w.findAll('button').find((b) => b.text() === 'Clear')!.trigger('click')

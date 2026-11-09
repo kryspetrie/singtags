@@ -204,7 +204,7 @@ flowchart LR
 
 - Cloud sync / backup of recorder blobs into app-state
 - Multi-track overdub mixdown
-- Metronome / tuner inside recorder
+- Metronome / tuner inside recorder — live pitch analysis lives in [digital-tuner.md](digital-tuner.md), not here
 - My Library merge of sessions
 - **Linked SingTag dual play** — cancelled / out of scope for this roadmap pass
 

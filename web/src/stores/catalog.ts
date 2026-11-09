@@ -31,23 +31,7 @@ import {
 } from '../search/filters'
 import { browseQueryToState, browseStateToQuery } from '../lib/browseRouteQuery'
 import { normalizeYear } from '../lib/year'
-import type { CoreIndex, LyricsIndex, TagSummary } from '../types/tag'
-import {
-  loadCatalogSnapshotAsync,
-  loadCatalogSnapshotSync,
-  saveCatalogSnapshot,
-} from '../lib/catalogSnapshot'
-import {
-  browseUrlLooksDefault,
-  loadCatalogFirstPaint,
-  saveCatalogFirstPaint,
-} from '../lib/catalogFirstPaint'
-import { loadLyricsSnapshotAsync, saveLyricsSnapshot } from '../lib/lyricsSnapshot'
-import { putCatalogSnapshotIdb } from '../offline/indexSnapshotDb'
-import { fetchGzipJsonCached, fetchJsonCached } from '../lib/gunzipJson'
-import { indexesUrl, mediaUrl } from '../lib/mediaUrl'
-import { useOfflineLibraryStore } from './offlineLibrary'
-import { useOfflineModeStore } from './offlineMode'
+import type { TagSummary } from '../types/tag'
 import { useUserCollectionsStore } from './userCollections'
 import { useRatingsStore } from './ratings'
 import {
@@ -60,6 +44,8 @@ import {
   matchesOfflineBrowseFilters,
   type TagCacheReady,
 } from '../lib/offlineReadiness'
+import { type StoreDeps } from './catalog/deps'
+import { createCatalogLoadActions } from './catalog/loadCatalog'
 
 export type SortMode = BrowseSortMode
 
@@ -77,6 +63,7 @@ export const DEFAULT_BROWSE_SORT: SortMode = 'collection'
 
 /** Pinia store for the tag catalog, search, and browse UI state. */
 export const useCatalogStore = defineStore('catalog', () => {
+
   const tags = ref<TagSummary[]>([])
   const loaded = ref(false)
   const loading = ref(false)
@@ -99,12 +86,6 @@ export const useCatalogStore = defineStore('catalog', () => {
   const lyricsLoading = ref(false)
   /** Bumped whenever lyrics are (re)attached to the search engine — keeps FTS reactive after catalog refresh. */
   const lyricsEpoch = ref(0)
-  /** In-flight lyrics prefetch so callers can await the same load. */
-  let lyricsPrefetch: Promise<void> | null = null
-  /** True after a successful online lyrics.json.gz fetch this session. */
-  let lyricsRevalidatedOnline = false
-  /** Dedupes boot IDB hydrate so HomeView `load()` waits instead of racing the network. */
-  let idbHydratePromise: Promise<boolean> | null = null
   const filters = ref<CatalogFilters>({ ...EMPTY_FILTERS })
   /** Live free-text input. */
   const queryText = ref('')
@@ -116,359 +97,8 @@ export const useCatalogStore = defineStore('catalog', () => {
   const cacheReadyByTag: Ref<Map<number, TagCacheReady>> = ref(new Map())
   const searching = ref(false)
   const resultLimit = ref(RESULTS_PAGE_SIZE)
-
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null
   /** Reactive so result computeds re-run when the search index is ready. */
   const engine = shallowRef<SearchEngine | null>(null)
-
-  /** True when free-text query or any filter chip is active. */
-  function hasSearchOrFilter(): boolean {
-    return debouncedQuery.value.trim().length > 0 || activeFilterCount(filters.value) > 0
-  }
-
-  /** Downgrade rating/downloads sort when browsing the full unfiltered catalog. */
-  function coerceSortMode(mode: SortMode): SortMode {
-    if (SCOPED_SORTS.has(mode) && !hasSearchOrFilter()) return DEFAULT_BROWSE_SORT
-    return mode
-  }
-
-  watch(queryText, (q) => {
-    searching.value = true
-    if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
-      debouncedQuery.value = q
-      searching.value = false
-      resultLimit.value = RESULTS_PAGE_SIZE
-      sortMode.value = coerceSortMode(sortMode.value)
-    }, SEARCH_DEBOUNCE_MS)
-  })
-
-  watch(
-    filters,
-    () => {
-      resultLimit.value = RESULTS_PAGE_SIZE
-      sortMode.value = coerceSortMode(sortMode.value)
-    },
-    { deep: true },
-  )
-
-  watch(sortMode, () => {
-    resultLimit.value = RESULTS_PAGE_SIZE
-  })
-
-  watch(sortReverse, () => {
-    resultLimit.value = RESULTS_PAGE_SIZE
-  })
-
-  /**
-   * Apply fetched catalog tags and expansions; rebuild search engine.
-   * Side effects: optional IndexedDB catalog snapshot, offline library `markCatalogCached`.
-   *
-   * @param opts.persist - Write snapshot (default true). False on IDB hydrate (already stored).
-   * @param opts.deferEngine - Yield a frame before building SearchEngine so Browse can paint.
-   */
-  async function applyCatalogData(
-    list: TagSummary[],
-    exp: ExpansionMap,
-    opts?: { persist?: boolean; deferEngine?: boolean },
-  ): Promise<void> {
-    expansions.value = exp
-    tags.value = list
-    loaded.value = true
-    partialCatalog.value = false
-    catalogTotalHint.value = null
-    firstPaintJumpKeys.value = null
-    error.value = null
-
-    const buildEngine = () => {
-      const eng = new SearchEngine({
-        tags: list,
-        expansions: exp,
-      })
-      if (lyricsById.value.size) {
-        eng.setLyrics(
-          [...lyricsById.value.entries()].map(([id, lyrics]) => ({ id, lyrics })),
-        )
-        lyricsEpoch.value++
-      }
-      engine.value = eng
-    }
-
-    if (opts?.persist !== false) {
-      await saveCatalogSnapshot(list, exp)
-      saveCatalogFirstPaint(list)
-      try {
-        useOfflineLibraryStore().markCatalogCached()
-      } catch {
-        /* pinia may not be ready in unit tests */
-      }
-    }
-
-    if (opts?.deferEngine) {
-      await new Promise<void>((resolve) => {
-        const run = () => {
-          buildEngine()
-          resolve()
-        }
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => run())
-        else run()
-      })
-    } else {
-      buildEngine()
-    }
-  }
-
-  /**
-   * Load catalog from network (or manifest / IDB fallback).
-   * Side effects: network, IndexedDB snapshot, prefetches lyrics when online.
-   *
-   * @param opts.refresh - Force re-fetch even when already loaded.
-   *   When the catalog is already painted from a snapshot, refresh does not
-   *   set `loading` (stale-while-revalidate — Browse stays interactive).
-   */
-  async function load(opts?: { refresh?: boolean }): Promise<void> {
-    // Let boot IDB finish first so we paint cache before any network refresh.
-    if (idbHydratePromise) await idbHydratePromise
-    if (loading.value) return
-    if (opts?.refresh) lyricsRevalidatedOnline = false
-    if (loaded.value && !opts?.refresh) {
-      // First-paint slice: wait one tick for boot hydrate to start, then await it.
-      if (partialCatalog.value) {
-        if (!idbHydratePromise) await Promise.resolve()
-        if (idbHydratePromise) await idbHydratePromise
-        if (!partialCatalog.value) {
-          if (!lyricsLoading.value) void prefetchLyrics()
-          return
-        }
-      } else {
-        // Revalidate lyrics once per online session even if IDB already hydrated them.
-        if (!lyricsLoading.value) void prefetchLyrics()
-        return
-      }
-    }
-    // Initial fetch shows the loading gate; background refresh must not.
-    const showLoading = !loaded.value
-    if (showLoading) {
-      loading.value = true
-      error.value = null
-    }
-    try {
-      const [core, exp] = await Promise.all([
-        fetchGzipJsonCached<CoreIndex>(indexesUrl('core.json.gz')),
-        fetchJsonCached(indexesUrl('expansions.json'), { map: {} as ExpansionMap }),
-      ])
-      const list = core.tags ?? []
-      await applyCatalogData(list, exp.map ?? {})
-      void prefetchLyrics()
-    } catch (e) {
-      try {
-        const res = await fetch(mediaUrl('manifest.json'))
-        const data = (await res.json()) as { tags: TagSummary[] }
-        const list = data.tags ?? []
-        await applyCatalogData(list, {})
-      } catch {
-        const snap = await loadCatalogSnapshotAsync()
-        if (snap?.tags.length) {
-          await applyCatalogData(snap.tags, snap.expansions, {
-            persist: false,
-            deferEngine: true,
-          })
-          void hydrateLyricsFromIndexedDb()
-          return
-        }
-        const offlineMode = useOfflineModeStore()
-        if (offlineMode.manualOffline) {
-          error.value =
-            'Offline mode is on — browse needs the catalog in memory or cache. Go online once, then try again.'
-        } else if (offlineMode.offline) {
-          error.value =
-            'Connect once to download the catalog, then SingTags works offline.'
-        } else {
-          error.value = e instanceof Error ? e.message : String(e)
-        }
-      }
-    } finally {
-      if (showLoading) loading.value = false
-    }
-  }
-
-  /**
-   * Instant Browse paint from a tiny sync cache (one viewport of collection order).
-   * Skipped when the URL already has search/filters (would flash the wrong list).
-   */
-  function hydrateFirstPaint(): boolean {
-    if (loaded.value) return true
-    if (!browseUrlLooksDefault()) return false
-    const fp = loadCatalogFirstPaint()
-    if (!fp?.tags.length) return false
-    tags.value = fp.tags
-    loaded.value = true
-    partialCatalog.value = true
-    catalogTotalHint.value = fp.totalCount
-    firstPaintJumpKeys.value = fp.jumpKeys?.length ? [...fp.jumpKeys] : null
-    error.value = null
-    engine.value = null
-    return true
-  }
-
-  /**
-   * Jump-rail chrome only (no tag rows). Used for `?at=` reloads so mid-list
-   * layout can size the collection strip before IDB returns.
-   */
-  function hydrateFirstPaintChrome(): boolean {
-    if (firstPaintJumpKeys.value?.length) return true
-    const fp = loadCatalogFirstPaint()
-    if (!fp?.jumpKeys?.length) return false
-    firstPaintJumpKeys.value = [...fp.jumpKeys]
-    if (catalogTotalHint.value == null && fp.totalCount > 0) {
-      catalogTotalHint.value = fp.totalCount
-    }
-    return true
-  }
-
-  /** Sync restore from localStorage mirror (instant boot). */
-  function hydrateFromSnapshot(): boolean {
-    if (loaded.value && !partialCatalog.value) return true
-    const snap = loadCatalogSnapshotSync()
-    if (!snap?.tags.length) return false
-    // Sync path: defer engine so the first frame can clear “Loading catalog…”.
-    void applyCatalogData(snap.tags, snap.expansions, { persist: false, deferEngine: true })
-    return true
-  }
-
-  /** Merge lyrics into search engine and in-memory map; does not persist alone. */
-  function applyLyricsDocs(docs: Array<{ id: number; lyrics: string }>): void {
-    engine.value?.setLyrics(docs)
-    lyricsEpoch.value++
-    const map = new Map<number, string>()
-    for (const d of docs) {
-      if (d.lyrics?.trim()) map.set(d.id, d.lyrics.trim())
-    }
-    lyricsById.value = map
-    lyricsLoaded.value = map.size > 0
-  }
-
-  /** Restore catalog from IndexedDB — lyrics hydrate separately after first paint. */
-  async function hydrateFromIndexedDb(
-    preloaded?: { tags: TagSummary[]; expansions?: ExpansionMap } | null,
-  ): Promise<boolean> {
-    if (idbHydratePromise) return idbHydratePromise
-    idbHydratePromise = (async () => {
-      // Allow replacing a first-paint slice with the full catalog.
-      if (loaded.value && !partialCatalog.value) return true
-      const snap =
-        preloaded?.tags?.length
-          ? { tags: preloaded.tags, expansions: preloaded.expansions ?? {} }
-          : await loadCatalogSnapshotAsync()
-      if (!snap?.tags.length) return false
-      await applyCatalogData(snap.tags, snap.expansions, {
-        persist: false,
-        deferEngine: true,
-      })
-      // Upgrade legacy object-form snapshots to gzip for faster subsequent boots.
-      void putCatalogSnapshotIdb(snap.tags, snap.expansions).catch(() => {
-        /* quota */
-      })
-      return true
-    })()
-    try {
-      return await idbHydratePromise
-    } finally {
-      idbHydratePromise = null
-    }
-  }
-
-  /** Load lyrics index only from IndexedDB (when catalog already in memory). */
-  async function hydrateLyricsFromIndexedDb(): Promise<boolean> {
-    if (lyricsLoaded.value) return true
-    const docs = await loadLyricsSnapshotAsync()
-    if (!docs?.length) return false
-    applyLyricsDocs(docs)
-    return true
-  }
-
-  /**
-   * Background-fetch lyrics index when online.
-   * Uses IndexedDB for instant paint, then revalidates from the network so
-   * published lyric edits show up without clearing site data.
-   */
-  async function prefetchLyrics(): Promise<void> {
-    if (lyricsPrefetch) return lyricsPrefetch
-    if (lyricsLoaded.value && lyricsRevalidatedOnline) return
-    lyricsPrefetch = (async () => {
-      lyricsLoading.value = true
-      try {
-        const offlineMode = useOfflineModeStore()
-        const cached = await loadLyricsSnapshotAsync()
-        if (cached?.length && !lyricsLoaded.value) {
-          applyLyricsDocs(cached)
-        }
-        if (offlineMode.offline) return
-
-        const idx = await fetchGzipJsonCached<LyricsIndex>(indexesUrl('lyrics.json.gz'))
-        const docs = idx.docs ?? []
-        if (!docs.length) return
-        applyLyricsDocs(docs)
-        saveLyricsSnapshot(docs)
-        lyricsRevalidatedOnline = true
-      } catch {
-        /* optional — keep IDB lyrics if network fails */
-      } finally {
-        lyricsLoading.value = false
-        lyricsPrefetch = null
-      }
-    })()
-    return lyricsPrefetch
-  }
-
-  /**
-   * Lyrics preview for browse rows (whitespace collapsed to one line).
-   * Visual truncation is left to CSS line-clamp so wide cards can show more.
-   *
-   * @param id - Tag id.
-   */
-  function lyricsSnippet(id: number): string | null {
-    const raw = lyricsById.value.get(id)
-    if (!raw) return null
-    const oneLine = raw.replace(/\s+/g, ' ').trim()
-    return oneLine || null
-  }
-
-  /** Ensure lyrics index is loaded (revalidates from network when online). */
-  async function ensureLyrics(): Promise<void> {
-    await prefetchLyrics()
-  }
-
-  /** Replace the bulk-built per-tag offline readiness index. */
-  function setCacheReadyIndex(map: Map<number, TagCacheReady>): void {
-    cacheReadyByTag.value = map
-  }
-
-  function browseSortOpts() {
-    const ratings = useRatingsStore()
-    void ratings.revision
-    return {
-      myStars: (tagId: number) => ratings.starsFor(tagId),
-    }
-  }
-
-  function filterByCachedReadiness(list: TagSummary[]): TagSummary[] {
-    if (filters.value.cached == null) return list
-    return list.filter((tag) =>
-      matchesOfflineBrowseFilters(cacheReadyByTag.value.get(tag.id), filters.value),
-    )
-  }
-
-  function filterByMyRating(list: TagSummary[]): TagSummary[] {
-    if (filters.value.rated !== true) return list
-    const ratings = useRatingsStore()
-    void ratings.revision
-    return list.filter((tag) => ratings.has(tag.id))
-  }
-
-  function applyClientFilters(list: TagSummary[]): TagSummary[] {
-    return filterByMyRating(filterByCachedReadiness(list))
-  }
 
   /** Full filtered/sorted result set (virtualizer uses entire list). */
   const allResults = computed(() => {
@@ -609,6 +239,157 @@ export const useCatalogStore = defineStore('catalog', () => {
   /** Distinct catalog collection names for filter chips. */
   const collections = computed(() => uniqueFieldValues(tags.value, 'collection'))
 
+  /** @deprecated use filters.fullText */
+  const fullText = computed({
+    get: () => filters.value.fullText,
+    set: (v: boolean) => {
+      filters.value = { ...filters.value, fullText: v }
+    },
+  })
+  const slots = {
+    debounceTimer: null as (ReturnType<typeof setTimeout> | null),
+  }
+  const deps: StoreDeps = {
+    tags,
+    loaded,
+    loading,
+    partialCatalog,
+    catalogTotalHint,
+    firstPaintJumpKeys,
+    error,
+    expansions,
+    lyricsById,
+    lyricsLoaded,
+    lyricsLoading,
+    lyricsEpoch,
+    filters,
+    queryText,
+    debouncedQuery,
+    sortMode,
+    sortReverse,
+    selectedIds,
+    cacheReadyByTag,
+    searching,
+    resultLimit,
+    engine,
+    allResults,
+    results,
+    hasMoreResults,
+    browseWindow,
+    filterCount,
+    arrangers,
+    years,
+    types,
+    collections,
+    fullText,
+    slots,
+    hasSearchOrFilter,
+    coerceSortMode,
+    setCacheReadyIndex,
+    browseSortOpts,
+    filterByCachedReadiness,
+    filterByMyRating,
+    applyClientFilters,
+    patchFilters,
+    clearFilters,
+    toggleSelect,
+    clearSelection,
+    showMoreResults,
+    revealSection,
+    revealIndex,
+    syncFromRoute,
+    routeQueryPatch,
+    toggleSortReverse,
+    getById,
+    neighbors,
+  }
+  const loadActions = createCatalogLoadActions(deps)
+  loadActions.bindWatches()
+  const {
+    load,
+    hydrateFirstPaint,
+    hydrateFirstPaintChrome,
+    hydrateFromSnapshot,
+    beginIndexedDbHydrate,
+    hydrateFromIndexedDb,
+    hydrateLyricsFromIndexedDb,
+    prefetchLyrics,
+    lyricsSnippet,
+    ensureLyrics,
+  } = {
+    ...loadActions.actions,
+  }
+
+  /** True when free-text query or any filter chip is active. */
+  function hasSearchOrFilter(): boolean {
+    return debouncedQuery.value.trim().length > 0 || activeFilterCount(filters.value) > 0
+  }
+
+  /** Downgrade rating/downloads sort when browsing the full unfiltered catalog. */
+  function coerceSortMode(mode: SortMode): SortMode {
+    if (SCOPED_SORTS.has(mode) && !hasSearchOrFilter()) return DEFAULT_BROWSE_SORT
+    return mode
+  }
+
+  watch(queryText, (q) => {
+    searching.value = true
+    if (slots.debounceTimer) clearTimeout(slots.debounceTimer)
+    slots.debounceTimer = setTimeout(() => {
+      debouncedQuery.value = q
+      searching.value = false
+      resultLimit.value = RESULTS_PAGE_SIZE
+      sortMode.value = coerceSortMode(sortMode.value)
+    }, SEARCH_DEBOUNCE_MS)
+  })
+
+  watch(
+    filters,
+    () => {
+      resultLimit.value = RESULTS_PAGE_SIZE
+      sortMode.value = coerceSortMode(sortMode.value)
+    },
+    { deep: true },
+  )
+
+  watch(sortMode, () => {
+    resultLimit.value = RESULTS_PAGE_SIZE
+  })
+
+  watch(sortReverse, () => {
+    resultLimit.value = RESULTS_PAGE_SIZE
+  })
+
+  /** Replace the bulk-built per-tag offline readiness index. */
+  function setCacheReadyIndex(map: Map<number, TagCacheReady>): void {
+    cacheReadyByTag.value = map
+  }
+
+  function browseSortOpts() {
+    const ratings = useRatingsStore()
+    void ratings.revision
+    return {
+      myStars: (tagId: number) => ratings.starsFor(tagId),
+    }
+  }
+
+  function filterByCachedReadiness(list: TagSummary[]): TagSummary[] {
+    if (filters.value.cached == null) return list
+    return list.filter((tag) =>
+      matchesOfflineBrowseFilters(cacheReadyByTag.value.get(tag.id), filters.value),
+    )
+  }
+
+  function filterByMyRating(list: TagSummary[]): TagSummary[] {
+    if (filters.value.rated !== true) return list
+    const ratings = useRatingsStore()
+    void ratings.revision
+    return list.filter((tag) => ratings.has(tag.id))
+  }
+
+  function applyClientFilters(list: TagSummary[]): TagSummary[] {
+    return filterByMyRating(filterByCachedReadiness(list))
+  }
+
   /** Merge partial filter state (resets result window via watcher). */
   function patchFilters(patch: Partial<CatalogFilters>): void {
     filters.value = { ...filters.value, ...patch }
@@ -708,9 +489,9 @@ export const useCatalogStore = defineStore('catalog', () => {
     queryText.value = q
     debouncedQuery.value = q
     searching.value = false
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
+    if (slots.debounceTimer) {
+      clearTimeout(slots.debounceTimer)
+      slots.debounceTimer = null
     }
     filters.value = nextFilters
     const nextSort = coerceSortMode(requested)
@@ -772,14 +553,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
-  /** @deprecated use filters.fullText */
-  const fullText = computed({
-    get: () => filters.value.fullText,
-    set: (v: boolean) => {
-      filters.value = { ...filters.value, fullText: v }
-    },
-  })
-
   return {
     tags,
     loaded,
@@ -814,6 +587,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     hydrateFirstPaint,
     hydrateFirstPaintChrome,
     hydrateFromSnapshot,
+    beginIndexedDbHydrate,
     hydrateFromIndexedDb,
     hydrateLyricsFromIndexedDb,
     ensureLyrics,

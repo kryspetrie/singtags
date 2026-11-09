@@ -23,7 +23,7 @@ import type { HarmonizeCandidate, UnscoredCandidate } from './types'
 import type { RuleTag } from '../types'
 import type { VoicingPitches } from '../chords'
 
-function sameChordAsPrev(c: UnscoredCandidate): boolean {
+export function sameChordAsPrev(c: UnscoredCandidate): boolean {
   return (
     c.prevRootPc != null &&
     c.prevNatureId != null &&
@@ -43,12 +43,12 @@ export type RankerDeps = {
   cadenceBias?: CadenceBias
 }
 
-function leadRoleOf(c: UnscoredCandidate): number {
+export function leadRoleOf(c: UnscoredCandidate): number {
   const leadRole = Number(c.voicing[2])
   return Number.isFinite(leadRole) ? leadRole : 0
 }
 
-function strongVoiceScore(c: UnscoredCandidate): number {
+export function strongVoiceScore(c: UnscoredCandidate): number {
   const leadRole = leadRoleOf(c)
   if (!leadRole) return 0
   if (c.natureId === 'seventh' || c.natureId === 'ninth' || c.natureId === 'm7') {
@@ -81,7 +81,7 @@ function isTrueSongFinal(deps: RankerDeps): boolean {
  * Classical diatonic gravity (same shape as Detected `functionWeight`).
  * Major: I > V > IV > vi > ii > iii … with V7/ii7 preferred over bare exotic roots.
  */
-function diatonicFunctionBias(
+export function diatonicFunctionBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   deps: RankerDeps,
@@ -186,7 +186,7 @@ function diatonicFunctionBias(
  * True final: must be tonic home. Hanging V7 / ii7 / random roots lose badly.
  * Rylander: ~99% end on a major triad — prefer I/i unless Lead forces ♭7.
  */
-function songFinalHomeBias(
+export function songFinalHomeBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   deps: RankerDeps,
@@ -315,7 +315,7 @@ export function triadDoubleKind(
  * Optional Mm7 with Lead on 1/5 does not get a full 4-PC bonus — otherwise it
  * steals every tonic/IV home from a legal root-doubled triad.
  */
-function completeFourPartBias(
+export function completeFourPartBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   deps: RankerDeps = {},
@@ -340,12 +340,12 @@ function completeFourPartBias(
   }
   const isMinorFamily =
     c.natureId === 'minor' || c.natureId === 'm7' || c.natureId === 'madd6'
-  // Major root doubles are the legal home (Flinn/BAM/Prietto) — small reward so
-  // registerHome/closed on a tight fifth-double cannot erase the preference
-  // when the root-double shell is a wider (span ~24) Lead-on-3 voicing.
+  // Major root doubles are the legal home (Flinn/BAM/Prietto). Span > 16
+  // (Lead on 3) uses a larger reward so a tight fifth-double cannot win.
   // Minor: keep a soft cost so mid-phrase i7 (4-PC) can still win over i.
   if (kind === 'root') {
-    return isMinorFamily ? -w.completeFourPart * 0.15 : w.completeFourPart * 0.35
+    const wide = !isMinorFamily && c.midi.tenor - c.midi.bass > 16
+    return w.completeFourPart * (isMinorFamily ? -0.15 : wide ? 2 : 0.35)
   }
   if (isMinorFamily && kind === 'third') return -w.completeFourPart * 0.4
   if (kind === 'fifth') return -w.completeFourPart * 1.25
@@ -357,7 +357,7 @@ function completeFourPartBias(
  * Cadence/tag tonic: Rylander ~99% major endings — prefer I/i with a legal
  * double unless Lead is on ♭7 (forces I7 / i7).
  */
-function finalCompleteBias(
+export function finalCompleteBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   deps: RankerDeps,
@@ -410,7 +410,7 @@ function finalCompleteBias(
  * BS7 color when the lead is 3 or 7; avoid automatic I7/IV7 when the lead is the root.
  * At cadence/tag tonic, demote I7 unless Lead is on ♭7 (Rylander major endings).
  */
-function seventhBias(
+export function seventhBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   leadRole: number,
@@ -437,11 +437,11 @@ function seventhBias(
   return w.seventh * 0.25
 }
 
-function rankingMode(deps: RankerDeps): 'major' | 'minor' {
+export function rankingMode(deps: RankerDeps): 'major' | 'minor' {
   return deps.cadenceContext?.mode === 'minor' ? 'minor' : 'major'
 }
 
-function homeTriadBias(
+export function homeTriadBias(
   c: UnscoredCandidate,
   w: RankingWeights,
   leadRole: number,
@@ -478,7 +478,7 @@ function homeTriadBias(
  * Prefer a stable mid register and resist upward ratchet vs prevMidi.
  * Octave doubles are fine; this does not re-check unisons (generator rejects those).
  */
-function registerHomeBias(c: UnscoredCandidate, w: RankingWeights): number {
+export function registerHomeBias(c: UnscoredCandidate, w: RankingWeights): number {
   if (w.registerHome <= 0) return 0
   const { bass, bari, lead, tenor } = c.midi
   let score = 0
@@ -522,7 +522,7 @@ function registerHomeBias(c: UnscoredCandidate, w: RankingWeights): number {
   return w.registerHome * score
 }
 
-function colorChordPenalty(c: UnscoredCandidate, w: RankingWeights, leadRole: number): number {
+export function colorChordPenalty(c: UnscoredCandidate, w: RankingWeights, leadRole: number): number {
   if (
     c.natureId !== 'ninth' &&
     c.natureId !== 'sixth' &&
@@ -537,7 +537,7 @@ function colorChordPenalty(c: UnscoredCandidate, w: RankingWeights, leadRole: nu
 }
 
 /** Minor family without Lead on ♭3 — demote in major keys. */
-function unforcedMinorPenalty(
+export function unforcedMinorPenalty(
   c: UnscoredCandidate,
   w: RankingWeights,
   leadRole: number,
@@ -718,161 +718,4 @@ export function createCandidateRanker(deps: RankerDeps = {}) {
   }
 }
 
-/** Expose score parts for Why? / coach explanations (UI render only). */
-export function explainRankingBreakdown(
-  c: UnscoredCandidate,
-  deps: RankerDeps = {},
-): { label: string; value: number; teachingId?: string }[] {
-  const w: RankingWeights = { ...DEFAULT_RANKING_WEIGHTS, ...deps.weights }
-  const melodyVoice = deps.melodyVoice ?? 'lead'
-  const mode = rankingMode(deps)
-  const leadRole = leadRoleOf(c)
-  const isSecDom =
-    c.nextPillarRoot != null &&
-    (c.natureId === 'seventh' || c.natureId === 'ninth') &&
-    (c.rootPc - c.nextPillarRoot + 12) % 12 === 7
-  let secDom = 0
-  if (isSecDom) {
-    const ninthTax = c.natureId === 'ninth' && leadRole !== 9 ? 0.75 : 1
-    const tonality = deps.cadenceContext?.tonality
-    const deg = tonality == null ? null : degreeOf(c.rootPc, tonality)
-    const circleHwy = deg === 2 || deg === 9
-    if (leadRole === 3 || leadRole === 7) secDom = w.secondaryDominant * ninthTax
-    else if (leadRole === 9 && c.natureId === 'ninth') secDom = w.secondaryDominant
-    else if (leadRole === 1 && circleHwy) secDom = w.secondaryDominant * 0.7 * ninthTax
-    else if (leadRole === 1) secDom = w.secondaryDominant * 0.12 * ninthTax
-    else secDom = w.secondaryDominant * 0.45 * ninthTax
-  }
-  const bonuses = theoryRankBonuses({
-    midi: c.midi,
-    prevMidi: c.prevMidi,
-    natureId: c.natureId,
-    rootPc: c.rootPc,
-    layer: c.layer,
-    nextPillarRoot: c.nextPillarRoot,
-    towardPillar: c.towardPillar,
-    prevDominant: c.prevDominant ?? null,
-    melodyVoice,
-  })
-  let cadenceFitValue = 0
-  let cadenceTeach: string | undefined
-  if (deps.cadenceContext) {
-    const cad = scoreCadenceFit(
-      { rootPc: c.rootPc, natureId: c.natureId, layer: c.layer },
-      {
-        ...deps.cadenceContext,
-        prevRootPc: deps.cadenceContext.prevRootPc ?? c.prevRootPc ?? null,
-        nextPillarRoot: deps.cadenceContext.nextPillarRoot ?? c.nextPillarRoot,
-      },
-      { includeColor: true, bias: deps.cadenceBias },
-    )
-    cadenceFitValue = cad.boost
-    cadenceTeach = cad.hint?.teach
-  }
-  const parts: { label: string; value: number; teachingId?: string }[] = [
-    { label: 'motion', value: w.motion * c.motionScore },
-    { label: 'primary', value: c.layer === 'primary' ? w.primaryLayer : -w.passingSoftPenalty },
-    { label: 'seventh', value: seventhBias(c, w, leadRole, deps) },
-    { label: 'homeTriad', value: homeTriadBias(c, w, leadRole, mode, deps) },
-    { label: 'completeFourPart', value: completeFourPartBias(c, w, deps) },
-    { label: 'finalComplete', value: finalCompleteBias(c, w, deps) },
-    { label: 'diatonicFunction', value: diatonicFunctionBias(c, w, deps) },
-    { label: 'songFinalHome', value: songFinalHomeBias(c, w, deps) },
-    { label: 'registerHome', value: registerHomeBias(c, w) },
-    { label: 'colorChord', value: -colorChordPenalty(c, w, leadRole) },
-    {
-      label: 'unforcedMinor',
-      value: -unforcedMinorPenalty(c, w, leadRole, mode),
-    },
-    {
-      label: 'closed',
-      value: !c.spread
-        ? w.closedVoicing +
-          (() => {
-            const outer = c.midi.tenor - c.midi.bass
-            if (outer <= 12) return w.closedVoicing * 0.7
-            if (outer <= 16) return w.closedVoicing * 0.05
-            if (outer <= 21) return -w.closedVoicing * 0.35
-            return -w.closedVoicing * 0.55
-          })()
-        : 0,
-    },
-    {
-      label: 'upperTrio',
-      value: w.upperTrioClose * upperTrioCloseBias(c.midi),
-      teachingId: 'close_open_voicing',
-    },
-    {
-      label: 'hazardousLeap',
-      value: -w.hazardousLeap * hazardousLeapPenalty(c.prevMidi, c.midi, { sameChord: sameChordAsPrev(c) }),
-    },
-    {
-      label: 'postLeapDir',
-      value:
-        -w.postLeapDirection *
-        postLeapDirectionPenalty(c.prevPrevMidi, c.prevMidi, c.midi, {
-          sameChord: sameChordAsPrev(c),
-        }),
-    },
-    { label: 'ring', value: w.ring * Math.max(0, 7 - ringTier(c.natureId)) },
-    {
-      label: 'stackRing',
-      value: w.stackRing * stackRingPrior(c.natureId, c.voicing),
-      teachingId: 'lock_ring',
-    },
-    { label: 'secondaryDominant', value: secDom, teachingId: 'secondary_dom' },
-    {
-      label: 'voiceLead',
-      value: w.voiceLead * voiceLeadScore(c.prevMidi, c.midi, { melodyVoice }),
-    },
-    {
-      label: 'medianJump',
-      value: -w.voiceLead * medianJumpRankPenalty(c.prevPrevMidi, c.prevMidi, c.midi),
-    },
-    { label: 'strongVoice', value: w.strongVoice * strongVoiceScore(c) },
-    {
-      label: 'tensionRelease',
-      value: w.tensionRelease * bonuses.tensionRelease,
-      teachingId: 'tension_release',
-    },
-    {
-      label: 'resolution',
-      value: w.resolution * bonuses.resolution,
-      teachingId: 'tension_release',
-    },
-    {
-      label: 'cadenceFit',
-      value: w.cadenceFit * cadenceFitValue,
-      teachingId: 'classic_cadences',
-    },
-    {
-      label: 'spacing',
-      value: w.spacing * bonuses.spacing,
-      teachingId: 'harmonic_series_spacing',
-    },
-    {
-      label: 'contrary',
-      value: w.contrary * bonuses.contrary,
-      teachingId: 'contrary_motion',
-    },
-    {
-      label: 'commonTone',
-      value: w.commonTone * bonuses.commonTone,
-      teachingId: 'common_tone',
-    },
-    {
-      label: 'parallelPenalty',
-      value: -w.parallelPenalty * bonuses.parallelPenalty,
-      teachingId: 'parallel_5_8',
-    },
-  ]
-  // Attach teach sentence on the factor when present (UI may show as subtitle).
-  if (cadenceTeach) {
-    const cadPart = parts.find((p) => p.label === 'cadenceFit')
-    if (cadPart && cadPart.value !== 0) {
-      ;(cadPart as { label: string; value: number; teachingId?: string; detail?: string }).detail =
-        cadenceTeach
-    }
-  }
-  return parts.filter((p) => p.value !== 0)
-}
+export { explainRankingBreakdown } from './candidateRankExplain'

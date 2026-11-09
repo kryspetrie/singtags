@@ -47,7 +47,7 @@ describe('editorUrlQuery', () => {
       mode: 'compose',
       surface: 'roll',
       layout: 'continuous',
-      sizing: 'equal',
+      sizing: 'dynamic',
     })
   })
 })

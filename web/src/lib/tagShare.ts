@@ -8,8 +8,6 @@
 
 import { FULLSCREEN_QUERY_FLAG } from './fullscreenQuery'
 
-export type ShareOrCopyResult = 'shared' | 'copied' | 'cancelled' | 'failed'
-
 /** Clamp shared / session fine detune to ±50 cents (integer). */
 export function clampShareDetuneCents(n: number): number {
   if (!Number.isFinite(n)) return 0
@@ -52,51 +50,4 @@ export function buildTagSharePath(
   if (opts?.practice) query.set = 'practice'
   if (opts?.fullscreen) query.fullscreen = FULLSCREEN_QUERY_FLAG
   return { path: `/tag/${tagId}`, query }
-}
-
-/**
- * Whether to prefer the Web Share sheet over clipboard.
- * Desktop browsers often expose `navigator.share` but reject URL-only payloads —
- * check `canShare` when present, otherwise only auto-open share on touch devices.
- */
-export function shouldPreferWebShare(data: ShareData): boolean {
-  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false
-  if (typeof navigator.canShare === 'function') {
-    try {
-      return navigator.canShare(data)
-    } catch {
-      return false
-    }
-  }
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-  return window.matchMedia('(pointer: coarse)').matches
-}
-
-/**
- * Share via the OS sheet when reliable; otherwise copy the URL to the clipboard.
- */
-export async function shareOrCopyUrl(
-  url: string,
-  opts?: { title?: string; text?: string },
-): Promise<ShareOrCopyResult> {
-  const title = opts?.title || 'SingTags'
-  const text = opts?.text || title
-  const data: ShareData = { title, text, url }
-
-  if (shouldPreferWebShare(data)) {
-    try {
-      await navigator.share(data)
-      return 'shared'
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
-      // Fall through to clipboard for NotAllowed / TypeError / etc.
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(url)
-    return 'copied'
-  } catch {
-    return 'failed'
-  }
 }

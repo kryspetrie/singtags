@@ -1,3 +1,4 @@
+import { createCatalogAudioSource } from '../adapters/tagRoll/catalogAudioSource'
 import { createAudioBounce } from '../adapters/tagRoll/audioBounce'
 import { createIndexedDbTagRollRepository } from '../adapters/tagRoll/indexedDbRepository'
 import { createLocalLibraryIngest } from '../adapters/tagRoll/libraryIngest'
@@ -8,6 +9,7 @@ import {
   createSystemClock,
 } from '../adapters/system/systemServices'
 import type { AudioBounce } from '../ports/AudioBounce'
+import type { CatalogAudioSource } from '../ports/CatalogAudio'
 import type { Clock } from '../ports/Clock'
 import type { IdGenerator } from '../ports/IdGenerator'
 import type { LibraryIngest } from '../ports/LibraryIngest'
@@ -24,6 +26,7 @@ export type TagStudioServices = {
   musicXmlExporter: MusicXmlExporter
   audioBounce: AudioBounce
   libraryIngest: LibraryIngest
+  catalogAudio: CatalogAudioSource
 }
 
 export function createTagStudioServices(
@@ -37,6 +40,7 @@ export function createTagStudioServices(
     musicXmlExporter: overrides.musicXmlExporter ?? createMusicXmlExporter(),
     audioBounce: overrides.audioBounce ?? createAudioBounce(),
     libraryIngest: overrides.libraryIngest ?? createLocalLibraryIngest(),
+    catalogAudio: overrides.catalogAudio ?? createCatalogAudioSource(),
   }
 }
 

@@ -1,15 +1,15 @@
 {
   "tagId": 90001,
   "summary": {
-    "stackOnsets": 65,
+    "stackOnsets": 63,
     "locked": 27,
-    "unlocked": 38,
-    "lockCoverage": 0.4153846153846154,
+    "unlocked": 36,
+    "lockCoverage": 0.42857142857142855,
     "verified": false
   },
   "ambiguous": [
     {
-      "startTick": 481,
+      "startTick": 1440,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -56,7 +56,7 @@
       ]
     },
     {
-      "startTick": 1921,
+      "startTick": 2880,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -103,7 +103,7 @@
       ]
     },
     {
-      "startTick": 3361,
+      "startTick": 4320,
       "leadMidi": 63,
       "midi": {
         "tenor": 67,
@@ -150,7 +150,7 @@
       ]
     },
     {
-      "startTick": 6241,
+      "startTick": 7200,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,
@@ -197,7 +197,7 @@
       ]
     },
     {
-      "startTick": 6720,
+      "startTick": 7680,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,
@@ -244,7 +244,7 @@
       ]
     },
     {
-      "startTick": 9121,
+      "startTick": 10080,
       "leadMidi": 58,
       "midi": {
         "tenor": 67,
@@ -291,7 +291,7 @@
       ]
     },
     {
-      "startTick": 11520,
+      "startTick": 12480,
       "leadMidi": 55,
       "midi": {
         "tenor": 70,
@@ -332,7 +332,7 @@
       ]
     },
     {
-      "startTick": 11760,
+      "startTick": 12720,
       "leadMidi": 55,
       "midi": {
         "tenor": 70,
@@ -373,7 +373,7 @@
       ]
     },
     {
-      "startTick": 12960,
+      "startTick": 13920,
       "leadMidi": 60,
       "midi": {
         "tenor": 68,
@@ -398,128 +398,11 @@
           "natureId": "ninth",
           "roman": "V7(9)",
           "label": "Bb7(9)"
-        }
-      ]
-    },
-    {
-      "startTick": 13441,
-      "leadMidi": 58,
-      "midi": {
-        "tenor": 67,
-        "bari": 63,
-        "bass": 51
-      },
-      "auto": {
-        "rootPc": 3,
-        "natureId": "major",
-        "roman": "I"
-      },
-      "confidence": 0.8571428571428571,
-      "alts": [
-        {
-          "rootPc": 3,
-          "natureId": "major",
-          "roman": "I",
-          "label": "Eb"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "sixth",
-          "roman": "I6",
-          "label": "Eb6"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "add9",
-          "roman": "I(add9)",
-          "label": "Ebadd9"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "seventh",
-          "roman": "I7",
-          "label": "Eb7"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "maj7",
-          "roman": "I",
-          "label": "Ebmaj7"
         }
       ]
     },
     {
       "startTick": 14400,
-      "leadMidi": 55,
-      "midi": {
-        "tenor": 70,
-        "bari": 61,
-        "bass": 52
-      },
-      "auto": {
-        "rootPc": 4,
-        "natureId": "dim7",
-        "roman": "♭II"
-      },
-      "confidence": 0.2857142857142857,
-      "alts": [
-        {
-          "rootPc": 4,
-          "natureId": "dim7",
-          "roman": "♭II",
-          "label": "E°7"
-        },
-        {
-          "rootPc": 10,
-          "natureId": "dim7",
-          "roman": "V",
-          "label": "Bb°7"
-        },
-        {
-          "rootPc": 7,
-          "natureId": "dim7",
-          "roman": "iii",
-          "label": "G°7"
-        },
-        {
-          "rootPc": 1,
-          "natureId": "dim7",
-          "roman": "♭VII",
-          "label": "Db°7"
-        }
-      ]
-    },
-    {
-      "startTick": 15840,
-      "leadMidi": 60,
-      "midi": {
-        "tenor": 68,
-        "bari": 62,
-        "bass": 53
-      },
-      "auto": {
-        "rootPc": 5,
-        "natureId": "madd6",
-        "roman": "ii6"
-      },
-      "confidence": 0.7142857142857143,
-      "alts": [
-        {
-          "rootPc": 5,
-          "natureId": "madd6",
-          "roman": "ii6",
-          "label": "Fm6"
-        },
-        {
-          "rootPc": 10,
-          "natureId": "ninth",
-          "roman": "V7(9)",
-          "label": "Bb7(9)"
-        }
-      ]
-    },
-    {
-      "startTick": 16321,
       "leadMidi": 58,
       "midi": {
         "tenor": 67,
@@ -566,8 +449,78 @@
       ]
     },
     {
+      "startTick": 15360,
+      "leadMidi": 55,
+      "midi": {
+        "tenor": 70,
+        "bari": 61,
+        "bass": 52
+      },
+      "auto": {
+        "rootPc": 4,
+        "natureId": "dim7",
+        "roman": "♭II"
+      },
+      "confidence": 0.2857142857142857,
+      "alts": [
+        {
+          "rootPc": 4,
+          "natureId": "dim7",
+          "roman": "♭II",
+          "label": "E°7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "dim7",
+          "roman": "V",
+          "label": "Bb°7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "dim7",
+          "roman": "iii",
+          "label": "G°7"
+        },
+        {
+          "rootPc": 1,
+          "natureId": "dim7",
+          "roman": "♭VII",
+          "label": "Db°7"
+        }
+      ]
+    },
+    {
+      "startTick": 16800,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 68,
+        "bari": 62,
+        "bass": 53
+      },
+      "auto": {
+        "rootPc": 5,
+        "natureId": "madd6",
+        "roman": "ii6"
+      },
+      "confidence": 0.7142857142857143,
+      "alts": [
+        {
+          "rootPc": 5,
+          "natureId": "madd6",
+          "roman": "ii6",
+          "label": "Fm6"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "Bb7(9)"
+        }
+      ]
+    },
+    {
       "startTick": 17280,
-      "leadMidi": 63,
+      "leadMidi": 58,
       "midi": {
         "tenor": 67,
         "bari": 63,
@@ -578,7 +531,7 @@
         "natureId": "major",
         "roman": "I"
       },
-      "confidence": 0.7142857142857142,
+      "confidence": 0.8571428571428571,
       "alts": [
         {
           "rootPc": 3,
@@ -599,21 +552,21 @@
           "label": "Ebadd9"
         },
         {
-          "rootPc": 0,
-          "natureId": "minor",
-          "roman": "vi",
-          "label": "Cm"
-        },
-        {
           "rootPc": 3,
           "natureId": "seventh",
           "roman": "I7",
           "label": "Eb7"
+        },
+        {
+          "rootPc": 3,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Ebmaj7"
         }
       ]
     },
     {
-      "startTick": 19201,
+      "startTick": 20160,
       "leadMidi": 67,
       "midi": {
         "tenor": 69,
@@ -642,7 +595,7 @@
       ]
     },
     {
-      "startTick": 20160,
+      "startTick": 21120,
       "leadMidi": 66,
       "midi": {
         "tenor": 69,
@@ -683,7 +636,7 @@
       ]
     },
     {
-      "startTick": 23521,
+      "startTick": 24480,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -730,7 +683,7 @@
       ]
     },
     {
-      "startTick": 24961,
+      "startTick": 25920,
       "leadMidi": 67,
       "midi": {
         "tenor": 70,
@@ -777,7 +730,7 @@
       ]
     },
     {
-      "startTick": 26401,
+      "startTick": 27360,
       "leadMidi": 63,
       "midi": {
         "tenor": 67,
@@ -824,7 +777,7 @@
       ]
     },
     {
-      "startTick": 29281,
+      "startTick": 30240,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,
@@ -871,7 +824,7 @@
       ]
     },
     {
-      "startTick": 29760,
+      "startTick": 30720,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,
@@ -918,7 +871,7 @@
       ]
     },
     {
-      "startTick": 32161,
+      "startTick": 33120,
       "leadMidi": 58,
       "midi": {
         "tenor": 67,
@@ -965,7 +918,7 @@
       ]
     },
     {
-      "startTick": 34560,
+      "startTick": 35520,
       "leadMidi": 55,
       "midi": {
         "tenor": 70,
@@ -1006,7 +959,7 @@
       ]
     },
     {
-      "startTick": 34800,
+      "startTick": 35760,
       "leadMidi": 55,
       "midi": {
         "tenor": 70,
@@ -1047,7 +1000,7 @@
       ]
     },
     {
-      "startTick": 36000,
+      "startTick": 36960,
       "leadMidi": 60,
       "midi": {
         "tenor": 68,
@@ -1072,128 +1025,11 @@
           "natureId": "ninth",
           "roman": "V7(9)",
           "label": "Bb7(9)"
-        }
-      ]
-    },
-    {
-      "startTick": 36481,
-      "leadMidi": 58,
-      "midi": {
-        "tenor": 67,
-        "bari": 63,
-        "bass": 51
-      },
-      "auto": {
-        "rootPc": 3,
-        "natureId": "major",
-        "roman": "I"
-      },
-      "confidence": 0.8571428571428571,
-      "alts": [
-        {
-          "rootPc": 3,
-          "natureId": "major",
-          "roman": "I",
-          "label": "Eb"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "sixth",
-          "roman": "I6",
-          "label": "Eb6"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "add9",
-          "roman": "I(add9)",
-          "label": "Ebadd9"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "seventh",
-          "roman": "I7",
-          "label": "Eb7"
-        },
-        {
-          "rootPc": 3,
-          "natureId": "maj7",
-          "roman": "I",
-          "label": "Ebmaj7"
         }
       ]
     },
     {
       "startTick": 37440,
-      "leadMidi": 55,
-      "midi": {
-        "tenor": 70,
-        "bari": 61,
-        "bass": 52
-      },
-      "auto": {
-        "rootPc": 4,
-        "natureId": "dim7",
-        "roman": "♭II"
-      },
-      "confidence": 0.2857142857142857,
-      "alts": [
-        {
-          "rootPc": 4,
-          "natureId": "dim7",
-          "roman": "♭II",
-          "label": "E°7"
-        },
-        {
-          "rootPc": 10,
-          "natureId": "dim7",
-          "roman": "V",
-          "label": "Bb°7"
-        },
-        {
-          "rootPc": 7,
-          "natureId": "dim7",
-          "roman": "iii",
-          "label": "G°7"
-        },
-        {
-          "rootPc": 1,
-          "natureId": "dim7",
-          "roman": "♭VII",
-          "label": "Db°7"
-        }
-      ]
-    },
-    {
-      "startTick": 38880,
-      "leadMidi": 60,
-      "midi": {
-        "tenor": 68,
-        "bari": 62,
-        "bass": 53
-      },
-      "auto": {
-        "rootPc": 5,
-        "natureId": "madd6",
-        "roman": "ii6"
-      },
-      "confidence": 0.7142857142857143,
-      "alts": [
-        {
-          "rootPc": 5,
-          "natureId": "madd6",
-          "roman": "ii6",
-          "label": "Fm6"
-        },
-        {
-          "rootPc": 10,
-          "natureId": "ninth",
-          "roman": "V7(9)",
-          "label": "Bb7(9)"
-        }
-      ]
-    },
-    {
-      "startTick": 39361,
       "leadMidi": 58,
       "midi": {
         "tenor": 67,
@@ -1240,8 +1076,78 @@
       ]
     },
     {
+      "startTick": 38400,
+      "leadMidi": 55,
+      "midi": {
+        "tenor": 70,
+        "bari": 61,
+        "bass": 52
+      },
+      "auto": {
+        "rootPc": 4,
+        "natureId": "dim7",
+        "roman": "♭II"
+      },
+      "confidence": 0.2857142857142857,
+      "alts": [
+        {
+          "rootPc": 4,
+          "natureId": "dim7",
+          "roman": "♭II",
+          "label": "E°7"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "dim7",
+          "roman": "V",
+          "label": "Bb°7"
+        },
+        {
+          "rootPc": 7,
+          "natureId": "dim7",
+          "roman": "iii",
+          "label": "G°7"
+        },
+        {
+          "rootPc": 1,
+          "natureId": "dim7",
+          "roman": "♭VII",
+          "label": "Db°7"
+        }
+      ]
+    },
+    {
+      "startTick": 39840,
+      "leadMidi": 60,
+      "midi": {
+        "tenor": 68,
+        "bari": 62,
+        "bass": 53
+      },
+      "auto": {
+        "rootPc": 5,
+        "natureId": "madd6",
+        "roman": "ii6"
+      },
+      "confidence": 0.7142857142857143,
+      "alts": [
+        {
+          "rootPc": 5,
+          "natureId": "madd6",
+          "roman": "ii6",
+          "label": "Fm6"
+        },
+        {
+          "rootPc": 10,
+          "natureId": "ninth",
+          "roman": "V7(9)",
+          "label": "Bb7(9)"
+        }
+      ]
+    },
+    {
       "startTick": 40320,
-      "leadMidi": 63,
+      "leadMidi": 58,
       "midi": {
         "tenor": 67,
         "bari": 63,
@@ -1252,7 +1158,7 @@
         "natureId": "major",
         "roman": "I"
       },
-      "confidence": 0.7142857142857142,
+      "confidence": 0.8571428571428571,
       "alts": [
         {
           "rootPc": 3,
@@ -1273,21 +1179,21 @@
           "label": "Ebadd9"
         },
         {
-          "rootPc": 0,
-          "natureId": "minor",
-          "roman": "vi",
-          "label": "Cm"
-        },
-        {
           "rootPc": 3,
           "natureId": "seventh",
           "roman": "I7",
           "label": "Eb7"
+        },
+        {
+          "rootPc": 3,
+          "natureId": "maj7",
+          "roman": "I",
+          "label": "Ebmaj7"
         }
       ]
     },
     {
-      "startTick": 41280,
+      "startTick": 42240,
       "leadMidi": 62,
       "midi": {
         "tenor": 69,
@@ -1334,7 +1240,7 @@
       ]
     },
     {
-      "startTick": 42241,
+      "startTick": 43200,
       "leadMidi": 65,
       "midi": {
         "tenor": 68,
@@ -1363,7 +1269,7 @@
       ]
     },
     {
-      "startTick": 42720,
+      "startTick": 43680,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,
@@ -1392,7 +1298,7 @@
       ]
     },
     {
-      "startTick": 43681,
+      "startTick": 44640,
       "leadMidi": 63,
       "midi": {
         "tenor": 67,
@@ -1439,7 +1345,7 @@
       ]
     },
     {
-      "startTick": 44640,
+      "startTick": 45600,
       "leadMidi": 65,
       "midi": {
         "tenor": 67,
@@ -1468,7 +1374,7 @@
       ]
     },
     {
-      "startTick": 47040,
+      "startTick": 48000,
       "leadMidi": 62,
       "midi": {
         "tenor": 69,
@@ -1515,7 +1421,7 @@
       ]
     },
     {
-      "startTick": 48001,
+      "startTick": 48960,
       "leadMidi": 65,
       "midi": {
         "tenor": 68,
@@ -1544,7 +1450,7 @@
       ]
     },
     {
-      "startTick": 48480,
+      "startTick": 49440,
       "leadMidi": 63,
       "midi": {
         "tenor": 68,

@@ -2,7 +2,7 @@
  * Narrow-viewport long-press multi-select for list rows (Sing Together pattern).
  */
 import { computed, onUnmounted, ref, type Ref } from 'vue'
-import { NARROW_VIEWPORT_MQ, readIsNarrowViewport } from '../lib/narrowViewport'
+import { NARROW_VIEWPORT_MQ, readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import { visualPxToLayoutPx } from '../lib/uiScale'
 
 export const DEFAULT_NARROW_SELECT_MQ = NARROW_VIEWPORT_MQ
@@ -54,7 +54,7 @@ export function useLongPressSelect<TId extends string | number>(
   )
 
   function syncNarrowSelect(): void {
-    isNarrow.value = narrowMq?.matches ?? false
+    isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
   }
 
   function bindNarrowMediaQuery(): void {

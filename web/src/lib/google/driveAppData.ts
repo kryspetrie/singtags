@@ -256,6 +256,60 @@ export async function updateFileMedia(opts: {
   return (await res.json()) as DriveFileRef
 }
 
+const MULTIPART_UPLOAD_LIMIT = 4 * 1024 * 1024
+
+/** Upload bytes into appData. Larger files use a resumable session. */
+export async function uploadAppDataBytes(opts: {
+  name: string
+  parentId: string
+  mimeType: string
+  bytes: Uint8Array
+}): Promise<DriveFileRef> {
+  const existing = await findChildByName(opts.name, opts.parentId)
+  if (existing) return existing
+  if (opts.bytes.byteLength <= MULTIPART_UPLOAD_LIMIT) {
+    return uploadNewFile({
+      name: opts.name,
+      parentId: opts.parentId,
+      mimeType: opts.mimeType,
+      bytes: opts.bytes,
+    })
+  }
+  const token = await getAccessToken()
+  const start = await fetch(
+    `${UPLOAD_API}/files?uploadType=resumable&spaces=appDataFolder&fields=id,name,mimeType`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': opts.mimeType,
+        'X-Upload-Content-Length': String(opts.bytes.byteLength),
+      },
+      body: JSON.stringify({ name: opts.name, parents: [opts.parentId] }),
+    },
+  )
+  if (!start.ok) {
+    const text = await start.text().catch(() => '')
+    throw new Error(text || `Drive upload failed (${start.status}).`)
+  }
+  const location = start.headers.get('Location')
+  if (!location) throw new Error('Drive did not start a resumable upload.')
+  const put = await fetch(location, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': opts.mimeType,
+      'Content-Length': String(opts.bytes.byteLength),
+    },
+    body: new Blob([toArrayBuffer(opts.bytes)]),
+  })
+  if (!put.ok) {
+    const text = await put.text().catch(() => '')
+    throw new Error(text || `Drive upload failed (${put.status}).`)
+  }
+  return (await put.json()) as DriveFileRef
+}
+
 /** Create or replace a text/JSON file by name under a parent folder. */
 export async function upsertTextFile(opts: {
   name: string

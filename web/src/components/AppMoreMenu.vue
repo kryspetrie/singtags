@@ -12,6 +12,7 @@ import {
   openGoogleDriveData,
   openGoogleLogin,
   openGoogleLogoutConfirm,
+  requestDriveUpdateCheck,
 } from '../lib/google/accountUi'
 import {
   googleAuthState,
@@ -46,13 +47,20 @@ const snackbar = useSnackbarStore()
 const { showInstallEntry, canPrompt, promptInstall } = usePwaInstall()
 const howToOpen = ref(false)
 const googleConfigured = isGoogleConfigured()
-const isDesktop = ref(false)
+const DESKTOP_MQ = '(min-width: 768px)'
+/** Init from matchMedia so the More sheet does not flash mobile→desktop on wide screens. */
+const isDesktop = ref(
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(DESKTOP_MQ).matches
+    : false,
+)
 const dockStyle = ref<Record<string, string> | null>(null)
 
-const DESKTOP_MQ = '(min-width: 768px)'
-
 function syncDesktop(): void {
-  isDesktop.value = window.matchMedia(DESKTOP_MQ).matches
+  isDesktop.value =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(DESKTOP_MQ).matches
+      : false
 }
 
 function updateDockPosition(): void {
@@ -207,6 +215,11 @@ function onDriveDataClick(): void {
   openGoogleDriveData()
 }
 
+function onCheckForUpdates(): void {
+  close()
+  requestDriveUpdateCheck((message, opts) => snackbar.show(message, opts))
+}
+
 function onAccountClick(): void {
   if (!googleConfigured) {
     snackbar.show('Google sync is not configured in this build', {
@@ -320,6 +333,15 @@ function onAccountClick(): void {
       </RouterLink>
 
       <!-- Mobile only — desktop uses the top-right account control. Labs-gated. -->
+      <button
+        v-if="!isDesktop && showAccountMenu && googleAuthState.connected"
+        type="button"
+        class="menu-item menu-item-account"
+        @click="onCheckForUpdates"
+      >
+        <span class="menu-label">Check for updates</span>
+        <span class="menu-desc">Favorites, settings, projects, library, recordings, and song cache</span>
+      </button>
       <button
         v-if="!isDesktop && showAccountMenu && googleAuthState.connected"
         type="button"

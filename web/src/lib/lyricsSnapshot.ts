@@ -12,20 +12,31 @@ import {
 export type LyricsDoc = { id: number; lyrics: string }
 
 /** Persist lyrics docs to IndexedDB (no-op when empty). */
-export function saveLyricsSnapshot(docs: LyricsDoc[]): void {
+export function saveLyricsSnapshot(docs: LyricsDoc[], sourceHash?: string | null): void {
   if (!docs.length) return
-  void putLyricsSnapshotIdb(docs).catch(() => {
+  void putLyricsSnapshotIdb(docs, sourceHash).catch(() => {
     /* IDB quota or private mode */
   })
 }
 
-/** Load lyrics docs from IndexedDB, or null when none stored. */
-export async function loadLyricsSnapshotAsync(): Promise<LyricsDoc[] | null> {
+/** Lyrics docs plus the published-file hash, or null when none stored. */
+export async function loadLyricsSnapshotMeta(): Promise<{
+  docs: LyricsDoc[]
+  sourceHash: string | null
+} | null> {
   try {
     const rec = await getLyricsSnapshotIdb()
-    if (rec?.docs?.length) return rec.docs
+    if (rec?.docs?.length) {
+      return { docs: rec.docs, sourceHash: rec.sourceHash ?? null }
+    }
   } catch {
     /* ignore */
   }
   return null
+}
+
+/** Load lyrics docs from IndexedDB, or null when none stored. */
+export async function loadLyricsSnapshotAsync(): Promise<LyricsDoc[] | null> {
+  const meta = await loadLyricsSnapshotMeta()
+  return meta?.docs ?? null
 }

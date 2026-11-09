@@ -486,4 +486,40 @@ describe('AppMoreMenu', () => {
     w.unmount()
     account.unmount()
   })
+
+  it('checks Drive from More when signed in', async () => {
+    localStorage.setItem(
+      GOOGLE_CONNECTED_KEY,
+      JSON.stringify({ connectedAt: '2026-01-01T00:00:00.000Z', email: 'a@b.com' }),
+    )
+    googleAuthState.connected = true
+    googleAuthState.email = 'a@b.com'
+
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component: { template: '<div />' } }],
+    })
+    await router.push('/')
+
+    const w = mount(AppMoreMenu, {
+      props: { open: true },
+      attachTo: document.body,
+      global: { plugins: [pinia, router] },
+    })
+    await flushPromises()
+    await new Promise((r) => setTimeout(r, 80))
+    await flushPromises()
+
+    const check = [...document.body.querySelectorAll('button.menu-item-account')].find((b) =>
+      /Check for updates/.test(b.textContent || ''),
+    ) as HTMLButtonElement
+    expect(check).toBeTruthy()
+    check.click()
+    await flushPromises()
+    expect(useSnackbarStore().title).toBe('Google Drive')
+    expect(useSnackbarStore().message).toMatch(/Turn on Google Drive sync in Labs/)
+    w.unmount()
+  })
 })

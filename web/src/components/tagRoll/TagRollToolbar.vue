@@ -77,9 +77,9 @@ const toolsCollapseMq =
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia(TOOLS_COLLAPSE_MQ)
     : null
-const narrowTools = ref(toolsCollapseMq?.matches ?? false)
+const narrowTools = ref(toolsCollapseMq?.matches ?? true)
 function onToolsMqChange(): void {
-  narrowTools.value = toolsCollapseMq?.matches ?? false
+  narrowTools.value = toolsCollapseMq?.matches ?? true
   if (!narrowTools.value) toolsExpanded.value = false
 }
 onMounted(() => {
@@ -353,7 +353,7 @@ onUnmounted(() => {
   <div
     v-if="project"
     class="tr-tb"
-    :class="{ 'tools-collapsed': narrowTools && !toolsExpanded }"
+    :class="{ 'tools-expanded': toolsExpanded }"
     role="toolbar"
     aria-label="Tag Studio tools"
   >
@@ -374,7 +374,6 @@ onUnmounted(() => {
       </div>
 
       <button
-        v-if="narrowTools"
         type="button"
         class="btn sm tools-toggle"
         :aria-expanded="toolsExpanded"
@@ -991,10 +990,6 @@ onUnmounted(() => {
 .tools-toggle {
   margin-left: auto;
   font-weight: 650;
-}
-/* Mobile collapsed: keep mode switcher + More; hide the rest of the tool strip. */
-.tr-tb.tools-collapsed .primary-row > *:not(.modes-primary):not(.tools-toggle) {
-  display: none !important;
 }
 .sep {
   width: 1px;

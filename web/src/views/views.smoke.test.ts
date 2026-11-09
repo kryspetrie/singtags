@@ -26,6 +26,9 @@ vi.mock('../audio/pitchPlayer', async (importOriginal) => {
     PitchPlayer: class {
       async start(): Promise<void> {}
       stop(): void {}
+      setVoice(): void {}
+      warmUp(): void {}
+      restartIfPlaying(): void {}
       dispose(): void {}
     },
     keyToTonicNote: () => 'C4',
@@ -43,6 +46,8 @@ vi.mock('../audio/pitchPlayer', async (importOriginal) => {
 })
 
 vi.mock('../components/TagPlayer.vue', () => ({
+  __esModule: true,
+  __isTeleport: false,
   default: {
     name: 'TagPlayer',
     props: ['parts', 'pitchSemitones'],
@@ -933,6 +938,8 @@ describe('view smoke tests', () => {
       return btn as HTMLButtonElement
     })
     backupBtn.click()
+    await vi.dynamicImportSettled()
+    await flushPromises()
     expect(click).toHaveBeenCalled()
     await w.find('select[aria-label="View favorites by"]').setValue('favorited-new')
     await w.find('button.sort-apply').trigger('click')
@@ -959,7 +966,7 @@ describe('view smoke tests', () => {
     await notes[0]!.trigger('keydown', { key: 'ArrowRight' })
     await notes[0]!.trigger('keydown', { key: ' ' })
     await notes[0]!.trigger('keyup', { key: ' ' })
-    const detune = w.get('input[type="range"]')
+    const detune = w.get('input[aria-label="Fine detune in cents"]')
     await detune.setValue(25)
     expect(w.text()).toContain('25')
     const concertA = w.get('select[aria-label="Concert A frequency"]')

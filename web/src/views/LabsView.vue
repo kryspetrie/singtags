@@ -213,7 +213,7 @@ function toggleTagStudio(): void {
       <h2 id="drive-sync-h" class="card-title">Google Drive sync</h2>
       <p class="card-desc">
         Beta — off by default. Turn this on, then use <strong>Log in</strong> in the title bar
-        (More on a phone) to connect. That keeps preferences, favorites, recents, and Labs flags in
+        (More on a phone) to connect. That keeps favorites, settings, Tag Studio, My Library, recordings, and Tag Roulette in
         your private SingTags app folder on Drive (appData). Sheet / track cache mirroring is opt-in
         in that same sign-in. Tag Studio and My Library sync come next. SingTags never sees your
         password.

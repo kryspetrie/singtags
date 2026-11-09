@@ -3,28 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { getArrangingServices } from '../composition/arranging'
 import { usePreferencesStore } from './preferences'
 import {
-  applyAllSafeFixes,
-  applyCandidateToProject,
-  applyCounterpart,
-  applyFix,
-  assessFinal,
-  assessHowBarbershop,
-  autoHarmonize,
-  autoLabelMelodyRoles,
-  canApplyFix,
-  confirmAllPillars as confirmAllPillarsUc,
-  exportMidi,
-  exportMusicXml,
-  inferPillars as inferPillarsUc,
-  listCandidatesForNote,
   lintSummary,
-  polishArrangementVoicing,
   runQa,
-  strengthenArrangement,
-  pathOptimize as pathOptimizeUc,
   type SoftSuggestContext,
-  type PathOptimizeOpts,
-  type PathOptimizeReport,
 } from '../application/arranging'
 import type { HarmonizeCandidate } from '../domain/arranging/harmonize'
 import type { ArrangementLint } from '../domain/arranging/qa'
@@ -35,25 +16,17 @@ import {
   undoOnce,
   type HistoryStacks,
 } from '../domain/arranging/history'
-import { syncStackAfterMelodyEdit } from '../domain/arranging/syncStacks'
-import {
-  applyEmbellishmentSeed,
-  findEmbellishmentSeeds,
-  melodyWithLyric,
-} from '../domain/arranging/embellishments'
 import { tipsForProfile } from '../domain/arranging/orgTips'
 import { DEFAULT_CONTEST_PROFILE } from '../domain/arranging/contestProfile'
-import { DEFAULT_LENGTH, DEFAULT_SNAP, snapTick } from '../domain/arranging/snap'
+import { DEFAULT_LENGTH, DEFAULT_SNAP } from '../domain/arranging/snap'
 import { getHistory, putHistory } from '../offline/arrangingDb'
 import {
   createEmptyArrangement,
   WIZARD_ORDER,
   WIZARD_STEP_LABELS,
   type ArrangementProject,
-  type ChordStack,
   type ContestProfile,
   type MelodyEvent,
-  type Pillar,
   type TuningMode,
   type WizardStep,
 } from '../domain/arranging/types'
@@ -61,23 +34,17 @@ import {
   normalizeQaConfig,
   type ArrangementQaConfig,
 } from '../domain/arranging/coachConfig'
-import {
-  addPillarAtTick,
-  deletePillar,
-  extendPillarToCover,
-  lockPillar,
-  lockRemainingPillars,
-  pillarAtTick,
-  trimPillarEnd,
-} from '../domain/arranging/pillars'
-import { nextHomeRootProposal, spanKey } from '../domain/arranging/proposePillarAt'
-import { downloadMidiBytes } from '../adapters/arranging/midi/arrangementMidiExporter'
+import { type StoreDeps } from './arrangement/deps'
+import { createArrangementMelodyActions } from './arrangement/melody'
+import { createArrangementPillarActions } from './arrangement/pillars'
+import { createArrangementHarmonizeActions } from './arrangement/harmonize'
 
 /**
  * Thin Pinia façade — mirrors SingTags tagRoll store shape (document + selection + history).
  * Algorithms live in domain/application via composition root.
  */
 export const useArrangementStore = defineStore('arrangement', () => {
+
   const services = getArrangingServices()
 
   const projects = ref<ArrangementProject[]>([])
@@ -127,6 +94,130 @@ export const useArrangementStore = defineStore('arrangement', () => {
     const c = candidates.value[0]
     return c ? explainCandidate(c) : null
   })
+
+  const orgTips = computed(() => {
+    const profile = current.value?.contestProfile ?? DEFAULT_CONTEST_PROFILE
+    return tipsForProfile(profile, 'ttbb')
+  })
+
+  const skippedHomeRootCount = computed(() => skippedHomeRootSpans.value.length)
+
+  const stepLabel = computed(() =>
+    current.value ? WIZARD_STEP_LABELS[current.value.wizardStep] : '',
+  )
+  const deps: StoreDeps = {
+    services,
+    projects,
+    hydrated,
+    currentId,
+    selectedMelodyId,
+    selectedPillarId,
+    skippedHomeRootSpans,
+    candidateTarget,
+    softSuggestContext,
+    addDurationTicks,
+    snapTicks,
+    lengthTicks,
+    cellW,
+    cellH,
+    candidates,
+    lints,
+    playheadTick,
+    isPlaying,
+    history,
+    whyOpen,
+    current,
+    selectedMelody,
+    selectedPillar,
+    qaBadge,
+    canUndo,
+    canRedo,
+    selectedWhy,
+    orgTips,
+    skippedHomeRootCount,
+    stepLabel,
+    hydrate,
+    persist,
+    touch,
+    snapshotBeforeChange,
+    saveHistory,
+    loadHistory,
+    replaceCurrent,
+    mutate,
+    refreshQa,
+    list,
+    create,
+    adoptProject,
+    open,
+    remove,
+    setTitle,
+    setWizardStep,
+    nextStep,
+    prevStep,
+    setTuningMode,
+    setContestProfile,
+    setQaConfig,
+    setTonality,
+    selectMelody,
+    selectLintTarget,
+    undo,
+    redo,
+    severityForMelody,
+    severityForStack,
+    explainAt,
+    pushHistoryCheckpoint,
+  }
+  const melodyActions = createArrangementMelodyActions(deps)
+  const pillarActions = createArrangementPillarActions(deps)
+  const harmonizeActions = createArrangementHarmonizeActions(deps)
+  melodyActions.bindWatches()
+  pillarActions.bindWatches()
+  harmonizeActions.bindWatches()
+  const {
+    addMelodyNote,
+    updateMelodyNote,
+    setLyric,
+    listEmbellishmentSeeds,
+    applySwipeSeed,
+    deleteMelodyNote,
+    clearMelody,
+    inferPillars,
+    proposeNextHomeRoot,
+    skipProposedPillar,
+    clearSkippedHomeRoots,
+    setPillars,
+    updatePillar,
+    confirmAllPillars,
+    selectPillar,
+    addPillarAt,
+    extendSelectedPillarTo,
+    trimSelectedPillarEnd,
+    removePillar,
+    lockSelectedPillar,
+    lockRemaining,
+    refreshCandidates,
+    setSoftSuggestContext,
+    setCandidateTarget,
+    applyCandidate,
+    applyCounterpartStack,
+    autoFillStacks,
+    setStacks,
+    runQaNow,
+    fixLint,
+    fixAllSafe,
+    labelRoles,
+    strengthen,
+    polishVoicing,
+    pathOptimize,
+    finalChecklist,
+    howBarbershopFactors,
+    downloadMidi,
+    downloadMusicXml,
+  } = {
+    ...melodyActions.actions,
+    ...pillarActions.actions,
+    ...harmonizeActions.actions,
+  }
 
   async function hydrate(): Promise<void> {
     if (hydrated.value) return
@@ -331,456 +422,6 @@ export const useArrangementStore = defineStore('arrangement', () => {
     })
   }
 
-  function addMelodyNote(partial: {
-    midi: number
-    startTick: number
-    durationTicks?: number
-    role?: MelodyEvent['role']
-    lyric?: string
-  }): MelodyEvent | null {
-    const p = current.value
-    if (!p) return null
-    snapshotBeforeChange()
-    const startTick = snapTick(partial.startTick, snapTicks.value)
-    const durationTicks = partial.durationTicks ?? addDurationTicks.value
-    const note: MelodyEvent = {
-      id: services.idGen.next('mel'),
-      midi: partial.midi,
-      startTick,
-      durationTicks,
-      role: partial.role ?? 'unknown',
-      lyric: partial.lyric,
-    }
-    p.melody.push(note)
-    const end = startTick + durationTicks
-    if (end + 480 * 4 > lengthTicks.value) {
-      lengthTicks.value = Math.ceil((end + 480 * 4) / (480 * 4)) * (480 * 4)
-    }
-    selectedMelodyId.value = note.id
-    touch(p)
-    void persist()
-    refreshQa()
-    return note
-  }
-
-  function updateMelodyNote(
-    id: string,
-    patch: Partial<Pick<MelodyEvent, 'midi' | 'startTick' | 'durationTicks' | 'role' | 'lyric'>>,
-    opts?: { recordHistory?: boolean },
-  ): void {
-    const p = current.value
-    if (!p) return
-    const prev = p.melody.find((x) => x.id === id)
-    if (!prev) return
-    if (opts?.recordHistory !== false) snapshotBeforeChange()
-    const next = { ...prev }
-    if (patch.midi != null) next.midi = patch.midi
-    if (patch.startTick != null) next.startTick = snapTick(patch.startTick, snapTicks.value)
-    if (patch.durationTicks != null) {
-      next.durationTicks = Math.max(snapTicks.value, patch.durationTicks)
-    }
-    if (patch.role != null) next.role = patch.role
-    if (patch.lyric != null) next.lyric = patch.lyric
-    p.melody = p.melody.map((n) => (n.id === id ? next : n))
-    p.stacks = syncStackAfterMelodyEdit(
-      { ...p, melody: p.melody },
-      prev,
-      next,
-      { idGen: services.idGen, rankerDeps: services.rankerDeps },
-    )
-    touch(p)
-    void persist()
-    refreshQa()
-  }
-
-  function setLyric(noteId: string, lyric: string): void {
-    mutate((p) => {
-      p.melody = melodyWithLyric(p.melody, noteId, lyric)
-    })
-  }
-
-  function listEmbellishmentSeeds() {
-    const p = current.value
-    return p ? findEmbellishmentSeeds(p) : []
-  }
-
-  function applySwipeSeed(seedId: string): boolean {
-    const p = current.value
-    if (!p) return false
-    const seed = findEmbellishmentSeeds(p).find((s) => s.id === seedId)
-    if (!seed?.suggestedStack) return false
-    replaceCurrent(applyEmbellishmentSeed(p, seed))
-    return true
-  }
-
-  const orgTips = computed(() => {
-    const profile = current.value?.contestProfile ?? DEFAULT_CONTEST_PROFILE
-    return tipsForProfile(profile, 'ttbb')
-  })
-
-  function deleteMelodyNote(id: string): void {
-    mutate((p) => {
-      p.melody = p.melody.filter((n) => n.id !== id)
-      p.stacks = p.stacks.filter((s) => p.melody.some((n) => n.startTick === s.startTick))
-    })
-    if (selectedMelodyId.value === id) {
-      selectedMelodyId.value = null
-      candidates.value = []
-    }
-  }
-
-  function clearMelody(): void {
-    mutate((p) => {
-      p.melody = []
-      p.pillars = []
-      p.stacks = []
-    })
-    selectedMelodyId.value = null
-    selectedPillarId.value = null
-    candidates.value = []
-  }
-
-  function inferPillars(): void {
-    const p = current.value
-    if (!p) return
-    const pillars = inferPillarsUc(p, { idGen: services.idGen })
-    replaceCurrent({ ...p, pillars, wizardStep: 'step1_roots' })
-    selectedPillarId.value = pillars.find((x) => !x.confirmed)?.id ?? pillars[0]?.id ?? null
-  }
-
-  /**
-   * Guided propose: one draft home root at/after cursor. Returns false when none left.
-   * Reuses an existing unconfirmed draft on the same span instead of stacking.
-   */
-  function proposeNextHomeRoot(cursorTick?: number): boolean {
-    const p = current.value
-    if (!p) return false
-    const cursor = cursorTick ?? playheadTick.value
-    const proposal = nextHomeRootProposal({
-      melody: p.melody,
-      pillars: p.pillars,
-      tonality: p.tonality,
-      mode: p.tonalityMode ?? 'major',
-      cursorTick: cursor,
-      skippedSpans: skippedHomeRootSpans.value,
-    })
-    if (!proposal) return false
-
-    const hit = pillarAtTick(p.pillars, proposal.startTick)
-    if (
-      hit &&
-      !hit.confirmed &&
-      hit.startTick === proposal.startTick &&
-      hit.endTick === proposal.endTick
-    ) {
-      selectedPillarId.value = hit.id
-      return true
-    }
-
-    let pillars = p.pillars
-    if (hit && !hit.confirmed) pillars = deletePillar(pillars, hit.id)
-    pillars = addPillarAtTick(pillars, proposal.startTick, {
-      rootPc: proposal.rootPc,
-      endTick: proposal.endTick,
-      id: services.idGen.next('pil'),
-      reason: proposal.reason,
-      confidence: proposal.confidence,
-      source: 'inferred',
-    })
-    replaceCurrent({
-      ...p,
-      pillars,
-      wizardStep: p.wizardStep === 'melody' ? 'step1_roots' : p.wizardStep,
-    })
-    const neu = pillarAtTick(pillars, proposal.startTick)
-    selectedPillarId.value = neu?.id ?? null
-    return true
-  }
-
-  /** Discard the selected draft, remember its span as skipped, clear selection. */
-  function skipProposedPillar(): void {
-    const p = current.value
-    const id = selectedPillarId.value
-    if (!p || !id) return
-    const pil = p.pillars.find((x) => x.id === id)
-    if (!pil || pil.confirmed) return
-    const key = spanKey(pil.startTick, pil.endTick)
-    if (!skippedHomeRootSpans.value.includes(key)) {
-      skippedHomeRootSpans.value = [...skippedHomeRootSpans.value, key]
-    }
-    replaceCurrent({ ...p, pillars: deletePillar(p.pillars, id) })
-    selectedPillarId.value = null
-  }
-
-  function clearSkippedHomeRoots(): void {
-    skippedHomeRootSpans.value = []
-  }
-
-  const skippedHomeRootCount = computed(() => skippedHomeRootSpans.value.length)
-
-  function setPillars(pillars: Pillar[]): void {
-    mutate((p) => {
-      p.pillars = pillars
-    })
-  }
-
-  function updatePillar(id: string, patch: Partial<Pillar>): void {
-    mutate((p) => {
-      const pil = p.pillars.find((x) => x.id === id)
-      if (!pil) return
-      Object.assign(pil, patch)
-    })
-  }
-
-  function confirmAllPillars(): void {
-    const p = current.value
-    if (!p) return
-    replaceCurrent(confirmAllPillarsUc(p))
-  }
-
-  function selectPillar(id: string | null): void {
-    selectedPillarId.value = id
-  }
-
-  function addPillarAt(tick: number, rootPc?: number): void {
-    const p = current.value
-    if (!p) return
-    const root = rootPc ?? ((p.tonality % 12) + 12) % 12
-    const pillars = addPillarAtTick(p.pillars, tick, {
-      rootPc: root,
-      id: services.idGen.next('pil'),
-    })
-    replaceCurrent({ ...p, pillars, wizardStep: p.wizardStep === 'melody' ? 'step1_roots' : p.wizardStep })
-    const hit = pillars.find((x) => x.startTick <= tick && tick < x.endTick)
-    selectedPillarId.value = hit?.id ?? null
-  }
-
-  function extendSelectedPillarTo(tick: number): void {
-    const p = current.value
-    const id = selectedPillarId.value
-    if (!p || !id) return
-    replaceCurrent({ ...p, pillars: extendPillarToCover(p.pillars, id, tick) })
-  }
-
-  function trimSelectedPillarEnd(endTick: number): void {
-    const p = current.value
-    const id = selectedPillarId.value
-    if (!p || !id) return
-    replaceCurrent({ ...p, pillars: trimPillarEnd(p.pillars, id, endTick) })
-  }
-
-  function removePillar(id: string): void {
-    const p = current.value
-    if (!p) return
-    replaceCurrent({ ...p, pillars: deletePillar(p.pillars, id) })
-    if (selectedPillarId.value === id) selectedPillarId.value = null
-  }
-
-  function lockSelectedPillar(): void {
-    const p = current.value
-    const id = selectedPillarId.value
-    if (!p || !id) return
-    const pillars = lockPillar(p.pillars, id)
-    const step = pillars.some((x) => x.confirmed) ? 'step2_confirm' : p.wizardStep
-    replaceCurrent({ ...p, pillars, wizardStep: step })
-  }
-
-  function lockRemaining(): void {
-    const p = current.value
-    if (!p) return
-    replaceCurrent({ ...p, pillars: lockRemainingPillars(p.pillars), wizardStep: 'step2_confirm' })
-  }
-
-  function refreshCandidates(): void {
-    const p = current.value
-    const note = candidateTarget.value ?? selectedMelody.value
-    if (!p || !note) {
-      candidates.value = []
-      return
-    }
-    const pathPrefs = usePreferencesStore().tagRollPathOptimizePrefs
-    candidates.value = listCandidatesForNote(
-      p,
-      note,
-      {
-        preferScf: p.wizardStep === 'step5_smn_scf' || note.role === 'smn',
-        limit: 16,
-        softContext: softSuggestContext.value,
-        pathWeights: {
-          risk: pathPrefs.risk,
-          cadenceBias: pathPrefs.cadenceBias,
-        },
-      },
-      { rankerDeps: services.rankerDeps, idGen: services.idGen },
-    )
-  }
-
-  function setSoftSuggestContext(ctx: SoftSuggestContext | null): void {
-    softSuggestContext.value = ctx
-    if (candidateTarget.value) refreshCandidates()
-  }
-
-  function setCandidateTarget(note: MelodyEvent | null): void {
-    candidateTarget.value = note
-    if (!note) softSuggestContext.value = null
-    refreshCandidates()
-  }
-
-  function applyCandidate(c: HarmonizeCandidate): void {
-    const p = current.value
-    const note = candidateTarget.value ?? selectedMelody.value
-    if (!p || !note) return
-    replaceCurrent(
-      applyCandidateToProject(p, note, c, {
-        idGen: services.idGen,
-        rankerDeps: services.rankerDeps,
-      }),
-    )
-  }
-
-  function applyCounterpartStack(stackId: string): boolean {
-    const p = current.value
-    if (!p) return false
-    const next = applyCounterpart(p, stackId)
-    if (!next) return false
-    replaceCurrent(next)
-    return true
-  }
-
-  function autoFillStacks(preferScfForSmn = false): void {
-    const p = current.value
-    if (!p) return
-    const stacks = autoHarmonize(
-      p,
-      { preferScfForSmn },
-      { idGen: services.idGen, rankerDeps: services.rankerDeps },
-    )
-    replaceCurrent({ ...p, stacks })
-  }
-
-  function setStacks(stacks: ChordStack[]): void {
-    mutate((p) => {
-      p.stacks = stacks
-    })
-  }
-
-  function runQaNow(): ArrangementLint[] {
-    refreshQa()
-    return lints.value
-  }
-
-  function fixLint(lint: ArrangementLint, opts?: { confirmDestructive?: boolean }): boolean {
-    const p = current.value
-    if (!p || !canApplyFix(p, lint, services.fixRegistry)) return false
-    const next = applyFix(p, lint, services.fixRegistry, {
-      idGen: services.idGen,
-      rankerDeps: services.rankerDeps,
-      confirmDestructive:
-        opts?.confirmDestructive ??
-        (lint.ruleId === 'key-suggestion' || lint.ruleId === 'lead-range'),
-    })
-    if (!next) return false
-    replaceCurrent(next)
-    refreshCandidates()
-    return true
-  }
-
-  function fixAllSafe(): number {
-    const p = current.value
-    if (!p) return 0
-    const { project, applied } = applyAllSafeFixes(p, lints.value, services.fixRegistry, {
-      idGen: services.idGen,
-      rankerDeps: services.rankerDeps,
-    })
-    if (applied.length) replaceCurrent(project)
-    refreshCandidates()
-    return applied.length
-  }
-
-  function labelRoles(force = false): void {
-    const p = current.value
-    if (!p) return
-    replaceCurrent(autoLabelMelodyRoles(p, { force }))
-    refreshCandidates()
-  }
-
-  function strengthen(): number {
-    const p = current.value
-    if (!p) return 0
-    const before = new Map(
-      p.stacks.map((s) => [
-        s.id,
-        `${s.rootPc}:${s.natureId}:${s.voicing}:${s.midi?.bass},${s.midi?.bari},${s.midi?.lead},${s.midi?.tenor}`,
-      ]),
-    )
-    const next = strengthenArrangement(p, {
-      idGen: services.idGen,
-      rankerDeps: services.rankerDeps,
-      // Coach default: allow moderate upgrades (domain default 1.5 is quite strict).
-      minScoreGain: 0.75,
-    })
-    const changed = next.stacks.filter((s) => {
-      const key = `${s.rootPc}:${s.natureId}:${s.voicing}:${s.midi?.bass},${s.midi?.bari},${s.midi?.lead},${s.midi?.tenor}`
-      return before.get(s.id) !== key
-    }).length
-    if (changed) replaceCurrent(next)
-    refreshCandidates()
-    return changed
-  }
-
-  function polishVoicing(): number {
-    const p = current.value
-    if (!p) return 0
-    const { project, applied } = polishArrangementVoicing(p, { registry: services.fixRegistry })
-    if (applied.length) replaceCurrent(project)
-    refreshCandidates()
-    return applied.length
-  }
-
-  async function pathOptimize(opts: PathOptimizeOpts): Promise<PathOptimizeReport | null> {
-    const p = current.value
-    if (!p) return null
-    const { project, report } = await pathOptimizeUc(p, opts, {
-      idGen: services.idGen,
-      rankerDeps: services.rankerDeps,
-    })
-    if (report.applied) {
-      replaceCurrent(project)
-      refreshCandidates()
-    }
-    return report
-  }
-
-  function finalChecklist() {
-    return current.value ? assessFinal(current.value) : { ready: false, items: [] }
-  }
-  function howBarbershopFactors() {
-    return current.value ? assessHowBarbershop(current.value).factors : []
-  }
-
-  function downloadMidi(justIntonation = false): boolean {
-    const p = current.value
-    if (!p) return false
-    const result = exportMidi(p, services.midiExporter, { justIntonation, blockOnErrors: true })
-    if (!result.ok) return false
-    downloadMidiBytes(result.bytes, p.title)
-    return true
-  }
-
-  function downloadMusicXml(): boolean {
-    const p = current.value
-    if (!p || !services.musicXmlExporter) return false
-    const result = exportMusicXml(p, services.musicXmlExporter, { blockOnErrors: true })
-    if (!result.ok) return false
-    const blob = new Blob([result.xml], { type: 'application/vnd.recordare.musicxml+xml' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${(p.title || 'arrangement').replace(/[^\w.-]+/g, '_')}.musicxml`
-    a.click()
-    URL.revokeObjectURL(a.href)
-    return true
-  }
-
   function selectMelody(id: string | null): void {
     selectedMelodyId.value = id
     refreshCandidates()
@@ -831,10 +472,6 @@ export const useArrangementStore = defineStore('arrangement', () => {
     refreshQa()
     refreshCandidates()
   }
-
-  const stepLabel = computed(() =>
-    current.value ? WIZARD_STEP_LABELS[current.value.wizardStep] : '',
-  )
 
   function severityForMelody(noteId: string): ArrangementLint['severity'] | null {
     const hits = lints.value.filter((l) => l.noteId === noteId)

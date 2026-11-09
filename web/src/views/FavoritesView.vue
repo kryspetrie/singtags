@@ -15,7 +15,7 @@ import CustomCollectionMark from '../components/CustomCollectionMark.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import TagListRowContent from '../components/TagListRowContent.vue'
 import TagSelectionBar from '../components/TagSelectionBar.vue'
-import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import { visualPxToLayoutPx } from '../lib/uiScale'
 import type { TagSummary } from '../types/tag'
 import { useFavoritesStore } from '../stores/favorites'
@@ -179,7 +179,7 @@ function collectionsForTag(tagId: number) {
 }
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? false
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
 }
 
 function toggleSelect(id: number): void {
@@ -606,8 +606,8 @@ async function confirmImport(): Promise<void> {
 
 <template>
   <section
-    class="favorites"
-    :class="{ 'has-selection': selectedIds.size }"
+    class="favorites row-select-host"
+    :class="{ 'has-selection': selectedIds.size, 'row-select-active': selectMode || selectedIds.size > 0 }"
     aria-label="Favorites"
   >
     <div class="actions">

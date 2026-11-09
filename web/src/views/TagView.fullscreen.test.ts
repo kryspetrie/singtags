@@ -26,6 +26,9 @@ vi.mock('../audio/pitchPlayer', async (importOriginal) => {
     PitchPlayer: class {
       async start(): Promise<void> {}
       stop(): void {}
+      setVoice(): void {}
+      warmUp(): void {}
+      restartIfPlaying(): void {}
       dispose(): void {}
     },
     keyToTonicNote: () => 'C4',
@@ -42,6 +45,8 @@ vi.mock('../audio/pitchPlayer', async (importOriginal) => {
 })
 
 vi.mock('../components/TagPlayer.vue', () => ({
+  __esModule: true,
+  __isTeleport: false,
   default: defineComponent({
     name: 'TagPlayer',
     props: {

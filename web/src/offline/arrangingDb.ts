@@ -3,6 +3,7 @@
  * Pattern mirrored from SingTags `offline/tagRollDb.ts`.
  */
 import { idbReq } from './idbReq'
+import { markUserDataMutated } from '../lib/userDataDirty'
 import {
   createEmptyArrangement,
   type ArrangementProject,
@@ -77,6 +78,7 @@ export async function putArrangingProject(project: ArrangementProject): Promise<
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function putAllArrangingProjects(
@@ -93,6 +95,7 @@ export async function putAllArrangingProjects(
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteArrangingProject(id: string): Promise<void> {
@@ -107,6 +110,7 @@ export async function deleteArrangingProject(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function getHistory(projectId: string): Promise<ArrangementHistoryRecord> {

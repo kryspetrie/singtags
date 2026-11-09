@@ -106,6 +106,7 @@ export function startDriveSyncPolling(): void {
   pollTimer = setInterval(() => {
     void pollTick()
   }, ms)
+  void pollTick()
 
   // One quiet catch-up when the tab becomes visible again.
   document.addEventListener('visibilitychange', onVisibility)

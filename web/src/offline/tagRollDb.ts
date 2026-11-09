@@ -2,6 +2,7 @@
  * IndexedDB for Tag Studio projects + undo/redo history.
  */
 import { idbReq } from './offlineIndexedDb'
+import { markUserDataMutated } from '../lib/userDataDirty'
 import {
   type TagRollDocumentSnapshot,
   type TagRollHistoryRecord,
@@ -172,6 +173,7 @@ export async function putTagRollProject(project: TagRollProject): Promise<void> 
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 export async function deleteTagRollProject(id: string): Promise<void> {
@@ -186,6 +188,7 @@ export async function deleteTagRollProject(id: string): Promise<void> {
   } finally {
     db.close()
   }
+  markUserDataMutated()
 }
 
 function normalizeHistory(raw: unknown, projectId: string): TagRollHistoryRecord {

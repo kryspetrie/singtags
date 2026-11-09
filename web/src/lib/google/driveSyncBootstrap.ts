@@ -9,10 +9,13 @@ import {
   isDriveAppStateDirty,
   markDriveAppStateDirty,
   readLastSyncMeta,
+  scheduleDriveAppStatePush,
 } from './driveAppStateSync'
 import { ensureDriveCacheSync } from './driveCacheSync'
 import { startDriveSyncPolling } from './driveSyncPoll'
 import { isDriveSyncEnabled, restoreGoogleConnection } from './googleAuth'
+import { onUserDataMutated } from '../userDataDirty'
+import { snapshotUserDocuments } from '../userDocuments'
 import { useFavoritesStore } from '../../stores/favorites'
 import { usePracticeStore } from '../../stores/practice'
 import { useUserCollectionsStore } from '../../stores/userCollections'
@@ -20,6 +23,7 @@ import { useUserCollectionsStore } from '../../stores/userCollections'
 /** Register snapshot/apply hooks and kick a background hydrate when connected. */
 export function startDriveAppStateSync(): void {
   restoreGoogleConnection()
+  onUserDataMutated(() => scheduleDriveAppStatePush())
 
   configureDriveAppStateSync({
     getSnapshot: async () => {
@@ -27,17 +31,23 @@ export function startDriveAppStateSync(): void {
       const userCollections = useUserCollectionsStore()
       const practice = usePracticeStore()
       await favorites.ensureLoaded()
+      const documents = await snapshotUserDocuments()
       return {
         records: favorites.records,
         collections: userCollections.exportSnapshot(),
         practice: practice.exportSnapshot(),
+        documents,
       }
     },
-    applyFavorites: async (favoritesBackup, _mode) => {
+    applyFavorites: async (favoritesBackup, mode) => {
       const favorites = useFavoritesStore()
       const userCollections = useUserCollectionsStore()
       const practice = usePracticeStore()
-      await favorites.importFromJson(favoritesBackup.starred, false)
+      await favorites.importFromJson(
+        favoritesBackup.starred,
+        false,
+        mode === 'replace' ? 'replace' : 'merge',
+      )
       userCollections.replaceAll(favoritesBackup.collections)
       practice.importSnapshot(favoritesBackup.practice)
     },

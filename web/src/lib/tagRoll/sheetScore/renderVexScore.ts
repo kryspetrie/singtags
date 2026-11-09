@@ -2,7 +2,6 @@
  * Render Tag Studio sheet via VexFlow (Bravura) — continuous horizontal systems.
  */
 import {
-  Beam,
   Factory,
   StaveModifierPosition,
   StaveNote,
@@ -62,6 +61,8 @@ import {
   staveGapSpaces,
   straightLyricStaveGapExtra,
 } from './sheetLyricLanes'
+import { beamNotes, clefSpec, eventsInMeasure } from './vexScoreEngrave'
+import { finishVexScoreGeometry } from './vexScoreGeometry'
 import { type SheetTieAnchor } from './sheetRhythmMarks'
 import { clampSheetStemLength } from './sheetStemLength'
 import {
@@ -69,7 +70,7 @@ import {
   drawCrossoverMarks,
   drawMelodyHandoffLines,
 } from './sheetScoreOverlays'
-import { SHEET_RAMP_BAND, type SheetClefKind } from './types'
+import { SHEET_RAMP_BAND } from './types'
 import {
   buildVoiceNotes,
   fillMeasureIfEmpty,
@@ -165,19 +166,6 @@ export function ensureVexFonts(music = 'Bravura', text = 'Academico'): Promise<v
   return fontsReady
 }
 
-function clefSpec(kind: SheetClefKind): { clef: string; annotation?: string } {
-  switch (kind) {
-    case 'treble8vb':
-      return { clef: 'treble', annotation: '8vb' }
-    case 'bass8va':
-      return { clef: 'bass', annotation: '8va' }
-    case 'bass':
-      return { clef: 'bass' }
-    default:
-      return { clef: 'treble' }
-  }
-}
-
 /**
  * Extra air between packed systems at System rows = 100%.
  * Slider maps 0% → near-flush, 100% → this pack, 300% → much wider.
@@ -190,103 +178,6 @@ const SYSTEM_BELOW_STEM_SPACES_MIN = 1.25
 const DEFAULT_LYRIC_FONT_PX = 12
 const LYRIC_OFFSET_GAP_SPACES = 0.45
 const LYRIC_STAVE_SPACE_BELOW = 4
-
-function eventsInMeasure(
-  events: readonly SheetRhythmEvent[],
-  start: number,
-  end: number,
-): SheetRhythmEvent[] {
-  return events.filter((e) => e.startTick >= start && e.startTick < end)
-}
-
-/** Piecewise-linear tick → x from sorted, unique-tick anchors. */
-function buildTickToX(anchors: { tick: number; x: number }[]): (tick: number) => number {
-  const pts = anchors
-    .slice()
-    .sort((a, b) => a.tick - b.tick || a.x - b.x)
-    .filter((p, i, arr) => i === 0 || p.tick !== arr[i - 1]!.tick)
-  if (!pts.length) return () => 0
-  if (pts.length === 1) return () => pts[0]!.x
-  return (tick: number) => {
-    const t = tick
-    if (t <= pts[0]!.tick) return pts[0]!.x
-    const last = pts[pts.length - 1]!
-    if (t >= last.tick) return last.x
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i]!
-      const b = pts[i + 1]!
-      if (t <= b.tick) {
-        const span = Math.max(1e-6, b.tick - a.tick)
-        const frac = (t - a.tick) / span
-        return a.x + frac * (b.x - a.x)
-      }
-    }
-    return last.x
-  }
-}
-
-/**
- * Beam eighths+ using rhythmLayout beamGroupId (beat groups; rests break beams).
- * Falls back to VexFlow generateBeams with rests kept so gaps still break groups.
- */
-function beamNotes(
-  factory: Factory,
-  notes: StaveNote[],
-  events: readonly SheetRhythmEvent[],
-): void {
-  const byGroup = new Map<number, StaveNote[]>()
-  for (let i = 0; i < notes.length; i++) {
-    const n = notes[i]!
-    if (n.isRest()) continue
-    const d = n.getDuration()
-    const beamable =
-      d === '8' ||
-      d === '16' ||
-      d === '32' ||
-      d.startsWith('8') ||
-      d.startsWith('16') ||
-      d.startsWith('32')
-    if (!beamable) continue
-    const gid = events[i]?.beamGroupId
-    if (gid == null) continue
-    const list = byGroup.get(gid) ?? []
-    list.push(n)
-    byGroup.set(gid, list)
-  }
-  let drew = false
-  for (const group of byGroup.values()) {
-    if (group.length < 2) continue
-    try {
-      factory.Beam({ notes: group, options: { autoStem: false } })
-      drew = true
-    } catch {
-      /* ignore beam failures on mixed groups */
-    }
-  }
-  if (drew) return
-  try {
-    // Keep rests so generateBeams does not bridge gaps between beamable notes.
-    const withRests = notes.filter((n) => {
-      if (n.isRest()) return true
-      const d = n.getDuration()
-      return (
-        d === '8' ||
-        d === '16' ||
-        d === '32' ||
-        d.startsWith('8') ||
-        d.startsWith('16') ||
-        d.startsWith('32')
-      )
-    })
-    if (withRests.filter((n) => !n.isRest()).length < 2) return
-    const beams = Beam.generateBeams(withRests, { maintainStemDirections: true })
-    for (const beam of beams) {
-      factory.Beam({ notes: beam.getNotes(), options: { autoStem: false } })
-    }
-  } catch {
-    /* ignore */
-  }
-}
 
 /**
  * Render the project as a VexFlow score into `host`.
@@ -884,194 +775,10 @@ export async function renderVexSheetScore(opts: {
   }
   applySvgSizeScale(host, totalWidth, totalHeight, sizeScale)
 
-  const sx = (n: number) => n * sizeScale
+  return finishVexScoreGeometry({
+    measures, pages, topStaves, placedByMeasure, sizeScale, totalWidth, totalHeight,
+    pageMode, headerBandPx, scoreTopPad, leftPad, rightPad, topPad, bottomPad,
+    systemBodyHeight, chordClearance, lengthTicks, systemCount,
+  })
 
-  // Map musical time to engraved X: note-area bounds + sounding noteheads (unit space).
-  type AnchorCand = { tick: number; x: number; weight: number }
-  const anchorCands: AnchorCand[] = []
-  for (let mi = 0; mi < measures.length; mi++) {
-    const m = measures[mi]!
-    const stave = topStaves[mi]
-    if (stave) {
-      try {
-        const ns = stave.getNoteStartX()
-        const ne = stave.getNoteEndX()
-        if (Number.isFinite(ns) && Number.isFinite(ne) && ne > ns) {
-          m.noteStartX = ns
-          m.noteEndX = ne
-        }
-      } catch {
-        /* keep fallback */
-      }
-    }
-    // Low-weight bounds so real noteheads win on the same tick.
-    anchorCands.push({ tick: m.startTick, x: m.noteStartX, weight: 0 })
-    anchorCands.push({ tick: m.endTick, x: m.noteEndX, weight: 0 })
-    for (const p of placedByMeasure[mi] ?? []) {
-      if (!p.preferAnchor) continue
-      try {
-        const ax = p.note.getAbsoluteX()
-        if (Number.isFinite(ax)) {
-          anchorCands.push({ tick: p.tick, x: ax, weight: 1 })
-        }
-      } catch {
-        /* tick context missing */
-      }
-    }
-  }
-
-  // Promote unit-space geometry + anchors to screen px (matches SVG display scale).
-  for (const m of measures) {
-    m.x = sx(m.x)
-    m.y = sx(m.y)
-    m.width = sx(m.width)
-    m.noteStartX = sx(m.noteStartX)
-    m.noteEndX = sx(m.noteEndX)
-  }
-  for (const pg of pages) {
-    pg.y = sx(pg.y)
-    pg.width = sx(pg.width)
-    pg.height = sx(pg.height)
-  }
-  for (const c of anchorCands) c.x = sx(c.x)
-
-  // One X per tick — prefer sounding-note anchors (screen space).
-  const byTick = new Map<number, AnchorCand>()
-  for (const c of anchorCands) {
-    const prev = byTick.get(c.tick)
-    if (!prev || c.weight > prev.weight) byTick.set(c.tick, c)
-  }
-  const tickToXRaw = buildTickToX(
-    [...byTick.values()].map((c) => ({ tick: c.tick, x: c.x })),
-  )
-  const tickToX = (tick: number): number =>
-    tickToXRaw(Math.max(0, Math.min(lengthTicks, tick)))
-
-  const measureAtTick = (tick: number): VexScoreMeasureGeom => {
-    const t = Math.max(0, Math.min(lengthTicks, Math.floor(tick)))
-    for (let i = 0; i < measures.length; i++) {
-      const m = measures[i]!
-      if (t < m.endTick || i === measures.length - 1) return m
-    }
-    return measures[0]!
-  }
-
-  /** Map tick → x within one system row (page wrap resets x each line). */
-  const tickToXInSystem = (systemIndex: number, tick: number): number => {
-    const row = measures.filter((m) => m.systemIndex === systemIndex)
-    if (!row.length) return tickToX(tick)
-    const rowStart = row[0]!.startTick
-    const rowEnd = row[row.length - 1]!.endTick
-    const rowLeft = Math.min(...row.map((m) => m.x))
-    const rowRight = Math.max(...row.map((m) => m.x + m.width))
-    const seen = new Map<number, { x: number; weight: number }>()
-    const consider = (t: number, ax: number, weight: number) => {
-      const prev = seen.get(t)
-      if (!prev || weight > prev.weight || (weight === prev.weight && ax < prev.x)) {
-        seen.set(t, { x: ax, weight })
-      }
-    }
-    for (const m of row) {
-      consider(m.startTick, m.noteStartX, 0)
-      consider(m.endTick, m.noteEndX, 0)
-    }
-    // Noteheads at the exclusive row end belong to the *next* system. Including
-    // them here interpolates X backwards along the current line (CR before LF).
-    for (const c of anchorCands) {
-      if (c.weight < 1) continue
-      if (c.tick < rowStart || c.tick >= rowEnd) continue
-      if (c.x < rowLeft - 4 || c.x > rowRight + 4) continue
-      consider(c.tick, c.x, c.weight)
-    }
-    const map = buildTickToX(
-      [...seen.entries()].map(([t, v]) => ({ tick: t, x: v.x })),
-    )
-    // Clamp to the half-open row so the exclusive end uses noteEndX, not the
-    // next system's first-note X.
-    const tClamp = Math.max(rowStart, Math.min(rowEnd - 1e-6, tick))
-    return map(tClamp)
-  }
-
-  const tickToPoint = (tick: number): { x: number; y: number } => {
-    const m = measureAtTick(tick)
-    return { x: tickToXInSystem(m.systemIndex, tick), y: m.y }
-  }
-
-  const systemBodyHeightScreen = sx(systemBodyHeight)
-
-  const pointToTick = (px: number, py: number): number => {
-    let bestSi = 0
-    let bestDy = Infinity
-    for (let si = 0; si < systemCount; si++) {
-      const row = measures.find((m) => m.systemIndex === si)
-      if (!row) continue
-      const mid = row.y + systemBodyHeightScreen / 2
-      const dy = Math.abs(py - mid)
-      if (dy < bestDy) {
-        bestDy = dy
-        bestSi = si
-      }
-    }
-    const row = measures.filter((m) => m.systemIndex === bestSi)
-    if (!row.length) return 0
-    type Pt = { tick: number; x: number }
-    const pts: Pt[] = []
-    const seen = new Map<number, { x: number; weight: number }>()
-    const consider = (tick: number, ax: number, weight: number) => {
-      const prev = seen.get(tick)
-      if (!prev || weight > prev.weight || (weight === prev.weight && ax < prev.x)) {
-        seen.set(tick, { x: ax, weight })
-      }
-    }
-    for (const m of row) {
-      consider(m.startTick, m.noteStartX, 0)
-      consider(m.endTick, m.noteEndX, 0)
-    }
-    const rowStart = row[0]!.startTick
-    const rowEnd = row[row.length - 1]!.endTick
-    const rowLeft = Math.min(...row.map((m) => m.x))
-    const rowRight = Math.max(...row.map((m) => m.x + m.width))
-    for (const c of anchorCands) {
-      if (c.weight < 1) continue
-      if (c.tick < rowStart || c.tick >= rowEnd) continue
-      if (c.x < rowLeft - 4 || c.x > rowRight + 4) continue
-      consider(c.tick, c.x, c.weight)
-    }
-    for (const [tick, v] of seen) pts.push({ tick, x: v.x })
-    pts.sort((a, b) => (a.x !== b.x ? a.x - b.x : a.tick - b.tick))
-    if (!pts.length) return rowStart
-    if (px <= pts[0]!.x) return pts[0]!.tick
-    if (px >= pts[pts.length - 1]!.x) return pts[pts.length - 1]!.tick
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i]!
-      const b = pts[i + 1]!
-      if (px >= a.x && px <= b.x) {
-        if (b.x === a.x) return a.tick
-        const u = (px - a.x) / (b.x - a.x)
-        return Math.round(a.tick + u * (b.tick - a.tick))
-      }
-    }
-    return pts[pts.length - 1]!.tick
-  }
-
-  return {
-    width: sx(totalWidth),
-    height: sx(totalHeight),
-    contentOriginY: sx((pageMode ? 0 : headerBandPx) + scoreTopPad),
-    contentOriginX: measures[0]?.noteStartX ?? sx(leftPad),
-    systemBodyHeight: systemBodyHeightScreen,
-    sizeScale,
-    marginsPx: {
-      left: sx(leftPad),
-      right: sx(rightPad),
-      top: sx(topPad),
-      bottom: sx(bottomPad),
-    },
-    measures,
-    pages,
-    chordClearanceBySystem: chordClearance.map((c) => sx(c)),
-    tickToX,
-    tickToPoint,
-    pointToTick,
-  }
 }

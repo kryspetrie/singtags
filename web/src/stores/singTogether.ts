@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { parseRepertoireCsv, type RepertoireCsvColumn } from '../lib/singTogether/csv'
-import { loadStoredProfile, saveStoredProfile } from '../lib/singTogether/storage'
+import { loadStoredProfile, saveStoredProfile } from '../adapters/singTogether/browserStorage'
 import {
   clampConfidence,
   emptyProfile,

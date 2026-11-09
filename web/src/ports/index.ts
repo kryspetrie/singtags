@@ -5,6 +5,8 @@ export type { MidiExporter, MidiExportMode, MidiExportOptions } from './MidiExpo
 export type { MusicXmlExporter } from './MusicXmlExporter'
 export type { AudioBounce, AudioBounceOpts } from './AudioBounce'
 export type { LibraryIngest, LibraryIngestInput, LibraryIngestTrack } from './LibraryIngest'
+export type { CatalogAudioHit, CatalogAudioSource } from './CatalogAudio'
+export type { LocalLibraryArchiveStore } from './LocalLibraryArchive'
 
 export type { ArrangementRepository } from './ArrangementRepository'
 export type { AudioPreview, PreviewVoice, StackPreview } from './AudioPreview'

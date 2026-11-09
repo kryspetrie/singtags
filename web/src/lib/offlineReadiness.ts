@@ -1,6 +1,3 @@
-import { listStarred } from '../offline/favoritesDb'
-import { audioPack, sheetsPack } from '../offline/libraryPack'
-
 export type TagCacheReady = { sheets: boolean; audio: boolean }
 export type CachedFilter = 'any' | 'sheets' | 'audio' | 'both' | 'none' | null
 
@@ -140,14 +137,4 @@ const CACHED_FILTER_LABELS: Record<Exclude<CachedFilter, null>, string> = {
 export function cachedFilterChipLabel(filter: CachedFilter): string {
   if (filter == null) return ''
   return CACHED_FILTER_LABELS[filter]
-}
-
-/** Load offline readiness with one bulk listing per pack plus one favorites read. */
-export async function loadOfflineReadinessIndex(): Promise<Map<number, TagCacheReady>> {
-  const [sheetUrls, audioUrls, starred] = await Promise.all([
-    sheetsPack.listUrls(),
-    audioPack.listUrls(),
-    listStarred(),
-  ])
-  return buildReadinessFromUrlLists(sheetUrls, audioUrls, starred)
 }

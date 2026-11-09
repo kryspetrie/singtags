@@ -419,10 +419,15 @@ export function parseStarredFile(raw: unknown): StarredTagsFile {
  *
  * @returns Number of tags written.
  */
-export async function importStarredFile(file: StarredTagsFile): Promise<number> {
+export async function importStarredFile(
+  file: StarredTagsFile,
+  opts?: { replace?: boolean },
+): Promise<number> {
+  const keep = new Set<number>()
   let n = 0
   for (const t of file.tags) {
     if (!t.summary?.id) continue
+    keep.add(t.summary.id)
     const existing = await getStarred(t.summary.id)
     await putStarred({
       tagId: t.summary.id,
@@ -435,6 +440,11 @@ export async function importStarredFile(file: StarredTagsFile): Promise<number> 
       quotaWarning: existing?.quotaWarning ?? null,
     })
     n += 1
+  }
+  if (opts?.replace) {
+    for (const existing of await listStarred()) {
+      if (!keep.has(existing.tagId)) await removeStarred(existing.tagId)
+    }
   }
   return n
 }

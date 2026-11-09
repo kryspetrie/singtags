@@ -44,6 +44,8 @@ import {
   PRIMARY_NAV_ITEMS,
   availablePrimaryNavOrder,
   fitNavPinsToWidth,
+  DESKTOP_NAV_MQ,
+  estimateInitialNavFitCapacity,
   maxBottomNavPins,
   pinnedPrimaryNavIds,
   primaryNavIdForRouteName,
@@ -113,8 +115,7 @@ const primaryNavGates = computed(
   }),
 )
 
-/** Preferred pins, clamped by what currently fits on the chrome. */
-const navFitCapacity = ref(prefs.preferredPrimaryNavPinCount)
+const navFitCapacity = ref(estimateInitialNavFitCapacity(prefs.preferredPrimaryNavPinCount))
 
 const effectivePinCount = computed(() =>
   resolvePrimaryNavPinCount(prefs.preferredPrimaryNavPinCount, navFitCapacity.value),
@@ -252,7 +253,6 @@ function schedulePrimaryNavFitMeasure(): void {
   })
 }
 
-const DESKTOP_NAV_MQ = '(min-width: 768px)'
 const desktopNav = ref(
   typeof window !== 'undefined' && window.matchMedia(DESKTOP_NAV_MQ).matches,
 )

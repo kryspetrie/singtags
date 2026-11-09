@@ -24,6 +24,10 @@ export const CATALOG_SNAPSHOT_KEY = 'singtags.catalogSnapshot.v1'
 export interface CatalogSnapshot {
   tags: TagSummary[]
   expansions: ExpansionMap
+  /** SHA-1 of the published core index, when known. */
+  sourceHash?: string | null
+  /** `gzip` means IndexedDB already stores the compact form. */
+  storageFormat?: 'gzip' | 'legacy'
 }
 
 /** Runtime type guard for {@link CatalogSnapshot}. */
@@ -39,11 +43,12 @@ function isCatalogSnapshot(data: unknown): data is CatalogSnapshot {
 export async function saveCatalogSnapshot(
   tags: TagSummary[],
   expansions: ExpansionMap,
+  sourceHash?: string | null,
 ): Promise<void> {
   // Full catalog must not go through localStorage (quota + main-thread jank).
   clearPersistentSnapshot(CATALOG_SNAPSHOT_KEY)
   try {
-    await putCatalogSnapshotIdb(tags, expansions)
+    await putCatalogSnapshotIdb(tags, expansions, sourceHash)
   } catch {
     /* IDB quota or private mode */
   }
@@ -65,6 +70,8 @@ export async function loadCatalogSnapshotAsync(): Promise<CatalogSnapshot | null
       const fromIdb: CatalogSnapshot = {
         tags: idb.tags,
         expansions: idb.expansions ?? {},
+        sourceHash: idb.sourceHash,
+        storageFormat: idb.storageFormat,
       }
       if (!fromLocal?.tags.length || fromIdb.tags.length >= fromLocal.tags.length) {
         return fromIdb

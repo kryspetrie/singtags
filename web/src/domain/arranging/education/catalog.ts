@@ -702,6 +702,7 @@ export const LINT_LESSON_ALIASES: Readonly<Record<string, string>> = {
   'aug-usage': 'aug-pillar',
   'unrecognized-nature': 'illegal-nature',
   'cadence-miss': 'L-classic-cadences',
+  'ensemble-part-range': 'lead-range',
 }
 
 /**

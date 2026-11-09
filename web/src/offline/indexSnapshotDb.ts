@@ -26,6 +26,10 @@ export interface CatalogSnapshotRecord {
   tags: TagSummary[]
   expansions: ExpansionMap
   savedAt: string
+  /** `gzip` rows are already in the fast format; legacy rows should be rewritten. */
+  storageFormat: 'gzip' | 'legacy'
+  /** SHA-1 of the published `core.json.gz` bytes, when this row came from the network. */
+  sourceHash: string | null
 }
 
 /** Lyrics documents keyed by tag id for offline lyrics search. */
@@ -33,6 +37,8 @@ export interface LyricsSnapshotRecord {
   id: typeof LYRICS_SNAPSHOT_ID
   docs: Array<{ id: number; lyrics: string }>
   savedAt: string
+  /** SHA-1 of the published `lyrics.json.gz` bytes, when this row came from the network. */
+  sourceHash?: string | null
 }
 
 const CATALOG_FORMAT_GZIP = 'gzip-json-v1'
@@ -42,6 +48,7 @@ type CatalogSnapshotGzipRow = {
   format: typeof CATALOG_FORMAT_GZIP
   data: ArrayBuffer
   savedAt: string
+  sourceHash?: string | null
 }
 
 type CatalogSnapshotLegacyRow = {
@@ -73,6 +80,8 @@ async function decodeCatalogRow(
       tags: parsed.tags,
       expansions: parsed.expansions ?? {},
       savedAt: raw.savedAt,
+      storageFormat: 'gzip',
+      sourceHash: raw.sourceHash ?? null,
     }
   }
   if ('tags' in raw && raw.tags?.length) {
@@ -81,6 +90,8 @@ async function decodeCatalogRow(
       tags: raw.tags,
       expansions: raw.expansions ?? {},
       savedAt: raw.savedAt ?? new Date(0).toISOString(),
+      storageFormat: 'legacy',
+      sourceHash: null,
     }
   }
   return undefined
@@ -104,10 +115,26 @@ export async function getCatalogSnapshotIdb(): Promise<CatalogSnapshotRecord | u
   }
 }
 
+/** Remember the published core-file hash without rewriting the gzip payload. */
+export async function setCatalogSnapshotSourceHash(sourceHash: string): Promise<void> {
+  const db = await openOfflineDb()
+  try {
+    const tx = db.transaction(CATALOG_SNAPSHOT_STORE, 'readwrite')
+    const store = tx.objectStore(CATALOG_SNAPSHOT_STORE)
+    const raw = (await idbReq(store.get(CATALOG_SNAPSHOT_ID))) as CatalogSnapshotGzipRow | undefined
+    if (!raw || raw.format !== CATALOG_FORMAT_GZIP) return
+    raw.sourceHash = sourceHash
+    await idbReq(store.put(raw))
+  } finally {
+    db.close()
+  }
+}
+
 /** Save catalog tags and search expansions to IndexedDB (gzip JSON). */
 export async function putCatalogSnapshotIdb(
   tags: TagSummary[],
   expansions: ExpansionMap,
+  sourceHash?: string | null,
 ): Promise<void> {
   const data = await gzipJsonPayload({ tags, expansions })
   const db = await openOfflineDb()
@@ -118,6 +145,7 @@ export async function putCatalogSnapshotIdb(
       format: CATALOG_FORMAT_GZIP,
       data,
       savedAt: new Date().toISOString(),
+      sourceHash: sourceHash ?? null,
     }
     await idbReq(tx.objectStore(CATALOG_SNAPSHOT_STORE).put(rec))
   } finally {
@@ -145,6 +173,7 @@ export async function getLyricsSnapshotIdb(): Promise<LyricsSnapshotRecord | und
 /** Save lyrics documents to IndexedDB for offline search. */
 export async function putLyricsSnapshotIdb(
   docs: Array<{ id: number; lyrics: string }>,
+  sourceHash?: string | null,
 ): Promise<void> {
   const db = await openOfflineDb()
   try {
@@ -153,6 +182,7 @@ export async function putLyricsSnapshotIdb(
       id: LYRICS_SNAPSHOT_ID,
       docs,
       savedAt: new Date().toISOString(),
+      sourceHash: sourceHash ?? null,
     }
     await idbReq(tx.objectStore(LYRICS_SNAPSHOT_STORE).put(rec))
   } finally {

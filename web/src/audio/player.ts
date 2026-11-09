@@ -17,6 +17,7 @@ import {
   OUTPUT_HEADROOM,
   stereoBalanceGains,
 } from './playerUtils'
+import { connectPlayerSource, routeStereoOutputs, type PlayerChannelRoute } from './playerChannelGraph'
 import { bakeCache } from './bakeCache'
 import { processOfflineTransform } from './bakeClient'
 import {
@@ -263,38 +264,25 @@ export class TagAudioPlayer {
     }
   }
 
-  private wireChannelOutputs(): void {
-    if (!this.gainL || !this.gainR || !this.merger) return
-    try {
-      this.gainL.disconnect()
-    } catch {
-      /* ignore */
+  private channelRoute(): PlayerChannelRoute {
+    return {
+      solo: this.solo,
+      monoPanSide: this.monoPanSide,
+      peakL: this.peakL,
+      peakR: this.peakR,
+      normL: this.normL,
+      normR: this.normR,
+      gainL: this.gainL,
+      gainR: this.gainR,
+      merger: this.merger,
+      splitter: this.splitter,
+      monoFan: this.monoFan,
+      balance: this.balanceGains(),
     }
-    try {
-      this.gainR.disconnect()
-    } catch {
-      /* ignore */
-    }
+  }
 
-    if (this.solo === 'left') {
-      const peak = this.peakL > 1e-4 ? this.peakL : 1
-      this.gainL.gain.value = Math.min(this.normL, OUTPUT_HEADROOM / peak)
-      this.gainR.gain.value = 0
-      this.gainL.connect(this.merger, 0, 0)
-      this.gainL.connect(this.merger, 0, 1)
-    } else if (this.solo === 'right') {
-      const peak = this.peakR > 1e-4 ? this.peakR : 1
-      this.gainL.gain.value = 0
-      this.gainR.gain.value = Math.min(this.normR, OUTPUT_HEADROOM / peak)
-      this.gainR.connect(this.merger, 0, 0)
-      this.gainR.connect(this.merger, 0, 1)
-    } else {
-      const { l, r } = this.balanceGains()
-      this.gainL.gain.value = l
-      this.gainR.gain.value = r
-      this.gainL.connect(this.merger, 0, 0)
-      this.gainR.connect(this.merger, 0, 1)
-    }
+  private wireChannelOutputs(): void {
+    routeStereoOutputs(this.channelRoute())
   }
 
   private async ensureContext(): Promise<AudioContext> {
@@ -327,37 +315,7 @@ export class TagAudioPlayer {
   }
 
   private connectSourceToTail(src: AudioBufferSourceNode, mono: boolean): void {
-    // Disconnect prior router inputs
-    try {
-      this.splitter?.disconnect()
-    } catch {
-      /* ignore */
-    }
-    try {
-      this.monoFan?.disconnect()
-    } catch {
-      /* ignore */
-    }
-
-    // Only true mono files use the mono fan. Dual-mono stereo (identical L/R) must
-    // still go through the splitter — collapsing via GainNode downmixes L+R and was
-    // re-creating "same signal in both speakers" when monoPanSide was unset.
-    // Learning-track rebuild (finalizeBlobUrl) is responsible for hard L/R separation.
-    if (mono && this.monoPanSide) {
-      src.connect(this.monoFan!)
-      if (this.monoPanSide === 'left') this.monoFan!.connect(this.gainL!)
-      else this.monoFan!.connect(this.gainR!)
-    } else if (mono) {
-      // True mono with no preferred side (e.g. mix-only): fan to both.
-      src.connect(this.monoFan!)
-      this.monoFan!.connect(this.gainL!)
-      this.monoFan!.connect(this.gainR!)
-    } else {
-      src.connect(this.splitter!)
-      this.splitter!.connect(this.gainL!, 0)
-      this.splitter!.connect(this.gainR!, 1)
-    }
-    this.wireChannelOutputs()
+    connectPlayerSource(this.channelRoute(), src, mono)
   }
 
   private playableOffsetSeconds(originalSec: number): number {

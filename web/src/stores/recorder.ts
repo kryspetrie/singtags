@@ -36,7 +36,7 @@ import {
   putRecorderSession,
   putRecorderTake,
   sumRecorderTakeBytesFromMeta,
-} from '../offline/recorderDb'
+} from '../adapters/recorder/repository'
 
 export const useRecorderStore = defineStore('recorder', () => {
   const sessions = ref<RecorderSession[]>([])

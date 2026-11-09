@@ -60,7 +60,7 @@ import PitchControls from '../components/PitchControls.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import InfoTips from '../components/InfoTips.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
-import { readIsNarrowViewport } from '../lib/narrowViewport'
+import { readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import { visualPxToLayoutPx } from '../lib/uiScale'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { useTwoRowStripPaging } from '../composables/useTwoRowStripPaging'
@@ -120,7 +120,7 @@ const showRowSelect = computed(
 )
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? false
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
 }
 
 function clearSelection(): void {
@@ -1816,7 +1816,7 @@ function fmtConf(n: number): string {
 </script>
 
 <template>
-  <section class="st" :class="{ 'has-selection': selectedIds.size > 0 }" aria-label="Sing Together">
+  <section class="st row-select-host" :class="{ 'has-selection': selectedIds.size > 0, 'row-select-active': selectMode || selectedIds.size > 0 }" aria-label="Sing Together">
     <header class="st-head">
       <h1 class="st-title">Sing Together</h1>
       <p class="st-intro">

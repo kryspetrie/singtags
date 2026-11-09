@@ -2,8 +2,6 @@
  * Track multi-batch collection receives and import tags safely per batch.
  */
 import type { CollectionBatchManifest, CollectionTransferBatch } from './collectionTransfer'
-import { putTransferredTag } from '../../offline/transferredDb'
-import type { useUserCollectionsStore } from '../../stores/userCollections'
 
 export type CollectionReceiveSession = {
   key: string
@@ -78,15 +76,33 @@ export function markCollectionBatchImported(
   batch.importedTagIds = [...new Set([...batch.importedTagIds, ...tagIds])]
 }
 
+export type TransferredTagPut = (
+  meta: CollectionTransferBatch['tags'][number]['meta'],
+  imageBytes: Uint8Array,
+) => Promise<unknown>
+
+/** Names plus create, so this module does not import Pinia. */
+export type ReceivedCollectionLibrary = {
+  collectionNames: readonly string[]
+  create(name: string, tagIds: number[]): { id: string } | null
+}
+
+async function defaultTransferredTagPut(): Promise<TransferredTagPut> {
+  const db = await import('../../offline/transferredDb')
+  return db.putTransferredTag
+}
+
 /** Import each tag in a verified batch independently (partial success is OK). */
 export async function importCollectionBatchTags(
   batch: CollectionTransferBatch,
+  putTag?: TransferredTagPut,
 ): Promise<{ imported: number[]; failed: Array<{ tagId: number; error: string }> }> {
+  const write = putTag ?? (await defaultTransferredTagPut())
   const imported: number[] = []
   const failed: Array<{ tagId: number; error: string }> = []
   for (const tag of batch.tags) {
     try {
-      await putTransferredTag(tag.meta, tag.imageBytes)
+      await write(tag.meta, tag.imageBytes)
       imported.push(tag.meta.id)
     } catch (e) {
       failed.push({
@@ -131,20 +147,32 @@ export function allocateReceivedCollectionName(
   return `${root} (${n})`
 }
 
+type PiniaCollectionLibrary = {
+  collections: ReadonlyArray<{ name: string }>
+  create(name: string, tagIds: number[]): { id: string } | null
+}
+
+function asReceivedLibrary(
+  library: ReceivedCollectionLibrary | PiniaCollectionLibrary,
+): ReceivedCollectionLibrary {
+  if ('collectionNames' in library) return library
+  return {
+    collectionNames: library.collections.map((c) => c.name),
+    create: (name, ids) => library.create(name, ids),
+  }
+}
+
 /** Create a new user collection for a received transfer (no merge with same-name collections). */
 export function applyReceivedCollectionToLibrary(
-  store: ReturnType<typeof useUserCollectionsStore>,
+  library: ReceivedCollectionLibrary | PiniaCollectionLibrary,
   collectionName: string,
   tagIds: number[],
   date = new Date(),
 ): { collectionId: string; collectionName: string } {
+  const target = asReceivedLibrary(library)
   const unique = [...new Set(tagIds)]
-  const allocated = allocateReceivedCollectionName(
-    collectionName,
-    store.collections.map((c) => c.name),
-    date,
-  )
-  const col = store.create(allocated, unique)
+  const allocated = allocateReceivedCollectionName(collectionName, target.collectionNames, date)
+  const col = target.create(allocated, unique)
   if (!col) throw new Error('Could not create collection.')
   return { collectionId: col.id, collectionName: allocated }
 }

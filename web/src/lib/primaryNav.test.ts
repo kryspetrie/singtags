@@ -7,6 +7,7 @@ import {
   PRIMARY_NAV_PIN_COUNT,
   availablePrimaryNavOrder,
   fitNavPinsToWidth,
+  estimateInitialNavFitCapacity,
   maxBottomNavPins,
   morePrimaryNavIds,
   movePrimaryNavId,
@@ -122,6 +123,13 @@ describe('primaryNav', () => {
     expect(maxBottomNavPins(96)).toBe(1)
     expect(resolvePrimaryNavPinCount(8, 5)).toBe(5)
     expect(resolvePrimaryNavPinCount(3, 8)).toBe(3)
+  })
+
+  it('estimates initial nav fit without overshooting a narrow phone', () => {
+    expect(estimateInitialNavFitCapacity(8, { innerWidth: 390, isDesktop: false })).toBe(maxBottomNavPins(390))
+    expect(estimateInitialNavFitCapacity(8, { innerWidth: 390, isDesktop: false })).toBeLessThanOrEqual(7)
+    expect(estimateInitialNavFitCapacity(8, { innerWidth: 1200, isDesktop: true })).toBeLessThanOrEqual(8)
+    expect(estimateInitialNavFitCapacity(8, { innerWidth: 700, isDesktop: true })).toBeLessThan(8)
   })
 
   it('fits pin widths beside More', () => {

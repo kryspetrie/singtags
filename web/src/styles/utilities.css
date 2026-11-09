@@ -115,3 +115,35 @@ a.btn-ghost:hover {
     display: none !important;
   }
 }
+
+/**
+ * Narrow browse / list select: hide checkboxes until long-press selection.
+ * Roots should use `.row-select-host` and `.row-select-active` while selecting.
+ */
+@media (max-width: 639px) {
+  .row-select-host:not(.row-select-active) .sel-btn {
+    display: none !important;
+  }
+}
+
+/**
+ * Jump-rail labels: full vs compact. `html[data-narrow]` is stamped in index.html
+ * before paint so phones never flash “100 Days: 100 Tags”.
+ */
+.jump-lab-compact {
+  display: none;
+}
+html[data-narrow='1'] .jump-lab-full {
+  display: none;
+}
+html[data-narrow='1'] .jump-lab-compact {
+  display: inline;
+}
+@media (max-width: 639px) {
+  html:not([data-narrow]) .jump-lab-full {
+    display: none;
+  }
+  html:not([data-narrow]) .jump-lab-compact {
+    display: inline;
+  }
+}

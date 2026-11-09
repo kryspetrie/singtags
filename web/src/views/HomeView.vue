@@ -17,6 +17,7 @@ import SearchChips from '../components/SearchChips.vue'
 import BrowseWelcomeDialog from '../components/BrowseWelcomeDialog.vue'
 import CollectionPickerSheet from '../components/CollectionPickerSheet.vue'
 import CustomCollectionMark from '../components/CustomCollectionMark.vue'
+import JumpRailLabel from '../components/JumpRailLabel.vue'
 import TagListRowContent from '../components/TagListRowContent.vue'
 import TagSelectionBar from '../components/TagSelectionBar.vue'
 import { useUserCollectionsStore } from '../stores/userCollections'
@@ -66,10 +67,11 @@ import {
   yearSectionKey,
   yearBoundsForSectionKey,
   collectionIdForSectionKey,
+  collectionJumpLabels,
   collectionJumpLabel,
 } from '../search/browse'
 import { isUserCollectionFilterId } from '../lib/collections'
-import { NARROW_VIEWPORT_MQ, readIsNarrowViewport } from '../lib/narrowViewport'
+import { NARROW_VIEWPORT_MQ, readIsNarrowViewport, syncNarrowViewportDataset } from '../lib/narrowViewport'
 import {
   scrollWindowToLayoutY,
   visualPxToLayoutPx,
@@ -985,7 +987,6 @@ function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' |
 const NARROW_SELECT_MQ = NARROW_VIEWPORT_MQ
 const LONG_PRESS_MS = 450
 const LONG_PRESS_MOVE_PX = 10
-/** Init from matchMedia before paint so checkboxes / 100 Days labels don’t flash. */
 const isNarrow = ref(readIsNarrowViewport())
 const selectMode = ref(false)
 let narrowMq: MediaQueryList | null = null
@@ -995,7 +996,7 @@ const showRowSelect = computed(
 )
 
 function syncNarrowSelect(): void {
-  isNarrow.value = narrowMq?.matches ?? readIsNarrowViewport()
+  isNarrow.value = syncNarrowViewportDataset(narrowMq?.matches ?? readIsNarrowViewport()) === '1'
 }
 
 watch(
@@ -1336,12 +1337,10 @@ function jumpSectionTip(key: string): string {
   const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
   return row?.type === 'section' ? `Jump to ${row.label}` : `Jump to ${key}`
 }
-function jumpKeyLabel(key: string): string {
-  if (catalog.sortMode === 'collection') {
-    return collectionJumpLabel(key, userCollections.collections, { compact: isNarrow.value })
-  }
-  const row = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)
-  return row?.type === 'section' ? row.label : key
+function jumpKeyLabels(key: string): { full: string; compact: string } {
+  if (catalog.sortMode === 'collection') return collectionJumpLabels(key, userCollections.collections)
+  const full = catalog.browseWindow.rows.find((r) => r.type === 'section' && r.key === key)?.label ?? key
+  return { full, compact: full }
 }
 
 function isCustomJumpKey(key: string): boolean {
@@ -1872,10 +1871,11 @@ watch(
 
 <template>
   <section
-    class="home"
+    class="home row-select-host"
     :class="{
       'mid-restore-pending': showMidRestoreSkeleton,
       'has-selection': catalog.selectedIds.size,
+      'row-select-active': selectMode || catalog.selectedIds.size > 0,
       'jump-rows-2': showJump && !jumpRailCollapsed && jumpRows === 2,
       'jump-rows-1': showJump && (jumpRailCollapsed || jumpRows === 1),
     }"
@@ -2181,7 +2181,7 @@ watch(
                 :class="{ custom: isCustomJumpKey(key) }"
               >
                 <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-                {{ jumpKeyLabel(key) }}
+                <JumpRailLabel v-bind="jumpKeyLabels(key)" />
               </span>
             </div>
             <div class="collection-page jump-keys-collection">
@@ -2195,7 +2195,7 @@ watch(
                 @click="jumpToSection(key)"
               >
                 <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-                {{ jumpKeyLabel(key) }}
+                <JumpRailLabel v-bind="jumpKeyLabels(key)" />
               </button>
             </div>
           </div>
@@ -2221,7 +2221,7 @@ watch(
             @click="jumpToSection(key)"
           >
             <CustomCollectionMark v-if="isCustomJumpKey(key)" />
-            {{ jumpKeyLabel(key) }}
+            <JumpRailLabel v-bind="jumpKeyLabels(key)" />
           </button>
         </div>
       </template>

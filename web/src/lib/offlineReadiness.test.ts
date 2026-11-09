@@ -12,11 +12,11 @@ vi.mock('../offline/libraryPack', () => ({
 }))
 vi.mock('../offline/favoritesDb', () => ({ listStarred }))
 
+import { loadOfflineReadinessIndex } from '../adapters/catalog/offlineReadinessIndex'
 import {
   buildReadinessFromUrlLists,
   cachedFilterChipLabel,
   isOfflineBrowseFilterActive,
-  loadOfflineReadinessIndex,
   matchesCachedFilter,
   matchesOfflineBrowseFilters,
   tagIdFromMediaPath,

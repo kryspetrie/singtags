@@ -15,6 +15,7 @@ import {
   openGoogleDriveData,
   openGoogleLogin,
   openGoogleLogoutConfirm,
+  requestDriveUpdateCheck,
 } from '../lib/google/accountUi'
 import { driveSyncState } from '../lib/google/driveAppStateSync'
 import {
@@ -141,6 +142,10 @@ function onChromeClick(): void {
   accountUiState.chromeMenuOpen = next
 }
 
+function onCheckForUpdates(): void {
+  requestDriveUpdateCheck((message, opts) => snackbar.show(message, opts))
+}
+
 function onConnected(): void {
   snackbar.show('Favorites and settings will sync to your Google Drive', {
     title: 'Connected',
@@ -234,7 +239,15 @@ async function confirmLogout(): Promise<void> {
         <p class="account-menu-email">
           {{ googleAuthState.email || 'Signed in with Google' }}
         </p>
-        <p class="account-menu-hint">Favorites &amp; settings sync to your Drive</p>
+        <p class="account-menu-hint">Your SingTags data syncs to Google Drive</p>
+        <button
+          type="button"
+          class="account-menu-item"
+          role="menuitem"
+          @click="onCheckForUpdates"
+        >
+          Check for updates
+        </button>
         <button
           type="button"
           class="account-menu-item"
@@ -396,5 +409,9 @@ async function confirmLogout(): Promise<void> {
 }
 .account-menu-item:hover {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+.account-menu-item:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 </style>

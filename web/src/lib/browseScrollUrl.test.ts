@@ -57,7 +57,7 @@ describe('browseScrollUrl', () => {
       { type: 'section' },
       { type: 'tag' },
     ]
-    // margin 200 + (56+128+128) - pad 80 = 432
+    // margin 200 + (56+148+148) - pad 80 = 472
     expect(
       estimateBrowseScrollY({
         rows,
@@ -65,6 +65,6 @@ describe('browseScrollUrl', () => {
         listScrollMargin: 200,
         stickyPad: 80,
       }),
-    ).toBe(432)
+    ).toBe(472)
   })
 })

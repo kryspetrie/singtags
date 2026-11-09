@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeSdpFromQr, encodeSdpForQr, WEBRTC_SDP_PREFIX } from './webrtcTransfer'
+import { decodeSdpFromQr, encodeSdpForQr, WEBRTC_SDP_PREFIX } from '../adapters/transfer/webrtcTransfer'
 
 describe('webrtc SDP QR codec', () => {
   it('round-trips SDP through STW1 compression', () => {

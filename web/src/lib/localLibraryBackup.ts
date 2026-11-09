@@ -3,19 +3,7 @@
  */
 import { unzipSync } from 'fflate'
 import { buildZip, downloadBlob } from '../download/zip'
-import {
-  getLocalLibraryPrefs,
-  listAllLocalAssets,
-  listAllLocalBlobs,
-  listLocalEntries,
-  listLocalGroups,
-  listLocalPlaylists,
-  putLocalAsset,
-  putLocalEntry,
-  putLocalGroup,
-  putLocalLibraryPrefs,
-  putLocalPlaylist,
-} from '../offline/localLibraryDb'
+import type { LocalLibraryArchiveStore } from '../ports/LocalLibraryArchive'
 import type {
   LocalAsset,
   LocalAssetBlob,
@@ -25,6 +13,21 @@ import type {
   LocalPlaylist,
 } from '../types/localLibrary'
 import { normalizeLocalGroup, normalizeLocalPlaylist } from '../types/localLibrary'
+
+type BackupProgress = (p: LocalLibraryBackupProgress) => void
+
+function isArchiveStore(value: unknown): value is LocalLibraryArchiveStore {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    typeof (value as LocalLibraryArchiveStore).listAssets === 'function'
+  )
+}
+
+async function productionArchive(): Promise<LocalLibraryArchiveStore> {
+  const { createIndexedDbLocalLibraryArchive } = await import('../adapters/localLibrary/archiveStore')
+  return createIndexedDbLocalLibraryArchive()
+}
 
 export const LOCAL_LIBRARY_BACKUP_KIND = 'singtags-local-library' as const
 export const LOCAL_LIBRARY_BACKUP_VERSION = 1 as const
@@ -68,8 +71,9 @@ function toArrayBuffer(data: Uint8Array): ArrayBuffer {
 }
 
 /** Sum of asset byteLength fields (on-device library size estimate). */
-export async function estimateLocalLibraryBytes(): Promise<number> {
-  const assets = await listAllLocalAssets()
+export async function estimateLocalLibraryBytes(store?: LocalLibraryArchiveStore): Promise<number> {
+  const resolved = store ?? (await productionArchive())
+  const assets = await resolved.listAssets()
   return assets.reduce((sum, a) => sum + (a.byteLength || 0), 0)
 }
 
@@ -77,16 +81,19 @@ export async function estimateLocalLibraryBytes(): Promise<number> {
  * Build and download a My Library backup zip.
  */
 export async function exportLocalLibraryZip(
-  onProgress?: (p: LocalLibraryBackupProgress) => void,
+  storeOrProgress: LocalLibraryArchiveStore | BackupProgress,
+  onProgress?: BackupProgress,
 ): Promise<{ fileCount: number; bytes: number }> {
-  report(onProgress, 'Reading library…', 0, 1)
+  const store = isArchiveStore(storeOrProgress) ? storeOrProgress : await productionArchive()
+  const progress = isArchiveStore(storeOrProgress) ? onProgress : storeOrProgress
+  report(progress, 'Reading library…', 0, 1)
   const [entries, assets, blobs, groups, playlists, prefs] = await Promise.all([
-    listLocalEntries(),
-    listAllLocalAssets(),
-    listAllLocalBlobs(),
-    listLocalGroups(),
-    listLocalPlaylists(),
-    getLocalLibraryPrefs(),
+    store.listEntries(),
+    store.listAssets(),
+    store.listBlobs(),
+    store.listGroups(),
+    store.listPlaylists(),
+    store.getPrefs(),
   ])
 
   const files: Array<{ name: string; data: Uint8Array }> = []
@@ -108,7 +115,7 @@ export async function exportLocalLibraryZip(
   const total = Math.max(1, blobs.length)
   let done = 0
   for (const blob of blobs) {
-    report(onProgress, `Packing ${blob.id}…`, done, total)
+    report(progress, `Packing ${blob.id}…`, done, total)
     files.push({
       name: `blobs/${blob.id}`,
       data: new Uint8Array(blob.data.slice(0)),
@@ -120,7 +127,7 @@ export async function exportLocalLibraryZip(
     done += 1
   }
 
-  report(onProgress, 'Building zip…', total, total)
+  report(progress, 'Building zip…', total, total)
   const zipped = buildZip(files)
   const stamp = new Date().toISOString().slice(0, 10)
   downloadBlob(zipped, `singtags-local-library-${stamp}.zip`, 'application/zip')
@@ -139,10 +146,22 @@ export type LocalLibraryRestoreResult = {
  * Restore a My Library backup zip (merge by id — overwrites matching ids).
  */
 export async function importLocalLibraryZip(
-  file: File | ArrayBuffer | Uint8Array,
-  onProgress?: (p: LocalLibraryBackupProgress) => void,
+  storeOrFile: LocalLibraryArchiveStore | File | ArrayBuffer | Uint8Array,
+  fileOrProgress?: File | ArrayBuffer | Uint8Array | BackupProgress,
+  onProgress?: BackupProgress,
 ): Promise<LocalLibraryRestoreResult> {
-  report(onProgress, 'Reading zip…', 0, 1)
+  const store = isArchiveStore(storeOrFile) ? storeOrFile : await productionArchive()
+  const file = (isArchiveStore(storeOrFile) ? fileOrProgress : storeOrFile) as
+    | File
+    | ArrayBuffer
+    | Uint8Array
+  const progress =
+    isArchiveStore(storeOrFile)
+      ? onProgress
+      : typeof fileOrProgress === 'function'
+        ? fileOrProgress
+        : undefined
+  report(progress, 'Reading zip…', 0, 1)
   const bytes =
     file instanceof Uint8Array
       ? file
@@ -191,9 +210,9 @@ export async function importLocalLibraryZip(
 
   for (const entry of entries) {
     if (!entry?.id) continue
-    await putLocalEntry(entry)
+    await store.putEntry(entry)
     done += 1
-    report(onProgress, 'Restoring songs…', done, total)
+    report(progress, 'Restoring songs…', done, total)
   }
 
   let blobCount = 0
@@ -211,9 +230,9 @@ export async function importLocalLibraryZip(
       blobIds.delete(asset.id)
       blobCount += 1
     }
-    await putLocalAsset(asset, blob)
+    await store.putAsset(asset, blob)
     done += 1
-    report(onProgress, 'Restoring files…', done, total)
+    report(progress, 'Restoring files…', done, total)
   }
 
   for (const id of [...blobIds]) {
@@ -222,7 +241,7 @@ export async function importLocalLibraryZip(
     const mimeMeta = tree[`blobs/${id}.meta.json`]
     const mime =
       (mimeMeta ? decJson<{ mime?: string }>(mimeMeta).mime : null) || 'application/octet-stream'
-    await putLocalAsset(
+    await store.putAsset(
       {
         id,
         entryId: '',
@@ -239,31 +258,31 @@ export async function importLocalLibraryZip(
     )
     blobCount += 1
     done += 1
-    report(onProgress, 'Restoring blobs…', done, total)
+    report(progress, 'Restoring blobs…', done, total)
   }
 
   for (const group of groups) {
     if (!group?.id) continue
-    await putLocalGroup(normalizeLocalGroup(group))
+    await store.putGroup(normalizeLocalGroup(group))
     done += 1
-    report(onProgress, 'Restoring groups…', done, total)
+    report(progress, 'Restoring groups…', done, total)
   }
 
   for (const playlist of playlists) {
     if (!playlist?.id) continue
-    await putLocalPlaylist(normalizeLocalPlaylist({
+    await store.putPlaylist(normalizeLocalPlaylist({
       ...playlist,
       openFullscreen: playlist.openFullscreen !== false,
       items: Array.isArray(playlist.items) ? playlist.items : [],
     }))
     done += 1
-    report(onProgress, 'Restoring set lists…', done, total)
+    report(progress, 'Restoring set lists…', done, total)
   }
 
   if (prefs && prefs.id === 'prefs') {
-    await putLocalLibraryPrefs(prefs)
+    await store.putPrefs(prefs)
   }
-  report(onProgress, 'Done', total, total)
+  report(progress, 'Done', total, total)
 
   return {
     entries: entries.length,
