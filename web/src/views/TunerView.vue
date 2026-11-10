@@ -7,9 +7,13 @@ import { usePreferencesStore } from '../stores/preferences'
 import { useTunerCapture } from '../composables/useTunerCapture'
 import { useTunerLayout } from '../composables/useTunerLayout'
 import { useTunerChordSession } from '../composables/useTunerChordSession'
+import { useTunerReferenceTone } from '../composables/useTunerReferenceTone'
 import { formatDisplayCents, isInTuneCents } from '../domain/tuner/displayCents'
 import { tuneReadingFromHz } from '../domain/tuner/tuneTarget'
+import { shouldShowTunerPiano } from '../domain/tuner/pianoVisibility'
+import { noteFromHz } from '../domain/tuner/noteFromHz'
 import { fftPeaks, type FftPeak } from '../audio/tuner/fftPeaks'
+import { auditionRegionFromPeaks } from '../audio/tuner/regionAudition'
 import {
   clearSpectrogramRing,
   createSpectrogramRing,
@@ -28,10 +32,14 @@ import ChordStackView from '../components/tuner/ChordStackView.vue'
 import TunerFftView from '../components/tuner/TunerFftView.vue'
 import TunerSpectrogramView from '../components/tuner/TunerSpectrogramView.vue'
 import TunerSettingsSheet from '../components/tuner/TunerSettingsSheet.vue'
+import TunerPianoDock from '../components/tuner/TunerPianoDock.vue'
 
 const prefs = usePreferencesStore()
 const { mode } = useTunerLayout()
 const capture = useTunerCapture()
+const refTone = useTunerReferenceTone({
+  setSuppressDetection: (on) => capture.setSuppressDetection(on),
+})
 
 const frozen = ref(false)
 const frozenReading = ref<{ hz: number | null; clarity: number } | null>(null)
@@ -106,6 +114,14 @@ const legend = computed(() => {
   return `vs ${grid} · A=${Math.round(a4Hz.value)}`
 })
 
+/** Compact chip on short landscape; full legend elsewhere. */
+const legendShort = computed(() => {
+  if (reading.value?.targetKind === 'chordLock') return 'Chord lock'
+  if (tunerPrefs.value.keyGridTemperament === 'justTriad') return 'Just'
+  if (tunerPrefs.value.keyGridTemperament === 'custom') return 'Custom'
+  return 'Equal'
+})
+
 const showStrobe = computed(() => {
   if (reducedMotion.value) return false
   return tunerPrefs.value.tuneDisplay === 'strobe'
@@ -115,6 +131,25 @@ const surface = computed(() => tunerPrefs.value.analyzeSurface)
 const chordEnabled = computed(() => surface.value === 'chord' && capture.running.value)
 const fftEnabled = computed(() => surface.value === 'fft' && capture.running.value)
 const specEnabled = computed(() => surface.value === 'spectrogram' && capture.running.value)
+
+const glanceAny = computed(() => glanceOpen.value || chordGlanceOpen.value)
+const showPiano = computed(() =>
+  shouldShowTunerPiano({
+    pianoVisible: tunerPrefs.value.pianoVisible,
+    pianoPinned: tunerPrefs.value.pianoPinned,
+    mode: mode.value,
+    glanceOpen: glanceAny.value,
+  }),
+)
+const pianoOctave = computed(() => {
+  const midi = reading.value ? noteFromHz(live.value.hz ?? 0, a4Hz.value)?.midi : null
+  if (midi == null) return 4
+  return Math.max(2, Math.min(6, Math.floor(midi / 12) - 1))
+})
+const highlightMidi = computed(() => {
+  if (live.value.hz == null) return null
+  return noteFromHz(live.value.hz, a4Hz.value)?.midi ?? null
+})
 
 const chordSession = useTunerChordSession({
   prefs: tunerPrefs,
@@ -165,7 +200,35 @@ function toggleFftPause(): void {
 }
 
 function setSurface(next: DigitalTunerPrefs['analyzeSurface']): void {
+  refTone.stopAll()
   prefs.setDigitalTunerPrefs({ analyzeSurface: next })
+}
+
+function togglePiano(): void {
+  const next = !tunerPrefs.value.pianoVisible
+  prefs.setDigitalTunerPrefs({
+    pianoVisible: next,
+    // Auto-pin when enabling on short landscape so the dock actually appears.
+    pianoPinned: next && mode.value === 'narrow-landscape' ? true : tunerPrefs.value.pianoPinned,
+  })
+}
+
+async function onPianoNoteOn(note: string, detuneCents: number): Promise<void> {
+  await refTone.playNote(note, detuneCents)
+}
+
+function onPianoNoteOff(note: string): void {
+  refTone.releaseNote(note)
+}
+
+async function onFftPlayPeak(hz: number): Promise<void> {
+  await refTone.playHzChord([hz], 0.9)
+}
+
+async function onFftAudition(hzList: number[]): Promise<void> {
+  const region = auditionRegionFromPeaks(hzList)
+  if (!region) return
+  await refTone.playHzChord(region.hz, region.durationSec)
 }
 
 function downloadExport(): void {
@@ -250,6 +313,7 @@ async function onStart(): Promise<void> {
 }
 
 async function onStop(): Promise<void> {
+  refTone.stopAll()
   await exitGlance()
   frozen.value = false
   frozenReading.value = null
@@ -260,6 +324,7 @@ async function onStop(): Promise<void> {
 
 async function enterGlance(): Promise<void> {
   if (!capture.running.value) return
+  refTone.stopAll()
   if (surface.value === 'chord') {
     chordGlanceOpen.value = true
     glanceOpen.value = false
@@ -341,6 +406,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   removeFrameListener?.()
+  refTone.stopAll()
   void releaseWakeLock('tuner')
 })
 </script>
@@ -363,6 +429,15 @@ onUnmounted(() => {
           >
             Rehearsal
           </button>
+          <button
+            type="button"
+            class="btn icon"
+            :class="{ on: showPiano }"
+            title="Reference piano"
+            @click="togglePiano"
+          >
+            Piano
+          </button>
           <button type="button" class="btn icon" title="Export snapshot" @click="downloadExport">
             Export
           </button>
@@ -370,6 +445,16 @@ onUnmounted(() => {
       </div>
       <p class="privacy">
         On-device only — mic audio never leaves this browser. Analysis clears when you leave.
+      </p>
+      <p
+        v-if="refTone.headphoneHint.value"
+        class="banner"
+        role="status"
+      >
+        Headphones recommended while reference tones play — detection pauses to avoid feedback.
+        <button type="button" class="btn link" @click="refTone.dismissHeadphoneHint()">
+          Dismiss
+        </button>
       </p>
       <div class="actions">
         <button
@@ -441,7 +526,9 @@ onUnmounted(() => {
         <div class="note">{{ reading?.name ?? '—' }}</div>
         <div class="cents" :class="{ in: inTune }">{{ centsLabel }}</div>
         <div class="status">{{ statusWord }}</div>
-        <div class="legend">{{ legend }}</div>
+        <div class="legend" :title="legend">
+          {{ mode === 'narrow-landscape' ? legendShort : legend }}
+        </div>
       </div>
       <TunerStrobe
         v-if="showStrobe"
@@ -465,6 +552,8 @@ onUnmounted(() => {
       :paused="fftPaused"
       :fft-size="tunerPrefs.fftSize"
       @toggle-pause="toggleFftPause"
+      @play-peak="onFftPlayPeak"
+      @audition-selected="onFftAudition"
     />
 
     <TunerSpectrogramView
@@ -473,6 +562,17 @@ onUnmounted(() => {
       :paused="specPaused"
       @toggle-pause="specPaused = !specPaused"
       @clear="clearSpectrogramRing(specRing)"
+    />
+
+    <TunerPianoDock
+      v-if="showPiano"
+      :octave="pianoOctave"
+      :highlight-midi="highlightMidi"
+      :key-pc="tunerPrefs.keyPc"
+      :temperament="tunerPrefs.keyGridTemperament"
+      :custom-offsets-cents="tunerPrefs.customOffsetsCents"
+      @note-on="onPianoNoteOn"
+      @note-off="onPianoNoteOff"
     />
 
     <div class="level" aria-hidden="true">
@@ -543,6 +643,19 @@ onUnmounted(() => {
   font-size: 0.9rem;
   line-height: 1.35;
   max-width: 40rem;
+}
+.banner {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.35;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
 }
 .actions {
   display: flex;

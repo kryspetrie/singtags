@@ -1,6 +1,6 @@
 # Digital Tuner — pitch analysis for vocalists
 
-> **Status:** In progress — Phases 1–8 scaffolded on `tuner` (Conditional Chord; FFT/Spec/Export); Phase 9–10 open  
+> **Status:** In progress — Phases 1–9 on `tuner` (piano + sine/detect-suppress + FFT region audition); Phase 10 graduate open  
 > **Updated:** 2026-11-10 (kill-gate Conditional ADR; Assisted Chord; FFT/Spec/Export)  
 > **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; **P0 Chord Glance after kill-gate (before FFT/spec)**; P1 analysis/export afterward.  
 > **Placement:** Labs-gated `/tuner` → graduate to **always-available under More** (Recorder/Optical pattern). Users may pin it; **not** added to `DEFAULT_PRIMARY_NAV_ORDER` (avoids crowding pins next to Pitch Pipe).  
@@ -753,6 +753,7 @@ Phase 4 decides Chord. **Chord UI is Phase 5** (ahead of FFT/spec). FFT/spectrog
 **Scope:** Requirement 12.
 
 - Drag-select; resynth vs raw labels; short loops; thumb-friendly on landscape.
+- **Shipped (FFT path):** multi-select peaks → Audition resynth via `regionAudition` + `useTunerReferenceTone.playHzChord` (detect-suppress). Spectrogram drag-select still open.
 
 **Exit:** Known-chord region ratios; empty no-op; usable one-handed.
 

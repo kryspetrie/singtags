@@ -33,6 +33,9 @@ const analyzeDraft = ref<'hidden' | 'fft' | 'spectrogram' | 'chord'>('hidden')
 const chordLockDraft = ref(false)
 const chordNatureDraft = ref('seventh')
 const pinnedRootDraft = ref(0)
+const customOffsetsDraft = ref<number[]>(Array.from({ length: 12 }, () => 0))
+const pianoVisibleDraft = ref(false)
+const pianoPinnedDraft = ref(false)
 
 const PC_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const NATURE_OPTIONS = BARBERSHOP_CHORDS.map((c) => ({ id: c.id, name: c.name }))
@@ -55,6 +58,9 @@ watch(
     chordLockDraft.value = p.chordLockEnabled
     chordNatureDraft.value = p.chordNatureId || 'seventh'
     pinnedRootDraft.value = p.pinnedRootPc ?? p.keyPc
+    customOffsetsDraft.value = [...p.customOffsetsCents]
+    pianoVisibleDraft.value = p.pianoVisible
+    pianoPinnedDraft.value = p.pianoPinned
   },
   { immediate: true },
 )
@@ -90,6 +96,11 @@ function apply(): void {
         ? chordNatureDraft.value
         : null,
     pinnedRootPc: analyzeDraft.value === 'chord' ? pinnedRootDraft.value : null,
+    customOffsetsCents: customOffsetsDraft.value.map((v) =>
+      Number.isFinite(v) ? Math.max(-100, Math.min(100, v)) : 0,
+    ),
+    pianoVisible: pianoVisibleDraft.value,
+    pianoPinned: pianoPinnedDraft.value,
   })
   emit('close')
 }
@@ -158,6 +169,32 @@ function apply(): void {
           <option value="justTriad">Just triad</option>
           <option value="custom">Custom</option>
         </select>
+      </label>
+
+      <fieldset v-if="temperamentDraft === 'custom'" class="offsets">
+        <legend class="label">Custom offsets (¢ per pitch class)</legend>
+        <div class="offset-grid">
+          <label v-for="(n, i) in PC_NAMES" :key="`off-${n}`" class="offset">
+            <span>{{ n }}</span>
+            <input
+              v-model.number="customOffsetsDraft[i]"
+              class="ctrl tiny"
+              type="number"
+              min="-100"
+              max="100"
+              step="1"
+            />
+          </label>
+        </div>
+      </fieldset>
+
+      <label class="row check">
+        <input v-model="pianoVisibleDraft" type="checkbox" />
+        <span>Show reference piano</span>
+      </label>
+      <label class="row check">
+        <input v-model="pianoPinnedDraft" type="checkbox" :disabled="!pianoVisibleDraft" />
+        <span>Keep piano in short landscape</span>
       </label>
 
       <label class="row check">
@@ -269,5 +306,27 @@ function apply(): void {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
+}
+.offsets {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: grid;
+  gap: 0.35rem;
+}
+.offset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+  gap: 0.35rem;
+}
+.offset {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.ctrl.tiny {
+  min-height: 36px;
+  padding: 0.25rem 0.35rem;
 }
 </style>

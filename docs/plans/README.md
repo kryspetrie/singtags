@@ -9,7 +9,7 @@ Specs for work that is **not fully shipped**, or that still has residual ops. Im
 | [tag-roulette.md](tag-roulette.md) | Proposed — product |
 | [tag-roulette-impl.md](tag-roulette-impl.md) | In progress — Labs phased impl |
 | [virtual-piano.md](virtual-piano.md) | Proposed — poly piano: Sound Lab voice schema + Leethring samples |
-| [digital-tuner.md](digital-tuner.md) | In progress — Labs `/tuner` Phases 1–8; Conditional Chord + FFT/Spec/Export; 9–10 open |
+| [digital-tuner.md](digital-tuner.md) | In progress — Labs `/tuner` Phases 1–9 (piano/sine/region); Phase 10 graduate open |
 | [tag-roll.md](tag-roll.md) | In progress — Phase 8 on `piano-roll` branch |
 | [tag-studio-hardening.md](tag-studio-hardening.md) | In progress — A–E done; F next |
 | [tag-studio-ux-polish.md](tag-studio-ux-polish.md) | In progress — A–F chrome + thin patterns on `piano-roll` |

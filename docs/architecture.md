@@ -17,7 +17,8 @@ Static Vue 3 SPA. Catalog/search/media are published objects; the browser owns s
 | `web/src/search/` | Pure DSL + engine + chip filter merge | Fetch; Vue |
 | `web/src/composables/` | Online, object URLs, tag detail load | Pinia stores |
 | `web/src/audio/` | Web Audio player, pitch pipe voices, bake-first pitch/speed, Opus WASM decode; Digital Tuner adapters under `audio/tuner/` (dedicated context + public worklet) | UI strings; Pinia |
-| `web/src/domain/tuner/` | Pure tuner domain (cents display, key-grid temperament, note-from-Hz) | Vue; Pinia; Web Audio |
+| `web/src/domain/tuner/` | Pure tuner domain (cents display, key-grid temperament, note-from-Hz, piano visibility) | Vue; Pinia; Web Audio |
+| `web/src/application/tuner/` | Tuner session helpers (detect-suppress while reference tones play) | Vue; Pinia |
 | `web/src/download/` | Fetch bytes, transform, encode, zip | Pinia; Vue components |
 | `web/src/components/` | Presentational UI (chips, player, sheets) | Publish paths; S3 |
 | `web/src/views/` | Route composition | Heavy DSP |
