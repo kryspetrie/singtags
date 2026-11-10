@@ -808,9 +808,63 @@ function syncStickyBrowsePad(): void {
   stickyBrowsePad.value = stickyBrowsePadPx()
 }
 
-const BROWSE_OVERSCAN = 14
+const BROWSE_OVERSCAN_NARROW = 14
+/** Desktop scrollbar drags jump farther per frame — keep a deeper row buffer. */
+const BROWSE_OVERSCAN_DESKTOP = 56
 const BROWSE_SCRUB_OVERSCAN = 48
 const scrubbing = ref(false)
+/** Hoisted so virtualizer overscan can react before narrow-select wiring below. */
+const isNarrow = ref(readIsNarrowViewport())
+/**
+ * Desktop: solid --surface underlay behind virt-rows while the user is scrolling,
+ * so page --bg never shows through card gaps. Cards stay visible; underlay fades
+ * out after scroll stops (mouse-up / wheel settle).
+ */
+const browseScrollUnderlay = ref(false)
+let browseScrollIdleTimer = 0
+const BROWSE_SCROLL_UNDERLAY_IDLE_MS = 150
+
+function clearBrowseScrollUnderlay(): void {
+  browseScrollUnderlay.value = false
+  if (browseScrollIdleTimer) {
+    window.clearTimeout(browseScrollIdleTimer)
+    browseScrollIdleTimer = 0
+  }
+}
+
+function noteBrowseListScrolling(): void {
+  // Skip first-paint / programmatic pin so load does not flash the underlay.
+  if (
+    isNarrow.value ||
+    scrubbing.value ||
+    !browseReveal.value ||
+    searchTopPending.value ||
+    Date.now() < suppressUserScrollDisarmUntil
+  ) {
+    clearBrowseScrollUnderlay()
+    return
+  }
+  browseScrollUnderlay.value = true
+  if (browseScrollIdleTimer) window.clearTimeout(browseScrollIdleTimer)
+  browseScrollIdleTimer = window.setTimeout(() => {
+    browseScrollIdleTimer = 0
+    browseScrollUnderlay.value = false
+  }, BROWSE_SCROLL_UNDERLAY_IDLE_MS)
+}
+
+const showBrowseScrollUnderlay = computed(
+  () => browseScrollUnderlay.value && !isNarrow.value && !scrubbing.value,
+)
+
+/** Mouse/pen up after scrollbar drag — start the underlay fade promptly. */
+function onBrowseScrollPointerUp(): void {
+  if (!browseScrollUnderlay.value) return
+  if (browseScrollIdleTimer) window.clearTimeout(browseScrollIdleTimer)
+  browseScrollIdleTimer = window.setTimeout(() => {
+    browseScrollIdleTimer = 0
+    browseScrollUnderlay.value = false
+  }, 40)
+}
 
 let pinSearchTopUntil = 0
 let suppressUserScrollDisarmUntil = 0
@@ -833,7 +887,11 @@ const rowVirtualizer = useWindowVirtualizer(
     count: browseRows.value.length,
     estimateSize: (index: number) =>
       browseRows.value[index]?.type === 'section' ? BROWSE_SECTION_ROW_H : BROWSE_TAG_ROW_H,
-    overscan: scrubbing.value ? BROWSE_SCRUB_OVERSCAN : BROWSE_OVERSCAN,
+    overscan: scrubbing.value
+      ? BROWSE_SCRUB_OVERSCAN
+      : isNarrow.value
+        ? BROWSE_OVERSCAN_NARROW
+        : BROWSE_OVERSCAN_DESKTOP,
     scrollMargin: listScrollMargin.value,
     scrollPaddingStart: stickyBrowsePad.value,
     observeElementRect: observeZoomAwareWindowRect,
@@ -973,7 +1031,6 @@ function scrollToBrowseRow(rowIndex: number, align: 'start' | 'center' | 'end' |
 const NARROW_SELECT_MQ = NARROW_VIEWPORT_MQ
 const LONG_PRESS_MS = 450
 const LONG_PRESS_MOVE_PX = 10
-const isNarrow = ref(readIsNarrowViewport())
 const selectMode = ref(false)
 let narrowMq: MediaQueryList | null = null
 
@@ -1153,6 +1210,7 @@ function scheduleBrowseScrollUrlSync(): void {
 
 function onBrowseScroll(): void {
   syncWindowScrollY()
+  noteBrowseListScrolling()
   // Suppress covers pin + remasure; real gestures use wheel/touchmove.
   if (
     shouldNoteUserBrowseScroll({
@@ -1696,6 +1754,7 @@ if (!browseShouldRestoreList() && browseScrollIntent !== 'restore') {
 onMounted(async () => {
   void offlineLib.refreshCacheReady().catch(() => undefined)
   window.addEventListener('scroll', onBrowseScroll, { passive: true })
+  window.addEventListener('pointerup', onBrowseScrollPointerUp, { passive: true })
   window.addEventListener('wheel', onBrowseUserScrollGesture, { passive: true })
   window.addEventListener('touchmove', onBrowseUserScrollGesture, { passive: true })
   window.addEventListener('pagehide', onBrowsePageHide)
@@ -1760,6 +1819,8 @@ onUnmounted(() => {
   window.removeEventListener('pagehide', onBrowsePageHide)
   document.removeEventListener('pointerdown', onTipsOutsidePointerDown, true)
   if (scrubScrollRaf) cancelAnimationFrame(scrubScrollRaf)
+  clearBrowseScrollUnderlay()
+  window.removeEventListener('pointerup', onBrowseScrollPointerUp)
   if (browseScrollUrlTimer != null) {
     clearTimeout(browseScrollUrlTimer)
     browseScrollUrlTimer = null
@@ -2243,30 +2304,18 @@ watch(
       role="status"
       aria-live="polite"
       aria-busy="true"
-      :style="{ '--browse-tag-row-h': `${BROWSE_TAG_ROW_H}px` }"
     >
       <span class="visually-hidden">Loading catalog…</span>
       <div class="results-meta browse-skeleton-meta" aria-hidden="true">
         <div class="skel skel-count" />
         <div class="skel skel-sort" />
       </div>
-      <div class="list browse-skeleton-list" aria-hidden="true">
-        <div
-          v-for="i in browseSkeletonRows"
-          :key="i"
-          class="virt-row browse-skeleton-virt"
-        >
-          <div class="list-row">
-            <div class="row-link">
-              <div class="skel skel-title" />
-              <div class="skel skel-alt" />
-              <div class="skel skel-meta" />
-              <div class="skel skel-lyrics" />
-            </div>
-            <button type="button" class="row-fav" tabindex="-1" disabled aria-hidden="true" />
-          </div>
-        </div>
-      </div>
+      <!-- Solid band only — no ghost card rows on first load. -->
+      <div
+        class="browse-skeleton-solid"
+        aria-hidden="true"
+        :style="{ height: `${browseSkeletonRows.length * BROWSE_TAG_ROW_H}px` }"
+      />
     </div>
     <EmptyState
       v-else-if="catalog.error"
@@ -2331,6 +2380,13 @@ watch(
           '--browse-section-row-h': `${BROWSE_SECTION_ROW_H}px`,
         }"
       >
+        <!-- Desktop: solid card-color underlay while scrolling; fades out when settled. -->
+        <div
+          v-if="!isNarrow"
+          class="list-scroll-ph"
+          :class="{ on: showBrowseScrollUnderlay }"
+          aria-hidden="true"
+        />
         <div
           v-if="scrubbing && scrubGhostItems.length"
           class="scrub-ghost"
@@ -2579,6 +2635,7 @@ watch(
 .browse-skeleton {
   margin: 0;
 }
+.browse-skeleton-solid,
 .mid-restore-list-placeholder {
   margin: 0;
   border-radius: var(--radius);
@@ -3308,6 +3365,26 @@ watch(
   margin: 0;
   /* Virtual rows are absolutely positioned; spacing lives on .virt-row. */
 }
+.list-scroll-ph {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--surface);
+  border-radius: var(--radius);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.list-scroll-ph.on {
+  opacity: 1;
+  /* Snap on while scrolling; fade only after scroll stops. */
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .list-scroll-ph {
+    transition: none;
+  }
+}
 .list.is-scrubbing > .virt-row {
   /* Hide only real virtualized rows (direct children). Ghost rows nest under .scrub-ghost. */
   opacity: 0;
@@ -3356,6 +3433,7 @@ watch(
 }
 .virt-row {
   /* Uniform gap between cards of any measured height. */
+  z-index: 1;
   padding-bottom: 0.35rem;
   box-sizing: border-box;
 }

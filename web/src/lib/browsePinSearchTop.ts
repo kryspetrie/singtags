@@ -106,7 +106,9 @@ export function isSearchTopPending(opts: {
  * of px (jump-rail flash) before pin-to-top runs.
  *
  * Wire via `bindVirtualizerScrollAdjustGate` on the **instance** field — putting this
- * on `useWindowVirtualizer` options is a no-op in @tanstack/virtual-core.
+ * on `useWindowVirtualizer` options is a no-op in @tanstack/virtual-core. The gate must
+ * still apply TanStack’s above-fold-only default when unblocked; a bare `true` yanks
+ * scroll for every below-fold measure while scrolling down.
  */
 export function shouldBlockVirtualizerScrollAdjust(opts: {
   pinArmed: boolean

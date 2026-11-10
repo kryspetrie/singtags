@@ -60,6 +60,39 @@ export function zoomAwareInitialOffset(): number {
   return visualPxToLayoutPx(typeof window !== 'undefined' ? window.scrollY : 0)
 }
 
+type ScrollAdjustItem = { start: number; size: number; key: unknown }
+
+/**
+ * Decide whether a row size delta should move window scroll.
+ *
+ * Returning bare `true` whenever the pin gate is open overrides TanStack’s
+ * default and corrects *every* measure — including rows below the fold. On
+ * mobile that fights momentum while scrolling down (worse further in the list,
+ * where every new row is a first measure). Replicate the library default when
+ * not blocked: first measure above the fold; remasure only when entirely above
+ * and not scrolling backward.
+ */
+export function shouldAllowVirtualizerScrollAdjust(opts: {
+  blocked: boolean
+  itemStart: number
+  itemSize: number
+  /** Whether `itemSizeCache` already has this key (false = first measure). */
+  itemSizeCacheHas: boolean
+  scrollOffset: number
+  scrollAdjustments: number
+  scrollDirection: 'forward' | 'backward' | null
+}): boolean {
+  if (opts.blocked) return false
+  const scrollOffsetWithAdj = opts.scrollOffset + opts.scrollAdjustments
+  if (!opts.itemSizeCacheHas) {
+    return opts.itemStart < scrollOffsetWithAdj
+  }
+  return (
+    opts.itemStart + opts.itemSize <= scrollOffsetWithAdj &&
+    opts.scrollDirection !== 'backward'
+  )
+}
+
 /**
  * TanStack Virtual reads `instance.shouldAdjustScrollPositionOnItemSizeChange`,
  * not the same key on `options` — set the instance field or the gate is a no-op.
@@ -68,7 +101,18 @@ export function bindVirtualizerScrollAdjustGate(
   instance: WinVirtualizer,
   shouldBlock: () => boolean,
 ): void {
-  instance.shouldAdjustScrollPositionOnItemSizeChange = () => !shouldBlock()
+  instance.shouldAdjustScrollPositionOnItemSizeChange = (item, _delta, inst) => {
+    const row = item as ScrollAdjustItem
+    return shouldAllowVirtualizerScrollAdjust({
+      blocked: shouldBlock(),
+      itemStart: row.start,
+      itemSize: row.size,
+      itemSizeCacheHas: inst.itemSizeCache.has(row.key),
+      scrollOffset: inst.scrollOffset ?? 0,
+      scrollAdjustments: inst.scrollAdjustments,
+      scrollDirection: inst.scrollDirection,
+    })
+  }
 }
 
 type ScrollOffsetMutable = {
