@@ -1,13 +1,14 @@
 # Digital Tuner — pitch analysis for vocalists
 
-> **Status:** Proposed (revised after adversarial review)  
-> **Updated:** 2026-11-09  
-> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; FFT/spectrogram analysis; chord stack only after a multi-F0 kill-gate on real ensemble audio.  
+> **Status:** In progress — Phases 1–4 on `tuner` branch (Tune/strobe/key-grid + multi-F0 spike)  
+> **Updated:** 2026-11-10 (Glance, settings, strobe, key-grid/chord-lock, multiF0 + stack scoring)  
+> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; **P0 Chord Glance after kill-gate (before FFT/spec)**; P1 analysis/export afterward.  
 > **Placement:** Labs-gated `/tuner` → graduate to **always-available under More** (Recorder/Optical pattern). Users may pin it; **not** added to `DEFAULT_PRIMARY_NAV_ORDER` (avoids crowding pins next to Pitch Pipe).  
 > **Clients:** Desktop and mobile; **portrait and landscape**; density/layout adapt via shared narrow + orientation breakpoints (not a separate “mobile app”).  
 > **Privacy:** All analysis on-device; mic audio never leaves the browser; analysis rings capped and cleared on leave  
-> **Primary use case:** Chromatic / key-aware tuning for a single vocalist (one-glance Tune chrome — no mode tabs at first)  
-> **North-star differentiator:** Quartet chord stack — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**  
+> **Primary use cases:** (1) Solo chromatic / key-aware Tune. (2) **Rehearsal glance** — quartet ~6–10 ft from a phone, singing toward it, reading in-tune / out-of-tune (JI lock, shift, who) from across the room via **fullscreen Glance mode**. Detail breakdown in non-fullscreen.  
+> **North-star differentiator:** Quartet chord stack — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**; Glance mode optimized for distance readability  
+
 > **Related:** [audio-recorder-roadmap.md](audio-recorder-roadmap.md) (tuner explicitly **not** inside recorder), [virtual-piano.md](virtual-piano.md), [tag-audio-pitch-import.md](tag-audio-pitch-import.md), [justIntonation.ts](../../web/src/domain/arranging/justIntonation.ts), [narrowViewport.ts](../../web/src/lib/narrowViewport.ts)
 
 ---
@@ -39,7 +40,7 @@
 | Piano UI geometry | Pitch Pipe, `SheetPianoDock.vue` |
 | Symbolic chord ID | `web/src/domain/arranging/chordNatureIdentify.ts` (needs hysteresis when fed live PCs) |
 | AudioWorklet precedent | `soundfonts.ts` — serve worklet from `public/` |
-| Shared audio unlock | `interactiveAudioContext.ts` — **mandatory** for tuner |
+| Low-latency AudioContext factory | `interactiveAudioContext.ts` — factory only; tuner gets a **dedicated** context (see Architecture) |
 
 **Gap:** no live tuner, no spectrogram UI, no proven real-time multi-F0.
 
@@ -55,6 +56,7 @@
 6. **False-precision policy.** Cents decimals follow estimator confidence (e.g. 0.1¢ only when clarity high; else 1¢). Always show what “green” is relative to (Equal vs chord lock).
 7. **Neutral coaching language.** Prefer “+12¢ vs target” over “Lead is sharp.”
 8. **Responsive by breakpoint, not by device sniffing.** Layout density follows viewport width + orientation; touch targets and safe-areas work with existing App chrome (`--header-h`, `--bottom-nav-h`, `env(safe-area-inset-*)`).
+9. **Glance vs detail.** Fullscreen Glance is for arm’s-length-to-room distance (quartet watching a phone). Non-fullscreen Detail is for close inspection (¢, intervals, settings). Never require reading small type to know locked vs not from across the room.
 
 ---
 
@@ -73,7 +75,7 @@
 Desktop / wide landscape (conceptual):
 
 ```
-┌─ Tuner ── Key · Grid · A4 · Hold · [🎹] · [⚙] ──────────────────┐
+┌─ Tuner ── Key · Grid · A4 · Freeze · [Rehearsal] · [🎹] · [⚙] ─┐
 │  [ Big note + cents + legend ]     [ Needle / Strobe canvas ]   │
 │  Level ──────────────────────────────────────────────────────── │
 └─────────────────────────────────────────────────────────────────┘
@@ -82,12 +84,12 @@ Desktop / wide landscape (conceptual):
 Narrow portrait:
 
 ```
-┌─ Key·Grid·A4 · Hold · 🎹 · ⚙ ─┐
-│         NOTE  ±¢               │
-│         legend                 │
-│     [ needle / strobe ]        │
-│     level                      │
-└─ (bottom nav outside view) ───┘
+┌─ Key·Grid·A4 · Freeze · Rehearsal · 🎹 · ⚙ ─┐
+│         NOTE  ±¢                            │
+│         legend                              │
+│     [ needle / strobe ]                     │
+│     level                                   │
+└─ (bottom nav outside view) ────────────────┘
 ```
 
 **Phases 5+:** single **Analyze** control (menu or segmented control that collapses on narrow), not four equal-weight tabs fighting the readout.
@@ -115,7 +117,7 @@ Tuner must be usable while holding a phone at a mic, on a tablet on the music st
 | **Narrow** | `NARROW_VIEWPORT_MQ` = `(max-width: 639px)` via [`narrowViewport.ts`](../../web/src/lib/narrowViewport.ts) / `html[data-narrow]` | Compact chrome, sheet settings, touch-first |
 | **Wide** | not narrow (≥640px) | Side-by-side Tune + visual; denser toolbars |
 | **Short** | `(max-height: 500px)` or equivalent | Landscape phones: collapse secondary chrome |
-| **Orientation** | `(orientation: landscape)` / `portrait` (CSS + optional JS for canvas relayout) | Axis swaps for strobe/FFT; piano dock placement |
+| **Orientation** | `(orientation: landscape)` / `portrait` (CSS + optional JS for canvas relayout) | Density / Glance block layout; strobe stays horizontal; piano dock placement |
 | **App chrome** | `--header-h`, `--bottom-nav-h`, `env(safe-area-inset-*)` from `App.vue` | Tuner fills `100dvh` minus header/nav; no content under home indicator |
 
 Do **not** UA-sniff “mobile.” A narrow desktop window gets the compact layout; an iPad landscape gets the wide layout.
@@ -127,7 +129,7 @@ Do **not** UA-sniff “mobile.” A narrow desktop window gets the compact layou
 | **Wide + portrait** (tablet / desktop window) | Readout left (~40%), needle/strobe right (~60%); toolbar one row | Canvas dominant below or right; peak table / stack as side rail | Bottom horizontal strip (Pitch Pipe–style), collapsible |
 | **Wide + landscape** | Same split, more horizontal room for strobe stripes | FFT: horizontal frequency axis full width; spectrogram maximizes height | Dock thinner or end-drawer; hide by default if height tight |
 | **Narrow + portrait** (phone) | **Stacked:** toolbar → giant note/¢ → visual → level. Settings in bottom sheet. Hit targets ≥44px | Full-bleed canvas under a compact Analyze header; peak labels limited (top N); stack is full-width list | Optional; overlays bottom third or navigates to sheet — **off by default** so Tune stays one glance |
-| **Narrow + landscape / short** (phone on side) | **Density mode:** single horizontal band — note+¢ left, needle/strobe center, Hold+level right. Hide legend to one icon/tooltip; Key/Grid/A4 behind a compact chip → sheet | Spectrogram/FFT get almost all height; toolbar becomes icon rail; pause/export in overflow | **Forced off** while short unless user pins; never cover the readout |
+| **Narrow + landscape / short** (phone on side) | **Density mode:** single horizontal band — note+¢ left, needle/strobe center, Freeze+level right. Hide legend to one icon/tooltip; Key/Grid/A4 behind a compact chip → sheet | Spectrogram/FFT get almost all height; toolbar becomes icon rail; pause/export in overflow | **Forced off** while short unless user pins; never cover the readout |
 
 ```mermaid
 flowchart TB
@@ -143,49 +145,53 @@ flowchart TB
     N4[Level]
   end
   subgraph narrowLandscape [Narrow landscape short]
-    L1[Note+cents | Strobe | Hold]
+    L1[Note+cents | Strobe | Freeze]
   end
 ```
 
 ### Density rules
 
 1. **One primary focal point while singing.** On short/narrow landscape, never show FFT + piano + stack at once.
-2. **Toolbar progressive disclosure.** Wide: Key, Grid temp, A4, Hold, Piano, Settings inline. Narrow: chips / icons; full controls in `TunerSettingsSheet` (existing sheet patterns).
+2. **Toolbar progressive disclosure.** Wide: Key, Grid temp, A4, Freeze, Rehearsal, Piano, Settings inline. Narrow: chips / icons; full controls in `TunerSettingsSheet` (existing sheet patterns).
 3. **Analyze is a disclosure**, not four peer tabs. Narrow: `Tune | Analyze` segmented control; Analyze opens FFT/Spec/Chord via nested control or sheet. Wide: may show segmented Analyze modes in the second row.
 4. **Typography scale.** Narrow portrait note name uses large display type (clamp); landscape-short uses medium type so strobe keeps pixels. Cents never smaller than 16px on touch.
 5. **Touch vs pointer.** Canvases support pointer + touch; spectrogram region-drag uses larger handles on narrow; click-to-sine uses a visible crosshair + confirm on first use for touch (avoid accidental beeps).
 6. **Safe areas.** Padding: top under header, bottom above `bottom-nav-h + safe-area`. Landscape notches: horizontal `safe-area-inset-left/right` on the tuner root.
-7. **Canvas resize.** `ResizeObserver` on the stage; DPR-aware backing store; on orientation change, redraw overlays from last frame (do not clear Hold buffer). Throttle relayout during rotate animation.
+7. **Canvas resize.** `ResizeObserver` on the stage; DPR-aware backing store; on orientation change, redraw overlays from last frame (do not clear Freeze buffer). Throttle relayout during rotate animation.
 8. **Performance by viewport.** Narrow defaults: lower spectrogram scroll DPR / cap FFT to 4096 unless user raises it; auto-degrade FPS sooner on short battery mobile (Phase 10). Wide desktop may allow 8192+ more freely.
 9. **Strobe orientation.** v1: **horizontal** stripe drift (left flat / right sharp) in all orientations; short landscape gets a taller band / compact readout instead of a second mapper.
 10. **FFT / spectrogram axes.** Portrait FFT: frequency on X (or vertical bars). Narrow landscape: prefer frequency on X with reduced label density; spectrogram time on X always, frequency on Y — on short height, shrink Y range to vocal default faster (or offer “zoom to voice”).
 11. **Chord stack.** Wide: side rail beside spectrogram/FFT. Narrow portrait: replace canvas with stack list (or split 50/50). Narrow landscape: compact horizontal “pitch chips” row (low→high) with ¢ under each — not a tall table.
-12. **Piano.** Reuse Pitch Pipe horizontal geometry; on narrow, default hidden; when shown, use existing scroll/zoom helpers and do not steal focus from Hold. Short landscape: piano off unless `pianoPinned`.
-13. **Settings & export.** Never push a modal that covers the live readout without an easy dismiss; prefer sheets that leave a peek of note/¢ on tall phones.
-14. **Reduced motion / accessibility.** Text twin readout remains visible at all breakpoints; strobe→needle under `prefers-reduced-motion` regardless of orientation.
+12. **Piano.** Reuse Pitch Pipe horizontal geometry; on narrow, default hidden; when shown, use existing scroll/zoom helpers and do not steal focus from Freeze. Short landscape: piano off unless `pianoPinned`. **Always off in Glance.**
+13. **Settings & export.** Never push a modal that covers the live readout without an easy dismiss; prefer sheets that leave a peek of note/¢ on tall phones. Disabled in Glance.
+14. **Reduced motion / accessibility.** Text twin readout remains visible in Detail; Glance uses words+shapes (strobe off); strobe→needle under `prefers-reduced-motion` in Detail.
+15. **Glance exit.** Large enough hit target (not a 24px corner X); swipe-from-edge or persistent `Exit` chip with contrast border for bright rooms.
 
 ### Prefs additions (layout)
 
 ```ts
-pianoPinned: boolean           // keep piano in short landscape
+pianoPinned: boolean           // keep piano in short landscape (Detail only)
 analyzeChrome: 'auto' | 'icons' | 'labels'
-// optional explicit override; default 'auto' follows narrow+short
 density: 'auto' | 'comfortable' | 'compact'
+glanceFullscreen: boolean      // sticky; ignored on cold start until mic running
 ```
 
-Persist only if user overrides; `auto` recomputes on resize/orientation.
+Persist only if user overrides; `auto` density recomputes on resize/orientation.
 
 ### Responsive acceptance (cross-phase)
 
 | Check | Pass condition |
 | --- | --- |
-| Narrow portrait Tune | Note + cents readable at arm’s length; Hold reachable thumb-zone; no horizontal page scroll |
+| Narrow portrait Tune | Note + cents readable at arm’s length; Freeze reachable thumb-zone; no horizontal page scroll |
 | Narrow landscape Tune | Single-band density; no piano unless pinned; strobe still interpretable |
 | Wide desktop Tune | Side-by-side readout + visual; settings inline |
-| Orientation flip | Hold state preserved; canvas resizes without blanking >1 frame burst; no stuck scroll lock |
+| Orientation flip | Freeze state preserved; canvas resizes without blanking >1 frame burst; no stuck scroll lock |
 | Analyze on phone | Usable one-handed; peak inspect + sine without mis-taps dominating |
 | App chrome | No tuner controls under bottom nav or notch |
 | iPad landscape | Matches **wide** layout (not phone density) |
+| Glance @ ~10 ft | Status word + off-block identifiable without reading ¢ |
+| Glance chrome | Header/bottom nav hidden; Wake Lock on; exit control reachable |
+| Detail | Full ¢ / intervals / nature controls available after exiting Glance |
 
 ### Original product requirements (tracked)
 
@@ -314,6 +320,8 @@ web/src/components/tuner/…
   pianoPinned: boolean       // keep piano visible in short landscape
   density: 'auto' | 'comfortable' | 'compact'
   analyzeChrome: 'auto' | 'icons' | 'labels'
+  /** Rehearsal fullscreen — hide app chrome; distance-first visuals */
+  glanceFullscreen: boolean
 }
 ```
 
@@ -338,17 +346,27 @@ UI shows active policy name. Rows labeled by note name + octave, never Tenor/Lea
 
 ## JI chord-in-tune visual design (barbershop differentiator)
 
-**Status of coverage before this section:** the plan had **scoring semantics** (Locked / Centered / Shifted) and a thin Phase 8 bullet list, but **not** a comprehensive visual/teaching design for “is our chord in tune in just intonation?” This section is that design. Phase 8 implements it; Phase 3 covers the solo precursor.
+**Status of coverage before this section:** the plan had **scoring semantics** (Locked / Centered / Shifted) and a thin Chord UI bullet list, but **not** a comprehensive visual/teaching design for “is our chord in tune in just intonation?” This section is that design. **Phase 5** implements it; Phase 3 covers the solo precursor.
+
+### Rehearsal context (normative)
+
+**Primary ensemble scenario:** Phone on a stand or table; four singers roughly **6–10 feet (≈2–3 m)** away, facing the device; room may be bright. They need to know *locked / not / shifted / who* **without walking up**. Detail (exact ¢, interval strip, nature picker) is for when someone steps closer or exits fullscreen.
 
 ### What barbershoppers need to see at a glance
 
-1. **Are we locked with each other?** (JI intervals / roles — the ring)  
-2. **Who is off, and by how much?** (per sounding pitch, ±¢ vs JI role target — not ET)  
-3. **Are we locked but sharp/flat of the key?** (common shift)  
-4. **What chord / nature are we judging against?** (pinned or detected — never silent)  
-5. **What does green mean right now?** (legend: “vs Chord lock (JI)” ≠ “vs Equal”)
+**From across the room (Glance / fullscreen) — shape + color, huge type:**
 
-If any of these five are missing, the visual is incomplete for rehearsal use.
+1. **Are we locked with each other?** (full-bleed status: Locked / Fix / Unstable)  
+2. **Are we locked but sharp/flat of the key?** (Shifted badge with direction — sharp/flat — readable as icon+word)  
+3. **Which pitch(es) are off?** (large colored blocks low→high; off blocks pulse or show bold flat/sharp chevron — **not** dependent on reading “+14¢”)  
+
+**When closer (Detail / non-fullscreen) — numbers + teaching:**
+
+4. **How much?** (±¢ vs JI role, meters, interval strip)  
+5. **What chord / nature?** (pin/detect controls)  
+6. **What does green mean?** (legend: Chord lock JI vs Equal / key grid)
+
+If Glance cannot answer 1–3 from ~2–3 m, the visual fails the primary ensemble use case.
 
 ### Solo precursor (Phase 3) — one singer, JI target
 
@@ -361,41 +379,80 @@ When **Chord lock** is on and a nature (+ root) is pinned:
 
 This teaches one voice at a time before multi-F0 exists.
 
-### Ensemble Chord surface (Phase 8) — required chrome
+### Two surfaces: Glance (fullscreen) vs Detail (standard)
+
+| Mode | When | Chrome | Information density |
+| --- | --- | --- | --- |
+| **Glance** | Rehearsal; enter via prominent **Fullscreen / Glance** control (and landscape preferred) | Hide app header + bottom nav; optional thin edge affordance to exit; **Screen Wake Lock** while active | Status wash + huge word + 2–4 pitch blocks; minimal text |
+| **Detail** | Coaching / setup / close reading | Normal App chrome + responsive matrix | Full cards, ¢, intervals, nature/root, legend, settings |
+
+Toggle persists as `glanceFullscreen` (also `?glance=1`). **Cold start:** if mic not yet granted or session not running, open **Detail** first (setup); after running, honor sticky Glance. Exiting Glance restores Detail without clearing freeze/nature pin.
+
+#### Glance wireframe (phone landscape — preferred for four blocks)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│████████████████  LOCKED  ·  KEY ▲  ██████████████████████████│  ← amber wash if key-shifted
+│                                                              │
+│   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐         │
+│   │   ●    │   │   ●    │   │   ●    │   │  ▲▲▲   │         │  ← big blocks
+│   │  OK    │   │  OK    │   │  OK    │   │       │         │     (▲/▼ = vs JI)
+│   └────────┘   └────────┘   └────────┘   └────────┘         │
+│      low ───────────────────────────────► high               │
+│                                         [ Exit rehearsal ]   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- **Wash + word (never color-only; avoid “green means all good” when shifted):**  
+  - Locked + centered → green wash + `LOCKED`  
+  - Locked + shifted → **amber/gold wash** (not green) + `LOCKED` + large `KEY ▲` / `KEY ▼` (see [Vocabulary](#vocabulary--consistency-locked))  
+  - Not locked → red/rose wash + `FIX`  
+  - Unstable / not ready → neutral grey + `WAIT`  
+- **Pitch blocks:** ≥~22% of short viewport edge; OK = calm fill; off = bold `▲` / `▼` (voice vs JI — **not** the word SHARP/FLAT). Cents hidden in Glance.  
+- **Portrait Glance:** status on top (½ height); blocks 2×2 or column — no ¢.  
+- **Solo Tune Glance:** full-bleed in-tune wash + huge `IN TUNE` / `FLAT` / `SHARP` / `WAIT`; needle optional small; **strobe off in Glance** (motion fights distance reading; Detail-only).  
+- **Piano off in Glance.** Settings/export/sine-click disabled until Detail.
+
+#### Detail wireframe (non-fullscreen — close reading)
 
 ```
 ┌─ Chord lock (JI) · C7 · policy: commonShift ── confidence ●●●○ ─┐
-│  [ Locked ]  [ Shifted +18¢ ]  [ Centered ✕ ]     Unstable grey │
+│  [ Locked ]  [ Shifted +18¢ ]  [ Centered ✕ ]     [ Glance ⛶ ] │
 │                                                                  │
 │  LOW → HIGH                                                      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐            │
 │  │  C3  1   │ │  E3  3   │ │  G3  5   │ │ Bb3 7    │            │
-│  │  0¢  ███ │ │ −2¢ ███  │ │ +1¢ ███  │ │ +14¢ ░░  │ ← red/amber│
-│  │  target  │ │ −14¢ ET* │ │  +2¢ ET* │ │ −31¢ ET* │ *JI vs ET │
+│  │  0¢  ███ │ │ −2¢ ███  │ │ +1¢ ███  │ │ +14¢ ░░  │            │
+│  │  target  │ │ −14¢ ET* │ │  +2¢ ET* │ │ −31¢ ET* │            │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘            │
-│                                                                  │
-│  Intervals (vs root after common-shift removal):                 │
-│  1→3  −2¢   1→5  +1¢   1→7  +14¢                                 │
-│                                                                  │
-│  Nature: [ seventh ▾ ]  Root: [ C ▾ ]  Pin required? (assisted)│
+│  Intervals: 1→3 −2¢ · 1→5 +1¢ · 1→7 +14¢                        │
+│  Nature: [ seventh ▾ ]  Root: [ C ▾ ]                            │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-\* “JI vs ET” is a small secondary hint (how far the JI target sits from Equal) so singers who grew up on ET tuners understand why green isn’t where Guitar Tuna put it.
+\* JI-vs-ET hint is Detail-only teaching chrome.
 
 ### Visual elements (normative)
 
-| Element | Spec |
-| --- | --- |
-| **Summary chips** | Exactly the four states: Locked / Centered / Shifted (±N¢) / Unstable. Shifted shows signed common-shift magnitude. Only one of Locked/Unstable primary; Centered and Shifted can combine with Locked (Locked+Shifted is the classic “rings but sharp of key” case). |
-| **Pitch cards (low→high)** | Note name + octave; **chord-tone role** (1/3/5/7/…); large ±¢ vs **JI role target**; mini meter (−window…+window) with center = JI target; color green/amber/red by \|error\| vs `inTuneWindowCents` (default **5¢** for chord lock — tighter than solo ET 10¢ optional pref `chordLockWindowCents`). |
-| **Role labels** | From nature + assigned PC via existing arranging role helpers — **not** Tenor/Lead/Bari/Bass. |
-| **Interval strip** | Cents error of each non-root tone vs root after applying scoring policy (shows “the third is wide” even when absolute Hz blame is ambiguous). |
-| **Nature / root** | Always visible. Assisted (conditional kill-gate): pin required before colors. Go: auto with hysteresis + manual override. |
-| **Legend** | Persistent: `Colors vs Chord lock (JI · Rylander)` and separate key-grid chip state for Centered. |
-| **Missing voices** | If fewer F0s than nature tones: show empty slots / “listening for N” — do not pretend a triad is a full seventh Locked. |
-| **Unstable** | Desaturate meters; show “Hold a steady chord” — no red blame during scoops. |
-| **Responsive** | Wide: cards column or side rail. Narrow portrait: vertical card stack. Narrow landscape: horizontal chips with ¢ + role, interval strip collapsed behind “Intervals” disclosure. |
+| Element | Glance (fullscreen) | Detail (standard) |
+| --- | --- | --- |
+| **Summary** | Wash + `LOCKED` / `FIX` / `WAIT`; key shift as `KEY ▲`/`KEY ▼` on **amber** wash | Chips: Locked / Centered / Shifted (±N¢) / Unstable |
+| **Pitch row** | 2–4 large blocks; `OK` / `▲` / `▼`; optional one-letter sticker if user-assigned | Cards: note+octave, **role**, ±¢ vs JI, mini meter; `chordLockWindowCents` (default **5¢**) |
+| **Role labels** | Optional / tiny | Required on cards |
+| **Interval strip** | Hidden | Visible |
+| **Nature / root** | Hidden (last pin; tiny abbrev if space) | Always visible; Assisted requires pin before colors |
+| **Legend** | Implied by wash + words | Persistent JI vs key-grid legend |
+| **Missing voices** | Empty/dim blocks; never `LOCKED` | Empty slots + “listening for N” |
+| **Unstable** | Grey wash + `WAIT` | Desaturated meters + “Hold steady to score” |
+| **Color access** | Word + chevron + wash (never color alone); bright-room contrast border on status word | Same redundancy on chips/meters |
+| **Responsive** | Prefer landscape; portrait = status half + blocks half | Wide rail / narrow stack / landscape chips per earlier matrix |
+
+**Distance readability budget (Glance, ~2–3 m on a ~6″ phone):**
+
+- Status word: display size roughly **≥10% of viewport height** (clamp), high contrast.  
+- Pitch blocks: each **≥1.5″ (≈38 mm)** on the short edge when four-across in landscape, or scale down only if more than four.  
+- Avoid hairline rules, grey-on-grey, and ¢ as the only offline signal.  
+- Test acceptance: a person at **10 ft** can correctly report Locked vs Fix vs key-shifted (`KEY ▲`/`KEY ▼`) and which block shows `▲`/`▼` in a staged mock (even paper prototype before DSP).
 
 ### Supported natures (v1 visual)
 
@@ -441,6 +498,7 @@ type ChordStackView = {
     errorCentsVsKeyGrid: number
     jiTargetCentsVsEt: number // teaching hint (−14 for M3, etc.)
     inTuneSelf: boolean
+    sticker?: string          // optional user label T/L/Br/Bs — cosmetic only
   }[]
   intervals: { fromRole: ChordToneRole; toRole: ChordToneRole; errorCents: number }[]
 }
@@ -448,44 +506,116 @@ type ChordStackView = {
 
 Canvases/components render **only** this model — no ad-hoc cents math in Vue.
 
+### Vocabulary & consistency (locked)
+
+Ambiguous words were failing usability review. Canonical terms:
+
+| Concept | Glance word | Detail label | Do **not** use |
+| --- | --- | --- | --- |
+| Freeze live reading / spectrum | — | **Freeze** | “Hold” for freeze |
+| Unstable / not scoring yet | **WAIT** | “Hold steady to score” | Glance word `HOLD` |
+| Chord in tune with itself (JI) | **LOCKED** | “In tune with each other (JI)” | “In tune” alone when key-shifted |
+| Chord locked but off key | amber wash + **KEY ▲** / **KEY ▼** | “Locked · N¢ sharp/flat of key” | Wash staying green; word `SHARP` alone for key |
+| Solo note flat/sharp of target | **FLAT** / **SHARP** | ±¢ + needle | — |
+| One voice flat/sharp of JI role | block **▼** / **▲** only | “+12¢ vs target” | Block label `SHARP`/`FLAT` (collides with key shift) |
+| Analyze pause ring | — | **Pause** | “Freeze” for spectrum if we need both — Freeze=tuner reading, Pause=analysis buffer; document in UI tooltip |
+
 ### Teaching copy (short strings)
+
+**Glance:** `LOCKED` · `FIX` · `WAIT` · `KEY ▲` · `KEY ▼` · solo `IN TUNE` / `SHARP` / `FLAT`. Blocks: `OK` / `▲` / `▼` only.
+
+**Detail:**
 
 - Locked: “In tune with each other (JI)”  
 - Locked + Shifted: “Locked together, ~N¢ sharp/flat of key”  
 - Not locked: “Adjust the highlighted pitch(es)”  
 - Assisted: “Pin chord and root for reliable colors”  
-- Unstable: “Hold steady to score”
+- Unstable: “Hold steady to score”  
+
+### Entry path — rehearsal without a scavenger hunt
+
+Conflict: Tune-first IA buried Chord under Analyze, but ensemble Glance is a **primary** use case.
+
+**Locked UX:**
+
+1. Detail Tune remains default cold start (mic, key, chord nature pin).  
+2. Persistent **Rehearsal** control (same place as Glance entry) that: ensures Chord lock on + nature/root pinned (prompt if missing) → switches Analyze surface to Chord (when shipped) → enters Glance.  
+3. Until Phase 5 ships, Rehearsal/Glance on Tune only shows solo in-tune wash (still useful for unison checks).  
+4. After Phase 5, Rehearsal is the quartet happy path — not “open Analyze → Chord → Glance.”
+
+### “Who is off?” without TTBB labels
+
+From 10 ft, low→high blocks answer **which pitch**, not **which person**. That is intentional (honest polyphony) but weak for self-correction.
+
+**Locked v1:** Blocks stay pitch-ordered. Optional Detail control: **assign labels** (T/L/Br/Bs or custom) to slots — cosmetic stickers only, stored in prefs, **not** inferred. Glance may show one-letter sticker on each block if assigned. No auto “Lead is sharp.”
 
 ### Phase mapping
 
 | Piece | Phase |
 | --- | --- |
-| Solo chord-lock ±¢ + legend + role chip | 3 |
+| Solo Tune **Glance** / Rehearsal entry (wash + words; strobe **off**) | 1 |
+| Strobe Detail-only | 2 |
+| Solo chord-lock ±¢ + legend + role chip (Detail) | 3 |
 | `ChordStackView` domain model + goldens | 0 / 4 |
-| Full ensemble visual above | 8 |
-| Interval strip + JI-vs-ET hints | 8 |
-| Optional spectrogram JI guide lines when nature pinned | 6 (overlay only; not the primary lock UI) |
+| Ensemble **Glance** + Detail Chord UI | **5** (was 8 — pulled forward) |
+| Interval strip + JI-vs-ET hints | 5 Detail only |
+| Wake Lock + sticky glance pref + exit affordance | 1 / 5 |
+| FFT / spectrogram / export / region | 6–9 (after Chord if kill-gate ≠ no-go) |
+| Optional spectrogram JI guide lines when nature pinned | 7 (overlay only) |
+| Distance dogfood (10 ft walk-back test) | 5 exit + graduate checklist |
 
 ---
 
-## Phased delivery (revised order)
+## Priority, dogfood slices, and critical path
+
+Barbershop value is **Tune → JI lock Glance**, not spectrogram tourism. Analysis views are real requirements but **must not block** rehearsal dogfood.
+
+### Priority tiers
+
+| Tier | Goal | Includes | Dogfood? |
+| --- | --- | --- | --- |
+| **P0 — Solo tuner** | Credible Labs Tune | Phases 0–3 (domain, Tune Detail+Glance, strobe Detail, key grid, solo chord-lock) | Yes — individuals |
+| **P0.5 — Kill-gate** | Honest go/no-go | Phase 4 only (offline; little UI) | Spike report |
+| **P0 — Quartet Glance** | Room-distance JI lock | Phase 5 Chord Detail+Glance + Rehearsal path (**requires** Phase 4 ≠ no-go) | Yes — primary ensemble |
+| **P1 — Analysis** | FFT / spectrogram / pause / click-sine | Phases 6–7 | Optional |
+| **P1 — Export / region** | Share + clip audition | Phases 8–9 | Optional |
+| **P2 — Polish / graduate** | Perf, ADR, always-on More | Phase 10 | Graduate |
+
+On Phase 4 **no-go**: ship P0 solo forever; skip Phase 5 Chord; still allow P1 analysis later. On **conditional**: Phase 5 ships Assisted. On **go**: Phase 5 full.
+
+### Critical path (do not reorder casually)
 
 ```mermaid
 flowchart LR
-  p0[0 Spec] --> p1[1 Simple Tune]
+  p0[0 Spec] --> p1[1 Tune]
   p1 --> p2[2 Strobe]
-  p2 --> p3[3 Key grid + piano]
-  p3 --> p4[4 MultiF0 kill-gate]
-  p4 -->|go| p5[5 FFT]
-  p4 -->|no-go| p5
-  p5 --> p6[6 Spectrogram]
-  p6 --> p7[7 Export]
-  p7 --> p8[8 Chord UI]
-  p8 --> p9[9 Region clip]
-  p9 --> p10[10 Polish + graduate]
+  p2 --> p3[3 Key+JI solo]
+  p3 --> p4[4 Kill-gate]
+  p4 -->|go or conditional| p5[5 Chord Glance]
+  p4 -->|no-go| p6skip[Skip Chord]
+  p5 --> p6[6 FFT]
+  p6skip --> p6
+  p6 --> p7[7 Spectrogram]
+  p7 --> p8[8 Export]
+  p8 --> p9[9 Region]
+  p9 --> p10[10 Polish]
 ```
 
-Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shippable. FFT/spectrogram still ship on a no-go. Chord Analyze entry: **hidden on no-go**; **shown with Assisted banner on conditional**; **shown normally on go** — see kill-gate rubric below. No second Labs flag for Chord.
+**Rule:** After a green/conditional kill-gate, implement **Phase 5 Chord before** FFT/spectrogram. Analysis can proceed in parallel only if two people; single-threaded work always prefers Chord.
+
+### Explicit deferrals (keep out of P0)
+
+- Vertical strobe mapper, ring/wave strobes  
+- ML multi-F0  
+- Passage-review / % in-tune strip (thin strip only if cheap in export phase)  
+- Part stickers (nice in Phase 5 Detail; not required for 10 ft gate)  
+- Historical temperaments, file load, Harmonic Energy  
+
+---
+
+## Phased delivery (priority-revised order)
+
+Phase 4 decides Chord. **Chord UI is Phase 5** (ahead of FFT/spec). FFT/spectrogram/export/region follow. Chord Analyze entry: **hidden on no-go**; **Assisted on conditional**; **normal on go**. No second Labs flag for Chord.
 
 ### Phase 0 — Spec & golden harness
 
@@ -508,28 +638,30 @@ Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shi
 - New `liveMonoF0` (YIN/MPM-inspired): pure function on frames for CI; live hops, Fmin≈55 Hz, clarity gate, hold-last-good, octave guard.
 - Mic UX in `useTunerCapture`: map `NotAllowedError` / `NotFoundError`; retry button; device enumerate (recorder pattern); do **not** reuse `createLiveInputMeter`.
 - Settings: A4 (follow Pitch Pipe), in-tune window, sensitivity, **input device picker**, basic noise gate, transpose spelling.
-- Text readout always present (a11y twin); idle empty-state before mic grant (“Allow microphone to tune”).
+- Text readout always present in Detail (a11y twin); idle empty-state before mic grant (“Allow microphone to tune”).
 - Suppress / pause detection while reference tone plays; headphone banner.
-- **Layout:** Tune matrix via `useTunerLayout`; `TUNER_SHORT_MQ` lives in tuner composable first (avoid global `narrowViewport` churn); safe-area + app chrome; `ResizeObserver`; ≥44px targets on narrow.
-- If Recorder (or another mic consumer) already holds the device, show a clear conflict message — browsers often allow one active mic track; define “stop other app mic / retry” copy.
+- **Layout:** Tune matrix via `useTunerLayout`; `TUNER_SHORT_MQ` in composable first; safe-area + app chrome in Detail; `ResizeObserver`; ≥44px targets on narrow.
+- **Rehearsal / Glance shell (Tune):** Control hides header/bottom nav; wash + `IN TUNE`/`SHARP`/`FLAT`/`WAIT`; **no strobe in Glance**; Wake Lock; large Exit; `glanceFullscreen` sticky only after mic running. Cold start always Detail for mic/settings.
+- Freeze control (not “Hold”) for freezing the live reading.
+- If Recorder already holds the mic, conflict CTA + retry.
 
 **Phase 1 exit criteria (not deferred to polish):**
 
 - Synthetic C2–C6 within ±2¢ steady; clarity gating verified (**offline unit tests** — not real worklet in Vitest).
 - Safari iOS + Chrome Android smoke: mic permission, worklet `addModule`, background interrupt recovery.
 - Open tuner while Pitch Pipe warm — both features produce sound/analysis after gesture (separate contexts OK).
-- Permission-denied + suspended-context CTAs; clean dispose on navigate away (no leaked tracks).
-- One-glance Tune with **no** mode tabs; `TunerView.vue` still under 800 lines.
+- Permission-denied + suspended-context CTAs; clean dispose on navigate away; Wake Lock released on exit/leave.
+- Detail Tune with **no** mode tabs; Glance readable as in-tune vs not without ¢; vocabulary matches [Vocabulary](#vocabulary--consistency-locked); `TunerView.vue` under 800 lines.
 - **Responsive:** pass narrow-portrait, narrow-landscape, and wide desktop checks in the [responsive acceptance](#responsive-acceptance-cross-phase) table (Tune rows).
 
 ### Phase 2 — Strobe mode
 
 - Phase-comparator stripe at detected or **user-locked** target; optional harmonic lanes 2–4.
 - Goldens: known detune → phase advance direction/magnitude; document ¢→visual mapping.
-- Needle | Strobe toggle on Tune page only.
+- Needle | Strobe toggle on Tune **Detail** only — **Glance never shows strobe**.
 - `prefers-reduced-motion` → force needle.
-- **Layout (v1):** **horizontal drift only** (left=flat / right=sharp) in all orientations. Short landscape uses a **taller stripe band** (and may shrink note type) rather than a second vertical paint mapper — one golden suite, less risk of “looks right / wrong physics.” Vertical mapper is Phase 10+ optional polish if horizontal feels cramped on phones.
-- DPR-aware canvas resize on rotate without dropping Hold.
+- **Layout (v1):** **horizontal drift only** in all orientations; short landscape taller band. Vertical mapper Phase 10+ optional.
+- DPR-aware canvas resize on rotate without dropping Freeze.
 
 **Exit:** Horizontal strobe goldens pass; no ship without them.
 
@@ -573,76 +705,63 @@ Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shi
 
 **Fixtures:** Synthetics always in-repo. Real: short CC0/internal clips under `web/src/audio/tuner/fixtures/quartet/` (git-lfs if large) **or** polecat-mix proxies labeled separately (mix ≠ room mic). Do not block Phase 4 start on perfect field recordings.
 
-**Exit:** ADR or plan appendix records go/conditional/no-go + measured table; Phase 8 implements the matching consequence.
+**Exit:** ADR or plan appendix records go/conditional/no-go + measured table; **Phase 5** implements the matching consequence (or skip Chord on no-go).
 
-### Phase 5 — FFT analysis + pause + sine click
+### Phase 5 — Chord stack UI (P0 ensemble — only if Phase 4 ≠ no-go)
 
-**Scope:** Requirements 2, 4 (FFT), 11. Introduce **Analyze** disclosure (FFT only at first) — not four peer tabs.
+**Scope:** Requirements 8–9. Skip on **no-go**. Full [JI visual design](#ji-chord-in-tune-visual-design-barbershop-differentiator) + Glance/Detail. **Do this before FFT/spectrogram.**
 
-- Default fftSize 4096; show approximate latency in settings; narrow devices discourage >8192 without warning.
-- Linear/log X; peak labels vs **active key-grid** (and chord-lock annotation if enabled); **limit visible peak labels on narrow** (top N).
-- Pause freezes capped ring; click/tap → Hz/note/¢ + sine (detect-suppress); touch uses larger hit slop / optional confirm.
-- Worker/worklet FFT; UI messages ≤30 Hz.
-- **Layout:** wide — canvas + side peak list; narrow — full-bleed canvas + bottom readout sheet for selected peak.
+- **Detail:** `ChordStackView` chips, pitch cards, interval strip, nature/root, legend, optional stickers, **Rehearsal** entry.
+- **Glance / Rehearsal:** vocabulary wash/words/blocks; Wake Lock; landscape preferred; pin prompt → Glance.
+- Assisted vs go per Phase 4 consequence table.
+- Optional Detail-only: JI-vs-ET hints; stickers not required for 10 ft gate.
 
-**Tests:** Multi-partial peaks; axis mapping; freeze; no main-thread jank on mid mobile; orientation change keeps selection.
+**Exit / acceptance:** Detail checklist; **10 ft walk-back**; amber wash when Locked+key-shifted; synthetics Locked/Shifted/fault; Rehearsal ≤2 taps after pin; consistency checklist.
 
-### Phase 6 — Scrolling spectrogram + grids
+### Phase 6 — FFT analysis + pause + sine click (P1)
+
+**Scope:** Requirements 2, 4 (FFT), 11. Introduce **Analyze** disclosure if not already opened via Rehearsal/Chord.
+
+- Default fftSize 4096; latency labeled; narrow discourages >8192.
+- Peak labels vs key-grid (+ chord-lock annotation if on); limit labels on narrow.
+- Pause ring; click/tap → sine (detect-suppress); off main thread; ≤30 Hz UI.
+- Wide: canvas + peak list; narrow: full-bleed + bottom readout sheet.
+
+**Exit:** Multi-partial peaks; axis mapping; Pause; no mid-mobile jank; orientation keeps selection.
+
+### Phase 7 — Scrolling spectrogram + grids (P1)
 
 **Scope:** Requirements 3, 4 (spec).
 
 - Canvas first; WebGL only if FPS &lt; 30.
-- Controls: FFT size, freq range (default ~60–2000 Hz), scroll speed, colormap, gain — **narrow:** primary controls in sheet; icon rail on-canvas.
-- Overlays from **key grid**; optional chord-lock guide lines when nature pinned; reduce overlay label density on short height.
-- History cap (`historyCapSec`); clear on leave; lower default DPR/scroll cost on narrow.
-- Pause + click/tap inspect + sine; region handles enlarged on touch (Phase 9 prep).
-- **Layout:** maximize canvas under compact Analyze header; on short landscape, toolbar → overflow.
+- Controls + narrow sheet; key-grid overlays; optional JI guide lines; history cap; clear on leave.
+- Pause + inspect + sine; enlarged touch handles (Phase 9 prep).
 
-**Tests:** Chirp ridge; overlay Hz match grid; ring cleared on navigate away; rotate preserves pause buffer + redraws.
+**Exit:** Chirp ridge; overlay Hz match; ring cleared on leave; rotate preserves Pause buffer.
 
-### Phase 7 — Export (+ light practice strip)
+### Phase 8 — Export (+ optional thin % strip) (P1)
 
-**Scope:** Requirement 5; optional thin coach affordance.
+**Scope:** Requirement 5.
 
-- PNG via `canvas.toBlob` **with burned-in metadata strip** (A4, key, keyGridTemperament, chordLock, FFT params) or mandatory sidecar JSON.
-- CSV/JSON: user-initiated f0/peaks/stack snapshots only — never auto-backup.
-- Optional: rolling **% in-tune** for current session (TE-like) — small strip, not full passage review.
+- PNG + metadata strip/sidecar; CSV/JSON snapshots; never auto-backup PCM.
+- Optional thin session % in-tune — only if cheap; not a P0 blocker.
 
-**Tests:** Schema versioned; PNG/sidecar provenance present.
+**Exit:** Schema versioned; provenance present.
 
-### Phase 8 — Chord stack UI (only if Phase 4 ≠ no-go)
-
-**Scope:** Requirements 8–9 ensemble UX. Skip entirely on **no-go**. **Implements the full [JI chord-in-tune visual design](#ji-chord-in-tune-visual-design-barbershop-differentiator)** — not a minimal chip strip.
-
-- Render `ChordStackView`: summary chips, pitch cards with role + JI ±¢ + meter, interval strip, nature/root controls, legend, missing-voice slots, teaching strings.
-- Confidence + detected vs expected voice count; policy selector shown.
-- **No TTBB labels** unless a later ADR proves assignment.
-- Neutral copy only.
-- **If Phase 4 = conditional:** Assisted banner; **require pin before coloring**; low-confidence → grey not red.
-- **If Phase 4 = go:** pin optional; auto nature with hysteresis; still show confidence.
-- **Layout:** per visual design responsive rules (cards / stack / landscape chips).
-- Optional: small JI-vs-ET hint under each role (−14¢ for M3, −31¢ for harm7, etc.).
-
-**Acceptance:** Matches visual design checklist (five glance questions); synthetic 4:5:6:7 → Locked; +20¢ global → Locked+Shifted; one voice +15¢ → that card flagged; incomplete voicing ≠ Locked; assisted enforces pin; landscape chips usable.
-
-### Phase 9 — Region audition
+### Phase 9 — Region audition (P1)
 
 **Scope:** Requirement 12.
 
-- Drag-select on paused spectrogram; **enlarged handles / hit slop on narrow touch**.
-- Modes clearly labeled: **Resynthesized partials** (default) vs **Raw audio loop**.
-- Short loops; never claim separated parts.
-- On short landscape, selection UI must not obscure the compact note/¢ peek.
+- Drag-select; resynth vs raw labels; short loops; thumb-friendly on landscape.
 
-**Tests:** Known chord region ratios; empty no-op; labels visible; usable with thumb on phone landscape.
+**Exit:** Known-chord region ratios; empty no-op; usable one-handed.
 
-### Phase 10 — Polish, ADR, graduate
+### Phase 10 — Polish, ADR, graduate (P2)
 
-- Full responsive pass on the acceptance table; battery/thermal for long spectrogram; a11y pass (text twin at all breakpoints).
-- ADR `docs/decisions/digital-tuner-engine.md` (mono algorithm, kill-gate result + measured table, ML yes/no).
-- **Graduate:** flip Labs soft-flag to always-on (Recorder pattern) so Tuner appears under More without visiting Labs; keep out of `DEFAULT_PRIMARY_NAV_ORDER`; users can pin manually.
-- Optional polish only if needed: vertical strobe mapper for short landscape (not required to graduate).
-- Perf: ≥30 FPS spectrogram on mid mobile portrait **and** landscape; auto-lower FFT / DPR under load.
+- Responsive + battery/thermal + a11y; ADR with kill-gate table; always-on More graduate; optional vertical strobe.
+- Perf: ≥30 FPS spectrogram both orientations; auto-degrade.
+
+**Exit:** [Graduate checklist](#graduate-checklist-labs--always-on-more) complete.
 
 ---
 
@@ -651,16 +770,16 @@ Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shi
 | # | Requirement | Phase |
 | --- | --- | --- |
 | 1 | Strobe visual | 2 |
-| 2 | FFT + peaks/notes/¢ | 5 |
-| 3 | Spectrogram + grids | 6 |
-| 4 | Pause + click analysis | 5–6 |
-| 5 | Export images/data | 7 |
+| 2 | FFT + peaks/notes/¢ | 6 |
+| 3 | Spectrogram + grids | 7 |
+| 4 | Pause + click analysis | 6–7 |
+| 5 | Export images/data | 8 |
 | 6 | Key for grid | 3 |
 | 7 | Temperament (key grid) | 3 |
-| 8 | In-tune visuals | 3 (+8 stack) |
-| 9 | Multi-singer chord / self vs key | 4 kill-gate → 8 UI |
+| 8 | In-tune visuals | 3 (+5 stack) |
+| 9 | Multi-singer chord / self vs key | 4 kill-gate → **5** UI |
 | 10 | Optional piano | 3 |
-| 11 | Click → sine | 5–6 |
+| 11 | Click → sine | 6–7 |
 | 12 | Region → chord clip | 9 |
 | 13 | Simple tuning primary | 1–3 IA |
 | 14 | Peer-informed UX | throughout |
@@ -682,21 +801,46 @@ Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shi
 
 ---
 
-## Test plan (cross-cutting)
+## Test plan (tightened)
 
-1. **Unit (domain):** key-grid tables, chord-lock roles, `displayCents`, peak interp, stack scoring policies.
-2. **Unit (prefs):** normalize clamps; corrupt LS recovery; A4 follow read path.
-3. **Golden audio (pure):** `web/src/audio/tuner/fixtures/` — sines, JI chords, shifted chords, missing-F0, vibrato; Phase 4 adds quartet/proxy with provenance labels.
-4. **Capture host:** unit-test URL/blob helper if extracted; **no** real worklet in Vitest.
-5. **Component/smoke:** Labs route; registration gates; Analyze disclosure phase-gated; Chord absent on no-go; `TunerView` line count under god-file cap.
-6. **Device matrix (Phase 1 exit):** Safari iOS, Chrome Android, Bluetooth headset sample-rate warn, Pitch Pipe + tuner together, dispose on leave (chrome://media-internals or OS mic indicator clears).
-7. **Responsive / orientation matrix (manual + optional Playwright viewports):**
-   - Narrow portrait (~390×844), narrow landscape (~844×390), iPad landscape (~1024×768), desktop (~1280×800).
-   - Assert: no content under bottom nav; Hold reachable; density class swaps on rotate; Hold/pause buffer survives orientation change.
-   - Strobe remains horizontal and readable in short landscape (taller band).
-8. **Perf:** FPS + worklet timing on mid phone in **both** orientations; auto-degrade.
-9. **Privacy:** no analysis network calls; rings cleared; backup = settings + labs flag only (no PCM).
-10. **Trust:** reference-tone detect-suppress; metadata on exports; legend for green meaning.
+### Investment order (where time goes)
+
+1. **Domain goldens first** (cheapest, gate every phase) — cents, temperament, `ChordStackView` scoring, display policy.  
+2. **Prefs normalize** — corrupt LS must not brick.  
+3. **Route/Labs smoke** — registration checklist.  
+4. **Device smoke only for P0 exits** (Phases 1 and 5) — not every commit.  
+5. **FFT/spec/export tests** — after Chord ships; don’t block P0 dogfood.
+
+Vitest never runs real AudioWorklet/mic; pure buffers only. No canvas pixel goldens in CI.
+
+### Definition of Done by phase (must all pass to merge phase)
+
+| Phase | CI must-pass | Manual / device (blocking for that phase) |
+| --- | --- | --- |
+| **0** | Domain + prefs normalize + scoring policy tests | — |
+| **1** | Route/Labs/nav tests; `liveMonoF0` sine goldens ±2¢; god-file cap | Safari iOS + Chrome Android: mic, worklet, dispose, Tune Glance wash, Pitch Pipe coexistence |
+| **2** | Strobe phase goldens (¢→motion) | Spot-check Detail strobe; confirm absent in Glance |
+| **3** | Key-grid + chord-lock target tables; legend unit if extracted | Solo chord-lock legend switches; piano visibility matrix |
+| **4** | Synthetic multi-F0 / stack discrimination ≥ rubric | Write measured table + go/conditional/no-go ADR note (**merge gate for Phase 5**) |
+| **5** | `ChordStackView` view-model tests; Assisted pin behavior | **10 ft walk-back**; Rehearsal path; amber wash; consistency checklist |
+| **6–7** | Peak/FFT helpers; overlay Hz | Mid-phone FPS ≥30 or auto-degrade proven |
+| **8–9** | Export schema; resynth interval checks | Share/download on iOS Safari once |
+| **10** | — | Full graduate checklist |
+
+**Hard gate:** Phase 5 code must not merge without Phase 4 outcome recorded. Phase 6+ must not delay starting Phase 5 after a go/conditional.
+
+### Manual scripts (keep short)
+
+**Tune Glance (Phase 1):** Grant mic → Detail shows note → Rehearsal/Glance → from 10 ft call IN TUNE vs SHARP/FLAT/WAIT → Exit → Detail restores.
+
+**Chord Rehearsal (Phase 5):** Pin C7 → Rehearsal → Glance → staged Locked / key-shifted / one-voice-sharp mocks or live → report LOCKED / KEY ▲ / which block ▲ → Exit → Detail shows ¢.
+
+**Vocabulary audit:** ripgrep UI strings for forbidden Glance `HOLD`, bare block `SHARP`/`FLAT`, green wash when `selfLocked && !keyCentered`.
+
+### Device matrix cadence
+
+- **Every P0 phase exit:** one iOS Safari + one Android Chrome pass of that phase’s manual script.  
+- **Pre-graduate:** full responsive acceptance table + both orientations spectrogram perf (if P1 shipped) or skip spec perf if analysis deferred.
 
 ---
 
@@ -714,9 +858,16 @@ Phase 4 runs **before** spectrogram polish so we learn whether Chord mode is shi
 | Rehearsal social harm | Pitch-order stack; neutral copy; no fake part labels |
 | Labs starvation | Graduate to always-on More (not default pin) |
 | Phone landscape crushes readout | Short/density band layout; piano forced off; Analyze overflow |
-| Canvas blur / blank on rotate | ResizeObserver + DPR redraw; preserve Hold |
-| Accidental sine beeps on touch | Larger hit slop; optional first-tap confirm |
+| Canvas blur / blank on rotate | ResizeObserver + DPR redraw; preserve Freeze |
+| Accidental sine beeps on touch | Larger hit slop; optional first-tap confirm; disabled in Glance |
 | iPad treated as “phone” | Width-based narrow MQ only — iPad landscape = wide layout |
+| Can’t read tuner from across room | Glance: wash + words + block ▲/▼; ¢ Detail-only |
+| Screen sleeps mid-tag | Screen Wake Lock while Glance active |
+| Color-only / green=good when key-shifted | Amber wash for Locked+Shifted; `KEY ▲`/`KEY ▼` |
+| SHARP means two things | Key shift ≠ voice error vocabulary table |
+| Hold/HOLD/Pause collision | Freeze / WAIT / Pause |
+| Chord Glance buried under Analyze | Rehearsal happy path |
+| Who is off? | Pitch blocks + optional stickers; no fake TTBB |
 | Assumed shared AudioContext | Dedicated tuner ctx; coexistence = dual resume |
 | Fat TunerView fails CI | Shell + composables; 800-line god-file cap |
 | Incomplete Labs wiring | Full registration checklist |
@@ -791,12 +942,12 @@ Do not block Phase 1 on inventing worklet integration tests in CI.
 
 1. **Idle / denied / suspended states** — three distinct CTAs; don’t leave a blank canvas.
 2. **First gesture** — Start/Allow control that resumes AudioContext + requests mic (autoplay policy).
-3. **Hold vs Pause naming** — Tune “Hold” (freeze reading) vs Analyze “Pause” (freeze ring); use consistent copy in UI strings.
+3. **Freeze vs Pause naming** — Tune **Freeze** (live reading) vs Analyze **Pause** (spectrum ring); never Glance word `HOLD`.
 4. **Export on iOS Safari** — prefer Share / download patterns already used elsewhere; test `toBlob` + file naming.
 5. **PWA precache** — worklet `.js` in `public/` will be precached (small OK); keep fixture WAVs out of `public/`.
 6. **Dark/light** — use existing CSS variables; no one-off purple/glow (follow app tokens).
 7. **Concurrent navigation** — leaving `/tuner` mid-sine must `stop()` tones (detect-suppress cleanup).
-8. **Keyboard** — desktop: space = Hold, Esc = release settings sheet (document in Phase 1 if cheap).
+8. **Keyboard** — desktop: space = Freeze, Esc = dismiss sheet / Exit Glance (Phase 1 if cheap).
 
 ### Phase 4 fixture hole
 
@@ -821,11 +972,15 @@ Accuracy claims need provenance. Ship synthetics always; real quartet WAVs are b
 - [ ] Tune remains default; Analyze is secondary  
 - [ ] Phase 4 result recorded (go / conditional / no-go); Chord matches consequence table  
 - [ ] Privacy copy accurate; rings clear on leave  
-- [ ] Export provenance present  
+- [ ] Export provenance present **if** Phase 8 shipped (not required to graduate on P0-only)  
 - [ ] Responsive acceptance table passed (phone portrait + landscape, tablet/desktop wide)  
-- [ ] Orientation change preserves Hold / pause without layout breakage  
+- [ ] Orientation change preserves Freeze / Pause without layout breakage  
 - [ ] Labs flag forced always-on (Recorder-style); **not** inserted into `DEFAULT_PRIMARY_NAV_ORDER`  
 - [ ] Manual pin still works for users who want a bottom-tab slot  
+- [ ] Glance / Rehearsal: 10 ft walk-back passed; amber wash when Locked+key-shifted  
+- [ ] Vocabulary audit: no Glance `HOLD`; voice errors are ▲/▼ not SHARP/FLAT on blocks  
+- [ ] Rehearsal control reaches Chord Glance without Analyze menu diving  
+- [ ] Wake Lock does not leak after leave / exit Glance  
 
 ---
 
@@ -835,25 +990,75 @@ Full adversarial findings from 2026-11-07 were folded into this revision; later 
 
 | Amendment | Where in plan now |
 | --- | --- |
-| Multi-F0 kill-gate before Chord / before spectrogram polish | Phase 4; phase order diagram |
+| Multi-F0 kill-gate; Chord before FFT/spec; P0/P1 tiers; DoD | Phase 4→**5 Chord**→6+; [Priority](#priority-dogfood-slices-and-critical-path); [Test plan](#test-plan-tightened) |
 | Split key-grid vs chord-lock | Principles, prefs, Phase 3, scoring policy |
 | Defer mode tabs | IA progressive chrome; Phase 1 |
 | Cap/clear history; settings-only backup | Principles, ringBuffer, prefs, non-goals |
-| Pitch-order stack, no TTBB labels | Scoring policy, Phase 8, non-goals |
+| Pitch-order stack, no TTBB labels | Scoring policy, Phase 5, non-goals |
 | Document root/common-shift scoring | `chordStack` policy table |
 | Extra non-goals (file load, harmonic energy, part blame, ML gates) | Non-goals |
 | Safari + dedicated AudioContext coexistence as Phase 1 exit | Phase 1; AudioContext decision (not a false singleton) |
 | False-precision / green legend | Principles, `displayCents`, Phase 3 |
-| Reorder vs differentiator | Phases 4→5→6→8 |
 | Input device + noise gate | Phase 1 settings |
 | Detect-suppress on reference tones | Phase 1, 5, 9 |
-| Export provenance | Phase 7 |
-| Optional % in-tune strip | Phase 7 (thin; not full passage review) |
+| Export provenance / thin % strip | Phase 8 (P1; not graduate-blocking) |
 | Graduate time-box | Placement + graduate checklist |
 | Desktop + mobile density; portrait + landscape | [Responsive layout](#responsive-layout--desktop--mobile--orientation) |
-| Impl readiness (registration fan-out, CI limits, god-files, prefs, fixtures, mic lifecycle) | [Implementation readiness](#implementation-readiness--gaps-closed-for-a-smooth-build) |
+| Impl readiness | [Implementation readiness](#implementation-readiness--gaps-closed-for-a-smooth-build) |
 | Former residual TBDs closed | [Closed product decisions](#closed-product-decisions-formerly-open) |
-| JI chord-in-tune visual design (was under-specified) | [JI chord-in-tune visual design](#ji-chord-in-tune-visual-design-barbershop-differentiator); Phase 3 solo + Phase 8 ensemble |
+| JI chord-in-tune visual + Glance/Detail | [JI visual design](#ji-chord-in-tune-visual-design-barbershop-differentiator); Phase 3 + 5 |
+| Room-distance Glance | Wake Lock; 10 ft acceptance |
+| Consistency/usability (vocab, wash, Rehearsal) | [Consistency adversarial](#consistency--usability-adversarial-2026-11-09) |
+
+---
+
+## Consistency & usability adversarial (2026-11-09)
+
+Attacked the plan for **internal contradictions** and **rehearsal UX failure modes**. Findings and closures:
+
+### Critical (fixed in-plan)
+
+| Issue | Why it hurts | Closure |
+| --- | --- | --- |
+| **`HOLD` vs Hold vs Pause** | Three meanings; Glance `HOLD` reads as freeze from 10 ft | Vocabulary table: **Freeze** / **WAIT** / **Pause** |
+| **`SHARP` = key shift AND voice error** | Quartet cannot tell “we’re sharp of key” from “Bb is sharp” | Key: `KEY ▲`/`KEY ▼`; voices: block `▲`/`▼` only |
+| **Green wash + Locked+Shifted** | Distance readers see “all good” | **Amber wash** when Locked but key-shifted |
+| **Chord Glance buried under Analyze** | Primary ensemble use case requires menu diving | **Rehearsal** happy path → pin → Chord → Glance |
+| **Strobe in Glance** | Fine motion is unreadable at 10 ft and fights wash | **Strobe Detail-only**; Glance = wash + words |
+| **Sticky Glance on cold start** | Skip mic CTA / settings | Glance sticky only after session running; else Detail |
+| **“Who is off?” with pitch-only blocks** | Singers can’t map blocks to people | Optional **cosmetic stickers**; no fake TTBB inference |
+| **Prefs `glanceMode` vs `glanceFullscreen`** | Spec drift | Single name: `glanceFullscreen` |
+
+### High (fixed or constrained)
+
+| Issue | Closure |
+| --- | --- |
+| Orientation blurb still implied strobe axis swap | Horizontal-only; orientation affects density/blocks only |
+| “Shared AudioContext mandatory” leftover | Corrected to dedicated context + factory |
+| Piano / sine / settings in Glance | Forced off / disabled |
+| Tiny Exit control | Large Exit chip + contrast; bright-room border on status word |
+| justTriad vs Chord lock confusion | Keep split controls; legend always states which green |
+| Principle “Tune first” vs ensemble primary | Tune Detail cold start; Rehearsal is the quartet path once Chord ships |
+
+### Residual usability risks (accepted, monitor)
+
+| Risk | Mitigation if it bites |
+| --- | --- |
+| Bright sunlight still washes amber/green | Add pattern fill (stripes) behind status word in Phase 10 |
+| Four blocks too small on SE phone landscape | Drop to 2×2 or allow landscape-lock prompt |
+| Rehearsal prompts every time nature unset | Remember last nature/root aggressively |
+| Optional stickers become “fake science” | UI copy: “Labels are reminders only” |
+
+### Consistency checklist (ship gate)
+
+- [ ] No user-visible string `Hold` meaning freeze (use Freeze)  
+- [ ] No Glance string `HOLD`  
+- [ ] No pitch-block caption `SHARP`/`FLAT` (chevrons only)  
+- [ ] Key shift never uses bare `SHARP`/`FLAT` without `KEY`  
+- [ ] Locked+key-shifted ≠ green wash  
+- [ ] Glance disables strobe, piano, sine, export  
+- [ ] Rehearsal reaches Chord Glance ≤2 taps after pin exists  
+- [ ] 10 ft walk-back script uses vocabulary above
 
 ---
 

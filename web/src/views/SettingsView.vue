@@ -160,6 +160,7 @@ const primaryNavGates = computed(
     singTogetherEnabled: prefs.singTogetherEnabled,
     tagStudioEnabled: prefs.tagRollEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    digitalTunerEnabled: prefs.digitalTunerEnabled,
   }),
 )
 
@@ -215,6 +216,9 @@ function onNavHideChange(id: PrimaryNavId, hide: boolean): void {
         break
       case 'wireless':
         prefs.setWebrtcTransferEnabled(on)
+        break
+      case 'tuner':
+        prefs.setDigitalTunerEnabled(on)
         break
     }
     return

@@ -46,8 +46,17 @@ describe('router', () => {
         'library-doc',
         'matcher',
         'recorder',
+        'tuner',
       ]),
     )
+  })
+
+  it('auto-enables Digital Tuner when opening /tuner', async () => {
+    const prefs = usePreferencesStore()
+    expect(prefs.digitalTunerEnabled).toBe(false)
+    await router.push('/tuner')
+    expect(router.currentRoute.value.name).toBe('tuner')
+    expect(prefs.digitalTunerEnabled).toBe(true)
   })
 
   it('auto-enables Sing Together when opening /matcher', async () => {

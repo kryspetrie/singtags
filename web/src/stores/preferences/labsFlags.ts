@@ -7,6 +7,7 @@ import { watch } from 'vue'
 import {
   ARRANGING_ENABLED_KEY,
   AUDIO_RECORDER_ENABLED_KEY,
+  DIGITAL_TUNER_ENABLED_KEY,
   LOCAL_LIBRARY_ENABLED_KEY,
   OPTICAL_TRANSFER_ENABLED_KEY,
   OS_SHARE_TRANSFER_ENABLED_KEY,
@@ -18,6 +19,7 @@ import {
 export function createLabsFlagActions(deps: StoreDeps) {
 
   const audioRecorderEnabled = deps.audioRecorderEnabled
+  const digitalTunerEnabled = deps.digitalTunerEnabled
   const localLibraryEnabled = deps.localLibraryEnabled
   const opticalTransferEnabled = deps.opticalTransferEnabled
   const osShareTransferEnabled = deps.osShareTransferEnabled
@@ -38,6 +40,11 @@ export function createLabsFlagActions(deps: StoreDeps) {
   /** Labs: enable/disable WebRTC wireless transfer mode. */
   function setWebrtcTransferEnabled(on: boolean): void {
     webrtcTransferEnabled.value = on
+  }
+
+  /** Labs: enable/disable Digital Tuner. */
+  function setDigitalTunerEnabled(on: boolean): void {
+    digitalTunerEnabled.value = on
   }
 
   /** @deprecated OS Share removed; no-op. */
@@ -71,6 +78,7 @@ export function createLabsFlagActions(deps: StoreDeps) {
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
     setWebrtcTransferEnabled,
+    setDigitalTunerEnabled,
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
@@ -110,6 +118,18 @@ export function createLabsFlagActions(deps: StoreDeps) {
       (v) => {
         try {
           localStorage.setItem(WEBRTC_TRANSFER_ENABLED_KEY, v ? '1' : '0')
+        } catch {
+          /* ignore */
+        }
+      },
+      { flush: 'sync' },
+    )
+
+    watch(
+      digitalTunerEnabled,
+      (v) => {
+        try {
+          localStorage.setItem(DIGITAL_TUNER_ENABLED_KEY, v ? '1' : '0')
         } catch {
           /* ignore */
         }

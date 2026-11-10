@@ -103,6 +103,7 @@ import {
   TAG_ROLL_VOICING_RANGES_OPEN_KEY,
   TAG_ROLL_VOICING_RANGE_FILTER_KEY,
   WEBRTC_TRANSFER_ENABLED_KEY,
+  DIGITAL_TUNER_ENABLED_KEY,
   loadBool,
   loadMixPanMap,
   loadMixSelectedMap,
@@ -125,8 +126,10 @@ import { type StoreDeps } from './preferences/deps'
 import { createMixAndUiActions } from './preferences/mixAndUi'
 import { createPitchPipeActions } from './preferences/pitchPipeActions'
 import { createLabsFlagActions } from './preferences/labsFlags'
+import { createDigitalTunerActions } from './preferences/digitalTunerActions'
 import { createTagRollChromeActions } from './preferences/tagRollChrome'
 import { createOpticalRecorderActions } from './preferences/opticalRecorder'
+import { loadDigitalTunerPrefs } from '../lib/preferences/digitalTuner'
 
 export type {
   PartSide,
@@ -227,6 +230,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
    * Same Wi‑Fi / personal hotspot; no SingTags servers.
    */
   const webrtcTransferEnabled = ref(loadBool(WEBRTC_TRANSFER_ENABLED_KEY, false))
+  /**
+   * Labs: when true, Digital Tuner (More → Tuner, /tuner) is available.
+   * Mic analysis stays on-device; rings clear on leave.
+   */
+  const digitalTunerEnabled = ref(loadBool(DIGITAL_TUNER_ENABLED_KEY, false))
+  /** Digital Tuner settings (no f0 history). */
+  const digitalTunerPrefs = ref(loadDigitalTunerPrefs())
   /**
    * @deprecated OS Share / Quick Share / AirDrop removed from product surface.
    * Legacy key retained so old settings do not throw.
@@ -422,6 +432,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferEnabled,
     localLibraryEnabled,
     webrtcTransferEnabled,
+    digitalTunerEnabled,
+    digitalTunerPrefs,
     osShareTransferEnabled,
     audioRecorderEnabled,
     singTogetherEnabled,
@@ -466,11 +478,13 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const mixAndUiActions = createMixAndUiActions(deps)
   const pitchPipeActions = createPitchPipeActions(deps)
   const labsFlagActions = createLabsFlagActions(deps)
+  const digitalTunerActions = createDigitalTunerActions(deps)
   const tagRollChromeActions = createTagRollChromeActions(deps)
   const opticalRecorderActions = createOpticalRecorderActions(deps)
   mixAndUiActions.bindWatches()
   pitchPipeActions.bindWatches()
   labsFlagActions.bindWatches()
+  digitalTunerActions.bindWatches()
   tagRollChromeActions.bindWatches()
   opticalRecorderActions.bindWatches()
   const {
@@ -512,6 +526,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
     setWebrtcTransferEnabled,
+    setDigitalTunerEnabled,
+    setDigitalTunerPrefs,
+    resetDigitalTunerPrefs,
+    hydrateDigitalTunerPrefs,
+    resolveTunerA4Hz,
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,
@@ -572,6 +591,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     ...mixAndUiActions.actions,
     ...pitchPipeActions.actions,
     ...labsFlagActions.actions,
+    ...digitalTunerActions.actions,
     ...tagRollChromeActions.actions,
     ...opticalRecorderActions.actions,
   }
@@ -601,6 +621,8 @@ export const usePreferencesStore = defineStore('preferences', () => {
     opticalTransferEnabled,
     localLibraryEnabled,
     webrtcTransferEnabled,
+    digitalTunerEnabled,
+    digitalTunerPrefs,
     osShareTransferEnabled,
     audioRecorderEnabled,
     singTogetherEnabled,
@@ -669,6 +691,11 @@ export const usePreferencesStore = defineStore('preferences', () => {
     setOpticalTransferEnabled,
     setLocalLibraryEnabled,
     setWebrtcTransferEnabled,
+    setDigitalTunerEnabled,
+    setDigitalTunerPrefs,
+    resetDigitalTunerPrefs,
+    hydrateDigitalTunerPrefs,
+    resolveTunerA4Hz,
     setOsShareTransferEnabled,
     setAudioRecorderEnabled,
     setSingTogetherEnabled,

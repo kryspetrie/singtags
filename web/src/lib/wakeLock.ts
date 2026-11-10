@@ -4,7 +4,7 @@
  * No-ops when the API is missing or the document is hidden.
  */
 
-export type WakeLockHolder = 'sheet' | 'audio'
+export type WakeLockHolder = 'sheet' | 'audio' | 'tuner'
 
 type WakeLockSentinelLike = {
   released: boolean

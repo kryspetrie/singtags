@@ -160,6 +160,12 @@ export const router = createRouter({
       meta: { requiresWebrtcTransfer: true },
     },
     {
+      path: '/tuner',
+      name: 'tuner',
+      component: () => import('../views/TunerView.vue'),
+      meta: { requiresDigitalTuner: true },
+    },
+    {
       path: '/share',
       redirect: '/tx',
     },
@@ -271,6 +277,9 @@ router.beforeEach((to, from) => {
     const prefs = usePreferencesStore()
     if (to.meta.requiresWebrtcTransfer && !prefs.webrtcTransferEnabled) {
       prefs.setWebrtcTransferEnabled(true)
+    }
+    if (to.meta.requiresDigitalTuner && !prefs.digitalTunerEnabled) {
+      prefs.setDigitalTunerEnabled(true)
     }
     if (to.meta.requiresLocalLibrary && !prefs.localLibraryEnabled) {
       prefs.setLocalLibraryEnabled(true)

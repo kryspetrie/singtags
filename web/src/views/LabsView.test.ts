@@ -62,6 +62,18 @@ describe('LabsView', () => {
     w.unmount()
   })
 
+  it('toggles digital tuner labs flag', async () => {
+    const w = mount(LabsView, {
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    await flushPromises()
+    expect(usePreferencesStore().digitalTunerEnabled).toBe(false)
+    await w.get('input[aria-label="Digital Tuner"]').setValue(true)
+    expect(usePreferencesStore().digitalTunerEnabled).toBe(true)
+    expect(w.text()).toMatch(/More → Digital Tuner/)
+    w.unmount()
+  })
+
   it('toggles sing together labs flag', async () => {
     const w = mount(LabsView, {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },

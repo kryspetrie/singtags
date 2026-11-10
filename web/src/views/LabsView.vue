@@ -76,6 +76,10 @@ function toggleWebrtcTransfer(): void {
   prefs.setWebrtcTransferEnabled(!prefs.webrtcTransferEnabled)
 }
 
+function toggleDigitalTuner(): void {
+  prefs.setDigitalTunerEnabled(!prefs.digitalTunerEnabled)
+}
+
 function toggleSingTogether(): void {
   prefs.setSingTogetherEnabled(!prefs.singTogetherEnabled)
 }
@@ -347,6 +351,55 @@ function toggleTagStudio(): void {
         to="/wireless"
       >
         Open wireless transfer
+      </RouterLink>
+    </section>
+
+    <section class="card" aria-labelledby="tuner-h">
+      <div class="card-title-row">
+        <h2 id="tuner-h" class="card-title">Digital Tuner</h2>
+        <InfoTips label="Digital Tuner details" title="Digital Tuner details">
+          <p>
+            After enabling, open <strong>More → Digital Tuner</strong>. Analysis runs entirely in
+            this browser — mic audio never leaves the device, and live readings clear when you leave
+            the page.
+          </p>
+          <p>
+            Phase 1 is a simple Tune surface (note, cents, needle). Strobe, chord glance, and
+            analyze views come later.
+          </p>
+        </InfoTips>
+      </div>
+      <p class="card-desc">
+        On-device pitch tuner for solo practice and rehearsal. Mic stays local; no upload.
+      </p>
+
+      <label
+        class="setting-row"
+        :class="{ on: prefs.digitalTunerEnabled }"
+        title="Enable Digital Tuner"
+      >
+        <span class="setting-copy">
+          <span class="setting-title">Digital Tuner</span>
+          <span class="setting-desc">
+            {{
+              prefs.digitalTunerEnabled
+                ? 'Feature available — open from More → Digital Tuner'
+                : 'Hidden — More link stays off'
+            }}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          class="setting-switch"
+          role="switch"
+          :checked="prefs.digitalTunerEnabled"
+          :aria-checked="prefs.digitalTunerEnabled"
+          aria-label="Digital Tuner"
+          @change="toggleDigitalTuner"
+        />
+      </label>
+      <RouterLink v-if="prefs.digitalTunerEnabled" class="btn" to="/tuner">
+        Open Digital Tuner
       </RouterLink>
     </section>
   </section>
