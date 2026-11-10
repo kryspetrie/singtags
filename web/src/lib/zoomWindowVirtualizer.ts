@@ -60,7 +60,7 @@ export function zoomAwareInitialOffset(): number {
   return visualPxToLayoutPx(typeof window !== 'undefined' ? window.scrollY : 0)
 }
 
-type ScrollAdjustItem = { start: number; size: number; key: unknown }
+type ScrollAdjustItem = { start: number; size: number; key: number | string | bigint }
 
 /**
  * Decide whether a row size delta should move window scroll.
