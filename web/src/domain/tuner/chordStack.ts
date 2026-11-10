@@ -18,6 +18,17 @@ export type ChordStackToneIn = {
   midi: number
 }
 
+export type ChordStackToneOut = {
+  hz: number
+  midi: number
+  note: string
+  role: ChordToneRole
+  errorCentsVsJi: number
+  inTuneSelf: boolean
+  /** ▲ / ▼ / OK vs JI after common-shift removal. */
+  glanceMark: 'OK' | '▲' | '▼'
+}
+
 export type ChordStackScore = {
   natureId: string
   rootPc: number
@@ -27,6 +38,8 @@ export type ChordStackScore = {
   commonShiftCents: number
   unstable: boolean
   status: 'locked' | 'shifted' | 'fix' | 'wait'
+  tones: ChordStackToneOut[]
+  assistedPinRequired: boolean
 }
 
 export type ChordStackScoreOpts = {
@@ -39,6 +52,8 @@ export type ChordStackScoreOpts = {
   chordLockWindowCents?: number
   /** |common shift| below this ⇒ key-centered (default 8). */
   keyCenterWindowCents?: number
+  /** Phase 4 Conditional — UI shows Assisted banner. */
+  assistedPinRequired?: boolean
 }
 
 /**
@@ -54,38 +69,31 @@ export function scoreChordStack(
   const keyWin = opts.keyCenterWindowCents ?? 8
   const temperament = opts.temperament ?? 'equal'
 
-  if (!nature || tones.length === 0) {
-    return {
-      natureId: opts.natureId,
-      rootPc: opts.rootPc,
-      selfLocked: false,
-      keyCentered: false,
-      commonShiftCents: 0,
-      unstable: true,
-      status: 'wait',
-    }
-  }
+  const empty = (status: ChordStackScore['status']): ChordStackScore => ({
+    natureId: opts.natureId,
+    rootPc: opts.rootPc,
+    selfLocked: false,
+    keyCentered: false,
+    commonShiftCents: 0,
+    unstable: true,
+    status,
+    tones: [],
+    assistedPinRequired: opts.assistedPinRequired === true,
+  })
+
+  if (!nature || tones.length === 0) return empty('wait')
 
   const roles = sortedRoles(nature)
   const sorted = [...tones].sort((a, b) => a.hz - b.hz)
-  if (sorted.length < roles.length) {
-    return {
-      natureId: opts.natureId,
-      rootPc: opts.rootPc,
-      selfLocked: false,
-      keyCentered: false,
-      commonShiftCents: 0,
-      unstable: true,
-      status: 'wait',
-    }
-  }
+  if (sorted.length < roles.length) return empty('wait')
 
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
   const used = sorted.slice(0, roles.length)
   const errors: number[] = []
   for (let i = 0; i < roles.length; i++) {
     const role = roles[i]!
     const tone = used[i]!
-    const ji = roleCents(nature, role as ChordToneRole)
+    const ji = roleCents(nature, role)
     errors.push(tone.etCents - ji)
   }
 
@@ -108,6 +116,22 @@ export function scoreChordStack(
   else if (selfLocked && !keyCentered) status = 'shifted'
   else status = 'fix'
 
+  const toneOut: ChordStackToneOut[] = used.map((tone, i) => {
+    const role = roles[i]!
+    const rel = relative[i]!
+    const pc = ((tone.midi % 12) + 12) % 12
+    const oct = Math.floor(tone.midi / 12) - 1
+    return {
+      hz: tone.hz,
+      midi: tone.midi,
+      note: `${NOTE_NAMES[pc]!}${oct}`,
+      role,
+      errorCentsVsJi: rel,
+      inTuneSelf: Math.abs(rel) <= window,
+      glanceMark: Math.abs(rel) <= window ? 'OK' : rel > 0 ? '▲' : '▼',
+    }
+  })
+
   return {
     natureId: opts.natureId,
     rootPc: opts.rootPc,
@@ -116,6 +140,8 @@ export function scoreChordStack(
     commonShiftCents: shiftVsKey,
     unstable: false,
     status,
+    tones: toneOut,
+    assistedPinRequired: opts.assistedPinRequired === true,
   }
 }
 

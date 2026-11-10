@@ -58,7 +58,7 @@ Contributing / pipeline: [../CONTRIBUTING.md](../CONTRIBUTING.md), [publish.md](
 | [plans/tag-roulette.md](plans/tag-roulette.md) | Tag roulette product (Labs) |
 | [plans/tag-roulette-impl.md](plans/tag-roulette-impl.md) | Tag roulette Labs phased impl |
 | [plans/virtual-piano.md](plans/virtual-piano.md) | Virtual piano (beyond pitch pipe) |
-| [plans/digital-tuner.md](plans/digital-tuner.md) | Digital Tuner — Labs `/tuner`; Phases 1–4 (multi-F0 spike) in progress |
+| [plans/digital-tuner.md](plans/digital-tuner.md) | Digital Tuner — Labs `/tuner`; Phases 1–6 (Conditional Chord + FFT); see [digital-tuner-engine](decisions/digital-tuner-engine.md) |
 | [plans/tag-roll.md](plans/tag-roll.md) | Tag Roll — piano-roll tag composer (Labs) |
 | [plans/local-library-transfer.md](plans/local-library-transfer.md) | Phase C: curated S3 local docs (deferred) |
 

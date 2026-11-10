@@ -1,18 +1,32 @@
 <script setup lang="ts">
 /**
- * Digital Tuner shell (Labs) — Tune Detail + Glance. Keep under 800 lines.
+ * Digital Tuner shell (Labs) — Tune / Chord / FFT + Glance. Keep under 800 lines.
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { usePreferencesStore } from '../stores/preferences'
 import { useTunerCapture } from '../composables/useTunerCapture'
 import { useTunerLayout } from '../composables/useTunerLayout'
+import { useTunerChordSession } from '../composables/useTunerChordSession'
 import { formatDisplayCents, isInTuneCents } from '../domain/tuner/displayCents'
 import { tuneReadingFromHz } from '../domain/tuner/tuneTarget'
+import { fftPeaks, type FftPeak } from '../audio/tuner/fftPeaks'
+import {
+  clearSpectrogramRing,
+  createSpectrogramRing,
+  frameMagnitudeBins,
+  pushSpectrogramColumn,
+  type SpectrogramRing,
+} from '../audio/tuner/spectrogramRing'
+import { buildTunerExportSnapshot, tunerExportToCsv } from '../domain/tuner/exportSchema'
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock'
 import type { DigitalTunerPrefs } from '../lib/preferences/digitalTuner'
 import TunerNeedle from '../components/tuner/TunerNeedle.vue'
 import TunerStrobe from '../components/tuner/TunerStrobe.vue'
 import TunerGlance from '../components/tuner/TunerGlance.vue'
+import ChordGlance from '../components/tuner/ChordGlance.vue'
+import ChordStackView from '../components/tuner/ChordStackView.vue'
+import TunerFftView from '../components/tuner/TunerFftView.vue'
+import TunerSpectrogramView from '../components/tuner/TunerSpectrogramView.vue'
 import TunerSettingsSheet from '../components/tuner/TunerSettingsSheet.vue'
 
 const prefs = usePreferencesStore()
@@ -24,7 +38,16 @@ const frozenReading = ref<{ hz: number | null; clarity: number } | null>(null)
 const settingsOpen = ref(false)
 /** Cold start always Detail — sticky glance only after mic is running. */
 const glanceOpen = ref(false)
+const chordGlanceOpen = ref(false)
 const reducedMotion = ref(false)
+const fftPaused = ref(false)
+const specPaused = ref(false)
+const fftPeakList = shallowRef<FftPeak[]>([])
+const specRing = shallowRef<SpectrogramRing>(createSpectrogramRing(64, 240))
+let lastFftFrame: Float32Array | null = null
+let lastFftSr = 48000
+let removeFrameListener: (() => void) | null = null
+let specHopCounter = 0
 
 const a4Hz = computed(() => prefs.resolveTunerA4Hz())
 const tunerPrefs = computed(() => prefs.digitalTunerPrefs)
@@ -88,8 +111,115 @@ const showStrobe = computed(() => {
   return tunerPrefs.value.tuneDisplay === 'strobe'
 })
 
+const surface = computed(() => tunerPrefs.value.analyzeSurface)
+const chordEnabled = computed(() => surface.value === 'chord' && capture.running.value)
+const fftEnabled = computed(() => surface.value === 'fft' && capture.running.value)
+const specEnabled = computed(() => surface.value === 'spectrogram' && capture.running.value)
+
+const chordSession = useTunerChordSession({
+  prefs: tunerPrefs,
+  a4Hz,
+  enabled: chordEnabled,
+})
+
 function syncAnalysisOpts(): void {
   capture.setAnalysisOpts({ noiseGateDb: tunerPrefs.value.noiseGateDb })
+}
+
+function onAudioFrame(frame: { samples: Float32Array; sampleRate: number }): void {
+  if (chordEnabled.value) chordSession.ingest(frame)
+  if (fftEnabled.value) {
+    lastFftFrame = frame.samples
+    lastFftSr = frame.sampleRate
+    if (!fftPaused.value) {
+      fftPeakList.value = fftPeaks(frame.samples, frame.sampleRate, {
+        a4Hz: a4Hz.value,
+        keyPc: tunerPrefs.value.keyPc,
+        temperament: tunerPrefs.value.keyGridTemperament,
+        customOffsetsCents: tunerPrefs.value.customOffsetsCents,
+        maxPeaks: 10,
+      })
+    }
+  }
+  if (specEnabled.value && !specPaused.value) {
+    // ~15–20 Hz UI columns from 1024-hop worklet frames
+    specHopCounter++
+    if (specHopCounter % 2 === 0) {
+      const bins = frameMagnitudeBins(frame.samples, frame.sampleRate, specRing.value.binCount)
+      pushSpectrogramColumn(specRing.value, bins)
+    }
+  }
+}
+
+function toggleFftPause(): void {
+  fftPaused.value = !fftPaused.value
+  if (!fftPaused.value && lastFftFrame) {
+    fftPeakList.value = fftPeaks(lastFftFrame, lastFftSr, {
+      a4Hz: a4Hz.value,
+      keyPc: tunerPrefs.value.keyPc,
+      temperament: tunerPrefs.value.keyGridTemperament,
+      customOffsetsCents: tunerPrefs.value.customOffsetsCents,
+      maxPeaks: 10,
+    })
+  }
+}
+
+function setSurface(next: DigitalTunerPrefs['analyzeSurface']): void {
+  prefs.setDigitalTunerPrefs({ analyzeSurface: next })
+}
+
+function downloadExport(): void {
+  const surfaceLabel =
+    surface.value === 'chord'
+      ? 'chord'
+      : surface.value === 'fft'
+        ? 'fft'
+        : surface.value === 'spectrogram'
+          ? 'spectrogram'
+          : 'tune'
+  const rows =
+    surface.value === 'fft'
+      ? fftPeakList.value.map((p) => ({
+          hz: p.hz,
+          note: p.note ?? undefined,
+          cents: p.errorCents ?? undefined,
+          salience: p.salience,
+        }))
+      : surface.value === 'chord' && chordSession.score.value
+        ? chordSession.score.value.tones.map((t) => ({
+            hz: t.hz,
+            note: t.note,
+            cents: t.errorCentsVsJi,
+            role: t.role,
+          }))
+        : reading.value
+          ? [
+              {
+                hz: reading.value.targetHz * 2 ** (reading.value.errorCents / 1200),
+                note: reading.value.name,
+                cents: reading.value.errorCents,
+              },
+            ]
+          : []
+  const snap = buildTunerExportSnapshot({
+    a4Hz: a4Hz.value,
+    keyPc: tunerPrefs.value.keyPc,
+    keyGridTemperament: tunerPrefs.value.keyGridTemperament,
+    chordLockEnabled: tunerPrefs.value.chordLockEnabled,
+    chordNatureId: tunerPrefs.value.chordNatureId,
+    surface: surfaceLabel,
+    rows,
+    killGate: 'conditional',
+  })
+  const blob = new Blob([JSON.stringify(snap, null, 2) + '\n\n' + tunerExportToCsv(snap)], {
+    type: 'application/json',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `singtags-tuner-${snap.exportedAt.slice(0, 19)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function toggleFreeze(): void {
@@ -123,18 +253,27 @@ async function onStop(): Promise<void> {
   await exitGlance()
   frozen.value = false
   frozenReading.value = null
+  clearSpectrogramRing(specRing.value)
+  fftPeakList.value = []
   await capture.stop()
 }
 
 async function enterGlance(): Promise<void> {
   if (!capture.running.value) return
-  glanceOpen.value = true
+  if (surface.value === 'chord') {
+    chordGlanceOpen.value = true
+    glanceOpen.value = false
+  } else {
+    glanceOpen.value = true
+    chordGlanceOpen.value = false
+  }
   prefs.setDigitalTunerPrefs({ glanceFullscreen: true })
   await acquireWakeLock('tuner')
 }
 
 async function exitGlance(): Promise<void> {
   glanceOpen.value = false
+  chordGlanceOpen.value = false
   prefs.setDigitalTunerPrefs({ glanceFullscreen: false })
   await releaseWakeLock('tuner')
 }
@@ -161,7 +300,7 @@ function onKeydown(ev: KeyboardEvent): void {
       ev.preventDefault()
       return
     }
-    if (glanceOpen.value) {
+    if (glanceOpen.value || chordGlanceOpen.value) {
       void exitGlance()
       ev.preventDefault()
     }
@@ -196,10 +335,12 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   void capture.refreshDevices()
   syncAnalysisOpts()
+  removeFrameListener = capture.addFrameListener(onAudioFrame)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  removeFrameListener?.()
   void releaseWakeLock('tuner')
 })
 </script>
@@ -222,6 +363,9 @@ onUnmounted(() => {
           >
             Rehearsal
           </button>
+          <button type="button" class="btn icon" title="Export snapshot" @click="downloadExport">
+            Export
+          </button>
         </div>
       </div>
       <p class="privacy">
@@ -243,6 +387,48 @@ onUnmounted(() => {
           <button type="button" class="btn" @click="onStop">Stop</button>
         </template>
       </div>
+      <div class="surfaces" role="tablist" aria-label="Tuner surface">
+        <button
+          type="button"
+          class="btn chip"
+          role="tab"
+          :aria-selected="surface === 'hidden'"
+          :class="{ on: surface === 'hidden' }"
+          @click="setSurface('hidden')"
+        >
+          Tune
+        </button>
+        <button
+          type="button"
+          class="btn chip"
+          role="tab"
+          :aria-selected="surface === 'chord'"
+          :class="{ on: surface === 'chord' }"
+          @click="setSurface('chord')"
+        >
+          Chord
+        </button>
+        <button
+          type="button"
+          class="btn chip"
+          role="tab"
+          :aria-selected="surface === 'fft'"
+          :class="{ on: surface === 'fft' }"
+          @click="setSurface('fft')"
+        >
+          FFT
+        </button>
+        <button
+          type="button"
+          class="btn chip"
+          role="tab"
+          :aria-selected="surface === 'spectrogram'"
+          :class="{ on: surface === 'spectrogram' }"
+          @click="setSurface('spectrogram')"
+        >
+          Spec
+        </button>
+      </div>
     </header>
 
     <p v-if="capture.errorMessage.value" class="err" role="alert">
@@ -250,7 +436,7 @@ onUnmounted(() => {
       <button type="button" class="btn link" @click="onStart">Retry</button>
     </p>
 
-    <div class="stage">
+    <div v-if="surface === 'hidden'" class="stage">
       <div class="readout" aria-live="polite">
         <div class="note">{{ reading?.name ?? '—' }}</div>
         <div class="cents" :class="{ in: inTune }">{{ centsLabel }}</div>
@@ -265,6 +451,29 @@ onUnmounted(() => {
       />
       <TunerNeedle v-else :cents="reading?.errorCents ?? null" :in-tune="inTune" />
     </div>
+
+    <ChordStackView
+      v-else-if="surface === 'chord'"
+      :score="chordSession.score.value"
+      :clarity="live.clarity"
+      @rehearsal="enterGlance"
+    />
+
+    <TunerFftView
+      v-else-if="surface === 'fft'"
+      :peaks="fftPeakList"
+      :paused="fftPaused"
+      :fft-size="tunerPrefs.fftSize"
+      @toggle-pause="toggleFftPause"
+    />
+
+    <TunerSpectrogramView
+      v-else-if="surface === 'spectrogram'"
+      :ring="specRing"
+      :paused="specPaused"
+      @toggle-pause="specPaused = !specPaused"
+      @clear="clearSpectrogramRing(specRing)"
+    />
 
     <div class="level" aria-hidden="true">
       <div
@@ -286,6 +495,11 @@ onUnmounted(() => {
       v-if="glanceOpen"
       :status-word="statusWord"
       :note-name="reading?.name ?? null"
+      @exit="exitGlance"
+    />
+    <ChordGlance
+      v-if="chordGlanceOpen"
+      :score="chordSession.score.value"
       @exit="exitGlance"
     />
   </section>
@@ -335,6 +549,17 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.35rem;
+}
+.surfaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+.btn.chip {
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
 }
 .btn {
   min-height: 44px;

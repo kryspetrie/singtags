@@ -55,6 +55,9 @@ export function useTunerCapture() {
   /** When true, frames update level only — F0 held/cleared (reference tone). */
   const suppressDetection = ref(false)
 
+  type FrameListener = (frame: { samples: Float32Array; sampleRate: number }) => void
+  const frameListeners = new Set<FrameListener>()
+
   let ctx: AudioContext | null = null
   let stream: MediaStream | null = null
   let source: MediaStreamAudioSourceNode | null = null
@@ -233,6 +236,13 @@ export function useTunerCapture() {
         const data = ev.data as { type?: string; samples?: Float32Array; sampleRate?: number }
         if (data?.type !== 'frame' || !data.samples) return
         const sr = data.sampleRate || ctx?.sampleRate || 48000
+        for (const fn of frameListeners) {
+          try {
+            fn({ samples: data.samples, sampleRate: sr })
+          } catch {
+            /* ignore listener errors */
+          }
+        }
         let sumSq = 0
         for (let i = 0; i < data.samples.length; i++) sumSq += data.samples[i]! ** 2
         const level = Math.min(1, Math.sqrt(sumSq / data.samples.length) * 4)
@@ -333,6 +343,13 @@ export function useTunerCapture() {
     void stop()
   })
 
+  function addFrameListener(fn: FrameListener): () => void {
+    frameListeners.add(fn)
+    return () => {
+      frameListeners.delete(fn)
+    }
+  }
+
   return {
     running,
     errorKind,
@@ -347,5 +364,6 @@ export function useTunerCapture() {
     setAnalysisOpts,
     setSuppressDetection,
     resumeIfNeeded,
+    addFrameListener,
   }
 }

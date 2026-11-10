@@ -1,7 +1,7 @@
 # Digital Tuner — pitch analysis for vocalists
 
-> **Status:** In progress — Phases 1–4 on `tuner` branch (Tune/strobe/key-grid + multi-F0 spike)  
-> **Updated:** 2026-11-10 (Glance, settings, strobe, key-grid/chord-lock, multiF0 + stack scoring)  
+> **Status:** In progress — Phases 1–8 scaffolded on `tuner` (Conditional Chord; FFT/Spec/Export); Phase 9–10 open  
+> **Updated:** 2026-11-10 (kill-gate Conditional ADR; Assisted Chord; FFT/Spec/Export)  
 > **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; **P0 Chord Glance after kill-gate (before FFT/spec)**; P1 analysis/export afterward.  
 > **Placement:** Labs-gated `/tuner` → graduate to **always-available under More** (Recorder/Optical pattern). Users may pin it; **not** added to `DEFAULT_PRIMARY_NAV_ORDER` (avoids crowding pins next to Pitch Pipe).  
 > **Clients:** Desktop and mobile; **portrait and landscape**; density/layout adapt via shared narrow + orientation breakpoints (not a separate “mobile app”).  

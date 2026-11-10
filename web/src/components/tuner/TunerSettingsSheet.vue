@@ -29,8 +29,10 @@ const gateDraft = ref<string>('')
 const keyPcDraft = ref(0)
 const temperamentDraft = ref<KeyGridTemperament>('equal')
 const displayDraft = ref<'needle' | 'strobe'>('needle')
+const analyzeDraft = ref<'hidden' | 'fft' | 'spectrogram' | 'chord'>('hidden')
 const chordLockDraft = ref(false)
 const chordNatureDraft = ref('seventh')
+const pinnedRootDraft = ref(0)
 
 const PC_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const NATURE_OPTIONS = BARBERSHOP_CHORDS.map((c) => ({ id: c.id, name: c.name }))
@@ -49,8 +51,10 @@ watch(
     keyPcDraft.value = p.keyPc
     temperamentDraft.value = p.keyGridTemperament
     displayDraft.value = p.tuneDisplay
+    analyzeDraft.value = p.analyzeSurface
     chordLockDraft.value = p.chordLockEnabled
     chordNatureDraft.value = p.chordNatureId || 'seventh'
+    pinnedRootDraft.value = p.pinnedRootPc ?? p.keyPc
   },
   { immediate: true },
 )
@@ -79,8 +83,13 @@ function apply(): void {
     keyPc: keyPcDraft.value,
     keyGridTemperament: temperamentDraft.value,
     tuneDisplay: displayDraft.value,
+    analyzeSurface: analyzeDraft.value,
     chordLockEnabled: chordLockDraft.value,
-    chordNatureId: chordLockDraft.value ? chordNatureDraft.value : null,
+    chordNatureId:
+      chordLockDraft.value || analyzeDraft.value === 'chord'
+        ? chordNatureDraft.value
+        : null,
+    pinnedRootPc: analyzeDraft.value === 'chord' ? pinnedRootDraft.value : null,
   })
   emit('close')
 }
@@ -94,6 +103,16 @@ function apply(): void {
         <select v-model="displayDraft" class="ctrl">
           <option value="needle">Needle</option>
           <option value="strobe">Strobe</option>
+        </select>
+      </label>
+
+      <label class="row">
+        <span class="label">Analyze surface</span>
+        <select v-model="analyzeDraft" class="ctrl">
+          <option value="hidden">Tune only</option>
+          <option value="chord">Chord (Assisted)</option>
+          <option value="fft">FFT</option>
+          <option value="spectrogram">Spectrogram</option>
         </select>
       </label>
 
@@ -145,11 +164,17 @@ function apply(): void {
         <input v-model="chordLockDraft" type="checkbox" />
         <span>Chord lock (JI role targets)</span>
       </label>
-      <template v-if="chordLockDraft">
+      <template v-if="chordLockDraft || analyzeDraft === 'chord'">
         <label class="row">
           <span class="label">Nature</span>
           <select v-model="chordNatureDraft" class="ctrl">
             <option v-for="n in NATURE_OPTIONS" :key="n.id" :value="n.id">{{ n.name }}</option>
+          </select>
+        </label>
+        <label v-if="analyzeDraft === 'chord'" class="row">
+          <span class="label">Pinned root</span>
+          <select v-model.number="pinnedRootDraft" class="ctrl">
+            <option v-for="(n, i) in PC_NAMES" :key="`root-${n}`" :value="i">{{ n }}</option>
           </select>
         </label>
         <label class="row">

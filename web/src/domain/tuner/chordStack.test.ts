@@ -20,6 +20,7 @@ describe('chordStack scoring', () => {
     expect(score.status).toBe('locked')
     expect(score.selfLocked).toBe(true)
     expect(score.keyCentered).toBe(true)
+    expect(score.tones).toHaveLength(4)
   })
 
   it('marks Shifted when the whole chord is displaced vs key', () => {
