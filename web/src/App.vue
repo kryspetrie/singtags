@@ -107,6 +107,7 @@ const primaryNavGates = computed(
     singTogetherEnabled: prefs.singTogetherEnabled,
     tagStudioEnabled: prefs.tagRollEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    digitalTunerEnabled: prefs.digitalTunerEnabled,
   }),
 )
 
@@ -376,6 +377,7 @@ watch(
     primaryNavGates.value.singTogetherEnabled,
     primaryNavGates.value.tagStudioEnabled,
     primaryNavGates.value.webrtcTransferEnabled,
+    primaryNavGates.value.digitalTunerEnabled,
     offlineMode.manualOffline,
     queue.count,
   ],

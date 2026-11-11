@@ -111,6 +111,10 @@ export const OPTICAL_TRANSFER_ENABLED_KEY = 'singtags.labs.opticalTransfer.enabl
 export const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 /** Labs: WebRTC DataChannel transfer (Wi‑Fi / hotspot). Default off. */
 export const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
+/** Labs: Digital Tuner (on-device mic pitch). Default off. */
+export const DIGITAL_TUNER_ENABLED_KEY = 'singtags.labs.digitalTuner.enabled.v1'
+/** Digital Tuner settings blob (no f0 history). */
+export const DIGITAL_TUNER_PREFS_KEY = 'singtags.digitalTuner.v1'
 /** @deprecated OS Share / Quick Share / AirDrop removed; key retained for migrate. */
 export const OS_SHARE_TRANSFER_ENABLED_KEY = 'singtags.labs.osShareTransfer.enabled.v1'
 export const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v1'

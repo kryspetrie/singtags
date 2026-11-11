@@ -23,6 +23,7 @@ export const PRIMARY_NAV_IDS = [
   'tag-studio',
   'tx',
   'wireless',
+  'tuner',
   'labs',
   'queue',
 ] as const
@@ -36,6 +37,7 @@ export type PrimaryNavGates = {
   singTogetherEnabled: boolean
   tagStudioEnabled: boolean
   webrtcTransferEnabled: boolean
+  digitalTunerEnabled: boolean
 }
 
 /** Labs destinations — “Hide feature” toggles the Labs flag instead of a hide list. */
@@ -44,6 +46,7 @@ export const PRIMARY_NAV_LAB_IDS = [
   'matcher',
   'tag-studio',
   'wireless',
+  'tuner',
 ] as const
 
 export type PrimaryNavLabId = (typeof PRIMARY_NAV_LAB_IDS)[number]
@@ -178,6 +181,14 @@ export const PRIMARY_NAV_ITEMS: Record<PrimaryNavId, PrimaryNavItem> = {
     icon: '≋',
     desc: 'Same Wi‑Fi / hotspot file link (QR pairing)',
   },
+  tuner: {
+    id: 'tuner',
+    label: 'Digital Tuner',
+    shortLabel: 'Tuner',
+    path: '/tuner',
+    icon: '♮',
+    desc: 'On-device pitch tuner for practice and rehearsal',
+  },
   labs: {
     id: 'labs',
     label: 'SingTags Labs',
@@ -210,6 +221,7 @@ export const DEFAULT_PRIMARY_NAV_ORDER: readonly PrimaryNavId[] = [
   'matcher',
   'tag-studio',
   'wireless',
+  'tuner',
   'labs',
   'queue',
 ]
@@ -247,6 +259,8 @@ export function isPrimaryNavAvailable(
       return gates.tagStudioEnabled
     case 'wireless':
       return gates.webrtcTransferEnabled
+    case 'tuner':
+      return gates.digitalTunerEnabled
     default:
       return !hidden.includes(id)
   }
@@ -418,6 +432,8 @@ export function primaryNavIdForRouteName(name: unknown): PrimaryNavId | null {
     case 'wireless-transfer':
     case 'wireless-rx':
       return 'wireless'
+    case 'tuner':
+      return 'tuner'
     case 'labs':
     case 'labs-pitch-pipe-sound':
       return 'labs'

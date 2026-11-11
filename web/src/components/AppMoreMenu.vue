@@ -137,6 +137,7 @@ const primaryNavGates = computed(
     singTogetherEnabled: prefs.singTogetherEnabled,
     tagStudioEnabled: prefs.tagRollEnabled,
     webrtcTransferEnabled: prefs.webrtcTransferEnabled,
+    digitalTunerEnabled: prefs.digitalTunerEnabled,
   }),
 )
 

@@ -75,6 +75,8 @@ export const APP_STATE_LOCAL_KEYS = [
   'singtags.labs.opticalTransfer.enabled.v1',
   'singtags.labs.localLibrary.enabled.v1',
   'singtags.labs.webrtcTransfer.enabled.v1',
+  'singtags.labs.digitalTuner.enabled.v1',
+  'singtags.digitalTuner.v1',
   'singtags.labs.osShareTransfer.enabled.v1',
   'singtags.labs.tagRoll.enabled.v1',
   'singtags.labs.tagStudio.enabled.v1',

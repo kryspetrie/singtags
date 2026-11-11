@@ -10,6 +10,7 @@ Short records of choices that should not be re-litigated without new evidence.
 | [Pitch / speed bake](pitch-speed-bake.md) | Accepted / implemented | Bake-first WSOLA+formant; rate-1 BufferSource |
 | [Pitch pipe voice](pitch-pipe-voice.md) | Accepted / implemented | Configurable oscillator blend; Labs sound lab |
 | [Tag Studio ports](tag-studio-ports.md) | Accepted / in progress | Domain → application → ports → adapters; schemas stay separate |
+| [Digital Tuner engine](digital-tuner-engine.md) | Accepted — Conditional | Synthetics Go; Chord ships Assisted until real-mic table |
 
 Related residual plan (not an ADR): [non-recombinable tracks](../plans/non-recombinable-tracks.md).  
 Ports progress: [tag-studio-ports-readiness.md](../plans/tag-studio-ports-readiness.md).  
