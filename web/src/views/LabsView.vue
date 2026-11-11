@@ -363,10 +363,6 @@ function toggleTagStudio(): void {
             this browser — mic audio never leaves the device, and live readings clear when you leave
             the page.
           </p>
-          <p>
-            Phase 1 is a simple Tune surface (note, cents, needle). Strobe, chord glance, and
-            analyze views come later.
-          </p>
         </InfoTips>
       </div>
       <p class="card-desc">

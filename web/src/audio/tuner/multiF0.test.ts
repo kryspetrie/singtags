@@ -40,4 +40,19 @@ describe('multiF0', () => {
   it('returns empty for silence', () => {
     expect(multiF0(new Float32Array(win), sr).peaks).toEqual([])
   })
+
+  it('prefers the fundamental when H2 is louder than F0', () => {
+    // Bass C3 + strong octave harmonic (common singing spectrum)
+    const f0 = hzForMidi(48)
+    const frame = synthStackFrame([f0, f0 * 2], sr, win, 0.2)
+    // Boost H2 in the mix
+    const hot = synthStackFrame([f0 * 2], sr, win, 0.45)
+    for (let i = 0; i < win; i++) frame[i]! += hot[i]!
+    const { peaks } = multiF0(frame, sr, { a4Hz: a4, maxPeaks: 2, salienceFloor: 0.1 })
+    expect(peaks.length).toBeGreaterThanOrEqual(1)
+    // Lowest reported peak should be near C3, not C4
+    expect(peaks[0]!.hz).toBeGreaterThan(f0 * 0.9)
+    expect(peaks[0]!.hz).toBeLessThan(f0 * 1.15)
+  })
 })
+

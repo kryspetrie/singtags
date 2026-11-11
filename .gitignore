@@ -8,6 +8,12 @@ web/coverage/
 .env.*
 !.env.deploy.example
 
+# Local vendor / research disk images & packages (never commit)
+*.dmg
+*.DMG
+*.apk
+*.APK
+
 # Working mirror library (never commit). Lyric review queue lives in library/_state/.
 library/
 

@@ -1,5 +1,6 @@
 /**
  * Digital Tuner mic capture lifecycle — dedicated AudioContext + worklet frames.
+ * Heavy DSP (YIN / FFT / multi-F0) runs in a Worker via tunerDspClient.
  * Dispose on route leave. Does not reuse liveMeter's private context.
  */
 import { onUnmounted, ref, shallowRef } from 'vue'
@@ -13,7 +14,16 @@ import {
   ensureTunerCaptureWorklet,
   TUNER_CAPTURE_WORKLET_NAME,
 } from '../audio/tuner/loadTunerWorklet'
-import { liveMonoF0 } from '../audio/tuner/liveMonoF0'
+import type { TunerDspClient } from '../audio/tuner/tunerDspClient'
+import type { TunerDspConfig, TunerDspResult } from '../audio/tuner/tunerDspProtocol'
+import {
+  createSmoothLivePitchState,
+  resetSmoothLivePitch,
+  smoothLivePitch,
+} from '../domain/tuner/smoothLivePitch'
+
+/** How often Hz / cents / note publish to the UI (smoothing still runs every result). */
+const UI_PUBLISH_MS = 120
 
 export type TunerCaptureErrorKind =
   | 'denied'
@@ -28,6 +38,8 @@ export type TunerPitchReading = {
   hz: number | null
   clarity: number
   level: number
+  /** Hysteresis-stable MIDI for note naming; null when no pitch. */
+  displayMidi: number | null
 }
 
 export type TunerCaptureAnalysisOpts = {
@@ -39,6 +51,9 @@ export type TunerCaptureAnalysisOpts = {
   clarityMin?: number
   /** ms to keep last good pitch after clarity drops. */
   holdMs?: number
+  /** Analysis pitch band (from prefs pitch range). */
+  fMinHz?: number
+  fMaxHz?: number
 }
 
 function dbToRms(db: number): number {
@@ -49,26 +64,60 @@ export function useTunerCapture() {
   const running = ref(false)
   const errorKind = ref<TunerCaptureErrorKind | null>(null)
   const errorMessage = ref<string | null>(null)
-  const reading = shallowRef<TunerPitchReading>({ hz: null, clarity: 0, level: 0 })
+  const reading = shallowRef<TunerPitchReading>({
+    hz: null,
+    clarity: 0,
+    level: 0,
+    displayMidi: null,
+  })
   const devices = ref<MediaDeviceInfo[]>([])
   const deviceId = ref<string | null>(null)
   /** When true, frames update level only — F0 held/cleared (reference tone). */
   const suppressDetection = ref(false)
 
-  type FrameListener = (frame: { samples: Float32Array; sampleRate: number }) => void
-  const frameListeners = new Set<FrameListener>()
+  type DspListener = (result: TunerDspResult) => void
+  const dspListeners = new Set<DspListener>()
 
   let ctx: AudioContext | null = null
   let stream: MediaStream | null = null
   let source: MediaStreamAudioSourceNode | null = null
+  let compressor: DynamicsCompressorNode | null = null
   let worklet: AudioWorkletNode | null = null
   let muted: GainNode | null = null
   let keepalive: AudioKeepalive | null = null
-  let analysis: TunerCaptureAnalysisOpts = { clarityMin: 0.45, holdMs: 280 }
+  let analysis: TunerCaptureAnalysisOpts = {
+    clarityMin: 0.42,
+    holdMs: 400,
+    fMinHz: 55,
+    fMaxHz: 1200,
+  }
   let lastGood: TunerPitchReading | null = null
   let holdUntilMs = 0
+  let lastPublishMs = 0
+  let smooth = createSmoothLivePitchState()
+  let a4ForSmooth = 440
   let onVisibility: (() => void) | null = null
   let onStateChange: (() => void) | null = null
+  let dsp: TunerDspClient | null = null
+  let dspLoading: Promise<TunerDspClient> | null = null
+  let pendingDspConfig: Partial<TunerDspConfig> = {}
+  let startGen = 0
+
+  function publishReading(next: TunerPitchReading, force: boolean): void {
+    const now = performance.now()
+    if (
+      !force &&
+      next.hz != null &&
+      reading.value.hz != null &&
+      now - lastPublishMs < UI_PUBLISH_MS
+    ) {
+      // Keep pitch text stable; still refresh the level meter.
+      reading.value = { ...reading.value, level: next.level }
+      return
+    }
+    lastPublishMs = now
+    reading.value = next
+  }
 
   function mapGetUserMediaError(e: unknown): { kind: TunerCaptureErrorKind; message: string } {
     const name = e instanceof DOMException ? e.name : ''
@@ -100,16 +149,130 @@ export function useTunerCapture() {
     }
   }
 
+  function resolveRmsGate(): number | undefined {
+    if (typeof analysis.rmsGate === 'number' && analysis.rmsGate > 0) return analysis.rmsGate
+    if (typeof analysis.noiseGateDb === 'number' && Number.isFinite(analysis.noiseGateDb)) {
+      return dbToRms(analysis.noiseGateDb)
+    }
+    return undefined
+  }
+
+  function syncDspAnalysisConfig(): void {
+    const rmsGate = resolveRmsGate()
+    dsp?.setConfig({
+      rmsGate,
+      suppressDetection: suppressDetection.value,
+      a4Hz: a4ForSmooth,
+    })
+  }
+
   function setAnalysisOpts(opts: TunerCaptureAnalysisOpts): void {
     analysis = { ...analysis, ...opts }
+    syncDspAnalysisConfig()
+  }
+
+  function setSmoothA4Hz(hz: number): void {
+    if (Number.isFinite(hz) && hz > 0) a4ForSmooth = hz
+    dsp?.setConfig({ a4Hz: a4ForSmooth })
   }
 
   function setSuppressDetection(on: boolean): void {
     suppressDetection.value = on
+    dsp?.setConfig({ suppressDetection: on })
     if (on) {
-      reading.value = { hz: null, clarity: 0, level: reading.value.level }
+      publishReading(
+        {
+          hz: null,
+          clarity: 0,
+          level: reading.value.level,
+          displayMidi: null,
+        },
+        true,
+      )
       lastGood = null
+      resetSmoothLivePitch(smooth)
     }
+  }
+
+  function applyMonoResult(result: TunerDspResult): void {
+    const level = result.level
+    if (result.mono == null) {
+      publishReading({ hz: null, clarity: 0, level, displayMidi: null }, true)
+      return
+    }
+    const { hz, clarity } = result.mono
+    const clarityMin = analysis.clarityMin ?? 0.42
+    const holdMs = analysis.holdMs ?? 400
+    const now = performance.now()
+    // Prefs pitch-range gate — brief out-of-band locks don't steal the note.
+    const fMin = analysis.fMinHz ?? 55
+    const fMax = analysis.fMaxHz ?? 1200
+    const inBand = hz != null && hz >= fMin && hz <= fMax
+    if (hz != null && inBand && clarity >= clarityMin) {
+      const smoothed = smoothLivePitch(smooth, { hz, clarity }, { a4Hz: a4ForSmooth })
+      lastGood = {
+        hz: smoothed.hz,
+        clarity: smoothed.clarity,
+        level,
+        displayMidi: smoothed.displayMidi,
+      }
+      holdUntilMs = now + holdMs
+      publishReading(lastGood, false)
+      return
+    }
+    if (lastGood && now < holdUntilMs) {
+      publishReading({ ...lastGood, level }, false)
+      return
+    }
+    resetSmoothLivePitch(smooth)
+    lastGood = null
+    publishReading({ hz: null, clarity: 0, level, displayMidi: null }, true)
+  }
+
+  function onDspResult(result: TunerDspResult): void {
+    applyMonoResult(result)
+    for (const fn of dspListeners) {
+      try {
+        fn(result)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  async function ensureDsp(): Promise<TunerDspClient> {
+    if (dsp) {
+      syncDspAnalysisConfig()
+      return dsp
+    }
+    if (!dspLoading) {
+      dspLoading = import('../audio/tuner/tunerDspClient').then(({ createTunerDspClient }) => {
+        const client = createTunerDspClient(onDspResult)
+        if (Object.keys(pendingDspConfig).length) client.setConfig(pendingDspConfig)
+        dsp = client
+        syncDspAnalysisConfig()
+        return client
+      })
+    }
+    return dspLoading
+  }
+
+  function setDspConfig(partial: Partial<TunerDspConfig>): void {
+    pendingDspConfig = { ...pendingDspConfig, ...partial }
+    dsp?.setConfig(partial)
+  }
+
+  function recomputeFft(): void {
+    if (dsp) {
+      dsp.recomputeFft()
+      return
+    }
+    void ensureDsp().then((client) => client.recomputeFft())
+  }
+
+  /** Prefetch DSP worker after route mount (idle). */
+  function warmupDsp(): void {
+    void ensureDsp().then((client) => client.warmup())
   }
 
   async function refreshDevices(): Promise<void> {
@@ -119,14 +282,6 @@ export function useTunerCapture() {
     }
     const list = await navigator.mediaDevices.enumerateDevices()
     devices.value = list.filter((d) => d.kind === 'audioinput')
-  }
-
-  function resolveRmsGate(): number | undefined {
-    if (typeof analysis.rmsGate === 'number' && analysis.rmsGate > 0) return analysis.rmsGate
-    if (typeof analysis.noiseGateDb === 'number' && Number.isFinite(analysis.noiseGateDb)) {
-      return dbToRms(analysis.noiseGateDb)
-    }
-    return undefined
   }
 
   function bindLifecycle(): void {
@@ -181,14 +336,27 @@ export function useTunerCapture() {
   }
 
   async function start(opts?: { deviceId?: string | null }): Promise<void> {
+    const gen = ++startGen
     errorKind.value = null
     errorMessage.value = null
     await stop()
+    if (gen !== startGen) return
     try {
+      const dspClient = await ensureDsp()
+      if (gen !== startGen) return
+      dspClient.warmup()
       ctx = createInteractiveAudioContext()
       await ctx.resume()
+      if (gen !== startGen) {
+        await stop()
+        return
+      }
       keepalive = ensureAudioKeepalive(ctx, keepalive)
       await ensureTunerCaptureWorklet(ctx)
+      if (gen !== startGen) {
+        await stop()
+        return
+      }
 
       const preferred = opts?.deviceId || deviceId.value
       const constraints: MediaStreamConstraints = {
@@ -224,6 +392,13 @@ export function useTunerCapture() {
       await refreshDevices()
 
       source = ctx.createMediaStreamSource(stream)
+      compressor = ctx.createDynamicsCompressor()
+      // Soft make-up compression so quiet / loud singing both feed F0 cleanly.
+      compressor.threshold.value = -28
+      compressor.knee.value = 18
+      compressor.ratio.value = 6
+      compressor.attack.value = 0.005
+      compressor.release.value = 0.12
       worklet = new AudioWorkletNode(ctx, TUNER_CAPTURE_WORKLET_NAME, {
         numberOfInputs: 1,
         numberOfOutputs: 1,
@@ -236,40 +411,10 @@ export function useTunerCapture() {
         const data = ev.data as { type?: string; samples?: Float32Array; sampleRate?: number }
         if (data?.type !== 'frame' || !data.samples) return
         const sr = data.sampleRate || ctx?.sampleRate || 48000
-        for (const fn of frameListeners) {
-          try {
-            fn({ samples: data.samples, sampleRate: sr })
-          } catch {
-            /* ignore listener errors */
-          }
-        }
-        let sumSq = 0
-        for (let i = 0; i < data.samples.length; i++) sumSq += data.samples[i]! ** 2
-        const level = Math.min(1, Math.sqrt(sumSq / data.samples.length) * 4)
-        if (suppressDetection.value) {
-          reading.value = { hz: null, clarity: 0, level }
-          return
-        }
-        const rmsGate = resolveRmsGate()
-        const { hz, clarity } = liveMonoF0(data.samples, sr, {
-          ...(rmsGate != null ? { rmsGate } : {}),
-        })
-        const clarityMin = analysis.clarityMin ?? 0.45
-        const holdMs = analysis.holdMs ?? 280
-        const now = performance.now()
-        if (hz != null && clarity >= clarityMin) {
-          lastGood = { hz, clarity, level }
-          holdUntilMs = now + holdMs
-          reading.value = { hz, clarity, level }
-          return
-        }
-        if (lastGood && now < holdUntilMs) {
-          reading.value = { ...lastGood, level }
-          return
-        }
-        reading.value = { hz: null, clarity: 0, level }
+        dsp?.pushFrame(data.samples, sr)
       }
-      source.connect(worklet)
+      source.connect(compressor)
+      compressor.connect(worklet)
       worklet.connect(muted)
       muted.connect(ctx.destination)
       running.value = true
@@ -293,10 +438,12 @@ export function useTunerCapture() {
 
   async function stop(): Promise<void> {
     running.value = false
-    reading.value = { hz: null, clarity: 0, level: 0 }
+    publishReading({ hz: null, clarity: 0, level: 0, displayMidi: null }, true)
     lastGood = null
     holdUntilMs = 0
+    resetSmoothLivePitch(smooth)
     unbindLifecycle()
+    dsp?.reset()
     try {
       worklet?.port.close()
     } catch {
@@ -304,6 +451,11 @@ export function useTunerCapture() {
     }
     try {
       worklet?.disconnect()
+    } catch {
+      /* ignore */
+    }
+    try {
+      compressor?.disconnect()
     } catch {
       /* ignore */
     }
@@ -318,6 +470,7 @@ export function useTunerCapture() {
       /* ignore */
     }
     worklet = null
+    compressor = null
     source = null
     muted = null
     if (stream) {
@@ -341,12 +494,15 @@ export function useTunerCapture() {
 
   onUnmounted(() => {
     void stop()
+    dsp?.dispose()
+    dsp = null
+    dspLoading = null
   })
 
-  function addFrameListener(fn: FrameListener): () => void {
-    frameListeners.add(fn)
+  function addDspListener(fn: DspListener): () => void {
+    dspListeners.add(fn)
     return () => {
-      frameListeners.delete(fn)
+      dspListeners.delete(fn)
     }
   }
 
@@ -362,8 +518,12 @@ export function useTunerCapture() {
     stop,
     refreshDevices,
     setAnalysisOpts,
+    setSmoothA4Hz,
     setSuppressDetection,
+    setDspConfig,
+    recomputeFft,
+    warmupDsp,
     resumeIfNeeded,
-    addFrameListener,
+    addDspListener,
   }
 }

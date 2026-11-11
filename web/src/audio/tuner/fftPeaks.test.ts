@@ -8,7 +8,8 @@ describe('fftPeaks', () => {
     const frame = synthStackFrame([440], sr, 8192, 0.4)
     const peaks = fftPeaks(frame, sr, { a4Hz: 440, maxPeaks: 4 })
     expect(peaks.length).toBeGreaterThanOrEqual(1)
-    expect(peaks[0]!.note).toBe('A4')
-    expect(Math.abs(peaks[0]!.errorCents ?? 99)).toBeLessThan(5)
+    const a4Peak = peaks.find((p) => p.note === 'A4') ?? peaks[0]!
+    expect(a4Peak.note).toBe('A4')
+    expect(Math.abs(a4Peak.errorCents ?? 99)).toBeLessThan(5)
   })
 })

@@ -41,4 +41,48 @@ describe('tuneTarget', () => {
     // ET Bb vs JI 7/4 (~−31¢) → singer at ET is ~+31¢ sharp of lock
     expect(reading?.errorCents).toBeCloseTo(31.2, 0)
   })
+
+  it('chord-lock auto role maps Bb to seventh, not root', () => {
+    const bb3 = 440 * 2 ** ((58 - 69) / 12)
+    const reading = tuneReadingFromHz(bb3, {
+      a4Hz: 440,
+      keyPc: 0,
+      temperament: 'equal',
+      chordLockEnabled: true,
+      chordNatureId: 'seventh',
+      chordRootPc: 0,
+      chordRole: 'auto',
+    })
+    expect(reading?.targetKind).toBe('chordLock')
+    expect(reading?.errorCents).toBeCloseTo(31.2, 0)
+  })
+
+  it('chord-lock auto ignores non-chord tones (falls back to key grid)', () => {
+    // D4 in C seventh is not a chord tone → key-grid equal
+    const d4 = 440 * 2 ** ((62 - 69) / 12)
+    const reading = tuneReadingFromHz(d4, {
+      a4Hz: 440,
+      keyPc: 0,
+      temperament: 'equal',
+      chordLockEnabled: true,
+      chordNatureId: 'seventh',
+      chordRootPc: 0,
+      chordRole: 'auto',
+    })
+    expect(reading?.targetKind).toBe('equal')
+  })
+
+  it('displayMidi keeps cents vs sticky note across the midpoint', () => {
+    // 60¢ sharp of A4 is nearer A♯, but sticky A4 should still report ~+60¢
+    const hz = 440 * 2 ** (60 / 1200)
+    const reading = tuneReadingFromHz(hz, {
+      a4Hz: 440,
+      keyPc: 0,
+      temperament: 'equal',
+      displayMidi: 69,
+    })
+    expect(reading?.name).toBe('A4')
+    expect(reading?.midi).toBe(69)
+    expect(reading?.errorCents).toBeCloseTo(60, 0)
+  })
 })

@@ -12,6 +12,31 @@ import type { BarbershopChordNature, ChordToneRole } from '../arranging/chords'
 
 export { roleCents }
 
+/** Map sung pitch-class → nature role using root + nature offsets (auto solo lock). */
+export function chordRoleForPc(
+  pc: number,
+  rootPc: number,
+  nature: BarbershopChordNature,
+): ChordToneRole | null {
+  const rel = (((pc - rootPc) % 12) + 12) % 12
+  let best: ChordToneRole | null = null
+  let bestDist = 99
+  for (const [roleStr, offset] of Object.entries(nature.offsets)) {
+    if (typeof offset !== 'number') continue
+    const role = Number(roleStr) as ChordToneRole
+    const dist = Math.min(
+      Math.abs(offset - rel),
+      12 - Math.abs(offset - rel),
+    )
+    if (dist < bestDist) {
+      bestDist = dist
+      best = role
+    }
+  }
+  // Only claim a role when within a semitone of a nature tone.
+  return bestDist <= 1 ? best : null
+}
+
 /** Harmonic seventh vs ET tenth (~−31¢) — barbershop V7 hallmark. */
 export function harm7CentsVsEt(): number {
   return ratioToCentsVsEt(JUST_RATIOS.harm7, 10)

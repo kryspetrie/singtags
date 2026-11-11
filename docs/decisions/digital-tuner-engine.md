@@ -33,4 +33,4 @@ Battery: natures `seventh` + `major`; roots C3/F3/G3; cases locked / +18¢ shift
 ## Follow-ups
 
 - Add short CC0 / internal held-chord WAVs under `web/src/audio/tuner/fixtures/quartet/` (or labeled polecat-mix proxies) and re-score → may promote to Go.
-- Hysteresis + pin UX dogfood in rehearsal; 10 ft Glance walk-back before graduate.
+- Hysteresis + pin UX dogfood in rehearsal continues after More graduate (2026-11-11).

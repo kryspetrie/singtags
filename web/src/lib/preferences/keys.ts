@@ -27,6 +27,7 @@ export const LOCAL_LIBRARY_ENABLED_KEY = 'singtags.labs.localLibrary.enabled.v1'
 /** Labs: WebRTC DataChannel transfer (Wi‑Fi / hotspot). Default off. */
 export const WEBRTC_TRANSFER_ENABLED_KEY = 'singtags.labs.webrtcTransfer.enabled.v1'
 /** Labs: Digital Tuner (on-device mic pitch). Default off. */
+/** Labs: Digital Tuner (More → Tuner when enabled). */
 export const DIGITAL_TUNER_ENABLED_KEY = 'singtags.labs.digitalTuner.enabled.v1'
 /** Digital Tuner settings blob (no f0 history). */
 export const DIGITAL_TUNER_PREFS_KEY = 'singtags.digitalTuner.v1'

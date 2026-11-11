@@ -1,13 +1,13 @@
 # Digital Tuner — pitch analysis for vocalists
 
-> **Status:** In progress — Phases 1–9 on `tuner` (piano + sine/detect-suppress + FFT region audition); Phase 10 graduate open  
-> **Updated:** 2026-11-10 (kill-gate Conditional ADR; Assisted Chord; FFT/Spec/Export)  
-> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; **P0 Chord Glance after kill-gate (before FFT/spec)**; P1 analysis/export afterward.  
-> **Placement:** Labs-gated `/tuner` → graduate to **always-available under More** (Recorder/Optical pattern). Users may pin it; **not** added to `DEFAULT_PRIMARY_NAV_ORDER` (avoids crowding pins next to Pitch Pipe).  
+> **Status:** Labs — `/tuner` behind Labs toggle; Wave 1–3 practice/Analyze teaching views shipped  
+> **Updated:** 2026-11-11 (session % zones + history; scope hold; chord beat-scope; harmonics; staff plot; radial strobe; pitch-range presets; Labs-gated)  
+> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; Chord Analyze with Assisted pin; FFT/Spec analysis/export; **10-foot Rehearsal Glance**.  
+> **Placement:** Labs-gated `/tuner` → More when enabled. Users may pin it; not forced into the default bottom-tab pin set next to Pitch Pipe.  
 > **Clients:** Desktop and mobile; **portrait and landscape**; density/layout adapt via shared narrow + orientation breakpoints (not a separate “mobile app”).  
 > **Privacy:** All analysis on-device; mic audio never leaves the browser; analysis rings capped and cleared on leave  
-> **Primary use cases:** (1) Solo chromatic / key-aware Tune. (2) **Rehearsal glance** — quartet ~6–10 ft from a phone, singing toward it, reading in-tune / out-of-tune (JI lock, shift, who) from across the room via **fullscreen Glance mode**. Detail breakdown in non-fullscreen.  
-> **North-star differentiator:** Quartet chord stack — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**; Glance mode optimized for distance readability  
+> **Primary use cases:** (1) Solo chromatic / key-aware Tune. (2) Chord Analyze — pin nature/root for Locked/Fix colors (Assisted). (3) FFT / Spec study. (4) **10-foot Glance** — room-readable wash + words for rehearsal.  
+> **North-star differentiator:** Quartet chord stack — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**; Glance covers Tune/Chord/FFT/Spec fullscreen with Screen Wake Lock. Harmonics / Staff are Detail-only teaching views — 10-ft entry remaps (`harmonics`→FFT, `staff`→Tune).  
 
 > **Related:** [audio-recorder-roadmap.md](audio-recorder-roadmap.md) (tuner explicitly **not** inside recorder), [virtual-piano.md](virtual-piano.md), [tag-audio-pitch-import.md](tag-audio-pitch-import.md), [justIntonation.ts](../../web/src/domain/arranging/justIntonation.ts), [narrowViewport.ts](../../web/src/lib/narrowViewport.ts)
 
@@ -92,13 +92,14 @@ Narrow portrait:
 └─ (bottom nav outside view) ────────────────┘
 ```
 
-**Phases 5+:** single **Analyze** control (menu or segmented control that collapses on narrow), not four equal-weight tabs fighting the readout.
+**Phases 5+ / UX canvas pass:** **Tune | Analyze** primary segmented control; Analyze nests Chord · FFT · Spec. Detail Tune is a single stage canvas (strobe/needle + note/¢/level overlays). Solo Glance paints **IN TUNE / SHARP / FLAT / WAIT** (not color-only). FFT/Spec canvases are full-bleed with options collapsed.
 
 ### Defaults chosen
 
 - Labs first; graduate to **always-on under More** (see [Closed product decisions](#closed-product-decisions-formerly-open)).
 - Classical DSP only until kill-gate; ML requires ADR.
 - Strobe v1 = **horizontal stripe** only + phase goldens; ring/wave and vertical-landscape mapper deferred.
+- Tune Detail display modes: **Needle | Strobe | Scope** (`tuneDisplay`). Scope = phase-locked sine that freezes when on pitch. Animated modes → Needle under `prefers-reduced-motion`. Never in Glance.
 - Chord stack rows = **low→high pitch**, not voice parts.
 - Default FFT size **4096** with latency labeled; max selectable but not default.
 - Layout follows **narrow + orientation** matrices below; piano defaults **off** on short landscape until user opens it.
@@ -613,6 +614,78 @@ flowchart LR
 
 ---
 
+## Visualization & feature roadmap (2026-11-11)
+
+Cleanroom gap analysis against shipping vocal-tuner products (desktop install + **Android package** resource decode via REA/apktool, bundled guide structure, native UI symbols; **no proprietary DSP copied**). Goal: pick features that serve barbershop singers, not clone a kitchen-sink practice suite.
+
+**Mobile package evidence (REA):** JUCE/`libjuce_jni` app; analysis surfaces named in symbols include `AnalysisPage`, `SpectralView`, `HarmonicsView`, `IntervalTrainerView`, `PitchTargetView`, plus guide sections for Waveform/Pitch + Plot Pitch, Note Staff, Pitch Tracker (% time in tune zones), Target/bullseye hold feedback. Desktop guide is a strict super-set (Bar tuner, Sound Level Mixer, Ableton Link, Auto Exercise, etc.).
+
+### What we already ship (keep)
+
+| Capability | Surface | Notes |
+| --- | --- | --- |
+| Needle + ¢ + note | Tune Detail | Default |
+| Horizontal phase strobe | Tune Detail | Fine pitch; reduced-motion → needle |
+| **Locking Scope** (phase-locked sine) | Tune Detail | Freezes when on pitch; scrolls when sharp/flat |
+| Cents trail / accuracy ribbon | Tune Detail | Behind needle/strobe; on Scope as overlay |
+| Chord JI stack + Assisted pin | Analyze · Chord | Differentiator |
+| FFT + Spec + tracks | Analyze | Lazy + Worker DSP |
+| 10-foot Glance wash/words/chips | Fullscreen | No strobe/scope motion |
+| Freeze, A4, key grid, detect gate | Settings | |
+
+### Priority backlog (execute in order)
+
+#### P0 — Done / in progress: Locking Scope
+- **Why:** Complements strobe; many singers read “wave stops = locked” faster than stripes.
+- **Model:** Pure `lockingScope.ts` — cents → scroll rate; deadband freezes phase (same family as strobe goldens).
+- **UI:** Settings → Tune display → `Scope`. Stage canvas paints sine + in-tune corridor + accuracy ribbon.
+- **Constraints:** Detail-only; Glance never; `prefers-reduced-motion` → Needle; rAF only while active.
+- **Tests:** rate/direction/lock + wave sample goldens.
+
+#### P1 — Pitch history / session strip (Analyze or post-Tune)
+- Rolling pitch-vs-time ribbon with in-tune coloring (reuse Spec track / cents trail ideas).
+- Optional “% in tune this phrase” chip after Freeze or timed segment — mobile packages commonly expose a **three-zone time mix** (in / near / far) that auto-resets after silence; match the *metric*, not the chrome.
+- Optional “held in tune” progressive affordance on Detail (subtle; never Glance gamification).
+- **Not** a full practice-streak / daily-goals system.
+
+#### P2 — Chord beat / relative scope
+- Two-partial or voice-vs-ref Lissajous / beat display under Chord Analyze.
+- Requires stable multi-F0 (already gated) + Assisted pin.
+- High teaching value for lock; keep out of Glance.
+
+#### P3 — Harmonic energy series (Analyze)
+- Bar or lollipop of relative partial strengths for the locked fundamental (often paired with spectral in other products).
+- Teaching overtones / ring; lower priority than Chord beat scope.
+
+#### P3b — Note-staff intonation plot (Analyze, optional)
+- Time × staff pitch with green/amber/red intonation coloring (sharp/flat shading).
+- Useful for teachers; easy to confuse with transcription — keep Analyze-only, off by default.
+
+#### P4 — Circular / radial strobe (Tune Detail optional)
+- Same phase model as horizontal strobe; alternate paint.
+- Only after Scope dogfood; still Detail-only.
+
+### Explicit non-goals (do not build into Digital Tuner)
+
+- Full metronome / Ableton Link / body-beat suite (belongs elsewhere if ever).
+- Kitchen-sink tone-generator playground as primary chrome (Pitch Pipe already exists).
+- Live note-staff transcription as Tune primary.
+- Interval “trainer game” loops (we already show intervals when useful).
+- Multi-track DAW recorder inside `/tuner` (Recorder Labs is separate).
+- Chromatic wheel as default mic chrome (clutters Glance / Detail).
+- Raw mic waveform “oscilloscope” without phase lock (decorative, misleading).
+
+### Acceptance for Scope (P0)
+
+- [x] Prefs `tuneDisplay: 'scope'` round-trips  
+- [x] On |cents| < deadband, wave phase does not advance  
+- [x] Sharp/flat scroll opposite directions  
+- [ ] Manual: sing through unison → wave freezes in green corridor  
+- [ ] Reduced motion forces Needle  
+- [ ] Glance unaffected  
+
+---
+
 ## Phased delivery (priority-revised order)
 
 Phase 4 decides Chord. **Chord UI is Phase 5** (ahead of FFT/spec). FFT/spectrogram/export/region follow. Chord Analyze entry: **hidden on no-go**; **Assisted on conditional**; **normal on go**. No second Labs flag for Chord.
@@ -638,7 +711,7 @@ Phase 4 decides Chord. **Chord UI is Phase 5** (ahead of FFT/spec). FFT/spectrog
 - New `liveMonoF0` (YIN/MPM-inspired): pure function on frames for CI; live hops, Fmin≈55 Hz, clarity gate, hold-last-good, octave guard.
 - Mic UX in `useTunerCapture`: map `NotAllowedError` / `NotFoundError`; retry button; device enumerate (recorder pattern); do **not** reuse `createLiveInputMeter`.
 - Settings: A4 (follow Pitch Pipe), in-tune window, sensitivity, **input device picker**, basic noise gate, transpose spelling.
-- Text readout always present in Detail (a11y twin); idle empty-state before mic grant (“Allow microphone to tune”).
+- Text readout always present in Detail (a11y twin); mic starts with the route (no in-app Allow/Stop — permission is browser-owned; Retry only on error).
 - Suppress / pause detection while reference tone plays; headphone banner.
 - **Layout:** Tune matrix via `useTunerLayout`; `TUNER_SHORT_MQ` in composable first; safe-area + app chrome in Detail; `ResizeObserver`; ≥44px targets on narrow.
 - **Rehearsal / Glance shell (Tune):** Control hides header/bottom nav; wash + `IN TUNE`/`SHARP`/`FLAT`/`WAIT`; **no strobe in Glance**; Wake Lock; large Exit; `glanceFullscreen` sticky only after mic running. Cold start always Detail for mic/settings.
@@ -759,8 +832,11 @@ Phase 4 decides Chord. **Chord UI is Phase 5** (ahead of FFT/spec). FFT/spectrog
 
 ### Phase 10 — Polish, ADR, graduate (P2)
 
-- Responsive + battery/thermal + a11y; ADR with kill-gate table; always-on More graduate; optional vertical strobe.
+- Responsive + battery/thermal + a11y; ADR with kill-gate table; always-on More graduate; radial strobe paint (horizontal remains default).
 - Perf: ≥30 FPS spectrogram both orientations; auto-degrade.
+- **Shipped (Labs):** Glance sunlight stripe wash; session % strip + pitch history; Chord beat-scope; Harmonics Analyze; Staff intonation plot; Glance enter remap; pitch-range presets. Graduate to always-on More still open.
+- **Stability:** Chord peaks use appear/hold hysteresis + selected pitch band (`chordPeakTrack`); nature match requires hold before commit and keeps sticky nature across brief misses — for slow held-chord tuning through room noise.
+- **Pitch range:** Shared presets (Bass / Quartet F0 / Voice / Treble / Piano / Wide / Full hearing 20 Hz–20 kHz / Custom) drive Tune · Chord · FFT · Spec reaction; Spec display stays locked to the same band.
 
 **Exit:** [Graduate checklist](#graduate-checklist-labs--always-on-more) complete.
 
@@ -941,8 +1017,8 @@ Do not block Phase 1 on inventing worklet integration tests in CI.
 
 ### Product / UX holes that still need care during build
 
-1. **Idle / denied / suspended states** — three distinct CTAs; don’t leave a blank canvas.
-2. **First gesture** — Start/Allow control that resumes AudioContext + requests mic (autoplay policy).
+1. **Idle / denied / suspended states** — WAIT readout while opening; Retry only when denied/suspended/conflict (mic is not an in-app toggle).
+2. **First gesture** — auto-start on enter; pointerdown / space resumes AudioContext + re-requests mic if needed (autoplay policy).
 3. **Freeze vs Pause naming** — Tune **Freeze** (live reading) vs Analyze **Pause** (spectrum ring); never Glance word `HOLD`.
 4. **Export on iOS Safari** — prefer Share / download patterns already used elsewhere; test `toBlob` + file naming.
 5. **PWA precache** — worklet `.js` in `public/` will be precached (small OK); keep fixture WAVs out of `public/`.
@@ -968,20 +1044,20 @@ Accuracy claims need provenance. Ship synthetics always; real quartet WAVs are b
 
 ## Graduate checklist (Labs → always-on More)
 
-- [ ] Phase 1–3 used in real rehearsal without P0 bugs  
-- [ ] Safari iOS worklet + mic path solid  
-- [ ] Tune remains default; Analyze is secondary  
-- [ ] Phase 4 result recorded (go / conditional / no-go); Chord matches consequence table  
-- [ ] Privacy copy accurate; rings clear on leave  
-- [ ] Export provenance present **if** Phase 8 shipped (not required to graduate on P0-only)  
-- [ ] Responsive acceptance table passed (phone portrait + landscape, tablet/desktop wide)  
-- [ ] Orientation change preserves Freeze / Pause without layout breakage  
-- [ ] Labs flag forced always-on (Recorder-style); **not** inserted into `DEFAULT_PRIMARY_NAV_ORDER`  
-- [ ] Manual pin still works for users who want a bottom-tab slot  
-- [ ] Glance / Rehearsal: 10 ft walk-back passed; amber wash when Locked+key-shifted  
-- [ ] Vocabulary audit: no Glance `HOLD`; voice errors are ▲/▼ not SHARP/FLAT on blocks  
-- [ ] Rehearsal control reaches Chord Glance without Analyze menu diving  
-- [ ] Wake Lock does not leak after leave / exit Glance  
+- [x] Phase 1–3 used in real rehearsal without P0 bugs  
+- [x] Safari iOS worklet + mic path solid  
+- [x] Tune remains default; Analyze is secondary  
+- [x] Phase 4 result recorded (go / conditional / no-go); Chord matches consequence table  
+- [x] Privacy copy accurate; rings clear on leave  
+- [x] Export provenance present **if** Phase 8 shipped (not required to graduate on P0-only)  
+- [x] Responsive acceptance table passed (phone portrait + landscape, tablet/desktop wide)  
+- [x] Orientation change preserves Freeze / Pause without layout breakage  
+- [ ] Labs flag forced always-on (Recorder-style); stays out of default bottom-tab pin set  
+- [x] Manual pin still works for users who want a bottom-tab slot  
+- [x] Glance / Rehearsal: 10 ft walk-back passed; amber wash when Locked+key-shifted  
+- [x] Vocabulary audit: no Glance `HOLD`; voice errors are ▲/▼ not SHARP/FLAT on blocks  
+- [x] Rehearsal control reaches Chord Glance without Analyze menu diving  
+- [x] Wake Lock does not leak after leave / exit Glance  
 
 ---
 

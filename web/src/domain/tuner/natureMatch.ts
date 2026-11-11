@@ -29,6 +29,8 @@ export type NatureHysteresisState = {
   pendingNatureId: string | null
   pendingRootPc: number | null
   pendingStreak: number
+  /** Consecutive frames with no PC match while sticky nature is held. */
+  missStreak: number
 }
 
 function chordTonePcs(rootPc: number, natureId: string): number[] {
@@ -85,19 +87,28 @@ export function createNatureHysteresis(): NatureHysteresisState {
     pendingNatureId: null,
     pendingRootPc: null,
     pendingStreak: 0,
+    missStreak: 0,
   }
 }
 
 /**
- * Sticky nature/root: require `holdFrames` agreeing frames before switching.
+ * Sticky nature/root:
+ * - Require `holdFrames` agreeing frames before first commit or switch.
+ * - Keep sticky match across brief nulls until `missHoldFrames`.
  * Manual pin (when provided) always wins.
  */
 export function applyNatureHysteresis(
   state: NatureHysteresisState,
   next: NatureMatch | null,
-  opts?: { holdFrames?: number; pinned?: { natureId: string; rootPc: number } | null },
+  opts?: {
+    holdFrames?: number
+    missHoldFrames?: number
+    pinned?: { natureId: string; rootPc: number } | null
+  },
 ): { state: NatureHysteresisState; match: NatureMatch | null } {
   const hold = opts?.holdFrames ?? 4
+  const missHold = opts?.missHoldFrames ?? Math.max(hold, 10)
+
   if (opts?.pinned) {
     const match = {
       natureId: opts.pinned.natureId,
@@ -112,19 +123,45 @@ export function applyNatureHysteresis(
         pendingNatureId: null,
         pendingRootPc: null,
         pendingStreak: 0,
+        missStreak: 0,
       },
       match,
     }
   }
+
   if (!next) {
+    if (state.natureId == null || state.rootPc == null) {
+      return {
+        state: {
+          ...state,
+          streak: 0,
+          pendingNatureId: null,
+          pendingRootPc: null,
+          pendingStreak: 0,
+          missStreak: 0,
+        },
+        match: null,
+      }
+    }
+    const missStreak = state.missStreak + 1
+    if (missStreak >= missHold) {
+      return { state: createNatureHysteresis(), match: null }
+    }
     return {
-      state: { ...state, streak: 0, pendingStreak: 0 },
-      match:
-        state.natureId != null && state.rootPc != null
-          ? { natureId: state.natureId, rootPc: state.rootPc, confidence: 0.4 }
-          : null,
+      state: {
+        ...state,
+        streak: 0,
+        pendingStreak: 0,
+        missStreak,
+      },
+      match: {
+        natureId: state.natureId,
+        rootPc: state.rootPc,
+        confidence: 0.4,
+      },
     }
   }
+
   if (state.natureId === next.natureId && state.rootPc === next.rootPc) {
     return {
       state: {
@@ -133,24 +170,13 @@ export function applyNatureHysteresis(
         pendingNatureId: null,
         pendingRootPc: null,
         pendingStreak: 0,
-      },
-      match: next,
-    }
-  }
-  if (state.natureId == null) {
-    return {
-      state: {
-        natureId: next.natureId,
-        rootPc: next.rootPc,
-        streak: 1,
-        pendingNatureId: null,
-        pendingRootPc: null,
-        pendingStreak: 0,
+        missStreak: 0,
       },
       match: next,
     }
   }
 
+  // First commit and switches both go through pending hold.
   const samePending =
     state.pendingNatureId === next.natureId && state.pendingRootPc === next.rootPc
   const pendingStreak = samePending ? state.pendingStreak + 1 : 1
@@ -163,21 +189,27 @@ export function applyNatureHysteresis(
         pendingNatureId: null,
         pendingRootPc: null,
         pendingStreak: 0,
+        missStreak: 0,
       },
       match: next,
     }
   }
+
   return {
     state: {
       ...state,
       pendingNatureId: next.natureId,
       pendingRootPc: next.rootPc,
       pendingStreak,
+      missStreak: 0,
     },
-    match: {
-      natureId: state.natureId,
-      rootPc: state.rootPc!,
-      confidence: 0.5,
-    },
+    match:
+      state.natureId != null && state.rootPc != null
+        ? {
+            natureId: state.natureId,
+            rootPc: state.rootPc,
+            confidence: 0.5,
+          }
+        : null,
   }
 }

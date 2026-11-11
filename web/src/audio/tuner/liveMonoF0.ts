@@ -97,15 +97,4 @@ export function liveMonoF0(
   return { hz, clarity }
 }
 
-/** Generate a unit-ish sine for golden tests. */
-export function synthSineFrame(
-  hz: number,
-  sampleRate: number,
-  length: number,
-  amp = 0.5,
-): Float32Array {
-  const out = new Float32Array(length)
-  const w = (2 * Math.PI * hz) / sampleRate
-  for (let i = 0; i < length; i++) out[i] = Math.sin(w * i) * amp
-  return out
-}
+export { synthSineFrame } from './synthAudioFrame'
