@@ -4,7 +4,12 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatDisplayCents } from '../../domain/tuner/displayCents'
+import {
+  layoutNonOverlappingLabels,
+  scaleGuideLinesInBand,
+} from '../../domain/tuner/scaleGuideLines'
 import type { FftPeak, FftSpectrumView } from '../../audio/tuner/fftPeaks'
+import type { ChordStackScore } from '../../domain/tuner/chordStack'
 import type { DigitalTunerPrefs } from '../../lib/preferences/digitalTuner'
 import {
   cancelScheduledTunerPaint,
@@ -13,16 +18,24 @@ import {
   sizeTunerCanvas,
   type TunerCanvasTheme,
 } from '../../lib/tuner/canvasPaint'
+import TunerChordStatusStrip from './TunerChordStatusStrip.vue'
 
 const props = withDefaults(
   defineProps<{
     spectrum: FftSpectrumView | null
     paused: boolean
     prefs: DigitalTunerPrefs
+    /** Resolved concert A for scale guides + in-tune coloring. */
+    a4Hz?: number
+    /** |¢| window for “in tune” peak highlight (default prefs / 15). */
+    windowCents?: number
+    /** Chord intonation scored from spectral fundamentals. */
+    chordScore?: ChordStackScore | null
+    chordStatusLabel?: string | null
     /** 10-foot mode — canvas only, no options / audition chrome. */
     glance?: boolean
   }>(),
-  { glance: false },
+  { glance: false, a4Hz: 440, windowCents: 15, chordScore: null, chordStatusLabel: null },
 )
 
 const emit = defineEmits<{
@@ -188,7 +201,26 @@ function paint(): void {
   const baseY = cssH - axisBand
   const usable = Math.max(8, baseY - labelBand)
 
-  // Frequency grid under the curve
+  // Scale-degree guides (key / mode) + sparse Hz marks
+  const guides = scaleGuideLinesInBand({
+    fMinHz: spec.fMinHz,
+    fMaxHz: spec.fMaxHz,
+    a4Hz: props.a4Hz,
+    keyPc: props.prefs.keyPc,
+    scaleMode: props.prefs.scaleMode,
+  })
+  const win = Math.max(1, props.windowCents)
+  for (const g of guides) {
+    const x = Math.round(hzToX(g.hz, cssW, spec.fMinHz, spec.fMaxHz))
+    ctx.strokeStyle = g.tonic ? accent : border
+    ctx.globalAlpha = g.tonic ? 0.42 : 0.22
+    ctx.lineWidth = g.tonic ? 1.5 : 1
+    ctx.beginPath()
+    ctx.moveTo(x, labelBand)
+    ctx.lineTo(x, baseY)
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
   ctx.fillStyle = muted
   ctx.font = `600 ${Math.max(9, fontPx - 1)}px system-ui, sans-serif`
   ctx.textAlign = 'center'
@@ -197,13 +229,6 @@ function paint(): void {
   for (const mark of marks) {
     if (mark < spec.fMinHz || mark > spec.fMaxHz) continue
     const x = Math.round(hzToX(mark, cssW, spec.fMinHz, spec.fMaxHz))
-    ctx.strokeStyle = border
-    ctx.globalAlpha = 0.28
-    ctx.beginPath()
-    ctx.moveTo(x, 4)
-    ctx.lineTo(x, baseY)
-    ctx.stroke()
-    ctx.globalAlpha = 1
     if (cssH >= 120) {
       ctx.fillText(mark >= 1000 ? `${mark / 1000}k` : String(mark), x, cssH - 4)
     }
@@ -236,26 +261,53 @@ function paint(): void {
   ctx.lineTo(cssW, baseY)
   ctx.stroke()
 
-  // Glance shows peaks as chips — keep markers only to avoid tiny/squished labels.
+  // Peak markers — one label per note, spaced so hysteresis doubles don't stack.
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  for (const p of spec.peaks) {
-    const x = Math.round(hzToX(p.hz, cssW, spec.fMinHz, spec.fMaxHz))
-    const sel = !props.glance && selectedHz.value.has(peakKey(p.hz))
-    ctx.strokeStyle = sel ? accent : text
-    ctx.globalAlpha = sel ? 0.9 : 0.45
-    ctx.lineWidth = sel ? 2 : 1.15
+  const labelItems = spec.peaks.map((p) => {
+    const x = hzToX(p.hz, cssW, spec.fMinHz, spec.fMaxHz)
+    const inWin = p.errorCents != null && Math.abs(p.errorCents) <= win
+    return {
+      x,
+      text: p.note ?? `${p.hz.toFixed(0)}`,
+      salience: p.salience,
+      hz: p.hz,
+      inWin,
+      peak: p,
+    }
+  })
+  const placed = layoutNonOverlappingLabels(labelItems, {
+    minGapPx: Math.max(28, fontPx * 2.4),
+    width: cssW,
+  })
+  for (const item of placed) {
+    const x = Math.round(item.x)
+    const sel = !props.glance && selectedHz.value.has(peakKey(item.hz))
+    const hot = item.inWin
+    ctx.strokeStyle = hot ? accent : sel ? accent : text
+    ctx.globalAlpha = hot ? 0.95 : sel ? 0.85 : 0.4
+    ctx.lineWidth = hot || sel ? 2.25 : 1.15
     ctx.beginPath()
     ctx.moveTo(x, labelBand)
     ctx.lineTo(x, baseY)
     ctx.stroke()
+    // Peak tip glow when in-tune
+    if (hot) {
+      const yi = Math.max(
+        labelBand + 4,
+        baseY - (item.peak.salience || 0.5) * usable,
+      )
+      ctx.globalAlpha = 0.9
+      ctx.fillStyle = accent
+      ctx.beginPath()
+      ctx.arc(x, yi, cssH < 160 ? 3.5 : 5, 0, Math.PI * 2)
+      ctx.fill()
+    }
     ctx.globalAlpha = 1
     if (!props.glance && cssH >= 140) {
-      ctx.fillStyle = sel ? accent : text
+      ctx.fillStyle = hot ? accent : sel ? accent : text
       ctx.font = `700 ${fontPx}px system-ui, sans-serif`
-      const label = p.note ?? `${p.hz.toFixed(0)}`
-      const tx = Math.min(cssW - 8, Math.max(8, x))
-      ctx.fillText(label, tx, 4)
+      ctx.fillText(item.text, Math.round(item.drawX), 4)
     }
   }
 }
@@ -276,8 +328,10 @@ function withAlpha(cssColor: string, alpha: number): string {
 }
 
 watch(
-  () => props.spectrum,
+  () =>
+    [props.spectrum, props.prefs, props.a4Hz, props.windowCents, selectedHz.value] as const,
   () => requestPaint(),
+  { deep: true },
 )
 
 onMounted(() => {
@@ -341,51 +395,48 @@ function onCanvasClick(ev: MouseEvent): void {
       </button>
     </div>
 
-    <details v-if="!glance" class="opts">
-      <summary>Options</summary>
-      <div class="controls" role="group" aria-label="FFT options">
-        <label class="ctrl">
-          <span>Resolution</span>
-          <select
-            :value="prefs.fftSize"
-            @change="
-              $emit('patch', {
-                fftSize: Number(($event.target as HTMLSelectElement).value),
-              })
-            "
-          >
-            <option :value="2048">2048</option>
-            <option :value="4096">4096</option>
-            <option :value="8192">8192</option>
-            <option :value="16384">16384</option>
-          </select>
-        </label>
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="prefs.fftSmoothing"
-            @change="
-              $emit('patch', {
-                fftSmoothing: ($event.target as HTMLInputElement).checked,
-              })
-            "
-          />
-          Smooth
-        </label>
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="prefs.fftPeakHold"
-            @change="
-              $emit('patch', {
-                fftPeakHold: ($event.target as HTMLInputElement).checked,
-              })
-            "
-          />
-          Peak hold
-        </label>
-      </div>
-    </details>
+    <div v-if="!glance" class="controls" role="group" aria-label="FFT options">
+      <label class="ctrl">
+        <span>Resolution</span>
+        <select
+          :value="prefs.fftSize"
+          @change="
+            $emit('patch', {
+              fftSize: Number(($event.target as HTMLSelectElement).value),
+            })
+          "
+        >
+          <option :value="2048">2048</option>
+          <option :value="4096">4096</option>
+          <option :value="8192">8192</option>
+          <option :value="16384">16384</option>
+        </select>
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          :checked="prefs.fftSmoothing"
+          @change="
+            $emit('patch', {
+              fftSmoothing: ($event.target as HTMLInputElement).checked,
+            })
+          "
+        />
+        Smooth
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          :checked="prefs.fftPeakHold"
+          @change="
+            $emit('patch', {
+              fftPeakHold: ($event.target as HTMLInputElement).checked,
+            })
+          "
+        />
+        Peak hold
+      </label>
+    </div>
 
     <canvas
       ref="canvasRef"
@@ -399,7 +450,10 @@ function onCanvasClick(ev: MouseEvent): void {
         v-for="p in peaks"
         :key="peakKey(p.hz)"
         class="chip"
-        :class="{ on: selectedHz.has(peakKey(p.hz)) }"
+        :class="{
+          on: selectedHz.has(peakKey(p.hz)),
+          ok: p.errorCents != null && Math.abs(p.errorCents) <= windowCents,
+        }"
       >
         <button
           type="button"
@@ -415,9 +469,26 @@ function onCanvasClick(ev: MouseEvent): void {
                 : formatDisplayCents(p.errorCents, { clarity: p.salience })
             }}
           </span>
+          <span class="mark">
+            {{
+              p.errorCents == null
+                ? ''
+                : Math.abs(p.errorCents) <= windowCents
+                  ? 'OK'
+                  : p.errorCents > 0
+                    ? '▲'
+                    : '▼'
+            }}
+          </span>
         </button>
       </li>
     </ul>
+
+    <TunerChordStatusStrip
+      v-if="!glance"
+      :score="chordScore"
+      :status-label="chordStatusLabel || 'Chord — listening for stack…'"
+    />
   </section>
 </template>
 
@@ -438,26 +509,15 @@ function onCanvasClick(ev: MouseEvent): void {
   font-weight: 700;
   flex: 1 1 auto;
 }
-.opts {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.25rem 0.55rem;
-  background: var(--surface);
-}
-.opts summary {
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 650;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-}
 .controls {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem 0.75rem;
   align-items: end;
-  padding: 0.35rem 0 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
 }
 .ctrl {
   display: grid;
@@ -521,7 +581,7 @@ function onCanvasClick(ev: MouseEvent): void {
 }
 .chip-btn {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-template-columns: auto auto auto auto;
   gap: 0.25rem;
   align-items: center;
   justify-content: center;
@@ -536,7 +596,8 @@ function onCanvasClick(ev: MouseEvent): void {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.chip.on .chip-btn {
+.chip.on .chip-btn,
+.chip.ok .chip-btn {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -545,9 +606,14 @@ function onCanvasClick(ev: MouseEvent): void {
   font-size: 0.85rem;
 }
 .hz,
-.cents {
+.cents,
+.mark {
   color: var(--muted);
   font-size: 0.75rem;
+}
+.chip.ok .mark,
+.chip.ok .cents {
+  color: inherit;
 }
 .fft.glance {
   height: 100%;

@@ -30,8 +30,8 @@ export function liveMonoF0(
   if (!(sampleRate > 0) || frame.length < 32) return { hz: null, clarity: 0 }
   const fMin = opts.fMinHz ?? 55
   const fMax = opts.fMaxHz ?? 1200
-  const rmsGate = opts.rmsGate ?? 0.004
-  const yinThresh = opts.yinThresh ?? 0.15
+  const rmsGate = opts.rmsGate ?? 0.01
+  const yinThresh = opts.yinThresh ?? 0.12
 
   let sumSq = 0
   for (let i = 0; i < frame.length; i++) sumSq += frame[i]! * frame[i]!

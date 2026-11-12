@@ -36,8 +36,13 @@ const props = withDefaults(
   defineProps<{
     /** Center the strip on this note when opened / when centerNote changes. */
     centerNote?: string | null
+    /**
+     * `dock` — stubby fullscreen sheet chrome (default).
+     * `page` — embedded Pitch Pipe stage (no close; fills available height).
+     */
+    variant?: 'dock' | 'page'
   }>(),
-  { centerNote: 'C4' },
+  { centerNote: 'C4', variant: 'dock' },
 )
 
 const emit = defineEmits<{
@@ -47,6 +52,8 @@ const emit = defineEmits<{
 }>()
 
 const prefs = usePreferencesStore()
+const isPage = computed(() => props.variant === 'page')
+const sessionBusyId = computed(() => (isPage.value ? 'pitch-pipe' : 'sheet-piano'))
 let player: PitchTonePlayer = createPitchTonePlayer(prefs.pitchPipePianoEngine, {
   polyphony: true,
 })
@@ -80,7 +87,7 @@ const pianoExpanded = computed(
 
 function syncSounding(): void {
   sounding.value = new Set(player.activeNotes())
-  setSessionBusy('sheet-piano', sounding.value.size > 0)
+  setSessionBusy(sessionBusyId.value, sounding.value.size > 0)
 }
 
 function isSounding(note: string): boolean {
@@ -441,7 +448,7 @@ onUnmounted(() => {
   resizeRo?.disconnect()
   resizeRo = null
   heldPcCodes.clear()
-  setSessionBusy('sheet-piano', false)
+  setSessionBusy(sessionBusyId.value, false)
   player.dispose()
 })
 
@@ -457,9 +464,10 @@ watch(
   <div
     ref="shellRef"
     class="sheet-piano-dock"
+    :class="{ 'sheet-piano-dock--page': isPage }"
     role="region"
     aria-label="Pitch piano"
-    :style="{ '--piano-h': `${pianoHeightPx}px` }"
+    :style="isPage ? undefined : { '--piano-h': `${pianoHeightPx}px` }"
   >
     <div class="dock-chrome">
       <button
@@ -482,6 +490,7 @@ watch(
         <span v-if="sampleStatus" class="dock-err">{{ sampleStatus }}</span>
       </div>
       <button
+        v-if="!isPage"
         type="button"
         class="dock-height-handle"
         aria-label="Drag to resize piano height"
@@ -517,6 +526,7 @@ watch(
         </button>
       </div>
       <button
+        v-if="!isPage"
         type="button"
         class="dock-btn dock-height-toggle"
         :class="{ 'is-on': pianoExpanded }"
@@ -528,6 +538,7 @@ watch(
         {{ pianoExpanded ? '▾' : '▴' }}
       </button>
       <button
+        v-if="!isPage"
         type="button"
         class="dock-btn dock-close"
         aria-label="Close piano"
@@ -620,6 +631,30 @@ watch(
   user-select: none;
   -webkit-user-select: none;
   --piano-h: 94px;
+}
+/* Pitch Pipe page embed — fixed practice height; no vertical resize chrome. */
+.sheet-piano-dock--page {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  border-top: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 1;
+  padding-bottom: 0.35rem;
+  --piano-h: 176px;
+}
+.sheet-piano-dock--page :deep(.piano-h-scroller) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.sheet-piano-dock--page .piano {
+  height: var(--piano-h);
+  max-height: none;
+}
+.sheet-piano-dock--page .dock-title {
+  /* No centered height grip on the page embed. */
+  padding-right: 0;
 }
 .dock-chrome {
   position: relative;

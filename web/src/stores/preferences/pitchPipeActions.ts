@@ -73,7 +73,7 @@ export function createPitchPipeActions(deps: StoreDeps) {
     pitchPipeRange.value = range
   }
 
-  /** Set pitch-pipe layout (grid, list, piano, piano-h). Side effect: localStorage. */
+  /** Set pitch-pipe layout (grid, list, piano). Side effect: localStorage. */
   function setPitchPipeLayout(layout: PitchPipeLayout): void {
     pitchPipeLayout.value = layout
   }

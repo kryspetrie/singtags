@@ -498,22 +498,28 @@ const FLAT_TO_SHARP: Record<string, string> = {
   Bb: 'A#',
 }
 
-/** Pitch-pipe button arrangements. */
-export type PitchPipeLayout = 'grid' | 'list' | 'piano' | 'piano-h'
+/** Pitch-pipe button arrangements. (`piano-h` legacy → normalize to `piano`.) */
+export type PitchPipeLayout = 'grid' | 'list' | 'piano'
 
 export const PITCH_PIPE_LAYOUT_OPTIONS: Array<{ value: PitchPipeLayout; label: string }> = [
   { value: 'grid', label: 'Grid' },
   { value: 'list', label: 'Wide list' },
-  { value: 'piano', label: 'Vertical piano' },
-  { value: 'piano-h', label: 'Horizontal piano' },
+  { value: 'piano', label: 'Piano' },
 ]
 
 export function isPitchPipePianoLayout(layout: PitchPipeLayout): boolean {
-  return layout === 'piano' || layout === 'piano-h'
+  return layout === 'piano'
+}
+
+/** Accept stored layouts including legacy `piano-h`. */
+export function normalizePitchPipeLayout(v: unknown): PitchPipeLayout | null {
+  if (v === 'piano' || v === 'piano-h') return 'piano'
+  if (v === 'grid' || v === 'list') return v
+  return null
 }
 
 export function isPitchPipeLayout(v: unknown): v is PitchPipeLayout {
-  return v === 'grid' || v === 'list' || v === 'piano' || v === 'piano-h'
+  return normalizePitchPipeLayout(v) != null
 }
 
 /**

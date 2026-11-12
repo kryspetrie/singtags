@@ -5,17 +5,14 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
+import { resolveFineDetuneCents } from '../audio/payKeyDetune'
 import {
-  PitchPlayer,
   clampPitchSemitones,
   formatKeyShiftLabel,
   keyToTonicNote,
   transposeKeyLabel,
 } from '../audio/pitchPlayer'
-import {
-  getActivePitchPipeVoice,
-  PITCH_PIPE_VOICE_CHANGE_EVENT,
-} from '../audio/pitchPipeVoice'
+import { usePayKeyTone } from '../composables/usePayKeyTone'
 import { useSortableListDrag } from '../composables/useSortableListDrag'
 import { formatTrackDuration, probeAudioDurationSeconds } from '../lib/audioDuration'
 import { pickMixTrackAsset } from '../lib/localMixTrack'
@@ -41,7 +38,7 @@ const pickSelected = ref<Set<string>>(new Set())
 const customizingPitch = ref(false)
 const durationByEntryId = ref<Record<string, number | null>>({})
 const durationBusy = new Set<string>()
-const pitch = new PitchPlayer(getActivePitchPipeVoice())
+const payKey = usePayKeyTone()
 
 const playlist = computed(() => playlists.byId(props.id))
 const isDraft = computed(() => playlists.isDraft(props.id))
@@ -215,19 +212,11 @@ async function hydrate(): Promise<void> {
   hydrateDurations()
 }
 
-function syncPitchVoice(): void {
-  pitch.setVoice(getActivePitchPipeVoice())
-}
-
 onMounted(() => {
-  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   void hydrate()
 })
 
 onUnmounted(() => {
-  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
-  pitch.stop()
-  pitch.dispose()
   if (playlists.isDraft(props.id)) playlists.discardDraft()
 })
 
@@ -311,15 +300,20 @@ function openSong(entryId: string, itemId: string): void {
 async function payKeyDown(row: Row): Promise<void> {
   const note = keyToTonicNote(row.writtenKey)
   if (!note) {
-    snackbar.show('Set a written key on the song to pay pitch.', { tone: 'info' })
+    snackbar.show('Set a written key on the song to play the key.', { tone: 'info' })
     return
   }
-  const cents = row.keyShift * 100 + prefs.globalPitchDetuneCents() + row.detuneCents
-  await pitch.start(note, cents)
+  await payKey.play(note, {
+    shiftSemitones: row.keyShift,
+    fineCents: resolveFineDetuneCents({
+      globalCents: prefs.globalPitchDetuneCents(),
+      entryCents: row.detuneCents,
+    }),
+  })
 }
 
 function payKeyUp(): void {
-  pitch.stop()
+  payKey.stop(true)
 }
 
 function togglePick(id: string): void {
@@ -456,7 +450,7 @@ async function confirmDestroy(): Promise<void> {
             class="btn toggle"
             :class="{ on: playlist.showPitchButtons }"
             :aria-pressed="playlist.showPitchButtons"
-            title="Show pay-key chips on set list cards"
+            title="Show play-the-key chips on set list cards"
             @click="toggleShowPitchButtons"
           >
             Show pitch
@@ -593,7 +587,7 @@ async function confirmDestroy(): Promise<void> {
                 :class="{ muted: !row.canPayKey }"
                 :disabled="editing || !row.canPayKey"
                 :aria-label="`Pay ${row.keyLabel}`"
-                :title="row.canPayKey ? 'Hold to pay the key' : 'Set a key on the song first'"
+                :title="row.canPayKey ? 'Hold to play the key' : 'Set a key on the song first'"
                 @pointerdown.prevent="payKeyDown(row)"
                 @pointerup.prevent="payKeyUp"
                 @pointerleave.prevent="payKeyUp"

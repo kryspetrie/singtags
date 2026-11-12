@@ -11,6 +11,7 @@ import {
   type SpectrogramColormap,
 } from '../../audio/tuner/spectrogramColormap'
 import type { SpectrogramTrack } from '../../audio/tuner/spectrogramTracks'
+import type { ChordStackScore } from '../../domain/tuner/chordStack'
 import {
   prefsForPitchRange,
   type DigitalTunerPrefs,
@@ -19,11 +20,15 @@ import {
 } from '../../lib/preferences/digitalTuner'
 import type { SpectrogramFreqScale } from '../../audio/tuner/spectrogramRing'
 import { matchPitchRangeId, PITCH_RANGE_PRESETS } from '../../domain/tuner/pitchRange'
+import { formatDisplayCents } from '../../domain/tuner/displayCents'
+import { noteFromHz } from '../../domain/tuner/noteFromHz'
+import { scaleGuideLinesInBand } from '../../domain/tuner/scaleGuideLines'
 import {
   cancelScheduledTunerPaint,
   scheduleTunerPaint,
   sizeTunerCanvas,
 } from '../../lib/tuner/canvasPaint'
+import TunerChordStatusStrip from './TunerChordStatusStrip.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -33,10 +38,17 @@ const props = withDefaults(
     prefs: DigitalTunerPrefs
     /** Increments when a new column is ready. */
     paintGen?: number
+    /** Resolved concert A. */
+    a4Hz?: number
+    /** |¢| window for in-tune track/line highlight. */
+    windowCents?: number
+    /** Chord intonation scored from held tracks. */
+    chordScore?: ChordStackScore | null
+    chordStatusLabel?: string | null
     /** 10-foot mode — canvas only. */
     glance?: boolean
   }>(),
-  { glance: false },
+  { glance: false, a4Hz: 440, windowCents: 15, chordScore: null, chordStatusLabel: null },
 )
 
 const emit = defineEmits<{
@@ -63,6 +75,29 @@ function requestPaint(): void {
 }
 
 const freqPreset = computed(() => matchPitchRangeId(props.prefs.specFMinHz, props.prefs.specFMaxHz))
+
+const trackChips = computed(() => {
+  const win = props.windowCents
+  const a4 = props.a4Hz
+  return props.tracks
+    .filter((t) => t.points.length > 0)
+    .slice(0, 4)
+    .map((t) => {
+      const last = t.points[t.points.length - 1]!
+      const nf = noteFromHz(last.hz, a4)
+      const cents = nf?.cents ?? null
+      const inTune = cents != null && Math.abs(cents) <= win
+      return {
+        id: t.id,
+        held: t.held,
+        note: t.label ?? nf?.name ?? `${last.hz.toFixed(0)}`,
+        centsText:
+          cents == null ? '' : formatDisplayCents(cents, { clarity: last.salience }),
+        mark: inTune ? 'OK' : cents == null ? (t.held ? 'HELD' : '·') : cents > 0 ? '▲' : '▼',
+        inTune,
+      }
+    })
+})
 
 function setScale(scale: SpectrogramFreqScale): void {
   emit('patch', { specFreqScale: scale })
@@ -161,25 +196,64 @@ function paint(): void {
       lastHeatMap = map
     }
     if (heatCanvas) {
+      // Always scroll: fixed column pitch; paint from the right (no stretch-at-start).
       ctx.imageSmoothingEnabled = false
-      ctx.drawImage(heatCanvas as CanvasImageSource, 0, 0, w, h)
+      const colW = w / ring.maxColumns
+      const heatW = Math.max(1, visible * colW)
+      const heatX = w - heatW
+      ctx.drawImage(heatCanvas as CanvasImageSource, heatX, 0, heatW, h)
     }
   }
 
-  // Tracks + grid in CSS pixel space (after DPR transform).
+  // Tracks + guides in CSS pixel space (after DPR transform).
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   const cssColW = cssW / ring.maxColumns
+  const offsetX = cssW - visible * cssColW
   const fontPx = Math.max(10, Math.min(13, Math.round(cssH * 0.045)))
+  const win = Math.max(1, props.windowCents)
+  const a4 = props.a4Hz
+
+  // Scale-note bars across the full width
+  const guides = scaleGuideLinesInBand({
+    fMinHz: ring.fMinHz,
+    fMaxHz: ring.fMaxHz,
+    a4Hz: a4,
+    keyPc: props.prefs.keyPc,
+    scaleMode: props.prefs.scaleMode,
+  })
+  for (const g of guides) {
+    const y = cssH - fractionAtHz(ring, g.hz) * cssH
+    ctx.strokeStyle = g.tonic ? 'rgba(94,234,212,0.45)' : 'rgba(255,255,255,0.16)'
+    ctx.lineWidth = g.tonic ? 1.4 : 1
+    ctx.beginPath()
+    ctx.moveTo(0, y)
+    ctx.lineTo(cssW, y)
+    ctx.stroke()
+  }
+
   if (props.prefs.specShowTracks && props.tracks.length) {
     for (const track of props.tracks) {
       if (track.points.length < 2) continue
-      ctx.strokeStyle = track.held ? '#5eead4' : '#fbbf24'
-      ctx.lineWidth = track.held ? (cssH < 160 ? 1.8 : 2.4) : cssH < 160 ? 1.2 : 1.6
+      const last = track.points[track.points.length - 1]!
+      const nf = noteFromHz(last.hz, a4)
+      const inWin = nf != null && Math.abs(nf.cents) <= win
+      ctx.strokeStyle = inWin ? '#34d399' : track.held ? '#5eead4' : '#fbbf24'
+      ctx.lineWidth = inWin
+        ? cssH < 160
+          ? 2.4
+          : 3.2
+        : track.held
+          ? cssH < 160
+            ? 1.8
+            : 2.4
+          : cssH < 160
+            ? 1.2
+            : 1.6
       ctx.beginPath()
       let started = false
       for (const p of track.points) {
         if (p.col < start) continue
-        const x = (p.col - start) * cssColW + cssColW * 0.5
+        const x = offsetX + (p.col - start) * cssColW + cssColW * 0.5
         const y = cssH - fractionAtHz(ring, p.hz) * cssH
         if (!started) {
           ctx.moveTo(x, y)
@@ -188,26 +262,29 @@ function paint(): void {
       }
       if (started) ctx.stroke()
 
-      // Glance uses chip strip for held labels — skip canvas glyphs when short.
-      if (track.held && track.label && !(props.glance && cssH < 200)) {
-        const last = track.points[track.points.length - 1]!
-        if (last.col >= start) {
-          const x = (last.col - start) * cssColW + 4
-          const y = cssH - fractionAtHz(ring, last.hz) * cssH
-          ctx.font = `bold ${fontPx}px system-ui, sans-serif`
-          ctx.fillStyle = 'rgba(0,0,0,0.55)'
-          const tw = ctx.measureText(track.label).width
-          ctx.fillRect(x - 2, y - fontPx - 3, tw + 8, fontPx + 4)
-          ctx.fillStyle = '#5eead4'
-          ctx.fillText(track.label, x, y - 4)
+      const label = track.label ?? nf?.name ?? null
+      if (label && last.col >= start && !(props.glance && cssH < 200)) {
+        const x = offsetX + (last.col - start) * cssColW + 4
+        const y = cssH - fractionAtHz(ring, last.hz) * cssH
+        ctx.font = `bold ${fontPx}px system-ui, sans-serif`
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'
+        const tw = ctx.measureText(label).width
+        ctx.fillRect(x - 2, y - fontPx - 3, tw + 8, fontPx + 4)
+        ctx.fillStyle = inWin ? '#34d399' : track.held ? '#5eead4' : '#fbbf24'
+        ctx.fillText(label, x, y - 4)
+        if (inWin) {
+          ctx.fillStyle = '#34d399'
+          ctx.beginPath()
+          ctx.arc(x - 6, y, 3.5, 0, Math.PI * 2)
+          ctx.fill()
         }
       }
     }
   }
 
   if (props.prefs.specGridlines && cssH >= 100) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)'
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'
     ctx.lineWidth = 1
     ctx.font = `${Math.max(9, fontPx - 2)}px system-ui, sans-serif`
     const dense = cssH >= 220 && cssW >= 420
@@ -262,75 +339,88 @@ watch(
       <button type="button" class="btn" @click="$emit('clear')">Clear</button>
     </div>
 
-    <details v-if="!glance" class="opts">
-      <summary>Options</summary>
-      <div class="controls" role="group" aria-label="Spectrogram options">
-        <label class="ctrl">
-          <span>Scale</span>
-          <select
-            :value="prefs.specFreqScale"
-            @change="setScale(($event.target as HTMLSelectElement).value as SpectrogramFreqScale)"
-          >
-            <option value="log">Log</option>
-            <option value="linear">Linear</option>
-          </select>
-        </label>
-        <label class="ctrl">
-          <span>Window</span>
-          <select :value="freqPreset" @change="setFreqPreset(($event.target as HTMLSelectElement).value)">
-            <option v-for="p in PITCH_RANGE_PRESETS" :key="p.id" :value="p.id">
-              {{ p.label }}
-            </option>
-            <option value="custom">Custom</option>
-            <option value="custom" disabled>Custom</option>
-          </select>
-        </label>
-        <label class="ctrl">
-          <span>Resolution</span>
-          <select
-            :value="prefs.specResolution"
-            @change="setResolution(($event.target as HTMLSelectElement).value as SpectrogramResolution)"
-          >
-            <option value="coarse">Coarse</option>
-            <option value="medium">Medium</option>
-            <option value="fine">Fine</option>
-            <option value="ultra">Ultra</option>
-          </select>
-        </label>
-        <label class="ctrl">
-          <span>Color</span>
-          <select
-            :value="prefs.specColormap"
-            @change="setColormap(($event.target as HTMLSelectElement).value as SpectrogramColormap)"
-          >
-            <option v-for="m in SPECTROGRAM_COLORMAPS" :key="m.id" :value="m.id">{{ m.label }}</option>
-          </select>
-        </label>
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="prefs.specGridlines"
-            @change="setGrid(($event.target as HTMLInputElement).checked)"
-          />
-          Grid
-        </label>
-        <label class="check">
-          <input
-            type="checkbox"
-            :checked="prefs.specShowTracks"
-            @change="setTracks(($event.target as HTMLInputElement).checked)"
-          />
-          Tracks
-        </label>
-      </div>
-    </details>
+    <div v-if="!glance" class="controls" role="group" aria-label="Spectrogram options">
+      <label class="ctrl">
+        <span>Scale</span>
+        <select
+          :value="prefs.specFreqScale"
+          @change="setScale(($event.target as HTMLSelectElement).value as SpectrogramFreqScale)"
+        >
+          <option value="log">Log</option>
+          <option value="linear">Linear</option>
+        </select>
+      </label>
+      <label class="ctrl">
+        <span>Window</span>
+        <select :value="freqPreset" @change="setFreqPreset(($event.target as HTMLSelectElement).value)">
+          <option v-for="p in PITCH_RANGE_PRESETS" :key="p.id" :value="p.id">
+            {{ p.label }}
+          </option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label class="ctrl">
+        <span>Resolution</span>
+        <select
+          :value="prefs.specResolution"
+          @change="setResolution(($event.target as HTMLSelectElement).value as SpectrogramResolution)"
+        >
+          <option value="coarse">Coarse</option>
+          <option value="medium">Medium</option>
+          <option value="fine">Fine</option>
+          <option value="ultra">Ultra</option>
+        </select>
+      </label>
+      <label class="ctrl">
+        <span>Color</span>
+        <select
+          :value="prefs.specColormap"
+          @change="setColormap(($event.target as HTMLSelectElement).value as SpectrogramColormap)"
+        >
+          <option v-for="m in SPECTROGRAM_COLORMAPS" :key="m.id" :value="m.id">{{ m.label }}</option>
+        </select>
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          :checked="prefs.specGridlines"
+          @change="setGrid(($event.target as HTMLInputElement).checked)"
+        />
+        Grid
+      </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          :checked="prefs.specShowTracks"
+          @change="setTracks(($event.target as HTMLInputElement).checked)"
+        />
+        Tracks
+      </label>
+    </div>
 
     <canvas ref="canvasRef" class="canvas" />
+
+    <ul v-if="!glance && trackChips.length" class="track-strip" aria-label="Held pitch tracks">
+      <li
+        v-for="t in trackChips"
+        :key="t.id"
+        class="chip"
+        :class="{ ok: t.inTune, held: t.held && !t.inTune }"
+      >
+        <span class="note">{{ t.note }}</span>
+        <span class="cents">{{ t.centsText }}</span>
+        <span class="mark">{{ t.mark }}</span>
+      </li>
+    </ul>
+
+    <TunerChordStatusStrip
+      v-if="!glance"
+      :score="chordScore"
+      :status-label="chordStatusLabel || 'Chord — listening for stack…'"
+    />
     <p v-if="!glance" class="hint">
-      Teal = held · Amber = tracking · {{ Math.round(prefs.specFMinHz) }}–{{
-        Math.round(prefs.specFMaxHz)
-      }}
-      Hz
+      Green = in tune · Teal = held · Amber = tracking ·
+      {{ Math.round(prefs.specFMinHz) }}–{{ Math.round(prefs.specFMaxHz) }} Hz
     </p>
   </section>
 </template>
@@ -339,20 +429,6 @@ watch(
 .spec {
   display: grid;
   gap: 0.45rem;
-}
-.opts {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.25rem 0.55rem;
-  background: var(--surface);
-}
-.opts summary {
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 650;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
 }
 .head {
   display: flex;
@@ -384,7 +460,48 @@ watch(
   flex-wrap: wrap;
   gap: 0.45rem 0.65rem;
   align-items: end;
-  padding: 0.35rem 0 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.track-strip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  background: var(--surface);
+}
+.chip.ok {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+}
+.chip.held {
+  border-color: color-mix(in srgb, #5eead4 50%, var(--border));
+}
+.chip .note {
+  font-weight: 700;
+}
+.chip .cents,
+.chip .mark {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.chip.ok .cents,
+.chip.ok .mark {
+  color: inherit;
 }
 .ctrl {
   display: grid;

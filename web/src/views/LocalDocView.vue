@@ -19,16 +19,14 @@ import {
   patchLocalEntryQuery,
 } from '../lib/localDocOpen'
 import { FULLSCREEN_QUERY_FLAG, fullscreenQuery } from '../lib/fullscreenQuery'
+import { resolveFineDetuneCents } from '../audio/payKeyDetune'
 import {
-  PitchPlayer,
   formatKeyShiftLabel,
   keyToTonicNote,
   clampPitchSemitones,
 } from '../audio/pitchPlayer'
-import {
-  getActivePitchPipeVoice,
-  PITCH_PIPE_VOICE_CHANGE_EVENT,
-} from '../audio/pitchPipeVoice'
+import { usePayKeyTone } from '../composables/usePayKeyTone'
+import { readPitchShiftFromQuery } from '../lib/pitchShiftQuery'
 import { uniqueTrackPartKey } from '../lib/localAssetHeuristics'
 import { PRIMARY_PARTS, partLabel } from '../lib/parts'
 import { useLocalLibraryStore } from '../stores/localLibrary'
@@ -82,7 +80,7 @@ const saveBusy = ref(false)
 const filesEditing = ref(false)
 
 const keyShift = ref(0)
-const pitch = new PitchPlayer(getActivePitchPipeVoice())
+const payKey = usePayKeyTone()
 
 const imageSets = ref<SheetImageSet[]>([])
 const pdfs = ref<SheetPdfFile[]>([])
@@ -464,19 +462,8 @@ watch(
 
 onUnmounted(() => {
   stopPlayerTick()
-  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
   revokeOwned()
-  pitch.stop()
-  pitch.dispose()
 })
-
-function syncPitchVoice(): void {
-  pitch.setVoice(getActivePitchPipeVoice())
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
-}
 
 async function saveMeta(): Promise<boolean> {
   if (!entry.value || saveBusy.value) return false
@@ -566,27 +553,28 @@ function tonicNote() {
   return keyToTonicNote(key)
 }
 
-const mixDetuneCents = computed(
-  () => prefs.globalPitchDetuneCents() + (entry.value?.detuneCents ?? 0),
+const mixDetuneCents = computed(() =>
+  resolveFineDetuneCents({
+    globalCents: prefs.globalPitchDetuneCents(),
+    entryCents: entry.value?.detuneCents ?? 0,
+  }),
 )
 
-
 function readShiftFromQuery(): number {
-  const raw = route.query.shift
-  if (typeof raw !== 'string' || raw === '') return 0
-  const n = Number(raw)
-  return Number.isFinite(n) ? clampPitchSemitones(n) : 0
+  return readPitchShiftFromQuery(route.query)
 }
 
 async function payKeyDown(): Promise<void> {
   const note = tonicNote()
   if (!note) return
-  const shiftCents = keyShift.value * 100
-  await pitch.start(note, shiftCents + mixDetuneCents.value)
+  await payKey.play(note, {
+    shiftSemitones: keyShift.value,
+    fineCents: mixDetuneCents.value,
+  })
 }
 
 function payKeyUp(): void {
-  pitch.stop()
+  payKey.stop(true)
 }
 
 function enterSheetFullscreen(): void {
@@ -796,7 +784,7 @@ async function exportAllAsZip(): Promise<void> {
           @pay-down="payKeyDown"
           @pay-up="payKeyUp"
         />
-        <p v-if="!canPayKey" class="tip">Set a key in Edit to enable pay-the-key.</p>
+        <p v-if="!canPayKey" class="tip">Set a key in Edit to enable play-the-key.</p>
       </div>
     </section>
 

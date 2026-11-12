@@ -69,7 +69,7 @@ Set these when invoking the website deploy scripts (see [`../docs/publish.md`](.
 | `/` | Browse + search |
 | `/tag/:id` | Tag (sheets, tracks, Sing mode, share) |
 | `/favorites`, `/recent`, `/queue` | Favorites, Recent, Export queue |
-| `/pitch-pipe` | Chromatic pitch pipe / pay-the-key |
+| `/pitch-pipe` | Chromatic pitch pipe / play-the-key |
 | `/settings` | Prefs, offline packs, backup |
 | `/labs` | Feature flags / experimental entry |
 | `/labs/pitch-pipe-sound` | Pitch pipe voice lab |

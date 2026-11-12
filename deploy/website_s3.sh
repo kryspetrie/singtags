@@ -66,16 +66,13 @@ sync_site_prefix() {
     --cache-control "$cache_control"
 }
 
+# Hashed Vite chunks first (immutable). Everything else below is discovered from
+# dist/ so new public/ trees (worklets/, tag-studio/, labs…) cannot be forgotten.
 sync_site_prefix assets "public,max-age=31536000,immutable"
-sync_site_prefix indexes "public,max-age=3600"
-# Slim per-tag metadata published next to the app (not the media library).
-sync_site_prefix tags "public,max-age=3600"
-sync_site_prefix education "public,max-age=300"
-sync_site_prefix instruments "public,max-age=300"
-sync_site_prefix install-help "public,max-age=300"
 
 # Open Graph shells for /tag/{id} (extensionless HTML objects). Discordbot reads
 # these; humans still get the SPA bundle referenced inside each shell.
+# Mapped from dist/tag-previews → s3://…/tag/ (not a same-name prefix).
 if [[ -d "$DIST/tag-previews" ]]; then
   echo "Syncing tag/ link-preview shells…"
   aws s3 sync "$DIST/tag-previews/" "${DEST}tag/" \
@@ -86,6 +83,32 @@ if [[ -d "$DIST/tag-previews" ]]; then
     --metadata-directive REPLACE \
     --cache-control "public,max-age=3600"
 fi
+
+cache_control_for_prefix() {
+  case "$1" in
+    assets) echo "public,max-age=31536000,immutable" ;;
+    # Slim tag metadata + search indexes — short revalidate.
+    indexes | tags) echo "public,max-age=3600" ;;
+    # Sheet fonts + seed JSON under Tag Studio; AudioWorklets; lab static pages.
+    tag-studio) echo "public,max-age=86400" ;;
+    worklets) echo "public,max-age=300" ;;
+    *) echo "public,max-age=300" ;;
+  esac
+}
+
+shopt -s nullglob
+for dir in "$DIST"/*/ ; do
+  [[ -d "$dir" ]] || continue
+  rel="$(basename "$dir")"
+  case "$rel" in
+    # Already uploaded (or specially mapped).
+    assets | tag-previews) continue ;;
+    *)
+      sync_site_prefix "$rel" "$(cache_control_for_prefix "$rel")"
+      ;;
+  esac
+done
+shopt -u nullglob
 
 # Root shell / PWA files: copy by name so we never LIST library/ (or tags/).
 echo "Uploading app shell (root files)…"

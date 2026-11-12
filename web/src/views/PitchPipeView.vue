@@ -1,31 +1,21 @@
 <script setup lang="ts">
 /**
  * Chromatic pitch pipe page: concert-A tuning, note range/layout prefs, hold-to-play keys.
+ * Piano layout reuses the fullscreen-tag SheetPianoDock (full horizontal keyboard).
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   PITCH_PIPE_A_TUNINGS,
   PITCH_PIPE_GRID_COLS,
   PITCH_PIPE_GRID_SCALE_MAX,
   PITCH_PIPE_GRID_SCALE_MIN,
   PITCH_PIPE_LAYOUT_OPTIONS,
-  PITCH_PIPE_PC_KEY_CODES,
   PITCH_PIPE_PIANO_DEFAULT_OCTAVE_OPTIONS,
   PITCH_PIPE_RANGE_OPTIONS,
-  SHEET_PIANO_SCALE_MAX,
-  SHEET_PIANO_SCALE_STEP,
   isPitchPipePianoLayout,
   pitchPipeAriaLabel,
   pitchPipeDisplay,
-  pitchPipeFullKeyboardNotes,
   pitchPipeNotes,
-  pitchPipePcKeyNoteMap,
-  pitchPipePcKeyOctave,
-  pitchPipePcKeyWindowNotes,
-  pitchPipeNoteSemitoneShift,
-  pitchPipePianoSlots,
-  sheetPianoWhiteKeyPx,
-  minSheetPianoKeyScaleForViewport,
   type PitchPipeAHz,
   type PitchPipeLayout,
   type PitchPipePianoDefaultOctave,
@@ -48,7 +38,7 @@ import {
 import { createPitchTonePlayer, type PitchTonePlayer } from '../audio/pitchTone'
 import { usePreferencesStore } from '../stores/preferences'
 import { setSessionBusy } from '../lib/sessionActivity'
-import PianoHorizontalScroll from '../components/PianoHorizontalScroll.vue'
+import SheetPianoDock from '../components/SheetPianoDock.vue'
 
 const prefs = usePreferencesStore()
 /** Concert A preset (`null` = custom / “—”). */
@@ -59,31 +49,13 @@ const detune = computed({
   set: (v: number) => prefs.setPitchPipeDetuneCents(v, { clearConcertA: true }),
 })
 const current = ref<string | null>(null)
-/** Polyphonic highlight set (piano layouts). */
-const sounding = ref<Set<string>>(new Set())
 const keysRef = ref<HTMLElement | null>(null)
-const pianoScrollRef = ref<HTMLElement | null>(null)
-const pianoHScrollRef = ref<{
-  getScrollElement: () => HTMLElement | null
-  syncThumb: () => void
-  scrollToNote: (note: string, opts?: { behavior?: ScrollBehavior }) => void
-} | null>(null)
 const sampleStatus = ref<string | null>(null)
-/** pointerId → note for multitouch on piano keys. */
-const pointerNotes = new Map<number, string>()
-/** Guards async noteOn completing after noteOff (touch pan / multitouch). */
-const wantSounding = new Set<string>()
-const heldPcCodes = new Set<string>()
 
 function syncSoundingFromPlayer(): void {
-  sounding.value = new Set(player.activeNotes())
   const notes = player.activeNotes()
   current.value = notes.length ? notes[notes.length - 1]! : null
   setSessionBusy('pitch-pipe', notes.length > 0)
-}
-
-function isSounding(note: string): boolean {
-  return sounding.value.has(note)
 }
 
 const concertASelectValue = computed(() => (aHz.value == null ? 'custom' : String(aHz.value)))
@@ -148,21 +120,6 @@ const showOctave = computed({
 })
 
 const gridScale = computed(() => prefs.pitchPipeGridScale)
-/** Shared with sheet fullscreen piano dock. */
-const pianoKeyScale = computed(() => prefs.sheetPianoKeyScale)
-const pianoWhiteKeyPx = computed(() => sheetPianoWhiteKeyPx(pianoKeyScale.value))
-const pianoShellHRef = ref<HTMLElement | null>(null)
-const pianoViewportW = ref(0)
-
-const showFullKeyboard = computed({
-  get: () => prefs.pitchPipeShowFullKeyboard,
-  set: (v: boolean) => prefs.setPitchPipeShowFullKeyboard(v),
-})
-
-const pianoLockPosition = computed({
-  get: () => prefs.pitchPipePianoLockPosition,
-  set: (v: boolean) => prefs.setPitchPipePianoLockPosition(v),
-})
 
 const showPcKeyRange = computed({
   get: () => prefs.pitchPipeShowPcKeyRange,
@@ -175,46 +132,26 @@ const pianoEngine = computed({
 })
 
 const isPianoLayout = computed(() => isPitchPipePianoLayout(pipeLayout.value))
-const isHorizontalPiano = computed(() => pipeLayout.value === 'piano-h')
 
-/** Horizontal piano always shows the full strip; vertical uses the toggle. */
-const showScrollableKeyboard = computed(
-  () => isHorizontalPiano.value || (isPianoLayout.value && showFullKeyboard.value),
+/** Grid/list always synth; piano uses SheetPianoDock’s own player. */
+const showSynthAttack = computed(
+  () => !isPianoLayout.value || pianoEngine.value === 'synth',
 )
 
-/** Effective engine for the current layout (grid/list always synth). */
-const activeEngine = computed((): PianoSoundEngineId =>
-  isPianoLayout.value ? pianoEngine.value : 'synth',
-)
+let player: PitchTonePlayer = createPitchTonePlayer('synth', { polyphony: false })
 
-let player: PitchTonePlayer = createPitchTonePlayer(
-  isPitchPipePianoLayout(prefs.pitchPipeLayout) ? prefs.pitchPipePianoEngine : 'synth',
-  { polyphony: isPitchPipePianoLayout(prefs.pitchPipeLayout) },
-)
-
-/** Notes in the selected Settings range (always the practice window). */
+/** Notes in the selected Settings range (grid/list practice window). */
 const rangeNotes = computed(() => pitchPipeNotes(pipeRange.value))
 
 function rebuildPlayer(): void {
-  wantSounding.clear()
   player.allNotesOff(false)
-  pointerNotes.clear()
-  heldPcCodes.clear()
   const prev = player
-  player = createPitchTonePlayer(activeEngine.value, { polyphony: isPianoLayout.value })
+  player = createPitchTonePlayer('synth', { polyphony: false })
   prev.dispose()
   sampleStatus.value = null
   syncSoundingFromPlayer()
-  // New AudioContext — unlock immediately when rebuild runs inside a gesture
-  // (engine/layout change); otherwise first key pays resume latency.
   void player.warmUp?.()
   syncPitchVoice()
-  if (isPianoLayout.value && activeEngine.value === 'samples') {
-    const mid = rangeNotes.value[Math.floor(rangeNotes.value.length / 2)] ?? 'C4'
-    void player.preloadForNote?.(mid).catch(() => {
-      sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t load piano samples'
-    })
-  }
 }
 
 /** Octave digit for labels when the setting is on; empty when off. */
@@ -222,23 +159,8 @@ function octaveLabel(octave: string): string {
   return showOctave.value ? octave : ''
 }
 
-const rangeNoteSet = computed(() => new Set(rangeNotes.value))
-
-/**
- * Keys shown on screen: selected range, or the full 66-key piano when scrolling
- * (horizontal always; vertical when “Show full keyboard” is on).
- */
-const noteList = computed(() =>
-  showScrollableKeyboard.value ? pitchPipeFullKeyboardNotes() : rangeNotes.value,
-)
-
-/** High → low for grid/list / vertical piano focus order. */
-const visualNotes = computed(() => [...noteList.value].reverse())
-
-/** Left → right (low → high) for horizontal piano focus. */
-const focusNotes = computed(() =>
-  isHorizontalPiano.value ? [...noteList.value] : visualNotes.value,
-)
+/** High → low for grid/list focus order. */
+const visualNotes = computed(() => [...rangeNotes.value].reverse())
 
 const noteRows = computed(() =>
   visualNotes.value.map((note) => {
@@ -247,202 +169,26 @@ const noteRows = computed(() =>
       note,
       display,
       aria: pitchPipeAriaLabel(note),
-      inRange: rangeNoteSet.value.has(note),
     }
   }),
 )
 
-const byNote = computed(() => {
-  const map = new Map<string, (typeof noteRows.value)[number]>()
-  for (const row of noteRows.value) map.set(row.note, row)
-  return map
-})
-
-const pianoSlots = computed(() => pitchPipePianoSlots(noteList.value))
-
-/**
- * White keys in on-screen order: vertical = high→low (top→bottom);
- * horizontal = low→high (left→right).
- */
-const displayWhites = computed(() =>
-  isHorizontalPiano.value ? pianoSlots.value.whites : [...pianoSlots.value.whites].reverse(),
-)
-
-const minPianoKeyScale = computed(() =>
-  minSheetPianoKeyScaleForViewport(pianoViewportW.value, displayWhites.value.length),
-)
-
-const whiteKeyPct = computed(() => {
-  const n = displayWhites.value.length
-  return n > 0 ? 100 / n : 100
-})
-
-/** Scroll-driven C octave for PC keys when the full horizontal keyboard is showing. */
-const scrollPcOctave = ref<number | null>(null)
-
-const pcKeyWindow = computed(() => {
-  if (!isPianoLayout.value) return [] as string[]
-  if (showScrollableKeyboard.value) {
-    const oct =
-      scrollPcOctave.value ??
-      (isHorizontalPiano.value
-        ? pianoDefaultOctave.value
-        : pitchPipePcKeyOctave(rangeNotes.value))
-    return pitchPipePcKeyWindowNotes(oct)
-  }
-  const notes = rangeNotes.value
-  // C-based ranges keep a true piano shape (B below C through next D).
-  if (notes[0] && /^C\d+$/i.test(notes[0]!)) {
-    return pitchPipePcKeyWindowNotes(pitchPipePcKeyOctave(notes))
-  }
-  // Other ranges: map chromatically from S upward; A is the semitone below the first note.
-  const below = notes[0] ? pitchPipeNoteSemitoneShift(notes[0], -1) : null
-  const win = below ? [below, ...notes] : [...notes]
-  return win.slice(0, PITCH_PIPE_PC_KEY_CODES.length)
-})
-
-const pcKeyMap = computed(() => pitchPipePcKeyNoteMap(pcKeyWindow.value))
-
-/** Notes under the current PC-key window (full keyboard dims everything else). */
-const pcKeyNoteSet = computed(() => new Set(pcKeyMap.value.values()))
-
-function isOutOfPcWindow(note: string): boolean {
-  return showPcKeyRange.value && showScrollableKeyboard.value && !pcKeyNoteSet.value.has(note)
-}
-
-function isTypingTarget(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false
-  const tag = t.tagName
-  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || t.isContentEditable
-}
-
-function onPcKeyDown(e: KeyboardEvent): void {
-  if (!isPianoLayout.value) return
-  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return
-  if (isTypingTarget(e.target)) return
-  const note = pcKeyMap.value.get(e.code)
-  if (!note) return
-  e.preventDefault()
-  if (heldPcCodes.has(e.code)) return
-  heldPcCodes.add(e.code)
-  void noteOn(note)
-}
-
-function onPcKeyUp(e: KeyboardEvent): void {
-  if (!heldPcCodes.has(e.code)) return
-  heldPcCodes.delete(e.code)
-  const note = pcKeyMap.value.get(e.code)
-  if (note) noteOff(note)
-}
-
-/** Update which C–C the computer keys cover from the horizontal scroller’s center. */
-function syncScrollPcOctave(): void {
-  if (!isHorizontalPiano.value) {
-    scrollPcOctave.value = null
-    return
-  }
-  const scroller =
-    pianoHScrollRef.value?.getScrollElement() ?? pianoScrollRef.value
-  if (!scroller) return
-  const midX = scroller.scrollLeft + scroller.clientWidth / 2
-  const whites = scroller.querySelectorAll<HTMLElement>('.piano-whites .note[data-note]')
-  let bestNote: string | null = null
-  let bestDist = Infinity
-  for (const el of whites) {
-    const center = el.offsetLeft + el.offsetWidth / 2
-    const d = Math.abs(center - midX)
-    if (d < bestDist) {
-      bestDist = d
-      bestNote = el.dataset.note ?? null
-    }
-  }
-  if (!bestNote) return
-  scrollPcOctave.value = pitchPipePcKeyOctave([bestNote])
-  if (activeEngine.value === 'samples') {
-    void player.preloadForNote?.(bestNote).catch(() => undefined)
-  }
-}
-
-/** Anchor note for scrolling: middle of the selected range (prefer a natural near mid). */
-function rangeCenterAnchorNote(): string | null {
-  const notes = rangeNotes.value
-  if (notes.length === 0) return null
-  const midIdx = Math.floor((notes.length - 1) / 2)
-  for (const delta of [0, 1, -1, 2, -2]) {
-    const n = notes[midIdx + delta]
-    if (n && !/[#b]/i.test(n)) return n
-  }
-  return notes[midIdx] ?? null
-}
-
-/** Scroll the keyboard so the selected range sits centered in view. */
-function scrollPianoToRange(): void {
-  const anchor = rangeCenterAnchorNote()
-  if (anchor) scrollPianoToAnchor(anchor)
-}
-
-/** Scroll so a specific note is centered (e.g. default-octave C). */
-function scrollPianoToAnchor(anchor: string): void {
-  void nextTick(() => {
-    if (!isPianoLayout.value) return
-    if (!showScrollableKeyboard.value) return
-    scrollPcOctave.value = pitchPipePcKeyOctave([anchor])
-    if (isHorizontalPiano.value && pianoHScrollRef.value) {
-      pianoHScrollRef.value.scrollToNote(anchor)
-      syncScrollPcOctave()
-      return
-    }
-    const scroller = pianoScrollRef.value
-    if (!scroller) return
-    const target = scroller.querySelector<HTMLElement>(
-      `button.note[data-note="${CSS.escape(anchor)}"]`,
-    )
-    target?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
-  })
-}
-
-function measurePianoViewport(): void {
-  const w = pianoShellHRef.value?.clientWidth ?? window.innerWidth
-  pianoViewportW.value = Math.max(0, Math.round(w))
-  const min = minPianoKeyScale.value
-  if (pianoKeyScale.value < min) prefs.setSheetPianoKeyScale(min, min)
-}
-
-function nudgePianoKeyScale(delta: number): void {
-  prefs.nudgeSheetPianoKeyScale(delta, minPianoKeyScale.value)
-  if (pianoLockPosition.value) return
-  void nextTick(() => scrollPianoToRange())
-}
+/** Center the shared piano dock on the chosen default-octave C. */
+const pianoCenterNote = computed(() => `C${pianoDefaultOctave.value}`)
 
 /** Unlock AudioContext on the first gesture so the first key isn’t waiting on resume(). */
 function armAudioFromGesture(): void {
-  // Only resume — do not flood the decode lock with a full-keyboard preload on
-  // the same gesture as the note that is about to play.
   void player.warmUp?.()
-  if (activeEngine.value !== 'samples') return
-  // Defer neighbor warm so the pressed key’s priority decode runs first.
-  window.setTimeout(() => {
-    const mid = noteList.value[Math.floor(noteList.value.length / 2)] ?? 'C4'
-    void player.preloadForNote?.(mid).catch(() => undefined)
-  }, 0)
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', onPcKeyDown)
-  window.addEventListener('keyup', onPcKeyUp)
   window.addEventListener('blur', onWindowBlur)
-  // Capture phase runs before key/pointer note handlers on the same gesture.
   window.addEventListener('pointerdown', armAudioFromGesture, { capture: true, once: true })
   window.addEventListener('keydown', armAudioFromGesture, { capture: true, once: true })
   syncPitchVoice()
-  measurePianoViewport()
-  scrollPianoToRange()
-  void nextTick(() => measurePianoViewport())
 })
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', onPcKeyDown)
-  window.removeEventListener('keyup', onPcKeyUp)
   window.removeEventListener('blur', onWindowBlur)
   window.removeEventListener('pointerdown', armAudioFromGesture, true)
   window.removeEventListener('keydown', armAudioFromGesture, true)
@@ -452,17 +198,12 @@ onUnmounted(() => {
 })
 
 function onWindowBlur(): void {
-  heldPcCodes.clear()
-  pointerNotes.clear()
-  wantSounding.clear()
   player.allNotesOff(true)
   syncSoundingFromPlayer()
 }
 
 function syncPitchVoice(): void {
-  if (activeEngine.value === 'synth') {
-    player.setVoice(pipeVoice())
-  }
+  player.setVoice(pipeVoice())
 }
 
 if (typeof window !== 'undefined') {
@@ -474,54 +215,24 @@ watch(attackSec, () => {
 })
 
 watch(detune, (cents) => {
+  if (isPianoLayout.value) return
   const notes = player.activeNotes()
   for (const n of notes) void player.noteOn(n, cents)
 })
 
 watch(pipeRange, () => {
+  if (isPianoLayout.value) return
   const active = player.activeNotes()
   for (const n of active) {
-    if (!noteList.value.includes(n)) noteOff(n)
+    if (!rangeNotes.value.includes(n)) up()
   }
-  scrollPianoToRange()
 })
 
-watch(pianoDefaultOctave, () => {
-  if (isHorizontalPiano.value) scrollPianoToAnchor(`C${pianoDefaultOctave.value}`)
-})
-
-watch([showFullKeyboard, pipeLayout], () => {
-  heldPcCodes.clear()
-  pointerNotes.clear()
-  scrollPianoToRange()
-})
-
-watch([activeEngine, isPianoLayout], () => {
-  rebuildPlayer()
-})
-
-/** Fire the oscillator/sample on this turn; UI sync trails on the promise. */
-function noteOn(note: string): void {
-  wantSounding.add(note)
-  const p = player.noteOn(note, detune.value)
-  void p.then(
-    () => {
-      sampleStatus.value = null
-      if (!wantSounding.has(note)) player.noteOff(note, true)
-      syncSoundingFromPlayer()
-    },
-    () => {
-      sampleStatus.value = player.getLoadError?.() ?? 'Couldn’t play note'
-      syncSoundingFromPlayer()
-    },
-  )
-}
-
-function noteOff(note: string): void {
-  wantSounding.delete(note)
-  player.noteOff(note, true)
+watch(isPianoLayout, (piano) => {
+  player.allNotesOff(true)
   syncSoundingFromPlayer()
-}
+  if (!piano) rebuildPlayer()
+})
 
 /** Grid/list monophonic hold helpers. */
 async function down(note: string): Promise<void> {
@@ -539,44 +250,21 @@ function up(): void {
   syncSoundingFromPlayer()
 }
 
-function onPianoPointerDown(e: PointerEvent, note: string): void {
-  if (e.button !== 0 && e.pointerType === 'mouse') return
-  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
-  pointerNotes.set(e.pointerId, note)
-  void noteOn(note)
-}
-
-function onPianoPointerUp(e: PointerEvent): void {
-  const note = pointerNotes.get(e.pointerId)
-  if (!note) return
-  pointerNotes.delete(e.pointerId)
-  noteOff(note)
-  const el = e.currentTarget
-  if (el instanceof HTMLElement) el.blur()
-}
-
 function onNoteKey(e: KeyboardEvent, note: string): void {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
-    if (e.type === 'keydown' && !e.repeat) {
-      if (isPianoLayout.value) void noteOn(note)
-      else void down(note)
-    }
-    if (e.type === 'keyup') {
-      if (isPianoLayout.value) noteOff(note)
-      else up()
-    }
+    if (e.type === 'keydown' && !e.repeat) void down(note)
+    if (e.type === 'keyup') up()
   }
 }
 
 function focusNeighbor(e: KeyboardEvent, note: string): void {
-  const order = focusNotes.value
+  const order = visualNotes.value
   const cols = pipeLayout.value === 'grid' ? PITCH_PIPE_GRID_COLS : 1
   const index = order.indexOf(note)
   if (index < 0) return
   const max = order.length - 1
   let next = index
-  // Horizontal piano: Left/Right step pitch; vertical / grid use existing visual order.
   if (e.key === 'ArrowRight') next = Math.min(max, index + 1)
   else if (e.key === 'ArrowLeft') next = Math.max(0, index - 1)
   else if (e.key === 'ArrowDown') next = Math.min(max, index + cols)
@@ -585,31 +273,15 @@ function focusNeighbor(e: KeyboardEvent, note: string): void {
   e.preventDefault()
   const target = order[next]
   if (!target) return
-  const root =
-    pianoHScrollRef.value?.getScrollElement() ?? pianoScrollRef.value ?? keysRef.value
-  const btn = root?.querySelector<HTMLButtonElement>(
+  const btn = keysRef.value?.querySelector<HTMLButtonElement>(
     `button.note[data-note="${CSS.escape(target)}"]`,
   )
   btn?.focus()
 }
-
-/** Black key sits on the boundary above the lower white (`after`) toward the higher white. */
-function blackTopPct(after: string): number {
-  const idx = displayWhites.value.indexOf(after)
-  if (idx < 0) return 0
-  return idx * whiteKeyPct.value
-}
-
-/** Black key sits on the boundary to the right of the lower white (`after`). */
-function blackLeftPct(after: string): number {
-  const idx = displayWhites.value.indexOf(after)
-  if (idx < 0) return 0
-  return (idx + 1) * whiteKeyPct.value
-}
 </script>
 
 <template>
-  <section class="pipe" :class="{ 'pipe-wide': isHorizontalPiano }" aria-label="Pitch pipe">
+  <section class="pipe" :class="{ 'pipe-wide': isPianoLayout }" aria-label="Pitch pipe">
     <details class="settings">
       <summary>Settings</summary>
       <div class="tuning" role="group" aria-label="Pitch pipe tuning">
@@ -632,10 +304,9 @@ function blackLeftPct(after: string): number {
         </label>
         <p v-if="isPianoLayout && pianoEngine === 'samples'" class="sample-hint">
           Acoustic samples load per octave as you play or scroll.
-          <span v-if="sampleStatus" class="sample-err"> {{ sampleStatus }}</span>
         </p>
 
-        <label v-if="activeEngine === 'synth'" class="detune">
+        <label v-if="showSynthAttack" class="detune">
           <span class="lbl">Attack <strong>{{ attackLabel }}</strong></span>
           <input
             v-model.number="attackSec"
@@ -660,12 +331,12 @@ function blackLeftPct(after: string): number {
           </select>
         </label>
 
-        <label v-if="isHorizontalPiano" class="range-ref">
+        <label v-if="isPianoLayout" class="range-ref">
           <span class="lbl">Default octave</span>
           <select
             v-model="pianoDefaultOctave"
             aria-label="Default piano octave"
-            title="Jump the horizontal piano so this C–C window is centered"
+            title="Center the piano so this C–C window is in view"
           >
             <option
               v-for="r in PITCH_PIPE_PIANO_DEFAULT_OCTAVE_OPTIONS"
@@ -732,53 +403,6 @@ function blackLeftPct(after: string): number {
           </button>
         </div>
 
-        <div
-          v-if="isHorizontalPiano"
-          class="scale-controls"
-          role="group"
-          aria-label="Piano zoom"
-        >
-          <span class="lbl">Piano zoom</span>
-          <button
-            type="button"
-            class="btn btn-ghost scale-btn"
-            :disabled="pianoKeyScale <= minPianoKeyScale"
-            aria-label="Zoom out (more keys)"
-            @click="nudgePianoKeyScale(-SHEET_PIANO_SCALE_STEP)"
-          >
-            −
-          </button>
-          <span class="scale-value" aria-live="polite">{{ pianoKeyScale }}%</span>
-          <button
-            type="button"
-            class="btn btn-ghost scale-btn"
-            :disabled="pianoKeyScale >= SHEET_PIANO_SCALE_MAX"
-            aria-label="Zoom in (fewer keys)"
-            @click="nudgePianoKeyScale(SHEET_PIANO_SCALE_STEP)"
-          >
-            +
-          </button>
-        </div>
-
-        <label
-          v-if="isHorizontalPiano"
-          class="setting-row"
-          :class="{ on: pianoLockPosition }"
-          title="Freeze the piano scroll position — keys still play, but drag-to-pan is off"
-        >
-          <span class="setting-copy">
-            <span class="setting-title">Lock position</span>
-          </span>
-          <input
-            v-model="pianoLockPosition"
-            type="checkbox"
-            class="setting-switch"
-            role="switch"
-            :aria-checked="pianoLockPosition"
-            aria-label="Lock piano position"
-          />
-        </label>
-
         <label
           v-if="isPianoLayout"
           class="setting-row"
@@ -795,25 +419,6 @@ function blackLeftPct(after: string): number {
             role="switch"
             :aria-checked="showPcKeyRange"
             aria-label="Show desktop keyboard range"
-          />
-        </label>
-
-        <label
-          v-if="isPianoLayout && !isHorizontalPiano"
-          class="setting-row full-keyboard-toggle"
-          :class="{ on: showFullKeyboard }"
-          title="Show a scrollable 66-key piano (C2–F7), focused on your note range"
-        >
-          <span class="setting-copy">
-            <span class="setting-title">Show full keyboard</span>
-          </span>
-          <input
-            v-model="showFullKeyboard"
-            type="checkbox"
-            class="setting-switch"
-            role="switch"
-            :aria-checked="showFullKeyboard"
-            aria-label="Show full keyboard"
           />
         </label>
 
@@ -877,160 +482,15 @@ function blackLeftPct(after: string): number {
       </div>
     </details>
 
-    <div
-      class="stage"
-      :class="{ 'stage-piano-h': isHorizontalPiano }"
-      @contextmenu.prevent
-    >
-      <div
-        v-if="isPianoLayout && !isHorizontalPiano"
-        ref="pianoScrollRef"
-        class="piano-shell"
-        :class="{ 'piano-shell-scroll': showFullKeyboard }"
-      >
-        <div
-          ref="keysRef"
-          class="piano"
-          role="group"
-          :aria-label="`Pitch pipe piano (${pipeRange})`"
-          :style="{ '--white-count': displayWhites.length }"
-        >
-          <div class="piano-whites">
-            <button
-              v-for="note in displayWhites"
-              :key="note"
-              type="button"
-              class="note natural"
-              :data-note="note"
-              :class="{
-                active: isSounding(note),
-                'out-of-range': isOutOfPcWindow(note),
-              }"
-              :aria-pressed="isSounding(note)"
-              :aria-label="byNote.get(note)?.aria"
-              @pointerdown.prevent="onPianoPointerDown($event, note)"
-              @pointerup.prevent="onPianoPointerUp"
-              @pointercancel.prevent="onPianoPointerUp"
-              @keydown="onNoteKey($event, note); focusNeighbor($event, note)"
-              @keyup="onNoteKey($event, note)"
-            >
-              <span class="note-single"
-                >{{ byNote.get(note)?.display.sharp }}{{ octaveLabel(byNote.get(note)?.display.octave ?? '') }}</span
-              >
-            </button>
-          </div>
-          <div class="piano-blacks">
-            <button
-              v-for="b in pianoSlots.blacks"
-              :key="b.note"
-              type="button"
-              class="note black"
-              :data-note="b.note"
-              :class="{
-                active: isSounding(b.note),
-                'out-of-range': isOutOfPcWindow(b.note),
-              }"
-              :style="{ top: `${blackTopPct(b.after)}%` }"
-              :aria-pressed="isSounding(b.note)"
-              :aria-label="byNote.get(b.note)?.aria"
-              @pointerdown.prevent="onPianoPointerDown($event, b.note)"
-              @pointerup.prevent="onPianoPointerUp"
-              @pointercancel.prevent="onPianoPointerUp"
-              @keydown="onNoteKey($event, b.note); focusNeighbor($event, b.note)"
-              @keyup="onNoteKey($event, b.note)"
-            >
-              <span class="note-dual">
-                <span class="note-sharp"
-                  >{{ byNote.get(b.note)?.display.sharp }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
-                >
-                <span class="note-sep" aria-hidden="true">/</span>
-                <span class="note-flat"
-                  >{{ byNote.get(b.note)?.display.flat }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
-                >
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div v-else-if="isHorizontalPiano" ref="pianoShellHRef" class="piano-shell piano-shell-h">
-        <PianoHorizontalScroll
-          ref="pianoHScrollRef"
-          :lock-position="pianoLockPosition"
-          @note-on="noteOn"
-          @note-off="noteOff"
-          @scroll="syncScrollPcOctave"
-        >
-          <div
-            ref="keysRef"
-            class="piano piano-h"
-            role="group"
-            :aria-label="`Pitch pipe piano (${pipeRange})`"
-            :style="{
-              '--white-count': displayWhites.length,
-              '--white-w': `${pianoWhiteKeyPx}px`,
-            }"
-          >
-            <div class="piano-whites">
-              <button
-                v-for="note in displayWhites"
-                :key="note"
-                type="button"
-                class="note natural"
-                :data-note="note"
-                :class="{
-                  active: isSounding(note),
-                'out-of-range': isOutOfPcWindow(note),
-              }"
-              :aria-pressed="isSounding(note)"
-              :aria-label="byNote.get(note)?.aria"
-              @keydown="onNoteKey($event, note); focusNeighbor($event, note)"
-              @keyup="onNoteKey($event, note)"
-            >
-              <span class="note-single"
-                >{{ byNote.get(note)?.display.sharp }}{{ octaveLabel(byNote.get(note)?.display.octave ?? '') }}</span
-              >
-            </button>
-          </div>
-          <div class="piano-blacks">
-            <button
-              v-for="b in pianoSlots.blacks"
-              :key="b.note"
-              type="button"
-              class="note black"
-              :data-note="b.note"
-              :class="{
-                active: isSounding(b.note),
-                'out-of-range': isOutOfPcWindow(b.note),
-              }"
-                :style="{ left: `${blackLeftPct(b.after)}%` }"
-                :aria-pressed="isSounding(b.note)"
-                :aria-label="byNote.get(b.note)?.aria"
-                @keydown="onNoteKey($event, b.note); focusNeighbor($event, b.note)"
-                @keyup="onNoteKey($event, b.note)"
-              >
-                <span class="note-dual">
-                  <span class="note-sharp"
-                    >{{ byNote.get(b.note)?.display.sharp }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
-                  >
-                  <span class="note-sep" aria-hidden="true">/</span>
-                  <span class="note-flat"
-                    >{{ byNote.get(b.note)?.display.flat }}{{ octaveLabel(byNote.get(b.note)?.display.octave ?? '') }}</span
-                  >
-                </span>
-              </button>
-            </div>
-          </div>
-        </PianoHorizontalScroll>
-      </div>
-
-      <p v-if="isPianoLayout && showPcKeyRange" class="pc-keys-hint" aria-live="polite">
-        On desktop, use your keyboard to play this polyphonic keyboard.
-        <template v-if="isHorizontalPiano && !pianoLockPosition"> Drag keys to change octave.</template>
-      </p>
+    <div class="stage" :class="{ 'stage-piano': isPianoLayout }" @contextmenu.prevent>
+      <SheetPianoDock
+        v-if="isPianoLayout"
+        variant="page"
+        :center-note="pianoCenterNote"
+      />
 
       <div
-        v-if="!isPianoLayout"
+        v-else
         ref="keysRef"
         class="keys"
         :class="pipeLayout === 'list' ? 'keys-list' : 'keys-grid'"
@@ -1249,8 +709,9 @@ function blackLeftPct(after: string): number {
   align-items: center;
   gap: 0.75rem;
 }
-.stage-piano-h {
+.stage-piano {
   align-items: stretch;
+  min-height: min(42vh, 22rem);
 }
 
 .keys-grid {
@@ -1339,93 +800,6 @@ function blackLeftPct(after: string): number {
   color: var(--on-accent);
   border-color: var(--accent);
 }
-/* Piano keys: keep the press fill inside the key (outline overflowed left). */
-.piano .note.active {
-  outline: none;
-  outline-offset: 0;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, var(--accent));
-}
-/* Global :focus-visible outline sits outside the key and lingered after release. */
-.piano .note:focus,
-.piano .note:focus-visible {
-  outline: none;
-}
-.piano .note:focus-visible:not(.active) {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, #fff);
-}
-.piano-whites .note.active {
-  /* Keep green under black keys — never promote whites above the black layer. */
-  z-index: 0;
-}
-.piano-blacks .note.active {
-  box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, #fff 28%, var(--accent)),
-    0 2px 6px color-mix(in srgb, #000 22%, transparent);
-  z-index: 3;
-}
-.piano-blacks .note:focus-visible:not(.active) {
-  box-shadow:
-    inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, #fff),
-    0 2px 6px color-mix(in srgb, #000 22%, transparent);
-}
-
-.piano {
-  --white-count: 8;
-  --white-h: calc(100% / var(--white-count));
-  position: relative;
-  width: 100%;
-  max-width: 28rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: visible;
-  background: color-mix(in srgb, var(--border) 35%, var(--surface));
-}
-.piano-whites {
-  display: flex;
-  flex-direction: column;
-  border-radius: 14px;
-  overflow: hidden;
-  position: relative;
-  z-index: 0;
-}
-.piano-whites .note {
-  min-height: 3.5rem;
-  height: 3.5rem;
-  border-radius: 0;
-  border-width: 0 0 1px;
-  border-color: var(--border);
-  justify-content: flex-start;
-  padding-inline: 1rem;
-  position: relative;
-  z-index: 0;
-}
-.piano-whites .note:last-child {
-  border-bottom: 0;
-}
-.piano-blacks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-}
-.piano-blacks .note {
-  pointer-events: auto;
-  position: absolute;
-  right: 0.45rem;
-  /* At least half a white key; prefer ~60% for easier touch. */
-  width: min(58%, 12rem);
-  height: max(1.85rem, calc(3.5rem * 0.6));
-  min-height: max(1.85rem, calc(3.5rem * 0.5));
-  border-radius: 10px;
-  z-index: 2;
-  padding: 0.35rem 0.45rem;
-  transform: translateY(-50%);
-  box-shadow: 0 2px 6px color-mix(in srgb, #000 22%, transparent);
-}
-.piano-blacks .note-dual {
-  font-size: clamp(1.05rem, 3.2vw, 1.25rem);
-  gap: 0.2rem 0.3rem;
-}
 
 @media (min-width: 720px) {
   .keys-grid {
@@ -1434,14 +808,6 @@ function blackLeftPct(after: string): number {
   }
   .keys-grid .note {
     min-height: 5.75rem;
-  }
-  .piano-whites .note {
-    min-height: 3.75rem;
-    height: 3.75rem;
-  }
-  .piano-blacks .note {
-    height: max(2.1rem, calc(3.75rem * 0.6));
-    min-height: max(2.1rem, calc(3.75rem * 0.5));
   }
 }
 
@@ -1476,120 +842,7 @@ function blackLeftPct(after: string): number {
 .keys-grid .note-dual {
   font-size: clamp(calc(1.2rem * var(--grid-scale)), calc(3.6vw * var(--grid-scale)), calc(1.55rem * var(--grid-scale)));
 }
-.piano-shell { width: 100%; max-width: 28rem; }
-.piano-shell-h {
-  max-width: none;
-  overflow: visible;
-}
-.piano-shell-h :deep(.piano-h-scroller) {
-  border-radius: 14px;
-  border: 1px solid var(--border);
-}
-.piano-shell-h .piano {
-  border: 0;
-  border-radius: 0;
-}
-.piano-shell-scroll {
-  max-height: min(70vh, 36rem);
-  overflow-y: auto;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  -webkit-overflow-scrolling: touch;
-}
-.piano-shell-scroll .piano { max-width: none; border: 0; border-radius: 0; }
-.piano-shell-scroll .piano-whites .note { min-height: 2.75rem; height: 2.75rem; }
-.piano-shell-scroll .piano-blacks .note {
-  height: max(1.55rem, calc(2.75rem * 0.6));
-  min-height: max(1.55rem, calc(2.75rem * 0.5));
-}
-.piano-h {
-  max-width: none;
-  width: max-content;
-  min-width: 100%;
-  height: 11.5rem;
-  --white-w: 51px;
-}
-.piano-h .piano-whites {
-  flex-direction: row;
-  height: 100%;
-  width: calc(var(--white-count) * var(--white-w));
-}
-.piano-h .piano-whites .note {
-  flex: 0 0 var(--white-w);
-  min-width: var(--white-w);
-  width: var(--white-w);
-  min-height: 0;
-  height: 100%;
-  border-width: 0 1px 0 0;
-  border-color: var(--border);
-  justify-content: flex-end;
-  align-items: flex-end;
-  /* Keep 100% padding until keys shrink, then tighten to fit. */
-  padding: min(0.55rem, calc(var(--white-w) * 0.11)) min(0.35rem, calc(var(--white-w) * 0.07));
-  writing-mode: horizontal-tb;
-  overflow: hidden;
-}
-.piano-h .piano-whites .note:last-child {
-  border-right: 0;
-  border-bottom: 0;
-}
-/* Prefer the 100%-zoom letter size; shrink only when the key is narrower. */
-.piano-h .note-single {
-  font-size: min(1.35rem, calc(var(--white-w) * 0.42));
-  line-height: 1.05;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: clip;
-}
-.piano-h .piano-blacks .note {
-  top: 0;
-  right: auto;
-  /* Always proportional to white width — no rem floor (that blocked zoom-out). */
-  width: calc(var(--white-w) * 0.62);
-  height: 58%;
-  min-height: 0;
-  transform: translateX(-50%);
-  border-radius: 0 0 min(8px, calc(var(--white-w) * 0.16)) min(8px, calc(var(--white-w) * 0.16));
-  padding: min(0.3rem, calc(var(--white-w) * 0.06)) min(0.2rem, calc(var(--white-w) * 0.04));
-  align-items: flex-start;
-  overflow: hidden;
-}
-.piano-h .piano-blacks .note-dual {
-  flex-direction: column;
-  font-size: min(0.85rem, calc(var(--white-w) * 0.28));
-  gap: 0.02rem;
-  max-width: 100%;
-  overflow: hidden;
-}
-.piano-h .note-sep { display: none; }
-.pc-keys-hint {
-  margin: 0;
-  padding: 0 0.15rem;
-  font-size: 0.85rem;
-  color: var(--muted);
-  line-height: 1.45;
-  text-align: center;
-}
-/* Opaque muted fills — opacity would show accent through overlapping black keys. */
-.note.out-of-range.natural {
-  background: color-mix(in srgb, var(--surface) 55%, var(--border));
-  color: color-mix(in srgb, var(--text) 42%, var(--surface));
-  border-color: color-mix(in srgb, var(--border) 85%, var(--surface));
-}
-.note.out-of-range.black {
-  background: color-mix(in srgb, var(--text) 18%, var(--surface));
-  color: color-mix(in srgb, var(--text) 38%, var(--surface));
-  border-color: color-mix(in srgb, var(--text) 28%, var(--border));
-  box-shadow: none;
-}
-.note.out-of-range.active {
-  background: var(--accent);
-  color: var(--on-accent);
-  border-color: var(--accent);
-}
 @media (min-width: 720px) {
   .keys-grid .note { min-height: calc(5.75rem * var(--grid-scale)); }
-  .piano-h { height: 13rem; }
 }
-
 </style>

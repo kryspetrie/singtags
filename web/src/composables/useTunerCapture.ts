@@ -23,7 +23,9 @@ import {
 } from '../domain/tuner/smoothLivePitch'
 
 /** How often Hz / cents / note publish to the UI (smoothing still runs every result). */
-const UI_PUBLISH_MS = 120
+const UI_PUBLISH_MS = 180
+/** Reject laptop-fan / rumble energy below singing fundamentals. */
+const CAPTURE_HIGHPASS_HZ = 90
 
 export type TunerCaptureErrorKind =
   | 'denied'
@@ -81,15 +83,17 @@ export function useTunerCapture() {
   let ctx: AudioContext | null = null
   let stream: MediaStream | null = null
   let source: MediaStreamAudioSourceNode | null = null
+  let highpass: BiquadFilterNode | null = null
   let compressor: DynamicsCompressorNode | null = null
   let worklet: AudioWorkletNode | null = null
   let muted: GainNode | null = null
   let keepalive: AudioKeepalive | null = null
   let analysis: TunerCaptureAnalysisOpts = {
-    clarityMin: 0.42,
-    holdMs: 400,
-    fMinHz: 55,
-    fMaxHz: 1200,
+    clarityMin: 0.62,
+    holdMs: 700,
+    fMinHz: 70,
+    fMaxHz: 700,
+    noiseGateDb: -40,
   }
   let lastGood: TunerPitchReading | null = null
   let holdUntilMs = 0
@@ -392,6 +396,11 @@ export function useTunerCapture() {
       await refreshDevices()
 
       source = ctx.createMediaStreamSource(stream)
+      // Cut chassis / fan rumble before compression so the gate sees singing, not noise.
+      highpass = ctx.createBiquadFilter()
+      highpass.type = 'highpass'
+      highpass.frequency.value = CAPTURE_HIGHPASS_HZ
+      highpass.Q.value = 0.7
       compressor = ctx.createDynamicsCompressor()
       // Soft make-up compression so quiet / loud singing both feed F0 cleanly.
       compressor.threshold.value = -28
@@ -413,7 +422,8 @@ export function useTunerCapture() {
         const sr = data.sampleRate || ctx?.sampleRate || 48000
         dsp?.pushFrame(data.samples, sr)
       }
-      source.connect(compressor)
+      source.connect(highpass)
+      highpass.connect(compressor)
       compressor.connect(worklet)
       worklet.connect(muted)
       muted.connect(ctx.destination)
@@ -460,6 +470,11 @@ export function useTunerCapture() {
       /* ignore */
     }
     try {
+      highpass?.disconnect()
+    } catch {
+      /* ignore */
+    }
+    try {
       source?.disconnect()
     } catch {
       /* ignore */
@@ -471,6 +486,7 @@ export function useTunerCapture() {
     }
     worklet = null
     compressor = null
+    highpass = null
     source = null
     muted = null
     if (stream) {

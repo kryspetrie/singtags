@@ -49,7 +49,7 @@ export function tuneGlanceStatus(
   return { kind: 'flat', word: 'FLAT', wash: 'flat' }
 }
 
-/** Chord Analyze glance from stack score (Assisted pin → WAIT). */
+/** Spectrum chord glance from stack score (Assisted pin → WAIT). */
 export function chordGlanceStatus(score: ChordStackScore | null): ChordGlanceStatus {
   if (!score || score.unstable || score.assistedPinRequired || score.status === 'wait') {
     return { kind: 'wait', word: 'WAIT', wash: 'neutral', keyMark: null }

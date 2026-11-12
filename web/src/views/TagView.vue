@@ -39,6 +39,9 @@ import {
   tagDocumentTitle,
   tagLinkPreviewDescriptionFromSources,
 } from '../lib/tagLinkPreview'
+import { resolveFineDetuneCents } from '../audio/payKeyDetune'
+import { usePayKeyTone } from '../composables/usePayKeyTone'
+import { readPitchShiftFromQuery } from '../lib/pitchShiftQuery'
 import { buildTagSharePath, readDetuneFromQuery } from '../lib/tagShare'
 import { isTagFullscreenQuery } from '../lib/tagOpen'
 import { usePreferencesStore } from '../stores/preferences'
@@ -48,23 +51,6 @@ import TagShareSheet from '../components/TagShareSheet.vue'
 const TagPlayer = defineAsyncComponent(() => import('../components/TagPlayer.vue'))
 const PitchControls = defineAsyncComponent(() => import('../components/PitchControls.vue'))
 const TagDownloads = defineAsyncComponent(() => import('../components/TagDownloads.vue'))
-
-type PitchPlayerHandle = {
-  start: (note: string, detuneCents?: number) => Promise<void>
-  stop: (immediate?: boolean) => void
-  dispose: () => void
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setVoice: (voice: any) => void
-}
-
-let pitchPlayerMod: typeof import('../audio/pitchPlayer') | null = null
-let pitchVoiceMod: typeof import('../audio/pitchPipeVoice') | null = null
-
-async function loadPitchModules() {
-  if (!pitchPlayerMod) pitchPlayerMod = await import('../audio/pitchPlayer')
-  if (!pitchVoiceMod) pitchVoiceMod = await import('../audio/pitchPipeVoice')
-  return { pitchPlayerMod, pitchVoiceMod }
-}
 
 const props = defineProps<{
   /** Route param: numeric tag id as string. */
@@ -288,31 +274,18 @@ watch(error, (msg) => {
 })
 
 const keyShift = ref(0)
-const pitch = ref<PitchPlayerHandle | null>(null)
+const payKey = usePayKeyTone()
 const playerTransform = ref<AudioTransform>({ pitchSemitones: 0, speed: 1 })
 const queueMsg = ref<string | null>(null)
 const syncingShift = ref(false)
 const practiceDone = ref(false)
 
-async function ensurePitchPlayer(): Promise<PitchPlayerHandle> {
-  if (pitch.value) return pitch.value
-  const { pitchPlayerMod: ppm, pitchVoiceMod: pvm } = await loadPitchModules()
-  const instance = new ppm.PitchPlayer(pvm.getActivePitchPipeVoice())
-  pitch.value = instance
-  return instance
-}
-
-function onPitchPipeVoiceChange(): void {
-  void loadPitchModules().then(({ pitchVoiceMod: pvm }) => {
-    pitch.value?.setVoice(pvm.getActivePitchPipeVoice())
-  })
-}
-
 /** Absolute cents for pay-the-key and Mix: URL session wins over local global detune. */
 function fineDetuneForPayKey(): number {
-  const fromQuery = readDetuneFromQuery(route.query)
-  if (fromQuery != null) return fromQuery
-  return prefs.globalPitchDetuneCents()
+  return resolveFineDetuneCents({
+    queryDetuneCents: readDetuneFromQuery(route.query),
+    globalCents: prefs.globalPitchDetuneCents(),
+  })
 }
 
 /** Semitone shift for baked playback / queue, including fine detune as a fraction. */
@@ -355,10 +328,7 @@ function onFullscreenExitOrigin(): void {
 }
 
 function readShiftFromRoute(): number {
-  const raw = route.query.shift
-  if (typeof raw !== 'string' || raw === '') return 0
-  const n = Number(raw)
-  return Number.isFinite(n) ? clampPitchSemitones(n) : 0
+  return readPitchShiftFromQuery(route.query)
 }
 
 function bumpKeyShift(delta: number): void {
@@ -402,16 +372,9 @@ watch(
 )
 
 onUnmounted(() => {
-  window.removeEventListener('singtags:pitch-pipe-voice', onPitchPipeVoiceChange)
   cancelTagQueryPatches()
-  pitch.value?.dispose()
-  pitch.value = null
   stopPlayerTick()
 })
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('singtags:pitch-pipe-voice', onPitchPipeVoiceChange)
-}
 
 watch(
   () => props.id,
@@ -622,7 +585,10 @@ const shareHref = computed(() => resolveShareHref())
 
 function resolveShareHref(opts?: { fullscreen?: boolean }): string {
   // Prefer this visit’s session detune; otherwise the sharer’s applied global detune.
-  const detuneCents = readDetuneFromQuery(route.query) ?? prefs.globalPitchDetuneCents()
+  const detuneCents = resolveFineDetuneCents({
+    queryDetuneCents: readDetuneFromQuery(route.query),
+    globalCents: prefs.globalPitchDetuneCents(),
+  })
   const { path, query } = buildTagSharePath(props.id, {
     shift: keyShift.value,
     detuneCents,
@@ -691,14 +657,14 @@ async function payKeyDown(): Promise<void> {
   if (!note) return
   // With catalog key, ± detunes the written tonic. Without, ± already picked the absolute key.
   // Session `?detune=` (from QR/share) applies here without touching local prefs.
-  const shiftCents = keyDisplay.value ? keyShift.value * 100 : 0
-  const detuneCents = shiftCents + fineDetuneForPayKey()
-  const p = await ensurePitchPlayer()
-  await p.start(note, detuneCents)
+  await payKey.play(note, {
+    shiftSemitones: keyDisplay.value ? keyShift.value : 0,
+    fineCents: fineDetuneForPayKey(),
+  })
 }
 
 function payKeyUp(): void {
-  pitch.value?.stop(true)
+  payKey.stop(true)
 }
 
 function addItemsToQueue(items: QueueTrack[]): void {

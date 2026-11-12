@@ -22,14 +22,8 @@ export type DigitalTunerA4 = number | 'followPitchPipe'
 export type DigitalTunerTuneDisplay = 'needle' | 'strobe' | 'scope'
 /** Strobe paint family when tuneDisplay is strobe. */
 export type DigitalTunerStrobeStyle = 'horizontal' | 'radial'
-export type DigitalTunerDensity = 'auto' | 'comfortable' | 'compact'
-export type DigitalTunerAnalyzeSurface =
-  | 'hidden'
-  | 'fft'
-  | 'spectrogram'
-  | 'chord'
-  | 'harmonics'
-  | 'staff'
+/** Live Analyze surfaces — Tune is `hidden`. Legacy chord/harmonics/staff remap in normalize. */
+export type DigitalTunerAnalyzeSurface = 'hidden' | 'fft' | 'spectrogram'
 export type DigitalTunerScaleMode = 'major' | 'minor' | 'chromatic'
 export type SpectrogramResolution = 'coarse' | 'medium' | 'fine' | 'ultra'
 
@@ -40,17 +34,15 @@ export type DigitalTunerPrefs = {
   glanceFullscreen: boolean
   tuneDisplay: DigitalTunerTuneDisplay
   strobeStyle: DigitalTunerStrobeStyle
-  /** Show phrase % in-tune strip + history under Tune Detail. */
+  /** Show phrase pitch history under Tune Detail. */
   sessionStripEnabled: boolean
-  /** Staff intonation plot clef when Analyze · Staff is active. */
-  staffClef: 'treble' | 'bass'
   keyPc: number
+  /** Scale guide lines on FFT / Spec (picker deferred — default chromatic). */
   scaleMode: DigitalTunerScaleMode
   keyGridTemperament: KeyGridTemperament
   customOffsetsCents: number[]
   chordLockEnabled: boolean
   chordNatureId: string | null
-  chordRootPolicy: 'lowest' | 'pinned' | 'commonShift'
   pinnedRootPc: number | null
   a4Hz: DigitalTunerA4
   inTuneWindowCents: number
@@ -68,7 +60,7 @@ export type DigitalTunerPrefs = {
    */
   multiF0SalienceFloor: number
   /**
-   * Named analysis pitch band (Tune / Chord / FFT / Spec reaction).
+   * Named analysis pitch band (Tune / FFT / Spec reaction).
    * `custom` when Hz were edited outside a preset.
    */
   pitchRangeId: PitchRangeId
@@ -81,8 +73,6 @@ export type DigitalTunerPrefs = {
   fftSmoothing: boolean
   /** Peak-hold trail on FFT display bars. */
   fftPeakHold: boolean
-  historyCapSec: number
-  density: DigitalTunerDensity
   /** Spectrogram Analyze controls */
   specGridlines: boolean
   specFreqScale: SpectrogramFreqScale
@@ -122,35 +112,33 @@ export function defaultDigitalTunerPrefs(): DigitalTunerPrefs {
     tuneDisplay: 'needle',
     strobeStyle: 'horizontal',
     sessionStripEnabled: true,
-    staffClef: 'treble',
     keyPc: 0,
     scaleMode: 'chromatic',
     keyGridTemperament: 'equal',
     customOffsetsCents: Array.from({ length: 12 }, () => 0),
     chordLockEnabled: false,
     chordNatureId: null,
-    chordRootPolicy: 'commonShift',
     pinnedRootPc: null,
     a4Hz: 'followPitchPipe',
-    inTuneWindowCents: 10,
+    inTuneWindowCents: 15,
     chordLockWindowCents: 5,
     inputDeviceId: null,
-    noiseGateDb: null,
-    detectionThreshold: 0.55,
-    multiF0SalienceFloor: 0.35,
-    pitchRangeId: 'voice',
-    pitchFMinHz: 55,
-    pitchFMaxHz: 1200,
+    // −40 dBFS-ish — quiet laptop fan stays below; singing still opens.
+    noiseGateDb: -40,
+    detectionThreshold: 0.65,
+    multiF0SalienceFloor: 0.4,
+    // Quartet F0 band — rejects chassis rumble below ~70 Hz.
+    pitchRangeId: 'quartet',
+    pitchFMinHz: 70,
+    pitchFMaxHz: 700,
     fftSize: 4096,
     fftSmoothing: true,
     fftPeakHold: true,
-    historyCapSec: 15,
-    density: 'auto',
     specGridlines: true,
     specFreqScale: 'log',
     // Mirrors pitch band (singer-centric default).
-    specFMinHz: 55,
-    specFMaxHz: 1200,
+    specFMinHz: 70,
+    specFMaxHz: 700,
     specResolution: 'fine',
     specColormap: 'viridis',
     specShowTracks: true,
@@ -208,19 +196,20 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
   if (!raw || typeof raw !== 'object') return d
   const o = raw as Record<string, unknown>
 
-  const analyzeSurface =
-    o.analyzeSurface === 'fft' ||
-    o.analyzeSurface === 'spectrogram' ||
-    o.analyzeSurface === 'chord' ||
-    o.analyzeSurface === 'harmonics' ||
-    o.analyzeSurface === 'staff' ||
-    o.analyzeSurface === 'hidden'
-      ? o.analyzeSurface
-      : d.analyzeSurface
+  // Legacy Analyze tabs / surfaces — see docs/plans/digital-tuner-dropped.md
+  const analyzeSurface: DigitalTunerAnalyzeSurface =
+    o.analyzeSurface === 'chord' || o.analyzeSurface === 'harmonics'
+      ? 'fft'
+      : o.analyzeSurface === 'staff'
+        ? 'hidden'
+        : o.analyzeSurface === 'fft' ||
+            o.analyzeSurface === 'spectrogram' ||
+            o.analyzeSurface === 'hidden'
+          ? o.analyzeSurface
+          : d.analyzeSurface
   const tuneDisplay =
     o.tuneDisplay === 'strobe' || o.tuneDisplay === 'scope' ? o.tuneDisplay : 'needle'
   const strobeStyle = o.strobeStyle === 'radial' ? 'radial' : 'horizontal'
-  const staffClef = o.staffClef === 'bass' ? 'bass' : 'treble'
   const keyGridTemperament =
     o.keyGridTemperament === 'justTriad' || o.keyGridTemperament === 'custom'
       ? o.keyGridTemperament
@@ -229,26 +218,12 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
     o.scaleMode === 'major' || o.scaleMode === 'minor' || o.scaleMode === 'chromatic'
       ? o.scaleMode
       : d.scaleMode
-  const chordRootPolicy =
-    o.chordRootPolicy === 'lowest' ||
-    o.chordRootPolicy === 'pinned' ||
-    o.chordRootPolicy === 'commonShift'
-      ? o.chordRootPolicy
-      : d.chordRootPolicy
-  const density =
-    o.density === 'comfortable' || o.density === 'compact' || o.density === 'auto'
-      ? o.density
-      : d.density
 
   let a4Hz: DigitalTunerA4 = d.a4Hz
   if (o.a4Hz === 'followPitchPipe') a4Hz = 'followPitchPipe'
   else if (typeof o.a4Hz === 'number' && o.a4Hz > 400 && o.a4Hz < 480) a4Hz = o.a4Hz
 
   const fftSize = typeof o.fftSize === 'number' && FFT_SIZES.has(o.fftSize) ? o.fftSize : d.fftSize
-  const historyCapSec =
-    typeof o.historyCapSec === 'number' && Number.isFinite(o.historyCapSec)
-      ? Math.max(5, Math.min(30, Math.round(o.historyCapSec)))
-      : d.historyCapSec
 
   let specResolution =
     typeof o.specResolution === 'string' && SPEC_RES.has(o.specResolution as SpectrogramResolution)
@@ -266,7 +241,7 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
     pitchFMaxHz = clampPitchHz(o.specFMaxHz, d.pitchFMaxHz)
   }
   let band = normalizePitchBand(pitchFMinHz, pitchFMaxHz)
-  // Migrate prior cramped Spec default (80–1000) → voice.
+  // Migrate prior cramped Spec default (80–1000) → current default band.
   if (
     (band.minHz === 80 && band.maxHz === 1000) ||
     (band.minHz === 65 && band.maxHz === 1200)
@@ -275,6 +250,10 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
     if (specResolution === 'medium' || specResolution === 'coarse') {
       specResolution = 'fine'
     }
+  }
+  // Prior default Voice (55–1200) → Quartet F0 (rejects laptop-fan rumble).
+  if (band.minHz === 55 && band.maxHz === 1200 && (o.pitchRangeId == null || o.pitchRangeId === 'voice')) {
+    band = { minHz: d.pitchFMinHz, maxHz: d.pitchFMaxHz }
   }
   let pitchRangeId: PitchRangeId = isPitchRangeId(o.pitchRangeId)
     ? o.pitchRangeId
@@ -299,22 +278,21 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
     tuneDisplay,
     strobeStyle,
     sessionStripEnabled: o.sessionStripEnabled !== false,
-    staffClef,
     keyPc: clampPc(o.keyPc, d.keyPc),
     scaleMode,
     keyGridTemperament,
     customOffsetsCents: normalizeCustomOffsets(o.customOffsetsCents),
     chordLockEnabled: o.chordLockEnabled === true,
     chordNatureId: typeof o.chordNatureId === 'string' ? o.chordNatureId : null,
-    chordRootPolicy,
-    pinnedRootPc:
-      o.pinnedRootPc == null ? null : clampPc(o.pinnedRootPc, 0),
+    pinnedRootPc: o.pinnedRootPc == null ? null : clampPc(o.pinnedRootPc, 0),
     a4Hz,
     inTuneWindowCents: clampWindow(o.inTuneWindowCents, d.inTuneWindowCents),
     chordLockWindowCents: clampWindow(o.chordLockWindowCents, d.chordLockWindowCents),
     inputDeviceId: typeof o.inputDeviceId === 'string' ? o.inputDeviceId : null,
     noiseGateDb:
-      typeof o.noiseGateDb === 'number' && Number.isFinite(o.noiseGateDb) ? o.noiseGateDb : null,
+      typeof o.noiseGateDb === 'number' && Number.isFinite(o.noiseGateDb)
+        ? Math.max(-80, Math.min(-10, o.noiseGateDb))
+        : d.noiseGateDb,
     detectionThreshold: clampDetectionThreshold(o.detectionThreshold, d.detectionThreshold),
     multiF0SalienceFloor: clampDetectionThreshold(
       o.multiF0SalienceFloor,
@@ -326,8 +304,6 @@ export function normalizeDigitalTunerPrefs(raw: unknown): DigitalTunerPrefs {
     fftSize,
     fftSmoothing: o.fftSmoothing !== false,
     fftPeakHold: o.fftPeakHold !== false,
-    historyCapSec,
-    density,
     specGridlines: o.specGridlines !== false,
     specFreqScale: o.specFreqScale === 'linear' ? 'linear' : 'log',
     specFMinHz: band.minHz,
@@ -359,6 +335,6 @@ export function saveDigitalTunerPrefs(prefs: DigitalTunerPrefs): void {
   try {
     localStorage.setItem(DIGITAL_TUNER_PREFS_KEY, JSON.stringify(normalizeDigitalTunerPrefs(prefs)))
   } catch {
-    /* ignore */
+    /* ignore quota */
   }
 }

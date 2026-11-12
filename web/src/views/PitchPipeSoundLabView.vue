@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * Pitch-pipe voice lab: edit JSON-schema voices, A/B vs classic, save locally,
- * and set the app-wide pitch pipe / pay-the-key sound.
+ * and set the app-wide pitch pipe / play-the-key sound.
  */
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -220,7 +220,7 @@ function setAsMyPitchSound(from: PitchPipeVoiceConfig = voice as PitchPipeVoiceC
   const next = finalizePitchPipeVoiceForSave(from, { keepId: true })
   setActivePitchPipeVoice(next)
   refreshActive()
-  flash(`“${next.label}” is now your pitch pipe / pay-the-key sound`)
+  flash(`“${next.label}” is now your pitch pipe / play-the-key sound`)
 }
 
 function useClassicAsMyPitchSound(): void {
@@ -264,7 +264,7 @@ function applyImport(): void {
       <p class="intro">
         Design alternate pitch-pipe voices (same JSON schema the app plays). Hold notes to hear the
         selected source, save candidates on this device, and optionally make one your default for
-        Pitch Pipe and pay-the-key.
+        Pitch Pipe and play-the-key.
       </p>
     </header>
 

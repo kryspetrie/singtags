@@ -121,6 +121,7 @@ import {
   loadSoundfontFavoriteKeys,
   loadString,
   loadStringArray,
+  migrateLegacyTagStudioLabsKeys,
 } from './preferences/storage'
 import { type StoreDeps } from './preferences/deps'
 import { createMixAndUiActions } from './preferences/mixAndUi'
@@ -153,6 +154,7 @@ export {
   normalizeSheetFsPageMode,
 } from './preferences/storage'
 export const usePreferencesStore = defineStore('preferences', () => {
+  migrateLegacyTagStudioLabsKeys()
 
   const initialPipe = loadPitchPipePrefs()
   const partSoloInFile = ref<Record<string, PartSide>>(loadSideMap(SOLO_IN_FILE_KEY))

@@ -413,16 +413,24 @@ onUnmounted(() => {
         >
           <font-awesome-icon :icon="['fas', 'hand']" class="tr-ico" aria-hidden="true" />
         </button>
+      </div>
+
+      <div
+        v-if="!isView"
+        class="modes segment"
+        role="group"
+        aria-label="Tuplet tool"
+      >
         <button
           type="button"
-          class="seg-btn ico"
+          class="seg-btn"
           :class="{ on: store.tupletTool }"
           :aria-pressed="store.tupletTool"
-          :title="tipByShortcutId('tuplet-tool', 'Tuplet — drag a span')"
-          aria-label="Tuplet tool — drag a span for a triplet"
+          :title="tipByShortcutId('tuplet-tool', 'Tuplets — drag a span')"
+          aria-label="Tuplets — drag a span for a triplet"
           @click="store.setTupletTool(!store.tupletTool)"
         >
-          <span class="tuplet-badge" aria-hidden="true">3</span>
+          Tuplets
         </button>
       </div>
 
@@ -1101,18 +1109,6 @@ onUnmounted(() => {
 .tr-ico {
   width: 0.95rem;
   height: 0.95rem;
-}
-.tuplet-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0.95rem;
-  height: 0.95rem;
-  font-size: 0.82rem;
-  font-weight: 750;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
 }
 .page-zoom {
   display: inline-flex;

@@ -16,27 +16,23 @@ export function downloadTunerExport(opts: {
   reading: TuneReading | null
 }): void {
   const surfaceLabel =
-    opts.surface === 'chord'
-      ? 'chord'
-      : opts.surface === 'fft'
-        ? 'fft'
-        : opts.surface === 'spectrogram'
-          ? 'spectrogram'
-          : 'tune'
+    opts.surface === 'fft' ? 'fft' : opts.surface === 'spectrogram' ? 'spectrogram' : 'tune'
+  const chordRows =
+    opts.chordScore?.tones.map((t) => ({
+      hz: t.hz,
+      note: t.note,
+      cents: t.errorCentsVsJi,
+      role: t.role,
+    })) ?? []
   const rows =
-    opts.surface === 'fft'
-      ? opts.fftPeaks.map((p) => ({
-          hz: p.hz,
-          note: p.note ?? undefined,
-          cents: p.errorCents ?? undefined,
-          salience: p.salience,
-        }))
-      : opts.surface === 'chord' && opts.chordScore
-        ? opts.chordScore.tones.map((t) => ({
-            hz: t.hz,
-            note: t.note,
-            cents: t.errorCentsVsJi,
-            role: t.role,
+    (opts.surface === 'fft' || opts.surface === 'spectrogram') && chordRows.length > 0
+      ? chordRows
+      : opts.surface === 'fft'
+        ? opts.fftPeaks.map((p) => ({
+            hz: p.hz,
+            note: p.note ?? undefined,
+            cents: p.errorCents ?? undefined,
+            salience: p.salience,
           }))
         : opts.reading
           ? [

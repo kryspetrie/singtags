@@ -8,7 +8,7 @@ import type { FftPeak } from './fftPeaks'
 import type { MultiF0Peak } from './multiF0'
 import type { SpectrogramFreqScale } from './spectrogramRing'
 
-export type TunerDspAnalyzeMode = 'none' | 'chord' | 'fft' | 'spectrogram'
+export type TunerDspAnalyzeMode = 'none' | 'fft' | 'spectrogram'
 
 export type TunerDspConfig = {
   suppressDetection: boolean
@@ -55,8 +55,8 @@ export const DEFAULT_TUNER_DSP_CONFIG: TunerDspConfig = {
   keyPc: 0,
   temperament: 'equal',
   customOffsetsCents: [],
-  analysisFMinHz: 55,
-  analysisFMaxHz: 1200,
+  analysisFMinHz: 70,
+  analysisFMaxHz: 700,
   specAnalysisSamples: 4096,
   specBinCount: 160,
   specFMinHz: 55,
@@ -68,11 +68,6 @@ export const DEFAULT_TUNER_DSP_CONFIG: TunerDspConfig = {
 export type TunerDspMono = {
   hz: number | null
   clarity: number
-}
-
-export type TunerDspChord = {
-  peaks: MultiF0Peak[]
-  pitchClasses: number[]
 }
 
 export type TunerDspFft = {
@@ -94,7 +89,6 @@ export type TunerDspResult = {
   level: number
   /** Null when detection is suppressed. */
   mono: TunerDspMono | null
-  chord?: TunerDspChord
   fft?: TunerDspFft
   spec?: TunerDspSpec
 }

@@ -11,7 +11,7 @@ export type TunerExportSnapshotV1 = {
   keyGridTemperament: string
   chordLockEnabled: boolean
   chordNatureId: string | null
-  surface: 'tune' | 'chord' | 'fft' | 'spectrogram'
+  surface: 'tune' | 'fft' | 'spectrogram'
   /** Optional peak / tone rows for CSV/JSON. */
   rows: Array<{
     hz: number

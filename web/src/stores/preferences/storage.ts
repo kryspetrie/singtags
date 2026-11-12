@@ -6,11 +6,11 @@ import {
   PITCH_PIPE_A_TUNINGS,
   aHzToCents,
   normalizePitchPipeGridScale,
+  normalizePitchPipeLayout,
   normalizePitchPipePianoDefaultOctave,
   normalizePitchPipeRange,
   normalizeSheetPianoKeyScale,
   normalizeSheetPianoHeightPx,
-  isPitchPipeLayout,
   type PitchPipeAHz,
   type PitchPipeLayout,
   type PitchPipePianoDefaultOctave,
@@ -122,10 +122,38 @@ export const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v
 export const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 /** Labs: Tag Roll piano-roll composer. Default off. */
 export const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_ENABLED_KEY. */
+export const LEGACY_TAG_STUDIO_ENABLED_KEY = 'singtags.labs.tagStudio.enabled.v1'
 /** Labs: Arranging coach gate. Default off until package port. */
 export const ARRANGING_ENABLED_KEY = 'singtags.labs.arranging.enabled.v1'
 export const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
 export const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_CELL_*_KEY. */
+export const LEGACY_TAG_STUDIO_CELL_W_KEY = 'singtags.labs.tagStudio.cellW.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_CELL_*_KEY. */
+export const LEGACY_TAG_STUDIO_CELL_H_KEY = 'singtags.labs.tagStudio.cellH.v1'
+
+/** Copy legacy tagStudio.* labs keys into tagRoll.* once, then drop the old keys. */
+export function migrateLegacyTagStudioLabsKeys(): void {
+  const pairs: Array<[legacy: string, next: string]> = [
+    [LEGACY_TAG_STUDIO_ENABLED_KEY, TAG_ROLL_ENABLED_KEY],
+    [LEGACY_TAG_STUDIO_CELL_W_KEY, TAG_ROLL_CELL_W_KEY],
+    [LEGACY_TAG_STUDIO_CELL_H_KEY, TAG_ROLL_CELL_H_KEY],
+  ]
+  try {
+    for (const [legacy, next] of pairs) {
+      const legacyVal = localStorage.getItem(legacy)
+      if (legacyVal == null) continue
+      if (localStorage.getItem(next) == null) {
+        localStorage.setItem(next, legacyVal)
+      }
+      localStorage.removeItem(legacy)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export const TAG_ROLL_METRONOME_SOUND_KEY = 'singtags.labs.tagRoll.metronomeSound.v1'
 export const TAG_ROLL_METRONOME_VOLUME_KEY = 'singtags.labs.tagRoll.metronomeVolume.v1'
 export const TAG_ROLL_SOUNDFONT_FAVORITES_KEY = 'singtags.labs.tagRoll.soundfontFavorites.v1'
@@ -229,7 +257,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const range = normalizePitchPipeRange(o.range)
-  const layout = isPitchPipeLayout(o.layout) ? o.layout : null
+  const layout = normalizePitchPipeLayout(o.layout)
   if (!range || !layout) return null
 
   const showOctave = o.showOctave === true
@@ -309,7 +337,8 @@ export function loadLegacyPitchPipeRange(): PitchPipeRange {
 export function loadLegacyPitchPipeLayout(): PitchPipeLayout {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_LAYOUT_KEY)
-    if (isPitchPipeLayout(raw)) return raw
+    const mapped = normalizePitchPipeLayout(raw)
+    if (mapped) return mapped
   } catch {
     /* ignore */
   }

@@ -2,11 +2,11 @@
 /**
  * Digital Tuner shell (Labs) — Tune | Analyze + canvas stages.
  */
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch, type Ref } from 'vue'
 import { usePreferencesStore } from '../stores/preferences'
 import { useTunerCapture } from '../composables/useTunerCapture'
 import { useTunerLayout } from '../composables/useTunerLayout'
-import { useTunerChordSession } from '../composables/useTunerChordSession'
+import { useSpectrumChordScore } from '../composables/useSpectrumChordScore'
 import { useTunerReferenceTone } from '../composables/useTunerReferenceTone'
 import { isInTuneCents } from '../domain/tuner/displayCents'
 import { tuneReadingFromHz } from '../domain/tuner/tuneTarget'
@@ -28,16 +28,9 @@ import {
 import TunerStageCanvas from '../components/tuner/TunerStageCanvas.vue'
 
 /** Analyze / settings surfaces — separate chunks; Tune stage stays eager. */
-const ChordStackView = defineAsyncComponent(() => import('../components/tuner/ChordStackView.vue'))
 const TunerFftView = defineAsyncComponent(() => import('../components/tuner/TunerFftView.vue'))
 const TunerSpectrogramView = defineAsyncComponent(
   () => import('../components/tuner/TunerSpectrogramView.vue'),
-)
-const TunerHarmonicsView = defineAsyncComponent(
-  () => import('../components/tuner/TunerHarmonicsView.vue'),
-)
-const TunerStaffPlotView = defineAsyncComponent(
-  () => import('../components/tuner/TunerStaffPlotView.vue'),
 )
 const TunerSessionStrip = defineAsyncComponent(
   () => import('../components/tuner/TunerSessionStrip.vue'),
@@ -90,11 +83,8 @@ const PRIMARY_TABS = [
   { id: 'analyze' as const, label: 'Analyze' },
 ]
 const ANALYZE_TABS = [
-  { id: 'chord' as const, label: 'Chord' },
   { id: 'fft' as const, label: 'FFT' },
   { id: 'spectrogram' as const, label: 'Spec' },
-  { id: 'harmonics' as const, label: 'Harm' },
-  { id: 'staff' as const, label: 'Staff' },
 ]
 
 const live = computed(() => {
@@ -122,9 +112,37 @@ const reading = computed(() => {
   })
 })
 
+/**
+ * Extra EMA on cents for the meter — Hz smoothing already favors pitch center;
+ * this keeps the bar from twitching with residual vibrato.
+ */
+const meterCents: Ref<number | null> = ref(null)
+watch(
+  () => reading.value?.errorCents ?? null,
+  (c) => {
+    if (c == null || !Number.isFinite(c)) {
+      meterCents.value = null
+      return
+    }
+    if (meterCents.value == null) {
+      meterCents.value = c
+      return
+    }
+    const jump = Math.abs(c - meterCents.value)
+    // Leap to a new note center; otherwise crawl toward pitch center.
+    meterCents.value = jump > 35 ? c : meterCents.value + 0.08 * (c - meterCents.value)
+  },
+)
+
 const inTune = computed(() => {
-  if (!reading.value) return false
-  return isInTuneCents(reading.value.errorCents, windowCents.value)
+  if (meterCents.value == null) return false
+  return isInTuneCents(meterCents.value, windowCents.value)
+})
+
+const tuneStatusWord = computed(() => {
+  if (meterCents.value == null) return 'WAIT'
+  if (inTune.value) return 'IN TUNE'
+  return meterCents.value > 0 ? 'SHARP' : 'FLAT'
 })
 
 const legend = computed(() =>
@@ -155,13 +173,9 @@ const tuneStageMode = computed((): 'needle' | 'strobe' | 'scope' => {
 
 const surface = computed(() => tunerPrefs.value.analyzeSurface)
 const primaryMode = computed(() => (surface.value === 'hidden' ? 'tune' : 'analyze'))
-const chordEnabled = computed(() => surface.value === 'chord' && capture.running.value)
-const fftEnabled = computed(
-  () =>
-    (surface.value === 'fft' || surface.value === 'harmonics') && capture.running.value,
-)
+const fftEnabled = computed(() => surface.value === 'fft' && capture.running.value)
 const specEnabled = computed(() => surface.value === 'spectrogram' && capture.running.value)
-/** Accumulate whenever mic runs (strip/staff read it); never in Glance. */
+/** Accumulate whenever mic runs (strip reads it); never in Glance. */
 const sessionEnabled = computed(() => capture.running.value && !glanceOpen.value)
 const sessionStats = useTunerSessionStats({
   enabled: sessionEnabled,
@@ -170,16 +184,38 @@ const sessionStats = useTunerSessionStats({
   clarityMin: computed(() => tunerPrefs.value.detectionThreshold),
 })
 
-const chordSession = useTunerChordSession({
-  prefs: tunerPrefs,
-  a4Hz,
-  enabled: chordEnabled,
-})
-
 const { spectrum: fftSpectrum, applyDsp: applyFftDsp } = useTunerFftSession({
   prefs: tunerPrefs,
   enabled: fftEnabled,
   paused: fftPaused,
+})
+
+const fftPeaksForChord = computed(() =>
+  (fftSpectrum.value?.peaks ?? []).map((p) => ({ hz: p.hz, salience: p.salience })),
+)
+const specPeaksForChord = computed(() =>
+  specTracks.value
+    .filter((t) => t.held && t.points.length > 0)
+    .map((t) => {
+      const last = t.points[t.points.length - 1]!
+      return { hz: last.hz, salience: Math.max(0.2, last.salience) }
+    }),
+)
+const spectrumChordPeaks = computed(() =>
+  surface.value === 'spectrogram' ? specPeaksForChord.value : fftPeaksForChord.value,
+)
+const spectrumChordEnabled = computed(
+  () =>
+    capture.running.value && (surface.value === 'fft' || surface.value === 'spectrogram'),
+)
+const {
+  score: spectrumChordScore,
+  statusLabel: spectrumChordStatus,
+} = useSpectrumChordScore({
+  prefs: tunerPrefs,
+  a4Hz,
+  peaks: spectrumChordPeaks,
+  enabled: spectrumChordEnabled,
 })
 
 function syncAnalysisOpts(): void {
@@ -205,8 +241,8 @@ function syncDspConfig(): void {
       fftPaused: fftPaused.value,
       specPaused: specPaused.value,
     }),
-    // Mono for Tune + session strip/staff; skip on FFT/Spec to save worker budget.
-    monoEnabled: surf === 'hidden' || surf === 'chord' || surf === 'staff',
+    // Mono for Tune + session strip; skip on FFT/Spec to save worker budget.
+    monoEnabled: surf === 'hidden',
     salienceFloor: p.multiF0SalienceFloor,
     fftSize: p.fftSize,
     fftDisplayBins: displayBinsForFftSize(p.fftSize),
@@ -225,7 +261,6 @@ function syncDspConfig(): void {
 }
 
 function onDspResult(result: TunerDspResult): void {
-  if (result.chord && chordEnabled.value) chordSession.applyDsp(result.chord)
   if (result.fft && fftEnabled.value) {
     const force = forceNextFftSmooth
     forceNextFftSmooth = false
@@ -257,7 +292,7 @@ function setSurface(next: DigitalTunerPrefs['analyzeSurface']): void {
 
 function setPrimary(next: 'tune' | 'analyze'): void {
   if (next === 'tune') setSurface('hidden')
-  else if (surface.value === 'hidden') setSurface('chord')
+  else if (surface.value === 'hidden') setSurface('fft')
   else prefetchAnalyzeSurface(surface.value)
 }
 
@@ -279,7 +314,7 @@ async function downloadExport(): Promise<void> {
     a4Hz: a4Hz.value,
     prefs: tunerPrefs.value,
     fftPeaks: fftSpectrum.value?.peaks ?? [],
-    chordScore: chordSession.score.value,
+    chordScore: spectrumChordScore.value,
     reading: reading.value,
   })
 }
@@ -304,7 +339,6 @@ async function enterGlance(): Promise<void> {
   settingsOpen.value = false
   await ensureListening()
   if (!capture.running.value) return
-  // Harmonics / Staff are Detail-only — remap so Glance never falls through to Spec.
   const next = toGlanceSurface(surface.value)
   if (next !== surface.value) setSurface(next)
   glanceOpen.value = true
@@ -571,13 +605,14 @@ onUnmounted(() => {
     <template v-if="!glanceOpen">
       <TunerStageCanvas
         v-if="surface === 'hidden'"
-        :cents="reading?.errorCents ?? null"
+        :cents="meterCents"
         :in-tune="inTune"
         :clarity="live.clarity"
         :display-midi="live.displayMidi"
         :hz="live.hz"
         :key-pc="tunerPrefs.keyPc"
         :legend="mode === 'narrow-landscape' ? legendShort : legend"
+        :status-word="tuneStatusWord"
         :level="capture.reading.value.level"
         :mode="tuneStageMode"
         :strobe-style="tunerPrefs.strobeStyle"
@@ -586,23 +621,15 @@ onUnmounted(() => {
         :window-cents="windowCents"
       />
 
-      <ChordStackView
-        v-else-if="surface === 'chord'"
-        :score="chordSession.score.value"
-        :rows="chordSession.rows.value"
-        :clarity="live.clarity"
-        :window-cents="tunerPrefs.chordLockWindowCents"
-        :peaks-hz="chordSession.livePeaksHz.value"
-        :a4-hz="a4Hz"
-        :active="capture.running.value"
-        :reduced-motion="reducedMotion"
-      />
-
       <TunerFftView
         v-else-if="surface === 'fft'"
         :spectrum="fftSpectrum"
         :paused="fftPaused"
         :prefs="tunerPrefs"
+        :a4-hz="a4Hz"
+        :window-cents="windowCents"
+        :chord-score="spectrumChordScore"
+        :chord-status-label="spectrumChordStatus"
         @toggle-pause="toggleFftPause"
         @play-peak="onFftPlayPeak"
         @audition-selected="onFftAudition"
@@ -616,34 +643,21 @@ onUnmounted(() => {
         :paint-gen="specPaintGen"
         :paused="specPaused"
         :prefs="tunerPrefs"
+        :a4-hz="a4Hz"
+        :window-cents="windowCents"
+        :chord-score="spectrumChordScore"
+        :chord-status-label="spectrumChordStatus"
         @toggle-pause="specPaused = !specPaused"
         @clear="clearSpectrogram"
         @patch="onSettingsPatch"
       />
 
-      <TunerHarmonicsView
-        v-else-if="surface === 'harmonics'"
-        :spectrum="fftSpectrum"
-        :paused="fftPaused"
-        :prefs="tunerPrefs"
-        @toggle-pause="toggleFftPause"
-        @patch="onSettingsPatch"
-      />
-
-      <TunerStaffPlotView
-        v-else-if="surface === 'staff'"
-        :history="sessionStats.history.value"
-        :prefs="tunerPrefs"
-        :window-cents="windowCents"
-        @patch="onSettingsPatch"
-      />
-
       <TunerSessionStrip
-        v-if="tunerPrefs.sessionStripEnabled && (surface === 'hidden' || surface === 'chord')"
-        :percents="sessionStats.percents.value"
+        v-if="tunerPrefs.sessionStripEnabled && surface === 'hidden'"
         :history="sessionStats.history.value"
         :has-voice="sessionStats.hasVoice.value"
         :hold-progress="sessionStats.holdProgress.value"
+        :window-cents="windowCents"
         @reset="sessionStats.reset()"
       />
 
@@ -671,16 +685,17 @@ onUnmounted(() => {
     <TunerGlanceOverlay
       v-if="glanceOpen"
       :surface="surface"
-      :cents="reading?.errorCents ?? null"
+      :cents="meterCents"
       :in-tune="inTune"
       :display-midi="live.displayMidi"
       :key-pc="tunerPrefs.keyPc"
       :level="capture.reading.value.level"
-      :score="chordSession.score.value"
-      :rows="chordSession.rows.value"
+      :score="spectrumChordScore"
       :spectrum="fftSpectrum"
       :fft-paused="fftPaused"
       :prefs="tunerPrefs"
+      :a4-hz="a4Hz"
+      :window-cents="windowCents"
       :spec-ring="specRing"
       :spec-tracks="specTracks"
       :spec-paint-gen="specPaintGen"

@@ -1,13 +1,13 @@
 # Digital Tuner — pitch analysis for vocalists
 
-> **Status:** Labs — `/tuner` behind Labs toggle; Wave 1–3 practice/Analyze teaching views shipped  
-> **Updated:** 2026-11-11 (session % zones + history; scope hold; chord beat-scope; harmonics; staff plot; radial strobe; pitch-range presets; Labs-gated)  
-> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; Chord Analyze with Assisted pin; FFT/Spec analysis/export; **10-foot Rehearsal Glance**.  
+> **Status:** Labs — `/tuner` behind Labs toggle; spine = **Tune · FFT · Spec · Glance**  
+> **Updated:** 2026-11-12 (cut Chord Analyze tab, Harmonics, Staff, ghost prefs — see [digital-tuner-dropped.md](digital-tuner-dropped.md))  
+> **Goal:** On-device Digital Tuner for singers: trustworthy simple Tune + strobe first; key/grid temperament separate from chord-lock JI; FFT/Spec analysis with spectrum chord scoring; **10-foot Rehearsal Glance**.  
 > **Placement:** Labs-gated `/tuner` → More when enabled. Users may pin it; not forced into the default bottom-tab pin set next to Pitch Pipe.  
-> **Clients:** Desktop and mobile; **portrait and landscape**; density/layout adapt via shared narrow + orientation breakpoints (not a separate “mobile app”).  
+> **Clients:** Desktop and mobile; **portrait and landscape**; layout via shared narrow + orientation breakpoints (not a separate “mobile app”).  
 > **Privacy:** All analysis on-device; mic audio never leaves the browser; analysis rings capped and cleared on leave  
-> **Primary use cases:** (1) Solo chromatic / key-aware Tune. (2) Chord Analyze — pin nature/root for Locked/Fix colors (Assisted). (3) FFT / Spec study. (4) **10-foot Glance** — room-readable wash + words for rehearsal.  
-> **North-star differentiator:** Quartet chord stack — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**; Glance covers Tune/Chord/FFT/Spec fullscreen with Screen Wake Lock. Harmonics / Staff are Detail-only teaching views — 10-ft entry remaps (`harmonics`→FFT, `staff`→Tune).  
+> **Primary use cases:** (1) Solo chromatic / key-aware Tune. (2) FFT / Spec study + Assisted chord pin for Locked/Fix. (3) **10-foot Glance** — room-readable wash + words for rehearsal.  
+> **North-star differentiator:** Quartet chord intonation from spectrum fundamentals — in-tune-with-self vs in-tune-with-key — **gated on kill-gate evidence**; Glance = Tune/FFT/Spec with Screen Wake Lock.  
 
 > **Related:** [audio-recorder-roadmap.md](audio-recorder-roadmap.md) (tuner explicitly **not** inside recorder), [virtual-piano.md](virtual-piano.md), [tag-audio-pitch-import.md](tag-audio-pitch-import.md), [justIntonation.ts](../../web/src/domain/arranging/justIntonation.ts), [narrowViewport.ts](../../web/src/lib/narrowViewport.ts)
 

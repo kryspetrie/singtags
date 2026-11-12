@@ -14,7 +14,6 @@ import {
   type TunerDspResult,
 } from './tunerDspProtocol'
 
-const CHORD_ANALYSIS_SAMPLES = 4096
 /** Live mono YIN needs ≥~2 periods at Fmin≈55 Hz @ 48 kHz → prefer 4096. */
 export const MONO_ANALYSIS_SAMPLES = 4096
 
@@ -25,8 +24,6 @@ export class TunerDspEngine {
   private fftBuf: Float32Array | null = null
   private fftFilled = 0
   private lastFftPublishMs = 0
-  private chordBuf: Float32Array | null = null
-  private chordFilled = 0
   private specBuf: Float32Array | null = null
   private specFilled = 0
   private specHop = 0
@@ -62,8 +59,6 @@ export class TunerDspEngine {
     this.fftBuf = null
     this.fftFilled = 0
     this.lastFftPublishMs = 0
-    this.chordBuf = null
-    this.chordFilled = 0
     this.specBuf = null
     this.specFilled = 0
     this.specHop = 0
@@ -83,10 +78,7 @@ export class TunerDspEngine {
 
     const result: TunerDspResult = { seq, sampleRate, level, mono }
 
-    if (cfg.analyze === 'chord') {
-      const chord = this.runChord(samples, sampleRate)
-      if (chord) result.chord = chord
-    } else if (cfg.analyze === 'fft') {
+    if (cfg.analyze === 'fft') {
       const fft = this.runFft(samples, sampleRate, nowMs)
       if (fft) result.fft = fft
     } else if (cfg.analyze === 'spectrogram') {
@@ -116,7 +108,8 @@ export class TunerDspEngine {
     let sumSq = 0
     for (let i = 0; i < b.length; i++) sumSq += b[i]! * b[i]!
     const rms = Math.sqrt(sumSq / b.length)
-    const gate = this.config.rmsGate ?? 0.004
+    // Default matches prefs noiseGateDb −40 ≈ 0.01 (fan / idle mic stay closed).
+    const gate = this.config.rmsGate ?? 0.01
     if (rms < gate) return { hz: null, clarity: 0 }
 
     const forF0 = normalizeFramePeak(b)
@@ -128,22 +121,6 @@ export class TunerDspEngine {
       fMinHz: fMin,
       fMaxHz: Math.max(fMin + 10, fMax),
     })
-  }
-
-  private runChord(hop: Float32Array, sampleRate: number): TunerDspResult['chord'] | undefined {
-    const b = this.ensureBuf('chord', CHORD_ANALYSIS_SAMPLES)
-    this.slide(b, 'chord', hop)
-    if (this.chordFilled < CHORD_ANALYSIS_SAMPLES) return undefined
-    const fMin = this.config.analysisFMinHz
-    const fMax = Math.min(this.config.analysisFMaxHz, sampleRate * 0.49)
-    const { peaks, pitchClasses } = multiF0(b, sampleRate, {
-      a4Hz: this.config.a4Hz,
-      maxPeaks: 4,
-      fMinHz: fMin,
-      fMaxHz: Math.max(fMin + 10, fMax),
-      salienceFloor: this.config.salienceFloor,
-    })
-    return { peaks, pitchClasses }
   }
 
   private runFft(
@@ -187,7 +164,7 @@ export class TunerDspEngine {
     const b = this.ensureBuf('spec', need)
     this.slide(b, 'spec', hop)
     if (this.specFilled < need) return undefined
-
+    // Publish every other hop once filled — Spec paint is expensive.
     this.specHop++
     if (this.specHop % 2 !== 0) return undefined
 
@@ -221,7 +198,7 @@ export class TunerDspEngine {
     return { bins }
   }
 
-  private ensureBuf(which: 'mono' | 'fft' | 'chord' | 'spec', size: number): Float32Array {
+  private ensureBuf(which: 'mono' | 'fft' | 'spec', size: number): Float32Array {
     if (which === 'mono') {
       if (!this.monoBuf || this.monoBuf.length !== size) {
         this.monoBuf = new Float32Array(size)
@@ -236,13 +213,6 @@ export class TunerDspEngine {
       }
       return this.fftBuf
     }
-    if (which === 'chord') {
-      if (!this.chordBuf || this.chordBuf.length !== size) {
-        this.chordBuf = new Float32Array(size)
-        this.chordFilled = 0
-      }
-      return this.chordBuf
-    }
     if (!this.specBuf || this.specBuf.length !== size) {
       this.specBuf = new Float32Array(size)
       this.specFilled = 0
@@ -250,20 +220,10 @@ export class TunerDspEngine {
     return this.specBuf
   }
 
-  private slide(
-    buf: Float32Array,
-    which: 'mono' | 'fft' | 'chord' | 'spec',
-    hop: Float32Array,
-  ): void {
+  private slide(buf: Float32Array, which: 'mono' | 'fft' | 'spec', hop: Float32Array): void {
     const need = buf.length
     let filled =
-      which === 'mono'
-        ? this.monoFilled
-        : which === 'fft'
-          ? this.fftFilled
-          : which === 'chord'
-            ? this.chordFilled
-            : this.specFilled
+      which === 'mono' ? this.monoFilled : which === 'fft' ? this.fftFilled : this.specFilled
     if (hop.length >= need) {
       buf.set(hop.subarray(hop.length - need))
       filled = need
@@ -278,7 +238,6 @@ export class TunerDspEngine {
     }
     if (which === 'mono') this.monoFilled = filled
     else if (which === 'fft') this.fftFilled = filled
-    else if (which === 'chord') this.chordFilled = filled
     else this.specFilled = filled
   }
 }

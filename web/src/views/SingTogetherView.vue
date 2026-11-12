@@ -4,16 +4,13 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { resolveFineDetuneCents } from '../audio/payKeyDetune'
 import {
-  PitchPlayer,
   keyToTonicNote,
   formatKeyShiftLabel,
   clampPitchSemitones,
 } from '../audio/pitchPlayer'
-import {
-  getActivePitchPipeVoice,
-  PITCH_PIPE_VOICE_CHANGE_EVENT,
-} from '../audio/pitchPipeVoice'
+import { usePayKeyTone } from '../composables/usePayKeyTone'
 import { capacityInfo, encodeProfileQr, decodeProfileFromQr, QR_MAX_BYTES } from '../lib/singTogether/codec'
 import {
   matchRepertoires,
@@ -414,7 +411,6 @@ onMounted(() => {
   narrowMq = window.matchMedia(NARROW_SELECT_MQ)
   syncNarrowSelect()
   narrowMq.addEventListener('change', syncNarrowSelect)
-  window.addEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
 })
 
 watch(libraryEnabled, (on) => {
@@ -1129,26 +1125,26 @@ function songPitchShiftLabel(song: Pick<RepertoireSong, 'id' | 'key'>): string {
   return formatKeyShiftLabel(song.key, songShiftSemitones(song.id))
 }
 
-const pitchPlayer = new PitchPlayer(getActivePitchPipeVoice())
-
-function syncPitchVoice(): void {
-  pitchPlayer.setVoice(getActivePitchPipeVoice())
-}
+const payKey = usePayKeyTone()
 
 async function paySongPitchDown(song: RepertoireSong, ev?: Event): Promise<void> {
   ev?.stopPropagation()
   const note = keyToTonicNote(song.key)
   if (!note) {
-    snackbar.show('Set a key on the song to play pitch.', { tone: 'info', ms: 2500 })
+    snackbar.show('Set a key on the song to play the key.', { tone: 'info', ms: 2500 })
     return
   }
-  const cents = songShiftSemitones(song.id) * 100 + prefs.globalPitchDetuneCents()
-  await pitchPlayer.start(note, cents)
+  await payKey.play(note, {
+    shiftSemitones: songShiftSemitones(song.id),
+    fineCents: resolveFineDetuneCents({
+      globalCents: prefs.globalPitchDetuneCents(),
+    }),
+  })
 }
 
 function paySongPitchUp(ev?: Event): void {
   ev?.stopPropagation()
-  pitchPlayer.stop()
+  payKey.stop(true)
 }
 
 function songAkaLabel(song: RepertoireSong): string {
@@ -1661,9 +1657,6 @@ onUnmounted(() => {
   if (longPressTimer != null) clearTimeout(longPressTimer)
   closeHostScan()
   if (scanFlashTimer != null) window.clearTimeout(scanFlashTimer)
-  window.removeEventListener(PITCH_PIPE_VOICE_CHANGE_EVENT, syncPitchVoice)
-  pitchPlayer.stop()
-  pitchPlayer.dispose()
 })
 
 function setMode(m: Mode): void {

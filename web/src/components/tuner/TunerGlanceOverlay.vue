@@ -1,11 +1,11 @@
 /**
- * 10-foot / Rehearsal Glance — one visual language for Tune · Chord · FFT · Spec.
+ * 10-foot / Rehearsal Glance — one visual language for Tune · FFT · Spec.
  * Hero wash + huge word on every surface; charts are full-bleed (no inset cards).
+ * Chord LOCKED / FIX overlays FFT/Spec when spectrum scoring has a verdict.
  */
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import type { ChordStackScore } from '../../domain/tuner/chordStack'
-import type { ChordToneRow } from '../../composables/useTunerChordSession'
 import {
   analyzeGlanceStatus,
   chordGlanceStatus,
@@ -31,10 +31,11 @@ const props = defineProps<{
   keyPc: number
   level: number
   score: ChordStackScore | null
-  rows: ChordToneRow[]
   spectrum: FftSpectrumView | null
   fftPaused: boolean
   prefs: DigitalTunerPrefs
+  a4Hz: number
+  windowCents: number
   specRing: SpectrogramRing
   specTracks: SpectrogramTrack[]
   specPaintGen: number
@@ -52,7 +53,6 @@ const emit = defineEmits<{
 
 const TABS = [
   { id: 'hidden' as const, label: 'Tune' },
-  { id: 'chord' as const, label: 'Chord' },
   { id: 'fft' as const, label: 'FFT' },
   { id: 'spectrogram' as const, label: 'Spec' },
 ]
@@ -92,32 +92,42 @@ const specStatus = computed(() =>
   }),
 )
 
+/** Prefer LOCKED / FIX from spectrum chord score when available. */
+function withChordHero(
+  base: { word: string; detail: string | null },
+): { word: string; keyMark: string | null; detail: string | null } {
+  const c = chordStatus.value
+  if (c.kind === 'wait') {
+    return { word: base.word, keyMark: null, detail: base.detail }
+  }
+  return {
+    word: c.word,
+    keyMark: c.keyMark ? `KEY ${c.keyMark}` : null,
+    detail: base.detail,
+  }
+}
+
 const hero = computed(() => {
   if (props.surface === 'hidden') {
     return { word: tuneStatus.value.word, keyMark: null as string | null, detail: null as string | null }
   }
-  if (props.surface === 'chord') {
-    return {
-      word: chordStatus.value.word,
-      keyMark: chordStatus.value.keyMark ? `KEY ${chordStatus.value.keyMark}` : null,
-      detail: null,
-    }
-  }
   if (props.surface === 'fft') {
-    return { word: fftStatus.value.word, keyMark: null, detail: fftStatus.value.detail }
+    return withChordHero({ word: fftStatus.value.word, detail: fftStatus.value.detail })
   }
   if (props.surface === 'spectrogram') {
-    return { word: specStatus.value.word, keyMark: null, detail: specStatus.value.detail }
+    return withChordHero({ word: specStatus.value.word, detail: specStatus.value.detail })
   }
-  // Detail-only / unexpected — neutral until enterGlance remaps.
   return { word: 'WAIT', keyMark: null, detail: null }
 })
 
 const wash = computed(() => {
   if (props.surface === 'hidden') return tuneStatus.value.wash
-  if (props.surface === 'chord') return chordStatus.value.wash
-  if (props.surface === 'fft') return fftStatus.value.wash
-  if (props.surface === 'spectrogram') return specStatus.value.wash
+  if (props.surface === 'fft') {
+    return chordStatus.value.kind !== 'wait' ? chordStatus.value.wash : fftStatus.value.wash
+  }
+  if (props.surface === 'spectrogram') {
+    return chordStatus.value.kind !== 'wait' ? chordStatus.value.wash : specStatus.value.wash
+  }
   return 'neutral' as const
 })
 
@@ -195,44 +205,11 @@ onUnmounted(() => {
         <p v-else class="note muted">—</p>
       </section>
 
-      <!-- Chord -->
-      <section v-else-if="surface === 'chord'" class="body chord">
-        <div class="chips" :data-count="Math.min(4, Math.max(1, rows.length))">
-          <div
-            v-for="row in rows"
-            :key="row.slot"
-            class="chip"
-            :class="{
-              ok: row.tone?.glanceMark === 'OK',
-              off: row.tone && row.tone.glanceMark !== 'OK',
-              live: !row.tone && row.hearing,
-              empty: !row.tone && !row.hearing,
-            }"
-          >
-            <span class="chip-note">{{
-              chipLabel(row.tone?.note ?? row.hearing?.note ?? '·')
-            }}</span>
-            <span class="chip-mark">{{
-              row.tone?.glanceMark === 'OK'
-                ? 'OK'
-                : row.tone?.glanceMark === '▲'
-                  ? '▲'
-                  : row.tone?.glanceMark === '▼'
-                    ? '▼'
-                    : row.hearing
-                      ? '·'
-                      : '—'
-            }}</span>
-          </div>
-        </div>
-        <p v-if="score?.assistedPinRequired" class="assist">Pin nature/root in Settings</p>
-      </section>
-
       <!-- FFT -->
       <section
         v-else-if="surface === 'fft'"
         class="body analyze"
-        :class="{ 'has-chips': fftPeaks.length > 0 }"
+        :class="{ 'has-chips': fftPeaks.length > 0 || (score?.tones?.length ?? 0) > 0 }"
       >
         <div class="viz">
           <TunerFftView
@@ -240,12 +217,32 @@ onUnmounted(() => {
             :spectrum="spectrum"
             :paused="fftPaused"
             :prefs="prefs"
+            :a4-hz="a4Hz"
+            :window-cents="windowCents"
+            :chord-score="score"
             @toggle-pause="emit('toggleFftPause')"
             @patch="emit('patch', $event)"
           />
         </div>
         <div
-          v-if="fftPeaks.length"
+          v-if="score?.tones?.length"
+          class="chips analyze-chips"
+          :data-count="score.tones.length"
+        >
+          <div
+            v-for="t in score.tones"
+            :key="`${t.role}-${t.midi}`"
+            class="chip"
+            :class="{ ok: t.glanceMark === 'OK', off: t.glanceMark !== 'OK' }"
+          >
+            <span class="chip-note">{{ chipLabel(t.note) }}</span>
+            <span class="chip-mark">{{
+              t.glanceMark === 'OK' ? 'OK' : t.glanceMark === '▲' ? '▲' : '▼'
+            }}</span>
+          </div>
+        </div>
+        <div
+          v-else-if="fftPeaks.length"
           class="chips analyze-chips"
           :data-count="fftPeaks.length"
         >
@@ -254,6 +251,7 @@ onUnmounted(() => {
             <span class="chip-mark">{{ p.hz.toFixed(0) }}</span>
           </div>
         </div>
+        <p v-if="score?.assistedPinRequired" class="assist">Pin nature/root in Settings</p>
       </section>
 
       <!-- Spec -->
@@ -270,13 +268,33 @@ onUnmounted(() => {
             :paint-gen="specPaintGen"
             :paused="specPaused"
             :prefs="prefs"
+            :a4-hz="a4Hz"
+            :window-cents="windowCents"
+            :chord-score="score"
             @toggle-pause="emit('toggleSpecPause')"
             @clear="emit('clearSpec')"
             @patch="emit('patch', $event)"
           />
         </div>
         <div
-          v-if="heldTracks.length"
+          v-if="score?.tones?.length"
+          class="chips analyze-chips"
+          :data-count="score.tones.length"
+        >
+          <div
+            v-for="t in score.tones"
+            :key="`${t.role}-${t.midi}`"
+            class="chip"
+            :class="{ ok: t.glanceMark === 'OK', off: t.glanceMark !== 'OK' }"
+          >
+            <span class="chip-note">{{ chipLabel(t.note) }}</span>
+            <span class="chip-mark">{{
+              t.glanceMark === 'OK' ? 'OK' : t.glanceMark === '▲' ? '▲' : '▼'
+            }}</span>
+          </div>
+        </div>
+        <div
+          v-else-if="heldTracks.length"
           class="chips analyze-chips"
           :data-count="heldTracks.length"
         >
@@ -285,6 +303,7 @@ onUnmounted(() => {
             <span class="chip-mark">HELD</span>
           </div>
         </div>
+        <p v-if="score?.assistedPinRequired" class="assist">Pin nature/root in Settings</p>
       </section>
 
       <!-- Detail-only surfaces should be remapped before open; keep a safe empty body. -->
