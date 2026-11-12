@@ -72,12 +72,13 @@ export function useSpectrumChordScore(opts: {
     const pcs = [...new Set(tones.map((t) => ((t.midi % 12) + 12) % 12))]
     const pinned = resolvePin()
     const raw = matchNatureFromPcs(pcs)
-    const { match } = applyNatureHysteresis(hyst, raw, {
-      appearHits: 3,
-      holdHits: 4,
-      missClear: 10,
+    const hystOut = applyNatureHysteresis(hyst, raw, {
+      holdFrames: 4,
+      missHoldFrames: 10,
       pinned,
     })
+    hyst = hystOut.state
+    const match = hystOut.match
 
     if (!match) {
       score.value = {
