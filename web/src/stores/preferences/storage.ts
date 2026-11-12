@@ -6,11 +6,11 @@ import {
   PITCH_PIPE_A_TUNINGS,
   aHzToCents,
   normalizePitchPipeGridScale,
+  normalizePitchPipeLayout,
   normalizePitchPipePianoDefaultOctave,
   normalizePitchPipeRange,
   normalizeSheetPianoKeyScale,
   normalizeSheetPianoHeightPx,
-  isPitchPipeLayout,
   type PitchPipeAHz,
   type PitchPipeLayout,
   type PitchPipePianoDefaultOctave,
@@ -229,7 +229,7 @@ export function parsePitchPipePrefs(raw: unknown): PitchPipePrefs | null {
   if (!raw || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   const range = normalizePitchPipeRange(o.range)
-  const layout = isPitchPipeLayout(o.layout) ? o.layout : null
+  const layout = normalizePitchPipeLayout(o.layout)
   if (!range || !layout) return null
 
   const showOctave = o.showOctave === true
@@ -309,7 +309,8 @@ export function loadLegacyPitchPipeRange(): PitchPipeRange {
 export function loadLegacyPitchPipeLayout(): PitchPipeLayout {
   try {
     const raw = localStorage.getItem(PITCH_PIPE_LAYOUT_KEY)
-    if (isPitchPipeLayout(raw)) return raw
+    const mapped = normalizePitchPipeLayout(raw)
+    if (mapped) return mapped
   } catch {
     /* ignore */
   }
