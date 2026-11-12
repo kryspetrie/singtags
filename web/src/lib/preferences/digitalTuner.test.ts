@@ -19,14 +19,12 @@ describe('digitalTuner prefs', () => {
   it('normalizes corrupt values to safe defaults', () => {
     const n = normalizeDigitalTunerPrefs({
       fftSize: 999,
-      historyCapSec: 99,
       inTuneWindowCents: -3,
       customOffsetsCents: [1, 2],
       a4Hz: 'nope',
       keyPc: 15,
     })
     expect(n.fftSize).toBe(4096)
-    expect(n.historyCapSec).toBe(30)
     expect(n.inTuneWindowCents).toBe(1)
     expect(n.customOffsetsCents).toHaveLength(12)
     expect(n.a4Hz).toBe('followPitchPipe')
@@ -55,23 +53,27 @@ describe('digitalTuner prefs', () => {
   it('defaults multi-F0 salience independently of clarity', () => {
     const n = normalizeDigitalTunerPrefs({ detectionThreshold: 0.8 })
     expect(n.detectionThreshold).toBe(0.8)
-    expect(n.multiF0SalienceFloor).toBe(0.35)
+    expect(n.multiF0SalienceFloor).toBe(0.4)
     expect(
       normalizeDigitalTunerPrefs({ multiF0SalienceFloor: 0.5 }).multiF0SalienceFloor,
     ).toBe(0.5)
   })
 
-  it('normalizes session / strobe / staff prefs', () => {
+  it('normalizes session / strobe prefs', () => {
     const n = normalizeDigitalTunerPrefs({
       strobeStyle: 'radial',
       sessionStripEnabled: false,
-      staffClef: 'bass',
-      analyzeSurface: 'harmonics',
+      analyzeSurface: 'spectrogram',
     })
     expect(n.strobeStyle).toBe('radial')
     expect(n.sessionStripEnabled).toBe(false)
-    expect(n.staffClef).toBe('bass')
-    expect(n.analyzeSurface).toBe('harmonics')
+    expect(n.analyzeSurface).toBe('spectrogram')
+  })
+
+  it('migrates legacy Analyze surfaces', () => {
+    expect(normalizeDigitalTunerPrefs({ analyzeSurface: 'chord' }).analyzeSurface).toBe('fft')
+    expect(normalizeDigitalTunerPrefs({ analyzeSurface: 'harmonics' }).analyzeSurface).toBe('fft')
+    expect(normalizeDigitalTunerPrefs({ analyzeSurface: 'staff' }).analyzeSurface).toBe('hidden')
   })
 
   it('accepts full hearing pitch range and syncs Spec band', () => {

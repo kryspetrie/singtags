@@ -14,13 +14,16 @@ export type SmoothLivePitchState = {
 }
 
 export type SmoothLivePitchOpts = {
-  /** Median window (frames). Default 9 (~190 ms at 48 kHz / 1024 hop). */
+  /**
+   * Median window (frames). Default 25 (~0.5 s at 48 kHz / 1024 hop).
+   * Long enough that vibrato wobble collapses toward pitch center.
+   */
   medianWindow?: number
-  /** EMA coefficient on Hz after median (0…1). Default 0.08 — heavier smoothing. */
+  /** EMA coefficient on Hz after median (0…1). Default 0.035 — pitch-center bias. */
   emaAlpha?: number
-  /** Extra cents past the ±50¢ boundary before MIDI flips. Default 35. */
+  /** Extra cents past the ±50¢ boundary before MIDI flips. Default 45. */
   midiHysteresisCents?: number
-  /** Snap EMA when sample jumps farther than this (¢). Default 500. */
+  /** Snap EMA when sample jumps farther than this (¢). Default 450. */
   snapCents?: number
   /** Concert A for MIDI float. Default 440. */
   a4Hz?: number
@@ -50,10 +53,10 @@ export function smoothLivePitch(
   sample: { hz: number; clarity: number },
   opts: SmoothLivePitchOpts = {},
 ): SmoothLivePitchResult {
-  const medianWindow = opts.medianWindow ?? 9
-  const emaAlpha = opts.emaAlpha ?? 0.08
-  const hystCents = opts.midiHysteresisCents ?? 35
-  const snapCents = opts.snapCents ?? 500
+  const medianWindow = opts.medianWindow ?? 25
+  const emaAlpha = opts.emaAlpha ?? 0.035
+  const hystCents = opts.midiHysteresisCents ?? 45
+  const snapCents = opts.snapCents ?? 450
   const a4Hz = opts.a4Hz ?? 440
 
   if (!(sample.hz > 0) || !(a4Hz > 0)) {

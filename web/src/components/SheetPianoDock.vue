@@ -467,7 +467,7 @@ watch(
     :class="{ 'sheet-piano-dock--page': isPage }"
     role="region"
     aria-label="Pitch piano"
-    :style="{ '--piano-h': `${pianoHeightPx}px` }"
+    :style="isPage ? undefined : { '--piano-h': `${pianoHeightPx}px` }"
   >
     <div class="dock-chrome">
       <button
@@ -490,6 +490,7 @@ watch(
         <span v-if="sampleStatus" class="dock-err">{{ sampleStatus }}</span>
       </div>
       <button
+        v-if="!isPage"
         type="button"
         class="dock-height-handle"
         aria-label="Drag to resize piano height"
@@ -525,6 +526,7 @@ watch(
         </button>
       </div>
       <button
+        v-if="!isPage"
         type="button"
         class="dock-btn dock-height-toggle"
         :class="{ 'is-on': pianoExpanded }"
@@ -630,7 +632,7 @@ watch(
   -webkit-user-select: none;
   --piano-h: 94px;
 }
-/* Pitch Pipe page embed — same keyboard chrome, fills the stage. */
+/* Pitch Pipe page embed — fixed practice height; no vertical resize chrome. */
 .sheet-piano-dock--page {
   flex: 1 1 auto;
   min-height: 0;
@@ -640,15 +642,19 @@ watch(
   overflow: hidden;
   z-index: 1;
   padding-bottom: 0.35rem;
-  /* Prefer a practice-sized keyboard over the stubby sheet-dock default. */
-  --piano-h-page-min: 176px;
+  --piano-h: 176px;
 }
 .sheet-piano-dock--page :deep(.piano-h-scroller) {
   flex: 1 1 auto;
   min-height: 0;
 }
 .sheet-piano-dock--page .piano {
-  height: max(var(--piano-h, 94px), var(--piano-h-page-min));
+  height: var(--piano-h);
+  max-height: none;
+}
+.sheet-piano-dock--page .dock-title {
+  /* No centered height grip on the page embed. */
+  padding-right: 0;
 }
 .dock-chrome {
   position: relative;

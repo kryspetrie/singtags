@@ -59,7 +59,7 @@ watch(
     windowDraft.value = p.inTuneWindowCents
     chordWindowDraft.value = p.chordLockWindowCents
     deviceDraft.value = p.inputDeviceId ?? ''
-    gateDraft.value = p.noiseGateDb == null ? '' : String(p.noiseGateDb)
+    gateDraft.value = p.noiseGateDb == null ? '-40' : String(p.noiseGateDb)
     detectionDraft.value = Math.round(p.detectionThreshold * 100)
     salienceDraft.value = Math.round(p.multiF0SalienceFloor * 100)
     keyPcDraft.value = p.keyPc
@@ -104,7 +104,11 @@ function onPitchHzEdit(): void {
 function apply(): void {
   const gateRaw = gateDraft.value.trim()
   const noiseGateDb =
-    gateRaw === '' ? null : Number.isFinite(Number(gateRaw)) ? Number(gateRaw) : null
+    gateRaw === ''
+      ? -40
+      : Number.isFinite(Number(gateRaw))
+        ? Math.max(-80, Math.min(-10, Number(gateRaw)))
+        : -40
   const pitch = prefsForPitchRange(pitchRangeDraft.value, pitchMinDraft.value, pitchMaxDraft.value)
   emit('patch', {
     a4Hz: followPipe.value ? 'followPitchPipe' : a4Draft.value,
@@ -139,7 +143,7 @@ function apply(): void {
       <label class="row">
         <span class="label">Tune display</span>
         <select v-model="displayDraft" class="ctrl">
-          <option value="needle">Needle</option>
+          <option value="needle">Meter (horizontal)</option>
           <option value="strobe">Strobe (phase bands)</option>
           <option value="scope">Scope (wave freezes when in tune)</option>
         </select>
@@ -153,13 +157,13 @@ function apply(): void {
       </label>
       <label class="row check">
         <input v-model="sessionStripDraft" type="checkbox" />
-        <span>Phrase % in-tune strip + history under Tune and Chord</span>
+        <span>Phrase pitch history under Tune</span>
       </label>
 
       <label class="row">
         <span class="label">
           Pitch range
-          <span class="hint">Tune · Chord · FFT · Spec reaction band</span>
+          <span class="hint">Tune · FFT · Spec reaction band</span>
         </span>
         <select v-model="pitchRangeDraft" class="ctrl" @change="onPitchRangeSelect">
           <option v-for="p in PITCH_RANGE_PRESETS" :key="p.id" :value="p.id">
@@ -212,7 +216,7 @@ function apply(): void {
       </label>
 
       <label class="row">
-        <span class="label">In-tune window (¢)</span>
+        <span class="label">In-tune window (¢) — dial, FFT, spectrogram</span>
         <input
           v-model.number="windowDraft"
           class="ctrl"
@@ -258,7 +262,7 @@ function apply(): void {
 
       <label class="row check">
         <input v-model="analyzePinDraft" type="checkbox" />
-        <span>Analyze Chord pin (required for Locked/Fix colors)</span>
+        <span>FFT/Spec chord pin (required for Locked/Fix colors)</span>
       </label>
       <label class="row check">
         <input v-model="chordLockDraft" type="checkbox" />
@@ -299,7 +303,10 @@ function apply(): void {
       </label>
 
       <label class="row">
-        <span class="label">Noise gate (dB)</span>
+        <span class="label">
+          Noise gate (dB)
+          <span class="hint">Default −40 rejects laptop fan; lower (e.g. −50) if soft singing is gated</span>
+        </span>
         <input
           v-model="gateDraft"
           class="ctrl"
@@ -307,7 +314,7 @@ function apply(): void {
           min="-80"
           max="-10"
           step="1"
-          placeholder="Auto"
+          placeholder="-40"
         />
       </label>
 
@@ -329,7 +336,7 @@ function apply(): void {
       <label class="row">
         <span class="label">
           Multi-note salience ({{ salienceDraft }}%)
-          <span class="hint">Higher = fewer false Chord/FFT/Spec peaks</span>
+          <span class="hint">Higher = fewer false FFT/Spec peaks</span>
         </span>
         <input
           v-model.number="salienceDraft"

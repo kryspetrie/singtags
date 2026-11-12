@@ -20,9 +20,11 @@ python3 build/build_offline_manifest.py
 | `./deploy/publish.sh website\|library\|all` | Dispatcher |
 | `./deploy/weekly_prod.sh` | Weekly: sync → indexes → library + website (same bucket) |
 
-Website sync uploads **hashed `/assets` first**, then other prefixes, then root `index.html`.
-It never syncs the bucket root as a whole (avoids LISTing `library/`) and uses
-`--size-only` on bulk trees so rebuild mtimes do not re-PUT unchanged `tags/*.json`.
+Website sync uploads **hashed `/assets` first**, then every other top-level `web/dist/*/`
+prefix (indexes, tags, tag-studio, worklets, education, …), then root `index.html`.
+`tag-previews/` maps to `/tag/{id}` OG shells. It never syncs the bucket root as a
+whole (avoids LISTing `library/`) and uses `--size-only` on bulk trees so rebuild
+mtimes do not re-PUT unchanged `tags/*.json`.
 
 Weekly single-bucket flow: [`../sync/docs/WEEKLY_PROD_SYNC.md`](../sync/docs/WEEKLY_PROD_SYNC.md).
 

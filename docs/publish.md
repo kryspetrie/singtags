@@ -120,7 +120,7 @@ SKIP_BUILD=1 ./deploy/publish.sh website   # reuse existing web/dist
 
 Set `VITE_MEDIA_BASE` when media is not under the same-origin `/library` path.
 
-After deploy, Cloudflare may cache assets; purge if a ship looks stale. Website publish uploads **hashed `/assets` first**, then `index.html`.
+After deploy, Cloudflare may cache assets; purge if a ship looks stale. Website publish uploads **hashed `/assets` first**, then every other `web/dist/` prefix (`indexes/`, `tags/`, `tag-studio/`, `worklets/`, …), then `index.html`. Forgetting a prefix breaks Workbox precache (SW install fails with `bad-precaching-response`) and 404s sheet fonts / tuner worklets.
 
 ---
 

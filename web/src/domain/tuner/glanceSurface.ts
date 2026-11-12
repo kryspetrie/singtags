@@ -1,13 +1,11 @@
 /**
- * Glance-safe Analyze surfaces — Tune · Chord · FFT · Spec only.
- * Harmonics / Staff are Detail teaching views; remap on 10-ft entry.
+ * Glance-safe Analyze surfaces — Tune · FFT · Spec only.
  */
 
 import type { DigitalTunerAnalyzeSurface } from '../../lib/preferences/digitalTuner'
 
 export const GLANCE_SURFACES = [
   'hidden',
-  'chord',
   'fft',
   'spectrogram',
 ] as const satisfies readonly DigitalTunerAnalyzeSurface[]
@@ -18,10 +16,8 @@ export function isGlanceSurface(surface: DigitalTunerAnalyzeSurface): surface is
   return (GLANCE_SURFACES as readonly string[]).includes(surface)
 }
 
-/** Map Detail-only surfaces onto a Glance body before opening 10-ft. */
+/** Identity for Glance — prefs already remap legacy surfaces on load. */
 export function toGlanceSurface(surface: DigitalTunerAnalyzeSurface): GlanceSurface {
-  if (surface === 'harmonics') return 'fft'
-  if (surface === 'staff') return 'hidden'
   if (isGlanceSurface(surface)) return surface
   return 'hidden'
 }

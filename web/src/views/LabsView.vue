@@ -103,7 +103,7 @@ function toggleTagStudio(): void {
     <section class="card" aria-labelledby="pitch-sound-h">
       <h2 id="pitch-sound-h" class="card-title">Pitch pipe sound</h2>
       <p class="card-desc">
-        Design alternate pitch-pipe / pay-the-key voices, A/B against classic, save candidates on
+        Design alternate pitch-pipe / play-the-key voices, A/B against classic, save candidates on
         this device, and set your personal default. Share a favorite with Krys via email.
       </p>
       <RouterLink class="btn" to="/labs/pitch-pipe-sound">Open sound lab</RouterLink>

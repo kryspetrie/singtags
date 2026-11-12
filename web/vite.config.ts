@@ -239,7 +239,10 @@ export default defineConfig({
         navigateFallbackDenylist: [LIBRARY_MEDIA_NAV_DENY, /^\/api\//],
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2,wasm}'],
         // ogg-opus-decoder ships an optional ~4 MiB ML enhancement we never load.
-        globIgnores: ['**/opus-ml*.js'],
+        // Worklets + Tag Studio static trees are fetched on demand — do not precache
+        // them (a missing S3 prefix used to hard-fail SW install with
+        // bad-precaching-response and break navigateFallback for every deep link).
+        globIgnores: ['**/opus-ml*.js', '**/worklets/**', '**/tag-studio/**'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
@@ -268,6 +271,18 @@ export default defineConfig({
               cacheName: 'singtags-tag-meta',
               networkTimeoutSeconds: 3,
               expiration: { maxEntries: 8000, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            // Tuner AudioWorklet + Tag Studio fonts/seeds — cache after first use.
+            urlPattern: ({ url }) => {
+              const p = url.pathname
+              return p.includes('/worklets/') || p.includes('/tag-studio/')
+            },
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'singtags-static-labs',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],

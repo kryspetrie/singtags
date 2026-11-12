@@ -11,7 +11,7 @@ Static **Vue 3 + TypeScript** SPA. No app server: catalog indexes and media are 
 ## What you can do
 
 - **Browse & search** — title DSL, filters, lyrics (FTS), hybrid year bins, density scrub rail
-- **Sing** — sheets (WebP + PDF), learning tracks, bake-first pitch/speed, pay-the-key, Sing mode fullscreen
+- **Sing** — sheets (WebP + PDF), learning tracks, bake-first pitch/speed, play-the-key, Sing mode fullscreen
 - **Pitch pipe** — chromatic E3–E4 (and other ranges), grid/list/piano layouts, concert A / fine detune; Labs sound lab for custom voices
 - **Offline** — favorites + songbook/audio packs, tiered Opus (online playback + WASM decode on older Safari)
 - **Local Library** — your own charts/tracks on device (Labs), with optical (QR) transfer

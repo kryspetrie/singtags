@@ -1,17 +1,16 @@
 /**
- * Practice feedback — % in / near / far + pitch history ribbon.
+ * Phrase pitch history — cents ribbon with in-tune corridor (no % breakdown).
  */
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import type { InTuneZonePercents } from '../../domain/tuner/inTuneZones'
 import type { PitchHistoryPoint } from '../../composables/useTunerSessionStats'
 import { scheduleTunerPaint, cancelScheduledTunerPaint, sizeTunerCanvas } from '../../lib/tuner/canvasPaint'
 
 const props = defineProps<{
-  percents: InTuneZonePercents
   history: PitchHistoryPoint[]
   hasVoice: boolean
   holdProgress: number
+  windowCents?: number
   scaleCents?: number
 }>()
 
@@ -21,9 +20,13 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const paintKey = {}
 let ro: ResizeObserver | null = null
 
-const label = computed(() => {
-  if (!props.hasVoice) return 'Sing to track phrase intonation'
-  return `${props.percents.inPct}% in tune · ${props.percents.nearPct}% near · ${props.percents.farPct}% far`
+const status = computed(() => {
+  if (!props.hasVoice) return 'Sing to track phrase pitch'
+  const last = props.history[props.history.length - 1]
+  if (!last) return 'Listening…'
+  if (last.zone === 'in') return 'In tune'
+  if (last.cents > 0) return 'Sharp'
+  return 'Flat'
 })
 
 function paint(): void {
@@ -38,14 +41,23 @@ function paint(): void {
   const accent = s.getPropertyValue('--accent').trim() || '#2a7'
   const danger = s.getPropertyValue('--danger').trim() || '#b33'
   const muted = s.getPropertyValue('--muted').trim() || '#888'
+  const text = s.getPropertyValue('--text').trim() || '#222'
 
   ctx.fillStyle = surface
   ctx.fillRect(0, 0, w, h)
 
   const mid = h / 2
   const scale = Math.max(10, props.scaleCents ?? 40)
+  const win = Math.max(1, Math.min(scale, props.windowCents ?? 15))
+  const amp = h * 0.42
+
+  // In-tune corridor
+  const band = (win / scale) * amp
+  ctx.fillStyle = `color-mix(in srgb, ${accent} 16%, ${surface})`
+  ctx.fillRect(0, mid - band, w, band * 2)
+
   ctx.strokeStyle = border
-  ctx.globalAlpha = 0.35
+  ctx.globalAlpha = 0.4
   ctx.lineWidth = 1
   ctx.beginPath()
   ctx.moveTo(0, mid)
@@ -64,21 +76,28 @@ function paint(): void {
   const t1 = pts[pts.length - 1]!.tMs
   const span = Math.max(1, t1 - t0)
 
-  ctx.lineWidth = 1.75
+  ctx.lineWidth = 2
   ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
   ctx.beginPath()
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i]!
     const x = ((p.tMs - t0) / span) * w
-    const y = mid - (Math.max(-scale, Math.min(scale, p.cents)) / scale) * (h * 0.42)
+    const y = mid - (Math.max(-scale, Math.min(scale, p.cents)) / scale) * amp
     if (i === 0) ctx.moveTo(x, y)
     else ctx.lineTo(x, y)
   }
-  // Color by last zone dominance — stroke once in accent; overlay segments would be heavier.
   const last = pts[pts.length - 1]!
-  ctx.strokeStyle =
-    last.zone === 'in' ? accent : last.zone === 'near' ? '#c9a227' : danger
+  ctx.strokeStyle = last.zone === 'in' ? accent : last.zone === 'near' ? '#c9a227' : danger
   ctx.stroke()
+
+  // Live tip
+  const tipX = w - 2
+  const tipY = mid - (Math.max(-scale, Math.min(scale, last.cents)) / scale) * amp
+  ctx.fillStyle = last.zone === 'in' ? accent : text
+  ctx.beginPath()
+  ctx.arc(tipX - 4, tipY, 3.5, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 function requestPaint(): void {
@@ -86,7 +105,7 @@ function requestPaint(): void {
 }
 
 watch(
-  () => [props.history, props.percents] as const,
+  () => [props.history, props.windowCents, props.hasVoice] as const,
   () => requestPaint(),
   { deep: true },
 )
@@ -105,17 +124,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="session" aria-label="Phrase intonation">
+  <section class="session" aria-label="Phrase pitch">
     <div class="head">
-      <p class="label" aria-live="polite">{{ label }}</p>
+      <p class="label" aria-live="polite">{{ status }}</p>
       <button type="button" class="btn" @click="emit('reset')">Reset</button>
     </div>
-    <div class="bars" aria-hidden="true">
-      <div class="seg in" :style="{ flexGrow: Math.max(0.01, percents.inPct) }" />
-      <div class="seg near" :style="{ flexGrow: Math.max(0.01, percents.nearPct) }" />
-      <div class="seg far" :style="{ flexGrow: Math.max(0.01, percents.farPct) }" />
-    </div>
-    <div class="hold" aria-hidden="true">
+    <div class="hold" aria-hidden="true" title="Continuous in-tune hold">
       <div class="hold-fill" :style="{ width: `${Math.round(holdProgress * 100)}%` }" />
     </div>
     <canvas ref="canvasRef" class="ribbon" role="img" aria-label="Recent cents history" />
@@ -148,22 +162,6 @@ onUnmounted(() => {
   font: inherit;
   cursor: pointer;
 }
-.bars {
-  display: flex;
-  height: 0.55rem;
-  border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--muted) 18%, var(--surface));
-}
-.seg.in {
-  background: var(--accent);
-}
-.seg.near {
-  background: #c9a227;
-}
-.seg.far {
-  background: var(--danger);
-}
 .hold {
   height: 0.28rem;
   border-radius: 999px;
@@ -183,7 +181,7 @@ onUnmounted(() => {
 .ribbon {
   display: block;
   width: 100%;
-  height: 3.25rem;
+  height: 3.5rem;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);

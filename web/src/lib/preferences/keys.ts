@@ -38,11 +38,17 @@ export const AUDIO_RECORDER_ENABLED_KEY = 'singtags.labs.audioRecorder.enabled.v
 /** Labs: Sing Together repertoire correlation via QR. Default off. */
 export const SING_TOGETHER_ENABLED_KEY = 'singtags.labs.singTogether.enabled.v1'
 /** Labs: Tag Studio piano-roll composer. Default off. */
-export const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagStudio.enabled.v1'
+export const TAG_ROLL_ENABLED_KEY = 'singtags.labs.tagRoll.enabled.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_ENABLED_KEY. */
+export const LEGACY_TAG_STUDIO_ENABLED_KEY = 'singtags.labs.tagStudio.enabled.v1'
 /** Labs: Arranging coach (future). Default off — gate only until package port. */
 export const ARRANGING_ENABLED_KEY = 'singtags.labs.arranging.enabled.v1'
-export const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagStudio.cellW.v1'
-export const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagStudio.cellH.v1'
+export const TAG_ROLL_CELL_W_KEY = 'singtags.labs.tagRoll.cellW.v1'
+export const TAG_ROLL_CELL_H_KEY = 'singtags.labs.tagRoll.cellH.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_CELL_*_KEY. */
+export const LEGACY_TAG_STUDIO_CELL_W_KEY = 'singtags.labs.tagStudio.cellW.v1'
+/** @deprecated pre-rename; migrated into TAG_ROLL_CELL_*_KEY. */
+export const LEGACY_TAG_STUDIO_CELL_H_KEY = 'singtags.labs.tagStudio.cellH.v1'
 /** Ordered primary-nav destinations; first N available become chrome pins. */
 export const PRIMARY_NAV_ORDER_KEY = 'singtags.primaryNav.order.v1'
 /** Non-lab primary-nav pages hidden from chrome and More. */
