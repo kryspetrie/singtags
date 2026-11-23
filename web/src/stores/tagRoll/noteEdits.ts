@@ -8,6 +8,8 @@ import { applyNoteClipboardAtPlayhead } from '../../lib/tagRoll/pasteClipboard'
 
 import { clipboardFromCopy, clipboardFromCut } from '../../lib/tagRoll/noteClipboardActions'
 
+import { tupletToClipboard } from '../../lib/tagRoll/tupletClipboard'
+
 import {
   tryBoundInspectCopy,
   tryBoundInspectCut,
@@ -46,6 +48,7 @@ export function createTagRollNoteEditActions(deps: StoreDeps) {
   const patchView = lazyFn(() => deps.patchView)
   const pushHistory = lazyFn(() => deps.pushHistory)
   const scheduleSave = lazyFn(() => deps.scheduleSave)
+  const selectTuplet = lazyFn(() => deps.selectTuplet)
   const selectedExpressionId = deps.selectedExpressionId
   const selectedNoteIds = deps.selectedNoteIds
   const selectedNotes = deps.selectedNotes
@@ -300,13 +303,34 @@ export function createTagRollNoteEditActions(deps: StoreDeps) {
     }
   }
 
+  function copySelectedTuplet(): boolean {
+    const p = current.value
+    const id = selectedTupletId.value
+    if (!p || !id) return false
+    const tuplet = (p.tuplets ?? []).find((t: { id: string }) => t.id === id)
+    if (!tuplet) return false
+    const unit = tupletToClipboard(tuplet, p.notes)
+    noteClipboard.value = {
+      notes: [],
+      tuplets: [unit],
+      spanTicks: tuplet.spanTicks,
+    }
+    return true
+  }
+
   function copySelectedNotes(): boolean {
+    if (selectedTupletId.value) return copySelectedTuplet()
     const clip = clipboardFromCopy(tryBoundInspectCopy, selectedNotes.value)
     if (!clip) return false
     noteClipboard.value = clip
     return true
   }
   function cutSelectedNotes(): boolean {
+    if (selectedTupletId.value) {
+      if (!copySelectedTuplet()) return false
+      deleteSelectedTuplet()
+      return true
+    }
     const hit = clipboardFromCut(tryBoundInspectCut, selectedNotes.value)
     if (!hit) return false
     noteClipboard.value = hit.clip
@@ -317,12 +341,20 @@ export function createTagRollNoteEditActions(deps: StoreDeps) {
     const p = current.value
     const clip = noteClipboard.value
     if (!p || !clip) return false
-    const applied = applyNoteClipboardAtPlayhead(p, clip, () => svc().idGen.next('trn'))
+    const applied = applyNoteClipboardAtPlayhead(p, clip, () => svc().idGen.next('trn'), {
+      newTupletId: () => svc().idGen.next('tup'),
+    })
     if (!applied) return false
     pushHistory()
     current.value = { ...applied.project, updatedAt: now() }
-    selectedNoteIds.value = applied.createdIds
     selectedExpressionId.value = null
+    if (applied.createdTupletIds.length) {
+      selectedNoteIds.value = []
+      selectTuplet(applied.createdTupletIds[applied.createdTupletIds.length - 1]!)
+    } else {
+      selectedNoteIds.value = applied.createdIds
+      selectTuplet(null)
+    }
     if (applied.spanTicks != null) {
       tryBoundInspectPasteHighlight(applied.origin, applied.origin + applied.spanTicks)
     }

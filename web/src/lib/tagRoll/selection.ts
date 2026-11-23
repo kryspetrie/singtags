@@ -2,6 +2,7 @@
  * Marquee / multi-select helpers for Tag Studio.
  */
 import type { TagRollNote } from './types'
+import type { ClipboardTuplet } from './tupletClipboard'
 
 export type ScreenRect = { x: number; y: number; w: number; h: number }
 
@@ -50,6 +51,11 @@ export type TagRollNoteClipboard = {
   notes: ClipboardNote[]
   /** Copied section width (left→right bound); paste restores bounds at the playhead. */
   spanTicks?: number
+  /**
+   * Tuplet containers (+ members) copied as units.
+   * Members live only here — not duplicated in `notes`.
+   */
+  tuplets?: ClipboardTuplet[]
 }
 
 /** Normalize selection into clipboard rows anchored at `anchorTick` (default: min start). */

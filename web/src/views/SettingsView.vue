@@ -742,6 +742,10 @@ function cancelCullUpgrades(): void {
 <template>
   <section class="settings" aria-label="Settings">
     <h1 class="settings-title">Settings</h1>
+    <p class="hint help-link">
+      New here?
+      <RouterLink to="/help">Help — what each module is for</RouterLink>
+    </p>
 
     <div class="ctrl-tabs settings-tabs" role="tablist" aria-label="Settings sections">
       <button
@@ -1679,9 +1683,16 @@ function cancelCullUpgrades(): void {
   margin: 0 auto;
 }
 .settings-title {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.35rem;
   font-size: 1.45rem;
   font-family: var(--font-display);
+}
+.help-link {
+  margin: 0 0 0.85rem;
+}
+.help-link a {
+  color: var(--accent);
+  font-weight: 650;
 }
 .settings-tabs {
   margin-bottom: 1rem;

@@ -2,6 +2,7 @@
  * Canvas chrome for piano-roll tuplet containers (dashed band + badge).
  */
 import type { TagRollTuplet } from './types'
+import { memberTicksForTuplet } from './tupletContainers'
 import { tupletBandRect, type TupletBandRect } from './tupletHitTest'
 
 export function tupletBadgeLabel(t: Pick<TagRollTuplet, 'actualNotes' | 'normalNotes'>): string {
@@ -29,6 +30,11 @@ export type PaintTupletBandsOpts = {
   /** When set, fade other parts' bands. */
   focusPartId?: string | null
   partColor?: (partId: string) => string
+  /**
+   * For the selected empty container, draw equal slot ticks so rests/slots
+   * are visible without opening the modal.
+   */
+  emptySelectedId?: string | null
 }
 
 /**
@@ -59,6 +65,24 @@ export function paintTupletBands(
     ctx.setLineDash([4, 3])
     ctx.strokeRect(r.x + 0.5, r.y + 0.5, Math.max(0, r.w - 1), Math.max(0, r.h - 1))
     ctx.setLineDash([])
+
+    if (selected && opts.emptySelectedId === t.id && !faded) {
+      const slices = memberTicksForTuplet(t.startTick, t.spanTicks, t.actualNotes)
+      ctx.globalAlpha = 0.4
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1
+      ctx.setLineDash([2, 3])
+      for (let i = 1; i < slices.length; i++) {
+        const x =
+          -opts.scrollX + opts.ticksToPx(slices[i]!.startTick, opts.cellW)
+        if (x < r.x - 1 || x > r.x + r.w + 1) continue
+        ctx.beginPath()
+        ctx.moveTo(x + 0.5, r.y + 2)
+        ctx.lineTo(x + 0.5, r.y + r.h - 2)
+        ctx.stroke()
+      }
+      ctx.setLineDash([])
+    }
 
     const badge = tupletBadgeLabel(t)
     ctx.globalAlpha = faded ? 0.35 : selected ? 1 : 0.85

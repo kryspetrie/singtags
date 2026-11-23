@@ -197,6 +197,11 @@ async function runAppUpdateCheck(opts?: { forceReset?: boolean }): Promise<void>
               download tools.
             </p>
             <p class="details-action">
+              <RouterLink class="btn btn-ghost" to="/help" @click="close">
+                Help — what each module is for
+              </RouterLink>
+            </p>
+            <p class="details-action">
               <button type="button" class="btn btn-ghost" @click="panel = 'details'">
                 Offline, install &amp; cache details
               </button>

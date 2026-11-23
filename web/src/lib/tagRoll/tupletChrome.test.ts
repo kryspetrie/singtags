@@ -30,6 +30,10 @@ describe('tupletChrome', () => {
       strokeRect: () => calls.push('strokeRect'),
       setLineDash: () => {},
       fillText: () => calls.push('fillText'),
+      beginPath: () => calls.push('beginPath'),
+      moveTo: () => {},
+      lineTo: () => {},
+      stroke: () => calls.push('stroke'),
       globalAlpha: 1,
       fillStyle: '',
       strokeStyle: '',
@@ -52,6 +56,7 @@ describe('tupletChrome', () => {
       ticksToPx: (tick, cellW) => (tick / TAG_ROLL_PPQ) * cellW,
       cellW: 48,
       selectedId: 'tup1',
+      emptySelectedId: 'tup1',
       partColor: () => '#0ea5e9',
     })
     expect(rects).toHaveLength(1)
@@ -59,5 +64,6 @@ describe('tupletChrome', () => {
     expect(rects[0]!.w).toBeGreaterThan(0)
     expect(calls).toContain('fillRect')
     expect(calls).toContain('fillText')
+    expect(calls).toContain('beginPath')
   })
 })

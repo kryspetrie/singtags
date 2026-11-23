@@ -25,6 +25,11 @@ import {
   keyChoiceId,
 } from '../../lib/tagRoll/keySignature'
 import { tagRollTip, tipByShortcutId } from '../../lib/tagRoll/shortcuts'
+import { TUPLET_PRESETS } from '../../lib/tagRoll/tupletContainers'
+import {
+  formatTupletRatio,
+  tupletCreatePresetKey,
+} from '../../lib/tagRoll/tupletCreatePrefs'
 import { usePreferencesStore } from '../../stores/preferences'
 import { useTagRollStore } from '../../stores/tagRoll'
 import TagRollApplyScopeDialog from '../TagRollApplyScopeDialog.vue'
@@ -191,6 +196,32 @@ function onDelete(): void {
     return
   }
   if (store.selectedNoteIds.length) store.deleteSelectedNotes()
+}
+
+/** Show Actual:Normal inputs while editing a non-preset create ratio. */
+const tupletCustomOpen = ref(false)
+
+function onTupletPreset(key: keyof typeof TUPLET_PRESETS): void {
+  tupletCustomOpen.value = false
+  store.setTupletCreateRatio(TUPLET_PRESETS[key])
+}
+
+function openTupletCustom(): void {
+  tupletCustomOpen.value = true
+}
+
+function onTupletActual(raw: string): void {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return
+  tupletCustomOpen.value = true
+  store.setTupletCreateRatio({ actualNotes: n })
+}
+
+function onTupletNormal(raw: string): void {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return
+  tupletCustomOpen.value = true
+  store.setTupletCreateRatio({ normalNotes: n })
 }
 
 function onBpm(v: number): void {
@@ -417,7 +448,7 @@ onUnmounted(() => {
 
       <div
         v-if="!isView"
-        class="modes segment"
+        class="modes segment tuplet-tool-group"
         role="group"
         aria-label="Tuplet tool"
       >
@@ -426,12 +457,79 @@ onUnmounted(() => {
           class="seg-btn"
           :class="{ on: store.tupletTool }"
           :aria-pressed="store.tupletTool"
-          :title="tipByShortcutId('tuplet-tool', 'Tuplets — drag a span')"
-          aria-label="Tuplets — drag a span for a triplet"
+          :title="tipByShortcutId('tuplet-tool', 'Tuplets — drag a written span')"
+          aria-label="Tuplets — drag a written span on the roll"
           @click="store.setTupletTool(!store.tupletTool)"
         >
           Tuplets
         </button>
+        <template v-if="store.tupletTool">
+          <button
+            v-for="key in (['triplet', 'sextuplet', 'quintuplet'] as const)"
+            :key="key"
+            type="button"
+            class="seg-btn"
+            :class="{
+              on: !tupletCustomOpen && tupletCreatePresetKey(store.tupletCreateRatio) === key,
+            }"
+            :aria-pressed="
+              !tupletCustomOpen && tupletCreatePresetKey(store.tupletCreateRatio) === key
+            "
+            :title="`Create ${formatTupletRatio(TUPLET_PRESETS[key])} spans`"
+            :aria-label="`Create ratio ${formatTupletRatio(TUPLET_PRESETS[key])}`"
+            @click="onTupletPreset(key)"
+          >
+            {{ formatTupletRatio(TUPLET_PRESETS[key]) }}
+          </button>
+          <button
+            type="button"
+            class="seg-btn"
+            :class="{
+              on:
+                tupletCustomOpen || tupletCreatePresetKey(store.tupletCreateRatio) === 'custom',
+            }"
+            :aria-pressed="
+              tupletCustomOpen || tupletCreatePresetKey(store.tupletCreateRatio) === 'custom'
+            "
+            title="Custom create ratio"
+            aria-label="Custom create ratio"
+            @click="openTupletCustom"
+          >
+            Custom
+          </button>
+          <template
+            v-if="tupletCustomOpen || tupletCreatePresetKey(store.tupletCreateRatio) === 'custom'"
+          >
+            <label class="tuplet-ratio-field">
+              <span class="tuplet-ratio-lab">Actual</span>
+              <input
+                class="tuplet-ratio-input"
+                type="number"
+                min="2"
+                max="16"
+                step="1"
+                :value="store.tupletCreateRatio.actualNotes"
+                aria-label="Actual notes in create ratio"
+                @change="onTupletActual(($event.target as HTMLInputElement).value)"
+              />
+            </label>
+            <span class="tuplet-ratio-colon" aria-hidden="true">:</span>
+            <label class="tuplet-ratio-field">
+              <span class="tuplet-ratio-lab">Normal</span>
+              <input
+                class="tuplet-ratio-input"
+                type="number"
+                min="1"
+                max="16"
+                step="1"
+                :value="store.tupletCreateRatio.normalNotes"
+                aria-label="Normal notes in create ratio"
+                @change="onTupletNormal(($event.target as HTMLInputElement).value)"
+              />
+            </label>
+          </template>
+          <span class="tuplet-tool-hint" aria-live="polite">Drag a span</span>
+        </template>
       </div>
 
       <div
@@ -1266,5 +1364,48 @@ onUnmounted(() => {
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.tuplet-tool-group {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+}
+.tuplet-tool-hint {
+  padding: 0 0.35rem 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tuplet-ratio-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+}
+.tuplet-ratio-lab {
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tuplet-ratio-colon {
+  font-weight: 700;
+  color: var(--muted);
+  padding: 0 0.05rem;
+}
+.tuplet-ratio-input {
+  width: 2.6rem;
+  min-height: 1.7rem;
+  padding: 0.1rem 0.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: center;
 }
 </style>

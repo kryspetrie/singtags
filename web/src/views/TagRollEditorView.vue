@@ -76,6 +76,7 @@ import { downloadAudio } from '../application/tagRoll/downloadAudio'
 import { downloadTagRollProjectJson, readTagRollProjectJsonFile } from '../lib/tagRoll/projectJson'
 import { readTagRollMusicXmlFile } from '../lib/tagRoll/musicxmlImport'
 import { planBlowPitch, shouldBlowPitchOnPlay } from '../lib/tagRoll/blowPitch'
+import { bpmAtTick, ticksToSecondsAtBpm } from '../lib/tagRoll/tempoMap'
 import { beatsCrossedSigned } from '../lib/tagRoll/metronomeBeats'
 import { saveTagRollToLibrary } from '../lib/tagRoll/saveToLibrary'
 import { getTagStudioServices } from '../composition/tagStudio'
@@ -521,6 +522,7 @@ let metronome: MetronomeClicker | null = null
 let scheduler: TagRollScheduler | null = null
 let previewNote: string | null = null
 let auditionGen = 0
+let tupletHearGen = 0
 let blowPitchGen = 0
 let blowPitchRaf = 0
 
@@ -1090,20 +1092,61 @@ function onStop(): void {
  * Returns true when something was cleared (Escape can stop before closing docks).
  */
 function onTupletEditorApply(draft: TupletEditorDraft): void {
+  tupletHearGen += 1
+  void previewPitch(null)
   store.applyTupletEditorDraft(draft)
   tupletEditorOpen.value = false
 }
 
-function onTupletEditorHear(
+async function onTupletEditorHear(
   notes: { midi: number; durationTicks: number }[],
-): void {
-  const first = notes[0]
-  if (first) void auditionMidi(first.midi)
+): Promise<void> {
+  const p = project.value
+  if (!p || !notes.length || store.transportPlaying) return
+  const tone = ensurePlayer()
+  const gen = ++tupletHearGen
+  ++auditionGen
+  if (previewNote) {
+    tone.noteOff(previewNote, true)
+    previewNote = null
+  }
+  tone.allNotesOff(false)
+  const startTick =
+    (store.selectedTupletId
+      ? (p.tuplets ?? []).find((t) => t.id === store.selectedTupletId)?.startTick
+      : undefined) ?? 0
+  const bpm = bpmAtTick(startTick, p.tempoMarkers, p.expressions, p.bpm)
+  for (let i = 0; i < notes.length; i++) {
+    if (gen !== tupletHearGen) return
+    const n = notes[i]!
+    const name = midiToNote(n.midi)
+    const holdMs = Math.max(80, ticksToSecondsAtBpm(n.durationTicks, bpm) * 1000)
+    const voiceKey = `tuplet-hear-${gen}-${i}`
+    await tone.noteOn(name, 0, { voiceKey, gain: 0.85 })
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, holdMs)
+    })
+    if (gen !== tupletHearGen) {
+      tone.noteOff(voiceKey, true)
+      return
+    }
+    tone.noteOff(voiceKey, true)
+  }
+}
+
+function onTupletEditorClose(): void {
+  tupletHearGen += 1
+  void previewPitch(null)
+  tupletEditorOpen.value = false
 }
 
 function openTupletEditor(id?: string | null): void {
   if (id) store.selectTuplet(id)
-  if (store.selectedTupletId) tupletEditorOpen.value = true
+  if (store.selectedTupletId) {
+    // Leave create tool so the next click edits, not another empty band.
+    store.setTupletTool(false)
+    tupletEditorOpen.value = true
+  }
 }
 
 const selectedTuplet = computed(() => {
@@ -1131,12 +1174,23 @@ const noteTieBarOpen = computed(
     project.value?.view.mode !== 'view',
 )
 
+const selectedTupletMemberCount = computed(() => {
+  const t = selectedTuplet.value
+  if (!t || !project.value) return 0
+  return project.value.notes.filter((n) => n.tuplet?.groupId === t.id).length
+})
+
 const tupletSelectionLabel = computed(() => {
   const t = selectedTuplet.value
   if (!t || !project.value) return 'Tuplet'
   const part = project.value.parts.find((p) => p.id === t.partId)
   const kind = tupletKindLabel(t)
-  return part?.name ? `${kind} · ${part.name}` : kind
+  const base = part?.name ? `${kind} · ${part.name}` : kind
+  if (selectedTupletMemberCount.value === 0) {
+    return `Empty ${kind.toLowerCase()} — Edit to add pitches`
+  }
+  // Reminder: roll shows a dim preview; pitches edit in the modal.
+  return `${base} · preview on roll`
 })
 
 function onTupletSelectionClear(): void {
@@ -2298,7 +2352,7 @@ function onKeyDown(e: KeyboardEvent): void {
       return
     }
     if (tupletEditorOpen.value) {
-      tupletEditorOpen.value = false
+      onTupletEditorClose()
       return
     }
     if (shortcutsOpen.value) {
@@ -2458,6 +2512,7 @@ function onKeyDown(e: KeyboardEvent): void {
     return
   }
   if (key === 'Delete' || key === 'Backspace') {
+    if (tupletEditorOpen.value) return
     if (readOnly) return
     const exprId = store.selectedExpressionId
     if (exprId) {
@@ -3006,7 +3061,11 @@ function onKeyDown(e: KeyboardEvent): void {
       <button
         type="button"
         class="btn"
-        :title="tagRollTip('Edit tuplet members', 'Enter')"
+        :title="
+          selectedTupletMemberCount === 0
+            ? tagRollTip('Add pitches in the tuplet editor', 'Enter')
+            : tagRollTip('Edit pitches — roll shows a dim preview', 'Enter')
+        "
         aria-label="Edit tuplet"
         @click="openTupletEditor()"
       >
@@ -3065,9 +3124,11 @@ function onKeyDown(e: KeyboardEvent): void {
       :open="tupletEditorOpen && !!store.selectedTupletId"
       :project="project"
       :tuplet-id="store.selectedTupletId"
-      @close="tupletEditorOpen = false"
+      @close="onTupletEditorClose"
       @apply="onTupletEditorApply"
-      @hear="onTupletEditorHear"
+      @hear="(notes) => void onTupletEditorHear(notes)"
+      @audition-note="(m) => void auditionMidi(m)"
+      @preview-pitch="(m) => void previewPitch(m)"
     />
     <ConfirmDialog
       :open="!!pendingInspectDeleteMessage"

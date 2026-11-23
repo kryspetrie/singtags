@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
- * Modal editor for a piano-roll tuplet container (irregular local slots).
- * Look-and-feel matches ConfirmDialog / SeedLibrary (Teleport, backdrop, display title).
+ * Modal editor for a piano-roll tuplet container.
+ * Canvas mini-roll matches main TagRoll place/drag/audition feel within slot constraints.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { pcName } from '../../lib/tagRoll/harmonizer/chords'
 import { TUPLET_PRESETS } from '../../lib/tagRoll/tupletContainers'
 import {
   draftFromTuplet,
@@ -14,6 +13,7 @@ import {
 } from '../../lib/tagRoll/tupletEditor'
 import type { TagRollProject, TagRollTuplet } from '../../lib/tagRoll/types'
 import { tagRollTip } from '../../lib/tagRoll/shortcuts'
+import TagRollTupletMiniRoll from './TagRollTupletMiniRoll.vue'
 
 const props = defineProps<{
   open: boolean
@@ -25,15 +25,16 @@ const emit = defineEmits<{
   close: []
   apply: [draft: TupletEditorDraft]
   hear: [notes: { midi: number; durationTicks: number }[]]
+  auditionNote: [midi: number]
+  previewPitch: [midi: number | null]
 }>()
 
-const draft = ref<TupletEditorDraft | null>(null)
-const firstField = ref<HTMLInputElement | null>(null)
-const pendingPreset = ref<keyof typeof TUPLET_PRESETS | null>(null)
+const MAX_ACTUAL = 16
+const MAX_NORMAL = 16
 
-function setFirstField(el: unknown): void {
-  firstField.value = (el as HTMLInputElement | null) ?? null
-}
+const draft = ref<TupletEditorDraft | null>(null)
+const pendingRatio = ref<{ actualNotes: number; normalNotes: number } | null>(null)
+const selectedSlot = ref(0)
 
 const tuplet = computed((): TagRollTuplet | null => {
   if (!props.tupletId) return null
@@ -47,7 +48,8 @@ function loadDraft(): void {
     return
   }
   draft.value = draftFromTuplet(t, props.project.notes)
-  pendingPreset.value = null
+  pendingRatio.value = null
+  selectedSlot.value = 0
 }
 
 watch(
@@ -55,19 +57,20 @@ watch(
   ([open]) => {
     if (open) {
       loadDraft()
-      requestAnimationFrame(() => firstField.value?.focus())
     } else {
       draft.value = null
-      pendingPreset.value = null
+      pendingRatio.value = null
+      emit('previewPitch', null)
     }
   },
 )
 
 const title = computed(() => {
   const d = draft.value
-  if (!d) return 'Tuplet'
+  if (!d) return 'Tuplets'
   if (d.actualNotes === 3 && d.normalNotes === 2) return 'Triplet'
   if (d.actualNotes === 6 && d.normalNotes === 4) return 'Sextuplet'
+  if (d.actualNotes === 5 && d.normalNotes === 4) return 'Quintuplet'
   return `Tuplet ${d.actualNotes}:${d.normalNotes}`
 })
 
@@ -81,42 +84,56 @@ const activePreset = computed((): keyof typeof TUPLET_PRESETS | null => {
   return null
 })
 
-function applyPreset(kind: keyof typeof TUPLET_PRESETS): void {
+function applyRatio(actualNotes: number, normalNotes: number): void {
   const d = draft.value
   if (!d) return
-  const ratio = TUPLET_PRESETS[kind]
+  const nextActual = Math.max(2, Math.min(MAX_ACTUAL, Math.round(actualNotes)))
+  const nextNormal = Math.max(1, Math.min(MAX_NORMAL, Math.round(normalNotes)))
   draft.value = resliceDraftSlots(d, {
-    actualNotes: ratio.actualNotes,
-    normalNotes: ratio.normalNotes,
+    actualNotes: nextActual,
+    normalNotes: nextNormal,
     spanTicks: d.spanTicks,
   })
-  pendingPreset.value = null
+  pendingRatio.value = null
+  if (selectedSlot.value >= nextActual) selectedSlot.value = nextActual - 1
+}
+
+function requestRatio(actualNotes: number, normalNotes: number): void {
+  const d = draft.value
+  if (!d) return
+  if (actualNotes === d.actualNotes && normalNotes === d.normalNotes) return
+  const hasPitches = d.slots.some((s) => s.midi != null)
+  if (hasPitches && actualNotes < d.actualNotes) {
+    pendingRatio.value = { actualNotes, normalNotes }
+    return
+  }
+  applyRatio(actualNotes, normalNotes)
 }
 
 function requestPreset(kind: keyof typeof TUPLET_PRESETS): void {
-  const d = draft.value
-  if (!d) return
   const ratio = TUPLET_PRESETS[kind]
-  if (ratio.actualNotes === d.actualNotes && ratio.normalNotes === d.normalNotes) return
-  const hasPitches = d.slots.some((s) => s.midi != null)
-  if (hasPitches) {
-    pendingPreset.value = kind
-    return
-  }
-  applyPreset(kind)
+  requestRatio(ratio.actualNotes, ratio.normalNotes)
 }
 
-function setSlotMidi(i: number, raw: string): void {
+function onActualInput(raw: string): void {
   const d = draft.value
   if (!d) return
-  const slots = d.slots.map((s, idx) => {
-    if (idx !== i) return s
-    const trimmed = raw.trim()
-    if (!trimmed) return { ...s, midi: null }
-    const n = Number(trimmed)
-    if (!Number.isFinite(n)) return s
-    return { ...s, midi: Math.max(0, Math.min(127, Math.round(n))) }
-  })
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return
+  requestRatio(n, d.normalNotes)
+}
+
+function onNormalInput(raw: string): void {
+  const d = draft.value
+  if (!d) return
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return
+  requestRatio(d.actualNotes, n)
+}
+
+function onSlotsUpdate(slots: TupletEditorSlot[]): void {
+  const d = draft.value
+  if (!d) return
   draft.value = { ...d, slots }
 }
 
@@ -129,27 +146,23 @@ function setSlotLyric(i: number, lyric: string): void {
   draft.value = { ...d, slots }
 }
 
-function pitchLabel(midi: number | null): string {
-  if (midi == null) return '—'
-  const pc = ((midi % 12) + 12) % 12
-  const oct = Math.floor(midi / 12) - 1
-  return `${pcName(pc, props.project.preferFlats)}${oct}`
-}
-
 function onApply(): void {
   if (!draft.value) return
+  emit('previewPitch', null)
   emit('apply', draft.value)
   emit('close')
 }
 
 function onCancel(): void {
-  pendingPreset.value = null
+  pendingRatio.value = null
+  emit('previewPitch', null)
   emit('close')
 }
 
 function onHear(): void {
   const d = draft.value
   if (!d) return
+  emit('previewPitch', null)
   const sounding = d.slots
     .map((s) => {
       if (s.midi == null) return null
@@ -165,14 +178,14 @@ function onKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') {
     e.preventDefault()
     e.stopPropagation()
-    if (pendingPreset.value) {
-      pendingPreset.value = null
+    if (pendingRatio.value) {
+      pendingRatio.value = null
       return
     }
     onCancel()
     return
   }
-  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !pendingPreset.value) {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !pendingRatio.value) {
     e.preventDefault()
     onApply()
   }
@@ -183,6 +196,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey, true)
+  emit('previewPitch', null)
 })
 
 defineExpose({ draft, loadDraft })
@@ -204,8 +218,8 @@ defineExpose({ draft, loadDraft })
           <div class="intro">
             <h2 id="tuplet-editor-title" class="title">{{ title }}</h2>
             <p class="lead">
-              Edit pitches in equal slots across this span. The piano-roll grid stays binary —
-              empty slots leave rests.
+              Columns = equal slots of this span. Place/drag/Delete like the main roll; empty =
+              rest. Hear plays in tempo.
             </p>
           </div>
           <button
@@ -219,91 +233,111 @@ defineExpose({ draft, loadDraft })
           </button>
         </header>
 
-        <div class="presets segment" role="group" aria-label="Tuplet ratio">
-          <button
-            type="button"
-            class="seg-btn"
-            :class="{ on: activePreset === 'triplet' }"
-            :aria-pressed="activePreset === 'triplet'"
-            @click="requestPreset('triplet')"
-          >
-            Triplet 3:2
-          </button>
-          <button
-            type="button"
-            class="seg-btn"
-            :class="{ on: activePreset === 'sextuplet' }"
-            :aria-pressed="activePreset === 'sextuplet'"
-            @click="requestPreset('sextuplet')"
-          >
-            Sextuplet 6:4
-          </button>
-          <button
-            type="button"
-            class="seg-btn"
-            :class="{ on: activePreset === 'quintuplet' }"
-            :aria-pressed="activePreset === 'quintuplet'"
-            @click="requestPreset('quintuplet')"
-          >
-            Quintuplet 5:4
-          </button>
+        <div class="ratio-row">
+          <div class="presets segment" role="group" aria-label="Common ratios">
+            <button
+              type="button"
+              class="seg-btn"
+              :class="{ on: activePreset === 'triplet' }"
+              :aria-pressed="activePreset === 'triplet'"
+              @click="requestPreset('triplet')"
+            >
+              3:2
+            </button>
+            <button
+              type="button"
+              class="seg-btn"
+              :class="{ on: activePreset === 'sextuplet' }"
+              :aria-pressed="activePreset === 'sextuplet'"
+              @click="requestPreset('sextuplet')"
+            >
+              6:4
+            </button>
+            <button
+              type="button"
+              class="seg-btn"
+              :class="{ on: activePreset === 'quintuplet' }"
+              :aria-pressed="activePreset === 'quintuplet'"
+              @click="requestPreset('quintuplet')"
+            >
+              5:4
+            </button>
+          </div>
+          <label class="ratio-field">
+            <span class="ratio-lab">Actual</span>
+            <input
+              class="ratio-input"
+              type="number"
+              min="2"
+              :max="MAX_ACTUAL"
+              step="1"
+              :value="draft.actualNotes"
+              aria-label="Actual notes in tuplet"
+              @change="onActualInput(($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <span class="ratio-colon" aria-hidden="true">:</span>
+          <label class="ratio-field">
+            <span class="ratio-lab">Normal</span>
+            <input
+              class="ratio-input"
+              type="number"
+              min="1"
+              :max="MAX_NORMAL"
+              step="1"
+              :value="draft.normalNotes"
+              aria-label="Normal notes replaced by tuplet"
+              @change="onNormalInput(($event.target as HTMLInputElement).value)"
+            />
+          </label>
         </div>
 
-        <div v-if="pendingPreset" class="preset-warn" role="status">
+        <div v-if="pendingRatio" class="preset-warn" role="status">
           <p>
-            Change to
-            {{
-              pendingPreset === 'triplet'
-                ? 'triplet'
-                : pendingPreset === 'sextuplet'
-                  ? 'sextuplet'
-                  : 'quintuplet'
-            }}?
-            Existing pitches keep their order; extra slots clear.
+            Change to {{ pendingRatio.actualNotes }}:{{ pendingRatio.normalNotes }}? Extra slots
+            beyond the new count will be dropped.
           </p>
           <div class="preset-warn-actions">
-            <button type="button" class="btn" @click="pendingPreset = null">Keep</button>
+            <button type="button" class="btn" @click="pendingRatio = null">Keep</button>
             <button
               type="button"
               class="btn btn-primary"
-              @click="pendingPreset && applyPreset(pendingPreset)"
+              @click="pendingRatio && applyRatio(pendingRatio.actualNotes, pendingRatio.normalNotes)"
             >
               Change
             </button>
           </div>
         </div>
 
-        <div class="slots" role="list">
-          <div
+        <TagRollTupletMiniRoll
+          :draft="draft"
+          :project="project"
+          :selected-slot="selectedSlot"
+          @update:slots="onSlotsUpdate"
+          @update:selected-slot="selectedSlot = $event"
+          @audition-note="emit('auditionNote', $event)"
+          @preview-pitch="emit('previewPitch', $event)"
+        />
+
+        <div class="lyrics" role="group" aria-label="Slot lyrics">
+          <label
             v-for="(slot, i) in draft.slots"
-            :key="i"
-            class="slot"
-            role="listitem"
+            :key="`ly-${i}`"
+            class="lyric"
+            :class="{ on: selectedSlot === i }"
           >
-            <label class="slot-lab" :for="`tup-midi-${i}`">{{ i + 1 }}</label>
+            <span class="lyric-lab">{{ i + 1 }}</span>
             <input
-              :id="`tup-midi-${i}`"
-              :ref="i === 0 ? setFirstField : undefined"
-              class="slot-midi"
-              type="number"
-              min="0"
-              max="127"
-              :value="slot.midi ?? ''"
-              placeholder="MIDI"
-              :aria-label="`Slot ${i + 1} MIDI`"
-              @input="setSlotMidi(i, ($event.target as HTMLInputElement).value)"
-            />
-            <span class="slot-name" aria-hidden="true">{{ pitchLabel(slot.midi) }}</span>
-            <input
-              class="slot-lyric"
+              class="lyric-input"
               type="text"
               maxlength="24"
               :value="slot.lyric ?? ''"
               :aria-label="`Slot ${i + 1} lyric`"
-              placeholder="Lyric"
+              placeholder="—"
+              @focus="selectedSlot = i"
               @input="setSlotLyric(i, ($event.target as HTMLInputElement).value)"
             />
-          </div>
+          </label>
         </div>
 
         <footer class="actions">
@@ -338,15 +372,15 @@ defineExpose({ draft, loadDraft })
 .panel {
   position: relative;
   z-index: 1;
-  width: min(28rem, 100%);
+  width: min(48rem, 100%);
   max-height: min(
-    36rem,
+    48rem,
     calc(100dvh - 2rem - var(--bottom-nav-h, 3.75rem) - env(safe-area-inset-bottom))
   );
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.75rem;
   padding: 1.1rem 1.15rem 1.15rem;
   border-radius: var(--radius, 12px);
   border: 1px solid var(--border);
@@ -359,6 +393,7 @@ defineExpose({ draft, loadDraft })
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+  flex: 0 0 auto;
 }
 .intro {
   min-width: 0;
@@ -372,7 +407,7 @@ defineExpose({ draft, loadDraft })
 .lead {
   margin: 0.35rem 0 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 .close {
@@ -391,6 +426,13 @@ defineExpose({ draft, loadDraft })
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.ratio-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem 0.65rem;
+  flex: 0 0 auto;
+}
 .presets.segment {
   display: flex;
   flex-wrap: wrap;
@@ -401,7 +443,6 @@ defineExpose({ draft, loadDraft })
   background: color-mix(in srgb, var(--bg, var(--surface)) 65%, var(--surface));
 }
 .seg-btn {
-  flex: 1 1 auto;
   min-height: 34px;
   padding: 0.28rem 0.55rem;
   border: 0;
@@ -418,6 +459,31 @@ defineExpose({ draft, loadDraft })
   color: var(--text);
   box-shadow: 0 1px 3px color-mix(in srgb, #000 10%, transparent);
 }
+.ratio-field {
+  display: grid;
+  gap: 0.2rem;
+}
+.ratio-lab {
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+.ratio-input {
+  width: 3.6rem;
+  min-height: 2.2rem;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, var(--surface));
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.ratio-colon {
+  font-weight: 700;
+  color: var(--muted);
+  padding-bottom: 0.45rem;
+}
 .preset-warn {
   display: grid;
   gap: 0.55rem;
@@ -425,66 +491,62 @@ defineExpose({ draft, loadDraft })
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  flex: 0 0 auto;
 }
 .preset-warn p {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.4;
-  color: var(--text);
 }
 .preset-warn-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.45rem;
 }
-.slots {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.slot {
+.lyrics {
   display: grid;
-  grid-template-columns: 1.4rem 4.4rem 2.8rem 1fr;
-  gap: 0.4rem;
-  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+  gap: 0.35rem;
+  flex: 0 0 auto;
 }
-.slot-lab {
+.lyric {
+  display: grid;
+  gap: 0.15rem;
+}
+.lyric.on .lyric-lab {
+  color: var(--text);
+}
+.lyric-lab {
+  font-size: 0.7rem;
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
-.slot-midi,
-.slot-lyric {
+.lyric-input {
+  min-height: 2rem;
+  padding: 0.25rem 0.35rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.35rem 0.45rem;
-  min-height: 2.2rem;
   background: var(--bg, var(--surface));
   color: inherit;
   font: inherit;
+  font-size: 0.85rem;
 }
-.slot-midi:focus-visible,
-.slot-lyric:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-.slot-name {
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
+.lyric.on .lyric-input {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.15rem;
+  margin-top: 0.05rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 .spacer {
   flex: 1 1 auto;
   min-width: 0.5rem;
 }
-/* Button look comes from utilities.css (.btn / .btn-primary). */
 </style>

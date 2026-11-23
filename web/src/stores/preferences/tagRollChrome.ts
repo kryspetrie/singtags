@@ -325,7 +325,7 @@ export function createTagRollChromeActions(deps: StoreDeps) {
     primaryNavHidden.value = normalizePrimaryNavHidden([...next])
   }
 
-  /** Toggle overriding the default 5 pin slots. */
+  /** Toggle overriding the default pin-slot count. */
   function setPrimaryNavPinOverride(on: boolean): void {
     primaryNavPinOverride.value = on
     if (on && primaryNavPinCount.value < PRIMARY_NAV_PIN_COUNT) {

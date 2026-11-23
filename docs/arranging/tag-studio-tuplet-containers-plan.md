@@ -161,9 +161,10 @@ Sheet path already supports:
 
 ## Phase 5 — Polish
 
-- [ ] Copy/paste container + members as a unit
+- [x] Copy/paste container + members as a unit
 - [x] Dim member heads inside band on main roll (read-only preview)
 - [x] Toolbar tool + shortcut (`T` drag)
+- [x] Custom create ratio in toolbar (Actual:Normal inputs)
 - [ ] Seed / docs example with a tagged triplet
 - [ ] Performance: many tuplets on long charts
 
@@ -171,7 +172,7 @@ Sheet path already supports:
 
 | Test | Asserts |
 |------|---------|
-| copy/paste | new groupId, same relative pitches (deferred) |
+| copy/paste | new groupId, same relative pitches ✅ |
 | dim preview helper | member notes associated to container by groupId ✅ |
 
 ---

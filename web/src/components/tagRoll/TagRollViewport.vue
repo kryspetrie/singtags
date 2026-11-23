@@ -617,6 +617,7 @@ function draw(): void {
   // Tuplet containers — dashed bands behind notes (binary grid unchanged).
   {
     const tuplets = props.project.tuplets ?? []
+    const createRatio = store.tupletCreateRatio
     const preview = tupletCreatePreview
       ? [
           {
@@ -624,18 +625,25 @@ function draw(): void {
             partId: props.project.view.activePartId ?? '',
             startTick: tupletCreatePreview.startTick,
             spanTicks: tupletCreatePreview.spanTicks,
-            actualNotes: 3,
-            normalNotes: 2,
+            actualNotes: createRatio.actualNotes,
+            normalNotes: createRatio.normalNotes,
           },
         ]
       : []
+    const selectedId = store.selectedTupletId
+    const selectedEmpty =
+      selectedId &&
+      !props.project.notes.some((n) => n.tuplet?.groupId === selectedId)
+        ? selectedId
+        : null
     paintTupletBands(ctx, [...tuplets, ...preview], {
       scrollX: scrollX.value,
       bandY: headerBandH.value,
       bandH: Math.max(0, cssH.value - headerBandH.value),
       ticksToPx,
       cellW: cw,
-      selectedId: store.selectedTupletId,
+      selectedId,
+      emptySelectedId: selectedEmpty,
       focusPartId: props.project.view.focusActivePart
         ? props.project.view.activePartId
         : null,

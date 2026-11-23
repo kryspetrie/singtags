@@ -324,12 +324,12 @@ export const usePreferencesStore = defineStore('preferences', () => {
   const tagRollDetectedLockLeadVoicing = ref(loadDetectedLockLeadVoicing(true))
   /**
    * Preference order for chrome pins + More destinations.
-   * The first five *available* ids (Labs gates) occupy top/bottom nav.
+   * The first N *available* ids (Labs gates; N = preferred pin count) occupy top/bottom nav.
    */
   const primaryNavOrder = ref<PrimaryNavId[]>(loadPrimaryNavOrder())
   /** Non-lab pages hidden from chrome / More (Labs “hide” uses feature flags). */
   const primaryNavHidden = ref<PrimaryNavId[]>(loadPrimaryNavHidden())
-  /** When true, chrome may use more than the default 5 pin slots. */
+  /** When true, chrome may use more than the default pin slots. */
   const primaryNavPinOverride = ref(loadBool(PRIMARY_NAV_PIN_OVERRIDE_KEY, false))
   /** Preferred pin count when override is enabled (still clamped by screen fit). */
   const primaryNavPinCount = ref(loadPrimaryNavPinCount())

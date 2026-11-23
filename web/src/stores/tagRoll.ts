@@ -15,6 +15,7 @@ import type {
   TagRollProject,
 } from '../lib/tagRoll/types'
 import { TAG_ROLL_PPQ } from '../lib/tagRoll/types'
+import { loadTupletCreateRatio } from '../lib/tagRoll/tupletCreatePrefs'
 import type { TagRollProjectSummary } from '../ports/TagRollRepository'
 import { svc, tagRollUnloadFlush } from './tagRoll/runtime'
 import { type StoreDeps } from './tagRoll/deps'
@@ -38,8 +39,10 @@ export const useTagRollStore = defineStore('tagRoll', () => {
   const selectedSketchSpanIds = ref<string[]>([])
   const selectedExpressionId = ref<string | null>(null)
   const selectedTupletId = ref<string | null>(null)
-  /** When set, empty-drag on the roll creates a tuplet span (default 3:2). */
+  /** When set, empty-drag on the roll creates a tuplet span. */
   const tupletTool = ref<boolean>(false)
+  /** Ratio applied to newly dragged tuplet containers (session-persisted). */
+  const tupletCreateRatio = ref(loadTupletCreateRatio())
   const expressionTool = ref<TagRollExpressionTool>(null)
   const pointerTool = ref<TagRollPointerTool>('edit')
   const addDurationTicks = ref(TAG_ROLL_PPQ)
@@ -107,6 +110,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     selectedExpressionId,
     selectedTupletId,
     tupletTool,
+    tupletCreateRatio,
     expressionTool,
     pointerTool,
     addDurationTicks,
@@ -257,6 +261,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     selectExpression,
     setExpressionTool,
     setTupletTool,
+    setTupletCreateRatio,
     selectTuplet,
     addTuplet,
     patchTuplet,
@@ -368,6 +373,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     selectedExpressionId,
     selectedTupletId,
     tupletTool,
+    tupletCreateRatio,
     expressionTool,
     addDurationTicks,
     transportPlaying,
@@ -479,6 +485,7 @@ export const useTagRollStore = defineStore('tagRoll', () => {
     selectExpression,
     setExpressionTool,
     setTupletTool,
+    setTupletCreateRatio,
     selectTuplet,
     addTuplet,
     patchTuplet,

@@ -549,6 +549,13 @@ function focusNeighbor(e: KeyboardEvent, note: string): void {
 }
 .pipe-wide {
   max-width: min(100%, 72rem);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--header-h, 3.5rem));
+  box-sizing: border-box;
+}
+.pipe-wide .settings {
+  flex: 0 0 auto;
 }
 .settings {
   margin: 0 0 1.25rem;
@@ -710,8 +717,10 @@ function focusNeighbor(e: KeyboardEvent, note: string): void {
   gap: 0.75rem;
 }
 .stage-piano {
+  flex: 1 1 auto;
   align-items: stretch;
-  min-height: min(42vh, 22rem);
+  min-height: 0;
+  width: 100%;
 }
 
 .keys-grid {

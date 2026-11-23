@@ -33,6 +33,7 @@ import {
 } from '../../domain/arranging/voicingProfile'
 import {
   DEFAULT_PRIMARY_NAV_ORDER,
+  isLegacyDefaultPrimaryNavOrder,
   normalizePrimaryNavHidden,
   normalizePrimaryNavOrder,
   normalizePrimaryNavPinCount,
@@ -576,7 +577,18 @@ export function loadPrimaryNavOrder(): PrimaryNavId[] {
   try {
     const raw = localStorage.getItem(PRIMARY_NAV_ORDER_KEY)
     if (!raw) return [...DEFAULT_PRIMARY_NAV_ORDER]
-    return normalizePrimaryNavOrder(JSON.parse(raw) as unknown)
+    const parsed = JSON.parse(raw) as unknown
+    // Still on the previous default layout → take Help as a default pin.
+    if (isLegacyDefaultPrimaryNavOrder(parsed)) {
+      const next = [...DEFAULT_PRIMARY_NAV_ORDER]
+      try {
+        localStorage.setItem(PRIMARY_NAV_ORDER_KEY, JSON.stringify(next))
+      } catch {
+        /* ignore quota */
+      }
+      return next
+    }
+    return normalizePrimaryNavOrder(parsed)
   } catch {
     return [...DEFAULT_PRIMARY_NAV_ORDER]
   }

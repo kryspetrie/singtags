@@ -24,9 +24,14 @@ import {
   assertNoTupletOverlap,
   createTupletContainer,
   deleteTupletContainer,
-  syncMemberTupletTags,
-  TUPLET_PRESETS,
+  glueMembersToTuplet,
+  type TupletRatio,
 } from '../../lib/tagRoll/tupletContainers'
+
+import {
+  clampTupletCreateRatio,
+  saveTupletCreateRatio,
+} from '../../lib/tagRoll/tupletCreatePrefs'
 
 import { applyTupletDraft, type TupletEditorDraft } from '../../lib/tagRoll/tupletEditor'
 
@@ -49,6 +54,7 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
   const selectedExpressionId = deps.selectedExpressionId
   const selectedTupletId = deps.selectedTupletId
   const tupletTool = deps.tupletTool
+  const tupletCreateRatio = deps.tupletCreateRatio
 
   function setPlayheadTick(tick: number, opts?: { snap?: boolean }): void {
     const p = current.value
@@ -258,6 +264,15 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
     }
   }
 
+  function setTupletCreateRatio(ratio: Partial<TupletRatio>): void {
+    const next = clampTupletCreateRatio({
+      actualNotes: ratio.actualNotes ?? tupletCreateRatio.value.actualNotes,
+      normalNotes: ratio.normalNotes ?? tupletCreateRatio.value.normalNotes,
+    })
+    tupletCreateRatio.value = next
+    saveTupletCreateRatio(next)
+  }
+
   function selectTuplet(id: string | null): void {
     selectedTupletId.value = id
     if (id) {
@@ -288,10 +303,12 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
     if (Math.floor(startTick / mTicks) !== Math.floor((startTick + spanTicks - 1) / mTicks)) {
       return null
     }
-    const ratio = {
-      actualNotes: input.actualNotes ?? TUPLET_PRESETS.triplet.actualNotes,
-      normalNotes: input.normalNotes ?? TUPLET_PRESETS.triplet.normalNotes,
-    }
+    const preferred = tupletCreateRatio.value
+    const ratio = clampTupletCreateRatio({
+      actualNotes: input.actualNotes ?? preferred.actualNotes,
+      normalNotes: input.normalNotes ?? preferred.normalNotes,
+    })
+    setTupletCreateRatio(ratio)
     const candidate = createTupletContainer({
       partId,
       startTick,
@@ -343,13 +360,8 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
       return false
     }
     if (opts?.history !== false) pushHistory()
-    let notes = p.notes
-    if (
-      next.actualNotes !== cur.actualNotes ||
-      next.normalNotes !== cur.normalNotes
-    ) {
-      notes = syncMemberTupletTags(notes, next)
-    }
+    // Move → translate members; resize / ratio → re-slice equal slots.
+    const notes = glueMembersToTuplet(p.notes, cur, next)
     const lengthTicks = ensureLengthForTick(
       p.lengthTicks,
       next.startTick + next.spanTicks,
@@ -412,6 +424,11 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
       tuplets: out.tuplets,
       updatedAt: now(),
     }
+    // Remember ratio for the next drag-create.
+    setTupletCreateRatio({
+      actualNotes: draft.actualNotes,
+      normalNotes: draft.normalNotes,
+    })
     scheduleSave()
     return true
   }
@@ -622,6 +639,7 @@ export function createTagRollPlaybackActions(deps: StoreDeps) {
     selectExpression,
     setExpressionTool,
     setTupletTool,
+    setTupletCreateRatio,
     selectTuplet,
     addTuplet,
     patchTuplet,

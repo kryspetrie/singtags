@@ -10,6 +10,7 @@ import {
   clampMembersToTupletSpan,
   createTupletContainer,
   deleteTupletContainer,
+  glueMembersToTuplet,
   memberTicksForTuplet,
   migrateTupletsFromNotes,
   isTupletMemberNote,
@@ -271,5 +272,125 @@ describe('tupletContainers', () => {
     expect(isTupletMemberNote(n)).toBe(true)
     expect(noteBelongsToTuplet(n, 'g')).toBe(true)
     expect(noteBelongsToTuplet(n, 'other')).toBe(false)
+  })
+
+  it('glueMembersToTuplet translates members on move', () => {
+    const prev = createTupletContainer({
+      id: 'g',
+      partId: 'lead',
+      startTick: 0,
+      spanTicks: TAG_ROLL_PPQ,
+      actualNotes: 3,
+      normalNotes: 2,
+    })
+    const next = { ...prev, startTick: TAG_ROLL_PPQ }
+    const slices = memberTicksForTuplet(0, TAG_ROLL_PPQ, 3)
+    const notes: TagRollNote[] = [
+      {
+        id: 'a',
+        partId: 'lead',
+        midi: 60,
+        startTick: slices[0]!.startTick,
+        durationTicks: slices[0]!.durationTicks,
+        tuplet: { groupId: 'g', actualNotes: 3, normalNotes: 2 },
+      },
+      {
+        id: 'b',
+        partId: 'lead',
+        midi: 64,
+        startTick: slices[1]!.startTick,
+        durationTicks: slices[1]!.durationTicks,
+        tuplet: { groupId: 'g', actualNotes: 3, normalNotes: 2 },
+      },
+      {
+        id: 'other',
+        partId: 'lead',
+        midi: 67,
+        startTick: 0,
+        durationTicks: 120,
+      },
+    ]
+    const out = glueMembersToTuplet(notes, prev, next)
+    const members = notesForTuplet(out, 'g').sort((a, b) => a.startTick - b.startTick)
+    expect(members).toHaveLength(2)
+    expect(members[0]!.startTick).toBe(slices[0]!.startTick + TAG_ROLL_PPQ)
+    expect(members[1]!.startTick).toBe(slices[1]!.startTick + TAG_ROLL_PPQ)
+    expect(members[0]!.durationTicks).toBe(slices[0]!.durationTicks)
+    expect(out.find((n) => n.id === 'other')!.startTick).toBe(0)
+  })
+
+  it('glueMembersToTuplet re-slices members on resize', () => {
+    const prev = createTupletContainer({
+      id: 'g',
+      partId: 'lead',
+      startTick: 0,
+      spanTicks: TAG_ROLL_PPQ,
+      actualNotes: 3,
+      normalNotes: 2,
+    })
+    const next = { ...prev, spanTicks: TAG_ROLL_PPQ * 2 }
+    const oldSlices = memberTicksForTuplet(0, TAG_ROLL_PPQ, 3)
+    const newSlices = memberTicksForTuplet(0, TAG_ROLL_PPQ * 2, 3)
+    const notes: TagRollNote[] = [
+      {
+        id: 'a',
+        partId: 'lead',
+        midi: 60,
+        startTick: oldSlices[0]!.startTick,
+        durationTicks: oldSlices[0]!.durationTicks,
+        tuplet: { groupId: 'g', actualNotes: 3, normalNotes: 2 },
+      },
+      {
+        id: 'c',
+        partId: 'lead',
+        midi: 67,
+        startTick: oldSlices[2]!.startTick,
+        durationTicks: oldSlices[2]!.durationTicks,
+        lyric: 'la',
+        tuplet: { groupId: 'g', actualNotes: 3, normalNotes: 2 },
+      },
+    ]
+    const out = glueMembersToTuplet(notes, prev, next)
+    const members = notesForTuplet(out, 'g').sort((a, b) => a.startTick - b.startTick)
+    expect(members).toHaveLength(2)
+    expect(members[0]).toMatchObject({
+      midi: 60,
+      startTick: newSlices[0]!.startTick,
+      durationTicks: newSlices[0]!.durationTicks,
+    })
+    expect(members[1]).toMatchObject({
+      midi: 67,
+      lyric: 'la',
+      startTick: newSlices[2]!.startTick,
+      durationTicks: newSlices[2]!.durationTicks,
+    })
+  })
+
+  it('glueMembersToTuplet drops extras when actualNotes shrinks', () => {
+    const prev = createTupletContainer({
+      id: 'g',
+      partId: 'lead',
+      startTick: 0,
+      spanTicks: TAG_ROLL_PPQ,
+      actualNotes: 3,
+      normalNotes: 2,
+    })
+    const next = { ...prev, actualNotes: 2, normalNotes: 1 }
+    const oldSlices = memberTicksForTuplet(0, TAG_ROLL_PPQ, 3)
+    const notes: TagRollNote[] = [0, 1, 2].map((i) => ({
+      id: `n${i}`,
+      partId: 'lead',
+      midi: 60 + i,
+      startTick: oldSlices[i]!.startTick,
+      durationTicks: oldSlices[i]!.durationTicks,
+      tuplet: { groupId: 'g', actualNotes: 3, normalNotes: 2 },
+    }))
+    const out = glueMembersToTuplet(notes, prev, next)
+    const members = notesForTuplet(out, 'g').sort((a, b) => a.startTick - b.startTick)
+    expect(members).toHaveLength(2)
+    expect(members.map((m) => m.midi)).toEqual([60, 61])
+    const newSlices = memberTicksForTuplet(0, TAG_ROLL_PPQ, 2)
+    expect(members[0]!.durationTicks).toBe(newSlices[0]!.durationTicks)
+    expect(members[1]!.durationTicks).toBe(newSlices[1]!.durationTicks)
   })
 })

@@ -8,6 +8,7 @@ import {
   availablePrimaryNavOrder,
   fitNavPinsToWidth,
   estimateInitialNavFitCapacity,
+  isLegacyDefaultPrimaryNavOrder,
   maxBottomNavPins,
   morePrimaryNavIds,
   movePrimaryNavId,
@@ -44,13 +45,14 @@ describe('primaryNav', () => {
     expect(normalizePrimaryNavOrder(null)).toEqual([...DEFAULT_PRIMARY_NAV_ORDER])
   })
 
-  it('pins the first five available pages', () => {
+  it('pins the first available pages up to the default pin count', () => {
     const order = normalizePrimaryNavOrder([
       'matcher',
       'browse',
       'settings',
       'queue',
       'labs',
+      'help',
       'recent',
     ])
     expect(pinnedPrimaryNavIds(order, { ...ALL_OFF, singTogetherEnabled: true })).toEqual([
@@ -59,6 +61,7 @@ describe('primaryNav', () => {
       'settings',
       'queue',
       'labs',
+      'help',
     ])
     expect(morePrimaryNavIds(order, { ...ALL_OFF, singTogetherEnabled: true })).toContain('recent')
     expect(pinnedPrimaryNavIds(order, ALL_OFF)).toHaveLength(PRIMARY_NAV_PIN_COUNT)
@@ -80,6 +83,7 @@ describe('primaryNav', () => {
       'favorites',
       'pitch-pipe',
       'roulette',
+      'help',
       'settings',
       'recorder',
       'tx',
@@ -93,11 +97,27 @@ describe('primaryNav', () => {
 
   it('hides non-lab pages from available order', () => {
     expect(
-      availablePrimaryNavOrder(DEFAULT_PRIMARY_NAV_ORDER, ALL_OFF, ['roulette', 'recent', 'tx']),
+      availablePrimaryNavOrder(DEFAULT_PRIMARY_NAV_ORDER, ALL_OFF, [
+        'roulette',
+        'recent',
+        'tx',
+        'help',
+      ]),
     ).toEqual(['browse', 'favorites', 'pitch-pipe', 'settings', 'recorder', 'labs', 'queue'])
     expect(
       pinnedPrimaryNavIds(DEFAULT_PRIMARY_NAV_ORDER, ALL_OFF, ['roulette']),
     ).not.toContain('roulette')
+  })
+
+  it('detects the pre-Help default order for upgrade', () => {
+    const legacy = DEFAULT_PRIMARY_NAV_ORDER.filter((id) => id !== 'help')
+    expect(isLegacyDefaultPrimaryNavOrder(legacy)).toBe(true)
+    expect(isLegacyDefaultPrimaryNavOrder([...legacy, 'help'])).toBe(false)
+    expect(isLegacyDefaultPrimaryNavOrder(['roulette', ...legacy.slice(1)])).toBe(false)
+  })
+
+  it('maps help route to nav id', () => {
+    expect(primaryNavIdForRouteName('help')).toBe('help')
   })
 
   it('moves ids within the order', () => {

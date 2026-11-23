@@ -4,7 +4,7 @@
  */
 
 /** Default pin slots (excludes the fixed More control). */
-export const PRIMARY_NAV_PIN_COUNT = 5
+export const PRIMARY_NAV_PIN_COUNT = 6
 /** Hard ceiling when overriding max menu size. */
 export const PRIMARY_NAV_PIN_COUNT_MAX = 12
 /** Minimum bottom-tab width before we refuse another pin (+ More). */
@@ -16,6 +16,7 @@ export const PRIMARY_NAV_IDS = [
   'favorites',
   'pitch-pipe',
   'roulette',
+  'help',
   'settings',
   'library',
   'recorder',
@@ -125,6 +126,14 @@ export const PRIMARY_NAV_ITEMS: Record<PrimaryNavId, PrimaryNavItem> = {
     icon: '◎',
     desc: 'Deal a random batch of tags',
   },
+  help: {
+    id: 'help',
+    label: 'Help',
+    shortLabel: 'Help',
+    path: '/help',
+    icon: '?',
+    desc: 'What each module and tab is for',
+  },
   settings: {
     id: 'settings',
     label: 'Settings',
@@ -207,13 +216,14 @@ export const PRIMARY_NAV_ITEMS: Record<PrimaryNavId, PrimaryNavItem> = {
   },
 }
 
-/** Default order: current primary five, then More destinations. */
+/** Default order: pinned chrome first, then More destinations. */
 export const DEFAULT_PRIMARY_NAV_ORDER: readonly PrimaryNavId[] = [
   'browse',
   'recent',
   'favorites',
   'pitch-pipe',
   'roulette',
+  'help',
   'settings',
   'recorder',
   'tx',
@@ -286,6 +296,17 @@ export function normalizePrimaryNavOrder(raw: unknown): PrimaryNavId[] {
     out.push(id)
   }
   return out
+}
+
+/**
+ * True when `raw` is exactly the pre-Help default order (no custom reorder).
+ * Used to adopt Help into the default pin slot on upgrade.
+ */
+export function isLegacyDefaultPrimaryNavOrder(raw: unknown): boolean {
+  if (!Array.isArray(raw)) return false
+  const legacy = DEFAULT_PRIMARY_NAV_ORDER.filter((id) => id !== 'help')
+  if (raw.length !== legacy.length) return false
+  return raw.every((v, i) => v === legacy[i])
 }
 
 /** Available pages in preference order. */
@@ -413,6 +434,8 @@ export function primaryNavIdForRouteName(name: unknown): PrimaryNavId | null {
       return 'roulette'
     case 'settings':
       return 'settings'
+    case 'help':
+      return 'help'
     case 'library':
     case 'library-doc':
     case 'library-playlist':

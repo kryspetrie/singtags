@@ -227,6 +227,111 @@ export function clampMembersToTupletSpan(
   })
 }
 
+function memberSlotIndex(
+  noteStartTick: number,
+  slices: readonly { startTick: number; durationTicks: number }[],
+): number {
+  let best = 0
+  let bestDist = Infinity
+  for (let i = 0; i < slices.length; i++) {
+    const d = Math.abs(noteStartTick - slices[i]!.startTick)
+    if (d < bestDist) {
+      bestDist = d
+      best = i
+    }
+  }
+  return best
+}
+
+/**
+ * Keep member notes glued to a container after move / resize / ratio change.
+ *
+ * - Same span + same actualNotes → translate by Δstart (and sync tags / partId).
+ * - Span or actualNotes changed → re-slice equal subdivisions; pitches stay on
+ *   their slot index (extras dropped when actualNotes shrinks; empty slots stay rests).
+ */
+export function glueMembersToTuplet(
+  notes: readonly TagRollNote[],
+  prev: TagRollTuplet,
+  next: TagRollTuplet,
+): TagRollNote[] {
+  const geometryUnchanged =
+    prev.startTick === next.startTick &&
+    prev.spanTicks === next.spanTicks &&
+    prev.actualNotes === next.actualNotes
+  if (geometryUnchanged) {
+    if (prev.normalNotes === next.normalNotes && prev.partId === next.partId) {
+      return notes as TagRollNote[]
+    }
+    return notes.map((n) => {
+      if (n.tuplet?.groupId !== next.id) return n
+      return {
+        ...n,
+        partId: next.partId,
+        tuplet: {
+          groupId: next.id,
+          actualNotes: next.actualNotes,
+          normalNotes: next.normalNotes,
+        },
+      }
+    })
+  }
+
+  const translateOnly =
+    prev.spanTicks === next.spanTicks && prev.actualNotes === next.actualNotes
+  if (translateOnly) {
+    const delta = next.startTick - prev.startTick
+    return notes.map((n) => {
+      if (n.tuplet?.groupId !== next.id) return n
+      return {
+        ...n,
+        partId: next.partId,
+        startTick: Math.max(0, n.startTick + delta),
+        tuplet: {
+          groupId: next.id,
+          actualNotes: next.actualNotes,
+          normalNotes: next.normalNotes,
+        },
+      }
+    })
+  }
+
+  const oldSlices = memberTicksForTuplet(prev.startTick, prev.spanTicks, prev.actualNotes)
+  const newSlices = memberTicksForTuplet(next.startTick, next.spanTicks, next.actualNotes)
+  const members = notes
+    .filter((n) => n.tuplet?.groupId === next.id)
+    .sort((a, b) => a.startTick - b.startTick || a.midi - b.midi)
+
+  const bySlot = new Map<number, TagRollNote>()
+  for (const n of members) {
+    const slot = memberSlotIndex(n.startTick, oldSlices)
+    if (!bySlot.has(slot)) bySlot.set(slot, n)
+  }
+
+  const rewritten: TagRollNote[] = []
+  const usedIds = new Set<string>()
+  for (let i = 0; i < newSlices.length; i++) {
+    const src = bySlot.get(i)
+    if (!src) continue
+    const slice = newSlices[i]!
+    usedIds.add(src.id)
+    rewritten.push({
+      ...src,
+      partId: next.partId,
+      startTick: slice.startTick,
+      durationTicks: slice.durationTicks,
+      tuplet: {
+        groupId: next.id,
+        actualNotes: next.actualNotes,
+        normalNotes: next.normalNotes,
+      },
+    })
+  }
+
+  const without = notes.filter((n) => n.tuplet?.groupId !== next.id)
+  return [...without, ...rewritten]
+}
+
 export function nearTick(a: number, b: number, tol = TOL): boolean {
   return Math.abs(a - b) <= tol
 }

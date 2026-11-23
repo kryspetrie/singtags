@@ -632,7 +632,7 @@ watch(
   -webkit-user-select: none;
   --piano-h: 94px;
 }
-/* Pitch Pipe page embed — fixed practice height; no vertical resize chrome. */
+/* Pitch Pipe page embed — fill the stage; no vertical resize chrome. */
 .sheet-piano-dock--page {
   flex: 1 1 auto;
   min-height: 0;
@@ -642,14 +642,18 @@ watch(
   overflow: hidden;
   z-index: 1;
   padding-bottom: 0.35rem;
-  --piano-h: 176px;
+  --piano-h: 100%;
 }
 .sheet-piano-dock--page :deep(.piano-h-scroller) {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  align-items: stretch;
 }
 .sheet-piano-dock--page .piano {
-  height: var(--piano-h);
+  height: auto;
+  align-self: stretch;
+  min-height: 10rem;
   max-height: none;
 }
 .sheet-piano-dock--page .dock-title {

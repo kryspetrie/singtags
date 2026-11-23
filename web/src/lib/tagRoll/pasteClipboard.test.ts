@@ -21,6 +21,7 @@ describe('applyNoteClipboardAtPlayhead', () => {
     )
     expect(applied?.origin).toBe(960)
     expect(applied?.spanTicks).toBe(TAG_ROLL_PPQ)
+    expect(applied?.createdTupletIds).toEqual([])
     expect(applied?.project.notes.map((n) => n.startTick)).toEqual([960, 1200])
   })
 })

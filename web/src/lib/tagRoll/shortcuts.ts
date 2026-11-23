@@ -16,8 +16,14 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   {
     id: 'tuplet-tool',
     keys: 'T',
-    label: 'Tuplet tool — drag a span for a triplet container',
+    label: 'Tuplet tool — choose ratio, drag a written span; Enter edits pitches',
     group: 'modes',
+  },
+  {
+    id: 'tuplet-edit',
+    keys: 'Enter',
+    label: 'Edit selected tuplet (double-click band also works)',
+    group: 'edit',
   },
   {
     id: 'tie-notes',
@@ -115,9 +121,9 @@ export const TAG_ROLL_SHORTCUTS: readonly TagRollShortcut[] = [
   },
   { id: 'deselect', keys: 'Esc', label: 'Close panel / clear tool / deselect', group: 'edit' },
   { id: 'select-all', keys: 'Ctrl+A', label: 'Select all notes', group: 'edit' },
-  { id: 'copy', keys: 'Ctrl+C', label: 'Copy selected notes / section', group: 'edit' },
-  { id: 'cut', keys: 'Ctrl+X', label: 'Cut selected notes / section', group: 'edit' },
-  { id: 'paste', keys: 'Ctrl+V', label: 'Paste at playhead (cursor)', group: 'edit' },
+  { id: 'copy', keys: 'Ctrl+C', label: 'Copy selected notes / tuplet / section', group: 'edit' },
+  { id: 'cut', keys: 'Ctrl+X', label: 'Cut selected notes / tuplet / section', group: 'edit' },
+  { id: 'paste', keys: 'Ctrl+V', label: 'Paste at playhead (notes or tuplet unit)', group: 'edit' },
   { id: 'marquee', keys: 'Drag empty', label: 'Marquee-select notes', group: 'edit' },
   { id: 'multi-add', keys: 'Ctrl+Click', label: 'Toggle note in selection; empty places a note', group: 'edit' },
   {

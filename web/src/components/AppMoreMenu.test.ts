@@ -165,6 +165,7 @@ describe('AppMoreMenu', () => {
       'favorites',
       'pitch-pipe',
       'settings',
+      'help',
       'roulette',
       'labs',
       'queue',
